@@ -51,6 +51,23 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorTest ext
         }
     }
 
+    public function test_inspector_accepts_private_storage_prefixed_workspace_path(): void
+    {
+        Storage::fake('local');
+        $workspace = $this->writeWorkspace();
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService)->inspect([
+            'operator_draft_workspace_path' => 'storage/app/private/'.$workspace,
+        ]);
+
+        $this->assertSame('workspace_safe_for_operator_editing', $payload['status']);
+        $this->assertSame($workspace.'/manifest.json', $payload['manifest_path']);
+        $this->assertSame($workspace, $payload['workspace_directory']);
+        $this->assertSame(3, $payload['artifact_count']);
+        $this->assertSame(0, $payload['violation_count']);
+        $this->assertTrue($payload['workspace_safe_for_operator_editing']);
+    }
+
     public function test_inspector_detects_forbidden_flags_and_persist_verify_command(): void
     {
         Storage::fake('local');

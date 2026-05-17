@@ -35,6 +35,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-performance-ledger-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-intelligence-ledger-v1.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-industrial-benchmark-suite-v1.md
   - docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
   - docs/engineering-knowledge-base/system-graph/atlas-decide.md
 doc_schema: atlas_canonical_module_doc.v1

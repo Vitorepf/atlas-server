@@ -8,7 +8,6 @@ use App\Models\AiMessage;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\AtlasProject;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -43,8 +42,7 @@ final class DevToForgePromotionService
     public function __construct(
         private readonly PromotionSignalDetector $detector,
         private readonly AtlasCodeWorkspaceProfileService $profiles,
-    ) {
-    }
+    ) {}
 
     /**
      * Build a preview payload for promoting a thread. Read-only.
@@ -190,6 +188,7 @@ final class DevToForgePromotionService
         }
 
         $this->persist($preview);
+
         return $preview;
     }
 
@@ -228,6 +227,7 @@ final class DevToForgePromotionService
             (string) ($b['promoted_at'] ?? ''),
             (string) ($a['promoted_at'] ?? '')
         ));
+
         return $entries;
     }
 
@@ -238,6 +238,7 @@ final class DevToForgePromotionService
                 return $entry;
             }
         }
+
         return null;
     }
 
@@ -276,6 +277,7 @@ final class DevToForgePromotionService
         $candidate['decided_at'] = now()->toJSON();
         $candidate['decision_reason'] = $reason !== null ? trim($reason) : null;
         $this->persist($candidate);
+
         return $candidate;
     }
 
@@ -333,6 +335,7 @@ final class DevToForgePromotionService
             'suggested_next_step' => $this->buildNextStep($signalReport),
             'promotion_target' => (string) ($signalReport['recommended_target'] ?? 'none'),
             'signal_report' => $signalReport,
+            'compounding_learning_bundle' => $this->buildCompoundingLearningBundle($thread, $signalReport, $detectedFiles),
             'reasons' => $reasons,
             'signals' => $signals,
             'message_count' => (int) ($signalReport['message_count'] ?? count($messages)),
@@ -341,6 +344,47 @@ final class DevToForgePromotionService
             'promoted_obra_id' => null,
             'promoted_at' => null,
             'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $signalReport
+     * @param  array<int,string>  $detectedFiles
+     * @return array<string,mixed>
+     */
+    private function buildCompoundingLearningBundle(AiThread $thread, array $signalReport, array $detectedFiles): array
+    {
+        $evidenceRefs = array_values(array_filter([
+            'thread:'.$thread->getKey(),
+            ...array_map(fn (string $file): string => 'file:'.$file, $detectedFiles),
+        ], fn (string $ref): bool => trim($ref) !== ''));
+
+        return [
+            'schema_version' => 'atlas.ai.compounding.dev_to_forge_learning_bundle.v1',
+            'source_flow_id' => 'atlas_dev',
+            'target_flow_id' => 'atlas_forge',
+            'handoff_type' => 'dev_to_forge_promotion',
+            'recommended_target' => (string) ($signalReport['recommended_target'] ?? 'none'),
+            'evidence_refs' => $evidenceRefs,
+            'learning_signals' => [
+                'promotion_reasons' => array_values((array) ($signalReport['reasons'] ?? [])),
+                'detected_signal_keys' => array_keys((array) ($signalReport['signals'] ?? [])),
+                'workspace_slug' => (string) ($signalReport['workspace_slug'] ?? ''),
+            ],
+            'forge_return_contract' => [
+                'expected_receipts' => [
+                    'forge_handoff_receipt',
+                    'execution_outcome_receipt',
+                    'verification_receipt',
+                    'learning_candidate_receipt',
+                ],
+                'expected_feedback' => [
+                    'accepted_context_refs',
+                    'discarded_noise_refs',
+                    'missing_context_refs',
+                    'outcome_status',
+                ],
+            ],
         ];
     }
 
@@ -354,6 +398,7 @@ final class DevToForgePromotionService
         if (mb_strlen($clean) > 120) {
             return mb_substr($clean, 0, 117).'…';
         }
+
         return $clean;
     }
 
@@ -375,6 +420,7 @@ final class DevToForgePromotionService
                 }
             }
         }
+
         return '—';
     }
 
@@ -405,6 +451,7 @@ final class DevToForgePromotionService
             $bits[] = sprintf('%d arquivo(s) mencionado(s).', count($files));
         }
         $bits[] = 'Atlas Dev iniciou o trabalho; promoção é um sinal de que ele deve virar Obra governada (ou Intervenção Rápida) com escopo, gates e evidência.';
+
         return implode(' ', $bits);
     }
 
@@ -436,6 +483,7 @@ final class DevToForgePromotionService
         if ($production === 'production') {
             $risks[] = 'Workspace em produção — risco padrão maior; rollback obrigatório.';
         }
+
         return $risks;
     }
 
@@ -468,6 +516,7 @@ final class DevToForgePromotionService
         if (empty($signalReport['signals']['risk']['detected']) === false) {
             $questions[] = 'Quais salvaguardas são necessárias antes de promover (rollback/feature flag)?';
         }
+
         return array_values(array_unique($questions));
     }
 
@@ -488,6 +537,7 @@ final class DevToForgePromotionService
         if (! empty($signalReport['signals']['risk']['detected'])) {
             $criteria[] = 'Rollback documentado e testado antes do merge.';
         }
+
         return $criteria;
     }
 
@@ -497,6 +547,7 @@ final class DevToForgePromotionService
     private function buildNextStep(array $signalReport): string
     {
         $target = (string) ($signalReport['recommended_target'] ?? 'none');
+
         return match ($target) {
             PromotionSignalDetector::TARGET_FORGE_OBRA => 'Criar Obra Forge a partir desta thread; preparar Work Packet inicial em Operating Room.',
             PromotionSignalDetector::TARGET_OBRA_CANDIDATE => 'Persistir como Candidato de Obra; humano decide promover/dispensar em Atenção.',
@@ -512,14 +563,17 @@ final class DevToForgePromotionService
         }
         if (is_array($content)) {
             $text = (string) ($content['text'] ?? '');
+
             return $this->normalise($text);
         }
+
         return '';
     }
 
     private function normalise(string $raw): string
     {
         $clean = preg_replace('/\s+/u', ' ', $raw) ?? $raw;
+
         return trim((string) $clean);
     }
 
@@ -528,6 +582,7 @@ final class DevToForgePromotionService
         if ($slug === null || trim($slug) === '') {
             return null;
         }
+
         return $this->profiles->findBySlug($slug);
     }
 
@@ -563,6 +618,7 @@ final class DevToForgePromotionService
     private function safeSlug(string $value): string
     {
         $clean = preg_replace('/[^A-Za-z0-9_-]/', '_', trim(strtolower($value)));
+
         return is_string($clean) && $clean !== '' ? $clean : 'atlas';
     }
 
@@ -572,6 +628,7 @@ final class DevToForgePromotionService
         if (! is_string($clean) || $clean === '') {
             throw new RuntimeException('dev_to_forge_unsafe_id');
         }
+
         return $clean;
     }
 }

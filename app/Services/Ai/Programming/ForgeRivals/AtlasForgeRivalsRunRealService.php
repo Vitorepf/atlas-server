@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\ForgeRivals;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use App\Services\Ai\Programming\ForgeRivals\Schema\AtlasForgeRivalsSchemaContractService;
 use App\Services\Ai\Programming\WorkspaceHygieneService;
+use App\Services\AtlasCode\AtlasCodeProviderGovernanceService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -20,14 +21,15 @@ use Symfony\Component\Process\Process;
  * Owns the only path through which a real provider can be invoked. Every
  * gate is non-negotiable:
  *
- *   1. Mode must be one of {fair, full_power, local_fake}. Diagnostic /
- *      replay_only are rejected — those don't ever run providers.
+ *   1. Mode must be one of {fair, full_power, provider_arena, provider_pure,
+ *      local_fake}. Diagnostic / replay_only are rejected because those never
+ *      run providers.
  *   2. Workspace must be a worktree under runs/<run_id>/{atlas,rival},
  *      provisioned via Setup. If absent, the run is blocked with
  *      `worktrees_missing` and a copy-safe setup hint.
- *   3. Real-provider modes (fair, full_power) REQUIRE all three
- *      `--confirm-*` flags simultaneously. Without them the run is
- *      blocked with `missing_confirmations` and NO provider is invoked.
+ *   3. Real-provider modes REQUIRE all three `--confirm-*` flags
+ *      simultaneously. Without them the run is blocked with
+ *      `missing_confirmations` and NO provider is invoked.
  *   4. `local_fake` mode is in-process: it emits the canonical events
  *      and writes a deterministic fake provider receipt, but never
  *      executes a subprocess. The full chain stays exercisable in CI.
@@ -87,6 +89,8 @@ final class AtlasForgeRivalsRunRealService
         AtlasForgeRivalsModeRegistry::MODE_FAIR,
         AtlasForgeRivalsModeRegistry::MODE_FULL_POWER,
         AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
+        AtlasForgeRivalsModeRegistry::MODE_PROVIDER_ARENA,
+        AtlasForgeRivalsModeRegistry::MODE_PROVIDER_PURE,
     ];
 
     /** @var list<string> Prompt styles admissible by real batteries. */
@@ -111,6 +115,9 @@ final class AtlasForgeRivalsRunRealService
         private readonly AtlasForgeRivalsEventStream $events,
         private readonly WorkspaceHygieneService $hygiene,
         private readonly AtlasForgeRivalsBatteryStateService $battery,
+        private readonly AtlasForgeRivalsProviderModelRegistryService $modelRegistry,
+        private readonly AtlasForgeRivalsArmCommandBuilderService $commandBuilder,
+        private readonly AtlasCodeProviderGovernanceService $providerGovernance,
     ) {}
 
     /**
@@ -125,6 +132,8 @@ final class AtlasForgeRivalsRunRealService
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
         $promptMode = $this->normalizePromptMode((string) ($input['prompt_mode'] ?? ''));
         $confirms = (array) ($input['confirmations'] ?? []);
+        $arenaContracts = is_array($input['arena_contracts'] ?? null) ? (array) $input['arena_contracts'] : [];
+        $usingArenaContracts = is_array($arenaContracts['arm_a'] ?? null) && is_array($arenaContracts['arm_b'] ?? null);
 
         $blockers = [];
 
@@ -139,9 +148,11 @@ final class AtlasForgeRivalsRunRealService
             return $this->blocked($blockers, 'pick --prompt-mode=spec-perfect|human-normal|messy-real|enterprise-change');
         }
         $modeDef = $this->modes->mode($mode);
-        $matrixResult = $this->matrix->validate($mode, $atlasModel, $rivalModel);
-        foreach ($matrixResult['blockers'] as $b) {
-            $blockers[] = $b;
+        if (! $usingArenaContracts) {
+            $matrixResult = $this->matrix->validate($mode, $atlasModel, $rivalModel);
+            foreach ($matrixResult['blockers'] as $b) {
+                $blockers[] = $b;
+            }
         }
 
         $caseContext = [];
@@ -188,11 +199,13 @@ final class AtlasForgeRivalsRunRealService
         }
 
         if ($requiresProvider) {
-            $driverBlockers = $this->driverAvailabilityBlockers($atlasModel, $rivalModel);
+            $driverBlockers = $usingArenaContracts
+                ? $this->arenaDriverAvailabilityBlockers($arenaContracts)
+                : $this->driverAvailabilityBlockers($atlasModel, $rivalModel);
             if ($driverBlockers !== []) {
                 return $this->blocked(
                     $driverBlockers,
-                    'install missing provider CLI (claude/codex) before running real-provider battery',
+                    'install missing provider CLI before running real-provider battery',
                 );
             }
         }
@@ -241,6 +254,7 @@ final class AtlasForgeRivalsRunRealService
             'mode' => $mode,
             'atlas_model' => $atlasModel,
             'rival_model' => $rivalModel,
+            'arena_contracts' => $this->arenaContractSummary($arenaContracts),
             'external_provider_call' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
             'provider_tokens_spent' => $requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
         ];
@@ -422,6 +436,10 @@ final class AtlasForgeRivalsRunRealService
             $rivalCase = $case;
             $atlasCase['_fixture_baseline_hashes'] = is_array($seedAtlas['file_hashes'] ?? null) ? $seedAtlas['file_hashes'] : [];
             $rivalCase['_fixture_baseline_hashes'] = is_array($seedRival['file_hashes'] ?? null) ? $seedRival['file_hashes'] : [];
+            if ($usingArenaContracts) {
+                $atlasCase['_arena_contract'] = $arenaContracts['arm_a'];
+                $rivalCase['_arena_contract'] = $arenaContracts['arm_b'];
+            }
 
             $beforeAtlas = $this->workspaceHash($paths['atlas']);
             $beforeRival = $this->workspaceHash($paths['rival']);
@@ -819,6 +837,7 @@ final class AtlasForgeRivalsRunRealService
             'mode' => $mode,
             'atlas_model' => $atlasModel,
             'rival_model' => $rivalModel,
+            'arena_contracts' => $this->arenaContractSummary($arenaContracts),
             'preset' => $preset,
             'prompt_mode' => $promptMode,
             'case_id' => $isMultiCase ? 'multi_case_aggregate' : (string) $firstCase['id'],
@@ -1072,7 +1091,7 @@ final class AtlasForgeRivalsRunRealService
 
     /**
      * @param  list<string>  $blockers
-     * @return list<string>
+     * @return array<string,mixed>
      */
     private function armContractBlockers(array $blockers): array
     {
@@ -1569,21 +1588,21 @@ final class AtlasForgeRivalsRunRealService
             ];
         }
 
-        // Preset=release without explicit case-set maps to the canonical
-        // provider arena release corpus (the 40-case battery). Quick/smoke/full
-        // remain on the legacy preset registry for back-compat with single-case
-        // tests and the original v1 harness.
-        if (strtolower(trim($preset)) === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE) {
-            $corpusReleaseSet = AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE;
-            $cases = $this->corpus->casesForCaseSet($corpusReleaseSet);
+        // Preset=release / industrial-* without explicit case-set maps to the
+        // canonical provider arena corpus. Quick/smoke/full remain on the
+        // legacy preset registry for back-compat with single-case tests and
+        // the original v1 harness.
+        $presetCaseSet = $this->presetCaseSet($preset);
+        if ($presetCaseSet !== null) {
+            $cases = $this->corpus->casesForCaseSet($presetCaseSet);
             if ($cases === []) {
-                throw new \InvalidArgumentException('empty_case_set:'.$corpusReleaseSet);
+                throw new \InvalidArgumentException('empty_case_set:'.$presetCaseSet);
             }
 
             return [
                 'source' => 'provider_arena_corpus',
                 'cases' => array_values(array_map(
-                    fn (array $c): array => $this->adaptCorpusCase($c, $preset, $corpusReleaseSet),
+                    fn (array $c): array => $this->adaptCorpusCase($c, $preset, $presetCaseSet),
                     $cases,
                 )),
             ];
@@ -1593,6 +1612,19 @@ final class AtlasForgeRivalsRunRealService
             'source' => 'legacy_preset',
             'cases' => $this->cases->casesForPreset($preset),
         ];
+    }
+
+    private function presetCaseSet(string $preset): ?string
+    {
+        $preset = strtolower(trim($preset));
+        if ($preset === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE) {
+            return AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE;
+        }
+        if (in_array($preset, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)) {
+            return $preset;
+        }
+
+        return null;
     }
 
     /**
@@ -2126,6 +2158,7 @@ TS,
             'routes/',
             'src/',
             'storage/forge-rivals-work/',
+            'storage/forge-rivals-industrial/',
             'tests/',
             'atlas-desktop/',
         ] as $prefix) {
@@ -2163,6 +2196,7 @@ TS,
             || str_contains($target, '/fixtures/')
             || str_contains($target, '/input/')
             || str_contains($target, '/inbox/')
+            || basename($target) === 'fixture.json'
             || basename($target) === 'context.md';
     }
 
@@ -2210,6 +2244,7 @@ TS,
             'arm' => $arm,
             'mode' => $mode,
             'model' => $model,
+            'arm_id' => $this->eventArmId($arm, $model, $case),
             'worktree' => $worktree,
             'case_id' => (string) ($case['id'] ?? ''),
             'case_subdir' => $caseSubdir !== '' ? $caseSubdir : null,
@@ -2220,12 +2255,15 @@ TS,
         }
 
         // Real provider: build provider command per arm, spawn subprocess.
-        $command = $this->resolveProviderCommand($arm, $model, $case, $worktree);
+        $commandEnvelope = $this->resolveProviderCommandEnvelope($arm, $model, $case, $worktree);
+        $command = $commandEnvelope['command'];
         $env = $this->subprocessEnv();
         $promptHash = hash('sha256', $this->jsonEncode([
             'command' => $command,
             'arm' => $arm,
             'model' => $model,
+            'model_id' => $commandEnvelope['model_id'] ?? null,
+            'provider' => $commandEnvelope['provider'] ?? null,
             'case_id' => $case['id'],
             'prompt_mode' => $case['prompt_mode'] ?? 'spec-perfect',
         ]));
@@ -2393,6 +2431,10 @@ TS,
             'arm' => $arm,
             'mode' => $mode,
             'model' => $model,
+            'provider' => $commandEnvelope['provider'] ?? null,
+            'resolved_model' => $commandEnvelope['model'] ?? $model,
+            'resolved_model_id' => $commandEnvelope['model_id'] ?? null,
+            'command_family' => $commandEnvelope['command_family'] ?? null,
             'command' => $command,
             'command_hash' => $commandHash,
             'prompt_hash' => $promptHash,
@@ -2631,42 +2673,114 @@ DIFF;
      */
     private function resolveProviderCommand(string $arm, string $model, array $case, string $worktree): array
     {
-        if ($arm === 'atlas') {
-            // Atlas arm: execute the provider under the Forge Rivals harness
-            // contract. The outer harness owns isolation, evidence, scope, tests,
-            // replay and invalidation; keeping this command provider-direct avoids
-            // coupling the benchmark to legacy engineering_harness database drift.
+        $envelope = $this->resolveProviderCommandEnvelope($arm, $model, $case, $worktree);
+
+        return array_values(array_map(
+            static fn (mixed $part): string => (string) $part,
+            (array) ($envelope['command'] ?? []),
+        ));
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function resolveProviderCommandEnvelope(string $arm, string $model, array $case, string $worktree): array
+    {
+        $contract = is_array($case['_arena_contract'] ?? null)
+            ? (array) $case['_arena_contract']
+            : $this->legacyArmCommandContract($arm, $model);
+        $prompt = $this->promptForArmContract($arm, $contract, $case);
+        $built = $this->commandBuilder->build($contract, $prompt, $worktree);
+        if (($built['blockers'] ?? []) !== []) {
+            $message = implode('; ', array_map(static fn ($b): string => (string) $b, (array) $built['blockers']));
+
             return [
-                'claude',
-                '--model',
-                $this->claudeModelAlias($model),
-                '--permission-mode',
-                'bypassPermissions',
-                '--output-format',
-                'stream-json',
-                '--verbose',
-                '-p',
-                $this->atlasForgePrompt($case),
+                'ok' => false,
+                'provider' => $contract['provider'] ?? null,
+                'model' => $contract['resolved_model'] ?? $model,
+                'model_id' => $contract['resolved_model_id'] ?? $model,
+                'command_family' => 'blocked',
+                'command' => ['php', '-r', 'fwrite(STDERR, '.var_export($message, true).'); exit(2);'],
+                'blockers' => (array) $built['blockers'],
             ];
         }
 
-        // Rival arm: raw provider baseline, same model, no Atlas Forge.
-        if ($model === 'codex') {
-            return ['codex', 'exec', '--json', $this->rivalPrompt($case)];
-        }
+        return $built;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function legacyArmCommandContract(string $arm, string $model): array
+    {
+        $armId = $this->legacyArmId($arm, $model);
+        $provider = $model === AtlasForgeRivalsModelMatrix::MODEL_CODEX ? 'codex' : 'claude';
+        $resolved = $this->modelRegistry->resolve($provider, $model);
 
         return [
-            'claude',
-            '--model',
-            $this->claudeModelAlias($model),
-            '--permission-mode',
-            'bypassPermissions',
-            '--output-format',
-            'stream-json',
-            '--verbose',
-            '-p',
-            $this->rivalPrompt($case),
+            'arm' => [
+                'arm_id' => $armId,
+                'provider' => $provider,
+                'runner_type' => $arm === 'atlas' ? 'forge' : 'cli_provider',
+            ],
+            'provider' => $provider,
+            'requested_model' => $model,
+            'resolved_model' => $resolved['canonical_model'] ?? $model,
+            'resolved_model_id' => $resolved['model_id'] ?? $this->claudeModelAlias($model),
+            'resolved_model_label' => $resolved['model_label'] ?? $model,
+            'legacy_model_id' => $resolved['legacy_model_id'] ?? $model,
         ];
+    }
+
+    private function legacyArmId(string $arm, string $model): string
+    {
+        if ($arm === 'atlas') {
+            return 'atlas_forge';
+        }
+
+        return $model === AtlasForgeRivalsModelMatrix::MODEL_CODEX
+            ? 'codex_cli'
+            : 'claude_code';
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     */
+    private function eventArmId(string $arm, string $model, array $case): string
+    {
+        if (is_array($case['_arena_contract'] ?? null)) {
+            $armId = (string) data_get((array) $case['_arena_contract'], 'arm.arm_id', '');
+            if ($armId !== '') {
+                return $armId;
+            }
+        }
+
+        return $this->legacyArmId($arm, $model);
+    }
+
+    /**
+     * @param  array<string,mixed>  $contract
+     * @param  array<string,mixed>  $case
+     */
+    private function promptForArmContract(string $arm, array $contract, array $case): string
+    {
+        if (! is_array($case['_arena_contract'] ?? null)) {
+            return $arm === 'atlas'
+                ? $this->atlasForgePrompt($case)
+                : $this->rivalPrompt($case);
+        }
+
+        $armId = (string) data_get($contract, 'arm.arm_id', $arm);
+        $runnerType = (string) data_get($contract, 'arm.runner_type', '');
+        $label = (string) data_get($contract, 'arm.human_label', $armId);
+        $role = match ($armId) {
+            'atlas_forge' => 'Você é o braço Atlas Forge. Use o fluxo Atlas Forge completo, mantenha evidência, respeite escopo e rode o comando de teste informado.',
+            'atlas_dev' => 'Você é o braço Atlas Dev. Use o fluxo Atlas Dev, mantenha evidência, respeite escopo e rode o comando de teste informado.',
+            default => 'Você é o braço '.$label.' ('.$runnerType.'). Implemente diretamente no workspace atual, respeitando exatamente o mesmo escopo e teste.',
+        };
+
+        return $this->casePrompt($case, $role);
     }
 
     /**
@@ -3389,21 +3503,125 @@ PROMPT;
             AtlasForgeRivalsModelMatrix::MODEL_AUTO,
         ], true);
 
-        if (($atlasUsesClaude || $rivalUsesClaude) && ! $this->binaryAvailable('claude')) {
-            $blockers[] = 'rival_driver_not_configured:claude';
+        if ($atlasUsesClaude || $rivalUsesClaude) {
+            $policyBlocker = $this->providerPolicyBlocker('claude', 'legacy');
+            if ($policyBlocker !== null) {
+                $blockers[] = $policyBlocker;
+            }
+            $binary = $this->modelRegistry->binaryForProvider('claude');
+            if (! (bool) ($binary['ok'] ?? false) || ! $this->binaryAvailable((string) ($binary['binary'] ?? ''))) {
+                $blockers[] = 'rival_driver_not_configured:claude';
+            }
         }
-        if (($atlasModel === AtlasForgeRivalsModelMatrix::MODEL_CODEX
-            || $rivalModel === AtlasForgeRivalsModelMatrix::MODEL_CODEX)
-            && ! $this->binaryAvailable('codex')
+        if ($atlasModel === AtlasForgeRivalsModelMatrix::MODEL_CODEX
+            || $rivalModel === AtlasForgeRivalsModelMatrix::MODEL_CODEX
         ) {
-            $blockers[] = 'rival_driver_not_configured:codex';
+            $binary = $this->modelRegistry->binaryForProvider('codex');
+            if (! (bool) ($binary['ok'] ?? false) || ! $this->binaryAvailable((string) ($binary['binary'] ?? ''))) {
+                $blockers[] = 'rival_driver_not_configured:codex';
+            }
         }
 
         return $blockers;
     }
 
+    /**
+     * @param  array<string,mixed>  $arenaContracts
+     * @return list<string>
+     */
+    private function arenaDriverAvailabilityBlockers(array $arenaContracts): array
+    {
+        $blockers = [];
+        foreach (['arm_a', 'arm_b'] as $role) {
+            $contract = is_array($arenaContracts[$role] ?? null) ? (array) $arenaContracts[$role] : [];
+            $provider = strtolower(trim((string) ($contract['provider'] ?? data_get($contract, 'arm.provider', ''))));
+            if ($provider === '') {
+                $blockers[] = 'arena_provider_missing:'.$role;
+
+                continue;
+            }
+            $policyBlocker = $this->providerPolicyBlocker($provider, $role);
+            if ($policyBlocker !== null) {
+                $blockers[] = $policyBlocker;
+            }
+
+            $binary = $this->modelRegistry->binaryForProvider($provider);
+            if (! (bool) ($binary['ok'] ?? false)) {
+                foreach ((array) ($binary['blockers'] ?? []) as $driverBlocker) {
+                    $blockers[] = 'arena_provider_driver_unknown:'.$role.':'.$provider.':'.(string) $driverBlocker;
+                }
+
+                continue;
+            }
+            if (! $this->binaryAvailable((string) $binary['binary'])) {
+                $blockers[] = 'arena_provider_driver_not_configured:'.$role.':'.$provider;
+            }
+        }
+
+        return array_values(array_unique($blockers));
+    }
+
+    private function providerPolicyBlocker(string $provider, string $role): ?string
+    {
+        if (strtolower(trim($provider)) !== 'claude') {
+            return null;
+        }
+
+        $decision = $this->providerGovernance->decideProgrammaticInvocation('rivals_baseline');
+        if ((bool) ($decision['allowed'] ?? false)) {
+            return null;
+        }
+
+        $reason = preg_replace('/[^a-zA-Z0-9_.:-]+/', '_', (string) ($decision['reason'] ?? 'policy_blocked'));
+
+        return 'arena_provider_policy_blocked:'.$role.':claude:'.$reason;
+    }
+
+    /**
+     * @param  array<string,mixed>  $arenaContracts
+     * @return array<string,mixed>|null
+     */
+    private function arenaContractSummary(array $arenaContracts): ?array
+    {
+        if (! is_array($arenaContracts['arm_a'] ?? null) || ! is_array($arenaContracts['arm_b'] ?? null)) {
+            return null;
+        }
+
+        $summarize = static function (array $contract): array {
+            return [
+                'arm_id' => data_get($contract, 'arm.arm_id'),
+                'runner_type' => data_get($contract, 'arm.runner_type'),
+                'provider' => $contract['provider'] ?? data_get($contract, 'arm.provider'),
+                'requested_model' => $contract['requested_model'] ?? null,
+                'resolved_model' => $contract['resolved_model'] ?? null,
+                'resolved_model_id' => $contract['resolved_model_id'] ?? null,
+                'resolved_model_label' => $contract['resolved_model_label'] ?? null,
+                'legacy_model_id' => $contract['legacy_model_id'] ?? null,
+            ];
+        };
+
+        return [
+            'arm_a' => $summarize((array) $arenaContracts['arm_a']),
+            'arm_b' => $summarize((array) $arenaContracts['arm_b']),
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
     private function binaryAvailable(string $binary): bool
     {
+        $binary = trim($binary);
+        if ($binary === '') {
+            return false;
+        }
+        if (str_contains($binary, '/')) {
+            return is_file($binary) && is_executable($binary);
+        }
+
         try {
             $proc = new Process(['which', $binary]);
             $proc->setTimeout(5);

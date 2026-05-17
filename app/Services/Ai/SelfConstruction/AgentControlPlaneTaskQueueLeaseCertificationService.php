@@ -192,6 +192,37 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
         $enqueueTwice = $this->queue->enqueue($taskPacket);
         $probes['queue_idempotent'] = (string) $enqueueTwice['status'] === 'ok' && (bool) ($enqueueTwice['idempotent'] ?? false) === true;
 
+        $taggedFull = $this->builder->build([
+            'task_packet_id' => $probeId.'_tagged_full',
+            'objective' => 'queue/lease certification multi tag probe full',
+            'operator_id' => 'certification-probe-operator',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/__task_queue_lease_certification__/'.$probeId.'_tagged_full.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/__task_queue_lease_certification__/'.$probeId.'_tagged_full.php'],
+            'acceptance_criteria' => ['probe_ok'],
+            'required_evidence' => ['task_packet_created'],
+            'risk_level' => 'low',
+        ]);
+        $taggedPartial = $this->builder->build([
+            'task_packet_id' => $probeId.'_tagged_partial',
+            'objective' => 'queue/lease certification multi tag probe partial',
+            'operator_id' => 'certification-probe-operator',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/__task_queue_lease_certification__/'.$probeId.'_tagged_partial.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/__task_queue_lease_certification__/'.$probeId.'_tagged_partial.php'],
+            'acceptance_criteria' => ['probe_ok'],
+            'required_evidence' => ['task_packet_created'],
+            'risk_level' => 'low',
+        ]);
+        $certificationLaneTag = 'certification_lane_'.$probeId;
+        $workerLaneTag = 'worker_lane_'.$probeId;
+        $this->queue->enqueue($taggedPartial, ['tags' => [$certificationLaneTag]]);
+        $this->queue->enqueue($taggedFull, ['tags' => [$certificationLaneTag, $workerLaneTag]]);
+        $taggedMatches = $this->queue->list([
+            'status' => 'claimable',
+            'tags' => [$certificationLaneTag, $workerLaneTag],
+        ]);
+        $probes['queue_multi_tag_filter_requires_all_tags'] = count($taggedMatches) === 1
+            && (string) data_get($taggedMatches, '0.task_packet_id') === $probeId.'_tagged_full';
+
         $scopeLock = [
             'write_set' => (array) data_get($taskPacket, 'normalized_scope.allowed_files', []),
             'read_set' => (array) data_get($taskPacket, 'normalized_scope.scope_in', []),

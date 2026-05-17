@@ -41,6 +41,13 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         'human_completion_receipt' => 'atlas/self-construction/operator-submissions/completion-receipt.json',
     ];
 
+    /** @var array<string, string> */
+    private const CANONICAL_SUBMISSION_PRIVATE_STORAGE_PATHS = [
+        'runtime_promotion_receipt' => 'storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
+        'real_provider_smoke' => 'storage/app/private/atlas/self-construction/operator-submissions/real-provider-smoke.json',
+        'human_completion_receipt' => 'storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json',
+    ];
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
     ) {}
@@ -764,6 +771,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'can_promote_completion_from_canonical_submission_files' => false,
             'recommended_readiness_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
             'recommended_persistence_boundary' => 'use_explicit_canonical_verifier_persist_commands_after_this_readiness_surface_reports_ready',
+            'private_storage_directory' => 'storage/app/private/atlas/self-construction/operator-submissions',
         ];
     }
 
@@ -969,7 +977,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 loadedArtifacts: $loadedArtifacts,
                 diagnostic: (array) $diagnostics['runtime_promotion_receipt'],
                 prerequisiteReady: $canonicalSourceAuthoritative,
-                command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+                command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@'.self::CANONICAL_SUBMISSION_PRIVATE_STORAGE_PATHS['runtime_promotion_receipt'].' --persist-runtime-promotion-receipt --json',
                 prerequisiteBlocker: $canonicalSourceAuthoritative ? '' : 'canonical_submission_files_not_authoritative_for_current_readiness_input',
                 persistedEvidenceAlreadyGreen: $runtimePersisted,
             ),
@@ -980,7 +988,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 loadedArtifacts: $loadedArtifacts,
                 diagnostic: (array) $diagnostics['real_provider_smoke'],
                 prerequisiteReady: $runtimePersisted,
-                command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json --persist-completion-evidence --json',
+                command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@'.self::CANONICAL_SUBMISSION_PRIVATE_STORAGE_PATHS['real_provider_smoke'].' --persist-completion-evidence --json',
                 prerequisiteBlocker: $runtimePersisted ? '' : 'runtime_promotion_receipt_must_be_persisted_first',
                 persistedEvidenceAlreadyGreen: $smokePersisted,
             ),
@@ -991,7 +999,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 loadedArtifacts: $loadedArtifacts,
                 diagnostic: (array) $diagnostics['human_completion_receipt'],
                 prerequisiteReady: $runtimePersisted && $smokePersisted,
-                command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json --persist-completion-evidence --json',
+                command: 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@'.self::CANONICAL_SUBMISSION_PRIVATE_STORAGE_PATHS['human_completion_receipt'].' --persist-completion-evidence --json',
                 prerequisiteBlocker: ($runtimePersisted && $smokePersisted) ? '' : 'runtime_promotion_and_real_provider_smoke_must_be_persisted_first',
                 persistedEvidenceAlreadyGreen: $humanPersisted,
             ),
@@ -1029,6 +1037,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 ? 'all_evidence_already_persisted_rerun_completion_audit'
                 : ($anyFileReady ? 'ready_for_next_explicit_operator_persistence_step' : ($loadedArtifacts === [] ? 'no_canonical_submission_files_loaded' : 'blocked_until_canonical_submission_files_are_ready')),
             'canonical_submission_directory' => 'storage/app/atlas/self-construction/operator-submissions',
+            'canonical_submission_private_storage_directory' => 'storage/app/private/atlas/self-construction/operator-submissions',
             'canonical_source_authoritative' => $canonicalSourceAuthoritative,
             'explicit_payload_supplied' => $explicitPayloadSupplied,
             'workspace_payload_supplied' => $workspacePayloadSupplied,
@@ -1101,6 +1110,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'real_provider_smoke' => 'storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json',
             default => 'storage/app/atlas/self-construction/operator-submissions/completion-receipt.json',
         };
+        $privatePath = self::CANONICAL_SUBMISSION_PRIVATE_STORAGE_PATHS[$artifact] ?? self::CANONICAL_SUBMISSION_PRIVATE_STORAGE_PATHS['human_completion_receipt'];
 
         $blocker = match (true) {
             ! $loaded => 'canonical_submission_file_missing',
@@ -1114,6 +1124,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'id' => $id,
             'artifact' => $artifact,
             'canonical_submission_path' => $path,
+            'canonical_submission_private_storage_path' => $privatePath,
             'status' => $persistedEvidenceAlreadyGreen ? 'already_persisted_evidence_green' : ($ready ? 'ready_for_explicit_operator_persistence' : 'blocked_until_canonical_submission_verifier_passes'),
             'verifier_status' => (string) data_get($diagnostic, 'status', 'not_supplied'),
             'ready_for_explicit_operator_persistence' => $ready,
@@ -1198,7 +1209,9 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 'persist_terminal_loop_operational_proof_binding' => $this->terminalLoopOperationalProofBindingPersistCommand(),
                 'completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
                 'completion_audit_with_canonical_terminal_loop_operational_proof' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
+                'effective_completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
                 'completion_audit' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                'effective_completion_audit' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
                 'completion_audit_diagnostic' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
                 'finalization_gate' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-finalization-gate-status --json',
             ],
@@ -1299,6 +1312,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 'status' => data_get($operatorCompletionProofBundle, 'ready_for_final_completion_audit') ? 'required_before_final_completion_audit' : 'blocked_until_all_operator_proofs_persisted',
                 'command' => $this->terminalLoopOperationalProofCommand(),
                 'audit_command_with_binding' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                'effective_audit_command_with_binding' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
                 'expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
                 'done' => false,
                 'requires_operator_judgment' => false,
@@ -1310,6 +1324,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 'phase' => 'final_verification',
                 'status' => data_get($operatorCompletionProofBundle, 'ready_for_final_completion_audit') ? 'ready_after_all_operator_proofs' : 'blocked_until_all_operator_proofs_persisted',
                 'command' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                'effective_command' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
                 'fallback_command_without_binding' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
                 'done' => (string) data_get($completionAudit, 'status') === 'complete',
                 'requires_operator_judgment' => false,
@@ -1349,6 +1364,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'terminal_loop_operational_proof_binding_persist_command' => $this->terminalLoopOperationalProofBindingPersistCommand(),
             'completion_audit_with_terminal_loop_operational_proof_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
             'completion_audit_with_canonical_terminal_loop_operational_proof_command' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
+            'effective_completion_audit_with_terminal_loop_operational_proof_command' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
             'terminal_loop_operational_proof_canonical_binding_path' => $this->terminalLoopOperationalProofBindingArtifactPath(),
             'terminal_loop_operational_proof_required_before_final_audit' => true,
             'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
@@ -1739,6 +1755,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         if ($path === '' || str_contains($path, '..')) {
             return '';
         }
+        $path = preg_replace('#^storage/app/private/#', '', $path) ?? $path;
         $path = preg_replace('#^storage/app/#', '', $path) ?? $path;
 
         return trim($path, '/');

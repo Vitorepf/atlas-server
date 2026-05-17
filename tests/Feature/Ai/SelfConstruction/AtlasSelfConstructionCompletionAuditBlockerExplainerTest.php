@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionAuditBlockerExplainerService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceiptVerifierService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeCertificationService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionReceiptService;
 use Tests\TestCase;
@@ -44,6 +45,10 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
             'draft_human_completion_receipt',
             'persist_human_completion_receipt',
             'rerun_completion_audit',
+            'refresh_terminal_loop_operational_proof',
+            'persist_terminal_loop_operational_proof_binding',
+            'capture_replay_snapshot_after_terminal_loop_operational_proof',
+            'rerun_completion_audit_with_canonical_terminal_loop_operational_proof',
             'promote_next_stage_only_after_all_criteria_green',
         ], $payload['dependency_graph']['ordered_closure_path']);
         $this->assertContains('completion_claim_depends_on_completion_audit_status_complete', $payload['dependency_graph']['hard_dependencies']);
@@ -97,11 +102,33 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
         $this->assertArrayHasKey('persist_human_completion_receipt', $payload['command_plan']);
         $this->assertArrayHasKey('terminal_loop_operational_proof', $payload['command_plan']);
         $this->assertArrayHasKey('persist_terminal_loop_operational_proof_binding', $payload['command_plan']);
+        $this->assertArrayHasKey('terminal_loop_operational_proof_canonical_binding_path', $payload['command_plan']);
         $this->assertArrayHasKey('completion_audit', $payload['command_plan']);
         $this->assertArrayHasKey('completion_audit_with_terminal_loop_operational_proof', $payload['command_plan']);
+        $this->assertArrayHasKey('effective_completion_audit_with_canonical_terminal_loop_operational_proof', $payload['command_plan']);
         $this->assertStringContainsString('terminal-loop-operational-proof-status', $payload['command_plan']['terminal_loop_operational_proof']);
         $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', $payload['command_plan']['persist_terminal_loop_operational_proof_binding']);
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', $payload['command_plan']['completion_audit_with_terminal_loop_operational_proof']);
+        $this->assertStringContainsString('@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', $payload['command_plan']['effective_completion_audit_with_canonical_terminal_loop_operational_proof']);
+        $this->assertContains('capture_replay_snapshot_after_terminal_loop_operational_proof', $payload['dependency_graph']['ordered_closure_path']);
+        $this->assertContains('rerun_completion_audit_with_canonical_terminal_loop_operational_proof', $payload['dependency_graph']['ordered_closure_path']);
+    }
+
+    public function test_blocker_explainer_status_projection_exposes_effective_terminal_loop_commands(): void
+    {
+        $status = app(AtlasSelfConstructionReadinessService::class)
+            ->atlasSelfConstructionCompletionAuditBlockerExplainerStatus([
+                'completion_audit' => $this->audit(['human_signed_os_complete_receipt_present']),
+            ]);
+
+        $block = (array) data_get($status, 'agent_control_plane_atlas_self_construction_completion_audit_blocker_explainer_status', []);
+
+        $this->assertSame('available', $status['status']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', (string) $block['terminal_loop_operational_proof_command']);
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) $block['terminal_loop_operational_proof_binding_persist_command']);
+        $this->assertSame('storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', $block['terminal_loop_operational_proof_canonical_binding_path']);
+        $this->assertStringContainsString('@/path/to/terminal-loop-operational-proof-binding.json', (string) $block['completion_audit_command_with_terminal_loop_operational_proof']);
+        $this->assertStringContainsString('@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', (string) $block['effective_completion_audit_with_canonical_terminal_loop_operational_proof_command']);
     }
 
     public function test_blocker_explainer_closure_plan_requires_drafts_before_persistence(): void

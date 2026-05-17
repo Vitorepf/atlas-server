@@ -90,6 +90,23 @@ final class AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerTest extends 
         Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/completion-evidence/registry.json');
     }
 
+    public function test_workspace_finalizer_accepts_private_storage_prefixed_workspace_path(): void
+    {
+        [$workspace] = $this->writeWorkspace($this->readyDrafts());
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService)->finalize([
+            'operator_draft_workspace_path' => 'storage/app/private/'.$workspace,
+        ]);
+
+        $this->assertSame('ready_to_write_computed_hashes', $payload['status']);
+        $this->assertSame($workspace.'/manifest.json', $payload['manifest_path']);
+        $this->assertSame(3, $payload['artifact_count']);
+        $this->assertSame(3, $payload['ready_artifact_count']);
+        $this->assertSame(0, $payload['written_artifact_count']);
+        $this->assertFalse($payload['execution_allowed']);
+        $this->assertFalse($payload['dispatch_allowed']);
+    }
+
     public function test_workspace_finalizer_blocks_only_unready_artifacts_and_allows_partial_ready_status(): void
     {
         $drafts = $this->readyDrafts();

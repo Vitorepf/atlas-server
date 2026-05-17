@@ -114,10 +114,10 @@ arm declares: `arm_id`, `runner_type`, `provider`, `model_options`,
 | arm_id | runner_type | provider | status |
 | --- | --- | --- | --- |
 | `atlas_forge` | forge | claude | available |
-| `atlas_dev_light` | atlas_dev | claude | not_yet_executable |
+| `atlas_dev` | atlas_dev | claude | available |
 | `claude_code` | cli_provider | claude | available |
 | `codex_cli` | cli_provider | codex | available |
-| `gemini_cli` | cli_provider | gemini | not_yet_executable |
+| `gemini_cli` | cli_provider | gemini | available |
 | `scripted_runner` | scripted | — | not_yet_executable |
 | `manual_runner` | manual | — | not_yet_executable |
 | `future_runner` | placeholder | — | placeholder |
@@ -127,11 +127,15 @@ arm declares: `arm_id`, `runner_type`, `provider`, `model_options`,
 with `future_runner_is_placeholder_only`. UIs and audits can still render
 them because they exist in the registry snapshot.
 
-`atlas_dev_light` is the planned daily-use middle layer between raw provider
+`atlas_dev` is the daily-use middle layer between raw provider
 and Forge: Sonnet-only, low call budget, scoped context, short plan, patch,
 focused tests, simple verification, and escalation to Forge on high risk or
-failure. It is declared now so Rivals can plan and dry-run the comparison;
-real provider execution stays blocked until the dedicated driver exists.
+failure. It is executable through the same governed Claude command builder as
+Forge, with a distinct Atlas Dev role prompt and the same three-confirmation
+provider-spend gate.
+
+`atlas_dev_light` remains accepted as a legacy alias, but `atlas_dev` is the
+canonical arm id for new Provider Arena v2 runs.
 
 `safety_contract` for every arm carries: `never_promotes_completion_claim`,
 `never_unlocks_external_rivals_certification`,
@@ -165,17 +169,18 @@ php artisan atlas:forge:rivals run-arena \
 
 The service:
 
-1. Validates mode (`fair|full_power|local_fake`; `power` is an alias).
+1. Validates mode (`fair|full_power|provider_arena|provider_pure|local_fake`; `power` is an alias).
 2. Resolves both arm contracts via `AtlasForgeRivalsArmContractService`.
 3. Validates the task category against the registry + each arm's allowed list.
 4. Requires the three operator confirmations whenever any arm requires a
    real provider (skipped for `local_fake`).
 5. In `fair` mode: enforces same provider + same model across both arms.
-6. Maps arm_a → legacy `atlas_model`, arm_b → legacy `rival`, and hands off
-   to `AtlasForgeRivalsRunBatteryService`. The battery owns: setup →
-   preflight → dry-run → plan-real → run-real → collect-evidence → replay →
-   adjudicate → report.
-7. Decorates the response with arena context (`arena_schema_version`,
+6. For `provider_arena` / `provider_pure` / explicit-arm `full_power`, passes
+   explicit `arena_contracts` into `AtlasForgeRivalsRunRealService`, then runs
+   setup → run-real → collect-evidence → replay → adjudicate → report.
+7. For legacy `fair/local_fake`, preserves the RunBatteryService bridge unless
+   an arena-specific mode requires the v2 executor.
+8. Decorates the response with arena context (`arena_schema_version`,
    `arm_a`, `arm_b`, `task_category`, `safety_promises`) so UIs can render
    the result without re-walking the legacy fields.
 
@@ -215,7 +220,7 @@ fakes cannot forge a score.
 - Real-provider arms require all three confirmations simultaneously.
 - Scripted/manual runners cannot forge a score: `max_score_without_evidence=0`.
 - Cross-provider runs are forbidden in `fair` mode (same provider + same model).
-- `not_yet_executable` arms block honestly outside `local_fake`.
+- `not_yet_executable` arms block honestly outside `local_fake`; executable arms still block before provider spend when driver/policy/confirmations are missing.
 - `placeholder` arms block in every mode with `future_runner_is_placeholder_only`.
 - All arm execution still flows through Perfect Battery's hard gates
   (verdict_comparable, replay_passes, evidence_complete,
@@ -228,11 +233,11 @@ fakes cannot forge a score.
 
 - `atlas_forge_rivals_operator_battery_certification` (v2, 18 invariants)
 - `atlas_forge_rivals_perfect_battery_certification` (v1, 12 invariants)
-- `atlas_forge_rivals_provider_arena_core_certification` (v1, 12 invariants)
+- `atlas_forge_rivals_provider_arena_core_certification` (v1 schema, Provider Arena v2 coverage, 18 invariants)
 
 Worst status across the three is propagated to the action envelope.
 
-### Provider Arena Core invariants (v1)
+### Provider Arena Core / v2 invariants
 
 1. `arm_registry_available`
 2. `arm_contract_service_available`
@@ -241,11 +246,17 @@ Worst status across the three is propagated to the action envelope.
 5. `arms_action_exposes_registry`
 6. `all_canonical_arms_declared`
 7. `task_category_gate_enforced`
-8. `not_yet_executable_blockers_honest`
+8. `declared_non_executable_blockers_honest`
 9. `scripted_or_manual_cannot_forge_score`
 10. `arena_real_provider_requires_three_confirmations`
 11. `arena_never_unlocks_external_rivals`
 12. `arena_doc_canonical`
+13. `provider_model_registry_available`
+14. `models_action_exposes_registry`
+15. `arm_command_builder_centralized`
+16. `provider_arena_modes_declared`
+17. `provider_arena_real_executor_wired`
+18. `arena_contracts_flow_to_manifest_report_signal`
 
 ## 9. Read-model contract (for the future Provider Arena UI)
 
@@ -322,4 +333,4 @@ Adicionar arm via dropdown livre, esconder runners `not_yet_executable` ou trata
 
 ## Proximas Acoes
 
-Expandir o conjunto de arms executáveis sob registry. Manter doc sincronizado com mudanças no registry e nos cases.
+Rodar bateria real cross-provider com confirmacoes explicitas do operador, validar Gemini real em ambiente com driver configurado e manter doc sincronizado com mudanças no registry e nos cases.

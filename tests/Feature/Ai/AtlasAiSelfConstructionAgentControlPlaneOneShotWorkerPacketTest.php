@@ -235,6 +235,29 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         );
     }
 
+    public function test_resumption_contract_preserves_queue_lane_for_tagged_packet(): void
+    {
+        [$queue, $leases] = $this->wirings();
+        $packet = $this->seedTaskPacket($queue, 'AIP-lane-bound', tags: ['one-shot-lane']);
+        $lease = $leases->claim($packet['task_packet_id'], 'agent-lane', $this->scope(['app/Lane.php']));
+
+        $service = new AgentControlPlaneOneShotWorkerPacketService($leases, $queue);
+        $result = $service->generate([
+            'task_packet_id' => $packet['task_packet_id'],
+            'lease_id' => $lease['lease_id'],
+            'actor' => 'agent-lane',
+        ]);
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame(['one-shot-lane'], $result['queue_tags']);
+        $this->assertSame(['one-shot-lane'], data_get($result, 'resumption_contract.queue_tags'));
+        $this->assertTrue((bool) data_get($result, 'resumption_contract.resumption_preserves_queue_lane'));
+        $this->assertContains('--queue-tag=one-shot-lane', data_get($result, 'resumption_contract.queue_tag_args'));
+        $this->assertStringContainsString('--queue-tag=one-shot-lane', data_get($result, 'resumption_contract.resume_commands.inspect_or_recover_current_packet'));
+        $this->assertStringContainsString('--queue-tag=one-shot-lane', data_get($result, 'resumption_contract.resume_commands.claim_next_after_recovery'));
+        $this->assertStringContainsString('--queue-tag=one-shot-lane', $result['worker_prompt_full']);
+    }
+
     public function test_prompt_includes_completion_command_with_packet_and_lease(): void
     {
         [$queue, $leases] = $this->wirings();
@@ -395,6 +418,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         string $packetId,
         string $objective = 'Implementar a próxima fatia canônica',
         array $overrides = [],
+        array $tags = [],
     ): array {
         $packet = [
             'task_packet_id' => $packetId,
@@ -423,7 +447,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         foreach ($overrides as $key => $value) {
             $packet[$key] = $value;
         }
-        $enqueueResult = $queue->enqueue($packet);
+        $enqueueResult = $queue->enqueue($packet, ['tags' => $tags]);
         $this->assertSame('ok', $enqueueResult['status']);
 
         return $packet;

@@ -238,7 +238,15 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
 
         $this->assertSame('ready', data_get($status, 'status'));
         $this->assertSame('continue_or_start_terminal_workers', data_get($status, 'recommended_action'));
+        $this->assertSame(
+            data_get($status, 'recommended_action'),
+            data_get($status, 'loop_decision_recommended_action'),
+        );
         $this->assertTrue(data_get($status, 'safe_to_start_new_worker'));
+        $this->assertTrue(data_get($status, 'loop_decision_safe_to_start_new_worker'));
+        $this->assertFalse(data_get($status, 'loop_decision_should_replenish_before_next_claim'));
+        $this->assertFalse(data_get($status, 'loop_decision_should_recover_before_next_claim'));
+        $this->assertTrue(data_get($status, 'loop_decision_can_loop_without_chat_history'));
         $this->assertSame('fleet_launch_plan_ready', data_get($status, 'terminal_loop_fleet_launch_plan_status'));
         $this->assertSame(2, data_get($status, 'terminal_loop_fleet_recommended_terminal_count'));
         $this->assertTrue(data_get($status, 'terminal_loop_fleet_safe_to_start_now'));
@@ -291,6 +299,8 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-health-digest-status', data_get($status, 'terminal_loop_end_to_end_contract_resume_without_chat_history_command'));
         $this->assertFalse(data_get($status, 'terminal_loop_end_to_end_contract_can_execute'));
         $this->assertFalse(data_get($status, 'terminal_loop_end_to_end_contract_can_claim'));
+        $this->assertFalse(data_get($status, 'terminal_loop_end_to_end_contract_can_call_provider'));
+        $this->assertFalse(data_get($status, 'terminal_loop_end_to_end_contract_can_spend_tokens'));
         $this->assertNotEmpty(data_get($status, 'terminal_loop_end_to_end_contract_hash'));
     }
 
@@ -320,6 +330,29 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertTrue(data_get($digest, 'terminal_loop_fleet_replenishment_plan.should_replenish_now'));
         $this->assertSame('cycle_replenishment_required', data_get($digest, 'terminal_loop_cycle_supervisor.status'));
         $this->assertSame('replenish_before_launch', data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'));
+    }
+
+    public function test_digest_with_multiple_queue_tags_counts_only_full_lane_matches(): void
+    {
+        $orchestrator = $this->orchestrator();
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('digest-multi-tag-partial'), 'queue' => ['tags' => ['lane-digest']]]);
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('digest-multi-tag-full'), 'queue' => ['tags' => ['lane-digest', 'worker-a']]]);
+
+        $digest = $this->service()->digest([
+            'actor' => 'operator-digest-multi',
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['lane-digest', 'worker-a'],
+        ]);
+
+        $this->assertSame('ready', $digest['status']);
+        $this->assertSame(1, data_get($digest, 'queue_health.claimable_task_count'));
+        $this->assertSame(2, data_get($digest, 'queue_health.unfiltered_claimable_task_count'));
+        $this->assertSame(1, data_get($digest, 'queue_health.hidden_claimable_outside_requested_tags'));
+        $this->assertSame(1, data_get($digest, 'worker_task_eligibility.checked_candidate_task_count'));
+        $this->assertSame('fleet_launch_plan_ready', data_get($digest, 'terminal_loop_fleet_launch_plan.status'));
+        $this->assertStringContainsString('--queue-tag=lane-digest', data_get($digest, 'terminal_loop_fleet_launch_plan.copy_paste_terminal_commands.0'));
+        $this->assertStringContainsString('--queue-tag=worker-a', data_get($digest, 'terminal_loop_fleet_launch_plan.copy_paste_terminal_commands.0'));
     }
 
     public function test_digest_blocks_fleet_launch_when_worker_task_eligibility_fails(): void
@@ -424,6 +457,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertTrue(data_get($digest, 'loop_decision.should_recover_before_next_claim'));
         $this->assertSame(1, data_get($digest, 'lease_health.recoverable_lease_count'));
         $this->assertStringContainsString('--agent-control-plane-task-lease-recovery-status', data_get($digest, 'next_commands.inspect_or_recover_leases'));
+        $this->assertStringContainsString('--queue-tag=lane-expired', data_get($digest, 'next_commands.inspect_or_recover_leases'));
         $this->assertSame('claimed', data_get((new AgentControlPlaneTaskPacketQueueRepository)->get('expired-digest-1'), 'status'));
         $this->assertSame('fleet_launch_plan_blocked', data_get($digest, 'terminal_loop_fleet_launch_plan.status'));
         $this->assertContains('recoverable_leases_must_be_recovered_before_starting_new_terminals', data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons'));
@@ -437,9 +471,11 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertSame('recover_then_claim_fresh_lease', data_get($digest, 'terminal_loop_fleet_resume_rollup.recoverable_task_summaries.0.safe_next_action'));
         $this->assertStringContainsString('--agent-control-plane-task-lease-recovery-status', data_get($digest, 'terminal_loop_fleet_resume_rollup.recoverable_task_summaries.0.recover_command'));
         $this->assertStringContainsString('--packet=expired-digest-1', data_get($digest, 'terminal_loop_fleet_resume_rollup.recoverable_task_summaries.0.recover_command'));
+        $this->assertStringContainsString('--queue-tag=lane-expired', data_get($digest, 'terminal_loop_fleet_resume_rollup.recoverable_task_summaries.0.recover_command'));
         $this->assertSame('fleet_operator_handoff_recover_before_loop', data_get($digest, 'terminal_loop_fleet_operator_handoff.status'));
         $this->assertSame('recover_orphaned_or_expired_task_leases', data_get($digest, 'terminal_loop_fleet_operator_handoff.next_operator_action'));
         $this->assertStringContainsString('--packet=expired-digest-1', data_get($digest, 'terminal_loop_fleet_operator_handoff.primary_command'));
+        $this->assertStringContainsString('--queue-tag=lane-expired', data_get($digest, 'terminal_loop_fleet_operator_handoff.primary_command'));
         $this->assertSame('fleet_lane_isolation_tagged_lane_verified', data_get($digest, 'terminal_loop_fleet_lane_isolation.status'));
         $this->assertTrue(data_get($digest, 'terminal_loop_fleet_lane_isolation.all_commands_lane_bound'));
         $this->assertSame('cycle_recovery_required', data_get($digest, 'terminal_loop_cycle_supervisor.status'));
@@ -448,6 +484,32 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertTrue(data_get($digest, 'terminal_loop_cycle_supervisor.transition_guards.recover_before_replenish'));
         $this->assertTrue(data_get($digest, 'terminal_loop_cycle_supervisor.operator_loop_contract.recover_before_any_new_claim'));
         $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_recover_from_supervisor'));
+    }
+
+    public function test_multi_tag_recoverability_counts_only_full_lane_matches(): void
+    {
+        $orchestrator = $this->orchestrator();
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('recover-multi-tag-partial'), 'queue' => ['tags' => ['lane-recover']]]);
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('recover-multi-tag-full'), 'queue' => ['tags' => ['lane-recover', 'worker-a']]]);
+
+        $partialClaim = $orchestrator->claimNext('agent-recover-partial', ['ttl_seconds' => 60, 'tag' => 'lane-recover']);
+        $fullClaim = $orchestrator->claimNext('agent-recover-full', ['ttl_seconds' => 60, 'tags' => ['lane-recover', 'worker-a']]);
+        $this->assertSame('claimed', $partialClaim['event']);
+        $this->assertSame('claimed', $fullClaim['event']);
+
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-16T12:02:00Z'));
+
+        $digest = $this->service()->digest([
+            'actor' => 'operator-recover-multi',
+            'target_min_claimable_tasks' => 1,
+            'queue_tags' => ['lane-recover', 'worker-a'],
+        ]);
+
+        $this->assertSame(1, data_get($digest, 'lease_health.recoverable_lease_count'));
+        $this->assertSame(1, data_get($digest, 'terminal_loop_fleet_resume_rollup.recoverable_task_count'));
+        $this->assertSame('recover-multi-tag-full', data_get($digest, 'terminal_loop_fleet_resume_rollup.recoverable_task_summaries.0.task_packet_id'));
+        $this->assertStringContainsString('--queue-tag=lane-recover', data_get($digest, 'terminal_loop_fleet_resume_rollup.recoverable_task_summaries.0.recover_command'));
+        $this->assertStringContainsString('--queue-tag=worker-a', data_get($digest, 'terminal_loop_fleet_resume_rollup.recoverable_task_summaries.0.recover_command'));
     }
 
     public function test_claimed_without_lease_metadata_digest_recommends_packet_scoped_recovery(): void
@@ -599,6 +661,9 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertSame('cli-loop-digest', data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.actor'));
         $this->assertSame(['cli-lane'], data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.queue_tags'));
         $this->assertSame('replenish_task_supply', data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.recommended_action'));
+        $this->assertSame('replenish_task_supply', data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.loop_decision_recommended_action'));
+        $this->assertTrue(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.loop_decision_should_replenish_before_next_claim'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.loop_decision_should_recover_before_next_claim'));
         $this->assertTrue(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.tag_filter_active'));
         $this->assertSame(0, data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.claimable_task_count'));
         $this->assertGreaterThanOrEqual(0, data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.unfiltered_claimable_task_count'));
@@ -644,6 +709,10 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         );
         $this->assertSame('fleet_lane_isolation_tagged_lane_verified', data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_lane_isolation_status'));
         $this->assertTrue(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_lane_all_commands_bound'));
+        $this->assertTrue(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_all_commands_lane_bound'));
+        $this->assertContains('--queue-tag=cli-lane', data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_lane_required_tag_args'));
+        $this->assertGreaterThan(0, data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_lane_command_check_count'));
+        $this->assertContains('inspect_or_recover_leases', array_column(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_lane_command_checks'), 'name'));
         $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_lane_can_change_tags'));
         $this->assertNotEmpty(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_lane_isolation_hash'));
         $this->assertSame(

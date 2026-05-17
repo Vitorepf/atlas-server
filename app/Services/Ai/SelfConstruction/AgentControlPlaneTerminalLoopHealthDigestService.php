@@ -547,10 +547,11 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'preview_bootstrap' => (string) ($commands['preview_bootstrap'] ?? ''),
             'execute_bootstrap' => (string) ($commands['execute_bootstrap'] ?? ''),
             'replenish_tasks' => (string) ($commands['replenish_tasks'] ?? ''),
+            'inspect_or_recover_leases' => (string) ($commands['inspect_or_recover_leases'] ?? ''),
             'terminal_loop_health_digest' => (string) ($commands['terminal_loop_health_digest'] ?? ''),
         ];
         $operatorPrimary = (string) ($operatorHandoff['primary_command'] ?? '');
-        if ($operatorPrimary !== '' && ! str_contains($operatorPrimary, '--agent-control-plane-task-lease-recovery-status')) {
+        if ($operatorPrimary !== '') {
             $commandsToCheck['operator_handoff_primary'] = $operatorPrimary;
         }
         foreach ((array) data_get($launchPlan, 'copy_paste_terminal_commands', []) as $index => $command) {
@@ -809,9 +810,9 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'recoverable' => $recoverable,
             'safe_next_action' => $recoverable ? 'recover_then_claim_fresh_lease' : 'do_not_steal_active_lease',
             'recover_command' => $recoverable
-                ? 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet='.$taskPacketId.' --actor='.$actor.' --reason=terminal_loop_resume_rollup --json'
+                ? 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet='.$taskPacketId.' --actor='.$actor.' --reason=terminal_loop_resume_rollup'.$this->queueTagArgs($this->recordQueueTags($item)).' --json'
                 : '',
-            'resume_packet_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet='.$taskPacketId.' --actor='.$actor.' --json',
+            'resume_packet_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet='.$taskPacketId.' --actor='.$actor.$this->queueTagArgs($this->recordQueueTags($item)).' --json',
             'fresh_claim_required_before_work' => true,
         ];
     }
@@ -826,7 +827,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             return true;
         }
 
-        return array_intersect($queueTags, array_map('strval', (array) ($item['queue_tags'] ?? []))) !== [];
+        return array_diff($queueTags, array_map('strval', (array) ($item['queue_tags'] ?? []))) === [];
     }
 
     /**
@@ -1328,7 +1329,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'preview_bootstrap' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-worker-bootstrap-status --terminal-worker-bootstrap-preview --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.' --max-new-tasks='.$maxNewTasks.$tagArgs.' --json',
             'execute_bootstrap' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-worker-bootstrap-status --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.' --max-new-tasks='.$maxNewTasks.$tagArgs.' --json',
             'replenish_tasks' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-auto-replenishment-status --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.' --max-new-tasks='.$maxNewTasks.$tagArgs.' --json',
-            'inspect_or_recover_leases' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --actor='.$actor.' --reason=terminal_loop_health_digest --json',
+            'inspect_or_recover_leases' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --actor='.$actor.' --reason=terminal_loop_health_digest'.$tagArgs.' --json',
             'inspect_queue' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-packet-queue-status --json',
             'inspect_leases' => 'php artisan atlas:ai:self-construction --agent-control-plane-claim-lease-runtime-status --json',
             'terminal_loop_health_digest' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-health-digest-status --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.' --max-new-tasks='.$maxNewTasks.$tagArgs.' --json',
@@ -1350,6 +1351,15 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             fn (string $tag): string => '--queue-tag='.$this->safeCommandToken($tag, 'queue'),
             $queueTags,
         ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @return list<string>
+     */
+    private function recordQueueTags(array $item): array
+    {
+        return array_values(array_map('strval', (array) ($item['queue_tags'] ?? [])));
     }
 
     private function safeCommandToken(string $value, string $default): string
@@ -1378,17 +1388,11 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             return $queue->list(['status' => $status]);
         }
 
-        $records = [];
-        foreach ($queueTags as $tag) {
-            foreach ($queue->list(['status' => $status, 'tag' => $tag]) as $record) {
-                $id = (string) ($record['task_packet_id'] ?? '');
-                if ($id !== '') {
-                    $records[$id] = $record;
-                }
-            }
-        }
-
-        return array_values($records);
+        return $queue->list([
+            'status' => $status,
+            'tag' => $queueTags[0],
+            'tags' => $queueTags,
+        ]);
     }
 
     /**
@@ -1487,7 +1491,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
 
                 $tags = (array) data_get($item, 'queue_tags', []);
 
-                return array_intersect($queueTags, array_map('strval', $tags)) !== [];
+                return array_diff($queueTags, array_map('strval', $tags)) === [];
             },
         ));
     }

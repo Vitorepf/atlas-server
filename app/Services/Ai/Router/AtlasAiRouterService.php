@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Router;
 
+use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class AtlasAiRouterService
@@ -170,6 +172,8 @@ final class AtlasAiRouterService
 
     private function decision(string $flowId, string $origin, string $command, string $reason, string $confidence, string $surfaceId, ?string $workspace, string $rawIntent, array $alternatives, array $intent = []): AtlasAiRouterDecision
     {
+        $compoundingMemories = $this->approvedCompoundingMemories($flowId);
+
         return new AtlasAiRouterDecision(
             flowId: $flowId,
             flowOrigin: $origin,
@@ -182,9 +186,26 @@ final class AtlasAiRouterService
                 'workspace' => $workspace,
                 'intent_summary' => Str::limit($rawIntent, 240, ''),
                 'intent_kernel' => $intent,
+                'compounding_memories' => $compoundingMemories,
             ],
             alternativeFlowIds: $alternatives,
         );
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function approvedCompoundingMemories(string $flowId): array
+    {
+        if (! Schema::hasTable('ai_compounding_memories')) {
+            return [];
+        }
+
+        try {
+            return app(AtlasCompoundingMemoryService::class)->approvedForFlow($flowId);
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private function normalizedMode(array $payload): string

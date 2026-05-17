@@ -11,8 +11,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Atlas Forge Rivals · Provider Arena Corpus Service — unit tests.
  *
- * Cobre os 22 campos canon do Release v1, as 8 categorias primárias, os 6
- * case sets, o validador de manifest, o snapshot e o content hash.
+ * Cobre os campos canon do Release v1, as 8 categorias primárias, os case sets
+ * release/industrial, o validador de manifest, o snapshot e o content hash.
  * Nada de artisan, DB ou provider.
  */
 final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
@@ -252,6 +252,63 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
         $this->assertCount(40, $release);
     }
 
+    public function test_industrial_case_sets_have_required_sizes_and_metadata(): void
+    {
+        $expected = [
+            'industrial-50' => 50,
+            'industrial-100' => 100,
+            'industrial-200' => 200,
+            'ambiguous-bugs' => 50,
+            'multi-day-refactors' => 50,
+            'incident-response' => 50,
+            'product-security-migrations' => 50,
+            'statistical-repeat' => 60,
+        ];
+
+        foreach ($expected as $caseSet => $count) {
+            $cases = $this->corpus->casesForCaseSet($caseSet);
+            $this->assertCount($count, $cases, "{$caseSet} deve resolver para {$count} casos");
+            $this->assertSame(
+                array_values(array_unique(array_column($cases, 'case_id'))),
+                array_values(array_column($cases, 'case_id')),
+                "{$caseSet} não pode repetir case_id",
+            );
+            foreach ($cases as $case) {
+                $this->assertSame('atlas-forge-rivals-industrial-benchmark-suite-v1', $case['industrial_suite']);
+                $this->assertNotEmpty($case['industrial_domains']);
+                $this->assertSame([], $this->corpus->validateManifest($case), "Industrial case inválido: {$case['case_id']}");
+            }
+        }
+    }
+
+    public function test_industrial_thematic_sets_preserve_domain_contract(): void
+    {
+        foreach ($this->corpus->casesForCaseSet('ambiguous-bugs') as $case) {
+            $this->assertContains('ambiguous_bug', $case['industrial_domains']);
+        }
+        foreach ($this->corpus->casesForCaseSet('multi-day-refactors') as $case) {
+            $this->assertContains('multi_day_task', $case['industrial_domains']);
+        }
+        foreach ($this->corpus->casesForCaseSet('incident-response') as $case) {
+            $this->assertContains('incident_rollback', $case['industrial_domains']);
+        }
+        foreach ($this->corpus->casesForCaseSet('product-security-migrations') as $case) {
+            $this->assertNotEmpty(array_intersect(
+                ['product', 'security', 'migration'],
+                (array) $case['industrial_domains'],
+            ));
+        }
+    }
+
+    public function test_industrial_case_id_resolves_from_case_action_surface(): void
+    {
+        $case = $this->corpus->casesForCaseSet('ambiguous-bugs')[49];
+        $resolved = $this->corpus->case((string) $case['case_id']);
+
+        $this->assertSame($case['case_id'], $resolved['case_id']);
+        $this->assertSame('ambiguous-bugs', $resolved['industrial_case_set']);
+    }
+
     public function test_unknown_case_set_raises_invalid_argument(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -287,10 +344,15 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
         $snap = $this->corpus->snapshot();
         $this->assertSame(40, $snap['count']);
         $this->assertSame('release_v1', $snap['release_version']);
-        $this->assertSame(
-            ['quick', 'release', 'frontend', 'backend', 'bugfix', 'architecture'],
-            $snap['case_sets'],
-        );
+        $this->assertSame(AtlasForgeRivalsProviderArenaCorpusService::CASE_SETS, $snap['case_sets']);
+        $this->assertSame(50, $snap['case_set_counts']['industrial-50']);
+        $this->assertSame(100, $snap['case_set_counts']['industrial-100']);
+        $this->assertSame(200, $snap['case_set_counts']['industrial-200']);
+        $this->assertSame(50, $snap['case_set_counts']['ambiguous-bugs']);
+        $this->assertSame(50, $snap['case_set_counts']['multi-day-refactors']);
+        $this->assertSame(50, $snap['case_set_counts']['incident-response']);
+        $this->assertSame(50, $snap['case_set_counts']['product-security-migrations']);
+        $this->assertSame(60, $snap['case_set_counts']['statistical-repeat']);
         foreach (AtlasForgeRivalsProviderArenaCorpusService::TASK_CATEGORIES as $cat) {
             $this->assertArrayHasKey($cat, $snap['by_task_category']);
             $this->assertSame(5, $snap['by_task_category'][$cat], "Categoria {$cat} deve ter 5 cases (matriz 8x5)");

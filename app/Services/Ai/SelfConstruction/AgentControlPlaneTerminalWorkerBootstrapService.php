@@ -118,6 +118,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         ];
         if ($queueTags !== []) {
             $claimFilters['tag'] = $queueTags[0];
+            $claimFilters['tags'] = $queueTags;
         }
         $claim = $this->orchestrator->claimNext($actor, $claimFilters);
         if ((string) ($claim['event'] ?? '') === 'no_claimable_task' && (int) ($claim['candidate_count'] ?? 0) > 0 && $maxNew > 0) {
@@ -578,6 +579,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         ];
         if ($queueTags !== []) {
             $filters['tag'] = $queueTags[0];
+            $filters['tags'] = $queueTags;
         }
         if ($limit > 0) {
             $filters['limit'] = $limit;
@@ -628,7 +630,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'recover_or_resume_current_packet' => $recoveryCommand,
             'next_after_completion' => $bootstrapCommand,
             'inspect_queue' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-queue-status --json',
-            'inspect_active_leases' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --actor='.$actor.' --json',
+            'inspect_active_leases' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --actor='.$actor.$this->queueTagArgs($queueTags).' --json',
             'completion_evidence_template_path' => '/path/to/completion-evidence.json',
             'long_running_loop_contract' => [
                 'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_long_running_loop_contract.v1',
@@ -1096,6 +1098,21 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         }
 
         return escapeshellarg($value);
+    }
+
+    /**
+     * @param  list<string>  $queueTags
+     */
+    private function queueTagArgs(array $queueTags): string
+    {
+        if ($queueTags === []) {
+            return '';
+        }
+
+        return ' '.implode(' ', array_map(
+            fn (string $tag): string => '--queue-tag='.$this->commandValue($tag),
+            $queueTags,
+        ));
     }
 
     /**

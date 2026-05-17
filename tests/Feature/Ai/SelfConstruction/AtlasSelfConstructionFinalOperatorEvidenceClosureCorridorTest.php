@@ -39,6 +39,10 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
             data_get($payload, 'terminal_loop_closure_proof.audit_command_with_canonical_binding'),
         );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'terminal_loop_closure_proof.effective_audit_command_with_binding'),
+        );
         $this->assertSame(
             'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
             data_get($payload, 'terminal_loop_closure_proof.expected_binding_artifact_path'),
@@ -62,6 +66,20 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'terminal_loop_closure_proof.terminal_loop_closure_proof_packet_hash'));
         $this->assertContains('human_signed_os_complete_receipt_present', data_get($payload, 'current_completion_audit.blocker_classification.human_blockers'));
         $this->assertNotEmpty(data_get($payload, 'current_completion_audit.failed_criteria_detailed'));
+        $checklist = collect((array) data_get($payload, 'current_completion_audit.prompt_to_artifact_checklist', []))->keyBy('requirement');
+        foreach ([
+            'loop auto-replenishment works',
+            'loop validates worker eligibility and completion evidence',
+            'loop claim/lease prevents duplicate or cross-agent completion',
+            'loop evidence ledger/work product handoff is captured',
+            'loop resume/retomada recovers interrupted agents and stale leases',
+        ] as $requirement) {
+            $this->assertTrue($checklist->has($requirement), "missing closure corridor checklist row: {$requirement}");
+        }
+        $this->assertSame(count($checklist), data_get($payload, 'current_completion_audit.prompt_to_artifact_checklist_count'));
+        $this->assertSame(5, data_get($payload, 'closure_readiness_summary.loop_objective_evidence_row_count'));
+        $this->assertSame(5, data_get($payload, 'closure_readiness_summary.loop_objective_evidence_passed_count'));
+        $this->assertTrue((bool) data_get($payload, 'closure_readiness_summary.loop_objective_evidence_all_passed'));
         $this->assertNotEmpty($payload['closure_corridor_hash']);
         $this->assertSame(
             'blocked_until_all_required_operator_envelopes_are_ready',
@@ -402,6 +420,10 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
 
         $this->assertSame('operator_draft_workspace_loaded', data_get($payload, 'operator_workspace_diagnostics.status'));
         $this->assertSame($workspace, data_get($payload, 'operator_workspace_diagnostics.workspace_directory'));
+        $this->assertSame('storage/app/'.$workspace, data_get($payload, 'operator_workspace_diagnostics.workspace_cli_path'));
+        $this->assertSame('storage/app/private/'.$workspace, data_get($payload, 'operator_workspace_diagnostics.workspace_private_storage_path'));
+        $this->assertSame('storage/app/'.$workspace.'/manifest.json', data_get($payload, 'operator_workspace_diagnostics.manifest_cli_path'));
+        $this->assertSame('storage/app/private/'.$workspace.'/manifest.json', data_get($payload, 'operator_workspace_diagnostics.manifest_private_storage_path'));
         $this->assertEqualsCanonicalizing(
             ['runtime_promotion_receipt', 'real_provider_smoke', 'human_completion_receipt'],
             data_get($payload, 'operator_workspace_diagnostics.loaded_artifacts'),
@@ -412,7 +434,27 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertTrue((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_atomic_bundle_publish_required'));
         $this->assertFalse((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_atomic_bundle_ready'));
         $this->assertStringContainsString('--atlas-self-construction-operator-evidence-draft-workspace-publisher-status', data_get($payload, 'operator_workspace_diagnostics.draft_workspace_publish_command'));
-        $this->assertSame(4, data_get($payload, 'operator_workspace_diagnostics.draft_workspace_post_publish_persistence_step_count'));
+        $this->assertStringContainsString(
+            '--operator-draft-workspace-path=storage/app/private/'.$workspace,
+            data_get($payload, 'operator_workspace_diagnostics.draft_workspace_publish_command'),
+        );
+        $this->assertStringContainsString(
+            '--operator-draft-workspace-path=storage/app/private/'.$workspace,
+            data_get($payload, 'operator_closure_handoff.workspace_flow.finalize_hashes_command'),
+        );
+        $this->assertStringContainsString(
+            '--operator-draft-workspace-path=storage/app/private/'.$workspace,
+            data_get($payload, 'operator_closure_handoff.workspace_flow.submission_readiness_command'),
+        );
+        $this->assertStringContainsString(
+            '--persist-operator-draft-workspace',
+            data_get($payload, 'operator_closure_handoff.workspace_flow.template_pack_command'),
+        );
+        $this->assertStringContainsString(
+            '--operator-draft-workspace-path=storage/app/private/'.$workspace,
+            data_get($payload, 'operator_closure_handoff.workspace_flow.publish_workspace_command'),
+        );
+        $this->assertSame(6, data_get($payload, 'operator_workspace_diagnostics.draft_workspace_post_publish_persistence_step_count'));
         $this->assertTrue((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_post_publish_persistence_sequence_ordered'));
         $this->assertTrue((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_requires_explicit_operator_persistence_commands'));
         $this->assertFalse((bool) data_get($payload, 'operator_workspace_diagnostics.draft_workspace_can_persist_from_publisher'));
@@ -427,6 +469,8 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
                 'persist_runtime_promotion_receipt',
                 'persist_real_provider_smoke',
                 'persist_human_completion_receipt',
+                'refresh_terminal_loop_operational_proof',
+                'rerun_completion_audit_with_terminal_loop_operational_proof',
                 'rerun_completion_audit',
             ],
             array_column(data_get($payload, 'operator_workspace_diagnostics.draft_workspace_post_publish_persistence_sequence'), 'id'),
@@ -434,13 +478,38 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertFalse(data_get($payload, 'operator_workspace_diagnostics.can_write_from_corridor'));
         $this->assertFalse(data_get($payload, 'operator_workspace_diagnostics.can_persist_from_corridor'));
 
+        $status = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionFinalOperatorEvidenceClosureCorridorStatus([
+            'operator_draft_workspace_path' => 'storage/app/'.$workspace,
+        ]);
+        $statusBlock = 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status';
+        $this->assertSame('operator_draft_workspace_loaded', data_get($status, "{$statusBlock}.operator_workspace_diagnostics_status"));
+        $this->assertEqualsCanonicalizing(
+            ['runtime_promotion_receipt', 'real_provider_smoke', 'human_completion_receipt'],
+            data_get($status, "{$statusBlock}.operator_workspace_diagnostics_loaded_artifacts"),
+        );
+        $this->assertSame(3, data_get($status, "{$statusBlock}.operator_workspace_diagnostics_loaded_artifact_count"));
+        $this->assertSame(0, data_get($status, "{$statusBlock}.operator_workspace_diagnostics_violation_count"));
+        $this->assertSame(0, data_get($status, "{$statusBlock}.operator_workspace_diagnostics_warning_count"));
+        $this->assertSame('blocked_operator_drafts_not_ready_for_hash_write', data_get($status, "{$statusBlock}.operator_workspace_diagnostics_draft_hash_finalization_status"));
+        $this->assertSame(0, data_get($status, "{$statusBlock}.operator_workspace_diagnostics_draft_hash_finalization_ready_artifact_count"));
+        $this->assertSame(3, data_get($status, "{$statusBlock}.operator_workspace_diagnostics_draft_hash_finalization_blocked_artifact_count"));
+        $this->assertSame('blocked_operator_draft_workspace_not_publishable', data_get($status, "{$statusBlock}.operator_workspace_diagnostics_draft_workspace_publisher_status"));
+        $this->assertSame(0, data_get($status, "{$statusBlock}.operator_workspace_diagnostics_draft_workspace_publishable_artifact_count"));
+        $this->assertFalse((bool) data_get($status, "{$statusBlock}.operator_workspace_diagnostics_draft_workspace_atomic_bundle_ready"));
+        $this->assertSame('no_canonical_submission_files_loaded', data_get($status, "{$statusBlock}.operator_workspace_diagnostics_canonical_submission_persistence_plan_status"));
+        $this->assertSame('persist_runtime_promotion_receipt', data_get($status, "{$statusBlock}.operator_workspace_diagnostics_canonical_submission_persistence_plan_next_step_id"));
+        $this->assertFalse((bool) data_get($status, "{$statusBlock}.operator_workspace_diagnostics_can_write_from_corridor"));
+        $this->assertFalse((bool) data_get($status, "{$statusBlock}.operator_workspace_diagnostics_can_persist_from_corridor"));
+
         $finalizeStep = collect($payload['ordered_operator_path'])->firstWhere('id', 'finalize_operator_draft_workspace_hashes');
         $this->assertSame('blocked_until_operator_drafts_are_hashable', $finalizeStep['status']);
         $this->assertSame(['operator_must_finish_draft_workspace_or_run_readiness'], $finalizeStep['missing_inputs']);
+        $this->assertStringContainsString('--operator-draft-workspace-path=storage/app/private/'.$workspace, $finalizeStep['command']);
 
         $publishStep = collect($payload['ordered_operator_path'])->firstWhere('id', 'publish_finalized_operator_draft_workspace');
         $this->assertSame('blocked_until_operator_draft_hashes_are_finalized', $publishStep['status']);
         $this->assertSame(['operator_must_finalize_all_draft_hashes_before_publishing'], $publishStep['missing_inputs']);
+        $this->assertStringContainsString('--operator-draft-workspace-path=storage/app/private/'.$workspace, $publishStep['command']);
         $this->assertFalse($publishStep['can_run_automatically']);
     }
 
@@ -704,6 +773,34 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $packet['shell_packet_hash']);
     }
 
+    public function test_operator_resume_commands_preserve_workspace_and_terminal_loop_binding_context(): void
+    {
+        $workspacePath = 'storage/app/atlas/self-construction/operator-submissions/draft-workspaces/test-workspace';
+        $terminalLoopBinding = '@/tmp/terminal-loop-operational-proof-binding.json';
+        $payload = (new AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'operator_draft_workspace_path' => $workspacePath,
+            'agent_control_plane_terminal_loop_operational_proof_json' => $terminalLoopBinding,
+        ]);
+
+        $resumeCommand = (string) data_get($payload, 'operator_next_action_shell_packet.resume_after_interruption.resume_command');
+        $runbookResumeCommand = (string) data_get($payload, 'operator_execution_runbook.resume_without_chat_history.resume_command');
+        $preflightCommand = (string) data_get($payload, 'operator_next_action_shell_packet.preflight_command');
+        $verificationCommands = array_map(
+            static fn (array $row): string => (string) ($row['command'] ?? ''),
+            (array) data_get($payload, 'operator_next_action_shell_packet.post_action_verification_bundle.verification_commands'),
+        );
+
+        foreach ([$resumeCommand, $runbookResumeCommand, $preflightCommand] as $command) {
+            $this->assertStringContainsString('--atlas-self-construction-final-operator-evidence-closure-corridor-status', $command);
+            $this->assertStringContainsString('--operator-draft-workspace-path='.$workspacePath, $command);
+            $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json='.$terminalLoopBinding, $command);
+        }
+        $this->assertContains(
+            $resumeCommand,
+            $verificationCommands,
+        );
+    }
+
     public function test_readiness_status_json_and_cli_quartet_exist(): void
     {
         $readiness = app(AtlasSelfConstructionReadinessService::class);
@@ -722,6 +819,10 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertSame(
             'runtime_promotion',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_phase'),
+        );
+        $this->assertSame(
+            'runtime_promotion_receipt',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_current_artifact'),
         );
         $this->assertStringContainsString(
             '--atlas-self-construction-runtime-promotion-receipt-draft-status',
@@ -747,6 +848,10 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertSame(
             'blocked_operator_action_required',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_closure_handoff_status'),
+        );
+        $this->assertSame(
+            'draft_runtime_promotion_receipt',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_closure_handoff_current_step'),
         );
         $this->assertStringContainsString(
             '--atlas-self-construction-runtime-promotion-receipt-draft-status',
@@ -953,6 +1058,10 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_audit_command_with_canonical_binding'),
         );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_effective_audit_command_with_binding'),
+        );
         $this->assertSame(
             'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_canonical_binding_path'),
@@ -1021,18 +1130,57 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         );
         $this->assertIsBool(data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_technical_closure_green'));
         $this->assertIsInt(data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_technical_blocker_count'));
+        $this->assertSame(
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_technical_closure_green'),
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.technical_closure_green'),
+        );
+        $this->assertSame(
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_technical_blocker_count'),
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.technical_blocker_count'),
+        );
+        $this->assertIsArray(data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.technical_blockers'));
         $this->assertGreaterThanOrEqual(
             1,
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_human_blocker_count'),
+        );
+        $this->assertSame(
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_human_blocker_count'),
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.human_blocker_count'),
+        );
+        $this->assertIsArray(data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.human_blockers'));
+        $this->assertContains(
+            'human_signed_os_complete_receipt_present',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.human_blockers'),
         );
         $this->assertSame(
             1,
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_real_provider_blocker_count'),
         );
         $this->assertSame(
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_real_provider_blocker_count'),
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.real_provider_blocker_count'),
+        );
+        $this->assertContains(
+            'end_to_end_real_provider_smoke_green',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.real_provider_blockers'),
+        );
+        $this->assertSame(
             3,
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_operator_evidence_blocking_artifact_count'),
         );
+        $this->assertGreaterThanOrEqual(
+            14,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.current_completion_audit_prompt_to_artifact_checklist_count'),
+        );
+        $this->assertSame(
+            5,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_loop_objective_evidence_row_count'),
+        );
+        $this->assertSame(
+            5,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_loop_objective_evidence_passed_count'),
+        );
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_loop_objective_evidence_all_passed'));
         $this->assertSame(
             'draft_runtime_promotion_receipt',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_readiness_summary_next_step_id'),

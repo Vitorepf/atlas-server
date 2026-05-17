@@ -241,7 +241,7 @@ final class AtlasForgeRivalsReportService
 
         $arms = $this->deriveArms($manifest);
         $filters = $this->normaliseFilters($input);
-        $caseResults = $this->buildCaseResults($caseEntries);
+        $caseResults = $this->buildCaseResults($caseEntries, $manifest);
         $caseResults = $this->applyFilters($caseResults, $filters);
         $categoryResults = $this->buildCategoryResults($caseResults, $threshold);
         $difficultyResults = $this->buildDifficultyResults($caseResults, $threshold);
@@ -903,24 +903,76 @@ final class AtlasForgeRivalsReportService
      */
     private function deriveArms(array $manifest): array
     {
+        $arenaContracts = is_array($manifest['arena_contracts'] ?? null) ? (array) $manifest['arena_contracts'] : [];
+        if (is_array($arenaContracts['arm_a'] ?? null) && is_array($arenaContracts['arm_b'] ?? null)) {
+            return [
+                $this->deriveArenaArm('arm_a', (array) $arenaContracts['arm_a'], 'atlas'),
+                $this->deriveArenaArm('arm_b', (array) $arenaContracts['arm_b'], 'rival'),
+            ];
+        }
+
         $atlasModel = (string) ($manifest['atlas_model'] ?? 'unknown');
         $rivalModel = (string) ($manifest['rival_model'] ?? 'unknown');
 
         return [
-            ['id' => 'atlas', 'label' => 'Atlas Forge', 'model' => $atlasModel],
-            ['id' => 'rival', 'label' => 'Rival baseline', 'model' => $rivalModel],
+            ['id' => 'atlas', 'role' => 'atlas', 'label' => 'Atlas Forge', 'provider' => null, 'model' => $atlasModel, 'model_id' => null],
+            ['id' => 'rival', 'role' => 'rival', 'label' => 'Rival baseline', 'provider' => null, 'model' => $rivalModel, 'model_id' => null],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $contract
+     * @return array<string,mixed>
+     */
+    private function deriveArenaArm(string $role, array $contract, string $legacyRole): array
+    {
+        $armId = (string) ($contract['arm_id'] ?? $legacyRole);
+        $label = (string) ($contract['human_label'] ?? $this->humanizeArmId($armId));
+        $model = (string) ($contract['resolved_model'] ?? $contract['legacy_model_id'] ?? 'unknown');
+        $modelId = $contract['resolved_model_id'] ?? null;
+
+        return [
+            'id' => $armId !== '' ? $armId : $legacyRole,
+            'role' => $role,
+            'legacy_role' => $legacyRole,
+            'label' => $label,
+            'runner_type' => $contract['runner_type'] ?? null,
+            'provider' => $contract['provider'] ?? null,
+            'model' => $model,
+            'model_id' => is_string($modelId) && $modelId !== '' ? $modelId : null,
+            'model_label' => $contract['resolved_model_label'] ?? null,
+            'legacy_model_id' => $contract['legacy_model_id'] ?? null,
+        ];
+    }
+
+    private function humanizeArmId(string $armId): string
+    {
+        return match ($armId) {
+            'atlas_forge' => 'Atlas Forge',
+            'atlas_dev' => 'Atlas Dev',
+            'claude_code' => 'Claude Code',
+            'codex_cli' => 'Codex CLI',
+            'gemini_cli' => 'Gemini CLI',
+            'manual_runner' => 'Manual Runner',
+            'scripted_runner' => 'Scripted Runner',
+            'future_runner' => 'Future Runner',
+            default => str_replace('_', ' ', $armId),
+        };
     }
 
     /**
      * @param  list<array<string,mixed>>  $caseEntries
      * @return list<array<string,mixed>>
      */
-    private function buildCaseResults(array $caseEntries): array
+    private function buildCaseResults(array $caseEntries, array $runManifest = []): array
     {
         $out = [];
+        $runArenaContracts = is_array($runManifest['arena_contracts'] ?? null) ? (array) $runManifest['arena_contracts'] : [];
         foreach ($caseEntries as $entry) {
             $manifest = (array) $entry['manifest'];
+            $arenaContracts = is_array($manifest['arena_contracts'] ?? null) ? (array) $manifest['arena_contracts'] : $runArenaContracts;
+            $armA = is_array($arenaContracts['arm_a'] ?? null) ? $this->deriveArenaArm('arm_a', (array) $arenaContracts['arm_a'], 'atlas') : null;
+            $armB = is_array($arenaContracts['arm_b'] ?? null) ? $this->deriveArenaArm('arm_b', (array) $arenaContracts['arm_b'], 'rival') : null;
             $scorecard = (array) $entry['scorecard'];
             $replay = (array) $entry['replay'];
             $atlasReceipt = (array) $entry['atlas_receipt'];
@@ -994,6 +1046,9 @@ final class AtlasForgeRivalsReportService
                 'prompt_mode' => (string) ($manifest['prompt_mode'] ?? 'spec-perfect'),
                 'atlas_model' => (string) ($manifest['atlas_model'] ?? 'unknown'),
                 'rival_model' => (string) ($manifest['rival_model'] ?? 'unknown'),
+                'arm_a' => $armA,
+                'arm_b' => $armB,
+                'provider_pair' => $this->providerPairKey($armA, $armB, (string) ($manifest['atlas_model'] ?? 'unknown'), (string) ($manifest['rival_model'] ?? 'unknown')),
                 'winner' => $winner,
                 'atlas_score' => $atlasScore,
                 'rival_score' => $rivalScore,
@@ -1471,9 +1526,31 @@ final class AtlasForgeRivalsReportService
         return $this->aggregateByKey(
             $caseResults,
             'provider',
-            static fn (array $c): string => (string) ($c['atlas_model'] ?? 'unknown').'_vs_'.(string) ($c['rival_model'] ?? 'unknown'),
+            static fn (array $c): string => (string) ($c['provider_pair'] ?? ((string) ($c['atlas_model'] ?? 'unknown').'_vs_'.(string) ($c['rival_model'] ?? 'unknown'))),
             $threshold,
         );
+    }
+
+    private function providerPairKey(?array $armA, ?array $armB, string $atlasModel, string $rivalModel): string
+    {
+        if ($armA !== null && $armB !== null) {
+            $left = implode(':', array_values(array_filter([
+                (string) ($armA['id'] ?? 'arm_a'),
+                (string) ($armA['provider'] ?? ''),
+                (string) ($armA['model'] ?? ''),
+                (string) ($armA['model_id'] ?? ''),
+            ], static fn (string $part): bool => $part !== '')));
+            $right = implode(':', array_values(array_filter([
+                (string) ($armB['id'] ?? 'arm_b'),
+                (string) ($armB['provider'] ?? ''),
+                (string) ($armB['model'] ?? ''),
+                (string) ($armB['model_id'] ?? ''),
+            ], static fn (string $part): bool => $part !== '')));
+
+            return $left.'_vs_'.$right;
+        }
+
+        return $atlasModel.'_vs_'.$rivalModel;
     }
 
     /**
@@ -1554,7 +1631,19 @@ final class AtlasForgeRivalsReportService
             if ($filters['provider'] !== null) {
                 $atlasModel = strtolower((string) ($c['atlas_model'] ?? ''));
                 $rivalModel = strtolower((string) ($c['rival_model'] ?? ''));
-                if (! str_contains($atlasModel, $filters['provider']) && ! str_contains($rivalModel, $filters['provider'])) {
+                $providerPair = strtolower((string) ($c['provider_pair'] ?? ''));
+                $armAProvider = strtolower((string) data_get($c, 'arm_a.provider', ''));
+                $armBProvider = strtolower((string) data_get($c, 'arm_b.provider', ''));
+                $armAId = strtolower((string) data_get($c, 'arm_a.id', ''));
+                $armBId = strtolower((string) data_get($c, 'arm_b.id', ''));
+                if (! str_contains($atlasModel, $filters['provider'])
+                    && ! str_contains($rivalModel, $filters['provider'])
+                    && ! str_contains($providerPair, $filters['provider'])
+                    && ! str_contains($armAProvider, $filters['provider'])
+                    && ! str_contains($armBProvider, $filters['provider'])
+                    && ! str_contains($armAId, $filters['provider'])
+                    && ! str_contains($armBId, $filters['provider'])
+                ) {
                     return false;
                 }
             }
@@ -1978,6 +2067,9 @@ final class AtlasForgeRivalsReportService
                 'prompt_mode' => $case['prompt_mode'] ?? 'spec-perfect',
                 'atlas_model' => (string) ($case['atlas_model'] ?? $atlasModel),
                 'rival_model' => (string) ($case['rival_model'] ?? $rivalModel),
+                'arm_a' => $case['arm_a'] ?? ($arms[0] ?? null),
+                'arm_b' => $case['arm_b'] ?? ($arms[1] ?? null),
+                'provider_pair' => $case['provider_pair'] ?? null,
                 'atlas_score' => $case['atlas_score'],
                 'rival_score' => $case['rival_score'],
                 'winner' => $case['winner'],
@@ -1986,7 +2078,7 @@ final class AtlasForgeRivalsReportService
             ];
         }
 
-        $providerRecs = $this->buildProviderRecommendations($caseResults, $atlasModel, $rivalModel, $confidence);
+        $providerRecs = $this->buildProviderRecommendations($caseResults, $arms, $atlasModel, $rivalModel, $confidence);
         $categoryFit = $this->buildAxisFit($categoryResults, 'category');
         $difficultyFit = $this->buildAxisFit($difficultyResults, 'difficulty');
         $doNotUseWhen = $this->buildDoNotUseWhen($caseResults, $arms, $suspicious);
@@ -2028,11 +2120,33 @@ final class AtlasForgeRivalsReportService
      * @param  array<string,mixed>  $confidence
      * @return list<array<string,mixed>>
      */
-    private function buildProviderRecommendations(array $caseResults, string $atlasModel, string $rivalModel, array $confidence): array
+    private function buildProviderRecommendations(array $caseResults, array $arms, string $atlasModel, string $rivalModel, array $confidence): array
     {
+        $armA = (array) ($arms[0] ?? []);
+        $armB = (array) ($arms[1] ?? []);
         $rivalsByArm = [
-            'atlas' => ['model' => $atlasModel, 'wins' => 0, 'losses' => 0, 'ties' => 0, 'cases' => 0],
-            'rival' => ['model' => $rivalModel, 'wins' => 0, 'losses' => 0, 'ties' => 0, 'cases' => 0],
+            'atlas' => [
+                'arm_id' => (string) ($armA['id'] ?? 'atlas'),
+                'label' => (string) ($armA['label'] ?? 'Atlas Forge'),
+                'provider' => $armA['provider'] ?? null,
+                'model' => (string) ($armA['model'] ?? $atlasModel),
+                'model_id' => $armA['model_id'] ?? null,
+                'wins' => 0,
+                'losses' => 0,
+                'ties' => 0,
+                'cases' => 0,
+            ],
+            'rival' => [
+                'arm_id' => (string) ($armB['id'] ?? 'rival'),
+                'label' => (string) ($armB['label'] ?? 'Rival baseline'),
+                'provider' => $armB['provider'] ?? null,
+                'model' => (string) ($armB['model'] ?? $rivalModel),
+                'model_id' => $armB['model_id'] ?? null,
+                'wins' => 0,
+                'losses' => 0,
+                'ties' => 0,
+                'cases' => 0,
+            ],
         ];
         foreach ($caseResults as $case) {
             $rivalsByArm['atlas']['cases']++;
@@ -2063,7 +2177,11 @@ final class AtlasForgeRivalsReportService
             };
             $out[] = [
                 'arm' => $arm,
+                'arm_id' => $stats['arm_id'],
+                'label' => $stats['label'],
+                'provider' => $stats['provider'],
                 'model' => $stats['model'],
+                'model_id' => $stats['model_id'],
                 'wins' => $stats['wins'],
                 'losses' => $stats['losses'],
                 'ties' => $stats['ties'],
@@ -2800,6 +2918,7 @@ final class AtlasForgeRivalsReportService
         $providerTable = $this->renderAxisTable($providerResults, 'Provider/modelo');
         $modeTable = $this->renderAxisTable($modeResults, 'Modo');
         $signalTable = $this->renderProviderRecommendationTable($providerSignal);
+        $armTable = $this->renderArmIdentityTable($arms);
         $filtersLine = $this->renderFiltersLine($filters);
         $caseTable = $this->renderCaseTable($caseResults);
         $hardGatesTable = $this->renderHardGatesTable($hardGates);
@@ -2855,6 +2974,10 @@ final class AtlasForgeRivalsReportService
 {$claimLine}
 - declared_why: {$declaredWhyLine}
 {$confidenceLine}
+
+## Arms Medidos
+
+{$armTable}
 
 ## Resultado por Categoria
 
@@ -2948,6 +3071,33 @@ final class AtlasForgeRivalsReportService
 - Evidência/replay/escopo inválidos ⇒ ZERO claim, score=null. Falha unilateral de teste ⇒ gate_winner apenas, sem quality score, claim_ready=false.
 
 MD;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $arms
+     */
+    private function renderArmIdentityTable(array $arms): string
+    {
+        if ($arms === []) {
+            return '_(nenhum arm medido)_';
+        }
+        $rows = [
+            '| Papel | Arm | Provider | Modelo | Model id | Runner |',
+            '| --- | --- | --- | --- | --- | --- |',
+        ];
+        foreach ($arms as $arm) {
+            $rows[] = sprintf(
+                '| %s | %s | %s | %s | %s | %s |',
+                (string) ($arm['role'] ?? $arm['legacy_role'] ?? $arm['id'] ?? 'unknown'),
+                (string) ($arm['label'] ?? $arm['id'] ?? 'unknown'),
+                (string) ($arm['provider'] ?? 'unknown'),
+                (string) ($arm['model'] ?? 'unknown'),
+                (string) ($arm['model_id'] ?? 'unknown'),
+                (string) ($arm['runner_type'] ?? 'unknown'),
+            );
+        }
+
+        return implode("\n", $rows);
     }
 
     /**
@@ -3057,8 +3207,8 @@ MD;
         foreach ($recs as $r) {
             $rows[] = sprintf(
                 '| %s | %s | %s | %d | %d | %d | %s |',
-                (string) ($r['arm'] ?? ''),
-                (string) ($r['model'] ?? ''),
+                (string) ($r['label'] ?? $r['arm_id'] ?? $r['arm'] ?? ''),
+                (string) ($r['model_id'] ?? $r['model'] ?? ''),
                 (string) ($r['measured_tier'] ?? $r['recommendation'] ?? 'unknown'),
                 (int) ($r['wins'] ?? 0),
                 (int) ($r['losses'] ?? 0),

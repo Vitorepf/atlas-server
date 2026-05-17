@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsPreflightService;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsProtocolService;
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 
 /**
  * Atlas Forge Rivals · Preflight (v2 orchestration).
@@ -27,6 +28,7 @@ final class AtlasForgeRivalsPreflightService
         private readonly AtlasForgeRivalsModelMatrix $matrix,
         private readonly AtlasForgeRivalsCasesRegistry $cases,
         private readonly AtlasForgeRivalsRunPathResolver $paths,
+        private readonly AtlasForgeRivalsProviderArenaCorpusService $corpus,
     ) {}
 
     /**
@@ -39,6 +41,9 @@ final class AtlasForgeRivalsPreflightService
         $atlasModel = $this->normalizeModel((string) ($input['atlas_model'] ?? $input['model'] ?? 'claude_sonnet'));
         $rivalModel = $this->normalizeModel((string) ($input['rival'] ?? $input['baseline_model'] ?? $atlasModel));
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
+        $caseSet = trim((string) ($input['case_set'] ?? ''));
+        $arenaContracts = is_array($input['arena_contracts'] ?? null) ? (array) $input['arena_contracts'] : [];
+        $usingArenaContracts = is_array($arenaContracts['arm_a'] ?? null) && is_array($arenaContracts['arm_b'] ?? null);
         [$workspace, $baselineWorkspace] = $this->resolveWorktrees($input);
 
         $blockers = [];
@@ -52,7 +57,9 @@ final class AtlasForgeRivalsPreflightService
         }
 
         // Model matrix
-        $matrixResult = $this->matrix->validate($mode, $atlasModel, $rivalModel);
+        $matrixResult = $usingArenaContracts
+            ? $this->arenaMatrixBypass($mode, $atlasModel, $rivalModel)
+            : $this->matrix->validate($mode, $atlasModel, $rivalModel);
         if (! $matrixResult['ok']) {
             foreach ($matrixResult['blockers'] as $b) {
                 $blockers[] = $b;
@@ -61,12 +68,21 @@ final class AtlasForgeRivalsPreflightService
 
         // Cases / preset
         $cases = [];
-        try {
-            $cases = $this->cases->casesForPreset($preset);
-        } catch (EmptyPresetIsFatalHarnessBug $e) {
-            $blockers[] = 'zero_case_preset_fatal_harness_bug:'.$preset;
-        } catch (\Throwable $e) {
-            $blockers[] = 'preset_unknown:'.$preset;
+        $presetCaseSet = $caseSet !== '' ? $caseSet : $this->presetCaseSet($preset);
+        if ($presetCaseSet !== null) {
+            try {
+                $cases = $this->corpus->casesForCaseSet($presetCaseSet);
+            } catch (\Throwable $e) {
+                $blockers[] = $e->getMessage() !== '' ? $e->getMessage() : 'unknown_case_set:'.$presetCaseSet;
+            }
+        } else {
+            try {
+                $cases = $this->cases->casesForPreset($preset);
+            } catch (EmptyPresetIsFatalHarnessBug $e) {
+                $blockers[] = 'zero_case_preset_fatal_harness_bug:'.$preset;
+            } catch (\Throwable $e) {
+                $blockers[] = 'preset_unknown:'.$preset;
+            }
         }
 
         // Full_power topology declaration
@@ -129,6 +145,7 @@ final class AtlasForgeRivalsPreflightService
             'protocol_status' => $protocolStatus,
             'forge_only_contract' => $forgeOnly,
             'matrix_result' => $matrixResult,
+            'arena_contracts' => $usingArenaContracts ? $arenaContracts : null,
             'mode_definition' => $modeDef,
             'blockers' => $blockers,
             'protocol_report' => $protocolReport,
@@ -146,6 +163,23 @@ final class AtlasForgeRivalsPreflightService
         ];
     }
 
+    /**
+     * @return array<string,mixed>
+     */
+    private function arenaMatrixBypass(string $mode, string $atlasModel, string $rivalModel): array
+    {
+        return [
+            'ok' => true,
+            'blockers' => [],
+            'resolved_atlas' => $atlasModel,
+            'resolved_rival' => $rivalModel,
+            'mode' => strtolower(trim($mode)),
+            'fair_mode_requires_same_model_on_both_arms' => false,
+            'auto_only_valid_in_full_power_mode' => false,
+            'reason' => 'provider_arena_contracts_resolve_models_before_preflight',
+        ];
+    }
+
     private function normalizeModel(string $model): string
     {
         $model = trim($model);
@@ -155,6 +189,19 @@ final class AtlasForgeRivalsPreflightService
             'opus' => 'claude_opus',
             default => $model,
         };
+    }
+
+    private function presetCaseSet(string $preset): ?string
+    {
+        $preset = strtolower(trim($preset));
+        if ($preset === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE) {
+            return AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE;
+        }
+        if (in_array($preset, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)) {
+            return $preset;
+        }
+
+        return null;
     }
 
     private function legacyModelName(string $model): string

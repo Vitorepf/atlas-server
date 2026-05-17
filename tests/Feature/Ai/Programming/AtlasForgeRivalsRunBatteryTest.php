@@ -153,6 +153,7 @@ final class AtlasForgeRivalsRunBatteryTest extends TestCase
         try {
             putenv('PATH='.$binDir.':'.$oldPath);
             $_SERVER['PATH'] = $binDir.':'.$oldPath;
+            config(['atlas.ai.providers.claude_cli.binary' => $fakeClaude]);
             putenv('ATLAS_FORGE_RIVALS_PROVIDER_TIMEOUT_SECONDS=5');
             putenv('ATLAS_FORGE_RIVALS_HARD_KILL_SECONDS=12');
 

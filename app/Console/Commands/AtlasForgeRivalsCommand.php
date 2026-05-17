@@ -42,7 +42,7 @@ use Illuminate\Console\Command;
 class AtlasForgeRivalsCommand extends Command
 {
     protected $signature = 'atlas:forge:rivals
-        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|evidence|replay|verify-evidence|battery-evidence|battery-verify-evidence|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|cases|ledger|ledger-record|decide-signal|next|resume|battery-report|matrix-report|audit}
+        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|evidence|replay|verify-evidence|battery-evidence|battery-verify-evidence|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|models|arena-readiness|industrial-suite|industrial-execution|cases|ledger|ledger-record|decide-signal|next|resume|battery-report|matrix-report|audit}
         {--worktree-root= : Back-compat base path for isolated test worktrees}
         {--repo-root= : Back-compat source repo root used when provisioning worktrees}
         {--atlas-worktree= : Back-compat isolated Atlas Forge worktree}
@@ -50,14 +50,14 @@ class AtlasForgeRivalsCommand extends Command
         {--model= : Back-compat Atlas model lock: sonnet|opus}
         {--baseline-model= : Back-compat baseline model lock: sonnet|opus}
         {--case=* : Provider Arena Corpus case id (e.g. backend-pagination-off-by-one). Repeated for batch.}
-        {--case-set= : Provider Arena Corpus case set (quick|release|frontend|backend|bugfix|architecture)}
-        {--mode= : fair|full_power|power|diagnostic|replay_only|local_fake (power is alias for full_power)}
+        {--case-set= : Provider Arena Corpus case set (quick|release|frontend|backend|bugfix|architecture|industrial-50|industrial-100|industrial-200|ambiguous-bugs|multi-day-refactors|incident-response|product-security-migrations|statistical-repeat)}
+        {--mode= : fair|full_power|power|provider_arena|provider_pure|diagnostic|replay_only|local_fake (power is alias for full_power)}
         {--atlas-model= : sonnet|opus|claude_sonnet|claude_opus|codex|auto}
         {--rival= : claude_sonnet|claude_opus|codex|auto}
-        {--arm-a= : Provider Arena arm A id (atlas_forge|atlas_dev_light|claude_code|codex_cli|gemini_cli|scripted_runner|manual_runner|future_runner)}
+        {--arm-a= : Provider Arena arm A id (atlas_forge|atlas_dev|claude_code|codex_cli|gemini_cli|scripted_runner|manual_runner|future_runner)}
         {--arm-b= : Provider Arena arm B id (same set as --arm-a)}
-        {--arm-a-model= : Arena arm A model shorthand (e.g. sonnet, opus, codex)}
-        {--arm-b-model= : Arena arm B model shorthand (e.g. sonnet, opus, codex)}
+        {--arm-a-model= : Arena arm A model shorthand (e.g. sonnet, opus, codex, gpt-5.5)}
+        {--arm-b-model= : Arena arm B model shorthand (e.g. sonnet, opus, codex, gpt-5.5)}
         {--task-category= : Arena task category (frontend|backend|bugfix|tests|refactor|architecture|docs|performance|security)}
         {--prompt-mode= : spec-perfect|human-normal|messy-real|enterprise-change}
         {--category= : report-only filter by task_category}
@@ -66,7 +66,7 @@ class AtlasForgeRivalsCommand extends Command
         {--role= : Operator role tested by the entry (builder|reviewer|repair_agent|context_scout|test_generator|architect|docs)}
         {--framework= : Optional framework/language label captured in the ledger entry (e.g. react, laravel)}
         {--provider= : Filter the ledger snapshot by provider id}
-        {--preset=smoke : smoke|quick|release|full}
+        {--preset=smoke : smoke|quick|release|full|industrial-50|industrial-100|industrial-200|ambiguous-bugs|multi-day-refactors|incident-response|product-security-migrations|statistical-repeat}
         {--source-ref= : Git ref/SHA used to provision isolated worktrees (Slice 1+)}
         {--run-id= : Run id for status/collect-evidence/replay/adjudicate/report/run-battery/run-arena}
         {--run-ids= : Comma-separated run_ids for battery-evidence/battery-verify-evidence (alt to repeated --run-id)}
@@ -87,7 +87,7 @@ class AtlasForgeRivalsCommand extends Command
         {--json : Emit machine-readable JSON}
         {--strict : Non-zero exit on blocked status}';
 
-    protected $description = 'Atlas Forge Rivals · Provider Arena Core v1 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, evidence, replay, verify-evidence, adjudicate, report, reset, full-smoke, run-battery, run-arena, arms, cases, ledger, ledger-record, decide-signal, next, audit).';
+    protected $description = 'Atlas Forge Rivals · Provider Arena Core v2 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, evidence, replay, verify-evidence, adjudicate, report, reset, full-smoke, run-battery, run-arena, arms, models, arena-readiness, industrial-suite, industrial-execution, cases, ledger, ledger-record, decide-signal, next, audit).';
 
     /** @var list<string> */
     public const ACTIONS = [
@@ -111,6 +111,10 @@ class AtlasForgeRivalsCommand extends Command
         'run-battery',
         'run-arena',
         'arms',
+        'models',
+        'arena-readiness',
+        'industrial-suite',
+        'industrial-execution',
         'cases',
         'ledger',
         'ledger-record',
@@ -144,6 +148,10 @@ class AtlasForgeRivalsCommand extends Command
         'run-battery' => 7,
         'run-arena' => 8,
         'arms' => 8,
+        'models' => 8,
+        'arena-readiness' => 8,
+        'industrial-suite' => 12,
+        'industrial-execution' => 12,
         'cases' => 10,
         'ledger' => 9,
         'ledger-record' => 9,

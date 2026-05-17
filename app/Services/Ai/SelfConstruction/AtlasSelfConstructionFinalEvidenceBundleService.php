@@ -207,6 +207,7 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
                     'terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
                     'terminal_loop_operational_proof_binding_export' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --persist-terminal-loop-operational-proof-binding --json',
                     'completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                    'completion_audit_with_canonical_terminal_loop_operational_proof' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
                     'capture_snapshot_if_stale' => 'php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture --json',
                 ],
                 'final_verification_sequence' => [
@@ -224,7 +225,7 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
                     ],
                     [
                         'id' => 'rerun_completion_audit_with_terminal_loop_operational_proof_binding',
-                        'command_key' => 'completion_audit_with_terminal_loop_operational_proof',
+                        'command_key' => 'completion_audit_with_canonical_terminal_loop_operational_proof',
                         'must_run_after' => 'capture_replay_snapshot_after_terminal_loop_operational_proof',
                         'success_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
                     ],
@@ -232,6 +233,7 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
                 'completion_audit_green_requires_current_snapshot_after_terminal_loop_proof' => true,
                 'terminal_loop_operational_proof_required_before_completion_claim' => true,
                 'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+                'terminal_loop_operational_proof_canonical_binding_path' => $this->terminalLoopOperationalProofCanonicalBindingPath(),
                 'stop_conditions' => [
                     'do_not_accept_placeholder_receipts',
                     'do_not_accept_hash_mismatch',
@@ -276,6 +278,16 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
     private function completionAuditWithTerminalLoopOperationalProofCommand(): string
     {
         return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
+    }
+
+    private function completionAuditWithCanonicalTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@'.$this->terminalLoopOperationalProofCanonicalBindingPath().' --json';
+    }
+
+    private function terminalLoopOperationalProofCanonicalBindingPath(): string
+    {
+        return 'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
     }
 
     /** @param array<int, mixed> $arguments */

@@ -6,6 +6,7 @@ use App\Models\AtlasEngineeringBenchmarkCase;
 use App\Models\AtlasEngineeringBenchmarkResult;
 use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Models\AtlasEngineeringBenchmarkSuite;
+use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -350,12 +351,124 @@ class AtlasAiHyperflowRivalsBatteryService
             return $run;
         });
 
+        $compoundingOutcome = $this->recordCompoundingOutcome($run->refresh(), $caseResults, $batteryHash, $passRate, $averageScore, $runStatus);
+
         return [
             ...$this->payload($suite->refresh(), $runStatus, $runStatus === 'passed', $runStatus === 'passed' ? 'record_external_rivals_evidence' : 'fix_router_runtime_then_rerun', $run->refresh()),
             'receipt' => data_get($run->metadata, 'receipt'),
             'case_results' => $caseResults,
+            'compounding_outcome' => $compoundingOutcome,
             'writes' => true,
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $caseResults
+     * @return array<string,mixed>
+     */
+    private function recordCompoundingOutcome(
+        AtlasEngineeringBenchmarkRun $run,
+        array $caseResults,
+        string $batteryHash,
+        float $passRate,
+        float $averageScore,
+        string $runStatus,
+    ): array {
+        if (! $this->compoundingTablesReady()) {
+            return [
+                'schema_version' => 'atlas.ai.compounding.hyperflow_bridge.v1',
+                'status' => 'blocked',
+                'blocking_reason' => 'compounding_tables_missing',
+                'writes' => false,
+            ];
+        }
+
+        $failed = array_values(array_filter($caseResults, fn (array $case): bool => ($case['status'] ?? null) !== 'passed'));
+        $receiptId = 'hfr_'.substr($batteryHash, 0, 32);
+        $evidenceRefs = [
+            'benchmark_run:'.$run->id,
+            'receipt:'.$receiptId,
+            'suite:'.self::SUITE_SLUG,
+        ];
+
+        try {
+            $record = app(AtlasCompoundingRuntimeService::class)->recordExecution([
+                'run_id' => 'hyperflow:'.$run->id,
+                'flow_id' => 'atlas_hyperflow',
+                'outcome_status' => $runStatus,
+                'prompt' => 'Atlas Hyperflow rivals battery contract replay',
+                'source_type' => 'hyperflow_rivals_battery',
+                'flow_quality' => (int) round($passRate),
+                'retrieval_quality' => 85,
+                'execution_quality' => (int) round($averageScore),
+                'evidence_quality' => 90,
+                'learning_required' => $failed !== [],
+                'missed_signals' => array_values(array_map(
+                    fn (array $case): string => (string) ($case['case_code'] ?? 'unknown_case'),
+                    $failed,
+                )),
+                'evidence_refs' => $evidenceRefs,
+                'learning_signal' => [
+                    'claim' => $failed === []
+                        ? 'Hyperflow battery passed and should remain eligible for temporal certification.'
+                        : 'Hyperflow failed cases must feed router/runtime regression learning before replacement claims.',
+                    'memory_type' => 'routing_memory',
+                    'scope' => 'atlas-server',
+                    'confidence' => $failed === [] ? 80 : 86,
+                    'flow_id' => 'atlas_hyperflow',
+                    'evidence_refs' => $evidenceRefs,
+                ],
+                'rag_feedback' => [
+                    'retrieval_receipt_id' => $receiptId,
+                    'query_plan_hash' => $batteryHash,
+                    'included_sources' => count($caseResults),
+                    'used_sources' => count($caseResults) - count($failed),
+                    'noise_sources' => 0,
+                    'missed_required_sources' => array_values(array_map(
+                        fn (array $case): string => (string) ($case['case_code'] ?? 'unknown_case'),
+                        $failed,
+                    )),
+                    'context_sufficiency' => $failed === [] ? 90 : 70,
+                    'post_execution_utility' => $failed === [] ? 86 : 78,
+                    'source_utility' => [
+                        self::SUITE_SLUG => $failed === [] ? 'useful' : 'regression_signal',
+                    ],
+                ],
+                'benchmark_case' => [
+                    'force' => $failed !== [],
+                    'source' => 'real_user_run',
+                    'expected_flow' => 'atlas_hyperflow',
+                    'required_evidence' => $evidenceRefs,
+                    'rivals' => ['claude_code', 'codex'],
+                ],
+            ]);
+        } catch (\Throwable $exception) {
+            return [
+                'schema_version' => 'atlas.ai.compounding.hyperflow_bridge.v1',
+                'status' => 'blocked',
+                'blocking_reason' => 'compounding_record_failed',
+                'error' => $exception->getMessage(),
+                'writes' => false,
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.ai.compounding.hyperflow_bridge.v1',
+            'status' => 'recorded',
+            'outcome_hash' => data_get($record, 'outcome.outcome_hash'),
+            'run_id' => 'hyperflow:'.$run->id,
+            'writes' => true,
+        ];
+    }
+
+    private function compoundingTablesReady(): bool
+    {
+        return Schema::hasTable('ai_run_outcomes')
+            && Schema::hasTable('ai_learning_candidates')
+            && Schema::hasTable('ai_compounding_memories')
+            && Schema::hasTable('ai_rag_feedback_events')
+            && Schema::hasTable('ai_benchmark_cases')
+            && Schema::hasTable('ai_temporal_certifications');
     }
 
     /**

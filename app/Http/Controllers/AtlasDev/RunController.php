@@ -9,6 +9,7 @@ use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AtlasDev\RunRequest;
+use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
@@ -23,6 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
 use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -287,6 +289,7 @@ final class RunController extends Controller
 
         $seniorLoopExecution = $this->persistSeniorLoopExecution($envelope, $taskContract, $result);
         $this->runIndex->updateCompletion($runId, $result->completionState, $result->verificationReceiptHash);
+        $compoundingLearningSignal = $this->recordCompoundingLearningSignal($envelope, $taskContract, $result, $seniorLoopExecution);
 
         // F-04: redact persisted receipt paths into provider-safe refs before
         // surfacing them in the HTTP body. The struct still carries the
@@ -300,8 +303,107 @@ final class RunController extends Controller
         return array_merge($body, [
             'run_id' => $runId,
             'senior_loop_execution' => $seniorLoopExecution,
+            'compounding_learning_signal' => $compoundingLearningSignal,
             'task_contract_hash' => $providedHash,
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $seniorLoopExecution
+     * @return array<string,mixed>
+     */
+    private function recordCompoundingLearningSignal(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        RunExecutionResult $result,
+        array $seniorLoopExecution,
+    ): array {
+        if (! $this->compoundingTablesReady()) {
+            return [
+                'schema_version' => 'atlas.ai.compounding.atlas_dev_bridge.v1',
+                'status' => 'skipped',
+                'reason' => 'compounding_tables_missing',
+                'writes' => false,
+            ];
+        }
+
+        $evidenceRefs = array_values(array_filter([
+            $result->verificationReceiptHash ? 'verification_receipt:'.$result->verificationReceiptHash : null,
+            $result->scopeGuardReceiptHash ? 'scope_guard_receipt:'.$result->scopeGuardReceiptHash : null,
+            $result->diffHash ? 'diff:'.$result->diffHash : null,
+            'run:'.$envelope->runId,
+        ]));
+        $passed = in_array($result->completionState, ['complete', 'completed', 'passed'], true)
+            || data_get($seniorLoopExecution, 'completion_state') === 'complete';
+
+        try {
+            $record = app(AtlasCompoundingRuntimeService::class)->recordExecution([
+                'run_id' => 'atlas_dev:'.$envelope->runId,
+                'flow_id' => 'atlas_dev',
+                'outcome_status' => $passed ? 'passed' : (string) $result->completionState,
+                'source_type' => 'atlas_dev_run',
+                'flow_quality' => $passed ? 86 : 58,
+                'retrieval_quality' => 72,
+                'execution_quality' => $passed ? 88 : 55,
+                'evidence_quality' => $evidenceRefs === [] ? 0 : 88,
+                'learning_required' => true,
+                'missed_signals' => $passed ? [] : ['atlas_dev_completion_not_passed'],
+                'evidence_refs' => $evidenceRefs,
+                'learning_signal' => [
+                    'claim' => 'Atlas Dev run outcomes must feed future programming routing, verification and repair behavior.',
+                    'memory_type' => 'debug_memory',
+                    'scope' => 'atlas-server',
+                    'confidence' => $evidenceRefs === [] ? 0 : 78,
+                    'flow_id' => 'atlas_dev',
+                    'evidence_refs' => $evidenceRefs,
+                    'task_contract_hash' => $taskContract->taskContractHash,
+                    'allowed_tools' => $taskContract->allowedTools,
+                ],
+                'rag_feedback' => [
+                    'retrieval_receipt_id' => $result->verificationReceiptHash ?: $envelope->runId,
+                    'included_sources' => count($result->persistedReceiptPaths),
+                    'used_sources' => count(array_filter([$result->verificationReceiptHash, $result->scopeGuardReceiptHash, $result->diffHash])),
+                    'noise_sources' => 0,
+                    'missed_required_sources' => [],
+                    'context_sufficiency' => $evidenceRefs === [] ? 30 : 74,
+                    'post_execution_utility' => $passed ? 82 : 68,
+                    'source_utility' => [
+                        'atlas_dev_receipts' => 'execution_evidence',
+                    ],
+                ],
+                'benchmark_case' => [
+                    'force' => ! $passed,
+                    'source' => 'real_user_run',
+                    'expected_flow' => 'atlas_dev',
+                    'required_evidence' => $evidenceRefs,
+                    'rivals' => ['claude_code', 'codex'],
+                ],
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'schema_version' => 'atlas.ai.compounding.atlas_dev_bridge.v1',
+                'status' => 'blocked',
+                'reason' => 'compounding_record_failed',
+                'error' => $this->redactThrowableMessage($exception->getMessage(), ''),
+                'writes' => false,
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.ai.compounding.atlas_dev_bridge.v1',
+            'status' => 'recorded',
+            'outcome_hash' => data_get($record, 'outcome.outcome_hash'),
+            'writes' => true,
+        ];
+    }
+
+    private function compoundingTablesReady(): bool
+    {
+        return Schema::hasTable('ai_run_outcomes')
+            && Schema::hasTable('ai_learning_candidates')
+            && Schema::hasTable('ai_compounding_memories')
+            && Schema::hasTable('ai_rag_feedback_events')
+            && Schema::hasTable('ai_temporal_certifications');
     }
 
     /**

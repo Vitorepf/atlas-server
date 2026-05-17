@@ -208,10 +208,54 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest 
         $this->assertContains('isolated_terminal_lane_a', (array) data_get($first, 'claim.queue_entry.tags', []));
         $this->assertContains('isolated_terminal_lane_b', (array) data_get($second, 'claim.queue_entry.tags', []));
         $this->assertStringContainsString('--queue-tag=isolated_terminal_lane_a', data_get($first, 'terminal_loop_operator_commands.long_running_loop_contract.next_iteration_command'));
+        $this->assertStringContainsString('--queue-tag=isolated_terminal_lane_a', data_get($first, 'terminal_loop_operator_commands.recover_or_resume_current_packet'));
+        $this->assertStringContainsString('--queue-tag=isolated_terminal_lane_a', data_get($first, 'terminal_loop_operator_commands.inspect_active_leases'));
+        $this->assertStringContainsString('--queue-tag=isolated_terminal_lane_a', data_get($first, 'terminal_loop_iteration_runbook.proof_commands_after_each_iteration.inspect_active_leases'));
         $this->assertStringContainsString('--target-min-claimable-tasks=1', data_get($first, 'terminal_loop_operator_commands.long_running_loop_contract.next_iteration_command'));
         $this->assertStringContainsString('--max-new-tasks=1', data_get($first, 'terminal_loop_operator_commands.long_running_loop_contract.next_iteration_command'));
         $this->assertTrue((bool) data_get($first, 'terminal_loop_operator_commands.long_running_loop_contract.next_iteration_preserves_queue_tags'));
         $this->assertTrue((bool) data_get($first, 'terminal_loop_operator_commands.long_running_loop_contract.next_iteration_preserves_replenishment_bounds'));
+    }
+
+    public function test_bootstrap_with_multiple_queue_tags_claims_only_full_lane_match(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $partial = $builder->build([
+            'task_packet_id' => 'bootstrap-multi-tag-partial',
+            'objective' => 'partial lane task',
+            'operator_id' => 'tester',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/bootstrap-multi-tag-partial.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/bootstrap-multi-tag-partial.php'],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
+        ]);
+        $full = $builder->build([
+            'task_packet_id' => 'bootstrap-multi-tag-full',
+            'objective' => 'full lane task',
+            'operator_id' => 'tester',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/bootstrap-multi-tag-full.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/bootstrap-multi-tag-full.php'],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
+        ]);
+        $this->assertSame('ok', $queue->enqueue($partial, ['tags' => ['lane-a']])['status']);
+        $this->assertSame('ok', $queue->enqueue($full, ['tags' => ['lane-a', 'worker-1']])['status']);
+
+        $result = $this->service()->bootstrap($this->context(), [
+            'actor' => 'multi-tag-worker',
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 0,
+            'queue_tags' => ['lane-a', 'worker-1'],
+        ]);
+
+        $this->assertSame('ready_for_worker', $result['status']);
+        $this->assertSame('bootstrap-multi-tag-full', $result['task_packet_id']);
+        $this->assertSame(['lane-a', 'worker-1'], data_get($result, 'claim.queue_entry.tags'));
+        $this->assertContains('--queue-tag=lane-a', data_get($result, 'resumption_contract.queue_tag_args'));
+        $this->assertContains('--queue-tag=worker-1', data_get($result, 'resumption_contract.queue_tag_args'));
+        $this->assertStringContainsString('--queue-tag=lane-a', data_get($result, 'terminal_loop_operator_commands.long_running_loop_contract.next_iteration_command'));
+        $this->assertStringContainsString('--queue-tag=worker-1', data_get($result, 'terminal_loop_operator_commands.long_running_loop_contract.next_iteration_command'));
     }
 
     public function test_bootstrap_preview_does_not_replenish_claim_or_create_lease(): void
@@ -567,6 +611,22 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest 
         $this->assertStringContainsString(
             '--queue-tag=cli_terminal_lane',
             data_get($payload, 'agent_control_plane_terminal_worker_bootstrap_status.terminal_loop_next_iteration_command'),
+        );
+        $this->assertStringContainsString(
+            '--queue-tag=cli_terminal_lane',
+            data_get($payload, 'agent_control_plane_terminal_worker_bootstrap_status.terminal_loop_recover_or_resume_current_packet_command'),
+        );
+        $this->assertStringContainsString(
+            '--queue-tag=cli_terminal_lane',
+            data_get($payload, 'agent_control_plane_terminal_worker_bootstrap_status.terminal_loop_inspect_active_leases_command'),
+        );
+        $this->assertStringContainsString(
+            '--queue-tag=cli_terminal_lane',
+            data_get($payload, 'agent_control_plane_terminal_worker_bootstrap.terminal_loop_operator_commands.recover_or_resume_current_packet'),
+        );
+        $this->assertStringContainsString(
+            '--queue-tag=cli_terminal_lane',
+            data_get($payload, 'agent_control_plane_terminal_worker_bootstrap.terminal_loop_operator_commands.inspect_active_leases'),
         );
         $this->assertStringContainsString(
             '--target-min-claimable-tasks=1',

@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsDryRunService;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsProtocolService;
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 
 /**
  * Atlas Forge Rivals · Dry-Run (v2 orchestration).
@@ -19,6 +20,7 @@ final class AtlasForgeRivalsDryRunService
         private readonly AtlasForgeNativeRivalsDryRunService $protocolDryRun,
         private readonly AtlasForgeRivalsCasesRegistry $cases,
         private readonly AtlasForgeRivalsRunPathResolver $paths,
+        private readonly AtlasForgeRivalsProviderArenaCorpusService $corpus,
     ) {}
 
     /**
@@ -28,17 +30,27 @@ final class AtlasForgeRivalsDryRunService
     public function plan(array $input): array
     {
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
+        $caseSet = trim((string) ($input['case_set'] ?? ''));
         $atlasModel = $this->normalizeModel((string) ($input['atlas_model'] ?? $input['model'] ?? 'claude_sonnet'));
         $rivalModel = $this->normalizeModel((string) ($input['rival'] ?? $input['baseline_model'] ?? $atlasModel));
         [$workspace, $baselineWorkspace] = $this->resolveWorktrees($input);
         $blockers = [];
         $cases = [];
-        try {
-            $cases = $this->cases->casesForPreset($preset);
-        } catch (EmptyPresetIsFatalHarnessBug $e) {
-            $blockers[] = 'zero_case_preset_fatal_harness_bug:'.$preset;
-        } catch (\Throwable $e) {
-            $blockers[] = 'preset_unknown:'.$preset;
+        $presetCaseSet = $caseSet !== '' ? $caseSet : $this->presetCaseSet($preset);
+        if ($presetCaseSet !== null) {
+            try {
+                $cases = $this->corpus->casesForCaseSet($presetCaseSet);
+            } catch (\Throwable $e) {
+                $blockers[] = $e->getMessage() !== '' ? $e->getMessage() : 'unknown_case_set:'.$presetCaseSet;
+            }
+        } else {
+            try {
+                $cases = $this->cases->casesForPreset($preset);
+            } catch (EmptyPresetIsFatalHarnessBug $e) {
+                $blockers[] = 'zero_case_preset_fatal_harness_bug:'.$preset;
+            } catch (\Throwable $e) {
+                $blockers[] = 'preset_unknown:'.$preset;
+            }
         }
 
         $caseId = $cases[0]['id'] ?? null;
@@ -67,6 +79,7 @@ final class AtlasForgeRivalsDryRunService
             'atlas_model' => $atlasModel,
             'rival_model' => $rivalModel,
             'preset' => $preset,
+            'case_set' => $presetCaseSet,
             'cases' => $cases,
             'cases_count' => count($cases),
             'planned_case_id' => $caseId,
@@ -77,6 +90,7 @@ final class AtlasForgeRivalsDryRunService
             'dry_run_report' => $report,
             'next_command' => $blockers === []
                 ? 'php artisan atlas:forge:rivals plan-real --mode='.($input['mode'] ?? 'fair').' --preset='.$preset
+                    .($presetCaseSet !== null ? ' --case-set='.$presetCaseSet : '')
                     .($this->stringOrNull($input['run_id'] ?? null) !== null ? ' --run-id='.$this->stringOrNull($input['run_id']) : '')
                     .' --json'
                 : 'fix blockers and re-run dry-run',
@@ -92,6 +106,19 @@ final class AtlasForgeRivalsDryRunService
             'opus' => 'claude_opus',
             default => $model,
         };
+    }
+
+    private function presetCaseSet(string $preset): ?string
+    {
+        $preset = strtolower(trim($preset));
+        if ($preset === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE) {
+            return AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE;
+        }
+        if (in_array($preset, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)) {
+            return $preset;
+        }
+
+        return null;
     }
 
     private function legacyModelName(string $model): string

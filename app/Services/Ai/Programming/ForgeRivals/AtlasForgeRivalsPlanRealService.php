@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+
 /**
  * Atlas Forge Rivals · Plan-Real.
  *
@@ -23,6 +25,7 @@ final class AtlasForgeRivalsPlanRealService
         private readonly AtlasForgeRivalsModelMatrix $matrix,
         private readonly AtlasForgeRivalsCasesRegistry $cases,
         private readonly AtlasForgeRivalsRunPathResolver $paths,
+        private readonly AtlasForgeRivalsProviderArenaCorpusService $corpus,
     ) {}
 
     /**
@@ -35,7 +38,10 @@ final class AtlasForgeRivalsPlanRealService
         $atlasModel = trim((string) ($input['atlas_model'] ?? 'claude_sonnet'));
         $rivalModel = trim((string) ($input['rival'] ?? $atlasModel));
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
+        $caseSet = trim((string) ($input['case_set'] ?? ''));
         $confirms = (array) ($input['confirmations'] ?? []);
+        $arenaContracts = is_array($input['arena_contracts'] ?? null) ? (array) $input['arena_contracts'] : [];
+        $usingArenaContracts = is_array($arenaContracts['arm_a'] ?? null) && is_array($arenaContracts['arm_b'] ?? null);
         [$workspace, $baselineWorkspace, $runId] = $this->resolveRunContext($input);
 
         $blockers = [];
@@ -46,18 +52,29 @@ final class AtlasForgeRivalsPlanRealService
             $blockers[] = 'unknown_mode:'.$mode;
         }
 
-        $matrixResult = $this->matrix->validate($mode, $atlasModel, $rivalModel);
+        $matrixResult = $usingArenaContracts
+            ? ['ok' => true, 'blockers' => [], 'reason' => 'provider_arena_contracts_resolve_models_before_plan_real']
+            : $this->matrix->validate($mode, $atlasModel, $rivalModel);
         foreach ($matrixResult['blockers'] as $b) {
             $blockers[] = $b;
         }
 
         $cases = [];
-        try {
-            $cases = $this->cases->casesForPreset($preset);
-        } catch (EmptyPresetIsFatalHarnessBug $e) {
-            $blockers[] = 'zero_case_preset_fatal_harness_bug:'.$preset;
-        } catch (\Throwable $e) {
-            $blockers[] = 'preset_unknown:'.$preset;
+        $presetCaseSet = $caseSet !== '' ? $caseSet : $this->presetCaseSet($preset);
+        if ($presetCaseSet !== null) {
+            try {
+                $cases = $this->corpus->casesForCaseSet($presetCaseSet);
+            } catch (\Throwable $e) {
+                $blockers[] = $e->getMessage() !== '' ? $e->getMessage() : 'unknown_case_set:'.$presetCaseSet;
+            }
+        } else {
+            try {
+                $cases = $this->cases->casesForPreset($preset);
+            } catch (EmptyPresetIsFatalHarnessBug $e) {
+                $blockers[] = 'zero_case_preset_fatal_harness_bug:'.$preset;
+            } catch (\Throwable $e) {
+                $blockers[] = 'preset_unknown:'.$preset;
+            }
         }
 
         $requiresProvider = $modeDef !== null && $modeDef['requires_provider'];
@@ -77,12 +94,13 @@ final class AtlasForgeRivalsPlanRealService
 
         $costEstimate = $this->costEstimate($mode, $atlasModel, $rivalModel, $preset, count($cases));
         $runCommand = sprintf(
-            'php artisan atlas:forge:rivals run-real%s --mode=%s --atlas-model=%s --rival=%s --preset=%s%s%s%s --json',
+            'php artisan atlas:forge:rivals run-real%s --mode=%s --atlas-model=%s --rival=%s --preset=%s%s%s%s%s --json',
             $runId !== null ? ' --run-id='.$runId : '',
             $mode,
             $atlasModel,
             $rivalModel,
             $preset,
+            $presetCaseSet !== null ? ' --case-set='.$presetCaseSet : '',
             $workspace !== null && $runId === null ? ' --atlas-worktree='.$workspace : '',
             $baselineWorkspace !== null && $runId === null ? ' --baseline-worktree='.$baselineWorkspace : '',
             $requiresProvider ? ' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call' : '',
@@ -96,6 +114,7 @@ final class AtlasForgeRivalsPlanRealService
             'atlas_model' => $atlasModel,
             'rival_model' => $rivalModel,
             'preset' => $preset,
+            'case_set' => $presetCaseSet,
             'run_id' => $runId,
             'atlas_worktree' => $workspace,
             'baseline_worktree' => $baselineWorkspace,
@@ -110,6 +129,7 @@ final class AtlasForgeRivalsPlanRealService
             'topology' => $modeDef !== null && $modeDef['allows_topology_declaration']
                 ? ['atlas_runtime' => 'atlas_forge', 'rival_runtime' => 'rival_baseline', 'atlas_decide_allowed' => $modeDef['allows_atlas_decide']]
                 : null,
+            'arena_contracts' => $usingArenaContracts ? $arenaContracts : null,
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
             'blockers' => $blockers,
@@ -122,7 +142,7 @@ final class AtlasForgeRivalsPlanRealService
      */
     private function costEstimate(string $mode, string $atlasModel, string $rivalModel, string $preset, int $caseCount): array
     {
-        $paidCalls = in_array($mode, ['fair', 'full_power'], true);
+        $paidCalls = in_array($mode, ['fair', 'full_power', 'provider_arena', 'provider_pure'], true);
 
         return [
             'paid_provider_invocation' => $paidCalls,
@@ -133,6 +153,10 @@ final class AtlasForgeRivalsPlanRealService
                 'quick' => $paidCalls ? '10-30' : '<1',
                 'release' => $paidCalls ? '60-180' : '<3',
                 'full' => $paidCalls ? '180-360' : '<5',
+                'industrial-50', 'ambiguous-bugs', 'multi-day-refactors', 'incident-response',
+                'product-security-migrations', 'statistical-repeat' => $paidCalls ? '180-480' : '<5',
+                'industrial-100' => $paidCalls ? '360-960' : '<10',
+                'industrial-200' => $paidCalls ? '720-1920' : '<20',
                 default => 'unknown',
             },
             'atlas_model' => $atlasModel,
@@ -142,6 +166,19 @@ final class AtlasForgeRivalsPlanRealService
                 ? 'Real provider calls will incur token cost; operator must confirm before run-real.'
                 : 'No paid provider calls in this mode.',
         ];
+    }
+
+    private function presetCaseSet(string $preset): ?string
+    {
+        $preset = strtolower(trim($preset));
+        if ($preset === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE) {
+            return AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE;
+        }
+        if (in_array($preset, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)) {
+            return $preset;
+        }
+
+        return null;
     }
 
     /**

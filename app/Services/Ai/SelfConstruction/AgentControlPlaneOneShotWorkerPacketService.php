@@ -108,6 +108,7 @@ final class AgentControlPlaneOneShotWorkerPacketService
             return $this->blocked('task_packet_not_found', "task_packet {$taskPacketId} not in queue");
         }
         $taskPacket = is_array($record['task_packet'] ?? null) ? $record['task_packet'] : [];
+        $queueTags = $this->stringList((array) ($record['tags'] ?? []));
 
         $normalizedScope = is_array($taskPacket['normalized_scope'] ?? null) ? $taskPacket['normalized_scope'] : [];
         $allowedFiles = $this->firstNonEmptyStringList(
@@ -164,6 +165,7 @@ final class AgentControlPlaneOneShotWorkerPacketService
             taskPacketId: $taskPacketId,
             leaseId: $leaseId,
             actor: $actor !== '' ? $actor : (string) ($lease['agent_id'] ?? 'unknown_actor'),
+            queueTags: $queueTags,
         );
 
         $evidenceContract = [
@@ -231,6 +233,7 @@ final class AgentControlPlaneOneShotWorkerPacketService
             'actor' => $actor !== '' ? $actor : (string) ($lease['agent_id'] ?? 'unknown_actor'),
             'task_packet_id' => $taskPacketId,
             'lease_id' => $leaseId,
+            'queue_tags' => $queueTags,
             'worker_prompt_goal_short' => $workerPromptShort,
             'worker_prompt_full' => $workerPromptFull,
             'task_packet' => $taskPacket,
@@ -489,16 +492,23 @@ TEMPLATE;
     /**
      * @return array<string,mixed>
      */
-    private function resumptionContract(string $taskPacketId, string $leaseId, string $actor): array
+    private function resumptionContract(string $taskPacketId, string $leaseId, string $actor, array $queueTags = []): array
     {
+        $queueTagArgs = $this->queueTagArgs($queueTags);
+        $resumptionPreservesQueueLane = $queueTags === [] || count(array_filter(
+            $this->stringList($queueTags),
+            fn (string $tag): bool => ! str_contains($queueTagArgs, '--queue-tag='.$this->commandValue($tag)),
+        )) === 0;
         $recoveryCommand = sprintf(
-            'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet=%s --actor=%s --reason=worker_resume_after_interruption --json',
+            'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet=%s --actor=%s --reason=worker_resume_after_interruption%s --json',
             $taskPacketId,
             $actor,
+            $queueTagArgs,
         );
         $bootstrapCommand = sprintf(
-            'php artisan atlas:ai:self-construction --agent-control-plane-terminal-worker-bootstrap-status --actor=%s --json',
+            'php artisan atlas:ai:self-construction --agent-control-plane-terminal-worker-bootstrap-status --actor=%s%s --json',
             $actor,
+            $queueTagArgs,
         );
         $packetCommand = sprintf(
             'php artisan atlas:ai:self-construction --agent-control-plane-one-shot-worker-packet-status --packet=%s --lease-id=%s --actor=%s --json',
@@ -512,6 +522,9 @@ TEMPLATE;
             'task_packet_id' => $taskPacketId,
             'lease_id' => $leaseId,
             'actor' => $actor,
+            'queue_tags' => $queueTags,
+            'queue_tag_args' => $queueTagArgs === '' ? [] : explode(' ', trim($queueTagArgs)),
+            'resumption_preserves_queue_lane' => $resumptionPreservesQueueLane,
             'lease_bound' => true,
             'can_resume_without_new_lease' => false,
             'resume_requires_active_lease' => true,
@@ -772,6 +785,30 @@ PROMPT;
         }
 
         return array_values(array_unique($out));
+    }
+
+    /**
+     * @param  list<string>  $queueTags
+     */
+    private function queueTagArgs(array $queueTags): string
+    {
+        $tags = $this->stringList($queueTags);
+        if ($tags === []) {
+            return '';
+        }
+
+        return ' '.implode(' ', array_map(
+            fn (string $tag): string => '--queue-tag='.$this->commandValue($tag),
+            $tags,
+        ));
+    }
+
+    private function commandValue(string $value): string
+    {
+        $safe = preg_replace('/[^A-Za-z0-9_.:@\/-]/', '-', trim($value)) ?: '';
+        $safe = trim($safe, '-');
+
+        return $safe === '' ? 'queue' : $safe;
     }
 
     /**

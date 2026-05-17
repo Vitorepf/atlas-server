@@ -1,0 +1,39 @@
+{
+    "schema_version": "atlas.forge.rivals.industrial_execution_suite.v1",
+    "suite_id": "atlas-forge-rivals-industrial-execution-suite-v1",
+    "case_id": "industrial-032-migration",
+    "case_set": "industrial-50",
+    "category": "integration_performance",
+    "task_type": "migration",
+    "difficulty_level": "L2",
+    "acceptance_criteria": [
+        "Entrega resolve o caso sem tocar arquivos proibidos.",
+        "Patch inclui evidencia local suficiente para auditoria e replay.",
+        "Resposta explicita incertezas, tradeoffs e limites quando o prompt for ambiguo.",
+        "Scorecard por caso pode ser reconstruido a partir do evidence pack."
+    ],
+    "evidence_requirements": [
+        "patch_diff",
+        "provider_receipt",
+        "test_log",
+        "scorecard_per_case",
+        "workspace_hashes",
+        "oracle_adjudication_notes"
+    ],
+    "invalid_if": [
+        "synthetic_score_admitted",
+        "touched_forbidden_files",
+        "external_rivals_unlock_attempted",
+        "missing_case_scorecard",
+        "missing_replay",
+        "missing_evidence_pack",
+        "oracle_metadata_ignored"
+    ],
+    "expected_changed_files": [
+        "storage/forge-rivals-industrial/industrial-032-migration/src/industrial-032-migration.php",
+        "storage/forge-rivals-industrial/industrial-032-migration/tests/industrial-032-migrationTest.php"
+    ],
+    "oracle_hash": "7b69b17ddf9f9673bf9afb496161a9f2d06236c9cff46663afbed8b5e024365d",
+    "external_provider_call": false,
+    "provider_tokens_spent": false
+}

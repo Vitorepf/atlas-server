@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals\Arms;
 
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderModelRegistryService;
+
 /**
- * Atlas Forge Rivals · Arm Registry (Provider Arena Core v1).
+ * Atlas Forge Rivals · Arm Registry (Provider Arena Core v2).
  *
  * Single source of truth for which runners can participate as `arm_a` or
  * `arm_b` in an arena run. Every arm declares:
@@ -25,14 +27,13 @@ namespace App\Services\Ai\Programming\ForgeRivals\Arms;
  *   - safety_contract                     immutable safety promises
  *   - status                              available | not_yet_executable | placeholder
  *
- * Provider Arena Core v1 does NOT execute every runner type yet —
- * scripted/manual/gemini_cli/future_runner are declared (so UIs and audits
+ * Provider Arena Core v2 does NOT execute every runner type yet —
+ * scripted/manual/future_runner are declared (so UIs and audits
  * can see them) but the real-run path returns an honest
  * `arm_runner_not_yet_executable:<arm_id>` blocker. `atlas_forge`,
- * `claude_code` and `codex_cli` are fully executable (subject to the
- * Real Battery operator harness contract). `atlas_dev_light` is declared
- * for honest planning/corpus dry-runs now, and blocks real runs until its
- * own lightweight Atlas Dev driver is wired.
+ * `atlas_dev`, `claude_code`, `codex_cli` and `gemini_cli` are executable
+ * when their provider binary/policy is configured and the operator passes
+ * the real-provider confirmations.
  *
  * Schema: atlas.forge.rivals.runner_registry.v1
  */
@@ -41,6 +42,8 @@ final class AtlasForgeRivalsArmRegistryService
     public const SCHEMA_VERSION = 'atlas.forge.rivals.runner_registry.v1';
 
     public const ARM_ATLAS_FORGE = 'atlas_forge';
+
+    public const ARM_ATLAS_DEV = 'atlas_dev';
 
     public const ARM_ATLAS_DEV_LIGHT = 'atlas_dev_light';
 
@@ -59,7 +62,7 @@ final class AtlasForgeRivalsArmRegistryService
     /** @var list<string> */
     public const ARMS = [
         self::ARM_ATLAS_FORGE,
-        self::ARM_ATLAS_DEV_LIGHT,
+        self::ARM_ATLAS_DEV,
         self::ARM_CLAUDE_CODE,
         self::ARM_CODEX_CLI,
         self::ARM_GEMINI_CLI,
@@ -85,6 +88,10 @@ final class AtlasForgeRivalsArmRegistryService
     public const RUNNER_MANUAL = 'manual';
 
     public const RUNNER_PLACEHOLDER = 'placeholder';
+
+    public function __construct(
+        private readonly AtlasForgeRivalsProviderModelRegistryService $models,
+    ) {}
 
     /** @var list<string> */
     public const TASK_CATEGORIES = [
@@ -139,6 +146,9 @@ final class AtlasForgeRivalsArmRegistryService
     public function arm(string $armId): array
     {
         $id = strtolower(trim($armId));
+        if ($id === self::ARM_ATLAS_DEV_LIGHT) {
+            $id = self::ARM_ATLAS_DEV;
+        }
         if (! in_array($id, self::ARMS, true)) {
             throw new \InvalidArgumentException(
                 "Unknown arm_id: '{$armId}'. Supported: ".implode(', ', self::ARMS).'.'
@@ -147,7 +157,7 @@ final class AtlasForgeRivalsArmRegistryService
 
         return match ($id) {
             self::ARM_ATLAS_FORGE => $this->atlasForge(),
-            self::ARM_ATLAS_DEV_LIGHT => $this->atlasDevLight(),
+            self::ARM_ATLAS_DEV => $this->atlasDev(),
             self::ARM_CLAUDE_CODE => $this->claudeCode(),
             self::ARM_CODEX_CLI => $this->codexCli(),
             self::ARM_GEMINI_CLI => $this->geminiCli(),
@@ -182,7 +192,8 @@ final class AtlasForgeRivalsArmRegistryService
             'task_categories' => self::TASK_CATEGORIES,
             'task_category_count' => count(self::TASK_CATEGORIES),
             'generated_at' => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format(\DateTimeInterface::ATOM),
-            'note' => 'Provider Arena Core v1 — declared arms. Real execution is gated by per-arm status (available|not_yet_executable|placeholder) and by the three operator confirmations.',
+            'model_registry_schema_version' => AtlasForgeRivalsProviderModelRegistryService::SCHEMA_VERSION,
+            'note' => 'Provider Arena Core v2 — declared arms. Real execution is gated by per-arm status, model registry, command builder and the three operator confirmations.',
             'separated_from_external_rivals_certification' => true,
         ];
     }
@@ -196,7 +207,7 @@ final class AtlasForgeRivalsArmRegistryService
             'arm_id' => self::ARM_ATLAS_FORGE,
             'runner_type' => self::RUNNER_FORGE,
             'provider' => 'claude',
-            'model_options' => ['sonnet', 'opus', 'claude_sonnet', 'claude_opus'],
+            'model_options' => $this->models->aliasesForProvider('claude'),
             'execution_mode' => 'forge_real_provider',
             'requires_external_provider_call' => true,
             'requires_cost_confirmation' => true,
@@ -216,14 +227,15 @@ final class AtlasForgeRivalsArmRegistryService
     /**
      * @return array<string,mixed>
      */
-    private function atlasDevLight(): array
+    private function atlasDev(): array
     {
         return [
-            'arm_id' => self::ARM_ATLAS_DEV_LIGHT,
+            'arm_id' => self::ARM_ATLAS_DEV,
+            'legacy_aliases' => [self::ARM_ATLAS_DEV_LIGHT],
             'runner_type' => self::RUNNER_ATLAS_DEV,
             'provider' => 'claude',
-            'model_options' => ['sonnet', 'claude_sonnet'],
-            'execution_mode' => 'atlas_dev_light_real_provider_pending',
+            'model_options' => ['sonnet', 'claude_sonnet', 'claude-sonnet'],
+            'execution_mode' => 'atlas_dev_real_provider',
             'requires_external_provider_call' => true,
             'requires_cost_confirmation' => true,
             'supports_streaming' => true,
@@ -236,10 +248,10 @@ final class AtlasForgeRivalsArmRegistryService
                 'forbids_enterprise_claim_without_forge_escalation' => true,
                 'keeps_call_budget_low' => true,
             ],
-            'status' => self::STATUS_NOT_YET_EXECUTABLE,
-            'not_executable_reason' => 'atlas_dev_light_driver_pending',
-            'human_label' => 'Atlas Dev Light',
-            'human_description' => 'Lightweight Atlas Dev wrapper around Claude Sonnet: scoped context, short plan, patch, focused tests, simple verification, then escalation to Forge on risk/failure.',
+            'status' => self::STATUS_AVAILABLE,
+            'not_executable_reason' => null,
+            'human_label' => 'Atlas Dev',
+            'human_description' => 'Atlas Dev lightweight runner around Claude Sonnet: scoped context, short plan, patch, focused tests, simple verification, then escalation to Forge on risk/failure.',
         ];
     }
 
@@ -252,7 +264,7 @@ final class AtlasForgeRivalsArmRegistryService
             'arm_id' => self::ARM_CLAUDE_CODE,
             'runner_type' => self::RUNNER_CLI_PROVIDER,
             'provider' => 'claude',
-            'model_options' => ['sonnet', 'opus', 'claude_sonnet', 'claude_opus'],
+            'model_options' => $this->models->aliasesForProvider('claude'),
             'execution_mode' => 'cli_provider_real',
             'requires_external_provider_call' => true,
             'requires_cost_confirmation' => true,
@@ -278,7 +290,7 @@ final class AtlasForgeRivalsArmRegistryService
             'arm_id' => self::ARM_CODEX_CLI,
             'runner_type' => self::RUNNER_CLI_PROVIDER,
             'provider' => 'codex',
-            'model_options' => ['codex', 'gpt-codex', 'codex-default'],
+            'model_options' => $this->models->aliasesForProvider('codex'),
             'execution_mode' => 'cli_provider_real',
             'requires_external_provider_call' => true,
             'requires_cost_confirmation' => true,
@@ -304,7 +316,7 @@ final class AtlasForgeRivalsArmRegistryService
             'arm_id' => self::ARM_GEMINI_CLI,
             'runner_type' => self::RUNNER_CLI_PROVIDER,
             'provider' => 'gemini',
-            'model_options' => ['gemini-pro', 'gemini-flash'],
+            'model_options' => $this->models->aliasesForProvider('gemini'),
             'execution_mode' => 'cli_provider_real',
             'requires_external_provider_call' => true,
             'requires_cost_confirmation' => true,
@@ -314,8 +326,8 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_test_log' => true,
             'allowed_task_categories' => self::TASK_CATEGORIES,
             'safety_contract' => $this->safety(realProvider: true),
-            'status' => self::STATUS_NOT_YET_EXECUTABLE,
-            'not_executable_reason' => 'gemini_driver_not_wired_v1',
+            'status' => self::STATUS_AVAILABLE,
+            'not_executable_reason' => null,
             'human_label' => 'Gemini CLI',
             'human_description' => 'Gemini baseline — declared. Real execution arrives in a future slice; blocks honestly today.',
         ];

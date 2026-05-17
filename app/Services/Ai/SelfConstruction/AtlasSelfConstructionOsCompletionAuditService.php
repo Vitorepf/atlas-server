@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Canonical completion audit for Atlas Self-Construction OS. It intentionally
@@ -16,6 +17,8 @@ final class AtlasSelfConstructionOsCompletionAuditService
     public const MODE = 'read_only_atlas_self_construction_os_completion_audit';
 
     public const TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_terminal_loop_certification.v1';
+
+    private const CANONICAL_TERMINAL_LOOP_OPERATIONAL_PROOF_BINDING_PATH = 'atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
 
     /**
      * Canonical declaration of the multi-agent terminal-loop modules the
@@ -138,9 +141,11 @@ final class AtlasSelfConstructionOsCompletionAuditService
         $terminalLoopCertification = $this->certifyAgentControlPlaneTerminalLoop(
             (array) ($options['agent_control_plane_terminal_loop_certification'] ?? []),
         );
-        $terminalLoopOperationalProof = $this->terminalLoopOperationalProofEvidence(
-            (array) ($options['agent_control_plane_terminal_loop_operational_proof'] ?? []),
-        );
+        $terminalLoopOperationalProofInput = (array) ($options['agent_control_plane_terminal_loop_operational_proof'] ?? []);
+        if ($terminalLoopOperationalProofInput === []) {
+            $terminalLoopOperationalProofInput = $this->loadCanonicalTerminalLoopOperationalProofBinding();
+        }
+        $terminalLoopOperationalProof = $this->terminalLoopOperationalProofEvidence($terminalLoopOperationalProofInput);
 
         $criteria = [
             $this->criterion(
@@ -848,6 +853,25 @@ final class AtlasSelfConstructionOsCompletionAuditService
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function loadCanonicalTerminalLoopOperationalProofBinding(): array
+    {
+        try {
+            if (! Storage::disk('local')->exists(self::CANONICAL_TERMINAL_LOOP_OPERATIONAL_PROOF_BINDING_PATH)) {
+                return [];
+            }
+
+            $content = Storage::disk('local')->get(self::CANONICAL_TERMINAL_LOOP_OPERATIONAL_PROOF_BINDING_PATH);
+            $decoded = json_decode($content, true);
+
+            return is_array($decoded) ? $decoded : [];
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
     private function safeStatus(string $key, string $method, array $options = []): array
     {
         if (! method_exists($this->readiness, $method)) {
@@ -891,12 +915,29 @@ final class AtlasSelfConstructionOsCompletionAuditService
             $criterionStatus[(string) ($criterion['id'] ?? '')] = (bool) ($criterion['passed'] ?? false);
         }
 
+        $modulePassed = [];
+        foreach ((array) ($terminalLoopCertification['modules'] ?? []) as $module) {
+            $modulePassed[(string) ($module['id'] ?? '')] = (bool) ($module['passed'] ?? false);
+        }
+        $invariants = (array) ($terminalLoopCertification['invariants'] ?? []);
+        $terminalLoopPassed = (bool) ($terminalLoopCertification['passed'] ?? false);
+        $terminalLoopProofHash = (string) data_get(
+            collect($criteria)->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green'),
+            'evidence.operational_proof_hash',
+            '',
+        );
+
         return [
             ['requirement' => 'Atlas Self-Construction OS complete', 'artifact' => 'completion criteria array', 'evidence_status' => $criteria === [] ? 'missing' : 'present'],
             ['requirement' => 'all runtime gaps closed', 'artifact' => 'atlas.self_construction.runtime_gap_matrix.v1', 'evidence_status' => ($criterionStatus['runtime_gap_matrix_all_runtime_y'] ?? false) ? 'passed' : 'blocked'],
             ['requirement' => 'release dossier green', 'artifact' => 'agentControlPlaneReleaseDossierStatus', 'evidence_status' => (string) data_get($releaseDossier, 'status') === 'available' ? 'passed' : 'blocked'],
             ['requirement' => 'certification batch green', 'artifact' => 'agentControlPlaneCertificationStatusBatchStatus', 'evidence_status' => (string) data_get($statusBatch, 'status') === 'passed' ? 'passed' : 'blocked'],
             ['requirement' => 'no premature execution during audit', 'artifact' => 'runtime_safety flags', 'evidence_status' => 'passed'],
+            ['requirement' => 'loop auto-replenishment works', 'artifact' => 'agentControlPlaneTaskAutoReplenishmentStatus + terminal loop operational proof', 'evidence_status' => (($modulePassed['task_auto_replenishment_status'] ?? false) && (bool) ($invariants['auto_replenishment_target_met'] ?? false) && $terminalLoopPassed) ? 'passed' : 'blocked', 'evidence_hash' => $terminalLoopProofHash],
+            ['requirement' => 'loop validates worker eligibility and completion evidence', 'artifact' => 'agentControlPlaneWorkerTaskEligibilityCertificationStatus + one-shot worker packet + terminal loop operational proof', 'evidence_status' => (($modulePassed['worker_task_eligibility_certification_status'] ?? false) && ($modulePassed['one_shot_worker_packet_status'] ?? false) && (bool) ($invariants['worker_task_eligibility_blocks_operator_only_completion_blockers'] ?? false) && (bool) ($invariants['structured_completion_evidence_valid'] ?? false) && $terminalLoopPassed) ? 'passed' : 'blocked', 'evidence_hash' => $terminalLoopProofHash],
+            ['requirement' => 'loop claim/lease prevents duplicate or cross-agent completion', 'artifact' => 'agentControlPlaneTaskQueueClaimNextStatus + agentControlPlaneTaskQueueCompleteDryRunStatus + lease invariants', 'evidence_status' => (($modulePassed['task_queue_claim_next_status'] ?? false) && ($modulePassed['task_queue_complete_dry_run_status'] ?? false) && (bool) ($invariants['claim_requires_lease_id_and_agent_id'] ?? false) && (bool) ($invariants['completion_requires_active_lease'] ?? false) && (bool) ($invariants['no_duplicate_claims'] ?? false) && (bool) ($invariants['no_cross_agent_completion'] ?? false) && $terminalLoopPassed) ? 'passed' : 'blocked', 'evidence_hash' => $terminalLoopProofHash],
+            ['requirement' => 'loop evidence ledger/work product handoff is captured', 'artifact' => 'one-shot worker packet evidence template + terminal loop health digest evidence rollup', 'evidence_status' => (($modulePassed['one_shot_worker_packet_status'] ?? false) && ($modulePassed['terminal_loop_health_digest_status'] ?? false) && (bool) ($invariants['evidence_hash_present'] ?? false) && (bool) ($invariants['terminal_loop_fleet_evidence_rollup_green_path_verified'] ?? false) && $terminalLoopPassed) ? 'passed' : 'blocked', 'evidence_hash' => $terminalLoopProofHash],
+            ['requirement' => 'loop resume/retomada recovers interrupted agents and stale leases', 'artifact' => 'agentControlPlaneTaskLeaseRecoveryStatus + terminal worker bootstrap resume contract + health digest resume rollup', 'evidence_status' => (($modulePassed['task_lease_recovery_status'] ?? false) && ($modulePassed['terminal_worker_bootstrap_status'] ?? false) && ($modulePassed['terminal_loop_health_digest_status'] ?? false) && (bool) ($invariants['recovery_handles_orphaned_leases'] ?? false) && (bool) ($invariants['terminal_loop_fleet_resume_recovery_path_verified'] ?? false) && (bool) ($invariants['worker_resumption_contract_present'] ?? false) && $terminalLoopPassed) ? 'passed' : 'blocked', 'evidence_hash' => $terminalLoopProofHash],
             ['requirement' => 'human signed completion receipt', 'artifact' => AtlasSelfConstructionHumanSignedCompletionReceiptService::SCHEMA_VERSION, 'evidence_status' => ($criterionStatus['human_signed_os_complete_receipt_present'] ?? false) ? 'passed' : 'blocked_until_operator_receipt'],
             ['requirement' => 'real provider end-to-end smoke', 'artifact' => AtlasSelfConstructionRealProviderSmokeCertificationService::SCHEMA_VERSION, 'evidence_status' => ($criterionStatus['end_to_end_real_provider_smoke_green'] ?? false) ? 'passed' : 'blocked_until_real_smoke'],
             ['requirement' => 'Forge/Self-Improvement integration smoke', 'artifact' => AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService::SCHEMA_VERSION, 'evidence_status' => ($criterionStatus['forge_self_improvement_integration_smoke_green'] ?? false) ? 'passed' : 'blocked'],

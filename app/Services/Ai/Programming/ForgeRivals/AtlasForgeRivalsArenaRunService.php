@@ -41,6 +41,14 @@ final class AtlasForgeRivalsArenaRunService
         private readonly AtlasForgeRivalsRunBatteryService $battery,
         private readonly AtlasForgeRivalsModeRegistry $modes,
         private readonly AtlasForgeRivalsCorpusPlannerService $corpusPlanner,
+        private readonly AtlasForgeRivalsArmCommandBuilderService $commandBuilder,
+        private readonly AtlasForgeRivalsSetupService $setup,
+        private readonly AtlasForgeRivalsRunRealService $runReal,
+        private readonly AtlasForgeRivalsCollectEvidenceService $collectEvidence,
+        private readonly AtlasForgeRivalsReplayService $replay,
+        private readonly AtlasForgeRivalsAdjudicatorService $adjudicator,
+        private readonly AtlasForgeRivalsReportService $report,
+        private readonly AtlasForgeRivalsRunPathResolver $paths,
     ) {}
 
     /**
@@ -55,9 +63,17 @@ final class AtlasForgeRivalsArenaRunService
         $confirmations = (array) ($input['confirmations'] ?? []);
         $preset = trim((string) ($input['preset'] ?? 'quick'));
         $runId = trim((string) ($input['run_id'] ?? ''));
+        $dryRunOnly = (bool) ($input['dry_run'] ?? false);
+        $promptMode = trim((string) ($input['prompt_mode'] ?? 'spec-perfect'));
 
         $armAId = strtolower(trim((string) ($input['arm_a'] ?? '')));
         $armBId = strtolower(trim((string) ($input['arm_b'] ?? '')));
+        if ($armAId === AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV_LIGHT) {
+            $armAId = AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV;
+        }
+        if ($armBId === AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV_LIGHT) {
+            $armBId = AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV;
+        }
         $armAModel = trim((string) ($input['arm_a_model'] ?? ''));
         $armBModel = trim((string) ($input['arm_b_model'] ?? ''));
 
@@ -67,6 +83,8 @@ final class AtlasForgeRivalsArenaRunService
             AtlasForgeRivalsModeRegistry::MODE_FAIR,
             AtlasForgeRivalsModeRegistry::MODE_FULL_POWER,
             AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
+            AtlasForgeRivalsModeRegistry::MODE_PROVIDER_ARENA,
+            AtlasForgeRivalsModeRegistry::MODE_PROVIDER_PURE,
         ], true)) {
             $blockers[] = 'mode_not_admissible_for_run_arena:'.$rawMode;
         }
@@ -120,12 +138,14 @@ final class AtlasForgeRivalsArenaRunService
             'model' => $armAModel,
             'task_category' => $taskCategory,
             'mode' => $mode,
+            'dry_run' => $dryRunOnly,
         ]);
         $contractB = $this->contracts->contract('arm_b', [
             'arm_id' => $armBId,
             'model' => $armBModel,
             'task_category' => $taskCategory,
             'mode' => $mode,
+            'dry_run' => $dryRunOnly,
         ]);
 
         $blockers = array_merge($blockers, (array) $contractA['blockers'], (array) $contractB['blockers']);
@@ -133,7 +153,7 @@ final class AtlasForgeRivalsArenaRunService
         // Real provider arms enforce three operator confirmations BEFORE we hand off to RunBatteryService.
         $requiresProvider = (bool) ($contractA['external_provider_call'])
             || (bool) ($contractB['external_provider_call']);
-        if ($requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE) {
+        if ($requiresProvider && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE && ! $dryRunOnly) {
             foreach (['runbook_reviewed', 'provider_cost', 'real_provider_call'] as $confirm) {
                 if (! ($confirmations[$confirm] ?? false)) {
                     $blockers[] = 'missing_confirmation:'.$confirm;
@@ -167,25 +187,8 @@ final class AtlasForgeRivalsArenaRunService
             );
         }
 
-        // Corpus integration: --case / --case-set resolves to a declarative
-        // multi-case plan. In local_fake we return the plan as the result
-        // (no battery invocation, no provider call). Real-mode multi-case
-        // execution is pending implementation — fail closed honestly rather
-        // than pretend support.
-        if ($usingCorpus && is_array($resolvedPlan)) {
-            if ($mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE) {
-                return $this->terminal(
-                    $runId,
-                    $mode,
-                    ['real_multi_case_pending_implementation:use_mode=local_fake_for_corpus_dry_run'],
-                    $armAId,
-                    $armBId,
-                    $taskCategory,
-                    ['arm_a' => $contractA, 'arm_b' => $contractB],
-                );
-            }
-
-            return $this->corpusDryRunResult(
+        if ($dryRunOnly) {
+            return $this->arenaPlanResult(
                 $runId,
                 $mode,
                 $armAId,
@@ -194,9 +197,87 @@ final class AtlasForgeRivalsArenaRunService
                 $contractA,
                 $contractB,
                 $requiresProvider,
-                $resolvedPlan,
+                $promptMode,
+                is_array($resolvedPlan) ? $resolvedPlan : null,
+            );
+        }
+
+        // Corpus integration: --case / --case-set resolves to a declarative
+        // multi-case plan. In local_fake we return the plan as the result
+        // (no battery invocation, no provider call). In provider_arena /
+        // provider_pure the v2 executor reuses RunRealService so worktree
+        // isolation, streaming receipts, replay artifacts and resume stay on
+        // the same contract surface as run-battery.
+        if ($usingCorpus && is_array($resolvedPlan)) {
+            if ($mode === AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE) {
+                return $this->corpusDryRunResult(
+                    $runId,
+                    $mode,
+                    $armAId,
+                    $armBId,
+                    $taskCategory,
+                    $contractA,
+                    $contractB,
+                    $requiresProvider,
+                    $resolvedPlan,
+                    $corpusCaseSet,
+                    $corpusCase,
+                );
+            }
+            if (! in_array($mode, [
+                AtlasForgeRivalsModeRegistry::MODE_FULL_POWER,
+                AtlasForgeRivalsModeRegistry::MODE_PROVIDER_ARENA,
+                AtlasForgeRivalsModeRegistry::MODE_PROVIDER_PURE,
+            ], true)) {
+                return $this->terminal(
+                    $runId,
+                    $mode,
+                    ['real_multi_case_requires_provider_arena_v2_mode:use_--mode=provider_arena_or_full_power_or_--dry-run'],
+                    $armAId,
+                    $armBId,
+                    $taskCategory,
+                    ['arm_a' => $contractA, 'arm_b' => $contractB],
+                );
+            }
+
+            return $this->runProviderArenaReal(
+                $runId,
+                $mode,
+                $armAId,
+                $armBId,
+                $taskCategory,
+                $contractA,
+                $contractB,
+                $preset,
+                $promptMode,
+                $sourceRef = trim((string) ($input['source_ref'] ?? 'HEAD')),
+                $confirmations,
                 $corpusCaseSet,
                 $corpusCase,
+                true,
+            );
+        }
+
+        if (in_array($mode, [
+            AtlasForgeRivalsModeRegistry::MODE_FULL_POWER,
+            AtlasForgeRivalsModeRegistry::MODE_PROVIDER_ARENA,
+            AtlasForgeRivalsModeRegistry::MODE_PROVIDER_PURE,
+        ], true)) {
+            return $this->runProviderArenaReal(
+                $runId,
+                $mode,
+                $armAId,
+                $armBId,
+                $taskCategory,
+                $contractA,
+                $contractB,
+                $preset,
+                $promptMode,
+                trim((string) ($input['source_ref'] ?? 'HEAD')),
+                $confirmations,
+                '',
+                '',
+                false,
             );
         }
 
@@ -209,6 +290,7 @@ final class AtlasForgeRivalsArenaRunService
             'atlas_model' => $legacyAtlasModel,
             'rival' => $legacyRivalModel,
             'preset' => $preset,
+            'prompt_mode' => $promptMode,
             'source_ref' => trim((string) ($input['source_ref'] ?? 'HEAD')),
             'confirmations' => [
                 'runbook_reviewed' => (bool) ($confirmations['runbook_reviewed'] ?? false),
@@ -227,6 +309,7 @@ final class AtlasForgeRivalsArenaRunService
                 'runner_type' => $contractA['arm']['runner_type'] ?? null,
                 'provider' => $contractA['arm']['provider'] ?? null,
                 'model' => $contractA['resolved_model'],
+                'model_id' => $contractA['resolved_model_id'],
                 'legacy_model_id' => $contractA['legacy_model_id'],
                 'status' => $contractA['arm']['status'] ?? null,
                 'safety_contract' => $contractA['safety_contract'],
@@ -237,12 +320,14 @@ final class AtlasForgeRivalsArenaRunService
                 'runner_type' => $contractB['arm']['runner_type'] ?? null,
                 'provider' => $contractB['arm']['provider'] ?? null,
                 'model' => $contractB['resolved_model'],
+                'model_id' => $contractB['resolved_model_id'],
                 'legacy_model_id' => $contractB['legacy_model_id'],
                 'status' => $contractB['arm']['status'] ?? null,
                 'safety_contract' => $contractB['safety_contract'],
                 'human_label' => $contractB['arm']['human_label'] ?? null,
             ],
             'task_category' => $taskCategory,
+            'prompt_mode' => $promptMode,
             'requires_external_provider_call' => $requiresProvider,
             'safety_promises' => [
                 'never_promotes_completion_claim' => true,
@@ -260,6 +345,81 @@ final class AtlasForgeRivalsArenaRunService
             : 'Provider Arena run halted before declaring a winner.';
 
         return $merged;
+    }
+
+    /**
+     * @param  array<string,mixed>  $contractA
+     * @param  array<string,mixed>  $contractB
+     * @return array<string,mixed>
+     */
+    private function arenaPlanResult(
+        string $runId,
+        string $mode,
+        string $armAId,
+        string $armBId,
+        string $taskCategory,
+        array $contractA,
+        array $contractB,
+        bool $requiresProvider,
+        string $promptMode,
+        ?array $resolvedPlan = null,
+    ): array {
+        $previewPrompt = 'Provider Arena v2 dry-run command preview. Real case prompt is generated per case at execution time.';
+        $commandA = $this->commandBuilder->build($contractA, $previewPrompt, '<arm_a_worktree>');
+        $commandB = $this->commandBuilder->build($contractB, $previewPrompt, '<arm_b_worktree>');
+
+        return [
+            'status' => 'ok',
+            'arena_schema_version' => self::SCHEMA_VERSION,
+            'run_id' => $runId === '' ? 'arena-plan-'.gmdate('Ymd-His') : $runId,
+            'mode' => $mode,
+            'dry_run' => true,
+            'verdict' => 'arena_plan_ready',
+            'arm_a' => $this->armEnvelope($armAId, $contractA),
+            'arm_b' => $this->armEnvelope($armBId, $contractB),
+            'task_category' => $taskCategory,
+            'prompt_mode' => $promptMode !== '' ? $promptMode : 'spec-perfect',
+            'case_set' => $this->resolvedPlanCaseSet($resolvedPlan),
+            'case_count' => is_array($resolvedPlan) ? (int) ($resolvedPlan['count'] ?? 0) : null,
+            'cases' => is_array($resolvedPlan) ? ($resolvedPlan['cases'] ?? []) : [],
+            'requires_external_provider_call' => $requiresProvider,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'winner' => null,
+            'scorecard' => null,
+            'command_plan' => [
+                'arm_a' => $this->redactPromptFromCommandPlan($commandA),
+                'arm_b' => $this->redactPromptFromCommandPlan($commandB),
+            ],
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'separated_from_external_rivals_certification' => true,
+            'next_command' => 'php artisan atlas:forge:rivals run-arena --arm-a='.$armAId.' --arm-b='.$armBId.' --task-category='.$taskCategory.' --mode='.$mode.' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json',
+            'note' => 'Provider Arena v2 dry-run: contracts and commands resolved without invoking providers.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $resolvedPlan
+     */
+    private function resolvedPlanCaseSet(?array $resolvedPlan): ?string
+    {
+        if (! is_array($resolvedPlan)) {
+            return null;
+        }
+
+        foreach ((array) ($resolvedPlan['applied_filters'] ?? []) as $filter) {
+            $filter = (string) $filter;
+
+            if (str_starts_with($filter, 'case_set=')) {
+                return substr($filter, strlen('case_set='));
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -301,6 +461,51 @@ final class AtlasForgeRivalsArenaRunService
     }
 
     /**
+     * @param  array<string,mixed>  $contract
+     * @return array<string,mixed>
+     */
+    private function armEnvelope(string $armId, array $contract): array
+    {
+        return [
+            'arm_id' => $armId,
+            'runner_type' => $contract['arm']['runner_type'] ?? null,
+            'provider' => $contract['provider'] ?? ($contract['arm']['provider'] ?? null),
+            'model' => $contract['resolved_model'] ?? null,
+            'model_id' => $contract['resolved_model_id'] ?? null,
+            'model_label' => $contract['resolved_model_label'] ?? null,
+            'legacy_model_id' => $contract['legacy_model_id'] ?? null,
+            'status' => $contract['arm']['status'] ?? null,
+            'safety_contract' => $contract['safety_contract'] ?? [],
+            'human_label' => $contract['arm']['human_label'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function redactPromptFromCommandPlan(array $plan): array
+    {
+        $command = (array) ($plan['command'] ?? []);
+        if ($command !== []) {
+            $last = array_key_last($command);
+            if ($last !== null) {
+                $command[$last] = '<prompt>';
+            }
+        }
+
+        return [
+            'ok' => (bool) ($plan['ok'] ?? false),
+            'provider' => $plan['provider'] ?? null,
+            'model' => $plan['model'] ?? null,
+            'model_id' => $plan['model_id'] ?? null,
+            'command_family' => $plan['command_family'] ?? null,
+            'command' => array_values(array_map(static fn ($part): string => (string) $part, $command)),
+            'blockers' => array_values(array_map(static fn ($b): string => (string) $b, (array) ($plan['blockers'] ?? []))),
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $contractA
      * @param  array<string,mixed>  $contractB
      * @param  array<string,mixed>  $plan
@@ -331,6 +536,7 @@ final class AtlasForgeRivalsArenaRunService
                 'runner_type' => $contractA['arm']['runner_type'] ?? null,
                 'provider' => $contractA['arm']['provider'] ?? null,
                 'model' => $contractA['resolved_model'],
+                'model_id' => $contractA['resolved_model_id'],
                 'legacy_model_id' => $contractA['legacy_model_id'],
                 'status' => $contractA['arm']['status'] ?? null,
                 'safety_contract' => $contractA['safety_contract'],
@@ -341,6 +547,7 @@ final class AtlasForgeRivalsArenaRunService
                 'runner_type' => $contractB['arm']['runner_type'] ?? null,
                 'provider' => $contractB['arm']['provider'] ?? null,
                 'model' => $contractB['resolved_model'],
+                'model_id' => $contractB['resolved_model_id'],
                 'legacy_model_id' => $contractB['legacy_model_id'],
                 'status' => $contractB['arm']['status'] ?? null,
                 'safety_contract' => $contractB['safety_contract'],
@@ -370,10 +577,209 @@ final class AtlasForgeRivalsArenaRunService
         ];
     }
 
+    /**
+     * @param  array<string,mixed>  $contractA
+     * @param  array<string,mixed>  $contractB
+     * @param  array<string,mixed>  $confirmations
+     * @return array<string,mixed>
+     */
+    private function runProviderArenaReal(
+        string $runId,
+        string $mode,
+        string $armAId,
+        string $armBId,
+        string $taskCategory,
+        array $contractA,
+        array $contractB,
+        string $preset,
+        string $promptMode,
+        string $sourceRef,
+        array $confirmations,
+        string $caseSet,
+        string $caseId,
+        bool $usingCorpus,
+    ): array {
+        if ($runId === '') {
+            $runId = 'arena-'.gmdate('Ymd-His').'-'.substr(hash('sha256', $armAId.'|'.$armBId.'|'.microtime(true)), 0, 6);
+        }
+        $promptMode = $promptMode !== '' ? $promptMode : 'spec-perfect';
+        $preset = $preset !== '' ? $preset : 'quick';
+        $sourceRef = $sourceRef !== '' ? $sourceRef : 'HEAD';
+
+        $phases = [];
+        $setup = $this->setup->provision([
+            'run_id' => $runId,
+            'source_ref' => $sourceRef,
+        ]);
+        $phases[] = $this->phase('setup', $setup);
+        if (($setup['status'] ?? '') !== 'ok') {
+            return $this->arenaPipelineBlocked($runId, $mode, $armAId, $armBId, $taskCategory, $contractA, $contractB, $phases, (array) ($setup['blockers'] ?? []), 'fix setup blockers');
+        }
+
+        $runReal = $this->runReal->run([
+            'mode' => $mode,
+            'atlas_model' => (string) ($contractA['legacy_model_id'] ?? $contractA['resolved_model'] ?? 'claude_sonnet'),
+            'rival' => (string) ($contractB['legacy_model_id'] ?? $contractB['resolved_model'] ?? 'claude_sonnet'),
+            'preset' => $usingCorpus ? 'release' : $preset,
+            'case' => $caseId !== '' ? $caseId : null,
+            'case_set' => $caseSet !== '' ? $caseSet : null,
+            'prompt_mode' => $promptMode,
+            'run_id' => $runId,
+            'confirmations' => [
+                'runbook_reviewed' => (bool) ($confirmations['runbook_reviewed'] ?? false),
+                'provider_cost' => (bool) ($confirmations['provider_cost'] ?? false),
+                'real_provider_call' => (bool) ($confirmations['real_provider_call'] ?? false),
+            ],
+            'arena_contracts' => [
+                'arm_a' => $contractA,
+                'arm_b' => $contractB,
+            ],
+        ]);
+        $phases[] = $this->phase('run-real', $runReal);
+        if (($runReal['status'] ?? '') !== 'ok') {
+            return $this->arenaPipelineBlocked($runId, $mode, $armAId, $armBId, $taskCategory, $contractA, $contractB, $phases, (array) ($runReal['blockers'] ?? []), 'fix run-real blockers', $runReal);
+        }
+
+        foreach ([
+            ['collect-evidence-pre', fn (): array => $this->collectEvidence->collect(['run_id' => $runId, 'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION]), 'fix evidence blockers'],
+            ['replay-pre', fn (): array => $this->replay->replay(['run_id' => $runId, 'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION]), 'replay failed - evidence pack untrustworthy'],
+            ['adjudicate', fn (): array => $this->adjudicator->adjudicate(['run_id' => $runId]), 'fix adjudicator blockers'],
+            ['collect-evidence-final', fn (): array => $this->collectEvidence->collect(['run_id' => $runId, 'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_FINAL]), 'fix final evidence blockers'],
+            ['replay-final', fn (): array => $this->replay->replay(['run_id' => $runId, 'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_FINAL]), 'final replay failed - scorecard hash drifted'],
+            ['report', fn (): array => $this->report->render(['run_id' => $runId]), 'fix report blockers'],
+        ] as [$phaseName, $callback, $hint]) {
+            $payload = $callback();
+            $phases[] = $this->phase((string) $phaseName, $payload);
+            if (($payload['status'] ?? '') !== 'ok') {
+                return $this->arenaPipelineBlocked($runId, $mode, $armAId, $armBId, $taskCategory, $contractA, $contractB, $phases, (array) ($payload['blockers'] ?? []), (string) $hint);
+            }
+            if ($phaseName === 'adjudicate') {
+                $adjudicate = $payload;
+            } elseif ($phaseName === 'replay-final') {
+                $replayFinal = $payload;
+            } elseif ($phaseName === 'report') {
+                $report = $payload;
+            }
+        }
+
+        $paths = $this->paths->paths($runId);
+        $scorecard = is_array(($adjudicate ?? [])['scorecard'] ?? null) ? $adjudicate['scorecard'] : null;
+
+        return [
+            'status' => 'ok',
+            'arena_schema_version' => self::SCHEMA_VERSION,
+            'run_id' => $runId,
+            'mode' => $mode,
+            'executor' => 'provider_arena_v2',
+            'using_corpus' => $usingCorpus,
+            'arm_a' => $this->armEnvelope($armAId, $contractA),
+            'arm_b' => $this->armEnvelope($armBId, $contractB),
+            'task_category' => $taskCategory,
+            'preset' => $preset,
+            'case_set' => $caseSet !== '' ? $caseSet : null,
+            'case' => $caseId !== '' ? $caseId : null,
+            'prompt_mode' => $promptMode,
+            'phases' => $phases,
+            'phases_passed' => count(array_filter($phases, static fn (array $p): bool => (bool) ($p['ok'] ?? false))),
+            'phases_failed' => count(array_filter($phases, static fn (array $p): bool => ! (bool) ($p['ok'] ?? false))),
+            'winner' => $scorecard['winner'] ?? null,
+            'scorecard' => $scorecard,
+            'manifest' => $runReal['manifest'] ?? null,
+            'report_path' => ($report ?? [])['report_path'] ?? null,
+            'evidence_paths' => array_values(array_filter([
+                $paths['events_jsonl'],
+                $paths['manifest_json'],
+                $paths['scorecard_json'],
+                $paths['report_md'],
+            ], static fn (string $path): bool => is_file($path))),
+            'external_provider_call' => (bool) ($runReal['external_provider_call'] ?? true),
+            'provider_tokens_spent' => (bool) ($runReal['provider_tokens_spent'] ?? true),
+            'claim_ready' => false,
+            'replay_passes' => (bool) (($replayFinal ?? [])['replay_passes'] ?? false),
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'separated_from_external_rivals_certification' => true,
+            'next_command' => 'php artisan atlas:forge:rivals report --run-id='.$runId.' --json',
+            'note' => 'Provider Arena v2 completed with replay-gated evidence. Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function phase(string $name, array $payload): array
+    {
+        $status = (string) ($payload['status'] ?? 'unknown');
+
+        return [
+            'phase' => $name,
+            'status' => $status,
+            'ok' => $status === 'ok' || $status === 'completed',
+            'blockers' => array_values(array_map(static fn ($blocker): string => (string) $blocker, (array) ($payload['blockers'] ?? []))),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $contractA
+     * @param  array<string,mixed>  $contractB
+     * @param  list<array<string,mixed>>  $phases
+     * @param  list<string>  $blockers
+     * @param  array<string,mixed>|null  $runReal
+     * @return array<string,mixed>
+     */
+    private function arenaPipelineBlocked(
+        string $runId,
+        string $mode,
+        string $armAId,
+        string $armBId,
+        string $taskCategory,
+        array $contractA,
+        array $contractB,
+        array $phases,
+        array $blockers,
+        string $hint,
+        ?array $runReal = null,
+    ): array {
+        return [
+            'status' => 'blocked',
+            'arena_schema_version' => self::SCHEMA_VERSION,
+            'run_id' => $runId,
+            'mode' => $mode,
+            'executor' => 'provider_arena_v2',
+            'arm_a' => $this->armEnvelope($armAId, $contractA),
+            'arm_b' => $this->armEnvelope($armBId, $contractB),
+            'task_category' => $taskCategory,
+            'phases' => $phases,
+            'phases_passed' => count(array_filter($phases, static fn (array $p): bool => (bool) ($p['ok'] ?? false))),
+            'phases_failed' => count(array_filter($phases, static fn (array $p): bool => ! (bool) ($p['ok'] ?? false))),
+            'blockers' => array_values(array_unique(array_map(static fn ($b): string => (string) $b, $blockers))),
+            'failed_run_real' => $runReal,
+            'winner' => null,
+            'scorecard' => null,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'claim_ready' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'separated_from_external_rivals_certification' => true,
+            'next_command' => $hint,
+            'note' => 'Provider Arena v2 halted before declaring a winner. No score is claimable until evidence, replay and matrix gates pass.',
+        ];
+    }
+
     private function normalizeMode(string $mode): string
     {
         return match (strtolower($mode)) {
             'power', 'full-power' => AtlasForgeRivalsModeRegistry::MODE_FULL_POWER,
+            'provider-arena', 'arena' => AtlasForgeRivalsModeRegistry::MODE_PROVIDER_ARENA,
+            'provider-pure', 'pure' => AtlasForgeRivalsModeRegistry::MODE_PROVIDER_PURE,
             '' => AtlasForgeRivalsModeRegistry::MODE_FAIR,
             default => strtolower($mode),
         };
@@ -384,6 +790,7 @@ final class AtlasForgeRivalsArenaRunService
         return match (strtolower($model)) {
             'sonnet' => 'claude_sonnet',
             'opus' => 'claude_opus',
+            'gpt-codex', 'codex-default', 'gpt-5.5' => 'codex',
             default => strtolower($model),
         };
     }

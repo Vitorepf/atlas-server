@@ -8,12 +8,14 @@ use App\Console\Commands\AtlasForgeRivalsCommand;
 use App\Services\Ai\Programming\ForgeRivals\Arms\AtlasForgeRivalsArmContractService;
 use App\Services\Ai\Programming\ForgeRivals\Arms\AtlasForgeRivalsArmRegistryService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsArenaRunService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsArmCommandBuilderService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderModelRegistryService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
 
 /**
- * Atlas Forge Rivals · Provider Arena Core Certification (v1).
+ * Atlas Forge Rivals · Provider Arena Core Certification (v2).
  *
  * Audit-level read-model that proves the arm registry + arm contract +
  * arena run service + run-arena action are wired end-to-end and honour
@@ -21,7 +23,7 @@ use DateTimeZone;
  * `external_rivals_certification` — that remains operator-approval-gated
  * and separately tracked.
  *
- * 12 invariants:
+     * 18 invariants:
  *
  *   1.  arm_registry_available
  *   2.  arm_contract_service_available
@@ -30,11 +32,17 @@ use DateTimeZone;
  *   5.  arms_action_exposes_registry
  *   6.  all_canonical_arms_declared
  *   7.  task_category_gate_enforced
- *   8.  not_yet_executable_blockers_honest
+ *   8.  declared_non_executable_blockers_honest
  *   9.  scripted_or_manual_cannot_forge_score
  *   10. arena_real_provider_requires_three_confirmations
- *   11. arena_never_unlocks_external_rivals
- *   12. arena_doc_canonical
+     *   11. arena_never_unlocks_external_rivals
+     *   12. arena_doc_canonical
+     *   13. provider_model_registry_available
+     *   14. models_action_exposes_registry
+     *   15. arm_command_builder_centralized
+     *   16. provider_arena_modes_declared
+     *   17. provider_arena_real_executor_wired
+     *   18. arena_contracts_flow_to_manifest_report_signal
  *
  * Schema: atlas.forge_rivals_provider_arena_core_certification.v1
  * Doc:    docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md
@@ -60,11 +68,17 @@ class AtlasForgeRivalsProviderArenaCoreCertification
         'arms_action_exposes_registry',
         'all_canonical_arms_declared',
         'task_category_gate_enforced',
-        'not_yet_executable_blockers_honest',
+        'declared_non_executable_blockers_honest',
         'scripted_or_manual_cannot_forge_score',
         'arena_real_provider_requires_three_confirmations',
         'arena_never_unlocks_external_rivals',
         'arena_doc_canonical',
+        'provider_model_registry_available',
+        'models_action_exposes_registry',
+        'arm_command_builder_centralized',
+        'provider_arena_modes_declared',
+        'provider_arena_real_executor_wired',
+        'arena_contracts_flow_to_manifest_report_signal',
     ];
 
     /**
@@ -157,9 +171,21 @@ class AtlasForgeRivalsProviderArenaCoreCertification
                 'class' => AtlasForgeRivalsArenaRunService::class,
                 'present' => class_exists(AtlasForgeRivalsArenaRunService::class),
             ],
+            'provider_model_registry' => [
+                'class' => AtlasForgeRivalsProviderModelRegistryService::class,
+                'present' => class_exists(AtlasForgeRivalsProviderModelRegistryService::class),
+            ],
+            'arm_command_builder' => [
+                'class' => AtlasForgeRivalsArmCommandBuilderService::class,
+                'present' => class_exists(AtlasForgeRivalsArmCommandBuilderService::class),
+            ],
             'canonical_doc' => [
                 'path' => 'docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md',
                 'present' => is_file($repoRoot.'/docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md'),
+            ],
+            'provider_arena_v2_doc' => [
+                'path' => 'docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md',
+                'present' => is_file($repoRoot.'/docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md'),
             ],
         ];
     }
@@ -172,9 +198,15 @@ class AtlasForgeRivalsProviderArenaCoreCertification
         $registryFile = $repoRoot.'/app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php';
         $contractFile = $repoRoot.'/app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmContractService.php';
         $arenaFile = $repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php';
+        $modeFile = $repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsModeRegistry.php';
+        $modelRegistryFile = $repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderModelRegistryService.php';
+        $commandBuilderFile = $repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArmCommandBuilderService.php';
+        $runRealFile = $repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunRealService.php';
+        $reportFile = $repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportService.php';
         $commandFile = $repoRoot.'/app/Console/Commands/AtlasForgeRivalsCommand.php';
         $dispatcherFile = $repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsActionDispatcher.php';
         $doc = $repoRoot.'/docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md';
+        $docV2 = $repoRoot.'/docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md';
 
         switch ($name) {
             case 'arm_registry_available':
@@ -248,7 +280,7 @@ class AtlasForgeRivalsProviderArenaCoreCertification
             case 'all_canonical_arms_declared':
                 $allArms = [
                     AtlasForgeRivalsArmRegistryService::ARM_ATLAS_FORGE,
-                    AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV_LIGHT,
+                    AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV,
                     AtlasForgeRivalsArmRegistryService::ARM_CLAUDE_CODE,
                     AtlasForgeRivalsArmRegistryService::ARM_CODEX_CLI,
                     AtlasForgeRivalsArmRegistryService::ARM_GEMINI_CLI,
@@ -277,20 +309,19 @@ class AtlasForgeRivalsProviderArenaCoreCertification
                     'evidence' => ['app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmContractService.php'],
                 ];
 
-            case 'not_yet_executable_blockers_honest':
+            case 'declared_non_executable_blockers_honest':
                 $contractSrc = $this->readFile($contractFile);
                 $registrySrc = $this->readFile($registryFile);
 
                 return [
                     'ok' => str_contains($contractSrc, 'arm_runner_not_yet_executable')
-                        && str_contains($registrySrc, "STATUS_NOT_YET_EXECUTABLE = 'not_yet_executable'")
+                        && AtlasForgeRivalsArmRegistryService::STATUS_NOT_YET_EXECUTABLE === 'not_yet_executable'
                         && str_contains($registrySrc, 'future_runner_is_placeholder_only')
-                        && str_contains($registrySrc, 'gemini_driver_not_wired_v1')
                         && str_contains($registrySrc, 'scripted_runner_protocol_v1_pending')
                         && str_contains($registrySrc, 'manual_runner_protocol_v1_pending'),
                     'status' => 'slice_8',
-                    'description' => 'Not-yet-executable arms emit honest blockers with specific reason codes; future_runner is placeholder-only.',
-                    'check' => 'contract emits arm_runner_not_yet_executable + registry carries STATUS_NOT_YET_EXECUTABLE constant and per-arm reason codes',
+                    'description' => 'Declared non-executable arms emit honest blockers with specific reason codes; future_runner is placeholder-only.',
+                    'check' => 'contract emits arm_runner_not_yet_executable + registry carries STATUS_NOT_YET_EXECUTABLE constant and remaining non-executable reason codes',
                     'evidence' => [
                         'app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmContractService.php',
                         'app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php',
@@ -343,16 +374,139 @@ class AtlasForgeRivalsProviderArenaCoreCertification
                 ];
 
             case 'arena_doc_canonical':
-                $docSrc = $this->readFile($doc);
+                $docSrc = $this->readFile($doc)."\n".$this->readFile($docV2);
 
                 return [
                     'ok' => is_file($doc)
+                        && is_file($docV2)
                         && str_contains($docSrc, 'atlas.forge.rivals.provider_arena_run.v1')
+                        && str_contains($docSrc, 'atlas-forge-rivals-provider-arena-v2')
                         && str_contains($docSrc, 'external_rivals_certification'),
-                    'status' => 'slice_8',
-                    'description' => 'Canonical doc declares the arena schema and the external_rivals separation rule.',
-                    'check' => 'doc exists + contains arena run schema + external_rivals_certification reference',
-                    'evidence' => ['docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md'],
+                    'status' => 'provider_arena_v2',
+                    'description' => 'Canonical docs declare the arena schema, v2 contract and the external_rivals separation rule.',
+                    'check' => 'core/v2 docs exist + contain arena run schema + v2 id + external_rivals_certification reference',
+                    'evidence' => [
+                        'docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md',
+                        'docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md',
+                    ],
+                ];
+
+            case 'provider_model_registry_available':
+                $src = $this->readFile($modelRegistryFile);
+
+                return [
+                    'ok' => class_exists(AtlasForgeRivalsProviderModelRegistryService::class)
+                        && str_contains($src, 'atlas.forge.rivals.provider_model_registry.v1')
+                        && str_contains($src, "'claude'")
+                        && str_contains($src, "'codex'")
+                        && str_contains($src, "'gemini'")
+                        && str_contains($src, "'gpt-5.5'")
+                        && str_contains($src, "'claude_opus'")
+                        && str_contains($src, "'gemini-pro'"),
+                    'status' => 'provider_arena_v2',
+                    'description' => 'Provider/model ids, aliases and defaults are centralized in ProviderModelRegistry.',
+                    'check' => 'registry class exists + declares Claude/Codex/Gemini + Opus/GPT-5.5/Gemini Pro',
+                    'evidence' => ['app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderModelRegistryService.php'],
+                ];
+
+            case 'models_action_exposes_registry':
+                $cmdSrc = $this->readFile($commandFile);
+                $dispatcherSrc = $this->readFile($dispatcherFile);
+
+                return [
+                    'ok' => in_array('models', AtlasForgeRivalsCommand::ACTIONS, true)
+                        && str_contains($cmdSrc, 'arm-a-model')
+                        && str_contains($cmdSrc, 'arm-b-model')
+                        && str_contains($dispatcherSrc, "'models'")
+                        && str_contains($dispatcherSrc, 'modelsSnapshot'),
+                    'status' => 'provider_arena_v2',
+                    'description' => '`models` action exposes canonical provider/model registry and CLI accepts per-arm models.',
+                    'check' => 'ACTIONS contains models + dispatcher modelsSnapshot + CLI arm-a-model/arm-b-model flags',
+                    'evidence' => [
+                        'app/Console/Commands/AtlasForgeRivalsCommand.php',
+                        'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsActionDispatcher.php',
+                    ],
+                ];
+
+            case 'arm_command_builder_centralized':
+                $src = $this->readFile($commandBuilderFile);
+                $runRealSrc = $this->readFile($runRealFile);
+
+                return [
+                    'ok' => class_exists(AtlasForgeRivalsArmCommandBuilderService::class)
+                        && str_contains($src, 'atlas.forge.rivals.arm_command_builder.v1')
+                        && str_contains($src, 'claudeCommand')
+                        && str_contains($src, 'codexCommand')
+                        && str_contains($src, 'geminiCommand')
+                        && str_contains($runRealSrc, 'AtlasForgeRivalsArmCommandBuilderService $commandBuilder')
+                        && str_contains($runRealSrc, '$this->commandBuilder->build'),
+                    'status' => 'provider_arena_v2',
+                    'description' => 'Provider command construction is centralized and RunReal delegates to the builder.',
+                    'check' => 'builder class exists + supports claude/codex/gemini + RunReal injects and calls it',
+                    'evidence' => [
+                        'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArmCommandBuilderService.php',
+                        'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunRealService.php',
+                    ],
+                ];
+
+            case 'provider_arena_modes_declared':
+                $modeSrc = $this->readFile($modeFile);
+                $runRealSrc = $this->readFile($runRealFile);
+
+                return [
+                    'ok' => str_contains($modeSrc, 'MODE_PROVIDER_ARENA')
+                        && str_contains($modeSrc, 'MODE_PROVIDER_PURE')
+                        && str_contains($modeSrc, 'provider_arena')
+                        && str_contains($modeSrc, 'provider_pure')
+                        && str_contains($runRealSrc, 'MODE_PROVIDER_ARENA')
+                        && str_contains($runRealSrc, 'MODE_PROVIDER_PURE'),
+                    'status' => 'provider_arena_v2',
+                    'description' => 'Provider Arena v2 modes are registered and admitted by RunReal.',
+                    'check' => 'ModeRegistry declares provider_arena/provider_pure + RunReal ALLOWED_MODES includes them',
+                    'evidence' => [
+                        'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsModeRegistry.php',
+                        'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunRealService.php',
+                    ],
+                ];
+
+            case 'provider_arena_real_executor_wired':
+                $arenaSrc = $this->readFile($arenaFile);
+
+                return [
+                    'ok' => str_contains($arenaSrc, 'runProviderArenaReal')
+                        && str_contains($arenaSrc, "'executor' => 'provider_arena_v2'")
+                        && str_contains($arenaSrc, '$this->setup->provision')
+                        && str_contains($arenaSrc, '$this->runReal->run')
+                        && str_contains($arenaSrc, 'collect-evidence-final')
+                        && str_contains($arenaSrc, 'replay-final')
+                        && str_contains($arenaSrc, 'adjudicate')
+                        && str_contains($arenaSrc, 'report'),
+                    'status' => 'provider_arena_v2',
+                    'description' => 'Arena v2 has a real executor path through setup, RunReal, evidence, replay, adjudication and report.',
+                    'check' => 'ArenaRun source carries runProviderArenaReal with setup/run-real/collect/replay/adjudicate/report phases',
+                    'evidence' => ['app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php'],
+                ];
+
+            case 'arena_contracts_flow_to_manifest_report_signal':
+                $runRealSrc = $this->readFile($runRealFile);
+                $reportSrc = $this->readFile($reportFile);
+
+                return [
+                    'ok' => str_contains($runRealSrc, "'arena_contracts' => \$this->arenaContractSummary")
+                        && str_contains($runRealSrc, 'resolved_model_id')
+                        && str_contains($reportSrc, 'deriveArenaArm')
+                        && str_contains($reportSrc, 'providerPairKey')
+                        && str_contains($reportSrc, 'renderArmIdentityTable')
+                        && str_contains($reportSrc, "'arm_a' => \$case['arm_a']")
+                        && str_contains($reportSrc, 'never_changes_atlas_decide_topology')
+                        && str_contains($reportSrc, 'Rivals emits measured evidence; Atlas Decide decides model routing.'),
+                    'status' => 'provider_arena_v2',
+                    'description' => 'Resolved arm/provider/model ids flow into manifest, report, provider pair and advisory signal.',
+                    'check' => 'RunReal writes arena_contracts; Report derives arena arms, provider pair, arm identity table and advisory-only signal rows',
+                    'evidence' => [
+                        'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunRealService.php',
+                        'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportService.php',
+                    ],
                 ];
         }
 

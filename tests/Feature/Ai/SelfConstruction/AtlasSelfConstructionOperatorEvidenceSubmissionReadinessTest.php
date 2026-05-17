@@ -108,6 +108,10 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
             data_get($payload, 'operator_completion_proof_bundle.proof_commands.completion_audit_with_canonical_terminal_loop_operational_proof'),
         );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'operator_completion_proof_bundle.proof_commands.effective_completion_audit_with_terminal_loop_operational_proof'),
+        );
         $this->assertSame(
             'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
             data_get($payload, 'operator_completion_proof_bundle.terminal_loop_operational_proof_canonical_binding_path'),
@@ -440,6 +444,28 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertFalse($payload['draft_hash_finalization_required']);
     }
 
+    public function test_submission_readiness_accepts_private_storage_prefixed_operator_draft_workspace_path(): void
+    {
+        Storage::fake('local');
+        $workspace = $this->writeDraftWorkspaceForSubmissionReadiness();
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'operator_draft_workspace_path' => 'storage/app/private/'.$workspace,
+        ]);
+
+        $this->assertSame('loaded_for_read_only_submission_readiness', data_get($payload, 'draft_workspace_input.status'));
+        $this->assertSame($workspace.'/manifest.json', data_get($payload, 'draft_workspace_input.manifest_path'));
+        $this->assertSame($workspace, data_get($payload, 'draft_workspace_input.workspace_directory'));
+        $this->assertSame([
+            'runtime_promotion_receipt',
+            'real_provider_smoke',
+            'human_completion_receipt',
+        ], data_get($payload, 'draft_workspace_input.loaded_artifacts'));
+        $this->assertTrue(data_get($payload, 'draft_workspace_input.workspace_safe_for_operator_editing'));
+        $this->assertFalse($payload['completion_allowed']);
+        $this->assertFalse($payload['dispatch_allowed']);
+    }
+
     public function test_submission_readiness_auto_loads_canonical_published_submission_files_without_persisting(): void
     {
         Storage::fake('local');
@@ -472,6 +498,10 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.persisted_evidence_state.real_provider_smoke.persisted_green'));
         $this->assertFalse(data_get($payload, 'canonical_submission_persistence_plan.persisted_evidence_state.human_completion_receipt.persisted_green'));
         $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions',
+            data_get($payload, 'canonical_submission_persistence_plan.canonical_submission_private_storage_directory'),
+        );
+        $this->assertSame(
             [
                 'persist_runtime_promotion_receipt',
                 'persist_real_provider_smoke',
@@ -481,16 +511,28 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             array_column(data_get($payload, 'canonical_submission_persistence_plan.steps'), 'id'),
         );
         $this->assertStringContainsString(
-            '--runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            '--runtime-promotion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
             data_get($payload, 'canonical_submission_persistence_plan.steps.0.command'),
         );
-        $this->assertStringContainsString(
-            '--real-provider-smoke-json=@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json',
-            data_get($payload, 'canonical_submission_persistence_plan.steps.1.command'),
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            data_get($payload, 'canonical_submission_persistence_plan.steps.0.canonical_submission_private_storage_path'),
         );
         $this->assertStringContainsString(
-            '--completion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json',
+            '--real-provider-smoke-json=@storage/app/private/atlas/self-construction/operator-submissions/real-provider-smoke.json',
+            data_get($payload, 'canonical_submission_persistence_plan.steps.1.command'),
+        );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/real-provider-smoke.json',
+            data_get($payload, 'canonical_submission_persistence_plan.steps.1.canonical_submission_private_storage_path'),
+        );
+        $this->assertStringContainsString(
+            '--completion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json',
             data_get($payload, 'canonical_submission_persistence_plan.steps.2.command'),
+        );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json',
+            data_get($payload, 'canonical_submission_persistence_plan.steps.2.canonical_submission_private_storage_path'),
         );
         $this->assertSame(
             'canonical_submission_verifier_not_ready',
@@ -599,7 +641,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         );
         $this->assertTrue((bool) data_get($operatorNextAction, 'ready_for_explicit_operator_persistence'));
         $this->assertStringContainsString(
-            '--runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            '--runtime-promotion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
             (string) data_get($operatorNextAction, 'exact_command'),
         );
         $this->assertSame(
@@ -704,7 +746,26 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             'real_provider_smoke',
             'human_completion_receipt',
         ], data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.draft_workspace_loaded_artifacts'));
+        $this->assertSame(3, data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.draft_workspace_artifact_count'));
+        $this->assertTrue((bool) data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.draft_workspace_safe_for_operator_editing'));
+        $this->assertSame(0, data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.draft_workspace_violation_count'));
+        $this->assertSame(0, data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.draft_workspace_warning_count'));
+        $this->assertFalse((bool) data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.draft_workspace_is_evidence'));
+        $this->assertFalse((bool) data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.draft_workspace_can_persist_draft_directly'));
+        $this->assertTrue((bool) data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_persistence_plan_workspace_payload_supplied'));
+        $this->assertFalse((bool) data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_persistence_plan_canonical_source_authoritative'));
+        $this->assertSame(0, data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.canonical_submission_persistence_plan_loaded_artifact_count'));
         $this->assertFalse(data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.draft_workspace_refresh_required'));
+        $this->assertSame(2, data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_runtime_promotion_receipt_placeholder_count'));
+        $this->assertContains('signed_by', data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_runtime_promotion_receipt_placeholders'));
+        $this->assertSame(2, data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_real_provider_smoke_placeholder_count'));
+        $this->assertContains('provider_run_id', data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_real_provider_smoke_placeholders'));
+        $this->assertSame(2, data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_human_completion_receipt_placeholder_count'));
+        $this->assertContains('signed_by', data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_human_completion_receipt_placeholders'));
+        $this->assertSame(6, data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_total_placeholder_count'));
+        $this->assertGreaterThan(0, data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_total_error_count'));
+        $this->assertTrue((bool) data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_all_supplied'));
+        $this->assertSame(0, data_get($decoded, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_ready_count'));
         $this->assertFalse($decoded['dispatch_allowed']);
     }
 
@@ -714,6 +775,26 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
 
         $this->assertSame('atlas.self_construction_agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.v1', $status['schema_version']);
         $this->assertSame('no_input', $status['status']);
+        $this->assertSame(
+            'no_input',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.summary_status'),
+        );
+        $this->assertSame(
+            'runtime_promotion_receipt',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.next_required_submission'),
+        );
+        $this->assertSame(
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_ready_count'),
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.ready_artifact_count'),
+        );
+        $this->assertSame(
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_total_error_count'),
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.error_count'),
+        );
+        $this->assertSame(
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.diagnostic_total_placeholder_count'),
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.placeholder_count'),
+        );
         $this->assertSame(
             'blocked_operator_action_required',
             data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_next_action_status'),
@@ -784,6 +865,8 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_ready_for_final_audit'));
         $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_can_persist_from_proof_bundle'));
         $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_required_before_final_audit'));
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.terminal_loop_operational_proof_required_before_final_receipt'));
+        $this->assertIsBool(data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.terminal_loop_operational_proof_ready'));
         $this->assertSame(
             'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_expected_binding_schema'),
@@ -799,6 +882,10 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         $this->assertStringContainsString(
             '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
             data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_audit_with_canonical_terminal_loop_operational_proof_command'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_effective_audit_with_terminal_loop_operational_proof_command'),
         );
         $this->assertSame(
             'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
@@ -873,6 +960,9 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             (string) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_command_surface_integrity_hash'),
         );
         $this->assertFalse($status['execution_allowed']);
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.provider_call_allowed'));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.token_spend_allowed'));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.self_programming_allowed'));
 
         foreach ([
             'atlas-self-construction-operator-evidence-submission-readiness-contract',

@@ -530,6 +530,57 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest extend
         }
     }
 
+    public function test_recovery_respects_queue_tag_filter_for_parallel_lanes(): void
+    {
+        $svc = $this->recoveryService();
+        $orchestrator = $this->orchestrator();
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('lane-a-expired'), 'queue' => ['tags' => ['lane-a']]]);
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('lane-b-expired'), 'queue' => ['tags' => ['lane-b']]]);
+
+        $claimA = $orchestrator->claimNext('agent-a', ['ttl_seconds' => 60, 'tag' => 'lane-a']);
+        $claimB = $orchestrator->claimNext('agent-b', ['ttl_seconds' => 60, 'tag' => 'lane-b']);
+        $this->assertSame('claimed', $claimA['event']);
+        $this->assertSame('claimed', $claimB['event']);
+
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-15T10:05:00Z'));
+
+        $result = $svc->recoverExpiredLeases([
+            'actor' => 'operator-lane-a',
+            'queue_tags' => ['lane-a'],
+        ]);
+
+        $this->assertSame(['lane-a'], $result['queue_tags']);
+        $this->assertSame(1, $result['recovered_count']);
+        $this->assertSame('lane-a-expired', data_get($result, 'recovered.0.task_packet_id'));
+        $this->assertSame('queue_tag_filter_mismatch', data_get($result, 'skipped.0.skip_reason'));
+        $this->assertSame('lane-b-expired', data_get($result, 'skipped.0.task_packet_id'));
+
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->assertSame('claimable', data_get($queue->get('lane-a-expired'), 'status'));
+        $this->assertSame('claimed', data_get($queue->get('lane-b-expired'), 'status'));
+    }
+
+    public function test_recoverability_inspection_respects_queue_tag_filter(): void
+    {
+        $svc = $this->recoveryService();
+        $orchestrator = $this->orchestrator();
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('inspect-lane-a'), 'queue' => ['tags' => ['inspect-a']]]);
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('inspect-lane-b'), 'queue' => ['tags' => ['inspect-b']]]);
+
+        $orchestrator->claimNext('agent-inspect-a', ['ttl_seconds' => 60, 'tag' => 'inspect-a']);
+        $orchestrator->claimNext('agent-inspect-b', ['ttl_seconds' => 60, 'tag' => 'inspect-b']);
+
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-15T10:05:00Z'));
+
+        $inspect = $svc->inspectRecoverability(['queue_tags' => ['inspect-a']]);
+
+        $this->assertSame(['inspect-a'], $inspect['queue_tags']);
+        $this->assertSame(1, $inspect['inspected_count']);
+        $this->assertSame(1, $inspect['recoverable_count']);
+        $this->assertSame('inspect-lane-a', data_get($inspect, 'classifications.0.task_packet_id'));
+        $this->assertSame(['inspect-a'], data_get($inspect, 'classifications.0.queue_tags'));
+    }
+
     public function test_inspect_recoverability_classifies_correctly(): void
     {
         $svc = $this->recoveryService();

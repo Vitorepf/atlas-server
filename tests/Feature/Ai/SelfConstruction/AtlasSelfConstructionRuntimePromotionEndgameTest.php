@@ -34,6 +34,14 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
             '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
             data_get($payload, 'persistence_preflight.rerun_audit_with_terminal_loop_operational_proof_command'),
         );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'persistence_preflight.terminal_loop_operational_proof_canonical_binding_path'),
+        );
+        $this->assertStringContainsString(
+            '@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'persistence_preflight.effective_rerun_audit_with_canonical_terminal_loop_operational_proof_command'),
+        );
         $this->assertTrue((bool) data_get($payload, 'persistence_preflight.terminal_loop_operational_proof_required_before_final_audit'));
         $this->assertNotEmpty($payload['endgame_hash']);
     }
@@ -115,7 +123,15 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
             'storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
             data_get($payload, 'operator_submission_envelope.receipt_file_hint')
         );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            data_get($payload, 'operator_submission_envelope.receipt_private_storage_file_hint')
+        );
         $this->assertStringContainsString(
+            '@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            (string) data_get($payload, 'operator_submission_envelope.exact_persist_command')
+        );
+        $this->assertStringNotContainsString(
             '@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
             (string) data_get($payload, 'operator_submission_envelope.exact_persist_command')
         );
@@ -131,6 +147,18 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         $this->assertContains(
             'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
             data_get($payload, 'operator_submission_envelope.post_persistence_commands'),
+        );
+        $this->assertContains(
+            'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json --json',
+            data_get($payload, 'operator_submission_envelope.post_persistence_commands'),
+        );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'operator_submission_envelope.terminal_loop_operational_proof_canonical_binding_path'),
+        );
+        $this->assertStringContainsString(
+            '@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'operator_submission_envelope.effective_completion_audit_with_canonical_terminal_loop_operational_proof_command'),
         );
         $this->assertTrue((bool) data_get($payload, 'operator_submission_envelope.terminal_loop_operational_proof_required_before_final_audit'));
         $this->assertSame(
@@ -178,6 +206,39 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         $this->assertSame('ready_for_explicit_operator_persistence', data_get($payload, 'operator_submission_envelope.status'));
         $this->assertFalse($payload['persisted']);
         $this->assertSame([], Storage::disk('local')->allFiles('atlas/self-construction/os-completion/runtime-promotion-receipts'));
+    }
+
+    public function test_endgame_accepts_private_storage_prefixed_operator_draft_workspace_path_without_persisting(): void
+    {
+        Storage::fake('local');
+        [$matrix, $receipt] = $this->runtimePromotionReceiptFixture();
+        $workspace = 'atlas/self-construction/operator-submissions/draft-workspaces/test-runtime-endgame-private';
+        Storage::disk('local')->put($workspace.'/runtime-promotion.json', json_encode($receipt, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+        Storage::disk('local')->put($workspace.'/manifest.json', json_encode([
+            'schema_version' => 'atlas.self_construction.operator_evidence_draft_workspace.v1',
+            'workspace_directory' => $workspace,
+            'files' => [
+                [
+                    'artifact' => 'runtime_promotion_receipt',
+                    'draft_path' => $workspace.'/runtime-promotion.json',
+                    'draft_is_evidence' => false,
+                    'can_persist_draft_directly' => false,
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+
+        $payload = (new AtlasSelfConstructionRuntimePromotionEndgameService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'runtime_gap_matrix' => $matrix,
+            'operator_draft_workspace_path' => 'storage/app/private/'.$workspace,
+            'skip_completion_surfaces' => true,
+        ]);
+
+        $this->assertSame('receipt_verifier_passed_ready_for_explicit_persistence', $payload['status']);
+        $this->assertSame('operator_draft_workspace_runtime_promotion_receipt', data_get($payload, 'receipt_under_review.source'));
+        $this->assertSame($workspace.'/manifest.json', data_get($payload, 'operator_draft_workspace_receipt.manifest_path'));
+        $this->assertSame($workspace.'/runtime-promotion.json', data_get($payload, 'operator_draft_workspace_receipt.draft_path'));
+        $this->assertFalse($payload['persisted']);
+        $this->assertFalse($payload['runtime_write_allowed']);
     }
 
     public function test_endgame_can_persist_verified_receipt_loaded_from_operator_draft_workspace_only_with_explicit_flag(): void

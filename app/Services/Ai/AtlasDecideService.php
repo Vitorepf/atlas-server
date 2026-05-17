@@ -3,8 +3,6 @@
 namespace App\Services\Ai;
 
 use App\Models\AtlasProject;
-use App\Services\Ai\Programming\AtlasForgeProviderFallbackPolicyService;
-use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Decision\DynamicComputeMarketAdvisor;
 use App\Services\Ai\Kernel\Envelope\EffectiveProfile;
@@ -12,9 +10,11 @@ use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Provider\ProviderPreparedRequestValidator;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
 use App\Services\Ai\ValueObjects\OperationalDecision;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -818,6 +818,10 @@ class AtlasDecideService
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
         $obraId = $this->obraId($options, $payload);
         if ($obraId === null) {
+            return;
+        }
+
+        if (! Schema::hasTable('atlas_projects')) {
             return;
         }
 

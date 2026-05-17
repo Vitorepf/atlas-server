@@ -163,11 +163,16 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackTest 
         $this->assertArrayHasKey('persist_human_completion_receipt', (array) data_get($pack, 'exact_commands', []));
         $this->assertArrayHasKey('refresh_terminal_loop_operational_proof', (array) data_get($pack, 'exact_commands', []));
         $this->assertArrayHasKey('persist_terminal_loop_operational_proof_binding', (array) data_get($pack, 'exact_commands', []));
+        $this->assertArrayHasKey('terminal_loop_operational_proof_canonical_binding_path', (array) data_get($pack, 'exact_commands', []));
         $this->assertArrayHasKey('rerun_completion_audit_with_terminal_loop_operational_proof', (array) data_get($pack, 'exact_commands', []));
+        $this->assertArrayHasKey('rerun_completion_audit_with_canonical_terminal_loop_operational_proof', (array) data_get($pack, 'exact_commands', []));
         $this->assertStringContainsString('--persist-completion-evidence', (string) data_get($pack, 'exact_commands.persist_human_completion_receipt'));
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) data_get($pack, 'exact_commands.refresh_terminal_loop_operational_proof'));
         $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) data_get($pack, 'exact_commands.persist_terminal_loop_operational_proof_binding'));
+        $this->assertSame('storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', data_get($pack, 'exact_commands.terminal_loop_operational_proof_canonical_binding_path'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) data_get($pack, 'exact_commands.rerun_completion_audit_with_terminal_loop_operational_proof'));
+        $this->assertStringContainsString('@/path/to/terminal-loop-operational-proof-binding.json', (string) data_get($pack, 'exact_commands.rerun_completion_audit_with_terminal_loop_operational_proof'));
+        $this->assertStringContainsString('@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', (string) data_get($pack, 'exact_commands.rerun_completion_audit_with_canonical_terminal_loop_operational_proof'));
     }
 
     public function test_closure_pack_anti_cheat_policy_lists_forbidden_signers_and_flags(): void

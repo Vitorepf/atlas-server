@@ -37,6 +37,10 @@ final class AgentControlPlaneTaskPacketQueueRepository
 
     public const DEFAULT_REGISTRY_CAP = 200;
 
+    public const LOCK_ACQUIRE_TIMEOUT_SECONDS = 4.0;
+
+    public const LOCK_STALE_AFTER_SECONDS = 60;
+
     public const STATUSES = [
         'queued',
         'claimable',
@@ -165,6 +169,10 @@ final class AgentControlPlaneTaskPacketQueueRepository
         $entries = (array) ($registry['entries'] ?? []);
         $status = isset($filters['status']) ? (string) $filters['status'] : '';
         $tag = isset($filters['tag']) ? (string) $filters['tag'] : '';
+        $tags = $this->stringList((array) ($filters['tags'] ?? []));
+        if ($tag !== '') {
+            $tags = array_values(array_unique(array_merge([$tag], $tags)));
+        }
         $limit = isset($filters['limit']) ? (int) $filters['limit'] : 0;
 
         $results = [];
@@ -172,9 +180,9 @@ final class AgentControlPlaneTaskPacketQueueRepository
             if ($status !== '' && (string) ($entry['status'] ?? '') !== $status) {
                 continue;
             }
-            if ($tag !== '') {
-                $tags = (array) ($entry['tags'] ?? []);
-                if (! in_array($tag, $tags, true)) {
+            if ($tags !== []) {
+                $entryTags = array_values(array_map('strval', (array) ($entry['tags'] ?? [])));
+                if (array_diff($tags, $entryTags) !== []) {
                     continue;
                 }
             }
@@ -334,6 +342,12 @@ final class AgentControlPlaneTaskPacketQueueRepository
             'status_transition_policy_hash' => $this->transitionPolicyHash(),
             'claim_transition_requires_lease_id' => true,
             'claim_transition_requires_agent_id' => true,
+            'queue_write_lock_required' => true,
+            'queue_write_lock_path' => self::LOCK_PATH,
+            'queue_write_lock_acquire_timeout_seconds' => self::LOCK_ACQUIRE_TIMEOUT_SECONDS,
+            'queue_write_lock_stale_after_seconds' => self::LOCK_STALE_AFTER_SECONDS,
+            'queue_write_lock_timeout_blocks_mutation' => true,
+            'queue_write_lock_owner_token_required_for_release' => true,
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
             'ledger_write_allowed' => false,
@@ -389,11 +403,13 @@ final class AgentControlPlaneTaskPacketQueueRepository
                 $matches = $this->entryMatchesPruneFilters($entry, $tags, $prefixes);
                 if (! $matches) {
                     $kept[] = $entry;
+
                     continue;
                 }
                 if (in_array($status, $preserveStatuses, true)) {
                     $kept[] = $entry;
                     $preservedCount++;
+
                     continue;
                 }
 
@@ -480,18 +496,31 @@ final class AgentControlPlaneTaskPacketQueueRepository
         $disk = $this->disk();
         $start = microtime(true);
         $lockToken = (string) Str::uuid();
+        $acquired = false;
 
         while (true) {
             if (! $disk->exists(self::LOCK_PATH)) {
-                $disk->put(self::LOCK_PATH, $lockToken);
-                $current = (string) $disk->get(self::LOCK_PATH);
-                if ($current === $lockToken) {
+                $disk->put(self::LOCK_PATH, $this->encodeLockPayload($lockToken));
+                $currentToken = $this->lockTokenFromContent((string) $disk->get(self::LOCK_PATH));
+                if ($currentToken === $lockToken) {
+                    $acquired = true;
                     break;
                 }
             }
-            // Stale-lock fallback: yield after 4s of contention.
-            if ((microtime(true) - $start) > 4.0) {
-                break;
+            if ($disk->exists(self::LOCK_PATH) && $this->lockIsStale()) {
+                $disk->delete(self::LOCK_PATH);
+
+                continue;
+            }
+            if ((microtime(true) - $start) > self::LOCK_ACQUIRE_TIMEOUT_SECONDS) {
+                return $this->envelopeError('queue_lock_busy', '', [
+                    'lock_path' => self::LOCK_PATH,
+                    'lock_acquire_timeout_seconds' => self::LOCK_ACQUIRE_TIMEOUT_SECONDS,
+                    'lock_stale_after_seconds' => self::LOCK_STALE_AFTER_SECONDS,
+                    'queue_write_lock_required' => true,
+                    'mutation_blocked_until_lock_acquired' => true,
+                    'lock_owner_token_required_for_release' => true,
+                ]);
             }
             usleep(50_000);
         }
@@ -499,10 +528,61 @@ final class AgentControlPlaneTaskPacketQueueRepository
         try {
             return $callback();
         } finally {
-            if ($disk->exists(self::LOCK_PATH)) {
+            if (
+                $acquired
+                && $disk->exists(self::LOCK_PATH)
+                && $this->lockTokenFromContent((string) $disk->get(self::LOCK_PATH)) === $lockToken
+            ) {
                 $disk->delete(self::LOCK_PATH);
             }
         }
+    }
+
+    private function encodeLockPayload(string $lockToken): string
+    {
+        return $this->encode([
+            'schema_version' => self::SCHEMA_VERSION,
+            'lock_token' => $lockToken,
+            'acquired_at' => CarbonImmutable::now()->toIso8601String(),
+            'acquired_at_unix' => CarbonImmutable::now()->getTimestamp(),
+            'stale_after_seconds' => self::LOCK_STALE_AFTER_SECONDS,
+            'owner_token_required_for_release' => true,
+        ]);
+    }
+
+    private function lockTokenFromContent(string $content): string
+    {
+        try {
+            $decoded = json_decode($content, true, flags: JSON_THROW_ON_ERROR);
+            if (is_array($decoded)) {
+                return trim((string) ($decoded['lock_token'] ?? ''));
+            }
+        } catch (Throwable) {
+            // Backward-compatible with legacy plain-token lock files.
+        }
+
+        return trim($content);
+    }
+
+    private function lockIsStale(): bool
+    {
+        try {
+            $decoded = json_decode((string) $this->disk()->get(self::LOCK_PATH), true, flags: JSON_THROW_ON_ERROR);
+            if (is_array($decoded) && (int) ($decoded['acquired_at_unix'] ?? 0) > 0) {
+                return (CarbonImmutable::now()->getTimestamp() - (int) $decoded['acquired_at_unix']) > self::LOCK_STALE_AFTER_SECONDS;
+            }
+        } catch (Throwable) {
+            // Fall back to filesystem metadata for legacy plain-token locks.
+        }
+
+        try {
+            $modifiedAt = $this->disk()->lastModified(self::LOCK_PATH);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return $modifiedAt > 0
+            && (CarbonImmutable::now()->getTimestamp() - $modifiedAt) > self::LOCK_STALE_AFTER_SECONDS;
     }
 
     /**

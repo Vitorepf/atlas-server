@@ -8,7 +8,7 @@ use App\Services\Ai\Programming\ForgeRivals\Schema\AtlasForgeRivalsSchemaContrac
 use InvalidArgumentException;
 
 /**
- * Atlas Forge Rivals · Provider Arena Corpus Release v1.
+ * Atlas Forge Rivals · Provider Arena Corpus Release/Industrial v1.
  *
  * Canonical, file-based corpus of twelve programming cases that the Provider
  * Arena uses to compare arms (Atlas Forge vs Claude Code vs Codex CLI vs
@@ -43,13 +43,17 @@ use InvalidArgumentException;
  *   arm contract validator and downstream snapshot consumers keep working
  *   byte-for-byte without a coordinated refactor.
  *
- * Six case sets (deterministic resolution):
+ * Case sets (deterministic resolution):
  *   - quick:        3 short cases (one bugfix + one frontend + one perf)
  *   - release:      every case (the 12-case Release v1)
  *   - frontend:     case_id prefix `frontend-` (3 cases)
  *   - backend:      case_id prefix `backend-` (4 cases)
  *   - bugfix:       primary or secondary category == realistic_bugfix (2 cases)
- *   - architecture: primary in {architecture, refactor} (2 cases)
+ *   - architecture: primary in {architecture, refactor}
+ *   - industrial-50 / industrial-100 / industrial-200: generated industrial benchmark suite slices.
+ *   - ambiguous-bugs / multi-day-refactors / incident-response /
+ *     product-security-migrations: domain-specific industrial batteries.
+ *   - statistical-repeat: repeated industrial subset for variance analysis.
  *
  * Safety rules (never relaxed):
  *   - No case dispatches a provider in its declared commands.
@@ -78,6 +82,22 @@ final class AtlasForgeRivalsProviderArenaCorpusService
 
     public const CASE_SET_ARCHITECTURE = 'architecture';
 
+    public const CASE_SET_INDUSTRIAL_50 = 'industrial-50';
+
+    public const CASE_SET_INDUSTRIAL_100 = 'industrial-100';
+
+    public const CASE_SET_INDUSTRIAL_200 = 'industrial-200';
+
+    public const CASE_SET_AMBIGUOUS_BUGS = 'ambiguous-bugs';
+
+    public const CASE_SET_MULTI_DAY_REFACTORS = 'multi-day-refactors';
+
+    public const CASE_SET_INCIDENT_RESPONSE = 'incident-response';
+
+    public const CASE_SET_PRODUCT_SECURITY_MIGRATIONS = 'product-security-migrations';
+
+    public const CASE_SET_STATISTICAL_REPEAT = 'statistical-repeat';
+
     /** @var list<string> */
     public const CASE_SETS = [
         self::CASE_SET_QUICK,
@@ -86,6 +106,55 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         self::CASE_SET_BACKEND,
         self::CASE_SET_BUGFIX,
         self::CASE_SET_ARCHITECTURE,
+        self::CASE_SET_INDUSTRIAL_50,
+        self::CASE_SET_INDUSTRIAL_100,
+        self::CASE_SET_INDUSTRIAL_200,
+        self::CASE_SET_AMBIGUOUS_BUGS,
+        self::CASE_SET_MULTI_DAY_REFACTORS,
+        self::CASE_SET_INCIDENT_RESPONSE,
+        self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS,
+        self::CASE_SET_STATISTICAL_REPEAT,
+    ];
+
+    /** @var list<string> */
+    public const INDUSTRIAL_CASE_SETS = [
+        self::CASE_SET_INDUSTRIAL_50,
+        self::CASE_SET_INDUSTRIAL_100,
+        self::CASE_SET_INDUSTRIAL_200,
+        self::CASE_SET_AMBIGUOUS_BUGS,
+        self::CASE_SET_MULTI_DAY_REFACTORS,
+        self::CASE_SET_INCIDENT_RESPONSE,
+        self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS,
+        self::CASE_SET_STATISTICAL_REPEAT,
+    ];
+
+    /** @var array<string,int> */
+    public const INDUSTRIAL_CASE_SET_MIN_VALID_CASES = [
+        self::CASE_SET_INDUSTRIAL_50 => 50,
+        self::CASE_SET_INDUSTRIAL_100 => 100,
+        self::CASE_SET_INDUSTRIAL_200 => 200,
+        self::CASE_SET_AMBIGUOUS_BUGS => 50,
+        self::CASE_SET_MULTI_DAY_REFACTORS => 50,
+        self::CASE_SET_INCIDENT_RESPONSE => 50,
+        self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS => 50,
+        self::CASE_SET_STATISTICAL_REPEAT => 50,
+    ];
+
+    /** @var list<string> */
+    public const INDUSTRIAL_DOMAINS = [
+        'ambiguous_bug',
+        'incomplete_requirements',
+        'large_refactor',
+        'multi_day_task',
+        'incident_rollback',
+        'migration',
+        'documentation',
+        'test_design',
+        'security',
+        'product',
+        'integration',
+        'performance',
+        'flakiness_repeat',
     ];
 
     /**
@@ -334,6 +403,8 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         'integration_performance' => 'integration_safety',
     ];
 
+    private const INDUSTRIAL_CASE_COUNT = 200;
+
     /**
      * @return list<array<string,mixed>>
      */
@@ -362,7 +433,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
     public function case(string $caseId): array
     {
         $caseId = trim($caseId);
-        foreach ($this->corpus() as $case) {
+        foreach (array_merge($this->corpus(), $this->allGeneratedIndustrialCases()) as $case) {
             if ((string) $case['case_id'] === $caseId) {
                 return $this->adaptCase($case);
             }
@@ -385,6 +456,14 @@ final class AtlasForgeRivalsProviderArenaCorpusService
 
         return match ($key) {
             self::CASE_SET_RELEASE => $all,
+            self::CASE_SET_INDUSTRIAL_50 => array_slice($this->industrialCases(), 0, 50),
+            self::CASE_SET_INDUSTRIAL_100 => array_slice($this->industrialCases(), 0, 100),
+            self::CASE_SET_INDUSTRIAL_200 => $this->industrialCases(),
+            self::CASE_SET_AMBIGUOUS_BUGS => $this->industrialCasesForDomain(self::CASE_SET_AMBIGUOUS_BUGS, 'ambiguous_bug', 50),
+            self::CASE_SET_MULTI_DAY_REFACTORS => $this->industrialCasesForDomain(self::CASE_SET_MULTI_DAY_REFACTORS, 'multi_day_task', 50),
+            self::CASE_SET_INCIDENT_RESPONSE => $this->industrialCasesForDomain(self::CASE_SET_INCIDENT_RESPONSE, 'incident_rollback', 50),
+            self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS => $this->industrialCasesForDomains(self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS, ['product', 'security', 'migration'], 50),
+            self::CASE_SET_STATISTICAL_REPEAT => $this->statisticalRepeatCases(),
             self::CASE_SET_QUICK => array_values(array_filter(
                 $all,
                 static fn (array $c): bool => in_array((string) $c['case_id'], self::QUICK_CASE_IDS, true),
@@ -650,6 +729,9 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'case_ids' => $this->caseIds(),
             'case_sets' => self::CASE_SETS,
             'case_set_counts' => $byCaseSet,
+            'industrial_case_sets' => self::INDUSTRIAL_CASE_SETS,
+            'industrial_min_valid_cases' => self::INDUSTRIAL_CASE_SET_MIN_VALID_CASES,
+            'industrial_domains' => self::INDUSTRIAL_DOMAINS,
             'task_categories' => self::TASK_CATEGORIES,
             'by_task_category' => $byCategory,
             'quick_case_ids' => self::QUICK_CASE_IDS,
@@ -669,6 +751,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'schema_version' => self::SCHEMA_VERSION,
             'release_version' => self::RELEASE_VERSION,
             'cases' => $this->cases(),
+            'industrial_cases' => $this->industrialCases(),
             'case_sets' => self::CASE_SETS,
             'task_categories' => self::TASK_CATEGORIES,
             'quick_case_ids' => self::QUICK_CASE_IDS,
@@ -702,6 +785,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         ));
 
         $adapted = $case;
+        $adapted['id'] = (string) ($case['id'] ?? $case['case_id'] ?? '');
         $adapted['task_category'] = $taskCategory;
         $adapted['role_focus'] = $roleFocus;
         // Per-case difficulty_level (L1..L5) is canon and stays authoritative; only fall
@@ -730,6 +814,405 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         $adapted['expected_signal'] = (string) ($acceptance[0] ?? '');
 
         return $adapted;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function industrialCases(): array
+    {
+        $cases = [];
+        for ($i = 1; $i <= self::INDUSTRIAL_CASE_COUNT; $i++) {
+            $cases[] = $this->adaptCase($this->industrialCase($i));
+        }
+
+        return $cases;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function industrialCasesForDomain(string $caseSet, string $domain, int $limit): array
+    {
+        return $this->expandIndustrialSelection($caseSet, array_values(array_filter(
+            $this->industrialCases(),
+            static fn (array $case): bool => in_array($domain, (array) ($case['industrial_domains'] ?? []), true),
+        )), $limit);
+    }
+
+    /**
+     * @param  list<string>  $domains
+     * @return list<array<string,mixed>>
+     */
+    private function industrialCasesForDomains(string $caseSet, array $domains, int $limit): array
+    {
+        return $this->expandIndustrialSelection($caseSet, array_values(array_filter(
+            $this->industrialCases(),
+            static function (array $case) use ($domains): bool {
+                $caseDomains = (array) ($case['industrial_domains'] ?? []);
+                foreach ($domains as $domain) {
+                    if (in_array($domain, $caseDomains, true)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            },
+        )), $limit);
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function statisticalRepeatCases(): array
+    {
+        $base = array_slice($this->industrialCases(), 0, 20);
+        $cases = [];
+        foreach ($base as $case) {
+            for ($repeat = 1; $repeat <= 3; $repeat++) {
+                $copy = $case;
+                $copy['case_id'] = $case['case_id'].'-r'.$repeat;
+                $copy['id'] = $copy['case_id'];
+                $copy['fixture_seed_path'] = 'storage/forge-rivals-corpus/'.$copy['case_id'].'/seed';
+                $scopeRoot = 'storage/forge-rivals-industrial/'.$copy['case_id'];
+                $copy['allowed_files_scope'] = [
+                    $scopeRoot.'/src/**',
+                    $scopeRoot.'/tests/**',
+                    $scopeRoot.'/docs/**',
+                ];
+                $copy['expected_changed_files'] = [
+                    $scopeRoot.'/src/'.$copy['case_id'].'.php',
+                    $scopeRoot.'/tests/'.$copy['case_id'].'Test.php',
+                ];
+                $copy['statistical_repeat'] = [
+                    'repeat_index' => $repeat,
+                    'repeat_group' => $case['case_id'],
+                    'required_repetitions' => 3,
+                    'variance_policy' => 'block_strong_claim_until_repetitions_complete',
+                ];
+                $copy['industrial_domains'] = array_values(array_unique(array_merge(
+                    (array) ($copy['industrial_domains'] ?? []),
+                    ['flakiness_repeat'],
+                )));
+                $copy = $this->retargetIndustrialCasePaths($copy, (string) $copy['case_id']);
+                $cases[] = $copy;
+            }
+        }
+
+        return $cases;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function allGeneratedIndustrialCases(): array
+    {
+        return array_values(array_merge(
+            $this->industrialCases(),
+            $this->industrialCasesForDomain(self::CASE_SET_AMBIGUOUS_BUGS, 'ambiguous_bug', 50),
+            $this->industrialCasesForDomain(self::CASE_SET_MULTI_DAY_REFACTORS, 'multi_day_task', 50),
+            $this->industrialCasesForDomain(self::CASE_SET_INCIDENT_RESPONSE, 'incident_rollback', 50),
+            $this->industrialCasesForDomains(self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS, ['product', 'security', 'migration'], 50),
+            $this->statisticalRepeatCases(),
+        ));
+    }
+
+    /**
+     * Industrial thematic presets are batteries, not raw domain filters. When
+     * the 200-case base corpus has fewer than 50 natural matches for a theme,
+     * we cycle the matching pool into deterministic variants so the preset
+     * still has the requested industrial floor without inventing hidden state.
+     *
+     * @param  list<array<string,mixed>>  $pool
+     * @return list<array<string,mixed>>
+     */
+    private function expandIndustrialSelection(string $caseSet, array $pool, int $limit): array
+    {
+        if ($pool === []) {
+            return [];
+        }
+
+        $cases = [];
+        $count = count($pool);
+        for ($i = 0; $i < $limit; $i++) {
+            $base = $pool[$i % $count];
+            $variant = intdiv($i, $count) + 1;
+            $ordinal = str_pad((string) ($i + 1), 3, '0', STR_PAD_LEFT);
+            $baseId = (string) ($base['case_id'] ?? 'industrial-case');
+            $caseId = $caseSet.'-'.$ordinal.'-'.$baseId.($variant > 1 ? '-v'.$variant : '');
+            $copy = $base;
+            $copy['case_id'] = $caseId;
+            $copy['id'] = $caseId;
+            $copy['industrial_suite'] = 'atlas-forge-rivals-industrial-benchmark-suite-v1';
+            $copy['industrial_case_set'] = $caseSet;
+            $copy['industrial_variant'] = [
+                'source_case_id' => $baseId,
+                'variant_index' => $variant,
+                'selection_ordinal' => $i + 1,
+                'selection_policy' => 'deterministic_cycle_until_case_set_floor',
+            ];
+            $copy = $this->retargetIndustrialCasePaths($copy, $caseId);
+            $cases[] = $copy;
+        }
+
+        return $cases;
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function retargetIndustrialCasePaths(array $case, string $caseId): array
+    {
+        $scopeRoot = 'storage/forge-rivals-industrial/'.$caseId;
+        $case['fixture_seed_path'] = 'storage/forge-rivals-corpus/'.$caseId.'/seed';
+        $case['allowed_files_scope'] = [
+            $scopeRoot.'/src/**',
+            $scopeRoot.'/tests/**',
+            $scopeRoot.'/docs/**',
+        ];
+        $case['expected_changed_files'] = [
+            $scopeRoot.'/src/'.$caseId.'.php',
+            $scopeRoot.'/tests/'.$caseId.'Test.php',
+        ];
+        $case['quick_test_command'] = 'php storage/forge-rivals-industrial/'.$caseId.'/tests/'.$caseId.'Test.php';
+        $case['full_test_command'] = $case['quick_test_command'];
+
+        return $case;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function industrialCase(int $i): array
+    {
+        $category = self::TASK_CATEGORIES[($i - 1) % count(self::TASK_CATEGORIES)];
+        $level = self::DIFFICULTY_LEVELS[($i - 1) % count(self::DIFFICULTY_LEVELS)];
+        $difficulty = match ($level) {
+            self::DIFFICULTY_LEVEL_L1, self::DIFFICULTY_LEVEL_L2 => self::DIFFICULTY_EASY,
+            self::DIFFICULTY_LEVEL_L5 => self::DIFFICULTY_HARD,
+            default => self::DIFFICULTY_MEDIUM,
+        };
+        $domain = self::INDUSTRIAL_DOMAINS[($i - 1) % count(self::INDUSTRIAL_DOMAINS)];
+        $secondaryDomain = self::INDUSTRIAL_DOMAINS[$i % count(self::INDUSTRIAL_DOMAINS)];
+        $slug = str_pad((string) $i, 3, '0', STR_PAD_LEFT);
+        $caseId = 'industrial-'.$slug.'-'.$domain;
+        $scopeRoot = 'storage/forge-rivals-industrial/'.$caseId;
+
+        return [
+            'case_id' => $caseId,
+            'title' => 'Industrial benchmark '.$slug.' · '.$this->domainTitle($domain),
+            'category' => $category,
+            'secondary_categories' => $this->industrialSecondaryCategories($category, $domain),
+            'difficulty' => $difficulty,
+            'difficulty_level' => $level,
+            'difficulty_score' => self::DIFFICULTY_LEVEL_SCORE[$level],
+            'difficulty_reason' => $this->difficultyReason($level, $domain),
+            'planning_weight' => $this->planningWeight($domain, $level),
+            'execution_weight' => 1.0 - $this->planningWeight($domain, $level),
+            'ambiguity_level' => in_array($domain, ['ambiguous_bug', 'incomplete_requirements'], true) ? 'high' : 'medium',
+            'risk_level' => in_array($domain, ['incident_rollback', 'security', 'migration'], true) ? 'critical' : ($level === 'L5' ? 'high' : 'medium'),
+            'task_type' => $domain,
+            'industrial_domains' => array_values(array_unique([$domain, $secondaryDomain])),
+            'industrial_suite' => 'atlas-forge-rivals-industrial-benchmark-suite-v1',
+            'objective' => $this->objectiveForDomain($domain, $slug),
+            'business_rule' => $this->businessRuleForDomain($domain),
+            'acceptance_criteria' => [
+                'Entrega resolve o caso sem tocar arquivos proibidos.',
+                'Patch inclui evidencia local suficiente para auditoria e replay.',
+                'Resposta explicita incertezas, tradeoffs e limites quando o prompt for ambiguo.',
+                'Scorecard por caso pode ser reconstruido a partir do evidence pack.',
+            ],
+            'allowed_files_scope' => [
+                $scopeRoot.'/src/**',
+                $scopeRoot.'/tests/**',
+                $scopeRoot.'/docs/**',
+            ],
+            'forbidden_files_scope' => [
+                'app/Services/Ai/SelfConstruction/**',
+                'atlas-desktop/**',
+                'atlas-cartografia/**',
+                'app/Services/Ai/Voice/**',
+            ],
+            'fixture_seed_path' => 'storage/forge-rivals-corpus/'.$caseId.'/seed',
+            'quick_test_command' => 'php '.$scopeRoot.'/tests/'.$caseId.'Test.php',
+            'full_test_command' => 'php '.$scopeRoot.'/tests/'.$caseId.'Test.php',
+            'expected_changed_files' => [
+                $scopeRoot.'/src/'.$caseId.'.php',
+                $scopeRoot.'/tests/'.$caseId.'Test.php',
+            ],
+            'quality_weights' => [
+                'dimensions' => $this->scoringDimensions($domain),
+                'weights' => $this->scoringWeights($domain),
+            ],
+            'scoring_dimensions' => $this->scoringDimensions($domain),
+            'oracle' => [
+                'type' => in_array($domain, ['ambiguous_bug', 'security', 'incident_rollback'], true) ? 'hidden_oracle' : 'public_oracle',
+                'metadata_version' => 'industrial_oracle_v1',
+                'human_triage_required' => in_array($domain, ['ambiguous_bug', 'incomplete_requirements'], true),
+            ],
+            'hidden_oracle_metadata' => [
+                'available_to_runner' => false,
+                'used_by_adjudicator_only' => true,
+                'oracle_hash' => hash('sha256', $caseId.'|'.$domain.'|industrial_hidden_oracle_v1'),
+            ],
+            'invalid_if' => [
+                'synthetic_score_admitted',
+                'touched_forbidden_files',
+                'external_rivals_unlock_attempted',
+                'missing_case_scorecard',
+                'missing_replay',
+                'missing_evidence_pack',
+                'oracle_metadata_ignored',
+            ],
+            'timeout_policy' => [
+                'wall_clock_seconds_max' => $level === 'L5' ? 1800 : 900,
+                'per_stage_seconds_max' => $level === 'L5' ? 420 : 240,
+                'hard_kill_after_seconds' => $level === 'L5' ? 2400 : 1200,
+            ],
+            'evidence_requirements' => [
+                'patch_diff',
+                'provider_receipt',
+                'test_log',
+                'scorecard_per_case',
+                'workspace_hashes',
+                'oracle_adjudication_notes',
+            ],
+            'replay_requirements' => [
+                'fixture_seed_hash',
+                'final_changed_files_hash',
+                'test_exit_code',
+                'scorecard_hash',
+                'oracle_metadata_hash',
+            ],
+            'fairness_notes' => 'Industrial generated spec; no runner-specific hint. Claim forte exige evidence/replay/scorecard/matrix e floors industriais.',
+            'human_review_notes' => 'Operador deve revisar ambiguity handling, rollback plan, security/product tradeoffs e variancia antes de qualquer claim.',
+            'claim_level' => self::CLAIM_LEVEL_CASE_RESULT_ONLY,
+        ];
+    }
+
+    private function domainTitle(string $domain): string
+    {
+        return str_replace('_', ' ', $domain);
+    }
+
+    private function objectiveForDomain(string $domain, string $slug): string
+    {
+        return match ($domain) {
+            'ambiguous_bug' => "Triar e corrigir bug ambiguo industrial {$slug}, separando fatos, hipoteses e fix minimo.",
+            'incomplete_requirements' => "Transformar requisito incompleto {$slug} em plano executavel com assumptions auditaveis.",
+            'large_refactor' => "Refatorar modulo legado {$slug} sem regressao funcional e com passos reversiveis.",
+            'multi_day_task' => "Decompor tarefa multi-dia {$slug} em slices, checkpoints e evidencia incremental.",
+            'incident_rollback' => "Responder incidente {$slug} com mitigacao, rollback seguro e postmortem tecnico.",
+            'migration' => "Executar migration {$slug} com compatibilidade, plano de rollback e validacao de dados.",
+            'documentation' => "Atualizar documentacao operacional {$slug} mantendo exemplos, riscos e runbook testaveis.",
+            'test_design' => "Projetar testes {$slug} que capturem regressao, edge cases e comportamento esperado.",
+            'security' => "Corrigir risco de seguranca {$slug} com fail-closed e evidencia de nao regressao.",
+            'product' => "Implementar ajuste de produto {$slug} equilibrando UX, regra de negocio e metricas.",
+            'integration' => "Estabilizar integracao {$slug} com contrato externo, retries e observabilidade.",
+            'performance' => "Reduzir custo/latencia {$slug} sem mudar payload publico nem esconder tradeoffs.",
+            'flakiness_repeat' => "Investigar flakiness {$slug} com repeticao estatistica e isolamento de causa.",
+            default => "Resolver caso industrial {$slug} com evidencia completa.",
+        };
+    }
+
+    private function businessRuleForDomain(string $domain): string
+    {
+        return match ($domain) {
+            'ambiguous_bug' => 'Suporte descreveu sintomas conflitantes; o runner deve evitar fix especulativo sem evidenciar a causa mais provavel.',
+            'incomplete_requirements' => 'Produto deixou lacunas de regra; o runner deve explicitar assumptions e bloquear partes inseguras.',
+            'large_refactor' => 'Modulo critico precisa melhorar manutencao sem alterar contrato publico.',
+            'multi_day_task' => 'Trabalho longo deve permanecer auditavel mesmo se interrompido entre etapas.',
+            'incident_rollback' => 'Incidente em producao exige mitigacao rapida, rollback e evidencias para postmortem.',
+            'migration' => 'Mudanca de schema/dados deve preservar compatibilidade e permitir retorno seguro.',
+            'documentation' => 'Runbook precisa guiar operador real sob pressao, nao apenas descrever a feature.',
+            'test_design' => 'Regressao historica deve falhar antes do fix e passar depois dele.',
+            'security' => 'Falha deve fechar por padrao seguro e evitar bypass silencioso.',
+            'product' => 'Mudanca deve melhorar fluxo do usuario sem quebrar metricas existentes.',
+            'integration' => 'Contrato externo pode falhar parcial; o sistema deve degradar com evidencia.',
+            'performance' => 'Otimizacao deve provar latencia/custo menor sem regressao funcional.',
+            'flakiness_repeat' => 'Resultado so conta com repeticoes suficientes e variancia explicita.',
+            default => 'Caso industrial exige evidencia completa antes de qualquer claim.',
+        };
+    }
+
+    private function difficultyReason(string $level, string $domain): string
+    {
+        return $level.' mede '.$domain.' com escopo industrial, evidencia obrigatoria e risco de regressao.';
+    }
+
+    private function planningWeight(string $domain, string $level): float
+    {
+        if (in_array($domain, ['multi_day_task', 'incident_rollback', 'migration', 'large_refactor'], true)) {
+            return 0.65;
+        }
+        if (in_array($domain, ['ambiguous_bug', 'incomplete_requirements', 'product', 'security'], true)) {
+            return 0.55;
+        }
+
+        return $level === self::DIFFICULTY_LEVEL_L5 ? 0.55 : 0.40;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function industrialSecondaryCategories(string $category, string $domain): array
+    {
+        $map = [
+            'ambiguous_bug' => 'realistic_bugfix',
+            'incomplete_requirements' => 'planning',
+            'large_refactor' => 'refactor',
+            'multi_day_task' => 'architecture',
+            'incident_rollback' => 'integration_performance',
+            'migration' => 'backend_logic',
+            'documentation' => 'planning',
+            'test_design' => 'test_design',
+            'security' => 'architecture',
+            'product' => 'frontend_ui',
+            'integration' => 'integration_performance',
+            'performance' => 'integration_performance',
+            'flakiness_repeat' => 'test_design',
+        ];
+        $secondary = $map[$domain] ?? 'planning';
+
+        return $secondary === $category ? [] : [$secondary];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function scoringDimensions(string $domain): array
+    {
+        $base = ['correctness', 'scope_discipline', 'evidence_quality', 'maintainability'];
+
+        return match ($domain) {
+            'ambiguous_bug', 'incomplete_requirements' => array_values(array_unique(array_merge($base, ['ambiguity_handling', 'assumption_quality']))),
+            'large_refactor', 'multi_day_task' => array_values(array_unique(array_merge($base, ['decomposition', 'rollback_safety']))),
+            'incident_rollback' => array_values(array_unique(array_merge($base, ['mitigation_speed', 'rollback_safety', 'postmortem_quality']))),
+            'migration' => array_values(array_unique(array_merge($base, ['compatibility', 'data_safety']))),
+            'security' => array_values(array_unique(array_merge($base, ['fail_closed', 'threat_model']))),
+            'product' => array_values(array_unique(array_merge($base, ['ux_quality', 'business_fit']))),
+            'integration' => array_values(array_unique(array_merge($base, ['contract_safety', 'observability']))),
+            'performance' => array_values(array_unique(array_merge($base, ['performance', 'behavior_preservation']))),
+            'flakiness_repeat' => array_values(array_unique(array_merge($base, ['statistical_reproducibility', 'flake_isolation']))),
+            default => $base,
+        };
+    }
+
+    /**
+     * @return array<string,float>
+     */
+    private function scoringWeights(string $domain): array
+    {
+        $dimensions = $this->scoringDimensions($domain);
+        $weight = round(1.0 / count($dimensions), 4);
+        $weights = array_fill_keys($dimensions, $weight);
+        $last = array_key_last($weights);
+        if (is_string($last)) {
+            $weights[$last] = round(1.0 - array_sum(array_slice($weights, 0, -1)), 4);
+        }
+
+        return $weights;
     }
 
     /**

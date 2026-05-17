@@ -93,6 +93,24 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTes
         }
     }
 
+    public function test_list_filters_by_all_required_tags(): void
+    {
+        $repo = new AgentControlPlaneTaskPacketQueueRepository;
+        $repo->enqueue($this->packet('lane-all-tags'), ['tags' => ['lane-a', 'worker-1']]);
+        $repo->enqueue($this->packet('lane-partial-tags'), ['tags' => ['lane-a']]);
+        $repo->enqueue($this->packet('lane-other-tags'), ['tags' => ['lane-b', 'worker-1']]);
+
+        $results = $repo->list([
+            'status' => 'claimable',
+            'tags' => ['lane-a', 'worker-1'],
+        ]);
+
+        $this->assertSame(['lane-all-tags'], array_map(
+            static fn (array $record): string => (string) $record['task_packet_id'],
+            $results,
+        ));
+    }
+
     public function test_update_status_valid(): void
     {
         $repo = new AgentControlPlaneTaskPacketQueueRepository;
@@ -194,6 +212,27 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTes
         }
     }
 
+    public function test_fresh_queue_lock_blocks_mutation_without_deleting_foreign_lock(): void
+    {
+        $disk = Storage::disk('local');
+        $disk->put(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH, json_encode([
+            'lock_token' => 'foreign-lock-token',
+            'acquired_at_unix' => time(),
+        ], JSON_THROW_ON_ERROR));
+
+        $repo = new AgentControlPlaneTaskPacketQueueRepository;
+        $result = $repo->enqueue($this->packet('lock-busy-test'));
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('queue_lock_busy', $result['reason']);
+        $this->assertTrue((bool) $result['queue_write_lock_required']);
+        $this->assertTrue((bool) $result['mutation_blocked_until_lock_acquired']);
+        $this->assertTrue((bool) $result['lock_owner_token_required_for_release']);
+        $this->assertTrue($disk->exists(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH));
+        $this->assertSame('foreign-lock-token', data_get(json_decode((string) $disk->get(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH), true), 'lock_token'));
+        $this->assertNull($repo->get('lock-busy-test'));
+    }
+
     public function test_is_available_true(): void
     {
         $repo = new AgentControlPlaneTaskPacketQueueRepository;
@@ -276,12 +315,19 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTes
             'token_spend_allowed', 'provider_call_allowed', 'self_programming_allowed',
             'status_transition_policy', 'status_transition_policy_hash',
             'claim_transition_requires_lease_id', 'claim_transition_requires_agent_id',
+            'queue_write_lock_required', 'queue_write_lock_path', 'queue_write_lock_acquire_timeout_seconds',
+            'queue_write_lock_stale_after_seconds', 'queue_write_lock_timeout_blocks_mutation',
+            'queue_write_lock_owner_token_required_for_release',
         ] as $key) {
             $this->assertArrayHasKey($key, $registry, "Missing registry $key");
         }
         $this->assertSame(['claimed', 'blocked', 'cancelled'], $registry['status_transition_policy']['claimable']);
         $this->assertTrue($registry['claim_transition_requires_lease_id']);
         $this->assertTrue($registry['claim_transition_requires_agent_id']);
+        $this->assertTrue($registry['queue_write_lock_required']);
+        $this->assertSame(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH, $registry['queue_write_lock_path']);
+        $this->assertTrue($registry['queue_write_lock_timeout_blocks_mutation']);
+        $this->assertTrue($registry['queue_write_lock_owner_token_required_for_release']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $registry['status_transition_policy_hash']);
     }
 

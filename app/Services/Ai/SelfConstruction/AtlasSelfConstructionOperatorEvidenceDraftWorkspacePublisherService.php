@@ -15,6 +15,12 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService
 
     private const DESTINATION_PREFIX = 'atlas/self-construction/operator-submissions';
 
+    private const RUNTIME_PROMOTION_RECEIPT_PRIVATE_PATH = 'storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json';
+
+    private const REAL_PROVIDER_SMOKE_PRIVATE_PATH = 'storage/app/private/atlas/self-construction/operator-submissions/real-provider-smoke.json';
+
+    private const COMPLETION_RECEIPT_PRIVATE_PATH = 'storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json';
+
     /** @return array<string, mixed> */
     public function publish(array $options = []): array
     {
@@ -128,7 +134,7 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService
             'atomic_bundle_ready' => $atomicBundleReady,
             'artifacts' => $artifacts,
             'publish_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-workspace-publisher-status --operator-draft-workspace-path='.($requestedPath === '' ? '<workspace_path>' : $requestedPath).' --publish-operator-draft-workspace --json',
-            'post_publish_readiness_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json --real-provider-smoke-json=@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json --completion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json --json',
+            'post_publish_readiness_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --runtime-promotion-receipt-json=@'.self::RUNTIME_PROMOTION_RECEIPT_PRIVATE_PATH.' --real-provider-smoke-json=@'.self::REAL_PROVIDER_SMOKE_PRIVATE_PATH.' --completion-receipt-json=@'.self::COMPLETION_RECEIPT_PRIVATE_PATH.' --json',
             'post_publish_persistence_sequence' => $postPublishPersistenceSequence = $this->postPublishPersistenceSequence(),
             'post_publish_persistence_step_count' => count($postPublishPersistenceSequence),
             'post_publish_persistence_sequence_ordered' => true,
@@ -223,7 +229,8 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService
                 'id' => 'persist_runtime_promotion_receipt',
                 'artifact' => 'runtime_promotion_receipt',
                 'canonical_submission_path' => 'storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
-                'command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+                'canonical_submission_private_storage_path' => self::RUNTIME_PROMOTION_RECEIPT_PRIVATE_PATH,
+                'command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@'.self::RUNTIME_PROMOTION_RECEIPT_PRIVATE_PATH.' --persist-runtime-promotion-receipt --json',
                 'requires_explicit_persistence_flag' => true,
                 'required_previous_steps' => [],
                 'writes_completion_evidence_registry' => true,
@@ -234,7 +241,8 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService
                 'id' => 'persist_real_provider_smoke',
                 'artifact' => 'real_provider_smoke',
                 'canonical_submission_path' => 'storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json',
-                'command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json --persist-completion-evidence --json',
+                'canonical_submission_private_storage_path' => self::REAL_PROVIDER_SMOKE_PRIVATE_PATH,
+                'command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@'.self::REAL_PROVIDER_SMOKE_PRIVATE_PATH.' --persist-completion-evidence --json',
                 'requires_explicit_persistence_flag' => true,
                 'required_previous_steps' => ['persist_runtime_promotion_receipt'],
                 'writes_completion_evidence_registry' => true,
@@ -245,7 +253,8 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService
                 'id' => 'persist_human_completion_receipt',
                 'artifact' => 'human_completion_receipt',
                 'canonical_submission_path' => 'storage/app/atlas/self-construction/operator-submissions/completion-receipt.json',
-                'command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json --persist-completion-evidence --json',
+                'canonical_submission_private_storage_path' => self::COMPLETION_RECEIPT_PRIVATE_PATH,
+                'command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@'.self::COMPLETION_RECEIPT_PRIVATE_PATH.' --persist-completion-evidence --json',
                 'requires_explicit_persistence_flag' => true,
                 'required_previous_steps' => ['persist_runtime_promotion_receipt', 'persist_real_provider_smoke'],
                 'writes_completion_evidence_registry' => true,

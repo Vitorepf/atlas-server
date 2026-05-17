@@ -177,6 +177,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueLeaseCertificationT
         $probes = $result['probe_evidence']['probes'];
         $expected = [
             'scope_lock_runtime_validator_valid', 'queue_enqueue_ok', 'queue_idempotent',
+            'queue_multi_tag_filter_requires_all_tags',
             'claim_single_owner', 'claim_double_blocked', 'renew_owner_only', 'renew_owner_succeeds',
             'release_owner_only', 'release_owner_succeeds', 'conflict_detection_ok',
             'validator_blocks_forbidden_axis', 'validator_blocks_path_traversal', 'lease_has_receipts',
@@ -195,6 +196,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueLeaseCertificationT
             'queue_repository_available', 'lease_repository_available', 'scope_lock_validator_available',
             'allowed_statuses_canonical', 'forbidden_axes_set',
             'probe_scope_lock_runtime_validator_valid', 'probe_queue_enqueue_ok', 'probe_queue_idempotent',
+            'probe_queue_multi_tag_filter_requires_all_tags',
             'probe_claim_single_owner', 'probe_claim_double_blocked',
             'probe_renew_owner_only', 'probe_renew_owner_succeeds',
             'probe_release_owner_only', 'probe_release_owner_succeeds',

@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionFinalizationGateService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
@@ -134,6 +135,29 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertSame(1, data_get($gate, 'checks.terminal_loop_green.evidence.post_cycle_cleanup_state.active_lease_count'));
     }
 
+    public function test_finalization_gate_blocks_green_audit_with_legacy_terminal_loop_proof_without_end_to_end_contract(): void
+    {
+        $audit = $this->auditAllPassedExcept([], withOperationalProof: true);
+        unset(
+            $audit['agent_control_plane_terminal_loop_operational_proof_evidence']['post_cycle_end_to_end_contract_status'],
+            $audit['agent_control_plane_terminal_loop_operational_proof_evidence']['post_cycle_end_to_end_contract_all_required_surfaces_present'],
+            $audit['agent_control_plane_terminal_loop_operational_proof_evidence']['post_cycle_end_to_end_contract_failed_check_ids'],
+            $audit['agent_control_plane_terminal_loop_operational_proof_evidence']['post_cycle_end_to_end_contract_missing_required_capabilities'],
+            $audit['agent_control_plane_terminal_loop_operational_proof_evidence']['post_cycle_end_to_end_contract_hash'],
+        );
+
+        $gate = $this->service()->evaluate([
+            'completion_audit' => $audit,
+            'completion_evidence' => $this->evidenceAllGreen(),
+        ]);
+
+        $this->assertSame('blocked', $gate['status']);
+        $this->assertFalse((bool) $gate['completion_claim_allowed']);
+        $this->assertFalse((bool) $gate['terminal_loop_green']);
+        $this->assertContains('finalization_gate_blocked_by_terminal_loop_green', (array) $gate['next_stage_blockers']);
+        $this->assertSame('', data_get($gate, 'checks.terminal_loop_green.evidence.post_cycle_end_to_end_contract_status'));
+    }
+
     public function test_finalization_gate_status_projection_accepts_terminal_loop_operational_proof_json(): void
     {
         $proof = [
@@ -153,6 +177,22 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
                     'claimed_task_count' => 0,
                     'active_lease_count' => 0,
                     'recoverable_lease_count' => 0,
+                ],
+                'post_cycle_end_to_end_contract' => [
+                    'status' => 'terminal_loop_end_to_end_contract_available',
+                    'all_required_surfaces_present' => true,
+                    'covered_capabilities' => [
+                        'auto_replenishment',
+                        'validation',
+                        'leases',
+                        'evidence',
+                        'retomada',
+                        'lane_isolation',
+                        'cycle_supervision',
+                        'operator_handoff',
+                    ],
+                    'failed_check_ids' => [],
+                    'hash' => str_repeat('c', 64),
                 ],
                 'completion_real_allowed' => false,
                 'provider_call_allowed' => false,
@@ -174,6 +214,16 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertTrue((bool) $summary['terminal_loop_operational_proof_green']);
         $this->assertSame('passed', $summary['terminal_loop_operational_proof_status']);
         $this->assertSame(str_repeat('a', 64), $summary['terminal_loop_operational_proof_hash']);
+        $this->assertStringContainsString(
+            '--atlas-self-construction-operator-evidence-submission-readiness-status',
+            (string) $summary['completion_finalization_operator_handoff_operator_evidence_readiness_command'],
+        );
+        $this->assertGreaterThanOrEqual(6, (int) $summary['completion_finalization_operator_handoff_ordered_next_command_count']);
+        $this->assertSame(3, (int) $summary['completion_finalization_operator_handoff_final_verification_sequence_count']);
+        $this->assertSame('terminal_loop_end_to_end_contract_available', $summary['terminal_loop_operational_proof_post_cycle_end_to_end_contract_status']);
+        $this->assertTrue((bool) $summary['terminal_loop_operational_proof_post_cycle_end_to_end_contract_all_required_surfaces_present']);
+        $this->assertSame([], $summary['terminal_loop_operational_proof_post_cycle_end_to_end_contract_missing_required_capabilities']);
+        $this->assertSame(str_repeat('c', 64), $summary['terminal_loop_operational_proof_post_cycle_end_to_end_contract_hash']);
         $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', (string) $summary['command_to_capture_snapshot_after_terminal_loop_operational_proof']);
         $this->assertSame(3, (int) $summary['final_verification_sequence_step_count']);
         $this->assertSame('capture_replay_snapshot_after_terminal_loop_operational_proof', $summary['final_verification_sequence'][1]['id']);
@@ -210,6 +260,32 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertStringContainsString(
             '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
             (string) data_get($gate, 'completion_finalization_operator_handoff.ordered_next_commands.5'),
+        );
+    }
+
+    public function test_finalization_gate_uses_canonical_terminal_loop_binding_reference_when_persisted(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put(
+            'atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            json_encode(['schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1'], JSON_THROW_ON_ERROR),
+        );
+
+        $reference = '@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
+        $gate = $this->service()->evaluate([
+            'completion_audit' => $this->auditAllPassedExcept(['runtime_gap_matrix_all_runtime_y'], withOperationalProof: true),
+            'completion_evidence' => $this->evidenceAllGreen(),
+        ]);
+
+        $this->assertSame($reference, $gate['terminal_loop_operational_proof_json_reference']);
+        $this->assertSame($reference, data_get($gate, 'completion_finalization_operator_handoff.terminal_loop_operational_proof_json_reference'));
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) $gate['command_to_rerun_audit_with_terminal_loop_operational_proof'],
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json='.$reference,
+            (string) data_get($gate, 'completion_finalization_operator_handoff.finalization_gate_command'),
         );
     }
 
@@ -342,6 +418,11 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
                 'proof_hash' => $hash,
                 'validation_violation_count' => 0,
                 'post_cycle_cycle_supervisor_status' => 'cycle_evidence_review_ready',
+                'post_cycle_end_to_end_contract_status' => 'terminal_loop_end_to_end_contract_available',
+                'post_cycle_end_to_end_contract_all_required_surfaces_present' => true,
+                'post_cycle_end_to_end_contract_failed_check_ids' => [],
+                'post_cycle_end_to_end_contract_missing_required_capabilities' => [],
+                'post_cycle_end_to_end_contract_hash' => $hash,
                 'post_cycle_cleanup_state' => [
                     'claimed_task_count' => 0,
                     'active_lease_count' => 0,

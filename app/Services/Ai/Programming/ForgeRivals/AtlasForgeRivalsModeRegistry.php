@@ -29,6 +29,10 @@ final class AtlasForgeRivalsModeRegistry
 
     public const MODE_FULL_POWER = 'full_power';
 
+    public const MODE_PROVIDER_ARENA = 'provider_arena';
+
+    public const MODE_PROVIDER_PURE = 'provider_pure';
+
     public const MODE_DIAGNOSTIC = 'diagnostic';
 
     public const MODE_REPLAY_ONLY = 'replay_only';
@@ -39,10 +43,16 @@ final class AtlasForgeRivalsModeRegistry
     public const MODES = [
         self::MODE_FAIR,
         self::MODE_FULL_POWER,
+        self::MODE_PROVIDER_ARENA,
+        self::MODE_PROVIDER_PURE,
         self::MODE_DIAGNOSTIC,
         self::MODE_REPLAY_ONLY,
         self::MODE_LOCAL_FAKE,
     ];
+
+    public function __construct(
+        private readonly AtlasForgeRivalsProviderModelRegistryService $models,
+    ) {}
 
     /**
      * @return array{
@@ -75,6 +85,24 @@ final class AtlasForgeRivalsModeRegistry
                 'claim_eligible' => true,
                 'allowed_models' => ['claude_sonnet', 'claude_opus', 'codex', 'auto'],
                 'note' => 'Full power: Atlas Decide and topology allowed; every provider must be declared.',
+            ],
+            self::MODE_PROVIDER_ARENA => [
+                'mode' => self::MODE_PROVIDER_ARENA,
+                'requires_provider' => true,
+                'allows_atlas_decide' => false,
+                'allows_topology_declaration' => false,
+                'claim_eligible' => true,
+                'allowed_models' => $this->models->canonicalModels(),
+                'note' => 'Provider arena: cross-provider runner comparison with explicit arms, models and evidence.',
+            ],
+            self::MODE_PROVIDER_PURE => [
+                'mode' => self::MODE_PROVIDER_PURE,
+                'requires_provider' => true,
+                'allows_atlas_decide' => false,
+                'allows_topology_declaration' => false,
+                'claim_eligible' => true,
+                'allowed_models' => $this->models->canonicalModels(),
+                'note' => 'Provider pure: raw provider runner against raw provider runner; Atlas system power excluded.',
             ],
             self::MODE_DIAGNOSTIC => [
                 'mode' => self::MODE_DIAGNOSTIC,

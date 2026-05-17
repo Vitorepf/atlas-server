@@ -210,6 +210,7 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService
         if ($path === '' || str_contains($path, '..')) {
             return '';
         }
+        $path = preg_replace('#^storage/app/private/#', '', $path) ?? $path;
         $path = preg_replace('#^storage/app/#', '', $path) ?? $path;
 
         return trim($path, '/');

@@ -49,7 +49,10 @@ final class AtlasSelfConstructionRuntimePromotionClosurePackTest extends TestCas
         $this->assertTrue((bool) $pack['terminal_loop_operational_proof_required_before_final_audit']);
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $pack['terminal_loop_operational_proof_command']);
         $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) $pack['terminal_loop_operational_proof_binding_persist_command']);
+        $this->assertSame('storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', $pack['terminal_loop_operational_proof_canonical_binding_path']);
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $pack['completion_audit_with_terminal_loop_operational_proof_command']);
+        $this->assertStringContainsString('@/path/to/terminal-loop-operational-proof-binding.json', (string) $pack['completion_audit_with_terminal_loop_operational_proof_command']);
+        $this->assertStringContainsString('@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', (string) $pack['effective_completion_audit_with_canonical_terminal_loop_operational_proof_command']);
     }
 
     public function test_closure_pack_hash_is_deterministic(): void

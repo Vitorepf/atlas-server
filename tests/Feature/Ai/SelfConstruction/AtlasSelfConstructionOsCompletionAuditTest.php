@@ -88,6 +88,24 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $this->assertSame($audit['checklist_count'], count($audit['prompt_to_artifact_checklist']));
     }
 
+    public function test_completion_audit_checklist_maps_loop_objective_to_explicit_evidence_rows(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+        $checklist = collect($audit['prompt_to_artifact_checklist'])->keyBy('requirement');
+
+        foreach ([
+            'loop auto-replenishment works',
+            'loop validates worker eligibility and completion evidence',
+            'loop claim/lease prevents duplicate or cross-agent completion',
+            'loop evidence ledger/work product handoff is captured',
+            'loop resume/retomada recovers interrupted agents and stale leases',
+        ] as $requirement) {
+            $this->assertTrue($checklist->has($requirement), "missing checklist row: {$requirement}");
+            $this->assertSame('passed', (string) data_get($checklist->get($requirement), 'evidence_status'));
+            $this->assertArrayHasKey('artifact', (array) $checklist->get($requirement));
+        }
+    }
+
     public function test_completion_audit_exposes_detailed_blockers_and_audit_blocks(): void
     {
         $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
@@ -188,11 +206,27 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $this->assertNotSame('', (string) $humanBlocker['why_not_automatic']);
         $this->assertNotSame('', (string) $humanBlocker['expected_receipt_command']);
         $this->assertNotSame('', (string) $humanBlocker['persist_command']);
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json',
+            (string) $humanBlocker['canonical_submission_private_storage_path'],
+        );
+        $this->assertStringContainsString(
+            '--completion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json',
+            (string) $humanBlocker['persist_command_with_canonical_submission_path'],
+        );
+        $this->assertStringContainsString(
+            '--runtime-promotion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            (string) $humanBlocker['expected_receipt_command_with_canonical_submission_paths'],
+        );
         $this->assertSame('atlas.self_construction.human_signed_completion_receipt.v1', (string) $humanBlocker['expected_receipt_schema']);
 
         $providerBlocker = collect((array) $packet['blockers'])->firstWhere('id', 'real_provider_claim_to_completion_smoke');
         $this->assertSame('real_provider', $providerBlocker['blocker_type']);
         $this->assertStringContainsString('Atlas never starts a provider process', (string) $providerBlocker['why_not_automatic']);
+        $this->assertStringContainsString(
+            '--real-provider-smoke-json=@storage/app/private/atlas/self-construction/operator-submissions/real-provider-smoke.json',
+            (string) $providerBlocker['persist_command_with_canonical_submission_path'],
+        );
 
         $schemas = (array) ($packet['expected_receipt_schemas'] ?? []);
         $this->assertArrayHasKey('runtime_promotion_receipt', $schemas);
@@ -204,6 +238,18 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
 
         $this->assertContains('atlas_never_self_promotes_os_complete', (array) ($packet['human_judgment_required_reasons'] ?? []));
         $this->assertContains('real_provider_call_is_outside_atlas_token_budget_and_kill_switch_belongs_to_operator', (array) ($packet['human_judgment_required_reasons'] ?? []));
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($packet, 'canonical_submission_private_storage_paths.terminal_loop_operational_proof_binding'),
+        );
+        $this->assertStringContainsString(
+            '--runtime-promotion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            data_get($packet, 'commands.persist_runtime_promotion_receipt_with_canonical_submission_path'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($packet, 'commands.run_completion_audit_with_canonical_terminal_loop_operational_proof'),
+        );
 
         $smokeRunbook = (array) ($packet['real_provider_smoke_runbook'] ?? []);
         $this->assertArrayHasKey('preflight', $smokeRunbook);
@@ -405,6 +451,45 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $audit = $payload['agent_control_plane_atlas_self_construction_os_completion_audit'];
 
         $this->assertSame(0, $exit);
+        $this->assertSame($audit['failed_criteria'], $status['failed_criteria']);
+        $this->assertSame(
+            (int) data_get($audit, 'blocker_classification.human_blocker_count'),
+            (int) $status['human_blocker_count'],
+        );
+        $this->assertSame(
+            (array) data_get($audit, 'blocker_classification.human_blockers'),
+            (array) $status['human_blockers'],
+        );
+        $this->assertSame(
+            (int) data_get($audit, 'blocker_classification.real_provider_blocker_count'),
+            (int) $status['real_provider_blocker_count'],
+        );
+        $this->assertSame(
+            (array) data_get($audit, 'blocker_classification.real_provider_blockers'),
+            (array) $status['real_provider_blockers'],
+        );
+        $this->assertSame(
+            (int) data_get($audit, 'blocker_classification.technical_blocker_count'),
+            (int) $status['technical_blocker_count'],
+        );
+        $this->assertSame(
+            (array) data_get($audit, 'blocker_classification.technical_blockers'),
+            (array) $status['technical_blockers'],
+        );
+        $this->assertContains((string) $status['current_required_operator_artifact'], [
+            'runtime_promotion_receipt',
+            'real_provider_smoke',
+            'human_completion_receipt',
+            'none',
+        ]);
+        $this->assertStringContainsString(
+            '--atlas-self-construction-operator-evidence-submission-readiness-status',
+            (string) $status['operator_evidence_readiness_command'],
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-final-operator-evidence-closure-corridor-status',
+            (string) $status['final_operator_evidence_closure_corridor_command'],
+        );
         $this->assertSame('passed', $status['terminal_loop_operational_proof_status']);
         $this->assertTrue($status['terminal_loop_operational_proof_supplied']);
         $this->assertTrue($status['terminal_loop_operational_proof_passed']);
@@ -745,6 +830,31 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $this->assertSame('passed', $evidence['status']);
         $this->assertTrue($evidence['passed']);
         $this->assertSame($proof['terminal_loop_operational_proof_hash'], $evidence['proof_hash']);
+    }
+
+    public function test_audit_auto_loads_persisted_terminal_loop_operational_proof_binding(): void
+    {
+        $proof = (new AgentControlPlaneTerminalLoopOperationalProofService)->prove([
+            'actor' => 'audit-persisted-binding-agent',
+            'proof_id' => 'audit-persisted-binding-proof',
+        ]);
+        Storage::disk('local')->put(
+            'atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            json_encode($proof['completion_audit_binding_packet'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+
+        $evidence = $audit['agent_control_plane_terminal_loop_operational_proof_evidence'];
+        $this->assertSame('passed', $evidence['status']);
+        $this->assertTrue($evidence['supplied']);
+        $this->assertTrue($evidence['passed']);
+        $this->assertSame($proof['terminal_loop_operational_proof_hash'], $evidence['proof_hash']);
+
+        $criterion = collect($audit['criteria'])->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green');
+        $this->assertSame('passed', data_get($criterion, 'evidence.operational_proof_status'));
+        $this->assertTrue((bool) data_get($criterion, 'evidence.operational_proof_supplied'));
+        $this->assertTrue((bool) data_get($criterion, 'evidence.operational_proof_passed'));
     }
 
     public function test_audit_accepts_full_terminal_loop_operational_proof_envelope(): void

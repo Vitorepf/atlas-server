@@ -344,6 +344,11 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopOperationalProof
         $this->assertSame(0, data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.operational_readiness_matrix_failed_row_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.operational_readiness_matrix_hash'));
         $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.completion_real_allowed'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.runtime_execution_allowed'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.dispatch_allowed'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.provider_call_allowed'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.token_spend_allowed'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.self_programming_allowed'));
         $this->assertSame('ready_for_read_only_completion_audit', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.completion_audit_binding_packet_status'));
         $this->assertSame('agent_control_plane_terminal_loop_operational_proof', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.completion_audit_binding_packet_audit_option_key'));
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json', data_get($payload, 'agent_control_plane_terminal_loop_operational_proof_status.completion_audit_binding_packet_expected_completion_audit_command'));

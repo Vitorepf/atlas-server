@@ -82,6 +82,8 @@ final class AtlasSelfConstructionRuntimePromotionReceiptRunbookService
                 'refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
                 'run_completion_audit' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
                 'run_completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                'terminal_loop_operational_proof_canonical_binding_path' => $this->terminalLoopOperationalProofCanonicalBindingPath(),
+                'run_completion_audit_with_canonical_terminal_loop_operational_proof' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
                 'run_completion_audit_diagnostic' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
             ],
             'terminal_loop_operational_proof_required_before_final_audit' => true,
@@ -108,6 +110,16 @@ final class AtlasSelfConstructionRuntimePromotionReceiptRunbookService
     private function completionAuditWithTerminalLoopOperationalProofCommand(): string
     {
         return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
+    }
+
+    private function completionAuditWithCanonicalTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@'.$this->terminalLoopOperationalProofCanonicalBindingPath().' --json';
+    }
+
+    private function terminalLoopOperationalProofCanonicalBindingPath(): string
+    {
+        return 'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
     }
 
     /** @param array<string, mixed> $payload */

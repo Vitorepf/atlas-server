@@ -55,7 +55,49 @@ class AtlasAiSpecialistFlowExecutionService
             'quality_rubric' => $handler['quality_rubric'],
             'completion_checks' => $handler['completion_checks'],
             'failure_modes' => $handler['failure_modes'],
+            'learning_signal_contract' => $this->learningSignalContract($flowId, $handler),
             'operator_input_summary' => $this->summary((string) ($data['input_text'] ?? '')),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $handler
+     * @return array<string,mixed>
+     */
+    private function learningSignalContract(string $flowId, array $handler): array
+    {
+        return [
+            'schema_version' => 'atlas.ai.compounding.flow_learning_signal_contract.v1',
+            'flow_id' => $flowId,
+            'emits_learning_signal' => true,
+            'required_fields' => [
+                'run_id',
+                'flow_id',
+                'outcome_status',
+                'evidence_refs',
+                'claim',
+                'confidence',
+            ],
+            'candidate_memory_type' => match ($flowId) {
+                'atlas_debug' => 'debug_memory',
+                'atlas_review' => 'review_memory',
+                'atlas_research' => 'retrieval_memory',
+                'atlas_plan' => 'routing_memory',
+                default => 'routing_memory',
+            },
+            'evidence_sources' => [
+                'runtime_receipt_id',
+                'runtime_contract_hash',
+                'audit_checks',
+                'completion_checks',
+                'provider_or_operator_receipt',
+            ],
+            'noise_filters' => [
+                'missing_evidence_refs',
+                'raw_trace_without_outcome',
+                'operator_preference_without_result',
+            ],
+            'failure_modes_feed_benchmark' => $handler['failure_modes'] ?? [],
         ];
     }
 

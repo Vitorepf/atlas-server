@@ -36,6 +36,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-battery-modes-and-human-prompts-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-industrial-benchmark-suite-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-corpus-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-performance-ledger-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-intelligence-ledger-v1.md
@@ -137,6 +139,14 @@ consome apenas o sinal consultivo derivado.
 | --- | ---: | --- | --- |
 | `quick` | 3 | Provar que harness, provider, evidence e replay funcionam. | Nao declara superioridade. |
 | `release` | 40 | Comparacao seria por 8 categorias x 5 niveis. | Pode declarar vencedor da bateria se trusted. |
+| `industrial-50` | 50 | Primeiro benchmark industrial amplo. | Claim forte bloqueado sem evidence/replay/scorecard/matrix/confidence. |
+| `industrial-100` | 100 | Benchmark industrial com maior estabilidade. | Claim forte bloqueado sem gates verdes. |
+| `industrial-200` | 200 | Suite industrial completa versionada. | Claim forte bloqueado sem gates verdes. |
+| `ambiguous-bugs` | 50 | Bugs ambiguos e requisitos incompletos. | Claim forte bloqueado sem hidden-oracle/evidence. |
+| `multi-day-refactors` | 50 | Refactors longos e multi-dia. | Claim forte bloqueado sem plano/replay. |
+| `incident-response` | 50 | Incidentes, rollback e postmortem. | Claim forte bloqueado sem evidence completo. |
+| `product-security-migrations` | 50 | Produto, seguranca e migrations. | Claim forte bloqueado sem safety gates. |
+| `statistical-repeat` | 50 | Variancia e flakiness. | Claim forte bloqueado sem repeticao estatistica. |
 | `deep` | 25+ | Ranking confiavel e tendencia por dominio. | Pode alimentar ranking com confianca alta. |
 | `frontend` | 5+ | Medir UI, acessibilidade, estados e polish. | Vencedor por frontend. |
 | `backend` | 5+ | Medir logica, integracao, estado, policy e dados. | Vencedor por backend. |

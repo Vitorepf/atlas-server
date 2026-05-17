@@ -97,6 +97,26 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest ext
         Storage::disk('local')->assertMissing('atlas/self-construction/os-completion/completion-evidence/registry.json');
     }
 
+    public function test_publisher_accepts_private_storage_prefixed_workspace_path(): void
+    {
+        [$workspace] = $this->writeWorkspace($this->readyDrafts());
+        (new AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService)->finalize([
+            'operator_draft_workspace_path' => 'storage/app/private/'.$workspace,
+            'write_computed_operator_draft_hashes' => true,
+        ]);
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService)->publish([
+            'operator_draft_workspace_path' => 'storage/app/private/'.$workspace,
+        ]);
+
+        $this->assertSame('ready_to_publish_operator_draft_workspace', $payload['status']);
+        $this->assertSame($workspace.'/manifest.json', $payload['manifest_path']);
+        $this->assertSame(3, $payload['publishable_artifact_count']);
+        $this->assertSame(0, $payload['published_artifact_count']);
+        $this->assertFalse($payload['runtime_write_allowed']);
+        $this->assertFalse($payload['can_persist_from_publisher']);
+    }
+
     public function test_publisher_exposes_ordered_post_publish_persistence_sequence_without_executing_it(): void
     {
         [$workspace] = $this->writeWorkspace($this->readyDrafts());
@@ -129,19 +149,22 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest ext
         $this->assertSame([1, 2, 3, 4, 5, 6], array_column($sequence, 'order'));
 
         $this->assertStringContainsString(
-            '--runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            '--runtime-promotion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
             $sequence[0]['command'],
         );
+        $this->assertSame('storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json', $sequence[0]['canonical_submission_private_storage_path']);
         $this->assertStringContainsString('--persist-runtime-promotion-receipt', $sequence[0]['command']);
         $this->assertStringContainsString(
-            '--real-provider-smoke-json=@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json',
+            '--real-provider-smoke-json=@storage/app/private/atlas/self-construction/operator-submissions/real-provider-smoke.json',
             $sequence[1]['command'],
         );
+        $this->assertSame('storage/app/private/atlas/self-construction/operator-submissions/real-provider-smoke.json', $sequence[1]['canonical_submission_private_storage_path']);
         $this->assertStringContainsString('--persist-completion-evidence', $sequence[1]['command']);
         $this->assertStringContainsString(
-            '--completion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json',
+            '--completion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json',
             $sequence[2]['command'],
         );
+        $this->assertSame('storage/app/private/atlas/self-construction/operator-submissions/completion-receipt.json', $sequence[2]['canonical_submission_private_storage_path']);
         $this->assertStringContainsString('terminal-loop-operational-proof-status', $sequence[3]['command']);
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', $sequence[4]['command']);
         $this->assertStringContainsString('--atlas-self-construction-os-completion-audit-status', $sequence[5]['command']);

@@ -67,6 +67,27 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $this->assertNotEmpty($result['lease_id']);
     }
 
+    public function test_claim_next_with_multiple_tags_requires_all_tags(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue([
+            'task_packet' => $this->input('claim-tags-partial'),
+            'queue' => ['tags' => ['lane-a']],
+        ]);
+        $svc->prepareAndEnqueue([
+            'task_packet' => $this->input('claim-tags-full'),
+            'queue' => ['tags' => ['lane-a', 'worker-1']],
+        ]);
+
+        $result = $svc->claimNext('agent-tags', [
+            'tags' => ['lane-a', 'worker-1'],
+        ]);
+
+        $this->assertSame('claimed', $result['event']);
+        $this->assertSame('claim-tags-full', $result['task_packet_id']);
+        $this->assertSame(['lane-a', 'worker-1'], data_get($result, 'queue_entry.tags'));
+    }
+
     public function test_claim_next_skips_conflict(): void
     {
         $svc = $this->orchestrator();
@@ -412,6 +433,27 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $this->assertNotEmpty(data_get($payload, 'agent_control_plane_task_queue_claim_next.lease_id'));
         $this->assertFalse((bool) data_get($payload, 'agent_control_plane_task_queue_claim_next.non_execution_summary.dispatch_allowed'));
         $this->assertFalse((bool) data_get($payload, 'agent_control_plane_task_queue_claim_next.non_execution_summary.provider_call_allowed'));
+    }
+
+    public function test_cli_claim_next_preserves_all_queue_tags(): void
+    {
+        Artisan::call('atlas:ai:self-construction', [
+            '--agent-control-plane-task-queue-claim-next-status' => true,
+            '--actor' => 'agent-cli-tagged',
+            '--queue-tag' => ['cli-lane', 'cli-worker'],
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $packetId = (string) data_get($payload, 'agent_control_plane_task_queue_claim_next.task_packet_id');
+        $record = (new AgentControlPlaneTaskPacketQueueRepository)->get($packetId);
+
+        $this->assertSame('claimed', data_get($payload, 'agent_control_plane_task_queue_claim_next.status'));
+        $this->assertSame(['cli-lane', 'cli-worker'], data_get($payload, 'agent_control_plane_task_queue_claim_next.queue_tags'));
+        $this->assertSame('cli-lane', data_get($payload, 'agent_control_plane_task_queue_claim_next.claim_tag'));
+        $this->assertStringContainsString('--queue-tag=cli-lane', data_get($payload, 'agent_control_plane_task_queue_claim_next.next_agent_command'));
+        $this->assertStringContainsString('--queue-tag=cli-worker', data_get($payload, 'agent_control_plane_task_queue_claim_next.next_agent_command'));
+        $this->assertSame(['cli-lane', 'cli-worker'], data_get($record, 'tags'));
     }
 
     public function test_cli_claim_next_does_not_duplicate_active_claim_for_second_agent(): void

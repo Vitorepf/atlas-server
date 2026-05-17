@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals\Arms;
 
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsModelMatrix;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderModelRegistryService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsModeRegistry;
 
 /**
@@ -32,6 +32,7 @@ final class AtlasForgeRivalsArmContractService
 
     public function __construct(
         private readonly AtlasForgeRivalsArmRegistryService $registry,
+        private readonly AtlasForgeRivalsProviderModelRegistryService $models,
     ) {}
 
     /**
@@ -52,9 +53,13 @@ final class AtlasForgeRivalsArmContractService
     public function contract(string $armRole, array $input): array
     {
         $armId = strtolower(trim((string) ($input['arm_id'] ?? '')));
+        if ($armId === AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV_LIGHT) {
+            $armId = AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV;
+        }
         $model = strtolower(trim((string) ($input['model'] ?? '')));
         $taskCategory = strtolower(trim((string) ($input['task_category'] ?? '')));
         $mode = strtolower(trim((string) ($input['mode'] ?? '')));
+        $dryRun = (bool) ($input['dry_run'] ?? false);
         $blockers = [];
 
         if (! in_array($armId, AtlasForgeRivalsArmRegistryService::ARMS, true)) {
@@ -91,22 +96,25 @@ final class AtlasForgeRivalsArmContractService
         }
         if ($arm['status'] === AtlasForgeRivalsArmRegistryService::STATUS_NOT_YET_EXECUTABLE
             && $mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE
+            && ! $dryRun
         ) {
             $blockers[] = 'arm_runner_not_yet_executable:'.$armId;
         }
 
-        $resolvedModel = $this->resolveModel($arm, $model, $blockers);
-
-        $legacyModelId = $this->mapToLegacyModelId($arm, $resolvedModel);
+        $resolved = $this->resolveModel($arm, $model, $blockers);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'arm_role' => $armRole,
             'arm' => $arm,
-            'resolved_model' => $resolvedModel,
+            'provider' => $arm['provider'] ?? null,
+            'requested_model' => $model,
+            'resolved_model' => $resolved['canonical_model'],
+            'resolved_model_id' => $resolved['model_id'],
+            'resolved_model_label' => $resolved['model_label'],
             'task_category' => $taskCategory,
             'blockers' => array_values(array_unique($blockers)),
-            'legacy_model_id' => $legacyModelId,
+            'legacy_model_id' => $resolved['legacy_model_id'],
             'safety_contract' => $safety,
             'external_provider_call' => (bool) $arm['requires_external_provider_call'],
             'note' => $arm['status'] === AtlasForgeRivalsArmRegistryService::STATUS_AVAILABLE
@@ -118,42 +126,26 @@ final class AtlasForgeRivalsArmContractService
     /**
      * @param  array<string,mixed>  $arm
      * @param  list<string>  $blockers
+     * @return array{canonical_model:?string,model_id:?string,model_label:?string,legacy_model_id:?string}
      */
-    private function resolveModel(array $arm, string $model, array &$blockers): ?string
+    private function resolveModel(array $arm, string $model, array &$blockers): array
     {
-        $options = (array) ($arm['model_options'] ?? []);
-        if ($options === []) {
-            return null; // scripted/manual/placeholder
+        $provider = (string) ($arm['provider'] ?? '');
+        if ($provider === '') {
+            return ['canonical_model' => null, 'model_id' => null, 'model_label' => null, 'legacy_model_id' => null];
         }
-        if ($model === '') {
-            // Default to the first declared option.
-            return (string) $options[0];
-        }
-        if (! in_array($model, $options, true)) {
+
+        $resolved = $this->models->resolve($provider, $model);
+        foreach ($resolved['blockers'] as $blocker) {
             $blockers[] = 'arm_model_unknown:'.$arm['arm_id'].':'.$model;
-
-            return null;
+            $blockers[] = $blocker;
         }
 
-        return $model;
-    }
-
-    /**
-     * @param  array<string,mixed>  $arm
-     */
-    private function mapToLegacyModelId(array $arm, ?string $resolvedModel): ?string
-    {
-        if ($resolvedModel === null) {
-            return null;
-        }
-
-        return match (strtolower($resolvedModel)) {
-            'sonnet', 'claude_sonnet' => AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_SONNET,
-            'opus', 'claude_opus' => AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_OPUS,
-            'codex', 'gpt-codex', 'codex-default' => AtlasForgeRivalsModelMatrix::MODEL_CODEX,
-            'gemini-pro', 'gemini-flash' => 'gemini',
-            'auto' => AtlasForgeRivalsModelMatrix::MODEL_AUTO,
-            default => $resolvedModel,
-        };
+        return [
+            'canonical_model' => $resolved['canonical_model'],
+            'model_id' => $resolved['model_id'],
+            'model_label' => $resolved['model_label'],
+            'legacy_model_id' => $resolved['legacy_model_id'],
+        ];
     }
 }

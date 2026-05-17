@@ -33,6 +33,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-benchmark-strategy-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-battery-modes-and-human-prompts-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-performance-ledger-v1.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-industrial-benchmark-suite-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-matrix-report-v1.md
   - docs/engineering-knowledge-base/system-graph/atlas-decide.md
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerService.php

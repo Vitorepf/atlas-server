@@ -141,7 +141,9 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
             'rerun_matrix_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
             'terminal_loop_operational_proof_command' => $this->terminalLoopOperationalProofCommand(),
+            'terminal_loop_operational_proof_canonical_binding_path' => $this->terminalLoopOperationalProofCanonicalBindingPath(),
             'rerun_audit_with_terminal_loop_operational_proof_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+            'effective_rerun_audit_with_canonical_terminal_loop_operational_proof_command' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
             'terminal_loop_operational_proof_required_before_final_audit' => true,
             'rerun_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
         ];
@@ -331,7 +333,9 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
                 'rerun_runtime_gap_matrix' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
                 'rerun_completion_evidence' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
                 'refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
+                'terminal_loop_operational_proof_canonical_binding_path' => $this->terminalLoopOperationalProofCanonicalBindingPath(),
                 'rerun_completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                'rerun_completion_audit_with_canonical_terminal_loop_operational_proof' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
                 'rerun_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
                 'inspect_runtime_promotion_evidence_dossier' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-evidence-dossier-status --json',
                 'inspect_completion_audit_blocker_explainer' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-audit-blocker-explainer-status --json',
@@ -661,14 +665,18 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'receipt_payload' => $receipt,
             'receipt_json_sha256' => $receiptJsonHash,
             'receipt_file_hint' => 'storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
-            'exact_persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+            'receipt_private_storage_file_hint' => 'storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            'exact_persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json --persist-runtime-promotion-receipt --json',
             'post_persistence_commands' => [
                 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
                 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
                 $this->terminalLoopOperationalProofCommand(),
                 $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
                 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
             ],
+            'terminal_loop_operational_proof_canonical_binding_path' => $this->terminalLoopOperationalProofCanonicalBindingPath(),
+            'effective_completion_audit_with_canonical_terminal_loop_operational_proof_command' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
             'terminal_loop_operational_proof_required_before_final_audit' => true,
             'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             'operator_checks_before_persisting' => [
@@ -710,6 +718,16 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
     private function completionAuditWithTerminalLoopOperationalProofCommand(): string
     {
         return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
+    }
+
+    private function completionAuditWithCanonicalTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@'.$this->terminalLoopOperationalProofCanonicalBindingPath().' --json';
+    }
+
+    private function terminalLoopOperationalProofCanonicalBindingPath(): string
+    {
+        return 'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
     }
 
     /** @return array<string, mixed> */

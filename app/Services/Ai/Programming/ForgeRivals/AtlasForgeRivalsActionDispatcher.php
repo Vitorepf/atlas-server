@@ -48,6 +48,10 @@ final class AtlasForgeRivalsActionDispatcher
         private readonly AtlasForgeRivalsRunBatteryService $runBattery,
         private readonly AtlasForgeRivalsArenaRunService $arenaRun,
         private readonly AtlasForgeRivalsArmRegistryService $armRegistry,
+        private readonly AtlasForgeRivalsProviderModelRegistryService $modelRegistry,
+        private readonly AtlasForgeRivalsProviderArenaReadinessService $arenaReadiness,
+        private readonly AtlasForgeRivalsIndustrialBenchmarkSuiteService $industrialSuite,
+        private readonly AtlasForgeRivalsIndustrialExecutionSuiteService $industrialExecution,
         private readonly AtlasForgeRivalsProviderPerformanceLedgerService $ledger,
         private readonly AtlasForgeRivalsDecideSignalProjectionService $decideSignal,
         private readonly AtlasForgeRivalsCorpusCasesActionService $corpusCases,
@@ -88,6 +92,10 @@ final class AtlasForgeRivalsActionDispatcher
             'run-battery' => $this->wrap($action, $this->runBattery->run($input)),
             'run-arena' => $this->wrap($action, $this->arenaRun->run($input)),
             'arms' => $this->wrap($action, $this->armsSnapshot()),
+            'models' => $this->wrap($action, $this->modelsSnapshot()),
+            'arena-readiness' => $this->wrap($action, $this->arenaReadiness->snapshot($input)),
+            'industrial-suite' => $this->wrap($action, $this->industrialSuite->snapshot($input)),
+            'industrial-execution' => $this->wrap($action, $this->industrialExecution->readiness($input)),
             'cases' => $this->wrap($action, $this->corpusCases->handle($input)),
             'ledger' => $this->wrap($action, $this->ledger->snapshot($input)),
             'ledger-record' => $this->wrap($action, $this->ledger->record($input)),
@@ -149,6 +157,10 @@ final class AtlasForgeRivalsActionDispatcher
             'score', 'adjudicator', 'adjudication' => 'adjudicate',
             'arena', 'run-arena-real', 'arena-run', 'provider-arena' => 'run-arena',
             'list-arms', 'registry', 'runners' => 'arms',
+            'list-models', 'provider-models', 'model-registry' => 'models',
+            'provider-arena-readiness', 'arena-ready', 'readiness', 'rivals-ready' => 'arena-readiness',
+            'industrial-readiness', 'industrial-benchmark', 'industrial-benchmark-suite' => 'industrial-suite',
+            'industrial-execution-readiness', 'industrial-execution-suite', 'industrial-ready' => 'industrial-execution',
             'performance-ledger', 'ledger-snapshot' => 'ledger',
             'record-ledger', 'absorb-scorecard' => 'ledger-record',
             'decide', 'signal', 'decide-signal-projection' => 'decide-signal',
@@ -224,6 +236,19 @@ final class AtlasForgeRivalsActionDispatcher
             'status' => 'ok',
             'next_command' => 'php artisan atlas:forge:rivals run-arena --arm-a=<id> --arm-b=<id> --task-category=<cat> --mode=local_fake --json',
             'external_provider_call' => false,
+        ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function modelsSnapshot(): array
+    {
+        return array_replace($this->modelRegistry->snapshot(), [
+            'next_command' => 'php artisan atlas:forge:rivals run-arena --arm-a=claude_code --arm-a-model=opus --arm-b=codex_cli --arm-b-model=gpt-5.5 --mode=provider_arena --dry-run --json',
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'separated_from_external_rivals_certification' => true,
         ]);
     }
 }

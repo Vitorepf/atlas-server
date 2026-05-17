@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -54,6 +55,8 @@ final class AtlasForgeRivalsRunBatteryService
         private readonly AtlasForgeRivalsRunPathResolver $paths,
         private readonly AtlasForgeRivalsModeRegistry $modes,
         private readonly AtlasForgeRivalsCorpusPreValidationService $corpusPreValidation,
+        private readonly AtlasForgeRivalsProviderArenaCorpusService $corpus,
+        private readonly AtlasForgeRivalsIndustrialExecutionSuiteService $industrialExecution,
     ) {}
 
     /**
@@ -76,10 +79,15 @@ final class AtlasForgeRivalsRunBatteryService
             static fn (string $entry): bool => $entry !== '',
         ));
         $caseSet = trim((string) ($input['case_set'] ?? ''));
+        if ($caseSet === '' && in_array(strtolower($preset), AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)) {
+            $caseSet = strtolower($preset);
+        }
         $sourceRef = trim((string) ($input['source_ref'] ?? 'HEAD'));
         $confirmations = (array) ($input['confirmations'] ?? []);
         $dryRunOnly = (bool) ($input['dry_run'] ?? false);
         $resumeRequested = (bool) ($input['resume'] ?? false);
+        $arenaContracts = is_array($input['arena_contracts'] ?? null) ? (array) $input['arena_contracts'] : [];
+        $usingArenaContracts = is_array($arenaContracts['arm_a'] ?? null) && is_array($arenaContracts['arm_b'] ?? null);
         $runId = trim((string) ($input['run_id'] ?? ''));
         if ($runId === '') {
             $runId = 'battery-'.now()->format('Ymd-His').'-'.Str::lower(Str::random(6));
@@ -92,6 +100,8 @@ final class AtlasForgeRivalsRunBatteryService
         if (! in_array($mode, [
             AtlasForgeRivalsModeRegistry::MODE_FAIR,
             AtlasForgeRivalsModeRegistry::MODE_FULL_POWER,
+            AtlasForgeRivalsModeRegistry::MODE_PROVIDER_ARENA,
+            AtlasForgeRivalsModeRegistry::MODE_PROVIDER_PURE,
             AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE,
         ], true)) {
             return $this->terminal(
@@ -99,7 +109,19 @@ final class AtlasForgeRivalsRunBatteryService
                 mode: $rawMode,
                 phases: $phases,
                 blockers: ['mode_not_admissible_for_run_battery:'.$rawMode],
-                hint: 'pick --mode=fair|power|local_fake',
+                hint: 'pick --mode=fair|power|provider_arena|provider_pure|local_fake',
+            );
+        }
+        if (in_array($mode, [
+            AtlasForgeRivalsModeRegistry::MODE_PROVIDER_ARENA,
+            AtlasForgeRivalsModeRegistry::MODE_PROVIDER_PURE,
+        ], true) && ! $usingArenaContracts) {
+            return $this->terminal(
+                runId: $runId,
+                mode: $mode,
+                phases: $phases,
+                blockers: ['arena_contracts_required_for_mode:'.$mode],
+                hint: 'use run-arena so arm/model/provider contracts are resolved before run-battery',
             );
         }
         if (! in_array($promptMode, ['spec-perfect', 'human-normal', 'messy-real', 'enterprise-change'], true)) {
@@ -209,6 +231,24 @@ final class AtlasForgeRivalsRunBatteryService
         $runId = (string) ($setup['run_id'] ?? $runId);
         $runPaths = $this->paths->paths($runId);
 
+        $isIndustrialCaseSet = in_array($caseSet, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true);
+        if ($isIndustrialCaseSet) {
+            $industrialExecution = $this->industrialExecution->readiness([
+                'case_set' => $caseSet,
+                'ensure_fixtures' => $caseSet === AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50,
+            ]);
+            $phases[] = $this->phase('industrial-execution-readiness', $industrialExecution);
+            if (($industrialExecution['status'] ?? '') !== 'ok') {
+                return $this->terminal(
+                    $runId,
+                    $mode,
+                    $phases,
+                    (array) ($industrialExecution['blockers'] ?? []),
+                    'fix industrial execution readiness blockers before running industrial battery',
+                );
+            }
+        }
+
         if ($resumeRequested) {
             $activeRunnerBlockers = $this->resumeActiveRunnerBlockers($runPaths);
             if ($activeRunnerBlockers !== []) {
@@ -233,6 +273,66 @@ final class AtlasForgeRivalsRunBatteryService
             }
         }
 
+        if ($dryRunOnly && $isIndustrialCaseSet) {
+            $industrialCases = $this->corpus->casesForCaseSet($caseSet);
+            $industrialPlan = [
+                'status' => 'ok',
+                'case_set' => $caseSet,
+                'cases_count' => count($industrialCases),
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+            ];
+            $phases[] = $this->phase('industrial-suite-plan', $industrialPlan);
+
+            return [
+                'status' => 'ok',
+                'run_battery_schema_version' => self::SCHEMA_VERSION,
+                'run_id' => $runId,
+                'mode' => $mode,
+                'atlas_model' => $atlasModel,
+                'rival_model' => $rivalModel,
+                'preset' => $preset,
+                'case' => $case !== '' ? $case : null,
+                'case_set' => $caseSet,
+                'prompt_mode' => $promptMode,
+                'dry_run' => true,
+                'verdict' => 'industrial_dry_run_planned',
+                'phases' => $phases,
+                'phases_passed' => count(array_filter($phases, static fn (array $p): bool => $p['ok'])),
+                'phases_failed' => count(array_filter($phases, static fn (array $p): bool => ! $p['ok'])),
+                'cases_count' => count($industrialCases),
+                'winner' => null,
+                'scorecard' => null,
+                'requires_provider' => $requiresProvider,
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+                'claim_ready' => false,
+                'separated_from_external_rivals_certification' => true,
+                'next_command' => 'php artisan atlas:forge:rivals cases --case-set='.$caseSet.' --json',
+                'note' => 'Industrial dry-run planned from canonical case specs. No provider invoked. No score, no winner; strong claim remains blocked until evidence/replay/scorecard/matrix/confidence gates pass.',
+            ];
+        }
+
+        if ($isIndustrialCaseSet && $mode === AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE) {
+            return $this->runIndustrialLocalFakeBattery(
+                runId: $runId,
+                mode: $mode,
+                atlasModel: $atlasModel,
+                rivalModel: $rivalModel,
+                preset: $preset,
+                case: $case,
+                cases: $cases,
+                caseSet: $caseSet,
+                promptMode: $promptMode,
+                requiresProvider: $requiresProvider,
+                sharedConfirms: $sharedConfirms,
+                resumeRequested: $resumeRequested,
+                arenaContracts: $arenaContracts,
+                runPaths: $runPaths,
+                phases: $phases,
+            );
+        }
+
         // Phase 3 — preflight
         $preflight = $this->preflight->preflight([
             'mode' => $mode,
@@ -246,6 +346,7 @@ final class AtlasForgeRivalsRunBatteryService
             'workspace' => $runPaths['atlas'],
             'baseline_workspace' => $runPaths['rival'],
             'confirmations' => $sharedConfirms,
+            'arena_contracts' => $arenaContracts,
         ]);
         $phases[] = $this->phase('preflight', $preflight);
         if (($preflight['status'] ?? '') !== 'ok') {
@@ -262,6 +363,7 @@ final class AtlasForgeRivalsRunBatteryService
             'prompt_mode' => $promptMode,
             'workspace' => $runPaths['atlas'],
             'baseline_workspace' => $runPaths['rival'],
+            'arena_contracts' => $arenaContracts,
         ]);
         $phases[] = $this->phase('dry-run', $dryRun);
         if (($dryRun['status'] ?? '') !== 'ok') {
@@ -278,7 +380,7 @@ final class AtlasForgeRivalsRunBatteryService
         // Skip the gate for legacy hand-crafted presets (smoke/quick) that
         // resolve to a single non-corpus case via the cases registry; those
         // cases never enter the provider arena corpus and have no seed_dir.
-        if ($this->corpusPreValidationApplies($preset, $caseSet, $case, $cases)) {
+        if (! $dryRunOnly && $this->corpusPreValidationApplies($preset, $caseSet, $case, $cases)) {
             $corpusValidation = $this->corpusPreValidation->validate([
                 'preset' => $preset,
                 'case_set' => $caseSet,
@@ -310,6 +412,7 @@ final class AtlasForgeRivalsRunBatteryService
             'case_set' => $caseSet !== '' ? $caseSet : null,
             'prompt_mode' => $promptMode,
             'confirmations' => $sharedConfirms,
+            'arena_contracts' => $arenaContracts,
         ]);
         $phases[] = $this->phase('plan-real', $planReal);
         if (($planReal['status'] ?? '') !== 'ok') {
@@ -360,6 +463,7 @@ final class AtlasForgeRivalsRunBatteryService
             'run_id' => $runId,
             'confirmations' => $sharedConfirms,
             'resume' => $resumeRequested,
+            'arena_contracts' => $arenaContracts,
         ]);
         $phases[] = $this->phase('run-real', $runReal);
         if (($runReal['status'] ?? '') !== 'ok') {
@@ -467,6 +571,167 @@ final class AtlasForgeRivalsRunBatteryService
                 : ($winner === AtlasForgeRivalsAdjudicatorService::WINNER_TIE
                     ? 'Battery completed with statistical tie — operator review required.'
                     : 'Battery completed with quality-determined winner.'),
+        ];
+    }
+
+    /**
+     * Industrial local_fake intentionally bypasses the legacy preflight/dry-run
+     * protocol that validates the old single-case Atlas Forge manifest shape.
+     * It still runs the canonical execution spine: corpus validation, run-real,
+     * collect evidence, replay, adjudicate, collect final, replay final, report.
+     *
+     * @param  list<string>  $cases
+     * @param  array<string,mixed>  $sharedConfirms
+     * @param  array<string,mixed>  $arenaContracts
+     * @param  array<string,string>  $runPaths
+     * @param  list<array<string,mixed>>  $phases
+     * @return array<string,mixed>
+     */
+    private function runIndustrialLocalFakeBattery(
+        string $runId,
+        string $mode,
+        string $atlasModel,
+        string $rivalModel,
+        string $preset,
+        string $case,
+        array $cases,
+        string $caseSet,
+        string $promptMode,
+        bool $requiresProvider,
+        array $sharedConfirms,
+        bool $resumeRequested,
+        array $arenaContracts,
+        array $runPaths,
+        array $phases,
+    ): array {
+        $corpusValidation = $this->corpusPreValidation->validate([
+            'preset' => $preset,
+            'case_set' => $caseSet,
+            'case' => $case,
+            'cases' => $cases,
+            'require_expected_changed_files' => true,
+        ]);
+        $phases[] = $this->phase('corpus-pre-validation', $corpusValidation);
+        if (($corpusValidation['status'] ?? '') !== 'ok') {
+            return $this->terminal(
+                $runId,
+                $mode,
+                $phases,
+                (array) ($corpusValidation['blockers'] ?? []),
+                'fix industrial corpus contamination before local_fake execution',
+                corpusValidation: $corpusValidation,
+            );
+        }
+
+        $runReal = $this->runReal->run([
+            'mode' => $mode,
+            'atlas_model' => $atlasModel,
+            'rival' => $rivalModel,
+            'preset' => $preset,
+            'case' => $case !== '' ? $case : null,
+            'cases' => $cases,
+            'case_set' => $caseSet,
+            'prompt_mode' => $promptMode,
+            'run_id' => $runId,
+            'confirmations' => $sharedConfirms,
+            'resume' => $resumeRequested,
+            'arena_contracts' => $arenaContracts,
+        ]);
+        $phases[] = $this->phase('run-real', $runReal);
+        if (($runReal['status'] ?? '') !== 'ok') {
+            return $this->terminal(
+                $runId,
+                $mode,
+                $phases,
+                (array) ($runReal['blockers'] ?? []),
+                'fix industrial run-real blockers',
+                runReal: $runReal,
+            );
+        }
+
+        $collectPre = $this->collectEvidence->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+        $phases[] = $this->phase('collect-evidence-pre', $collectPre);
+        if (($collectPre['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($collectPre['blockers'] ?? []), 'fix evidence blockers');
+        }
+
+        $replayPre = $this->replay->replay([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+        $phases[] = $this->phase('replay-pre', $replayPre);
+        if (($replayPre['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($replayPre['blockers'] ?? []), 'replay failed — evidence pack untrustworthy');
+        }
+
+        $adjudicate = $this->adjudicator->adjudicate(['run_id' => $runId]);
+        $phases[] = $this->phase('adjudicate', $adjudicate);
+        if (($adjudicate['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($adjudicate['blockers'] ?? []), 'fix adjudicator blockers');
+        }
+
+        $collectFinal = $this->collectEvidence->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_FINAL,
+        ]);
+        $phases[] = $this->phase('collect-evidence-final', $collectFinal);
+        if (($collectFinal['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($collectFinal['blockers'] ?? []), 'fix evidence blockers');
+        }
+
+        $replayFinal = $this->replay->replay([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_FINAL,
+        ]);
+        $phases[] = $this->phase('replay-final', $replayFinal);
+        if (($replayFinal['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($replayFinal['blockers'] ?? []), 'final replay failed — scorecard hash drifted');
+        }
+
+        $report = $this->report->render(['run_id' => $runId]);
+        $phases[] = $this->phase('report', $report);
+        if (($report['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($report['blockers'] ?? []), 'fix report blockers');
+        }
+
+        $scorecard = $adjudicate['scorecard'] ?? null;
+        $winner = is_array($scorecard) ? ($scorecard['winner'] ?? null) : null;
+
+        return [
+            'status' => 'ok',
+            'run_battery_schema_version' => self::SCHEMA_VERSION,
+            'run_id' => $runId,
+            'mode' => $mode,
+            'atlas_model' => $atlasModel,
+            'rival_model' => $rivalModel,
+            'preset' => $preset,
+            'case' => $case !== '' ? $case : null,
+            'case_set' => $caseSet,
+            'prompt_mode' => $promptMode,
+            'requires_provider' => $requiresProvider,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'phases' => $phases,
+            'phases_passed' => count(array_filter($phases, static fn (array $p): bool => $p['ok'])),
+            'phases_failed' => count(array_filter($phases, static fn (array $p): bool => ! $p['ok'])),
+            'winner' => $winner,
+            'scorecard' => $scorecard,
+            'report_path' => is_array($report) ? ($report['report_path'] ?? null) : null,
+            'evidence_paths' => array_values(array_filter([
+                $runPaths['events_jsonl'],
+                $runPaths['manifest_json'],
+                $runPaths['scorecard_json'],
+                $runPaths['report_md'],
+            ], static fn (string $p): bool => is_file($p))),
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'local_fake_is_not_real_claim' => true,
+            'separated_from_external_rivals_certification' => true,
+            'next_command' => 'php artisan atlas:forge:rivals report --run-id='.$runId.' --json',
+            'note' => 'Industrial local_fake completed without provider or token spend. This proves harness execution only; strong/external claims remain blocked until real evidence, replay, matrix and confidence gates pass.',
         ];
     }
 
@@ -588,6 +853,7 @@ final class AtlasForgeRivalsRunBatteryService
         $presetKey = strtolower(trim($preset));
         if ($presetKey === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE
             || $presetKey === AtlasForgeRivalsCasesRegistry::PRESET_FULL
+            || in_array($presetKey, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)
         ) {
             return true;
         }
@@ -619,6 +885,7 @@ final class AtlasForgeRivalsRunBatteryService
         }
         if ($preset === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE
             || $preset === AtlasForgeRivalsCasesRegistry::PRESET_FULL
+            || in_array($preset, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)
         ) {
             return true;
         }

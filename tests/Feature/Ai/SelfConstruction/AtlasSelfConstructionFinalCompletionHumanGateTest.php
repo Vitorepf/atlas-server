@@ -145,6 +145,37 @@ final class AtlasSelfConstructionFinalCompletionHumanGateTest extends TestCase
         $this->assertJson($encoded);
     }
 
+    public function test_status_projection_exposes_human_gate_preflight_and_runtime_safety(): void
+    {
+        $status = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->atlasSelfConstructionFinalCompletionHumanGateStatus();
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_construction_final_completion_human_gate_status', []);
+
+        $this->assertSame('blocked_runtime_promotion_required', $summary['final_completion_human_gate_status']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['human_gate_hash']);
+        $this->assertSame('blocked', $summary['human_receipt_verification_status']);
+        $this->assertGreaterThan(0, (int) $summary['human_receipt_verification_diagnostic_count']);
+        $this->assertContains('prerequisites_not_green', (array) $summary['human_receipt_verification_diagnostic_codes']);
+        $this->assertFalse((bool) $summary['human_receipt_verification_can_persist']);
+        $this->assertSame('human_completion_receipt_prerequisites_not_green', $summary['human_receipt_verification_persistence_blocker']);
+        $this->assertFalse((bool) $summary['persistence_preflight_can_persist']);
+        $this->assertContains('prerequisites_not_green', (array) $summary['persistence_preflight_blockers']);
+        $this->assertGreaterThan(0, (int) $summary['persistence_preflight_blocker_count']);
+        $this->assertStringContainsString('final_completion_human_gate_persistence_blocked_by_', (string) $summary['persistence_preflight_persistence_blocker']);
+        $this->assertTrue((bool) $summary['terminal_loop_operational_proof_required_before_final_audit']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', (string) $summary['terminal_loop_operational_proof_command']);
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) $summary['terminal_loop_operational_proof_binding_persist_command']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $summary['rerun_audit_with_terminal_loop_operational_proof_command']);
+        $this->assertFalse((bool) $summary['completion_allowed']);
+        $this->assertFalse((bool) $summary['completion_claim_allowed']);
+        $this->assertFalse((bool) $summary['execution_allowed']);
+        $this->assertFalse((bool) $summary['dispatch_allowed']);
+        $this->assertFalse((bool) $summary['provider_call_allowed']);
+        $this->assertFalse((bool) $summary['token_spend_allowed']);
+        $this->assertFalse((bool) $summary['adapter_execution_allowed']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
+    }
+
     private function service(): AtlasSelfConstructionFinalCompletionHumanGateService
     {
         return new AtlasSelfConstructionFinalCompletionHumanGateService(

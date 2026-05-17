@@ -71,6 +71,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         $actor = $this->actor($options);
         $reasonOverride = $this->reasonOverride($options);
         $taskPacketFilter = trim((string) ($options['packet'] ?? ''));
+        $queueTags = $this->queueTags($options);
 
         $expireResult = $leaseRepo->expireLeases();
         $expiredLeaseIds = array_values((array) ($expireResult['expired_lease_ids'] ?? []));
@@ -90,6 +91,18 @@ final class AgentControlPlaneTaskLeaseRecoveryService
                     'lease_id' => $leaseId,
                     'task_packet_id' => '',
                     'skip_reason' => 'lease_has_no_task_packet_id',
+                ];
+
+                continue;
+            }
+            $record = $queueRepo->get($taskPacketId);
+            if (! $this->recordMatchesQueueTags($record, $queueTags)) {
+                $skipped[] = [
+                    'lease_id' => $leaseId,
+                    'task_packet_id' => $taskPacketId,
+                    'skip_reason' => 'queue_tag_filter_mismatch',
+                    'queue_tags' => $queueTags,
+                    'record_queue_tags' => $this->recordQueueTags($record),
                 ];
 
                 continue;
@@ -130,6 +143,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             'skipped' => $skipped,
             'expire_result' => $expireResult,
             'actor' => $actor,
+            'queue_tags' => $queueTags,
         ]);
     }
 
@@ -148,6 +162,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         $actor = $this->actor($options);
         $reasonOverride = $this->reasonOverride($options);
         $taskPacketFilter = trim((string) ($options['packet'] ?? ''));
+        $queueTags = $this->queueTags($options);
 
         $claimedRecords = $taskPacketFilter !== ''
             ? array_values(array_filter(
@@ -155,6 +170,10 @@ final class AgentControlPlaneTaskLeaseRecoveryService
                 static fn ($record): bool => is_array($record) && (string) ($record['status'] ?? '') === 'claimed',
             ))
             : $queueRepo->list(['status' => 'claimed']);
+        $claimedRecords = array_values(array_filter(
+            $claimedRecords,
+            fn (array $record): bool => $this->recordMatchesQueueTags($record, $queueTags),
+        ));
         $recovered = [];
         $skipped = [];
 
@@ -226,6 +245,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             'recovered' => $recovered,
             'skipped' => $skipped,
             'actor' => $actor,
+            'queue_tags' => $queueTags,
         ]);
     }
 
@@ -242,10 +262,15 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         $actor = $this->actor($options);
         $reasonOverride = $this->reasonOverride($options);
         $taskPacketId = trim((string) ($options['packet'] ?? ''));
+        $queueTags = $this->queueTags($options);
 
         $releasedRecords = $taskPacketId !== ''
             ? array_values(array_filter([$queueRepo->get($taskPacketId)], static fn ($record): bool => is_array($record)))
             : $queueRepo->list(['status' => 'released']);
+        $releasedRecords = array_values(array_filter(
+            $releasedRecords,
+            fn (array $record): bool => $this->recordMatchesQueueTags($record, $queueTags),
+        ));
         $recovered = [];
         $skipped = [];
 
@@ -330,6 +355,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             'recovered' => $recovered,
             'skipped' => $skipped,
             'actor' => $actor,
+            'queue_tags' => $queueTags,
         ]);
     }
 
@@ -462,6 +488,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         $leaseRepo = $this->leaseRepo();
 
         $taskPacketId = trim((string) ($options['packet'] ?? ''));
+        $queueTags = $this->queueTags($options);
         $records = $taskPacketId !== ''
             ? array_filter([$queueRepo->get($taskPacketId)], fn ($r): bool => $r !== null)
             : array_merge(
@@ -473,6 +500,10 @@ final class AgentControlPlaneTaskLeaseRecoveryService
                 $queueRepo->list(['status' => 'released']),
                 $queueRepo->list(['status' => 'blocked']),
             );
+        $records = array_values(array_filter(
+            $records,
+            fn (array $record): bool => $this->recordMatchesQueueTags($record, $queueTags),
+        ));
 
         $now = CarbonImmutable::now()->getTimestamp();
         $classifications = [];
@@ -532,6 +563,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         return $this->envelope([
             'event' => 'inspect_recoverability',
             'task_packet_filter' => $taskPacketId,
+            'queue_tags' => $queueTags,
             'inspected_count' => count($classifications),
             'recoverable_count' => $totals[self::RECOVERABILITY_RECOVERABLE_EXPIRED] + $totals[self::RECOVERABILITY_RECOVERABLE_ORPHAN] + $totals[self::RECOVERABILITY_RECOVERABLE_RELEASED],
             'totals_by_classification' => $totals,
@@ -830,6 +862,47 @@ final class AgentControlPlaneTaskLeaseRecoveryService
     private function reasonOverride(array $options): string
     {
         return trim((string) ($options['reason'] ?? ''));
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return list<string>
+     */
+    private function queueTags(array $options): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $tag): string => trim((string) $tag),
+            (array) ($options['queue_tags'] ?? []),
+        ), static fn (string $tag): bool => $tag !== ''));
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $record
+     * @param  list<string>  $queueTags
+     */
+    private function recordMatchesQueueTags(?array $record, array $queueTags): bool
+    {
+        if ($queueTags === []) {
+            return true;
+        }
+        if ($record === null) {
+            return false;
+        }
+
+        return array_intersect($queueTags, $this->recordQueueTags($record)) !== [];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $record
+     * @return list<string>
+     */
+    private function recordQueueTags(?array $record): array
+    {
+        if ($record === null) {
+            return [];
+        }
+
+        return array_values(array_map('strval', (array) ($record['tags'] ?? [])));
     }
 
     private function queueRepo(): AgentControlPlaneTaskPacketQueueRepository

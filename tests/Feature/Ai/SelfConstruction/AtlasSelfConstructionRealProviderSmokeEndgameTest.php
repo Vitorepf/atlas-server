@@ -103,6 +103,14 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameTest extends TestCase
             '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
             (string) data_get($envelope, 'post_persistence_rerun_commands.completion_audit_with_terminal_loop_operational_proof'),
         );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($envelope, 'post_persistence_rerun_commands.terminal_loop_operational_proof_canonical_binding_path'),
+        );
+        $this->assertStringContainsString(
+            '@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            (string) data_get($envelope, 'post_persistence_rerun_commands.completion_audit_with_canonical_terminal_loop_operational_proof'),
+        );
         $this->assertTrue((bool) data_get($envelope, 'terminal_loop_operational_proof_required_before_final_audit'));
         $this->assertSame(
             'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
@@ -115,6 +123,14 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameTest extends TestCase
         $this->assertStringContainsString(
             '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
             (string) data_get($result, 'exact_commands.rerun_completion_audit_with_terminal_loop_operational_proof'),
+        );
+        $this->assertSame(
+            'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            data_get($result, 'exact_commands.terminal_loop_operational_proof_canonical_binding_path'),
+        );
+        $this->assertStringContainsString(
+            '@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json',
+            (string) data_get($result, 'exact_commands.rerun_completion_audit_with_canonical_terminal_loop_operational_proof'),
         );
         $this->assertContains(
             'completion_audit_must_be_rerun_after_persistence',

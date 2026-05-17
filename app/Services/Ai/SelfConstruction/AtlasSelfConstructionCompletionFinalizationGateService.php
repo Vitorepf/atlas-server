@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Read-only final gate that decides whether Atlas Self-Construction OS may
@@ -17,6 +18,10 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
     public const SCHEMA_VERSION = 'atlas.self_construction.completion_finalization_gate.v1';
 
     public const MODE = 'read_only_completion_finalization_gate';
+
+    private const CANONICAL_TERMINAL_LOOP_OPERATIONAL_PROOF_BINDING_PATH = 'atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
+
+    private const CANONICAL_TERMINAL_LOOP_OPERATIONAL_PROOF_BINDING_REFERENCE = '@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
 
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
@@ -129,6 +134,10 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
                     'operational_proof_hash' => (string) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.proof_hash', ''),
                     'operational_proof_validation_violation_count' => (int) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.validation_violation_count', 0),
                     'post_cycle_cycle_supervisor_status' => (string) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.post_cycle_cycle_supervisor_status', ''),
+                    'post_cycle_end_to_end_contract_status' => (string) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.post_cycle_end_to_end_contract_status', ''),
+                    'post_cycle_end_to_end_contract_all_required_surfaces_present' => (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.post_cycle_end_to_end_contract_all_required_surfaces_present', false),
+                    'post_cycle_end_to_end_contract_missing_required_capabilities' => (array) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.post_cycle_end_to_end_contract_missing_required_capabilities', []),
+                    'post_cycle_end_to_end_contract_hash' => (string) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.post_cycle_end_to_end_contract_hash', ''),
                     'post_cycle_cleanup_state' => (array) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.post_cycle_cleanup_state', []),
                     'dispatch_allowed' => (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.dispatch_allowed', false),
                     'adapter_execution_allowed' => (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.adapter_execution_allowed', false),
@@ -371,7 +380,13 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
     {
         $reference = trim((string) ($options['agent_control_plane_terminal_loop_operational_proof_json'] ?? ''));
 
-        return str_starts_with($reference, '@') ? $reference : '';
+        if (str_starts_with($reference, '@')) {
+            return $reference;
+        }
+
+        return Storage::disk('local')->exists(self::CANONICAL_TERMINAL_LOOP_OPERATIONAL_PROOF_BINDING_PATH)
+            ? self::CANONICAL_TERMINAL_LOOP_OPERATIONAL_PROOF_BINDING_REFERENCE
+            : '';
     }
 
     /** @param array<string, mixed> $completionAudit */
@@ -379,12 +394,18 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
     {
         $proof = (array) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence', []);
         $proofHash = (string) data_get($proof, 'proof_hash', '');
+        $endToEndContractHash = (string) data_get($proof, 'post_cycle_end_to_end_contract_hash', '');
 
         return (string) data_get($proof, 'status', '') === 'passed'
             && (bool) data_get($proof, 'supplied', false) === true
             && (bool) data_get($proof, 'passed', false) === true
             && preg_match('/^[a-f0-9]{64}$/', $proofHash) === 1
             && (int) data_get($proof, 'validation_violation_count', 1) === 0
+            && (string) data_get($proof, 'post_cycle_end_to_end_contract_status', '') === 'terminal_loop_end_to_end_contract_available'
+            && (bool) data_get($proof, 'post_cycle_end_to_end_contract_all_required_surfaces_present', false) === true
+            && (array) data_get($proof, 'post_cycle_end_to_end_contract_failed_check_ids', []) === []
+            && (array) data_get($proof, 'post_cycle_end_to_end_contract_missing_required_capabilities', []) === []
+            && preg_match('/^[a-f0-9]{64}$/', $endToEndContractHash) === 1
             && (int) data_get($proof, 'post_cycle_cleanup_state.claimed_task_count', 1) === 0
             && (int) data_get($proof, 'post_cycle_cleanup_state.active_lease_count', 1) === 0
             && (int) data_get($proof, 'post_cycle_cleanup_state.recoverable_lease_count', 1) === 0
