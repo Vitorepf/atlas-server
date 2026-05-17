@@ -64,11 +64,22 @@ final class PatchApplier
             if ($fallback['exit_code'] === 0) {
                 $result = $fallback;
             } else {
-                $result = [
-                    'exit_code' => $result['exit_code'],
-                    'stdout' => $result['stdout']."\n[p0 fallback stdout]\n".$fallback['stdout'],
-                    'stderr' => $result['stderr']."\n[p0 fallback stderr]\n".$fallback['stderr'],
-                ];
+                $patchFallback = $this->runPatchApply(
+                    args: ['patch', '-p0', '-N', '-F', '3'],
+                    workspace: $workspace,
+                    diff: $this->recountUnifiedDiffHunks($diff),
+                    timeoutSeconds: $timeoutSeconds,
+                );
+
+                if ($patchFallback['exit_code'] === 0) {
+                    $result = $patchFallback;
+                } else {
+                    $result = [
+                        'exit_code' => $result['exit_code'],
+                        'stdout' => $result['stdout']."\n[p0 fallback stdout]\n".$fallback['stdout']."\n[patch fallback stdout]\n".$patchFallback['stdout'],
+                        'stderr' => $result['stderr']."\n[p0 fallback stderr]\n".$fallback['stderr']."\n[patch fallback stderr]\n".$patchFallback['stderr'],
+                    ];
+                }
             }
         }
 
@@ -89,6 +100,24 @@ final class PatchApplier
      * @return array{exit_code: int, stdout: string, stderr: string}
      */
     private function runGitApply(array $args, string $workspace, string $diff, int $timeoutSeconds): array
+    {
+        return $this->runPatchCommand($args, $workspace, $diff, $timeoutSeconds);
+    }
+
+    /**
+     * @param  list<string>  $args
+     * @return array{exit_code: int, stdout: string, stderr: string}
+     */
+    private function runPatchApply(array $args, string $workspace, string $diff, int $timeoutSeconds): array
+    {
+        return $this->runPatchCommand($args, $workspace, $diff, $timeoutSeconds);
+    }
+
+    /**
+     * @param  list<string>  $args
+     * @return array{exit_code: int, stdout: string, stderr: string}
+     */
+    private function runPatchCommand(array $args, string $workspace, string $diff, int $timeoutSeconds): array
     {
         $process = new Process(
             $args,
@@ -125,5 +154,55 @@ final class PatchApplier
                 'stderr' => $e->getMessage(),
             ];
         }
+    }
+
+    private function recountUnifiedDiffHunks(string $diff): string
+    {
+        $lines = explode("\n", $diff);
+        $out = [];
+
+        for ($i = 0, $count = count($lines); $i < $count; $i++) {
+            $line = $lines[$i];
+            if (! preg_match('/^@@\\s+-(\\d+)(?:,\\d+)?\\s+\\+(\\d+)(?:,\\d+)?\\s+@@(.*)$/', $line, $matches)) {
+                $out[] = $line;
+
+                continue;
+            }
+
+            $body = [];
+            $oldCount = 0;
+            $newCount = 0;
+            $j = $i + 1;
+            for (; $j < $count; $j++) {
+                $candidate = $lines[$j];
+                if (str_starts_with($candidate, '@@ ')) {
+                    break;
+                }
+                $body[] = $candidate;
+
+                if ($candidate === '' || str_starts_with($candidate, '\\ ')) {
+                    continue;
+                }
+                if (str_starts_with($candidate, ' ') || str_starts_with($candidate, '-')) {
+                    $oldCount++;
+                }
+                if (str_starts_with($candidate, ' ') || str_starts_with($candidate, '+')) {
+                    $newCount++;
+                }
+            }
+
+            $out[] = sprintf(
+                '@@ -%d,%d +%d,%d @@%s',
+                (int) $matches[1],
+                max(1, $oldCount),
+                (int) $matches[2],
+                max(1, $newCount),
+                (string) $matches[3],
+            );
+            array_push($out, ...$body);
+            $i = $j - 1;
+        }
+
+        return implode("\n", $out);
     }
 }

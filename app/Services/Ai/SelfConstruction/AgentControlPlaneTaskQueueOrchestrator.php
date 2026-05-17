@@ -218,6 +218,37 @@ final class AgentControlPlaneTaskQueueOrchestrator
             ]);
         }
         $agentId = (string) $lease['agent_id'];
+        $queueStatus = (string) ($queueRecord['status'] ?? '');
+        $queueLeaseId = (string) data_get($queueRecord, 'metadata.lease_id', '');
+        $queueAgentId = (string) data_get($queueRecord, 'metadata.agent_id', '');
+        if ($queueStatus !== 'claimed') {
+            return $this->envelope('complete_dry_run_blocked', [
+                'reason' => 'task_packet_not_claimed_for_completion',
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'queue_status' => $queueStatus,
+                'completion_real_allowed' => false,
+            ]);
+        }
+        if ($queueLeaseId === '' || $queueLeaseId !== $leaseId) {
+            return $this->envelope('complete_dry_run_blocked', [
+                'reason' => 'queue_lease_id_mismatch',
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'queue_lease_id' => $queueLeaseId,
+                'completion_real_allowed' => false,
+            ]);
+        }
+        if ($queueAgentId === '' || $queueAgentId !== $agentId) {
+            return $this->envelope('complete_dry_run_blocked', [
+                'reason' => 'queue_agent_id_mismatch',
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'agent_id' => $agentId,
+                'queue_agent_id' => $queueAgentId,
+                'completion_real_allowed' => false,
+            ]);
+        }
         $completionEvidence = $this->completionEvidence($evidence);
         $evidenceValidation = $this->validateCompletionEvidence($completionEvidence, [
             'task_packet_id' => $taskPacketId,
@@ -247,6 +278,10 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'evidence_validation_blockers' => (array) $evidenceValidation['blockers'],
             'structured_completion_evidence_required' => true,
             'structured_completion_evidence_valid' => (bool) $evidenceValidation['structured_completion_evidence_valid'],
+            'queue_claim_binding_verified' => true,
+            'queue_status_at_completion' => $queueStatus,
+            'queue_lease_id' => $queueLeaseId,
+            'queue_agent_id' => $queueAgentId,
             'files_changed_within_allowed_scope' => (bool) $evidenceValidation['files_changed_within_allowed_scope'],
             'files_changed_outside_allowed_scope' => (array) $evidenceValidation['files_changed_outside_allowed_scope'],
             'evidence_keys' => array_keys($completionEvidence),
@@ -263,6 +298,10 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'release' => $release,
             'queue_update' => $update,
             'evidence_validation' => $evidenceValidation,
+            'queue_claim_binding_verified' => true,
+            'queue_status_at_completion' => $queueStatus,
+            'queue_lease_id' => $queueLeaseId,
+            'queue_agent_id' => $queueAgentId,
             'completion_real_allowed' => false,
         ]);
     }

@@ -37,12 +37,12 @@ return [
 
         'desktop_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED', false),
 
-        // `after_response` keeps Desktop/API callers responsive: /run accepts
-        // the operator-confirmed work, returns immediately, then executes the
-        // provider path after the response has been flushed. Tests and CLI
-        // smoke paths can force `inline` when they need the full receipt in
-        // the same process.
-        'run_dispatch_mode' => env('ATLAS_DEV_RUN_DISPATCH_MODE', 'after_response'),
+        // `process` keeps Desktop/API callers responsive: /run accepts the
+        // operator-confirmed work, writes queued state, spawns an isolated CLI
+        // worker, and returns immediately. Tests and CLI smoke paths can force
+        // `inline`; `after_response` remains as a fallback for hosts that
+        // cannot spawn local processes.
+        'run_dispatch_mode' => env('ATLAS_DEV_RUN_DISPATCH_MODE', 'process'),
     ],
 
     'confirmation_token' => [
@@ -53,6 +53,14 @@ return [
     'run_index' => [
         'list_default_limit' => (int) env('ATLAS_DEV_RUN_INDEX_LIST_LIMIT', 50),
         'list_max_limit' => (int) env('ATLAS_DEV_RUN_INDEX_LIST_MAX_LIMIT', 200),
+    ],
+
+    'run_worker' => [
+        'stale_after_seconds' => (int) env('ATLAS_DEV_RUN_WORKER_STALE_AFTER_SECONDS', 900),
+    ],
+
+    'provider' => [
+        'timeout_seconds' => (int) env('ATLAS_DEV_PROVIDER_TIMEOUT_SECONDS', 120),
     ],
 
     'receipts_path' => env(

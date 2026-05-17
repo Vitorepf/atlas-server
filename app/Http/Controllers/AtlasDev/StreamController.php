@@ -90,7 +90,7 @@ final class StreamController extends Controller
         if (is_array($runState)) {
             $phase = match ($runState['status'] ?? null) {
                 'running' => 'executing',
-                'complete', 'failed' => 'complete',
+                'complete', 'failed', 'cancelled' => 'complete',
                 default => 'queued',
             };
             $this->emit('phase', [

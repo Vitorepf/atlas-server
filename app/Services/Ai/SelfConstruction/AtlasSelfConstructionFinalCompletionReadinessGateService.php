@@ -116,6 +116,10 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
             'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
             'completion_audit_failed_criteria' => (array) data_get($completionAudit, 'failed_criteria', []),
             'command_to_rerun_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            'command_to_refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
+            'command_to_rerun_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+            'terminal_loop_operational_proof_required_before_completion_claim' => true,
+            'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             'execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
@@ -138,12 +142,23 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
                 'completion_claim_requires_human_signed_receipt' => true,
                 'completion_claim_requires_runtime_and_smoke_green' => true,
                 'completion_claim_requires_material_evidence_hashes' => true,
+                'completion_claim_requires_terminal_loop_operational_proof_binding' => true,
                 'next_stage_requires_completion_claim_allowed' => true,
             ],
         ];
         $payload['gate_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    private function terminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function completionAuditWithTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
     }
 
     /** @param array<string, array<string, mixed>> $criteriaMatrix */

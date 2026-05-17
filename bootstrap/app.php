@@ -57,6 +57,12 @@ use App\Console\Commands\AtlasCliTraceCommand;
 use App\Console\Commands\AtlasCliTuiCommand;
 use App\Console\Commands\AtlasCliUpdateCommand;
 use App\Console\Commands\AtlasCliVersionCommand;
+use App\Console\Commands\AtlasDevDesktopAcceptanceCommand;
+use App\Console\Commands\AtlasDevDesktopEfficiencyEvidenceCommand;
+use App\Console\Commands\AtlasDevDesktopEnableCommand;
+use App\Console\Commands\AtlasDevDesktopGoalAuditCommand;
+use App\Console\Commands\AtlasDevDesktopRealSmokeCommand;
+use App\Console\Commands\AtlasDevSeniorLoopAuditCommand;
 use App\Console\Commands\AtlasDevSmokeCommand;
 use App\Console\Commands\AtlasEngineeringApiContractCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCalibrateCommand;
@@ -214,6 +220,12 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCliTuiCommand::class,
         AtlasCliUpdateCommand::class,
         AtlasCliVersionCommand::class,
+        AtlasDevDesktopAcceptanceCommand::class,
+        AtlasDevDesktopEfficiencyEvidenceCommand::class,
+        AtlasDevDesktopGoalAuditCommand::class,
+        AtlasDevDesktopEnableCommand::class,
+        AtlasDevDesktopRealSmokeCommand::class,
+        AtlasDevSeniorLoopAuditCommand::class,
         AtlasDevSmokeCommand::class,
         AtlasEngineeringBenchmarkCalibrateCommand::class,
         AtlasEngineeringBenchmarkCommand::class,

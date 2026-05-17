@@ -85,6 +85,7 @@ final class ProviderPromptBuilder
                 'model_family' => $taskContract->providerLock->modelFamily,
                 'fallback_allowed' => $taskContract->providerLock->fallbackAllowed,
             ],
+            fileExcerpts: $this->buildFocusedFileExcerpts($envelope, $taskContract),
         );
 
         $renderedPromptHash = hash('sha256', $renderedPromptText);
@@ -116,6 +117,51 @@ final class ProviderPromptBuilder
             providerSafe: $providerSafe,
             promptProjectionHash: $promptProjectionHash,
         );
+    }
+
+    /**
+     * @return list<array{path: string, sha256: string, content: string, truncated: bool}>
+     */
+    private function buildFocusedFileExcerpts(OperationEnvelope $envelope, LightTaskContract $taskContract): array
+    {
+        $workspace = rtrim($envelope->workspace, DIRECTORY_SEPARATOR);
+        if ($workspace === '' || ! is_dir($workspace)) {
+            return [];
+        }
+
+        $excerpts = [];
+        $remainingBytes = 12000;
+        foreach ($taskContract->allowedFiles as $relativePath) {
+            if (count($excerpts) >= 4 || $remainingBytes <= 0) {
+                break;
+            }
+            if (! is_string($relativePath) || $relativePath === '' || str_contains($relativePath, '..')) {
+                continue;
+            }
+
+            $absolute = $workspace.DIRECTORY_SEPARATOR.ltrim($relativePath, DIRECTORY_SEPARATOR);
+            if (! is_file($absolute) || ! is_readable($absolute)) {
+                continue;
+            }
+
+            $contents = file_get_contents($absolute);
+            if (! is_string($contents) || $contents === '' || ! mb_check_encoding($contents, 'UTF-8')) {
+                continue;
+            }
+
+            $truncated = strlen($contents) > $remainingBytes;
+            $slice = $truncated ? substr($contents, 0, $remainingBytes) : $contents;
+            $remainingBytes -= strlen($slice);
+
+            $excerpts[] = [
+                'path' => $relativePath,
+                'sha256' => hash('sha256', $contents),
+                'content' => rtrim($slice, "\n"),
+                'truncated' => $truncated,
+            ];
+        }
+
+        return $excerpts;
     }
 
     /**

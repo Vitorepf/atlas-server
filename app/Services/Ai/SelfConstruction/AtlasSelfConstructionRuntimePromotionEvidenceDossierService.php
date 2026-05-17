@@ -112,7 +112,13 @@ final class AtlasSelfConstructionRuntimePromotionEvidenceDossierService
                 'sign_runtime_promotion_receipt',
                 'persist_runtime_promotion_receipt_through_verifier',
                 'rerun_completion_audit',
+                'refresh_terminal_loop_operational_proof',
+                'rerun_completion_audit_with_terminal_loop_operational_proof',
             ],
+            'terminal_loop_operational_proof_required_before_final_audit' => true,
+            'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            'terminal_loop_operational_proof_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json',
+            'completion_audit_with_terminal_loop_operational_proof_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
             'machine_verification' => [
                 'status' => $allCandidatesReady ? 'available' : 'blocked',
                 'dossier_hash' => '',

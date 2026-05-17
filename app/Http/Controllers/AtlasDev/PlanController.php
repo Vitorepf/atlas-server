@@ -131,6 +131,7 @@ final class PlanController extends Controller
         }
 
         $data = array_merge($summary, [
+            'thread_id' => $plan->envelope->surfaceContext->threadId,
             'confirmation' => $confirmation,
             'routing' => [
                 'kind' => $plan->routing->kind,

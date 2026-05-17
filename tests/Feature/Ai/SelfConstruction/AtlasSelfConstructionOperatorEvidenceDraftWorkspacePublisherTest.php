@@ -30,7 +30,7 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest ext
         $this->assertFalse($payload['dispatch_allowed']);
         $this->assertFalse($payload['can_persist_from_publisher']);
         $this->assertTrue($payload['requires_explicit_operator_persistence_commands']);
-        $this->assertSame(4, $payload['post_publish_persistence_step_count']);
+        $this->assertSame(6, $payload['post_publish_persistence_step_count']);
     }
 
     public function test_publisher_refuses_unfinalized_hashes_without_writing(): void
@@ -115,16 +115,18 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest ext
         $this->assertTrue($payload['requires_explicit_operator_persistence_commands']);
         $this->assertTrue($payload['human_receipt_persistence_requires_runtime_and_smoke_green']);
         $this->assertFalse($payload['can_persist_from_publisher']);
-        $this->assertSame(4, $payload['post_publish_persistence_step_count']);
+        $this->assertSame(6, $payload['post_publish_persistence_step_count']);
 
         $sequence = $payload['post_publish_persistence_sequence'];
         $this->assertSame([
             'persist_runtime_promotion_receipt',
             'persist_real_provider_smoke',
             'persist_human_completion_receipt',
+            'refresh_terminal_loop_operational_proof',
+            'rerun_completion_audit_with_terminal_loop_operational_proof',
             'rerun_completion_audit',
         ], array_column($sequence, 'id'));
-        $this->assertSame([1, 2, 3, 4], array_column($sequence, 'order'));
+        $this->assertSame([1, 2, 3, 4, 5, 6], array_column($sequence, 'order'));
 
         $this->assertStringContainsString(
             '--runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
@@ -140,8 +142,11 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherTest ext
             '--completion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json',
             $sequence[2]['command'],
         );
-        $this->assertStringContainsString('--atlas-self-construction-os-completion-audit-status', $sequence[3]['command']);
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', $sequence[3]['command']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', $sequence[4]['command']);
+        $this->assertStringContainsString('--atlas-self-construction-os-completion-audit-status', $sequence[5]['command']);
         $this->assertSame(['persist_runtime_promotion_receipt', 'persist_real_provider_smoke'], $sequence[2]['required_previous_steps']);
+        $this->assertContains('refresh_terminal_loop_operational_proof', $sequence[4]['required_previous_steps']);
 
         foreach ($sequence as $step) {
             $this->assertFalse($step['can_run_from_publisher']);

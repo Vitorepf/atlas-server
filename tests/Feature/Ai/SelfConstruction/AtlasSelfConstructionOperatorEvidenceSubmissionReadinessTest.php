@@ -84,6 +84,23 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             '--atlas-self-construction-os-completion-audit-status',
             data_get($payload, 'operator_completion_proof_bundle.proof_commands.completion_audit'),
         );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-status',
+            data_get($payload, 'operator_completion_proof_bundle.proof_commands.terminal_loop_operational_proof'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'operator_completion_proof_bundle.proof_commands.completion_audit_with_terminal_loop_operational_proof'),
+        );
+        $this->assertTrue((bool) data_get($payload, 'operator_completion_proof_bundle.terminal_loop_operational_proof_required_before_final_audit'));
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            data_get($payload, 'operator_completion_proof_bundle.terminal_loop_operational_proof_expected_binding_schema'),
+        );
+        $this->assertContains(
+            'post_cycle_cycle_supervisor_review_evidence',
+            data_get($payload, 'operator_completion_proof_bundle.terminal_loop_operational_proof_acceptance_criteria'),
+        );
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             (string) data_get($payload, 'operator_completion_proof_bundle.operator_completion_proof_bundle_hash'),
@@ -103,7 +120,16 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             data_get($payload, 'operator_evidence_closure_runbook.missing_operator_proofs'),
         );
         $this->assertSame(3, data_get($payload, 'operator_evidence_closure_runbook.missing_operator_proof_count'));
-        $this->assertSame(4, data_get($payload, 'operator_evidence_closure_runbook.ordered_step_count'));
+        $this->assertSame(5, data_get($payload, 'operator_evidence_closure_runbook.ordered_step_count'));
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-status',
+            data_get($payload, 'operator_evidence_closure_runbook.terminal_loop_operational_proof_command'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'operator_evidence_closure_runbook.completion_audit_with_terminal_loop_operational_proof_command'),
+        );
+        $this->assertTrue((bool) data_get($payload, 'operator_evidence_closure_runbook.terminal_loop_operational_proof_required_before_final_audit'));
         $this->assertFalse(data_get($payload, 'operator_evidence_closure_runbook.can_execute_from_runbook'));
         $this->assertFalse(data_get($payload, 'operator_evidence_closure_runbook.can_persist_from_runbook'));
         $this->assertFalse(data_get($payload, 'operator_evidence_closure_runbook.can_sign_from_runbook'));
@@ -121,6 +147,9 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             data_get($payload, 'operator_command_surface_integrity.status'),
         );
         $this->assertSame(0, data_get($payload, 'operator_command_surface_integrity.missing_option_count'));
+        $this->assertTrue(data_get($payload, 'operator_command_surface_integrity.legacy_alias_free'));
+        $this->assertSame(0, data_get($payload, 'operator_command_surface_integrity.legacy_alias_count'));
+        $this->assertSame([], data_get($payload, 'operator_command_surface_integrity.legacy_aliases_detected'));
         $this->assertGreaterThan(0, data_get($payload, 'operator_command_surface_integrity.command_count'));
         $this->assertFalse(data_get($payload, 'operator_command_surface_integrity.can_execute_commands_from_integrity_check'));
         $this->assertFalse(data_get($payload, 'operator_command_surface_integrity.can_persist_from_integrity_check'));
@@ -709,6 +738,23 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
         );
         $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_ready_for_final_audit'));
         $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_can_persist_from_proof_bundle'));
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_required_before_final_audit'));
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_expected_binding_schema'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-status',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_command'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_audit_with_terminal_loop_operational_proof_command'),
+        );
+        $this->assertSame(
+            5,
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_acceptance_criteria_count'),
+        );
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             (string) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_proof_bundle_hash'),
@@ -725,11 +771,45 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             3,
             data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_evidence_closure_runbook_missing_operator_proof_count'),
         );
+        $this->assertSame(
+            5,
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_evidence_closure_runbook_ordered_step_count'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-status',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_evidence_closure_runbook_terminal_loop_operational_proof_command'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_evidence_closure_runbook_completion_audit_with_terminal_loop_operational_proof_command'),
+        );
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_evidence_closure_runbook_terminal_loop_operational_proof_required_before_final_audit'));
         $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_evidence_closure_runbook_can_execute'));
         $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_evidence_closure_runbook_can_persist'));
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             (string) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_evidence_closure_runbook_hash'),
+        );
+        $this->assertSame(
+            'command_surface_aligned',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_command_surface_integrity_status'),
+        );
+        $this->assertGreaterThan(
+            0,
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_command_surface_integrity_command_count'),
+        );
+        $this->assertSame(
+            0,
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_command_surface_integrity_missing_option_count'),
+        );
+        $this->assertSame(
+            0,
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_command_surface_integrity_legacy_alias_count'),
+        );
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_command_surface_integrity_legacy_alias_free'));
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            (string) data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_command_surface_integrity_hash'),
         );
         $this->assertFalse($status['execution_allowed']);
 

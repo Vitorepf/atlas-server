@@ -35,6 +35,11 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_execute_from_handoff'));
         $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_persist_from_handoff'));
         $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_promote_completion_from_handoff'));
+        $this->assertTrue((bool) data_get($gate, 'terminal_loop_operational_proof_required_before_completion_claim'));
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) data_get($gate, 'command_to_refresh_terminal_loop_operational_proof'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) data_get($gate, 'command_to_rerun_audit_with_terminal_loop_operational_proof'));
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) data_get($gate, 'completion_finalization_operator_handoff.terminal_loop_operational_proof_command'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) data_get($gate, 'completion_finalization_operator_handoff.completion_audit_with_terminal_loop_operational_proof_command'));
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             (string) data_get($gate, 'completion_finalization_operator_handoff.completion_finalization_operator_handoff_hash'),
@@ -61,7 +66,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
     public function test_finalization_gate_returns_completion_claim_allowed_true_only_when_every_criterion_passed_in_test_audit(): void
     {
         $gate = $this->service()->evaluate([
-            'completion_audit' => $this->auditAllPassedExcept([]),
+            'completion_audit' => $this->auditAllPassedExcept([], withOperationalProof: true),
             'completion_evidence' => $this->evidenceAllGreen(),
         ]);
 
@@ -80,6 +85,21 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
             data_get($gate, 'completion_finalization_operator_handoff.current_required_operator_artifact'),
         );
         $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.required_success_predicate.completion_claim_allowed_must_be_true'));
+        $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.required_success_predicate.terminal_loop_operational_proof_must_be_bound_and_passed'));
+    }
+
+    public function test_finalization_gate_blocks_green_audit_without_terminal_loop_operational_proof_binding(): void
+    {
+        $gate = $this->service()->evaluate([
+            'completion_audit' => $this->auditAllPassedExcept([]),
+            'completion_evidence' => $this->evidenceAllGreen(),
+        ]);
+
+        $this->assertSame('blocked', $gate['status']);
+        $this->assertFalse((bool) $gate['completion_claim_allowed']);
+        $this->assertFalse((bool) $gate['terminal_loop_green']);
+        $this->assertContains('finalization_gate_blocked_by_terminal_loop_green', (array) $gate['next_stage_blockers']);
+        $this->assertSame('not_supplied_to_read_only_audit', data_get($gate, 'checks.terminal_loop_green.evidence.operational_proof_status'));
     }
 
     public function test_finalization_gate_blocks_when_green_audit_and_completion_evidence_hashes_drift(): void
@@ -160,7 +180,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
      * @param  list<string>  $failed
      * @return array<string, mixed>
      */
-    private function auditAllPassedExcept(array $failed): array
+    private function auditAllPassedExcept(array $failed, bool $withOperationalProof = false): array
     {
         $hash = str_repeat('a', 64);
         $ids = [
@@ -193,7 +213,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
             $criteria[] = ['id' => $id, 'passed' => ! in_array($id, $failed, true), 'evidence' => $evidence];
         }
 
-        return [
+        $audit = [
             'status' => $failed === [] ? 'complete' : 'incomplete',
             'completion_allowed' => $failed === [],
             'completion_claim_allowed' => $failed === [],
@@ -203,6 +223,21 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
             'passed_count' => count($ids) - count($failed),
             'criteria' => $criteria,
         ];
+        if ($withOperationalProof) {
+            $audit['agent_control_plane_terminal_loop_operational_proof_evidence'] = [
+                'status' => 'passed',
+                'passed' => true,
+                'proof_hash' => $hash,
+                'post_cycle_cycle_supervisor_status' => 'cycle_evidence_review_ready',
+            ];
+        } else {
+            $audit['agent_control_plane_terminal_loop_operational_proof_evidence'] = [
+                'status' => 'not_supplied_to_read_only_audit',
+                'passed' => false,
+            ];
+        }
+
+        return $audit;
     }
 
     /** @return array<string, mixed> */

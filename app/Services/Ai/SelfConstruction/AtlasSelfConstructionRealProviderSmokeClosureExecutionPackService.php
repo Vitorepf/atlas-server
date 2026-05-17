@@ -305,6 +305,8 @@ final class AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService
             'persist_with_explicit_flag_only',
             'rerun_completion_evidence_status',
             'rerun_completion_audit',
+            'refresh_terminal_loop_operational_proof',
+            'rerun_completion_audit_with_terminal_loop_operational_proof',
         ];
     }
 
@@ -318,7 +320,19 @@ final class AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService
             'persist_real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
             'rerun_completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
             'rerun_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            'refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
+            'rerun_completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
         ];
+    }
+
+    private function terminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function completionAuditWithTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
     }
 
     /** @param array<string, mixed> $payload */

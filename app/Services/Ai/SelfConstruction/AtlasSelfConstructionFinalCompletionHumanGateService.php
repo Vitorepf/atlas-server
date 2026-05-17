@@ -157,6 +157,8 @@ final class AtlasSelfConstructionFinalCompletionHumanGateService
             'persistence_preflight' => $persistencePreflight,
             'ordered_operator_steps' => $this->orderedOperatorSteps($prereqMatrix, $endgameVerifier, $receiptProvided),
             'exact_commands' => $this->exactCommands(),
+            'terminal_loop_operational_proof_required_before_final_audit' => true,
+            'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             'anti_cheat_policy' => $this->antiCheatPolicy(),
             'non_execution_guarantees' => [
                 'final_completion_human_gate_does_not_sign_for_operator',
@@ -329,6 +331,9 @@ final class AtlasSelfConstructionFinalCompletionHumanGateService
             'blockers' => $blockers,
             'blocker_count' => count($blockers),
             'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
+            'terminal_loop_operational_proof_command' => $this->terminalLoopOperationalProofCommand(),
+            'rerun_audit_with_terminal_loop_operational_proof_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+            'terminal_loop_operational_proof_required_before_final_audit' => true,
             'persistence_blocker' => $blockers === []
                 ? ''
                 : 'final_completion_human_gate_persistence_blocked_by_'.$blockers[0],
@@ -446,13 +451,20 @@ final class AtlasSelfConstructionFinalCompletionHumanGateService
             ],
             [
                 'order' => 8,
-                'id' => 'rerun_audit_until_complete',
-                'summary' => 'Re-run completion audit; status must flip to complete with zero failed criteria before completion_claim_allowed can flip true.',
+                'id' => 'refresh_terminal_loop_operational_proof',
+                'summary' => 'Refresh Terminal Loop Operational Proof and keep the audit binding packet before the final completion audit.',
                 'ready' => $allGreen && $verifierPassed,
                 'depends_on' => ['persist_human_completion_receipt'],
             ],
             [
                 'order' => 9,
+                'id' => 'rerun_audit_until_complete',
+                'summary' => 'Re-run completion audit with the Terminal Loop Operational Proof binding; status must flip to complete with zero failed criteria before completion_claim_allowed can flip true.',
+                'ready' => $allGreen && $verifierPassed,
+                'depends_on' => ['refresh_terminal_loop_operational_proof'],
+            ],
+            [
+                'order' => 10,
                 'id' => 'run_final_completion_readiness_gate',
                 'summary' => 'Run the final completion readiness gate; only it may declare status=complete and next_stage_allowed=true.',
                 'ready' => $allGreen && $verifierPassed,
@@ -466,6 +478,8 @@ final class AtlasSelfConstructionFinalCompletionHumanGateService
     {
         return [
             'refresh_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            'refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
+            'refresh_completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
             'check_completion_evidence' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
             'draft_runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason ≥32 chars>" --json',
             'persist_runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
@@ -478,6 +492,16 @@ final class AtlasSelfConstructionFinalCompletionHumanGateService
             'final_completion_readiness_gate_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-final-completion-readiness-gate-status --json',
             'final_completion_dossier_exporter_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-final-completion-dossier-exporter-status --json',
         ];
+    }
+
+    private function terminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function completionAuditWithTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
     }
 
     /** @return array<string, mixed> */

@@ -663,7 +663,7 @@ return [
                 'allow_manual' => (bool) env('ATLAS_AI_CLAUDE_ALLOW_MANUAL', true),
                 'args' => env('ATLAS_AI_CLAUDE_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_CLAUDE_ARGS'))), fn (string $arg): bool => $arg !== ''))
-                    : ['-p', '--output-format', 'stream-json', '--verbose', '--no-session-persistence'],
+                    : ['-p', '--output-format', 'stream-json', '--verbose', '--no-session-persistence', '--allowedTools', 'Read'],
             ],
             'codex_cli' => [
                 'binary' => env('ATLAS_AI_CODEX_BIN', 'codex'),

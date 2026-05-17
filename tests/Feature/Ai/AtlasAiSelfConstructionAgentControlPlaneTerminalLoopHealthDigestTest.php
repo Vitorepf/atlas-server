@@ -105,6 +105,20 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertSame(0, data_get($digest, 'terminal_loop_fleet_evidence_rollup.completed_dry_run_task_count'));
         $this->assertFalse(data_get($digest, 'terminal_loop_fleet_evidence_rollup.ready_for_operator_review'));
         $this->assertNotEmpty(data_get($digest, 'terminal_loop_fleet_evidence_rollup.terminal_loop_fleet_evidence_rollup_hash'));
+        $this->assertSame(
+            AgentControlPlaneTerminalLoopHealthDigestService::CYCLE_SUPERVISOR_SCHEMA_VERSION,
+            data_get($digest, 'terminal_loop_cycle_supervisor.schema_version'),
+        );
+        $this->assertSame('cycle_replenishment_required', data_get($digest, 'terminal_loop_cycle_supervisor.status'));
+        $this->assertSame('replenish_before_launch', data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'));
+        $this->assertSame('restore_lane_task_supply_before_worker_launch', data_get($digest, 'terminal_loop_cycle_supervisor.next_command_purpose'));
+        $this->assertStringContainsString('--agent-control-plane-task-auto-replenishment-status', data_get($digest, 'terminal_loop_cycle_supervisor.next_command'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_cycle_supervisor.next_command_is_lane_bound'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_cycle_supervisor.operator_loop_contract.rerun_digest_after_next_command'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_execute_next_command'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_replenish_from_supervisor'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_call_provider_from_supervisor'));
+        $this->assertNotEmpty(data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash'));
         $this->assertFalse(data_get($digest, 'runtime_safety.dispatch_allowed'));
         $this->assertFalse(data_get($digest, 'runtime_safety.provider_call_allowed'));
     }
@@ -154,6 +168,14 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertStringContainsString('--agent-control-plane-terminal-worker-bootstrap-status', data_get($digest, 'terminal_loop_fleet_operator_handoff.primary_command'));
         $this->assertSame('fleet_lane_isolation_tagged_lane_verified', data_get($digest, 'terminal_loop_fleet_lane_isolation.status'));
         $this->assertTrue(data_get($digest, 'terminal_loop_fleet_lane_isolation.all_commands_lane_bound'));
+        $this->assertSame('cycle_worker_launch_ready', data_get($digest, 'terminal_loop_cycle_supervisor.status'));
+        $this->assertSame('launch_or_continue_workers', data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'));
+        $this->assertSame('start_one_lane_bound_terminal_worker_with_one_packet', data_get($digest, 'terminal_loop_cycle_supervisor.next_command_purpose'));
+        $this->assertStringContainsString('--actor=operator-b-fleet-01', data_get($digest, 'terminal_loop_cycle_supervisor.next_command'));
+        $this->assertStringContainsString('--queue-tag=lane-ready', data_get($digest, 'terminal_loop_cycle_supervisor.next_command'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_cycle_supervisor.next_command_is_lane_bound'));
+        $this->assertSame(2, data_get($digest, 'terminal_loop_cycle_supervisor.operator_loop_contract.max_recommended_terminals_per_batch'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_claim_from_supervisor'));
     }
 
     public function test_tag_filtered_digest_explains_hidden_claimable_supply_outside_requested_lane(): void
@@ -226,6 +248,12 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertStringContainsString('--packet=expired-digest-1', data_get($digest, 'terminal_loop_fleet_operator_handoff.primary_command'));
         $this->assertSame('fleet_lane_isolation_tagged_lane_verified', data_get($digest, 'terminal_loop_fleet_lane_isolation.status'));
         $this->assertTrue(data_get($digest, 'terminal_loop_fleet_lane_isolation.all_commands_lane_bound'));
+        $this->assertSame('cycle_recovery_required', data_get($digest, 'terminal_loop_cycle_supervisor.status'));
+        $this->assertSame('recover_before_claim', data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'));
+        $this->assertSame('recover_released_expired_or_orphaned_task_before_any_new_claim', data_get($digest, 'terminal_loop_cycle_supervisor.next_command_purpose'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_cycle_supervisor.transition_guards.recover_before_replenish'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_cycle_supervisor.operator_loop_contract.recover_before_any_new_claim'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_recover_from_supervisor'));
     }
 
     public function test_claimed_without_lease_metadata_digest_recommends_packet_scoped_recovery(): void
@@ -353,6 +381,10 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertContains($evidenceHash, data_get($digest, 'terminal_loop_fleet_evidence_rollup.evidence_hashes'));
         $this->assertSame('rollup-1', data_get($digest, 'terminal_loop_fleet_evidence_rollup.recent_completed_task_summaries.0.task_packet_id'));
         $this->assertSame('valid_completion_evidence', data_get($digest, 'terminal_loop_fleet_evidence_rollup.recent_completed_task_summaries.0.status'));
+        $this->assertSame('cycle_evidence_review_ready', data_get($digest, 'terminal_loop_cycle_supervisor.status'));
+        $this->assertSame('review_evidence', data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'));
+        $this->assertSame('review_completed_dry_run_evidence_and_rerun_digest', data_get($digest, 'terminal_loop_cycle_supervisor.next_command_purpose'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_complete_from_supervisor'));
     }
 
     public function test_cli_status_exposes_digest_summary(): void
@@ -428,6 +460,16 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertSame(0, data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_completed_dry_run_task_count'));
         $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_evidence_ready_for_operator_review'));
         $this->assertNotEmpty(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_fleet_evidence_rollup_hash'));
+        $this->assertSame(
+            AgentControlPlaneTerminalLoopHealthDigestService::CYCLE_SUPERVISOR_SCHEMA_VERSION,
+            data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_cycle_supervisor_schema'),
+        );
+        $this->assertSame('cycle_replenishment_required', data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_cycle_supervisor_status'));
+        $this->assertSame('replenish_before_launch', data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_cycle_supervisor_cycle_state'));
+        $this->assertSame('restore_lane_task_supply_before_worker_launch', data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_cycle_supervisor_next_command_purpose'));
+        $this->assertTrue(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_cycle_supervisor_next_command_is_lane_bound'));
+        $this->assertFalse(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_cycle_supervisor_can_execute'));
+        $this->assertNotEmpty(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_cycle_supervisor_hash'));
         $this->assertNotEmpty(data_get($payload, 'agent_control_plane_terminal_loop_health_digest_status.terminal_loop_health_digest_hash'));
         $this->assertStringContainsString(
             '--agent-control-plane-terminal-worker-bootstrap-status',

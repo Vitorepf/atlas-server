@@ -140,6 +140,7 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-os-completion-audit-preflight : Generate the read-only Atlas Self-Construction OS Completion Audit preflight}
         {--atlas-self-construction-os-completion-audit-implementation-packet : Generate the read-only Atlas Self-Construction OS Completion Audit implementation packet}
         {--atlas-self-construction-os-completion-audit-status : Run the read-only Atlas Self-Construction OS Completion Audit}
+        {--agent-control-plane-terminal-loop-operational-proof-json= : Terminal Loop Operational Proof JSON payload or @path to bind into the read-only OS Completion Audit}
         {--atlas-self-construction-os-completion-operator-action-packet-contract : Generate the read-only Atlas Self-Construction OS Completion Operator Action Packet contract}
         {--atlas-self-construction-os-completion-operator-action-packet-preflight : Generate the read-only Atlas Self-Construction OS Completion Operator Action Packet preflight}
         {--atlas-self-construction-os-completion-operator-action-packet-implementation-packet : Generate the read-only Atlas Self-Construction OS Completion Operator Action Packet implementation packet}
@@ -419,6 +420,7 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-terminal-loop-operational-proof-preflight : Generate the Terminal Loop Operational Proof preflight}
         {--agent-control-plane-terminal-loop-operational-proof-implementation-packet : Generate the Terminal Loop Operational Proof implementation packet}
         {--agent-control-plane-terminal-loop-operational-proof-status : Execute one bounded local claim/lease/evidence/complete_dry_run proof without provider execution}
+        {--persist-terminal-loop-operational-proof-binding : Persist only the Terminal Loop Operational Proof audit binding packet for the final completion audit}
         {--atlas-self-construction-os-runtime-gap-matrix-audit-contract : Generate the Runtime Gap Matrix Audit contract}
         {--atlas-self-construction-os-runtime-gap-matrix-audit-preflight : Generate the Runtime Gap Matrix Audit preflight}
         {--atlas-self-construction-os-runtime-gap-matrix-audit-implementation-packet : Generate the Runtime Gap Matrix Audit implementation packet}
@@ -1326,6 +1328,8 @@ class AtlasAiSelfConstructionCommand extends Command
             'runtime_promotion_receipt_json' => $this->option('runtime-promotion-receipt-json'),
             'completion_receipt_json' => $this->option('completion-receipt-json'),
             'real_provider_smoke_json' => $this->option('real-provider-smoke-json'),
+            'agent_control_plane_terminal_loop_operational_proof_json' => $this->option('agent-control-plane-terminal-loop-operational-proof-json'),
+            'persist_terminal_loop_operational_proof_binding' => $this->option('persist-terminal-loop-operational-proof-binding'),
             'persist_completion_evidence' => $this->option('persist-completion-evidence'),
             'persist_runtime_promotion_receipt' => $this->option('persist-runtime-promotion-receipt'),
             'persist_export' => $this->option('persist-export'),

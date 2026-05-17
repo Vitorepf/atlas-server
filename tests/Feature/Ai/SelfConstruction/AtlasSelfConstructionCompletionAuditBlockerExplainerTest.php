@@ -95,7 +95,11 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
         $this->assertArrayHasKey('compose_completion_evidence_hashes', $payload['command_plan']);
         $this->assertArrayHasKey('draft_human_completion_receipt', $payload['command_plan']);
         $this->assertArrayHasKey('persist_human_completion_receipt', $payload['command_plan']);
+        $this->assertArrayHasKey('terminal_loop_operational_proof', $payload['command_plan']);
         $this->assertArrayHasKey('completion_audit', $payload['command_plan']);
+        $this->assertArrayHasKey('completion_audit_with_terminal_loop_operational_proof', $payload['command_plan']);
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', $payload['command_plan']['terminal_loop_operational_proof']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', $payload['command_plan']['completion_audit_with_terminal_loop_operational_proof']);
     }
 
     public function test_blocker_explainer_closure_plan_requires_drafts_before_persistence(): void

@@ -110,7 +110,11 @@ final class SymfonyClaudeCliGateway implements ClaudeCliGateway
             throw new InvalidArgumentException("SymfonyClaudeCliGateway: binary '{$basename}' is not allowed.");
         }
 
-        foreach ($argv as $arg) {
+        foreach ($argv as $index => $arg) {
+            $previous = $argv[$index - 1] ?? null;
+            if ($arg === '' && $previous === '--tools') {
+                continue;
+            }
             if ($arg === '' || preg_match('/[|;&`$<>]|\$\(|\$\{|\R/', $arg) === 1) {
                 throw new InvalidArgumentException('SymfonyClaudeCliGateway: unsafe argv token rejected.');
             }

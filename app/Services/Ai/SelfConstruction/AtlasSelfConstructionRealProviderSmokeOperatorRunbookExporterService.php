@@ -262,8 +262,14 @@ final class AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService
                     'stop_condition' => 'stop_if_status_not_refreshed',
                 ],
                 [
+                    'id' => 'refresh_terminal_loop_operational_proof',
+                    'rule' => 'Refresh Terminal Loop Operational Proof before final completion audit.',
+                    'evidence_field' => 'terminal_loop_operational_proof_audit_binding_packet',
+                    'stop_condition' => 'stop_if_terminal_loop_operational_proof_not_passed',
+                ],
+                [
                     'id' => 'rerun_completion_audit',
-                    'rule' => 'Re-run completion audit. Confirm end_to_end_real_provider_smoke_green is no longer in failed_criteria.',
+                    'rule' => 'Re-run completion audit with Terminal Loop Operational Proof binding. Confirm end_to_end_real_provider_smoke_green is no longer in failed_criteria.',
                     'evidence_field' => 'completion_audit',
                     'stop_condition' => 'stop_if_blocker_still_failing',
                 ],

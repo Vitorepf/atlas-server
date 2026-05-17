@@ -30,6 +30,11 @@ final class AtlasSelfConstructionHumanCompletionReceiptDossierTest extends TestC
         $this->assertContains('persist_runtime_promotion_receipt', $payload['operator_signing_checklist']);
         $this->assertContains('persist_real_provider_smoke', $payload['operator_signing_checklist']);
         $this->assertContains('persist_human_completion_receipt', $payload['operator_signing_checklist']);
+        $this->assertContains('refresh_terminal_loop_operational_proof', $payload['operator_signing_checklist']);
+        $this->assertContains('rerun_completion_audit_with_terminal_loop_operational_proof', $payload['operator_signing_checklist']);
+        $this->assertTrue((bool) $payload['terminal_loop_operational_proof_required_before_final_audit']);
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $payload['terminal_loop_operational_proof_command']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $payload['completion_audit_with_terminal_loop_operational_proof_command']);
     }
 
     public function test_human_completion_receipt_dossier_uses_canonical_hash_service(): void

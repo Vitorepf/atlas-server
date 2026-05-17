@@ -91,6 +91,7 @@ final class SurfaceResponseFormatter
             'hashes' => $summary['hashes'],
             'persisted_artifact_refs' => $summary['persisted_artifact_refs'],
             'prompt_sendable' => $summary['prompt_sendable'],
+            'read_only_answer' => $summary['read_only_answer'],
             'artifacts' => $artifacts,
         ];
     }

@@ -123,6 +123,8 @@ final class AtlasSelfConstructionRuntimePromotionOperatorRunbookExporterService
                 'persist_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
                 'rerun_runtime_gap_matrix' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
                 'rerun_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'refresh_terminal_loop_operational_proof' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json',
+                'rerun_completion_audit_with_terminal_loop_operational_proof' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
                 'inspect_endgame_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-endgame-status --json',
             ],
             'stop_conditions' => [

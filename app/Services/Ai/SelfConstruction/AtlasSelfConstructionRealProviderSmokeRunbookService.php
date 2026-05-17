@@ -82,6 +82,7 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
             ],
             'commands' => [
                 'inspect_completion_audit_before_running' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'inspect_terminal_loop_operational_proof_before_running' => $this->terminalLoopOperationalProofCommand(),
                 'inspect_release_dossier_before_running' => 'php artisan atlas:ai:self-construction --agent-control-plane-release-dossier-status --json',
                 'inspect_offline_harness_before_running' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-offline-harness-status --json',
             ],
@@ -116,6 +117,7 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
                 'rerun_completion_audit_to_confirm_no_false_pass',
             ],
             'rerun_completion_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            'rerun_completion_audit_with_terminal_loop_operational_proof_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
         ];
         $tokenCostCaptureRequirements = [
             'required_cost_event_fields' => ['provider_run_id', 'model', 'input_tokens', 'output_tokens', 'cost_usd'],
@@ -148,8 +150,12 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
             'commands' => [
                 'persist_real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
                 'verify_completion_evidence' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
                 'run_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'run_completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
             ],
+            'terminal_loop_operational_proof_required_before_final_audit' => true,
+            'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             'non_execution_guarantees' => [
                 'real_provider_smoke_runbook_does_not_call_provider',
                 'real_provider_smoke_runbook_does_not_spend_tokens',
@@ -161,6 +167,16 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
         $payload['runbook_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    private function terminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function completionAuditWithTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
     }
 
     /** @param array<string, mixed> $payload */

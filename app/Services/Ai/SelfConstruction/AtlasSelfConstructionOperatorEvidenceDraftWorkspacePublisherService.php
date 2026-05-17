@@ -129,8 +129,8 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService
             'artifacts' => $artifacts,
             'publish_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-draft-workspace-publisher-status --operator-draft-workspace-path='.($requestedPath === '' ? '<workspace_path>' : $requestedPath).' --publish-operator-draft-workspace --json',
             'post_publish_readiness_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --runtime-promotion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json --real-provider-smoke-json=@storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json --completion-receipt-json=@storage/app/atlas/self-construction/operator-submissions/completion-receipt.json --json',
-            'post_publish_persistence_sequence' => $this->postPublishPersistenceSequence(),
-            'post_publish_persistence_step_count' => 4,
+            'post_publish_persistence_sequence' => $postPublishPersistenceSequence = $this->postPublishPersistenceSequence(),
+            'post_publish_persistence_step_count' => count($postPublishPersistenceSequence),
             'post_publish_persistence_sequence_ordered' => true,
             'requires_explicit_operator_persistence_commands' => true,
             'human_receipt_persistence_requires_runtime_and_smoke_green' => true,
@@ -253,6 +253,28 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService
             ],
             [
                 'order' => 4,
+                'id' => 'refresh_terminal_loop_operational_proof',
+                'artifact' => 'terminal_loop_operational_proof',
+                'canonical_submission_path' => '',
+                'command' => $this->terminalLoopOperationalProofCommand(),
+                'requires_explicit_persistence_flag' => false,
+                'required_previous_steps' => ['persist_runtime_promotion_receipt', 'persist_real_provider_smoke', 'persist_human_completion_receipt'],
+                'writes_completion_evidence_registry' => false,
+                'can_run_from_publisher' => false,
+            ],
+            [
+                'order' => 5,
+                'id' => 'rerun_completion_audit_with_terminal_loop_operational_proof',
+                'artifact' => 'atlas_self_construction_os_completion_audit',
+                'canonical_submission_path' => '',
+                'command' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                'requires_explicit_persistence_flag' => false,
+                'required_previous_steps' => ['persist_runtime_promotion_receipt', 'persist_real_provider_smoke', 'persist_human_completion_receipt', 'refresh_terminal_loop_operational_proof'],
+                'writes_completion_evidence_registry' => false,
+                'can_run_from_publisher' => false,
+            ],
+            [
+                'order' => 6,
                 'id' => 'rerun_completion_audit',
                 'artifact' => 'atlas_self_construction_os_completion_audit',
                 'canonical_submission_path' => '',
@@ -263,6 +285,16 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService
                 'can_run_from_publisher' => false,
             ],
         ];
+    }
+
+    private function terminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function completionAuditWithTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
     }
 
     private function normalizeStoragePath(string $path): string

@@ -139,8 +139,19 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             'fleet_concurrency_write_sets_disjoint' => (int) data_get($fleetConcurrencyProof, 'write_set_collision_count', 1) === 0,
             'fleet_concurrency_cleanup_green' => (bool) data_get($fleetConcurrencyProof, 'cleanup_left_no_recoverable_artifacts', false),
             'lease_closed_after_completion' => (int) data_get($afterDigest, 'lease_health.active_lease_count', 1) === 0,
+            'no_claimed_task_after_completion' => (int) data_get($afterDigest, 'queue_health.claimed_task_count', 1) === 0,
             'no_recoverable_lease_after_completion' => (int) data_get($afterDigest, 'lease_health.recoverable_lease_count', 1) === 0,
             'post_cycle_evidence_rollup_green' => (string) data_get($afterDigest, 'terminal_loop_fleet_evidence_rollup.status') === 'fleet_evidence_rollup_green',
+            'post_cycle_cycle_supervisor_reviews_evidence' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.schema_version') === AgentControlPlaneTerminalLoopHealthDigestService::CYCLE_SUPERVISOR_SCHEMA_VERSION
+                && (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.status') === 'cycle_evidence_review_ready'
+                && (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.cycle_state') === 'review_evidence'
+                && (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.next_command_purpose') === 'review_completed_dry_run_evidence_and_rerun_digest'
+                && (bool) data_get($afterDigest, 'terminal_loop_cycle_supervisor.next_command_is_lane_bound') === true
+                && (bool) data_get($afterDigest, 'terminal_loop_cycle_supervisor.can_execute_next_command') === false
+                && (bool) data_get($afterDigest, 'terminal_loop_cycle_supervisor.can_complete_from_supervisor') === false
+                && (bool) data_get($afterDigest, 'terminal_loop_cycle_supervisor.can_call_provider_from_supervisor') === false
+                && (bool) data_get($afterDigest, 'terminal_loop_cycle_supervisor.can_spend_tokens_from_supervisor') === false
+                && (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash') !== '',
             'post_cycle_digest_can_resume_without_chat_history' => (bool) data_get($afterDigest, 'loop_decision.can_loop_without_chat_history', false),
             'resume_packet_ready_for_next_terminal' => (bool) data_get($resumePacket, 'can_resume_without_chat_history', false)
                 && (string) data_get($resumePacket, 'recommended_action', '') !== ''
@@ -161,6 +172,7 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             'fleet_concurrency_proof_hash' => $fleetConcurrencyProofHash,
             'resume_packet_hash' => $resumePacketHash,
             'post_cycle_health_digest_hash' => (string) data_get($afterDigest, 'terminal_loop_health_digest_hash', ''),
+            'post_cycle_cycle_supervisor_hash' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash', ''),
         ]);
         $invariants['operational_readiness_matrix_all_true'] = (bool) $operationalReadinessMatrix['all_true'];
         $violations = array_keys(array_filter($invariants, static fn (bool $passed): bool => ! $passed));
@@ -192,8 +204,20 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             'post_cycle_evidence_rollup_status' => (string) data_get($afterDigest, 'terminal_loop_fleet_evidence_rollup.status', ''),
             'post_cycle_completed_dry_run_task_count' => (int) data_get($afterDigest, 'terminal_loop_fleet_evidence_rollup.completed_dry_run_task_count', 0),
             'post_cycle_valid_completion_evidence_count' => (int) data_get($afterDigest, 'terminal_loop_fleet_evidence_rollup.valid_completion_evidence_count', 0),
+            'post_cycle_claimed_task_count' => (int) data_get($afterDigest, 'queue_health.claimed_task_count', 0),
             'post_cycle_active_lease_count' => (int) data_get($afterDigest, 'lease_health.active_lease_count', 0),
             'post_cycle_recoverable_lease_count' => (int) data_get($afterDigest, 'lease_health.recoverable_lease_count', 0),
+            'post_cycle_cleanup_state' => [
+                'claimed_task_count' => (int) data_get($afterDigest, 'queue_health.claimed_task_count', 0),
+                'active_lease_count' => (int) data_get($afterDigest, 'lease_health.active_lease_count', 0),
+                'recoverable_lease_count' => (int) data_get($afterDigest, 'lease_health.recoverable_lease_count', 0),
+                'completed_dry_run_task_count' => (int) data_get($afterDigest, 'terminal_loop_fleet_evidence_rollup.completed_dry_run_task_count', 0),
+                'valid_completion_evidence_count' => (int) data_get($afterDigest, 'terminal_loop_fleet_evidence_rollup.valid_completion_evidence_count', 0),
+            ],
+            'post_cycle_cycle_supervisor_status' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.status', ''),
+            'post_cycle_cycle_supervisor_cycle_state' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.cycle_state', ''),
+            'post_cycle_cycle_supervisor_next_command_purpose' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.next_command_purpose', ''),
+            'post_cycle_cycle_supervisor_hash' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash', ''),
             'invariants' => $invariants,
             'invariants_all_true' => $violations === [],
             'violations' => $violations,
@@ -226,8 +250,74 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             ],
         ];
         $payload['terminal_loop_operational_proof_hash'] = $this->stableHash($payload);
+        $payload['completion_audit_binding_packet'] = $this->completionAuditBindingPacket($payload);
+        $payload['completion_audit_binding_packet_hash'] = $this->stableHash((array) $payload['completion_audit_binding_packet']);
 
         return $payload;
+    }
+
+    /**
+     * Build a compact, non-executing packet that can be supplied to the
+     * read-only OS completion audit without replaying the whole local proof.
+     *
+     * @param  array<string, mixed>  $proof
+     * @return array<string, mixed>
+     */
+    private function completionAuditBindingPacket(array $proof): array
+    {
+        $proofPayload = [
+            'status' => (string) data_get($proof, 'status', ''),
+            'invariants_all_true' => (bool) data_get($proof, 'invariants_all_true', false),
+            'operational_readiness_matrix' => [
+                'all_true' => (bool) data_get($proof, 'operational_readiness_matrix.all_true', false),
+            ],
+            'post_cycle_cycle_supervisor' => [
+                'status' => (string) data_get($proof, 'post_cycle_cycle_supervisor_status', ''),
+                'cycle_state' => (string) data_get($proof, 'post_cycle_cycle_supervisor_cycle_state', ''),
+                'next_command_purpose' => (string) data_get($proof, 'post_cycle_cycle_supervisor_next_command_purpose', ''),
+                'hash' => (string) data_get($proof, 'post_cycle_cycle_supervisor_hash', ''),
+            ],
+            'post_cycle_cleanup_state' => [
+                'claimed_task_count' => (int) data_get($proof, 'post_cycle_cleanup_state.claimed_task_count', data_get($proof, 'post_cycle_claimed_task_count', 0)),
+                'active_lease_count' => (int) data_get($proof, 'post_cycle_cleanup_state.active_lease_count', data_get($proof, 'post_cycle_active_lease_count', 0)),
+                'recoverable_lease_count' => (int) data_get($proof, 'post_cycle_cleanup_state.recoverable_lease_count', data_get($proof, 'post_cycle_recoverable_lease_count', 0)),
+                'completed_dry_run_task_count' => (int) data_get($proof, 'post_cycle_cleanup_state.completed_dry_run_task_count', data_get($proof, 'post_cycle_completed_dry_run_task_count', 0)),
+                'valid_completion_evidence_count' => (int) data_get($proof, 'post_cycle_cleanup_state.valid_completion_evidence_count', data_get($proof, 'post_cycle_valid_completion_evidence_count', 0)),
+            ],
+            'completion_real_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'dispatch_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'self_programming_allowed' => false,
+            'terminal_loop_operational_proof_hash' => (string) data_get($proof, 'terminal_loop_operational_proof_hash', ''),
+        ];
+
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            'status' => (string) data_get($proof, 'status') === 'passed' ? 'ready_for_read_only_completion_audit' : 'blocked',
+            'audit_option_key' => 'agent_control_plane_terminal_loop_operational_proof',
+            'expected_audit_binding' => [
+                'service' => AtlasSelfConstructionOsCompletionAuditService::class,
+                'method' => 'audit',
+                'option_key' => 'agent_control_plane_terminal_loop_operational_proof',
+                'proof_payload_path' => 'completion_audit_binding_packet.proof_payload',
+            ],
+            'proof_payload' => $proofPayload,
+            'proof_payload_hash' => $this->stableHash($proofPayload),
+            'source_proof_hash' => (string) data_get($proof, 'terminal_loop_operational_proof_hash', ''),
+            'source_operational_readiness_matrix_hash' => (string) data_get($proof, 'operational_readiness_matrix_hash', ''),
+            'expected_proof_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json',
+            'expected_binding_artifact_path' => '/path/to/terminal-loop-operational-proof-binding.json',
+            'expected_completion_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
+            'diagnostic_completion_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+            'can_mark_completion_from_binding' => false,
+            'can_execute_from_binding' => false,
+            'can_dispatch_from_binding' => false,
+            'can_call_provider_from_binding' => false,
+            'can_spend_tokens_from_binding' => false,
+            'self_programming_allowed_from_binding' => false,
+        ];
     }
 
     /**
@@ -417,9 +507,18 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
                 [$hashes['resume_packet_hash'] ?? ''],
             ),
             $this->matrixRow(
+                'post_cycle_cycle_supervisor_evidence_review',
+                [
+                    'post_cycle_cycle_supervisor_reviews_evidence',
+                ],
+                $invariants,
+                [$hashes['post_cycle_cycle_supervisor_hash'] ?? ''],
+            ),
+            $this->matrixRow(
                 'post_cycle_health_and_runtime_safety',
                 [
                     'lease_closed_after_completion',
+                    'no_claimed_task_after_completion',
                     'no_recoverable_lease_after_completion',
                     'post_cycle_evidence_rollup_green',
                     'completion_real_allowed_false',
@@ -739,6 +838,10 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             'evidence_rollup_status' => (string) data_get($digest, 'terminal_loop_fleet_evidence_rollup.status', ''),
             'completed_dry_run_task_count' => (int) data_get($digest, 'terminal_loop_fleet_evidence_rollup.completed_dry_run_task_count', 0),
             'valid_completion_evidence_count' => (int) data_get($digest, 'terminal_loop_fleet_evidence_rollup.valid_completion_evidence_count', 0),
+            'cycle_supervisor_status' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.status', ''),
+            'cycle_supervisor_cycle_state' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state', ''),
+            'cycle_supervisor_next_command_purpose' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.next_command_purpose', ''),
+            'cycle_supervisor_hash' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash', ''),
             'digest_hash' => (string) data_get($digest, 'terminal_loop_health_digest_hash', ''),
         ];
     }
@@ -781,7 +884,7 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
     /** @param array<string, mixed> $payload */
     private function stableHash(array $payload): string
     {
-        unset($payload['generated_at'], $payload['terminal_loop_operational_proof_hash']);
+        unset($payload['generated_at'], $payload['terminal_loop_operational_proof_hash'], $payload['completion_audit_binding_packet'], $payload['completion_audit_binding_packet_hash']);
 
         return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }

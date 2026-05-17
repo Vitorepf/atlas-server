@@ -96,6 +96,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptDossierService
             ],
             'operator_signing_checklist' => [
                 'rerun_completion_audit',
+                'refresh_terminal_loop_operational_proof',
+                'rerun_completion_audit_with_terminal_loop_operational_proof',
                 'capture_replay_snapshot_if_release_dossier_is_stale',
                 'persist_runtime_promotion_receipt',
                 'persist_real_provider_smoke',
@@ -105,6 +107,10 @@ final class AtlasSelfConstructionHumanCompletionReceiptDossierService
                 'persist_human_completion_receipt',
                 'rerun_completion_audit_until_all_criteria_green',
             ],
+            'terminal_loop_operational_proof_required_before_final_audit' => true,
+            'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            'terminal_loop_operational_proof_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json',
+            'completion_audit_with_terminal_loop_operational_proof_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
             'safety_invariants' => [
                 'no_autopromotion' => true,
                 'no_silent_completion_claim' => true,

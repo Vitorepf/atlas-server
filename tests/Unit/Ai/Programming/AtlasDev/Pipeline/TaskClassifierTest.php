@@ -22,6 +22,15 @@ final class TaskClassifierTest extends TestCase
         $this->assertFalse($classification->writeImplied);
     }
 
+    public function test_explicit_read_only_question_wins_over_risky_domain_tokens(): void
+    {
+        $classification = $this->classify('Responda usando o codigo: quantos dias de grace period BillingPolicy usa?', surface: 'atlas_desktop_ai');
+
+        $this->assertSame(TaskClassification::KIND_QUESTION, $classification->taskKind);
+        $this->assertFalse($classification->writeImplied);
+        $this->assertContains('question:responda', $classification->matchedRules);
+    }
+
     public function test_patch_kind_for_clear_action(): void
     {
         $classification = $this->classify('adicione um helper em app/Services/Foo/Bar.php', surface: 'atlas_cli_dev');
@@ -50,14 +59,15 @@ final class TaskClassifierTest extends TestCase
         $this->assertFalse($classification->writeImplied);
     }
 
-    public function test_frontend_kind_requires_frontend_surface(): void
+    public function test_frontend_kind_works_on_desktop_and_cli_dev_surfaces(): void
     {
         $frontend = $this->classify('ajustar tipografia da tela de Atlas AI', surface: 'atlas_desktop_ai');
         $this->assertSame(TaskClassification::KIND_FRONTEND, $frontend->taskKind);
         $this->assertTrue($frontend->writeImplied);
 
         $cli = $this->classify('ajustar tipografia da tela de Atlas AI', surface: 'atlas_cli_dev');
-        $this->assertNotSame(TaskClassification::KIND_FRONTEND, $cli->taskKind);
+        $this->assertSame(TaskClassification::KIND_FRONTEND, $cli->taskKind);
+        $this->assertTrue($cli->writeImplied);
     }
 
     public function test_risky_kind_wins_over_action(): void
@@ -83,7 +93,7 @@ final class TaskClassifierTest extends TestCase
     {
         $envelope = $this->envelope($intent, $surface, $clarity);
 
-        return (new TaskClassifier())->classify($envelope);
+        return (new TaskClassifier)->classify($envelope);
     }
 
     private function envelope(string $intent, string $surface, string $clarity): OperationEnvelope

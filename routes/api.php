@@ -41,36 +41,53 @@ use App\Http\Controllers\AtlasAiStructureMotherAuditController;
 use App\Http\Controllers\AtlasAiVoiceRealtimeController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasCartographyController;
+use App\Http\Controllers\AtlasCodeAttentionControlPlaneController;
 use App\Http\Controllers\AtlasCodeBootController;
 use App\Http\Controllers\AtlasCodeCheckpointController;
+use App\Http\Controllers\AtlasCodeDevToForgePromotionController;
 use App\Http\Controllers\AtlasCodeDiffController;
-use App\Http\Controllers\AtlasCodeEvidenceController;
 use App\Http\Controllers\AtlasCodeEnterpriseCertificationController;
+use App\Http\Controllers\AtlasCodeEvidenceController;
 use App\Http\Controllers\AtlasCodeForgeExecutionController;
 use App\Http\Controllers\AtlasCodeForgeFastPathController;
 use App\Http\Controllers\AtlasCodeForgeFastPathStatusController;
+use App\Http\Controllers\AtlasCodeForgeProviderCapacityController;
 use App\Http\Controllers\AtlasCodeForgeProviderInvocationController;
 use App\Http\Controllers\AtlasCodeForgeProviderTopologyController;
-use App\Http\Controllers\AtlasCodeForgeUxOrchestratorController;
-use App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController;
 use App\Http\Controllers\AtlasCodeForgeReviewCompletionController;
 use App\Http\Controllers\AtlasCodeForgeReviewController;
+use App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController;
+use App\Http\Controllers\AtlasCodeForgeUxOrchestratorController;
 use App\Http\Controllers\AtlasCodeForgeWorkIntakeController;
 use App\Http\Controllers\AtlasCodeMcpStatusController;
-use App\Http\Controllers\AtlasCodeProgrammingWorkItemController;
-use App\Http\Controllers\AtlasCodeReceiptController;
-use App\Http\Controllers\AtlasCodeReceiptShowController;
-use App\Http\Controllers\AtlasCodeSessionController;
-use App\Http\Controllers\AtlasCodeThreadController;
-use App\Http\Controllers\AtlasCodeAttentionControlPlaneController;
-use App\Http\Controllers\AtlasCodeDevToForgePromotionController;
+use App\Http\Controllers\AtlasCodeObraCommandCenterController;
 use App\Http\Controllers\AtlasCodeObservedSessionController;
+use App\Http\Controllers\AtlasCodeProgrammingWorkItemController;
+use App\Http\Controllers\AtlasCodeProviderArenaController;
 use App\Http\Controllers\AtlasCodeProviderGovernanceController;
 use App\Http\Controllers\AtlasCodeProviderOperatingRoomController;
+use App\Http\Controllers\AtlasCodeReceiptController;
+use App\Http\Controllers\AtlasCodeReceiptShowController;
+use App\Http\Controllers\AtlasCodeSelfImprovementActivationCockpitController;
+use App\Http\Controllers\AtlasCodeSelfImprovementClosedLoopController;
+use App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController;
+use App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController;
+use App\Http\Controllers\AtlasCodeSelfImprovementNextCycleController;
+use App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController;
+use App\Http\Controllers\AtlasCodeSelfImprovementResultLedgerController;
+use App\Http\Controllers\AtlasCodeSessionController;
+use App\Http\Controllers\AtlasCodeThreadController;
 use App\Http\Controllers\AtlasCodeWorkController;
 use App\Http\Controllers\AtlasCodeWorkPacketController;
 use App\Http\Controllers\AtlasCodeWorkspaceController;
 use App\Http\Controllers\AtlasConstelacaoController;
+use App\Http\Controllers\AtlasDev\CancelController;
+use App\Http\Controllers\AtlasDev\IndexController as AtlasDevIndexController;
+use App\Http\Controllers\AtlasDev\PlanController;
+use App\Http\Controllers\AtlasDev\ReadinessController;
+use App\Http\Controllers\AtlasDev\RunController;
+use App\Http\Controllers\AtlasDev\ShowController;
+use App\Http\Controllers\AtlasDev\StreamController;
 use App\Http\Controllers\AtlasDomainController;
 use App\Http\Controllers\AtlasMemoryController;
 use App\Http\Controllers\AtlasMemoryMaintenanceController;
@@ -78,10 +95,14 @@ use App\Http\Controllers\AtlasMemoryRecallController;
 use App\Http\Controllers\AtlasMobilePushReplayController;
 use App\Http\Controllers\AtlasOpenBrainController;
 use App\Http\Controllers\AtlasOpenBrainMcpController;
+use App\Http\Controllers\AtlasProgrammingGovernanceController;
 use App\Http\Controllers\AtlasProjectBlockerController;
 use App\Http\Controllers\AtlasProjectController;
 use App\Http\Controllers\AtlasProjectPlanProposalController;
 use App\Http\Controllers\AtlasRoutineController;
+use App\Http\Controllers\AtlasSddAgentRoleController;
+use App\Http\Controllers\AtlasSddController;
+use App\Http\Controllers\AtlasSddMcpResourceController;
 use App\Http\Controllers\AtlasTaskController;
 use App\Http\Controllers\AtlasToolRuntimeController;
 use App\Http\Controllers\AtlasVaultController;
@@ -467,14 +488,21 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/vault/conflicts/{item}', [AtlasVaultController::class, 'item']);
     Route::post('/ai/vault/conflicts/{item}/resolve', [AtlasVaultController::class, 'resolve']);
     Route::post('/ai/interactions', [AiInteractionController::class, 'store']);
-    Route::post('/ai/interactions/atlas-dev/plan', \App\Http\Controllers\AtlasDev\PlanController::class)
+    Route::get('/ai/interactions/atlas-dev/readiness', ReadinessController::class)
+        ->name('atlas-dev.readiness');
+    Route::post('/ai/interactions/atlas-dev/plan', PlanController::class)
         ->name('atlas-dev.plan');
-    Route::post('/ai/interactions/atlas-dev/run', \App\Http\Controllers\AtlasDev\RunController::class)
+    Route::post('/ai/interactions/atlas-dev/run', RunController::class)
         ->name('atlas-dev.run');
-    Route::get('/ai/interactions/atlas-dev/runs/{runId}/stream', \App\Http\Controllers\AtlasDev\StreamController::class)
+    Route::get('/ai/interactions/atlas-dev/runs', AtlasDevIndexController::class)
+        ->name('atlas-dev.runs.index');
+    Route::post('/ai/interactions/atlas-dev/runs/{runId}/cancel', CancelController::class)
+        ->where('runId', '[A-Za-z0-9._-]{1,128}')
+        ->name('atlas-dev.runs.cancel');
+    Route::get('/ai/interactions/atlas-dev/runs/{runId}/stream', StreamController::class)
         ->where('runId', '[A-Za-z0-9._-]{1,128}')
         ->name('atlas-dev.runs.stream');
-    Route::get('/ai/interactions/atlas-dev/runs/{runId}', \App\Http\Controllers\AtlasDev\ShowController::class)
+    Route::get('/ai/interactions/atlas-dev/runs/{runId}', ShowController::class)
         ->where('runId', '[A-Za-z0-9._-]{1,128}')
         ->name('atlas-dev.runs.show');
     Route::get('/ai/interactions/{trace}', [AiInteractionController::class, 'show']);
@@ -580,8 +608,8 @@ Route::prefix('atlas-code')->group(function () {
 
     // ATTENTION CONTROL PLANE · serializes human decisions across Obras
     // canon: docs/engineering-knowledge-base/atlas-code-attention-control-plane-v1.md
-    Route::get('/attention', [\App\Http\Controllers\AtlasCodeAttentionControlPlaneController::class, 'index']);
-    Route::post('/attention/{project}/decision', [\App\Http\Controllers\AtlasCodeAttentionControlPlaneController::class, 'decide']);
+    Route::get('/attention', [AtlasCodeAttentionControlPlaneController::class, 'index']);
+    Route::post('/attention/{project}/decision', [AtlasCodeAttentionControlPlaneController::class, 'decide']);
 
     // Meta 8.5 · Canonical Dev-to-Forge Promotion routes live at
     // /atlas-code/dev-to-forge/* above. The earlier `/atlas-code/promotion/*`
@@ -641,40 +669,40 @@ Route::prefix('atlas-code')->group(function () {
     Route::get('/works/{project}/forge/runtime-dispatch', [AtlasCodeForgeRuntimeDispatchController::class, 'show']);
     Route::post('/works/{project}/forge/runtime-dispatch', [AtlasCodeForgeRuntimeDispatchController::class, 'store']);
     Route::get('/works/{project}/forge/ux-orchestrator', [AtlasCodeForgeUxOrchestratorController::class, 'show']);
-    Route::get('/works/{project}/obra-command-center', [\App\Http\Controllers\AtlasCodeObraCommandCenterController::class, 'show']);
+    Route::get('/works/{project}/obra-command-center', [AtlasCodeObraCommandCenterController::class, 'show']);
     Route::get('/works/{project}/forge/provider-invocations/latest', [AtlasCodeForgeProviderInvocationController::class, 'latest']);
     Route::get('/works/{project}/forge/provider-invocations/drivers', [AtlasCodeForgeProviderInvocationController::class, 'drivers']);
     Route::post('/works/{project}/forge/provider-invocations/plan-driver', [AtlasCodeForgeProviderInvocationController::class, 'planDriver']);
     Route::post('/works/{project}/forge/provider-invocations', [AtlasCodeForgeProviderInvocationController::class, 'store']);
-    Route::get('/forge/provider-capacity', [\App\Http\Controllers\AtlasCodeForgeProviderCapacityController::class, 'global']);
-    Route::get('/forge/provider-arena/snapshot', [\App\Http\Controllers\AtlasCodeProviderArenaController::class, 'show']);
-    Route::post('/forge/provider-arena/run', [\App\Http\Controllers\AtlasCodeProviderArenaController::class, 'run']);
-    Route::get('/works/{project}/forge/provider-capacity', [\App\Http\Controllers\AtlasCodeForgeProviderCapacityController::class, 'show']);
-    Route::post('/works/{project}/forge/provider-failures', [\App\Http\Controllers\AtlasCodeForgeProviderCapacityController::class, 'recordFailure']);
-    Route::get('/self-improvement/strategy-portfolio', [\App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController::class, 'strategyPortfolio']);
-    Route::post('/self-improvement/proposal-gate', [\App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController::class, 'proposalGate']);
-    Route::post('/self-improvement/before-after', [\App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController::class, 'beforeAfter']);
-    Route::post('/self-improvement/invariant-lock', [\App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController::class, 'invariantLock']);
-    Route::post('/self-improvement/regression-sentinel', [\App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController::class, 'regressionSentinel']);
-    Route::post('/self-improvement/maturity-score', [\App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController::class, 'maturityScore']);
-    Route::get('/works/{project}/self-improvement/trust-ledger', [\App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController::class, 'trustLedgerShow']);
-    Route::post('/works/{project}/self-improvement/trust-ledger', [\App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController::class, 'trustLedgerRecord']);
-    Route::get('/self-improvement/forge-activations', [\App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController::class, 'index']);
-    Route::post('/self-improvement/forge-activations', [\App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController::class, 'store']);
-    Route::get('/self-improvement/forge-activations/{activation}', [\App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController::class, 'show']);
-    Route::post('/self-improvement/forge-activations/{activation}/accept', [\App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController::class, 'accept']);
-    Route::post('/self-improvement/forge-activations/{activation}/reject', [\App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController::class, 'reject']);
-    Route::get('/self-improvement/activation-cockpit', [\App\Http\Controllers\AtlasCodeSelfImprovementActivationCockpitController::class, 'index']);
-    Route::get('/self-improvement/activation-cockpit/{activation}', [\App\Http\Controllers\AtlasCodeSelfImprovementActivationCockpitController::class, 'show']);
-    Route::get('/self-improvement/proposals', [\App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController::class, 'index']);
-    Route::post('/self-improvement/proposals', [\App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController::class, 'store']);
-    Route::get('/self-improvement/proposals/{proposal}', [\App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController::class, 'show']);
-    Route::post('/self-improvement/proposals/{proposal}/evaluate', [\App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController::class, 'evaluate']);
-    Route::post('/self-improvement/proposals/{proposal}/prioritize', [\App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController::class, 'prioritize']);
-    Route::get('/self-improvement/proposals/{proposal}/closed-loop', [\App\Http\Controllers\AtlasCodeSelfImprovementClosedLoopController::class, 'show']);
-    Route::post('/self-improvement/proposals/{proposal}/measure-result', [\App\Http\Controllers\AtlasCodeSelfImprovementResultLedgerController::class, 'measureResult']);
-    Route::get('/self-improvement/result-ledger', [\App\Http\Controllers\AtlasCodeSelfImprovementResultLedgerController::class, 'index']);
-    Route::get('/self-improvement/next-cycle-recommendations', [\App\Http\Controllers\AtlasCodeSelfImprovementNextCycleController::class, 'index']);
+    Route::get('/forge/provider-capacity', [AtlasCodeForgeProviderCapacityController::class, 'global']);
+    Route::get('/forge/provider-arena/snapshot', [AtlasCodeProviderArenaController::class, 'show']);
+    Route::post('/forge/provider-arena/run', [AtlasCodeProviderArenaController::class, 'run']);
+    Route::get('/works/{project}/forge/provider-capacity', [AtlasCodeForgeProviderCapacityController::class, 'show']);
+    Route::post('/works/{project}/forge/provider-failures', [AtlasCodeForgeProviderCapacityController::class, 'recordFailure']);
+    Route::get('/self-improvement/strategy-portfolio', [AtlasCodeSelfImprovementGovernanceController::class, 'strategyPortfolio']);
+    Route::post('/self-improvement/proposal-gate', [AtlasCodeSelfImprovementGovernanceController::class, 'proposalGate']);
+    Route::post('/self-improvement/before-after', [AtlasCodeSelfImprovementGovernanceController::class, 'beforeAfter']);
+    Route::post('/self-improvement/invariant-lock', [AtlasCodeSelfImprovementGovernanceController::class, 'invariantLock']);
+    Route::post('/self-improvement/regression-sentinel', [AtlasCodeSelfImprovementGovernanceController::class, 'regressionSentinel']);
+    Route::post('/self-improvement/maturity-score', [AtlasCodeSelfImprovementGovernanceController::class, 'maturityScore']);
+    Route::get('/works/{project}/self-improvement/trust-ledger', [AtlasCodeSelfImprovementGovernanceController::class, 'trustLedgerShow']);
+    Route::post('/works/{project}/self-improvement/trust-ledger', [AtlasCodeSelfImprovementGovernanceController::class, 'trustLedgerRecord']);
+    Route::get('/self-improvement/forge-activations', [AtlasCodeSelfImprovementForgeActivationController::class, 'index']);
+    Route::post('/self-improvement/forge-activations', [AtlasCodeSelfImprovementForgeActivationController::class, 'store']);
+    Route::get('/self-improvement/forge-activations/{activation}', [AtlasCodeSelfImprovementForgeActivationController::class, 'show']);
+    Route::post('/self-improvement/forge-activations/{activation}/accept', [AtlasCodeSelfImprovementForgeActivationController::class, 'accept']);
+    Route::post('/self-improvement/forge-activations/{activation}/reject', [AtlasCodeSelfImprovementForgeActivationController::class, 'reject']);
+    Route::get('/self-improvement/activation-cockpit', [AtlasCodeSelfImprovementActivationCockpitController::class, 'index']);
+    Route::get('/self-improvement/activation-cockpit/{activation}', [AtlasCodeSelfImprovementActivationCockpitController::class, 'show']);
+    Route::get('/self-improvement/proposals', [AtlasCodeSelfImprovementProposalBacklogController::class, 'index']);
+    Route::post('/self-improvement/proposals', [AtlasCodeSelfImprovementProposalBacklogController::class, 'store']);
+    Route::get('/self-improvement/proposals/{proposal}', [AtlasCodeSelfImprovementProposalBacklogController::class, 'show']);
+    Route::post('/self-improvement/proposals/{proposal}/evaluate', [AtlasCodeSelfImprovementProposalBacklogController::class, 'evaluate']);
+    Route::post('/self-improvement/proposals/{proposal}/prioritize', [AtlasCodeSelfImprovementProposalBacklogController::class, 'prioritize']);
+    Route::get('/self-improvement/proposals/{proposal}/closed-loop', [AtlasCodeSelfImprovementClosedLoopController::class, 'show']);
+    Route::post('/self-improvement/proposals/{proposal}/measure-result', [AtlasCodeSelfImprovementResultLedgerController::class, 'measureResult']);
+    Route::get('/self-improvement/result-ledger', [AtlasCodeSelfImprovementResultLedgerController::class, 'index']);
+    Route::get('/self-improvement/next-cycle-recommendations', [AtlasCodeSelfImprovementNextCycleController::class, 'index']);
     Route::post('/works/{project}/checkpoints', [AtlasCodeCheckpointController::class, 'store']);
     Route::post('/works/{project}/programming/work-items', [AtlasCodeProgrammingWorkItemController::class, 'store']);
     Route::post('/works/{project}/programming/work-items/{workItem}/spec', [AtlasCodeProgrammingWorkItemController::class, 'compileSpecPlan']);
@@ -699,22 +727,22 @@ Route::prefix('atlas-code')->group(function () {
 
     // PROGRAMMING GOVERNANCE · WorkItem timeline as live objects (SCOR-1 cockpit feed)
     Route::middleware('atlas.token')->group(function (): void {
-        Route::get('/programming/work-items', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'index']);
-        Route::get('/programming/work-items/{code}', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'show']);
-        Route::get('/programming/work-items/{code}/gate-runs', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'gateRuns']);
-        Route::get('/programming/work-items/{code}/spec-compile', [\App\Http\Controllers\AtlasProgrammingGovernanceController::class, 'compileSpec']);
+        Route::get('/programming/work-items', [AtlasProgrammingGovernanceController::class, 'index']);
+        Route::get('/programming/work-items/{code}', [AtlasProgrammingGovernanceController::class, 'show']);
+        Route::get('/programming/work-items/{code}/gate-runs', [AtlasProgrammingGovernanceController::class, 'gateRuns']);
+        Route::get('/programming/work-items/{code}/spec-compile', [AtlasProgrammingGovernanceController::class, 'compileSpec']);
 
         // SDD · read-only surface for specs, requirements, decision receipts, traceability, drift, learning
-        Route::get('/sdd/operations', [\App\Http\Controllers\AtlasSddController::class, 'operations']);
-        Route::get('/sdd/specs', [\App\Http\Controllers\AtlasSddController::class, 'specs']);
-        Route::get('/sdd/specs/{id}', [\App\Http\Controllers\AtlasSddController::class, 'showSpec']);
-        Route::get('/sdd/specs/{id}/traceability', [\App\Http\Controllers\AtlasSddController::class, 'traceability']);
-        Route::get('/sdd/decision-receipts', [\App\Http\Controllers\AtlasSddController::class, 'decisionReceipts']);
-        Route::get('/sdd/decision-receipts/{receiptId}', [\App\Http\Controllers\AtlasSddController::class, 'showDecisionReceipt']);
-        Route::get('/sdd/drift-reports', [\App\Http\Controllers\AtlasSddController::class, 'driftReports']);
-        Route::get('/sdd/learning-proposals', [\App\Http\Controllers\AtlasSddController::class, 'learningProposals']);
-        Route::get('/sdd/mcp/resources', \App\Http\Controllers\AtlasSddMcpResourceController::class);
-        Route::get('/sdd/agent-roles', [\App\Http\Controllers\AtlasSddAgentRoleController::class, 'index']);
-        Route::get('/sdd/agent-roles/{name}', [\App\Http\Controllers\AtlasSddAgentRoleController::class, 'show']);
+        Route::get('/sdd/operations', [AtlasSddController::class, 'operations']);
+        Route::get('/sdd/specs', [AtlasSddController::class, 'specs']);
+        Route::get('/sdd/specs/{id}', [AtlasSddController::class, 'showSpec']);
+        Route::get('/sdd/specs/{id}/traceability', [AtlasSddController::class, 'traceability']);
+        Route::get('/sdd/decision-receipts', [AtlasSddController::class, 'decisionReceipts']);
+        Route::get('/sdd/decision-receipts/{receiptId}', [AtlasSddController::class, 'showDecisionReceipt']);
+        Route::get('/sdd/drift-reports', [AtlasSddController::class, 'driftReports']);
+        Route::get('/sdd/learning-proposals', [AtlasSddController::class, 'learningProposals']);
+        Route::get('/sdd/mcp/resources', AtlasSddMcpResourceController::class);
+        Route::get('/sdd/agent-roles', [AtlasSddAgentRoleController::class, 'index']);
+        Route::get('/sdd/agent-roles/{name}', [AtlasSddAgentRoleController::class, 'show']);
     });
 });

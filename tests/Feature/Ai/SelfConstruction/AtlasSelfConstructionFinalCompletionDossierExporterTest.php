@@ -39,6 +39,12 @@ final class AtlasSelfConstructionFinalCompletionDossierExporterTest extends Test
         $this->assertContains('human_signed_os_complete_receipt_present', $blockers);
         $this->assertNotEmpty($nextCommands);
         $this->assertStringContainsString('atlas:ai:self-construction', $nextCommands[0]);
+        $this->assertTrue((bool) collect($nextCommands)->contains(
+            static fn (string $command): bool => str_contains($command, 'terminal-loop-operational-proof-status'),
+        ));
+        $this->assertTrue((bool) collect($nextCommands)->contains(
+            static fn (string $command): bool => str_contains($command, '--agent-control-plane-terminal-loop-operational-proof-json='),
+        ));
     }
 
     public function test_exporter_persists_dossier_when_persist_export_true_but_never_persists_receipts(): void

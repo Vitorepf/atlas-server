@@ -95,6 +95,27 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameTest extends TestCase
         $this->assertSame($smoke['smoke_hash'], (string) $envelope['smoke_hash']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $envelope['smoke_json_sha256']);
         $this->assertStringContainsString('--persist-completion-evidence', (string) $envelope['persist_command']);
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-status',
+            (string) data_get($envelope, 'post_persistence_rerun_commands.terminal_loop_operational_proof'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
+            (string) data_get($envelope, 'post_persistence_rerun_commands.completion_audit_with_terminal_loop_operational_proof'),
+        );
+        $this->assertTrue((bool) data_get($envelope, 'terminal_loop_operational_proof_required_before_final_audit'));
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            data_get($envelope, 'terminal_loop_operational_proof_expected_binding_schema'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-status',
+            (string) data_get($result, 'exact_commands.refresh_terminal_loop_operational_proof'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
+            (string) data_get($result, 'exact_commands.rerun_completion_audit_with_terminal_loop_operational_proof'),
+        );
         $this->assertContains(
             'completion_audit_must_be_rerun_after_persistence',
             (array) $envelope['pre_persist_operator_checks'],

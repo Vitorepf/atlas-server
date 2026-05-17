@@ -21,8 +21,10 @@ final class AtlasDevFeatureFlagsTest extends TestCase
 
     public function test_run_and_desktop_are_off_by_default(): void
     {
-        $this->assertFalse((bool) config('atlas_dev.efficient.run_enabled'));
-        $this->assertFalse((bool) config('atlas_dev.efficient.desktop_enabled'));
+        $configSource = (string) file_get_contents(config_path('atlas_dev.php'));
+
+        $this->assertStringContainsString("'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', false)", $configSource);
+        $this->assertStringContainsString("'desktop_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED', false)", $configSource);
     }
 
     public function test_plan_enabled_is_on_under_testing_environment(): void

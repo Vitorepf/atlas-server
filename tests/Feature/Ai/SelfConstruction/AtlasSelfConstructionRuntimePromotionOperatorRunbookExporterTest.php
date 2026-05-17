@@ -67,6 +67,10 @@ final class AtlasSelfConstructionRuntimePromotionOperatorRunbookExporterTest ext
         $this->assertArrayHasKey('completion_audit_status', $summary);
         $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-endgame-verifier-status', $summary['commands']['pre_submission_verify']);
         $this->assertStringContainsString('--persist-runtime-promotion-receipt', $summary['commands']['persist_receipt']);
+        $this->assertArrayHasKey('refresh_terminal_loop_operational_proof', $summary['commands']);
+        $this->assertArrayHasKey('rerun_completion_audit_with_terminal_loop_operational_proof', $summary['commands']);
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', $summary['commands']['refresh_terminal_loop_operational_proof']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', $summary['commands']['rerun_completion_audit_with_terminal_loop_operational_proof']);
     }
 
     public function test_completion_audit_status_surface_is_exposed_without_evidence_persistence(): void

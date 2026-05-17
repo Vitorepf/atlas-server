@@ -46,9 +46,13 @@ final class ArtifactNames
 
     public const RUN_EXECUTION_STATE_BASE = 'run_execution_state';
 
+    public const RUN_CANCELLATION = 'run_cancellation.json';
+
     public const FAILURE_CAPSULE_BASE = 'failure_capsule';
 
     public const ERROR_LEDGER_BASE = 'error_ledger';
+
+    public const SENIOR_ENGINEER_LOOP_AUDIT = 'senior_engineer_loop_audit.json';
 
     private function __construct() {}
 }

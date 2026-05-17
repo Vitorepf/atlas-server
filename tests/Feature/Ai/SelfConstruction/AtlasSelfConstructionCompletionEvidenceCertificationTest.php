@@ -610,6 +610,8 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
         $this->assertArrayHasKey('compose_completion_evidence_hashes', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertArrayHasKey('persist_real_provider_smoke', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertArrayHasKey('persist_human_completion_receipt', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertArrayHasKey('refresh_terminal_loop_operational_proof', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
+        $this->assertArrayHasKey('run_completion_audit_with_terminal_loop_operational_proof', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertArrayNotHasKey('persist_completion_evidence', data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands'));
         $this->assertStringNotContainsString(
             '--completion-receipt-json',
@@ -620,6 +622,11 @@ final class AtlasSelfConstructionCompletionEvidenceCertificationTest extends Tes
             (string) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.commands.persist_human_completion_receipt'),
         );
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.template_hashes.runtime_promotion_receipt_template_hash'));
+        $this->assertTrue((bool) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.terminal_loop_operational_proof_required_before_final_audit'));
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet.terminal_loop_operational_proof_expected_binding_schema'),
+        );
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet_status.operator_action_packet_hash'));
     }
 

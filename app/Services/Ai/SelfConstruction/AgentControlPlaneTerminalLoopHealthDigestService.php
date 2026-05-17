@@ -30,6 +30,8 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
 
     public const FLEET_LANE_ISOLATION_SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_terminal_loop_fleet_lane_isolation.v1';
 
+    public const CYCLE_SUPERVISOR_SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_terminal_loop_cycle_supervisor.v1';
+
     public const MODE = 'read_only_agent_control_plane_terminal_loop_health_digest';
 
     public function __construct(
@@ -136,6 +138,16 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             launchPlan: $fleetLaunchPlan,
             operatorHandoff: $fleetOperatorHandoff,
         );
+        $cycleSupervisor = $this->terminalLoopCycleSupervisor(
+            recommendedAction: $recommendedAction,
+            launchPlan: $fleetLaunchPlan,
+            replenishmentPlan: $fleetReplenishmentPlan,
+            resumeRollup: $fleetResumeRollup,
+            evidenceRollup: $fleetEvidenceRollup,
+            operatorHandoff: $fleetOperatorHandoff,
+            laneIsolation: $fleetLaneIsolation,
+            commands: $commands,
+        );
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -189,6 +201,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'terminal_loop_fleet_evidence_rollup' => $fleetEvidenceRollup,
             'terminal_loop_fleet_operator_handoff' => $fleetOperatorHandoff,
             'terminal_loop_fleet_lane_isolation' => $fleetLaneIsolation,
+            'terminal_loop_cycle_supervisor' => $cycleSupervisor,
             'next_commands' => $commands,
             'observability' => [
                 'bootstrap_preview_command' => $commands['preview_bootstrap'],
@@ -219,11 +232,143 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
                 'terminal_loop_fleet_operator_handoff_does_not_mutate_queue_or_leases',
                 'terminal_loop_fleet_lane_isolation_does_not_change_tags',
                 'terminal_loop_fleet_lane_isolation_does_not_claim_tasks',
+                'terminal_loop_cycle_supervisor_does_not_execute_next_command',
+                'terminal_loop_cycle_supervisor_does_not_mutate_queue_or_leases',
             ],
         ];
         $payload['terminal_loop_health_digest_hash'] = $this->hashPayload($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $launchPlan
+     * @param  array<string, mixed>  $replenishmentPlan
+     * @param  array<string, mixed>  $resumeRollup
+     * @param  array<string, mixed>  $evidenceRollup
+     * @param  array<string, mixed>  $operatorHandoff
+     * @param  array<string, mixed>  $laneIsolation
+     * @param  array<string, string>  $commands
+     * @return array<string, mixed>
+     */
+    private function terminalLoopCycleSupervisor(
+        string $recommendedAction,
+        array $launchPlan,
+        array $replenishmentPlan,
+        array $resumeRollup,
+        array $evidenceRollup,
+        array $operatorHandoff,
+        array $laneIsolation,
+        array $commands,
+    ): array {
+        $resumeAttention = (bool) ($resumeRollup['resume_attention_required'] ?? false);
+        $shouldReplenish = (bool) ($replenishmentPlan['should_replenish_now'] ?? false);
+        $launchReady = (string) ($launchPlan['status'] ?? '') === 'fleet_launch_plan_ready';
+        $evidenceReady = (bool) ($evidenceRollup['ready_for_operator_review'] ?? false);
+        $laneBound = (bool) ($laneIsolation['all_commands_lane_bound'] ?? false);
+
+        if ($resumeAttention) {
+            $cycleState = 'recover_before_claim';
+            $status = 'cycle_recovery_required';
+            $nextCommand = (string) ($operatorHandoff['primary_command'] ?? $commands['inspect_or_recover_leases']);
+            $nextCommandPurpose = 'recover_released_expired_or_orphaned_task_before_any_new_claim';
+        } elseif ($evidenceReady) {
+            $cycleState = 'review_evidence';
+            $status = 'cycle_evidence_review_ready';
+            $nextCommand = $commands['terminal_loop_health_digest'];
+            $nextCommandPurpose = 'review_completed_dry_run_evidence_and_rerun_digest';
+        } elseif ($shouldReplenish) {
+            $cycleState = 'replenish_before_launch';
+            $status = 'cycle_replenishment_required';
+            $nextCommand = (string) data_get($replenishmentPlan, 'commands.replenish_tasks', $commands['replenish_tasks']);
+            $nextCommandPurpose = 'restore_lane_task_supply_before_worker_launch';
+        } elseif ($launchReady) {
+            $cycleState = 'launch_or_continue_workers';
+            $status = 'cycle_worker_launch_ready';
+            $nextCommand = (string) data_get($launchPlan, 'copy_paste_terminal_commands.0', $commands['execute_bootstrap']);
+            $nextCommandPurpose = 'start_one_lane_bound_terminal_worker_with_one_packet';
+        } else {
+            $cycleState = 'wait_or_inspect';
+            $status = 'cycle_wait_or_inspect';
+            $nextCommand = $commands['terminal_loop_health_digest'];
+            $nextCommandPurpose = 'wait_for_active_workers_or_inspect_canonical_sources';
+        }
+
+        $supervisor = [
+            'schema_version' => self::CYCLE_SUPERVISOR_SCHEMA_VERSION,
+            'status' => $status,
+            'cycle_state' => $cycleState,
+            'recommended_action' => $recommendedAction,
+            'next_command' => $nextCommand,
+            'next_command_purpose' => $nextCommandPurpose,
+            'next_command_is_lane_bound' => $laneBound || $cycleState === 'wait_or_inspect',
+            'next_command_source' => 'terminal_loop_health_digest_read_only_supervisor',
+            'state_machine' => [
+                'recover_before_claim',
+                'replenish_before_launch',
+                'launch_or_continue_workers',
+                'complete_with_structured_evidence',
+                'review_evidence',
+                'rerun_digest',
+            ],
+            'transition_guards' => [
+                'recover_before_replenish' => $resumeAttention,
+                'replenish_before_launch' => $shouldReplenish,
+                'launch_requires_lane_bound_commands' => $launchReady ? $laneBound : true,
+                'launch_requires_no_recoverable_tasks' => ! $resumeAttention,
+                'launch_requires_claimable_supply' => $launchReady,
+                'evidence_review_after_completed_dry_run' => $evidenceReady,
+                'rerun_digest_after_each_mutating_operator_command' => true,
+            ],
+            'operator_loop_contract' => [
+                'one_terminal_one_packet_at_a_time' => true,
+                'rerun_digest_after_next_command' => true,
+                'complete_only_with_structured_evidence' => true,
+                'recover_before_any_new_claim' => $resumeAttention,
+                'do_not_cross_queue_lanes' => true,
+                'do_not_continue_when_lane_binding_fails' => ! $laneBound,
+                'max_recommended_terminals_per_batch' => (int) data_get($launchPlan, 'recommended_terminal_count', 0),
+                'max_safe_parallel_terminals' => 6,
+            ],
+            'source_hashes' => [
+                'fleet_launch_plan_hash' => (string) data_get($launchPlan, 'terminal_loop_fleet_launch_plan_hash', ''),
+                'fleet_replenishment_plan_hash' => (string) data_get($replenishmentPlan, 'terminal_loop_fleet_replenishment_plan_hash', ''),
+                'fleet_resume_rollup_hash' => (string) data_get($resumeRollup, 'terminal_loop_fleet_resume_rollup_hash', ''),
+                'fleet_evidence_rollup_hash' => (string) data_get($evidenceRollup, 'terminal_loop_fleet_evidence_rollup_hash', ''),
+                'fleet_operator_handoff_hash' => (string) data_get($operatorHandoff, 'terminal_loop_fleet_operator_handoff_hash', ''),
+                'fleet_lane_isolation_hash' => (string) data_get($laneIsolation, 'terminal_loop_fleet_lane_isolation_hash', ''),
+            ],
+            'stop_conditions' => [
+                'lane_binding_attention_required',
+                'recoverable_task_present_after_recovery_attempt',
+                'structured_completion_evidence_invalid',
+                'git_diff_check_failed',
+                'operator_requests_stop',
+                'provider_or_token_action_would_be_required',
+            ],
+            'can_execute_next_command' => false,
+            'can_recover_from_supervisor' => false,
+            'can_replenish_from_supervisor' => false,
+            'can_claim_from_supervisor' => false,
+            'can_complete_from_supervisor' => false,
+            'can_call_provider_from_supervisor' => false,
+            'can_spend_tokens_from_supervisor' => false,
+            'completion_real_allowed' => false,
+            'non_execution_guarantees' => [
+                'cycle_supervisor_is_read_only',
+                'cycle_supervisor_does_not_run_next_command',
+                'cycle_supervisor_does_not_claim_tasks',
+                'cycle_supervisor_does_not_create_or_renew_leases',
+                'cycle_supervisor_does_not_recover_leases',
+                'cycle_supervisor_does_not_replenish_tasks',
+                'cycle_supervisor_does_not_complete_tasks',
+                'cycle_supervisor_does_not_call_provider',
+                'cycle_supervisor_does_not_spend_tokens',
+            ],
+        ];
+        $supervisor['terminal_loop_cycle_supervisor_hash'] = $this->hashPayload($supervisor);
+
+        return $supervisor;
     }
 
     /**
@@ -1028,6 +1173,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'terminal_loop_fleet_evidence_rollup_hash',
             'terminal_loop_fleet_operator_handoff_hash',
             'terminal_loop_fleet_lane_isolation_hash',
+            'terminal_loop_cycle_supervisor_hash',
         ]);
 
         return hash('sha256', (string) json_encode($stable, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

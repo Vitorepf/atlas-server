@@ -131,7 +131,13 @@ final class AtlasSelfConstructionRuntimePromotionClosurePackService
                 'sign_runtime_promotion_receipt',
                 'persist_receipt_through_runtime_promotion_verifier',
                 'rerun_completion_audit',
+                'refresh_terminal_loop_operational_proof',
+                'rerun_completion_audit_with_terminal_loop_operational_proof',
             ],
+            'terminal_loop_operational_proof_required_before_final_audit' => true,
+            'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            'terminal_loop_operational_proof_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json',
+            'completion_audit_with_terminal_loop_operational_proof_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
             'blockers' => array_values(array_unique($blockers)),
             'blocker_count' => count(array_unique($blockers)),
             'non_execution_guarantees' => [

@@ -127,6 +127,7 @@ final class PlanOnlyResult
             ],
             'persisted_artifact_refs' => $this->persistedArtifactRefs(),
             'prompt_sendable' => $this->promptProjection->isSendable(),
+            'read_only_answer' => $this->readOnlyAnswer(),
         ];
     }
 
@@ -178,5 +179,149 @@ final class PlanOnlyResult
         }
 
         return array_values($safe);
+    }
+
+    /**
+     * Produce a narrow provider-free answer for confirmed code facts. This is
+     * intentionally conservative: if no obvious constant matches the question,
+     * surfaces get null instead of a guessed answer.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function readOnlyAnswer(): ?array
+    {
+        if (! $this->isReadOnly()) {
+            return null;
+        }
+
+        if ($this->classification->taskKind === TaskClassification::KIND_REVIEW) {
+            return $this->readOnlyReviewAnswer();
+        }
+
+        if ($this->classification->taskKind !== TaskClassification::KIND_QUESTION) {
+            return null;
+        }
+
+        $intentTokens = $this->readOnlyTokens($this->envelope->normalizedIntent);
+        $best = null;
+        $bestScore = 0;
+
+        foreach ($this->discovery->likelyFiles as $candidate) {
+            if (! is_file($candidate->path) || filesize($candidate->path) > 200_000) {
+                continue;
+            }
+
+            $contents = (string) file_get_contents($candidate->path);
+            if (! preg_match_all('/\\b(?:public|protected|private)?\\s*const\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*([^;]+);/m', $contents, $matches, PREG_SET_ORDER)) {
+                continue;
+            }
+
+            foreach ($matches as $match) {
+                $name = (string) ($match[1] ?? '');
+                $value = trim((string) ($match[2] ?? ''));
+                $constantTokens = $this->readOnlyTokens(str_replace('_', ' ', strtolower($name)));
+                $score = count(array_intersect($intentTokens, $constantTokens));
+
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $best = [
+                        'symbol' => $name,
+                        'value' => trim($value, " \t\n\r\0\x0B'\""),
+                        'source_ref' => $this->workspaceSafePaths([$candidate->path])[0] ?? basename($candidate->path),
+                    ];
+                }
+            }
+        }
+
+        if ($best === null || $bestScore < 1) {
+            return null;
+        }
+
+        return [
+            'schema_version' => 'atlas.dev.read_only_answer.v1',
+            'status' => 'answered',
+            'confidence' => 'confirmed_fact',
+            'answer' => $best['symbol'].' = '.$best['value'],
+            'facts' => [$best],
+            'provider_calls' => 0,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function readOnlyReviewAnswer(): ?array
+    {
+        $findings = [];
+
+        foreach ($this->discovery->likelyFiles as $candidate) {
+            if (! is_file($candidate->path) || filesize($candidate->path) > 200_000) {
+                continue;
+            }
+
+            $contents = (string) file_get_contents($candidate->path);
+            $lines = preg_split('/\R/', $contents) ?: [];
+            $count = count($lines);
+
+            for ($index = 0; $index < $count; $index++) {
+                $line = $lines[$index] ?? '';
+                if (! preg_match('/foreach\s*\(.+\bas\s+\$[A-Za-z_][A-Za-z0-9_]*\)/', $line)) {
+                    continue;
+                }
+
+                $windowEnd = min($count, $index + 8);
+                for ($inner = $index + 1; $inner < $windowEnd; $inner++) {
+                    $innerLine = $lines[$inner] ?? '';
+                    if (preg_match('/^\s*\$([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\$[A-Za-z_][A-Za-z0-9_]*\s*\[/', $innerLine, $match)) {
+                        $findings[] = [
+                            'severity' => 'high',
+                            'source_ref' => ($this->workspaceSafePaths([$candidate->path])[0] ?? basename($candidate->path)).':'.($inner + 1),
+                            'title' => 'Accumulator is overwritten inside loop',
+                            'detail' => 'The loop assigns $'.$match[1].' from the current item on each iteration, so earlier items are discarded. This usually should accumulate or append.',
+                        ];
+                        break 2;
+                    }
+
+                    if (str_contains($innerLine, '}')) {
+                        break;
+                    }
+                }
+            }
+
+            if ($findings !== []) {
+                break;
+            }
+        }
+
+        if ($findings === []) {
+            return null;
+        }
+
+        return [
+            'schema_version' => 'atlas.dev.read_only_answer.v1',
+            'status' => 'answered',
+            'confidence' => 'static_review_finding',
+            'answer' => $findings[0]['title'].': '.$findings[0]['source_ref'],
+            'findings' => $findings,
+            'provider_calls' => 0,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function readOnlyTokens(string $value): array
+    {
+        $tokens = preg_split('/[^a-z0-9]+/i', strtolower($value)) ?: [];
+        $stop = [
+            'a', 'as', 'com', 'do', 'does', 'de', 'da', 'das', 'days', 'dias',
+            'e', 'em', 'for', 'from', 'in', 'o', 'of', 'os', 'para', 'period',
+            'quantos', 'quantas', 'the', 'usa', 'using',
+        ];
+
+        return array_values(array_unique(array_filter(
+            $tokens,
+            static fn (string $token): bool => strlen($token) >= 3 && ! in_array($token, $stop, true),
+        )));
     }
 }

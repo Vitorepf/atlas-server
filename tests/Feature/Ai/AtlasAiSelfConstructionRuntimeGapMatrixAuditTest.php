@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimeGapMatrixAuditService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -167,6 +168,61 @@ final class AtlasAiSelfConstructionRuntimeGapMatrixAuditTest extends TestCase
         }
     }
 
+    public function test_implementation_packets_emit_real_cli_flags_not_legacy_aliases(): void
+    {
+        $payload = $this->callAudit();
+        $commands = [];
+        foreach ((array) $payload['gaps'] as $gap) {
+            foreach ((array) data_get($gap, 'implementation_packet.commands', []) as $command) {
+                if (str_starts_with((string) $command, 'php artisan')) {
+                    $commands[] = (string) $command;
+                }
+            }
+        }
+
+        $joined = implode("\n", $commands);
+        $this->assertStringContainsString('--atlas-self-construction-os-runtime-gap-matrix-audit-status', $joined);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $joined);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-runbook-status', $joined);
+        $this->assertStringContainsString('--atlas-self-construction-real-provider-smoke-runbook-status', $joined);
+        $this->assertStringContainsString('--atlas-self-construction-human-completion-receipt-closure-execution-pack-status', $joined);
+        $this->assertStringContainsString('--atlas-self-construction-operator-evidence-submission-readiness-status', $joined);
+
+        foreach ([
+            '--runtime-gap-matrix',
+            '--runtime-promotion-receipt-draft',
+            '--runtime-promotion-receipt-runbook',
+            '--human-completion-receipt-closure-execution-pack',
+            '--operator-evidence-submission-readiness',
+        ] as $legacyFlag) {
+            $this->assertStringNotContainsString($legacyFlag.' --json', $joined);
+        }
+    }
+
+    public function test_implementation_packet_command_surface_verifies_every_cli_option(): void
+    {
+        $payload = $this->callAudit();
+        $surface = (array) ($payload['implementation_packet_command_surface'] ?? []);
+
+        $this->assertSame('atlas.self_construction.runtime_gap_matrix_audit.command_surface.v1', $surface['schema_version'] ?? null);
+        $this->assertSame('available', $surface['status'] ?? null);
+        $this->assertTrue((bool) ($surface['all_commands_available'] ?? false));
+        $this->assertTrue((bool) ($surface['legacy_alias_free'] ?? false));
+        $this->assertGreaterThanOrEqual(6, (int) ($surface['command_count'] ?? 0));
+        $this->assertSame(0, (int) ($surface['missing_option_count'] ?? -1));
+        $this->assertSame([], $surface['missing_options'] ?? null);
+        $this->assertSame(0, (int) ($surface['legacy_alias_count'] ?? -1));
+        $this->assertSame([], $surface['legacy_aliases_detected'] ?? null);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) ($surface['command_surface_hash'] ?? ''));
+
+        foreach ((array) ($surface['commands'] ?? []) as $command) {
+            $this->assertTrue((bool) ($command['all_options_available'] ?? false));
+            $this->assertSame([], $command['missing_options'] ?? null);
+            $this->assertSame([], $command['legacy_aliases_detected'] ?? null);
+            $this->assertNotEmpty((array) ($command['options'] ?? []));
+        }
+    }
+
     public function test_closure_class_index_partitions_every_gap_exactly_once(): void
     {
         $payload = $this->callAudit();
@@ -201,6 +257,12 @@ final class AtlasAiSelfConstructionRuntimeGapMatrixAuditTest extends TestCase
         $this->assertFalse((bool) ($payload['execution_allowed'] ?? null));
         $this->assertFalse((bool) ($payload['dispatch_allowed'] ?? null));
         $this->assertArrayHasKey('agent_control_plane_runtime_gap_matrix_audit', $payload);
+        $status = (array) ($payload['agent_control_plane_runtime_gap_matrix_audit_status'] ?? []);
+        $this->assertSame('available', $status['implementation_packet_command_surface_status'] ?? null);
+        $this->assertGreaterThanOrEqual(6, (int) ($status['implementation_packet_command_count'] ?? 0));
+        $this->assertSame(0, (int) ($status['implementation_packet_command_missing_option_count'] ?? -1));
+        $this->assertSame(0, (int) ($status['implementation_packet_command_legacy_alias_count'] ?? -1));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) ($status['implementation_packet_command_surface_hash'] ?? ''));
         $inner = $payload['agent_control_plane_runtime_gap_matrix_audit'];
         $this->assertSame(
             AtlasSelfConstructionRuntimeGapMatrixAuditService::SCHEMA_VERSION,
@@ -265,7 +327,7 @@ final class AtlasAiSelfConstructionRuntimeGapMatrixAuditTest extends TestCase
     private function callAudit(): array
     {
         return (new AtlasSelfConstructionRuntimeGapMatrixAuditService(
-            $this->app->make(\App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService::class),
+            $this->app->make(AtlasSelfConstructionReadinessService::class),
         ))->audit();
     }
 

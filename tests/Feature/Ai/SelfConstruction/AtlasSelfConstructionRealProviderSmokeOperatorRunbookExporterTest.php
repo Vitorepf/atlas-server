@@ -32,6 +32,7 @@ final class AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterTest ex
         $this->assertStringContainsString('# Atlas Self-Construction OS', $markdown);
         $this->assertStringContainsString('## Before execution', $markdown);
         $this->assertStringContainsString('## Audit rerun', $markdown);
+        $this->assertStringContainsString('refresh_terminal_loop_operational_proof', $markdown);
         $this->assertStringContainsString('## Stop conditions', $markdown);
     }
 

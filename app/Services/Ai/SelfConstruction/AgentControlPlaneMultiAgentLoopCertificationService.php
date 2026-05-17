@@ -93,6 +93,8 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             $invariants[$cycleKey.'_n_agents_received_distinct_leases'] = $cycle['distinct_lease_count'] === $agentCount;
             $invariants[$cycleKey.'_write_set_no_collision'] = $cycle['write_set_collision_count'] === 0;
             $invariants[$cycleKey.'_complete_dry_run_closed_all_leases'] = $cycle['completed_count'] === $agentCount && $cycle['active_leases_after_complete'] === 0;
+            $invariants[$cycleKey.'_complete_dry_run_requires_queue_claim_binding'] = $cycle['queue_claim_binding_verified_count'] === $agentCount
+                && (bool) ($cycle['queue_claim_binding_all_verified'] ?? false);
             $invariants[$cycleKey.'_completed_task_not_reclaimable'] = (bool) $cycle['reclaim_completed_blocked'];
             $invariants[$cycleKey.'_continuation_summary_present'] = $cycle['continuation_summary_count'] === $agentCount;
             $invariants[$cycleKey.'_evidence_receipts_present'] = $cycle['evidence_receipt_count'] >= $agentCount * 4;
@@ -125,6 +127,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $invariants['dry_run_only_enforced'] = $dryRunOnly;
         $invariants['no_duplicate_claims'] = $this->allCyclesTrue($cycleEvidence, 'duplicate_claim_rejected');
         $invariants['no_cross_agent_completion'] = $this->allCyclesTrue($cycleEvidence, 'cross_agent_completion_rejected');
+        $invariants['complete_dry_run_requires_queue_claim_binding'] = $this->allCyclesTrue($cycleEvidence, 'queue_claim_binding_all_verified');
         $invariants['evidence_hash_present'] = $this->allCyclesTrue($cycleEvidence, 'evidence_hashes_present');
         $invariants['structured_completion_evidence_valid'] = $this->allCyclesTrue($cycleEvidence, 'structured_completion_evidence_all_valid');
         $invariants['completion_evidence_files_within_scope'] = $this->allCyclesTrue($cycleEvidence, 'completion_evidence_files_within_scope_all_valid');
@@ -165,6 +168,10 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             && $this->terminalLoopFleetLaneIsolationPresent();
         $invariants['terminal_loop_fleet_lane_bound_commands_verified'] = (bool) ($terminalFleetLaunchPlanProbe['lane_bound_commands_verified'] ?? false);
         $invariants['terminal_loop_fleet_lane_no_cross_lane_launch_verified'] = (bool) ($terminalFleetLaneIsolationNegativeProbe['no_cross_lane_launch_verified'] ?? false);
+        $invariants['terminal_loop_cycle_supervisor_present'] = $invariants['terminal_loop_health_digest_present']
+            && $this->terminalLoopCycleSupervisorPresent();
+        $invariants['terminal_loop_cycle_supervisor_launch_path_verified'] = (bool) ($terminalFleetLaunchPlanProbe['cycle_supervisor_launch_path_verified'] ?? false);
+        $invariants['terminal_loop_cycle_supervisor_evidence_review_path_verified'] = (bool) ($terminalFleetEvidenceRollupProbe['cycle_supervisor_evidence_review_path_verified'] ?? false);
         $invariants['terminal_worker_bootstrap_rejects_invalid_worker_scope'] = (bool) ($terminalBootstrapProbe['invalid_scope_rejected'] ?? false);
         $invariants['terminal_worker_bootstrap_preview_read_only'] = (bool) ($terminalBootstrapProbe['preview_read_only'] ?? false);
         $certificationArtifactCleanup = $this->cleanupCertificationArtifacts($runId);
@@ -464,6 +471,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             );
             $perAgent[$idx]['completion_event'] = (string) ($completion['event'] ?? '');
             $perAgent[$idx]['completed'] = $perAgent[$idx]['completion_event'] === 'completed_dry_run';
+            $perAgent[$idx]['queue_claim_binding_verified'] = (bool) ($completion['queue_claim_binding_verified'] ?? false);
             $perAgent[$idx]['completion_evidence_validation_status'] = (string) data_get($completion, 'evidence_validation.status', '');
             $perAgent[$idx]['structured_completion_evidence_valid'] = (bool) data_get($completion, 'evidence_validation.structured_completion_evidence_valid', false);
             $perAgent[$idx]['completion_evidence_files_within_scope'] = (bool) data_get($completion, 'evidence_validation.files_changed_within_allowed_scope', false)
@@ -522,6 +530,10 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $recovery = $this->runRecoveryProbe($runId, $cycleIndex);
 
         $completedCount = count(array_filter($perAgent, fn (array $a): bool => (bool) $a['completed']));
+        $queueClaimBindingVerifiedCount = count(array_filter(
+            $perAgent,
+            fn (array $a): bool => (bool) ($a['completed'] ?? false) && (bool) ($a['queue_claim_binding_verified'] ?? false),
+        ));
 
         return [
             'cycle_index' => $cycleIndex,
@@ -534,6 +546,8 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'distinct_lease_count' => count($distinctLeases),
             'write_set_collision_count' => $writeSetCollisions,
             'completed_count' => $completedCount,
+            'queue_claim_binding_verified_count' => $queueClaimBindingVerifiedCount,
+            'queue_claim_binding_all_verified' => $queueClaimBindingVerifiedCount === $completedCount,
             'active_leases_after_complete' => $activeLeasesAfterComplete,
             'reclaim_completed_blocked' => $reclaimBlocked,
             'continuation_summary_count' => count($continuationHashes),
@@ -818,6 +832,11 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'completion_evidence_template_schema' => (string) data_get($result, 'completion_evidence_template.schema_version', ''),
                 'completion_evidence_template_json_present' => (string) ($result['completion_evidence_template_json'] ?? '') !== '',
                 'terminal_loop_operator_commands_schema' => (string) data_get($result, 'terminal_loop_operator_commands.schema_version', ''),
+                'terminal_loop_queue_lane_contract_schema' => (string) data_get($result, 'queue_lane_contract.schema_version', ''),
+                'terminal_loop_queue_lane_id' => (string) data_get($result, 'queue_lane_contract.queue_lane_id', ''),
+                'terminal_loop_queue_lane_explicit' => (bool) data_get($result, 'queue_lane_contract.queue_lane_explicit', false),
+                'terminal_loop_queue_lane_next_iteration_preserves_lane' => (bool) data_get($result, 'queue_lane_contract.next_iteration_preserves_queue_lane', false),
+                'terminal_loop_queue_lane_contract_hash' => (string) data_get($result, 'queue_lane_contract.queue_lane_contract_hash', ''),
                 'terminal_long_running_loop_contract_schema' => (string) data_get($result, 'terminal_loop_operator_commands.long_running_loop_contract.schema_version', ''),
                 'terminal_long_running_loop_next_iteration_command' => (string) data_get($result, 'terminal_loop_operator_commands.long_running_loop_contract.next_iteration_command', ''),
                 'terminal_long_running_loop_stop_conditions' => (array) data_get($result, 'terminal_loop_operator_commands.long_running_loop_contract.stop_conditions', []),
@@ -913,6 +932,10 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $terminalLoopOperatorCommandsPresent = $results !== [] && count(array_filter(
             $results,
             static fn (array $result): bool => (string) ($result['terminal_loop_operator_commands_schema'] ?? '') === 'atlas.self_construction.agent_control_plane_terminal_loop_operator_commands.v1'
+                && (string) ($result['terminal_loop_queue_lane_contract_schema'] ?? '') === 'atlas.self_construction.agent_control_plane_terminal_loop_queue_lane_contract.v1'
+                && (bool) ($result['terminal_loop_queue_lane_explicit'] ?? false)
+                && (bool) ($result['terminal_loop_queue_lane_next_iteration_preserves_lane'] ?? false)
+                && (string) ($result['terminal_loop_queue_lane_contract_hash'] ?? '') !== ''
                 && (string) ($result['terminal_long_running_loop_contract_schema'] ?? '') === 'atlas.self_construction.agent_control_plane_terminal_long_running_loop_contract.v1'
                 && str_contains((string) ($result['terminal_long_running_loop_next_iteration_command'] ?? ''), '--agent-control-plane-terminal-worker-bootstrap-status')
                 && in_array('completion_evidence_validation_not_valid', (array) ($result['terminal_long_running_loop_stop_conditions'] ?? []), true),
@@ -1089,6 +1112,14 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             && data_get($digest, 'terminal_loop_fleet_lane_isolation.can_change_tags_from_digest') === false
             && in_array('--queue-tag='.$queueTag, (array) data_get($digest, 'terminal_loop_fleet_lane_isolation.required_tag_args', []), true)
             && data_get($digest, 'terminal_loop_fleet_lane_isolation.terminal_loop_fleet_lane_isolation_hash') !== null;
+        $cycleSupervisorLaunchPathVerified = (string) data_get($digest, 'terminal_loop_cycle_supervisor.schema_version') === AgentControlPlaneTerminalLoopHealthDigestService::CYCLE_SUPERVISOR_SCHEMA_VERSION
+            && (string) data_get($digest, 'terminal_loop_cycle_supervisor.status') === 'cycle_worker_launch_ready'
+            && (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state') === 'launch_or_continue_workers'
+            && (bool) data_get($digest, 'terminal_loop_cycle_supervisor.next_command_is_lane_bound') === true
+            && str_contains((string) data_get($digest, 'terminal_loop_cycle_supervisor.next_command'), '--queue-tag='.$queueTag)
+            && data_get($digest, 'terminal_loop_cycle_supervisor.can_execute_next_command') === false
+            && data_get($digest, 'terminal_loop_cycle_supervisor.can_claim_from_supervisor') === false
+            && data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash') !== null;
 
         return [
             'status' => $readyPathVerified ? 'available' : 'blocked',
@@ -1106,6 +1137,11 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'terminal_commands_lane_bound' => $allCommandsLaneBound,
             'lane_isolation_status' => (string) data_get($digest, 'terminal_loop_fleet_lane_isolation.status'),
             'lane_bound_commands_verified' => $laneBoundCommandsVerified,
+            'cycle_supervisor_status' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.status'),
+            'cycle_supervisor_cycle_state' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'),
+            'cycle_supervisor_next_command_is_lane_bound' => (bool) data_get($digest, 'terminal_loop_cycle_supervisor.next_command_is_lane_bound'),
+            'cycle_supervisor_launch_path_verified' => $cycleSupervisorLaunchPathVerified,
+            'cycle_supervisor_hash' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash'),
             'can_execute_from_digest' => (bool) data_get($digest, 'terminal_loop_fleet_launch_plan.can_execute_from_digest'),
             'can_claim_from_digest' => (bool) data_get($digest, 'terminal_loop_fleet_launch_plan.can_claim_from_digest'),
             'blocked_reasons' => (array) data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons', []),
@@ -1507,6 +1543,12 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             && (bool) data_get($rollup, 'ready_for_operator_review') === true
             && in_array($evidenceHash, (array) data_get($rollup, 'evidence_hashes', []), true)
             && data_get($rollup, 'terminal_loop_fleet_evidence_rollup_hash') !== null;
+        $cycleSupervisorEvidenceReviewPathVerified = (string) data_get($digest, 'terminal_loop_cycle_supervisor.schema_version') === AgentControlPlaneTerminalLoopHealthDigestService::CYCLE_SUPERVISOR_SCHEMA_VERSION
+            && (string) data_get($digest, 'terminal_loop_cycle_supervisor.status') === 'cycle_evidence_review_ready'
+            && (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state') === 'review_evidence'
+            && (string) data_get($digest, 'terminal_loop_cycle_supervisor.next_command_purpose') === 'review_completed_dry_run_evidence_and_rerun_digest'
+            && data_get($digest, 'terminal_loop_cycle_supervisor.can_complete_from_supervisor') === false
+            && data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash') !== null;
 
         return [
             'status' => $greenPathVerified ? 'available' : 'blocked',
@@ -1524,6 +1566,10 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'evidence_hash_present' => in_array($evidenceHash, (array) data_get($rollup, 'evidence_hashes', []), true),
             'fleet_evidence_rollup_hash' => (string) data_get($rollup, 'terminal_loop_fleet_evidence_rollup_hash'),
             'green_path_verified' => $greenPathVerified,
+            'cycle_supervisor_status' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.status'),
+            'cycle_supervisor_cycle_state' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'),
+            'cycle_supervisor_evidence_review_path_verified' => $cycleSupervisorEvidenceReviewPathVerified,
+            'cycle_supervisor_hash' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash'),
         ];
     }
 
@@ -2101,6 +2147,10 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'value' => (bool) ($invariants['no_cross_agent_completion'] ?? false),
                 'why' => 'Each cycle invokes completeDryRun with agent A packet + agent B lease and asserts event=complete_dry_run_blocked, reason=task_packet_lease_mismatch.',
             ],
+            'complete_dry_run_requires_queue_claim_binding' => [
+                'value' => (bool) ($invariants['complete_dry_run_requires_queue_claim_binding'] ?? false),
+                'why' => 'Every completed_dry_run packet proves the queue record was still claimed and its metadata.lease_id/metadata.agent_id matched the active lease before completion.',
+            ],
             'stale_lease_recovered' => [
                 'value' => $staleRecovered,
                 'why' => 'Each cycle injects an expired+orphaned lease through the recovery probe and asserts expired_resolved=true AND orphan_resolved=true.',
@@ -2222,6 +2272,18 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'value' => (bool) ($invariants['terminal_loop_fleet_lane_no_cross_lane_launch_verified'] ?? false),
                 'why' => 'The negative lane-isolation probe seeds claimable work in a different lane, requests an empty target lane, and proves launch stays blocked while handoff recommends replenishing the requested lane instead of stealing unrelated work.',
             ],
+            'terminal_loop_cycle_supervisor_present' => [
+                'value' => (bool) ($invariants['terminal_loop_cycle_supervisor_present'] ?? false),
+                'why' => 'The read-only terminal loop health digest emits a cycle supervisor that collapses recovery, replenishment, launch, evidence review and wait/inspect into one exact next state and command without executing it.',
+            ],
+            'terminal_loop_cycle_supervisor_launch_path_verified' => [
+                'value' => (bool) ($invariants['terminal_loop_cycle_supervisor_launch_path_verified'] ?? false),
+                'why' => 'The fleet-launch probe proves the cycle supervisor selects launch_or_continue_workers, emits a lane-bound bootstrap command and keeps execute/claim flags false when claimable supply is ready.',
+            ],
+            'terminal_loop_cycle_supervisor_evidence_review_path_verified' => [
+                'value' => (bool) ($invariants['terminal_loop_cycle_supervisor_evidence_review_path_verified'] ?? false),
+                'why' => 'The evidence-rollup probe proves the cycle supervisor selects review_evidence before more replenishment when completed dry-run evidence is ready for operator review.',
+            ],
             'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts' => [
                 'value' => (bool) ($invariants['certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts'] ?? false),
                 'why' => 'After pruning the run-scoped synthetic packets and leases, the certification asks the read-only terminal-loop health digest to prove there are zero claimed packets, zero active leases and zero recoverable lease/task artifacts left by the run.',
@@ -2264,6 +2326,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $core = [
             'no_duplicate_claims',
             'no_cross_agent_completion',
+            'complete_dry_run_requires_queue_claim_binding',
             'recovery_never_reopens_completed',
             'no_legacy_reservation_used',
             'runtime_safety_all_false',
@@ -2287,6 +2350,9 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'terminal_loop_fleet_lane_isolation_present',
             'terminal_loop_fleet_lane_bound_commands_verified',
             'terminal_loop_fleet_lane_no_cross_lane_launch_verified',
+            'terminal_loop_cycle_supervisor_present',
+            'terminal_loop_cycle_supervisor_launch_path_verified',
+            'terminal_loop_cycle_supervisor_evidence_review_path_verified',
             'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts',
             'terminal_worker_bootstrap_rejects_invalid_worker_scope',
             'terminal_worker_bootstrap_completion_evidence_template_present',
@@ -2417,5 +2483,24 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             && data_get($digest, 'terminal_loop_fleet_lane_isolation.can_change_tags_from_digest') === false
             && data_get($digest, 'terminal_loop_fleet_lane_isolation.can_steal_unrelated_lane_work') === false
             && data_get($digest, 'terminal_loop_fleet_lane_isolation.terminal_loop_fleet_lane_isolation_hash') !== null;
+    }
+
+    private function terminalLoopCycleSupervisorPresent(): bool
+    {
+        $digest = (new AgentControlPlaneTerminalLoopHealthDigestService)->digest([
+            'actor' => 'multi-agent-certification-cycle-supervisor-probe',
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['multi-agent-certification-cycle-supervisor-probe'],
+        ]);
+
+        return (string) data_get($digest, 'terminal_loop_cycle_supervisor.schema_version') === AgentControlPlaneTerminalLoopHealthDigestService::CYCLE_SUPERVISOR_SCHEMA_VERSION
+            && (string) data_get($digest, 'terminal_loop_cycle_supervisor.status') !== ''
+            && (string) data_get($digest, 'terminal_loop_cycle_supervisor.next_command') !== ''
+            && data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash') !== null
+            && data_get($digest, 'terminal_loop_cycle_supervisor.can_execute_next_command') === false
+            && data_get($digest, 'terminal_loop_cycle_supervisor.can_claim_from_supervisor') === false
+            && data_get($digest, 'terminal_loop_cycle_supervisor.can_call_provider_from_supervisor') === false
+            && data_get($digest, 'terminal_loop_cycle_supervisor.can_spend_tokens_from_supervisor') === false;
     }
 }

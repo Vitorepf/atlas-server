@@ -144,6 +144,58 @@ final class SpecComposerTest extends TestCase
         $this->assertNotSame('', $miniSpec->miniSpecHash);
     }
 
+    public function test_mini_spec_preserves_explicit_validation_command_constraint(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-dev-spec-validation-'.bin2hex(random_bytes(4));
+        mkdir($workspace.'/src', 0o755, true);
+        file_put_contents($workspace.'/package.json', '{"scripts":{"test":"node tests/button-style.test.js"}}');
+        file_put_contents($workspace.'/src/Button.css', '.primary-button { color: #fff; }');
+
+        try {
+            $composer = new SpecComposer;
+            $envelope = $this->envelope(
+                intent: 'update src/Button.css so .primary-button uses background #2563eb',
+                surfaceId: 'atlas_desktop_ai',
+                workspace: $workspace,
+                userConstraints: [
+                    'allowed_files=src/Button.css',
+                    'validation_command=npm test',
+                ],
+            );
+            $classification = new TaskClassification(
+                taskKind: TaskClassification::KIND_FRONTEND,
+                intentClarityLevel: IntakeNormalizer::CLARITY_HIGH,
+                matchedRules: ['frontend:css'],
+                writeImplied: true,
+            );
+            $compact = $composer->composeCompactSdd($envelope, $classification, RiskLevelScorer::R3);
+            $discovery = new CodeDiscoveryManifest(
+                runId: $envelope->runId,
+                likelyFiles: [
+                    new CodeCandidate(path: $workspace.'/src/Button.css', reason: 'path mentioned in intent', confidence: 0.95, symbols: []),
+                ],
+                relatedSymbols: [],
+                relatedTests: [],
+                relatedCommands: [],
+                confidence: CodeDiscoveryManifest::CONFIDENCE_STRONG_INFERENCE,
+                missingRefs: [],
+                forbiddenFiles: [],
+                providerSafe: true,
+                manifestHash: 'h',
+            );
+
+            $miniSpec = $composer->composeMiniSpec($envelope, $compact, $discovery, $this->emptyProjection($envelope->runId));
+        } finally {
+            @unlink($workspace.'/src/Button.css');
+            @unlink($workspace.'/package.json');
+            @rmdir($workspace.'/src');
+            @rmdir($workspace);
+        }
+
+        $this->assertSame(['src/Button.css'], $miniSpec->allowedFiles);
+        $this->assertSame(['npm test'], $miniSpec->verificationPlan->commands);
+    }
+
     public function test_task_contract_for_r2_repair_locks_provider_and_caps_max_files(): void
     {
         $composer = new SpecComposer;
@@ -204,6 +256,7 @@ final class SpecComposerTest extends TestCase
         string $intent,
         string $surfaceId = 'atlas_cli_dev',
         string $workspace = '/ws',
+        array $userConstraints = [],
     ): OperationEnvelope {
         return new OperationEnvelope(
             runId: 'dev-test',
@@ -214,7 +267,7 @@ final class SpecComposerTest extends TestCase
             gitState: new GitState(headSha: null, dirty: false, untrackedCount: 0, pendingChangesCount: 0),
             rawIntent: $intent,
             normalizedIntent: trim($intent),
-            userConstraints: [],
+            userConstraints: array_values($userConstraints),
             intentClarityLevel: IntakeNormalizer::CLARITY_HIGH,
             dirtyWorktreePolicy: IntakeNormalizer::DIRTY_POLICY_PRESERVE,
             preflight: new Preflight(

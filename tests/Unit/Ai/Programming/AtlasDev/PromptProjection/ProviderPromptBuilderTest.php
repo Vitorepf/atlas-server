@@ -19,9 +19,9 @@ final class ProviderPromptBuilderTest extends TestCase
     private function makeBuilder(): ProviderPromptBuilder
     {
         return new ProviderPromptBuilder(
-            new PromptSectionsMapper(),
-            new PromptRenderer(),
-            new PromptQualityChecker(),
+            new PromptSectionsMapper,
+            new PromptRenderer,
+            new PromptQualityChecker,
         );
     }
 
@@ -307,6 +307,15 @@ final class ProviderPromptBuilderTest extends TestCase
         $this->assertStringContainsString('fallback_allowed: false', $text);
     }
 
+    public function test_rendered_prompt_forbids_provider_side_write_tools(): void
+    {
+        $text = $this->buildHappyPath()->renderedPromptText;
+
+        $this->assertStringContainsString('Nao use ferramentas de escrita, edicao, shell ou teste', $text);
+        $this->assertStringContainsString('Atlas Dev aplica o diff e roda verificacao fora do provider', $text);
+        $this->assertStringContainsString('nunca aguarde permissao de escrita', $text);
+    }
+
     public function test_rendered_prompt_includes_non_goals_section(): void
     {
         $projection = $this->buildHappyPath();
@@ -317,6 +326,55 @@ final class ProviderPromptBuilderTest extends TestCase
         // verbatim in the rendered prompt so the model can see scope bounds.
         $this->assertStringContainsString('nao mudar API publica do WorkflowService', $text);
         $this->assertStringContainsString('nao mexer em outros testes', $text);
+    }
+
+    public function test_rendered_prompt_includes_focused_file_excerpts_for_allowed_files(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-dev-prompt-excerpt-'.bin2hex(random_bytes(6));
+        $relativePath = 'app/Services/Ai/Cli/AtlasCliDevWorkflowService.php';
+        $absolutePath = $workspace.'/'.$relativePath;
+        $contents = <<<'PHP'
+<?php
+
+final class AtlasCliDevWorkflowService
+{
+    public function greeting(): string
+    {
+        return 'helo atlas';
+    }
+}
+PHP;
+
+        mkdir(dirname($absolutePath), 0777, true);
+        file_put_contents($absolutePath, $contents);
+
+        try {
+            $projection = $this->makeBuilder()->build(
+                envelope: $this->envelope([
+                    'workspace' => $workspace,
+                ]),
+                compactSdd: $this->compactSdd(),
+                miniSpec: $this->miniSpec(),
+                taskContract: $this->taskContract(),
+                discovery: $this->codeDiscovery(),
+                projection: $this->openBrainProjection(),
+            );
+
+            $text = $projection->renderedPromptText;
+
+            $this->assertStringContainsString('## Focused File Excerpts', $text);
+            $this->assertStringContainsString('### '.$relativePath, $text);
+            $this->assertStringContainsString('sha256: '.hash('sha256', $contents), $text);
+            $this->assertStringContainsString("return 'helo atlas';", $text);
+            $this->assertStringNotContainsString($absolutePath, $text);
+        } finally {
+            @unlink($absolutePath);
+            @rmdir(dirname($absolutePath));
+            @rmdir(dirname(dirname($absolutePath)));
+            @rmdir(dirname(dirname(dirname($absolutePath))));
+            @rmdir(dirname(dirname(dirname(dirname($absolutePath)))));
+            @rmdir($workspace);
+        }
     }
 
     public function test_quality_checker_blocks_when_provider_lock_allows_fallback(): void

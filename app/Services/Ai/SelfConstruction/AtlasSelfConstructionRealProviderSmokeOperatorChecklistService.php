@@ -235,7 +235,7 @@ final class AtlasSelfConstructionRealProviderSmokeOperatorChecklistService
     {
         return [
             'id' => 'audit_rerun',
-            'summary' => 'Re-run completion evidence status and completion audit to count the new smoke.',
+            'summary' => 'Re-run completion evidence status, refresh Terminal Loop Operational Proof, and rerun completion audit to count the new smoke.',
             'items' => [
                 [
                     'id' => 'rerun_completion_evidence_status',
@@ -244,17 +244,35 @@ final class AtlasSelfConstructionRealProviderSmokeOperatorChecklistService
                     'stop_condition' => 'stop_if_status_not_refreshed',
                 ],
                 [
+                    'id' => 'refresh_terminal_loop_operational_proof',
+                    'rule' => 'Refresh Terminal Loop Operational Proof and retain its audit binding packet before any final completion audit.',
+                    'evidence_field' => 'terminal_loop_operational_proof_audit_binding_packet',
+                    'stop_condition' => 'stop_if_terminal_loop_operational_proof_not_passed',
+                ],
+                [
                     'id' => 'rerun_completion_audit',
-                    'rule' => 'Re-run completion audit and confirm end_to_end_real_provider_smoke_green is no longer in failed_criteria.',
+                    'rule' => 'Re-run completion audit with the Terminal Loop Operational Proof binding and confirm end_to_end_real_provider_smoke_green is no longer in failed_criteria.',
                     'evidence_field' => 'completion_audit',
                     'stop_condition' => 'stop_if_blocker_still_failing',
                 ],
             ],
             'commands' => [
                 'rerun_completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
                 'rerun_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'rerun_completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
             ],
         ];
+    }
+
+    private function terminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function completionAuditWithTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
     }
 
     /** @param array<string, mixed> $payload */

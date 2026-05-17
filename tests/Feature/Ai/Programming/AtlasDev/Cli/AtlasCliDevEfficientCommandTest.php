@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Process\Process;
 use Tests\Feature\Ai\Programming\AtlasDev\Http\FakeAtlasOpenBrainService;
 use Tests\TestCase;
 
@@ -152,6 +153,55 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
 
         $this->assertStringContainsString('"kind": "read_only_answer"', $output);
         $this->assertStringContainsString('"suggested_flow": "atlas_explain"', $output);
+    }
+
+    public function test_efficient_router_hints_are_preserved_in_persisted_envelope(): void
+    {
+        $this->bindFakeRunExecutor();
+
+        $output = $this->captureJsonRun([
+            'task' => ['explique como o FooService resolve workspace'],
+            '--workspace' => $this->tmpWorkspace,
+            '--efficient' => true,
+            '--flow-origin' => 'atlas_ai_router',
+            '--command-intent' => 'question',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode($output, true);
+        $this->assertIsArray($payload);
+        $runId = (string) ($payload['run_id'] ?? '');
+        $this->assertNotSame('', $runId);
+
+        $envelope = $this->app->make(ReceiptStorage::class)->read($runId, 'operation_envelope.json');
+        $this->assertIsArray($envelope);
+        $this->assertSame('atlas_ai_router', $envelope['flow_origin'] ?? null);
+        $this->assertSame('question', $envelope['command_intent'] ?? null);
+    }
+
+    public function test_efficient_review_route_returns_deterministic_diff_finding(): void
+    {
+        $this->bindFakeRunExecutor();
+        $workspace = $this->makeReviewWorkspace();
+
+        try {
+            $output = $this->captureJsonRun([
+                'task' => ['Review the workspace diff in src/Discount.php and return actionable findings.'],
+                '--workspace' => $workspace,
+                '--efficient' => true,
+                '--flow-origin' => 'atlas_ai_router',
+                '--command-intent' => 'review',
+                '--json' => true,
+            ]);
+        } finally {
+            $this->rmrf($workspace);
+        }
+
+        $this->assertStringContainsString('"kind": "read_only_answer"', $output);
+        $this->assertStringContainsString('"kind": "diff_review_findings"', $output);
+        $this->assertStringContainsString('Discount calculation was inverted', $output);
+        $this->assertStringContainsString('"provider_calls": 0', $output);
+        $this->assertNoAbsolutePaths($output);
     }
 
     public function test_efficient_disabled_by_plan_flag_returns_503_like_error(): void
@@ -444,6 +494,52 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
                 $table->timestamps();
             });
         }
+    }
+
+    private function makeReviewWorkspace(): string
+    {
+        $workspace = sys_get_temp_dir().'/atlas-dev-cli-review-ws-'.bin2hex(random_bytes(4));
+        mkdir($workspace.'/src', 0o755, true);
+        mkdir($workspace.'/tests', 0o755, true);
+        file_put_contents($workspace.'/src/Discount.php', <<<'PHP'
+<?php
+namespace Bench;
+
+final class Discount
+{
+    public function apply(int $cents, int $percent): int
+    {
+        return (int) round($cents * (100 - $percent) / 100);
+    }
+}
+PHP);
+        file_put_contents($workspace.'/tests/DiscountTest.php', "<?php\n// focused test fixture\n");
+
+        $this->mustRun(['git', '-C', $workspace, 'init', '-q']);
+        $this->mustRun(['git', '-C', $workspace, 'config', 'user.email', 'atlas@example.test']);
+        $this->mustRun(['git', '-C', $workspace, 'config', 'user.name', 'Atlas Test']);
+        $this->mustRun(['git', '-C', $workspace, 'add', '.']);
+        $this->mustRun(['git', '-C', $workspace, 'commit', '-m', 'baseline', '-q']);
+
+        $path = $workspace.'/src/Discount.php';
+        file_put_contents($path, str_replace(
+            '100 - $percent',
+            '100 + $percent',
+            (string) file_get_contents($path),
+        ));
+
+        return $workspace;
+    }
+
+    /**
+     * @param  list<string>  $command
+     */
+    private function mustRun(array $command): void
+    {
+        $process = new Process($command);
+        $process->run();
+
+        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput() ?: $process->getOutput());
     }
 
     private function rmrf(string $dir): void

@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionClosureExecutionPackService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionReceiptService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -72,7 +73,19 @@ final class AtlasSelfConstructionRuntimePromotionClosureExecutionPackTest extend
             'persist_with_explicit_flag_only',
             'rerun_runtime_gap_matrix',
             'rerun_completion_audit',
+            'refresh_terminal_loop_operational_proof',
+            'rerun_completion_audit_with_terminal_loop_operational_proof',
         ], $stepIds);
+        $this->assertStringContainsString(
+            'terminal-loop-operational-proof-status',
+            (string) data_get($payload, 'exact_commands.refresh_terminal_loop_operational_proof'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=',
+            (string) data_get($payload, 'exact_commands.rerun_completion_audit_with_terminal_loop_operational_proof'),
+        );
+        $this->assertTrue((bool) data_get($payload, 'terminal_loop_operational_proof_required_before_final_audit'));
+        $this->assertTrue((bool) data_get($payload, 'receipt_persistence_preflight.terminal_loop_operational_proof_required_before_final_audit'));
     }
 
     public function test_draft_only_ready_with_real_signer_and_reason(): void
@@ -173,7 +186,7 @@ final class AtlasSelfConstructionRuntimePromotionClosureExecutionPackTest extend
         // The pack always requires the explicit persistence flag, and the persistence-preflight
         // payload reports that it is blocked because the operator did not invoke the flag here.
         $this->assertSame('--persist-runtime-promotion-receipt', data_get($payload, 'receipt_persistence_preflight.requires_explicit_flag'));
-        $this->assertSame(\App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionReceiptService::class, data_get($payload, 'receipt_persistence_preflight.gated_by_service'));
+        $this->assertSame(AtlasSelfConstructionRuntimePromotionReceiptService::class, data_get($payload, 'receipt_persistence_preflight.gated_by_service'));
         $this->assertNotEmpty(data_get($payload, 'receipt_draft.draft_hash'));
         $this->assertSame([], Storage::disk('local')->allFiles('atlas/self-construction/os-completion/runtime-promotion-receipts'));
     }

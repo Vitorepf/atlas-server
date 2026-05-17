@@ -92,6 +92,10 @@ final class AtlasSelfConstructionRuntimePromotionEvidenceDossierTest extends Tes
 
         $this->assertContains('persist_runtime_promotion_receipt_through_verifier', $payload['operator_checklist']);
         $this->assertContains('rerun_completion_audit', $payload['operator_checklist']);
+        $this->assertContains('refresh_terminal_loop_operational_proof', $payload['operator_checklist']);
+        $this->assertContains('rerun_completion_audit_with_terminal_loop_operational_proof', $payload['operator_checklist']);
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $payload['terminal_loop_operational_proof_command']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $payload['completion_audit_with_terminal_loop_operational_proof_command']);
         $this->assertContains('runtime_promotion_evidence_dossier_does_not_enable_runtime', $payload['non_execution_guarantees']);
     }
 

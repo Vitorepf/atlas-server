@@ -15,11 +15,11 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
  * patterns fired, so callers can explain "why patch?" to an operator.
  *
  * Rule precedence (highest wins):
- *   1. risky      — auth/billing/migration/security keywords
- *   2. repair     — failing tests / fix / corrigir / bug
- *   3. review     — review / revise / inspect diff
- *   4. frontend   — UI keywords AND a frontend-shaped surface
- *   5. question   — explain / where / what / why
+ *   1. question   — explicit read-only ask / explain / where / what / why
+ *   2. risky      — auth/billing/migration/security keywords
+ *   3. repair     — failing tests / fix / corrigir / bug
+ *   4. review     — review / revise / inspect diff
+ *   5. frontend   — UI keywords AND a frontend-shaped surface
  *   6. patch      — default for action verbs with reference tokens
  */
 class TaskClassifier
@@ -53,13 +53,14 @@ class TaskClassifier
     ];
 
     private const FRONTEND_SURFACE_HINTS = [
-        'atlas_desktop_ai', 'atlas_app', 'atlas_code', 'atlas_frontend',
+        'atlas_desktop_ai', 'atlas_app', 'atlas_code', 'atlas_frontend', 'atlas_cli_dev',
     ];
 
     private const QUESTION_PREFIXES = [
+        'responda ', 'responde ', 'answer ',
         'explique ', 'explica ', 'explain ', 'descreva ', 'descreve ',
-        'o que ', 'qual ', 'quais ', 'onde ', 'where ', 'what ', 'how ', 'why ',
-        'por que ', 'por quê ', 'porque ',
+        'o que ', 'qual ', 'quais ', 'quantos ', 'quantas ', 'onde ',
+        'where ', 'what ', 'how ', 'why ', 'por que ', 'por quê ', 'porque ',
     ];
 
     private const ACTION_VERBS = [
@@ -68,12 +69,22 @@ class TaskClassifier
         'adicionar', 'add ', 'crie', 'create', 'rename', 'renomeie',
         'conserta', 'conserte', 'consertar', 'refator', 'refactor', 'extract', 'extraia', 'rode', 'execute',
         'altere', 'alterar', 'update ', 'atualize', 'atualizar', 'edit ',
+        'apply ', 'implement ', 'implemente',
     ];
 
     public function classify(OperationEnvelope $envelope): TaskClassification
     {
         $haystack = $this->buildHaystack($envelope);
         $matched = [];
+
+        if ($this->startsWithAny($envelope->normalizedIntent, self::QUESTION_PREFIXES, $matched, 'question:')) {
+            return new TaskClassification(
+                taskKind: TaskClassification::KIND_QUESTION,
+                intentClarityLevel: $envelope->intentClarityLevel,
+                matchedRules: $matched,
+                writeImplied: false,
+            );
+        }
 
         if ($this->containsAny($haystack, self::RISKY_TOKENS, $matched, 'risky:')) {
             return new TaskClassification(
@@ -108,15 +119,6 @@ class TaskClassifier
                 intentClarityLevel: $envelope->intentClarityLevel,
                 matchedRules: $matched,
                 writeImplied: true,
-            );
-        }
-
-        if ($this->startsWithAny($envelope->normalizedIntent, self::QUESTION_PREFIXES, $matched, 'question:')) {
-            return new TaskClassification(
-                taskKind: TaskClassification::KIND_QUESTION,
-                intentClarityLevel: $envelope->intentClarityLevel,
-                matchedRules: $matched,
-                writeImplied: false,
             );
         }
 

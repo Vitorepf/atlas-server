@@ -26,6 +26,16 @@ final class RiskLevelScorerTest extends TestCase
         ));
     }
 
+    public function test_read_only_question_about_risky_domain_is_r0(): void
+    {
+        $intent = 'Responda usando o codigo: quantos dias de grace period BillingPolicy usa?';
+
+        $this->assertSame(RiskLevelScorer::R0, $this->score(
+            intent: $intent,
+            classification: $this->classify($intent),
+        ));
+    }
+
     public function test_typo_in_docs_is_r1(): void
     {
         $this->assertSame(RiskLevelScorer::R1, $this->score(
@@ -38,7 +48,7 @@ final class RiskLevelScorerTest extends TestCase
     {
         $envelope = $this->envelope('corrija bug em app/Foo.php');
         $discovery = $this->discoveryWith(['/ws/app/Foo.php']);
-        $this->assertSame(RiskLevelScorer::R2, (new RiskLevelScorer())->score(
+        $this->assertSame(RiskLevelScorer::R2, (new RiskLevelScorer)->score(
             $envelope,
             $this->classify('corrija bug em app/Foo.php'),
             $discovery,
@@ -53,7 +63,7 @@ final class RiskLevelScorerTest extends TestCase
             '/ws/app/Services/B.php',
             '/ws/app/Services/C.php',
         ]);
-        $this->assertSame(RiskLevelScorer::R3, (new RiskLevelScorer())->score(
+        $this->assertSame(RiskLevelScorer::R3, (new RiskLevelScorer)->score(
             $envelope,
             $this->classify('refactor service em app/Foo.php'),
             $discovery,
@@ -70,7 +80,7 @@ final class RiskLevelScorerTest extends TestCase
             '/ws/app/Services/Foo.php',
         ]);
         // 4 buckets touched (db, api, ui, service) → R4
-        $this->assertSame(RiskLevelScorer::R4, (new RiskLevelScorer())->score(
+        $this->assertSame(RiskLevelScorer::R4, (new RiskLevelScorer)->score(
             $envelope,
             $this->classify('ajuste cobertura em app/Foo.php e tests'),
             $discovery,
@@ -105,12 +115,12 @@ final class RiskLevelScorerTest extends TestCase
 
     private function score(string $intent, TaskClassification $classification): string
     {
-        return (new RiskLevelScorer())->score($this->envelope($intent), $classification);
+        return (new RiskLevelScorer)->score($this->envelope($intent), $classification);
     }
 
     private function classify(string $intent): TaskClassification
     {
-        return (new TaskClassifier())->classify($this->envelope($intent));
+        return (new TaskClassifier)->classify($this->envelope($intent));
     }
 
     private function envelope(string $intent): OperationEnvelope

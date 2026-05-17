@@ -49,6 +49,21 @@ Provider: {!! $provider !!} ({!! $modelFamily !!})
 @endforeach
 @endif
 
+## Focused File Excerpts
+@if ($fileExcerpts === [])
+- (no focused file excerpts provided; use allowed_files and context refs only)
+@else
+@foreach ($fileExcerpts as $excerpt)
+### {!! $excerpt['path'] !!}
+- sha256: {!! $excerpt['sha256'] !!}
+- truncated: {!! $excerpt['truncated'] !!}
+
+```text
+{!! $excerpt['content'] !!}
+```
+@endforeach
+@endif
+
 ## Allowed Files
 @if ($sections['allowed_files'] === [])
 - (no allowed files — read-only run)

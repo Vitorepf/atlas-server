@@ -57,6 +57,11 @@ final class AtlasSelfConstructionRealProviderSmokeOperatorChecklistTest extends 
 
         $this->assertArrayHasKey('rerun_completion_audit', (array) $auditRerun['commands']);
         $this->assertStringContainsString('atlas-self-construction-os-completion-audit-status', (string) $auditRerun['commands']['rerun_completion_audit']);
+        $this->assertArrayHasKey('refresh_terminal_loop_operational_proof', (array) $auditRerun['commands']);
+        $this->assertArrayHasKey('rerun_completion_audit_with_terminal_loop_operational_proof', (array) $auditRerun['commands']);
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $auditRerun['commands']['refresh_terminal_loop_operational_proof']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $auditRerun['commands']['rerun_completion_audit_with_terminal_loop_operational_proof']);
+        $this->assertContains('refresh_terminal_loop_operational_proof', array_column((array) $auditRerun['items'], 'id'));
     }
 
     public function test_checklist_does_not_persist_anything(): void

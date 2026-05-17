@@ -7,6 +7,7 @@ use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Models\AtlasDevConfirmationToken;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\Runtime\RunWorkerDispatcher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
@@ -101,6 +102,75 @@ final class RunEndpointTest extends AtlasDevHttpTestCase
         $response->assertJsonPath('data.state', 'queued');
         $response->assertJsonPath('data.completion_state', null);
         $this->assertArrayNotHasKey('provider_call', $response->json('data'));
+    }
+
+    public function test_run_process_mode_dispatches_worker_without_inline_provider_execution(): void
+    {
+        config()->set('atlas_dev.efficient.run_dispatch_mode', 'process');
+        $dispatcher = new CapturingRunWorkerDispatcher(pid: 4242);
+        $this->app->instance(RunWorkerDispatcher::class, $dispatcher);
+
+        $plan = $this->plan();
+        $tokenRow = AtlasDevConfirmationToken::query()
+            ->where('run_id', $plan['run_id'])
+            ->firstOrFail();
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/run', [
+                'run_id' => $plan['run_id'],
+                'task_contract_hash' => $plan['task_contract_hash'],
+                'confirmation_token' => $plan['confirmation_token'],
+                'operator_confirmed' => true,
+            ]);
+
+        $response->assertStatus(202);
+        $response->assertJsonPath('data.ok', true);
+        $response->assertJsonPath('data.run_id', $plan['run_id']);
+        $response->assertJsonPath('data.state', 'queued');
+        $response->assertJsonPath('data.completion_state', null);
+        $response->assertJsonPath('data.dispatch_mode', 'process');
+        $response->assertJsonPath('data.worker_pid', 4242);
+
+        $this->assertCount(0, $this->fakeExecutor->calls, 'Process mode must not run the provider inside the HTTP request.');
+        $this->assertSame([
+            'run_id' => $plan['run_id'],
+            'task_contract_hash' => $plan['task_contract_hash'],
+            'expected_compact_sdd_hash' => $tokenRow->compact_sdd_hash,
+        ], $dispatcher->calls[0] ?? null);
+
+        $storage = $this->app->make(ReceiptStorage::class);
+        $latestState = $storage->readLatestVersion($plan['run_id'], ArtifactNames::RUN_EXECUTION_STATE_BASE);
+        $this->assertIsArray($latestState);
+        $this->assertSame('queued', $latestState['status']);
+        $this->assertSame('process', $latestState['dispatch_mode']);
+        $this->assertSame(4242, $latestState['worker_pid']);
+    }
+
+    public function test_run_process_mode_records_failed_dispatch_without_inline_provider_execution(): void
+    {
+        config()->set('atlas_dev.efficient.run_dispatch_mode', 'process');
+        $this->app->instance(RunWorkerDispatcher::class, new ThrowingRunWorkerDispatcher);
+
+        $plan = $this->plan();
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/run', [
+                'run_id' => $plan['run_id'],
+                'task_contract_hash' => $plan['task_contract_hash'],
+                'confirmation_token' => $plan['confirmation_token'],
+                'operator_confirmed' => true,
+            ]);
+
+        $response->assertStatus(500);
+        $response->assertJsonPath('error.code', 'ATLAS_DEV_RUN_DISPATCH_FAILED');
+        $this->assertCount(0, $this->fakeExecutor->calls, 'Dispatch failure must not fall back to inline provider execution.');
+
+        $storage = $this->app->make(ReceiptStorage::class);
+        $latestState = $storage->readLatestVersion($plan['run_id'], ArtifactNames::RUN_EXECUTION_STATE_BASE);
+        $this->assertIsArray($latestState);
+        $this->assertSame('failed', $latestState['status']);
+        $this->assertSame('ATLAS_DEV_RUN_DISPATCH_FAILED', $latestState['error_code']);
+        $this->assertStringNotContainsString('/Users/operator', (string) ($latestState['message'] ?? ''));
     }
 
     public function test_run_extends_php_execution_time_before_provider_call(): void
@@ -343,5 +413,32 @@ final class RunEndpointTest extends AtlasDevHttpTestCase
         $this->assertTrue($storage->exists($plan['run_id'], ArtifactNames::OPERATION_ENVELOPE));
         $this->assertTrue($storage->exists($plan['run_id'], ArtifactNames::TASK_CONTRACT));
         $this->assertTrue($storage->exists($plan['run_id'], ArtifactNames::PROMPT_PROJECTION));
+    }
+}
+
+final class CapturingRunWorkerDispatcher implements RunWorkerDispatcher
+{
+    /** @var list<array{run_id:string,task_contract_hash:string,expected_compact_sdd_hash:?string}> */
+    public array $calls = [];
+
+    public function __construct(private readonly ?int $pid) {}
+
+    public function dispatch(string $runId, string $taskContractHash, ?string $expectedCompactSddHash = null): ?int
+    {
+        $this->calls[] = [
+            'run_id' => $runId,
+            'task_contract_hash' => $taskContractHash,
+            'expected_compact_sdd_hash' => $expectedCompactSddHash,
+        ];
+
+        return $this->pid;
+    }
+}
+
+final class ThrowingRunWorkerDispatcher implements RunWorkerDispatcher
+{
+    public function dispatch(string $runId, string $taskContractHash, ?string $expectedCompactSddHash = null): ?int
+    {
+        throw new \RuntimeException('proc_open failed for /Users/operator/dev/Atlas/atlas-server');
     }
 }

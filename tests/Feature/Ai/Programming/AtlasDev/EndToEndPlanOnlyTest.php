@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming\AtlasDev;
 
+use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
@@ -20,10 +21,10 @@ use App\Services\Ai\Programming\AtlasDev\Pipeline\RunIdGenerator;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\SpecComposer;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\TaskClassification;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\TaskClassifier;
-use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptQualityChecker;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptRenderer;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
+use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -42,7 +43,9 @@ use Tests\TestCase;
 final class EndToEndPlanOnlyTest extends TestCase
 {
     private string $tmpStorage;
+
     private string $tmpWorkspace;
+
     private FakeAtlasOpenBrainService $fakeOpenBrain;
 
     protected function setUp(): void
@@ -72,7 +75,7 @@ final class EndToEndPlanOnlyTest extends TestCase
             "<?php\nclass FooServiceTest {}\n",
         );
 
-        $this->fakeOpenBrain = new FakeAtlasOpenBrainService();
+        $this->fakeOpenBrain = new FakeAtlasOpenBrainService;
     }
 
     protected function tearDown(): void
@@ -84,11 +87,17 @@ final class EndToEndPlanOnlyTest extends TestCase
 
     public function test_question_r0_routes_to_read_only_answer(): void
     {
+        file_put_contents(
+            $this->tmpWorkspace.'/app/Services/Foo/BillingPolicy.php',
+            "<?php\nclass BillingPolicy { public const GRACE_DAYS = 14; }\n",
+        );
+
         $result = $this->orchestrator()->planOnly(
             surfaceId: 'atlas_cli_dev',
             workspace: $this->tmpWorkspace,
-            rawIntent: 'explique como o FooService resolve workspace',
+            rawIntent: 'Responda usando somente referencias confirmadas do codigo: quantos dias de grace period BillingPolicy usa?',
         );
+        $summary = $result->toSummaryArray();
 
         $this->assertSame(RoutingDecision::READ_ONLY_ANSWER, $result->routingKind());
         $this->assertSame(TaskClassification::KIND_QUESTION, $result->classification->taskKind);
@@ -99,6 +108,9 @@ final class EndToEndPlanOnlyTest extends TestCase
             $result->promptProjection->isSendable(),
             'non-fast-path routes must produce a non-sendable prompt (provider_safe downgraded).',
         );
+        $this->assertSame('answered', $summary['read_only_answer']['status'] ?? null);
+        $this->assertSame('GRACE_DAYS = 14', $summary['read_only_answer']['answer'] ?? null);
+        $this->assertSame(0, $summary['read_only_answer']['provider_calls'] ?? null);
         $this->assertArtifactsPersisted($result);
     }
 
@@ -120,6 +132,51 @@ final class EndToEndPlanOnlyTest extends TestCase
         $this->assertSame(
             hash('sha256', $result->promptProjection->renderedPromptText),
             $result->promptProjection->renderedPromptHash,
+        );
+        $this->assertArtifactsPersisted($result);
+    }
+
+    public function test_review_r0_returns_static_read_only_finding(): void
+    {
+        file_put_contents(
+            $this->tmpWorkspace.'/app/Services/Foo/ScoreCalculator.php',
+            <<<'PHP'
+<?php
+class ScoreCalculator
+{
+    public function total(array $items): int
+    {
+        $total = 0;
+        foreach ($items as $item) {
+            $total = $item['points'];
+        }
+
+        return $total;
+    }
+}
+PHP,
+        );
+
+        $result = $this->orchestrator()->planOnly(
+            surfaceId: 'atlas_cli_dev',
+            workspace: $this->tmpWorkspace,
+            rawIntent: 'Review this workspace diff and identify concrete defects or risks with file references. Do not patch files. Focus on app/Services/Foo/ScoreCalculator.php.',
+        );
+        $summary = $result->toSummaryArray();
+
+        $this->assertSame(RoutingDecision::READ_ONLY_ANSWER, $result->routingKind());
+        $this->assertSame(TaskClassification::KIND_REVIEW, $result->classification->taskKind);
+        $this->assertSame(RiskLevelScorer::R0, $result->riskLevel);
+        $this->assertSame('answered', $summary['read_only_answer']['status'] ?? null);
+        $this->assertSame('static_review_finding', $summary['read_only_answer']['confidence'] ?? null);
+        $this->assertSame(0, $summary['read_only_answer']['provider_calls'] ?? null);
+        $this->assertStringContainsString(
+            'ScoreCalculator.php:8',
+            (string) data_get($summary, 'read_only_answer.findings.0.source_ref'),
+        );
+        $this->assertStringContainsString(
+            'Accumulator is overwritten',
+            (string) data_get($summary, 'read_only_answer.findings.0.title'),
         );
         $this->assertArtifactsPersisted($result);
     }
@@ -147,21 +204,21 @@ final class EndToEndPlanOnlyTest extends TestCase
 
     public function test_plan_only_never_calls_provider(): void
     {
-        $never = new ProviderShouldNotBeCalled();
+        $never = new ProviderShouldNotBeCalled;
         $orchestrator = new AtlasDevFastPathOrchestrator(
-            intake: new IntakeNormalizer(new RunIdGenerator()),
-            classifier: new TaskClassifier(),
-            riskScorer: new RiskLevelScorer(),
-            specComposer: new SpecComposer(),
-            tierSelector: new DocContextTierSelector(),
-            codeDiscovery: new CodeDiscoveryEngine(),
+            intake: new IntakeNormalizer(new RunIdGenerator),
+            classifier: new TaskClassifier,
+            riskScorer: new RiskLevelScorer,
+            specComposer: new SpecComposer,
+            tierSelector: new DocContextTierSelector,
+            codeDiscovery: new CodeDiscoveryEngine,
             openBrainAdapter: new OpenBrainProjectionAdapter($this->fakeOpenBrain),
             promptBuilder: new ProviderPromptBuilder(
-                sectionsMapper: new PromptSectionsMapper(),
-                renderer: new PromptRenderer(),
-                qualityChecker: new PromptQualityChecker(),
+                sectionsMapper: new PromptSectionsMapper,
+                renderer: new PromptRenderer,
+                qualityChecker: new PromptQualityChecker,
             ),
-            routingEngine: new RoutingDecisionEngine(),
+            routingEngine: new RoutingDecisionEngine,
             receiptStorage: new ReceiptStorage($this->tmpStorage),
         );
 
@@ -178,19 +235,19 @@ final class EndToEndPlanOnlyTest extends TestCase
     private function orchestrator(): AtlasDevFastPathOrchestrator
     {
         return new AtlasDevFastPathOrchestrator(
-            intake: new IntakeNormalizer(new RunIdGenerator()),
-            classifier: new TaskClassifier(),
-            riskScorer: new RiskLevelScorer(),
-            specComposer: new SpecComposer(),
-            tierSelector: new DocContextTierSelector(),
-            codeDiscovery: new CodeDiscoveryEngine(),
+            intake: new IntakeNormalizer(new RunIdGenerator),
+            classifier: new TaskClassifier,
+            riskScorer: new RiskLevelScorer,
+            specComposer: new SpecComposer,
+            tierSelector: new DocContextTierSelector,
+            codeDiscovery: new CodeDiscoveryEngine,
             openBrainAdapter: new OpenBrainProjectionAdapter($this->fakeOpenBrain),
             promptBuilder: new ProviderPromptBuilder(
-                sectionsMapper: new PromptSectionsMapper(),
-                renderer: new PromptRenderer(),
-                qualityChecker: new PromptQualityChecker(),
+                sectionsMapper: new PromptSectionsMapper,
+                renderer: new PromptRenderer,
+                qualityChecker: new PromptQualityChecker,
             ),
-            routingEngine: new RoutingDecisionEngine(),
+            routingEngine: new RoutingDecisionEngine,
             receiptStorage: new ReceiptStorage($this->tmpStorage),
         );
     }
@@ -242,7 +299,7 @@ final class EndToEndPlanOnlyTest extends TestCase
 /**
  * Replaces {@see AtlasOpenBrainService} with a deterministic zero-context
  * provider for the E2E test. Bypasses the parent constructor so we don't
- * touch the real {@see \App\Services\Ai\AiContextPackBuilder} or DB.
+ * touch the real {@see AiContextPackBuilder} or DB.
  */
 final class FakeAtlasOpenBrainService extends AtlasOpenBrainService
 {

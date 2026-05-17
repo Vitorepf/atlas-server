@@ -130,6 +130,9 @@ final class AtlasSelfConstructionOsCompletionAuditService
         $terminalLoopCertification = $this->certifyAgentControlPlaneTerminalLoop(
             (array) ($options['agent_control_plane_terminal_loop_certification'] ?? []),
         );
+        $terminalLoopOperationalProof = $this->terminalLoopOperationalProofEvidence(
+            (array) ($options['agent_control_plane_terminal_loop_operational_proof'] ?? []),
+        );
 
         $criteria = [
             $this->criterion(
@@ -249,6 +252,12 @@ final class AtlasSelfConstructionOsCompletionAuditService
                     'modules_blocked' => (int) $terminalLoopCertification['modules_blocked'],
                     'invariant_violations' => (array) $terminalLoopCertification['invariant_violations'],
                     'certification_hash' => (string) $terminalLoopCertification['certification_hash'],
+                    'operational_proof_status' => (string) $terminalLoopOperationalProof['status'],
+                    'operational_proof_supplied' => (bool) $terminalLoopOperationalProof['supplied'],
+                    'operational_proof_passed' => (bool) $terminalLoopOperationalProof['passed'],
+                    'operational_proof_hash' => (string) $terminalLoopOperationalProof['proof_hash'],
+                    'operational_proof_expected_command' => (string) $terminalLoopOperationalProof['expected_command'],
+                    'operational_proof_note' => (string) $terminalLoopOperationalProof['note'],
                 ],
             ),
         ];
@@ -304,6 +313,7 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'checklist_count' => count($checklist),
             'operator_action_packet' => $operatorActionPacket,
             'agent_control_plane_terminal_loop_certification' => $terminalLoopCertification,
+            'agent_control_plane_terminal_loop_operational_proof_evidence' => $terminalLoopOperationalProof,
             'current_pointer' => (string) data_get($controlPlane, 'control_plane.persistent_runtime.next_required_slice'),
             'not_yet_runtime_capable' => $notYetRuntimeCapable,
             'runtime_safety' => [
@@ -659,6 +669,137 @@ final class AtlasSelfConstructionOsCompletionAuditService
         ];
     }
 
+    /**
+     * The completion audit must stay read-only, so it never runs the operational
+     * proof itself. When an operator or CI provides the proof payload, the audit
+     * binds the proof hash/status to the terminal-loop criterion as stronger
+     * evidence that the wired loop was actually exercised.
+     *
+     * @param  array<string, mixed>  $proof
+     * @return array<string, mixed>
+     */
+    private function terminalLoopOperationalProofEvidence(array $proof): array
+    {
+        foreach ([
+            'proof_payload',
+            'completion_audit_binding_packet.proof_payload',
+            'agent_control_plane_terminal_loop_operational_proof.completion_audit_binding_packet.proof_payload',
+        ] as $path) {
+            $payload = data_get($proof, $path);
+            if (is_array($payload)) {
+                $proof = (array) $payload;
+
+                break;
+            }
+        }
+
+        $status = (string) ($proof['status'] ?? '');
+        $hash = (string) ($proof['terminal_loop_operational_proof_hash'] ?? '');
+        $invariantsAllTrue = (bool) ($proof['invariants_all_true'] ?? false);
+        $matrixAllTrue = (bool) data_get($proof, 'operational_readiness_matrix.all_true', data_get($proof, 'operational_readiness_matrix_all_true', false));
+        $completionRealAllowed = (bool) ($proof['completion_real_allowed'] ?? false);
+        $providerCallAllowed = (bool) ($proof['provider_call_allowed'] ?? false);
+        $tokenSpendAllowed = (bool) ($proof['token_spend_allowed'] ?? false);
+        $dispatchAllowed = (bool) ($proof['dispatch_allowed'] ?? false);
+        $adapterExecutionAllowed = (bool) ($proof['adapter_execution_allowed'] ?? false);
+        $selfProgrammingAllowed = (bool) ($proof['self_programming_allowed'] ?? false);
+        $cycleSupervisorStatus = (string) data_get($proof, 'post_cycle_cycle_supervisor.status', data_get($proof, 'post_cycle_cycle_supervisor_status', ''));
+        $cycleSupervisorState = (string) data_get($proof, 'post_cycle_cycle_supervisor.cycle_state', data_get($proof, 'post_cycle_cycle_supervisor_cycle_state', ''));
+        $cycleSupervisorPurpose = (string) data_get($proof, 'post_cycle_cycle_supervisor.next_command_purpose', data_get($proof, 'post_cycle_cycle_supervisor_next_command_purpose', ''));
+        $cycleSupervisorHash = (string) data_get($proof, 'post_cycle_cycle_supervisor.hash', data_get($proof, 'post_cycle_cycle_supervisor_hash', ''));
+        $postCycleClaimedTaskCount = (int) data_get($proof, 'post_cycle_cleanup_state.claimed_task_count', data_get($proof, 'post_cycle_claimed_task_count', -1));
+        $postCycleActiveLeaseCount = (int) data_get($proof, 'post_cycle_cleanup_state.active_lease_count', data_get($proof, 'post_cycle_active_lease_count', -1));
+        $postCycleRecoverableLeaseCount = (int) data_get($proof, 'post_cycle_cleanup_state.recoverable_lease_count', data_get($proof, 'post_cycle_recoverable_lease_count', -1));
+        $supplied = $proof !== [];
+        $validationViolations = [];
+        if ($supplied && $status !== 'passed') {
+            $validationViolations[] = 'status_not_passed';
+        }
+        if ($supplied && ! $invariantsAllTrue) {
+            $validationViolations[] = 'invariants_not_all_true';
+        }
+        if ($supplied && ! $matrixAllTrue) {
+            $validationViolations[] = 'operational_readiness_matrix_not_all_true';
+        }
+        if ($supplied && $completionRealAllowed) {
+            $validationViolations[] = 'completion_real_allowed_true';
+        }
+        if ($supplied && $providerCallAllowed) {
+            $validationViolations[] = 'provider_call_allowed_true';
+        }
+        if ($supplied && $tokenSpendAllowed) {
+            $validationViolations[] = 'token_spend_allowed_true';
+        }
+        if ($supplied && $dispatchAllowed) {
+            $validationViolations[] = 'dispatch_allowed_true';
+        }
+        if ($supplied && $adapterExecutionAllowed) {
+            $validationViolations[] = 'adapter_execution_allowed_true';
+        }
+        if ($supplied && $selfProgrammingAllowed) {
+            $validationViolations[] = 'self_programming_allowed_true';
+        }
+        if ($supplied && preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
+            $validationViolations[] = 'invalid_or_missing_operational_proof_hash';
+        }
+        if (
+            $supplied
+            && (
+                $cycleSupervisorStatus !== 'cycle_evidence_review_ready'
+                || $cycleSupervisorState !== 'review_evidence'
+                || $cycleSupervisorPurpose !== 'review_completed_dry_run_evidence_and_rerun_digest'
+            )
+        ) {
+            $validationViolations[] = 'post_cycle_cycle_supervisor_not_review_evidence';
+        }
+        if ($supplied && preg_match('/^[a-f0-9]{64}$/', $cycleSupervisorHash) !== 1) {
+            $validationViolations[] = 'invalid_or_missing_post_cycle_cycle_supervisor_hash';
+        }
+        if ($supplied && $postCycleClaimedTaskCount !== 0) {
+            $validationViolations[] = 'post_cycle_claimed_tasks_not_zero';
+        }
+        if ($supplied && $postCycleActiveLeaseCount !== 0) {
+            $validationViolations[] = 'post_cycle_active_leases_not_zero';
+        }
+        if ($supplied && $postCycleRecoverableLeaseCount !== 0) {
+            $validationViolations[] = 'post_cycle_recoverable_leases_not_zero';
+        }
+        $passed = $supplied && $validationViolations === [];
+
+        return [
+            'schema_version' => AgentControlPlaneTerminalLoopOperationalProofService::SCHEMA_VERSION,
+            'status' => $supplied ? ($passed ? 'passed' : 'supplied_but_not_accepted') : 'not_supplied_to_read_only_audit',
+            'supplied' => $supplied,
+            'passed' => $passed,
+            'proof_hash' => $hash,
+            'invariants_all_true' => $invariantsAllTrue,
+            'operational_readiness_matrix_all_true' => $matrixAllTrue,
+            'completion_real_allowed' => $completionRealAllowed,
+            'provider_call_allowed' => $providerCallAllowed,
+            'token_spend_allowed' => $tokenSpendAllowed,
+            'dispatch_allowed' => $dispatchAllowed,
+            'adapter_execution_allowed' => $adapterExecutionAllowed,
+            'self_programming_allowed' => $selfProgrammingAllowed,
+            'post_cycle_cycle_supervisor_status' => $cycleSupervisorStatus,
+            'post_cycle_cycle_supervisor_cycle_state' => $cycleSupervisorState,
+            'post_cycle_cycle_supervisor_next_command_purpose' => $cycleSupervisorPurpose,
+            'post_cycle_cycle_supervisor_hash' => $cycleSupervisorHash,
+            'post_cycle_cleanup_state' => [
+                'claimed_task_count' => $postCycleClaimedTaskCount,
+                'active_lease_count' => $postCycleActiveLeaseCount,
+                'recoverable_lease_count' => $postCycleRecoverableLeaseCount,
+            ],
+            'validation_violations' => $validationViolations,
+            'validation_violation_count' => count($validationViolations),
+            'expected_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json',
+            'note' => $supplied
+                ? ($passed
+                    ? 'Operational proof was supplied to the read-only audit and bound as terminal-loop evidence.'
+                    : 'Operational proof was supplied to the read-only audit but rejected as terminal-loop evidence; inspect validation_violations and rerun the bounded operational proof.')
+                : 'Completion audit does not run the operational proof because that proof creates local dry-run queue/lease receipts; run the expected command separately and provide the payload when evidence binding is needed.',
+        ];
+    }
+
     private function safeStatus(string $key, string $method, array $options = []): array
     {
         if (! method_exists($this->readiness, $method)) {
@@ -928,6 +1069,12 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'terminal_loop_fleet_lane_bound_commands_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
                 && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
             'terminal_loop_fleet_lane_no_cross_lane_launch_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
+            'terminal_loop_cycle_supervisor_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && defined(AgentControlPlaneTerminalLoopHealthDigestService::class.'::CYCLE_SUPERVISOR_SCHEMA_VERSION'),
+            'terminal_loop_cycle_supervisor_launch_path_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
+            'terminal_loop_cycle_supervisor_evidence_review_path_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
                 && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
             'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
                 && class_exists(AgentControlPlaneTaskLeaseRecoveryService::class),

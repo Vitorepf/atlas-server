@@ -57,10 +57,84 @@ final class PatchApplierTest extends TestCase
         $this->assertStringContainsString('return 42;', (string) file_get_contents($file));
     }
 
-    private function makeWorkspace(): string
+    public function test_applies_provider_diff_with_slightly_wrong_hunk_line_number(): void
+    {
+        $workspace = $this->makeWorkspace('src');
+        $file = $workspace.'/src/SmokeSubject.php';
+        file_put_contents($file, <<<'PHP'
+<?php
+namespace Smoke;
+
+final class SmokeSubject
+{
+    public function greeting(): string
+    {
+        return 'helo atlas';
+    }
+}
+PHP);
+
+        $diff = "--- src/SmokeSubject.php\n"
+            ."+++ src/SmokeSubject.php\n"
+            ."@@ -5,7 +5,7 @@\n"
+            ." final class SmokeSubject\n"
+            ." {\n"
+            ."     public function greeting(): string\n"
+            ."     {\n"
+            ."-        return 'helo atlas';\n"
+            ."+        return 'hello atlas';\n"
+            ."     }\n"
+            .' }';
+
+        $result = (new PatchApplier)->apply(
+            DiffParseResult::patch($diff, ['src/SmokeSubject.php']),
+            $workspace,
+        );
+
+        $this->assertSame(PatchApplyResult::STATUS_APPLIED, $result->status, $result->stderr);
+        $this->assertStringContainsString("return 'hello atlas';", (string) file_get_contents($file));
+    }
+
+    public function test_applies_provider_diff_with_wrong_hunk_line_count(): void
+    {
+        $workspace = $this->makeWorkspace('src');
+        $file = $workspace.'/src/SmokeSubject.php';
+        file_put_contents($file, <<<'PHP'
+<?php
+namespace Smoke;
+
+final class SmokeSubject
+{
+    public function greeting(): string
+    {
+        return 'helo atlas';
+    }
+}
+PHP);
+
+        $diff = "--- src/SmokeSubject.php\n"
+            ."+++ src/SmokeSubject.php\n"
+            ."@@ -6,7 +6,7 @@\n"
+            ."     public function greeting(): string\n"
+            ."     {\n"
+            ."-        return 'helo atlas';\n"
+            ."+        return 'hello atlas';\n"
+            ."     }\n"
+            .' }';
+
+        $result = (new PatchApplier)->apply(
+            DiffParseResult::patch($diff, ['src/SmokeSubject.php']),
+            $workspace,
+        );
+
+        $this->assertSame(PatchApplyResult::STATUS_APPLIED, $result->status, $result->stderr);
+        $this->assertStringContainsString("return 'hello atlas';", (string) file_get_contents($file));
+    }
+
+    private function makeWorkspace(string $subdir = 'app/Services/Foo'): string
     {
         $workspace = sys_get_temp_dir().'/atlas-dev-patch-applier-'.bin2hex(random_bytes(6));
-        mkdir($workspace.'/app/Services/Foo', 0777, true);
+        mkdir($workspace.'/'.$subdir, 0777, true);
 
         return $workspace;
     }

@@ -776,6 +776,31 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         ];
     }
 
+    public function test_markdown_verdict_distinguishes_measured_multi_case_winner_from_invalid_harness(): void
+    {
+        $marker = new \ReflectionMethod($this->report, 'buildVerdictMarker');
+        $marker->setAccessible(true);
+
+        $line = $marker->invoke(
+            $this->report,
+            'invalid_scope_violation',
+            true,
+            [],
+            AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL,
+            [
+                'score_source' => 'multi_case_deterministic_gate_rollup',
+                'atlas_score' => 66.88,
+                'rival_score' => 73.13,
+            ],
+        );
+
+        $this->assertStringContainsString('MEASURED WINNER = Rival baseline', $line);
+        $this->assertStringContainsString('CASE FAILURES PRESENT', $line);
+        $this->assertStringContainsString('ZERO external claim', $line);
+        $this->assertStringNotContainsString('INVALID', $line);
+        $this->assertStringNotContainsString('score=null', $line);
+    }
+
     /**
      * @return array<string,mixed>
      */

@@ -12,6 +12,7 @@ use App\Http\Requests\AtlasDev\RunRequest;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
+use App\Services\Ai\Programming\AtlasDev\Runtime\RunWorkerDispatcher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
@@ -131,7 +132,14 @@ final class RunCompactSddMissingTest extends TestCase
         $tokens = new AlwaysOkTokenService;
         $storage = $this->app->make(ReceiptStorage::class);
 
-        return new RunController($executor, $storage, $tokens, $config, $this->app->make(AtlasDevRunIndexRepository::class));
+        return new RunController(
+            $executor,
+            $storage,
+            $tokens,
+            $config,
+            $this->app->make(AtlasDevRunIndexRepository::class),
+            new NullRunWorkerDispatcher,
+        );
     }
 
     private function makeRunRequest(string $runId, string $providedHash, string $token): RunRequest
@@ -176,6 +184,14 @@ final class RunCompactSddMissingTest extends TestCase
             }
         }
         @rmdir($dir);
+    }
+}
+
+final class NullRunWorkerDispatcher implements RunWorkerDispatcher
+{
+    public function dispatch(string $runId, string $taskContractHash, ?string $expectedCompactSddHash = null): ?int
+    {
+        return null;
     }
 }
 

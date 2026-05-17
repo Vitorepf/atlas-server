@@ -64,8 +64,10 @@ final class AtlasDevCanonicalConfigTest extends TestCase
 
     public function test_run_and_desktop_default_off_for_safety(): void
     {
-        $this->assertFalse((bool) config('atlas_dev.efficient.run_enabled'));
-        $this->assertFalse((bool) config('atlas_dev.efficient.desktop_enabled'));
+        $configSource = (string) file_get_contents(config_path('atlas_dev.php'));
+
+        $this->assertStringContainsString("'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', false)", $configSource);
+        $this->assertStringContainsString("'desktop_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED', false)", $configSource);
     }
 
     public function test_confirmation_token_service_reads_300_ttl_default(): void

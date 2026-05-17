@@ -110,6 +110,32 @@ final class PipelineRunExecutorTest extends TestCase
         $this->assertSame('debug', $envelope->surfaceContext->composerTask, 'surface field stays untouched');
     }
 
+    public function test_provider_timeout_comes_from_atlas_dev_config(): void
+    {
+        config()->set('atlas_dev.provider.timeout_seconds', 7);
+
+        $runId = 'dev-timeout-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+
+        $gateway = new FakeClaudeCliGateway;
+        $gateway->queue($this->gatewayResponse(stdout: 'no_patch_needed: true'));
+
+        $commandRunner = new FakeCommandRunner;
+        $executor = $this->wireExecutor($storage, $gateway, $commandRunner);
+        $envelope = $this->envelope();
+        $taskContract = $this->taskContractFixture();
+
+        $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame(7, $gateway->requests[0]->timeoutSeconds);
+    }
+
     public function test_patch_diff_is_applied_to_workspace_before_verification(): void
     {
         $runId = 'dev-apply-'.bin2hex(random_bytes(3));
@@ -153,6 +179,137 @@ DIFF;
 
         $receipt = $this->loadReceipt($storage, $runId);
         $this->assertSame(['tests/Unit/Services/Foo/FooServiceTest.php'], $receipt->changedFiles);
+    }
+
+    public function test_simple_allowed_file_patch_can_run_without_provider_call(): void
+    {
+        $runId = 'dev-deterministic-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+
+        $target = $this->tmpWorkspace.'/src/SmokeSubject.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nfinal class SmokeSubject { public function greeting(): string { return 'helo atlas'; } }\n");
+
+        $gateway = new FakeClaudeCliGateway;
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: 'composer test',
+            exitCode: 0,
+            stdout: 'ok',
+            stderr: '',
+            durationMs: 10,
+        ));
+        $executor = $this->wireExecutor($storage, $gateway, $commandRunner);
+        $envelope = $this->envelope(
+            intent: 'Corrija o typo em src/SmokeSubject.php: retorna helo atlas mas o teste espera hello atlas.',
+        );
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['src/SmokeSubject.php'],
+            'validation_commands' => ['composer test'],
+            'max_files_changed' => 1,
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame([], $gateway->requests, 'deterministic fast path must not call the provider');
+        $this->assertSame(0, $result->providerCallSummary['provider_calls']);
+        $this->assertSame('atlas_deterministic', $result->providerCallSummary['provider']);
+        $this->assertSame('passed', $result->completionState);
+        $this->assertStringContainsString("return 'hello atlas';", (string) file_get_contents($target));
+    }
+
+    public function test_deterministic_patch_allows_validation_context_files_without_provider_call(): void
+    {
+        $runId = 'dev-deterministic-context-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R1');
+
+        $target = $this->tmpWorkspace.'/src/SmokeSubject.php';
+        $test = $this->tmpWorkspace.'/tests/SmokeSubjectTest.php';
+        mkdir(dirname($target), 0o755, true);
+        mkdir(dirname($test), 0o755, true);
+        file_put_contents($target, "<?php\nfinal class SmokeSubject { public function greeting(): string { return 'helo atlas'; } }\n");
+        file_put_contents($test, "<?php\n// validation-only context fixture\n");
+
+        $gateway = new FakeClaudeCliGateway;
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: 'composer test',
+            exitCode: 0,
+            stdout: 'ok',
+            stderr: '',
+            durationMs: 10,
+        ));
+        $executor = $this->wireExecutor($storage, $gateway, $commandRunner);
+        $envelope = $this->envelope(
+            intent: 'Corrija o typo em src/SmokeSubject.php: o metodo greeting retorna helo atlas mas o teste tests/SmokeSubjectTest.php espera hello atlas.',
+        );
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['src/SmokeSubject.php', 'tests/SmokeSubjectTest.php'],
+            'validation_commands' => ['composer test'],
+            'max_files_changed' => 1,
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame([], $gateway->requests, 'validation context files must not force a provider call');
+        $this->assertSame(0, $result->providerCallSummary['provider_calls']);
+        $this->assertSame('passed', $result->completionState);
+        $this->assertStringContainsString("return 'hello atlas';", (string) file_get_contents($target));
+    }
+
+    public function test_scoped_frontend_class_change_can_run_without_provider_call(): void
+    {
+        $runId = 'dev-deterministic-ui-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'frontend', riskLevel: 'R3');
+
+        $target = $this->tmpWorkspace.'/resources/views/status-card.blade.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<section class=\"status-card compact\">\n  <h2>Deploy status</h2>\n</section>\n");
+
+        $gateway = new FakeClaudeCliGateway;
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: 'composer test',
+            exitCode: 0,
+            stdout: 'ok',
+            stderr: '',
+            durationMs: 10,
+        ));
+        $executor = $this->wireExecutor($storage, $gateway, $commandRunner);
+        $envelope = $this->envelope(
+            intent: 'Implement a scoped frontend UI change: add the elevated class to resources/views/status-card.blade.php while preserving compact.',
+        );
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['resources/views/status-card.blade.php'],
+            'validation_commands' => ['composer test'],
+            'max_files_changed' => 1,
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame([], $gateway->requests, 'deterministic frontend fast path must not call the provider');
+        $this->assertSame(0, $result->providerCallSummary['provider_calls']);
+        $this->assertSame('atlas_deterministic', $result->providerCallSummary['provider']);
+        $this->assertSame('passed', $result->completionState);
+        $this->assertStringContainsString('status-card compact elevated', (string) file_get_contents($target));
     }
 
     public function test_invalid_provider_output_persists_provider_and_diff_parse_artifacts(): void
@@ -393,8 +550,10 @@ DIFF;
     // Helpers
     // ------------------------------------------------------------------
 
-    private function envelope(?string $composerTask = 'dev'): OperationEnvelope
+    private function envelope(?string $composerTask = 'dev', ?string $intent = null): OperationEnvelope
     {
+        $intent ??= 'corrija o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php';
+
         return new OperationEnvelope(
             runId: 'unused-by-executor',
             surfaceId: 'atlas_desktop_ai',
@@ -406,8 +565,8 @@ DIFF;
             workspace: $this->tmpWorkspace,
             workspaceHash: hash('sha256', $this->tmpWorkspace),
             gitState: new GitState(headSha: null, dirty: false, untrackedCount: 0, pendingChangesCount: 0),
-            rawIntent: 'corrija o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php',
-            normalizedIntent: 'corrija o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php',
+            rawIntent: $intent,
+            normalizedIntent: $intent,
             userConstraints: [],
             intentClarityLevel: 'high',
             dirtyWorktreePolicy: 'preserve_pre_existing_changes',

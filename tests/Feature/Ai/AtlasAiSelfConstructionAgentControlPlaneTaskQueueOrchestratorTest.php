@@ -132,6 +132,10 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $this->assertTrue(data_get($complete, 'evidence_validation.lease_id_matches'));
         $this->assertTrue(data_get($complete, 'evidence_validation.actor_matches'));
         $this->assertTrue(data_get($complete, 'evidence_validation.evidence_hash_matches_payload'));
+        $this->assertTrue(data_get($complete, 'queue_claim_binding_verified'));
+        $this->assertSame('claimed', data_get($complete, 'queue_status_at_completion'));
+        $this->assertSame($claim['lease_id'], data_get($complete, 'queue_lease_id'));
+        $this->assertSame('agent-1', data_get($complete, 'queue_agent_id'));
         $this->assertTrue(data_get($complete, 'evidence_validation.files_changed_within_allowed_scope'));
         $this->assertSame([], data_get($complete, 'evidence_validation.files_changed_outside_allowed_scope'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($complete, 'evidence_validation.evidence_validation_hash'));
@@ -143,6 +147,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $this->assertSame('valid', data_get($receipt, 'evidence_validation_status'));
         $this->assertTrue(data_get($receipt, 'structured_completion_evidence_required'));
         $this->assertTrue(data_get($receipt, 'structured_completion_evidence_valid'));
+        $this->assertTrue(data_get($receipt, 'queue_claim_binding_verified'));
         $this->assertTrue(data_get($receipt, 'files_changed_within_allowed_scope'));
     }
 
@@ -283,6 +288,51 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $complete = $svc->completeDryRun('dry-stale', $claim['lease_id']);
         $this->assertSame('complete_dry_run_blocked', $complete['event']);
         $this->assertSame('lease_not_active', $complete['reason']);
+    }
+
+    public function test_complete_dry_run_blocks_when_queue_record_is_no_longer_claimed(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('dry-requeued')]);
+        $claim = $svc->claimNext('agent-requeued');
+        (new AgentControlPlaneTaskPacketQueueRepository)->updateStatus('dry-requeued', 'blocked', [
+            'reason' => 'synthetic_queue_state_drift',
+        ]);
+
+        $blocked = $svc->completeDryRun(
+            'dry-requeued',
+            $claim['lease_id'],
+            $this->completionEvidenceFor('dry-requeued', $claim['lease_id'], 'agent-requeued'),
+        );
+
+        $this->assertSame('complete_dry_run_blocked', $blocked['event']);
+        $this->assertSame('task_packet_not_claimed_for_completion', $blocked['reason']);
+        $this->assertSame('blocked', $blocked['queue_status']);
+        $this->assertFalse((bool) $blocked['completion_real_allowed']);
+        $this->assertSame('blocked', (new AgentControlPlaneTaskPacketQueueRepository)->get('dry-requeued')['status']);
+    }
+
+    public function test_complete_dry_run_blocks_when_queue_claim_metadata_does_not_match_lease(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('dry-queue-lease-mismatch')]);
+        $claim = $svc->claimNext('agent-queue-lease-mismatch');
+        $path = AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX.'/task_dry-queue-lease-mismatch.json';
+        $record = json_decode((string) Storage::disk('local')->get($path), true, flags: JSON_THROW_ON_ERROR);
+        $record['metadata']['lease_id'] = 'foreign-lease-id';
+        Storage::disk('local')->put($path, json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        $blocked = $svc->completeDryRun(
+            'dry-queue-lease-mismatch',
+            $claim['lease_id'],
+            $this->completionEvidenceFor('dry-queue-lease-mismatch', $claim['lease_id'], 'agent-queue-lease-mismatch'),
+        );
+
+        $this->assertSame('complete_dry_run_blocked', $blocked['event']);
+        $this->assertSame('queue_lease_id_mismatch', $blocked['reason']);
+        $this->assertSame('foreign-lease-id', $blocked['queue_lease_id']);
+        $this->assertFalse((bool) $blocked['completion_real_allowed']);
+        $this->assertSame('claimed', (new AgentControlPlaneTaskPacketQueueRepository)->get('dry-queue-lease-mismatch')['status']);
     }
 
     public function test_continuation_summary_and_evidence_plan_included(): void

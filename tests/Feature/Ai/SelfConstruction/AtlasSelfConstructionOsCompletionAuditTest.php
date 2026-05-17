@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTerminalLoopOperationalProofService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionOsCompletionAuditService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use Illuminate\Support\Facades\Artisan;
@@ -327,6 +328,9 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             'terminal_loop_fleet_lane_isolation_present',
             'terminal_loop_fleet_lane_bound_commands_verified',
             'terminal_loop_fleet_lane_no_cross_lane_launch_verified',
+            'terminal_loop_cycle_supervisor_present',
+            'terminal_loop_cycle_supervisor_launch_path_verified',
+            'terminal_loop_cycle_supervisor_evidence_review_path_verified',
         ] as $invariant) {
             $this->assertArrayHasKey($invariant, $block['invariants']);
         }
@@ -354,6 +358,364 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             $this->assertTrue($module['doc_bullet_exists']);
             $this->assertTrue($module['cli_surface_exists']);
         }
+    }
+
+    public function test_command_binds_terminal_loop_operational_proof_json_to_completion_audit(): void
+    {
+        $proofHash = str_repeat('b', 64);
+        $proof = [
+            'status' => 'passed',
+            'invariants_all_true' => true,
+            'operational_readiness_matrix' => ['all_true' => true],
+            'completion_real_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'dispatch_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'self_programming_allowed' => false,
+            'post_cycle_cycle_supervisor' => [
+                'status' => 'cycle_evidence_review_ready',
+                'cycle_state' => 'review_evidence',
+                'next_command_purpose' => 'review_completed_dry_run_evidence_and_rerun_digest',
+                'hash' => str_repeat('c', 64),
+            ],
+            'post_cycle_cleanup_state' => $this->terminalLoopCleanupState(),
+            'terminal_loop_operational_proof_hash' => $proofHash,
+        ];
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-audit-status' => true,
+            '--agent-control-plane-terminal-loop-operational-proof-json' => json_encode($proof, JSON_THROW_ON_ERROR),
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $status = $payload['agent_control_plane_atlas_self_construction_os_completion_audit_status'];
+        $audit = $payload['agent_control_plane_atlas_self_construction_os_completion_audit'];
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('passed', $status['terminal_loop_operational_proof_status']);
+        $this->assertTrue($status['terminal_loop_operational_proof_supplied']);
+        $this->assertTrue($status['terminal_loop_operational_proof_passed']);
+        $this->assertSame($proofHash, $status['terminal_loop_operational_proof_hash']);
+        $this->assertSame('cycle_evidence_review_ready', $status['terminal_loop_operational_proof_post_cycle_cycle_supervisor_status']);
+        $this->assertSame(str_repeat('c', 64), $status['terminal_loop_operational_proof_post_cycle_cycle_supervisor_hash']);
+        $this->assertSame(0, data_get($status, 'terminal_loop_operational_proof_post_cycle_cleanup_state.claimed_task_count'));
+        $this->assertSame(0, data_get($status, 'terminal_loop_operational_proof_post_cycle_cleanup_state.active_lease_count'));
+        $this->assertSame(0, data_get($status, 'terminal_loop_operational_proof_post_cycle_cleanup_state.recoverable_lease_count'));
+        $this->assertFalse($status['terminal_loop_operational_proof_dispatch_allowed']);
+        $this->assertFalse($status['terminal_loop_operational_proof_adapter_execution_allowed']);
+        $this->assertFalse($status['terminal_loop_operational_proof_self_programming_allowed']);
+
+        $criterion = collect($audit['criteria'])->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green');
+        $this->assertSame('passed', data_get($criterion, 'evidence.operational_proof_status'));
+        $this->assertTrue((bool) data_get($criterion, 'evidence.operational_proof_supplied'));
+        $this->assertTrue((bool) data_get($criterion, 'evidence.operational_proof_passed'));
+        $this->assertSame($proofHash, data_get($criterion, 'evidence.operational_proof_hash'));
+    }
+
+    public function test_command_unwraps_terminal_loop_operational_proof_binding_packet_json(): void
+    {
+        $proof = (new AgentControlPlaneTerminalLoopOperationalProofService)->prove([
+            'actor' => 'command-binding-agent',
+            'proof_id' => 'command-binding-proof',
+        ]);
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-audit-status' => true,
+            '--agent-control-plane-terminal-loop-operational-proof-json' => json_encode($proof['completion_audit_binding_packet'], JSON_THROW_ON_ERROR),
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $status = $payload['agent_control_plane_atlas_self_construction_os_completion_audit_status'];
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('passed', $status['terminal_loop_operational_proof_status']);
+        $this->assertTrue($status['terminal_loop_operational_proof_supplied']);
+        $this->assertTrue($status['terminal_loop_operational_proof_passed']);
+        $this->assertSame($proof['terminal_loop_operational_proof_hash'], $status['terminal_loop_operational_proof_hash']);
+    }
+
+    public function test_command_unwraps_full_terminal_loop_operational_proof_status_json(): void
+    {
+        $proof = (new AgentControlPlaneTerminalLoopOperationalProofService)->prove([
+            'actor' => 'command-full-status-binding-agent',
+            'proof_id' => 'command-full-status-binding-proof',
+        ]);
+        $fullStatusEnvelope = [
+            'schema_version' => 'atlas.self_construction_agent_control_plane_terminal_loop_operational_proof_status.v1',
+            'status' => 'passed',
+            'agent_control_plane_terminal_loop_operational_proof' => $proof,
+        ];
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-audit-status' => true,
+            '--agent-control-plane-terminal-loop-operational-proof-json' => json_encode($fullStatusEnvelope, JSON_THROW_ON_ERROR),
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $status = $payload['agent_control_plane_atlas_self_construction_os_completion_audit_status'];
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('passed', $status['terminal_loop_operational_proof_status']);
+        $this->assertTrue($status['terminal_loop_operational_proof_supplied']);
+        $this->assertTrue($status['terminal_loop_operational_proof_passed']);
+        $this->assertSame($proof['terminal_loop_operational_proof_hash'], $status['terminal_loop_operational_proof_hash']);
+        $this->assertSame('cycle_evidence_review_ready', $status['terminal_loop_operational_proof_post_cycle_cycle_supervisor_status']);
+    }
+
+    public function test_command_rejects_invalid_terminal_loop_operational_proof_json_with_structured_violations(): void
+    {
+        $proof = [
+            'status' => 'passed',
+            'invariants_all_true' => true,
+            'operational_readiness_matrix' => ['all_true' => true],
+            'completion_real_allowed' => false,
+            'provider_call_allowed' => true,
+            'token_spend_allowed' => false,
+            'dispatch_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'self_programming_allowed' => false,
+            'post_cycle_cycle_supervisor' => [
+                'status' => 'cycle_evidence_review_ready',
+                'cycle_state' => 'review_evidence',
+                'next_command_purpose' => 'review_completed_dry_run_evidence_and_rerun_digest',
+                'hash' => str_repeat('c', 64),
+            ],
+            'post_cycle_cleanup_state' => $this->terminalLoopCleanupState(),
+            'terminal_loop_operational_proof_hash' => 'not-a-sha',
+        ];
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-audit-status' => true,
+            '--agent-control-plane-terminal-loop-operational-proof-json' => json_encode($proof, JSON_THROW_ON_ERROR),
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $status = $payload['agent_control_plane_atlas_self_construction_os_completion_audit_status'];
+        $audit = $payload['agent_control_plane_atlas_self_construction_os_completion_audit'];
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('supplied_but_not_accepted', $status['terminal_loop_operational_proof_status']);
+        $this->assertTrue($status['terminal_loop_operational_proof_supplied']);
+        $this->assertFalse($status['terminal_loop_operational_proof_passed']);
+        $this->assertSame(2, $status['terminal_loop_operational_proof_validation_violation_count']);
+        $this->assertContains('provider_call_allowed_true', $status['terminal_loop_operational_proof_validation_violations']);
+        $this->assertContains('invalid_or_missing_operational_proof_hash', $status['terminal_loop_operational_proof_validation_violations']);
+
+        $criterion = collect($audit['criteria'])->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green');
+        $this->assertSame('supplied_but_not_accepted', data_get($criterion, 'evidence.operational_proof_status'));
+        $this->assertFalse((bool) data_get($criterion, 'evidence.operational_proof_passed'));
+        $this->assertStringContainsString('rejected', $audit['agent_control_plane_terminal_loop_operational_proof_evidence']['note']);
+    }
+
+    public function test_command_rejects_terminal_loop_operational_proof_without_post_cycle_evidence_review(): void
+    {
+        $proof = [
+            'status' => 'passed',
+            'invariants_all_true' => true,
+            'operational_readiness_matrix' => ['all_true' => true],
+            'completion_real_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'dispatch_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'self_programming_allowed' => false,
+            'post_cycle_cycle_supervisor' => [
+                'status' => 'cycle_worker_launch_ready',
+                'cycle_state' => 'launch_or_continue_workers',
+                'next_command_purpose' => 'launch_lane_bound_terminal_worker',
+                'hash' => str_repeat('d', 64),
+            ],
+            'post_cycle_cleanup_state' => $this->terminalLoopCleanupState(),
+            'terminal_loop_operational_proof_hash' => str_repeat('e', 64),
+        ];
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-audit-status' => true,
+            '--agent-control-plane-terminal-loop-operational-proof-json' => json_encode($proof, JSON_THROW_ON_ERROR),
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $status = $payload['agent_control_plane_atlas_self_construction_os_completion_audit_status'];
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('supplied_but_not_accepted', $status['terminal_loop_operational_proof_status']);
+        $this->assertTrue($status['terminal_loop_operational_proof_supplied']);
+        $this->assertFalse($status['terminal_loop_operational_proof_passed']);
+        $this->assertSame(1, $status['terminal_loop_operational_proof_validation_violation_count']);
+        $this->assertContains('post_cycle_cycle_supervisor_not_review_evidence', $status['terminal_loop_operational_proof_validation_violations']);
+        $this->assertSame('cycle_worker_launch_ready', $status['terminal_loop_operational_proof_post_cycle_cycle_supervisor_status']);
+        $this->assertSame(str_repeat('d', 64), $status['terminal_loop_operational_proof_post_cycle_cycle_supervisor_hash']);
+    }
+
+    public function test_command_rejects_terminal_loop_operational_proof_with_unclean_post_cycle_state(): void
+    {
+        $proof = [
+            'status' => 'passed',
+            'invariants_all_true' => true,
+            'operational_readiness_matrix' => ['all_true' => true],
+            'completion_real_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'dispatch_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'self_programming_allowed' => false,
+            'post_cycle_cycle_supervisor' => [
+                'status' => 'cycle_evidence_review_ready',
+                'cycle_state' => 'review_evidence',
+                'next_command_purpose' => 'review_completed_dry_run_evidence_and_rerun_digest',
+                'hash' => str_repeat('c', 64),
+            ],
+            'post_cycle_cleanup_state' => [
+                'claimed_task_count' => 1,
+                'active_lease_count' => 1,
+                'recoverable_lease_count' => 1,
+            ],
+            'terminal_loop_operational_proof_hash' => str_repeat('f', 64),
+        ];
+
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-audit-status' => true,
+            '--agent-control-plane-terminal-loop-operational-proof-json' => json_encode($proof, JSON_THROW_ON_ERROR),
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $status = $payload['agent_control_plane_atlas_self_construction_os_completion_audit_status'];
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('supplied_but_not_accepted', $status['terminal_loop_operational_proof_status']);
+        $this->assertFalse($status['terminal_loop_operational_proof_passed']);
+        $this->assertSame(3, $status['terminal_loop_operational_proof_validation_violation_count']);
+        $this->assertContains('post_cycle_claimed_tasks_not_zero', $status['terminal_loop_operational_proof_validation_violations']);
+        $this->assertContains('post_cycle_active_leases_not_zero', $status['terminal_loop_operational_proof_validation_violations']);
+        $this->assertContains('post_cycle_recoverable_leases_not_zero', $status['terminal_loop_operational_proof_validation_violations']);
+    }
+
+    public function test_audit_can_bind_supplied_terminal_loop_operational_proof_without_running_it(): void
+    {
+        $proofHash = str_repeat('a', 64);
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit([
+            'agent_control_plane_terminal_loop_operational_proof' => [
+                'status' => 'passed',
+                'invariants_all_true' => true,
+                'operational_readiness_matrix' => ['all_true' => true],
+                'completion_real_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'dispatch_allowed' => false,
+                'adapter_execution_allowed' => false,
+                'self_programming_allowed' => false,
+                'post_cycle_cycle_supervisor' => [
+                    'status' => 'cycle_evidence_review_ready',
+                    'cycle_state' => 'review_evidence',
+                    'next_command_purpose' => 'review_completed_dry_run_evidence_and_rerun_digest',
+                    'hash' => str_repeat('c', 64),
+                ],
+                'post_cycle_cleanup_state' => $this->terminalLoopCleanupState(),
+                'terminal_loop_operational_proof_hash' => $proofHash,
+            ],
+        ]);
+
+        $evidence = $audit['agent_control_plane_terminal_loop_operational_proof_evidence'];
+        $this->assertSame('passed', $evidence['status']);
+        $this->assertTrue($evidence['supplied']);
+        $this->assertTrue($evidence['passed']);
+        $this->assertSame($proofHash, $evidence['proof_hash']);
+        $this->assertSame('cycle_evidence_review_ready', $evidence['post_cycle_cycle_supervisor_status']);
+        $this->assertSame('review_evidence', $evidence['post_cycle_cycle_supervisor_cycle_state']);
+        $this->assertSame('review_completed_dry_run_evidence_and_rerun_digest', $evidence['post_cycle_cycle_supervisor_next_command_purpose']);
+        $this->assertSame(str_repeat('c', 64), $evidence['post_cycle_cycle_supervisor_hash']);
+        $this->assertSame(0, data_get($evidence, 'post_cycle_cleanup_state.claimed_task_count'));
+        $this->assertSame(0, data_get($evidence, 'post_cycle_cleanup_state.active_lease_count'));
+        $this->assertSame(0, data_get($evidence, 'post_cycle_cleanup_state.recoverable_lease_count'));
+        $this->assertFalse($evidence['dispatch_allowed']);
+        $this->assertFalse($evidence['adapter_execution_allowed']);
+        $this->assertFalse($evidence['self_programming_allowed']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', $evidence['expected_command']);
+
+        $criterion = collect($audit['criteria'])->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green');
+        $this->assertSame('passed', data_get($criterion, 'evidence.operational_proof_status'));
+        $this->assertTrue((bool) data_get($criterion, 'evidence.operational_proof_supplied'));
+        $this->assertTrue((bool) data_get($criterion, 'evidence.operational_proof_passed'));
+        $this->assertSame($proofHash, data_get($criterion, 'evidence.operational_proof_hash'));
+    }
+
+    public function test_audit_accepts_terminal_loop_operational_proof_binding_packet_payload(): void
+    {
+        $proof = (new AgentControlPlaneTerminalLoopOperationalProofService)->prove([
+            'actor' => 'audit-binding-agent',
+            'proof_id' => 'audit-binding-proof',
+        ]);
+
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit([
+            'agent_control_plane_terminal_loop_operational_proof' => data_get($proof, 'completion_audit_binding_packet.proof_payload'),
+        ]);
+
+        $evidence = $audit['agent_control_plane_terminal_loop_operational_proof_evidence'];
+        $this->assertSame('passed', $evidence['status']);
+        $this->assertTrue($evidence['supplied']);
+        $this->assertTrue($evidence['passed']);
+        $this->assertSame($proof['terminal_loop_operational_proof_hash'], $evidence['proof_hash']);
+
+        $criterion = collect($audit['criteria'])->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green');
+        $this->assertSame('passed', data_get($criterion, 'evidence.operational_proof_status'));
+        $this->assertSame($proof['terminal_loop_operational_proof_hash'], data_get($criterion, 'evidence.operational_proof_hash'));
+    }
+
+    public function test_audit_accepts_whole_terminal_loop_operational_proof_binding_packet(): void
+    {
+        $proof = (new AgentControlPlaneTerminalLoopOperationalProofService)->prove([
+            'actor' => 'audit-whole-binding-agent',
+            'proof_id' => 'audit-whole-binding-proof',
+        ]);
+
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit([
+            'agent_control_plane_terminal_loop_operational_proof' => $proof['completion_audit_binding_packet'],
+        ]);
+
+        $evidence = $audit['agent_control_plane_terminal_loop_operational_proof_evidence'];
+        $this->assertSame('passed', $evidence['status']);
+        $this->assertTrue($evidence['passed']);
+        $this->assertSame($proof['terminal_loop_operational_proof_hash'], $evidence['proof_hash']);
+    }
+
+    public function test_audit_accepts_full_terminal_loop_operational_proof_envelope(): void
+    {
+        $proof = (new AgentControlPlaneTerminalLoopOperationalProofService)->prove([
+            'actor' => 'audit-full-envelope-binding-agent',
+            'proof_id' => 'audit-full-envelope-binding-proof',
+        ]);
+
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit([
+            'agent_control_plane_terminal_loop_operational_proof' => [
+                'schema_version' => 'atlas.self_construction_agent_control_plane_terminal_loop_operational_proof_status.v1',
+                'status' => 'passed',
+                'agent_control_plane_terminal_loop_operational_proof' => $proof,
+            ],
+        ]);
+
+        $evidence = $audit['agent_control_plane_terminal_loop_operational_proof_evidence'];
+        $this->assertSame('passed', $evidence['status']);
+        $this->assertTrue($evidence['passed']);
+        $this->assertSame($proof['terminal_loop_operational_proof_hash'], $evidence['proof_hash']);
+        $this->assertSame('cycle_evidence_review_ready', $evidence['post_cycle_cycle_supervisor_status']);
+    }
+
+    public function test_audit_reports_terminal_loop_operational_proof_not_supplied_without_blocking_read_only_audit(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit();
+
+        $evidence = $audit['agent_control_plane_terminal_loop_operational_proof_evidence'];
+        $this->assertSame('not_supplied_to_read_only_audit', $evidence['status']);
+        $this->assertFalse($evidence['supplied']);
+        $this->assertFalse($evidence['passed']);
+        $this->assertSame('', $evidence['proof_hash']);
+        $this->assertStringContainsString('does not run the operational proof', $evidence['note']);
+
+        $criterion = collect($audit['criteria'])->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green');
+        $this->assertSame('not_supplied_to_read_only_audit', data_get($criterion, 'evidence.operational_proof_status'));
+        $this->assertFalse((bool) data_get($criterion, 'evidence.operational_proof_supplied'));
+        $this->assertTrue((bool) $criterion['passed']);
     }
 
     public function test_terminal_loop_block_fails_when_module_artifact_synthetically_missing(): void
@@ -443,5 +805,17 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             AtlasSelfConstructionOsCompletionAuditService::TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION,
             $artifacts,
         );
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function terminalLoopCleanupState(): array
+    {
+        return [
+            'claimed_task_count' => 0,
+            'active_lease_count' => 0,
+            'recoverable_lease_count' => 0,
+        ];
     }
 }

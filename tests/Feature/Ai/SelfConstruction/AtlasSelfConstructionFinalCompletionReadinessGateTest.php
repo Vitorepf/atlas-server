@@ -121,6 +121,30 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $gate = $this->gate()->evaluate();
         $this->assertStringContainsString('atlas:ai:self-construction', (string) $gate['command_to_rerun_audit']);
         $this->assertStringContainsString('completion-audit-status', (string) $gate['command_to_rerun_audit']);
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $gate['command_to_refresh_terminal_loop_operational_proof']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $gate['command_to_rerun_audit_with_terminal_loop_operational_proof']);
+        $this->assertTrue((bool) $gate['terminal_loop_operational_proof_required_before_completion_claim']);
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            $gate['terminal_loop_operational_proof_expected_binding_schema'],
+        );
+        $this->assertTrue((bool) data_get($gate, 'safety_invariants.completion_claim_requires_terminal_loop_operational_proof_binding'));
+    }
+
+    public function test_status_projection_exposes_terminal_loop_operational_proof_commands(): void
+    {
+        $status = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->atlasSelfConstructionFinalCompletionReadinessGateStatus();
+
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_construction_final_completion_readiness_gate_status', []);
+
+        $this->assertTrue((bool) $summary['terminal_loop_operational_proof_required_before_completion_claim']);
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            $summary['terminal_loop_operational_proof_expected_binding_schema'],
+        );
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $summary['command_to_refresh_terminal_loop_operational_proof']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $summary['command_to_rerun_audit_with_terminal_loop_operational_proof']);
     }
 
     private function gate(): AtlasSelfConstructionFinalCompletionReadinessGateService

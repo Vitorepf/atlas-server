@@ -43,6 +43,11 @@ final class AtlasSelfConstructionRuntimePromotionClosurePackTest extends TestCas
         $this->assertSame($pack['graduation_evidence_hashes'], $pack['runtime_promotion_receipt_preimage']['graduation_evidence_hashes']);
         $this->assertSame('<operator>', $pack['runtime_promotion_receipt_preimage']['signed_by']);
         $this->assertSame('<operator_generated_64_hex_receipt_hash>', $pack['runtime_promotion_receipt_preimage']['receipt_hash']);
+        $this->assertContains('refresh_terminal_loop_operational_proof', $pack['operator_checklist']);
+        $this->assertContains('rerun_completion_audit_with_terminal_loop_operational_proof', $pack['operator_checklist']);
+        $this->assertTrue((bool) $pack['terminal_loop_operational_proof_required_before_final_audit']);
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $pack['terminal_loop_operational_proof_command']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $pack['completion_audit_with_terminal_loop_operational_proof_command']);
     }
 
     public function test_closure_pack_hash_is_deterministic(): void

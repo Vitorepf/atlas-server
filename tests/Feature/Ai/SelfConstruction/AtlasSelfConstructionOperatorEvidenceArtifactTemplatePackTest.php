@@ -138,6 +138,11 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackTest extend
         $this->assertTrue(data_get($bundle, 'operator_handoff_packet.requires_fresh_preflight_before_persist'));
         $this->assertFalse($bundle['parallel_submission_allowed']);
         $this->assertTrue($bundle['operator_must_follow_order']);
+        $this->assertContains('refresh_terminal_loop_operational_proof', $bundle['bundle_usage_order']);
+        $this->assertContains('rerun_completion_audit_with_terminal_loop_operational_proof', $bundle['bundle_usage_order']);
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $bundle['global_terminal_loop_operational_proof_command']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $bundle['global_completion_audit_with_terminal_loop_operational_proof_command']);
+        $this->assertTrue((bool) $bundle['terminal_loop_operational_proof_required_before_final_audit']);
         $this->assertSame(
             'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
             $bundle['final_success_predicate'],

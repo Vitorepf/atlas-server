@@ -7,7 +7,9 @@ namespace App\Http\Controllers\AtlasDev;
 use App\Http\Controllers\Controller;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -38,15 +40,23 @@ final class ShowController extends Controller
         'scope_guard_receipt' => ArtifactNames::SCOPE_GUARD_RECEIPT,
         'verification_receipt' => ArtifactNames::VERIFICATION_RECEIPT,
         'fast_path_telemetry' => ArtifactNames::FAST_PATH_TELEMETRY,
+        'run_cancellation' => ArtifactNames::RUN_CANCELLATION,
     ];
 
     public function __construct(
         private readonly ReceiptStorage $storage,
+        private readonly ConfigRepository $config,
+        private readonly AtlasDevRunIndexRepository $runIndex,
         private readonly HttpResponseRedactor $redactor = new HttpResponseRedactor,
     ) {}
 
     public function __invoke(string $runId): JsonResponse
     {
+        $runExecutionState = $this->storage->readLatestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE);
+        if ($this->isStaleRunningState($runExecutionState)) {
+            $runExecutionState = $this->persistStaleRunningFailure($runId, $runExecutionState);
+        }
+
         $artifactRefs = [];
         foreach (self::PERSISTED_LOOKUP as $key => $filename) {
             if ($this->storage->exists($runId, $filename)) {
@@ -76,7 +86,6 @@ final class ShowController extends Controller
         $receipt = $this->storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT);
         $scope = $this->storage->read($runId, ArtifactNames::SCOPE_GUARD_RECEIPT);
         $diffParse = $this->storage->read($runId, ArtifactNames::DIFF_PARSE_RESULT);
-        $runExecutionState = $this->storage->readLatestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE);
         $diffPreview = $this->diffPreview($diffParse);
         if (is_array($receipt) && $diffPreview !== null) {
             $receipt['ui_hints'] = array_merge(
@@ -88,9 +97,11 @@ final class ShowController extends Controller
         $completion = is_array($receipt) ? ($receipt['completion'] ?? null) : null;
         $completionState = is_array($completion) ? ($completion['status'] ?? null) : null;
         if (! is_string($completionState) || $completionState === '') {
-            $completionState = is_array($runExecutionState) && ($runExecutionState['status'] ?? null) === 'failed'
-                ? 'failed'
-                : null;
+            $completionState = match (is_array($runExecutionState) ? ($runExecutionState['status'] ?? null) : null) {
+                'failed' => 'failed',
+                'cancelled' => 'cancelled',
+                default => null,
+            };
         }
 
         $workspaceLabel = null;
@@ -163,8 +174,58 @@ final class ShowController extends Controller
 
         return match ($status) {
             'running' => 'executing',
-            'complete', 'failed' => 'complete',
+            'complete', 'failed', 'cancelled' => 'complete',
             default => 'queued',
         };
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $runExecutionState
+     */
+    private function isStaleRunningState(?array $runExecutionState): bool
+    {
+        if (! is_array($runExecutionState) || ($runExecutionState['status'] ?? null) !== 'running') {
+            return false;
+        }
+
+        $recordedAt = $runExecutionState['recorded_at'] ?? null;
+        if (! is_string($recordedAt) || trim($recordedAt) === '') {
+            return false;
+        }
+
+        $timestamp = strtotime($recordedAt);
+        if ($timestamp === false) {
+            return false;
+        }
+
+        $staleAfter = max(60, (int) $this->config->get('atlas_dev.run_worker.stale_after_seconds', 900));
+
+        return (time() - $timestamp) > $staleAfter;
+    }
+
+    /**
+     * @param  array<string, mixed>  $runExecutionState
+     * @return array<string, mixed>
+     */
+    private function persistStaleRunningFailure(string $runId, array $runExecutionState): array
+    {
+        $failed = array_filter([
+            'schema_version' => 'atlas.dev.run_execution_state.v1',
+            'run_id' => $runId,
+            'status' => 'failed',
+            'recorded_at' => now()->toISOString(),
+            'stale' => true,
+            'error_code' => 'ATLAS_DEV_RUN_WORKER_STALE',
+            'previous_status' => $runExecutionState['status'] ?? null,
+            'previous_recorded_at' => $runExecutionState['recorded_at'] ?? null,
+            'task_contract_hash' => $runExecutionState['task_contract_hash'] ?? null,
+            'worker_pid' => $runExecutionState['worker_pid'] ?? null,
+            'process_group_id' => $runExecutionState['process_group_id'] ?? null,
+        ], static fn (mixed $value): bool => $value !== null);
+
+        $this->storage->writeMonotonic($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE, $failed);
+        $this->runIndex->updateCompletion($runId, 'failed');
+
+        return $failed;
     }
 }

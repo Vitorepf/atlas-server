@@ -76,9 +76,14 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
 
         $cycle = $cert['cycle_evidence'][0];
         $this->assertSame(4, (int) $cycle['completed_count']);
+        $this->assertSame(4, (int) $cycle['queue_claim_binding_verified_count']);
+        $this->assertTrue((bool) $cycle['queue_claim_binding_all_verified']);
+        $this->assertTrue((bool) $cert['invariants']['complete_dry_run_requires_queue_claim_binding']);
+        $this->assertTrue((bool) data_get($cert, 'canonical_invariant_matrix.invariants.complete_dry_run_requires_queue_claim_binding.value'));
         $this->assertSame(0, (int) $cycle['active_leases_after_complete']);
         foreach ($cycle['agents'] as $agent) {
             $this->assertTrue((bool) $agent['completed']);
+            $this->assertTrue((bool) $agent['queue_claim_binding_verified']);
             $this->assertSame('completed_dry_run', (string) $agent['completion_event']);
         }
     }
@@ -219,6 +224,13 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationT
                 'atlas.self_construction.agent_control_plane_terminal_loop_operator_commands.v1',
                 (string) $result['terminal_loop_operator_commands_schema'],
             );
+            $this->assertSame(
+                'atlas.self_construction.agent_control_plane_terminal_loop_queue_lane_contract.v1',
+                (string) $result['terminal_loop_queue_lane_contract_schema'],
+            );
+            $this->assertTrue((bool) $result['terminal_loop_queue_lane_explicit']);
+            $this->assertTrue((bool) $result['terminal_loop_queue_lane_next_iteration_preserves_lane']);
+            $this->assertNotEmpty((string) $result['terminal_loop_queue_lane_contract_hash']);
             $this->assertSame(
                 'atlas.self_construction.agent_control_plane_terminal_long_running_loop_contract.v1',
                 (string) $result['terminal_long_running_loop_contract_schema'],

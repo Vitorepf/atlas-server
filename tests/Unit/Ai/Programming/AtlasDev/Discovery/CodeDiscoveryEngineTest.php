@@ -98,6 +98,45 @@ final class CodeDiscoveryEngineTest extends TestCase
         ]);
     }
 
+    public function test_frontend_html_path_reference_confirms_workspace_file(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-dev-discovery-html-'.bin2hex(random_bytes(4));
+        mkdir($workspace.'/public', 0o755, true);
+        file_put_contents($workspace.'/public/button.html', '<button>Save</button>');
+
+        try {
+            $engine = new CodeDiscoveryEngine(rg: $this->ripgrepStub(), symbols: null);
+
+            $manifest = $engine->discover(
+                DiscoveryFixtureFactory::envelope([
+                    'workspace' => $workspace,
+                    'normalized_intent' => 'ajuste a UI em public/button.html',
+                    'raw_intent' => 'ajuste a UI em public/button.html',
+                ]),
+                DiscoveryFixtureFactory::compactSdd([
+                    'intent_normalized' => 'ajuste a UI em public/button.html',
+                    'intent_raw' => 'ajuste a UI em public/button.html',
+                    'task_kind' => 'frontend',
+                    'mode' => 'frontend_visual',
+                ]),
+            );
+        } finally {
+            @unlink($workspace.'/public/button.html');
+            @rmdir($workspace.'/public');
+            @rmdir($workspace);
+        }
+
+        $this->assertContains($manifest->confidence, [
+            CodeDiscoveryManifest::CONFIDENCE_STRONG_INFERENCE,
+            CodeDiscoveryManifest::CONFIDENCE_CONFIRMED_FACT,
+        ]);
+        $paths = array_map(static fn ($candidate): string => $candidate->path, $manifest->likelyFiles);
+        $this->assertTrue(
+            (bool) array_filter($paths, static fn (string $path): bool => str_ends_with($path, 'public/button.html')),
+            'expected public/button.html in likely_files',
+        );
+    }
+
     public function test_discovery_is_deterministic_byte_identical_payload(): void
     {
         $engine = new CodeDiscoveryEngine(

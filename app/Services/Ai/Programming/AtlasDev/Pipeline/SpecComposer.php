@@ -141,7 +141,7 @@ class SpecComposer
         $forbidden = $this->forbiddenFilesFor($compactSdd, $discovery);
         $expectedFiles = $this->expectedFilesFor($discovery);
         $canonicalContext = $this->buildCanonicalContext($discovery, $projection);
-        $verificationCommands = $this->buildVerificationCommands($compactSdd, $discovery);
+        $verificationCommands = $this->buildVerificationCommands($envelope, $compactSdd, $discovery);
 
         $acceptance = $this->buildAcceptanceCriteria($compactSdd, $verificationCommands, $expectedFiles);
         $nonGoals = $this->buildNonGoals($compactSdd);
@@ -535,13 +535,18 @@ class SpecComposer
     /**
      * @return list<string>
      */
-    private function buildVerificationCommands(CompactSdd $compactSdd, CodeDiscoveryManifest $discovery): array
+    private function buildVerificationCommands(OperationEnvelope $envelope, CompactSdd $compactSdd, CodeDiscoveryManifest $discovery): array
     {
         if ($compactSdd->mode === self::MODE_READ_ONLY
             || $compactSdd->mode === self::MODE_REVIEW
             || $compactSdd->mode === self::MODE_ESCALATE_PREVIEW
             || $compactSdd->verificationProfile === self::PROFILE_GENERIC_NO_TEST) {
             return [];
+        }
+
+        $explicitCommands = $this->explicitValidationCommands($envelope);
+        if ($explicitCommands !== []) {
+            return $explicitCommands;
         }
 
         $commands = [];
@@ -565,6 +570,33 @@ class SpecComposer
                 $commands[] = 'composer test';
             } elseif ($compactSdd->verificationProfile === self::PROFILE_TS_REACT) {
                 $commands[] = 'pnpm test';
+            }
+        }
+
+        return array_values(array_unique($commands));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function explicitValidationCommands(OperationEnvelope $envelope): array
+    {
+        $commands = [];
+        foreach ($envelope->userConstraints as $constraint) {
+            if (! is_string($constraint)) {
+                continue;
+            }
+            $trimmed = trim($constraint);
+            if (! preg_match('/\Avalidation_commands?=(.+)\z/i', $trimmed, $matches)) {
+                continue;
+            }
+
+            foreach (explode('&&', $matches[1]) as $candidate) {
+                $command = trim($candidate);
+                if ($command === '' || str_contains($command, "\n") || strlen($command) > 240) {
+                    continue;
+                }
+                $commands[] = $command;
             }
         }
 

@@ -22,6 +22,7 @@ capabilities:
   - fatia_3_one_call_receipts
   - fatia_4_repair_loop
   - fatia_5_surface_wireup
+  - senior_engineer_loop
 decisions:
   - Implementacao segue ordem rigida 0 -> 1 -> 1.5 -> 2 -> 3 -> 4 -> 5. Fatia nao comeca sem DoD da anterior verde.
   - Cada fatia tem DoD operacional verificavel por testes mecanicos.
@@ -138,6 +139,35 @@ Risco principal: criar driver paralelo ou pular gates. Mitigacao: reuso obrigato
 ## Exemplos
 
 Os exemplos operacionais aparecem nas secoes de cada fatia abaixo.
+
+## Senior Engineer Loop
+
+O Senior Engineer Loop e a camada de julgamento operacional acima do fast path.
+Ele nao substitui os gates existentes; ele projeta e audita, para cada run,
+se o Atlas Dev agiu como engenheiro senior:
+
+- resolveu ambiguidade com hipoteses baseadas no workspace;
+- produziu plano multi-step com evidencias por etapa;
+- manteve debug loop verificavel por comandos reais;
+- preservou edicao architecture-aware via allowed_files, forbidden_files,
+  max_files_changed, non_goals e provider_lock sem fallback;
+- expos paineis de cockpit Desktop para intent, ambiguidade, plano, escopo,
+  verificacao, receipt e learning;
+- gerou handoff para ErrorLedger/Programming Curator sem auto-aplicar aprendizado;
+- permaneceu enterprise: provider-safe, receipts persistidos, fallback bloqueado
+  e audit strict.
+
+Comando de auditoria:
+
+```bash
+php artisan atlas:dev:senior-loop:audit --json --strict
+```
+
+O comando persiste `senior_engineer_loop_audit.json` em
+`storage/atlas-dev/receipts/<run_id>/` com schema
+`atlas.dev.senior_engineer_loop_audit.v1`. Completion do patamar Senior Engineer
+Loop so pode ser alegado quando este audit passar junto dos testes AtlasDev e
+dos checks de documentacao.
 
 ## Proximas Acoes
 
@@ -2081,6 +2111,7 @@ Erros canônicos:
 - [ ] Migrations `atlas_dev_confirmation_tokens` e `atlas_dev_run_index` aplicadas.
 - [ ] `storage/atlas-dev/receipts/` gravável.
 - [ ] Flags `plan_enabled` ligada e validada antes de `run_enabled`.
+- [ ] `php artisan atlas:dev:readiness --json` retorna `status=passed` no ambiente com `ATLAS_DEV_EFFICIENT_PLAN_ENABLED=true`, `ATLAS_DEV_EFFICIENT_RUN_ENABLED=true`, `ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED=true` e `ATLAS_DEV_RUN_DISPATCH_MODE=process`; o gate cobre flags, APP_KEY, storage, rotas, worker process e provider runtime (`ClaudeCliGateway` + binário `claude` executável).
 - [ ] Smoke: Plan retorna `confirmation.token` (fast_path), `persisted_artifact_refs` relativos, sem `/Users/` na response.
 - [ ] Show retorna `workspace_label`/`workspace_hash` e `persisted_artifact_refs`; sem path absoluto.
 - [ ] Run rejeita corretamente truthy-string, hash mismatch, token reutilizado.
@@ -2135,6 +2166,21 @@ Backend (executar em `atlas-server/`):
 
 # Health de docs canônicos
 /opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json
+
+# Readiness Desktop-ready (zero provider; falha se flag, APP_KEY, storage, rota, worker ou provider runtime estiver indisponível)
+#
+# Caminho canônico local: escreve as flags necessárias no .env com backup
+# automático e roda readiness em seguida. Use --dry-run para ver o patch sem
+# escrever.
+/opt/homebrew/bin/php artisan atlas:dev:desktop:enable --dry-run --json
+/opt/homebrew/bin/php artisan atlas:dev:desktop:enable --json
+
+# Caminho manual/CI equivalente, sem editar .env:
+ATLAS_DEV_EFFICIENT_PLAN_ENABLED=true \
+ATLAS_DEV_EFFICIENT_RUN_ENABLED=true \
+ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED=true \
+ATLAS_DEV_RUN_DISPATCH_MODE=process \
+  /opt/homebrew/bin/php artisan atlas:dev:readiness --json
 
 # Smoke público pela CLI (igual ao Desktop usaria; --yes só se quiser executar)
 /opt/homebrew/bin/php artisan atlas:cli:dev "corrija teste X" --efficient --json
@@ -2311,8 +2357,9 @@ Atlas Dev é um fluxo interno; a verificação visual happens na surface
 Atlas AI Desktop Mac. Sequência mínima:
 
 ```bash
-# 1. Garantir flag Desktop habilitada (default false em prod).
-export ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED=true
+# 1. Garantir runtime local habilitado (default false para Run/Desktop).
+cd ../../atlas-server
+php artisan atlas:dev:desktop:enable --json
 
 # 2. Validar contract.ts do Desktop bate com o response real do Plan/Run.
 cd ../atlas-desktop
@@ -2349,6 +2396,193 @@ Checklist visual no Atlas AI (aba Workspace Dev):
 Sem Playwright/Browser configurado, esses passos são manuais. O fluxo
 Atlas Dev não substitui QA visual — apenas garante que o receipt textual
 seja honesto (§15.1.15).
+
+#### D. Como fechar a evidência comparativa 10x
+
+O goal de produto só pode ser declarado completo quando houver evidência
+observada de que Atlas Dev Desktop entrega pelo menos 10x de eficiência contra
+os engines crus exigidos pelo operador (`claude_code` e `codex`). Cert local,
+suite verde e smoke real com provider **não** provam esse requisito sozinhos.
+
+O caminho canônico é:
+
+```bash
+cd atlas-server
+
+# 1. Gerar template operator-fillable com os 5 task_kinds obrigatórios.
+php artisan atlas:dev:desktop:efficiency-evidence \
+  --write-template=storage/atlas-dev/receipts/desktop_efficiency/cases.json \
+  --json --strict
+
+# Esse comando também cria 15 source evidence templates em:
+# storage/atlas-dev/receipts/desktop_efficiency/source/<case>/<participant>.json
+# É seguro reexecutar: source evidence já existente é preservado e reportado
+# em source_template_preserved_refs.
+
+# 2. Executar os mesmos 5 casos em Atlas Dev Desktop, Claude Code cru e Codex cru.
+#    Cobertura obrigatória: patch, repair, review, frontend, question.
+#    Cada caso tem `task_prompt`; todos os participantes do mesmo case_id
+#    precisam executar exatamente esse prompt.
+#    Para cada participante, registrar:
+#      - status=passed
+#      - verification_passed=true
+#      - task_prompt exato observado (mesmo texto para atlas/claude_code/codex)
+#      - elapsed_seconds observado
+#      - manual_steps observado
+#      - provider_calls observado
+#      - run_ref relativo para transcript/receipt/log bruto existente
+#      - evidence_refs relativos existentes em storage/atlas-dev/receipts/
+#    Métricas sem run_ref são "números soltos" e não provam 10x.
+#    O run_ref deve apontar para um artefato bruto diferente do próprio source
+#    evidence, por exemplo:
+#      storage/atlas-dev/receipts/desktop_efficiency/raw/patch_case/atlas.json
+#    Preferir registrar cada slot em duas etapas por comando, sem editar JSON
+#    manualmente. Primeiro grave o artefato bruto observado:
+php artisan atlas:dev:desktop:efficiency-evidence \
+  --write-run-ref=desktop_efficiency/raw/patch_case/atlas.json \
+  --case-id=patch_case \
+  --task-kind=patch \
+  --participant=atlas \
+  --raw-summary="Atlas Dev completed patch_case with receipt <run_id> and focused verification passed." \
+  --raw-verification-command="php artisan test <focused-test>" \
+  --verification-passed \
+  --json --strict
+
+#    Depois grave o source evidence que aponta para esse raw run:
+php artisan atlas:dev:desktop:efficiency-evidence \
+  --write-source=desktop_efficiency/source/patch_case/atlas.json \
+  --cases=storage/atlas-dev/receipts/desktop_efficiency/cases.json \
+  --case-id=patch_case \
+  --task-kind=patch \
+  --participant=atlas \
+  --task-prompt="Apply a narrow code patch in the workspace and verify the changed behavior with the focused test named in the task." \
+  --elapsed-seconds=21 \
+  --manual-steps=0 \
+  --provider-calls=1 \
+  --verification-passed \
+  --run-ref=desktop_efficiency/raw/patch_case/atlas.json \
+  --notes="Observed Atlas Dev Desktop run for patch_case" \
+  --json --strict
+
+#    Repetir para todos os 15 pares:
+#      5 casos x (atlas, claude_code, codex)
+#    Para ver o checklist atual, o próximo slot faltante e o comando pronto:
+php artisan atlas:dev:desktop:efficiency-evidence \
+  --source-status \
+  --cases=storage/atlas-dev/receipts/desktop_efficiency/cases.json \
+  --json --strict
+
+#    Para enviar coletores em paralelo, emitir apenas comandos pendentes:
+php artisan atlas:dev:desktop:efficiency-evidence \
+  --source-commands \
+  --cases=storage/atlas-dev/receipts/desktop_efficiency/cases.json \
+  --json --strict
+
+#    O gate rejeita source evidence com:
+#      - ref absoluto, URL ou `..`;
+#      - case_id/task_kind/participant diferente do cases.json;
+#      - task_prompt ausente;
+#      - task_prompt_sha256 divergente do task_prompt do cases.json;
+#      - observed_at ausente ou inválido;
+#      - status diferente de passed;
+#      - verification_passed diferente de true;
+#      - elapsed_seconds/manual_steps/provider_calls divergentes do cases.json.
+#      - run_ref ausente (`run_ref_missing`);
+#      - run_ref absoluto, URL ou com `..` (`run_ref_invalid`);
+#      - run_ref apontando para arquivo inexistente (`run_ref_not_found`);
+#      - run_ref apontando para o proprio source file (`run_ref_self_reference`).
+#      - raw run JSON com case/task/participant/status/verification divergente
+#        do source (`run_ref_invalid_payload`).
+#    Se --task-prompt-sha256 for omitido, o comando deriva o hash de --cases
+#    usando o case_id informado. Preferir esse caminho.
+
+#    Alternativa preferida depois de preencher os 15 source files:
+#    reconstruir cases.json a partir dos sources, reduzindo divergência manual.
+php artisan atlas:dev:desktop:efficiency-evidence \
+  --build-cases-from-sources=storage/atlas-dev/receipts/desktop_efficiency/cases.json \
+  --json --strict
+
+# 3. Calcular e persistir a evidência canônica.
+php artisan atlas:dev:desktop:efficiency-evidence \
+  --input=storage/atlas-dev/receipts/desktop_efficiency/cases.json \
+  --persist --json --strict
+
+# 4. Rodar o audit final do goal.
+ATLAS_DEV_EFFICIENT_PLAN_ENABLED=true \
+ATLAS_DEV_EFFICIENT_RUN_ENABLED=true \
+ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED=true \
+ATLAS_DEV_RUN_DISPATCH_MODE=process \
+php artisan atlas:dev:desktop:goal-audit --json --strict
+```
+
+Contrato de aceitação:
+
+- `desktop_efficiency/latest.json` precisa ter
+  `schema_version = atlas.dev.desktop_efficiency_evidence.v1`.
+- `status` precisa ser `passed`.
+- `measured_multiplier` precisa ser `>= 10.0`.
+- `compared_against` precisa incluir `claude_code` e `codex`.
+- `case_count` precisa ser `>= 5`.
+- `measurement_mode` precisa ser `observed_operator_runs`.
+- `blocking_findings` precisa ser `[]`.
+- Cada `evidence_refs[]` precisa ser relativo, existir sob
+  `storage/atlas-dev/receipts/`, e não pode conter path absoluto, URL ou `..`.
+- Cada source evidence referenciado precisa carregar `run_ref` relativo para
+  artefato bruto existente sob `storage/atlas-dev/receipts/`. O `run_ref` não
+  pode ser absoluto, URL, conter `..`, apontar para arquivo inexistente, nem ser
+  self-reference para o próprio `desktop_efficiency/source/...json`.
+- Cada `run_ref` precisa apontar para JSON canônico
+  `atlas.dev.desktop_efficiency_raw_run.v1`, com `status=passed`,
+  `verification_passed=true`, `case_id`, `task_kind` e `participant` iguais ao
+  source correspondente, além de `summary`, `verification_command` e
+  `captured_at` preenchidos.
+
+Fórmula usada pelo gate:
+
+```text
+effort_seconds = elapsed_seconds + manual_steps * 300 + provider_calls * 30
+measured_multiplier = min(sum(engine_effort_seconds) / sum(atlas_effort_seconds))
+```
+
+Se o audit final bloquear apenas em `comparative_efficiency_10x_proof`, o
+runtime Desktop está operacional, mas a alegação "10x melhor" ainda está
+não provada. Não marcar o goal como completo nessa condição.
+
+## 15.6 Senior Engineer Loop
+
+O patamar **Atlas Dev Senior Engineer Loop** adiciona uma camada de auditoria
+operacional acima do executor eficiente. Essa camada nao substitui o provider
+nem o `AtlasDevFastPathOrchestrator`; ela projeta, em um receipt canônico, se o
+run atual possui os ingredientes de um engenheiro operacional autonomo:
+
+- resolucao de ambiguidade baseada em discovery e hipoteses rastreaveis;
+- plano multi-step com evidencia por etapa;
+- debug/repair loop controlado por verificacao e stop signals;
+- edicao architecture-aware com allowed/forbidden files e non-goals;
+- cockpit Desktop com paineis de intent, ambiguity, plan, scope, verification,
+  receipt e learning;
+- handoff de learning para error ledger/curator sem auto-aplicar mudancas;
+- hardening enterprise com provider-safe projection, provider lock sem
+  fallback e receipts persistidos.
+
+Artefato canônico:
+
+```text
+receipts/<run_id>/senior_engineer_loop_audit.json
+schema_version = atlas.dev.senior_engineer_loop_audit.v1
+```
+
+Comando de auditoria inicial:
+
+```bash
+php artisan atlas:dev:senior-loop:audit --json --strict
+```
+
+O comando deve falhar em `--strict` se qualquer capability estiver `false`.
+Historico invalido ou partial proof nao basta para completar a meta Senior
+Engineer Loop. A conclusao final desse patamar exige, alem desse audit inicial,
+integracao real com execução multi-step, UX Desktop, repair loop e curator flow
+end-to-end.
 
 ## 16. Sequencia De Trabalho Recomendada Por Agente IA
 

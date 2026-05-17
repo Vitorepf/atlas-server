@@ -213,6 +213,8 @@ final class AtlasSelfConstructionFinalCompletionDossierExporterService
         $next = [];
         $status = (string) data_get($humanGate, 'status', '');
         $next[] = (string) ($exactCommands['refresh_completion_audit'] ?? '');
+        $next[] = (string) ($exactCommands['refresh_terminal_loop_operational_proof'] ?? '');
+        $next[] = (string) ($exactCommands['refresh_completion_audit_with_terminal_loop_operational_proof'] ?? '');
         $next[] = (string) ($exactCommands['check_completion_evidence'] ?? '');
 
         if ($status === 'blocked_runtime_promotion_required') {
@@ -226,7 +228,8 @@ final class AtlasSelfConstructionFinalCompletionDossierExporterService
             $next[] = (string) ($exactCommands['run_endgame_verifier'] ?? '');
         } elseif ($status === 'verifier_passed_ready_for_explicit_persistence') {
             $next[] = (string) ($exactCommands['persist_human_completion_receipt'] ?? '');
-            $next[] = (string) ($exactCommands['refresh_completion_audit'] ?? '');
+            $next[] = (string) ($exactCommands['refresh_terminal_loop_operational_proof'] ?? '');
+            $next[] = (string) ($exactCommands['refresh_completion_audit_with_terminal_loop_operational_proof'] ?? '');
             $next[] = (string) ($exactCommands['final_completion_readiness_gate_status'] ?? '');
         } elseif ($status === 'complete_candidate_after_audit_rerun') {
             $next[] = (string) ($exactCommands['final_completion_readiness_gate_status'] ?? '');

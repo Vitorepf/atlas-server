@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai\Programming\AtlasDev\Http;
 
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
+use App\Models\AtlasDevRunIndex;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 
@@ -73,6 +74,47 @@ final class ShowEndpointTest extends AtlasDevHttpTestCase
         $response->assertStatus(200);
         $response->assertJsonPath('data.has_plan', true);
         $this->assertSame($plan['hashes']['task_contract'], $response->json('data.task_contract_hash'));
+    }
+
+    public function test_show_marks_stale_running_worker_as_failed_for_rest_fallback(): void
+    {
+        config()->set('atlas_dev.run_worker.stale_after_seconds', 60);
+
+        $plan = $this->postPlan($this->defaultRepairPayload());
+        $runId = $plan['run_id'];
+
+        $this->app->make(ReceiptStorage::class)->writeMonotonic(
+            $runId,
+            ArtifactNames::RUN_EXECUTION_STATE_BASE,
+            [
+                'schema_version' => 'atlas.dev.run_execution_state.v1',
+                'run_id' => $runId,
+                'status' => 'running',
+                'recorded_at' => now()->subMinutes(5)->toISOString(),
+                'task_contract_hash' => $plan['hashes']['task_contract'],
+            ],
+        );
+
+        $response = $this->withHeaders($this->headers)
+            ->get('/ai/interactions/atlas-dev/runs/'.$runId);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.state', 'complete');
+        $response->assertJsonPath('data.completion_state', 'failed');
+        $response->assertJsonPath('data.run_execution.status', 'failed');
+        $response->assertJsonPath('data.run_execution.stale', true);
+        $response->assertJsonPath('data.run_execution.error_code', 'ATLAS_DEV_RUN_WORKER_STALE');
+
+        $storage = $this->app->make(ReceiptStorage::class);
+        $this->assertSame(2, $storage->latestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE));
+        $persisted = $storage->readLatestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE);
+        $this->assertIsArray($persisted);
+        $this->assertSame('failed', $persisted['status']);
+        $this->assertSame('running', $persisted['previous_status']);
+
+        $index = AtlasDevRunIndex::query()->find($runId);
+        $this->assertNotNull($index);
+        $this->assertSame('failed', $index->completion_state);
     }
 
     public function test_show_returns_full_receipt_for_rest_fallback(): void

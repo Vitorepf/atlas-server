@@ -82,6 +82,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         }
         $status = $claimEvent === 'claimed' && $workerReady ? 'ready_for_worker' : 'blocked';
         $nextWorkerCommand = $this->bootstrapCommand($actor, $targetMin, $maxNew, $queueTags);
+        $queueLaneContract = $this->queueLaneContract($actor, $queueTags, $nextWorkerCommand);
         $terminalLoopOperatorCommands = $this->terminalLoopOperatorCommands(
             actor: $actor,
             taskPacketId: (string) data_get($claim, 'task_packet_id', ''),
@@ -93,6 +94,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             targetMin: $targetMin,
             maxNew: $maxNew,
             queueTags: $queueTags,
+            queueLaneContract: $queueLaneContract,
         );
         $terminalLoopResumptionCheckpoint = $this->terminalLoopResumptionCheckpoint(
             status: $status,
@@ -132,6 +134,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'target_min_claimable_tasks' => $targetMin,
             'max_new_tasks' => $maxNew,
             'queue_tags' => $queueTags,
+            'queue_lane_contract' => $queueLaneContract,
             'claim_tag' => (string) ($claimFilters['tag'] ?? ''),
             'auto_replenishment_status' => (string) data_get($replenishment, 'status', 'unknown'),
             'auto_replenishment_hash' => (string) data_get($replenishment, 'auto_replenishment_hash', ''),
@@ -209,6 +212,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         $wouldGenerateTaskCount = max(0, min($maxNew, $targetMin - $claimableCount));
         $wouldReplenish = $claimableCount < $targetMin && $wouldGenerateTaskCount > 0;
         $nextWorkerCommand = $this->bootstrapCommand($actor, $targetMin, $maxNew, $queueTags);
+        $queueLaneContract = $this->queueLaneContract($actor, $queueTags, $nextWorkerCommand);
         $terminalLoopOperatorCommands = $this->terminalLoopOperatorCommands(
             actor: $actor,
             taskPacketId: '',
@@ -220,6 +224,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             targetMin: $targetMin,
             maxNew: $maxNew,
             queueTags: $queueTags,
+            queueLaneContract: $queueLaneContract,
         );
         $terminalLoopResumptionCheckpoint = $this->terminalLoopResumptionCheckpoint(
             status: $claimableCount > 0 ? 'preview_available' : 'preview_blocked_no_claimable_task',
@@ -260,6 +265,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'target_min_claimable_tasks' => $targetMin,
             'max_new_tasks' => $maxNew,
             'queue_tags' => $queueTags,
+            'queue_lane_contract' => $queueLaneContract,
             'claim_tag' => (string) ($queueTags[0] ?? ''),
             'auto_replenishment_status' => 'preview_only_not_run',
             'auto_replenishment_hash' => '',
@@ -381,6 +387,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         int $targetMin,
         int $maxNew,
         array $queueTags,
+        array $queueLaneContract,
     ): array {
         return [
             'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_operator_commands.v1',
@@ -388,6 +395,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'target_min_claimable_tasks' => $targetMin,
             'max_new_tasks' => $maxNew,
             'queue_tags' => $queueTags,
+            'queue_lane_contract' => $queueLaneContract,
             'task_packet_id' => $taskPacketId,
             'lease_id' => $leaseId,
             'claim_or_replenish_next' => $bootstrapCommand,
@@ -405,6 +413,9 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
                 'max_single_packet_minutes' => 240,
                 'next_iteration_command' => $bootstrapCommand,
                 'next_iteration_preserves_queue_tags' => true,
+                'next_iteration_preserves_queue_lane' => (bool) ($queueLaneContract['next_iteration_preserves_queue_lane'] ?? false),
+                'queue_lane_explicit' => (bool) ($queueLaneContract['queue_lane_explicit'] ?? false),
+                'queue_lane_id' => (string) ($queueLaneContract['queue_lane_id'] ?? ''),
                 'next_iteration_preserves_replenishment_bounds' => true,
                 'pre_iteration_checks' => [
                     'inspect_or_recover_current_packet_before_editing_if_interrupted',
@@ -428,10 +439,58 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
                 'one_terminal_runs_one_packet_at_a_time',
                 'after_completed_dry_run_run_next_after_completion_to_claim_fresh_work',
                 'if_interrupted_run_recover_or_resume_current_packet_before_editing',
+                'prefer_explicit_queue_tag_per_terminal_lane_for_parallel_fleets',
                 'never_complete_without_structured_completion_evidence_json',
                 'never_reuse_expired_or_foreign_lease',
             ],
         ];
+    }
+
+    /**
+     * @param  list<string>  $queueTags
+     * @return array<string, mixed>
+     */
+    private function queueLaneContract(string $actor, array $queueTags, string $bootstrapCommand): array
+    {
+        $primaryTag = trim((string) ($queueTags[0] ?? ''));
+        $explicit = $primaryTag !== '';
+        $laneId = $explicit ? $primaryTag : 'global';
+        $recommendedTag = $this->recommendedQueueTag($actor);
+        $contract = [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_queue_lane_contract.v1',
+            'queue_lane_id' => $laneId,
+            'queue_lane_explicit' => $explicit,
+            'queue_lane_mode' => $explicit ? 'explicit_tagged_lane' : 'global_untagged_lane',
+            'queue_tags' => $queueTags,
+            'primary_queue_tag' => $primaryTag,
+            'recommended_queue_tag' => $recommendedTag,
+            'next_iteration_command_contains_primary_queue_tag' => $explicit && str_contains($bootstrapCommand, '--queue-tag='.$this->commandValue($primaryTag)),
+            'next_iteration_preserves_queue_lane' => $explicit
+                ? str_contains($bootstrapCommand, '--queue-tag='.$this->commandValue($primaryTag))
+                : ! str_contains($bootstrapCommand, '--queue-tag='),
+            'parallel_fleet_recommendation' => $explicit
+                ? 'safe_parallel_lane_explicitly_scoped'
+                : 'operator_should_pass_queue_tag_for_parallel_terminal_fleets',
+            'can_switch_lane_from_contract' => false,
+            'can_claim_from_contract' => false,
+            'non_execution_guarantees' => [
+                'queue_lane_contract_does_not_replenish_queue',
+                'queue_lane_contract_does_not_claim_lease',
+                'queue_lane_contract_does_not_complete_packet',
+                'queue_lane_contract_does_not_dispatch_work',
+            ],
+        ];
+        $contract['queue_lane_contract_hash'] = $this->stableHash($contract);
+
+        return $contract;
+    }
+
+    private function recommendedQueueTag(string $actor): string
+    {
+        $slug = strtolower((string) preg_replace('/[^A-Za-z0-9_.:-]+/', '-', trim($actor)));
+        $slug = trim($slug, '-._:');
+
+        return 'terminal-loop-'.($slug === '' ? 'codex' : $slug);
     }
 
     /**
@@ -464,6 +523,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'requires_active_lease_before_editing' => ! $previewOnly,
             'requires_fresh_bootstrap_after_completion' => true,
             'requires_structured_completion_evidence_before_complete_dry_run' => true,
+            'queue_lane_contract' => (array) data_get($terminalLoopOperatorCommands, 'queue_lane_contract', []),
             'resume_commands' => [
                 'recover_or_resume_current_packet' => (string) ($terminalLoopOperatorCommands['recover_or_resume_current_packet'] ?? ''),
                 'renew_current_lease' => (string) ($terminalLoopOperatorCommands['renew_current_lease'] ?? ''),
@@ -544,6 +604,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'lease_renewal_cadence_seconds' => (int) data_get($terminalLoopOperatorCommands, 'long_running_loop_contract.lease_renewal_cadence_seconds', 0),
             'renew_before_seconds_remaining' => (int) data_get($terminalLoopOperatorCommands, 'long_running_loop_contract.renew_before_seconds_remaining', 0),
             'max_single_packet_minutes' => (int) data_get($terminalLoopOperatorCommands, 'long_running_loop_contract.max_single_packet_minutes', 0),
+            'queue_lane_contract' => (array) data_get($terminalLoopOperatorCommands, 'queue_lane_contract', []),
             'iteration_steps' => [
                 $this->iterationStep('inspect_or_recover_current_packet', 'preflight', $recoverCommand, 'run_when_resuming_or_after_interruption', ['active_lease_or_recovered_claim'], false),
                 $this->iterationStep('execute_one_shot_worker_prompt', 'worker_execution', '', 'operator_runs_returned_worker_prompt_in_this_terminal_or_agent_session', ['work_product', 'commands_run', 'tests_or_gates_result'], false),
@@ -662,6 +723,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
                 'completion_requires_structured_evidence_json',
                 'next_cycle_starts_only_after_completed_dry_run_or_safe_recovery',
                 'operator_can_resume_without_chat_history_from_runbook_hash',
+                'operator_should_use_explicit_queue_tag_for_parallel_terminal_fleets',
             ],
             'stop_conditions' => (array) data_get($terminalLoopIterationRunbook, 'stop_conditions', []),
             'forbidden_shortcuts' => (array) data_get($terminalLoopIterationRunbook, 'forbidden_loop_shortcuts', []),

@@ -307,8 +307,10 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         $commands = $this->collectOperatorCommands($payload);
         $knownOptions = $this->selfConstructionCommandOptions();
         $knownOptionNames = array_fill_keys($knownOptions, true);
+        $legacyAliases = $this->legacySelfConstructionCommandAliases();
         $rows = [];
         $missing = [];
+        $legacyAliasHits = [];
 
         foreach ($commands as $path => $command) {
             $options = $this->extractCommandOptions($command);
@@ -316,8 +318,19 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 $options,
                 static fn (string $option): bool => ! isset($knownOptionNames[$option]),
             ));
+            $legacyAliasesDetected = array_values(array_filter(
+                $options,
+                static fn (string $option): bool => in_array($option, $legacyAliases, true),
+            ));
             foreach ($missingOptions as $option) {
                 $missing[] = [
+                    'payload_path' => $path,
+                    'option' => $option,
+                    'command' => $command,
+                ];
+            }
+            foreach ($legacyAliasesDetected as $option) {
+                $legacyAliasHits[] = [
                     'payload_path' => $path,
                     'option' => $option,
                     'command' => $command,
@@ -330,14 +343,16 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 'options' => $options,
                 'missing_option_count' => count($missingOptions),
                 'missing_options' => $missingOptions,
-                'surface_ok' => $missingOptions === [],
+                'legacy_alias_count' => count($legacyAliasesDetected),
+                'legacy_aliases_detected' => $legacyAliasesDetected,
+                'surface_ok' => $missingOptions === [] && $legacyAliasesDetected === [],
             ];
         }
 
         $integrity = [
             'schema_version' => 'atlas.self_construction.operator_command_surface_integrity.v1',
             'mode' => 'read_only_operator_command_surface_integrity',
-            'status' => $missing === [] ? 'command_surface_aligned' : 'command_surface_attention_required',
+            'status' => $missing === [] && $legacyAliasHits === [] ? 'command_surface_aligned' : 'command_surface_attention_required',
             'command_name' => 'atlas:ai:self-construction',
             'command_count' => count($commands),
             'checked_option_count' => count(array_unique(array_merge(...array_map(
@@ -346,6 +361,9 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             )))),
             'missing_option_count' => count($missing),
             'missing_options' => $missing,
+            'legacy_alias_free' => $legacyAliasHits === [],
+            'legacy_alias_count' => count($legacyAliasHits),
+            'legacy_aliases_detected' => $legacyAliasHits,
             'commands' => $rows,
             'can_execute_commands_from_integrity_check' => false,
             'can_persist_from_integrity_check' => false,
@@ -418,6 +436,20 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         sort($options);
 
         return array_values(array_map('strval', $options));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function legacySelfConstructionCommandAliases(): array
+    {
+        return [
+            'runtime-gap-matrix',
+            'runtime-promotion-receipt-draft',
+            'runtime-promotion-receipt-runbook',
+            'human-completion-receipt-closure-execution-pack',
+            'operator-evidence-submission-readiness',
+        ];
     }
 
     /**
@@ -1151,8 +1183,19 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'proof_commands' => [
                 'submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
                 'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
+                'completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
                 'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
                 'finalization_gate' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-finalization-gate-status --json',
+            ],
+            'terminal_loop_operational_proof_required_before_final_audit' => true,
+            'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            'terminal_loop_operational_proof_acceptance_criteria' => [
+                'operational_proof_status_passed',
+                'operational_readiness_matrix_all_true',
+                'post_cycle_cycle_supervisor_review_evidence',
+                'completion_audit_binding_packet_ready',
+                'provider_token_dispatch_flags_false',
             ],
             'final_success_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
             'can_persist_from_proof_bundle' => false,
@@ -1233,10 +1276,23 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             ],
             [
                 'order' => 4,
+                'id' => 'refresh_terminal_loop_operational_proof',
+                'phase' => 'terminal_loop_operational_proof',
+                'status' => data_get($operatorCompletionProofBundle, 'ready_for_final_completion_audit') ? 'required_before_final_completion_audit' : 'blocked_until_all_operator_proofs_persisted',
+                'command' => $this->terminalLoopOperationalProofCommand(),
+                'audit_command_with_binding' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                'expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+                'done' => false,
+                'requires_operator_judgment' => false,
+                'can_run_from_runbook' => false,
+            ],
+            [
+                'order' => 5,
                 'id' => 'rerun_completion_audit',
                 'phase' => 'final_verification',
                 'status' => data_get($operatorCompletionProofBundle, 'ready_for_final_completion_audit') ? 'ready_after_all_operator_proofs' : 'blocked_until_all_operator_proofs_persisted',
-                'command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'command' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+                'fallback_command_without_binding' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
                 'done' => (string) data_get($completionAudit, 'status') === 'complete',
                 'requires_operator_judgment' => false,
                 'can_run_from_runbook' => false,
@@ -1271,6 +1327,10 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'operator_next_action_hash' => (string) data_get($operatorNextAction, 'operator_next_action_hash', ''),
             'operator_completion_proof_bundle_hash' => (string) data_get($operatorCompletionProofBundle, 'operator_completion_proof_bundle_hash', ''),
             'canonical_submission_persistence_plan_hash' => (string) data_get($canonicalSubmissionPersistencePlan, 'canonical_submission_persistence_plan_hash', ''),
+            'terminal_loop_operational_proof_command' => $this->terminalLoopOperationalProofCommand(),
+            'completion_audit_with_terminal_loop_operational_proof_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+            'terminal_loop_operational_proof_required_before_final_audit' => true,
+            'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             'final_success_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
             'can_execute_from_runbook' => false,
             'can_persist_from_runbook' => false,
@@ -1354,6 +1414,8 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'pre_persist_operator_checks' => (array) data_get($envelope, 'pre_persist_operator_checks', []),
             'proof_commands_after_action' => array_values(array_filter([
                 (string) data_get($envelope, 'post_persistence_rerun_commands.completion_evidence_status', ''),
+                $this->terminalLoopOperationalProofCommand(),
+                $this->completionAuditWithTerminalLoopOperationalProofCommand(),
                 (string) data_get($envelope, 'post_persistence_rerun_commands.completion_audit', ''),
                 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
             ])),
@@ -1369,6 +1431,16 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         $payload['operator_next_action_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    private function terminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function completionAuditWithTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
     }
 
     /**

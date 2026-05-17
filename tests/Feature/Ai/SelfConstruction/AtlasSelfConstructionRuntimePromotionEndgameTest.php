@@ -26,6 +26,15 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         $this->assertFalse($payload['token_spend_allowed']);
         $this->assertFalse($payload['adapter_execution_allowed']);
         $this->assertFalse($payload['self_programming_allowed']);
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-status',
+            data_get($payload, 'persistence_preflight.terminal_loop_operational_proof_command'),
+        );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
+            data_get($payload, 'persistence_preflight.rerun_audit_with_terminal_loop_operational_proof_command'),
+        );
+        $this->assertTrue((bool) data_get($payload, 'persistence_preflight.terminal_loop_operational_proof_required_before_final_audit'));
         $this->assertNotEmpty($payload['endgame_hash']);
     }
 
@@ -115,6 +124,19 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
             (string) data_get($payload, 'operator_submission_envelope.exact_persist_command')
         );
         $this->assertStringContainsString('--persist-runtime-promotion-receipt', (string) data_get($payload, 'operator_submission_envelope.exact_persist_command'));
+        $this->assertContains(
+            'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json',
+            data_get($payload, 'operator_submission_envelope.post_persistence_commands'),
+        );
+        $this->assertContains(
+            'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
+            data_get($payload, 'operator_submission_envelope.post_persistence_commands'),
+        );
+        $this->assertTrue((bool) data_get($payload, 'operator_submission_envelope.terminal_loop_operational_proof_required_before_final_audit'));
+        $this->assertSame(
+            'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            data_get($payload, 'operator_submission_envelope.terminal_loop_operational_proof_expected_binding_schema'),
+        );
         $this->assertFalse($payload['persisted']);
         $this->assertSame('persistence_flag_not_supplied', data_get($payload, 'persistence_preflight.persistence_blocked_reason'));
     }

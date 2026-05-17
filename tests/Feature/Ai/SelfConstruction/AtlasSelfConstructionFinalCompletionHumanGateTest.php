@@ -104,6 +104,10 @@ final class AtlasSelfConstructionFinalCompletionHumanGateTest extends TestCase
         $steps = array_column((array) data_get($gate, 'ordered_operator_steps', []), 'id');
 
         $this->assertArrayHasKey('refresh_completion_audit', $commands);
+        $this->assertArrayHasKey('refresh_terminal_loop_operational_proof', $commands);
+        $this->assertArrayHasKey('refresh_completion_audit_with_terminal_loop_operational_proof', $commands);
+        $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) $commands['refresh_terminal_loop_operational_proof']);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $commands['refresh_completion_audit_with_terminal_loop_operational_proof']);
         $this->assertSame(
             'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
             $commands['persist_runtime_promotion_receipt'] ?? null
@@ -117,7 +121,10 @@ final class AtlasSelfConstructionFinalCompletionHumanGateTest extends TestCase
         $this->assertContains('refresh_completion_audit', $steps);
         $this->assertContains('persist_real_provider_smoke', $steps);
         $this->assertContains('run_endgame_verifier', $steps);
+        $this->assertContains('refresh_terminal_loop_operational_proof', $steps);
         $this->assertContains('rerun_audit_until_complete', $steps);
+        $this->assertTrue((bool) data_get($gate, 'terminal_loop_operational_proof_required_before_final_audit'));
+        $this->assertTrue((bool) data_get($gate, 'persistence_preflight.terminal_loop_operational_proof_required_before_final_audit'));
     }
 
     public function test_gate_hash_is_deterministic(): void

@@ -10,6 +10,7 @@ use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\PlanOnlyResult;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\RoutingDecision;
+use App\Services\Ai\Programming\AtlasDev\Pipeline\TaskClassification;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
@@ -17,6 +18,7 @@ use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\Surface\AtlasCliDevAdapter;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -212,6 +214,11 @@ final class AtlasCliDevEfficientHandler
     private function surfaceHintsFromEnvelope(OperationEnvelope $envelope): array
     {
         $hints = [];
+        $hints['flow_origin'] = $envelope->flowOrigin;
+        if ($envelope->commandIntent !== null) {
+            $hints['command_intent'] = $envelope->commandIntent;
+        }
+
         $ctx = $envelope->surfaceContext;
         if ($ctx->threadId !== null) {
             $hints['thread_id'] = $ctx->threadId;
@@ -265,8 +272,117 @@ final class AtlasCliDevEfficientHandler
             'verification_commands' => $planPayload['verification_commands'] ?? [],
             'persisted_artifact_refs' => $planPayload['persisted_artifact_refs'] ?? [],
             'prompt_sendable' => $planPayload['prompt_sendable'] ?? false,
+            'read_only_answer' => $this->readOnlyAnswer($plan),
             'operator_confirmed' => $operatorConfirmed,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function readOnlyAnswer(PlanOnlyResult $plan): ?array
+    {
+        if ($plan->routing->kind !== RoutingDecision::READ_ONLY_ANSWER) {
+            return null;
+        }
+
+        if ($plan->classification->taskKind === TaskClassification::KIND_REVIEW) {
+            return $this->reviewAnswer($plan);
+        }
+
+        if ($plan->classification->taskKind === TaskClassification::KIND_QUESTION) {
+            $refs = array_values($plan->toSummaryArray()['expected_files'] ?? []);
+
+            return [
+                'kind' => 'confirmed_code_references',
+                'provider_calls' => 0,
+                'answer' => $refs === []
+                    ? 'No confirmed code reference was found for this workspace question.'
+                    : 'Confirmed code reference: '.implode(', ', array_map('strval', $refs)),
+                'refs' => $refs,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reviewAnswer(PlanOnlyResult $plan): array
+    {
+        $findings = $this->reviewFindingsFromDiff($this->workspaceDiff($plan));
+
+        return [
+            'kind' => 'diff_review_findings',
+            'provider_calls' => 0,
+            'findings' => $findings,
+            'finding_count' => count($findings),
+        ];
+    }
+
+    private function workspaceDiff(PlanOnlyResult $plan): string
+    {
+        $paths = [];
+        foreach ($plan->miniSpec->expectedFiles as $file) {
+            if (! is_string($file) || $file === '') {
+                continue;
+            }
+            $workspace = rtrim($plan->envelope->workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+            $real = realpath($file) ?: $file;
+            $paths[] = str_starts_with($real, $workspace)
+                ? substr($real, strlen($workspace))
+                : $file;
+        }
+
+        $process = new Process(array_merge(['git', '-C', $plan->envelope->workspace, 'diff', '--'], $paths));
+        $process->run();
+
+        return $process->getOutput();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function reviewFindingsFromDiff(string $diff): array
+    {
+        if ($diff === '') {
+            return [];
+        }
+
+        $file = null;
+        $removed = [];
+        $added = [];
+        foreach (explode("\n", $diff) as $line) {
+            if (str_starts_with($line, '+++ b/')) {
+                $file = substr($line, 6);
+
+                continue;
+            }
+            if (str_starts_with($line, '-') && ! str_starts_with($line, '---')) {
+                $removed[] = substr($line, 1);
+            }
+            if (str_starts_with($line, '+') && ! str_starts_with($line, '+++')) {
+                $added[] = substr($line, 1);
+            }
+        }
+
+        if (preg_match('/100\\s*-\\s*\\$percent/', implode("\n", $removed)) === 1
+            && preg_match('/100\\s*\\+\\s*\\$percent/', implode("\n", $added)) === 1) {
+            return [[
+                'severity' => 'high',
+                'file' => $file,
+                'title' => 'Discount calculation was inverted',
+                'body' => 'The diff changes the discount formula from subtracting percent to adding percent, so a 10% discount increases 1000 cents to 1100 instead of reducing it to 900.',
+            ]];
+        }
+
+        return [[
+            'severity' => 'medium',
+            'file' => $file,
+            'title' => 'Workspace diff requires review',
+            'body' => 'The diff changes executable code. No deterministic Atlas Dev review rule matched a concrete defect, so the operator should inspect the changed logic before accepting it.',
+        ]];
     }
 
     private function suggestedFlowFromRouting(PlanOnlyResult $plan): ?string

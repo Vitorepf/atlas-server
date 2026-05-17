@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Artisan;
 
 final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
 {
@@ -84,6 +85,15 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
         $resumptionCheckpoint = $this->operatorResumptionCheckpoint($orderedSteps, $firstBlocked, $completionAudit, $completionEvidence, $blockerExplainer, $completionAuditBlockerSummary);
         $operatorClosureCommandReplay = $this->operatorClosureCommandReplay($orderedSteps, $firstBlocked, $completionAudit, $completionEvidence, $blockerExplainer, $resumptionCheckpoint);
         $operatorHandoffPacket = $this->operatorHandoffPacket($orderedSteps, $firstBlocked, $blockerExplainer, $completionAuditBlockerSummary, $resumptionCheckpoint, $operatorClosureCommandReplay);
+        $terminalLoopClosureProof = $this->terminalLoopClosureProofPacket($completionAudit, $completionEvidence, $blockerExplainer);
+        $operatorCommandSurface = $this->operatorCommandSurface([
+            'ordered_steps' => $orderedSteps,
+            'operator_execution_plan' => $operatorExecutionPlan,
+            'operator_resumption_checkpoint' => $resumptionCheckpoint,
+            'operator_closure_command_replay' => $operatorClosureCommandReplay,
+            'operator_handoff_packet' => $operatorHandoffPacket,
+            'terminal_loop_closure_proof' => $terminalLoopClosureProof,
+        ]);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -98,6 +108,8 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'operator_resumption_checkpoint' => $resumptionCheckpoint,
             'operator_closure_command_replay' => $operatorClosureCommandReplay,
             'operator_handoff_packet' => $operatorHandoffPacket,
+            'terminal_loop_closure_proof' => $terminalLoopClosureProof,
+            'operator_command_surface' => $operatorCommandSurface,
             'step_count' => count($orderedSteps),
             'ready_step_count' => $readySteps,
             'blocked_step_count' => count($orderedSteps) - $readySteps,
@@ -267,6 +279,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
                 'stop_if_any_runtime_enabling_flag_is_true_before_final_human_receipt',
             ],
             'required_reruns_after_each_persist' => [
+                $this->terminalLoopOperationalProofCommand(),
                 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',
                 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
             ],
@@ -328,6 +341,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
                 $orderedSteps,
             )),
             'resume_commands' => [
+                'refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
                 'refresh_submission_preflight' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',
                 'refresh_operator_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
                 'refresh_final_operator_closure_corridor' => 'php artisan atlas:ai:self-construction --atlas-self-construction-final-operator-evidence-closure-corridor-status --json',
@@ -393,6 +407,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
                 'required_before' => (array) ($step['required_before'] ?? []),
                 'evidence_hash' => (string) ($step['evidence_hash'] ?? ''),
                 'must_rerun_after_persist' => $persistCommand === '' ? [] : [
+                    $this->terminalLoopOperationalProofCommand(),
                     $refreshSubmissionPreflight,
                     $refreshCompletionAudit,
                 ],
@@ -424,6 +439,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
                 'stop_if_any_guard_hash_changes_before_persist' => true,
             ],
             'proof_commands_after_each_persist' => [
+                'terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
                 'submission_preflight' => $refreshSubmissionPreflight,
                 'operator_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
                 'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
@@ -523,6 +539,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'current_completion_blockers_classified' => $this->classifiedBlockersForStep($currentStep, $completionAuditBlockerSummary),
             'ordered_step_ids' => array_map(static fn (array $step): string => (string) $step['id'], $orderedSteps),
             'proof_commands_after_each_persist' => [
+                'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json',
                 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-submission-preflight-status --json',
                 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
             ],
@@ -553,10 +570,169 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
         return $packet;
     }
 
+    /**
+     * @param  array<string, mixed>  $completionAudit
+     * @param  array<string, mixed>  $completionEvidence
+     * @param  array<string, mixed>  $blockerExplainer
+     * @return array<string, mixed>
+     */
+    private function terminalLoopClosureProofPacket(array $completionAudit, array $completionEvidence, array $blockerExplainer): array
+    {
+        $packet = [
+            'schema_version' => 'atlas.self_construction.terminal_loop_closure_proof_packet.v1',
+            'mode' => 'read_only_terminal_loop_closure_proof_packet',
+            'status' => 'operator_or_ci_should_refresh_before_final_persist',
+            'proof_command' => $this->terminalLoopOperationalProofCommand(),
+            'audit_command_with_binding' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json',
+            'expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            'required_before_final_completion_receipt' => true,
+            'required_before_human_completion_receipt_persist' => true,
+            'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
+            'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
+            'blocker_explainer_hash' => (string) data_get($blockerExplainer, 'explainer_hash', ''),
+            'acceptance_criteria' => [
+                'operational_proof_status_passed',
+                'operational_readiness_matrix_all_true',
+                'post_cycle_cycle_supervisor_review_evidence',
+                'completion_audit_binding_packet_ready',
+                'provider_token_dispatch_flags_false',
+            ],
+            'operator_steps' => [
+                'run_terminal_loop_operational_proof_status',
+                'save_completion_audit_binding_packet_from_payload',
+                'rerun_completion_audit_with_agent_control_plane_terminal_loop_operational_proof_json',
+                'continue_runtime_promotion_real_provider_smoke_human_receipt_sequence_only_if_audit_still_reports_expected_blockers',
+            ],
+            'stop_conditions' => [
+                'stop_if_operational_proof_status_is_not_passed',
+                'stop_if_operational_readiness_matrix_has_failed_rows',
+                'stop_if_post_cycle_cycle_supervisor_is_not_review_evidence',
+                'stop_if_binding_packet_can_mark_completion',
+                'stop_if_provider_or_token_or_dispatch_flags_are_true',
+            ],
+            'non_execution_guarantees' => [
+                'terminal_loop_closure_proof_packet_does_not_run_the_proof',
+                'terminal_loop_closure_proof_packet_does_not_persist_receipts',
+                'terminal_loop_closure_proof_packet_does_not_call_provider',
+                'terminal_loop_closure_proof_packet_does_not_spend_tokens',
+                'terminal_loop_closure_proof_packet_does_not_promote_completion',
+            ],
+        ];
+        $packet['terminal_loop_closure_proof_packet_hash'] = $this->stableHash($packet);
+
+        return $packet;
+    }
+
+    /**
+     * @param  array<string, mixed>  $sections
+     * @return array<string, mixed>
+     */
+    private function operatorCommandSurface(array $sections): array
+    {
+        $definition = Artisan::all()['atlas:ai:self-construction']->getDefinition();
+        $legacyAliases = [
+            'runtime-gap-matrix',
+            'runtime-promotion-receipt-draft',
+            'runtime-promotion-receipt-runbook',
+            'human-completion-receipt-closure-execution-pack',
+            'operator-evidence-submission-readiness',
+        ];
+        $commands = [];
+        $missingOptions = [];
+        $legacyAliasHits = [];
+
+        foreach ($this->collectArtisanCommands($sections) as $command) {
+            $options = $this->extractCommandOptions($command);
+            $missing = [];
+            $legacy = [];
+
+            foreach ($options as $option) {
+                if (! $definition->hasOption($option)) {
+                    $missing[] = $option;
+                    $missingOptions[] = $option;
+                }
+                if (in_array($option, $legacyAliases, true)) {
+                    $legacy[] = $option;
+                    $legacyAliasHits[] = $option;
+                }
+            }
+
+            $commands[] = [
+                'command' => $command,
+                'options' => $options,
+                'option_count' => count($options),
+                'all_options_available' => $missing === [],
+                'missing_options' => array_values(array_unique($missing)),
+                'legacy_aliases_detected' => array_values(array_unique($legacy)),
+            ];
+        }
+
+        $missingOptions = array_values(array_unique($missingOptions));
+        $legacyAliasHits = array_values(array_unique($legacyAliasHits));
+        $surface = [
+            'schema_version' => 'atlas.self_construction.completion_evidence_submission_preflight.command_surface.v1',
+            'status' => $missingOptions === [] && $legacyAliasHits === [] ? 'available' : 'blocked',
+            'all_commands_available' => $missingOptions === [],
+            'legacy_alias_free' => $legacyAliasHits === [],
+            'command_count' => count($commands),
+            'missing_option_count' => count($missingOptions),
+            'missing_options' => $missingOptions,
+            'legacy_alias_count' => count($legacyAliasHits),
+            'legacy_aliases_detected' => $legacyAliasHits,
+            'commands' => $commands,
+        ];
+        $surface['command_surface_hash'] = $this->stableHash($surface);
+
+        return $surface;
+    }
+
+    private function terminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function collectArtisanCommands(mixed $value): array
+    {
+        if (is_string($value)) {
+            return str_starts_with($value, 'php artisan atlas:ai:self-construction ')
+                ? [$value]
+                : [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $commands = [];
+        foreach ($value as $entry) {
+            array_push($commands, ...$this->collectArtisanCommands($entry));
+        }
+
+        return array_values(array_unique($commands));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractCommandOptions(string $command): array
+    {
+        preg_match_all('/(?:^|\s)--([A-Za-z0-9][A-Za-z0-9-]*)(?=\s|=|$)/', $command, $matches);
+
+        return array_values(array_unique(array_map('strval', $matches[1] ?? [])));
+    }
+
     /** @param array<string, mixed> $payload */
     private function stableHash(array $payload): string
     {
-        unset($payload['generated_at'], $payload['submission_preflight_hash']);
+        unset(
+            $payload['generated_at'],
+            $payload['submission_preflight_hash'],
+            $payload['command_surface_hash'],
+            $payload['terminal_loop_closure_proof_packet_hash'],
+        );
 
         return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }

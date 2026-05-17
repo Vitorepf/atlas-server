@@ -61,6 +61,9 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         'terminal_loop_fleet_lane_isolation_present',
         'terminal_loop_fleet_lane_bound_commands_verified',
         'terminal_loop_fleet_lane_no_cross_lane_launch_verified',
+        'terminal_loop_cycle_supervisor_present',
+        'terminal_loop_cycle_supervisor_launch_path_verified',
+        'terminal_loop_cycle_supervisor_evidence_review_path_verified',
         'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts',
         'worker_invalid_scope_rejected',
         'worker_bootstrap_preview_read_only',
@@ -229,6 +232,9 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_lane_isolation_present']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_lane_bound_commands_verified']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_lane_no_cross_lane_launch_verified']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_cycle_supervisor_present']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_cycle_supervisor_launch_path_verified']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_cycle_supervisor_evidence_review_path_verified']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts']['value']);
         $this->assertSame('available', data_get($result, 'terminal_loop_fleet_launch_plan_probe.status'));
         $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_launch_plan_probe.ready_path_verified'));
@@ -236,6 +242,9 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_launch_plan_probe.terminal_commands_lane_bound'));
         $this->assertSame('fleet_lane_isolation_tagged_lane_verified', data_get($result, 'terminal_loop_fleet_launch_plan_probe.lane_isolation_status'));
         $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_launch_plan_probe.lane_bound_commands_verified'));
+        $this->assertSame('cycle_worker_launch_ready', data_get($result, 'terminal_loop_fleet_launch_plan_probe.cycle_supervisor_status'));
+        $this->assertSame('launch_or_continue_workers', data_get($result, 'terminal_loop_fleet_launch_plan_probe.cycle_supervisor_cycle_state'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_launch_plan_probe.cycle_supervisor_launch_path_verified'));
         $this->assertSame('available', data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.status'));
         $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.no_cross_lane_launch_verified'));
         $this->assertSame(0, data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.target_claimable_task_count'));
@@ -265,6 +274,9 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_evidence_rollup_probe.green_path_verified'));
         $this->assertSame('fleet_evidence_rollup_green', data_get($result, 'terminal_loop_fleet_evidence_rollup_probe.rollup_status'));
         $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_evidence_rollup_probe.ready_for_operator_review'));
+        $this->assertSame('cycle_evidence_review_ready', data_get($result, 'terminal_loop_fleet_evidence_rollup_probe.cycle_supervisor_status'));
+        $this->assertSame('review_evidence', data_get($result, 'terminal_loop_fleet_evidence_rollup_probe.cycle_supervisor_cycle_state'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_evidence_rollup_probe.cycle_supervisor_evidence_review_path_verified'));
         $this->assertSame('available', data_get($result, 'post_cleanup_health_digest_probe.status'));
         $this->assertTrue((bool) data_get($result, 'post_cleanup_health_digest_probe.cleanup_left_no_recoverable_artifacts'));
         $this->assertSame(0, data_get($result, 'post_cleanup_health_digest_probe.claimed_task_count'));

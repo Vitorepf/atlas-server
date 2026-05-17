@@ -11,6 +11,7 @@ use App\Http\Requests\AtlasDev\RunRequest;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
+use App\Services\Ai\Programming\AtlasDev\Runtime\RunWorkerDispatcher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
@@ -45,6 +46,7 @@ final class RunController extends Controller
         private readonly ConfirmationTokenService $tokens,
         private readonly ConfigRepository $config,
         private readonly AtlasDevRunIndexRepository $runIndex,
+        private readonly RunWorkerDispatcher $workerDispatcher,
         private readonly HttpResponseRedactor $redactor = new HttpResponseRedactor,
     ) {}
 
@@ -123,7 +125,7 @@ final class RunController extends Controller
             ], 500);
         }
 
-        $dispatchMode = (string) $this->config->get('atlas_dev.efficient.run_dispatch_mode', 'after_response');
+        $dispatchMode = (string) $this->config->get('atlas_dev.efficient.run_dispatch_mode', 'process');
         if ($dispatchMode === 'inline') {
             try {
                 $result = $this->executeProviderRun(
@@ -168,6 +170,43 @@ final class RunController extends Controller
             'task_contract_hash' => $providedHash,
         ]);
         $this->runIndex->updateCompletion($runId, 'queued');
+
+        if ($dispatchMode === 'process') {
+            try {
+                $pid = $this->workerDispatcher->dispatch($runId, $providedHash, $tokenResult->expectedCompactSddHash);
+                $this->recordRunState($runId, 'queued', [
+                    'dispatch_mode' => $dispatchMode,
+                    'task_contract_hash' => $providedHash,
+                    'worker_pid' => $pid,
+                ]);
+            } catch (Throwable $e) {
+                $this->recordRunState($runId, 'failed', [
+                    'error_code' => 'ATLAS_DEV_RUN_DISPATCH_FAILED',
+                    'message' => $this->redactThrowableMessage($e->getMessage(), $token),
+                    'task_contract_hash' => $providedHash,
+                ]);
+                $this->runIndex->updateCompletion($runId, 'failed');
+
+                return response()->json([
+                    'error' => [
+                        'code' => 'ATLAS_DEV_RUN_DISPATCH_FAILED',
+                        'message' => 'Atlas Dev failed to start the run worker.',
+                    ],
+                ], 500);
+            }
+
+            return response()->json([
+                'data' => [
+                    'ok' => true,
+                    'run_id' => $runId,
+                    'task_contract_hash' => $providedHash,
+                    'state' => 'queued',
+                    'completion_state' => null,
+                    'dispatch_mode' => $dispatchMode,
+                    'worker_pid' => $pid,
+                ],
+            ], 202);
+        }
 
         app()->terminating(function () use ($envelope, $taskContract, $promptProjection, $runId, $providedHash, $tokenResult, $token): void {
             $this->recordRunState($runId, 'running', [

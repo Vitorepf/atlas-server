@@ -87,8 +87,13 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
         $this->assertContains('do_not_accept_placeholder_receipts', $bundle['final_operator_packet']['stop_conditions']);
         $this->assertContains('do_not_accept_fake_provider_smoke', $bundle['final_operator_packet']['stop_conditions']);
         $this->assertContains('verify_runtime_promotion_closure_pack', $bundle['evidence_dependencies']['ordered_closure_path']);
+        $this->assertContains('refresh_terminal_loop_operational_proof', $bundle['evidence_dependencies']['ordered_closure_path']);
+        $this->assertContains('rerun_completion_audit_with_terminal_loop_operational_proof', $bundle['evidence_dependencies']['ordered_closure_path']);
         $this->assertArrayHasKey('completion_evidence_hash_composer', $bundle['final_operator_packet']['commands_to_rerun']);
         $this->assertArrayHasKey('completion_audit', $bundle['final_operator_packet']['commands_to_rerun']);
+        $this->assertArrayHasKey('terminal_loop_operational_proof', $bundle['final_operator_packet']['commands_to_rerun']);
+        $this->assertArrayHasKey('completion_audit_with_terminal_loop_operational_proof', $bundle['final_operator_packet']['commands_to_rerun']);
+        $this->assertTrue((bool) $bundle['final_operator_packet']['terminal_loop_operational_proof_required_before_completion_claim']);
         $this->assertArrayHasKey('capture_snapshot_if_stale', $bundle['final_operator_packet']['commands_to_rerun']);
     }
 
@@ -99,6 +104,7 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
             'human_receipt_passed' => true,
             'real_provider_smoke_passed' => true,
             'completion_audit_complete' => true,
+            'terminal_loop_operational_proof_passed' => true,
             'failed_criteria' => [],
         ]);
         $bundle = $this->bundle()->build($options);
@@ -188,6 +194,10 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
                 'schema_version' => 'atlas.self_construction.os_completion_audit.v1',
                 'status' => $completionAuditComplete ? 'complete' : 'incomplete',
                 'completion_allowed' => $completionAuditComplete,
+                'agent_control_plane_terminal_loop_operational_proof_evidence' => [
+                    'status' => ((bool) ($overrides['terminal_loop_operational_proof_passed'] ?? false)) ? 'passed' : 'not_supplied_to_read_only_audit',
+                    'passed' => (bool) ($overrides['terminal_loop_operational_proof_passed'] ?? false),
+                ],
                 'failed_criteria' => $failedCriteria,
                 'criteria' => [
                     ['id' => 'release_dossier_green', 'passed' => true],

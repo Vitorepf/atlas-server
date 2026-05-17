@@ -2459,15 +2459,20 @@ final class AtlasForgeRivalsReportService
         array $hardFailures,
         ?string $winner,
         array $scorecard,
+        ?string $declaredWhy = null,
     ): string {
         $isInvalid = str_starts_with($verdict, 'invalid');
         $scoreSource = (string) ($scorecard['score_source'] ?? '');
         $gateWinner = $scorecard['gate_winner'] ?? null;
         $gateOutcome = $scoreSource === 'gate_outcome'
             && in_array($gateWinner, [AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS, AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL], true);
+        $multiCaseGateOutcome = ($scoreSource === 'multi_case_deterministic_gate_rollup'
+            || str_starts_with((string) $declaredWhy, 'multi_case_gate_winner:'))
+            && in_array($winner, [AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS, AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL], true);
 
         return match (true) {
             $gateOutcome => '**Verdict:** GATE WINNER = '.($gateWinner === AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS ? 'Atlas Forge' : 'Rival baseline').' · QUALITY SCORE = N/A · ZERO external claim · external claim blocked',
+            $multiCaseGateOutcome => '**Verdict:** MEASURED WINNER = '.($winner === AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS ? 'Atlas Forge' : 'Rival baseline').' · CASE FAILURES PRESENT · QUALITY SCORE = N/A · ZERO external claim · external claim blocked',
             $isInvalid => '**Verdict:** INVALID · `'.$verdict.'` · ZERO claim · score=null',
             ! $replayOk => '**Verdict:** REPLAY FAILED · evidence pack untrustworthy · ZERO claim',
             $hardFailures !== [] => '**Verdict:** HARD-FAIL · '.count($hardFailures).' gate(s) failed · ZERO claim',
@@ -2774,6 +2779,7 @@ final class AtlasForgeRivalsReportService
             hardFailures: $hardFailures,
             winner: $winner,
             scorecard: $scorecard,
+            declaredWhy: $declaredWhy,
         );
         $scoreLine = sprintf(
             '- atlas_score: **%s** · rival_score: **%s** · threshold: %s',

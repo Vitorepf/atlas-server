@@ -133,10 +133,13 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
         $realProviderSmokeReady = (string) data_get($realProviderSmoke, 'status') === 'passed';
         $humanCompletionReceiptReady = (string) data_get($humanReceipt, 'status') === 'passed';
         $releaseDossierReady = $this->releaseDossierReady($completionAudit);
+        $terminalLoopOperationalProofReady = (string) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.status') === 'passed'
+            && (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.passed', false) === true;
         $finalCompletionAllowed = $runtimePromotionReady
             && $realProviderSmokeReady
             && $humanCompletionReceiptReady
             && $releaseDossierReady
+            && $terminalLoopOperationalProofReady
             && $completionAuditGreen
             && $failedCriteria === [];
 
@@ -156,6 +159,7 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
                 'real_provider_smoke_ready' => $realProviderSmokeReady,
                 'human_completion_receipt_ready' => $humanCompletionReceiptReady,
                 'release_dossier_ready' => $releaseDossierReady,
+                'terminal_loop_operational_proof_ready' => $terminalLoopOperationalProofReady,
                 'completion_audit_green' => $completionAuditGreen,
                 'final_completion_allowed' => $finalCompletionAllowed,
             ],
@@ -167,6 +171,8 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
                     'persist_real_provider_smoke_certification',
                     'persist_human_os_completion_receipt',
                     'rerun_completion_audit',
+                    'refresh_terminal_loop_operational_proof',
+                    'rerun_completion_audit_with_terminal_loop_operational_proof',
                     'promote_next_stage_only_after_audit_complete',
                 ],
                 'missing_components' => $missingComponents,
@@ -196,8 +202,12 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
                     'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
                     'completion_evidence_hash_composer' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-evidence-hash-composer-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --completion-receipt-json=@/path/to/completion-receipt.json --real-provider-smoke-json=@/path/to/real-provider-smoke.json --json',
                     'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                    'terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
+                    'completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
                     'capture_snapshot_if_stale' => 'php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture --json',
                 ],
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
                 'stop_conditions' => [
                     'do_not_accept_placeholder_receipts',
                     'do_not_accept_hash_mismatch',
@@ -232,6 +242,16 @@ final class AtlasSelfConstructionFinalEvidenceBundleService
         $payload['machine_status']['final_bundle_hash'] = $bundleHash;
 
         return $payload;
+    }
+
+    private function terminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function completionAuditWithTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
     }
 
     /** @param array<int, mixed> $arguments */

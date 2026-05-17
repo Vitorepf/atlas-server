@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Discovery;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
+use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CodeCandidate;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\MissingRef;
-use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
 use Throwable;
@@ -89,6 +89,7 @@ final class CodeDiscoveryEngine
                     'confidence' => 0.95,
                     'symbols' => [],
                 ];
+
                 continue;
             }
 
@@ -253,7 +254,7 @@ final class CodeDiscoveryEngine
         }
 
         $paths = [];
-        if (preg_match_all('@(?<![\w./])([A-Za-z0-9_./-]+\.(?:php|ts|tsx|js|jsx|md|blade\.php))@u', $haystack, $matches) > 0) {
+        if (preg_match_all('@(?<![\w./])([A-Za-z0-9_./-]+\.(?:php|ts|tsx|js|jsx|html|css|md|blade\.php))@u', $haystack, $matches) > 0) {
             foreach ($matches[1] as $hit) {
                 $paths[] = trim($hit);
             }

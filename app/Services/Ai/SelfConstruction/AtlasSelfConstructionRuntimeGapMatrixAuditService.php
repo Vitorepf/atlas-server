@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Artisan;
 
 /**
  * Atlas Self-Construction OS · Runtime Gap Matrix Audit (v1).
@@ -112,6 +113,7 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
         }
 
         $status = $stillOpen === [] && $blockers === [] ? 'passed' : 'blocked';
+        $implementationPacketCommandSurface = $this->implementationPacketCommandSurface($gaps);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -131,6 +133,7 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
             'auto_closeable_locally_count' => count($autoCloseable),
             'closure_class_index' => $byClass,
             'gaps' => $gaps,
+            'implementation_packet_command_surface' => $implementationPacketCommandSurface,
             'blockers' => $blockers,
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
@@ -340,7 +343,7 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
         if ($closureClass === self::CLOSURE_AUTO) {
             return $base + [
                 'commands' => [
-                    sprintf('php artisan atlas:ai:self-construction --runtime-gap-matrix --json'),
+                    'php artisan atlas:ai:self-construction --atlas-self-construction-os-runtime-gap-matrix-audit-status --json',
                 ],
                 'acceptance_criteria' => [
                     'matrix row has runtime_y=true with cited evidence_hash',
@@ -359,7 +362,7 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
             return $base + [
                 'commands' => array_filter([
                     $statusFlag === '' ? null : sprintf('php artisan atlas:ai:self-construction %s --json', $statusFlag),
-                    'php artisan atlas:ai:self-construction --runtime-gap-matrix --json',
+                    'php artisan atlas:ai:self-construction --atlas-self-construction-os-runtime-gap-matrix-audit-status --json',
                 ]),
                 'acceptance_criteria' => [
                     'graduation_status=passed for gap_id='.$gapId,
@@ -380,8 +383,8 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
         // requires_operator_signed_receipt (matrix row but no candidate yet)
         return $base + [
             'commands' => [
-                'php artisan atlas:ai:self-construction --runtime-gap-matrix --json',
-                'php artisan atlas:ai:self-construction --runtime-promotion-receipt-draft --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-os-runtime-gap-matrix-audit-status --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
             ],
             'acceptance_criteria' => [
                 'operator-signed runtime promotion receipt persisted',
@@ -429,8 +432,8 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
 
         return $packet + [
             'commands' => [
-                'php artisan atlas:ai:self-construction --human-completion-receipt-closure-execution-pack --json',
-                'php artisan atlas:ai:self-construction --operator-evidence-submission-readiness --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-closure-execution-pack-status --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
                 '// then: operator must physically sign the OS-complete receipt and submit it via the documented channel',
             ],
             'acceptance_criteria' => [
@@ -481,8 +484,9 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
 
         return $packet + [
             'commands' => [
-                'php artisan atlas:ai:self-construction --runtime-promotion-receipt-draft --json',
-                'php artisan atlas:ai:self-construction --runtime-promotion-receipt-runbook --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-runbook-status --json',
+                'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-runbook-status --json',
                 '// then: operator must run the SIGNED release chain through the agent-control-plane gates,',
                 '// from one-shot scheduler tick release receipt → process spawn enablement → final spawn executor → external runtime driver.',
                 '// THIS AUDIT DOES NOT INITIATE ANY OF THOSE STEPS.',
@@ -518,9 +522,89 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
         };
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $gaps
+     * @return array<string, mixed>
+     */
+    private function implementationPacketCommandSurface(array $gaps): array
+    {
+        $definition = Artisan::all()['atlas:ai:self-construction']->getDefinition();
+        $legacyAliases = [
+            'runtime-gap-matrix',
+            'runtime-promotion-receipt-draft',
+            'runtime-promotion-receipt-runbook',
+            'human-completion-receipt-closure-execution-pack',
+            'operator-evidence-submission-readiness',
+        ];
+        $commands = [];
+        $missingOptions = [];
+        $legacyAliasHits = [];
+
+        foreach ($gaps as $gap) {
+            foreach ((array) data_get($gap, 'implementation_packet.commands', []) as $command) {
+                $command = (string) $command;
+                if (! str_starts_with($command, 'php artisan atlas:ai:self-construction ')) {
+                    continue;
+                }
+
+                $options = $this->extractCommandOptions($command);
+                $missing = [];
+                $legacy = [];
+                foreach ($options as $option) {
+                    if (! $definition->hasOption($option)) {
+                        $missing[] = $option;
+                        $missingOptions[] = $option;
+                    }
+                    if (in_array($option, $legacyAliases, true)) {
+                        $legacy[] = $option;
+                        $legacyAliasHits[] = $option;
+                    }
+                }
+
+                $commands[] = [
+                    'gap_id' => (string) ($gap['gap_id'] ?? ''),
+                    'command' => $command,
+                    'options' => $options,
+                    'option_count' => count($options),
+                    'all_options_available' => $missing === [],
+                    'missing_options' => array_values(array_unique($missing)),
+                    'legacy_aliases_detected' => array_values(array_unique($legacy)),
+                ];
+            }
+        }
+
+        $missingOptions = array_values(array_unique($missingOptions));
+        $legacyAliasHits = array_values(array_unique($legacyAliasHits));
+        $surface = [
+            'schema_version' => 'atlas.self_construction.runtime_gap_matrix_audit.command_surface.v1',
+            'status' => $missingOptions === [] && $legacyAliasHits === [] ? 'available' : 'blocked',
+            'all_commands_available' => $missingOptions === [],
+            'legacy_alias_free' => $legacyAliasHits === [],
+            'command_count' => count($commands),
+            'missing_option_count' => count($missingOptions),
+            'missing_options' => $missingOptions,
+            'legacy_alias_count' => count($legacyAliasHits),
+            'legacy_aliases_detected' => $legacyAliasHits,
+            'commands' => $commands,
+        ];
+        $surface['command_surface_hash'] = $this->stableHash($surface);
+
+        return $surface;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractCommandOptions(string $command): array
+    {
+        preg_match_all('/(?:^|\s)--([A-Za-z0-9][A-Za-z0-9-]*)(?=\s|=|$)/', $command, $matches);
+
+        return array_values(array_unique(array_map('strval', $matches[1] ?? [])));
+    }
+
     private function stableHash(array $payload): string
     {
-        unset($payload['audited_at'], $payload['runtime_gap_matrix_audit_hash']);
+        unset($payload['audited_at'], $payload['runtime_gap_matrix_audit_hash'], $payload['command_surface_hash']);
 
         return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }

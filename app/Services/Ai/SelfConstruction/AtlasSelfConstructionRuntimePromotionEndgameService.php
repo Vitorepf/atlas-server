@@ -140,6 +140,9 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'persistence_blocked_reason' => $this->persistenceBlockedReason($receiptUnderReview !== [], $receiptReadyForPersistence, $preSubmissionPassed, $persistRequested),
             'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
             'rerun_matrix_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
+            'terminal_loop_operational_proof_command' => $this->terminalLoopOperationalProofCommand(),
+            'rerun_audit_with_terminal_loop_operational_proof_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+            'terminal_loop_operational_proof_required_before_final_audit' => true,
             'rerun_audit_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
         ];
         $operatorSubmissionEnvelope = $this->operatorSubmissionEnvelope(
@@ -327,6 +330,8 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'post_persistence_next_commands' => $persisted ? [
                 'rerun_runtime_gap_matrix' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
                 'rerun_completion_evidence' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'refresh_terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
+                'rerun_completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
                 'rerun_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
                 'inspect_runtime_promotion_evidence_dossier' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-evidence-dossier-status --json',
                 'inspect_completion_audit_blocker_explainer' => 'php artisan atlas:ai:self-construction --atlas-self-construction-completion-audit-blocker-explainer-status --json',
@@ -660,8 +665,12 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'post_persistence_commands' => [
                 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
                 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                $this->terminalLoopOperationalProofCommand(),
+                $this->completionAuditWithTerminalLoopOperationalProofCommand(),
                 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
             ],
+            'terminal_loop_operational_proof_required_before_final_audit' => true,
+            'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             'operator_checks_before_persisting' => [
                 'receipt_json_sha256_matches_saved_file',
                 'receipt_hash_matches_payload',
@@ -691,6 +700,16 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'passed' => $passed,
             'blocking_reason' => $passed ? '' : $blockingReason,
         ];
+    }
+
+    private function terminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+    }
+
+    private function completionAuditWithTerminalLoopOperationalProofCommand(): string
+    {
+        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
     }
 
     /** @return array<string, mixed> */

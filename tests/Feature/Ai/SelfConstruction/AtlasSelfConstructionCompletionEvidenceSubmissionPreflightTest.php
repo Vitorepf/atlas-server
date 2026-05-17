@@ -60,6 +60,26 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
             '--atlas-self-construction-completion-evidence-submission-preflight-status',
             data_get($payload, 'operator_closure_command_replay.proof_commands_after_each_persist.submission_preflight'),
         );
+        $this->assertStringContainsString(
+            '--agent-control-plane-terminal-loop-operational-proof-status',
+            data_get($payload, 'operator_closure_command_replay.proof_commands_after_each_persist.terminal_loop_operational_proof'),
+        );
+        $this->assertSame('atlas.self_construction.terminal_loop_closure_proof_packet.v1', data_get($payload, 'terminal_loop_closure_proof.schema_version'));
+        $this->assertSame('operator_or_ci_should_refresh_before_final_persist', data_get($payload, 'terminal_loop_closure_proof.status'));
+        $this->assertTrue(data_get($payload, 'terminal_loop_closure_proof.required_before_final_completion_receipt'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', data_get($payload, 'terminal_loop_closure_proof.proof_command'));
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json', data_get($payload, 'terminal_loop_closure_proof.audit_command_with_binding'));
+        $this->assertContains('post_cycle_cycle_supervisor_review_evidence', data_get($payload, 'terminal_loop_closure_proof.acceptance_criteria'));
+        $this->assertContains('stop_if_post_cycle_cycle_supervisor_is_not_review_evidence', data_get($payload, 'terminal_loop_closure_proof.stop_conditions'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'terminal_loop_closure_proof.terminal_loop_closure_proof_packet_hash'));
+        $this->assertSame('atlas.self_construction.completion_evidence_submission_preflight.command_surface.v1', data_get($payload, 'operator_command_surface.schema_version'));
+        $this->assertSame('available', data_get($payload, 'operator_command_surface.status'));
+        $this->assertTrue(data_get($payload, 'operator_command_surface.all_commands_available'));
+        $this->assertTrue(data_get($payload, 'operator_command_surface.legacy_alias_free'));
+        $this->assertGreaterThanOrEqual(9, (int) data_get($payload, 'operator_command_surface.command_count'));
+        $this->assertSame(0, data_get($payload, 'operator_command_surface.missing_option_count'));
+        $this->assertSame(0, data_get($payload, 'operator_command_surface.legacy_alias_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'operator_command_surface.command_surface_hash'));
         $this->assertTrue(data_get($payload, 'operator_handoff_packet.can_resume_without_chat_history'));
         $this->assertFalse($payload['completion_claim_allowed']);
         $this->assertContains('completion_evidence_submission_preflight_does_not_persist_receipts', $payload['non_execution_guarantees']);
@@ -129,6 +149,14 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
         $this->assertSame('runtime_promotion_receipt', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_closure_command_replay_current_step'));
         $this->assertSame(5, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_closure_command_replay_step_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_closure_command_replay_hash'));
+        $this->assertSame('operator_or_ci_should_refresh_before_final_persist', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_status'));
+        $this->assertTrue(data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_required_before_final_receipt'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_packet_hash'));
+        $this->assertSame('available', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_surface_status'));
+        $this->assertGreaterThanOrEqual(9, (int) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_count'));
+        $this->assertSame(0, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_missing_option_count'));
+        $this->assertSame(0, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_legacy_alias_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_surface_hash'));
         $this->assertFalse($status['execution_allowed']);
 
         $exit = Artisan::call('atlas:ai:self-construction', [

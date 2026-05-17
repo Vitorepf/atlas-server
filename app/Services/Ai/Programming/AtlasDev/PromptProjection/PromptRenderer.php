@@ -25,12 +25,13 @@ final class PromptRenderer
     /**
      * @param  array<string, string>  $upstreamHashes
      * @param  array{flow_id: string, flow_origin: string, command_intent: ?string, workspace_hash: string}|null  $flow
-     *        Atlas Dev flow identity stamped into the prompt header. When null
-     *        (legacy callers) defaults are emitted so the template never shows
-     *        empty headers.
+     *                                                                                                                   Atlas Dev flow identity stamped into the prompt header. When null
+     *                                                                                                                   (legacy callers) defaults are emitted so the template never shows
+     *                                                                                                                   empty headers.
      * @param  array{provider: string, model_family: string, fallback_allowed: bool}|null  $providerLock
-     *        Provider lock fields rendered explicitly so the model sees that
-     *        fallback is forbidden.
+     *                                                                                                    Provider lock fields rendered explicitly so the model sees that
+     *                                                                                                    fallback is forbidden.
+     * @param  list<array{path: string, sha256: string, content: string, truncated: bool}>  $fileExcerpts
      */
     public function render(
         string $runId,
@@ -40,6 +41,7 @@ final class PromptRenderer
         PromptSections $sections,
         ?array $flow = null,
         ?array $providerLock = null,
+        array $fileExcerpts = [],
     ): string {
         $template = $this->loadTemplate();
 
@@ -51,6 +53,7 @@ final class PromptRenderer
             'sections' => $this->sectionsToTemplateArray($sections),
             'flow' => $this->normaliseFlow($flow),
             'providerLock' => $this->normaliseProviderLock($providerLock, $provider, $modelFamily),
+            'fileExcerpts' => $this->normaliseFileExcerpts($fileExcerpts),
         ], deleteCachedView: true);
 
         return $this->normaliseLineEndings($rendered);
@@ -189,6 +192,31 @@ final class PromptRenderer
             'model_family' => $effectiveModel,
             'fallback_allowed' => $fallback ? 'true' : 'false',
         ];
+    }
+
+    /**
+     * @param  list<array{path?: string, sha256?: string, content?: string, truncated?: bool}>  $fileExcerpts
+     * @return list<array{path: string, sha256: string, content: string, truncated: string}>
+     */
+    private function normaliseFileExcerpts(array $fileExcerpts): array
+    {
+        $normalised = [];
+        foreach ($fileExcerpts as $excerpt) {
+            $path = isset($excerpt['path']) && is_string($excerpt['path']) ? trim($excerpt['path']) : '';
+            $sha = isset($excerpt['sha256']) && is_string($excerpt['sha256']) ? trim($excerpt['sha256']) : '';
+            $content = isset($excerpt['content']) && is_string($excerpt['content']) ? $excerpt['content'] : '';
+            if ($path === '' || $sha === '' || $content === '') {
+                continue;
+            }
+            $normalised[] = [
+                'path' => $path,
+                'sha256' => $sha,
+                'content' => $content,
+                'truncated' => (bool) ($excerpt['truncated'] ?? false) ? 'true' : 'false',
+            ];
+        }
+
+        return $normalised;
     }
 
     private function normaliseLineEndings(string $rendered): string

@@ -31,11 +31,14 @@ final class PromptSectionsMapper
         'Patches pequenos sao preferidos a refactors amplos; quebre em diff minimo.',
         'Preserve as mudancas preexistentes do usuario no worktree; nao reverta arquivos fora do diff.',
         'Use context_refs como leitura primaria; nao invente paths nem cite arquivos fora da lista.',
+        'Nao use ferramentas de escrita, edicao, shell ou teste; Atlas Dev aplica o diff e roda verificacao fora do provider.',
+        'Se uma ferramenta pedir permissao de escrita, nao espere aprovacao: responda somente com unified diff.',
         'A resposta deve caber exatamente nas secoes do output_contract; sem narrativa solta.',
     ];
 
     public const OUTPUT_CONTRACT_CLAUSES = [
         'diff em formato unified (sem prefixo a/ b/ relativo a outro repo)',
+        'somente texto de diff; nunca aplique patch diretamente, nunca aguarde permissao de escrita',
         'lista de changed_files (paths relativos ao workspace)',
         'no_patch_needed=true + razao curta quando os acceptance criteria nao forem verificaveis',
         'acceptance_criteria com status (pass|fail|untested) e evidence_path (log/teste) quando aplicavel',
