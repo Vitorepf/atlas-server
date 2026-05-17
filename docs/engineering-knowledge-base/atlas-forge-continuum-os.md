@@ -31,11 +31,13 @@ decisions:
   - Se nenhum provider capaz estiver disponivel, o Forge bloqueia honestamente com `provider_capacity_exhausted`.
   - Tempo e custo sao secundarios diante de entrega one-shot enterprise robusta, completa, testada e auditavel.
   - Quando o Forge evoluir o proprio Atlas, Proposal Power Gate, before/after delta, invariant lock e regression sentinel sao obrigatorios.
+  - Atlas Forge Obra Enterprise Loop Upgrade define como o Forge absorve, em versao Obra enterprise, audit, execution receipt, repair ledger, incident capsule, learning handoff e strict mode inspirados no Atlas Dev.
 maintenance:
   - Atualize este doc antes de alterar Atlas Code Forge, Atlas Decide provider routing, fallback, provider topology, Rivals, review, repair ou completion claim.
   - Mantenha este doc como pagina-mae do sistema inteiro; docs filhos detalham runtime, UI, Rivals, work intake, review e execution.
 related_paths:
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
+  - docs/engineering-knowledge-base/atlas-forge-obra-enterprise-loop-upgrade.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-contracts.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-runbook.md
@@ -156,6 +158,7 @@ observability_signals:
   - rivals_evaluation_status
 next_actions:
   - Implementar `atlas_forge_continuum_certification` no completion audit.
+  - Implementar Forge Obra Enterprise Loop Upgrade como camada de audit, execution receipt, repair ledger, incident capsule e Command Center.
   - Implementar Provider Topology read model, UI e fallback classification caso ainda nao existam como eixo certificado.
 ---
 # Atlas Forge Continuum OS

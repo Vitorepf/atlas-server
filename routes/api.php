@@ -31,6 +31,8 @@ use App\Http\Controllers\AtlasAiQualitativeLevelsController;
 use App\Http\Controllers\AtlasAiRepairController;
 use App\Http\Controllers\AtlasAiRepairReportController;
 use App\Http\Controllers\AtlasAiRivalsStrategyController;
+use App\Http\Controllers\AtlasAiRouterRuntimeBootstrapController;
+use App\Http\Controllers\AtlasAiRouterRuntimeReadinessController;
 use App\Http\Controllers\AtlasAiRuntimeBoundaryController;
 use App\Http\Controllers\AtlasAiSelfImprovementScheduleController;
 use App\Http\Controllers\AtlasAiSelfImprovementScheduleHealthController;
@@ -417,6 +419,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/architecture/validate', AtlasAiArchitectureValidateController::class);
     Route::get('/ai/architecture/operations', AtlasAiArchitectureOperationsController::class);
     Route::get('/ai/architecture/readiness', [AtlasAiGovernanceController::class, 'architectureReadiness']);
+    Route::get('/ai/router-runtime/bootstrap', AtlasAiRouterRuntimeBootstrapController::class);
+    Route::get('/ai/router-runtime/readiness', AtlasAiRouterRuntimeReadinessController::class);
     Route::get('/ai/runtime-boundary', AtlasAiRuntimeBoundaryController::class);
     Route::get('/ai/structure-mother-audit', AtlasAiStructureMotherAuditController::class);
     Route::post('/ai/mobile/push/replay', AtlasMobilePushReplayController::class);
@@ -505,6 +509,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/interactions/atlas-dev/runs/{runId}', ShowController::class)
         ->where('runId', '[A-Za-z0-9._-]{1,128}')
         ->name('atlas-dev.runs.show');
+    Route::get('/ai/interactions/{trace}/flow-status', [AiInteractionController::class, 'flowStatus']);
     Route::get('/ai/interactions/{trace}', [AiInteractionController::class, 'show']);
     Route::get('/ai/interactions/{trace}/attachments/{attachment}/content', [AiInteractionController::class, 'attachmentContent']);
     Route::get('/ai/interactions/{trace}/attachments/{attachment}/pages/{page}', [AiInteractionController::class, 'attachmentPage']);

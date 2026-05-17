@@ -41,6 +41,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
                 'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
                 'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
                 'forge_self_improvement_smoke' => (array) ($options['forge_self_improvement_smoke'] ?? []),
+                'agent_control_plane_terminal_loop_operational_proof' => (array) ($options['agent_control_plane_terminal_loop_operational_proof'] ?? []),
             ]));
 
         $criteria = (array) data_get($completionAudit, 'criteria', []);
@@ -70,8 +71,10 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
         $smokeGreen = (bool) data_get($criteriaMatrix, 'end_to_end_real_provider_smoke_green.passed', false);
         $materialEvidence = $this->materialEvidence($criteriaMatrix);
         $materialEvidenceGreen = $materialEvidence['all_required_hashes_present'] === true;
+        $terminalLoopOperationalProof = $this->terminalLoopOperationalProofEvidence($completionAudit);
+        $terminalLoopOperationalProofGreen = $terminalLoopOperationalProof['accepted'] === true;
 
-        if ($auditComplete && $materialEvidenceGreen) {
+        if ($auditComplete && $materialEvidenceGreen && $terminalLoopOperationalProofGreen) {
             $status = 'complete';
         } elseif ($blockers === ['human_signed_os_complete_receipt_present']
             && $runtimeGreen
@@ -91,6 +94,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
                 $blockers,
                 $auditComplete ? [] : ['completion_audit_not_status_complete'],
                 $materialEvidenceGreen ? [] : ['material_completion_evidence_hashes_missing_or_invalid'],
+                $terminalLoopOperationalProofGreen ? [] : ['terminal_loop_operational_proof_binding_missing_or_invalid'],
             )));
         $selfProgrammingTransitionReadiness = $this->selfProgrammingTransitionReadiness($nextStageAllowed, $nextStageBlockers);
 
@@ -116,6 +120,8 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
             'smoke_green' => $smokeGreen,
             'material_completion_evidence_green' => $materialEvidenceGreen,
             'material_completion_evidence' => $materialEvidence,
+            'terminal_loop_operational_proof_green' => $terminalLoopOperationalProofGreen,
+            'terminal_loop_operational_proof_evidence' => $terminalLoopOperationalProof,
             'criteria_matrix' => $criteriaMatrix,
             'completion_audit_status' => (string) data_get($completionAudit, 'status'),
             'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
@@ -167,6 +173,41 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
     private function completionAuditWithTerminalLoopOperationalProofCommand(): string
     {
         return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
+    }
+
+    /**
+     * @param  array<string, mixed>  $completionAudit
+     * @return array<string, mixed>
+     */
+    private function terminalLoopOperationalProofEvidence(array $completionAudit): array
+    {
+        $evidence = (array) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence', []);
+        $proofHash = (string) data_get($evidence, 'proof_hash', '');
+        $validationViolationCount = (int) data_get($evidence, 'validation_violation_count', 0);
+        $accepted = (string) data_get($evidence, 'status', '') === 'passed'
+            && (bool) data_get($evidence, 'supplied', false)
+            && (bool) data_get($evidence, 'passed', false)
+            && $validationViolationCount === 0
+            && preg_match('/^[a-f0-9]{64}$/', $proofHash) === 1
+            && (bool) data_get($evidence, 'dispatch_allowed', true) === false
+            && (bool) data_get($evidence, 'adapter_execution_allowed', true) === false
+            && (bool) data_get($evidence, 'self_programming_allowed', true) === false
+            && (int) data_get($evidence, 'post_cycle_cleanup_state.claimed_task_count', 1) === 0
+            && (int) data_get($evidence, 'post_cycle_cleanup_state.active_lease_count', 1) === 0
+            && (int) data_get($evidence, 'post_cycle_cleanup_state.recoverable_lease_count', 1) === 0;
+
+        return [
+            'status' => (string) data_get($evidence, 'status', ''),
+            'supplied' => (bool) data_get($evidence, 'supplied', false),
+            'passed' => (bool) data_get($evidence, 'passed', false),
+            'accepted' => $accepted,
+            'proof_hash' => $proofHash,
+            'validation_violation_count' => $validationViolationCount,
+            'post_cycle_cleanup_state' => (array) data_get($evidence, 'post_cycle_cleanup_state', []),
+            'dispatch_allowed' => (bool) data_get($evidence, 'dispatch_allowed', false),
+            'adapter_execution_allowed' => (bool) data_get($evidence, 'adapter_execution_allowed', false),
+            'self_programming_allowed' => (bool) data_get($evidence, 'self_programming_allowed', false),
+        ];
     }
 
     /** @param array<string, array<string, mixed>> $criteriaMatrix */

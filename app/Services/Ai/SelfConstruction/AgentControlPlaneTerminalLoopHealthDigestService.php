@@ -34,6 +34,12 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
 
     public const MODE = 'read_only_agent_control_plane_terminal_loop_health_digest';
 
+    private const OPERATOR_ONLY_COMPLETION_CRITERIA = [
+        'runtime_gap_matrix_all_runtime_y',
+        'human_signed_os_complete_receipt_present',
+        'end_to_end_real_provider_smoke_green',
+    ];
+
     public function __construct(
         private readonly ?AgentControlPlaneTaskPacketQueueRepository $queue = null,
         private readonly ?AgentControlPlaneTaskLeaseRecoveryService $recovery = null,
@@ -88,17 +94,22 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             ? 0
             : max(0, $unfilteredClaimableCount - $claimableCount);
         $tagFilteredSupplyGap = $queueTags !== [] && $claimableCount < $targetMinClaimable && $hiddenClaimableOutsideRequestedTags > 0;
+        $workerEligibility = $this->workerTaskEligibility($queue, $queueTags);
+        $workerEligibilityBlocked = (string) ($workerEligibility['status'] ?? '') === 'blocked';
 
         $recommendedAction = $this->recommendedAction(
             recoverableCount: $recoverableCount,
             claimableCount: $claimableCount,
             activeLeaseCount: $activeLeaseCount,
             targetMinClaimable: $targetMinClaimable,
+            workerEligibilityBlocked: $workerEligibilityBlocked,
         );
 
         $commands = $this->commands($actor, $targetMinClaimable, $maxNewTasks, $queueTags);
         $status = $recommendedAction === 'continue_or_start_terminal_workers' ? 'ready' : 'action_required';
-        $safeToStartNewWorker = $recoverableCount === 0 && $claimableCount > 0;
+        $safeToStartNewWorker = $recoverableCount === 0
+            && $claimableCount >= $targetMinClaimable
+            && ! $workerEligibilityBlocked;
         $fleetLaunchPlan = $this->fleetLaunchPlan(
             actor: $actor,
             queueTags: $queueTags,
@@ -111,6 +122,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             tagFilteredSupplyGap: $tagFilteredSupplyGap,
             recommendedAction: $recommendedAction,
             safeToStartNewWorker: $safeToStartNewWorker,
+            workerEligibility: $workerEligibility,
         );
         $fleetReplenishmentPlan = $this->fleetReplenishmentPlan(
             actor: $actor,
@@ -187,6 +199,9 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'loop_decision' => [
                 'recommended_action' => $recommendedAction,
                 'safe_to_start_new_worker' => $safeToStartNewWorker,
+                'worker_task_eligibility_required_before_worker_launch' => true,
+                'worker_task_eligibility_status' => (string) ($workerEligibility['status'] ?? ''),
+                'worker_task_eligibility_violation_count' => (int) ($workerEligibility['violation_count'] ?? 0),
                 'should_replenish_before_next_claim' => $recoverableCount === 0 && $claimableCount < $targetMinClaimable,
                 'should_recover_before_next_claim' => $recoverableCount > 0,
                 'should_wait_for_active_workers' => $recoverableCount === 0 && $claimableCount === 0 && $activeLeaseCount > 0,
@@ -199,12 +214,14 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'terminal_loop_fleet_replenishment_plan' => $fleetReplenishmentPlan,
             'terminal_loop_fleet_resume_rollup' => $fleetResumeRollup,
             'terminal_loop_fleet_evidence_rollup' => $fleetEvidenceRollup,
+            'worker_task_eligibility' => $workerEligibility,
             'terminal_loop_fleet_operator_handoff' => $fleetOperatorHandoff,
             'terminal_loop_fleet_lane_isolation' => $fleetLaneIsolation,
             'terminal_loop_cycle_supervisor' => $cycleSupervisor,
             'next_commands' => $commands,
             'observability' => [
                 'bootstrap_preview_command' => $commands['preview_bootstrap'],
+                'worker_task_eligibility_certification_command' => $commands['worker_task_eligibility_certification'],
                 'recoverability_command' => $commands['inspect_or_recover_leases'],
                 'queue_inspection_command' => $commands['inspect_queue'],
                 'active_lease_inspection_command' => $commands['inspect_leases'],
@@ -876,6 +893,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         bool $tagFilteredSupplyGap,
         string $recommendedAction,
         bool $safeToStartNewWorker,
+        array $workerEligibility,
     ): array {
         $recommendedTerminalCount = $safeToStartNewWorker
             ? max(1, min(6, $claimableCount, $targetMinClaimable))
@@ -886,6 +904,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             hiddenClaimableOutsideRequestedTags: $hiddenClaimableOutsideRequestedTags,
             tagFilteredSupplyGap: $tagFilteredSupplyGap,
             recommendedAction: $recommendedAction,
+            workerEligibility: $workerEligibility,
         );
         $safeActorBase = $this->safeCommandToken($actor, 'operator');
         $terminals = [];
@@ -926,9 +945,17 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'active_lease_count' => $activeLeaseCount,
             'recoverable_lease_count' => $recoverableCount,
             'blocked_reasons' => $blockedReasons,
+            'worker_task_eligibility' => [
+                'status' => (string) ($workerEligibility['status'] ?? ''),
+                'checked_candidate_task_count' => (int) ($workerEligibility['checked_candidate_task_count'] ?? 0),
+                'violation_count' => (int) ($workerEligibility['violation_count'] ?? 0),
+                'blocked_reasons' => (array) ($workerEligibility['blocked_reasons'] ?? []),
+                'worker_task_eligibility_hash' => (string) ($workerEligibility['worker_task_eligibility_hash'] ?? ''),
+            ],
             'start_policy' => [
                 'start_only_when_recoverable_lease_count_is_zero' => true,
                 'start_only_when_claimable_task_count_is_positive' => true,
+                'start_only_when_worker_task_eligibility_available' => true,
                 'replenish_before_start_when_below_target' => $claimableCount < $targetMinClaimable,
                 'recover_before_start_when_recoverable_leases_exist' => $recoverableCount > 0,
                 'change_tags_or_replenish_when_tag_filtered_supply_gap' => $tagFilteredSupplyGap,
@@ -975,6 +1002,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         int $hiddenClaimableOutsideRequestedTags,
         bool $tagFilteredSupplyGap,
         string $recommendedAction,
+        array $workerEligibility,
     ): array {
         $reasons = [];
 
@@ -995,6 +1023,12 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         }
         if ($recommendedAction === 'inspect_canonical_sources') {
             $reasons[] = 'canonical_sources_need_inspection_before_launch';
+        }
+        if ((string) ($workerEligibility['status'] ?? '') === 'blocked') {
+            $reasons[] = 'worker_task_eligibility_blocked_before_worker_launch';
+            foreach ((array) ($workerEligibility['blocked_reasons'] ?? []) as $reason) {
+                $reasons[] = 'worker_task_eligibility_'.$reason;
+            }
         }
 
         return array_values(array_unique($reasons));
@@ -1021,7 +1055,11 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         int $claimableCount,
         int $activeLeaseCount,
         int $targetMinClaimable,
+        bool $workerEligibilityBlocked,
     ): string {
+        if ($workerEligibilityBlocked) {
+            return 'inspect_worker_task_eligibility_before_launch';
+        }
         if ($recoverableCount > 0) {
             return 'recover_stale_or_orphaned_leases';
         }
@@ -1055,6 +1093,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'inspect_queue' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-packet-queue-status --json',
             'inspect_leases' => 'php artisan atlas:ai:self-construction --agent-control-plane-claim-lease-runtime-status --json',
             'terminal_loop_health_digest' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-health-digest-status --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.' --max-new-tasks='.$maxNewTasks.$tagArgs.' --json',
+            'worker_task_eligibility_certification' => 'php artisan atlas:ai:self-construction --agent-control-plane-worker-task-eligibility-certification-status --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.$tagArgs.' --json',
             'multi_agent_certification' => 'php artisan atlas:ai:self-construction --agent-control-plane-multi-agent-loop-certification-status --agent-count=6 --cycles=2 --target-min-claimable-tasks=6 --json',
         ];
     }
@@ -1111,6 +1150,84 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         }
 
         return array_values($records);
+    }
+
+    /**
+     * @param  list<string>  $queueTags
+     * @return array<string, mixed>
+     */
+    private function workerTaskEligibility(AgentControlPlaneTaskPacketQueueRepository $queue, array $queueTags): array
+    {
+        $records = [];
+        foreach (['queued', 'claimable', 'claimed', 'lease_expired'] as $status) {
+            foreach ($this->listQueueRecords($queue, $status, $queueTags) as $record) {
+                $id = (string) ($record['task_packet_id'] ?? '');
+                if ($id !== '') {
+                    $records[$id] = $record;
+                }
+            }
+        }
+
+        $violations = [];
+        foreach (array_values($records) as $record) {
+            $taskPacketId = (string) ($record['task_packet_id'] ?? '');
+            $recordStatus = (string) ($record['status'] ?? '');
+            $reference = (string) data_get($record, 'task_packet.continuation_context.auto_replenishment_reference', '');
+            if ((bool) data_get($record, 'task_packet.continuation_context.worker_executable', true) === false) {
+                $violations[] = ['code' => 'worker_candidate_task_not_worker_executable', 'task_packet_id' => $taskPacketId, 'status' => $recordStatus];
+            }
+            if ((bool) data_get($record, 'task_packet.continuation_context.operator_handoff_required', false)) {
+                $violations[] = ['code' => 'worker_candidate_task_requires_operator_handoff', 'task_packet_id' => $taskPacketId, 'status' => $recordStatus];
+            }
+            if (in_array($reference, self::OPERATOR_ONLY_COMPLETION_CRITERIA, true)) {
+                $violations[] = [
+                    'code' => 'worker_candidate_task_references_operator_only_completion_blocker',
+                    'task_packet_id' => $taskPacketId,
+                    'status' => $recordStatus,
+                    'reference' => $reference,
+                ];
+            }
+            foreach ([
+                'dispatch_allowed',
+                'provider_call_allowed',
+                'token_spend_allowed',
+                'self_programming_allowed',
+                'ledger_write_allowed',
+                'runtime_execution_allowed',
+                'completion_real_allowed',
+            ] as $flag) {
+                if ((bool) data_get($record, $flag, false)) {
+                    $violations[] = [
+                        'code' => 'worker_candidate_task_runtime_flag_true',
+                        'task_packet_id' => $taskPacketId,
+                        'status' => $recordStatus,
+                        'flag' => $flag,
+                    ];
+                }
+            }
+        }
+
+        $eligibility = [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_worker_task_eligibility.v1',
+            'status' => $violations === [] ? 'available' : 'blocked',
+            'queue_tags' => $queueTags,
+            'candidate_statuses' => ['queued', 'claimable', 'claimed', 'lease_expired'],
+            'checked_candidate_task_count' => count($records),
+            'blocked_reasons' => array_values(array_unique(array_map(
+                static fn (array $violation): string => (string) ($violation['code'] ?? ''),
+                $violations,
+            ))),
+            'violations' => $violations,
+            'violation_count' => count($violations),
+            'worker_launch_allowed_after_eligibility' => $violations === [],
+            'can_claim_from_eligibility' => false,
+            'can_replenish_from_eligibility' => false,
+            'can_dispatch_from_eligibility' => false,
+            'can_call_provider_from_eligibility' => false,
+        ];
+        $eligibility['worker_task_eligibility_hash'] = $this->hashPayload($eligibility);
+
+        return $eligibility;
     }
 
     /**

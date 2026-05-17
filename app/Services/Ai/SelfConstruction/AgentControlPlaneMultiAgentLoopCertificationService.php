@@ -64,6 +64,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $evidenceReceiptCount = 0;
         $terminalBootstrapProbe = $this->runTerminalBootstrapProbe($runId, min(2, $agentCount));
         $terminalFleetLaunchPlanProbe = $this->runTerminalFleetLaunchPlanProbe($runId, min(3, $agentCount));
+        $terminalFleetPartialSupplyGateProbe = $this->runTerminalFleetPartialSupplyGateProbe($runId);
         $terminalFleetLaneIsolationNegativeProbe = $this->runTerminalFleetLaneIsolationNegativeProbe($runId);
         $terminalFleetResumeRollupProbe = $this->runTerminalFleetResumeRollupProbe($runId);
         $terminalFleetMetadataOrphanRecoveryProbe = $this->runTerminalFleetMetadataOrphanRecoveryProbe($runId);
@@ -151,6 +152,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $invariants['terminal_loop_fleet_launch_plan_present'] = $invariants['terminal_loop_health_digest_present']
             && $this->terminalLoopFleetLaunchPlanPresent();
         $invariants['terminal_loop_fleet_launch_plan_ready_path_verified'] = (bool) ($terminalFleetLaunchPlanProbe['ready_path_verified'] ?? false);
+        $invariants['terminal_loop_fleet_partial_supply_launch_blocked'] = (bool) ($terminalFleetPartialSupplyGateProbe['partial_supply_launch_blocked'] ?? false);
         $invariants['terminal_loop_fleet_replenishment_plan_present'] = $invariants['terminal_loop_health_digest_present']
             && $this->terminalLoopFleetReplenishmentPlanPresent();
         $invariants['terminal_loop_fleet_resume_rollup_present'] = $invariants['terminal_loop_health_digest_present']
@@ -226,6 +228,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'canonical_invariant_matrix' => $this->canonicalInvariantMatrix($invariants, $cycleEvidence, $targetMin, $cycles),
             'terminal_worker_bootstrap_probe' => $terminalBootstrapProbe,
             'terminal_loop_fleet_launch_plan_probe' => $terminalFleetLaunchPlanProbe,
+            'terminal_loop_fleet_partial_supply_gate_probe' => $terminalFleetPartialSupplyGateProbe,
             'terminal_loop_fleet_lane_isolation_negative_probe' => $terminalFleetLaneIsolationNegativeProbe,
             'terminal_loop_fleet_resume_rollup_probe' => $terminalFleetResumeRollupProbe,
             'terminal_loop_fleet_metadata_orphan_recovery_probe' => $terminalFleetMetadataOrphanRecoveryProbe,
@@ -1153,6 +1156,78 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
     /**
      * @return array<string, mixed>
      */
+    private function runTerminalFleetPartialSupplyGateProbe(string $runId): array
+    {
+        $queueTag = 'terminal_fleet_partial_supply_probe_'.$runId;
+        $taskPacketId = 'fleet_partial_supply_probe_'.$runId;
+        $allowedFile = sprintf('%s/fleet_partial_supply_probe/%s.php', self::SYNTHETIC_FILE_NAMESPACE, strtolower($runId));
+
+        $orchestration = $this->orchestrator->prepareAndEnqueue([
+            'task_packet' => [
+                'task_packet_id' => $taskPacketId,
+                'objective' => 'terminal fleet partial supply launch gate probe',
+                'operator_id' => 'multi-agent-loop-certification',
+                'allowed_files' => [$allowedFile],
+                'scope_in' => [$allowedFile],
+                'acceptance_criteria' => ['fleet_partial_supply_gate_ok'],
+                'required_evidence' => ['fleet_partial_supply_gate_checked'],
+                'risk_level' => 'low',
+                'rollback_strategy' => 'dry_run_only',
+            ],
+            'queue' => ['priority' => 5, 'tags' => ['terminal_fleet_partial_supply_probe', $queueTag]],
+        ]);
+
+        $digest = (new AgentControlPlaneTerminalLoopHealthDigestService($this->queue, new AgentControlPlaneTaskLeaseRecoveryService))->digest([
+            'actor' => 'terminal-fleet-partial-supply-probe-'.$runId,
+            'target_min_claimable_tasks' => 3,
+            'max_new_tasks' => 3,
+            'queue_tags' => [$queueTag],
+        ]);
+
+        $targetTagArg = '--queue-tag='.$queueTag;
+        $launchBlocked = (string) data_get($digest, 'terminal_loop_fleet_launch_plan.status') === 'fleet_launch_plan_blocked'
+            && (bool) data_get($digest, 'terminal_loop_fleet_launch_plan.safe_to_start_now') === false
+            && (int) data_get($digest, 'terminal_loop_fleet_launch_plan.recommended_terminal_count') === 0
+            && data_get($digest, 'terminal_loop_fleet_launch_plan.copy_paste_terminal_commands', []) === [];
+        $replenishmentRequired = (string) data_get($digest, 'terminal_loop_fleet_replenishment_plan.status') === 'fleet_replenishment_required'
+            && (int) data_get($digest, 'terminal_loop_fleet_replenishment_plan.required_new_task_count') === 2
+            && (bool) data_get($digest, 'terminal_loop_fleet_replenishment_plan.should_replenish_now') === true
+            && str_contains((string) data_get($digest, 'terminal_loop_fleet_operator_handoff.primary_command'), $targetTagArg);
+        $cycleSupervisorBlocksLaunch = (string) data_get($digest, 'terminal_loop_cycle_supervisor.status') === 'cycle_replenishment_required'
+            && (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state') === 'replenish_before_launch'
+            && (bool) data_get($digest, 'terminal_loop_cycle_supervisor.transition_guards.replenish_before_launch') === true
+            && data_get($digest, 'terminal_loop_cycle_supervisor.can_execute_next_command') === false;
+        $partialSupplyLaunchBlocked = (int) data_get($digest, 'queue_health.claimable_task_count') === 1
+            && (bool) data_get($digest, 'queue_health.target_min_claimable_tasks_met') === false
+            && in_array('task_supply_below_target_replenish_before_launch', (array) data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons', []), true)
+            && $launchBlocked
+            && $replenishmentRequired
+            && $cycleSupervisorBlocksLaunch;
+
+        return [
+            'status' => $partialSupplyLaunchBlocked ? 'available' : 'blocked',
+            'queue_tag' => $queueTag,
+            'seeded_task_packet_id' => $taskPacketId,
+            'orchestration_event' => (string) ($orchestration['event'] ?? ''),
+            'queue_entry_status' => (string) data_get($orchestration, 'queue_entry.status', ''),
+            'target_min_claimable_tasks' => 3,
+            'claimable_task_count' => (int) data_get($digest, 'queue_health.claimable_task_count'),
+            'target_min_claimable_tasks_met' => (bool) data_get($digest, 'queue_health.target_min_claimable_tasks_met'),
+            'fleet_plan_status' => (string) data_get($digest, 'terminal_loop_fleet_launch_plan.status'),
+            'safe_to_start_now' => (bool) data_get($digest, 'terminal_loop_fleet_launch_plan.safe_to_start_now'),
+            'recommended_terminal_count' => (int) data_get($digest, 'terminal_loop_fleet_launch_plan.recommended_terminal_count'),
+            'blocked_reasons' => (array) data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons', []),
+            'replenishment_status' => (string) data_get($digest, 'terminal_loop_fleet_replenishment_plan.status'),
+            'required_new_task_count' => (int) data_get($digest, 'terminal_loop_fleet_replenishment_plan.required_new_task_count'),
+            'cycle_supervisor_status' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.status'),
+            'cycle_supervisor_cycle_state' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'),
+            'partial_supply_launch_blocked' => $partialSupplyLaunchBlocked,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function runTerminalFleetLaneIsolationNegativeProbe(string $runId): array
     {
         $targetQueueTag = 'terminal_fleet_lane_negative_target_'.$runId;
@@ -1728,6 +1803,8 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'terminal_bootstrap_preview_'.$runId.'_tag',
                 'terminal_fleet_launch_plan_probe',
                 'terminal_fleet_launch_plan_probe_'.$runId,
+                'terminal_fleet_partial_supply_probe',
+                'terminal_fleet_partial_supply_probe_'.$runId,
                 'terminal_fleet_lane_isolation_negative_probe',
                 'terminal_fleet_lane_negative_target_'.$runId,
                 'terminal_fleet_lane_negative_other_'.$runId,
@@ -1745,6 +1822,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'probe_'.$runId,
                 'terminal_bootstrap_invalid_scope_'.$runId,
                 'fleet_probe_'.$runId,
+                'fleet_partial_supply_probe_'.$runId,
                 'fleet_lane_negative_probe_'.$runId,
                 'fleet_resume_rollup_probe_'.$runId,
                 'fleet_metadata_orphan_probe_'.$runId,
@@ -2019,6 +2097,12 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 $clone['terminal_loop_fleet_launch_plan_probe']['fleet_launch_plan_hash'],
             );
         }
+        if (isset($clone['terminal_loop_fleet_partial_supply_gate_probe']) && is_array($clone['terminal_loop_fleet_partial_supply_gate_probe'])) {
+            unset(
+                $clone['terminal_loop_fleet_partial_supply_gate_probe']['queue_tag'],
+                $clone['terminal_loop_fleet_partial_supply_gate_probe']['seeded_task_packet_id'],
+            );
+        }
         if (isset($clone['terminal_loop_fleet_resume_rollup_probe']) && is_array($clone['terminal_loop_fleet_resume_rollup_probe'])) {
             unset(
                 $clone['terminal_loop_fleet_resume_rollup_probe']['queue_tag'],
@@ -2224,6 +2308,10 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'value' => (bool) ($invariants['terminal_loop_fleet_launch_plan_ready_path_verified'] ?? false),
                 'why' => 'The certification seeds a tagged claimable lane, asks the health digest for a fleet plan, and proves it recommends distinct terminal actors with lane-bound bootstrap commands while remaining unable to claim or execute from the digest.',
             ],
+            'terminal_loop_fleet_partial_supply_launch_blocked' => [
+                'value' => (bool) ($invariants['terminal_loop_fleet_partial_supply_launch_blocked'] ?? false),
+                'why' => 'The certification seeds a partially supplied tagged lane, requests a larger target, and proves the health digest blocks fleet launch, preserves zero terminal assignments and routes the cycle supervisor to replenishment before any worker start.',
+            ],
             'terminal_loop_fleet_replenishment_plan_present' => [
                 'value' => (bool) ($invariants['terminal_loop_fleet_replenishment_plan_present'] ?? false),
                 'why' => 'The read-only terminal loop health digest emits a fleet replenishment plan with exact shortage counts, replenish/recheck/start sequence and non-execution guarantees so a fleet lane can be refilled before workers claim.',
@@ -2338,6 +2426,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'terminal_loop_health_digest_present',
             'terminal_loop_fleet_launch_plan_present',
             'terminal_loop_fleet_launch_plan_ready_path_verified',
+            'terminal_loop_fleet_partial_supply_launch_blocked',
             'terminal_loop_fleet_replenishment_plan_present',
             'terminal_loop_fleet_resume_rollup_present',
             'terminal_loop_fleet_resume_recovery_path_verified',

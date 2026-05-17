@@ -94,6 +94,7 @@ class AiPromptBuilder
             $this->contextPackPromptSection($contextPack, $openBrainInjection),
             $executionPlan->toPromptSection(),
             $this->atlasModeInstructions($options),
+            $this->specialistFlowInstructions($options),
             $this->permissionInstructions($options),
             $this->workflowInstructions($options),
             $this->attachmentInstructions($options, $input),
@@ -554,6 +555,54 @@ TXT;
             ->implode("\n");
     }
 
+    private function specialistFlowInstructions(array $options): string
+    {
+        $execution = data_get($options, 'payload.specialist_flow_execution');
+        if (! is_array($execution) || $execution === []) {
+            return '';
+        }
+
+        $flowId = (string) data_get($execution, 'flow_id', 'unknown');
+        $handlerId = (string) data_get($execution, 'handler_id', 'unknown');
+        $status = (string) data_get($execution, 'status', 'ready_for_provider');
+        $runtimeReceipt = (string) data_get($execution, 'runtime_receipt_id', 'missing');
+        $runtimeHash = (string) data_get($execution, 'runtime_contract_hash', 'missing');
+        $promptContract = $this->stringList(data_get($execution, 'provider_prompt_contract', []));
+        $responseShape = $this->stringList(data_get($execution, 'response_shape', []));
+        $auditChecks = $this->stringList(data_get($execution, 'audit_checks', []));
+        $delegation = data_get($execution, 'delegation');
+        $delegationLines = is_array($delegation) && $delegation !== []
+            ? $this->keyValueLines($delegation)
+            : '- status: not_delegated';
+
+        return <<<TXT
+# Atlas AI Specialist Flow Handler
+
+Flow: {$flowId}
+Handler: {$handlerId}
+Status: {$status}
+Runtime receipt: {$runtimeReceipt}
+Runtime contract hash: {$runtimeHash}
+
+Contrato do handler:
+{$promptContract}
+
+Formato esperado:
+{$responseShape}
+
+Auditoria obrigatoria:
+{$auditChecks}
+
+Delegation:
+{$delegationLines}
+
+Regras:
+- Siga este handler como contrato operacional do fluxo escolhido pelo Atlas AI Router.
+- Se o status for delegated, nao execute o trabalho neste fluxo; explique o handoff e o proximo passo.
+- Nao oculte ausencia de evidencia exigida pelo handler.
+TXT;
+    }
+
     private function attachmentInstructions(array $options, string $input): string
     {
         $images = data_get($options, 'payload.attachments.images', []);
@@ -649,7 +698,7 @@ TXT;
                             $lines[] = "<detected_table_excerpt>\n{$tableExcerpt}\n</detected_table_excerpt>";
                         }
                         if ($tableMarkdown !== '') {
-                            $lines[] = "<detected_table_markdown confidence=\"".htmlspecialchars($tableConfidence, ENT_QUOTES, 'UTF-8')."\">\n{$tableMarkdown}\n</detected_table_markdown>";
+                            $lines[] = '<detected_table_markdown confidence="'.htmlspecialchars($tableConfidence, ENT_QUOTES, 'UTF-8')."\">\n{$tableMarkdown}\n</detected_table_markdown>";
                         }
                         $lines[] = $pageExcerpt !== '' ? $pageExcerpt : '[sem texto nativo extraido nesta pagina]';
                         $lines[] = '</pdf_page>';
@@ -778,6 +827,7 @@ TXT;
                     $lines[] = "<processing_status stage=\"{$stage}\" progress=\"{$progress}\" eta_seconds=\"{$eta}\">transcricao em background</processing_status>";
                 }
                 $lines[] = '</youtube_video>';
+
                 continue;
             }
 

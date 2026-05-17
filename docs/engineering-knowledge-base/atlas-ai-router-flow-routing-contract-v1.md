@@ -32,6 +32,7 @@ maintenance:
   - Nao adicione tabela de R-levels, prompt projection ou rendered_prompt_text aqui; pertence aos contracts do fluxo alvo.
   - Nao adicione benchmark, Rivals, Opus challenge ou medicao competitiva.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
@@ -80,11 +81,13 @@ governs:
   - atlas_ai.router.handoff_payload
   - atlas_ai.router.delegate_to_other_flow
 evidence:
+  - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
 next_actions:
-  - Quando o Router virar implementacao, criar `atlas-ai-router-runbook-v1.md` com services, endpoints e testes.
+  - Usar `atlas-ai-router-runtime-enterprise-upgrade.md` como meta executavel do Router Runtime enterprise.
+  - Quando o Router virar implementacao completa, criar `atlas-ai-router-runbook-v1.md` com services, endpoints e testes.
   - Quando novos fluxos (QA/Security/DB/Design) saírem do papel, registrar `flow_id`, payload de handoff e linha na tabela.
   - Cobrir telemetria de routing_reason em painel Desktop apos o runtime do Router existir.
 observability_signals:

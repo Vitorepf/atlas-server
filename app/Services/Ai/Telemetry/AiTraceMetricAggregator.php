@@ -7,6 +7,7 @@ use App\Models\AiDecision;
 use App\Models\AiJob;
 use App\Models\AiOutcomeLink;
 use App\Models\AiRouterDecision;
+use App\Models\AiSpecialistFlowExecution;
 use App\Models\AiTelemetryEvent;
 use App\Models\AiToolEvent;
 use App\Models\AiTrace;
@@ -57,6 +58,9 @@ class AiTraceMetricAggregator
         }
         if (Schema::hasTable('ai_decisions')) {
             $eagerLoads[] = 'atlasDecision';
+        }
+        if (Schema::hasTable('ai_specialist_flow_executions')) {
+            $eagerLoads[] = 'specialistFlowExecution';
         }
         if (Schema::hasTable('ai_tool_events')) {
             $eagerLoads[] = 'toolEvents';
@@ -158,6 +162,7 @@ class AiTraceMetricAggregator
             // signals/reason are the rich attribution payload kept inside score_components
             // (not promoted to columns) since they're free-form JSON for diagnosis.
             'router' => $this->routerDiagnostics($this->routerDecisionFor($trace)),
+            'specialist_flow' => $this->specialistFlowDiagnostics($trace, $jobs),
             'atlas_decide' => $this->atlasDecideDiagnostics($trace, $jobs),
             // Diagnostic: telemetry events grouped by event_phase. Forward-looking signal —
             // when phases get differentiated (pre_provider/provider/post_provider) the
@@ -961,12 +966,123 @@ class AiTraceMetricAggregator
 
         return [
             'available' => true,
+            'schema_version' => $decision->schema_version,
+            'surface_id' => $decision->surface_id,
+            'flow_id' => $decision->flow_id,
+            'flow_origin' => $decision->flow_origin,
+            'command_intent' => $decision->command_intent,
+            'routing_reason' => $decision->routing_reason,
+            'routing_confidence' => $decision->routing_confidence,
+            'workspace_present' => (bool) $decision->workspace_present,
             'mode' => $decision->mode,
             'selected_provider' => $decision->selected_provider,
             'fallback_provider' => $decision->fallback_provider,
             'was_overridden' => (bool) $decision->was_overridden,
             'reason' => $decision->reason,
             'signals' => is_array($decision->signals) ? $decision->signals : [],
+            'handoff_payload' => is_array($decision->handoff_payload) ? $decision->handoff_payload : [],
+            'alternative_flow_ids' => is_array($decision->alternative_flow_ids) ? $decision->alternative_flow_ids : [],
+        ];
+    }
+
+    /**
+     * Project the specialist flow runtime contract into score_components.
+     *
+     * @return array<string,mixed>
+     */
+    private function specialistFlowDiagnostics(AiTrace $trace, Collection $jobs): array
+    {
+        $record = $this->specialistFlowExecutionRecordFor($trace);
+        if ($record instanceof AiSpecialistFlowExecution) {
+            return [
+                'available' => true,
+                'source' => 'ai_specialist_flow_executions',
+                'record_id' => $record->id,
+                'schema_version' => $record->runtime_schema_version,
+                'flow_id' => $record->flow_id,
+                'owner' => data_get($record->runtime_payload, 'owner'),
+                'execution_mode' => data_get($record->runtime_payload, 'execution_mode'),
+                'side_effect_policy' => data_get($record->runtime_payload, 'side_effect_policy'),
+                'workspace_present' => (bool) data_get($record->runtime_payload, 'workspace_present', false),
+                'delegation' => is_array($record->delegation) ? $record->delegation : [],
+                'required_evidence' => is_array(data_get($record->runtime_payload, 'required_evidence')) ? data_get($record->runtime_payload, 'required_evidence') : [],
+                'output_contract' => is_array(data_get($record->runtime_payload, 'output_contract')) ? data_get($record->runtime_payload, 'output_contract') : [],
+                'forbidden_actions' => is_array(data_get($record->runtime_payload, 'forbidden_actions')) ? data_get($record->runtime_payload, 'forbidden_actions') : [],
+                'receipt' => is_array($record->receipt) ? $record->receipt : [],
+                'execution' => [
+                    'available' => true,
+                    'schema_version' => $record->execution_schema_version,
+                    'status' => $record->status,
+                    'handler_id' => $record->handler_id,
+                    'handler_version' => $record->handler_version,
+                    'runtime_receipt_id' => $record->runtime_receipt_id,
+                    'runtime_contract_hash' => $record->runtime_contract_hash,
+                    'audit_checks' => is_array($record->audit_checks) ? $record->audit_checks : [],
+                    'response_shape' => is_array($record->response_shape) ? $record->response_shape : [],
+                ],
+            ];
+        }
+
+        foreach ($jobs as $job) {
+            $runtime = data_get($job->payload, 'specialist_flow_runtime');
+            if (! is_array($runtime) || $runtime === []) {
+                continue;
+            }
+
+            return [
+                'available' => true,
+                'source' => 'ai_job_payload',
+                'schema_version' => data_get($runtime, 'schema_version'),
+                'flow_id' => data_get($runtime, 'flow_id'),
+                'owner' => data_get($runtime, 'owner'),
+                'execution_mode' => data_get($runtime, 'execution_mode'),
+                'side_effect_policy' => data_get($runtime, 'side_effect_policy'),
+                'workspace_present' => (bool) data_get($runtime, 'workspace_present', false),
+                'delegation' => is_array(data_get($runtime, 'delegation')) ? data_get($runtime, 'delegation') : [],
+                'required_evidence' => is_array(data_get($runtime, 'required_evidence')) ? data_get($runtime, 'required_evidence') : [],
+                'output_contract' => is_array(data_get($runtime, 'output_contract')) ? data_get($runtime, 'output_contract') : [],
+                'forbidden_actions' => is_array(data_get($runtime, 'forbidden_actions')) ? data_get($runtime, 'forbidden_actions') : [],
+                'receipt' => is_array(data_get($runtime, 'receipt')) ? data_get($runtime, 'receipt') : [],
+                'execution' => $this->specialistFlowExecutionForJob($job),
+            ];
+        }
+
+        return [
+            'available' => false,
+        ];
+    }
+
+    private function specialistFlowExecutionRecordFor(AiTrace $trace): ?AiSpecialistFlowExecution
+    {
+        if (! Schema::hasTable('ai_specialist_flow_executions')) {
+            return null;
+        }
+
+        return $trace->specialistFlowExecution;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function specialistFlowExecutionForJob(AiJob $job): array
+    {
+        $execution = data_get($job->payload, 'specialist_flow_execution');
+        if (! is_array($execution) || $execution === []) {
+            return [
+                'available' => false,
+            ];
+        }
+
+        return [
+            'available' => true,
+            'schema_version' => data_get($execution, 'schema_version'),
+            'status' => data_get($execution, 'status'),
+            'handler_id' => data_get($execution, 'handler_id'),
+            'handler_version' => data_get($execution, 'handler_version'),
+            'runtime_receipt_id' => data_get($execution, 'runtime_receipt_id'),
+            'runtime_contract_hash' => data_get($execution, 'runtime_contract_hash'),
+            'audit_checks' => is_array(data_get($execution, 'audit_checks')) ? data_get($execution, 'audit_checks') : [],
+            'response_shape' => is_array(data_get($execution, 'response_shape')) ? data_get($execution, 'response_shape') : [],
         ];
     }
 

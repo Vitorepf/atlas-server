@@ -40,6 +40,14 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'cli_option' => 'agent-control-plane-task-auto-replenishment-status',
         ],
         [
+            'id' => 'worker_task_eligibility_certification_status',
+            'label' => 'Worker Task Eligibility Certification Status',
+            'readiness_method' => 'agentControlPlaneWorkerTaskEligibilityCertificationStatus',
+            'service_class' => AgentControlPlaneWorkerTaskEligibilityCertificationService::class,
+            'doc_anchor' => 'agent_control_plane_worker_task_eligibility_certification',
+            'cli_option' => 'agent-control-plane-worker-task-eligibility-certification-status',
+        ],
+        [
             'id' => 'task_queue_claim_next_status',
             'label' => 'Task Queue Claim Next Status',
             'readiness_method' => 'agentControlPlaneTaskQueueClaimNextStatus',
@@ -1029,6 +1037,7 @@ final class AtlasSelfConstructionOsCompletionAuditService
             // booleans rewrite the matrix from the live simulation.
             'no_duplicate_claims' => $claimRequiresLeaseAndAgent,
             'no_cross_agent_completion' => $completionRequiresActiveLease,
+            'complete_dry_run_requires_queue_claim_binding' => $completionRequiresActiveLease,
             'stale_lease_recovered' => $recoveryHandlesOrphanedLeases,
             'completed_task_not_reclaimed' => $completionRequiresActiveLease,
             'auto_replenishment_target_met' => class_exists(AgentControlPlaneTaskAutoReplenishmentService::class),
@@ -1036,6 +1045,9 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'evidence_hash_present' => $completionRequiresActiveLease,
             'structured_completion_evidence_valid' => $completionRequiresActiveLease,
             'completion_evidence_files_within_scope' => $completionRequiresActiveLease,
+            'worker_task_eligibility_certification_present' => class_exists(AgentControlPlaneWorkerTaskEligibilityCertificationService::class),
+            'worker_task_eligibility_blocks_operator_only_completion_blockers' => class_exists(AgentControlPlaneWorkerTaskEligibilityCertificationService::class)
+                && method_exists(AgentControlPlaneWorkerTaskEligibilityCertificationService::class, 'certify'),
             'worker_completion_evidence_template_present' => class_exists(AgentControlPlaneOneShotWorkerPacketService::class),
             'worker_operator_loop_commands_present' => class_exists(AgentControlPlaneTerminalWorkerBootstrapService::class),
             'worker_resumption_contract_present' => class_exists(AgentControlPlaneOneShotWorkerPacketService::class)
@@ -1069,6 +1081,8 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'terminal_loop_fleet_lane_bound_commands_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
                 && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
             'terminal_loop_fleet_lane_no_cross_lane_launch_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
+            'terminal_loop_fleet_partial_supply_launch_blocked' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
                 && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
             'terminal_loop_cycle_supervisor_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
                 && defined(AgentControlPlaneTerminalLoopHealthDigestService::class.'::CYCLE_SUPERVISOR_SCHEMA_VERSION'),

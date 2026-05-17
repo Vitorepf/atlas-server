@@ -63,6 +63,7 @@ final class AgentControlPlaneCertificationStatusBatchService
         'scope_lock_runtime_validator' => 'agentControlPlaneScopeLockRuntimeValidatorStatus',
         'task_queue_orchestrator' => 'agentControlPlaneTaskQueueOrchestratorStatus',
         'task_queue_lease_certification' => 'agentControlPlaneTaskQueueLeaseCertificationStatus',
+        'worker_task_eligibility_certification' => 'agentControlPlaneWorkerTaskEligibilityCertificationStatus',
         'agent_runtime_registry' => 'agentControlPlaneAgentRuntimeRegistryStatus',
         'agent_runtime_registry_heartbeat' => 'agentControlPlaneAgentRuntimeRegistryHeartbeatStatus',
         'agent_runtime_registry_capability_catalog' => 'agentControlPlaneAgentRuntimeRegistryCapabilityCatalogStatus',
@@ -211,6 +212,18 @@ final class AgentControlPlaneCertificationStatusBatchService
      */
     private function projectionOptions(string $key, array $options): array
     {
+        if ($key === 'worker_task_eligibility_certification') {
+            return [
+                'completion_audit' => [
+                    'status' => 'certification_status_batch_structural_probe',
+                    'failed_count' => 0,
+                    'failed_criteria' => [],
+                ],
+                'max_new_tasks' => 0,
+                'queue_tags' => ['certification_status_batch_probe'],
+            ];
+        }
+
         if ($key !== 'release_dossier') {
             return [];
         }

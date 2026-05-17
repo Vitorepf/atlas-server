@@ -178,6 +178,84 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
         $this->assertFalse(data_get($digest, 'terminal_loop_cycle_supervisor.can_claim_from_supervisor'));
     }
 
+    public function test_digest_blocks_fleet_launch_until_claimable_supply_meets_target(): void
+    {
+        $orchestrator = $this->orchestrator();
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('partial-supply-1'), 'queue' => ['tags' => ['lane-partial-supply']]]);
+
+        $digest = $this->service()->digest([
+            'actor' => 'operator-partial-supply',
+            'target_min_claimable_tasks' => 3,
+            'max_new_tasks' => 3,
+            'queue_tags' => ['lane-partial-supply'],
+        ]);
+
+        $this->assertSame('action_required', $digest['status']);
+        $this->assertSame('replenish_task_supply', data_get($digest, 'loop_decision.recommended_action'));
+        $this->assertFalse(data_get($digest, 'loop_decision.safe_to_start_new_worker'));
+        $this->assertSame(1, data_get($digest, 'queue_health.claimable_task_count'));
+        $this->assertSame('fleet_launch_plan_blocked', data_get($digest, 'terminal_loop_fleet_launch_plan.status'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_fleet_launch_plan.safe_to_start_now'));
+        $this->assertSame(0, data_get($digest, 'terminal_loop_fleet_launch_plan.recommended_terminal_count'));
+        $this->assertContains('task_supply_below_target_replenish_before_launch', data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons'));
+        $this->assertSame('fleet_replenishment_required', data_get($digest, 'terminal_loop_fleet_replenishment_plan.status'));
+        $this->assertSame(2, data_get($digest, 'terminal_loop_fleet_replenishment_plan.required_new_task_count'));
+        $this->assertSame(2, data_get($digest, 'terminal_loop_fleet_replenishment_plan.bounded_new_task_count'));
+        $this->assertTrue(data_get($digest, 'terminal_loop_fleet_replenishment_plan.should_replenish_now'));
+        $this->assertSame('cycle_replenishment_required', data_get($digest, 'terminal_loop_cycle_supervisor.status'));
+        $this->assertSame('replenish_before_launch', data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state'));
+    }
+
+    public function test_digest_blocks_fleet_launch_when_worker_task_eligibility_fails(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $packet = [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_task_packet.v1',
+            'task_packet_id' => 'digest-operator-only-blocker',
+            'task_packet_hash' => hash('sha256', 'digest-operator-only-blocker'),
+            'status' => 'planned',
+            'objective' => 'Digest must not launch workers for operator-only completion blockers',
+            'allowed_files' => ['docs/engineering-knowledge-base/self-construction/operator-only.md'],
+            'normalized_scope' => [
+                'allowed_files' => ['docs/engineering-knowledge-base/self-construction/operator-only.md'],
+            ],
+            'continuation_context' => [
+                'worker_executable' => false,
+                'operator_handoff_required' => true,
+                'auto_replenishment_reference' => 'end_to_end_real_provider_smoke_green',
+            ],
+            'acceptance_criteria' => ['operator_external_smoke_required'],
+            'required_tests' => ['real_provider_smoke_is_external'],
+        ];
+        $this->assertSame('ok', $queue->enqueue($packet, ['tags' => ['digest_operator_only_lane']])['status']);
+
+        $digest = $this->service()->digest([
+            'actor' => 'operator-eligibility',
+            'target_min_claimable_tasks' => 1,
+            'queue_tags' => ['digest_operator_only_lane'],
+        ]);
+
+        $this->assertSame('action_required', $digest['status']);
+        $this->assertSame('inspect_worker_task_eligibility_before_launch', data_get($digest, 'loop_decision.recommended_action'));
+        $this->assertFalse(data_get($digest, 'loop_decision.safe_to_start_new_worker'));
+        $this->assertSame('blocked', data_get($digest, 'worker_task_eligibility.status'));
+        $this->assertSame(3, data_get($digest, 'worker_task_eligibility.violation_count'));
+        $this->assertSame('fleet_launch_plan_blocked', data_get($digest, 'terminal_loop_fleet_launch_plan.status'));
+        $this->assertFalse(data_get($digest, 'terminal_loop_fleet_launch_plan.safe_to_start_now'));
+        $this->assertSame(0, data_get($digest, 'terminal_loop_fleet_launch_plan.recommended_terminal_count'));
+        $this->assertContains('worker_task_eligibility_blocked_before_worker_launch', data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons'));
+        $this->assertContains('worker_task_eligibility_worker_candidate_task_not_worker_executable', data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons'));
+        $this->assertSame('blocked', data_get($digest, 'terminal_loop_fleet_launch_plan.worker_task_eligibility.status'));
+        $this->assertStringContainsString(
+            '--agent-control-plane-worker-task-eligibility-certification-status',
+            data_get($digest, 'observability.worker_task_eligibility_certification_command'),
+        );
+        $this->assertStringContainsString(
+            '--queue-tag=digest_operator_only_lane',
+            data_get($digest, 'observability.worker_task_eligibility_certification_command'),
+        );
+    }
+
     public function test_tag_filtered_digest_explains_hidden_claimable_supply_outside_requested_lane(): void
     {
         $orchestrator = $this->orchestrator();

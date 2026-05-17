@@ -33,6 +33,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
                 'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
                 'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
                 'forge_self_improvement_smoke' => (array) ($options['forge_self_improvement_smoke'] ?? []),
+                'agent_control_plane_terminal_loop_operational_proof' => (array) ($options['agent_control_plane_terminal_loop_operational_proof'] ?? []),
             ]));
         $completionEvidence = (array) ($options['completion_evidence']
             ?? $this->readiness->atlasSelfConstructionOsCompletionEvidenceStatus([
@@ -118,14 +119,19 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             ),
             'terminal_loop_green' => $this->check(
                 $this->criterionGreen($completionAudit, 'agent_control_plane_terminal_loop_certification_green')
-                    && (string) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.status') === 'passed'
-                    && (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.passed', false) === true,
+                    && $this->terminalLoopOperationalProofAccepted($completionAudit),
                 'completion_audit.criteria.agent_control_plane_terminal_loop_certification_green_must_be_passed_with_terminal_loop_operational_proof_binding',
                 [
                     'operational_proof_status' => (string) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.status', ''),
+                    'operational_proof_supplied' => (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.supplied', false),
                     'operational_proof_passed' => (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.passed', false),
                     'operational_proof_hash' => (string) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.proof_hash', ''),
+                    'operational_proof_validation_violation_count' => (int) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.validation_violation_count', 0),
                     'post_cycle_cycle_supervisor_status' => (string) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.post_cycle_cycle_supervisor_status', ''),
+                    'post_cycle_cleanup_state' => (array) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.post_cycle_cleanup_state', []),
+                    'dispatch_allowed' => (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.dispatch_allowed', false),
+                    'adapter_execution_allowed' => (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.adapter_execution_allowed', false),
+                    'self_programming_allowed' => (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.self_programming_allowed', false),
                     'expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
                 ],
             ),
@@ -265,8 +271,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'required_success_predicate' => [
                 'completion_audit_status_must_be_complete' => (string) data_get($completionAudit, 'status') === 'complete',
                 'completion_audit_failed_criteria_must_be_empty' => $failedCriteria === [],
-                'terminal_loop_operational_proof_must_be_bound_and_passed' => (string) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.status') === 'passed'
-                    && (bool) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence.passed', false) === true,
+                'terminal_loop_operational_proof_must_be_bound_and_passed' => $this->terminalLoopOperationalProofAccepted($completionAudit),
                 'completion_evidence_hashes_must_match_audit' => (bool) data_get($checks, 'evidence_hashes_match_completion_audit.passed', false),
                 'finalization_gate_failed_checks_must_be_empty' => $failed === [],
                 'completion_claim_allowed_must_be_true' => $completionClaimAllowed,
@@ -300,6 +305,25 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
     private function completionAuditWithTerminalLoopOperationalProofCommand(): string
     {
         return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
+    }
+
+    /** @param array<string, mixed> $completionAudit */
+    private function terminalLoopOperationalProofAccepted(array $completionAudit): bool
+    {
+        $proof = (array) data_get($completionAudit, 'agent_control_plane_terminal_loop_operational_proof_evidence', []);
+        $proofHash = (string) data_get($proof, 'proof_hash', '');
+
+        return (string) data_get($proof, 'status', '') === 'passed'
+            && (bool) data_get($proof, 'supplied', false) === true
+            && (bool) data_get($proof, 'passed', false) === true
+            && preg_match('/^[a-f0-9]{64}$/', $proofHash) === 1
+            && (int) data_get($proof, 'validation_violation_count', 1) === 0
+            && (int) data_get($proof, 'post_cycle_cleanup_state.claimed_task_count', 1) === 0
+            && (int) data_get($proof, 'post_cycle_cleanup_state.active_lease_count', 1) === 0
+            && (int) data_get($proof, 'post_cycle_cleanup_state.recoverable_lease_count', 1) === 0
+            && (bool) data_get($proof, 'dispatch_allowed', true) === false
+            && (bool) data_get($proof, 'adapter_execution_allowed', true) === false
+            && (bool) data_get($proof, 'self_programming_allowed', true) === false;
     }
 
     /**

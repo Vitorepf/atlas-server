@@ -22,6 +22,7 @@ capabilities:
 decisions:
   - Esta e a doc curta de orientacao para IAs antes de explicar Atlas Code, Forge Continuum, Self-Construction OS ou Self-Programming OS.
   - Atlas Forge Continuum OS ja e a especializacao operacional de programacao pesada; nao crie outro OS paralelo para isso.
+  - Atlas Dual-Core Engineering System governa a fronteira entre Atlas Dev e Atlas Forge; nao fundir os dois e nao subordinar Forge ao Dev.
   - Atlas Code e surface humana; nao e o sistema inteiro, nao e provider e nao e Obra.
   - Self-Construction OS e a lei-mae para Atlas construir Atlas.
   - Self-Programming OS e o patamar/conjunto de safety contracts para auto-modificacao governada; ainda nao deve ser tratado como runtime livre.
@@ -31,6 +32,7 @@ maintenance:
   - Mantenha este arquivo curto; ele existe para orientar IA rapidamente, nao para substituir os docs-mae.
 related_paths:
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
+  - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md
@@ -194,6 +196,12 @@ dispatch, substituir safety contracts ou promover autonomia.
 ## Regra Principal
 
 Nao crie um novo "Programming Self-Programming OS" separado.
+
+Nao funda Atlas Dev e Atlas Forge. A fronteira entre os dois pertence a:
+
+```text
+atlas-dual-core-engineering-system.md
+```
 
 O papel operacional de programacao pesada ja pertence ao:
 

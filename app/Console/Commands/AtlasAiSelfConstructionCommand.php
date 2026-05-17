@@ -221,6 +221,10 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-programming-os-transition-readiness-preflight : Generate the read-only Atlas Self-Programming OS Transition Readiness preflight}
         {--atlas-self-programming-os-transition-readiness-implementation-packet : Generate the read-only Atlas Self-Programming OS Transition Readiness implementation packet}
         {--atlas-self-programming-os-transition-readiness-status : Run the read-only Atlas Self-Programming OS Transition Readiness projection}
+        {--atlas-self-programming-safety-contract-certification-contract : Generate the read-only Atlas Self-Programming Safety Contract Certification contract}
+        {--atlas-self-programming-safety-contract-certification-preflight : Generate the read-only Atlas Self-Programming Safety Contract Certification preflight}
+        {--atlas-self-programming-safety-contract-certification-implementation-packet : Generate the read-only Atlas Self-Programming Safety Contract Certification implementation packet}
+        {--atlas-self-programming-safety-contract-certification-status : Run the read-only Atlas Self-Programming Safety Contract Certification projection}
         {--atlas-self-construction-completion-finalization-gate-contract : Generate the read-only Atlas Self-Construction Completion Finalization Gate contract}
         {--atlas-self-construction-completion-finalization-gate-preflight : Generate the read-only Atlas Self-Construction Completion Finalization Gate preflight}
         {--atlas-self-construction-completion-finalization-gate-implementation-packet : Generate the read-only Atlas Self-Construction Completion Finalization Gate implementation packet}
@@ -416,6 +420,10 @@ class AtlasAiSelfConstructionCommand extends Command
         {--agent-control-plane-task-auto-replenishment-preflight : Generate the Task Auto-Replenishment preflight}
         {--agent-control-plane-task-auto-replenishment-implementation-packet : Generate the Task Auto-Replenishment implementation packet}
         {--agent-control-plane-task-auto-replenishment-status : Replenish the persistent task queue from governed Agent Control Plane sources}
+        {--agent-control-plane-worker-task-eligibility-certification-contract : Generate the Worker Task Eligibility Certification contract}
+        {--agent-control-plane-worker-task-eligibility-certification-preflight : Generate the Worker Task Eligibility Certification preflight}
+        {--agent-control-plane-worker-task-eligibility-certification-implementation-packet : Generate the Worker Task Eligibility Certification implementation packet}
+        {--agent-control-plane-worker-task-eligibility-certification-status : Run the read-only Worker Task Eligibility Certification}
         {--agent-control-plane-terminal-loop-health-digest-contract : Generate the read-only Terminal Loop Health Digest contract}
         {--agent-control-plane-terminal-loop-health-digest-preflight : Generate the read-only Terminal Loop Health Digest preflight}
         {--agent-control-plane-terminal-loop-health-digest-implementation-packet : Generate the read-only Terminal Loop Health Digest implementation packet}
@@ -2057,6 +2065,10 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('agent-control-plane-task-auto-replenishment-implementation-packet') => $readiness->agentControlPlaneTaskAutoReplenishmentImplementationPacket($options),
             (bool) $this->option('agent-control-plane-task-auto-replenishment-preflight') => $readiness->agentControlPlaneTaskAutoReplenishmentPreflight($options),
             (bool) $this->option('agent-control-plane-task-auto-replenishment-contract') => $readiness->agentControlPlaneTaskAutoReplenishmentContract($options),
+            (bool) $this->option('agent-control-plane-worker-task-eligibility-certification-status') => $readiness->agentControlPlaneWorkerTaskEligibilityCertificationStatus($options),
+            (bool) $this->option('agent-control-plane-worker-task-eligibility-certification-implementation-packet') => $readiness->agentControlPlaneWorkerTaskEligibilityCertificationImplementationPacket($options),
+            (bool) $this->option('agent-control-plane-worker-task-eligibility-certification-preflight') => $readiness->agentControlPlaneWorkerTaskEligibilityCertificationPreflight($options),
+            (bool) $this->option('agent-control-plane-worker-task-eligibility-certification-contract') => $readiness->agentControlPlaneWorkerTaskEligibilityCertificationContract($options),
             (bool) $this->option('agent-control-plane-terminal-loop-health-digest-status') => $readiness->agentControlPlaneTerminalLoopHealthDigestStatus($options),
             (bool) $this->option('agent-control-plane-terminal-loop-health-digest-implementation-packet') => $readiness->agentControlPlaneTerminalLoopHealthDigestImplementationPacket($options),
             (bool) $this->option('agent-control-plane-terminal-loop-health-digest-preflight') => $readiness->agentControlPlaneTerminalLoopHealthDigestPreflight($options),
@@ -2223,6 +2235,10 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('atlas-self-programming-os-transition-readiness-implementation-packet') => $readiness->atlasSelfProgrammingOsTransitionReadinessImplementationPacket($options),
             (bool) $this->option('atlas-self-programming-os-transition-readiness-preflight') => $readiness->atlasSelfProgrammingOsTransitionReadinessPreflight($options),
             (bool) $this->option('atlas-self-programming-os-transition-readiness-contract') => $readiness->atlasSelfProgrammingOsTransitionReadinessContract($options),
+            (bool) $this->option('atlas-self-programming-safety-contract-certification-status') => $readiness->atlasSelfProgrammingSafetyContractCertificationStatus($options),
+            (bool) $this->option('atlas-self-programming-safety-contract-certification-implementation-packet') => $readiness->atlasSelfProgrammingSafetyContractCertificationImplementationPacket($options),
+            (bool) $this->option('atlas-self-programming-safety-contract-certification-preflight') => $readiness->atlasSelfProgrammingSafetyContractCertificationPreflight($options),
+            (bool) $this->option('atlas-self-programming-safety-contract-certification-contract') => $readiness->atlasSelfProgrammingSafetyContractCertificationContract($options),
             (bool) $this->option('atlas-self-construction-completion-finalization-gate-status') => $readiness->atlasSelfConstructionCompletionFinalizationGateStatus($options),
             (bool) $this->option('atlas-self-construction-completion-finalization-gate-implementation-packet') => $readiness->atlasSelfConstructionCompletionFinalizationGateImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-completion-finalization-gate-preflight') => $readiness->atlasSelfConstructionCompletionFinalizationGatePreflight($options),

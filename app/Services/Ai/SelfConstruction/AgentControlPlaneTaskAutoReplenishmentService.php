@@ -49,7 +49,9 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         $sources = $this->sources($context);
         $rawPlan = $this->plan($sources, $targetMinClaimable, $maxNewTasks, $claimableBefore, $totalBefore);
         $planEvaluation = $this->evaluatePlan($rawPlan, $existingSeedIndex);
+        $planEvaluation = $this->withCompletionOperatorHandoffSeeds($planEvaluation, $sources);
         $plan = (array) $planEvaluation['accepted_seeds'];
+        $operatorHandoffSeeds = (array) $planEvaluation['operator_handoff_seeds'];
         $generated = [];
         $skipped = [];
 
@@ -109,6 +111,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             'generated_task_count' => count($generated),
             'skipped_existing_task_count' => count($skipped),
             'skipped_duplicate_seed_count' => (int) $planEvaluation['skipped_duplicate_seed_count'],
+            'operator_handoff_seed_count' => count($operatorHandoffSeeds),
             'active_seed_count' => count((array) $existingSeedIndex['active_seed_keys']),
             'sources' => $sources,
             'source_catalog' => $this->sourceCatalog(),
@@ -116,6 +119,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             'plan_evaluation' => $planEvaluation,
             'generated_tasks' => $generated,
             'skipped_tasks' => $skipped,
+            'operator_handoff_tasks' => $operatorHandoffSeeds,
             'blockers' => $this->blockers(
                 $claimableAfter,
                 $targetMinClaimable,
@@ -143,6 +147,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
                 'task_auto_replenishment_does_not_write_ledger',
                 'task_auto_replenishment_does_not_mutate_pointer',
                 'task_auto_replenishment_does_not_mark_real_completion',
+                'task_auto_replenishment_does_not_assign_operator_only_blockers_to_workers',
             ],
         ];
         $payload['replenishment_plan_hash'] = $this->stableHash([
@@ -250,11 +255,17 @@ final class AgentControlPlaneTaskAutoReplenishmentService
     {
         $activeSeedKeys = (array) ($existingSeedIndex['active_seed_keys'] ?? []);
         $accepted = [];
+        $operatorHandoff = [];
         $skipped = [];
         $seen = [];
 
         foreach ($plan as $seed) {
             $seedKey = (string) ($seed['seed_key'] ?? '');
+            if ((bool) ($seed['worker_executable'] ?? true) === false) {
+                $operatorHandoff[] = $this->operatorHandoffSeed($seed);
+
+                continue;
+            }
             if ($seedKey === '') {
                 $accepted[] = $seed;
 
@@ -288,7 +299,11 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         }
 
         return [
-            'status' => $accepted !== [] || $plan === [] ? 'evaluated' : 'all_candidate_seeds_already_active',
+            'status' => match (true) {
+                $accepted !== [] || $plan === [] => 'evaluated',
+                $operatorHandoff !== [] && $skipped === [] => 'operator_handoff_required',
+                default => 'all_candidate_seeds_already_active',
+            },
             'candidate_seed_count' => count($plan),
             'accepted_seed_count' => count($accepted),
             'skipped_duplicate_seed_count' => count($skipped),
@@ -296,10 +311,100 @@ final class AgentControlPlaneTaskAutoReplenishmentService
                 static fn (array $seed): string => (string) ($seed['seed_key'] ?? ''),
                 $accepted,
             )),
+            'operator_handoff_seed_count' => count($operatorHandoff),
+            'operator_handoff_seed_keys' => array_values(array_map(
+                static fn (array $seed): string => (string) ($seed['seed_key'] ?? ''),
+                $operatorHandoff,
+            )),
+            'operator_handoff_seeds' => $operatorHandoff,
             'skipped_duplicate_seeds' => $skipped,
             'active_seed_index_hash' => $this->stableHash($existingSeedIndex),
             'accepted_seeds' => $accepted,
         ];
+    }
+
+    /**
+     * Keep final operator/provider blockers visible even when the claimable
+     * queue is already full and the worker replenishment plan is empty.
+     *
+     * @param  array<string, mixed>  $planEvaluation
+     * @param  list<array<string, mixed>>  $sources
+     * @return array<string, mixed>
+     */
+    private function withCompletionOperatorHandoffSeeds(array $planEvaluation, array $sources): array
+    {
+        $operatorHandoff = (array) ($planEvaluation['operator_handoff_seeds'] ?? []);
+        $seen = array_fill_keys(array_map(
+            static fn (array $seed): string => (string) ($seed['seed_key'] ?? ''),
+            $operatorHandoff,
+        ), true);
+
+        foreach ($this->completionOperatorHandoffSeedsFromSources($sources) as $seed) {
+            $seedKey = (string) ($seed['seed_key'] ?? '');
+            if ($seedKey !== '' && isset($seen[$seedKey])) {
+                continue;
+            }
+
+            $operatorHandoff[] = $this->operatorHandoffSeed($seed);
+            if ($seedKey !== '') {
+                $seen[$seedKey] = true;
+            }
+        }
+
+        $planEvaluation['operator_handoff_seed_count'] = count($operatorHandoff);
+        $planEvaluation['operator_handoff_seed_keys'] = array_values(array_map(
+            static fn (array $seed): string => (string) ($seed['seed_key'] ?? ''),
+            $operatorHandoff,
+        ));
+        $planEvaluation['operator_handoff_seeds'] = $operatorHandoff;
+
+        if (
+            $operatorHandoff !== []
+            && (int) ($planEvaluation['accepted_seed_count'] ?? 0) === 0
+            && (int) ($planEvaluation['skipped_duplicate_seed_count'] ?? 0) === 0
+        ) {
+            $planEvaluation['status'] = 'operator_handoff_required';
+        }
+
+        return $planEvaluation;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $sources
+     * @return list<array<string, mixed>>
+     */
+    private function completionOperatorHandoffSeedsFromSources(array $sources): array
+    {
+        $sourceMap = [];
+        foreach ($sources as $source) {
+            $sourceMap[(string) $source['source']] = $source;
+        }
+
+        $seeds = [];
+        foreach ((array) data_get($sourceMap, 'completion_audit_failed_criteria.value', []) as $criterion) {
+            $criterion = (string) $criterion;
+            if (! $this->completionAuditCriterionRequiresOperator($criterion)) {
+                continue;
+            }
+
+            $detail = (array) data_get($sourceMap, 'completion_audit_failed_criteria.details_by_id.'.$criterion, []);
+            $seeds[] = $this->seed('completion_audit_'.$this->slug($criterion), 'Fechar critério falho do completion audit: '.$criterion, [
+                'source' => 'completion_audit',
+                'reference' => $criterion,
+                'priority' => 2,
+                'tags' => ['completion_audit', 'operator_handoff_required'],
+                'worker_executable' => false,
+                'operator_handoff_required' => true,
+                'operator_handoff_reason' => $this->completionAuditOperatorHandoffReason($criterion),
+                'blocker_type' => (string) ($detail['blocker_type'] ?? ''),
+                'expected_receipt_schema' => (string) ($detail['expected_receipt_schema'] ?? ''),
+                'remediation_command' => (string) ($detail['remediation_command'] ?? ''),
+                'why_blocking' => (string) ($detail['why_blocking'] ?? ''),
+                'current_evidence_context' => (array) ($detail['current_evidence_context'] ?? data_get($detail, 'evidence.current_evidence_context', [])),
+            ]);
+        }
+
+        return $seeds;
     }
 
     /**
@@ -309,12 +414,13 @@ final class AgentControlPlaneTaskAutoReplenishmentService
     private function sources(array $context): array
     {
         $controlPlane = (array) ($context['control_plane'] ?? []);
-        $completionAudit = (array) ($context['completion_audit'] ?? []);
+        $completionAudit = $this->completionAuditPayload((array) ($context['completion_audit'] ?? []));
         $chainIntegrity = (array) ($context['chain_integrity'] ?? []);
         $terminalBootstrapProbe = (array) ($context['terminal_bootstrap_probe'] ?? []);
         $nextRequiredSlice = (string) data_get($controlPlane, 'control_plane.persistent_runtime.next_required_slice', data_get($context, 'next_required_slice', ''));
         $notYetRuntimeCapable = (array) data_get($controlPlane, 'control_plane.not_yet_runtime_capable', []);
-        $failedCriteria = array_values(array_filter(array_map('strval', (array) data_get($completionAudit, 'failed_criteria', []))));
+        $failedCriteria = $this->completionAuditFailedCriteria($completionAudit);
+        $failedCriterionDetails = $this->completionAuditFailedCriterionDetails($completionAudit);
         $chainViolations = array_values((array) data_get($chainIntegrity, 'violations', []));
         $terminalBootstrapProbeEnabled = (bool) ($terminalBootstrapProbe['enabled'] ?? false);
 
@@ -340,6 +446,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             [
                 'source' => 'completion_audit_failed_criteria',
                 'value' => $failedCriteria,
+                'details_by_id' => $failedCriterionDetails,
                 'available' => $failedCriteria !== [],
             ],
             [
@@ -401,11 +508,25 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         }
 
         foreach (array_slice((array) data_get($sourceMap, 'completion_audit_failed_criteria.value', []), 0, 2) as $criterion) {
-            $seeds[] = $this->seed('completion_audit_'.$this->slug((string) $criterion), 'Fechar critério falho do completion audit: '.$criterion, [
+            $criterion = (string) $criterion;
+            $operatorOnly = $this->completionAuditCriterionRequiresOperator($criterion);
+            $detail = (array) data_get($sourceMap, 'completion_audit_failed_criteria.details_by_id.'.$criterion, []);
+            $seeds[] = $this->seed('completion_audit_'.$this->slug($criterion), 'Fechar critério falho do completion audit: '.$criterion, [
                 'source' => 'completion_audit',
-                'reference' => (string) $criterion,
+                'reference' => $criterion,
                 'priority' => 2,
-                'tags' => ['completion_audit'],
+                'tags' => array_values(array_filter([
+                    'completion_audit',
+                    $operatorOnly ? 'operator_handoff_required' : '',
+                ])),
+                'worker_executable' => ! $operatorOnly,
+                'operator_handoff_required' => $operatorOnly,
+                'operator_handoff_reason' => $this->completionAuditOperatorHandoffReason($criterion),
+                'blocker_type' => (string) ($detail['blocker_type'] ?? ''),
+                'expected_receipt_schema' => (string) ($detail['expected_receipt_schema'] ?? ''),
+                'remediation_command' => (string) ($detail['remediation_command'] ?? ''),
+                'why_blocking' => (string) ($detail['why_blocking'] ?? ''),
+                'current_evidence_context' => (array) ($detail['current_evidence_context'] ?? data_get($detail, 'evidence.current_evidence_context', [])),
             ]);
         }
 
@@ -497,7 +618,158 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             'reference' => '',
             'priority' => 5,
             'tags' => [],
+            'worker_executable' => true,
+            'operator_handoff_required' => false,
+            'operator_handoff_reason' => '',
+            'blocker_type' => '',
+            'expected_receipt_schema' => '',
+            'remediation_command' => '',
+            'why_blocking' => '',
+            'current_evidence_context' => [],
         ], $extra);
+    }
+
+    /**
+     * @param  array<string, mixed>  $seed
+     * @return array<string, mixed>
+     */
+    private function operatorHandoffSeed(array $seed): array
+    {
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_operator_handoff_seed.v1',
+            'seed_key' => (string) ($seed['seed_key'] ?? ''),
+            'source' => (string) ($seed['source'] ?? ''),
+            'reference' => (string) ($seed['reference'] ?? ''),
+            'objective' => (string) ($seed['objective'] ?? ''),
+            'priority' => (int) ($seed['priority'] ?? 5),
+            'tags' => (array) ($seed['tags'] ?? []),
+            'worker_executable' => false,
+            'operator_handoff_required' => true,
+            'operator_handoff_reason' => (string) ($seed['operator_handoff_reason'] ?? 'requires_operator_action_before_worker_execution'),
+            'blocker_type' => (string) ($seed['blocker_type'] ?? ''),
+            'expected_receipt_schema' => (string) ($seed['expected_receipt_schema'] ?? ''),
+            'remediation_command' => (string) ($seed['remediation_command'] ?? ''),
+            'why_blocking' => (string) ($seed['why_blocking'] ?? ''),
+            'current_evidence_context' => (array) ($seed['current_evidence_context'] ?? []),
+            'claimable_task_created' => false,
+            'why_not_claimable' => 'operator_or_real_provider_evidence_required; auto-replenishment must not assign this blocker to Codex/Claude workers',
+            'next_action' => $this->operatorHandoffNextAction((string) ($seed['reference'] ?? '')),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $completionAudit
+     * @return array<string, mixed>
+     */
+    private function completionAuditPayload(array $completionAudit): array
+    {
+        foreach ([
+            'agent_control_plane_atlas_self_construction_os_completion_audit',
+            'agent_control_plane_atlas_self_construction_os_completion_audit_status',
+            'current_completion_audit',
+            'completion_audit',
+            'operator_handoff_packet.completion_audit',
+        ] as $path) {
+            $candidate = data_get($completionAudit, $path);
+            if (is_array($candidate) && $candidate !== []) {
+                return (array) $candidate;
+            }
+        }
+
+        return $completionAudit;
+    }
+
+    /**
+     * @param  array<string, mixed>  $completionAudit
+     * @return list<string>
+     */
+    private function completionAuditFailedCriteria(array $completionAudit): array
+    {
+        $criteria = array_values(array_filter(array_map('strval', (array) data_get($completionAudit, 'failed_criteria', []))));
+
+        foreach ((array) data_get($completionAudit, 'failed_criteria_detailed', []) as $entry) {
+            $id = (string) data_get($entry, 'id', '');
+            if ($id !== '') {
+                $criteria[] = $id;
+            }
+        }
+
+        foreach ([
+            'current_blocks_completion_criteria',
+            'operator_handoff_packet.current_blocks_completion_criteria',
+            'blocker_classification.human_blockers',
+            'blocker_classification.real_provider_blockers',
+            'blocker_classification.technical_blockers',
+        ] as $path) {
+            foreach ((array) data_get($completionAudit, $path, []) as $id) {
+                $id = (string) $id;
+                if ($id !== '') {
+                    $criteria[] = $id;
+                }
+            }
+        }
+
+        return array_values(array_unique($criteria));
+    }
+
+    /**
+     * @param  array<string, mixed>  $completionAudit
+     * @return array<string, array<string, mixed>>
+     */
+    private function completionAuditFailedCriterionDetails(array $completionAudit): array
+    {
+        $details = [];
+        foreach ((array) data_get($completionAudit, 'failed_criteria_detailed', []) as $entry) {
+            $id = (string) data_get($entry, 'id', '');
+            if ($id !== '') {
+                $details[$id] = (array) $entry;
+            }
+        }
+
+        foreach ((array) data_get($completionAudit, 'blockers', []) as $entry) {
+            $id = (string) data_get($entry, 'id', '');
+            if ($id !== '' && ! isset($details[$id])) {
+                $details[$id] = (array) $entry;
+            }
+        }
+
+        foreach ((array) data_get($completionAudit, 'operator_handoff_packet.blockers', []) as $entry) {
+            $id = (string) data_get($entry, 'id', '');
+            if ($id !== '' && ! isset($details[$id])) {
+                $details[$id] = (array) $entry;
+            }
+        }
+
+        return $details;
+    }
+
+    private function completionAuditCriterionRequiresOperator(string $criterion): bool
+    {
+        return in_array($criterion, [
+            'runtime_gap_matrix_all_runtime_y',
+            'human_signed_os_complete_receipt_present',
+            'end_to_end_real_provider_smoke_green',
+        ], true);
+    }
+
+    private function completionAuditOperatorHandoffReason(string $criterion): string
+    {
+        return match ($criterion) {
+            'runtime_gap_matrix_all_runtime_y' => 'requires_operator_signed_runtime_promotion_receipt_before_runtime_gap_can_close',
+            'human_signed_os_complete_receipt_present' => 'requires_human_signed_os_completion_receipt_after_runtime_and_real_provider_smoke_are_green',
+            'end_to_end_real_provider_smoke_green' => 'requires_operator_run_real_provider_smoke_outside_atlas_and_persist_evidence',
+            default => '',
+        };
+    }
+
+    private function operatorHandoffNextAction(string $criterion): string
+    {
+        return match ($criterion) {
+            'runtime_gap_matrix_all_runtime_y' => 'run_runtime_promotion_endgame_and_persist_operator_signed_runtime_promotion_receipt',
+            'human_signed_os_complete_receipt_present' => 'persist_human_completion_receipt_only_after_runtime_promotion_and_real_provider_smoke_are_green',
+            'end_to_end_real_provider_smoke_green' => 'run_real_provider_smoke_outside_atlas_then_persist_smoke_certification_evidence',
+            default => 'operator_review_required_before_replenishing_worker_claimable_task',
+        };
     }
 
     /**
@@ -556,6 +828,9 @@ final class AgentControlPlaneTaskAutoReplenishmentService
                 'auto_replenishment_seed_key' => (string) $seed['seed_key'],
                 'auto_replenishment_source' => (string) $seed['source'],
                 'auto_replenishment_reference' => (string) $seed['reference'],
+                'worker_executable' => (bool) ($seed['worker_executable'] ?? true),
+                'operator_handoff_required' => (bool) ($seed['operator_handoff_required'] ?? false),
+                'operator_handoff_reason' => (string) ($seed['operator_handoff_reason'] ?? ''),
             ],
         ];
     }
@@ -800,13 +1075,15 @@ final class AgentControlPlaneTaskAutoReplenishmentService
      */
     private function countClaimableWithTags(array $tags): int
     {
-        if ($tags === []) {
-            return count((array) $this->queue->list(['status' => 'claimable']));
-        }
-
         $records = (array) $this->queue->list(['status' => 'claimable']);
 
         return count(array_filter($records, static function (array $record) use ($tags): bool {
+            if ((bool) data_get($record, 'task_packet.continuation_context.worker_executable', true) === false) {
+                return false;
+            }
+            if ((bool) data_get($record, 'task_packet.continuation_context.operator_handoff_required', false)) {
+                return false;
+            }
             $recordTags = array_map('strval', (array) ($record['tags'] ?? []));
             foreach ($tags as $tag) {
                 if (! in_array($tag, $recordTags, true)) {

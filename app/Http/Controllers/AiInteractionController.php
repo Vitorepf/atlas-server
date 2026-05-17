@@ -14,6 +14,10 @@ use App\Services\Ai\Attachments\AiChunkedUploadService;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
 use App\Services\Ai\Cli\AtlasImageAttachmentService;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
+use App\Services\Ai\Router\AtlasAiFlowStatusReadModel;
+use App\Services\Ai\Router\AtlasAiRouterService;
+use App\Services\Ai\Router\AtlasAiSpecialistFlowExecutionService;
+use App\Services\Ai\Router\AtlasAiSpecialistFlowRuntimeService;
 use App\Services\Ai\Surface\DomainCatalogSurfaceSelectionService;
 use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
@@ -54,6 +58,9 @@ class AiInteractionController extends Controller
         AtlasFileAttachmentService $files,
         AiChunkedUploadService $chunkedUploads,
         DomainCatalogSurfaceSelectionService $domainSelection,
+        AtlasAiRouterService $router,
+        AtlasAiSpecialistFlowRuntimeService $specialistFlowRuntime,
+        AtlasAiSpecialistFlowExecutionService $specialistFlowExecution,
         AtlasDevRuntimeService $devRuntime,
     ): JsonResponse {
         $data = $request->validated();
@@ -95,6 +102,7 @@ class AiInteractionController extends Controller
 
         $data = $this->applyThreadRuntimePolicy($data);
         $data = $this->applySurfaceDomainCatalogSelection($data, $domainSelection);
+        $data = $this->applyAtlasAiRouterDecision($data, $router);
 
         try {
             $data = $devRuntime->apply($data);
@@ -105,6 +113,8 @@ class AiInteractionController extends Controller
             ], 422);
         }
 
+        $data = $specialistFlowRuntime->apply($data);
+        $data = $specialistFlowExecution->apply($data);
         $data = $this->applyAtlasCodeForgeObraBinding($data);
 
         try {
@@ -131,6 +141,13 @@ class AiInteractionController extends Controller
     {
         return response()->json([
             'trace' => (new AiTraceResource($trace->load($this->traceShowRelations())))->resolve(),
+        ]);
+    }
+
+    public function flowStatus(AiTrace $trace, AtlasAiFlowStatusReadModel $readModel): JsonResponse
+    {
+        return response()->json([
+            'flow_status' => $readModel->forTrace($trace->load($this->traceFlowStatusRelations())),
         ]);
     }
 
@@ -447,6 +464,39 @@ class AiInteractionController extends Controller
      * @param  array<string,mixed>  $data
      * @return array<string,mixed>
      */
+    private function applyAtlasAiRouterDecision(array $data, AtlasAiRouterService $router): array
+    {
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        if ($this->hasRouterDecision($payload)) {
+            return $data;
+        }
+
+        $decision = $router->decide($data)->toArray();
+        $payload['atlas_ai_router'] = $decision;
+        $payload['flow_origin'] = $decision['flow_origin'];
+        $payload['command_intent'] = $decision['command_intent'];
+
+        if (in_array(($decision['flow_id'] ?? null), ['atlas_dev', 'atlas_debug', 'atlas_review'], true)
+            && (bool) data_get($decision, 'handoff_payload.workspace_present', false)
+        ) {
+            $payload['atlas_mode'] = 'programming';
+            $payload['routing_task'] = match ($decision['command_intent'] ?? null) {
+                'debug' => 'debug',
+                'review' => 'review',
+                'plan' => 'plan',
+                default => 'dev',
+            };
+        }
+
+        $data['payload'] = $payload;
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
     private function applyAtlasCodeForgeObraBinding(array $data): array
     {
         $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
@@ -520,6 +570,16 @@ class AiInteractionController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function hasRouterDecision(array $payload): bool
+    {
+        return is_array($payload['atlas_ai_router'] ?? null)
+            && is_string(data_get($payload, 'atlas_ai_router.flow_id'))
+            && trim((string) data_get($payload, 'atlas_ai_router.flow_id')) !== '';
     }
 
     /**
@@ -716,6 +776,10 @@ class AiInteractionController extends Controller
             $relations[] = 'atlasDecision';
         }
 
+        if ($this->specialistFlowExecutionsAvailable()) {
+            $relations[] = 'specialistFlowExecution';
+        }
+
         return $relations;
     }
 
@@ -736,6 +800,10 @@ class AiInteractionController extends Controller
             $relations[] = 'atlasDecision';
         }
 
+        if ($this->specialistFlowExecutionsAvailable()) {
+            $relations[] = 'specialistFlowExecution';
+        }
+
         if ($this->qualityEvaluationsAvailable()) {
             $relations[] = 'qualityEvaluation';
         }
@@ -750,6 +818,38 @@ class AiInteractionController extends Controller
 
         if ($this->toolEventsAvailable()) {
             $relations[] = 'toolEvents';
+        }
+
+        if ($this->metricSummaryAvailable()) {
+            $relations[] = 'metricSummary';
+        }
+
+        return $relations;
+    }
+
+    /**
+     * Eager loading dedicado para GET /ai/interactions/{trace}/flow-status.
+     *
+     * O read model precisa de Router, jobs payload e registros auditaveis. Ele
+     * evita relacoes pesadas do show(), como attemptHistory e streamEvents, para
+     * funcionar bem em telas Desktop e em schemas parciais de teste/bootstrap.
+     *
+     * @return array<int,string>
+     */
+    private function traceFlowStatusRelations(): array
+    {
+        $relations = ['job', 'jobs'];
+
+        if ($this->routerDecisionsAvailable()) {
+            $relations[] = 'routerDecision';
+        }
+
+        if ($this->atlasDecisionsAvailable()) {
+            $relations[] = 'atlasDecision';
+        }
+
+        if ($this->specialistFlowExecutionsAvailable()) {
+            $relations[] = 'specialistFlowExecution';
         }
 
         if ($this->metricSummaryAvailable()) {
@@ -777,6 +877,11 @@ class AiInteractionController extends Controller
     private function atlasDecisionsAvailable(): bool
     {
         return Schema::hasTable('ai_decisions');
+    }
+
+    private function specialistFlowExecutionsAvailable(): bool
+    {
+        return Schema::hasTable('ai_specialist_flow_executions');
     }
 
     private function qualityEvaluationsAvailable(): bool

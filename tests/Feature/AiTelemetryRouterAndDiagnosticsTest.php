@@ -6,6 +6,7 @@ use App\Models\AiDecision;
 use App\Models\AiJob;
 use App\Models\AiProviderCostRate;
 use App\Models\AiRouterDecision;
+use App\Models\AiSpecialistFlowExecution;
 use App\Models\AiTelemetryEvent;
 use App\Models\AiTrace;
 use App\Models\AiTraceMetricSummary;
@@ -39,6 +40,7 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
             'ai_trace_metric_summaries',
             'ai_outcome_links',
             'ai_provider_cost_rates',
+            'ai_specialist_flow_executions',
             'ai_decisions',
             'ai_router_decisions',
             'ai_telemetry_events',
@@ -121,6 +123,110 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
         $this->assertTrue($router['was_overridden']);
         $this->assertStringContainsString('Fast path', $router['reason']);
         $this->assertSame(['provider_online' => true, 'requested_provider' => 'auto'], $router['signals']);
+    }
+
+    public function test_specialist_flow_runtime_is_projected_into_score_components(): void
+    {
+        $trace = $this->seedTrace('claude_cli', 'cli-model', 500, 100);
+        $this->seedRate('claude_cli', 'cli-model', 1000, 2000);
+
+        AiJob::query()
+            ->where('trace_id', $trace->id)
+            ->firstOrFail()
+            ->update([
+                'payload' => [
+                    'specialist_flow_runtime' => [
+                        'schema_version' => 'atlas.ai.specialist_flow_runtime.v1',
+                        'flow_id' => 'atlas_explain',
+                        'owner' => 'atlas_explain',
+                        'execution_mode' => 'read_only_explanation',
+                        'side_effect_policy' => 'read_only_until_confirmed',
+                        'workspace_present' => false,
+                        'delegation' => [
+                            'status' => 'not_delegated',
+                            'reason' => 'flow_matches_router_decision',
+                        ],
+                        'required_evidence' => ['router_decision', 'context_refs_or_scope_statement'],
+                        'output_contract' => ['plain_language_explanation'],
+                        'forbidden_actions' => ['modify_workspace'],
+                        'receipt' => [
+                            'schema_version' => 'atlas.ai.specialist_flow_receipt.v1',
+                            'receipt_id' => 'sfr_1234567890abcdef1234567890abcdef',
+                            'contract_hash' => str_repeat('a', 64),
+                            'issued_by' => 'atlas.ai.specialist_flow_runtime.v1',
+                            'flow_id' => 'atlas_explain',
+                            'owner' => 'atlas_explain',
+                            'execution_mode' => 'read_only_explanation',
+                            'delegation_status' => 'not_delegated',
+                            'required_evidence' => ['router_decision', 'context_refs_or_scope_statement'],
+                        ],
+                    ],
+                    'specialist_flow_execution' => [
+                        'schema_version' => 'atlas.ai.specialist_flow_execution.v1',
+                        'status' => 'ready_for_provider',
+                        'handler_id' => 'atlas_explain_read_only_handler',
+                        'handler_version' => 'v1',
+                        'runtime_receipt_id' => 'sfr_1234567890abcdef1234567890abcdef',
+                        'runtime_contract_hash' => str_repeat('a', 64),
+                        'audit_checks' => ['no_side_effect_claims'],
+                        'response_shape' => ['plain_language_explanation'],
+                    ],
+                ],
+            ]);
+
+        $summary = app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);
+        $specialist = $summary->score_components['specialist_flow'];
+
+        $this->assertTrue($specialist['available']);
+        $this->assertSame('atlas.ai.specialist_flow_runtime.v1', $specialist['schema_version']);
+        $this->assertSame('atlas_explain', $specialist['flow_id']);
+        $this->assertSame('read_only_explanation', $specialist['execution_mode']);
+        $this->assertSame('not_delegated', data_get($specialist, 'delegation.status'));
+        $this->assertSame(['router_decision', 'context_refs_or_scope_statement'], $specialist['required_evidence']);
+        $this->assertSame('atlas.ai.specialist_flow_receipt.v1', data_get($specialist, 'receipt.schema_version'));
+        $this->assertSame(str_repeat('a', 64), data_get($specialist, 'receipt.contract_hash'));
+        $this->assertSame('atlas.ai.specialist_flow_execution.v1', data_get($specialist, 'execution.schema_version'));
+        $this->assertSame('atlas_explain_read_only_handler', data_get($specialist, 'execution.handler_id'));
+        $this->assertSame(['no_side_effect_claims'], data_get($specialist, 'execution.audit_checks'));
+    }
+
+    public function test_specialist_flow_diagnostics_prefer_persisted_execution_record(): void
+    {
+        $trace = $this->seedTrace('claude_cli', 'cli-model', 500, 100);
+        $this->seedRate('claude_cli', 'cli-model', 1000, 2000);
+
+        AiSpecialistFlowExecution::query()->create([
+            'trace_id' => $trace->id,
+            'runtime_schema_version' => 'atlas.ai.specialist_flow_runtime.v1',
+            'execution_schema_version' => 'atlas.ai.specialist_flow_execution.v1',
+            'flow_id' => 'atlas_explain',
+            'handler_id' => 'atlas_explain_read_only_handler',
+            'handler_version' => 'v1',
+            'status' => 'ready_for_provider',
+            'runtime_receipt_id' => 'sfr_persisted',
+            'runtime_contract_hash' => str_repeat('f', 64),
+            'delegation_status' => 'not_delegated',
+            'runtime_payload' => [
+                'owner' => 'atlas_explain',
+                'execution_mode' => 'read_only_explanation',
+                'side_effect_policy' => 'read_only_until_confirmed',
+                'workspace_present' => false,
+                'required_evidence' => ['router_decision'],
+                'output_contract' => ['plain_language_explanation'],
+            ],
+            'receipt' => ['receipt_id' => 'sfr_persisted'],
+            'delegation' => ['status' => 'not_delegated'],
+            'audit_checks' => ['no_side_effect_claims'],
+            'response_shape' => ['plain_language_explanation'],
+        ]);
+
+        $summary = app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);
+        $specialist = $summary->score_components['specialist_flow'];
+
+        $this->assertSame('ai_specialist_flow_executions', $specialist['source']);
+        $this->assertSame('atlas_explain', $specialist['flow_id']);
+        $this->assertSame('atlas_explain_read_only_handler', data_get($specialist, 'execution.handler_id'));
+        $this->assertSame('sfr_persisted', data_get($specialist, 'execution.runtime_receipt_id'));
     }
 
     public function test_atlas_decide_diagnostics_capture_multi_stage_execution(): void
@@ -608,6 +714,7 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
             'ai_trace_metric_summaries',
             'ai_outcome_links',
             'ai_provider_cost_rates',
+            'ai_specialist_flow_executions',
             'ai_router_decisions',
             'ai_telemetry_events',
             'ai_stream_events',
@@ -680,6 +787,29 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
             $table->json('task_profile')->nullable();
             $table->json('execution_graph')->nullable();
             $table->text('reason');
+            $table->timestamps();
+        });
+
+        Schema::create('ai_specialist_flow_executions', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('trace_id')->nullable()->index();
+            $table->uuid('router_decision_id')->nullable()->index();
+            $table->string('runtime_schema_version', 80)->nullable();
+            $table->string('execution_schema_version', 80)->nullable();
+            $table->string('flow_id', 80);
+            $table->string('handler_id', 120)->nullable();
+            $table->string('handler_version', 32)->nullable();
+            $table->string('status', 40)->default('ready_for_provider');
+            $table->string('runtime_receipt_id', 80)->nullable();
+            $table->string('runtime_contract_hash', 64)->nullable();
+            $table->string('delegation_status', 64)->nullable();
+            $table->string('delegation_target_flow_id', 80)->nullable();
+            $table->json('runtime_payload')->nullable();
+            $table->json('execution_payload')->nullable();
+            $table->json('receipt')->nullable();
+            $table->json('delegation')->nullable();
+            $table->json('audit_checks')->nullable();
+            $table->json('response_shape')->nullable();
             $table->timestamps();
         });
 

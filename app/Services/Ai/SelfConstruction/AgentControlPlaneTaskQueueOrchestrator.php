@@ -113,6 +113,10 @@ final class AgentControlPlaneTaskQueueOrchestrator
 
         $candidates = $this->queue->list(array_merge(['status' => 'claimable'], $filters));
         foreach ($candidates as $candidate) {
+            if (! $this->candidateCanBeClaimedByWorker($candidate)) {
+                continue;
+            }
+
             $taskPacketId = (string) $candidate['task_packet_id'];
             $scopeLock = [
                 'write_set' => (array) data_get($candidate, 'task_packet.normalized_scope.allowed_files', []),
@@ -148,6 +152,19 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'agent_id' => $agentId,
             'candidate_count' => count($candidates),
         ]);
+    }
+
+    /** @param array<string, mixed> $candidate */
+    private function candidateCanBeClaimedByWorker(array $candidate): bool
+    {
+        if ((bool) data_get($candidate, 'task_packet.continuation_context.worker_executable', true) === false) {
+            return false;
+        }
+        if ((bool) data_get($candidate, 'task_packet.continuation_context.operator_handoff_required', false)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

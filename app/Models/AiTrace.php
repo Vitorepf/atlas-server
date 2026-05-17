@@ -84,6 +84,11 @@ class AiTrace extends Model
         return $this->hasOne(AiDecision::class, 'trace_id');
     }
 
+    public function specialistFlowExecution(): HasOne
+    {
+        return $this->hasOne(AiSpecialistFlowExecution::class, 'trace_id');
+    }
+
     public function remediationSourceActions(): HasMany
     {
         return $this->hasMany(AiQualityAction::class, 'remediation_trace_id')->latest('created_at');

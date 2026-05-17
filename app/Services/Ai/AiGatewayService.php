@@ -8,6 +8,7 @@ use App\Models\AiJob;
 use App\Models\AiMessage;
 use App\Models\AiRouterDecision;
 use App\Models\AiSession;
+use App\Models\AiSpecialistFlowExecution;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\Capture;
@@ -19,6 +20,7 @@ use App\Services\AuditLogService;
 use App\Services\CapturePrivacyService;
 use App\Support\AiAttachmentPayload;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -388,7 +390,7 @@ class AiGatewayService
         } catch (\Throwable $e) {
             // Cockpit é additive — não pode bloquear o enqueue se a emissão
             // falhar. Logar e seguir.
-            \Illuminate\Support\Facades\Log::warning('emitPipelineCheckpoints failed', [
+            Log::warning('emitPipelineCheckpoints failed', [
                 'job_id' => $job->id,
                 'error' => $e->getMessage(),
             ]);
@@ -412,6 +414,7 @@ class AiGatewayService
         if (is_string($prompt->intent ?? null) && $prompt->intent !== '') {
             $type = $prompt->intent;
         }
+
         return [
             'type' => $type,
             'confidence' => 0.85,
@@ -711,6 +714,7 @@ class AiGatewayService
     private function recordAtlasDecision(AiTrace $trace, array $options, string $provider, ?string $model, AiPrompt $prompt, array $modelResolution): void
     {
         $routerDecision = $this->recordRouterDecision($trace, $options, $provider);
+        $this->recordSpecialistFlowExecution($trace, $routerDecision, $options);
 
         if (! Schema::hasTable('ai_decisions')) {
             return;
@@ -786,7 +790,7 @@ class AiGatewayService
 
         return AiRouterDecision::query()->updateOrCreate([
             'trace_id' => $trace->id,
-        ], [
+        ], $this->routerDecisionPayload([
             'mode' => $mode,
             'selected_provider' => $provider,
             'fallback_provider' => is_string(data_get($strategy, 'fallback_provider')) ? data_get($strategy, 'fallback_provider') : null,
@@ -804,7 +808,87 @@ class AiGatewayService
             ],
             'reason' => (string) (data_get($strategy, 'reason') ?: ($fairMode ? 'Fair Claude mode locks claude_cli and disables Atlas Decide.' : $this->decide->decisionReason($options, $provider))),
             'was_overridden' => $manualProvider !== null,
-        ]);
+        ], $payload));
+    }
+
+    /**
+     * @param  array<string,mixed>  $base
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function routerDecisionPayload(array $base, array $payload): array
+    {
+        $router = is_array(data_get($payload, 'atlas_ai_router')) ? (array) data_get($payload, 'atlas_ai_router') : [];
+        if ($router === []) {
+            return $base;
+        }
+
+        $columns = [
+            'schema_version' => data_get($router, 'schema_version'),
+            'surface_id' => data_get($router, 'handoff_payload.surface_id'),
+            'flow_id' => data_get($router, 'flow_id'),
+            'flow_origin' => data_get($router, 'flow_origin'),
+            'command_intent' => data_get($router, 'command_intent'),
+            'routing_reason' => data_get($router, 'routing_reason'),
+            'routing_confidence' => data_get($router, 'routing_confidence'),
+            'workspace_present' => (bool) data_get($router, 'handoff_payload.workspace_present', false),
+            'handoff_payload' => is_array(data_get($router, 'handoff_payload')) ? data_get($router, 'handoff_payload') : [],
+            'alternative_flow_ids' => is_array(data_get($router, 'alternative_flow_ids')) ? data_get($router, 'alternative_flow_ids') : [],
+        ];
+
+        foreach ($columns as $column => $value) {
+            if (Schema::hasColumn('ai_router_decisions', $column)) {
+                $base[$column] = $value;
+            }
+        }
+
+        return $base;
+    }
+
+    private function recordSpecialistFlowExecution(AiTrace $trace, ?AiRouterDecision $routerDecision, array $options): ?AiSpecialistFlowExecution
+    {
+        if (! Schema::hasTable('ai_specialist_flow_executions')) {
+            return null;
+        }
+
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $runtime = is_array(data_get($payload, 'specialist_flow_runtime')) ? (array) data_get($payload, 'specialist_flow_runtime') : [];
+        $execution = is_array(data_get($payload, 'specialist_flow_execution')) ? (array) data_get($payload, 'specialist_flow_execution') : [];
+
+        if ($runtime === [] || $execution === []) {
+            return null;
+        }
+
+        $values = [
+            'router_decision_id' => $routerDecision?->id,
+            'runtime_schema_version' => data_get($runtime, 'schema_version'),
+            'execution_schema_version' => data_get($execution, 'schema_version'),
+            'flow_id' => data_get($execution, 'flow_id') ?: data_get($runtime, 'flow_id'),
+            'handler_id' => data_get($execution, 'handler_id'),
+            'handler_version' => data_get($execution, 'handler_version'),
+            'status' => data_get($execution, 'status', 'ready_for_provider'),
+            'runtime_receipt_id' => data_get($execution, 'runtime_receipt_id') ?: data_get($runtime, 'receipt.receipt_id'),
+            'runtime_contract_hash' => data_get($execution, 'runtime_contract_hash') ?: data_get($runtime, 'receipt.contract_hash'),
+            'delegation_status' => data_get($execution, 'delegation.status') ?: data_get($runtime, 'delegation.status'),
+            'delegation_target_flow_id' => data_get($execution, 'delegation.target_flow_id') ?: data_get($runtime, 'delegation.target_flow_id'),
+            'runtime_payload' => $runtime,
+            'execution_payload' => $execution,
+            'receipt' => is_array(data_get($runtime, 'receipt')) ? data_get($runtime, 'receipt') : [],
+            'delegation' => is_array(data_get($execution, 'delegation')) ? data_get($execution, 'delegation') : (is_array(data_get($runtime, 'delegation')) ? data_get($runtime, 'delegation') : []),
+            'audit_checks' => is_array(data_get($execution, 'audit_checks')) ? data_get($execution, 'audit_checks') : [],
+            'response_shape' => is_array(data_get($execution, 'response_shape')) ? data_get($execution, 'response_shape') : [],
+        ];
+
+        $filtered = [];
+        foreach ($values as $column => $value) {
+            if (Schema::hasColumn('ai_specialist_flow_executions', $column)) {
+                $filtered[$column] = $value;
+            }
+        }
+
+        return AiSpecialistFlowExecution::query()->updateOrCreate([
+            'trace_id' => $trace->id,
+        ], $filtered);
     }
 
     private function boundedString(mixed $value, int $max): ?string

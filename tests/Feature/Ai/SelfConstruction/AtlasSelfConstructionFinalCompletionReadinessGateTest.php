@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionFinalCompletionReadinessGateService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
+use App\Services\Ai\SelfConstruction\AtlasSelfProgrammingSafetyContractCertificationService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -62,6 +63,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertTrue((bool) $gate['completion_claim_allowed']);
         $this->assertTrue((bool) $gate['next_stage_allowed']);
         $this->assertTrue((bool) $gate['material_completion_evidence_green']);
+        $this->assertTrue((bool) $gate['terminal_loop_operational_proof_green']);
         $this->assertSame('Atlas Self-Programming OS', (string) $gate['next_stage_name']);
         $this->assertSame([], (array) $gate['next_stage_blocked_by']);
         $this->assertSame('ready_for_safety_contract_design', (string) $gate['self_programming_os_transition_status']);
@@ -83,6 +85,19 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertFalse((bool) $gate['next_stage_allowed']);
         $this->assertFalse((bool) $gate['material_completion_evidence_green']);
         $this->assertContains('material_completion_evidence_hashes_missing_or_invalid', (array) $gate['next_stage_blocked_by']);
+    }
+
+    public function test_gate_blocks_complete_claim_when_terminal_loop_operational_proof_binding_is_missing(): void
+    {
+        $audit = $this->auditAllPassedExcept([], complete: true, includeTerminalLoopProof: false);
+        $gate = $this->gate()->evaluate(['completion_audit' => $audit]);
+
+        $this->assertSame('incomplete', $gate['status']);
+        $this->assertFalse((bool) $gate['completion_allowed']);
+        $this->assertFalse((bool) $gate['completion_claim_allowed']);
+        $this->assertFalse((bool) $gate['next_stage_allowed']);
+        $this->assertFalse((bool) $gate['terminal_loop_operational_proof_green']);
+        $this->assertContains('terminal_loop_operational_proof_binding_missing_or_invalid', (array) $gate['next_stage_blocked_by']);
     }
 
     public function test_gate_blocks_next_stage_when_completion_allowed_false_in_audit(): void
@@ -155,6 +170,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $summary = (array) data_get($status, 'agent_control_plane_atlas_self_construction_final_completion_readiness_gate_status', []);
 
         $this->assertTrue((bool) $summary['terminal_loop_operational_proof_required_before_completion_claim']);
+        $this->assertFalse((bool) $summary['terminal_loop_operational_proof_green']);
         $this->assertSame(
             'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             $summary['terminal_loop_operational_proof_expected_binding_schema'],
@@ -237,6 +253,151 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
         $this->assertContains('atlas_self_programming_os_transition_readiness_status_projection', $capabilities);
     }
 
+    public function test_self_programming_safety_contract_certification_is_available_but_read_only(): void
+    {
+        $payload = (new AtlasSelfProgrammingSafetyContractCertificationService(
+            new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository),
+        ))->certify();
+
+        $this->assertSame('atlas.self_programming.safety_contract_certification.v1', $payload['schema_version']);
+        $this->assertSame('read_only_self_programming_safety_contract_certification', $payload['mode']);
+        $this->assertSame('available', $payload['status']);
+        $this->assertTrue((bool) $payload['checks_all_true']);
+        $this->assertSame([], (array) $payload['failed_check_ids']);
+        $this->assertSame('blocked', (string) $payload['transition_status']);
+        $this->assertContains('self_construction_os_not_complete', (array) $payload['transition_blockers']);
+        $this->assertSame('blocked', (string) $payload['finalization_gate_status']);
+        $this->assertSame('structural_probe_no_persistence_no_registry_side_effects', (string) $payload['finalization_gate_evaluation_mode']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['finalization_gate_hash']);
+        $this->assertFalse((bool) $payload['finalization_gate_terminal_loop_green']);
+        $this->assertTrue((bool) $payload['finalization_gate_terminal_loop_required_before_completion_claim']);
+        $this->assertFalse((bool) $payload['finalization_gate_completion_claim_allowed']);
+        $this->assertFalse((bool) $payload['finalization_gate_next_stage_allowed']);
+        $this->assertContains('finalization_gate_blocked_by_completion_audit_complete', (array) $payload['finalization_gate_next_stage_blockers']);
+        $this->assertSame('blocked_operator_or_provider_evidence_required', (string) $payload['finalization_gate_operator_handoff_status']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['finalization_gate_operator_handoff_hash']);
+        $this->assertContains((string) $payload['finalization_gate_current_required_operator_artifact'], [
+            'runtime_promotion_receipt',
+            'real_provider_smoke_certification',
+            'human_signed_completion_receipt',
+            'technical_completion_audit_repair',
+            'completion_finalization_gate_repair',
+        ]);
+        $this->assertTrue((bool) data_get($payload, 'checks.finalization_gate_requires_terminal_loop_operational_proof'));
+        $this->assertTrue((bool) data_get($payload, 'checks.finalization_gate_terminal_loop_check_uses_binding_evidence'));
+        $this->assertTrue((bool) data_get($payload, 'checks.finalization_gate_blocks_completion_and_next_stage_until_all_checks_pass'));
+        $this->assertTrue((bool) data_get($payload, 'checks.finalization_gate_operator_handoff_available'));
+        $this->assertTrue((bool) data_get($payload, 'checks.finalization_gate_operator_handoff_is_read_only'));
+        $this->assertTrue((bool) data_get($payload, 'checks.worker_task_eligibility_certification_available'));
+        $this->assertTrue((bool) data_get($payload, 'checks.worker_task_eligibility_checks_all_true'));
+        $this->assertTrue((bool) data_get($payload, 'checks.worker_task_eligibility_blocks_operator_only_completion_blockers'));
+        $this->assertSame('available', (string) $payload['worker_task_eligibility_status']);
+        $this->assertSame(0, (int) $payload['worker_task_eligibility_violation_count']);
+        $this->assertSame([
+            'runtime_gap_matrix_all_runtime_y',
+            'human_signed_os_complete_receipt_present',
+            'end_to_end_real_provider_smoke_green',
+        ], (array) $payload['worker_task_eligibility_operator_only_failed_criteria']);
+        $this->assertSame([], (array) $payload['worker_task_eligibility_missing_operator_handoff_criteria']);
+        $this->assertGreaterThanOrEqual(3, (int) $payload['worker_task_eligibility_operator_handoff_seed_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['worker_task_eligibility_certification_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['safety_contract_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['certification_hash']);
+        $this->assertFalse((bool) $payload['runtime_activation_allowed']);
+        $this->assertFalse((bool) $payload['self_programming_allowed']);
+        $this->assertFalse((bool) $payload['provider_call_allowed']);
+        $this->assertFalse((bool) $payload['token_spend_allowed']);
+        $this->assertContains('self_programming_safety_contract_certification_does_not_enable_self_programming', (array) $payload['non_execution_guarantees']);
+    }
+
+    public function test_self_programming_safety_contract_certification_status_projection(): void
+    {
+        $status = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->atlasSelfProgrammingSafetyContractCertificationStatus();
+
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_programming_safety_contract_certification_status', []);
+
+        $this->assertSame('atlas.self_construction_agent_control_plane_atlas_self_programming_safety_contract_certification_status.v1', $status['schema_version']);
+        $this->assertSame('available', $status['status']);
+        $this->assertSame('available', $summary['status']);
+        $this->assertSame('blocked', $summary['transition_status']);
+        $this->assertSame('blocked', (string) $summary['finalization_gate_status']);
+        $this->assertSame('structural_probe_no_persistence_no_registry_side_effects', (string) $summary['finalization_gate_evaluation_mode']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['finalization_gate_hash']);
+        $this->assertFalse((bool) $summary['finalization_gate_terminal_loop_green']);
+        $this->assertTrue((bool) $summary['finalization_gate_terminal_loop_required_before_completion_claim']);
+        $this->assertFalse((bool) $summary['finalization_gate_completion_claim_allowed']);
+        $this->assertFalse((bool) $summary['finalization_gate_next_stage_allowed']);
+        $this->assertContains('finalization_gate_blocked_by_completion_audit_complete', (array) $summary['finalization_gate_next_stage_blockers']);
+        $this->assertSame('blocked_operator_or_provider_evidence_required', (string) $summary['finalization_gate_operator_handoff_status']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['finalization_gate_operator_handoff_hash']);
+        $this->assertContains((string) $summary['finalization_gate_current_required_operator_artifact'], [
+            'runtime_promotion_receipt',
+            'real_provider_smoke_certification',
+            'human_signed_completion_receipt',
+            'technical_completion_audit_repair',
+            'completion_finalization_gate_repair',
+        ]);
+        $this->assertFalse((bool) $summary['runtime_activation_allowed']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
+        $this->assertSame('available', (string) $summary['worker_task_eligibility_status']);
+        $this->assertSame(0, (int) $summary['worker_task_eligibility_violation_count']);
+        $this->assertSame([], (array) $summary['worker_task_eligibility_missing_operator_handoff_criteria']);
+        $this->assertGreaterThanOrEqual(3, (int) $summary['worker_task_eligibility_operator_handoff_seed_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['worker_task_eligibility_certification_hash']);
+        $this->assertContains('self_construction_os_not_complete', (array) $summary['transition_blockers']);
+        $this->assertSame('docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md', $summary['safety_contract_path']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['safety_contract_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['certification_hash']);
+        $this->assertSame([], (array) $summary['failed_check_ids']);
+    }
+
+    public function test_cli_exposes_self_programming_safety_contract_certification_quartet(): void
+    {
+        foreach ([
+            '--atlas-self-programming-safety-contract-certification-contract',
+            '--atlas-self-programming-safety-contract-certification-preflight',
+            '--atlas-self-programming-safety-contract-certification-implementation-packet',
+        ] as $option) {
+            Artisan::call('atlas:ai:self-construction', [
+                $option => true,
+                '--json' => true,
+            ]);
+
+            $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertStringContainsString('atlas.self_programming.safety_contract_certification.v1', json_encode($payload, JSON_THROW_ON_ERROR));
+            $this->assertFalse((bool) $payload['execution_allowed']);
+            $this->assertFalse((bool) $payload['dispatch_allowed']);
+        }
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-programming-safety-contract-certification-status' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $summary = (array) data_get($payload, 'agent_control_plane_atlas_self_programming_safety_contract_certification_status', []);
+
+        $this->assertSame('available', $payload['status']);
+        $this->assertSame('available', $summary['status']);
+        $this->assertFalse((bool) $summary['runtime_activation_allowed']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
+        $this->assertSame([], (array) $summary['failed_check_ids']);
+    }
+
+    public function test_agent_control_plane_lists_self_programming_safety_contract_certification_capabilities(): void
+    {
+        $payload = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->agentControlPlane();
+        $capabilities = (array) data_get($payload, 'control_plane.current_capability', []);
+
+        $this->assertContains('atlas_self_programming_safety_contract_certification_contract', $capabilities);
+        $this->assertContains('atlas_self_programming_safety_contract_certification_preflight', $capabilities);
+        $this->assertContains('atlas_self_programming_safety_contract_certification_implementation_packet', $capabilities);
+        $this->assertContains('atlas_self_programming_safety_contract_certification_service', $capabilities);
+        $this->assertContains('atlas_self_programming_safety_contract_certification_status_projection', $capabilities);
+    }
+
     private function gate(): AtlasSelfConstructionFinalCompletionReadinessGateService
     {
         return new AtlasSelfConstructionFinalCompletionReadinessGateService(
@@ -248,7 +409,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
      * @param  list<string>  $failed
      * @return array<string, mixed>
      */
-    private function auditAllPassedExcept(array $failed, bool $complete = false, bool $includeMaterialEvidence = true): array
+    private function auditAllPassedExcept(array $failed, bool $complete = false, bool $includeMaterialEvidence = true, bool $includeTerminalLoopProof = true): array
     {
         $hash = str_repeat('a', 64);
         $ids = [
@@ -292,7 +453,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
             $criteria[] = ['id' => $id, 'passed' => ! in_array($id, $failed, true), 'evidence' => $evidence];
         }
 
-        return [
+        $audit = [
             'status' => $failed === [] && $complete ? 'complete' : 'incomplete',
             'completion_audit_hash' => $hash,
             'failed_criteria' => $failed,
@@ -302,5 +463,25 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateTest extends TestCa
             'completion_claim_allowed' => $failed === [] && $complete,
             'criteria' => $criteria,
         ];
+
+        if ($includeTerminalLoopProof) {
+            $audit['agent_control_plane_terminal_loop_operational_proof_evidence'] = [
+                'status' => 'passed',
+                'supplied' => true,
+                'passed' => true,
+                'proof_hash' => $hash,
+                'validation_violation_count' => 0,
+                'post_cycle_cleanup_state' => [
+                    'claimed_task_count' => 0,
+                    'active_lease_count' => 0,
+                    'recoverable_lease_count' => 0,
+                ],
+                'dispatch_allowed' => false,
+                'adapter_execution_allowed' => false,
+                'self_programming_allowed' => false,
+            ];
+        }
+
+        return $audit;
     }
 }

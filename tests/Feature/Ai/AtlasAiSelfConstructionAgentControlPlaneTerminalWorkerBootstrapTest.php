@@ -383,6 +383,67 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest 
         $this->assertSame(0, count($leases->activeLeases()));
     }
 
+    public function test_bootstrap_blocks_before_claim_when_lane_contains_operator_handoff_task(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $leases = new AgentControlPlaneClaimLeaseRepository;
+        $orchestrator = new AgentControlPlaneTaskQueueOrchestrator(
+            new AgentControlPlaneTaskPacketBuilder,
+            new AgentControlPlaneScopeLockRuntimeValidator,
+            $queue,
+            $leases,
+            new AgentControlPlaneEvidenceLedgerDryRun,
+            new AgentControlPlaneContinuationSummaryBuilder,
+        );
+        $service = new AgentControlPlaneTerminalWorkerBootstrapService(
+            new AgentControlPlaneTaskAutoReplenishmentService($orchestrator, $queue),
+            $orchestrator,
+            new AgentControlPlaneOneShotWorkerPacketService($leases, $queue),
+            $queue,
+            $leases,
+        );
+        $packet = [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_task_packet.v1',
+            'task_packet_id' => 'operator-only-completion-blocker',
+            'task_packet_hash' => hash('sha256', 'operator-only-completion-blocker'),
+            'status' => 'planned',
+            'objective' => 'Operator-only blocker must not be handed to a worker terminal',
+            'allowed_files' => ['docs/engineering-knowledge-base/self-construction/operator-only.md'],
+            'normalized_scope' => [
+                'allowed_files' => ['docs/engineering-knowledge-base/self-construction/operator-only.md'],
+            ],
+            'continuation_context' => [
+                'worker_executable' => false,
+                'operator_handoff_required' => true,
+                'auto_replenishment_reference' => 'human_signed_os_complete_receipt_present',
+            ],
+            'acceptance_criteria' => ['operator_receipt_required'],
+            'required_tests' => ['operator_receipt_is_external'],
+        ];
+        $this->assertSame('ok', $queue->enqueue($packet, ['tags' => ['operator_only_lane']])['status']);
+
+        $result = $service->bootstrap([], [
+            'actor' => 'operator-only-worker',
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 0,
+            'queue_tags' => ['operator_only_lane'],
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('worker_task_eligibility_blocked_before_claim', $result['claim_event']);
+        $this->assertFalse($result['runtime_claim_persisted']);
+        $this->assertFalse($result['one_shot_worker_packet_ready']);
+        $this->assertSame('blocked', data_get($result, 'worker_task_eligibility_guard.status'));
+        $this->assertSame(3, data_get($result, 'worker_task_eligibility_guard.violation_count'));
+        $this->assertContains('claimable_task_not_worker_executable', data_get($result, 'worker_task_eligibility_guard.blocked_reasons'));
+        $this->assertContains('claimable_task_requires_operator_handoff', data_get($result, 'worker_task_eligibility_guard.blocked_reasons'));
+        $this->assertContains('claimable_task_references_operator_only_completion_blocker', data_get($result, 'worker_task_eligibility_guard.blocked_reasons'));
+        $this->assertSame('claimable', data_get($queue->get('operator-only-completion-blocker'), 'status'));
+        $this->assertSame(0, count($leases->activeLeases()));
+        $this->assertSame('worker_task_eligibility_blocked_before_claim', data_get($result, 'terminal_loop_resumption_checkpoint.current_step'));
+        $this->assertContains('terminal_worker_bootstrap_worker_task_eligibility_guard_blocks_before_claim', $result['non_execution_guarantees']);
+    }
+
     public function test_runtime_flags_remain_false(): void
     {
         $result = $this->service()->bootstrap($this->context(), [

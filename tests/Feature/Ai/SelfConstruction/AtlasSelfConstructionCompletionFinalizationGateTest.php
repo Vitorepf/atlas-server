@@ -102,6 +102,65 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertSame('not_supplied_to_read_only_audit', data_get($gate, 'checks.terminal_loop_green.evidence.operational_proof_status'));
     }
 
+    public function test_finalization_gate_blocks_green_audit_with_weak_terminal_loop_operational_proof_binding(): void
+    {
+        $audit = $this->auditAllPassedExcept([], withOperationalProof: true);
+        $audit['agent_control_plane_terminal_loop_operational_proof_evidence']['post_cycle_cleanup_state']['active_lease_count'] = 1;
+
+        $gate = $this->service()->evaluate([
+            'completion_audit' => $audit,
+            'completion_evidence' => $this->evidenceAllGreen(),
+        ]);
+
+        $this->assertSame('blocked', $gate['status']);
+        $this->assertFalse((bool) $gate['completion_claim_allowed']);
+        $this->assertFalse((bool) $gate['terminal_loop_green']);
+        $this->assertContains('finalization_gate_blocked_by_terminal_loop_green', (array) $gate['next_stage_blockers']);
+        $this->assertSame(1, data_get($gate, 'checks.terminal_loop_green.evidence.post_cycle_cleanup_state.active_lease_count'));
+    }
+
+    public function test_finalization_gate_status_projection_accepts_terminal_loop_operational_proof_json(): void
+    {
+        $proof = [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            'proof_payload' => [
+                'status' => 'passed',
+                'invariants_all_true' => true,
+                'operational_readiness_matrix' => ['all_true' => true],
+                'terminal_loop_operational_proof_hash' => str_repeat('a', 64),
+                'post_cycle_cycle_supervisor' => [
+                    'status' => 'cycle_evidence_review_ready',
+                    'cycle_state' => 'review_evidence',
+                    'next_command_purpose' => 'review_completed_dry_run_evidence_and_rerun_digest',
+                    'hash' => str_repeat('b', 64),
+                ],
+                'post_cycle_cleanup_state' => [
+                    'claimed_task_count' => 0,
+                    'active_lease_count' => 0,
+                    'recoverable_lease_count' => 0,
+                ],
+                'completion_real_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'dispatch_allowed' => false,
+                'adapter_execution_allowed' => false,
+                'self_programming_allowed' => false,
+            ],
+        ];
+
+        $status = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->atlasSelfConstructionCompletionFinalizationGateStatus([
+                'agent_control_plane_terminal_loop_operational_proof_json' => json_encode($proof, JSON_THROW_ON_ERROR),
+            ]);
+
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_construction_completion_finalization_gate_status', []);
+
+        $this->assertSame('blocked', $status['status']);
+        $this->assertTrue((bool) $summary['terminal_loop_operational_proof_green']);
+        $this->assertSame('passed', $summary['terminal_loop_operational_proof_status']);
+        $this->assertSame(str_repeat('a', 64), $summary['terminal_loop_operational_proof_hash']);
+    }
+
     public function test_finalization_gate_blocks_when_green_audit_and_completion_evidence_hashes_drift(): void
     {
         $evidence = $this->evidenceAllGreen();
@@ -226,9 +285,19 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         if ($withOperationalProof) {
             $audit['agent_control_plane_terminal_loop_operational_proof_evidence'] = [
                 'status' => 'passed',
+                'supplied' => true,
                 'passed' => true,
                 'proof_hash' => $hash,
+                'validation_violation_count' => 0,
                 'post_cycle_cycle_supervisor_status' => 'cycle_evidence_review_ready',
+                'post_cycle_cleanup_state' => [
+                    'claimed_task_count' => 0,
+                    'active_lease_count' => 0,
+                    'recoverable_lease_count' => 0,
+                ],
+                'dispatch_allowed' => false,
+                'adapter_execution_allowed' => false,
+                'self_programming_allowed' => false,
             ];
         } else {
             $audit['agent_control_plane_terminal_loop_operational_proof_evidence'] = [

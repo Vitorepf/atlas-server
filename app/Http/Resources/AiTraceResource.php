@@ -38,6 +38,8 @@ class AiTraceResource extends JsonResource
             'metadata' => Metadata::forResponse($this->metadata),
             'atlas_decide_execution' => Metadata::forResponse(data_get($this->metadata, 'atlas_decide_execution')),
             'atlas_dev_runtime' => $this->atlasDevRuntimeForResponse(),
+            'specialist_flow_runtime' => $this->specialistFlowRuntimeForResponse(),
+            'specialist_flow_execution' => $this->specialistFlowExecutionForResponse(),
             'attachments' => $this->publicAttachments(),
             'thread' => $this->whenLoaded('thread', fn () => $this->thread ? new AiThreadResource($this->thread) : null),
             'session' => $this->whenLoaded('session', fn () => $this->session ? new AiSessionResource($this->session) : null),
@@ -45,6 +47,7 @@ class AiTraceResource extends JsonResource
             'jobs' => $this->whenLoaded('jobs', fn () => AiJobResource::collection($this->jobs)->resolve()),
             'router_decision' => $this->whenLoaded('routerDecision', fn () => $this->routerDecision ? $this->routerDecisionForResponse() : null),
             'atlas_decision' => $this->whenLoaded('atlasDecision', fn () => $this->atlasDecision ? $this->atlasDecisionForResponse() : null),
+            'specialist_flow_execution_record' => $this->whenLoaded('specialistFlowExecution', fn () => $this->specialistFlowExecution ? $this->specialistFlowExecutionRecordForResponse() : null),
             'decision_receipt' => $this->decisionReceiptForResponse(),
             'stream_events' => $this->whenLoaded('streamEvents', fn () => AiStreamEventResource::collection($this->streamEvents)->resolve()),
             'quality_evaluation' => $this->whenLoaded('qualityEvaluation', fn () => $this->qualityEvaluation ? new AiQualityEvaluationResource($this->qualityEvaluation) : null),
@@ -98,14 +101,52 @@ class AiTraceResource extends JsonResource
     {
         return [
             'id' => $this->routerDecision->id,
+            'schema_version' => $this->routerDecision->schema_version,
+            'surface_id' => $this->routerDecision->surface_id,
+            'flow_id' => $this->routerDecision->flow_id,
+            'flow_origin' => $this->routerDecision->flow_origin,
+            'command_intent' => $this->routerDecision->command_intent,
+            'routing_reason' => $this->routerDecision->routing_reason,
+            'routing_confidence' => $this->routerDecision->routing_confidence,
+            'workspace_present' => (bool) $this->routerDecision->workspace_present,
             'mode' => $this->routerDecision->mode,
             'selected_provider' => $this->routerDecision->selected_provider,
             'fallback_provider' => $this->routerDecision->fallback_provider,
             'signals' => Metadata::forResponse($this->routerDecision->signals),
+            'handoff_payload' => Metadata::forResponse($this->routerDecision->handoff_payload),
+            'alternative_flow_ids' => Metadata::listForResponse($this->routerDecision->alternative_flow_ids),
             'reason' => $this->routerDecision->reason,
             'was_overridden' => (bool) $this->routerDecision->was_overridden,
             'created_at' => $this->routerDecision->created_at?->toJSON(),
             'updated_at' => $this->routerDecision->updated_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function specialistFlowExecutionRecordForResponse(): array
+    {
+        return [
+            'id' => $this->specialistFlowExecution->id,
+            'trace_id' => $this->specialistFlowExecution->trace_id,
+            'router_decision_id' => $this->specialistFlowExecution->router_decision_id,
+            'runtime_schema_version' => $this->specialistFlowExecution->runtime_schema_version,
+            'execution_schema_version' => $this->specialistFlowExecution->execution_schema_version,
+            'flow_id' => $this->specialistFlowExecution->flow_id,
+            'handler_id' => $this->specialistFlowExecution->handler_id,
+            'handler_version' => $this->specialistFlowExecution->handler_version,
+            'status' => $this->specialistFlowExecution->status,
+            'runtime_receipt_id' => $this->specialistFlowExecution->runtime_receipt_id,
+            'runtime_contract_hash' => $this->specialistFlowExecution->runtime_contract_hash,
+            'delegation_status' => $this->specialistFlowExecution->delegation_status,
+            'delegation_target_flow_id' => $this->specialistFlowExecution->delegation_target_flow_id,
+            'receipt' => Metadata::forResponse($this->specialistFlowExecution->receipt),
+            'delegation' => Metadata::forResponse($this->specialistFlowExecution->delegation),
+            'audit_checks' => Metadata::listForResponse($this->specialistFlowExecution->audit_checks),
+            'response_shape' => Metadata::listForResponse($this->specialistFlowExecution->response_shape),
+            'created_at' => $this->specialistFlowExecution->created_at?->toJSON(),
+            'updated_at' => $this->specialistFlowExecution->updated_at?->toJSON(),
         ];
     }
 
@@ -213,6 +254,88 @@ class AiTraceResource extends JsonResource
                 $slice = data_get($job->payload, 'atlas_dev_runtime');
                 if (is_array($slice) && $slice !== []) {
                     return $slice;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function specialistFlowRuntimeForResponse(): ?array
+    {
+        $slice = $this->specialistFlowRuntimeFromJobs();
+        if (! is_array($slice)) {
+            $slice = data_get($this->metadata, 'specialist_flow_runtime');
+        }
+
+        if (! is_array($slice) || $slice === []) {
+            return null;
+        }
+
+        return Metadata::forResponse($slice);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function specialistFlowRuntimeFromJobs(): ?array
+    {
+        if ($this->resource->relationLoaded('job') && $this->job) {
+            $slice = data_get($this->job->payload, 'specialist_flow_runtime');
+            if (is_array($slice) && $slice !== []) {
+                return $slice;
+            }
+        }
+
+        if ($this->resource->relationLoaded('jobs') && $this->jobs) {
+            foreach ($this->jobs as $job) {
+                $slice = data_get($job->payload, 'specialist_flow_runtime');
+                if (is_array($slice) && $slice !== []) {
+                    return $slice;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function specialistFlowExecutionForResponse(): ?array
+    {
+        $execution = $this->specialistFlowExecutionFromJobs();
+        if (! is_array($execution)) {
+            $execution = data_get($this->metadata, 'specialist_flow_execution');
+        }
+
+        if (! is_array($execution) || $execution === []) {
+            return null;
+        }
+
+        return Metadata::forResponse($execution);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function specialistFlowExecutionFromJobs(): ?array
+    {
+        if ($this->resource->relationLoaded('job') && $this->job) {
+            $execution = data_get($this->job->payload, 'specialist_flow_execution');
+            if (is_array($execution) && $execution !== []) {
+                return $execution;
+            }
+        }
+
+        if ($this->resource->relationLoaded('jobs') && $this->jobs) {
+            foreach ($this->jobs as $job) {
+                $execution = data_get($job->payload, 'specialist_flow_execution');
+                if (is_array($execution) && $execution !== []) {
+                    return $execution;
                 }
             }
         }

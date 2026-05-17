@@ -19,6 +19,12 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
 
     public const MODE = 'persistent_local_agent_control_plane_terminal_worker_bootstrap';
 
+    private const OPERATOR_ONLY_COMPLETION_CRITERIA = [
+        'runtime_gap_matrix_all_runtime_y',
+        'human_signed_os_complete_receipt_present',
+        'end_to_end_real_provider_smoke_green',
+    ];
+
     public function __construct(
         private readonly AgentControlPlaneTaskAutoReplenishmentService $replenishment,
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
@@ -54,6 +60,39 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'queue_tags' => $queueTags,
         ]);
 
+        $workerEligibility = $this->workerEligibilityGuard($queueTags);
+        if (
+            (int) ($workerEligibility['eligible_claimable_task_count'] ?? 0) === 0
+            && (int) ($workerEligibility['violation_count'] ?? 0) === 0
+            && $maxNew > 0
+        ) {
+            $replenishment = $this->replenishment->replenish(array_replace_recursive($context, [
+                'terminal_bootstrap_probe' => [
+                    'enabled' => true,
+                    'namespace' => $queueTags === [] ? 'terminal_worker_bootstrap_'.$actor : 'terminal_worker_bootstrap_'.$queueTags[0],
+                    'target_task_count' => $targetMin,
+                ],
+            ]), [
+                'target_min_claimable_tasks' => $targetMin,
+                'max_new_tasks' => $maxNew,
+                'actor' => $actor,
+                'reason' => (string) ($options['reason'] ?? 'terminal_worker_bootstrap').'_worker_supply_fallback',
+                'queue_tags' => $queueTags,
+            ]);
+            $workerEligibility = $this->workerEligibilityGuard($queueTags);
+        }
+        if ((string) ($workerEligibility['status'] ?? '') === 'blocked') {
+            return $this->blockedBeforeClaimPayload(
+                actor: $actor,
+                leaseMinutes: $leaseMinutes,
+                targetMin: $targetMin,
+                maxNew: $maxNew,
+                queueTags: $queueTags,
+                replenishment: $replenishment,
+                workerEligibility: $workerEligibility,
+            );
+        }
+
         $claimFilters = [
             'ttl_seconds' => $leaseMinutes * 60,
         ];
@@ -61,6 +100,23 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             $claimFilters['tag'] = $queueTags[0];
         }
         $claim = $this->orchestrator->claimNext($actor, $claimFilters);
+        if ((string) ($claim['event'] ?? '') === 'no_claimable_task' && (int) ($claim['candidate_count'] ?? 0) > 0 && $maxNew > 0) {
+            $replenishment = $this->replenishment->replenish(array_replace_recursive($context, [
+                'terminal_bootstrap_probe' => [
+                    'enabled' => true,
+                    'namespace' => $queueTags === [] ? 'terminal_worker_bootstrap_'.$actor : 'terminal_worker_bootstrap_'.$queueTags[0],
+                    'target_task_count' => $targetMin,
+                ],
+            ]), [
+                'target_min_claimable_tasks' => $targetMin,
+                'max_new_tasks' => $maxNew,
+                'actor' => $actor,
+                'reason' => (string) ($options['reason'] ?? 'terminal_worker_bootstrap').'_claim_conflict_worker_supply_fallback',
+                'queue_tags' => $queueTags,
+            ]);
+            $workerEligibility = $this->workerEligibilityGuard($queueTags);
+            $claim = $this->orchestrator->claimNext($actor, $claimFilters);
+        }
         $claimEvent = (string) ($claim['event'] ?? 'unknown');
         $workerPacket = [];
         if ($claimEvent === 'claimed') {
@@ -166,6 +222,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'terminal_loop_shell_recipe' => $terminalLoopShellRecipe,
             'terminal_loop_shell_recipe_hash' => (string) ($terminalLoopShellRecipe['shell_recipe_hash'] ?? ''),
             'auto_replenishment' => $replenishment,
+            'worker_task_eligibility_guard' => $workerEligibility,
             'claim' => $claim,
             'one_shot_worker_packet' => $workerPacket,
             'queue_summary' => $this->queue->registry(),
@@ -181,6 +238,145 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'ledger_write_allowed' => false,
             'completion_real_allowed' => false,
             'non_execution_guarantees' => [
+                'terminal_worker_bootstrap_does_not_start_codex',
+                'terminal_worker_bootstrap_does_not_call_codex_cli_or_app',
+                'terminal_worker_bootstrap_does_not_spawn_subprocess',
+                'terminal_worker_bootstrap_does_not_invoke_adapter',
+                'terminal_worker_bootstrap_does_not_call_provider',
+                'terminal_worker_bootstrap_does_not_dispatch_work',
+                'terminal_worker_bootstrap_does_not_spend_tokens',
+                'terminal_worker_bootstrap_does_not_enable_self_programming',
+                'terminal_worker_bootstrap_does_not_write_ledger',
+                'terminal_worker_bootstrap_does_not_mark_real_completion',
+            ],
+            'bootstrap_hash' => '',
+        ];
+        $payload['bootstrap_hash'] = $this->stableHash($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  list<string>  $queueTags
+     * @param  array<string, mixed>  $replenishment
+     * @param  array<string, mixed>  $workerEligibility
+     * @return array<string, mixed>
+     */
+    private function blockedBeforeClaimPayload(
+        string $actor,
+        int $leaseMinutes,
+        int $targetMin,
+        int $maxNew,
+        array $queueTags,
+        array $replenishment,
+        array $workerEligibility,
+    ): array {
+        $nextWorkerCommand = $this->bootstrapCommand($actor, $targetMin, $maxNew, $queueTags);
+        $queueLaneContract = $this->queueLaneContract($actor, $queueTags, $nextWorkerCommand);
+        $terminalLoopOperatorCommands = $this->terminalLoopOperatorCommands(
+            actor: $actor,
+            taskPacketId: '',
+            leaseId: '',
+            completionCommand: '',
+            leaseRenewCommand: '',
+            recoveryCommand: '',
+            bootstrapCommand: $nextWorkerCommand,
+            targetMin: $targetMin,
+            maxNew: $maxNew,
+            queueTags: $queueTags,
+            queueLaneContract: $queueLaneContract,
+        );
+        $terminalLoopResumptionCheckpoint = $this->terminalLoopResumptionCheckpoint(
+            status: 'blocked',
+            actor: $actor,
+            taskPacketId: '',
+            leaseId: '',
+            claimEvent: 'worker_task_eligibility_blocked_before_claim',
+            oneShotWorkerPacketReady: false,
+            terminalLoopOperatorCommands: $terminalLoopOperatorCommands,
+            resumptionContract: [],
+            previewOnly: false,
+        );
+        $terminalLoopIterationRunbook = $this->terminalLoopIterationRunbook(
+            status: 'blocked',
+            actor: $actor,
+            taskPacketId: '',
+            leaseId: '',
+            oneShotWorkerPacketReady: false,
+            previewOnly: false,
+            terminalLoopOperatorCommands: $terminalLoopOperatorCommands,
+            terminalLoopResumptionCheckpoint: $terminalLoopResumptionCheckpoint,
+        );
+        $terminalLoopShellRecipe = $this->terminalLoopShellRecipe(
+            actor: $actor,
+            previewOnly: false,
+            terminalLoopOperatorCommands: $terminalLoopOperatorCommands,
+            terminalLoopIterationRunbook: $terminalLoopIterationRunbook,
+        );
+
+        $payload = [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'status' => 'blocked',
+            'generated_at' => CarbonImmutable::now()->toIso8601String(),
+            'actor' => $actor,
+            'lease_minutes' => $leaseMinutes,
+            'target_min_claimable_tasks' => $targetMin,
+            'max_new_tasks' => $maxNew,
+            'queue_tags' => $queueTags,
+            'queue_lane_contract' => $queueLaneContract,
+            'claim_tag' => (string) ($queueTags[0] ?? ''),
+            'auto_replenishment_status' => (string) data_get($replenishment, 'status', 'unknown'),
+            'auto_replenishment_hash' => (string) data_get($replenishment, 'auto_replenishment_hash', ''),
+            'generated_task_count' => (int) data_get($replenishment, 'generated_task_count', 0),
+            'claim_event' => 'worker_task_eligibility_blocked_before_claim',
+            'runtime_claim_persisted' => false,
+            'task_packet_id' => '',
+            'lease_id' => '',
+            'one_shot_worker_packet_ready' => false,
+            'worker_packet_blocked_reason' => 'worker_task_eligibility_blocked_before_claim',
+            'worker_packet_scope_blockers' => (array) ($workerEligibility['blocked_reasons'] ?? []),
+            'lease_released_after_worker_packet_blocked' => false,
+            'blocked_worker_packet_lease_release' => [],
+            'one_shot_packet_hash' => '',
+            'worker_prompt_goal_short' => '',
+            'worker_prompt_full' => '',
+            'completion_command' => '',
+            'completion_evidence_template' => [],
+            'completion_evidence_template_json' => '',
+            'lease_renew_command' => '',
+            'resumption_contract' => [],
+            'resume_after_interruption_command' => '',
+            'next_worker_command' => $nextWorkerCommand,
+            'terminal_loop_operator_commands' => $terminalLoopOperatorCommands,
+            'terminal_loop_resumption_checkpoint' => $terminalLoopResumptionCheckpoint,
+            'terminal_loop_resumption_checkpoint_hash' => (string) ($terminalLoopResumptionCheckpoint['resumption_checkpoint_hash'] ?? ''),
+            'terminal_loop_iteration_runbook' => $terminalLoopIterationRunbook,
+            'terminal_loop_iteration_runbook_hash' => (string) ($terminalLoopIterationRunbook['iteration_runbook_hash'] ?? ''),
+            'terminal_loop_shell_recipe' => $terminalLoopShellRecipe,
+            'terminal_loop_shell_recipe_hash' => (string) ($terminalLoopShellRecipe['shell_recipe_hash'] ?? ''),
+            'auto_replenishment' => $replenishment,
+            'worker_task_eligibility_guard' => $workerEligibility,
+            'claim' => [
+                'status' => 'blocked',
+                'event' => 'worker_task_eligibility_blocked_before_claim',
+                'reason' => 'worker_task_eligibility_guard_blocked',
+            ],
+            'one_shot_worker_packet' => [],
+            'queue_summary' => $this->queue->registry(),
+            'lease_summary' => [
+                'active_lease_count' => count($this->leases->activeLeases()),
+                'runtime_flags' => $this->leases->runtimeFlags(),
+            ],
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'self_programming_allowed' => false,
+            'ledger_write_allowed' => false,
+            'completion_real_allowed' => false,
+            'non_execution_guarantees' => [
+                'terminal_worker_bootstrap_worker_task_eligibility_guard_blocks_before_claim',
                 'terminal_worker_bootstrap_does_not_start_codex',
                 'terminal_worker_bootstrap_does_not_call_codex_cli_or_app',
                 'terminal_worker_bootstrap_does_not_spawn_subprocess',
@@ -748,6 +944,9 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         if ($previewOnly) {
             return 'preview_inspection';
         }
+        if ($claimEvent === 'worker_task_eligibility_blocked_before_claim') {
+            return 'worker_task_eligibility_blocked_before_claim';
+        }
         if ($status === 'ready_for_worker' && $claimEvent === 'claimed' && $oneShotWorkerPacketReady) {
             return 'claimed_packet_ready_for_one_shot_worker';
         }
@@ -756,6 +955,88 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         }
 
         return 'claim_or_replenishment_blocked';
+    }
+
+    /**
+     * @param  list<string>  $queueTags
+     * @return array<string, mixed>
+     */
+    private function workerEligibilityGuard(array $queueTags): array
+    {
+        $records = $this->claimableRecords($queueTags);
+        $violations = [];
+        $ineligibleTaskIds = [];
+
+        foreach ($records as $record) {
+            $taskPacketId = (string) ($record['task_packet_id'] ?? '');
+            $recordViolationCountBefore = count($violations);
+            $reference = (string) data_get($record, 'task_packet.continuation_context.auto_replenishment_reference', '');
+            if ((bool) data_get($record, 'task_packet.continuation_context.worker_executable', true) === false) {
+                $violations[] = ['code' => 'claimable_task_not_worker_executable', 'task_packet_id' => $taskPacketId];
+            }
+            if ((bool) data_get($record, 'task_packet.continuation_context.operator_handoff_required', false)) {
+                $violations[] = ['code' => 'claimable_task_requires_operator_handoff', 'task_packet_id' => $taskPacketId];
+            }
+            if (in_array($reference, self::OPERATOR_ONLY_COMPLETION_CRITERIA, true)) {
+                $violations[] = [
+                    'code' => 'claimable_task_references_operator_only_completion_blocker',
+                    'task_packet_id' => $taskPacketId,
+                    'reference' => $reference,
+                ];
+            }
+            foreach ([
+                'dispatch_allowed',
+                'provider_call_allowed',
+                'token_spend_allowed',
+                'self_programming_allowed',
+                'ledger_write_allowed',
+                'runtime_execution_allowed',
+                'completion_real_allowed',
+            ] as $flag) {
+                if ((bool) data_get($record, $flag, false)) {
+                    $violations[] = [
+                        'code' => 'claimable_task_runtime_flag_true',
+                        'task_packet_id' => $taskPacketId,
+                        'flag' => $flag,
+                    ];
+                }
+            }
+            if (count($violations) > $recordViolationCountBefore && $taskPacketId !== '') {
+                $ineligibleTaskIds[$taskPacketId] = true;
+            }
+        }
+        $eligibleClaimableCount = count(array_values(array_filter(
+            $records,
+            static fn (array $record): bool => ! isset($ineligibleTaskIds[(string) ($record['task_packet_id'] ?? '')]),
+        )));
+        $status = $eligibleClaimableCount > 0
+            ? ($violations === [] ? 'available' : 'available_with_non_worker_candidates')
+            : ($violations === [] ? 'available' : 'blocked');
+
+        $guard = [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_worker_bootstrap_worker_task_eligibility_guard.v1',
+            'status' => $status,
+            'queue_tags' => $queueTags,
+            'checked_claimable_task_count' => count($records),
+            'eligible_claimable_task_count' => $eligibleClaimableCount,
+            'blocked_reasons' => array_values(array_unique(array_map(
+                static fn (array $violation): string => (string) ($violation['code'] ?? ''),
+                $violations,
+            ))),
+            'violations' => $violations,
+            'violation_count' => count($violations),
+            'can_claim_after_guard' => $eligibleClaimableCount > 0,
+            'non_execution_guarantees' => [
+                'worker_task_eligibility_guard_does_not_claim_tasks',
+                'worker_task_eligibility_guard_does_not_create_or_renew_leases',
+                'worker_task_eligibility_guard_does_not_call_provider',
+                'worker_task_eligibility_guard_does_not_spend_tokens',
+                'worker_task_eligibility_guard_does_not_dispatch_work',
+            ],
+        ];
+        $guard['worker_task_eligibility_guard_hash'] = $this->stableHash($guard);
+
+        return $guard;
     }
 
     /**

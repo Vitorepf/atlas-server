@@ -25,6 +25,7 @@ decisions:
   - Atlas Forge Operating System e o patamar acima do Programming Governance System.
   - Programming Governance System define as regras; Forge OS opera a fabrica que executa essas regras em escala.
   - Forge OS deve transformar uma spec-mae em packets seguros, agentes coordenados, evidence normalizada, integracao e learning.
+  - Forge OS deve ganhar sua versao Obra enterprise da musculatura operacional do Atlas Dev: audit strict, execution receipt, repair ledger, incident capsule, learning proposals e Command Center.
   - Nenhum provider recebe autoridade direta sobre o Atlas; providers recebem packets assinados, contexto limitado e evidence obligations.
   - Forge OS usa Obras Shared Workspace como escritorio persistente e Forge Workspace como sua especializacao de programacao.
 maintenance:
@@ -32,6 +33,7 @@ maintenance:
   - Mantenha este arquivo como indice curto; detalhes vivem nos child docs de contratos e runbook.
 related_paths:
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
+  - docs/engineering-knowledge-base/atlas-forge-obra-enterprise-loop-upgrade.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-contracts.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-runbook.md

@@ -286,12 +286,13 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             AtlasSelfConstructionOsCompletionAuditService::TERMINAL_LOOP_CERTIFICATION_SCHEMA_VERSION,
             $block['schema_version'] ?? null,
         );
-        $this->assertSame(8, $block['module_count']);
+        $this->assertSame(9, $block['module_count']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['certification_hash']);
 
         $moduleIds = array_column($block['modules'], 'id');
         foreach ([
             'task_auto_replenishment_status',
+            'worker_task_eligibility_certification_status',
             'task_queue_claim_next_status',
             'task_queue_complete_dry_run_status',
             'one_shot_worker_packet_status',
@@ -313,6 +314,8 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             'recovery_handles_orphaned_leases',
             'completion_does_not_mark_real_os_completion',
             'completion_evidence_files_within_scope',
+            'worker_task_eligibility_certification_present',
+            'worker_task_eligibility_blocks_operator_only_completion_blockers',
             'terminal_loop_health_digest_present',
             'terminal_loop_fleet_launch_plan_present',
             'terminal_loop_fleet_launch_plan_ready_path_verified',
@@ -328,6 +331,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             'terminal_loop_fleet_lane_isolation_present',
             'terminal_loop_fleet_lane_bound_commands_verified',
             'terminal_loop_fleet_lane_no_cross_lane_launch_verified',
+            'terminal_loop_fleet_partial_supply_launch_blocked',
             'terminal_loop_cycle_supervisor_present',
             'terminal_loop_cycle_supervisor_launch_path_verified',
             'terminal_loop_cycle_supervisor_evidence_review_path_verified',
@@ -347,7 +351,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
 
         $this->assertTrue($block['passed']);
         $this->assertSame('available', $block['status']);
-        $this->assertSame(8, $block['modules_passed']);
+        $this->assertSame(9, $block['modules_passed']);
         $this->assertSame(0, $block['modules_blocked']);
         $this->assertSame([], $block['invariant_violations']);
         foreach ($block['modules'] as $module) {

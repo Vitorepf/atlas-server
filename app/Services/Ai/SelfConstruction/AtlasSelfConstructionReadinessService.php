@@ -43419,6 +43419,11 @@ final class AtlasSelfConstructionReadinessService
             'atlas_self_programming_os_transition_readiness_implementation_packet',
             'atlas_self_programming_os_transition_readiness_service',
             'atlas_self_programming_os_transition_readiness_status_projection',
+            'atlas_self_programming_safety_contract_certification_contract',
+            'atlas_self_programming_safety_contract_certification_preflight',
+            'atlas_self_programming_safety_contract_certification_implementation_packet',
+            'atlas_self_programming_safety_contract_certification_service',
+            'atlas_self_programming_safety_contract_certification_status_projection',
             'atlas_self_construction_completion_finalization_gate_contract',
             'atlas_self_construction_completion_finalization_gate_preflight',
             'atlas_self_construction_completion_finalization_gate_implementation_packet',
@@ -43586,6 +43591,11 @@ final class AtlasSelfConstructionReadinessService
             'agent_control_plane_task_auto_replenishment_implementation_packet',
             'agent_control_plane_task_auto_replenishment_service',
             'agent_control_plane_task_auto_replenishment_status_projection',
+            'agent_control_plane_worker_task_eligibility_certification_contract',
+            'agent_control_plane_worker_task_eligibility_certification_preflight',
+            'agent_control_plane_worker_task_eligibility_certification_implementation_packet',
+            'agent_control_plane_worker_task_eligibility_certification_service',
+            'agent_control_plane_worker_task_eligibility_certification_status_projection',
             'agent_control_plane_terminal_loop_health_digest_contract',
             'agent_control_plane_terminal_loop_health_digest_preflight',
             'agent_control_plane_terminal_loop_health_digest_implementation_packet',
@@ -77693,6 +77703,15 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfConstructionFinalCompletionReadinessGateStatus(array $options = []): array
     {
+        if (
+            ! isset($options['agent_control_plane_terminal_loop_operational_proof'])
+            && isset($options['agent_control_plane_terminal_loop_operational_proof_json'])
+            && (string) $options['agent_control_plane_terminal_loop_operational_proof_json'] !== ''
+        ) {
+            $proof = $this->decodeJsonOption($options['agent_control_plane_terminal_loop_operational_proof_json']);
+            $options['agent_control_plane_terminal_loop_operational_proof'] = $this->terminalLoopOperationalProofPayloadFromJson($proof);
+        }
+
         $result = (new AtlasSelfConstructionFinalCompletionReadinessGateService($this))->evaluate($options);
 
         return $this->wrapCertificationWorkbenchStatus(
@@ -77705,6 +77724,9 @@ final class AtlasSelfConstructionReadinessService
                 'completion_claim_allowed' => false,
                 'terminal_loop_operational_proof_required_before_completion_claim' => (bool) data_get($result, 'terminal_loop_operational_proof_required_before_completion_claim', false),
                 'terminal_loop_operational_proof_expected_binding_schema' => (string) data_get($result, 'terminal_loop_operational_proof_expected_binding_schema', ''),
+                'terminal_loop_operational_proof_green' => (bool) data_get($result, 'terminal_loop_operational_proof_green', false),
+                'terminal_loop_operational_proof_status' => (string) data_get($result, 'terminal_loop_operational_proof_evidence.status', ''),
+                'terminal_loop_operational_proof_hash' => (string) data_get($result, 'terminal_loop_operational_proof_evidence.proof_hash', ''),
                 'command_to_refresh_terminal_loop_operational_proof' => (string) data_get($result, 'command_to_refresh_terminal_loop_operational_proof', ''),
                 'command_to_rerun_audit_with_terminal_loop_operational_proof' => (string) data_get($result, 'command_to_rerun_audit_with_terminal_loop_operational_proof', ''),
                 'self_programming_os_transition_status' => (string) data_get($result, 'self_programming_os_transition_status', ''),
@@ -77749,6 +77771,15 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfProgrammingOsTransitionReadinessStatus(array $options = []): array
     {
+        if (
+            ! isset($options['agent_control_plane_terminal_loop_operational_proof'])
+            && isset($options['agent_control_plane_terminal_loop_operational_proof_json'])
+            && (string) $options['agent_control_plane_terminal_loop_operational_proof_json'] !== ''
+        ) {
+            $proof = $this->decodeJsonOption($options['agent_control_plane_terminal_loop_operational_proof_json']);
+            $options['agent_control_plane_terminal_loop_operational_proof'] = $this->terminalLoopOperationalProofPayloadFromJson($proof);
+        }
+
         $gate = (new AtlasSelfConstructionFinalCompletionReadinessGateService($this))->evaluate($options);
         $transition = (array) data_get($gate, 'self_programming_os_transition_readiness', []);
         $transition['source_final_completion_readiness_gate_status'] = (string) data_get($gate, 'status', '');
@@ -77777,6 +77808,89 @@ final class AtlasSelfConstructionReadinessService
                 'source_final_completion_readiness_gate_status' => (string) data_get($transition, 'source_final_completion_readiness_gate_status', ''),
                 'source_final_completion_readiness_gate_hash' => (string) data_get($transition, 'source_final_completion_readiness_gate_hash', ''),
                 'source_completion_audit_hash' => (string) data_get($transition, 'source_completion_audit_hash', ''),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfProgrammingSafetyContractCertificationContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_safety_contract_certification', 'Atlas Self-Programming Safety Contract Certification', AtlasSelfProgrammingSafetyContractCertificationService::SCHEMA_VERSION, AtlasSelfProgrammingSafetyContractCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfProgrammingSafetyContractCertificationPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_safety_contract_certification', 'Atlas Self-Programming Safety Contract Certification', AtlasSelfProgrammingSafetyContractCertificationService::SCHEMA_VERSION, AtlasSelfProgrammingSafetyContractCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfProgrammingSafetyContractCertificationImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_programming_safety_contract_certification', 'Atlas Self-Programming Safety Contract Certification', AtlasSelfProgrammingSafetyContractCertificationService::SCHEMA_VERSION, AtlasSelfProgrammingSafetyContractCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function atlasSelfProgrammingSafetyContractCertificationStatus(array $options = []): array
+    {
+        if (
+            ! isset($options['agent_control_plane_terminal_loop_operational_proof'])
+            && isset($options['agent_control_plane_terminal_loop_operational_proof_json'])
+            && (string) $options['agent_control_plane_terminal_loop_operational_proof_json'] !== ''
+        ) {
+            $proof = $this->decodeJsonOption($options['agent_control_plane_terminal_loop_operational_proof_json']);
+            $options['agent_control_plane_terminal_loop_operational_proof'] = $this->terminalLoopOperationalProofPayloadFromJson($proof);
+        }
+
+        $payload = (new AtlasSelfProgrammingSafetyContractCertificationService($this))->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'atlas_self_programming_safety_contract_certification',
+            label: 'Atlas Self-Programming Safety Contract Certification',
+            payload: $payload,
+            statusKey: 'status',
+            extraStatusFields: [
+                'transition_status' => (string) data_get($payload, 'transition_status', ''),
+                'finalization_gate_status' => (string) data_get($payload, 'finalization_gate_status', ''),
+                'finalization_gate_evaluation_mode' => (string) data_get($payload, 'finalization_gate_evaluation_mode', ''),
+                'finalization_gate_hash' => (string) data_get($payload, 'finalization_gate_hash', ''),
+                'finalization_gate_terminal_loop_green' => (bool) data_get($payload, 'finalization_gate_terminal_loop_green', false),
+                'finalization_gate_terminal_loop_required_before_completion_claim' => (bool) data_get($payload, 'finalization_gate_terminal_loop_required_before_completion_claim', false),
+                'finalization_gate_completion_claim_allowed' => (bool) data_get($payload, 'finalization_gate_completion_claim_allowed', false),
+                'finalization_gate_next_stage_allowed' => (bool) data_get($payload, 'finalization_gate_next_stage_allowed', false),
+                'finalization_gate_next_stage_blockers' => (array) data_get($payload, 'finalization_gate_next_stage_blockers', []),
+                'finalization_gate_operator_handoff_status' => (string) data_get($payload, 'finalization_gate_operator_handoff_status', ''),
+                'finalization_gate_operator_handoff_hash' => (string) data_get($payload, 'finalization_gate_operator_handoff_hash', ''),
+                'finalization_gate_current_required_operator_artifact' => (string) data_get($payload, 'finalization_gate_current_required_operator_artifact', ''),
+                'worker_task_eligibility_status' => (string) data_get($payload, 'worker_task_eligibility_status', ''),
+                'worker_task_eligibility_certification_hash' => (string) data_get($payload, 'worker_task_eligibility_certification_hash', ''),
+                'worker_task_eligibility_violation_count' => (int) data_get($payload, 'worker_task_eligibility_violation_count', 0),
+                'worker_task_eligibility_operator_only_failed_criteria' => (array) data_get($payload, 'worker_task_eligibility_operator_only_failed_criteria', []),
+                'worker_task_eligibility_missing_operator_handoff_criteria' => (array) data_get($payload, 'worker_task_eligibility_missing_operator_handoff_criteria', []),
+                'worker_task_eligibility_operator_handoff_seed_count' => (int) data_get($payload, 'worker_task_eligibility_operator_handoff_seed_count', 0),
+                'self_construction_complete' => (bool) data_get($payload, 'self_construction_complete', false),
+                'contract_design_allowed' => (bool) data_get($payload, 'contract_design_allowed', false),
+                'runtime_activation_allowed' => (bool) data_get($payload, 'runtime_activation_allowed', false),
+                'self_programming_allowed' => (bool) data_get($payload, 'self_programming_allowed', false),
+                'provider_call_allowed' => (bool) data_get($payload, 'provider_call_allowed', false),
+                'token_spend_allowed' => (bool) data_get($payload, 'token_spend_allowed', false),
+                'transition_blockers' => (array) data_get($payload, 'transition_blockers', []),
+                'safety_contract_path' => (string) data_get($payload, 'safety_contract_path', ''),
+                'safety_contract_hash' => (string) data_get($payload, 'safety_contract_hash', ''),
+                'certification_hash' => (string) data_get($payload, 'certification_hash', ''),
+                'failed_check_ids' => (array) data_get($payload, 'failed_check_ids', []),
             ],
         );
     }
@@ -77814,6 +77928,15 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfConstructionCompletionFinalizationGateStatus(array $options = []): array
     {
+        if (
+            ! isset($options['agent_control_plane_terminal_loop_operational_proof'])
+            && isset($options['agent_control_plane_terminal_loop_operational_proof_json'])
+            && (string) $options['agent_control_plane_terminal_loop_operational_proof_json'] !== ''
+        ) {
+            $proof = $this->decodeJsonOption($options['agent_control_plane_terminal_loop_operational_proof_json']);
+            $options['agent_control_plane_terminal_loop_operational_proof'] = $this->terminalLoopOperationalProofPayloadFromJson($proof);
+        }
+
         $result = (new AtlasSelfConstructionCompletionFinalizationGateService($this))->evaluate($options);
 
         return $this->wrapCertificationWorkbenchStatus(
@@ -77833,6 +77956,9 @@ final class AtlasSelfConstructionReadinessService
                 'completion_finalization_operator_handoff_hash' => (string) data_get($result, 'completion_finalization_operator_handoff.completion_finalization_operator_handoff_hash', ''),
                 'terminal_loop_operational_proof_required_before_completion_claim' => (bool) data_get($result, 'terminal_loop_operational_proof_required_before_completion_claim', false),
                 'terminal_loop_operational_proof_expected_binding_schema' => (string) data_get($result, 'terminal_loop_operational_proof_expected_binding_schema', ''),
+                'terminal_loop_operational_proof_green' => (bool) data_get($result, 'terminal_loop_green', false),
+                'terminal_loop_operational_proof_status' => (string) data_get($result, 'checks.terminal_loop_green.evidence.operational_proof_status', ''),
+                'terminal_loop_operational_proof_hash' => (string) data_get($result, 'checks.terminal_loop_green.evidence.operational_proof_hash', ''),
                 'command_to_refresh_terminal_loop_operational_proof' => (string) data_get($result, 'command_to_refresh_terminal_loop_operational_proof', ''),
                 'command_to_rerun_audit_with_terminal_loop_operational_proof' => (string) data_get($result, 'command_to_rerun_audit_with_terminal_loop_operational_proof', ''),
             ],
@@ -79629,9 +79755,12 @@ final class AtlasSelfConstructionReadinessService
     {
         $targetMin = max(1, min(25, (int) ($options['target_min_claimable_tasks'] ?? 3)));
         $maxNew = max(0, min(25, (int) ($options['max_new_tasks'] ?? $targetMin)));
+        $controlPlane = $this->agentControlPlane();
+        $completionAuditContext = $this->taskAutoReplenishmentCompletionAuditContext($options);
         $service = $this->buildTaskAutoReplenishmentService();
         $result = $service->replenish([
-            'control_plane' => $this->agentControlPlane(),
+            'control_plane' => $controlPlane,
+            'completion_audit' => $completionAuditContext,
         ], [
             'target_min_claimable_tasks' => $targetMin,
             'max_new_tasks' => $maxNew,
@@ -79650,6 +79779,12 @@ final class AtlasSelfConstructionReadinessService
                 'generated_task_count' => (int) data_get($result, 'generated_task_count'),
                 'skipped_existing_task_count' => (int) data_get($result, 'skipped_existing_task_count'),
                 'skipped_duplicate_seed_count' => (int) data_get($result, 'skipped_duplicate_seed_count'),
+                'operator_handoff_seed_count' => (int) data_get($result, 'operator_handoff_seed_count'),
+                'operator_handoff_seed_keys' => (array) data_get($result, 'plan_evaluation.operator_handoff_seed_keys', []),
+                'operator_handoff_tasks' => (array) data_get($result, 'operator_handoff_tasks', []),
+                'completion_audit_context_status' => (string) data_get($completionAuditContext, 'status', ''),
+                'completion_audit_context_failed_count' => (int) data_get($completionAuditContext, 'failed_count', 0),
+                'completion_audit_context_failed_criteria' => (array) data_get($completionAuditContext, 'failed_criteria', []),
                 'active_seed_count' => (int) data_get($result, 'active_seed_count'),
                 'claimable_task_count_before' => (int) data_get($result, 'claimable_task_count_before'),
                 'claimable_task_count_after' => (int) data_get($result, 'claimable_task_count_after'),
@@ -79659,7 +79794,68 @@ final class AtlasSelfConstructionReadinessService
                 'replenishment_stop_conditions' => (array) data_get($result, 'replenishment_loop_contract.stop_conditions', []),
                 'plan_evaluation_status' => (string) data_get($result, 'plan_evaluation.status'),
                 'accepted_seed_count' => (int) data_get($result, 'plan_evaluation.accepted_seed_count'),
+                'accepted_seed_keys' => (array) data_get($result, 'plan_evaluation.accepted_seed_keys', []),
                 'replenishment_plan_hash' => (string) data_get($result, 'replenishment_plan_hash'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneWorkerTaskEligibilityCertificationContract(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('worker_task_eligibility_certification', 'Worker Task Eligibility Certification', AgentControlPlaneWorkerTaskEligibilityCertificationService::SCHEMA_VERSION, AgentControlPlaneWorkerTaskEligibilityCertificationService::class, 'contract');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneWorkerTaskEligibilityCertificationPreflight(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('worker_task_eligibility_certification', 'Worker Task Eligibility Certification', AgentControlPlaneWorkerTaskEligibilityCertificationService::SCHEMA_VERSION, AgentControlPlaneWorkerTaskEligibilityCertificationService::class, 'preflight');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneWorkerTaskEligibilityCertificationImplementationPacket(array $options = []): array
+    {
+        return $this->buildCertificationWorkbenchQuartet('worker_task_eligibility_certification', 'Worker Task Eligibility Certification', AgentControlPlaneWorkerTaskEligibilityCertificationService::SCHEMA_VERSION, AgentControlPlaneWorkerTaskEligibilityCertificationService::class, 'implementation_packet');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function agentControlPlaneWorkerTaskEligibilityCertificationStatus(array $options = []): array
+    {
+        $result = (new AgentControlPlaneWorkerTaskEligibilityCertificationService(
+            $this,
+            new AgentControlPlaneTaskPacketQueueRepository,
+        ))->certify($options);
+
+        return $this->wrapCertificationWorkbenchStatus(
+            keyPrefix: 'worker_task_eligibility_certification',
+            label: 'Worker Task Eligibility Certification',
+            payload: $result,
+            statusKey: 'status',
+            extraStatusFields: [
+                'certification_hash' => (string) data_get($result, 'certification_hash', ''),
+                'checks_all_true' => (bool) data_get($result, 'checks_all_true', false),
+                'violation_count' => (int) data_get($result, 'violation_count', 0),
+                'failed_check_ids' => (array) data_get($result, 'failed_check_ids', []),
+                'worker_candidate_statuses' => (array) data_get($result, 'worker_candidate_statuses', []),
+                'claimable_task_count' => (int) data_get($result, 'claimable_task_count', 0),
+                'active_worker_task_count' => (int) data_get($result, 'active_worker_task_count', 0),
+                'active_worker_tasks' => (array) data_get($result, 'active_worker_tasks', []),
+                'operator_handoff_seed_count' => (int) data_get($result, 'operator_handoff_seed_count', 0),
+                'operator_only_failed_criteria' => (array) data_get($result, 'operator_only_failed_criteria', []),
+                'missing_operator_handoff_criteria' => (array) data_get($result, 'missing_operator_handoff_criteria', []),
+                'completion_audit_context_status' => (string) data_get($result, 'completion_audit_context_status', ''),
             ],
         );
     }
@@ -79728,6 +79924,10 @@ final class AtlasSelfConstructionReadinessService
                 'recoverable_lease_count' => (int) data_get($result, 'lease_health.recoverable_lease_count'),
                 'recommended_action' => (string) data_get($result, 'loop_decision.recommended_action'),
                 'safe_to_start_new_worker' => (bool) data_get($result, 'loop_decision.safe_to_start_new_worker'),
+                'worker_task_eligibility_status' => (string) data_get($result, 'loop_decision.worker_task_eligibility_status'),
+                'worker_task_eligibility_required_before_worker_launch' => (bool) data_get($result, 'loop_decision.worker_task_eligibility_required_before_worker_launch'),
+                'worker_task_eligibility_violation_count' => (int) data_get($result, 'loop_decision.worker_task_eligibility_violation_count'),
+                'worker_task_eligibility_hash' => (string) data_get($result, 'worker_task_eligibility.worker_task_eligibility_hash'),
                 'should_replenish_before_next_claim' => (bool) data_get($result, 'loop_decision.should_replenish_before_next_claim'),
                 'should_recover_before_next_claim' => (bool) data_get($result, 'loop_decision.should_recover_before_next_claim'),
                 'can_loop_without_chat_history' => (bool) data_get($result, 'loop_decision.can_loop_without_chat_history'),
@@ -80022,6 +80222,9 @@ final class AtlasSelfConstructionReadinessService
                 'lease_id' => (string) data_get($result, 'lease_id'),
                 'runtime_claim_persisted' => (bool) data_get($result, 'runtime_claim_persisted'),
                 'one_shot_worker_packet_ready' => (bool) data_get($result, 'one_shot_worker_packet_ready'),
+                'worker_task_eligibility_guard_status' => (string) data_get($result, 'worker_task_eligibility_guard.status', ''),
+                'worker_task_eligibility_guard_violation_count' => (int) data_get($result, 'worker_task_eligibility_guard.violation_count', 0),
+                'worker_task_eligibility_guard_hash' => (string) data_get($result, 'worker_task_eligibility_guard.worker_task_eligibility_guard_hash', ''),
                 'preview_claimable_count' => (int) data_get($result, 'preview_claimable_count', 0),
                 'preview_would_replenish' => (bool) data_get($result, 'preview_would_replenish', false),
                 'preview_would_generate_task_count' => (int) data_get($result, 'preview_would_generate_task_count', 0),
@@ -80303,6 +80506,101 @@ final class AtlasSelfConstructionReadinessService
             new AgentControlPlaneEvidenceLedgerDryRun,
             new AgentControlPlaneContinuationSummaryBuilder,
         );
+    }
+
+    /**
+     * Keep the public auto-replenishment status aware of final completion
+     * blockers without letting a read-only status call manufacture worker
+     * packets for human/provider-only evidence.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    private function taskAutoReplenishmentCompletionAuditContext(array $options): array
+    {
+        if (isset($options['completion_audit']) && is_array($options['completion_audit'])) {
+            return $this->taskAutoReplenishmentCompletionAuditContextFromAudit((array) $options['completion_audit']);
+        }
+
+        try {
+            $audit = (new AtlasSelfConstructionOsCompletionAuditService($this))->audit([
+                'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
+                'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
+                'forge_self_improvement_smoke' => (array) ($options['forge_self_improvement_smoke'] ?? []),
+                'agent_control_plane_terminal_loop_operational_proof' => (array) ($options['agent_control_plane_terminal_loop_operational_proof'] ?? []),
+            ]);
+        } catch (\Throwable $e) {
+            return [
+                'status' => 'completion_audit_context_unavailable',
+                'failed_count' => 0,
+                'failed_criteria' => [],
+                'error' => $e->getMessage(),
+            ];
+        }
+
+        return $this->taskAutoReplenishmentCompletionAuditContextFromAudit((array) $audit);
+    }
+
+    /**
+     * @param  array<string, mixed>  $auditEnvelope
+     * @return array<string, mixed>
+     */
+    private function taskAutoReplenishmentCompletionAuditContextFromAudit(array $auditEnvelope): array
+    {
+        $audit = $auditEnvelope;
+        foreach ([
+            'agent_control_plane_atlas_self_construction_os_completion_audit',
+            'agent_control_plane_atlas_self_construction_os_completion_audit_status',
+            'current_completion_audit',
+            'completion_audit',
+            'operator_handoff_packet.completion_audit',
+        ] as $path) {
+            $candidate = data_get($auditEnvelope, $path);
+            if (is_array($candidate) && $candidate !== []) {
+                $audit = (array) $candidate;
+                break;
+            }
+        }
+
+        $failedCriteria = array_values(array_filter(array_map('strval', (array) data_get($audit, 'failed_criteria', []))));
+        foreach ((array) data_get($audit, 'failed_criteria_detailed', []) as $entry) {
+            $id = (string) data_get($entry, 'id', '');
+            if ($id !== '') {
+                $failedCriteria[] = $id;
+            }
+        }
+        foreach ([
+            'current_blocks_completion_criteria',
+            'operator_handoff_packet.current_blocks_completion_criteria',
+            'blocker_classification.human_blockers',
+            'blocker_classification.real_provider_blockers',
+            'blocker_classification.technical_blockers',
+        ] as $path) {
+            foreach ((array) data_get($audit, $path, []) as $id) {
+                $id = (string) $id;
+                if ($id !== '') {
+                    $failedCriteria[] = $id;
+                }
+            }
+        }
+
+        $operatorOnlyFailedCriteria = array_values(array_intersect(
+            array_values(array_unique($failedCriteria)),
+            [
+                'runtime_gap_matrix_all_runtime_y',
+                'human_signed_os_complete_receipt_present',
+                'end_to_end_real_provider_smoke_green',
+            ],
+        ));
+
+        return [
+            'status' => (string) data_get($audit, 'status', 'unknown'),
+            'failed_count' => count($operatorOnlyFailedCriteria),
+            'failed_criteria' => $operatorOnlyFailedCriteria,
+            'completion_audit_hash' => (string) data_get($audit, 'completion_audit_hash', ''),
+            'context_scope' => 'operator_only_completion_blockers_for_auto_replenishment',
+            'worker_task_creation_allowed_for_failed_criteria' => false,
+        ];
     }
 
     private function buildTaskAutoReplenishmentService(): AgentControlPlaneTaskAutoReplenishmentService

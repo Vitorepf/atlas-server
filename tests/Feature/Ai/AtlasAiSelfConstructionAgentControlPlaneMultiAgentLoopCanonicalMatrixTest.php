@@ -31,6 +31,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
     private const CANONICAL_INVARIANT_NAMES = [
         'no_duplicate_claims',
         'no_cross_agent_completion',
+        'complete_dry_run_requires_queue_claim_binding',
         'stale_lease_recovered',
         'completed_task_not_reclaimed',
         'auto_replenishment_target_met',
@@ -49,6 +50,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         'terminal_loop_health_digest_present',
         'terminal_loop_fleet_launch_plan_present',
         'terminal_loop_fleet_launch_plan_ready_path_verified',
+        'terminal_loop_fleet_partial_supply_launch_blocked',
         'terminal_loop_fleet_replenishment_plan_present',
         'terminal_loop_fleet_resume_rollup_present',
         'terminal_loop_fleet_resume_recovery_path_verified',
@@ -221,6 +223,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_health_digest_present']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_launch_plan_present']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_launch_plan_ready_path_verified']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_partial_supply_launch_blocked']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_replenishment_plan_present']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_resume_rollup_present']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_resume_recovery_path_verified']['value']);
@@ -245,6 +248,12 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         $this->assertSame('cycle_worker_launch_ready', data_get($result, 'terminal_loop_fleet_launch_plan_probe.cycle_supervisor_status'));
         $this->assertSame('launch_or_continue_workers', data_get($result, 'terminal_loop_fleet_launch_plan_probe.cycle_supervisor_cycle_state'));
         $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_launch_plan_probe.cycle_supervisor_launch_path_verified'));
+        $this->assertSame('available', data_get($result, 'terminal_loop_fleet_partial_supply_gate_probe.status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_partial_supply_gate_probe.partial_supply_launch_blocked'));
+        $this->assertSame(1, data_get($result, 'terminal_loop_fleet_partial_supply_gate_probe.claimable_task_count'));
+        $this->assertFalse((bool) data_get($result, 'terminal_loop_fleet_partial_supply_gate_probe.target_min_claimable_tasks_met'));
+        $this->assertSame('fleet_launch_plan_blocked', data_get($result, 'terminal_loop_fleet_partial_supply_gate_probe.fleet_plan_status'));
+        $this->assertSame('cycle_replenishment_required', data_get($result, 'terminal_loop_fleet_partial_supply_gate_probe.cycle_supervisor_status'));
         $this->assertSame('available', data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.status'));
         $this->assertTrue((bool) data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.no_cross_lane_launch_verified'));
         $this->assertSame(0, data_get($result, 'terminal_loop_fleet_lane_isolation_negative_probe.target_claimable_task_count'));

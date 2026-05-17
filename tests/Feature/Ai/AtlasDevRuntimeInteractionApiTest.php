@@ -212,6 +212,49 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
         $this->assertTrue((bool) data_get($captured, 'payload.requires_obra'));
     }
 
+    public function test_explain_request_emits_specialist_flow_runtime_slice(): void
+    {
+        $clientId = (string) Str::uuid();
+        $captured = null;
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($clientId, &$captured): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->andReturnUsing(function (string $_input, array $options) use ($clientId, &$captured): AiTrace {
+                    $captured = $options;
+
+                    return $this->stubTrace($clientId, 'explique o router');
+                });
+        });
+
+        $this
+            ->withHeaders($this->headers)
+            ->postJson('/ai/interactions', [
+                'input_text' => 'explique o router do Atlas AI',
+                'client_id' => $clientId,
+                'new_thread' => true,
+                'source_type' => 'app',
+                'payload' => [
+                    'surface_id' => 'atlas_desktop_ai',
+                ],
+            ])
+            ->assertAccepted();
+
+        $slice = data_get($captured, 'payload.specialist_flow_runtime');
+
+        $this->assertIsArray($slice);
+        $this->assertSame('atlas.ai.specialist_flow_runtime.v1', $slice['schema_version']);
+        $this->assertSame('atlas_explain', $slice['flow_id']);
+        $this->assertSame('read_only_explanation', $slice['execution_mode']);
+        $this->assertSame('not_delegated', data_get($slice, 'delegation.status'));
+        $this->assertSame('atlas.ai.specialist_flow_receipt.v1', data_get($slice, 'receipt.schema_version'));
+        $this->assertSame('atlas.ai.specialist_flow_execution.v1', data_get($captured, 'payload.specialist_flow_execution.schema_version'));
+        $this->assertSame('atlas_explain_read_only_handler', data_get($captured, 'payload.specialist_flow_execution.handler_id'));
+        $this->assertSame(data_get($slice, 'receipt.receipt_id'), data_get($captured, 'payload.specialist_flow_execution.runtime_receipt_id'));
+        $this->assertNull(data_get($captured, 'payload.atlas_dev_runtime'));
+    }
+
     private function stubTrace(string $clientId, string $input): AiTrace
     {
         return tap(new AiTrace, fn (AiTrace $trace) => $trace->forceFill([
