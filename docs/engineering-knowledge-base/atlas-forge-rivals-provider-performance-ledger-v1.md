@@ -30,6 +30,7 @@ maintenance:
   - Keep the nine-invariant certification in sync with the service contract; never relax an invariant without a follow-up doc.
 related_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-benchmark-strategy-v1.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-intelligence-ledger-v1.md
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php
   - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsProviderPerformanceLedgerCertification.php
@@ -81,6 +82,7 @@ requires_evidence: true
 risk_level: medium
 next_actions:
   - Conectar atlas:decide para consumir decide-signal como input advisory.
+  - Evoluir snapshot para Intelligence Ledger historico segmentado.
   - Adicionar retention/compaction ao entries.jsonl quando volume justificar.
   - Surface UI Atlas Code Premium (ranking, provider cards, cost/quality scatter).
 ---

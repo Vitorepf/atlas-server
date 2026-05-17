@@ -715,6 +715,25 @@ final class AtlasSelfConstructionOsCompletionAuditService
         $cycleSupervisorState = (string) data_get($proof, 'post_cycle_cycle_supervisor.cycle_state', data_get($proof, 'post_cycle_cycle_supervisor_cycle_state', ''));
         $cycleSupervisorPurpose = (string) data_get($proof, 'post_cycle_cycle_supervisor.next_command_purpose', data_get($proof, 'post_cycle_cycle_supervisor_next_command_purpose', ''));
         $cycleSupervisorHash = (string) data_get($proof, 'post_cycle_cycle_supervisor.hash', data_get($proof, 'post_cycle_cycle_supervisor_hash', ''));
+        $endToEndContractStatus = (string) data_get($proof, 'post_cycle_end_to_end_contract.status', data_get($proof, 'post_cycle_end_to_end_contract_status', ''));
+        $endToEndContractAllSurfacesPresent = (bool) data_get($proof, 'post_cycle_end_to_end_contract.all_required_surfaces_present', data_get($proof, 'post_cycle_end_to_end_contract_all_required_surfaces_present', false));
+        $endToEndContractCoveredCapabilities = (array) data_get($proof, 'post_cycle_end_to_end_contract.covered_capabilities', data_get($proof, 'post_cycle_end_to_end_contract_covered_capabilities', []));
+        $endToEndContractFailedCheckIds = (array) data_get($proof, 'post_cycle_end_to_end_contract.failed_check_ids', data_get($proof, 'post_cycle_end_to_end_contract_failed_check_ids', []));
+        $endToEndContractHash = (string) data_get($proof, 'post_cycle_end_to_end_contract.hash', data_get($proof, 'post_cycle_end_to_end_contract_hash', ''));
+        $requiredEndToEndContractCapabilities = [
+            'auto_replenishment',
+            'validation',
+            'leases',
+            'evidence',
+            'retomada',
+            'lane_isolation',
+            'cycle_supervision',
+            'operator_handoff',
+        ];
+        $missingEndToEndContractCapabilities = array_values(array_diff(
+            $requiredEndToEndContractCapabilities,
+            $endToEndContractCoveredCapabilities,
+        ));
         $postCycleClaimedTaskCount = (int) data_get($proof, 'post_cycle_cleanup_state.claimed_task_count', data_get($proof, 'post_cycle_claimed_task_count', -1));
         $postCycleActiveLeaseCount = (int) data_get($proof, 'post_cycle_cleanup_state.active_lease_count', data_get($proof, 'post_cycle_active_lease_count', -1));
         $postCycleRecoverableLeaseCount = (int) data_get($proof, 'post_cycle_cleanup_state.recoverable_lease_count', data_get($proof, 'post_cycle_recoverable_lease_count', -1));
@@ -763,6 +782,21 @@ final class AtlasSelfConstructionOsCompletionAuditService
         if ($supplied && preg_match('/^[a-f0-9]{64}$/', $cycleSupervisorHash) !== 1) {
             $validationViolations[] = 'invalid_or_missing_post_cycle_cycle_supervisor_hash';
         }
+        if ($supplied && $endToEndContractStatus !== 'terminal_loop_end_to_end_contract_available') {
+            $validationViolations[] = 'post_cycle_end_to_end_contract_not_available';
+        }
+        if ($supplied && ! $endToEndContractAllSurfacesPresent) {
+            $validationViolations[] = 'post_cycle_end_to_end_contract_surfaces_not_all_present';
+        }
+        if ($supplied && $endToEndContractFailedCheckIds !== []) {
+            $validationViolations[] = 'post_cycle_end_to_end_contract_has_failed_checks';
+        }
+        if ($supplied && $missingEndToEndContractCapabilities !== []) {
+            $validationViolations[] = 'post_cycle_end_to_end_contract_missing_required_capabilities';
+        }
+        if ($supplied && preg_match('/^[a-f0-9]{64}$/', $endToEndContractHash) !== 1) {
+            $validationViolations[] = 'invalid_or_missing_post_cycle_end_to_end_contract_hash';
+        }
         if ($supplied && $postCycleClaimedTaskCount !== 0) {
             $validationViolations[] = 'post_cycle_claimed_tasks_not_zero';
         }
@@ -792,6 +826,12 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'post_cycle_cycle_supervisor_cycle_state' => $cycleSupervisorState,
             'post_cycle_cycle_supervisor_next_command_purpose' => $cycleSupervisorPurpose,
             'post_cycle_cycle_supervisor_hash' => $cycleSupervisorHash,
+            'post_cycle_end_to_end_contract_status' => $endToEndContractStatus,
+            'post_cycle_end_to_end_contract_all_required_surfaces_present' => $endToEndContractAllSurfacesPresent,
+            'post_cycle_end_to_end_contract_covered_capabilities' => $endToEndContractCoveredCapabilities,
+            'post_cycle_end_to_end_contract_failed_check_ids' => $endToEndContractFailedCheckIds,
+            'post_cycle_end_to_end_contract_missing_required_capabilities' => $missingEndToEndContractCapabilities,
+            'post_cycle_end_to_end_contract_hash' => $endToEndContractHash,
             'post_cycle_cleanup_state' => [
                 'claimed_task_count' => $postCycleClaimedTaskCount,
                 'active_lease_count' => $postCycleActiveLeaseCount,

@@ -38,6 +38,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-corpus-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-performance-ledger-v1.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-intelligence-ledger-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-reporting-v1.md
   - docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
   - docs/engineering-knowledge-base/system-graph/atlas-decide.md
@@ -88,10 +89,9 @@ required_tests:
 requires_evidence: true
 risk_level: high
 next_actions:
-  - Validar `release` com 40 casos reais multi-categoria.
-  - Rodar `human-normal`, `messy-real` e `enterprise-change` como modos de prompt com hidden oracle.
+  - Rodar `messy-real` e `enterprise-change` como baterias reais dedicadas com hidden oracle.
   - Implementar `deep` com 25+ casos por dominio e confidence interval por categoria.
-  - Fazer Provider Performance Ledger alimentar Atlas Decide como sinal consultivo.
+  - Evoluir Provider Performance Ledger para Intelligence Ledger historico e segmentado.
 ---
 
 # Atlas Forge Rivals Benchmark Strategy v1
@@ -395,7 +395,9 @@ Entregue 2026-05-15. Detalhe canon em
 7. `deep`: 25+ casos por dominio, confidence interval e ranking por categoria,
    `provider_ranking` confidence quando o corpus crescer.
 8. `atlas-power`: medir delta Atlas Forge full_power vs provider puro.
-9. Atlas Decide consome decide-signal do ledger.
+9. Intelligence Ledger: historico segmentado por provider, modelo, modo,
+   categoria, dificuldade, custo, tempo, estabilidade e confianca estatistica.
+10. Atlas Decide consome decide-signal do ledger, sempre advisory-only.
 
 ## Exemplos
 

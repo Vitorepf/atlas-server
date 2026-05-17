@@ -34,6 +34,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-corpus-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-performance-ledger-v1.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-intelligence-ledger-v1.md
   - docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
   - docs/engineering-knowledge-base/system-graph/atlas-decide.md
 doc_schema: atlas_canonical_module_doc.v1
@@ -77,7 +78,9 @@ required_tests:
 requires_evidence: true
 risk_level: high
 next_actions:
-  - Rodar human-normal release 40 com provider real e comparar contra spec-perfect.
+  - Rodar messy-real release 40 com provider real e hidden oracle.
+  - Rodar enterprise-change release 40 com provider real e hidden oracle.
+  - Registrar resultados validos no Intelligence Ledger por modo, categoria e dificuldade.
   - Implementar messy-real com hidden oracle e triage de ambiguidade.
   - Registrar resultados validos no Provider Performance Ledger por modo, categoria e dificuldade.
 ---
@@ -377,4 +380,4 @@ php artisan atlas:forge:rivals run-battery \
 2. Rodar release `human-normal` 40 casos com os mesmos 8 dominios via `--prompt-mode=human-normal`.
 3. Criar bateria `messy-real` com hidden oracle e triage de ambiguidade.
 4. Fazer `provider-arena` Claude vs Codex vs Gemini vs Opus por categoria.
-5. Alimentar Provider Performance Ledger e Atlas Decide como advisory signal.
+5. Alimentar Provider Performance Ledger, Intelligence Ledger e Atlas Decide como advisory signal.

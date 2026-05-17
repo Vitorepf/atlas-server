@@ -44,6 +44,21 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             data_get($payload, 'terminal_loop_closure_proof.expected_binding_artifact_path'),
         );
         $this->assertContains('post_cycle_cycle_supervisor_review_evidence', data_get($payload, 'terminal_loop_closure_proof.acceptance_criteria'));
+        $this->assertContains('post_cycle_end_to_end_contract_available', data_get($payload, 'terminal_loop_closure_proof.acceptance_criteria'));
+        $this->assertContains('post_cycle_end_to_end_contract_covers_required_loop_surfaces', data_get($payload, 'terminal_loop_closure_proof.acceptance_criteria'));
+        $this->assertEqualsCanonicalizing(
+            [
+                'auto_replenishment',
+                'validation',
+                'leases',
+                'evidence',
+                'retomada',
+                'lane_isolation',
+                'cycle_supervision',
+                'operator_handoff',
+            ],
+            data_get($payload, 'terminal_loop_closure_proof.required_end_to_end_contract_capabilities'),
+        );
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'terminal_loop_closure_proof.terminal_loop_closure_proof_packet_hash'));
         $this->assertContains('human_signed_os_complete_receipt_present', data_get($payload, 'current_completion_audit.blocker_classification.human_blockers'));
         $this->assertNotEmpty(data_get($payload, 'current_completion_audit.failed_criteria_detailed'));
@@ -947,11 +962,19 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_expected_binding_schema'),
         );
         $this->assertSame(
-            5,
+            7,
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_acceptance_criteria_count'),
         );
+        $this->assertSame(
+            8,
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_required_end_to_end_contract_capability_count'),
+        );
+        $this->assertContains(
+            'lane_isolation',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_required_end_to_end_contract_capabilities'),
+        );
         $this->assertGreaterThanOrEqual(
-            5,
+            7,
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_closure_proof_stop_condition_count'),
         );
         $this->assertMatchesRegularExpression(

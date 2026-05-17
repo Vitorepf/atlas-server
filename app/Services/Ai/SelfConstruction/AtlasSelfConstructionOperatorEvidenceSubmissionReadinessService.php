@@ -23,6 +23,17 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
 
     private const STORAGE_DISK = 'local';
 
+    private const REQUIRED_TERMINAL_LOOP_END_TO_END_CONTRACT_CAPABILITIES = [
+        'auto_replenishment',
+        'validation',
+        'leases',
+        'evidence',
+        'retomada',
+        'lane_isolation',
+        'cycle_supervision',
+        'operator_handoff',
+    ];
+
     /** @var array<string, string> */
     private const CANONICAL_SUBMISSION_PATHS = [
         'runtime_promotion_receipt' => 'atlas/self-construction/operator-submissions/runtime-promotion.json',
@@ -1194,10 +1205,13 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'terminal_loop_operational_proof_canonical_binding_path' => $this->terminalLoopOperationalProofBindingArtifactPath(),
             'terminal_loop_operational_proof_required_before_final_audit' => true,
             'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
+            'terminal_loop_operational_proof_required_end_to_end_contract_capabilities' => self::REQUIRED_TERMINAL_LOOP_END_TO_END_CONTRACT_CAPABILITIES,
             'terminal_loop_operational_proof_acceptance_criteria' => [
                 'operational_proof_status_passed',
                 'operational_readiness_matrix_all_true',
                 'post_cycle_cycle_supervisor_review_evidence',
+                'post_cycle_end_to_end_contract_available',
+                'post_cycle_end_to_end_contract_covers_required_loop_surfaces',
                 'completion_audit_binding_packet_ready',
                 'provider_token_dispatch_flags_false',
             ],

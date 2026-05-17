@@ -84,7 +84,24 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
             data_get($payload, 'terminal_loop_closure_proof.audit_command_with_canonical_binding'),
         );
         $this->assertContains('post_cycle_cycle_supervisor_review_evidence', data_get($payload, 'terminal_loop_closure_proof.acceptance_criteria'));
+        $this->assertContains('post_cycle_end_to_end_contract_available', data_get($payload, 'terminal_loop_closure_proof.acceptance_criteria'));
+        $this->assertContains('post_cycle_end_to_end_contract_covers_required_loop_surfaces', data_get($payload, 'terminal_loop_closure_proof.acceptance_criteria'));
+        $this->assertEqualsCanonicalizing(
+            [
+                'auto_replenishment',
+                'validation',
+                'leases',
+                'evidence',
+                'retomada',
+                'lane_isolation',
+                'cycle_supervision',
+                'operator_handoff',
+            ],
+            data_get($payload, 'terminal_loop_closure_proof.required_end_to_end_contract_capabilities'),
+        );
         $this->assertContains('stop_if_post_cycle_cycle_supervisor_is_not_review_evidence', data_get($payload, 'terminal_loop_closure_proof.stop_conditions'));
+        $this->assertContains('stop_if_post_cycle_end_to_end_contract_is_not_available', data_get($payload, 'terminal_loop_closure_proof.stop_conditions'));
+        $this->assertContains('stop_if_post_cycle_end_to_end_contract_has_missing_loop_surfaces', data_get($payload, 'terminal_loop_closure_proof.stop_conditions'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'terminal_loop_closure_proof.terminal_loop_closure_proof_packet_hash'));
         $this->assertSame('atlas.self_construction.completion_evidence_submission_preflight.command_surface.v1', data_get($payload, 'operator_command_surface.schema_version'));
         $this->assertSame('available', data_get($payload, 'operator_command_surface.status'));
@@ -178,6 +195,11 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
             data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_audit_command_with_canonical_binding'),
         );
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_packet_hash'));
+        $this->assertSame(8, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_required_end_to_end_contract_capability_count'));
+        $this->assertContains(
+            'retomada',
+            data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.terminal_loop_closure_proof_required_end_to_end_contract_capabilities'),
+        );
         $this->assertSame('available', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_surface_status'));
         $this->assertGreaterThanOrEqual(9, (int) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_count'));
         $this->assertSame(0, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_missing_option_count'));

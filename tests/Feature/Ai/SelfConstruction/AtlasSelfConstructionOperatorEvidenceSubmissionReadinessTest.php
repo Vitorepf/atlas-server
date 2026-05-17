@@ -121,6 +121,27 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             'post_cycle_cycle_supervisor_review_evidence',
             data_get($payload, 'operator_completion_proof_bundle.terminal_loop_operational_proof_acceptance_criteria'),
         );
+        $this->assertContains(
+            'post_cycle_end_to_end_contract_available',
+            data_get($payload, 'operator_completion_proof_bundle.terminal_loop_operational_proof_acceptance_criteria'),
+        );
+        $this->assertContains(
+            'post_cycle_end_to_end_contract_covers_required_loop_surfaces',
+            data_get($payload, 'operator_completion_proof_bundle.terminal_loop_operational_proof_acceptance_criteria'),
+        );
+        $this->assertEqualsCanonicalizing(
+            [
+                'auto_replenishment',
+                'validation',
+                'leases',
+                'evidence',
+                'retomada',
+                'lane_isolation',
+                'cycle_supervision',
+                'operator_handoff',
+            ],
+            data_get($payload, 'operator_completion_proof_bundle.terminal_loop_operational_proof_required_end_to_end_contract_capabilities'),
+        );
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',
             (string) data_get($payload, 'operator_completion_proof_bundle.operator_completion_proof_bundle_hash'),
@@ -784,8 +805,16 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessTest extends
             data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_canonical_binding_path'),
         );
         $this->assertSame(
-            5,
+            7,
             data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_acceptance_criteria_count'),
+        );
+        $this->assertSame(
+            8,
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_required_end_to_end_contract_capability_count'),
+        );
+        $this->assertContains(
+            'operator_handoff',
+            data_get($status, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status.operator_completion_terminal_loop_operational_proof_required_end_to_end_contract_capabilities'),
         );
         $this->assertMatchesRegularExpression(
             '/^[a-f0-9]{64}$/',

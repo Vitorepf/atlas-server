@@ -11,6 +11,17 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
 
     public const MODE = 'read_only_completion_evidence_submission_preflight';
 
+    private const REQUIRED_TERMINAL_LOOP_END_TO_END_CONTRACT_CAPABILITIES = [
+        'auto_replenishment',
+        'validation',
+        'leases',
+        'evidence',
+        'retomada',
+        'lane_isolation',
+        'cycle_supervision',
+        'operator_handoff',
+    ];
+
     /** @return array<string, mixed> */
     public function build(array $completionAudit, array $completionEvidence, array $blockerExplainer): array
     {
@@ -590,6 +601,7 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
             'expected_binding_artifact_path' => $this->terminalLoopOperationalProofBindingArtifactPath(),
             'required_before_final_completion_receipt' => true,
             'required_before_human_completion_receipt_persist' => true,
+            'required_end_to_end_contract_capabilities' => self::REQUIRED_TERMINAL_LOOP_END_TO_END_CONTRACT_CAPABILITIES,
             'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
             'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
             'blocker_explainer_hash' => (string) data_get($blockerExplainer, 'explainer_hash', ''),
@@ -597,6 +609,8 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
                 'operational_proof_status_passed',
                 'operational_readiness_matrix_all_true',
                 'post_cycle_cycle_supervisor_review_evidence',
+                'post_cycle_end_to_end_contract_available',
+                'post_cycle_end_to_end_contract_covers_required_loop_surfaces',
                 'completion_audit_binding_packet_ready',
                 'provider_token_dispatch_flags_false',
             ],
@@ -610,6 +624,8 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
                 'stop_if_operational_proof_status_is_not_passed',
                 'stop_if_operational_readiness_matrix_has_failed_rows',
                 'stop_if_post_cycle_cycle_supervisor_is_not_review_evidence',
+                'stop_if_post_cycle_end_to_end_contract_is_not_available',
+                'stop_if_post_cycle_end_to_end_contract_has_missing_loop_surfaces',
                 'stop_if_binding_packet_can_mark_completion',
                 'stop_if_provider_or_token_or_dispatch_flags_are_true',
             ],

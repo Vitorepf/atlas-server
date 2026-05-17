@@ -391,6 +391,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
                 'hash' => str_repeat('c', 64),
             ],
             'post_cycle_cleanup_state' => $this->terminalLoopCleanupState(),
+            'post_cycle_end_to_end_contract' => $this->terminalLoopEndToEndContract(),
             'terminal_loop_operational_proof_hash' => $proofHash,
         ];
 
@@ -410,6 +411,13 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $this->assertSame($proofHash, $status['terminal_loop_operational_proof_hash']);
         $this->assertSame('cycle_evidence_review_ready', $status['terminal_loop_operational_proof_post_cycle_cycle_supervisor_status']);
         $this->assertSame(str_repeat('c', 64), $status['terminal_loop_operational_proof_post_cycle_cycle_supervisor_hash']);
+        $this->assertSame('terminal_loop_end_to_end_contract_available', $status['terminal_loop_operational_proof_post_cycle_end_to_end_contract_status']);
+        $this->assertTrue($status['terminal_loop_operational_proof_post_cycle_end_to_end_contract_all_required_surfaces_present']);
+        $this->assertSame([], $status['terminal_loop_operational_proof_post_cycle_end_to_end_contract_failed_check_ids']);
+        $this->assertSame([], $status['terminal_loop_operational_proof_post_cycle_end_to_end_contract_missing_required_capabilities']);
+        $this->assertContains('auto_replenishment', $status['terminal_loop_operational_proof_post_cycle_end_to_end_contract_covered_capabilities']);
+        $this->assertContains('retomada', $status['terminal_loop_operational_proof_post_cycle_end_to_end_contract_covered_capabilities']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $status['terminal_loop_operational_proof_post_cycle_end_to_end_contract_hash']);
         $this->assertSame(0, data_get($status, 'terminal_loop_operational_proof_post_cycle_cleanup_state.claimed_task_count'));
         $this->assertSame(0, data_get($status, 'terminal_loop_operational_proof_post_cycle_cleanup_state.active_lease_count'));
         $this->assertSame(0, data_get($status, 'terminal_loop_operational_proof_post_cycle_cleanup_state.recoverable_lease_count'));
@@ -493,6 +501,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
                 'hash' => str_repeat('c', 64),
             ],
             'post_cycle_cleanup_state' => $this->terminalLoopCleanupState(),
+            'post_cycle_end_to_end_contract' => $this->terminalLoopEndToEndContract(),
             'terminal_loop_operational_proof_hash' => 'not-a-sha',
         ];
 
@@ -538,6 +547,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
                 'hash' => str_repeat('d', 64),
             ],
             'post_cycle_cleanup_state' => $this->terminalLoopCleanupState(),
+            'post_cycle_end_to_end_contract' => $this->terminalLoopEndToEndContract(),
             'terminal_loop_operational_proof_hash' => str_repeat('e', 64),
         ];
 
@@ -582,6 +592,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
                 'active_lease_count' => 1,
                 'recoverable_lease_count' => 1,
             ],
+            'post_cycle_end_to_end_contract' => $this->terminalLoopEndToEndContract(),
             'terminal_loop_operational_proof_hash' => str_repeat('f', 64),
         ];
 
@@ -623,6 +634,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
                     'hash' => str_repeat('c', 64),
                 ],
                 'post_cycle_cleanup_state' => $this->terminalLoopCleanupState(),
+                'post_cycle_end_to_end_contract' => $this->terminalLoopEndToEndContract(),
                 'terminal_loop_operational_proof_hash' => $proofHash,
             ],
         ]);
@@ -636,6 +648,13 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $this->assertSame('review_evidence', $evidence['post_cycle_cycle_supervisor_cycle_state']);
         $this->assertSame('review_completed_dry_run_evidence_and_rerun_digest', $evidence['post_cycle_cycle_supervisor_next_command_purpose']);
         $this->assertSame(str_repeat('c', 64), $evidence['post_cycle_cycle_supervisor_hash']);
+        $this->assertSame('terminal_loop_end_to_end_contract_available', $evidence['post_cycle_end_to_end_contract_status']);
+        $this->assertTrue($evidence['post_cycle_end_to_end_contract_all_required_surfaces_present']);
+        $this->assertSame([], $evidence['post_cycle_end_to_end_contract_failed_check_ids']);
+        $this->assertSame([], $evidence['post_cycle_end_to_end_contract_missing_required_capabilities']);
+        $this->assertContains('validation', $evidence['post_cycle_end_to_end_contract_covered_capabilities']);
+        $this->assertContains('leases', $evidence['post_cycle_end_to_end_contract_covered_capabilities']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $evidence['post_cycle_end_to_end_contract_hash']);
         $this->assertSame(0, data_get($evidence, 'post_cycle_cleanup_state.claimed_task_count'));
         $this->assertSame(0, data_get($evidence, 'post_cycle_cleanup_state.active_lease_count'));
         $this->assertSame(0, data_get($evidence, 'post_cycle_cleanup_state.recoverable_lease_count'));
@@ -649,6 +668,44 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         $this->assertTrue((bool) data_get($criterion, 'evidence.operational_proof_supplied'));
         $this->assertTrue((bool) data_get($criterion, 'evidence.operational_proof_passed'));
         $this->assertSame($proofHash, data_get($criterion, 'evidence.operational_proof_hash'));
+    }
+
+    public function test_audit_rejects_legacy_terminal_loop_operational_proof_without_end_to_end_contract(): void
+    {
+        $audit = (new AtlasSelfConstructionOsCompletionAuditService(app(AtlasSelfConstructionReadinessService::class)))->audit([
+            'agent_control_plane_terminal_loop_operational_proof' => [
+                'status' => 'passed',
+                'invariants_all_true' => true,
+                'operational_readiness_matrix' => ['all_true' => true],
+                'completion_real_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'dispatch_allowed' => false,
+                'adapter_execution_allowed' => false,
+                'self_programming_allowed' => false,
+                'post_cycle_cycle_supervisor' => [
+                    'status' => 'cycle_evidence_review_ready',
+                    'cycle_state' => 'review_evidence',
+                    'next_command_purpose' => 'review_completed_dry_run_evidence_and_rerun_digest',
+                    'hash' => str_repeat('c', 64),
+                ],
+                'post_cycle_cleanup_state' => $this->terminalLoopCleanupState(),
+                'terminal_loop_operational_proof_hash' => str_repeat('9', 64),
+            ],
+        ]);
+
+        $evidence = $audit['agent_control_plane_terminal_loop_operational_proof_evidence'];
+        $this->assertSame('supplied_but_not_accepted', $evidence['status']);
+        $this->assertTrue($evidence['supplied']);
+        $this->assertFalse($evidence['passed']);
+        $this->assertContains('post_cycle_end_to_end_contract_not_available', $evidence['validation_violations']);
+        $this->assertContains('post_cycle_end_to_end_contract_surfaces_not_all_present', $evidence['validation_violations']);
+        $this->assertContains('post_cycle_end_to_end_contract_missing_required_capabilities', $evidence['validation_violations']);
+        $this->assertContains('invalid_or_missing_post_cycle_end_to_end_contract_hash', $evidence['validation_violations']);
+
+        $criterion = collect($audit['criteria'])->firstWhere('id', 'agent_control_plane_terminal_loop_certification_green');
+        $this->assertSame('supplied_but_not_accepted', data_get($criterion, 'evidence.operational_proof_status'));
+        $this->assertFalse((bool) data_get($criterion, 'evidence.operational_proof_passed'));
     }
 
     public function test_audit_accepts_terminal_loop_operational_proof_binding_packet_payload(): void
@@ -827,6 +884,29 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             'claimed_task_count' => 0,
             'active_lease_count' => 0,
             'recoverable_lease_count' => 0,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function terminalLoopEndToEndContract(): array
+    {
+        return [
+            'status' => 'terminal_loop_end_to_end_contract_available',
+            'all_required_surfaces_present' => true,
+            'covered_capabilities' => [
+                'auto_replenishment',
+                'validation',
+                'leases',
+                'evidence',
+                'retomada',
+                'lane_isolation',
+                'cycle_supervision',
+                'operator_handoff',
+            ],
+            'failed_check_ids' => [],
+            'hash' => str_repeat('7', 64),
         ];
     }
 }
