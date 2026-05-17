@@ -44,6 +44,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-operating-system-runbook.md
   - docs/engineering-knowledge-base/atlas-programming-self-construction-forge-map-v1.md
   - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
+  - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-ai-router-flow-routing-contract-v1.md
   - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
 doc_schema: atlas_canonical_module_doc.v1
@@ -69,6 +70,7 @@ forbidden_changes:
   - Permitir escalonamento silencioso sem packet, receipt e motivo auditavel.
   - Permitir que Dev execute Obra longa sem promover para Forge.
 depends_on:
+  - atlas-hyperflow-operation
   - atlas-dev-efficient-programming-flow-v1
   - atlas-forge-continuum-os
   - atlas-programming-self-construction-forge-map-v1

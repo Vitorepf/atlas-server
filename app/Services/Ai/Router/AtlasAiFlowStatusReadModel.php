@@ -223,6 +223,7 @@ class AtlasAiFlowStatusReadModel
             'atlas_explain' => 'Explicacao read-only auditavel',
             'atlas_debug' => 'Debug com triagem auditavel',
             'atlas_review' => 'Review findings-first auditavel',
+            'atlas_plan' => 'Plano de engenharia auditavel',
             'atlas_conversation' => 'Conversa direta',
             default => $executionStatus ? 'Flow especialista pronto' : 'Router pendente',
         };

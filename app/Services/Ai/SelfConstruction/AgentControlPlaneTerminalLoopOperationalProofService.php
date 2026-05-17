@@ -92,6 +92,10 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
         $validationRejectionProofHash = $this->stableHash($validationRejectionProof);
         $fleetConcurrencyProof = $this->proveFleetConcurrencyPath($orchestrator);
         $fleetConcurrencyProofHash = $this->stableHash($fleetConcurrencyProof);
+        $partialSupplyLaunchGateProof = $this->provePartialSupplyLaunchGate($proofId, $orchestrator);
+        $partialSupplyLaunchGateProofHash = $this->stableHash($partialSupplyLaunchGateProof);
+        $partialSupplyBootstrapGateProof = $this->provePartialSupplyBootstrapGate($proofId, $orchestrator);
+        $partialSupplyBootstrapGateProofHash = $this->stableHash($partialSupplyBootstrapGateProof);
 
         $afterDigest = $this->healthDigest()->digest([
             'actor' => $actor,
@@ -139,6 +143,19 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
                 && (int) data_get($fleetConcurrencyProof, 'distinct_lease_total', 0) === 2,
             'fleet_concurrency_write_sets_disjoint' => (int) data_get($fleetConcurrencyProof, 'write_set_collision_count', 1) === 0,
             'fleet_concurrency_cleanup_green' => (bool) data_get($fleetConcurrencyProof, 'cleanup_left_no_recoverable_artifacts', false),
+            'partial_supply_launch_blocked_before_worker_start' => (string) data_get($partialSupplyLaunchGateProof, 'status') === 'passed'
+                && (bool) data_get($partialSupplyLaunchGateProof, 'partial_supply_launch_blocked', false),
+            'partial_supply_replenishment_plan_ready' => (bool) data_get($partialSupplyLaunchGateProof, 'replenishment_plan_ready', false),
+            'partial_supply_cycle_supervisor_replenishes_before_launch' => (bool) data_get($partialSupplyLaunchGateProof, 'cycle_supervisor_replenishes_before_launch', false),
+            'partial_supply_probe_cleanup_green' => (bool) data_get($partialSupplyLaunchGateProof, 'cleanup_performed', false)
+                && (int) data_get($partialSupplyLaunchGateProof, 'post_cleanup_claimable_count', 1) === 0,
+            'partial_supply_bootstrap_blocks_before_claim' => (string) data_get($partialSupplyBootstrapGateProof, 'status') === 'passed'
+                && (string) data_get($partialSupplyBootstrapGateProof, 'bootstrap_status') === 'blocked'
+                && (string) data_get($partialSupplyBootstrapGateProof, 'claim_event') === 'task_supply_below_target_blocked_before_claim'
+                && (bool) data_get($partialSupplyBootstrapGateProof, 'runtime_claim_persisted', true) === false,
+            'partial_supply_bootstrap_preserves_queue_and_leases' => (bool) data_get($partialSupplyBootstrapGateProof, 'cleanup_performed', false)
+                && (int) data_get($partialSupplyBootstrapGateProof, 'active_lease_count_after_bootstrap', 1) === 0
+                && (int) data_get($partialSupplyBootstrapGateProof, 'post_cleanup_claimable_count', 1) === 0,
             'lease_closed_after_completion' => (int) data_get($afterDigest, 'lease_health.active_lease_count', 1) === 0,
             'no_claimed_task_after_completion' => (int) data_get($afterDigest, 'queue_health.claimed_task_count', 1) === 0,
             'no_recoverable_lease_after_completion' => (int) data_get($afterDigest, 'lease_health.recoverable_lease_count', 1) === 0,
@@ -171,6 +188,8 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             'recovery_resume_proof_hash' => $recoveryResumeProofHash,
             'validation_rejection_proof_hash' => $validationRejectionProofHash,
             'fleet_concurrency_proof_hash' => $fleetConcurrencyProofHash,
+            'partial_supply_launch_gate_proof_hash' => $partialSupplyLaunchGateProofHash,
+            'partial_supply_bootstrap_gate_proof_hash' => $partialSupplyBootstrapGateProofHash,
             'resume_packet_hash' => $resumePacketHash,
             'post_cycle_health_digest_hash' => (string) data_get($afterDigest, 'terminal_loop_health_digest_hash', ''),
             'post_cycle_cycle_supervisor_hash' => (string) data_get($afterDigest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash', ''),
@@ -235,6 +254,10 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             'validation_rejection_proof_hash' => $validationRejectionProofHash,
             'fleet_concurrency_proof' => $fleetConcurrencyProof,
             'fleet_concurrency_proof_hash' => $fleetConcurrencyProofHash,
+            'partial_supply_launch_gate_proof' => $partialSupplyLaunchGateProof,
+            'partial_supply_launch_gate_proof_hash' => $partialSupplyLaunchGateProofHash,
+            'partial_supply_bootstrap_gate_proof' => $partialSupplyBootstrapGateProof,
+            'partial_supply_bootstrap_gate_proof_hash' => $partialSupplyBootstrapGateProofHash,
             'completion_real_allowed' => false,
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
@@ -499,6 +522,26 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
                 [$hashes['fleet_concurrency_proof_hash'] ?? ''],
             ),
             $this->matrixRow(
+                'partial_supply_launch_gate',
+                [
+                    'partial_supply_launch_blocked_before_worker_start',
+                    'partial_supply_replenishment_plan_ready',
+                    'partial_supply_cycle_supervisor_replenishes_before_launch',
+                    'partial_supply_probe_cleanup_green',
+                ],
+                $invariants,
+                [$hashes['partial_supply_launch_gate_proof_hash'] ?? ''],
+            ),
+            $this->matrixRow(
+                'partial_supply_bootstrap_gate',
+                [
+                    'partial_supply_bootstrap_blocks_before_claim',
+                    'partial_supply_bootstrap_preserves_queue_and_leases',
+                ],
+                $invariants,
+                [$hashes['partial_supply_bootstrap_gate_proof_hash'] ?? ''],
+            ),
+            $this->matrixRow(
                 'next_cycle_resume_packet',
                 [
                     'post_cycle_digest_can_resume_without_chat_history',
@@ -597,6 +640,192 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
             'cleanup_left_no_recoverable_artifacts' => (bool) data_get($certification, 'post_cleanup_health_digest_probe.cleanup_left_no_recoverable_artifacts', false),
             'runtime_safety_all_false' => (bool) data_get($certification, 'runtime_safety.runtime_safety_all_false', false),
             'certification_hash' => (string) data_get($certification, 'certification_hash', ''),
+            'completion_real_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'self_programming_allowed' => false,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function provePartialSupplyLaunchGate(string $proofId, AgentControlPlaneTaskQueueOrchestrator $orchestrator): array
+    {
+        $tag = 'terminal_loop_operational_partial_supply_'.$this->safeToken($proofId, 'proof');
+        $taskPacketId = 'terminal_loop_partial_supply_'.$this->safeToken($proofId, 'proof');
+        $allowedFile = 'app/Services/Ai/SelfConstruction/__terminal_loop_operational_partial_supply__/'.$this->safeToken($proofId, 'proof').'.php';
+
+        $orchestration = $orchestrator->prepareAndEnqueue([
+            'task_packet' => [
+                'task_packet_id' => $taskPacketId,
+                'objective' => 'terminal loop operational partial supply launch gate proof',
+                'operator_id' => 'terminal-loop-operational-proof',
+                'allowed_files' => [$allowedFile],
+                'scope_in' => [$allowedFile],
+                'acceptance_criteria' => ['partial_supply_launch_gate_ok'],
+                'required_evidence' => ['partial_supply_launch_gate_checked'],
+                'risk_level' => 'low',
+                'rollback_strategy' => 'dry_run_only',
+            ],
+            'queue' => ['priority' => 5, 'tags' => ['terminal_loop_operational_partial_supply', $tag]],
+        ]);
+
+        $digest = $this->healthDigest()->digest([
+            'actor' => 'terminal-loop-partial-supply-'.$this->safeToken($proofId, 'proof'),
+            'queue_tags' => [$tag],
+            'target_min_claimable_tasks' => 3,
+            'max_new_tasks' => 3,
+        ]);
+
+        $launchBlocked = (int) data_get($digest, 'queue_health.claimable_task_count', 0) === 1
+            && (bool) data_get($digest, 'queue_health.target_min_claimable_tasks_met', true) === false
+            && (string) data_get($digest, 'terminal_loop_fleet_launch_plan.status') === 'fleet_launch_plan_blocked'
+            && (bool) data_get($digest, 'terminal_loop_fleet_launch_plan.safe_to_start_now') === false
+            && (int) data_get($digest, 'terminal_loop_fleet_launch_plan.recommended_terminal_count') === 0
+            && data_get($digest, 'terminal_loop_fleet_launch_plan.copy_paste_terminal_commands', []) === []
+            && in_array('task_supply_below_target_replenish_before_launch', (array) data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons', []), true);
+        $replenishmentPlanReady = (string) data_get($digest, 'terminal_loop_fleet_replenishment_plan.status') === 'fleet_replenishment_required'
+            && (int) data_get($digest, 'terminal_loop_fleet_replenishment_plan.required_new_task_count') === 2
+            && (int) data_get($digest, 'terminal_loop_fleet_replenishment_plan.bounded_new_task_count') === 2
+            && (bool) data_get($digest, 'terminal_loop_fleet_replenishment_plan.should_replenish_now') === true;
+        $cycleSupervisorReplenishes = (string) data_get($digest, 'terminal_loop_cycle_supervisor.status') === 'cycle_replenishment_required'
+            && (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state') === 'replenish_before_launch'
+            && (bool) data_get($digest, 'terminal_loop_cycle_supervisor.transition_guards.replenish_before_launch') === true
+            && (bool) data_get($digest, 'terminal_loop_cycle_supervisor.can_execute_next_command') === false;
+
+        $cleanup = (new AgentControlPlaneTaskPacketQueueRepository)->prune([
+            'tags' => ['terminal_loop_operational_partial_supply', $tag],
+            'task_packet_id_prefixes' => [$taskPacketId],
+            'delete_task_files' => true,
+            'preserve_statuses' => [],
+        ]);
+        $postCleanupDigest = $this->healthDigest()->digest([
+            'actor' => 'terminal-loop-partial-supply-cleanup-'.$this->safeToken($proofId, 'proof'),
+            'queue_tags' => [$tag],
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 0,
+        ]);
+        $passed = $launchBlocked && $replenishmentPlanReady && $cycleSupervisorReplenishes
+            && (int) data_get($postCleanupDigest, 'queue_health.claimable_task_count', 1) === 0;
+
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_partial_supply_launch_gate_proof.v1',
+            'status' => $passed ? 'passed' : 'blocked',
+            'queue_tag' => $tag,
+            'task_packet_id' => $taskPacketId,
+            'orchestration_event' => (string) data_get($orchestration, 'event', ''),
+            'queue_entry_status' => (string) data_get($orchestration, 'queue_entry.status', ''),
+            'target_min_claimable_tasks' => 3,
+            'claimable_task_count' => (int) data_get($digest, 'queue_health.claimable_task_count', 0),
+            'target_min_claimable_tasks_met' => (bool) data_get($digest, 'queue_health.target_min_claimable_tasks_met', false),
+            'fleet_launch_plan_status' => (string) data_get($digest, 'terminal_loop_fleet_launch_plan.status', ''),
+            'safe_to_start_now' => (bool) data_get($digest, 'terminal_loop_fleet_launch_plan.safe_to_start_now', false),
+            'recommended_terminal_count' => (int) data_get($digest, 'terminal_loop_fleet_launch_plan.recommended_terminal_count', 0),
+            'blocked_reasons' => (array) data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons', []),
+            'partial_supply_launch_blocked' => $launchBlocked,
+            'replenishment_plan_ready' => $replenishmentPlanReady,
+            'replenishment_required_new_task_count' => (int) data_get($digest, 'terminal_loop_fleet_replenishment_plan.required_new_task_count', 0),
+            'cycle_supervisor_replenishes_before_launch' => $cycleSupervisorReplenishes,
+            'cycle_supervisor_status' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.status', ''),
+            'cycle_supervisor_cycle_state' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state', ''),
+            'digest_hash' => (string) data_get($digest, 'terminal_loop_health_digest_hash', ''),
+            'cleanup_performed' => (string) data_get($cleanup, 'event', '') === 'pruned'
+                && (int) data_get($cleanup, 'pruned_count', 0) >= 1,
+            'post_cleanup_claimable_count' => (int) data_get($postCleanupDigest, 'queue_health.claimable_task_count', 0),
+            'completion_real_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'self_programming_allowed' => false,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function provePartialSupplyBootstrapGate(string $proofId, AgentControlPlaneTaskQueueOrchestrator $orchestrator): array
+    {
+        $tag = 'terminal_loop_operational_partial_bootstrap_'.$this->safeToken($proofId, 'proof');
+        $taskPacketId = 'terminal_loop_partial_bootstrap_'.$this->safeToken($proofId, 'proof');
+        $allowedFile = 'app/Services/Ai/SelfConstruction/__terminal_loop_operational_partial_bootstrap__/'.$this->safeToken($proofId, 'proof').'.php';
+
+        $orchestration = $orchestrator->prepareAndEnqueue([
+            'task_packet' => [
+                'task_packet_id' => $taskPacketId,
+                'objective' => 'terminal loop operational partial supply bootstrap gate proof',
+                'operator_id' => 'terminal-loop-operational-proof',
+                'allowed_files' => [$allowedFile],
+                'scope_in' => [$allowedFile],
+                'acceptance_criteria' => ['partial_supply_bootstrap_gate_ok'],
+                'required_evidence' => ['partial_supply_bootstrap_gate_checked'],
+                'risk_level' => 'low',
+                'rollback_strategy' => 'dry_run_only',
+            ],
+            'queue' => ['priority' => 5, 'tags' => ['terminal_loop_operational_partial_bootstrap', $tag]],
+        ]);
+
+        $bootstrap = $this->bootstrap()->bootstrap([], [
+            'actor' => 'terminal-loop-partial-bootstrap-'.$this->safeToken($proofId, 'proof'),
+            'target_min_claimable_tasks' => 3,
+            'max_new_tasks' => 0,
+            'queue_tags' => [$tag],
+            'reason' => 'terminal_loop_operational_partial_supply_bootstrap_gate',
+            'lease_minutes' => 10,
+        ]);
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $leases = new AgentControlPlaneClaimLeaseRepository;
+        $queueRecordAfterBootstrap = $queue->get($taskPacketId);
+        $activeLeaseCountAfterBootstrap = count($leases->activeLeases(['task_packet_id' => $taskPacketId]));
+        $bootstrapBlockedBeforeClaim = (string) data_get($bootstrap, 'status') === 'blocked'
+            && (string) data_get($bootstrap, 'claim_event') === 'task_supply_below_target_blocked_before_claim'
+            && (bool) data_get($bootstrap, 'runtime_claim_persisted', true) === false
+            && (bool) data_get($bootstrap, 'one_shot_worker_packet_ready', true) === false
+            && (string) data_get($queueRecordAfterBootstrap, 'status') === 'claimable'
+            && $activeLeaseCountAfterBootstrap === 0
+            && in_array('terminal_worker_bootstrap_task_supply_gate_blocks_before_claim', (array) data_get($bootstrap, 'non_execution_guarantees', []), true);
+
+        $cleanup = $queue->prune([
+            'tags' => ['terminal_loop_operational_partial_bootstrap', $tag],
+            'task_packet_id_prefixes' => [$taskPacketId],
+            'delete_task_files' => true,
+            'preserve_statuses' => [],
+        ]);
+        $postCleanupDigest = $this->healthDigest()->digest([
+            'actor' => 'terminal-loop-partial-bootstrap-cleanup-'.$this->safeToken($proofId, 'proof'),
+            'queue_tags' => [$tag],
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 0,
+        ]);
+        $cleanupPerformed = (string) data_get($cleanup, 'event', '') === 'pruned'
+            && (int) data_get($cleanup, 'pruned_count', 0) >= 1;
+        $passed = $bootstrapBlockedBeforeClaim
+            && $cleanupPerformed
+            && (int) data_get($postCleanupDigest, 'queue_health.claimable_task_count', 0) === 0;
+
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_partial_supply_bootstrap_gate_proof.v1',
+            'status' => $passed ? 'passed' : 'blocked',
+            'queue_tag' => $tag,
+            'task_packet_id' => $taskPacketId,
+            'orchestration_event' => (string) data_get($orchestration, 'event', ''),
+            'queue_entry_status' => (string) data_get($orchestration, 'queue_entry.status', ''),
+            'target_min_claimable_tasks' => 3,
+            'max_new_tasks' => 0,
+            'bootstrap_status' => (string) data_get($bootstrap, 'status', ''),
+            'claim_event' => (string) data_get($bootstrap, 'claim_event', ''),
+            'runtime_claim_persisted' => (bool) data_get($bootstrap, 'runtime_claim_persisted', false),
+            'one_shot_worker_packet_ready' => (bool) data_get($bootstrap, 'one_shot_worker_packet_ready', false),
+            'worker_packet_blocked_reason' => (string) data_get($bootstrap, 'worker_packet_blocked_reason', ''),
+            'worker_packet_scope_blockers' => (array) data_get($bootstrap, 'worker_packet_scope_blockers', []),
+            'queue_status_after_bootstrap' => (string) data_get($queueRecordAfterBootstrap, 'status', ''),
+            'active_lease_count_after_bootstrap' => $activeLeaseCountAfterBootstrap,
+            'bootstrap_blocked_before_claim' => $bootstrapBlockedBeforeClaim,
+            'cleanup_performed' => $cleanupPerformed,
+            'post_cleanup_claimable_count' => (int) data_get($postCleanupDigest, 'queue_health.claimable_task_count', 0),
             'completion_real_allowed' => false,
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,

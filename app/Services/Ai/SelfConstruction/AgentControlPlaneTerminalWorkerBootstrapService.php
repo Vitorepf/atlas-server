@@ -93,6 +93,26 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             );
         }
 
+        $claimableAfterReplenishment = count($this->claimableRecords($queueTags));
+        if ($claimableAfterReplenishment < $targetMin && (int) data_get($replenishment, 'generated_task_count', 0) === 0) {
+            return $this->blockedBeforeClaimPayload(
+                actor: $actor,
+                leaseMinutes: $leaseMinutes,
+                targetMin: $targetMin,
+                maxNew: $maxNew,
+                queueTags: $queueTags,
+                replenishment: $replenishment,
+                workerEligibility: $workerEligibility,
+                claimEvent: 'task_supply_below_target_blocked_before_claim',
+                workerPacketBlockedReason: 'task_supply_below_target_blocked_before_claim',
+                workerPacketScopeBlockers: [
+                    'claimable_task_count_below_target_min',
+                    'run_replenishment_and_recheck_health_digest_before_claim',
+                ],
+                claimReason: 'task_supply_below_target_guard_blocked',
+            );
+        }
+
         $claimFilters = [
             'ttl_seconds' => $leaseMinutes * 60,
         ];
@@ -270,7 +290,14 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
         array $queueTags,
         array $replenishment,
         array $workerEligibility,
+        string $claimEvent = 'worker_task_eligibility_blocked_before_claim',
+        string $workerPacketBlockedReason = 'worker_task_eligibility_blocked_before_claim',
+        array $workerPacketScopeBlockers = [],
+        string $claimReason = 'worker_task_eligibility_guard_blocked',
     ): array {
+        $workerPacketScopeBlockers = $workerPacketScopeBlockers === []
+            ? (array) ($workerEligibility['blocked_reasons'] ?? [])
+            : $workerPacketScopeBlockers;
         $nextWorkerCommand = $this->bootstrapCommand($actor, $targetMin, $maxNew, $queueTags);
         $queueLaneContract = $this->queueLaneContract($actor, $queueTags, $nextWorkerCommand);
         $terminalLoopOperatorCommands = $this->terminalLoopOperatorCommands(
@@ -291,7 +318,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             actor: $actor,
             taskPacketId: '',
             leaseId: '',
-            claimEvent: 'worker_task_eligibility_blocked_before_claim',
+            claimEvent: $claimEvent,
             oneShotWorkerPacketReady: false,
             terminalLoopOperatorCommands: $terminalLoopOperatorCommands,
             resumptionContract: [],
@@ -329,13 +356,13 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'auto_replenishment_status' => (string) data_get($replenishment, 'status', 'unknown'),
             'auto_replenishment_hash' => (string) data_get($replenishment, 'auto_replenishment_hash', ''),
             'generated_task_count' => (int) data_get($replenishment, 'generated_task_count', 0),
-            'claim_event' => 'worker_task_eligibility_blocked_before_claim',
+            'claim_event' => $claimEvent,
             'runtime_claim_persisted' => false,
             'task_packet_id' => '',
             'lease_id' => '',
             'one_shot_worker_packet_ready' => false,
-            'worker_packet_blocked_reason' => 'worker_task_eligibility_blocked_before_claim',
-            'worker_packet_scope_blockers' => (array) ($workerEligibility['blocked_reasons'] ?? []),
+            'worker_packet_blocked_reason' => $workerPacketBlockedReason,
+            'worker_packet_scope_blockers' => $workerPacketScopeBlockers,
             'lease_released_after_worker_packet_blocked' => false,
             'blocked_worker_packet_lease_release' => [],
             'one_shot_packet_hash' => '',
@@ -359,8 +386,8 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'worker_task_eligibility_guard' => $workerEligibility,
             'claim' => [
                 'status' => 'blocked',
-                'event' => 'worker_task_eligibility_blocked_before_claim',
-                'reason' => 'worker_task_eligibility_guard_blocked',
+                'event' => $claimEvent,
+                'reason' => $claimReason,
             ],
             'one_shot_worker_packet' => [],
             'queue_summary' => $this->queue->registry(),
@@ -377,6 +404,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'completion_real_allowed' => false,
             'non_execution_guarantees' => [
                 'terminal_worker_bootstrap_worker_task_eligibility_guard_blocks_before_claim',
+                'terminal_worker_bootstrap_task_supply_gate_blocks_before_claim',
                 'terminal_worker_bootstrap_does_not_start_codex',
                 'terminal_worker_bootstrap_does_not_call_codex_cli_or_app',
                 'terminal_worker_bootstrap_does_not_spawn_subprocess',

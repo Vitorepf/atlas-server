@@ -72,6 +72,7 @@ decisions:
   - Toda IA nova deve ler Atlas AI Content Intelligence And Knowledge Curation antes de propor YouTube ingestion, feed/RSS, scraping, source reputation, blacklist ou promocao de conteudo para memoria.
   - Toda IA nova deve ler Atlas AI Research Intelligence And Self-Improvement Runtime antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, implementacao baseada em pesquisa ou aceleracao de autoaprimoramento.
   - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
+  - Toda IA nova deve ler Operacao Atlas Hyperflow antes de discutir ou implementar a substituicao de Claude Code/Codex pelo Atlas AI como sistema operacional principal de engenharia.
   - Toda IA nova deve ler Atlas AI Router Runtime Enterprise Upgrade antes de implementar Router Runtime, specialist flows, delegation ou telemetry de flow.
   - Toda IA nova deve ler Atlas Programming Governance System antes de implementar ou alterar placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao.
   - Toda IA nova deve ler Atlas Programming Self-Construction Forge Map v1 antes de explicar a relacao entre Atlas Code, Forge Continuum, Self-Construction OS, Self-Programming OS, Obras de Programacao ou multi-provider.
@@ -111,6 +112,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
+  - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-next-patamar-operating-systems.md
   - docs/engineering-knowledge-base/atlas-sovereign-operating-system.md
   - docs/engineering-knowledge-base/atlas-epistemic-operating-system.md

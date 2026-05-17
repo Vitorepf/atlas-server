@@ -69,6 +69,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts',
         'worker_invalid_scope_rejected',
         'worker_bootstrap_preview_read_only',
+        'worker_bootstrap_partial_supply_blocks_before_claim',
         'safe_for_parallel_terminal_loop',
     ];
 
@@ -224,6 +225,12 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_launch_plan_present']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_launch_plan_ready_path_verified']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_partial_supply_launch_blocked']['value']);
+        $this->assertTrue($result['canonical_invariant_matrix']['invariants']['worker_bootstrap_partial_supply_blocks_before_claim']['value']);
+        $this->assertSame('available', data_get($result, 'terminal_worker_bootstrap_probe.partial_supply_probe.status'));
+        $this->assertTrue((bool) data_get($result, 'terminal_worker_bootstrap_probe.partial_supply_probe.blocked_before_claim'));
+        $this->assertSame('task_supply_below_target_blocked_before_claim', data_get($result, 'terminal_worker_bootstrap_probe.partial_supply_probe.claim_event'));
+        $this->assertFalse((bool) data_get($result, 'terminal_worker_bootstrap_probe.partial_supply_probe.runtime_claim_persisted'));
+        $this->assertSame(0, data_get($result, 'terminal_worker_bootstrap_probe.partial_supply_probe.active_lease_count_after_bootstrap'));
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_replenishment_plan_present']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_resume_rollup_present']['value']);
         $this->assertTrue($result['canonical_invariant_matrix']['invariants']['terminal_loop_fleet_resume_recovery_path_verified']['value']);

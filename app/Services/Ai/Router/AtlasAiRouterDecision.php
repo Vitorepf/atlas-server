@@ -20,6 +20,8 @@ final class AtlasAiRouterDecision
 
     public const FLOW_REVIEW = 'atlas_review';
 
+    public const FLOW_PLAN = 'atlas_plan';
+
     public const FLOW_CONVERSATION = 'atlas_conversation';
 
     public const FLOW_FORGE = 'atlas_forge';
@@ -30,6 +32,7 @@ final class AtlasAiRouterDecision
         self::FLOW_EXPLAIN,
         self::FLOW_DEBUG,
         self::FLOW_REVIEW,
+        self::FLOW_PLAN,
         self::FLOW_CONVERSATION,
         self::FLOW_FORGE,
     ];

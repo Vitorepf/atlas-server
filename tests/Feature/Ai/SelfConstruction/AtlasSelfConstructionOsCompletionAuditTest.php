@@ -332,6 +332,7 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
             'terminal_loop_fleet_lane_bound_commands_verified',
             'terminal_loop_fleet_lane_no_cross_lane_launch_verified',
             'terminal_loop_fleet_partial_supply_launch_blocked',
+            'worker_bootstrap_partial_supply_blocks_before_claim',
             'terminal_loop_cycle_supervisor_present',
             'terminal_loop_cycle_supervisor_launch_path_verified',
             'terminal_loop_cycle_supervisor_evidence_review_path_verified',

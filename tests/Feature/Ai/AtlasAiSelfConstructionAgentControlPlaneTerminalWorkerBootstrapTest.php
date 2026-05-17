@@ -383,6 +383,61 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest 
         $this->assertSame(0, count($leases->activeLeases()));
     }
 
+    public function test_bootstrap_blocks_before_claim_when_task_supply_is_below_target(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $leases = new AgentControlPlaneClaimLeaseRepository;
+        $orchestrator = new AgentControlPlaneTaskQueueOrchestrator(
+            new AgentControlPlaneTaskPacketBuilder,
+            new AgentControlPlaneScopeLockRuntimeValidator,
+            $queue,
+            $leases,
+            new AgentControlPlaneEvidenceLedgerDryRun,
+            new AgentControlPlaneContinuationSummaryBuilder,
+        );
+        $service = new AgentControlPlaneTerminalWorkerBootstrapService(
+            new AgentControlPlaneTaskAutoReplenishmentService($orchestrator, $queue),
+            $orchestrator,
+            new AgentControlPlaneOneShotWorkerPacketService($leases, $queue),
+            $queue,
+            $leases,
+        );
+        $packet = [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_task_packet.v1',
+            'task_packet_id' => 'partial-supply-worker-packet',
+            'task_packet_hash' => hash('sha256', 'partial-supply-worker-packet'),
+            'status' => 'planned',
+            'objective' => 'Partial supply should block worker launch before any claim is persisted',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/PartialSupply.php'],
+            'normalized_scope' => [
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/PartialSupply.php'],
+            ],
+            'acceptance_criteria' => ['partial_supply_blocks_before_claim'],
+            'required_tests' => ['php artisan test --filter=partial_supply_blocks_before_claim'],
+        ];
+        $this->assertSame('ok', $queue->enqueue($packet, ['tags' => ['partial_supply_lane']])['status']);
+
+        $result = $service->bootstrap([], [
+            'actor' => 'partial-supply-worker',
+            'target_min_claimable_tasks' => 3,
+            'max_new_tasks' => 0,
+            'queue_tags' => ['partial_supply_lane'],
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('task_supply_below_target_blocked_before_claim', $result['claim_event']);
+        $this->assertFalse($result['runtime_claim_persisted']);
+        $this->assertFalse($result['one_shot_worker_packet_ready']);
+        $this->assertSame('task_supply_below_target_blocked_before_claim', $result['worker_packet_blocked_reason']);
+        $this->assertContains('claimable_task_count_below_target_min', $result['worker_packet_scope_blockers']);
+        $this->assertContains('run_replenishment_and_recheck_health_digest_before_claim', $result['worker_packet_scope_blockers']);
+        $this->assertSame('task_supply_below_target_guard_blocked', data_get($result, 'claim.reason'));
+        $this->assertSame('claimable', data_get($queue->get('partial-supply-worker-packet'), 'status'));
+        $this->assertSame(0, count($leases->activeLeases()));
+        $this->assertSame('claim_or_replenishment_blocked', data_get($result, 'terminal_loop_resumption_checkpoint.current_step'));
+        $this->assertContains('terminal_worker_bootstrap_task_supply_gate_blocks_before_claim', $result['non_execution_guarantees']);
+    }
+
     public function test_bootstrap_blocks_before_claim_when_lane_contains_operator_handoff_task(): void
     {
         $queue = new AgentControlPlaneTaskPacketQueueRepository;

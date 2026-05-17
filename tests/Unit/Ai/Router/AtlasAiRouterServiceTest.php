@@ -24,7 +24,7 @@ class AtlasAiRouterServiceTest extends TestCase
         $this->assertTrue($decision->handoffPayload['workspace_present']);
     }
 
-    public function test_routes_patch_like_without_workspace_to_research_instead_of_dev(): void
+    public function test_routes_patch_like_without_workspace_to_plan_instead_of_dev(): void
     {
         $decision = app(AtlasAiRouterService::class)->decide([
             'input_text' => 'Implemente um sistema de login',
@@ -33,9 +33,10 @@ class AtlasAiRouterServiceTest extends TestCase
             ],
         ]);
 
-        $this->assertSame(AtlasAiRouterDecision::FLOW_RESEARCH, $decision->flowId);
-        $this->assertSame('patch_like_without_workspace', $decision->routingReason);
+        $this->assertSame(AtlasAiRouterDecision::FLOW_PLAN, $decision->flowId);
+        $this->assertSame('patch_like_without_workspace_requires_plan', $decision->routingReason);
         $this->assertFalse($decision->handoffPayload['workspace_present']);
+        $this->assertSame('plan', data_get($decision->handoffPayload, 'intent_kernel.intent_class'));
     }
 
     public function test_routes_diff_attachment_to_review(): void
@@ -81,6 +82,38 @@ class AtlasAiRouterServiceTest extends TestCase
         $this->assertSame(AtlasAiRouterDecision::FLOW_FORGE, $decision->flowId);
         $this->assertSame('atlas_code_surface_requires_forge', $decision->routingReason);
         $this->assertSame('confirmed', $decision->routingConfidence);
+    }
+
+    public function test_routes_plan_like_prompt_to_atlas_plan(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'Planeje a refatoracao do billing antes de implementar',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'workspace' => '/repo',
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_PLAN, $decision->flowId);
+        $this->assertSame('plan_like_intent', $decision->routingReason);
+        $this->assertSame('plan', $decision->commandIntent);
+        $this->assertSame('plan', data_get($decision->handoffPayload, 'intent_kernel.intent_class'));
+        $this->assertTrue(data_get($decision->handoffPayload, 'intent_kernel.planning_required'));
+    }
+
+    public function test_slash_plan_overrides_auto_routing(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => '/plan implemente endpoint',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'workspace' => '/repo',
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_PLAN, $decision->flowId);
+        $this->assertSame('slash_command', $decision->flowOrigin);
+        $this->assertSame('plan', $decision->commandIntent);
     }
 
     public function test_slash_command_overrides_auto_routing(): void

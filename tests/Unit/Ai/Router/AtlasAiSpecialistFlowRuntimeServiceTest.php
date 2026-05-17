@@ -87,6 +87,34 @@ class AtlasAiSpecialistFlowRuntimeServiceTest extends TestCase
         $this->assertNull(data_get($data, 'payload.specialist_flow_runtime'));
     }
 
+    public function test_emits_auditable_plan_runtime_contract(): void
+    {
+        $data = $this->service()->apply([
+            'input_text' => 'Planeje a refatoracao',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'atlas_ai_router' => [
+                    'flow_id' => 'atlas_plan',
+                    'flow_origin' => 'router_auto',
+                    'command_intent' => 'plan',
+                    'routing_reason' => 'plan_like_intent',
+                    'handoff_payload' => [
+                        'surface_id' => 'atlas_desktop_ai',
+                        'workspace_present' => true,
+                    ],
+                ],
+            ],
+        ]);
+
+        $runtime = data_get($data, 'payload.specialist_flow_runtime');
+
+        $this->assertSame('atlas_plan', $runtime['flow_id']);
+        $this->assertSame('engineering_plan', $runtime['execution_mode']);
+        $this->assertContains('risk_assessment', $runtime['required_evidence']);
+        $this->assertContains('execution_recommendation', $runtime['output_contract']);
+        $this->assertContains('claim_implementation_completed', $runtime['forbidden_actions']);
+    }
+
     private function service(): AtlasAiSpecialistFlowRuntimeService
     {
         return new AtlasAiSpecialistFlowRuntimeService;

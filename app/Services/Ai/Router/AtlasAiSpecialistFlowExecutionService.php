@@ -115,6 +115,16 @@ class AtlasAiSpecialistFlowExecutionService
                 'response_shape' => ['findings', 'open_questions', 'test_gaps', 'change_summary'],
                 'audit_checks' => ['findings_first', 'severity_ordered', 'file_or_scope_refs_present'],
             ],
+            'atlas_plan' => [
+                'handler_id' => 'atlas_plan_engineering_plan_handler',
+                'prompt_contract' => [
+                    'Create an actionable engineering plan before execution.',
+                    'Separate assumptions, required evidence, risks, milestones, and recommended execution flow.',
+                    'Do not claim implementation, file changes, tests, or provider execution happened.',
+                ],
+                'response_shape' => ['objective', 'assumptions', 'work_breakdown', 'risk_register', 'evidence_needed', 'execution_recommendation'],
+                'audit_checks' => ['no_implementation_claim', 'risks_visible', 'execution_flow_recommended'],
+            ],
             default => [
                 'handler_id' => 'atlas_conversation_direct_handler',
                 'prompt_contract' => [

@@ -137,6 +137,15 @@ class AtlasAiRouterRuntimeBootstrapService
                 'auditable_receipt' => AtlasAiSpecialistFlowRuntimeService::RECEIPT_SCHEMA_VERSION,
             ],
             [
+                'id' => AtlasAiRouterDecision::FLOW_PLAN,
+                'label' => 'Plan',
+                'owner' => 'atlas_ai_specialist_flow',
+                'execution_surface' => 'provider_with_engineering_plan_contract',
+                'side_effect_policy' => 'read_only',
+                'default_next_action' => 'wait_provider_response',
+                'auditable_receipt' => AtlasAiSpecialistFlowRuntimeService::RECEIPT_SCHEMA_VERSION,
+            ],
+            [
                 'id' => AtlasAiRouterDecision::FLOW_CONVERSATION,
                 'label' => 'Conversation',
                 'owner' => 'atlas_ai_specialist_flow',
@@ -168,6 +177,7 @@ class AtlasAiRouterRuntimeBootstrapService
             ['command' => '/explain', 'flow_id' => AtlasAiRouterDecision::FLOW_EXPLAIN],
             ['command' => '/debug', 'flow_id' => AtlasAiRouterDecision::FLOW_DEBUG],
             ['command' => '/review', 'flow_id' => AtlasAiRouterDecision::FLOW_REVIEW],
+            ['command' => '/plan', 'flow_id' => AtlasAiRouterDecision::FLOW_PLAN],
             ['command' => '/forge', 'flow_id' => AtlasAiRouterDecision::FLOW_FORGE],
             ['command' => '/chat', 'flow_id' => AtlasAiRouterDecision::FLOW_CONVERSATION],
         ];

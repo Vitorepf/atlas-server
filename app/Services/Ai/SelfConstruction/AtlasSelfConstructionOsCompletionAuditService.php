@@ -1084,6 +1084,8 @@ final class AtlasSelfConstructionOsCompletionAuditService
                 && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
             'terminal_loop_fleet_partial_supply_launch_blocked' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
                 && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
+            'worker_bootstrap_partial_supply_blocks_before_claim' => class_exists(AgentControlPlaneTerminalWorkerBootstrapService::class)
+                && class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
             'terminal_loop_cycle_supervisor_present' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)
                 && defined(AgentControlPlaneTerminalLoopHealthDigestService::class.'::CYCLE_SUPERVISOR_SCHEMA_VERSION'),
             'terminal_loop_cycle_supervisor_launch_path_verified' => class_exists(AgentControlPlaneTerminalLoopHealthDigestService::class)

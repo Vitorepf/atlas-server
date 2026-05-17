@@ -176,6 +176,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         $invariants['terminal_loop_cycle_supervisor_evidence_review_path_verified'] = (bool) ($terminalFleetEvidenceRollupProbe['cycle_supervisor_evidence_review_path_verified'] ?? false);
         $invariants['terminal_worker_bootstrap_rejects_invalid_worker_scope'] = (bool) ($terminalBootstrapProbe['invalid_scope_rejected'] ?? false);
         $invariants['terminal_worker_bootstrap_preview_read_only'] = (bool) ($terminalBootstrapProbe['preview_read_only'] ?? false);
+        $invariants['terminal_worker_bootstrap_partial_supply_blocks_before_claim'] = (bool) ($terminalBootstrapProbe['partial_supply_blocks_before_claim'] ?? false);
         $certificationArtifactCleanup = $this->cleanupCertificationArtifacts($runId);
         $postCleanupHealthDigestProbe = $this->postCleanupHealthDigestProbe($certificationArtifactCleanup, $targetMin);
         $invariants['certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts'] = (bool) ($postCleanupHealthDigestProbe['cleanup_left_no_recoverable_artifacts'] ?? false);
@@ -898,6 +899,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         }
         $invalidScopeProbe = $this->runTerminalBootstrapInvalidScopeProbe($bootstrap, $runId);
         $previewProbe = $this->runTerminalBootstrapPreviewProbe($bootstrap, $runId);
+        $partialSupplyProbe = $this->runTerminalBootstrapPartialSupplyProbe($bootstrap, $runId);
 
         $readyCount = count(array_filter(
             $results,
@@ -995,6 +997,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             && $shellRecipesPresent
             && (bool) ($invalidScopeProbe['rejected'] ?? false)
             && (bool) ($previewProbe['read_only_verified'] ?? false)
+            && (bool) ($partialSupplyProbe['blocked_before_claim'] ?? false)
             && $runtimeSafety
                 ? 'available'
                 : 'blocked';
@@ -1030,6 +1033,8 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'invalid_scope_probe' => $invalidScopeProbe,
             'preview_read_only' => (bool) ($previewProbe['read_only_verified'] ?? false),
             'preview_probe' => $previewProbe,
+            'partial_supply_blocks_before_claim' => (bool) ($partialSupplyProbe['blocked_before_claim'] ?? false),
+            'partial_supply_probe' => $partialSupplyProbe,
             'runtime_safety_all_false' => $runtimeSafety,
             'queue_tag' => $probeTag,
             'results' => $results,
@@ -1150,6 +1155,63 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'blocked_reasons' => (array) data_get($digest, 'terminal_loop_fleet_launch_plan.blocked_reasons', []),
             'fleet_launch_plan_hash' => (string) data_get($digest, 'terminal_loop_fleet_launch_plan.terminal_loop_fleet_launch_plan_hash'),
             'ready_path_verified' => $readyPathVerified,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function runTerminalBootstrapPartialSupplyProbe(AgentControlPlaneTerminalWorkerBootstrapService $bootstrap, string $runId): array
+    {
+        $queueTag = 'terminal_bootstrap_partial_supply_'.$runId;
+        $taskPacketId = 'terminal_bootstrap_partial_supply_'.$runId;
+        $allowedFile = sprintf('%s/terminal_bootstrap_partial_supply/%s.php', self::SYNTHETIC_FILE_NAMESPACE, strtolower($runId));
+
+        $orchestration = $this->orchestrator->prepareAndEnqueue([
+            'task_packet' => [
+                'task_packet_id' => $taskPacketId,
+                'objective' => 'terminal bootstrap partial supply should block before claim',
+                'operator_id' => 'multi-agent-loop-certification',
+                'allowed_files' => [$allowedFile],
+                'scope_in' => [$allowedFile],
+                'acceptance_criteria' => ['terminal_bootstrap_partial_supply_blocks_before_claim'],
+                'required_evidence' => ['terminal_bootstrap_partial_supply_checked'],
+                'risk_level' => 'low',
+                'rollback_strategy' => 'dry_run_only',
+            ],
+            'queue' => ['priority' => 5, 'tags' => ['terminal_bootstrap_partial_supply', $queueTag]],
+        ]);
+
+        $result = $bootstrap->bootstrap([], [
+            'actor' => 'terminal_bootstrap_partial_supply_'.$runId,
+            'target_min_claimable_tasks' => 3,
+            'max_new_tasks' => 0,
+            'queue_tags' => [$queueTag],
+            'reason' => 'multi_agent_loop_certification_terminal_bootstrap_partial_supply_probe',
+        ]);
+        $queueRecord = $this->queue->get($taskPacketId);
+        $activeLeaseCount = count($this->leases->activeLeases(['task_packet_id' => $taskPacketId]));
+        $blockedBeforeClaim = (string) data_get($result, 'status') === 'blocked'
+            && (string) data_get($result, 'claim_event') === 'task_supply_below_target_blocked_before_claim'
+            && (bool) data_get($result, 'runtime_claim_persisted', true) === false
+            && (bool) data_get($result, 'one_shot_worker_packet_ready', true) === false
+            && (string) data_get($queueRecord, 'status') === 'claimable'
+            && $activeLeaseCount === 0
+            && in_array('terminal_worker_bootstrap_task_supply_gate_blocks_before_claim', (array) data_get($result, 'non_execution_guarantees', []), true);
+
+        return [
+            'status' => $blockedBeforeClaim ? 'available' : 'blocked',
+            'queue_tag' => $queueTag,
+            'seeded_task_packet_id' => $taskPacketId,
+            'orchestration_event' => (string) ($orchestration['event'] ?? ''),
+            'queue_entry_status' => (string) data_get($orchestration, 'queue_entry.status', ''),
+            'bootstrap_status' => (string) data_get($result, 'status', ''),
+            'claim_event' => (string) data_get($result, 'claim_event', ''),
+            'runtime_claim_persisted' => (bool) data_get($result, 'runtime_claim_persisted', false),
+            'one_shot_worker_packet_ready' => (bool) data_get($result, 'one_shot_worker_packet_ready', false),
+            'queue_status_after_bootstrap' => (string) data_get($queueRecord, 'status', ''),
+            'active_lease_count_after_bootstrap' => $activeLeaseCount,
+            'blocked_before_claim' => $blockedBeforeClaim,
         ];
     }
 
@@ -1801,6 +1863,8 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'terminal_worker_bootstrap_probe',
                 'terminal_bootstrap_invalid_scope_'.$runId.'_tag',
                 'terminal_bootstrap_preview_'.$runId.'_tag',
+                'terminal_bootstrap_partial_supply',
+                'terminal_bootstrap_partial_supply_'.$runId,
                 'terminal_fleet_launch_plan_probe',
                 'terminal_fleet_launch_plan_probe_'.$runId,
                 'terminal_fleet_partial_supply_probe',
@@ -1821,6 +1885,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'mloop_'.$runId.'_',
                 'probe_'.$runId,
                 'terminal_bootstrap_invalid_scope_'.$runId,
+                'terminal_bootstrap_partial_supply_'.$runId,
                 'fleet_probe_'.$runId,
                 'fleet_partial_supply_probe_'.$runId,
                 'fleet_lane_negative_probe_'.$runId,
@@ -2384,6 +2449,10 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
                 'value' => (bool) ($invariants['terminal_worker_bootstrap_preview_read_only'] ?? false),
                 'why' => 'Terminal bootstrap preview mode proves operators can inspect claimable supply and the execute command without auto-replenishing, claiming a lease or mutating the queue.',
             ],
+            'worker_bootstrap_partial_supply_blocks_before_claim' => [
+                'value' => (bool) ($invariants['terminal_worker_bootstrap_partial_supply_blocks_before_claim'] ?? false),
+                'why' => 'Terminal bootstrap probes a partially supplied lane with no new replenishment available and proves the command blocks before claim/lease, preserving the claimable packet for replenishment-first launch.',
+            ],
             'safe_for_parallel_terminal_loop' => [
                 'value' => $this->safeForParallelTerminalLoop($invariants, $cycleEvidence),
                 'why' => 'All other canonical invariants hold, no write-set collision was observed, and no legacy reservation ledger was used.',
@@ -2448,6 +2517,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'completion_evidence_files_within_scope',
             'terminal_worker_bootstrap_operator_commands_present',
             'terminal_worker_bootstrap_preview_read_only',
+            'terminal_worker_bootstrap_partial_supply_blocks_before_claim',
             'evidence_hash_present',
         ];
         foreach ($core as $key) {

@@ -28,6 +28,7 @@ class AtlasAiRouterRuntimeReadinessApiTest extends TestCase
 
         $checks = $response->json('checks');
         $this->assertIsArray($checks);
+        $this->assertContains('intent_kernel.ambiguous_prompt_classification', array_column($checks, 'id'));
         $this->assertContains('router.flows_declared', array_column($checks, 'id'));
         $this->assertContains('router.behavior_smoke', array_column($checks, 'id'));
         $this->assertContains('specialist.runtime_contract', array_column($checks, 'id'));

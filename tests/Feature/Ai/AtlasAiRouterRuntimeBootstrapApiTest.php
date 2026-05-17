@@ -36,11 +36,13 @@ class AtlasAiRouterRuntimeBootstrapApiTest extends TestCase
         $this->assertContains('atlas_explain', array_column($flows, 'id'));
         $this->assertContains('atlas_debug', array_column($flows, 'id'));
         $this->assertContains('atlas_review', array_column($flows, 'id'));
+        $this->assertContains('atlas_plan', array_column($flows, 'id'));
         $this->assertContains('atlas_conversation', array_column($flows, 'id'));
         $this->assertContains('atlas_forge', array_column($flows, 'id'));
 
         $commands = array_column($response->json('slash_commands'), 'command');
         $this->assertContains('/dev', $commands);
+        $this->assertContains('/plan', $commands);
         $this->assertContains('/forge', $commands);
         $this->assertSame('open_forge_surface', $response->json('status_states.forge_required.next_action'));
         $this->assertSame('render_atlas_dev_controls', $response->json('status_states.atlas_dev_runtime.next_action'));

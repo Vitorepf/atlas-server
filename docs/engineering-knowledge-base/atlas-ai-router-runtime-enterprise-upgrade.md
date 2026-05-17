@@ -21,7 +21,7 @@ capabilities:
 decisions:
   - Atlas AI Router deve virar runtime real, nao apenas contrato documental.
   - Router decide `flow_id`; flow executa.
-  - Flow decision canonica usa `atlas_dev`, `atlas_research`, `atlas_explain`, `atlas_debug`, `atlas_review`, `atlas_conversation`, `atlas_forge`.
+  - Flow decision canonica usa `atlas_dev`, `atlas_research`, `atlas_explain`, `atlas_debug`, `atlas_review`, `atlas_plan`, `atlas_conversation`, `atlas_forge`.
   - Compatibilidade com flows legados `programming.*` deve ser preservada por ponte, nao por ruptura.
   - Enterprise bonito exige decisao auditavel, UX visivel, delegation explicito, telemetry e testes de matriz.
 maintenance:
@@ -29,6 +29,7 @@ maintenance:
   - Nao coloque detalhes internos de Atlas Dev ou Forge aqui; este doc governa roteamento e handoff.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-router-flow-routing-contract-v1.md
+  - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
@@ -56,6 +57,7 @@ forbidden_changes:
   - Fazer fluxo individual escolher `flow_id` global de pedido novo.
   - Remover auditabilidade de `flow_origin`, `routing_reason` ou `routing_confidence`.
 depends_on:
+  - atlas-hyperflow-operation
   - atlas-ai-router-flow-routing-contract-v1
   - atlas-ai-operating-system
   - atlas-dev-efficient-programming-flow-v1
@@ -66,6 +68,7 @@ flows_to:
   - atlas_explain
   - atlas_debug
   - atlas_review
+  - atlas_plan
   - atlas_conversation
   - atlas_forge
 unlocks:
@@ -141,6 +144,7 @@ Fica entre a surface Atlas AI e os flows:
 - `atlas_explain`
 - `atlas_debug`
 - `atlas_review`
+- `atlas_plan`
 - `atlas_conversation`
 - `atlas_forge`
 
@@ -151,6 +155,16 @@ Contrato principal:
 ```text
 atlas.ai.router.flow_decision.v1
 ```
+
+O Router usa tambem um kernel deterministico de intencao:
+
+```text
+atlas.ai.intent_kernel.v1
+```
+
+Esse kernel classifica prompts ambiguos antes da decisao final de flow. Exemplo:
+pedido patch-like sem workspace vira `atlas_plan`, nao `atlas_dev`, porque o
+sistema precisa primeiro produzir plano, evidencias e recomendacao de execucao.
 
 Campos obrigatorios:
 
@@ -260,6 +274,7 @@ Handlers iniciais:
 - `atlas_explain_read_only_handler`
 - `atlas_debug_triage_handler`
 - `atlas_review_findings_first_handler`
+- `atlas_plan_engineering_plan_handler`
 - `atlas_conversation_direct_handler`
 - `atlas_specialist_delegation_handler`
 
@@ -411,6 +426,7 @@ Politica inicial:
 - `atlas_explain`: explicacao read-only; nao pode alegar patch.
 - `atlas_debug`: triagem sem workspace; delega para Atlas Dev quando houver workspace.
 - `atlas_review`: review/findings-first; delega para Atlas Dev quando houver workspace.
+- `atlas_plan`: plano de engenharia read-only, com riscos, evidencias e recomendacao de execucao.
 - `atlas_conversation`: conversa direta, com handoff explicito quando escopo mudar.
 - `atlas_dev` e `atlas_forge`: nao recebem `specialist_flow_runtime`; usam seus runtimes
   proprios.
@@ -489,6 +505,7 @@ Evidencia minima:
 - "Implemente endpoint" + workspace -> `atlas_dev`.
 - "Revise esse diff" + diff -> `atlas_review`.
 - "Investigue este traceback" -> `atlas_debug`.
+- "Planeje antes de implementar" -> `atlas_plan`.
 - "Pesquise estado da arte" -> `atlas_research`.
 - "Vamos pensar juntos" -> `atlas_conversation`.
 - Tela Atlas Code -> `atlas_forge`.

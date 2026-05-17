@@ -90,6 +90,16 @@ class AtlasAiSpecialistFlowRuntimeService
                     : ['status' => 'not_delegated', 'reason' => 'review_can_run_without_workspace_when_diff_or_scope_is_present'],
                 'forbidden_actions' => ['rewrite_code_during_review', 'bury_findings_after_summary', 'ignore_missing_tests'],
             ]),
+            'atlas_plan' => array_merge($base, [
+                'execution_mode' => 'engineering_plan',
+                'output_contract' => ['objective', 'assumptions', 'work_breakdown', 'risk_register', 'evidence_needed', 'execution_recommendation'],
+                'required_evidence' => ['router_decision', 'scope_statement', 'risk_assessment'],
+                'delegation' => [
+                    'status' => 'not_delegated',
+                    'reason' => 'plan_flow_prepares_execution_or_handoff',
+                ],
+                'forbidden_actions' => ['modify_workspace', 'claim_implementation_completed', 'skip_risk_assessment'],
+            ]),
             default => array_merge($base, [
                 'execution_mode' => 'conversation',
                 'output_contract' => ['direct_answer', 'clarifying_question_when_needed', 'handoff_suggestion_when_scope_changes'],

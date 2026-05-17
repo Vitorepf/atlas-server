@@ -21,6 +21,7 @@ class AtlasAiRouterRuntimeReadinessService
     public function inspect(): array
     {
         $checks = [
+            $this->intentKernelCheck(),
             $this->routerFlowsDeclaredCheck(),
             $this->routerDecisionBehaviorCheck(),
             $this->specialistRuntimeContractCheck(),
@@ -60,6 +61,32 @@ class AtlasAiRouterRuntimeReadinessService
     /**
      * @return array<string,mixed>
      */
+    private function intentKernelCheck(): array
+    {
+        $kernel = new AtlasAiIntentKernelService;
+        $ambiguous = $kernel->classify([
+            'input_text' => 'Implemente um sistema de login',
+            'payload' => ['surface_id' => 'atlas_desktop_ai'],
+        ]);
+
+        return $this->check(
+            'intent_kernel.ambiguous_prompt_classification',
+            class_exists(AtlasAiIntentKernelService::class)
+                && data_get($ambiguous, 'schema_version') === AtlasAiIntentKernelService::SCHEMA_VERSION
+                && data_get($ambiguous, 'intent_class') === 'plan'
+                && data_get($ambiguous, 'planning_required') === true,
+            [
+                'service' => AtlasAiIntentKernelService::class,
+                'schema_version' => data_get($ambiguous, 'schema_version'),
+                'ambiguous_prompt_intent_class' => data_get($ambiguous, 'intent_class'),
+                'planning_required' => data_get($ambiguous, 'planning_required'),
+            ],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function routerFlowsDeclaredCheck(): array
     {
         $required = [
@@ -68,6 +95,7 @@ class AtlasAiRouterRuntimeReadinessService
             AtlasAiRouterDecision::FLOW_EXPLAIN,
             AtlasAiRouterDecision::FLOW_DEBUG,
             AtlasAiRouterDecision::FLOW_REVIEW,
+            AtlasAiRouterDecision::FLOW_PLAN,
             AtlasAiRouterDecision::FLOW_CONVERSATION,
             AtlasAiRouterDecision::FLOW_FORGE,
         ];
@@ -112,6 +140,13 @@ class AtlasAiRouterRuntimeReadinessService
                     'payload' => ['surface_id' => 'atlas_code'],
                 ],
                 'expected_flow' => AtlasAiRouterDecision::FLOW_FORGE,
+            ],
+            'plan_like_intent' => [
+                'input' => [
+                    'input_text' => 'planeje a refatoracao antes de implementar',
+                    'payload' => ['surface_id' => 'atlas_desktop_ai'],
+                ],
+                'expected_flow' => AtlasAiRouterDecision::FLOW_PLAN,
             ],
         ];
 
