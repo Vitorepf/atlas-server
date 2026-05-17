@@ -267,6 +267,14 @@ Campos minimos:
 - `provider_prompt_contract`
 - `response_shape`
 - `audit_checks`
+- `quality_rubric`
+- `completion_checks`
+- `failure_modes`
+
+`quality_rubric`, `completion_checks` e `failure_modes` tornam cada specialist
+flow profundo o suficiente para ser auditado: o provider recebe o que deve
+otimizar, o que precisa estar verdadeiro ao concluir e quais erros operacionais
+nao pode cometer.
 
 Handlers iniciais:
 
@@ -306,6 +314,8 @@ Ele guarda:
 - `receipt`
 - `audit_checks`
 - `response_shape`
+- `quality_rubric`, `completion_checks` e `failure_modes` dentro de
+  `execution_payload`
 
 `AiGatewayService` grava esse registro dentro do ciclo de persistencia de trace.
 `AiTraceResource` expoe `specialist_flow_execution_record` quando a relacao esta

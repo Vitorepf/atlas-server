@@ -232,12 +232,18 @@ class AtlasAiRouterRuntimeReadinessService
             is_array($execution)
                 && data_get($execution, 'schema_version') === AtlasAiSpecialistFlowExecutionService::SCHEMA_VERSION
                 && data_get($execution, 'handler_id') === 'atlas_explain_read_only_handler'
-                && is_array(data_get($execution, 'audit_checks')),
+                && is_array(data_get($execution, 'audit_checks'))
+                && is_array(data_get($execution, 'quality_rubric'))
+                && is_array(data_get($execution, 'completion_checks'))
+                && is_array(data_get($execution, 'failure_modes')),
             [
                 'execution_schema_version' => data_get($execution, 'schema_version'),
                 'handler_id' => data_get($execution, 'handler_id'),
                 'status' => data_get($execution, 'status'),
                 'audit_checks' => data_get($execution, 'audit_checks'),
+                'quality_rubric' => data_get($execution, 'quality_rubric'),
+                'completion_checks' => data_get($execution, 'completion_checks'),
+                'failure_modes' => data_get($execution, 'failure_modes'),
             ],
         );
     }

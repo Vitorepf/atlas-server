@@ -52,12 +52,15 @@ class AtlasAiSpecialistFlowExecutionService
             'provider_prompt_contract' => $handler['prompt_contract'],
             'response_shape' => $handler['response_shape'],
             'audit_checks' => $handler['audit_checks'],
+            'quality_rubric' => $handler['quality_rubric'],
+            'completion_checks' => $handler['completion_checks'],
+            'failure_modes' => $handler['failure_modes'],
             'operator_input_summary' => $this->summary((string) ($data['input_text'] ?? '')),
         ];
     }
 
     /**
-     * @return array{handler_id:string,prompt_contract:array<int,string>,response_shape:array<int,string>,audit_checks:array<int,string>}
+     * @return array{handler_id:string,prompt_contract:array<int,string>,response_shape:array<int,string>,audit_checks:array<int,string>,quality_rubric:array<int,string>,completion_checks:array<int,string>,failure_modes:array<int,string>}
      */
     private function handler(string $flowId, string $delegationStatus): array
     {
@@ -71,6 +74,9 @@ class AtlasAiSpecialistFlowExecutionService
                 ],
                 'response_shape' => ['delegation_reason', 'target_flow_id', 'operator_next_step'],
                 'audit_checks' => ['target_flow_present', 'no_work_executed_in_wrong_flow'],
+                'quality_rubric' => ['handoff_is_explicit', 'target_flow_is_justified', 'no_hidden_execution'],
+                'completion_checks' => ['target_flow_id_present', 'delegation_reason_present', 'operator_next_step_present'],
+                'failure_modes' => ['executing_delegated_work', 'missing_target_flow', 'unclear_operator_next_step'],
             ];
         }
 
@@ -84,6 +90,9 @@ class AtlasAiSpecialistFlowExecutionService
                 ],
                 'response_shape' => ['answer_summary', 'claims_table', 'source_refs', 'uncertainty', 'open_questions'],
                 'audit_checks' => ['source_refs_or_uncertainty_present', 'unsourced_claims_labeled', 'memory_not_promoted'],
+                'quality_rubric' => ['claims_are_traceable', 'uncertainty_is_visible', 'recommendations_separate_from_facts'],
+                'completion_checks' => ['material_claims_have_source_or_uncertainty', 'open_questions_are_listed', 'no_fabricated_sources'],
+                'failure_modes' => ['fake_citation', 'unstated_inference', 'overconfident_unsourced_answer'],
             ],
             'atlas_explain' => [
                 'handler_id' => 'atlas_explain_read_only_handler',
@@ -94,6 +103,9 @@ class AtlasAiSpecialistFlowExecutionService
                 ],
                 'response_shape' => ['plain_language_explanation', 'assumptions', 'relevant_context_refs', 'next_questions'],
                 'audit_checks' => ['no_side_effect_claims', 'assumptions_visible', 'scope_visible'],
+                'quality_rubric' => ['plain_language_without_losing_precision', 'assumptions_are_named', 'scope_boundaries_are_clear'],
+                'completion_checks' => ['answer_matches_available_context', 'missing_context_is_called_out', 'no_workspace_action_claimed'],
+                'failure_modes' => ['claiming_files_changed', 'hiding_assumptions', 'explaining_beyond_available_context_as_fact'],
             ],
             'atlas_debug' => [
                 'handler_id' => 'atlas_debug_triage_handler',
@@ -104,6 +116,9 @@ class AtlasAiSpecialistFlowExecutionService
                 ],
                 'response_shape' => ['symptoms', 'likely_causes', 'missing_evidence', 'next_debug_steps'],
                 'audit_checks' => ['no_invented_logs', 'missing_evidence_visible', 'no_false_fix_claim'],
+                'quality_rubric' => ['symptoms_are_separated_from_causes', 'diagnostics_are_reproducible', 'workspace_execution_is_delegated_when_needed'],
+                'completion_checks' => ['missing_evidence_listed', 'next_debug_steps_are_ordered', 'no_fix_claim_without_execution'],
+                'failure_modes' => ['invented_log_or_stacktrace', 'premature_root_cause', 'fix_claim_without_test'],
             ],
             'atlas_review' => [
                 'handler_id' => 'atlas_review_findings_first_handler',
@@ -114,6 +129,9 @@ class AtlasAiSpecialistFlowExecutionService
                 ],
                 'response_shape' => ['findings', 'open_questions', 'test_gaps', 'change_summary'],
                 'audit_checks' => ['findings_first', 'severity_ordered', 'file_or_scope_refs_present'],
+                'quality_rubric' => ['findings_are_actionable', 'severity_is_defensible', 'references_are_precise'],
+                'completion_checks' => ['findings_precede_summary', 'each_finding_has_scope_or_reference', 'test_gaps_or_residual_risk_are_visible'],
+                'failure_modes' => ['summary_before_findings', 'style_only_review', 'unreferenced_behavioral_claim'],
             ],
             'atlas_plan' => [
                 'handler_id' => 'atlas_plan_engineering_plan_handler',
@@ -124,6 +142,9 @@ class AtlasAiSpecialistFlowExecutionService
                 ],
                 'response_shape' => ['objective', 'assumptions', 'work_breakdown', 'risk_register', 'evidence_needed', 'execution_recommendation'],
                 'audit_checks' => ['no_implementation_claim', 'risks_visible', 'execution_flow_recommended'],
+                'quality_rubric' => ['plan_is_executable', 'risks_are_named_early', 'evidence_needed_is_concrete'],
+                'completion_checks' => ['objective_is_restated', 'milestones_have_validation_evidence', 'recommended_flow_is_clear'],
+                'failure_modes' => ['planning_as_completed_work', 'missing_risk_register', 'vague_next_steps'],
             ],
             default => [
                 'handler_id' => 'atlas_conversation_direct_handler',
@@ -134,6 +155,9 @@ class AtlasAiSpecialistFlowExecutionService
                 ],
                 'response_shape' => ['direct_answer', 'clarifying_question_when_needed', 'handoff_suggestion_when_scope_changes'],
                 'audit_checks' => ['no_fake_workspace_access', 'handoff_when_scope_changes'],
+                'quality_rubric' => ['answer_is_direct', 'clarification_is_used_only_when_needed', 'handoff_boundary_is_visible'],
+                'completion_checks' => ['operator_question_is_answered', 'uncertainty_is_not_hidden', 'scope_change_gets_handoff_suggestion'],
+                'failure_modes' => ['pretending_workspace_access', 'unnecessary_clarification_loop', 'missing_handoff_for_engineering_scope'],
             ],
         };
     }

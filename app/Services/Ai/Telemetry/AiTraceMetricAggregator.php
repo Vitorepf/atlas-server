@@ -1019,6 +1019,9 @@ class AiTraceMetricAggregator
                     'runtime_contract_hash' => $record->runtime_contract_hash,
                     'audit_checks' => is_array($record->audit_checks) ? $record->audit_checks : [],
                     'response_shape' => is_array($record->response_shape) ? $record->response_shape : [],
+                    'quality_rubric' => is_array(data_get($record->execution_payload, 'quality_rubric')) ? data_get($record->execution_payload, 'quality_rubric') : [],
+                    'completion_checks' => is_array(data_get($record->execution_payload, 'completion_checks')) ? data_get($record->execution_payload, 'completion_checks') : [],
+                    'failure_modes' => is_array(data_get($record->execution_payload, 'failure_modes')) ? data_get($record->execution_payload, 'failure_modes') : [],
                 ],
             ];
         }
@@ -1083,6 +1086,9 @@ class AiTraceMetricAggregator
             'runtime_contract_hash' => data_get($execution, 'runtime_contract_hash'),
             'audit_checks' => is_array(data_get($execution, 'audit_checks')) ? data_get($execution, 'audit_checks') : [],
             'response_shape' => is_array(data_get($execution, 'response_shape')) ? data_get($execution, 'response_shape') : [],
+            'quality_rubric' => is_array(data_get($execution, 'quality_rubric')) ? data_get($execution, 'quality_rubric') : [],
+            'completion_checks' => is_array(data_get($execution, 'completion_checks')) ? data_get($execution, 'completion_checks') : [],
+            'failure_modes' => is_array(data_get($execution, 'failure_modes')) ? data_get($execution, 'failure_modes') : [],
         ];
     }
 

@@ -188,6 +188,12 @@ Contratos canonicos da operacao:
 - `atlas.ai.router_runtime_readiness.v1`
 - `atlas.ai.router_runtime_bootstrap.v1`
 
+`atlas.ai.specialist_flow_execution.v1` deve carregar, para todos os specialist
+flows, `provider_prompt_contract`, `response_shape`, `audit_checks`,
+`quality_rubric`, `completion_checks` e `failure_modes`. Esse e o contrato que
+impede research/debug/review/explain/conversation/plan de virarem respostas
+genericas sem criterio de conclusao.
+
 ## Fluxo
 
 Fluxo alvo:

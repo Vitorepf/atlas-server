@@ -170,6 +170,9 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
                         'runtime_contract_hash' => str_repeat('a', 64),
                         'audit_checks' => ['no_side_effect_claims'],
                         'response_shape' => ['plain_language_explanation'],
+                        'quality_rubric' => ['scope_boundaries_are_clear'],
+                        'completion_checks' => ['no_workspace_action_claimed'],
+                        'failure_modes' => ['claiming_files_changed'],
                     ],
                 ],
             ]);
@@ -188,6 +191,9 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
         $this->assertSame('atlas.ai.specialist_flow_execution.v1', data_get($specialist, 'execution.schema_version'));
         $this->assertSame('atlas_explain_read_only_handler', data_get($specialist, 'execution.handler_id'));
         $this->assertSame(['no_side_effect_claims'], data_get($specialist, 'execution.audit_checks'));
+        $this->assertSame(['scope_boundaries_are_clear'], data_get($specialist, 'execution.quality_rubric'));
+        $this->assertSame(['no_workspace_action_claimed'], data_get($specialist, 'execution.completion_checks'));
+        $this->assertSame(['claiming_files_changed'], data_get($specialist, 'execution.failure_modes'));
     }
 
     public function test_specialist_flow_diagnostics_prefer_persisted_execution_record(): void
@@ -218,6 +224,11 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
             'delegation' => ['status' => 'not_delegated'],
             'audit_checks' => ['no_side_effect_claims'],
             'response_shape' => ['plain_language_explanation'],
+            'execution_payload' => [
+                'quality_rubric' => ['scope_boundaries_are_clear'],
+                'completion_checks' => ['no_workspace_action_claimed'],
+                'failure_modes' => ['claiming_files_changed'],
+            ],
         ]);
 
         $summary = app(AiTraceMetricAggregator::class)->recomputeTrace($trace->id);
@@ -227,6 +238,7 @@ class AiTelemetryRouterAndDiagnosticsTest extends TestCase
         $this->assertSame('atlas_explain', $specialist['flow_id']);
         $this->assertSame('atlas_explain_read_only_handler', data_get($specialist, 'execution.handler_id'));
         $this->assertSame('sfr_persisted', data_get($specialist, 'execution.runtime_receipt_id'));
+        $this->assertSame(['scope_boundaries_are_clear'], data_get($specialist, 'execution.quality_rubric'));
     }
 
     public function test_atlas_decide_diagnostics_capture_multi_stage_execution(): void

@@ -198,6 +198,11 @@ class AtlasAiRouterRuntimeTest extends TestCase
             'delegation' => ['status' => 'not_delegated'],
             'audit_checks' => ['no_side_effect_claims'],
             'response_shape' => ['plain_language_explanation'],
+            'execution_payload' => [
+                'quality_rubric' => ['scope_boundaries_are_clear'],
+                'completion_checks' => ['no_workspace_action_claimed'],
+                'failure_modes' => ['claiming_files_changed'],
+            ],
         ]);
 
         AiTraceMetricSummary::query()->create([
@@ -279,6 +284,11 @@ class AtlasAiRouterRuntimeTest extends TestCase
             'delegation' => ['status' => 'not_delegated'],
             'audit_checks' => ['no_side_effect_claims'],
             'response_shape' => ['plain_language_explanation'],
+            'execution_payload' => [
+                'quality_rubric' => ['scope_boundaries_are_clear'],
+                'completion_checks' => ['no_workspace_action_claimed'],
+                'failure_modes' => ['claiming_files_changed'],
+            ],
         ]);
 
         $fresh = $record->fresh();
@@ -313,6 +323,11 @@ class AtlasAiRouterRuntimeTest extends TestCase
             'delegation' => ['status' => 'not_delegated'],
             'audit_checks' => ['no_side_effect_claims'],
             'response_shape' => ['plain_language_explanation'],
+            'execution_payload' => [
+                'quality_rubric' => ['scope_boundaries_are_clear'],
+                'completion_checks' => ['no_workspace_action_claimed'],
+                'failure_modes' => ['claiming_files_changed'],
+            ],
         ]);
 
         $resource = (new AiTraceResource($trace->fresh('specialistFlowExecution')))->resolve();
@@ -321,6 +336,9 @@ class AtlasAiRouterRuntimeTest extends TestCase
         $this->assertSame('atlas_explain_read_only_handler', data_get($resource, 'specialist_flow_execution_record.handler_id'));
         $this->assertSame('sfr_1234567890abcdef1234567890abcdef', data_get($resource, 'specialist_flow_execution_record.runtime_receipt_id'));
         $this->assertSame(['no_side_effect_claims'], data_get($resource, 'specialist_flow_execution_record.audit_checks'));
+        $this->assertSame(['scope_boundaries_are_clear'], data_get($resource, 'specialist_flow_execution_record.quality_rubric'));
+        $this->assertSame(['no_workspace_action_claimed'], data_get($resource, 'specialist_flow_execution_record.completion_checks'));
+        $this->assertSame(['claiming_files_changed'], data_get($resource, 'specialist_flow_execution_record.failure_modes'));
     }
 
     public function test_gateway_persists_specialist_flow_execution_audit_record(): void
@@ -373,6 +391,9 @@ class AtlasAiRouterRuntimeTest extends TestCase
                     'delegation' => ['status' => 'not_delegated'],
                     'audit_checks' => ['no_side_effect_claims'],
                     'response_shape' => ['plain_language_explanation'],
+                    'quality_rubric' => ['scope_boundaries_are_clear'],
+                    'completion_checks' => ['no_workspace_action_claimed'],
+                    'failure_modes' => ['claiming_files_changed'],
                 ],
             ],
         ]);
@@ -383,6 +404,9 @@ class AtlasAiRouterRuntimeTest extends TestCase
         $this->assertSame('atlas_explain_read_only_handler', $record->handler_id);
         $this->assertSame(str_repeat('e', 64), $record->runtime_contract_hash);
         $this->assertSame(['plain_language_explanation'], $record->response_shape);
+        $this->assertSame(['scope_boundaries_are_clear'], data_get($record->execution_payload, 'quality_rubric'));
+        $this->assertSame(['no_workspace_action_claimed'], data_get($record->execution_payload, 'completion_checks'));
+        $this->assertSame(['claiming_files_changed'], data_get($record->execution_payload, 'failure_modes'));
     }
 
     private function bootSchema(): void

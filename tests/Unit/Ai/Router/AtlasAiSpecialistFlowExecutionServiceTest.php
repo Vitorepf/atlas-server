@@ -32,6 +32,9 @@ class AtlasAiSpecialistFlowExecutionServiceTest extends TestCase
         $this->assertSame('atlas_explain_read_only_handler', $execution['handler_id']);
         $this->assertSame('sfr_123', $execution['runtime_receipt_id']);
         $this->assertContains('no_side_effect_claims', $execution['audit_checks']);
+        $this->assertContains('scope_boundaries_are_clear', $execution['quality_rubric']);
+        $this->assertContains('no_workspace_action_claimed', $execution['completion_checks']);
+        $this->assertContains('claiming_files_changed', $execution['failure_modes']);
     }
 
     public function test_builds_delegation_execution_packet_without_executing_wrong_flow(): void
@@ -61,6 +64,8 @@ class AtlasAiSpecialistFlowExecutionServiceTest extends TestCase
         $this->assertSame('atlas_specialist_delegation_handler', $execution['handler_id']);
         $this->assertSame('atlas_dev', data_get($execution, 'delegation.target_flow_id'));
         $this->assertContains('no_work_executed_in_wrong_flow', $execution['audit_checks']);
+        $this->assertContains('target_flow_is_justified', $execution['quality_rubric']);
+        $this->assertContains('operator_next_step_present', $execution['completion_checks']);
     }
 
     public function test_builds_plan_execution_packet(): void
@@ -87,6 +92,9 @@ class AtlasAiSpecialistFlowExecutionServiceTest extends TestCase
         $this->assertSame('atlas_plan_engineering_plan_handler', $execution['handler_id']);
         $this->assertContains('execution_flow_recommended', $execution['audit_checks']);
         $this->assertContains('execution_recommendation', $execution['response_shape']);
+        $this->assertContains('plan_is_executable', $execution['quality_rubric']);
+        $this->assertContains('milestones_have_validation_evidence', $execution['completion_checks']);
+        $this->assertContains('planning_as_completed_work', $execution['failure_modes']);
     }
 
     private function service(): AtlasAiSpecialistFlowExecutionService

@@ -570,6 +570,9 @@ TXT;
         $promptContract = $this->stringList(data_get($execution, 'provider_prompt_contract', []));
         $responseShape = $this->stringList(data_get($execution, 'response_shape', []));
         $auditChecks = $this->stringList(data_get($execution, 'audit_checks', []));
+        $qualityRubric = $this->stringList(data_get($execution, 'quality_rubric', []));
+        $completionChecks = $this->stringList(data_get($execution, 'completion_checks', []));
+        $failureModes = $this->stringList(data_get($execution, 'failure_modes', []));
         $delegation = data_get($execution, 'delegation');
         $delegationLines = is_array($delegation) && $delegation !== []
             ? $this->keyValueLines($delegation)
@@ -592,6 +595,15 @@ Formato esperado:
 
 Auditoria obrigatoria:
 {$auditChecks}
+
+Rubrica de qualidade:
+{$qualityRubric}
+
+Checks de conclusao:
+{$completionChecks}
+
+Modos de falha proibidos:
+{$failureModes}
 
 Delegation:
 {$delegationLines}

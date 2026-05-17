@@ -27,6 +27,9 @@ class AtlasAiSpecialistFlowPromptBuilderTest extends TestCase
                     'provider_prompt_contract' => ['Explain in plain language using only available context.'],
                     'response_shape' => ['plain_language_explanation', 'assumptions'],
                     'audit_checks' => ['no_side_effect_claims'],
+                    'quality_rubric' => ['scope_boundaries_are_clear'],
+                    'completion_checks' => ['no_workspace_action_claimed'],
+                    'failure_modes' => ['claiming_files_changed'],
                     'delegation' => ['status' => 'not_delegated'],
                 ],
             ],
@@ -38,6 +41,12 @@ class AtlasAiSpecialistFlowPromptBuilderTest extends TestCase
         $this->assertStringContainsString('Runtime receipt: sfr_123', $section);
         $this->assertStringContainsString('- Explain in plain language using only available context.', $section);
         $this->assertStringContainsString('- no_side_effect_claims', $section);
+        $this->assertStringContainsString('Rubrica de qualidade:', $section);
+        $this->assertStringContainsString('- scope_boundaries_are_clear', $section);
+        $this->assertStringContainsString('Checks de conclusao:', $section);
+        $this->assertStringContainsString('- no_workspace_action_claimed', $section);
+        $this->assertStringContainsString('Modos de falha proibidos:', $section);
+        $this->assertStringContainsString('- claiming_files_changed', $section);
     }
 
     /**

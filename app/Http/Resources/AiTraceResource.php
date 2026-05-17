@@ -145,6 +145,9 @@ class AiTraceResource extends JsonResource
             'delegation' => Metadata::forResponse($this->specialistFlowExecution->delegation),
             'audit_checks' => Metadata::listForResponse($this->specialistFlowExecution->audit_checks),
             'response_shape' => Metadata::listForResponse($this->specialistFlowExecution->response_shape),
+            'quality_rubric' => Metadata::listForResponse(data_get($this->specialistFlowExecution->execution_payload, 'quality_rubric')),
+            'completion_checks' => Metadata::listForResponse(data_get($this->specialistFlowExecution->execution_payload, 'completion_checks')),
+            'failure_modes' => Metadata::listForResponse(data_get($this->specialistFlowExecution->execution_payload, 'failure_modes')),
             'created_at' => $this->specialistFlowExecution->created_at?->toJSON(),
             'updated_at' => $this->specialistFlowExecution->updated_at?->toJSON(),
         ];
