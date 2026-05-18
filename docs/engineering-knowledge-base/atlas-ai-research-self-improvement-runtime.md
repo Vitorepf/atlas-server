@@ -50,6 +50,26 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
   - docs/engineering-knowledge-base/domains/self-improvement.md
   - docs/ap/AP-689-research-self-improvement-runtime-contract.md
+  - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
+  - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
+  - database/migrations/2026_05_18_040000_create_ai_research_domain_tables.php
+  - app/Models/AiResearchRun.php
+  - app/Models/AiResearchSource.php
+  - app/Models/AiResearchClaim.php
+  - app/Models/AiResearchSynthesis.php
+  - app/Services/Ai/ResearchDomain/ResearchDomainCanon.php
+  - app/Services/Ai/ResearchDomain/ResearchDomainManifestSeeder.php
+  - app/Services/Ai/ResearchDomain/ResearchRuntimeService.php
+  - app/Services/Ai/ResearchDomain/ResearchSourcePlanService.php
+  - app/Services/Ai/ResearchDomain/ResearchSourceQualityService.php
+  - app/Services/Ai/ResearchDomain/ResearchClaimService.php
+  - app/Services/Ai/ResearchDomain/ResearchSynthesisService.php
+  - app/Services/Ai/ResearchDomain/ResearchEvidenceBridge.php
+  - app/Services/Ai/ResearchDomain/ResearchControlPlaneProjection.php
+  - app/Services/Ai/ResearchDomain/ResearchReadinessService.php
+  - app/Console/Commands/AtlasAiResearchDomainCommand.php
+  - tests/Concerns/CreatesResearchDomainTables.php
+  - tests/Feature/Ai/ResearchDomain/
 owner: atlas-ai
 layer: 0.5-and-2
 line_limit: 260
@@ -327,6 +347,100 @@ Atlas should exceed normal agent products by combining:
 - rollback and auditability.
 
 The target is not "more autonomy". The target is more correct autonomy.
+
+## Status De Implementacao (Meta 8A — Research Company Runtime)
+
+Meta 8A do Multi-Domain Implementation Sequence entrega o **Research Company
+Runtime** como primeiro Domain Company Runtime focado em pesquisa: source
+plan, source quality, claims com attribution obrigatoria, contradiction
+check, synthesis e evidence pack auditavel.
+
+Esta camada NUNCA realiza scraping ou fetch externo direto — o futuro Tool
+Runtime (Meta 5) executara web.search/web.fetch e devolvera factors
+estruturados para `ResearchSourceQualityService`. Aqui ficam apenas os
+contratos canonicos e a maquina de estado.
+
+Persistencia (4 tabelas):
+
+- `ai_research_runs` (`atlas.ai.research_run.v1`) — pergunta, hipotese,
+  source_plan, status, certification_hash, evidence_pack_hash, missing_requirements.
+- `ai_research_sources` (`atlas.ai.research_source.v1`) — todas as fontes,
+  status em `{planned, accepted, rejected}`, source_quality, quality_factors,
+  reason_rejected e `citation_hash` deterministico (sha256 canonical).
+- `ai_research_claims` (`atlas.ai.research_claim.v1`) — afirmacoes com
+  `source_refs` obrigatorio, `claim_status`, `contradiction_status` e
+  `claim_hash` deterministico.
+- `ai_research_syntheses` (`atlas.ai.research_synthesis.v1`) — sintese final
+  com `brief`, `claim_refs`, `source_refs`, `contradictions`,
+  `open_questions`, `overall_confidence`, `evidence_refs` (pack completo) e
+  `synthesis_hash`.
+
+Services (`App\Services\Ai\ResearchDomain`):
+
+- `ResearchDomainCanon` — enums canonicos: source types, source statuses,
+  claim statuses, contradiction statuses, primary/low-triangulation types,
+  minimum diversity e thresholds.
+- `ResearchDomainManifestSeeder::seed()` — idempotente; reusa o payload
+  canonical do Meta 2 (`DomainSeedManifests::research()`).
+- `ResearchRuntimeService::run()` orquestra pipeline plan -> score ->
+  claim -> contradiction-check -> synthesize -> certify.
+- `ResearchRuntimeService::smokeRun()` end-to-end deterministico para CLI/tests.
+- `ResearchSourcePlanService::plan(question, sources, hypothesis, context)`
+  abre o run e persiste sources com status `planned`.
+- `ResearchSourceQualityService::score(source, factors)` aplica regras
+  deterministicas (peer_reviewed, primary, recency_days, domain_authority,
+  vendor_bias, low_triangulation). `scoreRun(run, factorsByHash)` aplica para
+  todo o run e calcula `source_diversity`.
+- `ResearchClaimService::record(run, statement, citationHashes, confidence)`
+  exige `>=1` citation hash valido (rejeita citations de fontes rejeitadas);
+  `runContradictionCheck(run)` flag par-a-par bidirecional;
+  `declareContradiction(claim, reason)` registra contradicao aceita.
+- `ResearchSynthesisService::synthesize(run, brief, context)` constroi
+  synthesis + pack via bridge, calcula `missing_requirements`,
+  `overall_confidence` e seta `certification_status` em
+  `{passed, failed}`. Falha por padrao quando ha `<2` sources aceitas,
+  diversidade `<2`, claims sem attribution ou contradiction detectada sem
+  resolucao.
+- `ResearchEvidenceBridge::projectToMissionEvidence(run, synthesis)` projeta
+  source refs + synthesis no `ai_mission_evidence_refs` quando Mission
+  Foundation esta presente; tolerante a ausencia.
+- `ResearchEvidenceBridge::buildEvidencePack(run, synthesis)` retorna pack
+  canonical (`sources_accepted`, `sources_rejected`, `claims`,
+  `synthesis_hash`).
+- `ResearchReadinessService::report()` — schema
+  `atlas.ai.research_domain.readiness.v1`.
+- `ResearchControlPlaneProjection::snapshot()` — schema
+  `atlas.ai.research_domain.control_plane.v1` com 4 secoes
+  (runs/sources/claims/syntheses) e agregados por status, source type e
+  rejection reason.
+
+Comando Artisan:
+
+```bash
+/opt/homebrew/bin/php artisan atlas:ai:research-domain --action=readiness --json
+/opt/homebrew/bin/php artisan atlas:ai:research-domain --action=seed-manifest --json
+/opt/homebrew/bin/php artisan atlas:ai:research-domain --action=smoke --json
+/opt/homebrew/bin/php artisan atlas:ai:research-domain --action=control-plane --json
+```
+
+Invariantes canonicos (forbidden_actions herdados do manifest research):
+
+- **claim sem source_ref** -> `ResearchClaimService::record` lanca
+  `InvalidArgumentException`.
+- **fonte unica para risco alto** -> falha de certification por
+  `source_diversity_below_minimum`.
+- **resposta superficial** -> sintese sem 2+ fontes aceitas + claim + brief
+  vira `certification_status=failed`.
+- **contradicao silenciosa** -> claims contraditorios sem resolucao bloqueiam
+  certification.
+
+Fora de escopo de Meta 8A (continua em Metas seguintes):
+
+- Tool Runtime para web.search/web.fetch/pdf.parse (Meta 5) — factors hoje
+  vem do operador/teste.
+- Auto-classificacao de claims por LLM/embedding — heuristica determinista v1.
+- Promotion automatica de brief para docs canonicos — `research-to-docs-promotion`
+  doc continua governando.
 
 ## Resumo
 

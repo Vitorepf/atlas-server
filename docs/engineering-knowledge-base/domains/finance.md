@@ -106,7 +106,7 @@ observability_signals:
   - docs-health status ok
 
 next_actions:
-  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+  - Finance Company Runtime entregue 2026-05-18 via app/Services/Ai/Finance/Kernel/ + comando atlas:ai:finance-domain --action=readiness|smoke|control-plane. Live trading permanece hard-blocked.
 ---
 # Atlas AI Finance Domain
 
@@ -200,6 +200,8 @@ Finance is now centrally registered as a first-class Atlas AI domain.
 - `database/migrations/2026_05_05_080000_expand_finance_domain_contract.php` seeds the active database profiles and removes the legacy `finance.research` scaffold flow.
 - `atlas:ai:domains --json` reports Finance as `ready 9/9` with 10 flows.
 - `atlas:ai:architecture-validate --json` includes Finance in the ready domain count.
+- Finance Company Runtime upgrade (2026-05-18) registers manifest `finance` no Domain Runtime com 7 capabilities (research_desk, valuation, portfolio_review, risk_review, compliance, reporting, paper_trading_simulation) sob `app/Services/Ai/Finance/Kernel/`. Bridges seguros para Mission/Domain Runtime/Policy/Evidence; live trading hard-blocked por FinanceDomainCanon::liveTradingBlocked() e FinanceComplianceService::assertNotLiveTrade.
+- Comando `atlas:ai:finance-domain --action=readiness|smoke|control-plane` valida invariantes (live_trading_blocked_default=true, broker_execution_allowed=false, auto_rebalance_allowed=false) e roda smoke E2E research→valuation→portfolio→risk→compliance→paper-trading→reporting.
 
 Implemented files:
 

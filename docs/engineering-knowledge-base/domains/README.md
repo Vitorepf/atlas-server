@@ -25,6 +25,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
   - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
   - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
+  - docs/engineering-knowledge-base/domains/domain-routing-governance.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
@@ -90,7 +91,7 @@ visual_tags:
   - domains
 
 ai_entrypoints:
-  - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
+  - Leia Resumo, Domain Routing Governance, Status Dos Dominios, Promotion Gate e Regras Para IA antes de implementar ou criar dominio.
 
 ai_usage_notes:
   - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
@@ -126,6 +127,45 @@ Master Architecture:
 - Domain Specs definem semantica, flows, safety, sources, gates e status de
   dominios especificos.
 
+## Domain Routing Governance
+
+Antes de criar, alterar ou rotear dominio, leia
+`domain-routing-governance.md`. Ele define:
+
+- matriz prompt -> dominio;
+- quando usar dominio existente;
+- quando criar flow/profile/capability;
+- quando dominio novo e permitido;
+- Domain Creation Gate;
+- regras anti-confusao para IAs.
+
+Resumo operacional:
+
+```text
+Prompt -> intent -> dominio existente -> flow/profile/capability
+       -> Domain Creation Gate somente se nada existente couber
+```
+
+Nao crie dominio para ferramenta, provider, linguagem, surface, agent/persona ou
+departamento interno. Esses conceitos pertencem a Tool Runtime, Model Selection,
+Surface, Specialist Profile ou Department dentro de um dominio.
+
+## Status Dos Dominios
+
+`implemented/ready` nesta pasta significa que existe spec/capacidade governada
+para o dominio atual. Isso **nao** significa automaticamente que o dominio ja foi
+promovido ao novo padrao completo de **Domain Company Runtime** com manifest,
+departments, capabilities, policy, evidence, certification e control-plane.
+
+Use esta leitura:
+
+| Status | Significado |
+|---|---|
+| `implemented/ready` | dominio atual e reconhecido e governado |
+| `company-runtime-target` | deve evoluir para empresa digital plugavel |
+| `review-only` | pode analisar/planejar/revisar, mas nao executar acao externa |
+| `execution-gated` | execucao depende de Policy/Evidence/Approval |
+
 ## Implemented/Ready
 
 | Domain | Spec | Status | Observacao |
@@ -145,6 +185,19 @@ Master Architecture:
 | `background` | `background.md` | implemented/ready | Revisao de tarefas recorrentes, schedule, permissoes e stop conditions; nao inicia jobs nem muda schedules. |
 | `general` | `general.md` | implemented/ready | Resposta simples e triagem governada; nao substitui dominios especializados nem burla Decide. |
 | `health` | `health.md` | implemented/ready | Review nao clinico de bem-estar, rotina, recuperacao e seguranca; nao diagnostica nem prescreve. |
+
+## Company Runtime Upgrade Targets
+
+| Target | Base atual | Upgrade esperado |
+|---|---|---|
+| Software Company | `programming.md` + adapters | ja e o primeiro runtime pesado; manter Dev/Forge separados e auditaveis. |
+| Research Company | `atlas-ai-content-intelligence-curation.md` + runtime novo | source plan, source quality, citations, contradiction, claims, synthesis. |
+| Strategy / Venture Studio | `strategic-decision.md` + runtime novo | oportunidade, mercado, venture blueprint, unit economics, GTM, experimentos. |
+| Finance / Investment | `finance.md` | research, valuation, portfolio, risk, compliance, reporting; live trade bloqueado. |
+| Marketing / Growth | `atlas-ai-master-architecture.md` | ICP, campanha, copy, funil, analytics, experimentos, approval de budget/publicacao. |
+| Cyber Security | `security.md` + cyber docs | AppSec, GRC, remediation, defensive; ofensivo apenas autorizado com RoE. |
+| Personal Development / Learning | `personal-development.md` + `learning.md` | metas, habitos, estudo, pratica deliberada, professor nao clinico. |
+| Automation / Tool Factory | `atlas-tool-economy.md` | automacao segura, tool selection, tool builder/evolution, receipts. |
 
 ## Scaffold/Catalog-Ready
 
@@ -174,6 +227,21 @@ Um scaffold so vira implemented/ready quando:
 - atualiza `atlas-ai-canonical-architecture-index.md`, `START_HERE.md` e
   `README.md`;
 - nao contradiz Kernel, Master Architecture ou Human Knowledge Surface policy.
+
+## Regras Para IA
+
+- Leia `domain-routing-governance.md` antes de decidir dominio.
+- Se o pedido couber em dominio existente, crie flow/profile/capability, nao
+  dominio novo.
+- Se o pedido precisar de ferramenta, use Tool Runtime; ferramenta nao e dominio.
+- Se o pedido precisar de provider/modelo, use Model Selection; provider nao e
+  dominio.
+- Se o pedido for tela/app/CLI, use Surface; surface nao e dominio.
+- Se o pedido for especialidade interna, use specialist profile ou department.
+- Registre primary_domain, secondary_domains, selected_flow, reason, risk e
+  next_action.
+- Em caso de duvida, use `general` apenas para triagem e handoff, nao para fazer
+  trabalho especializado.
 
 ## Resumo
 

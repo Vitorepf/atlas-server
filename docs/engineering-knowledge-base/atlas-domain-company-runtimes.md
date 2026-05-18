@@ -27,6 +27,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
+  - docs/engineering-knowledge-base/domains/domain-routing-governance.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
   - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
@@ -95,6 +96,10 @@ empresas digitais plugaveis.
 
 O Autonomous Intelligence OS usa esses runtimes para resolver metas fora de
 software puro, como pesquisa, marketing, vendas, automacao e dados.
+
+Para decidir **qual** dominio entra, quando criar flow/profile e quando criar
+dominio novo, use `domains/domain-routing-governance.md`. Este documento define
+a forma da empresa digital; o guia de routing define a escolha operacional.
 
 ## Onde Se Encaixa
 

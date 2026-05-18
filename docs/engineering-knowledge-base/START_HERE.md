@@ -78,6 +78,7 @@ decisions:
   - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
   - Toda IA nova deve ler Atlas Autonomous Intelligence Operating System antes de explicar ou implementar Atlas AI como produto geral, multi-dominio, estrategico, financeiro, marketing, cyber, pesquisa, automacao, desenvolvimento pessoal ou sistema operacional de inteligencia.
   - Toda IA nova deve ler Atlas Domain Company Runtimes antes de criar dominio novo, empresa digital de dominio, departamento interno, workflow cross-domain, handoff, domain manifest ou maturity assessment.
+  - Toda IA nova deve ler Atlas AI Domain Routing Governance antes de rotear prompt para dominio, criar flow/profile/capability ou propor dominio novo; ele contem matriz prompt->dominio e Domain Creation Gate.
   - Toda IA nova deve ler Atlas Domain Runtime Contract (Meta 2 design pack) antes de propor DomainRuntime, DomainManifest, Domain Registry, Capability Catalog, handoff cross-domain ou Maturity Assessment; este doc esta `planned` e nao gera codigo sozinho.
   - Toda IA nova deve ler Atlas Evidence Certification Runtime antes de declarar conclusao de missao, work order, domain delivery, tool run ou handoff: EvidencePack, Receipt, Claim, Certification, Blocker e AuditEvent sao contratos canonicos universais que impedem falso completo.
   - Toda IA nova deve ler Atlas Programming Domain Adapter Integration Plan (Meta 7) antes de propor Atlas Dev bridge, ProgrammingDomainRuntimeAdapter, DevMissionAdapter, ForgeHandoffAdapter, ProgrammingEvidenceBridge, ProgrammingPolicyBridge ou refactor de `app/Services/Ai/Programming/AtlasDev/*`/`AtlasForge*Service`; bridges sao thin, runtime de Dev/Forge nao muda.
@@ -135,6 +136,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
   - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
+  - docs/engineering-knowledge-base/domains/domain-routing-governance.md
   - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
   - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md

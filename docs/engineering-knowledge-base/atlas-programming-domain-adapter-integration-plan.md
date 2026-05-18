@@ -2,7 +2,7 @@
 id: atlas-programming-domain-adapter-integration-plan
 type: engineering_knowledge
 title: Atlas Programming Domain Adapter Integration Plan
-status: planned
+status: active
 category: atlas-ai
 priority: 100
 summary: Plano canonico Meta 7 para conectar Programming Domain (Atlas Dev, Forge, Repair, Review, QA, Security, Database, Visual, Forge handoff) ao novo Kernel do Atlas AI (Mission Foundation, Domain Runtime, Policy, Evidence, Tool Economy, Router, Control Plane) por bridges adaptadores, sem refatorar runtime critico nem fundir Atlas Dev com Atlas Forge.
@@ -52,7 +52,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-domain-runtime-contract
-graph_status: planned
+graph_status: active
 graph_source: repo
 owner: atlas-ai
 repo_paths:
@@ -480,12 +480,12 @@ SafetyDecisionService; resultado `require_approval`. AtlasDev emite
 
 ## Proximas Acoes
 
-1. Validar pack com docs-health.
-2. Aguardar Meta 2 Domain Runtime backend confirmado active.
-3. Abrir AP-mae de Meta 7 com lista de fases.
-4. Coordenar com sessoes de Forge OS antes da Fase 5.
-5. Coordenar com Router para garantir `domain_id` em `AtlasAiRouterDecision`.
-6. Atualizar `atlas-domain-company-runtimes.md` quando Stage 3 for provado.
+1. Meta 7 entregue (2026-05-18): 12 services em `app/Services/Ai/Programming/Kernel/` + comando `atlas:ai:programming-adapter --action=readiness|smoke|control-plane` + 10 testes verdes.
+2. Ligar `AtlasDevMissionAdapter` ao Router/Intent para roteamento automatico do `programming` domain.
+3. Substituir mock `programming.dev` execution request por chamada real a `AtlasDevRuntimeService` (sem refatorar runtime).
+4. Coordenar com Forge para consumir handoff records via `AtlasForgeProviderInvocationDriver` na pipeline existente.
+5. Promover manifest para Stage 4 (Operating Unit) com evidence/metrics/certification reais.
+6. Atualizar `atlas-domain-company-runtimes.md` quando Stage 3 for provado em prod.
 
 ## Definition of Done
 

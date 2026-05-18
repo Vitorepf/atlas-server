@@ -51,6 +51,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
   - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
+  - docs/engineering-knowledge-base/domains/domain-routing-governance.md
   - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
   - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
@@ -196,6 +197,7 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Atlas AI identity as Autonomous Intelligence OS | `atlas-autonomous-intelligence-operating-system.md` |
 | Atlas Kernel Mission Foundation / universal Mission/Objective/WorkOrder with lifecycle, evidence and certification (Meta 1) | `atlas-kernel-mission-foundation.md` |
 | Domain Company Runtimes / enterprise domain companies | `atlas-domain-company-runtimes.md` |
+| Domain Routing Governance / prompt-to-domain matrix, flow-vs-domain and domain creation gate | `domains/domain-routing-governance.md` |
 | Domain Runtime Contract / DomainManifest, Registry, Capability Catalog, Handoff, Maturity (Meta 2 entregue) | `atlas-domain-runtime-contract.md` |
 | Evidence/Certification Runtime / EvidencePack, Receipt, Claim, Certification, Blocker, AuditEvent universais | `atlas-evidence-certification-runtime.md` |
 | Multi-Domain Implementation Sequence / build order, parallelism, anti-collision between Claudes/Codex | `atlas-ai-multi-domain-implementation-sequence.md` |
