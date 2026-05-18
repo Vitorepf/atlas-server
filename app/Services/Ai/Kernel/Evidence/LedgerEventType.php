@@ -59,6 +59,11 @@ enum LedgerEventType: string
     case VoiceEclipseLifted = 'VOICE_ECLIPSE_LIFTED';
     case VoiceSessionEnded = 'VOICE_SESSION_ENDED';
     case VoiceProviderHealthDegraded = 'VOICE_PROVIDER_HEALTH_DEGRADED';
+    case VoxTranscriptReady = 'VOX_TRANSCRIPT_READY';
+    case VoxIntentCompiled = 'VOX_INTENT_COMPILED';
+    case VoxPolicyEvaluated = 'VOX_POLICY_EVALUATED';
+    case VoxEvidenceRecorded = 'VOX_EVIDENCE_RECORDED';
+    case VoxActionBlocked = 'VOX_ACTION_BLOCKED';
     case DreyfusLevelDeltaRecorded = 'DREYFUS_LEVEL_DELTA_RECORDED';
     case DreyfusPedagogyModeResolved = 'DREYFUS_PEDAGOGY_MODE_RESOLVED';
     case DreyfusDisputeOpened = 'DREYFUS_DISPUTE_OPENED';

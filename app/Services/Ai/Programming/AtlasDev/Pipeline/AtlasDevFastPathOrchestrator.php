@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
 use App\Services\Ai\Programming\AtlasDev\Discovery\OpenBrainProjectionAdapter;
+use App\Services\Ai\Programming\AtlasDev\Gate\MandatoryRagGate;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
@@ -46,6 +47,8 @@ class AtlasDevFastPathOrchestrator
         private readonly ProviderPromptBuilder $promptBuilder,
         private readonly RoutingDecisionEngine $routingEngine,
         private readonly ReceiptStorage $receiptStorage,
+        private readonly ?MandatoryRagGate $mandatoryRagGate = null,
+        private readonly ?SpecialistFlowRouter $specialistFlowRouter = null,
     ) {}
 
     /**
@@ -88,6 +91,31 @@ class AtlasDevFastPathOrchestrator
         // explicitly non-sendable projection so downstream surfaces cannot
         // accidentally pipe it into the provider adapter.
         $routing = $this->routingEngine->decide($envelope, $classification, $compactSdd, $discovery);
+
+        // Mandatory RAG Gate (fail-closed). After classification/spec/plan
+        // are deterministic, the gate decides whether the run can proceed.
+        // For non-trivial engineering tasks (write_implied, high risk, or
+        // any kind != read-only-question/review), insufficient context
+        // forces routing -> BLOCKED. Bypass only via explicit auditable
+        // operator constraint + config flag.
+        $gate = ($this->mandatoryRagGate ?? new MandatoryRagGate)
+            ->evaluate($envelope, $classification, $compactSdd, $contextPlan, $routing);
+
+        if ($gate->isBlocked()) {
+            $routing = new RoutingDecision(
+                kind: RoutingDecision::BLOCKED,
+                reasons: array_values(array_unique(array_merge(
+                    $routing->reasons,
+                    ['mandatory_rag_gate:'.$gate->reason],
+                ))),
+                blockers: array_values(array_unique(array_merge(
+                    $routing->blockers,
+                    $gate->blockers,
+                ))),
+                delegation: $routing->delegation,
+            );
+        }
+
         $promptIsSendable = $routing->kind === RoutingDecision::ATLAS_DEV_FAST_PATH;
 
         $promptProjection = $this->promptBuilder->build(
@@ -136,6 +164,28 @@ class AtlasDevFastPathOrchestrator
             $seniorLoopAudit->toCanonicalArray(),
         );
 
+        $persisted[ArtifactNames::MANDATORY_RAG_GATE] = $this->receiptStorage->writeAtomic(
+            $envelope->runId,
+            ArtifactNames::MANDATORY_RAG_GATE,
+            $gate->toCanonicalArray(),
+        );
+
+        // Specialist Flow Router (Atlas Dev Superiority Runtime).
+        // Decides which of the 9 canonical specialist flows the operator is
+        // really executing (plan / code / debug / review / research /
+        // explain / test / refactor / forge_escalation) and the path within
+        // it (fast / deep / ask_clarification / escalate). Decision is
+        // advisory for the operator surface — does not change the routing
+        // kind already chosen by RoutingDecisionEngine + the Mandatory RAG
+        // Gate. Persisted as an auditable receipt.
+        $specialistDecision = ($this->specialistFlowRouter ?? new SpecialistFlowRouter)
+            ->decide($envelope, $classification, $compactSdd, $discovery, $routing);
+        $persisted[ArtifactNames::SPECIALIST_FLOW_DECISION] = $this->receiptStorage->writeAtomic(
+            $envelope->runId,
+            ArtifactNames::SPECIALIST_FLOW_DECISION,
+            $specialistDecision->toCanonicalArray(),
+        );
+
         return new PlanOnlyResult(
             envelope: $envelope,
             classification: $classification,
@@ -151,6 +201,7 @@ class AtlasDevFastPathOrchestrator
             persistedArtifactPaths: $persisted,
             blockers: $routing->blockers,
             seniorLoopAudit: $seniorLoopAudit,
+            specialistFlow: $specialistDecision,
         );
     }
 

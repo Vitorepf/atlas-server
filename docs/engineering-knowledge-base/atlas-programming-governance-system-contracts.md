@@ -2,7 +2,7 @@
 id: atlas-programming-governance-system-contracts
 type: engineering_knowledge
 title: Atlas Programming Governance System Contracts
-status: future
+status: active
 category: programming-governance
 priority: 99
 summary: Contratos canonicos de programacao governada por IA: placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning e cartografia.
@@ -44,7 +44,7 @@ graph_kind: module
 
 graph_parent: atlas-programming-governance-system
 
-graph_status: future
+graph_status: active
 
 graph_source: repo
 

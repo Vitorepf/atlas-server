@@ -79,12 +79,12 @@ class AiGatewayMissionBridge
      * Build the canonical kernel envelope for a single HTTP interaction.
      *
      * @param  array<string,mixed>  $options
-     * @return array<string,mixed>|null  null when the feature flag is off,
-     *                                   the Mission tables are absent, or the
-     *                                   prompt is trivial (when
-     *                                   `trivial_skips_kernel` is true). The
-     *                                   gateway treats null as "no kernel
-     *                                   linkage; keep legacy behaviour".
+     * @return array<string,mixed>|null null when the feature flag is off,
+     *                                  the Mission tables are absent, or the
+     *                                  prompt is trivial (when
+     *                                  `trivial_skips_kernel` is true). The
+     *                                  gateway treats null as "no kernel
+     *                                  linkage; keep legacy behaviour".
      */
     public function buildEnvelope(string $input, array $options = []): ?array
     {

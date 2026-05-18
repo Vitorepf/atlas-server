@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai\Kernel;
 
 use App\Models\AiMission;
+use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\Mission\AiGatewayMissionBridge;
 use App\Services\Ai\Mission\MissionFactoryService;
 use App\Services\Ai\Mission\MissionLifecycleService;
@@ -186,7 +187,8 @@ class AiGatewayMissionBridgeTest extends TestCase
         // tables remain present so `tablesAvailable()` passes — proving the
         // try/catch isolates real runtime failures from the gateway path.
         $this->app->bind(MissionFactoryService::class, function () {
-            return new class extends MissionFactoryService {
+            return new class extends MissionFactoryService
+            {
                 public function __construct()
                 {
                     // skip parent constructor; this stub never persists
@@ -197,7 +199,7 @@ class AiGatewayMissionBridgeTest extends TestCase
                     return parent::TYPE_MISSION;
                 }
 
-                public function create(string $rawPrompt, array $options = []): \App\Models\AiMission
+                public function create(string $rawPrompt, array $options = []): AiMission
                 {
                     throw new \RuntimeException('synthetic_factory_failure');
                 }
@@ -278,7 +280,7 @@ class AiGatewayMissionBridgeTest extends TestCase
     {
         // Smoke: if the bridge is not in the constructor, the container
         // throws when resolving. This guards Phase 1's wire from regression.
-        $gateway = app(\App\Services\Ai\AiGatewayService::class);
+        $gateway = app(AiGatewayService::class);
         $this->assertNotNull($gateway);
     }
 

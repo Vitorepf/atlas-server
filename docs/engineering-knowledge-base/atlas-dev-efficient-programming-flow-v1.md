@@ -2,7 +2,7 @@
 id: atlas-dev-efficient-programming-flow-v1
 type: engineering_knowledge
 title: Atlas Dev Efficient Programming Flow v1
-status: draft
+status: active
 category: programming
 priority: 105
 summary: Contrato canonico do Atlas Dev como fluxo especializado de desenvolvimento em workspace dentro do Atlas AI. Atlas AI e o produto/superficie unica do programador e usa engines como Claude Code/Codex/Cursor por baixo; Atlas Dev contribui com a fatia de programacao governada: patch, repair, review, frontend pontual, code generation e perguntas workspace-bound. Forge e o patamar Obra-driven para producao longa e multiagente. Esta fase nao cria benchmark, Rivals, Opus challenge ou bateria messy; avaliacao competitiva fica para outro fluxo/agente.

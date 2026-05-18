@@ -516,6 +516,9 @@ detalhe de modulo com docs/testes.
 | `START_HERE.md` | Ponto de entrada para humanos e IAs |
 | `atlas-ai-canonical-architecture-index.md` | Indice oficial da hierarquia entre Constitution, Kernel, Master Architecture, Topology e Domain Specs |
 | `atlas-ai-layer-0-glossary.md` | Constituicao operacional enxuta e glossario canonico de Layer 0; impede que providers, prompts ou docs legados disputem a identidade do Atlas AI |
+| `atlas-canonical-glossary-and-naming.md` | Fonte unica de nomes para Atlas / Atlas AI / Dev / Forge / Code / Obra / Mission / WorkOrder / Domain / Flow / Runtime / Harness; aliases permitidos vs proibidos; doc desambiguadora P0 |
+| `atlas-documentation-status-cleanup-plan.md` | Plano canon 2026-05-18 com taxonomia de 8 status, mapeamento para 5 canonicos, sequencia P0-P3 de flips frontmatter-only e Never-Remove guardrail |
+| `atlas-canonical-cleanup-inventory.md` | Inventario filesystem-grounded de docs com status duvidoso, naming clusters e service overlaps; complementa o plano com diagnostico concreto |
 | `atlas-ai-kernel-architecture.md` | Indice compacto da especificacao kernel formal |
 | `kernel/contracts.md` | Contratos executaveis: Operation Envelope, Decision Receipt, Evidence Ledger, SDKs, Policy/Profile, SLO e tenancy |
 | `kernel/static-scans.md` | Static scans e compliance tests que impedem bypass de surface, provider, receipt, capability e docs |

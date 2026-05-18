@@ -1,0 +1,623 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\ProgrammingRuntime;
+
+use App\Services\Ai\Mission\MissionCanonicalHash;
+use Carbon\CarbonImmutable;
+
+/**
+ * Final, internal-only certification of the Atlas Programming Runtime.
+ *
+ * Different from {@see ProgrammingRuntimeReadinessService} (which audits the
+ * 10 superiority-roadmap gaps) and from the Forge {@see
+ * \App\Services\Ai\Programming\AtlasForgeContinuumCertificationService}
+ * (which audits provider topology + cockpit invariants). This service is the
+ * higher-level aggregator that answers a single question:
+ *
+ *   "Before *any* benchmark is run against external rivals, is the Atlas
+ *    Programming Runtime internally ready across the 12 canonical
+ *    dimensions described in the architecture/contracts/roadmap trinity?"
+ *
+ * Schema: `atlas.programming.runtime_final_certification.v1`.
+ *
+ * Hard invariants — enforced by the aggregator, NOT by callers:
+ *   1. `overall_status === 'green'` requires zero P0 blocker AND zero P1 warn.
+ *   2. `benchmark_status` is ALWAYS `not_run`. The runtime does not allow this
+ *      service to declare benchmark execution; that flow lives elsewhere and
+ *      is intentionally out of scope.
+ *   3. Any check whose runtime is genuinely missing surfaces as a structured
+ *      blocker with remediation — never silently passes.
+ */
+class AtlasProgrammingFinalCertificationService
+{
+    public const SCHEMA_VERSION = 'atlas.programming.runtime_final_certification.v1';
+
+    public const STATUS_GREEN = 'green';
+
+    public const STATUS_PARTIAL = 'partial';
+
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const CHECK_STATUS_GREEN = 'pass';
+
+    public const CHECK_STATUS_WARN = 'warn';
+
+    public const CHECK_STATUS_BLOCKED = 'fail';
+
+    public const SEVERITY_P0 = 'P0';
+
+    public const SEVERITY_P1 = 'P1';
+
+    public const SEVERITY_P2 = 'P2';
+
+    public const BENCHMARK_STATUS_NOT_RUN = 'not_run';
+
+    public const CHECK_DEV_ROUTING = 'dev_routing';
+
+    public const CHECK_DEV_PATCH_TEST_DEBUG_REVIEW_REPAIR = 'dev_patch_test_debug_review_repair';
+
+    public const CHECK_FORGE_INTAKE_AND_OBRA_BUILDING_BLOCKS = 'forge_intake_and_obra_building_blocks';
+
+    public const CHECK_FORGE_SDD_QA_CERTIFICATION_LOOP = 'forge_sdd_qa_certification_loop';
+
+    public const CHECK_FORGE_LIVE_EXECUTION_PRESENT = 'forge_live_execution_present';
+
+    public const CHECK_DEV_TO_FORGE_ESCALATION = 'dev_to_forge_escalation';
+
+    public const CHECK_RAG_FAIL_CLOSED_AVAILABLE = 'rag_fail_closed_available';
+
+    public const CHECK_WORLD_MODEL_RANKING = 'world_model_ranking';
+
+    public const CHECK_COMPOUNDING_AND_RAG_FEEDBACK = 'compounding_and_rag_feedback';
+
+    public const CHECK_LOCAL_MEMORY_INGESTION = 'local_memory_ingestion';
+
+    public const CHECK_TELEMETRY_AND_AUDIT = 'telemetry_and_audit';
+
+    public const CHECK_CONTROL_PLANE = 'control_plane';
+
+    public const CHECK_E2E_BATTERY_EXISTS = 'e2e_battery_exists';
+
+    public const CHECK_BENCHMARK_READINESS_HARNESS_NOT_RUN = 'benchmark_readiness_harness_not_run';
+
+    public const ALL_CHECK_IDS = [
+        self::CHECK_DEV_ROUTING,
+        self::CHECK_DEV_PATCH_TEST_DEBUG_REVIEW_REPAIR,
+        self::CHECK_FORGE_INTAKE_AND_OBRA_BUILDING_BLOCKS,
+        self::CHECK_FORGE_SDD_QA_CERTIFICATION_LOOP,
+        self::CHECK_FORGE_LIVE_EXECUTION_PRESENT,
+        self::CHECK_DEV_TO_FORGE_ESCALATION,
+        self::CHECK_RAG_FAIL_CLOSED_AVAILABLE,
+        self::CHECK_WORLD_MODEL_RANKING,
+        self::CHECK_COMPOUNDING_AND_RAG_FEEDBACK,
+        self::CHECK_LOCAL_MEMORY_INGESTION,
+        self::CHECK_TELEMETRY_AND_AUDIT,
+        self::CHECK_CONTROL_PLANE,
+        self::CHECK_E2E_BATTERY_EXISTS,
+        self::CHECK_BENCHMARK_READINESS_HARNESS_NOT_RUN,
+    ];
+
+    public function __construct(
+        private readonly RepoProbe $probe = new FilesystemRepoProbe,
+    ) {}
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function certify(): array
+    {
+        $checks = [
+            $this->checkDevRouting(),
+            $this->checkDevPatchTestDebugReviewRepair(),
+            $this->checkForgeIntakeAndObraBuildingBlocks(),
+            $this->checkForgeSddQaCertificationLoop(),
+            $this->checkForgeLiveExecution(),
+            $this->checkDevToForgeEscalation(),
+            $this->checkRagFailClosedAvailable(),
+            $this->checkWorldModelRanking(),
+            $this->checkCompoundingAndRagFeedback(),
+            $this->checkLocalMemoryIngestion(),
+            $this->checkTelemetryAndAudit(),
+            $this->checkControlPlane(),
+            $this->checkE2eBatteryExists(),
+            $this->checkBenchmarkReadinessHarnessNotRun(),
+        ];
+
+        $overall = $this->aggregateOverall($checks);
+        $summary = $this->summarize($checks);
+        $blockers = $this->collectBlockers($checks);
+        $remediation = $this->collectRemediation($checks);
+
+        $payload = [
+            'schema_version' => self::SCHEMA_VERSION,
+            'overall_status' => $overall,
+            'summary' => $summary,
+            'checks' => $checks,
+            'blockers' => $blockers,
+            'remediation' => $remediation,
+            'benchmark_status' => self::BENCHMARK_STATUS_NOT_RUN,
+            'benchmark_note' => 'External rivals battery is OUT of scope of this certification. Comparisons against Claude Code / Codex / Cursor are NOT executed here.',
+            'evidence_refs' => $this->topLevelEvidenceRefs($checks),
+        ];
+
+        $hashPayload = $payload;
+        $payload['generated_at'] = CarbonImmutable::now()->toISOString();
+        $payload['certification_hash'] = MissionCanonicalHash::sha256($hashPayload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkDevRouting(): array
+    {
+        $repair = 'app/Services/Ai/Programming/AtlasDev/Repair/DevRepairLoopService.php';
+        $router = 'app/Services/Ai/RouterRuntime/FlowRouterService.php';
+
+        $present = $this->probe->fileExists($repair) && $this->probe->fileExists($router);
+
+        return $present
+            ? $this->pass(self::CHECK_DEV_ROUTING, self::SEVERITY_P0, 'Dev routing (FlowRouter + DevRepairLoop) present', [$repair, $router])
+            : $this->fail(self::CHECK_DEV_ROUTING, self::SEVERITY_P0, 'Dev routing missing FlowRouter or DevRepairLoop',
+                'wire FlowRouterService and ensure DevRepairLoopService is present in AtlasDev/Repair/',
+                [$repair, $router]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkDevPatchTestDebugReviewRepair(): array
+    {
+        $required = [
+            'patch' => 'app/Services/Ai/Programming/AtlasDev/Schemas/PatchIntelligenceReceipt.php',
+            'test_impact' => 'app/Services/Ai/Programming/ProgrammingTestImpactAnalyzer.php',
+            'debug_receipt' => 'app/Services/Ai/Programming/AtlasDev/Schemas/DebugReceipt.php',
+            'review_receipt' => 'app/Services/Ai/Programming/AtlasDev/Schemas/ReviewReceipt.php',
+            'repair_loop' => 'app/Services/Ai/Programming/AtlasDev/Repair/DevRepairLoopService.php',
+            'repair_executor' => 'app/Services/Ai/Programming/ProgrammingRepairExecutor.php',
+            'failure_classifier' => 'app/Services/Ai/Programming/AtlasDev/Repair/FailureModeClassifier.php',
+        ];
+
+        $missing = [];
+        foreach ($required as $label => $path) {
+            if (! $this->probe->fileExists($path)) {
+                $missing[] = $label.':'.$path;
+            }
+        }
+
+        if ($missing === []) {
+            return $this->pass(
+                self::CHECK_DEV_PATCH_TEST_DEBUG_REVIEW_REPAIR,
+                self::SEVERITY_P0,
+                'Dev patch/test/debug/review/repair primitives all present',
+                array_values($required),
+            );
+        }
+
+        return $this->fail(
+            self::CHECK_DEV_PATCH_TEST_DEBUG_REVIEW_REPAIR,
+            self::SEVERITY_P0,
+            'Missing primitives: '.implode(', ', $missing),
+            'restore or implement the missing schemas/services per atlas-programming-superiority-contracts.md',
+            array_values($required),
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkForgeIntakeAndObraBuildingBlocks(): array
+    {
+        $required = [
+            'intake_service' => 'app/Services/Ai/Programming/Forge/ForgeIntakeService.php',
+            'intake_canon' => 'app/Services/Ai/Programming/Forge/ForgeIntakeCanon.php',
+            'milestone_planner' => 'app/Services/Ai/Programming/Forge/ForgeMilestonePlanner.php',
+            'work_packet_composer' => 'app/Services/Ai/Programming/Forge/ForgeWorkPacketComposer.php',
+            'intake_model' => 'app/Models/AiForgeIntake.php',
+            'milestone_model' => 'app/Models/AiForgeMilestone.php',
+            'work_packet_model' => 'app/Models/AiForgeWorkPacket.php',
+        ];
+
+        $missing = [];
+        foreach ($required as $label => $path) {
+            if (! $this->probe->fileExists($path)) {
+                $missing[] = $label.':'.$path;
+            }
+        }
+
+        return $missing === []
+            ? $this->pass(self::CHECK_FORGE_INTAKE_AND_OBRA_BUILDING_BLOCKS, self::SEVERITY_P0, 'Forge intake + milestone + work_packet building blocks present', array_values($required))
+            : $this->fail(self::CHECK_FORGE_INTAKE_AND_OBRA_BUILDING_BLOCKS, self::SEVERITY_P0, 'Missing Forge intake artifacts: '.implode(', ', $missing),
+                'implement missing services/models per atlas-forge-operating-system-contracts.md', array_values($required));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkForgeSddQaCertificationLoop(): array
+    {
+        $required = [
+            'sdd_gate' => 'app/Services/Ai/Programming/Forge/Qa/ForgeSddSpecGate.php',
+            'qa_runner' => 'app/Services/Ai/Programming/Forge/Qa/ForgeQaGateRunner.php',
+            'obra_certification' => 'app/Services/Ai/Programming/Forge/Qa/ForgeObraCertificationService.php',
+        ];
+
+        $missing = [];
+        foreach ($required as $label => $path) {
+            if (! $this->probe->fileExists($path)) {
+                $missing[] = $label.':'.$path;
+            }
+        }
+
+        return $missing === []
+            ? $this->pass(self::CHECK_FORGE_SDD_QA_CERTIFICATION_LOOP, self::SEVERITY_P0, 'Per-Obra SDD/QA/Certification loop wired', array_values($required))
+            : $this->fail(self::CHECK_FORGE_SDD_QA_CERTIFICATION_LOOP, self::SEVERITY_P0, 'Missing SDD/QA/cert artifacts: '.implode(', ', $missing),
+                'implement SDD spec gate, QA gate runner and Obra certification service before claiming green', array_values($required));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkForgeLiveExecution(): array
+    {
+        $path = 'app/Services/Ai/Programming/AtlasForgeLiveExecutionService.php';
+
+        return $this->probe->fileExists($path)
+            ? $this->pass(self::CHECK_FORGE_LIVE_EXECUTION_PRESENT, self::SEVERITY_P1, 'Forge live execution service present', [$path])
+            : $this->warn(self::CHECK_FORGE_LIVE_EXECUTION_PRESENT, self::SEVERITY_P1, 'Forge live execution service missing',
+                'implement AtlasForgeLiveExecutionService per atlas-forge-live-execution-e2e-v1.md', [$path]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkDevToForgeEscalation(): array
+    {
+        $packet = 'app/Services/Ai/Programming/AtlasDev/Schemas/EscalationPacket.php';
+        $factory = 'app/Services/Ai/Programming/AtlasDev/Escalation/DevToForgeEscalationPacketFactory.php';
+        $devRepairLoop = 'app/Services/Ai/Programming/AtlasDev/Repair/DevRepairLoopService.php';
+
+        $present = $this->probe->fileExists($packet) && $this->probe->fileExists($factory) && $this->probe->fileExists($devRepairLoop);
+
+        return $present
+            ? $this->pass(self::CHECK_DEV_TO_FORGE_ESCALATION, self::SEVERITY_P0, 'Dev→Forge escalation packet + factory + loop emission present', [$packet, $factory, $devRepairLoop])
+            : $this->fail(self::CHECK_DEV_TO_FORGE_ESCALATION, self::SEVERITY_P0,
+                'Dev→Forge escalation path incomplete',
+                'restore EscalationPacket schema + DevToForgeEscalationPacketFactory + DevRepairLoopService emission',
+                [$packet, $factory, $devRepairLoop]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkRagFailClosedAvailable(): array
+    {
+        $gate = 'app/Services/Ai/Programming/AtlasDev/Gate/MandatoryRagGate.php';
+        $planner = 'app/Services/Ai/Programming/ProgrammingRetrievalPlanner.php';
+        $available = $this->probe->fileExists($gate) || $this->probe->fileExists($planner);
+
+        if (! $available) {
+            return $this->fail(
+                self::CHECK_RAG_FAIL_CLOSED_AVAILABLE,
+                self::SEVERITY_P1,
+                'No RAG fail-closed surface present',
+                'implement MandatoryRagGate or ensure ProgrammingRetrievalPlanner emits context_sufficiency_gate',
+                [$gate, $planner],
+            );
+        }
+
+        // Soft warn until the planner enforces (throws) on failed_closed in strict flows.
+        $plannerContents = $this->probe->readFile($planner);
+        $enforced = $plannerContents !== null
+            && (str_contains((string) $plannerContents, 'failed_closed')
+                || str_contains((string) $plannerContents, 'ProgrammingRagGateException'));
+
+        return $enforced
+            ? $this->pass(self::CHECK_RAG_FAIL_CLOSED_AVAILABLE, self::SEVERITY_P1, 'RAG fail-closed primitive present and observable', [$gate, $planner])
+            : $this->warn(self::CHECK_RAG_FAIL_CLOSED_AVAILABLE, self::SEVERITY_P1,
+                'RAG gate surface exists but enforcement not detected in planner source',
+                'wire MandatoryRagGate to throw / fail-closed in strict programming flows', [$gate, $planner]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkWorldModelRanking(): array
+    {
+        $graph = 'app/Services/Ai/Programming/ProgrammingSemanticCodeGraphService.php';
+        $model = 'app/Models/AiCodebaseWorldModel.php';
+
+        return $this->probe->fileExists($graph) && $this->probe->fileExists($model)
+            ? $this->pass(self::CHECK_WORLD_MODEL_RANKING, self::SEVERITY_P1, 'World Model (graph + persistence) primitives present', [$graph, $model])
+            : $this->warn(self::CHECK_WORLD_MODEL_RANKING, self::SEVERITY_P1,
+                'World Model primitives partially missing',
+                'ensure ProgrammingSemanticCodeGraphService + AiCodebaseWorldModel persistence are present',
+                [$graph, $model]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkCompoundingAndRagFeedback(): array
+    {
+        $runtime = 'app/Services/Ai/Compounding/AtlasCompoundingRuntimeService.php';
+        $ragFeedback = 'app/Services/Ai/Compounding/AtlasRagFeedbackService.php';
+
+        return $this->probe->fileExists($runtime) && $this->probe->fileExists($ragFeedback)
+            ? $this->pass(self::CHECK_COMPOUNDING_AND_RAG_FEEDBACK, self::SEVERITY_P1, 'Compounding runtime + RAG feedback service present', [$runtime, $ragFeedback])
+            : $this->warn(self::CHECK_COMPOUNDING_AND_RAG_FEEDBACK, self::SEVERITY_P1,
+                'Compounding runtime OR rag feedback service missing',
+                'ensure AtlasCompoundingRuntimeService and AtlasRagFeedbackService remain available',
+                [$runtime, $ragFeedback]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkLocalMemoryIngestion(): array
+    {
+        // Local Agent Memory Ingestion is canon-documented as a future/blocked
+        // surface (Programming Superiority Architecture, Top 15 gaps #12). We
+        // surface it as a `warn` blocker with explicit remediation rather than
+        // claiming green when no runtime exists yet.
+        $specDoc = 'docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md';
+
+        return $this->probe->fileExists($specDoc)
+            ? $this->warn(self::CHECK_LOCAL_MEMORY_INGESTION, self::SEVERITY_P2,
+                'Local Agent Memory Ingestion is spec-only (no runtime); canonical blocker per superiority architecture',
+                'plan AP for local agent memory ingestion runtime; do not flip to green without ingestion service + provenance',
+                [$specDoc])
+            : $this->warn(self::CHECK_LOCAL_MEMORY_INGESTION, self::SEVERITY_P2,
+                'Local Agent Memory Ingestion: neither spec nor runtime present',
+                'declare a canonical spec for local agent memory ingestion before runtime work',
+                [$specDoc]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkTelemetryAndAudit(): array
+    {
+        $telemetry = 'app/Services/Ai/Programming/AtlasDev/Repair/RepairTelemetryRecorder.php';
+        $auditEvent = 'app/Services/Ai/Evidence/AuditEventService.php';
+
+        return $this->probe->fileExists($telemetry) && $this->probe->fileExists($auditEvent)
+            ? $this->pass(self::CHECK_TELEMETRY_AND_AUDIT, self::SEVERITY_P1,
+                'Repair telemetry recorder + Evidence AuditEventService present',
+                [$telemetry, $auditEvent])
+            : $this->warn(self::CHECK_TELEMETRY_AND_AUDIT, self::SEVERITY_P1,
+                'Telemetry OR audit event service missing',
+                'ensure RepairTelemetryRecorder and AuditEventService are wired for observability',
+                [$telemetry, $auditEvent]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkControlPlane(): array
+    {
+        $controlPlane = 'app/Services/Ai/Evidence/EvidenceControlPlaneService.php';
+
+        return $this->probe->fileExists($controlPlane)
+            ? $this->pass(self::CHECK_CONTROL_PLANE, self::SEVERITY_P1, 'Evidence Control Plane service present', [$controlPlane])
+            : $this->warn(self::CHECK_CONTROL_PLANE, self::SEVERITY_P1, 'Evidence Control Plane service missing',
+                'implement EvidenceControlPlaneService per atlas-evidence-certification-runtime.md', [$controlPlane]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkE2eBatteryExists(): array
+    {
+        $battery = 'tests/Feature/Ai/E2E/AtlasDevForgeE2EScenarioBatteryTest.php';
+
+        return $this->probe->fileExists($battery)
+            ? $this->pass(self::CHECK_E2E_BATTERY_EXISTS, self::SEVERITY_P0, 'Internal Dev/Forge E2E scenario battery present', [$battery])
+            : $this->fail(self::CHECK_E2E_BATTERY_EXISTS, self::SEVERITY_P0,
+                'Internal Dev/Forge E2E scenario battery missing',
+                'create tests/Feature/Ai/E2E/AtlasDevForgeE2EScenarioBatteryTest.php exercising the 10 canonical scenarios + benchmark_not_run marker',
+                [$battery]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkBenchmarkReadinessHarnessNotRun(): array
+    {
+        // This certification deliberately reports the benchmark harness as
+        // `not_run`. The check therefore PASSES when no rival execution
+        // happened, and is the canonical place the operator can rely on to
+        // see "we did NOT compare against Claude Code / Codex / Cursor".
+        return $this->pass(
+            self::CHECK_BENCHMARK_READINESS_HARNESS_NOT_RUN,
+            self::SEVERITY_P2,
+            'External benchmark/rivals harness intentionally NOT executed by this certification (benchmark_status=not_run)',
+            [
+                'docs/engineering-knowledge-base/atlas-programming-superiority-roadmap.md',
+                'tests/Feature/Ai/E2E/AtlasDevForgeE2EScenarioBatteryTest.php',
+            ],
+        );
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $checks
+     */
+    private function aggregateOverall(array $checks): string
+    {
+        $hasFail = false;
+        $hasP0OrP1Warn = false;
+
+        foreach ($checks as $check) {
+            $status = (string) ($check['status'] ?? '');
+            $severity = (string) ($check['severity'] ?? '');
+            if ($status === self::CHECK_STATUS_BLOCKED) {
+                $hasFail = true;
+            }
+            if ($status === self::CHECK_STATUS_WARN
+                && in_array($severity, [self::SEVERITY_P0, self::SEVERITY_P1], true)) {
+                $hasP0OrP1Warn = true;
+            }
+        }
+
+        if ($hasFail) {
+            return self::STATUS_BLOCKED;
+        }
+        if ($hasP0OrP1Warn) {
+            return self::STATUS_PARTIAL;
+        }
+
+        return self::STATUS_GREEN;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $checks
+     * @return array<string,int>
+     */
+    private function summarize(array $checks): array
+    {
+        $summary = [
+            'total' => count($checks),
+            'pass' => 0,
+            'warn' => 0,
+            'fail' => 0,
+            'p0_blockers' => 0,
+            'p1_blockers' => 0,
+        ];
+
+        foreach ($checks as $check) {
+            $status = (string) ($check['status'] ?? '');
+            $severity = (string) ($check['severity'] ?? '');
+            if ($status === self::CHECK_STATUS_GREEN) {
+                $summary['pass']++;
+            } elseif ($status === self::CHECK_STATUS_WARN) {
+                $summary['warn']++;
+            } elseif ($status === self::CHECK_STATUS_BLOCKED) {
+                $summary['fail']++;
+                if ($severity === self::SEVERITY_P0) {
+                    $summary['p0_blockers']++;
+                }
+                if ($severity === self::SEVERITY_P1) {
+                    $summary['p1_blockers']++;
+                }
+            }
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $checks
+     * @return list<array<string,mixed>>
+     */
+    private function collectBlockers(array $checks): array
+    {
+        $blockers = [];
+        foreach ($checks as $check) {
+            if (($check['status'] ?? '') === self::CHECK_STATUS_BLOCKED) {
+                $blockers[] = [
+                    'check_id' => $check['check_id'],
+                    'severity' => $check['severity'],
+                    'reason' => $check['reason'],
+                    'evidence_refs' => array_values((array) ($check['evidence_refs'] ?? [])),
+                ];
+            }
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $checks
+     * @return list<array<string,mixed>>
+     */
+    private function collectRemediation(array $checks): array
+    {
+        $remediation = [];
+        foreach ($checks as $check) {
+            $status = (string) ($check['status'] ?? '');
+            if ($status === self::CHECK_STATUS_GREEN) {
+                continue;
+            }
+            $action = (string) ($check['remediation'] ?? '');
+            if ($action === '') {
+                continue;
+            }
+            $remediation[] = [
+                'check_id' => $check['check_id'],
+                'severity' => $check['severity'],
+                'action' => $action,
+            ];
+        }
+
+        return $remediation;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $checks
+     * @return list<string>
+     */
+    private function topLevelEvidenceRefs(array $checks): array
+    {
+        $refs = [];
+        foreach ($checks as $check) {
+            foreach ((array) ($check['evidence_refs'] ?? []) as $ref) {
+                if (is_string($ref) && $ref !== '') {
+                    $refs[] = $ref;
+                }
+            }
+        }
+
+        return array_values(array_unique($refs));
+    }
+
+    /**
+     * @param  list<string>  $evidenceRefs
+     * @return array<string,mixed>
+     */
+    private function pass(string $checkId, string $severity, string $reason, array $evidenceRefs): array
+    {
+        return [
+            'check_id' => $checkId,
+            'status' => self::CHECK_STATUS_GREEN,
+            'severity' => $severity,
+            'reason' => $reason,
+            'remediation' => null,
+            'evidence_refs' => array_values($evidenceRefs),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $evidenceRefs
+     * @return array<string,mixed>
+     */
+    private function warn(string $checkId, string $severity, string $reason, string $remediation, array $evidenceRefs): array
+    {
+        return [
+            'check_id' => $checkId,
+            'status' => self::CHECK_STATUS_WARN,
+            'severity' => $severity,
+            'reason' => $reason,
+            'remediation' => $remediation,
+            'evidence_refs' => array_values($evidenceRefs),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $evidenceRefs
+     * @return array<string,mixed>
+     */
+    private function fail(string $checkId, string $severity, string $reason, string $remediation, array $evidenceRefs): array
+    {
+        return [
+            'check_id' => $checkId,
+            'status' => self::CHECK_STATUS_BLOCKED,
+            'severity' => $severity,
+            'reason' => $reason,
+            'remediation' => $remediation,
+            'evidence_refs' => array_values($evidenceRefs),
+        ];
+    }
+}

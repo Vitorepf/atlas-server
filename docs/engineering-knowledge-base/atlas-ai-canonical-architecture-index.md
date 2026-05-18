@@ -27,6 +27,9 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/canonical-index/authority-map.md
   - docs/engineering-knowledge-base/canonical-index/layer-status.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - docs/engineering-knowledge-base/atlas-documentation-status-cleanup-plan.md
+  - docs/engineering-knowledge-base/atlas-canonical-cleanup-inventory.md
   - docs/engineering-knowledge-base/archive/source-material/atlas-ai-canonical-architecture-index-full-2026-05-08.md
   - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
@@ -179,6 +182,9 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 |---|---|
 | Detailed subject authority | `canonical-index/authority-map.md` |
 | Layer implementation status | `canonical-index/layer-status.md` |
+| Canonical glossary & naming (Atlas / Atlas AI / Dev / Forge / Code / Obra / Mission / WorkOrder / Domain / Flow / Runtime / Harness) | `atlas-canonical-glossary-and-naming.md` |
+| Documentation status cleanup plan (2026-05-18) — 8 status states, P0-P3 frontmatter-only flips, Never-Remove guardrail | `atlas-documentation-status-cleanup-plan.md` |
+| Canonical cleanup inventory (filesystem-grounded status duvidoso, naming clusters, service overlaps) | `atlas-canonical-cleanup-inventory.md` |
 | New AI session bootstrap | `atlas-ai-session-bootstrap.md` |
 | Documentation governance | `atlas-ai-documentation-operating-system.md` |
 | Next patamar operating systems / Sovereign + Epistemic + Cartographic as one set | `atlas-next-patamar-operating-systems.md` |

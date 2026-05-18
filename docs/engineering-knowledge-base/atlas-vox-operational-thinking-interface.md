@@ -38,6 +38,12 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-local-agent-surface.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md
+  - docs/engineering-knowledge-base/adr/0003-vox-vs-voice-realtime-surface-boundary.md
+  - docs/contracts/vox/VoxSessionPacket.v1.md
+  - docs/contracts/vox/VoxTranscript.v1.md
+  - docs/contracts/vox/VoxIntentPacket.v1.md
+  - docs/contracts/vox/VoxConfirmation.v1.md
+  - docs/contracts/vox/VoxActionOutcome.v1.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-vox-operational-thinking-interface
 graph_title: Atlas Vox Operational Thinking Interface
@@ -101,9 +107,10 @@ observability_signals:
   - regret/friction score
   - prompt quality score
 next_actions:
-  - Criar AP/implementation packet para Vox Canonical Program Scaffold.
-  - Mapear VOX_* event taxonomy.
-  - Definir Vox Intent Packet v1 e Vox Thought Packet v1.
+  - Onda 0 entregue 2026-05-18 - Leis 0/0.5/0.75/0.9, ADR 0003, contratos v1 em docs/contracts/vox/.
+  - Onda 1 - Mac Edge daemon hibrido (launchd hotkey + Tauri STT) + whisper.cpp@large-v3.
+  - Onda 2 - Kernel Vox V0 dictation (VoxController, VoxCompiler, VoxDesktopSurfaceAdapter, receipt R0).
+  - Onda 7.5 - STT benchmark formal large-v3 vs large-v3-turbo vs MLX Whisper (criterio qualidade PT-BR/goiano).
 ---
 # Atlas Vox Operational Thinking Interface
 
@@ -142,12 +149,12 @@ comando, captura, proposta, work order ou memoria candidata.
 
 | Camada | Papel |
 |---|---|
-| Atlas Vox | Programa produto/arquitetura de voz-para-intencao-para-acao |
-| Voice Realtime Surface | Surface tecnica mobile-first + LiveKit + runtime realtime |
+| Atlas Vox | Programa produto/arquitetura de voz-para-intencao-para-acao (V0-V3 Mac/Desktop local-first) |
+| Voice Realtime Surface | Surface tecnica mobile-first + LiveKit + runtime realtime — PAUSADA ate V6 conforme ADR 0003 |
 | Atlas Pipeline | Caminho unico de Intent, Context, Policy, Decide, Gate, Evidence |
 | Kernel Laravel | Autoridade soberana de policy, receipts, ledger e provider routing |
-| Runtime Python/LiveKit | VAD, turn detection, STT/TTS, interruption e audio loop |
-| Mac/Swift edge | Futuro edge local com wake word, AirPods, contexto opt-in e Mac control |
+| Runtime Python/LiveKit | VAD, turn detection, STT/TTS, interruption e audio loop — congelado ate V6 |
+| Mac/Swift edge | Edge local com hotkey global, STT local, contexto opt-in e Mac control (entra em V0-V3 como Tauri + launchd hibrido) |
 
 Regra:
 ```text
@@ -157,6 +164,17 @@ Runtime executa o que receipt permite.
 Evidence prova.
 Learning aprende somente dentro da policy.
 ```
+## Leis 0 - Fronteiras Atlas Vox V0-V3 (2026-05-18)
+
+Leis de escopo V0-V3. Nao substituem as 10 Leis Vox gerais abaixo; restringem
+fase atual. Origem: revisao `plans/synchronous-weaving-meteor.md` + ADR 0003.
+
+- **Lei 0** - Mac/Desktop local-first. Sem LiveKit, sem mobile, sem runtime Python, sem provider de audio pago. STT local (`whisper.cpp@large-v3`); Codex/Claude via CLI ja autenticada localmente.
+- **Lei 0.5** - Voice Realtime Surface (LiveKit + runtime Python + `atlas-app/`) congelada como scaffold ate V6 (Ambient). Vox V0-V5 nao competem por contexto com surface mobile.
+- **Lei 0.75** - Vox NUNCA chama provider direto. Sempre Intent Packet -> Vox Router -> Kernel -> Decide -> Receipt -> Executor. V0 (dictation) tambem passa pelo Kernel com receipt R0 no-op auditavel.
+- **Lei 0.9** - V4-V10 congelados ate GATE V3 verde. Criterio: 30 dias OU 100 sessoes reais, com `destructive_action_without_receipt=0`, `raw_audio_persisted_count=0`, `confirmation_bypass_count=0`, `prompt_quality_delta>=+0.25`, `action_regret_score<=0.05`, `rivals_voice_multiplier>=1.2`, eclipse testado >=3x, e aprovacao explicita de Vitor.
+
+Violacao = stop-the-line.
 ## Leis Vox
 
 1. Voz nao e autoridade; voz e declaracao de intencao.

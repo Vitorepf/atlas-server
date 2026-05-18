@@ -2,7 +2,7 @@
 id: atlas-programming-governance-system
 type: engineering_knowledge
 title: Atlas Programming Governance System
-status: building
+status: active
 category: programming-governance
 priority: 100
 summary: Indice canonico dos gates que transformam programacao por IA em fluxo governado por placement, spec antes do codigo, contratos de tarefa, Code Intelligence, evidence, learning e cartografia.
@@ -74,7 +74,7 @@ graph_kind: module
 
 graph_parent: atlas-ai-programming-domain
 
-graph_status: building
+graph_status: active
 
 graph_source: repo
 

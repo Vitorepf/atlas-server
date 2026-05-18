@@ -2,7 +2,7 @@
 id: atlas-forge-operating-system-contracts
 type: engineering_knowledge
 title: Atlas Forge Operating System Contracts
-status: future
+status: active
 category: programming-forge
 priority: 99
 summary: Contratos persistentes do Forge OS para spec-mae, packets, estado, reservas, permissoes, evidence, provider governance e release gate.
@@ -47,7 +47,7 @@ graph_kind: module
 
 graph_parent: atlas-forge-operating-system
 
-graph_status: future
+graph_status: active
 
 graph_source: repo
 
@@ -380,6 +380,7 @@ Forge tambem exige estes contratos para nao haver lacuna operacional:
 | Branch/Worktree/CI | Modos: `direct_patch`, `patch_artifact`, `branch_per_packet`, `worktree_per_agent`, `integration_branch`, `shadow_branch`; CI normaliza lint, typecheck, tests, BDD, build, docs-health, code-index, security, migration dry-run e cartography check. |
 | Review/Quality/Rollback | Review por tecnica, arquitetura, security, tests, docs, cartografia, scope, migration, performance e reversibility; gates por perfil de risco; rollback/migration declara strategy, commands, backup, forward/backward plan, blast radius e approvals. |
 | Failure/Recipes/Evals | Falhas viram records classificados; prompts, recipes, skills e templates sao versionados; provider/prompt/split/gate novo entra por eval ou shadow quando o risco justificar. |
+| Per-Obra SDD/QA/Certification Loop | `app/Services/Ai/Programming/Forge/Qa/`. Schemas `atlas.forge.sdd_spec.v1` (9 secoes: problem_statement, scope, non_goals, constraints, architecture_notes, acceptance_criteria, verification_plan, risks, required_evidence), `qa_gate_run.v1` (6 gates: spec_complete, acceptance_criteria_defined, verification_plan_defined, evidence_ready, tests_declared_or_blocked, certification_ready) e `obra_certification.v1` (status passed\|warn\|failed\|blocked + blockers + remediation). Obra pesada (escalation_packet OU risk high/critical OU sdd_intake/architecture_review/long_run) NAO certifica sem SDD/QA completos; gate failed emite blocker + remediation candidate. |
 
 ## Fluxo
 
@@ -513,7 +514,6 @@ Exigem approval ou escalacao:
 
 Quando humano nao atua, approval pode vir de gate canonico superior, mas deve
 ser explicitamente registrado como decisao do sistema.
-
 ## Proximas Acoes
 
-1. Reusar estes contratos em AP futura de Forge runtime e atualizar o runbook quando um contrato ganhar comando ou surface real.
+1. Reusar contratos em AP futura de Forge runtime; atualizar runbook quando contrato ganhar comando ou surface real.

@@ -206,6 +206,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         $this->components->twoColumnDetail('frontmatter violations', (string) ($summary['frontmatter_violation_count'] ?? 0));
         $this->components->twoColumnDetail('canonical coverage violations', (string) ($summary['canonical_module_coverage_violation_count'] ?? 0));
         $this->components->twoColumnDetail('canonical module violations', (string) ($summary['canonical_module_violation_count'] ?? 0));
+        $this->components->twoColumnDetail('warnings (non-blocking)', (string) ($summary['warning_count'] ?? 0));
 
         if (($payload['oversized_docs'] ?? []) !== []) {
             $this->table(
@@ -215,6 +216,16 @@ class AtlasEngineeringKnowledgeCommand extends Command
                     $doc['line_count'],
                     $doc['limit'],
                     $doc['status'],
+                ])->all(),
+            );
+        }
+
+        if (($payload['warnings'] ?? []) !== []) {
+            $this->table(
+                ['rule', 'path'],
+                collect($payload['warnings'])->take(15)->map(fn (array $warning): array => [
+                    $warning['rule'],
+                    $warning['path'],
                 ])->all(),
             );
         }

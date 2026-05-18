@@ -168,3 +168,36 @@ pagamentos, canais, custos, oportunidades e riscos.
 Esta pronto quando missoes consultam contexto estruturado com fontes, freshness,
 confidence e relacoes antes de decisoes relevantes.
 
+## Codebase Variant: Graph-Aware Ranking
+
+O Codebase World Model (`ai_codebase_world_models` + `_nodes` + `_edges`,
+populado por `AtlasAutonomousEngineeringService::buildWorldModel`) ja
+materializa nodes (file/module/test/doc/command/service/migration) com
+`flow_id`, `capabilities[]` e `risks[]`, alem de edges `tests`, `documents`,
+`defines`, `depends_on`, `contains_symbol` e `invokes`.
+
+`App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelGraphRanker`
+consome essas tabelas e produz `atlas.ai.codebase_world_model.ranking.v1`:
+combina textual seeds, target files/flows/capabilities/risks e edge weights
+para ranquear nodes por **relacao**, nao apenas por substring de path.
+
+Cada `ranked_node` carrega `score`, `text_score`, `graph_score`,
+`confidence`, `reasons[]` (governing_doc_for_seed, test_covers_seed,
+risk_match:*, capability_overlap:*, query_target_flow_match, etc) e
+`relation_path[]` (`{from,to,edge_type,direction}`). O envelope expoe
+`graph_version` (`model_hash`), `graph_hash` (sha256 sobre node+edge
+signatures), `query_signature` e `result_hash` para replay deterministico.
+
+Edge weights atuais (todas advisory, podem mover via AP):
+
+- `documents` / `documented_by`: 0.50 — fonte governante.
+- `tests`: 0.45 — cobertura validada.
+- `defines`: 0.30 — fonte declara o seed.
+- `depends_on`: 0.25 — impacto direto.
+- `invokes`: 0.30 — chamada nominal.
+- `contains_symbol`: 0.20 — pertinencia estrutural.
+
+Integracao segura: por ora o ranker e standalone (consumivel por testes
+e por callers que ja conhecem o World Model). Integracao com
+`ProgrammingProfessionalReranker` permanece como missao futura.
+

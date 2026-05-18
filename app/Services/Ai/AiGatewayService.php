@@ -15,6 +15,7 @@ use App\Models\Capture;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Mission\AiGatewayMissionBridge;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\ValueObjects\AiThreadResolution;
 use App\Services\AuditLogService;
@@ -54,7 +55,7 @@ class AiGatewayService
         private readonly AtlasFileAttachmentService $fileAttachments,
         private readonly YouTubeKnowledgeIngestionService $youtubeKnowledge,
         private readonly AiStreamRecorder $stream,
-        private readonly \App\Services\Ai\Mission\AiGatewayMissionBridge $missionBridge,
+        private readonly AiGatewayMissionBridge $missionBridge,
     ) {}
 
     public function enqueueInteraction(string $input, array $options = []): AiTrace

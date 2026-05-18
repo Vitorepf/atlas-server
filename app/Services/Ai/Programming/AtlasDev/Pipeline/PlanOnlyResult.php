@@ -45,6 +45,7 @@ final class PlanOnlyResult
         public readonly array $persistedArtifactPaths,
         public readonly array $blockers,
         public readonly ?SeniorEngineerLoopAudit $seniorLoopAudit = null,
+        public readonly ?SpecialistFlowDecision $specialistFlow = null,
     ) {}
 
     public function routingKind(): string
@@ -131,6 +132,7 @@ final class PlanOnlyResult
             'prompt_sendable' => $this->promptProjection->isSendable(),
             'read_only_answer' => $this->readOnlyAnswer(),
             'senior_loop' => $this->seniorLoopAudit?->toProviderSafeArray(),
+            'specialist_flow' => $this->specialistFlow?->toCanonicalArray(),
         ];
     }
 

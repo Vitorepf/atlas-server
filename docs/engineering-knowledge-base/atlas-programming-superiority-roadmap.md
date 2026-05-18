@@ -341,6 +341,25 @@ quando começar).
 **Gap atual:** sem golden set + sem Rivals real-execution + sem CI suite
 comparável. M10 endereça.
 
+### Benchmark Readiness Harness (prep para M10)
+
+Slice de preparação **sem execução**: `app/Services/Ai/Programming/BenchmarkReadiness/`
+expõe `BenchmarkReadinessHarness` (suite/manifest/validate JSON) +
+`BenchmarkReadinessCaseCatalog` com 8 casos canônicos (bug_fix, feature,
+debug, review, research, forge_obra, long_horizon_continuation, repair_loop),
+rubric `atlas.programming.benchmark_scoring_rubric.v1` (8 dimensions) +
+provider_slots `[atlas, dev, forge, rival_placeholder]` com placeholder
+`unbound_no_run`. Toda saída carrega `benchmark_status=benchmark_not_run`,
+`human_authorization_required=true`, `rival_provider_invoked=false`.
+
+`BenchmarkReadinessHarness::run()` **sempre** lança
+`BenchmarkReadinessAuthorizationException`: sem autorização canon
+(`missing_authorization`) OU mesmo com shape válido
+(`not_run_runtime_disabled_in_readiness_only_slice`). CLI exposta:
+`atlas:programming:benchmark-readiness {readiness|manifest|suite|validate}` —
+sem `run`. Quando M10 chegar, o runtime real plugará nesta superfície sem
+mudar manifest, rubric ou provider_slots.
+
 ### 10-Phase Implementation Roadmap
 
 | Fase | Nome | Entregáveis principais | Riscos |

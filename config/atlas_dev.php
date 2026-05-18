@@ -13,29 +13,32 @@
 |   3. provider run surface              (`run_enabled`)
 |   4. desktop integration surface       (`desktop_enabled`)
 |
-| Defaults are conservative on purpose: plan-only is on in dev/local because
-| it is read-only and has no provider cost; run is OFF unless explicitly
-| opted-in via env (`ATLAS_DEV_EFFICIENT_RUN_ENABLED=true`); desktop is OFF
-| until the UX is signed off.
+| Atlas Dev efficient is now the **canonical** path. Defaults are ON for
+| `enabled` and `plan_enabled` in every environment; `run_enabled` and
+| `desktop_enabled` remain OFF until provider invocation / desktop UX are
+| explicitly opted in. `default_path` is the canonical CLI default. To fall
+| back to the legacy pipeline, set `ATLAS_DEV_DEFAULT_PATH=legacy` or pass
+| the `--legacy` flag explicitly.
 |
 | Canon: docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
 */
 
 return [
     'efficient' => [
-        'enabled' => (bool) env(
-            'ATLAS_DEV_EFFICIENT_ENABLED',
-            in_array((string) env('APP_ENV', 'production'), ['local', 'testing'], true),
-        ),
+        'enabled' => (bool) env('ATLAS_DEV_EFFICIENT_ENABLED', true),
 
-        'plan_enabled' => (bool) env(
-            'ATLAS_DEV_EFFICIENT_PLAN_ENABLED',
-            in_array((string) env('APP_ENV', 'production'), ['local', 'testing'], true),
-        ),
+        'plan_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_PLAN_ENABLED', true),
 
         'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', false),
 
         'desktop_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED', false),
+
+        // Canonical default path for CLI / API entrypoints. When `efficient`,
+        // any Atlas Dev entrypoint that did not explicitly opt out routes
+        // through the efficient pipeline (plan → token → run). Operators can
+        // restore the legacy preflight path globally via env or per-call via
+        // the CLI `--legacy` flag.
+        'default_path' => env('ATLAS_DEV_DEFAULT_PATH', 'efficient'),
 
         // `process` keeps Desktop/API callers responsive: /run accepts the
         // operator-confirmed work, writes queued state, spawns an isolated CLI
@@ -75,5 +78,21 @@ return [
     'stream' => [
         'timeout_seconds' => (int) env('ATLAS_DEV_STREAM_TIMEOUT_SECONDS', 300),
         'keepalive_seconds' => (int) env('ATLAS_DEV_STREAM_KEEPALIVE_SECONDS', 15),
+    ],
+
+    // Mandatory RAG Gate — fail-closed for non-trivial engineering tasks.
+    // Atlas Dev / Atlas Forge must never execute work without sufficient
+    // context. Bypass is OFF by default and requires explicit auditable
+    // opt-in via operator user constraint. Every bypass is persisted in the
+    // gate receipt for audit.
+    'mandatory_rag_gate' => [
+        'bypass_enabled' => (bool) env('ATLAS_DEV_MANDATORY_RAG_GATE_BYPASS_ENABLED', false),
+        // When set, the bypass is only accepted from these productSurface
+        // identifiers (e.g. ['atlas_cli', 'atlas_app']). Empty list means
+        // any surface can bypass when bypass_enabled is true.
+        'allowed_surfaces' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('ATLAS_DEV_MANDATORY_RAG_GATE_BYPASS_SURFACES', ''))
+        ))),
     ],
 ];

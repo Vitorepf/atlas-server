@@ -56,5 +56,13 @@ final class ArtifactNames
 
     public const SENIOR_ENGINEER_LOOP_EXECUTION = 'senior_engineer_loop_execution.json';
 
+    public const MANDATORY_RAG_GATE = 'mandatory_rag_gate.json';
+
+    public const SPECIALIST_FLOW_DECISION = 'specialist_flow_decision.json';
+
+    public const PATCH_INTELLIGENCE_RECEIPT = 'patch_intelligence_receipt.json';
+
+    public const TEST_SELECTION_RECEIPT = 'test_selection_receipt.json';
+
     private function __construct() {}
 }

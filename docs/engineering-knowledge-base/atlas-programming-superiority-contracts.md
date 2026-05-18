@@ -456,6 +456,8 @@ Esta doc cobre **catálogo + field shapes + grammar**. Cobertura:
 - `atlas:dev:readiness`, `atlas:dev:smoke`
 - `atlas:dev:desktop:{enable,acceptance,certification,evidence}`
 - `atlas:forge:*` (provider invocation, runtime dispatch, capacity, topology, certification, rivals battery — 20+ comandos)
+- `atlas:programming:console {status|dev:plan|dev:summary|forge:intake|forge:summary|blockers|next-actions|evidence|certification|telemetry|smoke}` — unified canonical envelope `atlas.programming.console.v1` over readiness/control-plane/telemetry services. Read-only por default; `dev:plan` é preview (sem provider/sem DB); `forge:intake` cria a row via `ForgeIntakeService::intakeFromPrompt` (sem provider) com `--dry-run` opcional. `claim_policy.benchmark_not_run=true` em todo envelope.
+- `atlas:programming:benchmark-readiness {readiness|manifest|suite|validate}` — harness do M10, sempre `benchmark_status=benchmark_not_run`.
 
 **APIs HTTP atualmente expostas (parcial):**
 - `/ai/interactions/atlas-dev/{readiness,plan,run,runs,runs/{id},runs/{id}/stream,runs/{id}/cancel}` ✅

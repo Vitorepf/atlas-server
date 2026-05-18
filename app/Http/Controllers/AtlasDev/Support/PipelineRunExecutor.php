@@ -12,6 +12,10 @@ use App\Services\Ai\Programming\AtlasDev\Gate\ScopeGuard;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGateResult;
+use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceInput;
+use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceService;
+use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionInput;
+use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionIntelligenceService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
@@ -162,6 +166,46 @@ final class PipelineRunExecutor implements RunExecutor
             ArtifactNames::VERIFICATION_RECEIPT,
             $receipt->toCanonicalArray(),
         );
+
+        // Patch/Test Intelligence — derives risk, blast radius, focused tests
+        // and rollback hints from the scope-guard observation. Strictly
+        // additive: failures are swallowed so they cannot regress the gate
+        // outcome the rest of the pipeline already produced.
+        try {
+            $patchIntelligence = (new PatchIntelligenceService)->analyze(new PatchIntelligenceInput(
+                runId: $runId,
+                taskContractHash: $scopeReceipt->taskContractHash,
+                expectedFiles: $taskContract->allowedFiles,
+                changedFiles: $scopeReceipt->observed->fileDiffs,
+                userPreExistingChanges: $scopeReceipt->userPreExistingChanges,
+                evidenceRefs: [],
+            ));
+            $persisted[ArtifactNames::PATCH_INTELLIGENCE_RECEIPT] = $this->storage->writeAtomic(
+                $runId,
+                ArtifactNames::PATCH_INTELLIGENCE_RECEIPT,
+                $patchIntelligence->toCanonicalArray(),
+            );
+
+            $testSelection = (new TestSelectionIntelligenceService)->select(new TestSelectionInput(
+                runId: $runId,
+                taskContractHash: $scopeReceipt->taskContractHash,
+                changedFiles: array_map(
+                    static fn ($diff): string => $diff->path,
+                    $scopeReceipt->observed->fileDiffs,
+                ),
+                expectedTests: $taskContract->validationCommands,
+                riskLevel: $patchIntelligence->riskLevel,
+                evidenceRefs: [],
+            ));
+            $persisted[ArtifactNames::TEST_SELECTION_RECEIPT] = $this->storage->writeAtomic(
+                $runId,
+                ArtifactNames::TEST_SELECTION_RECEIPT,
+                $testSelection->toCanonicalArray(),
+            );
+        } catch (\Throwable) {
+            // Patch/test intelligence is advisory. Swallow so it never
+            // shadows the canonical receipts already persisted above.
+        }
 
         return new RunExecutionResult(
             completionState: $receipt->completion->status,

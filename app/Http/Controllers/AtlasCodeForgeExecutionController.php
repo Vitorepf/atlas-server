@@ -9,6 +9,7 @@ use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Ai\DualCore\ForgeIntakeRouteDecisionRecorder;
 use App\Services\Ai\Programming\AtlasForgeGovernedExecutionService;
 use App\Services\Ai\Programming\AtlasForgeLiveExecutionService;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
@@ -31,24 +32,62 @@ final class AtlasCodeForgeExecutionController extends Controller
         Request $request,
         AtlasProject $project,
         AtlasForgeLiveExecutionService $service,
+        ForgeIntakeRouteDecisionRecorder $routeDecisionRecorder,
     ): JsonResponse {
         $data = $request->validate([
             'simulate_failure' => ['nullable', 'boolean'],
         ]);
 
         $simulateFailure = (bool) ($data['simulate_failure'] ?? false);
+
+        // Mechanism 4 wiring (post-fix 2026-05-18 per runtime-spine-completion-audit):
+        // record `atlas.dual_core.route_decision.v1` BEFORE dispatching to the
+        // Forge runtime so the HTTP-direct intake stops being a silent bypass.
+        // Tolerant: returns null when the dual-core table is absent.
+        $routeDecisionRecorder->record(
+            'forge',
+            $request->path(),
+            (string) $project->getKey(),
+            [
+                'routing_signals' => [
+                    'entry' => 'POST /works/{project}/forge/live-executions',
+                    'simulate_failure' => $simulateFailure,
+                ],
+                'expected_duration' => 'hours',
+            ],
+        );
+
         $result = $this->executeAndPersist($project, $service, $simulateFailure);
 
         return response()->json($result, ($result['report']['forge_live_execution_status'] ?? null) === 'blocked' ? 409 : 201);
     }
 
-    public function startAsync(Request $request, AtlasProject $project): JsonResponse
-    {
+    public function startAsync(
+        Request $request,
+        AtlasProject $project,
+        ForgeIntakeRouteDecisionRecorder $routeDecisionRecorder,
+    ): JsonResponse {
         $data = $request->validate([
             'simulate_failure' => ['nullable', 'boolean'],
         ]);
 
         $simulateFailure = (bool) ($data['simulate_failure'] ?? false);
+
+        // Mechanism 4 wiring (post-fix 2026-05-18): emit route_decision.v1
+        // for the async Forge intake path too. Same recorder, same contract.
+        $routeDecisionRecorder->record(
+            'forge',
+            $request->path(),
+            (string) $project->getKey(),
+            [
+                'routing_signals' => [
+                    'entry' => 'POST /works/{project}/forge/live-executions/async',
+                    'simulate_failure' => $simulateFailure,
+                ],
+                'expected_duration' => 'hours',
+            ],
+        );
+
         $execution = $this->rememberAsyncExecution($project, [
             'schema_version' => 'atlas.code.forge_live_execution.async.v1',
             'execution_id' => (string) Str::ulid(),

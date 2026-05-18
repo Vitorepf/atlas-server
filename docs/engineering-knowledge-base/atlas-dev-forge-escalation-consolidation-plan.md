@@ -322,6 +322,7 @@ Tests adicionados:
 
 - `tests/Feature/Ai/Programming/DualCore/DevToForgeCanonicalPathTest.php` (5 tests, kernel adapter)
 - `tests/Feature/AtlasCode/AtlasCodeDevToForgeCanonicalEmissionTest.php` (3 tests, HTTP)
+- `tests/Feature/Ai/Programming/DualCore/AtlasCanonicalRuntimeE2ETest.php` (5 tests, E2E canonico cobrindo Intent -> RouterDecision -> FlowRoute -> Dispatch -> route_decision.v1 -> Adapter -> Mission/WorkOrder -> Evidence -> Certification + caso `dev_to_forge` com escalation_packet.v1 + caso blocked + guard HTTP-Kernel ADR ainda planned)
 
 Tolerancia: se `ai_dual_core_route_decisions` nao existir, o adapter retorna
 `route_decision_v1.recorded=false` com detail auditavel; packet v1 continua

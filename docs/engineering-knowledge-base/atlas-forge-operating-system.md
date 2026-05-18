@@ -2,7 +2,7 @@
 id: atlas-forge-operating-system
 type: engineering_knowledge
 title: Atlas Forge Operating System
-status: future
+status: active
 category: programming-forge
 priority: 100
 summary: Indice canonico do patamar acima do Programming Governance System: a fabrica operacional que transforma specs em trabalho multiagente, evidence, integracao e evolucao de software.
@@ -76,7 +76,7 @@ graph_kind: module
 
 graph_parent: atlas-programming-governance-system
 
-graph_status: future
+graph_status: active
 
 graph_source: repo
 
@@ -386,6 +386,34 @@ Evidence minimo para uma execucao Forge:
 - release gate;
 - learning;
 - cartography update.
+
+## Work Packet Execution Cycle
+
+Schema canon: `atlas.forge.work_packet_execution_cycle.v1` (servico em
+`app/Services/Ai/Programming/Forge/Execution/`).
+
+Cada ciclo: select_packet → execution_plan → execution_mode (real | safe_simulation | blocked) → capture_evidence
+→ gate_check (passed | failed | inconclusive) → outcome_status (succeeded |
+failed | inconclusive | blocked) → repair_hook? → next_action → update
+long-horizon state.
+
+Invariantes obrigatorias:
+
+- packet so vira `done` quando o ciclo anexar pelo menos um
+  `work_packet_receipts` evidence ref ao long-horizon state;
+- `execution_mode=real` exige `allow_real=true` E evidence operator-supplied;
+  caso contrario o ciclo degrada para `safe_simulation` com `execution_mode_reason`
+  registrado (`real_requested_but_not_allowed`, `real_requested_but_evidence_missing`);
+- todo outcome nao-`succeeded` carrega um `repair_hook` canon
+  (`atlas.forge.work_packet_repair_hook.v1`: kind in
+  [`missing_evidence`, `gate_failed`, `execution_blocked`, `inconclusive_result`])
+  E adiciona um blocker `packet`-scope no state;
+- intake blocked ou packet status `done` resulta em outcome `blocked` sem
+  tocar a row do packet.
+
+O ciclo NUNCA invoca provider, NUNCA muta arquivos, NUNCA decide multi-agent.
+E a ponte estreita entre Forge-planner e Forge-runtime: nada destrutivo,
+nada especulativo.
 
 ## Riscos
 

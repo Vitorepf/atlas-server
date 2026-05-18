@@ -6,6 +6,7 @@ use App\Models\AtlasTask;
 use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
+use App\Services\Ai\Cli\AtlasCliDevEfficientHandler;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
 use App\Services\Ai\FairClaudePolicy;
@@ -72,7 +73,8 @@ class AtlasCliDevCommand extends Command
         {--clipboard-image : Attach the current macOS clipboard image to the next prompt}
         {--no-auto-image : Do not auto-attach clipboard images when the prompt mentions screenshots/images}
         {--timeout=900 : Provider timeout}
-        {--efficient : Use the Atlas Dev Efficient pipeline (workspace-bound flow: plan -> token -> run); skips legacy preflight}
+        {--efficient : Force the Atlas Dev Efficient pipeline (default since config/atlas_dev.efficient.default_path=efficient). Skips legacy preflight}
+        {--legacy : Force the legacy Atlas Dev preflight pipeline. Overrides the canonical default in config/atlas_dev.efficient.default_path}
         {--yes : Confirm execution non-interactively for --efficient runs; without it CLI prints the plan and stops}
         {--flow-origin= : Atlas AI Router origin tag (atlas_ai_router|direct) for --efficient runs}
         {--command-intent= : Atlas AI Router-resolved intent for --efficient runs (fix|explain|...)}
@@ -94,7 +96,17 @@ class AtlasCliDevCommand extends Command
         $json = (bool) $this->option('json');
         $task = trim(implode(' ', (array) $this->argument('task')));
 
-        if ((bool) $this->option('efficient')) {
+        // Atlas Dev Superiority Runtime — efficient is the canonical default.
+        // Operator can force one of the two paths explicitly; otherwise the
+        // config-level `default_path` decides. Legacy stays available as a
+        // safe fallback for runs that genuinely need the older preflight.
+        $forceEfficient = (bool) $this->option('efficient');
+        $forceLegacy = (bool) $this->option('legacy');
+        $defaultPath = (string) config('atlas_dev.efficient.default_path', 'efficient');
+        $useEfficient = $forceEfficient
+            || ($defaultPath === 'efficient' && ! $forceLegacy);
+
+        if ($useEfficient) {
             return $this->runEfficient($workspace, $task, $json);
         }
 
@@ -812,11 +824,11 @@ class AtlasCliDevCommand extends Command
     /**
      * Atlas Dev Efficient short-circuit: bypass the legacy preflight / workflow
      * stack and drive the canonical orchestrator + DB-backed token + RunExecutor
-     * via {@see \App\Services\Ai\Cli\AtlasCliDevEfficientHandler}.
+     * via {@see AtlasCliDevEfficientHandler}.
      */
     private function runEfficient(string $workspace, string $task, bool $json): int
     {
-        $handler = app(\App\Services\Ai\Cli\AtlasCliDevEfficientHandler::class);
+        $handler = app(AtlasCliDevEfficientHandler::class);
 
         if ($task === '') {
             $payload = [

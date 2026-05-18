@@ -2,7 +2,7 @@
 id: atlas-forge-operating-system-runbook
 type: engineering_knowledge
 title: Atlas Forge Operating System Runbook
-status: future
+status: active
 category: programming-forge
 priority: 98
 summary: Runbook operacional do Forge OS: intake, modulos, fluxo integrado, DoD, evidence, repair loop, telemetry e cartografia.
@@ -44,7 +44,7 @@ graph_kind: runbook
 
 graph_parent: atlas-forge-operating-system
 
-graph_status: future
+graph_status: active
 
 graph_source: repo
 

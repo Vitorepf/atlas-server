@@ -44,6 +44,7 @@ use App\Http\Controllers\AtlasAiSloController;
 use App\Http\Controllers\AtlasAiStrategicDecisionController;
 use App\Http\Controllers\AtlasAiStructureMotherAuditController;
 use App\Http\Controllers\AtlasAiVoiceRealtimeController;
+use App\Http\Controllers\AtlasAiVoxController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasCartographyController;
 use App\Http\Controllers\AtlasCodeAttentionControlPlaneController;
@@ -571,6 +572,13 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/audit/events', [AuditEventController::class, 'index']);
 
     Route::post('/sync', SyncController::class);
+
+    // Atlas Vox V0 — Mac/Desktop local-first dictation surface (Onda 2).
+    // Boundary: never executes, never persists audio, never calls a provider.
+    // See docs/contracts/vox/ + docs/engineering-knowledge-base/adr/0003-*.
+    Route::get('/ai/vox/health', [AtlasAiVoxController::class, 'health']);
+    Route::post('/ai/vox/intent', [AtlasAiVoxController::class, 'intent']);
+    Route::post('/ai/vox/execute', [AtlasAiVoxController::class, 'execute']);
 });
 
 /*

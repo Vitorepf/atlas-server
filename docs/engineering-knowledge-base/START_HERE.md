@@ -250,6 +250,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-flow-visual-map.md
   - docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - docs/engineering-knowledge-base/atlas-documentation-status-cleanup-plan.md
+  - docs/engineering-knowledge-base/atlas-canonical-cleanup-inventory.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/kernel/failure-domain-taxonomy.md
@@ -436,6 +439,22 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
    Constituicao operacional enxuta e glossario canonico de Layer 0: identidade,
    provider vs Atlas AI, surface, domain, flow, skill, agent e regra de
    promocao de source material humano/legado.
+
+1. `atlas-canonical-glossary-and-naming.md`
+   Fonte unica de nomes operacionais Atlas / Atlas AI / Dev / Forge / Code /
+   Obra / Mission / WorkOrder / Domain / Flow / Runtime / Harness. Mantem
+   aliases permitidos vs proibidos para impedir naming proliferation.
+
+1. `atlas-documentation-status-cleanup-plan.md`
+   Plano canon 2026-05-18 para reclassificar status de docs sem apagar visao
+   futura. Define taxonomia de 8 status, mapeamento para 5 canonicos do
+   schema e sequencia P0-P3 de flips frontmatter-only com guardrail
+   "Nunca Remover".
+
+1. `atlas-canonical-cleanup-inventory.md`
+   Inventario filesystem-grounded complementar: docs com status duvidoso,
+   naming clusters (Atlas Code / Forge / Router), service overlaps e
+   cleanup seguro sequenciado.
 
 1. `kernel/failure-domain-taxonomy.md`
    Taxonomia canonica de falhas operacionais: FailureDomain, FailureClassifier,
