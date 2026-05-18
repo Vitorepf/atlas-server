@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Escalation;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationDecision;
+use App\Services\AtlasCode\DevToForgePromotionService;
 use InvalidArgumentException;
 
 /**
  * Builds the canonical preview payload Atlas Dev hands off to the human
  * when an {@see EscalationDecision} targets Forge or `obra_candidate`.
  *
- * Atlas Dev NEVER calls {@see \App\Services\AtlasCode\DevToForgePromotionService}
+ * Atlas Dev NEVER calls {@see DevToForgePromotionService}
  * automatically. The fast path emits this preview payload, persists it as
  * `preview_artifact_path` on the decision and lets the operator submit it
  * through the Attention queue. That keeps the "no auto Obra" invariant
@@ -33,10 +34,23 @@ final class ForgePromotionPreviewBuilder
     public const SCHEMA_VERSION = 'atlas.dev.forge_promotion_preview.v1';
 
     /**
-     * @param  list<string>  $changedFiles    files Atlas Dev observed before
-     *                                        escalating; informational only
-     * @param  list<string>  $contextRefs     repo paths / hashes the human
-     *                                        should review on Forge
+     * @param  list<string>  $changedFiles  files Atlas Dev observed before
+     *                                      escalating; informational only
+     * @param  list<string>  $contextRefs  repo paths / hashes the human
+     *                                     should review on Forge
+     * @param  string|null  $originalUserIntent  when supplied alongside
+     *                                           $promotionReason, the builder
+     *                                           ALSO emits the canonical
+     *                                           `atlas.dev_to_forge.escalation_packet.v1`
+     *                                           under `escalation_packet_v1`.
+     *                                           Optional + additive: legacy
+     *                                           callers see no behavioural
+     *                                           change. Audit ref:
+     *                                           `atlas-dev-forge-relationship-critical-audit.md`.
+     * @param  string|null  $promotionReason  short prose for the canonical packet.
+     * @param  DevToForgeEscalationPacketFactory|null  $packetFactory  optional
+     *                                                                 injection so tests can stub it;
+     *                                                                 defaults to a fresh instance.
      */
     public function build(
         EscalationDecision $decision,
@@ -45,6 +59,9 @@ final class ForgePromotionPreviewBuilder
         array $contextRefs = [],
         ?string $workspaceHash = null,
         ?string $threadId = null,
+        ?string $originalUserIntent = null,
+        ?string $promotionReason = null,
+        ?DevToForgeEscalationPacketFactory $packetFactory = null,
     ): array {
         if (trim($intentSummary) === '') {
             throw new InvalidArgumentException('ForgePromotionPreviewBuilder: intent_summary must not be empty.');
@@ -90,6 +107,29 @@ final class ForgePromotionPreviewBuilder
 
         // Canonical layout: alphabetical keys, stable for hashing/audit.
         ksort($payload);
+
+        // Additive emission of the canonical
+        // `atlas.dev_to_forge.escalation_packet.v1`. Audit (Meta gap P0)
+        // requires Dev→Forge handoffs to carry ONE honest packet. We don't
+        // break the legacy `forge_promotion_preview.v1` payload — we attach
+        // the canonical packet alongside it under a dedicated key so
+        // consumers can migrate without a flag day.
+        if (is_string($originalUserIntent)
+            && trim($originalUserIntent) !== ''
+            && is_string($promotionReason)
+            && trim($promotionReason) !== ''
+        ) {
+            $factory = $packetFactory ?? new DevToForgeEscalationPacketFactory;
+            $packet = $factory->fromEscalationDecision(
+                decision: $decision,
+                originalUserIntent: $originalUserIntent,
+                promotionReason: $promotionReason,
+                normalizedIntent: trim($intentSummary),
+                contextRefs: array_values($contextRefs),
+                contextPackHash: $workspaceHash,
+            );
+            $payload['escalation_packet_v1'] = $packet->toCanonicalArray();
+        }
 
         return $payload;
     }

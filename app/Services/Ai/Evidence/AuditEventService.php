@@ -38,6 +38,17 @@ class AuditEventService
     public const EVENT_OPERATOR_DECISION = 'operator_decision';
 
     /**
+     * Tool Runtime degradation events. Emitted when a Tool Runtime bridge
+     * (Policy or Evidence) falls back or fails — in BOTH strict and lenient
+     * modes — so silent degradation is structurally impossible.
+     *
+     * Canon: docs/engineering-knowledge-base/atlas-architecture-critical-judgment-report.md
+     */
+    public const EVENT_TOOL_POLICY_BRIDGE_DEGRADED = 'tool_policy_bridge_degraded';
+
+    public const EVENT_TOOL_RECEIPT_BRIDGE_DEGRADED = 'tool_receipt_bridge_degraded';
+
+    /**
      * @param  array<string,mixed>  $payload
      */
     public function record(

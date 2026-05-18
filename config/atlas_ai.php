@@ -545,4 +545,60 @@ return [
         'limit' => (int) env('ATLAS_AI_LEDGER_PROJECTION_LIMIT', 500),
         'max_lag_seconds' => (int) env('ATLAS_AI_LEDGER_PROJECTION_MAX_LAG_SECONDS', 900),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tool Runtime · Policy/Evidence strict mode
+    |--------------------------------------------------------------------------
+    |
+    | When `strict_mode` is true, ToolPolicyBridgeService and ToolReceiptService
+    | refuse to silently degrade: they throw `ToolPolicyEnforcementException`
+    | / `ToolReceiptEmissionException` when the Policy/Evidence bridges are
+    | unavailable or throw. Production MUST run strict.
+    |
+    | When false (the legacy default kept for local dev / isolated workspaces),
+    | bridges still record a structured `Log::warning` AND a
+    | `tool_policy_bridge_degraded` / `tool_receipt_bridge_degraded` audit
+    | event if the Evidence ledger is reachable — fallbacks are NEVER silent.
+    |
+    | Canon: docs/engineering-knowledge-base/atlas-architecture-critical-judgment-report.md
+    |        section "Tool Policy/Evidence bridges são tolerantes (silent degrade)"
+    */
+    'tool_runtime' => [
+        'strict_mode' => (bool) env('ATLAS_AI_TOOL_RUNTIME_STRICT', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AiWorker → Kernel integration (Phase 1)
+    |--------------------------------------------------------------------------
+    |
+    | Phase 1 of the canonical integration declared in
+    | `docs/engineering-knowledge-base/atlas-aiworker-kernel-integration-adr.md`.
+    |
+    | When `enabled` is true, `AiGatewayService::enqueueInteraction` records a
+    | canonical `atlas.ai.aiworker.kernel_envelope.v1` (mission_id +
+    | optionally objective_id / work_order_id) into `ai_traces.metadata.kernel`
+    | and `ai_jobs.payload.kernel`, BEFORE the legacy worker pipeline runs.
+    | The legacy worker path (AiProviderManager, AiPermissionEngine,
+    | AtlasEvidenceLedger legacy) keeps running untouched — Phase 1 is
+    | observability + linkage, not enforcement.
+    |
+    | When `enabled` is false (the production default until Phase 6 lands),
+    | the bridge skips Mission creation entirely; the HTTP path behaves
+    | exactly like before. This is the operator kill-switch.
+    |
+    | Trivial prompts skip Mission decomposition/work_orders even when
+    | enabled — see `trivial_skips_kernel` — so `ai_missions` is not flooded
+    | with ping/explain traffic.
+    |
+    | Failures inside the bridge NEVER bubble back to the gateway: any error
+    | is captured into a structured `Log::warning` plus a stub envelope
+    | (`kernel_bridge_error`) so the legacy path proceeds and the failure
+    | remains auditable.
+    */
+    'kernel_http_integration' => [
+        'enabled' => (bool) env('ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED', false),
+        'trivial_skips_kernel' => (bool) env('ATLAS_AI_KERNEL_HTTP_TRIVIAL_SKIPS', true),
+    ],
 ];

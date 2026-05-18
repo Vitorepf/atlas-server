@@ -54,6 +54,7 @@ class AiGatewayService
         private readonly AtlasFileAttachmentService $fileAttachments,
         private readonly YouTubeKnowledgeIngestionService $youtubeKnowledge,
         private readonly AiStreamRecorder $stream,
+        private readonly \App\Services\Ai\Mission\AiGatewayMissionBridge $missionBridge,
     ) {}
 
     public function enqueueInteraction(string $input, array $options = []): AiTrace
@@ -150,7 +151,21 @@ class AiGatewayService
         $options = $this->optionsWithAtlasExecutionActivation($options, $scoutGate);
         $now = now();
 
-        return DB::transaction(function () use ($input, $options, $prompt, $provider, $model, $modelResolution, $scoutGate, $now, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff): AiTrace {
+        // ── Atlas AiWorker → Kernel · Phase 1 bridge ─────────────────────────
+        // Behind `atlas_ai.kernel_http_integration.enabled` (default false).
+        // Records a canonical `atlas.ai.aiworker.kernel_envelope.v1` so the
+        // trace + job carry `mission_id` / `objective_id` / `work_order_id`
+        // for Phase 2-6 wires. The bridge is contractually non-throwing —
+        // failures convert into a stub envelope so the legacy worker path
+        // proceeds unchanged. Canon: atlas-aiworker-kernel-integration-adr.md.
+        $kernelEnvelope = $this->missionBridge->buildEnvelope($input, [
+            'autonomy_level' => $options['autonomy_level'] ?? null,
+            'risk_level' => $options['risk_level'] ?? null,
+            'primary_domain' => $options['primary_domain'] ?? null,
+            'actor_type' => 'ai_gateway',
+        ]);
+
+        return DB::transaction(function () use ($input, $options, $prompt, $provider, $model, $modelResolution, $scoutGate, $now, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff, $kernelEnvelope): AiTrace {
             $lockedThread = $this->lockThreadForTrace($threadResolution);
             $lockedSession = $this->lockSessionForTrace($session);
             $decisionReceipt = $this->decisionReceiptForTrace($this->optionsWithPromptContracts($options, $prompt), $provider, $model);
@@ -192,6 +207,7 @@ class AiGatewayService
                     ...$this->programmingMetadata($options),
                     'decision_receipt' => $decisionReceipt,
                     'atlas_decide_execution' => $atlasExecution,
+                    'kernel' => $kernelEnvelope,
                 ],
             ]);
 
@@ -222,6 +238,7 @@ class AiGatewayService
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
                     'decision_receipt' => $decisionReceipt,
+                    'kernel' => $kernelEnvelope,
                 ],
                 'available_at' => $executorAvailableAt,
                 'max_attempts' => (int) ($options['max_attempts'] ?? config('atlas.ai.max_attempts', 1)),
@@ -244,6 +261,7 @@ class AiGatewayService
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
                     ...$this->programmingMetadata($options),
                     'decision_receipt' => $decisionReceipt,
+                    'kernel' => $kernelEnvelope,
                 ],
             ]);
             if ($scoutGate['enabled']) {
