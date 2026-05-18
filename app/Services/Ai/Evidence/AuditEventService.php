@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Evidence;
 
 use App\Models\AiAuditEvent;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AuditEventService
@@ -50,6 +51,7 @@ class AuditEventService
 
     /**
      * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $timeline  Optional TEOS-I1 fields: scope_type, scope_id, correlation_id, causation_id.
      */
     public function record(
         string $eventType,
@@ -58,6 +60,7 @@ class AuditEventService
         array $payload,
         string $actorType = 'system',
         ?string $missionId = null,
+        array $timeline = [],
     ): AiAuditEvent {
         $hashInput = [
             'event_type' => $eventType,
@@ -68,7 +71,27 @@ class AuditEventService
             'mission_id' => $missionId,
         ];
 
-        return AiAuditEvent::query()->create([
+        $scopeType = $this->stringOrNull($timeline['scope_type'] ?? null);
+        $scopeId = $this->stringOrNull($timeline['scope_id'] ?? null);
+        $correlationId = $this->stringOrNull($timeline['correlation_id'] ?? null);
+        $causationId = $this->stringOrNull($timeline['causation_id'] ?? null);
+
+        // Only fold timeline fields into the hash when at least one is provided.
+        // Back-compat: legacy callers continue to produce the original event_hash.
+        $hasTimelineSignal = $scopeType !== null
+            || $scopeId !== null
+            || $correlationId !== null
+            || $causationId !== null;
+        if ($hasTimelineSignal) {
+            $hashInput['timeline'] = array_filter([
+                'scope_type' => $scopeType,
+                'scope_id' => $scopeId,
+                'correlation_id' => $correlationId,
+                'causation_id' => $causationId,
+            ], static fn (mixed $value): bool => $value !== null);
+        }
+
+        $row = [
             'uuid' => (string) Str::uuid(),
             'event_type' => $eventType,
             'target_type' => $targetType,
@@ -77,6 +100,31 @@ class AuditEventService
             'payload' => $payload,
             'event_hash' => EvidenceCanonicalHash::sha256($hashInput),
             'mission_id' => $missionId,
-        ]);
+        ];
+
+        if (Schema::hasColumn('ai_audit_events', 'scope_type')) {
+            $row['scope_type'] = $scopeType;
+        }
+        if (Schema::hasColumn('ai_audit_events', 'scope_id')) {
+            $row['scope_id'] = $scopeId;
+        }
+        if (Schema::hasColumn('ai_audit_events', 'correlation_id')) {
+            $row['correlation_id'] = $correlationId;
+        }
+        if (Schema::hasColumn('ai_audit_events', 'causation_id')) {
+            $row['causation_id'] = $causationId;
+        }
+
+        return AiAuditEvent::query()->create($row);
+    }
+
+    private function stringOrNull(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 }

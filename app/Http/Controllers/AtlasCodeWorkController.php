@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\AiThread;
 use App\Models\AiDecision;
+use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasEngineeringRun;
@@ -13,17 +13,25 @@ use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Models\AtlasToolRun;
-use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService;
+use App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService;
 use App\Services\Ai\Programming\AtlasCodeForgeUxOrchestratorService;
+use App\Services\Ai\Programming\AtlasCodeForgeWorkIntakeService;
+use App\Services\Ai\Programming\AtlasCodeObraCommandCenterService;
 use App\Services\Ai\Programming\AtlasForgeContinuumCertificationService;
+use App\Services\Ai\Programming\AtlasForgeProviderCapacityService;
+use App\Services\Ai\Programming\AtlasForgeProviderFailureMemoryService;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService;
 use App\Services\Ai\Programming\Governance\ProgrammingScopeMode;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementStrategyPortfolioService;
+use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -73,6 +81,7 @@ final class AtlasCodeWorkController extends Controller
         if ($resolvedFilter !== null) {
             $projects = $projects->filter(function (AtlasProject $project) use ($resolvedFilter, $defaultSlug): bool {
                 $slug = $this->workspaceSlugFor($project, $defaultSlug);
+
                 return $slug === $resolvedFilter;
             });
         }
@@ -105,11 +114,38 @@ final class AtlasCodeWorkController extends Controller
             'domain' => ['nullable', 'string', 'max:80'],
             'title' => ['nullable', 'string', 'max:180'],
             'workspace_slug' => ['nullable', 'string', 'max:120'],
+            // Atlas Unified Rich Input adapter. All sub-fields are optional —
+            // plain-text Obra creation must continue to work untouched.
+            'rich_input' => ['nullable', 'array'],
+            'rich_input.uploaded_images' => ['nullable', 'array', 'max:8'],
+            'rich_input.uploaded_images.*' => ['string', 'max:120', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'rich_input.uploaded_documents' => ['nullable', 'array', 'max:4'],
+            'rich_input.uploaded_documents.*' => ['string', 'max:120', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'rich_input.url_attachments' => ['nullable', 'array', 'max:16'],
+            'rich_input.url_attachments.*' => ['array'],
+            'rich_input.url_attachments.*.url' => ['required_with:rich_input.url_attachments.*', 'string', 'max:2048'],
+            'rich_input.url_attachments.*.kind' => ['nullable', 'string', 'max:40'],
+            'rich_input.url_attachments.*.title' => ['nullable', 'string', 'max:240'],
+            'rich_input.url_attachments.*.author' => ['nullable', 'string', 'max:240'],
+            'rich_input.url_attachments.*.duration_sec' => ['nullable', 'integer', 'min:0'],
+            'rich_input.url_attachments.*.thumbnail_url' => ['nullable', 'string', 'max:2048'],
+            'rich_input.url_attachments.*.ref_id' => ['nullable', 'string', 'max:120'],
+            'rich_input.text_blocks' => ['nullable', 'array', 'max:8'],
+            'rich_input.text_blocks.*' => ['array'],
+            'rich_input.text_blocks.*.file_name' => ['nullable', 'string', 'max:240'],
+            'rich_input.text_blocks.*.mime_type' => ['nullable', 'string', 'max:120'],
+            'rich_input.text_blocks.*.language' => ['nullable', 'string', 'max:40'],
+            'rich_input.text_blocks.*.content' => ['required_with:rich_input.text_blocks.*', 'string', 'max:200000'],
+            'rich_input.text_blocks.*.page_count' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $profiles = app(AtlasCodeWorkspaceProfileService::class);
         $workspaceSlug = $profiles->resolveActiveSlug($data['workspace_slug'] ?? null);
         $profile = $workspaceSlug !== null ? $profiles->findBySlug($workspaceSlug) : null;
+
+        $richInput = $this->normaliseRichInput((array) ($data['rich_input'] ?? []));
+        $hasRichInput = $this->richInputHasContent($richInput);
+        $contextRefs = $this->deriveRichInputContextRefs($richInput);
 
         $title = trim((string) ($data['title'] ?? $data['objective']));
         $project = AtlasProject::query()->create([
@@ -128,12 +164,136 @@ final class AtlasCodeWorkController extends Controller
                 'workspace_path' => $profile['workspace_path'] ?? null,
                 'workspace_name' => $profile['name'] ?? null,
                 'workspace_production_status' => $profile['production_status'] ?? null,
+                // Atlas Unified Rich Input is persisted as evidence-style
+                // structural metadata. We deliberately do NOT promote the
+                // Obra to a "ready intake" just because attachments were
+                // supplied — `forge_work_intake_ready` stays false here.
+                'rich_input' => $hasRichInput ? $richInput : null,
+                'rich_input_has_attachments' => $hasRichInput,
+                'context_refs' => $contextRefs !== [] ? $contextRefs : null,
+                'forge_work_intake_ready' => false,
             ], static fn ($v): bool => $v !== null && $v !== ''),
         ]);
 
         return response()->json([
             'work' => $this->shape($project, withDetail: true),
         ], 201);
+    }
+
+    /**
+     * Normalise the raw rich_input payload into a stable, provider-safe shape.
+     * Drops empty sub-arrays so absent attachments don't pollute metadata.
+     *
+     * @param  array<string,mixed>  $raw
+     * @return array<string,mixed>
+     */
+    private function normaliseRichInput(array $raw): array
+    {
+        $uploadedImages = array_values(array_filter(
+            (array) ($raw['uploaded_images'] ?? []),
+            static fn ($v): bool => is_string($v) && $v !== '',
+        ));
+        $uploadedDocuments = array_values(array_filter(
+            (array) ($raw['uploaded_documents'] ?? []),
+            static fn ($v): bool => is_string($v) && $v !== '',
+        ));
+
+        $urlAttachments = [];
+        foreach ((array) ($raw['url_attachments'] ?? []) as $attachment) {
+            if (! is_array($attachment) || ! is_string($attachment['url'] ?? null)) {
+                continue;
+            }
+            $urlAttachments[] = [
+                'url' => (string) $attachment['url'],
+                'kind' => isset($attachment['kind']) && is_string($attachment['kind']) ? $attachment['kind'] : 'generic',
+                'title' => isset($attachment['title']) && is_string($attachment['title']) ? $attachment['title'] : null,
+                'author' => isset($attachment['author']) && is_string($attachment['author']) ? $attachment['author'] : null,
+                'duration_sec' => is_numeric($attachment['duration_sec'] ?? null) ? (int) $attachment['duration_sec'] : null,
+                'thumbnail_url' => isset($attachment['thumbnail_url']) && is_string($attachment['thumbnail_url']) ? $attachment['thumbnail_url'] : null,
+                'ref_id' => isset($attachment['ref_id']) && is_string($attachment['ref_id']) ? $attachment['ref_id'] : null,
+                // Deterministic hash for evidence/context refs without echoing
+                // any operator secret. Same url+ref_id always produces the
+                // same hash, so Forge Intake can dedupe deterministically.
+                'content_hash' => hash('sha256', (string) $attachment['url'].'|'.((string) ($attachment['ref_id'] ?? ''))),
+            ];
+        }
+
+        $textBlocks = [];
+        foreach ((array) ($raw['text_blocks'] ?? []) as $block) {
+            if (! is_array($block) || ! is_string($block['content'] ?? null) || $block['content'] === '') {
+                continue;
+            }
+            $content = (string) $block['content'];
+            $textBlocks[] = [
+                'file_name' => isset($block['file_name']) && is_string($block['file_name']) ? $block['file_name'] : 'block.txt',
+                'mime_type' => isset($block['mime_type']) && is_string($block['mime_type']) ? $block['mime_type'] : 'text/plain',
+                'language' => isset($block['language']) && is_string($block['language']) ? $block['language'] : null,
+                // Persist only metadata + a deterministic content_hash; the
+                // raw body lives in the chunked upload store / receipt.
+                'content_hash' => hash('sha256', $content),
+                'content_length' => mb_strlen($content),
+                'page_count' => is_numeric($block['page_count'] ?? null) ? (int) $block['page_count'] : null,
+            ];
+        }
+
+        return array_filter([
+            'schema_version' => 'atlas.unified_rich_input.adapter.v1',
+            'uploaded_images' => $uploadedImages !== [] ? $uploadedImages : null,
+            'uploaded_documents' => $uploadedDocuments !== [] ? $uploadedDocuments : null,
+            'url_attachments' => $urlAttachments !== [] ? $urlAttachments : null,
+            'text_blocks' => $textBlocks !== [] ? $textBlocks : null,
+        ], static fn ($v): bool => $v !== null);
+    }
+
+    /**
+     * @param  array<string,mixed>  $richInput
+     */
+    private function richInputHasContent(array $richInput): bool
+    {
+        foreach (['uploaded_images', 'uploaded_documents', 'url_attachments', 'text_blocks'] as $key) {
+            if (is_array($richInput[$key] ?? null) && $richInput[$key] !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Project the rich_input into a flat, append-only list of evidence/context
+     * refs so downstream Forge Intake can audit attachment provenance without
+     * walking the full nested structure.
+     *
+     * @param  array<string,mixed>  $richInput
+     * @return list<string>
+     */
+    private function deriveRichInputContextRefs(array $richInput): array
+    {
+        $refs = [];
+        foreach ((array) ($richInput['uploaded_images'] ?? []) as $id) {
+            if (is_string($id) && $id !== '') {
+                $refs[] = 'image_asset:'.$id;
+            }
+        }
+        foreach ((array) ($richInput['uploaded_documents'] ?? []) as $id) {
+            if (is_string($id) && $id !== '') {
+                $refs[] = 'document_asset:'.$id;
+            }
+        }
+        foreach ((array) ($richInput['url_attachments'] ?? []) as $attachment) {
+            $hash = is_array($attachment) ? ($attachment['content_hash'] ?? null) : null;
+            if (is_string($hash) && $hash !== '') {
+                $refs[] = 'url:'.$hash;
+            }
+        }
+        foreach ((array) ($richInput['text_blocks'] ?? []) as $block) {
+            $hash = is_array($block) ? ($block['content_hash'] ?? null) : null;
+            if (is_string($hash) && $hash !== '') {
+                $refs[] = 'text_block:'.$hash;
+            }
+        }
+
+        return array_values(array_unique($refs));
     }
 
     public function state(AtlasProject $project): JsonResponse
@@ -245,6 +405,7 @@ final class AtlasCodeWorkController extends Controller
         if (! $withDetail) {
             return $base;
         }
+
         return array_merge($base, [
             'description' => (string) ($project->description ?? ''),
             'next_action' => (string) ($project->next_action ?? ''),
@@ -326,8 +487,10 @@ final class AtlasCodeWorkController extends Controller
             if (isset($content['text']) && is_string($content['text'])) {
                 return $content['text'];
             }
+
             return (string) json_encode($content, JSON_UNESCAPED_UNICODE);
         }
+
         return '';
     }
 
@@ -356,6 +519,7 @@ final class AtlasCodeWorkController extends Controller
             ['key' => 'verify', 'label' => 'Verify', 'status' => $this->stepStatus('verify', $stage)],
             ['key' => 'learn', 'label' => 'Learn', 'status' => $this->stepStatus('learn', $stage)],
         ];
+
         return [
             'stage' => $stage,
             'steps' => $steps,
@@ -378,6 +542,7 @@ final class AtlasCodeWorkController extends Controller
         if ($stepIdx === $currentIdx) {
             return 'active';
         }
+
         return 'pending';
     }
 
@@ -511,7 +676,7 @@ final class AtlasCodeWorkController extends Controller
 
         foreach ($engineeringRuns as $run) {
             $runs->push([
-                'id' => 'engineering:' . $run->id,
+                'id' => 'engineering:'.$run->id,
                 'tool_slug' => 'engineering_run',
                 'status' => (string) ($run->status ?? $run->decision ?? 'pending'),
                 'message' => (string) ($run->decision ?? ''),
@@ -541,15 +706,15 @@ final class AtlasCodeWorkController extends Controller
 
         return collect()
             ->merge($runs->map(fn (AtlasEngineeringRun $run): array => [
-                'id' => 'run:' . $run->id,
+                'id' => 'run:'.$run->id,
                 'kind' => 'engineering_run',
                 'summary' => sprintf('engineering run %s · %s', substr((string) $run->id, 0, 8), (string) ($run->status ?? 'unknown')),
                 'createdAt' => ($run->finished_at ?? $run->updated_at)?->toJSON(),
             ]))
             ->merge($evidence->map(fn (AtlasEngineeringEvidence $item): array => [
-                'id' => 'evidence:' . $item->id,
+                'id' => 'evidence:'.$item->id,
                 'kind' => (string) ($item->evidence_type ?? 'evidence'),
-                'summary' => (string) ($item->summary ?? $item->output_excerpt ?? 'evidence ' . $item->id),
+                'summary' => (string) ($item->summary ?? $item->output_excerpt ?? 'evidence '.$item->id),
                 'createdAt' => ($item->recorded_at ?? $item->created_at)?->toJSON(),
             ]))
             ->sortByDesc(fn (array $item): string => (string) ($item['createdAt'] ?? ''))
@@ -645,9 +810,9 @@ final class AtlasCodeWorkController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int,array<string,mixed>>
+     * @return Collection<int,array<string,mixed>>
      */
-    private function forgeLiveExecutionHistoryFromEvidence(AtlasProject $project): \Illuminate\Support\Collection
+    private function forgeLiveExecutionHistoryFromEvidence(AtlasProject $project): Collection
     {
         if (! Schema::hasTable('atlas_engineering_evidence')
             || ! Schema::hasColumn('atlas_engineering_evidence', 'project_id')
@@ -678,7 +843,7 @@ final class AtlasCodeWorkController extends Controller
                     'last_run_at' => ($evidence->recorded_at ?? $evidence->created_at)?->toJSON(),
                 ];
 
-                $entry['history_id'] = 'evidence:' . (string) $evidence->id;
+                $entry['history_id'] = 'evidence:'.(string) $evidence->id;
                 $entry['evidence_id'] = $entry['evidence_id'] ?? (string) $evidence->id;
 
                 return $this->forgeLiveExecutionHistoryEntry($entry);
@@ -796,12 +961,12 @@ final class AtlasCodeWorkController extends Controller
         }
 
         try {
-            $service = app(\App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService::class);
+            $service = app(AtlasCodeForgeReviewCompletionService::class);
             $payload = $service->packet($project, $runId);
             unset($payload['http_status']);
 
             return $payload;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return $packet;
         }
     }
@@ -812,8 +977,8 @@ final class AtlasCodeWorkController extends Controller
     private function forgeWorkIntakeForWork(AtlasProject $project): ?array
     {
         try {
-            return app(\App\Services\Ai\Programming\AtlasCodeForgeWorkIntakeService::class)->get($project);
-        } catch (\Throwable) {
+            return app(AtlasCodeForgeWorkIntakeService::class)->get($project);
+        } catch (Throwable) {
             $latest = data_get($project->metadata, 'latest_atlas_code_forge_work_intake');
 
             return is_array($latest) ? $latest : null;
@@ -830,10 +995,10 @@ final class AtlasCodeWorkController extends Controller
             $runId = (string) ($latestClaim['fast_path_run_id'] ?? '');
             if ($runId !== '') {
                 try {
-                    $service = app(\App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService::class);
+                    $service = app(AtlasCodeForgeReviewCompletionService::class);
 
                     return $service->completionClaim($project, $runId);
-                } catch (\Throwable) {
+                } catch (Throwable) {
                     return $latestClaim;
                 }
             }
@@ -990,9 +1155,9 @@ final class AtlasCodeWorkController extends Controller
     private function selfImprovementGovernanceForWork(AtlasProject $project): ?array
     {
         try {
-            $trustLedger = app(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::class)
+            $trustLedger = app(AtlasSelfImprovementHumanTrustLedgerService::class)
                 ->snapshot($project);
-            $portfolio = app(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementStrategyPortfolioService::class)
+            $portfolio = app(AtlasSelfImprovementStrategyPortfolioService::class)
                 ->snapshot([]);
 
             return [
@@ -1010,7 +1175,7 @@ final class AtlasCodeWorkController extends Controller
                 'external_provider_call' => false,
                 'separated_from' => 'external_rivals_certification',
             ];
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return null;
         }
     }
@@ -1021,9 +1186,9 @@ final class AtlasCodeWorkController extends Controller
     private function forgeProviderCapacityForWork(AtlasProject $project): ?array
     {
         try {
-            return app(\App\Services\Ai\Programming\AtlasForgeProviderCapacityService::class)
+            return app(AtlasForgeProviderCapacityService::class)
                 ->snapshot(['obra_id' => (string) $project->getKey()]);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return null;
         }
     }
@@ -1034,9 +1199,9 @@ final class AtlasCodeWorkController extends Controller
     private function forgeProviderFailureMemoryForWork(AtlasProject $project): ?array
     {
         try {
-            return app(\App\Services\Ai\Programming\AtlasForgeProviderFailureMemoryService::class)
+            return app(AtlasForgeProviderFailureMemoryService::class)
                 ->snapshot($project);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return null;
         }
     }
@@ -1107,7 +1272,7 @@ final class AtlasCodeWorkController extends Controller
     private function obraCommandCenterForWork(AtlasProject $project): ?array
     {
         try {
-            return app(\App\Services\Ai\Programming\AtlasCodeObraCommandCenterService::class)->snapshot([
+            return app(AtlasCodeObraCommandCenterService::class)->snapshot([
                 'obra_id' => (string) $project->getKey(),
             ]);
         } catch (Throwable $e) {

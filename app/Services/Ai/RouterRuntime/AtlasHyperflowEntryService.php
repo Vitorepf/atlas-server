@@ -1,0 +1,291 @@
+<?php
+
+namespace App\Services\Ai\RouterRuntime;
+
+use App\Models\AiAtlasDecisionReceipt;
+use App\Models\AiAtlasFlowRoute;
+use App\Models\AiAtlasIntentClassification;
+use App\Models\AiAtlasRouterDecision;
+use App\Models\AiAtlasRuntimeDispatch;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
+
+/**
+ * AtlasHyperflowEntryService is the canonical entry orchestrator for the
+ * Atlas AI Desktop / Mobile gateway.
+ *
+ * It composes the 5 RouterRuntime services in sequence:
+ *
+ *   IntentKernelService      → atlas.ai.intent_classification.v1
+ *   DomainRouterService      → atlas.ai.router_decision.v1
+ *   FlowRouterService        → atlas.ai.flow_route.v1
+ *   RuntimeDispatchService   → atlas.ai.runtime_dispatch.v1
+ *   DecisionReceiptService   → atlas.ai.decision_receipt.v1
+ *
+ * It is intentionally additive: callers (today the AiInteractionController)
+ * invoke {@see run()} BEFORE the legacy `AtlasAiRouterService::decide()` so
+ * non-programming intents (research, finance, marketing, cyber, …) get a
+ * canonical Hyperflow envelope without breaking the legacy decision
+ * shape that programming flows still rely on.
+ *
+ * Invariants:
+ *  - never invokes a provider or external API;
+ *  - never executes Dev/Forge — produces a planned/simulated/blocked
+ *    dispatch the downstream runtime services can pick up;
+ *  - idempotent: a payload that already carries
+ *    `hyperflow_runtime.schema_version` short-circuits to the existing
+ *    envelope;
+ *  - table-safe: persistence is wrapped in `Schema::hasTable` checks +
+ *    try/catch so legacy tests that boot without the 5 RouterRuntime
+ *    tables still pass.
+ */
+class AtlasHyperflowEntryService
+{
+    public const SCHEMA_VERSION = 'atlas.ai.hyperflow_runtime.v1';
+
+    public const SOURCE_GATEWAY = 'ai_interaction_gateway';
+
+    /**
+     * Programming flows that downstream Dev/Forge handoff consumes.
+     *
+     * @var list<string>
+     */
+    private const PROGRAMMING_HANDOFF_FLOWS = [
+        'atlas_dev',
+        'atlas_debug',
+        'atlas_review',
+        'atlas_forge',
+    ];
+
+    public function __construct(
+        private readonly IntentKernelService $intentKernel,
+        private readonly DomainRouterService $domainRouter,
+        private readonly FlowRouterService $flowRouter,
+        private readonly RuntimeDispatchService $runtimeDispatch,
+        private readonly DecisionReceiptService $decisionReceipts,
+    ) {}
+
+    /**
+     * Run the canonical Hyperflow entry path over a gateway payload.
+     *
+     * @param  array<string,mixed>  $data  shape mirrors
+     *                                     `AiInteractionController::store`'s validated payload: must carry
+     *                                     `input_text` (string) and may carry `payload`, `source_type`, etc.
+     * @return array<string,mixed> the same `$data` with a
+     *                             `payload.hyperflow_runtime` envelope appended (or unchanged when
+     *                             already present, or `payload.hyperflow_runtime.error` when the
+     *                             pipeline degrades).
+     */
+    public function run(array $data): array
+    {
+        if (! $this->canPersist()) {
+            return $this->withFallbackEnvelope($data, 'router_runtime_tables_unavailable');
+        }
+
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        if ($this->envelopeAlreadyPresent($payload)) {
+            return $data;
+        }
+
+        $rawInput = is_string($data['input_text'] ?? null) ? (string) $data['input_text'] : '';
+        if (trim($rawInput) === '') {
+            return $this->withFallbackEnvelope($data, 'empty_input_text');
+        }
+
+        try {
+            $intent = $this->intentKernel->classify($rawInput, [
+                'mission_id' => $data['mission_id'] ?? null,
+                'source' => self::SOURCE_GATEWAY,
+            ]);
+            $routerDecision = $this->domainRouter->route($intent);
+            $flowRoute = $this->flowRouter->decideFlow($routerDecision, $intent);
+            $dispatch = $this->runtimeDispatch->dispatch($routerDecision, $flowRoute, $intent);
+            $routerReceipt = $this->decisionReceipts->recordRouterDecision($routerDecision);
+            $dispatchReceipt = $this->decisionReceipts->recordRuntimeDispatch($dispatch, $routerDecision);
+        } catch (Throwable $exception) {
+            return $this->withFallbackEnvelope($data, 'hyperflow_pipeline_threw', [
+                'exception_class' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+
+        $envelope = $this->buildEnvelope(
+            intent: $intent,
+            routerDecision: $routerDecision,
+            flowRoute: $flowRoute,
+            dispatch: $dispatch,
+            routerReceipt: $routerReceipt,
+            dispatchReceipt: $dispatchReceipt,
+        );
+
+        $payload['hyperflow_runtime'] = $envelope;
+        $data['payload'] = $payload;
+
+        return $data;
+    }
+
+    /**
+     * Convenience predicate so the controller can decide whether to add
+     * `routing_task`/`atlas_mode` based on the canonical decision before
+     * falling back to the legacy router.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    public function envelopeAlreadyPresent(array $payload): bool
+    {
+        $envelope = $payload['hyperflow_runtime'] ?? null;
+
+        return is_array($envelope) && is_string($envelope['schema_version'] ?? null)
+            && (string) $envelope['schema_version'] === self::SCHEMA_VERSION;
+    }
+
+    private function canPersist(): bool
+    {
+        foreach ([
+            'ai_atlas_intent_classifications',
+            'ai_atlas_router_decisions',
+            'ai_atlas_flow_routes',
+            'ai_atlas_runtime_dispatches',
+            'ai_atlas_decision_receipts',
+        ] as $table) {
+            if (! Schema::hasTable($table)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $detail
+     * @return array<string,mixed>
+     */
+    private function withFallbackEnvelope(array $data, string $reason, array $detail = []): array
+    {
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        if ($this->envelopeAlreadyPresent($payload)) {
+            return $data;
+        }
+        $payload['hyperflow_runtime'] = [
+            'schema_version' => self::SCHEMA_VERSION,
+            'status' => 'degraded',
+            'error' => $reason,
+            'detail' => $detail,
+        ];
+        $data['payload'] = $payload;
+
+        return $data;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function buildEnvelope(
+        AiAtlasIntentClassification $intent,
+        AiAtlasRouterDecision $routerDecision,
+        AiAtlasFlowRoute $flowRoute,
+        AiAtlasRuntimeDispatch $dispatch,
+        AiAtlasDecisionReceipt $routerReceipt,
+        AiAtlasDecisionReceipt $dispatchReceipt,
+    ): array {
+        $handoffTarget = $this->resolveHandoffTarget(
+            primaryDomain: (string) $routerDecision->primary_domain,
+            flowId: (string) $flowRoute->flow_id,
+            routingMode: (string) $routerDecision->routing_mode,
+        );
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'status' => 'ready',
+            'source' => self::SOURCE_GATEWAY,
+            'intent' => [
+                'uuid' => $intent->uuid,
+                'type' => $intent->intent_type,
+                'confidence' => (float) ($intent->confidence ?? 0.0),
+                'ambiguity_score' => (float) ($intent->ambiguity_score ?? 0.0),
+                'matched_keywords' => (array) ($intent->signals['matched_keywords'] ?? []),
+                'normalized_intent' => $intent->normalized_intent,
+            ],
+            'primary_domain' => $routerDecision->primary_domain,
+            'secondary_domains' => array_values((array) ($routerDecision->secondary_domains ?? [])),
+            'flow_id' => $flowRoute->flow_id,
+            'flow_profile' => $flowRoute->flow_profile,
+            'runtime_mode' => $routerDecision->routing_mode,
+            'routing_confidence' => (float) ($intent->confidence ?? 0.0),
+            'policy_required' => (bool) $routerDecision->policy_required,
+            'evidence_required' => (bool) $routerDecision->evidence_required,
+            'tool_plan_required' => (bool) $routerDecision->tool_plan_required,
+            'required_gates' => array_values((array) ($flowRoute->required_gates ?? [])),
+            'expected_capabilities' => array_values((array) ($flowRoute->expected_capabilities ?? [])),
+            'fallback_flows' => array_values((array) ($flowRoute->fallback_flows ?? [])),
+            'router_decision' => [
+                'uuid' => $routerDecision->uuid,
+                'id' => $routerDecision->id,
+                'status' => $routerDecision->status,
+                'reason' => (array) ($routerDecision->decision_reason ?? []),
+                'receipt_hash' => $routerDecision->receipt_hash,
+            ],
+            'flow_route' => [
+                'uuid' => $flowRoute->uuid,
+                'id' => $flowRoute->id,
+                'status' => $flowRoute->status,
+            ],
+            'dispatch' => [
+                'uuid' => $dispatch->uuid,
+                'id' => $dispatch->id,
+                'dispatch_target' => $dispatch->dispatch_target,
+                'dispatch_status' => $dispatch->dispatch_status,
+                'blockers' => array_values((array) ($dispatch->blockers ?? [])),
+                'receipt_hash' => $dispatch->receipt_hash,
+            ],
+            'dispatch_status' => $dispatch->dispatch_status,
+            'handoff_target' => $handoffTarget,
+            'decision_receipt' => [
+                'router_decision_receipt' => [
+                    'id' => $routerReceipt->id,
+                    'uuid' => $routerReceipt->uuid,
+                    'receipt_type' => $routerReceipt->receipt_type,
+                    'receipt_hash' => $routerReceipt->receipt_hash,
+                ],
+                'runtime_dispatch_receipt' => [
+                    'id' => $dispatchReceipt->id,
+                    'uuid' => $dispatchReceipt->uuid,
+                    'receipt_type' => $dispatchReceipt->receipt_type,
+                    'receipt_hash' => $dispatchReceipt->receipt_hash,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Programming flows (`atlas_dev`, `atlas_debug`, `atlas_review`,
+     * `atlas_forge`) translate into a Desktop-consumable hand-off hint so
+     * the surface can switch the composer to programming mode AFTER the
+     * canonical decision was made — never as a primary input bias.
+     */
+    private function resolveHandoffTarget(string $primaryDomain, string $flowId, string $routingMode): ?array
+    {
+        if (in_array($flowId, self::PROGRAMMING_HANDOFF_FLOWS, true)) {
+            return [
+                'kind' => $flowId === 'atlas_forge' ? 'atlas_forge' : 'atlas_dev',
+                'flow_id' => $flowId,
+                'reason' => 'hyperflow_programming_flow_handoff',
+                'routing_mode' => $routingMode,
+            ];
+        }
+
+        // Non-programming primary domain → no hand-off; the Hyperflow envelope
+        // alone is the contract for the surface to compose its UX.
+        if ($primaryDomain === 'programming') {
+            return [
+                'kind' => 'atlas_dev',
+                'flow_id' => $flowId,
+                'reason' => 'programming_domain_default_handoff',
+                'routing_mode' => $routingMode,
+            ];
+        }
+
+        return null;
+    }
+}

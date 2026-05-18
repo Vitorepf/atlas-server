@@ -209,6 +209,11 @@ class AiGatewayService
                     'decision_receipt' => $decisionReceipt,
                     'atlas_decide_execution' => $atlasExecution,
                     'kernel' => $kernelEnvelope,
+                    // Canonical Atlas AI Hyperflow / RouterRuntime envelope
+                    // built by AtlasHyperflowEntryService BEFORE the legacy
+                    // router. Surface (Atlas AI Desktop / Mobile) consumes it
+                    // via the `hyperflow_runtime` field on AiTraceResource.
+                    'hyperflow_runtime' => data_get($options, 'payload.hyperflow_runtime'),
                 ],
             ]);
 

@@ -137,6 +137,15 @@ trait CreatesAtlasSddTables
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('revoked_at')->nullable();
             $table->string('revoked_reason', 255)->nullable();
+            // TEOS-I1 / M2 — Temporal Truth Fields (all nullable; back-compat).
+            $table->timestamp('valid_from')->nullable();
+            $table->timestamp('valid_until')->nullable();
+            $table->timestamp('observed_at')->nullable();
+            $table->timestamp('verified_at')->nullable();
+            $table->timestamp('stale_after')->nullable()->index();
+            $table->string('source_hash', 64)->nullable();
+            $table->uuid('superseded_by')->nullable()->index();
+            $table->string('authority_level', 40)->nullable()->index();
             $table->timestamps();
         });
 

@@ -21,6 +21,10 @@ class AiAuditEvent extends Model
         'payload',
         'event_hash',
         'mission_id',
+        'scope_type',
+        'scope_id',
+        'correlation_id',
+        'causation_id',
     ];
 
     protected function casts(): array

@@ -99,6 +99,41 @@ final class VoxEvidenceService
     }
 
     /**
+     * Emitted only in mode=prompt_polish, AFTER intentCompiled and BEFORE
+     * policyEvaluated, to surface the polished prompt's metadata (not the
+     * prompt body — that lives on the IntentPacket, referenced by id).
+     *
+     * @param  array<string,mixed>  $intentPacket
+     * @return array<string,mixed>
+     */
+    public function promptCompiled(array $intentPacket): array
+    {
+        $compiledPrompt = (string) ($intentPacket['compiled_prompt'] ?? '');
+        $transformations = (array) data_get($intentPacket, 'compiler_telemetry.transformations_applied', []);
+
+        return $this->emit(
+            type: LedgerEventType::VoxPromptCompiled,
+            kind: 'VOX_PROMPT_COMPILED',
+            payload: [
+                'session_id' => (string) ($intentPacket['session_id'] ?? ''),
+                'intent_id' => (string) ($intentPacket['intent_id'] ?? ''),
+                'mode' => (string) ($intentPacket['mode'] ?? ''),
+                'compiled_prompt_template' => (string) ($intentPacket['compiled_prompt_template'] ?? ''),
+                'compiled_prompt_length' => mb_strlen($compiledPrompt),
+                'compiled_prompt_sha256' => $compiledPrompt === ''
+                    ? null
+                    : hash('sha256', $compiledPrompt),
+                'provider_hint' => (string) ($intentPacket['provider_hint'] ?? ''),
+                'goal' => (string) ($intentPacket['goal'] ?? ''),
+                'constraints_count' => count((array) ($intentPacket['constraints'] ?? [])),
+                'transformations_applied' => array_values(array_filter($transformations, 'is_string')),
+                'compiler_version' => (string) ($intentPacket['compiler_version'] ?? ''),
+            ],
+            envelopeId: (string) ($intentPacket['session_id'] ?? 'vox-unknown'),
+        );
+    }
+
+    /**
      * @param  array<string,mixed>  $actionOutcome
      * @return array<string,mixed>
      */
@@ -137,6 +172,110 @@ final class VoxEvidenceService
                 'message' => $message,
             ], $payload),
             envelopeId: (string) ($payload['session_id'] ?? 'vox-unknown'),
+        );
+    }
+
+    /**
+     * Emitted alongside a VoxConfirmationRequest. Records that the Kernel
+     * asked the operator to confirm a governed action. The confirmation
+     * token is NEVER included in the ledger payload — only its presence
+     * and shape are recorded for audit. (Lei 0.75 + security: tokens are
+     * single-use HMAC; ledger leakage would allow replay.)
+     *
+     * @param  array<string,mixed>  $confirmationRequest  The full request
+     *         packet (must contain request_id, receipt_id, intent_id,
+     *         risk_class, expires_at). `confirmation_token`, if present,
+     *         is dropped before recording.
+     * @return array<string,mixed>
+     */
+    public function confirmationRequested(array $confirmationRequest): array
+    {
+        return $this->emit(
+            type: LedgerEventType::VoxConfirmationRequested,
+            kind: 'VOX_CONFIRMATION_REQUESTED',
+            payload: [
+                'request_id' => (string) ($confirmationRequest['request_id'] ?? ''),
+                'session_id' => (string) ($confirmationRequest['session_id'] ?? ''),
+                'intent_id' => (string) ($confirmationRequest['intent_id'] ?? ''),
+                'receipt_id' => (string) ($confirmationRequest['receipt_id'] ?? ''),
+                'risk_class' => (string) ($confirmationRequest['risk_class'] ?? ''),
+                'requires_literal_confirmation' => (bool) ($confirmationRequest['requires_literal_confirmation'] ?? false),
+                'actions_available' => (array) ($confirmationRequest['actions_available'] ?? []),
+                'expires_at' => (string) ($confirmationRequest['expires_at'] ?? ''),
+                'ttl_seconds' => (int) ($confirmationRequest['ttl_seconds'] ?? 0),
+                'executor_hint' => (string) data_get($confirmationRequest, 'preview.executor_hint', ''),
+                'provider_hint' => (string) data_get($confirmationRequest, 'preview.provider_hint', ''),
+                // explicit "no token in ledger" flag so auditors can grep for
+                // accidental leaks down the line
+                'confirmation_token_in_ledger' => false,
+            ],
+            envelopeId: (string) ($confirmationRequest['session_id'] ?? 'vox-unknown'),
+            receiptId: (string) ($confirmationRequest['receipt_id'] ?? ''),
+        );
+    }
+
+    /**
+     * Emitted after VoxExecutionGate allows execution AND the router has
+     * chosen an executor. The token is NEVER logged — only the decision,
+     * executor, risk and target identifiers.
+     *
+     * @param  array<string,mixed>  $payload  { request_id, session_id,
+     *         intent_id, receipt_id, executor, risk_class, decision,
+     *         provider_hint? }
+     * @return array<string,mixed>
+     */
+    public function actionDispatched(array $payload): array
+    {
+        return $this->emit(
+            type: LedgerEventType::VoxActionDispatched,
+            kind: 'VOX_ACTION_DISPATCHED',
+            payload: [
+                'request_id' => (string) ($payload['request_id'] ?? ''),
+                'session_id' => (string) ($payload['session_id'] ?? ''),
+                'intent_id' => (string) ($payload['intent_id'] ?? ''),
+                'receipt_id' => (string) ($payload['receipt_id'] ?? ''),
+                'executor' => (string) ($payload['executor'] ?? ''),
+                'risk_class' => (string) ($payload['risk_class'] ?? ''),
+                'decision' => (string) ($payload['decision'] ?? ''),
+                'provider_hint' => (string) ($payload['provider_hint'] ?? ''),
+                'confirmation_token_in_ledger' => false,
+            ],
+            envelopeId: (string) ($payload['session_id'] ?? 'vox-unknown'),
+            receiptId: (string) ($payload['receipt_id'] ?? ''),
+        );
+    }
+
+    /**
+     * Wave 7 (Claude O): emitted when Vitor records a rivals comparison
+     * (Wispr / provider-direct / manual baseline vs Vox). Payload is the
+     * full case metadata sans audio, sans transcript text. Used by
+     * `VoxMetricsService` and `VoxV3PromotionGateService` to evaluate
+     * promotion readiness.
+     *
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    public function rivalsCaseRecorded(array $case): array
+    {
+        return $this->emit(
+            type: LedgerEventType::VoxRivalsCaseRecorded,
+            kind: 'VOX_RIVALS_CASE_RECORDED',
+            payload: [
+                'case_id' => (string) ($case['case_id'] ?? ''),
+                'kind' => (string) ($case['kind'] ?? ''),
+                'mode' => (string) ($case['mode'] ?? ''),
+                'vox_session_id' => $case['vox_session_id'] ?? null,
+                'vox_intent_id' => $case['vox_intent_id'] ?? null,
+                'baseline_label' => (string) ($case['baseline_label'] ?? ''),
+                'baseline_duration_ms' => $case['baseline_duration_ms'] ?? null,
+                'vox_duration_ms' => $case['vox_duration_ms'] ?? null,
+                'baseline_score' => $case['baseline_score'] ?? null,
+                'vox_score' => $case['vox_score'] ?? null,
+                'preference' => (string) ($case['preference'] ?? ''),
+                'prompt_quality_vote' => $case['prompt_quality_vote'] ?? null,
+                'regret_flag' => (bool) ($case['regret_flag'] ?? false),
+            ],
+            envelopeId: (string) ($case['vox_session_id'] ?? 'vox-rivals'),
         );
     }
 

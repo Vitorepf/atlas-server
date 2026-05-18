@@ -28,6 +28,9 @@ class AtlasLedgerEvent extends Model
         'emitter_version',
         'payload',
         'payload_hash',
+        'scope_type',
+        'scope_id',
+        'event_hash',
         'occurred_at',
     ];
 

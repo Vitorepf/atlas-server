@@ -21,9 +21,10 @@ final class VoxSchema
     public const ACTION_OUTCOME = 'atlas.vox.action_outcome.v1';
     public const EXECUTE_RESPONSE = 'atlas.vox.execute_response.v1';
     public const RECEIPT_R0 = 'atlas.vox.receipt.r0.v1';
+    public const CONFIRMATION_REQUEST = 'atlas.vox.confirmation_request.v1';
 
     public const COMPILER_VERSION = '0.1.0';
-    public const KERNEL_VOX_VERSION = '0.1.0';
+    public const KERNEL_VOX_VERSION = '0.2.0';
 
     public const DEFAULT_LANGUAGE = 'pt-BR';
 
@@ -38,12 +39,39 @@ final class VoxSchema
     public const RISK_R3 = 'R3';
     public const RISK_R4 = 'R4';
 
+    // V0/V1/V2 executors (Kernel-resident, side-effect free).
     public const EXECUTOR_NO_OP_DICTATION = 'no_op_dictation';
     public const EXECUTOR_CLIPBOARD_WRITE = 'clipboard_write';
+
+    // V3 governed executors. The Kernel only invokes these after
+    // VoxExecutionGate validates receipt + confirmation_token + hard veto.
+    public const EXECUTOR_TERMINAL_PROPOSE = 'terminal_propose';
+    public const EXECUTOR_NOTE_CAPTURE = 'note_capture';
+    public const EXECUTOR_CODEX_CLI = 'codex_cli';
+    public const EXECUTOR_CLAUDE_CLI = 'claude_cli';
+    public const EXECUTOR_FILESYSTEM_EDIT = 'filesystem_edit';
 
     public const DESKTOP_ACTION_COPY_TO_CLIPBOARD = 'copy_to_clipboard';
     public const DESKTOP_ACTION_INSERT_TEXT = 'insert_text';
     public const DESKTOP_ACTION_CANCEL = 'cancel';
+    // Prompt polish (V1) extra desktop actions. Compiled-prompt variants
+    // hand the polished text back; original variants hand the verbatim
+    // transcript back. The Desktop owns the actual paste/clipboard call.
+    public const DESKTOP_ACTION_COPY_COMPILED_PROMPT = 'copy_compiled_prompt';
+    public const DESKTOP_ACTION_INSERT_COMPILED_PROMPT = 'insert_compiled_prompt';
+    public const DESKTOP_ACTION_COPY_ORIGINAL = 'copy_original';
+
+    // V3 governed_execute decisions.
+    public const DESKTOP_ACTION_EXECUTE = 'execute';
+    public const DESKTOP_ACTION_EDIT_INTENT = 'edit_intent';
+    public const DESKTOP_ACTION_SAVE_AS_NOTE = 'save_as_note';
+
+    public const SOURCE_TEXT_COMPILED_PROMPT = 'compiled_prompt';
+    public const SOURCE_TEXT_ORIGINAL = 'original';
+
+    /** Default TTL for confirmation tokens (seconds). Aligns with
+     * VoxConfirmation.v1 contract default. */
+    public const CONFIRMATION_DEFAULT_TTL_SECONDS = 120;
 
     /**
      * Field names that MUST NOT appear in any Vox payload reaching the

@@ -44,23 +44,122 @@ class AtlasEvidenceLedger
             ? CarbonImmutable::parse($context['occurred_at'])
             : CarbonImmutable::now();
 
-        return AtlasLedgerEvent::query()->create([
-            'event_id' => $this->string($context['event_id'] ?? (string) Str::ulid(), 32),
+        $eventId = $this->string($context['event_id'] ?? (string) Str::ulid(), 32);
+        $tenantId = $this->string($context['tenant_id'] ?? data_get($payload, 'operator.tenant_id', 'default'), 120);
+        $operatorId = $this->string($context['operator_id'] ?? data_get($payload, 'operator.operator_id', 'system'), 120);
+        $envelopeId = $this->string($context['envelope_id'] ?? data_get($payload, 'envelope_id', 'unknown'), 80);
+        $receiptId = $this->nullableString($context['receipt_id'] ?? data_get($payload, 'receipt_id'), 80);
+        $traceId = $this->nullableString($context['trace_id'] ?? data_get($payload, 'trace_id'), 80);
+        $correlationId = $this->string($context['correlation_id'] ?? data_get($payload, 'correlation_id', data_get($payload, 'envelope_id', (string) Str::ulid())), 120);
+        $causationId = $this->nullableString($context['causation_id'] ?? null, 80);
+        $scopeType = $this->nullableString($context['scope_type'] ?? data_get($payload, 'scope_type'), 40);
+        $scopeId = $this->nullableString($context['scope_id'] ?? data_get($payload, 'scope_id'), 80);
+        $payloadHash = $this->payloadHash($payload);
+
+        $row = [
+            'event_id' => $eventId,
             'schema_version' => self::SCHEMA_VERSION,
-            'tenant_id' => $this->string($context['tenant_id'] ?? data_get($payload, 'operator.tenant_id', 'default'), 120),
-            'operator_id' => $this->string($context['operator_id'] ?? data_get($payload, 'operator.operator_id', 'system'), 120),
-            'envelope_id' => $this->string($context['envelope_id'] ?? data_get($payload, 'envelope_id', 'unknown'), 80),
-            'receipt_id' => $this->nullableString($context['receipt_id'] ?? data_get($payload, 'receipt_id'), 80),
-            'trace_id' => $this->nullableString($context['trace_id'] ?? data_get($payload, 'trace_id'), 80),
-            'correlation_id' => $this->string($context['correlation_id'] ?? data_get($payload, 'correlation_id', data_get($payload, 'envelope_id', (string) Str::ulid())), 120),
-            'causation_id' => $this->nullableString($context['causation_id'] ?? null, 80),
+            'tenant_id' => $tenantId,
+            'operator_id' => $operatorId,
+            'envelope_id' => $envelopeId,
+            'receipt_id' => $receiptId,
+            'trace_id' => $traceId,
+            'correlation_id' => $correlationId,
+            'causation_id' => $causationId,
             'event_type' => $type->value,
             'emitter_stage' => $this->string($context['emitter_stage'] ?? 'atlas.kernel', 120),
             'emitter_version' => $this->string($context['emitter_version'] ?? 'v1', 80),
             'payload' => $payload,
-            'payload_hash' => $this->payloadHash($payload),
+            'payload_hash' => $payloadHash,
             'occurred_at' => $occurredAt,
-        ]);
+        ];
+
+        if (Schema::hasColumn('atlas_ledger_events', 'scope_type')) {
+            $row['scope_type'] = $scopeType;
+        }
+        if (Schema::hasColumn('atlas_ledger_events', 'scope_id')) {
+            $row['scope_id'] = $scopeId;
+        }
+        if (Schema::hasColumn('atlas_ledger_events', 'event_hash')) {
+            $row['event_hash'] = self::computeEventHash([
+                'event_id' => $eventId,
+                'event_type' => $type->value,
+                'envelope_id' => $envelopeId,
+                'correlation_id' => $correlationId,
+                'causation_id' => $causationId,
+                'scope_type' => $scopeType,
+                'scope_id' => $scopeId,
+                'payload_hash' => $payloadHash,
+                'occurred_at' => $occurredAt->toISOString(),
+            ]);
+        }
+
+        return AtlasLedgerEvent::query()->create($row);
+    }
+
+    /**
+     * Deterministic SHA-256 over the canonical envelope of a ledger event.
+     * Same input always produces the same hash. Null fields are dropped
+     * before hashing so callers without scope context produce stable
+     * hashes that downstream consumers can rely on.
+     *
+     * @param  array<string,mixed>  $envelope
+     */
+    public static function computeEventHash(array $envelope): string
+    {
+        $filtered = array_filter(
+            $envelope,
+            static fn (mixed $value): bool => $value !== null && $value !== '',
+        );
+        ksort($filtered);
+
+        return hash(
+            'sha256',
+            json_encode($filtered, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function eventsForScope(string $scopeType, string $scopeId, int $limit = 100): array
+    {
+        if (! Schema::hasTable('atlas_ledger_events')
+            || ! Schema::hasColumn('atlas_ledger_events', 'scope_type')
+            || ! Schema::hasColumn('atlas_ledger_events', 'scope_id')) {
+            return [];
+        }
+
+        return AtlasLedgerEvent::query()
+            ->where('scope_type', $scopeType)
+            ->where('scope_id', $scopeId)
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (AtlasLedgerEvent $event): array => $event->toArray())
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function eventsForCorrelation(string $correlationId, int $limit = 100): array
+    {
+        if (! Schema::hasTable('atlas_ledger_events')) {
+            return [];
+        }
+
+        return AtlasLedgerEvent::query()
+            ->where('correlation_id', $correlationId)
+            ->orderBy('occurred_at')
+            ->orderBy('event_id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (AtlasLedgerEvent $event): array => $event->toArray())
+            ->values()
+            ->all();
     }
 
     public function recordEnvelopeCreated(OperationEnvelope $envelope): ?AtlasLedgerEvent

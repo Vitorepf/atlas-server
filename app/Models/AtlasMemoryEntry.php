@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\TemporalTruth\HasTemporalTruth;
+use App\Support\TemporalTruth\TemporalTruthCanon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AtlasMemoryEntry extends Model
 {
+    use HasTemporalTruth;
     use HasUuids;
     use SoftDeletes;
 
@@ -36,6 +39,22 @@ class AtlasMemoryEntry extends Model
         'workspace',
         'user',
         'session',
+        // TEOS-I1 long-horizon scopes. Promotion into these is gated by
+        // {@see \App\Services\Ai\LongHorizon\LongHorizonMemoryPromotionGuard}
+        // — must carry evidence_refs AND operator review.
+        'obra',
+        'long_horizon',
+    ];
+
+    /**
+     * Subset of {@see self::SCOPES} that requires the long-horizon promotion
+     * guard. Centralised here so callers cannot drift.
+     *
+     * @var array<int,string>
+     */
+    public const LONG_HORIZON_SCOPES = [
+        'obra',
+        'long_horizon',
     ];
 
     public const STATUSES = [
@@ -91,11 +110,20 @@ class AtlasMemoryEntry extends Model
         'superseded_by_id',
         'governance_checked_at',
         'privacy_reviewed_at',
+        // TEOS-I1 temporal truth fields (7 of 8; legacy `superseded_by_id`
+        // continues to serve as canonical pointer per HasTemporalTruth trait).
+        'valid_from',
+        'valid_until',
+        'observed_at',
+        'verified_at',
+        'stale_after',
+        'source_hash',
+        'authority_level',
     ];
 
     protected function casts(): array
     {
-        return [
+        return array_merge([
             'project_id' => 'string',
             'task_id' => 'string',
             'engineering_run_id' => 'string',
@@ -116,7 +144,17 @@ class AtlasMemoryEntry extends Model
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
             'deleted_at' => 'immutable_datetime',
-        ];
+        ], TemporalTruthCanon::casts());
+    }
+
+    /**
+     * `AtlasMemoryEntry` predates TEOS with `superseded_by_id` as the FK to
+     * the superseding entry. TEOS reuses that legacy column instead of
+     * forcing a duplicate `superseded_by` field.
+     */
+    protected function supersededColumns(): array
+    {
+        return ['superseded_by_id'];
     }
 
     public function scopeActive(Builder $query): Builder

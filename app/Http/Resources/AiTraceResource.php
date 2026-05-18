@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\Ai\RouterRuntime\AtlasHyperflowEntryService;
 use App\Support\AiAttachmentPayload;
 use App\Support\Metadata;
 use Illuminate\Http\Request;
@@ -37,6 +38,8 @@ class AiTraceResource extends JsonResource
             'completed_at' => $this->completed_at?->toJSON(),
             'metadata' => Metadata::forResponse($this->metadata),
             'atlas_decide_execution' => Metadata::forResponse(data_get($this->metadata, 'atlas_decide_execution')),
+            'hyperflow_runtime' => $this->hyperflowRuntimeForResponse(),
+            'hyperflow' => $this->hyperflowFlatForResponse(),
             'atlas_dev_runtime' => $this->atlasDevRuntimeForResponse(),
             'specialist_flow_runtime' => $this->specialistFlowRuntimeForResponse(),
             'specialist_flow_execution' => $this->specialistFlowExecutionForResponse(),
@@ -238,6 +241,145 @@ class AiTraceResource extends JsonResource
         }
 
         return Metadata::forResponse($slice);
+    }
+
+    /**
+     * Canonical Atlas AI Hyperflow / RouterRuntime envelope produced by
+     * {@see AtlasHyperflowEntryService}. The
+     * envelope is persisted in `trace.metadata.hyperflow_runtime` (gateway)
+     * AND mirrored in `job.payload.hyperflow_runtime` (worker payload), so
+     * the Desktop surface can consume it from either side without depending
+     * on the legacy `atlas_ai_router` shape.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function hyperflowRuntimeForResponse(): ?array
+    {
+        $slice = $this->hyperflowRuntimeFromJobs();
+        if (! is_array($slice)) {
+            $slice = data_get($this->metadata, 'hyperflow_runtime');
+        }
+
+        if (! is_array($slice) || $slice === []) {
+            return null;
+        }
+
+        return Metadata::forResponse($slice);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function hyperflowRuntimeFromJobs(): ?array
+    {
+        if ($this->resource->relationLoaded('job') && $this->job) {
+            $slice = data_get($this->job->payload, 'hyperflow_runtime');
+            if (is_array($slice) && $slice !== []) {
+                return $slice;
+            }
+        }
+
+        if ($this->resource->relationLoaded('jobs') && $this->jobs) {
+            foreach ($this->jobs as $job) {
+                $slice = data_get($job->payload, 'hyperflow_runtime');
+                if (is_array($slice) && $slice !== []) {
+                    return $slice;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Flat projection of the canonical Hyperflow envelope, shaped to the
+     * Desktop's TypeScript contract `AtlasAiHyperflowTrace` so the surface
+     * never has to walk into the rich nested `hyperflow_runtime` keys. This
+     * is intentionally derived (not stored) — the rich envelope remains the
+     * source of truth; the flat slice is presentational.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function hyperflowFlatForResponse(): ?array
+    {
+        $rich = $this->hyperflowRuntimeForResponse();
+        if (! is_array($rich) || $rich === []) {
+            return null;
+        }
+
+        // Degraded envelope (router_runtime tables absent / pipeline threw):
+        // still expose a shape the Desktop can render so the UI doesn't fall
+        // back to legacy local inference.
+        if (($rich['status'] ?? null) === 'degraded') {
+            return [
+                'schema_version' => $rich['schema_version'] ?? null,
+                'intent' => null,
+                'domain_id' => null,
+                'flow_id' => null,
+                'runtime_mode' => null,
+                'confidence' => null,
+                'policy_refs' => [],
+                'evidence_refs' => [],
+                'decision_receipt_id' => null,
+                'decision_receipt_hash' => null,
+                'dispatch_status' => null,
+                'handoff_target' => null,
+                'handoff_reason' => null,
+                'router_was_overridden' => false,
+                'reasons' => array_values(array_filter([$rich['error'] ?? null], 'is_string')),
+            ];
+        }
+
+        $requiredGates = is_array($rich['required_gates'] ?? null) ? $rich['required_gates'] : [];
+        $policyRefs = array_values(array_filter($requiredGates, static fn ($g): bool => is_string($g) && str_starts_with($g, 'policy')));
+        $evidenceRefs = array_values(array_filter($requiredGates, static fn ($g): bool => is_string($g) && str_starts_with($g, 'evidence')));
+
+        $intentType = data_get($rich, 'intent.type');
+        $intentConfidence = data_get($rich, 'intent.confidence');
+        $routingConfidence = $rich['routing_confidence'] ?? null;
+
+        $handoff = is_array($rich['handoff_target'] ?? null) ? $rich['handoff_target'] : null;
+        $handoffTargetString = $handoff !== null
+            ? (string) ($handoff['kind'] ?? $handoff['flow_id'] ?? '')
+            : null;
+        $handoffReasonString = $handoff !== null
+            ? (string) ($handoff['reason'] ?? '')
+            : null;
+
+        $reasonReasons = data_get($rich, 'router_decision.reason.reasons');
+        $reasons = is_array($reasonReasons)
+            ? array_values(array_filter($reasonReasons, 'is_string'))
+            : [];
+
+        return [
+            'schema_version' => $rich['schema_version'] ?? null,
+            'intent' => is_string($intentType) && $intentType !== '' ? $intentType : null,
+            'domain_id' => isset($rich['primary_domain']) && is_string($rich['primary_domain']) && $rich['primary_domain'] !== ''
+                ? $rich['primary_domain']
+                : null,
+            'flow_id' => isset($rich['flow_id']) && is_string($rich['flow_id']) && $rich['flow_id'] !== ''
+                ? $rich['flow_id']
+                : null,
+            'runtime_mode' => isset($rich['runtime_mode']) && is_string($rich['runtime_mode']) && $rich['runtime_mode'] !== ''
+                ? $rich['runtime_mode']
+                : null,
+            'confidence' => is_numeric($routingConfidence)
+                ? (float) $routingConfidence
+                : (is_numeric($intentConfidence) ? (float) $intentConfidence : null),
+            'policy_refs' => $policyRefs,
+            'evidence_refs' => $evidenceRefs,
+            'decision_receipt_id' => data_get($rich, 'decision_receipt.runtime_dispatch_receipt.id')
+                ?? data_get($rich, 'decision_receipt.router_decision_receipt.id'),
+            'decision_receipt_hash' => data_get($rich, 'decision_receipt.runtime_dispatch_receipt.receipt_hash')
+                ?? data_get($rich, 'decision_receipt.router_decision_receipt.receipt_hash'),
+            'dispatch_status' => isset($rich['dispatch_status']) && is_string($rich['dispatch_status'])
+                ? $rich['dispatch_status']
+                : null,
+            'handoff_target' => $handoffTargetString !== '' ? $handoffTargetString : null,
+            'handoff_reason' => $handoffReasonString !== '' ? $handoffReasonString : null,
+            'router_was_overridden' => false,
+            'reasons' => $reasons,
+        ];
     }
 
     /**

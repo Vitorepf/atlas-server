@@ -19,11 +19,16 @@ use Illuminate\Console\Command;
 class AtlasProgrammingConsoleCommand extends Command
 {
     protected $signature = 'atlas:programming:console
-        {action=status : status|dev:plan|dev:summary|forge:intake|forge:summary|blockers|next-actions|evidence|certification|telemetry|smoke}
+        {action=status : status|dev:plan|dev:summary|forge:intake|forge:summary|blockers|next-actions|evidence|certification|telemetry|smoke|long-horizon:status|long-horizon:compact|long-horizon:continue|long-horizon:certify}
         {--prompt= : Prompt for dev:plan or forge:intake}
         {--flow=atlas_dev : Flow id hint for dev:plan}
         {--workspace-slug= : Optional workspace slug for forge:intake}
-        {--dry-run : forge:intake only: skip the DB write and return a preview}
+        {--dry-run : forge:intake / long-horizon:compact: skip the DB write and return a preview}
+        {--no-dry-run : long-horizon:compact only: opt-in to materialise the compaction receipt}
+        {--scope-type= : long-horizon:* canonical scope_type}
+        {--scope-id= : long-horizon:* scope_id}
+        {--plan-id= : long-horizon:continue resuming plan_id}
+        {--parent-plan-id= : long-horizon:continue parent plan_id}
         {--json : print JSON only (compact for piping)}';
 
     protected $description = 'Atlas Programming Console — operate Dev/Forge runtime via a unified canonical JSON envelope. Read-only and safe-write actions only. Never invokes a provider, never runs a benchmark.';
@@ -70,7 +75,46 @@ class AtlasProgrammingConsoleCommand extends Command
             ProgrammingConsoleCanon::ACTION_CERTIFICATION => $service->certification(),
             ProgrammingConsoleCanon::ACTION_TELEMETRY => $service->telemetrySummary(),
             ProgrammingConsoleCanon::ACTION_SMOKE => $service->smoke(),
+            ProgrammingConsoleCanon::ACTION_LONG_HORIZON_STATUS => $service->longHorizonStatus($this->longHorizonOptions()),
+            ProgrammingConsoleCanon::ACTION_LONG_HORIZON_COMPACT => $service->longHorizonCompact(
+                array_merge($this->longHorizonOptions(), [
+                    'dry_run' => $this->resolveCompactDryRun(),
+                ]),
+            ),
+            ProgrammingConsoleCanon::ACTION_LONG_HORIZON_CONTINUE => $service->longHorizonContinue(array_merge(
+                $this->longHorizonOptions(),
+                [
+                    'plan_id' => $this->option('plan-id'),
+                    'parent_plan_id' => $this->option('parent-plan-id'),
+                ],
+            )),
+            ProgrammingConsoleCanon::ACTION_LONG_HORIZON_CERTIFY => $service->longHorizonCertify($this->longHorizonOptions()),
         };
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function longHorizonOptions(): array
+    {
+        return [
+            'scope_type' => $this->option('scope-type'),
+            'scope_id' => $this->option('scope-id'),
+        ];
+    }
+
+    /**
+     * long-horizon:compact defaults to dry_run=true (safe). `--no-dry-run`
+     * opts the operator in to materialising the compaction receipt. The
+     * legacy `--dry-run` flag still forces a dry run.
+     */
+    private function resolveCompactDryRun(): bool
+    {
+        if ((bool) $this->option('no-dry-run')) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

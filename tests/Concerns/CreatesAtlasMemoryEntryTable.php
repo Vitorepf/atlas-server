@@ -46,6 +46,14 @@ trait CreatesAtlasMemoryEntryTable
             $table->uuid('superseded_by_id')->nullable();
             $table->timestamp('governance_checked_at')->nullable();
             $table->timestamp('privacy_reviewed_at')->nullable()->index();
+            // TEOS-I1 / M2 — Temporal Truth Fields (all nullable; back-compat).
+            $table->timestamp('valid_from')->nullable();
+            $table->timestamp('valid_until')->nullable();
+            $table->timestamp('observed_at')->nullable();
+            $table->timestamp('verified_at')->nullable();
+            $table->timestamp('stale_after')->nullable()->index();
+            $table->string('source_hash', 64)->nullable();
+            $table->string('authority_level', 40)->nullable()->index();
             $table->timestamps();
             $table->softDeletesTz();
         });

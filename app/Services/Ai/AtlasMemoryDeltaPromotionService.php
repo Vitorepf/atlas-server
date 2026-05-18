@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\LongHorizon\LongHorizonMemoryPromotionGuard;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ class AtlasMemoryDeltaPromotionService
     public function __construct(
         private readonly AtlasMemoryRegistryService $registry,
         private readonly MemoryQueryInput $input,
+        private readonly LongHorizonMemoryPromotionGuard $longHorizonGuard = new LongHorizonMemoryPromotionGuard,
     ) {}
 
     /**
@@ -25,6 +27,10 @@ class AtlasMemoryDeltaPromotionService
     public function promote(AiMemoryDelta $delta, array $overrides = []): AtlasMemoryEntry
     {
         $this->assertTables();
+
+        // TEOS-I1 long-horizon scope guard. Throws before the DB transaction
+        // so a refused promotion never leaks a row.
+        $this->longHorizonGuard->assertPromotable($delta, $overrides);
 
         return DB::transaction(function () use ($delta, $overrides): AtlasMemoryEntry {
             $delta = AiMemoryDelta::query()->lockForUpdate()->findOrFail($delta->id);

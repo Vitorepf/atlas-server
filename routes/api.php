@@ -45,6 +45,7 @@ use App\Http\Controllers\AtlasAiStrategicDecisionController;
 use App\Http\Controllers\AtlasAiStructureMotherAuditController;
 use App\Http\Controllers\AtlasAiVoiceRealtimeController;
 use App\Http\Controllers\AtlasAiVoxController;
+use App\Http\Controllers\AtlasAiVoxMetricsController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasCartographyController;
 use App\Http\Controllers\AtlasCodeAttentionControlPlaneController;
@@ -579,6 +580,14 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/vox/health', [AtlasAiVoxController::class, 'health']);
     Route::post('/ai/vox/intent', [AtlasAiVoxController::class, 'intent']);
     Route::post('/ai/vox/execute', [AtlasAiVoxController::class, 'execute']);
+
+    // Atlas Vox Wave 7 — read-only metrics + rivals + V3 promotion gate.
+    // No execution, no provider, no audio. Gate only recommends; Vitor
+    // approves V4 manually.
+    Route::get('/ai/vox/metrics', [AtlasAiVoxMetricsController::class, 'metrics']);
+    Route::post('/ai/vox/rivals/case', [AtlasAiVoxMetricsController::class, 'recordRivalsCase']);
+    Route::get('/ai/vox/rivals/report', [AtlasAiVoxMetricsController::class, 'rivalsReport']);
+    Route::get('/ai/vox/gate-v3', [AtlasAiVoxMetricsController::class, 'gateV3']);
 });
 
 /*

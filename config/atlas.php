@@ -173,6 +173,26 @@ return [
         ],
     ],
 
+    // Atlas Vox V3 governed_execute executors. Each entry is opt-in: if
+    // `binary` is not set OR not executable, the executor reports
+    // unavailable and the Kernel returns a structured `blocked` outcome
+    // instead of pretending to run. The Kernel NEVER forwards API keys —
+    // the CLI is expected to be locally authenticated via its own config.
+    'vox' => [
+        'executors' => [
+            'codex_cli' => [
+                'binary' => env('ATLAS_VOX_CODEX_CLI_BIN'),
+                'cwd' => env('ATLAS_VOX_CODEX_CLI_CWD'),
+                'timeout_seconds' => (int) env('ATLAS_VOX_CODEX_CLI_TIMEOUT_SECONDS', 60),
+            ],
+            'claude_cli' => [
+                'binary' => env('ATLAS_VOX_CLAUDE_CLI_BIN'),
+                'cwd' => env('ATLAS_VOX_CLAUDE_CLI_CWD'),
+                'timeout_seconds' => (int) env('ATLAS_VOX_CLAUDE_CLI_TIMEOUT_SECONDS', 60),
+            ],
+        ],
+    ],
+
     'engineering' => [
         'docker' => [
             'default_service' => env('ATLAS_ENGINEERING_DOCKER_SERVICE'),

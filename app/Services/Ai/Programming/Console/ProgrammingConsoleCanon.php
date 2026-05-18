@@ -42,6 +42,14 @@ final class ProgrammingConsoleCanon
 
     public const ACTION_SMOKE = 'smoke';
 
+    public const ACTION_LONG_HORIZON_STATUS = 'long-horizon:status';
+
+    public const ACTION_LONG_HORIZON_COMPACT = 'long-horizon:compact';
+
+    public const ACTION_LONG_HORIZON_CONTINUE = 'long-horizon:continue';
+
+    public const ACTION_LONG_HORIZON_CERTIFY = 'long-horizon:certify';
+
     /** @var array<int,string> */
     public const ACTIONS = [
         self::ACTION_STATUS,
@@ -55,6 +63,10 @@ final class ProgrammingConsoleCanon
         self::ACTION_CERTIFICATION,
         self::ACTION_TELEMETRY,
         self::ACTION_SMOKE,
+        self::ACTION_LONG_HORIZON_STATUS,
+        self::ACTION_LONG_HORIZON_COMPACT,
+        self::ACTION_LONG_HORIZON_CONTINUE,
+        self::ACTION_LONG_HORIZON_CERTIFY,
     ];
 
     public const STATUS_GREEN = 'green';

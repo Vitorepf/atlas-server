@@ -6,6 +6,7 @@ use App\Models\AiForgeIntake;
 use App\Models\AiForgeLongHorizonState;
 use App\Models\AiForgeMilestone;
 use App\Models\AiForgeWorkPacket;
+use App\Models\AtlasLongHorizonContinuationPack;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -20,13 +21,17 @@ use Illuminate\Support\Str;
  * recomputed from prompt context and the Obra cannot be safely resumed.
  *
  * Responsibilities (intentionally narrow):
- *  - {@see initializeForIntake()}    — first persistent state row per Obra.
- *  - {@see recordCycle()}            — append a cycle: register evidence,
+ *  - {@see initializeForIntake()}      — first persistent state row per Obra.
+ *  - {@see recordCycle()}              — append a cycle: register evidence,
  *    blockers, packet transitions; recompute next_action and state_hash.
- *  - {@see advanceMilestone()}       — gate-driven transition, refuses to
+ *  - {@see advanceMilestone()}         — gate-driven transition, refuses to
  *    advance without gate green.
- *  - {@see completeObra()}           — refuses to complete without
+ *  - {@see completeObra()}             — refuses to complete without
  *    certification gate green AND certification evidence ref.
+ *  - {@see emitContinuationPack()}     — TEOS-I1 hook that projects the
+ *    current state into a canonical `atlas.long_horizon.continuation_pack.v2`
+ *    row via {@see ForgeContinuationPackBuilder}. Read-only over the state;
+ *    no row mutation here.
  *
  * Out of scope:
  *  - provider invocation / multi-agent dispatch;
@@ -36,7 +41,25 @@ use Illuminate\Support\Str;
  */
 class ForgeLongHorizonStateService
 {
-    public function __construct(private readonly ForgeMilestoneGateRunner $gates) {}
+    public function __construct(
+        private readonly ForgeMilestoneGateRunner $gates,
+        private readonly ForgeContinuationPackBuilder $continuationPackBuilder = new ForgeContinuationPackBuilder,
+    ) {}
+
+    /**
+     * Emit a TEOS-I1 `atlas.long_horizon.continuation_pack.v2` row for this
+     * Obra. The pack carries `scope_type=obra` by default; override via
+     * `$options['scope_type']` for milestone / work_packet projections built
+     * by future TEOS-I2 callers.
+     *
+     * @param  array<string,mixed>  $options
+     */
+    public function emitContinuationPack(
+        AiForgeLongHorizonState $state,
+        array $options = [],
+    ): AtlasLongHorizonContinuationPack {
+        return $this->continuationPackBuilder->build($state, $options);
+    }
 
     public function initializeForIntake(AiForgeIntake $intake): AiForgeLongHorizonState
     {

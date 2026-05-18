@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\TemporalTruth\HasTemporalTruth;
+use App\Support\TemporalTruth\TemporalTruthCanon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -13,9 +15,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Hard law: "No controller may bypass Decision Receipt for SDD execution"
  * (data-model-and-services.md:295). RuntimeExecutor MUST validate the receipt
  * before any file write.
+ *
+ * TEOS-I1 / M2: carries 8 temporal-truth fields (see {@see TemporalTruthCanon}).
+ * All nullable; legacy receipts remain valid.
  */
 class AtlasDecisionReceipt extends Model
 {
+    use HasTemporalTruth;
     use HasUuids;
 
     protected $fillable = [
@@ -25,11 +31,14 @@ class AtlasDecisionReceipt extends Model
         'task_ids_json', 'context_pack_refs_json',
         'input_hash', 'output_hash', 'signature',
         'signed_at', 'expires_at', 'revoked_at', 'revoked_reason',
+        // TEOS-I1 temporal truth fields (all nullable).
+        'valid_from', 'valid_until', 'observed_at', 'verified_at',
+        'stale_after', 'source_hash', 'superseded_by', 'authority_level',
     ];
 
     protected function casts(): array
     {
-        return [
+        return array_merge([
             'allowed_actions_json' => 'array',
             'forbidden_actions_json' => 'array',
             'allowed_files_json' => 'array',
@@ -42,7 +51,7 @@ class AtlasDecisionReceipt extends Model
             'revoked_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
-        ];
+        ], TemporalTruthCanon::casts());
     }
 
     public function operation(): BelongsTo

@@ -18,6 +18,7 @@ use App\Services\Ai\Router\AtlasAiFlowStatusReadModel;
 use App\Services\Ai\Router\AtlasAiRouterService;
 use App\Services\Ai\Router\AtlasAiSpecialistFlowExecutionService;
 use App\Services\Ai\Router\AtlasAiSpecialistFlowRuntimeService;
+use App\Services\Ai\RouterRuntime\AtlasHyperflowEntryService;
 use App\Services\Ai\Surface\DomainCatalogSurfaceSelectionService;
 use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
@@ -58,6 +59,7 @@ class AiInteractionController extends Controller
         AtlasFileAttachmentService $files,
         AiChunkedUploadService $chunkedUploads,
         DomainCatalogSurfaceSelectionService $domainSelection,
+        AtlasHyperflowEntryService $hyperflowEntry,
         AtlasAiRouterService $router,
         AtlasAiSpecialistFlowRuntimeService $specialistFlowRuntime,
         AtlasAiSpecialistFlowExecutionService $specialistFlowExecution,
@@ -102,6 +104,12 @@ class AiInteractionController extends Controller
 
         $data = $this->applyThreadRuntimePolicy($data);
         $data = $this->applySurfaceDomainCatalogSelection($data, $domainSelection);
+        // Canonical RouterRuntime / Hyperflow entry runs BEFORE the legacy
+        // AtlasAiRouterService so non-programming intents (research / finance /
+        // marketing / cyber / automation / strategy / personal_development)
+        // get a full intent → domain → flow → dispatch → receipt envelope on
+        // every interaction. Legacy router still runs after, for back-compat.
+        $data = $hyperflowEntry->run($data);
         $data = $this->applyAtlasAiRouterDecision($data, $router);
 
         try {
