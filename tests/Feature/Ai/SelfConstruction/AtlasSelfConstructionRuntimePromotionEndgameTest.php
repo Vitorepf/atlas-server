@@ -13,6 +13,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
 {
     public function test_endgame_blocks_without_receipt(): void
     {
+        Storage::fake('local');
         $payload = (new AtlasSelfConstructionRuntimePromotionEndgameService(app(AtlasSelfConstructionReadinessService::class)))->build();
 
         $this->assertSame('atlas.self_construction.runtime_promotion_endgame.v1', $payload['schema_version']);
@@ -99,6 +100,60 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         $this->assertSame([], Storage::disk('local')->allFiles('atlas/self-construction/os-completion/runtime-promotion-receipts'));
     }
 
+    public function test_endgame_exposes_next_action_shell_packet_for_missing_receipt(): void
+    {
+        Storage::fake('local');
+        $payload = (new AtlasSelfConstructionRuntimePromotionEndgameService(app(AtlasSelfConstructionReadinessService::class)))->build();
+
+        $this->assertSame(
+            'atlas.self_construction.runtime_promotion_endgame_next_action_shell_packet.v1',
+            data_get($payload, 'operator_next_action_shell_packet.schema_version')
+        );
+        $this->assertSame(
+            'blocked_placeholder_replacement_required',
+            data_get($payload, 'operator_next_action_shell_packet.status')
+        );
+        $this->assertFalse((bool) data_get($payload, 'operator_next_action_shell_packet.copy_safe'));
+        $this->assertSame(2, data_get($payload, 'operator_next_action_shell_packet.placeholder_count'));
+        $this->assertContains('<operator>', data_get($payload, 'operator_next_action_shell_packet.placeholders'));
+        $this->assertContains('<operator reason with at least 32 chars>', data_get($payload, 'operator_next_action_shell_packet.placeholders'));
+        $this->assertStringContainsString(
+            '--atlas-self-construction-runtime-promotion-receipt-draft-status',
+            data_get($payload, 'operator_next_action_shell_packet.command_to_copy')
+        );
+        $this->assertFalse((bool) data_get($payload, 'operator_next_action_shell_packet.requires_receipt_file_path_when_payload_supplied_inline'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'operator_next_action_shell_packet.shell_packet_hash'));
+    }
+
+    public function test_endgame_shell_packet_becomes_copy_safe_for_canonical_verified_receipt(): void
+    {
+        Storage::fake('local');
+        [$matrix, $receipt] = $this->runtimePromotionReceiptFixture();
+        Storage::disk('local')->put(
+            'atlas/self-construction/operator-submissions/runtime-promotion.json',
+            json_encode($receipt, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT)
+        );
+
+        $payload = (new AtlasSelfConstructionRuntimePromotionEndgameService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'runtime_gap_matrix' => $matrix,
+            'skip_completion_surfaces' => true,
+        ]);
+
+        $this->assertSame('copy_ready_for_explicit_operator_persistence', data_get($payload, 'operator_next_action_shell_packet.status'));
+        $this->assertTrue((bool) data_get($payload, 'operator_next_action_shell_packet.copy_safe'));
+        $this->assertSame(0, data_get($payload, 'operator_next_action_shell_packet.placeholder_count'));
+        $this->assertStringContainsString(
+            '@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            data_get($payload, 'operator_next_action_shell_packet.command_to_copy')
+        );
+        $this->assertStringContainsString(
+            '--persist-runtime-promotion-receipt',
+            data_get($payload, 'operator_next_action_shell_packet.command_to_copy')
+        );
+        $this->assertTrue((bool) data_get($payload, 'operator_next_action_shell_packet.requires_verifier_green_before_persist'));
+        $this->assertTrue((bool) data_get($payload, 'operator_next_action_shell_packet.requires_explicit_persist_flag'));
+    }
+
     public function test_endgame_accepts_operator_supplied_receipt_without_regenerating_draft(): void
     {
         Storage::fake('local');
@@ -112,6 +167,9 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
 
         $this->assertSame('receipt_verifier_passed_ready_for_explicit_persistence', $payload['status']);
         $this->assertSame('operator_supplied_runtime_promotion_receipt', data_get($payload, 'receipt_under_review.source'));
+        $this->assertSame('blocked_receipt_file_path_required', data_get($payload, 'operator_next_action_shell_packet.status'));
+        $this->assertFalse((bool) data_get($payload, 'operator_next_action_shell_packet.copy_safe'));
+        $this->assertTrue((bool) data_get($payload, 'operator_next_action_shell_packet.requires_receipt_file_path_when_payload_supplied_inline'));
         $this->assertTrue(data_get($payload, 'receipt_under_review.provided'));
         $this->assertSame('not_drafted', data_get($payload, 'receipt_draft.status'));
         $this->assertSame('passed', data_get($payload, 'receipt_pre_submission_verification.status'));
@@ -400,6 +458,13 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         $this->assertSame('atlas.self_construction_agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.v1', $status['schema_version']);
         $this->assertFalse($status['execution_allowed']);
         $this->assertFalse($status['dispatch_allowed']);
+        $this->assertSame('blocked_placeholder_replacement_required', data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.operator_next_action_shell_packet_status'));
+        $this->assertSame(2, data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.operator_next_action_shell_packet_placeholder_count'));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.operator_next_action_shell_packet_copy_safe'));
+        $this->assertStringContainsString(
+            '--atlas-self-construction-runtime-promotion-receipt-draft-status',
+            data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.operator_next_action_command_to_copy')
+        );
 
         foreach ([
             'atlas-self-construction-runtime-promotion-endgame-contract',
@@ -416,6 +481,46 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
             $this->assertIsArray($decoded);
             $this->assertFalse($decoded['dispatch_allowed']);
         }
+    }
+
+    public function test_endgame_human_output_exposes_operator_decision_path(): void
+    {
+        Storage::fake('local');
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-runtime-promotion-endgame-status' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $output = Artisan::output();
+
+        $this->assertStringContainsString('Endgame status', $output);
+        $this->assertStringContainsString('blocked_runtime_promotion_receipt_required', $output);
+        $this->assertStringContainsString('Runtime gaps', $output);
+        $this->assertStringContainsString('Verifier status', $output);
+        $this->assertStringContainsString('not_supplied', $output);
+        $this->assertStringContainsString('Missing fields', $output);
+        $this->assertStringContainsString('Missing receipt fields:', $output);
+        $this->assertStringContainsString('receipt_id', $output);
+        $this->assertStringContainsString('Missing acknowledgements', $output);
+        $this->assertStringContainsString('Missing acknowledgements:', $output);
+        $this->assertStringContainsString('runtime_promotion_approved', $output);
+        $this->assertStringContainsString('Can persist', $output);
+        $this->assertStringContainsString('Persistence blocker', $output);
+        $this->assertStringContainsString('Persist command', $output);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', $output);
+        $this->assertStringContainsString('Rerun matrix command', $output);
+        $this->assertStringContainsString('Terminal proof command', $output);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', $output);
+        $this->assertStringContainsString('Canonical proof path', $output);
+        $this->assertStringContainsString('Effective audit command', $output);
+        $this->assertStringContainsString('Operator decision checklist:', $output);
+        $this->assertStringContainsString('current_gap_ids_match_receipt', $output);
+        $this->assertStringContainsString('persistence_flag_explicit', $output);
+        $this->assertStringContainsString('Shell packet', $output);
+        $this->assertStringContainsString('Shell placeholders', $output);
+        $this->assertStringContainsString('Command to copy', $output);
+        $this->assertStringContainsString('Post-persistence commands:', $output);
+        $this->assertStringContainsString('Completion claim allowed', $output);
     }
 
     public function test_agent_control_plane_lists_endgame_capabilities(): void

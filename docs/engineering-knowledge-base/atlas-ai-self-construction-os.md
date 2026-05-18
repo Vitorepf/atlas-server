@@ -29,6 +29,7 @@ related_paths:
   - app/Console/Commands/AtlasAiSelfConstructionCommand.php
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php
   - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
+  - docs/engineering-knowledge-base/atlas-self-construction-os-handoff.md
   - docs/engineering-knowledge-base/self-construction/constitution.md
   - docs/engineering-knowledge-base/self-construction/structural-contract-gate.md
   - docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md
@@ -231,6 +232,7 @@ layer becomes compounding engineering power.
 | Dependency unlock plan | `self-construction/dependency-unlock-plan-contract.md` |
 | Multi-session readiness / single instruction | `self-construction/multi-session-readiness-gate-contract.md`, `self-construction/single-session-instruction-packet-contract.md` |
 | Agent Control Plane | `self-construction/agent-control-plane-contract.md` |
+| OS completion handoff | `atlas-self-construction-os-handoff.md` |
 | Meta-SDD | `self-construction/meta-sdd-contract.md` |
 | Maturity levels | `self-construction/capability-maturity-ladder.md` |
 | Build dependencies | `self-construction/build-graph.md` |

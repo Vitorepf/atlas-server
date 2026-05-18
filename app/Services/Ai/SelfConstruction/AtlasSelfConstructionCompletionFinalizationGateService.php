@@ -50,6 +50,8 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
                 'persist_completion_evidence' => false,
                 'persist_runtime_promotion_receipt' => false,
             ]));
+        $closureArtifactSequence = (array) data_get($completionEvidence, 'closure_artifact_sequence', []);
+        $promptToArtifactChecklist = (array) data_get($completionEvidence, 'prompt_to_artifact_checklist', []);
 
         $checks = [
             'completion_audit_complete' => $this->check(
@@ -209,6 +211,13 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'final_verification_sequence' => $this->finalVerificationSequence($terminalLoopProofJsonReference),
             'completion_audit_green_requires_current_snapshot_after_terminal_loop_proof' => true,
             'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
+            'closure_artifact_sequence' => $closureArtifactSequence,
+            'closure_artifact_sequence_count' => count($closureArtifactSequence),
+            'closure_artifact_sequence_hash' => (string) data_get($completionEvidence, 'closure_artifact_sequence_hash', ''),
+            'prompt_to_artifact_checklist' => $promptToArtifactChecklist,
+            'prompt_to_artifact_checklist_count' => count($promptToArtifactChecklist),
+            'prompt_to_artifact_checklist_passed_count' => (int) data_get($completionEvidence, 'prompt_to_artifact_checklist_passed_count', 0),
+            'prompt_to_artifact_checklist_hash' => (string) data_get($completionEvidence, 'prompt_to_artifact_checklist_hash', ''),
             'completion_audit_status' => (string) data_get($completionAudit, 'status'),
             'completion_audit_failed_criteria' => (array) data_get($completionAudit, 'failed_criteria', []),
             'completion_finalization_operator_handoff' => $operatorHandoff,
@@ -254,6 +263,21 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
         $failedCriteria = (array) data_get($completionAudit, 'failed_criteria', []);
         $blockerClassification = (array) data_get($completionAudit, 'blocker_classification', []);
         $currentRequiredArtifact = $this->currentRequiredOperatorArtifact($failedCriteria, $failed, $blockerClassification);
+        $operatorEvidenceReadinessCommand = 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json';
+        $orderedNextCommands = [
+            $operatorEvidenceReadinessCommand,
+            $this->terminalLoopOperationalProofCommand(),
+            $this->terminalLoopOperationalProofBindingPersistCommand(),
+            $this->captureSnapshotAfterTerminalLoopOperationalProofCommand(),
+            $this->completionAuditWithTerminalLoopOperationalProofCommand($terminalLoopProofJsonReference),
+            $this->completionFinalizationGateCommand($terminalLoopProofJsonReference),
+        ];
+        $nextActionShellPacket = $this->nextActionShellPacket(
+            currentRequiredArtifact: $currentRequiredArtifact,
+            completionClaimAllowed: $completionClaimAllowed,
+            orderedNextCommands: $orderedNextCommands,
+            terminalLoopProofJsonReference: $terminalLoopProofJsonReference,
+        );
 
         $handoff = [
             'schema_version' => 'atlas.self_construction.completion_finalization_operator_handoff.v1',
@@ -274,7 +298,7 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'runtime_gap_matrix_status' => (string) data_get($completionEvidence, 'runtime_gap_matrix.status', ''),
             'real_provider_smoke_status' => (string) data_get($completionEvidence, 'real_provider_smoke.status', ''),
             'human_signed_completion_receipt_status' => (string) data_get($completionEvidence, 'human_signed_completion_receipt.status', ''),
-            'operator_evidence_readiness_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+            'operator_evidence_readiness_command' => $operatorEvidenceReadinessCommand,
             'terminal_loop_operational_proof_command' => $this->terminalLoopOperationalProofCommand(),
             'terminal_loop_operational_proof_binding_persist_command' => $this->terminalLoopOperationalProofBindingPersistCommand(),
             'capture_snapshot_after_terminal_loop_operational_proof_command' => $this->captureSnapshotAfterTerminalLoopOperationalProofCommand(),
@@ -282,14 +306,8 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'completion_audit_with_terminal_loop_operational_proof_command' => $this->completionAuditWithTerminalLoopOperationalProofCommand($terminalLoopProofJsonReference),
             'terminal_loop_operational_proof_json_reference' => $terminalLoopProofJsonReference,
             'finalization_gate_command' => $this->completionFinalizationGateCommand($terminalLoopProofJsonReference),
-            'ordered_next_commands' => [
-                'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
-                $this->terminalLoopOperationalProofCommand(),
-                $this->terminalLoopOperationalProofBindingPersistCommand(),
-                $this->captureSnapshotAfterTerminalLoopOperationalProofCommand(),
-                $this->completionAuditWithTerminalLoopOperationalProofCommand($terminalLoopProofJsonReference),
-                $this->completionFinalizationGateCommand($terminalLoopProofJsonReference),
-            ],
+            'ordered_next_commands' => $orderedNextCommands,
+            'next_action_shell_packet' => $nextActionShellPacket,
             'final_verification_sequence' => $this->finalVerificationSequence($terminalLoopProofJsonReference),
             'required_success_predicate' => [
                 'completion_audit_status_must_be_complete' => (string) data_get($completionAudit, 'status') === 'complete',
@@ -319,6 +337,72 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
         $handoff['completion_finalization_operator_handoff_hash'] = $this->stableHash($handoff);
 
         return $handoff;
+    }
+
+    /**
+     * @param  list<string>  $orderedNextCommands
+     * @return array<string, mixed>
+     */
+    private function nextActionShellPacket(
+        string $currentRequiredArtifact,
+        bool $completionClaimAllowed,
+        array $orderedNextCommands,
+        string $terminalLoopProofJsonReference,
+    ): array {
+        $exactCommand = $completionClaimAllowed
+            ? $this->completionFinalizationGateCommand($terminalLoopProofJsonReference)
+            : ($orderedNextCommands[0] ?? '');
+        $placeholders = $this->commandPlaceholders($exactCommand);
+        $packet = [
+            'schema_version' => 'atlas.self_construction.completion_finalization_next_action_shell_packet.v1',
+            'mode' => 'read_only_completion_finalization_next_action_shell_packet',
+            'status' => $placeholders === [] ? 'copy_ready_after_fresh_status_review' : 'blocked_placeholder_replacement_required',
+            'current_required_operator_artifact' => $currentRequiredArtifact,
+            'exact_command' => $exactCommand,
+            'exact_command_hash' => $exactCommand === '' ? '' : hash('sha256', $exactCommand),
+            'placeholder_count' => count($placeholders),
+            'placeholders' => $placeholders,
+            'copy_safe' => $placeholders === [] && $exactCommand !== '',
+            'requires_fresh_finalization_gate_status_before_copy' => true,
+            'requires_fresh_operator_evidence_readiness_before_persist' => ! $completionClaimAllowed,
+            'can_resume_without_chat_history' => true,
+            'post_action_proof_commands' => [
+                'operator_evidence_readiness' => $orderedNextCommands[0] ?? '',
+                'terminal_loop_operational_proof_binding' => $this->terminalLoopOperationalProofBindingPersistCommand(),
+                'capture_snapshot_after_terminal_loop_operational_proof' => $this->captureSnapshotAfterTerminalLoopOperationalProofCommand(),
+                'completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand($terminalLoopProofJsonReference),
+                'completion_finalization_gate' => $this->completionFinalizationGateCommand($terminalLoopProofJsonReference),
+            ],
+            'success_check' => $completionClaimAllowed
+                ? 'completion_finalization_gate.status=passed AND completion_claim_allowed=true AND next_stage_allowed=true'
+                : 'operator_evidence_submission_readiness.current_required_operator_artifact advances or completion_audit failed_count decreases',
+            'failure_policy' => [
+                'stop_if_placeholder_remains',
+                'stop_if_operator_evidence_readiness_still_reports_same_missing_required_artifact_after_persist',
+                'stop_if_completion_audit_reports_technical_blocker',
+                'stop_if_terminal_loop_operational_proof_binding_is_missing_before_final_claim',
+            ],
+            'non_execution_guarantees' => [
+                'shell_packet_does_not_execute_commands',
+                'shell_packet_does_not_persist_receipts',
+                'shell_packet_does_not_call_provider',
+                'shell_packet_does_not_spend_tokens',
+                'shell_packet_does_not_dispatch_work',
+                'shell_packet_does_not_sign_for_operator',
+                'shell_packet_does_not_promote_completion',
+            ],
+        ];
+        $packet['shell_packet_hash'] = $this->stableHash($packet);
+
+        return $packet;
+    }
+
+    /** @return list<string> */
+    private function commandPlaceholders(string $command): array
+    {
+        preg_match_all('/<[^>]+>|@\/path\/to\/[^\s]+/', $command, $matches);
+
+        return array_values(array_unique($matches[0] ?? []));
     }
 
     private function terminalLoopOperationalProofCommand(): string

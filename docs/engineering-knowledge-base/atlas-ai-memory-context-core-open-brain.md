@@ -46,6 +46,7 @@ related_paths:
   - docs/engineering-knowledge-base/memory/contracts.md
   - docs/engineering-knowledge-base/memory/retrieval-and-context.md
   - docs/engineering-knowledge-base/memory/open-brain-mcp.md
+  - docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md
   - docs/engineering-knowledge-base/memory-core-contracts.md
   - docs/engineering-knowledge-base/memory-core-runbook.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md

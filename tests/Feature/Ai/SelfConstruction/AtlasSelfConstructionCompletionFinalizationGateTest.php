@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionFinalizationGateService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -36,6 +37,26 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_execute_from_handoff'));
         $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_persist_from_handoff'));
         $this->assertFalse((bool) data_get($gate, 'completion_finalization_operator_handoff.can_promote_completion_from_handoff'));
+        $this->assertSame(
+            'atlas.self_construction.completion_finalization_next_action_shell_packet.v1',
+            data_get($gate, 'completion_finalization_operator_handoff.next_action_shell_packet.schema_version'),
+        );
+        $this->assertSame(
+            'copy_ready_after_fresh_status_review',
+            data_get($gate, 'completion_finalization_operator_handoff.next_action_shell_packet.status'),
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-operator-evidence-submission-readiness-status',
+            (string) data_get($gate, 'completion_finalization_operator_handoff.next_action_shell_packet.exact_command'),
+        );
+        $this->assertSame(0, (int) data_get($gate, 'completion_finalization_operator_handoff.next_action_shell_packet.placeholder_count'));
+        $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.next_action_shell_packet.copy_safe'));
+        $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.next_action_shell_packet.requires_fresh_finalization_gate_status_before_copy'));
+        $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.next_action_shell_packet.can_resume_without_chat_history'));
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            (string) data_get($gate, 'completion_finalization_operator_handoff.next_action_shell_packet.shell_packet_hash'),
+        );
         $this->assertTrue((bool) data_get($gate, 'terminal_loop_operational_proof_required_before_completion_claim'));
         $this->assertStringContainsString('terminal-loop-operational-proof-status', (string) data_get($gate, 'command_to_refresh_terminal_loop_operational_proof'));
         $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) data_get($gate, 'command_to_persist_terminal_loop_operational_proof_binding'));
@@ -102,6 +123,14 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.required_success_predicate.completion_claim_allowed_must_be_true'));
         $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.required_success_predicate.terminal_loop_operational_proof_must_be_bound_and_passed'));
         $this->assertTrue((bool) data_get($gate, 'completion_finalization_operator_handoff.required_success_predicate.release_snapshot_must_be_current_after_terminal_loop_operational_proof'));
+        $this->assertStringContainsString(
+            '--atlas-self-construction-completion-finalization-gate-status',
+            (string) data_get($gate, 'completion_finalization_operator_handoff.next_action_shell_packet.exact_command'),
+        );
+        $this->assertSame(
+            'completion_finalization_gate.status=passed AND completion_claim_allowed=true AND next_stage_allowed=true',
+            data_get($gate, 'completion_finalization_operator_handoff.next_action_shell_packet.success_check'),
+        );
     }
 
     public function test_finalization_gate_blocks_green_audit_without_terminal_loop_operational_proof_binding(): void
@@ -218,8 +247,55 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
             '--atlas-self-construction-operator-evidence-submission-readiness-status',
             (string) $summary['completion_finalization_operator_handoff_operator_evidence_readiness_command'],
         );
+        $this->assertGreaterThanOrEqual(3, (int) $summary['completion_audit_failed_count']);
+        $this->assertSame(
+            $summary['completion_audit_failed_criteria'],
+            $summary['failed_criteria'],
+        );
+        $this->assertSame(
+            (int) $summary['completion_audit_failed_count'],
+            (int) $summary['failed_count'],
+        );
+        $this->assertContains(
+            (string) $summary['current_required_operator_artifact'],
+            [
+                'runtime_promotion_receipt',
+                'real_provider_smoke_certification',
+                'human_signed_completion_receipt',
+                'technical_completion_audit_repair',
+                'completion_finalization_gate_repair',
+            ],
+        );
+        $this->assertContainsOnlyString((array) $summary['human_blockers']);
+        $this->assertSame(count((array) $summary['human_blockers']), (int) $summary['human_blocker_count']);
+        $this->assertEmpty(array_diff((array) $summary['human_blockers'], [
+            'runtime_gap_matrix_all_runtime_y',
+            'human_signed_os_complete_receipt_present',
+        ]));
+        $this->assertContainsOnlyString((array) $summary['real_provider_blockers']);
+        $this->assertSame(count((array) $summary['real_provider_blockers']), (int) $summary['real_provider_blocker_count']);
+        $this->assertEmpty(array_diff((array) $summary['real_provider_blockers'], [
+            'end_to_end_real_provider_smoke_green',
+        ]));
+        $this->assertContainsOnlyString((array) $summary['technical_blockers']);
+        $this->assertSame(count((array) $summary['technical_blockers']), (int) $summary['technical_blocker_count']);
+        $this->assertGreaterThanOrEqual(1, (int) $summary['next_stage_blocker_count']);
         $this->assertGreaterThanOrEqual(6, (int) $summary['completion_finalization_operator_handoff_ordered_next_command_count']);
         $this->assertSame(3, (int) $summary['completion_finalization_operator_handoff_final_verification_sequence_count']);
+        $this->assertSame(4, (int) $summary['closure_artifact_sequence_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['closure_artifact_sequence_hash']);
+        $closureSequence = collect((array) $summary['closure_artifact_sequence'])->keyBy('artifact');
+        $this->assertSame('runtime_gap_matrix_all_runtime_y', $closureSequence['runtime_promotion_receipt']['requirement']);
+        $this->assertSame('end_to_end_real_provider_smoke_green', $closureSequence['real_provider_smoke']['requirement']);
+        $this->assertSame('human_signed_os_complete_receipt_present', $closureSequence['human_completion_receipt']['requirement']);
+        $this->assertSame('completion_audit_authorizes_completion_claim', $closureSequence['final_completion_audit']['requirement']);
+        $this->assertSame(4, (int) $summary['prompt_to_artifact_checklist_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['prompt_to_artifact_checklist_hash']);
+        $checklist = collect((array) $summary['prompt_to_artifact_checklist'])->keyBy('requirement');
+        $this->assertSame('runtime_promotion_receipt', $checklist['runtime_gap_matrix_all_runtime_y']['artifact']);
+        $this->assertSame('real_provider_smoke', $checklist['end_to_end_real_provider_smoke_green']['artifact']);
+        $this->assertSame('human_completion_receipt', $checklist['human_signed_os_complete_receipt_present']['artifact']);
+        $this->assertSame('final_completion_audit', $checklist['completion_audit_authorizes_completion_claim']['artifact']);
         $this->assertSame('terminal_loop_end_to_end_contract_available', $summary['terminal_loop_operational_proof_post_cycle_end_to_end_contract_status']);
         $this->assertTrue((bool) $summary['terminal_loop_operational_proof_post_cycle_end_to_end_contract_all_required_surfaces_present']);
         $this->assertSame([], $summary['terminal_loop_operational_proof_post_cycle_end_to_end_contract_missing_required_capabilities']);
@@ -228,6 +304,36 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertSame(3, (int) $summary['final_verification_sequence_step_count']);
         $this->assertSame('capture_replay_snapshot_after_terminal_loop_operational_proof', $summary['final_verification_sequence'][1]['id']);
         $this->assertTrue((bool) $summary['completion_audit_green_requires_current_snapshot_after_terminal_loop_proof']);
+        $this->assertSame('copy_ready_after_fresh_status_review', $summary['completion_finalization_next_action_shell_packet_status']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $summary['completion_finalization_next_action_shell_packet_hash']);
+        $this->assertStringContainsString('--atlas-self-construction-operator-evidence-submission-readiness-status', $summary['completion_finalization_next_action_exact_command']);
+        $this->assertSame(0, (int) $summary['completion_finalization_next_action_placeholder_count']);
+        $this->assertTrue((bool) $summary['completion_finalization_next_action_copy_safe']);
+        $this->assertSame(
+            (string) $summary['current_required_operator_artifact'],
+            (string) data_get($summary, 'completion_finalization_next_action_shell_packet.current_required_operator_artifact'),
+        );
+    }
+
+    public function test_finalization_gate_status_projection_mirrors_completion_claim_when_all_evidence_is_green(): void
+    {
+        $status = (new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository))
+            ->atlasSelfConstructionCompletionFinalizationGateStatus([
+                'completion_audit' => $this->auditAllPassedExcept([], withOperationalProof: true),
+                'completion_evidence' => $this->evidenceAllGreen(),
+            ]);
+
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_construction_completion_finalization_gate_status', []);
+
+        $this->assertSame('passed', $status['status']);
+        $this->assertFalse((bool) $summary['completion_allowed']);
+        $this->assertTrue((bool) $summary['completion_claim_allowed']);
+        $this->assertTrue((bool) $summary['next_stage_allowed']);
+        $this->assertSame([], (array) $summary['failed_criteria']);
+        $this->assertSame(0, (int) $summary['failed_count']);
+        $this->assertSame('final_operator_review', (string) $summary['current_required_operator_artifact']);
+        $this->assertSame([], (array) $summary['next_stage_blockers']);
+        $this->assertSame(0, (int) $summary['next_stage_blocker_count']);
     }
 
     public function test_finalization_handoff_preserves_terminal_loop_proof_path_in_next_commands(): void
@@ -354,6 +460,43 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $gate = $this->service()->evaluate();
         $encoded = json_encode($gate, JSON_THROW_ON_ERROR);
         $this->assertJson($encoded);
+    }
+
+    public function test_completion_finalization_gate_human_output_exposes_operator_handoff(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-completion-finalization-gate-status' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Failed criteria', $output);
+        $this->assertStringContainsString('Human blockers', $output);
+        $this->assertStringContainsString('Real provider blockers', $output);
+        $this->assertStringContainsString('Technical blockers', $output);
+        $this->assertStringContainsString('Current required artifact', $output);
+        $this->assertStringContainsString('Operator handoff status', $output);
+        $this->assertStringContainsString('Operator handoff failed checks', $output);
+        $this->assertStringContainsString('Can execute', $output);
+        $this->assertStringContainsString('Can persist', $output);
+        $this->assertStringContainsString('Can promote completion', $output);
+        $this->assertStringContainsString('Operator readiness command', $output);
+        $this->assertStringContainsString('--atlas-self-construction-operator-evidence-submission-readiness-status', $output);
+        $this->assertStringContainsString('Terminal proof green', $output);
+        $this->assertStringContainsString('Terminal proof source', $output);
+        $this->assertStringContainsString('Refresh proof command', $output);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', $output);
+        $this->assertStringContainsString('Persist proof command', $output);
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', $output);
+        $this->assertStringContainsString('Snapshot command', $output);
+        $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', $output);
+        $this->assertStringContainsString('Rerun audit command', $output);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', $output);
+        $this->assertStringContainsString('Completion claim allowed', $output);
+        $this->assertStringContainsString('Final verification sequence:', $output);
+        $this->assertStringContainsString('refresh_terminal_loop_operational_proof_and_export_binding', $output);
+        $this->assertStringContainsString('capture_replay_snapshot_after_terminal_loop_operational_proof', $output);
+        $this->assertStringContainsString('rerun_completion_audit_with_terminal_loop_operational_proof_binding', $output);
     }
 
     private function service(): AtlasSelfConstructionCompletionFinalizationGateService

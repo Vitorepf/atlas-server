@@ -100,8 +100,90 @@ final class AgentRuntimeRegistryHeartbeatRepositoryTest extends TestCase
         $summary = $repo->staleAgents(['ttl_seconds' => 60]);
         $this->assertSame(1, $summary['stale_count']);
         $this->assertSame(1, $summary['fresh_count']);
+        $this->assertSame(1, $summary['stale_detail_count']);
+        $this->assertSame(1, $summary['fresh_detail_count']);
+        $this->assertFalse($summary['stale_detail_truncated']);
+        $this->assertFalse($summary['fresh_detail_truncated']);
         $this->assertSame(60, $summary['ttl_seconds']);
         $this->assertFalse($summary['dispatch_allowed']);
+    }
+
+    public function test_stale_detection_caps_detail_without_losing_counts(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        for ($i = 0; $i < 5; $i++) {
+            $repo->record('agent-stale-'.$i, [
+                'status' => 'healthy',
+                'observed_at' => CarbonImmutable::now()->subSeconds(3600 + $i)->toIso8601String(),
+            ]);
+            $repo->record('agent-fresh-'.$i, [
+                'status' => 'healthy',
+                'observed_at' => CarbonImmutable::now()->toIso8601String(),
+            ]);
+        }
+
+        $summary = $repo->staleAgents([
+            'ttl_seconds' => 60,
+            'detail_limit' => 2,
+        ]);
+
+        $this->assertSame(5, $summary['stale_count']);
+        $this->assertSame(5, $summary['fresh_count']);
+        $this->assertSame(2, $summary['stale_detail_count']);
+        $this->assertSame(2, $summary['fresh_detail_count']);
+        $this->assertTrue($summary['stale_detail_truncated']);
+        $this->assertTrue($summary['fresh_detail_truncated']);
+        $this->assertCount(2, $summary['stale_agents']);
+        $this->assertCount(2, $summary['fresh_agents']);
+        $this->assertFalse($summary['runtime_execution_allowed']);
+        $this->assertFalse($summary['self_programming_allowed']);
+    }
+
+    public function test_index_is_compacted_to_recent_unique_agents(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $oldObserved = CarbonImmutable::now()->subDays(2);
+        $newObserved = CarbonImmutable::now();
+        $index = [];
+        for ($i = 0; $i < AgentRuntimeRegistryHeartbeatRepository::DEFAULT_INDEX_AGENT_CAP + 5; $i++) {
+            $observed = $oldObserved->subSeconds($i)->toIso8601String();
+            $index[] = [
+                'agent_id' => 'bulk-agent-'.$i,
+                'observed_at' => $observed,
+                'recorded_at' => $observed,
+                'status' => 'healthy',
+                'current_task_count' => 0,
+                'max_parallel_tasks' => 1,
+            ];
+        }
+        $index[] = [
+            'agent_id' => 'bulk-agent-0',
+            'observed_at' => $newObserved->toIso8601String(),
+            'recorded_at' => $newObserved->toIso8601String(),
+            'status' => 'busy',
+            'current_task_count' => 0,
+            'max_parallel_tasks' => 1,
+        ];
+
+        Storage::disk('local')->put(
+            AgentRuntimeRegistryHeartbeatRepository::INDEX_PATH,
+            json_encode($index, JSON_THROW_ON_ERROR),
+        );
+
+        $repo->record('newest-agent', [
+            'status' => 'healthy',
+            'observed_at' => $newObserved->addSecond()->toIso8601String(),
+        ]);
+
+        $summary = $repo->staleAgents(['detail_limit' => 0]);
+        $allAgents = collect(array_merge($summary['stale_agents'], $summary['fresh_agents']))
+            ->pluck('agent_id')
+            ->all();
+
+        $this->assertLessThanOrEqual(AgentRuntimeRegistryHeartbeatRepository::DEFAULT_INDEX_AGENT_CAP, $summary['stale_count'] + $summary['fresh_count']);
+        $this->assertContains('newest-agent', $allAgents);
+        $this->assertContains('bulk-agent-0', $allAgents);
+        $this->assertSame(count($allAgents), count(array_unique($allAgents)));
     }
 
     public function test_heartbeat_status_fresh_and_stale(): void

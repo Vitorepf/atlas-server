@@ -242,6 +242,14 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             operatorCompletionProofBundle: $operatorCompletionProofBundle,
             canonicalSubmissionPersistencePlan: $canonicalSubmissionPersistencePlan,
         );
+        $closureArtifactSequence = $this->closureArtifactSequence(
+            runtimePassed: $runtimePassed,
+            smokePassed: $smokePassed,
+            humanPassed: $humanPassed,
+            completionAuditReady: (string) data_get($completionAudit, 'status') === 'complete'
+                && (bool) data_get($completionAudit, 'completion_allowed', false),
+        );
+        $promptToArtifactChecklist = $this->promptToArtifactChecklist($closureArtifactSequence);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -263,6 +271,13 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'operator_evidence_sequence_integrity' => $operatorEvidenceSequenceIntegrity,
             'operator_completion_proof_bundle' => $operatorCompletionProofBundle,
             'operator_evidence_closure_runbook' => $operatorEvidenceClosureRunbook,
+            'closure_artifact_sequence' => $closureArtifactSequence,
+            'closure_artifact_sequence_count' => count($closureArtifactSequence),
+            'closure_artifact_sequence_hash' => $this->stableHash($closureArtifactSequence),
+            'prompt_to_artifact_checklist' => $promptToArtifactChecklist,
+            'prompt_to_artifact_checklist_count' => count($promptToArtifactChecklist),
+            'prompt_to_artifact_checklist_passed_count' => count(array_filter($promptToArtifactChecklist, static fn (array $row): bool => (bool) $row['passed'])),
+            'prompt_to_artifact_checklist_hash' => $this->stableHash($promptToArtifactChecklist),
             'runtime_promotion_receipt_passed' => $runtimePassed,
             'real_provider_smoke_passed' => $smokePassed,
             'human_completion_receipt_passed' => $humanPassed,
@@ -1417,10 +1432,23 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         $exactPersistCommand = $readyForPersistence
             ? (string) data_get($envelope, 'persist_command', '')
             : '';
+        $expectedPersistCommandTemplate = (string) data_get($envelope, 'persist_command', '');
+        $expectedEndgameCommandTemplate = (string) data_get($envelope, 'detailed_endgame_command', '');
         if ($canonicalStepReady && (string) data_get($canonicalNextStep, 'command', '') !== '') {
             $exactCommand = (string) data_get($canonicalNextStep, 'command', $exactCommand);
             $exactPersistCommand = $exactCommand;
+            $expectedPersistCommandTemplate = $exactCommand;
+            $expectedEndgameCommandTemplate = '';
         }
+
+        $shellPacket = $this->operatorNextActionShellPacket(
+            nextRequired: $nextRequired,
+            actionArtifact: $canonicalStepReady ? $canonicalNextStepArtifact : $artifactKey,
+            exactCommand: $exactCommand,
+            exactPersistCommand: $exactPersistCommand,
+            expectedPersistCommandTemplate: $expectedPersistCommandTemplate,
+            readyForPersistence: $canonicalStepReady || $readyForPersistence,
+        );
 
         $payload = [
             'schema_version' => 'atlas.self_construction.operator_evidence_submission_readiness_next_action.v1',
@@ -1435,6 +1463,9 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'canonical_submission_persistence_plan_next_step_id' => $canonicalNextStepId,
             'exact_command' => $exactCommand,
             'exact_persist_command' => $exactPersistCommand,
+            'expected_persist_command_template' => $expectedPersistCommandTemplate,
+            'expected_endgame_command_template' => $expectedEndgameCommandTemplate,
+            'persist_command_template_available' => $expectedPersistCommandTemplate !== '',
             'command_contains_placeholders' => $this->placeholderFieldsFromCommand($exactCommand.' '.$exactPersistCommand) !== [],
             'placeholder_fields_to_replace' => $this->placeholderFieldsFromCommand($exactCommand.' '.$exactPersistCommand),
             'ready_for_explicit_operator_persistence' => $canonicalStepReady || $readyForPersistence,
@@ -1456,6 +1487,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 (string) data_get($envelope, 'post_persistence_rerun_commands.completion_audit', ''),
                 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
             ])),
+            'shell_packet' => $shellPacket,
             'success_predicate_after_all_actions' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
             'non_execution_guarantees' => [
                 'submission_readiness_next_action_does_not_execute_command',
@@ -1468,6 +1500,74 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         $payload['operator_next_action_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /** @return array<string, mixed> */
+    private function operatorNextActionShellPacket(
+        string $nextRequired,
+        string $actionArtifact,
+        string $exactCommand,
+        string $exactPersistCommand,
+        string $expectedPersistCommandTemplate,
+        bool $readyForPersistence,
+    ): array {
+        $commandToCopy = $readyForPersistence && $exactPersistCommand !== ''
+            ? $exactPersistCommand
+            : $exactCommand;
+        $placeholders = $this->placeholderFieldsFromCommand($commandToCopy);
+        $packet = [
+            'schema_version' => 'atlas.self_construction.operator_evidence_submission_readiness_next_action_shell_packet.v1',
+            'mode' => 'read_only_operator_evidence_submission_readiness_next_action_shell_packet',
+            'status' => $placeholders === [] ? 'copy_ready_after_fresh_readiness_review' : 'blocked_placeholder_replacement_required',
+            'next_required' => $nextRequired,
+            'action_artifact' => $actionArtifact,
+            'command_to_copy' => $commandToCopy,
+            'command_to_copy_hash' => $commandToCopy === '' ? '' : hash('sha256', $commandToCopy),
+            'exact_command' => $exactCommand,
+            'exact_command_hash' => $exactCommand === '' ? '' : hash('sha256', $exactCommand),
+            'exact_persist_command' => $exactPersistCommand,
+            'exact_persist_command_hash' => $exactPersistCommand === '' ? '' : hash('sha256', $exactPersistCommand),
+            'expected_persist_command_template' => $expectedPersistCommandTemplate,
+            'placeholder_count' => count($placeholders),
+            'placeholders' => $placeholders,
+            'copy_safe' => $placeholders === [] && $commandToCopy !== '',
+            'ready_for_explicit_operator_persistence' => $readyForPersistence,
+            'requires_fresh_readiness_status_before_copy' => true,
+            'requires_verifier_green_before_persist' => true,
+            'can_resume_without_chat_history' => true,
+            'post_action_proof_commands' => [
+                'operator_evidence_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
+                'completion_audit_with_terminal_loop_operational_proof' => $this->completionAuditWithTerminalLoopOperationalProofCommand(),
+            ],
+            'success_check' => match ($nextRequired) {
+                'runtime_promotion_receipt' => 'runtime_promotion_receipt.status=passed AND runtime_gap_matrix.all_runtime_y=true',
+                'real_provider_smoke' => 'real_provider_smoke.status=passed AND real_provider_run_observed_by_operator=true',
+                'human_completion_receipt' => 'human_completion_receipt.status=passed AND completion_claim_allowed=true',
+                'rerun_completion_audit' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+                default => 'operator_evidence_submission_readiness.next_required_submission_advances',
+            },
+            'failure_policy' => [
+                'stop_if_placeholder_remains',
+                'stop_if_verifier_status_is_not_passed',
+                'stop_if_hash_mismatch',
+                'stop_if_persist_command_is_run_before_draft_is_green',
+                'stop_if_real_provider_smoke_is_not_operator_observed',
+            ],
+            'non_execution_guarantees' => [
+                'shell_packet_does_not_execute_command',
+                'shell_packet_does_not_persist_receipts',
+                'shell_packet_does_not_call_provider',
+                'shell_packet_does_not_spend_tokens',
+                'shell_packet_does_not_dispatch_work',
+                'shell_packet_does_not_sign_for_operator',
+                'shell_packet_does_not_promote_completion',
+            ],
+        ];
+        $packet['shell_packet_hash'] = $this->stableHash($packet);
+
+        return $packet;
     }
 
     private function terminalLoopOperationalProofCommand(): string
@@ -1739,6 +1839,88 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'rerun_completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
             default => '',
         };
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function closureArtifactSequence(bool $runtimePassed, bool $smokePassed, bool $humanPassed, bool $completionAuditReady): array
+    {
+        return [
+            [
+                'order' => 1,
+                'artifact' => 'runtime_promotion_receipt',
+                'requirement' => 'runtime_gap_matrix_all_runtime_y',
+                'blocker_type' => 'human',
+                'status' => $runtimePassed ? 'passed' : 'blocked',
+                'passed' => $runtimePassed,
+                'expected_receipt_schema' => 'atlas.self_construction.runtime_promotion_receipt.v1',
+                'draft_command' => $this->nextRequiredCommand('runtime_promotion_receipt'),
+                'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+                'evidence_source' => 'runtime_gap_matrix',
+                'requires_operator_signature' => true,
+                'requires_provider_call' => false,
+            ],
+            [
+                'order' => 2,
+                'artifact' => 'real_provider_smoke',
+                'requirement' => 'end_to_end_real_provider_smoke_green',
+                'blocker_type' => 'real_provider',
+                'status' => $smokePassed ? 'passed' : 'blocked',
+                'passed' => $smokePassed,
+                'expected_receipt_schema' => 'atlas.self_construction.real_provider_smoke_certification.v1',
+                'draft_command' => $this->nextRequiredCommand('real_provider_smoke'),
+                'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@storage/app/private/atlas/self-construction/operator-submissions/real-provider-smoke.json --persist-completion-evidence --json',
+                'evidence_source' => 'real_provider_smoke',
+                'requires_operator_signature' => false,
+                'requires_provider_call' => true,
+            ],
+            [
+                'order' => 3,
+                'artifact' => 'human_completion_receipt',
+                'requirement' => 'human_signed_os_complete_receipt_present',
+                'blocker_type' => 'human',
+                'status' => $humanPassed ? 'passed' : 'blocked',
+                'passed' => $humanPassed,
+                'expected_receipt_schema' => 'atlas.self_construction.human_signed_completion_receipt.v1',
+                'draft_command' => $this->nextRequiredCommand('human_completion_receipt'),
+                'persist_command' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/human-completion-receipt.json --persist-completion-evidence --json',
+                'evidence_source' => 'human_completion_receipt',
+                'requires_operator_signature' => true,
+                'requires_provider_call' => false,
+            ],
+            [
+                'order' => 4,
+                'artifact' => 'final_completion_audit',
+                'requirement' => 'completion_audit_authorizes_completion_claim',
+                'blocker_type' => $completionAuditReady ? 'none' : 'derived',
+                'status' => $completionAuditReady ? 'passed' : 'blocked_until_operator_evidence_green',
+                'passed' => $completionAuditReady,
+                'expected_receipt_schema' => 'atlas.self_construction.os_completion_audit.v1',
+                'draft_command' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
+                'persist_command' => '',
+                'evidence_source' => 'completion_audit',
+                'requires_operator_signature' => false,
+                'requires_provider_call' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $closureArtifactSequence
+     * @return list<array<string, mixed>>
+     */
+    private function promptToArtifactChecklist(array $closureArtifactSequence): array
+    {
+        return array_map(static fn (array $row): array => [
+            'requirement' => (string) $row['requirement'],
+            'artifact' => (string) $row['artifact'],
+            'status' => (string) $row['status'],
+            'passed' => (bool) $row['passed'],
+            'blocker_type' => (string) $row['blocker_type'],
+            'expected_receipt_schema' => (string) $row['expected_receipt_schema'],
+            'evidence_source' => (string) $row['evidence_source'],
+            'command' => (string) $row['draft_command'],
+            'persist_command' => (string) $row['persist_command'],
+        ], $closureArtifactSequence);
     }
 
     /** @return list<string> */

@@ -147,6 +147,9 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
             bootstrapPlan: $bootstrapPlan,
             checks: $checks,
         );
+        $closureMapSourceGate = $liveFinalizationGate !== [] ? $liveFinalizationGate : $finalizationGate;
+        $closureArtifactSequence = (array) data_get($closureMapSourceGate, 'closure_artifact_sequence', []);
+        $promptToArtifactChecklist = (array) data_get($closureMapSourceGate, 'prompt_to_artifact_checklist', []);
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -202,6 +205,13 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
             'next_stage_prompt_to_artifact_checklist' => $nextStageChecklist,
             'next_stage_prompt_to_artifact_checklist_count' => count($nextStageChecklist),
             'next_stage_prompt_to_artifact_checklist_passed_count' => count(array_filter($nextStageChecklist, static fn (array $row): bool => (string) ($row['evidence_status'] ?? '') === 'passed')),
+            'closure_artifact_sequence' => $closureArtifactSequence,
+            'closure_artifact_sequence_count' => count($closureArtifactSequence),
+            'closure_artifact_sequence_hash' => (string) data_get($closureMapSourceGate, 'closure_artifact_sequence_hash', ''),
+            'prompt_to_artifact_checklist' => $promptToArtifactChecklist,
+            'prompt_to_artifact_checklist_count' => count($promptToArtifactChecklist),
+            'prompt_to_artifact_checklist_passed_count' => (int) data_get($closureMapSourceGate, 'prompt_to_artifact_checklist_passed_count', 0),
+            'prompt_to_artifact_checklist_hash' => (string) data_get($closureMapSourceGate, 'prompt_to_artifact_checklist_hash', ''),
             'self_construction_complete' => (bool) data_get($transition, 'self_construction_complete', false),
             'contract_design_allowed' => (bool) data_get($transition, 'contract_design_allowed', false),
             'runtime_activation_allowed' => false,

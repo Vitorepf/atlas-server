@@ -38,6 +38,10 @@ final class AgentRuntimeRegistryHeartbeatRepository
 
     public const DEFAULT_PER_AGENT_CAP = 50;
 
+    public const DEFAULT_STALE_AGENT_DETAIL_CAP = 100;
+
+    public const DEFAULT_INDEX_AGENT_CAP = 5000;
+
     public const STATUSES = [
         'healthy',
         'busy',
@@ -177,6 +181,7 @@ final class AgentRuntimeRegistryHeartbeatRepository
     public function staleAgents(array $options = []): array
     {
         $ttl = max(1, (int) ($options['ttl_seconds'] ?? self::DEFAULT_TTL_SECONDS));
+        $detailLimit = max(0, (int) ($options['detail_limit'] ?? self::DEFAULT_STALE_AGENT_DETAIL_CAP));
         $referenceIso = (string) ($options['reference_time'] ?? CarbonImmutable::now()->toIso8601String());
         $referenceTs = strtotime($referenceIso);
         if ($referenceTs === false) {
@@ -185,17 +190,22 @@ final class AgentRuntimeRegistryHeartbeatRepository
 
         $stale = [];
         $fresh = [];
+        $staleCount = 0;
+        $freshCount = 0;
         foreach ($this->loadIndex() as $entry) {
             $agentId = (string) ($entry['agent_id'] ?? '');
             $observed = (string) ($entry['observed_at'] ?? '');
             $ts = strtotime($observed);
             if ($ts === false) {
-                $stale[] = [
-                    'agent_id' => $agentId,
-                    'observed_at' => $observed,
-                    'age_seconds' => null,
-                    'reason' => 'invalid_timestamp',
-                ];
+                $staleCount++;
+                if ($detailLimit === 0 || count($stale) < $detailLimit) {
+                    $stale[] = [
+                        'agent_id' => $agentId,
+                        'observed_at' => $observed,
+                        'age_seconds' => null,
+                        'reason' => 'invalid_timestamp',
+                    ];
+                }
 
                 continue;
             }
@@ -208,9 +218,15 @@ final class AgentRuntimeRegistryHeartbeatRepository
             ];
             if ($age > $ttl) {
                 $payload['reason'] = 'older_than_ttl';
-                $stale[] = $payload;
+                $staleCount++;
+                if ($detailLimit === 0 || count($stale) < $detailLimit) {
+                    $stale[] = $payload;
+                }
             } else {
-                $fresh[] = $payload;
+                $freshCount++;
+                if ($detailLimit === 0 || count($fresh) < $detailLimit) {
+                    $fresh[] = $payload;
+                }
             }
         }
 
@@ -218,9 +234,14 @@ final class AgentRuntimeRegistryHeartbeatRepository
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
             'ttl_seconds' => $ttl,
+            'detail_limit' => $detailLimit,
             'reference_time' => $referenceIso,
-            'stale_count' => count($stale),
-            'fresh_count' => count($fresh),
+            'stale_count' => $staleCount,
+            'fresh_count' => $freshCount,
+            'stale_detail_count' => count($stale),
+            'fresh_detail_count' => count($fresh),
+            'stale_detail_truncated' => $detailLimit > 0 && $staleCount > count($stale),
+            'fresh_detail_truncated' => $detailLimit > 0 && $freshCount > count($fresh),
             'stale_agents' => $stale,
             'fresh_agents' => $fresh,
             'runtime_execution_allowed' => false,
@@ -411,7 +432,44 @@ final class AgentRuntimeRegistryHeartbeatRepository
         if (! $found) {
             $index[] = $payload;
         }
+        $index = $this->compactIndex($index);
         $this->disk()->put(self::INDEX_PATH, $this->encode($index));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $index
+     * @return list<array<string, mixed>>
+     */
+    private function compactIndex(array $index): array
+    {
+        $byAgent = [];
+        foreach ($index as $entry) {
+            $agentId = (string) ($entry['agent_id'] ?? '');
+            if ($agentId === '') {
+                continue;
+            }
+            $candidateTs = strtotime((string) ($entry['recorded_at'] ?? $entry['observed_at'] ?? '')) ?: 0;
+            $current = $byAgent[$agentId] ?? null;
+            $currentTs = is_array($current)
+                ? (strtotime((string) ($current['recorded_at'] ?? $current['observed_at'] ?? '')) ?: 0)
+                : -1;
+            if ($candidateTs >= $currentTs) {
+                $byAgent[$agentId] = $entry;
+            }
+        }
+
+        $compacted = array_values($byAgent);
+        usort(
+            $compacted,
+            static fn (array $a, array $b): int => (strtotime((string) ($b['recorded_at'] ?? $b['observed_at'] ?? '')) ?: 0)
+                <=> (strtotime((string) ($a['recorded_at'] ?? $a['observed_at'] ?? '')) ?: 0),
+        );
+
+        if (count($compacted) > self::DEFAULT_INDEX_AGENT_CAP) {
+            $compacted = array_slice($compacted, 0, self::DEFAULT_INDEX_AGENT_CAP);
+        }
+
+        return array_values($compacted);
     }
 
     /**

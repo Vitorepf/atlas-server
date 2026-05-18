@@ -47,6 +47,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-ai-router-flow-routing-contract-v1.md
   - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
+  - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-dual-core-engineering-system
 graph_title: Atlas Dual-Core Engineering System

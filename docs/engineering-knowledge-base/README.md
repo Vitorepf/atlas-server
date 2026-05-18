@@ -42,6 +42,10 @@ capabilities:
   - resolver_corpus_governance
   - documentation_archive_governance
   - atlas_ai_operating_system
+  - autonomous_intelligence_operating_system
+  - domain_company_runtimes
+  - multi_domain_implementation_sequence
+  - local_agent_memory_ingestion
   - canonical_onboarding
   - canonical_docs
   - postgres_registry
@@ -96,6 +100,12 @@ decisions:
   - Atlas AI Content Intelligence And Knowledge Curation define como capturar, filtrar, descartar, rotear e promover conteudo sem poluir memoria ou dominios.
   - Atlas AI Research Intelligence And Self-Improvement Runtime define pesquisa de maximo nivel, source quality, promocao para docs, planejamento, implementacao validada e autoaprimoramento governado como frente P0 de evolucao do Atlas.
   - Atlas AI Spec Operating System define SDD como capacidade interna: intencao simples vira spec operacional, plano, tasks, Decision Receipt, execucao governada, evidencia, drift detection, learning proposal, data model, agentes internos, MCP governado e context packages versionados.
+  - Atlas Autonomous Intelligence Operating System define Atlas AI como sistema operacional de inteligencia autonoma multi-dominio: Kernel comum, Mission Mode, Objective Intelligence, Domain Company Runtimes, Tool Economy, Evidence Ledger, Control Plane, certificacao e aprendizado continuo.
+  - Atlas Domain Company Runtimes define como cada dominio vira uma empresa digital plugavel, com manifest, departamentos, workflows, policies, gates, artifacts, metrics e certification sem criar Kernel paralelo.
+  - Atlas Local Agent Memory Ingestion define como pastas locais de Codex, Claude Code e outros agentes podem virar source material governado, com discovery read-only, secret scan, quarentena cognitiva, classificacao, evidence, review humano e promocao seletiva.
+  - Atlas Evidence Certification Runtime define a camada universal de prova que impede resposta fraca, falso completo e claim sem evidencia: EvidencePack, Receipt, Claim, Artifact, SourceRef, GateRun, TestResult, OperatorDecision, Certification, Blocker e AuditEvent como contratos canonicos para metas, missoes, work orders, dominios, tools e handoffs.
+  - Atlas Programming Domain Adapter Integration Plan (Meta 7) define como Atlas Dev, Forge, Repair, Review, QA, Security, Database, Visual e Forge handoff sao plugados ao novo Kernel por 9 bridges thin (ManifestSeeder, DomainRuntimeAdapter, DevMissionAdapter, ForgeHandoffAdapter, EvidenceBridge, PolicyBridge, ToolBridge, ControlPlaneProjection, Command) sem refatorar runtime nem fundir Atlas Dev com Atlas Forge.
+  - Atlas AI Multi-Domain Implementation Sequence define a ordem canonica, o paralelismo permitido, as fronteiras de arquivos por meta e a coordenacao entre Claudes/Codex executando em paralelo.
   - Operacao Atlas Hyperflow define a iniciativa para transformar Atlas AI no sistema operacional principal de engenharia assistida por IA, substituindo Claude Code/Codex por roteamento inteligente, specialist flows profundos, Atlas Dev, Atlas Forge, evidencia, telemetry e self-improvement.
   - Atlas AI Router Runtime Enterprise Upgrade define a meta para transformar o Router de contrato em runtime enterprise: flow decision persistida, specialist flows, delegation, telemetry, receipts e UX visivel.
   - Atlas Programming Governance System define os gates canonicos da programacao por IA: placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning e cartografia.
@@ -116,7 +126,7 @@ decisions:
   - Atlas AI Vision, Pipeline e Core Vs Domain sao os tres documentos fundadores curtos da arquitetura-mae.
   - Atlas AI Resolver Corpus Audit classifica a pasta resolver-o-que-vale-a-pena e promove specs P0 para a arquitetura canonica.
   - Archive README define como ler source material preservado sem deixar docs legados competirem com a arquitetura canonica.
-  - Atlas AI Operating System define a camada macro de orquestracao, dominios, pipeline comum e regras anti-duplicacao.
+  - Atlas AI Operating System define a camada macro de orquestracao, dominios, pipeline comum e regras anti-duplicacao; a identidade final multi-dominio vive no Autonomous Intelligence OS e no Domain Company Runtime contract.
   - START_HERE.md e o ponto de entrada para humanos e IAs.
   - Docs versionados sao a fonte de verdade.
   - Postgres guarda indice operacional e estado consultavel.
@@ -148,6 +158,8 @@ maintenance:
   - Leia atlas-ai-runtime-language-boundaries.md, atlas-native-mac-agent.md, atlas-ai-local-performance-memory-strategy.md, atlas-ai-content-intelligence-curation.md e atlas-ai-scenario-simulation-harness.md antes de propor Python, Go, Swift, microservico, worker externo, daemon, RAG local, cache, modelos locais, uso dos 48GB RAM, YouTube ingestion, feeds, scraping, curadoria de fontes, swarm ou simulacao multiagente.
   - Leia atlas-ai-research-self-improvement-runtime.md antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, autoaprimoramento ou qualquer tentativa de acelerar evolucao do Atlas por automacao.
   - Leia atlas-ai-spec-operating-system.md antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts ou fluxo de one-shot implementation.
+  - Leia atlas-autonomous-intelligence-operating-system.md e atlas-domain-company-runtimes.md antes de tratar Atlas AI como apenas Programming; identidade canonica e multi-dominio com Kernel comum + Domain Company Runtimes plugaveis.
+  - Leia atlas-ai-multi-domain-implementation-sequence.md antes de planejar AP/Obra/Forge run que toque mais de um dominio ou quando varios providers atuarem em paralelo, para respeitar ordem, paralelismo e fronteiras de arquivos.
   - Leia atlas-hyperflow-operation.md antes de discutir ou implementar a substituicao de Claude Code/Codex pelo Atlas AI como sistema operacional principal de engenharia.
   - Leia atlas-ai-router-runtime-enterprise-upgrade.md antes de implementar Router Runtime, specialist flows, delegation ou telemetry de flow.
   - Leia atlas-programming-governance-system.md antes de alterar placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao.
@@ -219,6 +231,12 @@ related_paths:
   - docs/engineering-knowledge-base/research-self-improvement/failure-modes.md
   - docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
   - docs/ap/AP-689-research-self-improvement-runtime-contract.md
+  - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
+  - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
+  - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
+  - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
+  - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
+  - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/spec-operating-system/context-discovery-and-business-context.md
   - docs/engineering-knowledge-base/spec-operating-system/spec-compiler-and-critic.md
@@ -462,6 +480,14 @@ detalhe de modulo com docs/testes.
 | `system-graph/node-catalog-and-build-contract.md` | Catalogo inicial e contrato de construcao dos nodes do Atlas System Graph no AtlasVault/Obsidian |
 | `system-graph/living-architecture-graph-contract.md` | Contrato do Atlas Living Architecture Graph: grafo Obsidian vivo com nodes reais, status, dependencias, evidencias e proximas acoes |
 | `atlas-ai-knowledge-governance-system.md` | Contrato enterprise de fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat source material |
+| `atlas-autonomous-intelligence-operating-system.md` | Identidade canonica do Atlas AI como Autonomous Intelligence OS multi-dominio: Kernel comum, Mission Mode, Objective Intelligence, Domain Company Runtimes, Tool Economy, Evidence Ledger, Control Plane e certificacao |
+| `atlas-kernel-mission-foundation.md` | Meta 1 entregue: fundacao universal Mission/Objective/WorkOrder com lifecycle guard, evidence refs, certification e control-plane snapshot consumida por todos os dominios |
+| `atlas-domain-company-runtimes.md` | Forma plugavel dos dominios: manifest, departments, workflows, gates, artifacts, metrics, maturity e certification sem Kernel/Policy/Tool/Evidence paralelos |
+| `atlas-domain-runtime-contract.md` | Meta 2 entregue: contrato backend ai_domain_*, DomainManifest, Registry, Capability Catalog, Handoff cross-domain e Maturity Assessment via comando atlas:ai:domain-runtime, sem criar Kernel, Tool Runtime, Policy ou Evidence paralelos |
+| `atlas-evidence-certification-runtime.md` | Design pack canonico da camada universal de prova: EvidencePack, Receipt, Claim, Artifact, SourceRef, GateRun, TestResult, OperatorDecision, Certification, Blocker e AuditEvent para metas, missoes, work orders, dominios, tools e handoffs |
+| `atlas-programming-domain-adapter-integration-plan.md` | Plano canonico Meta 7 com 9 bridges thin (ManifestSeeder, DomainRuntimeAdapter, DevMissionAdapter, ForgeHandoffAdapter, EvidenceBridge, PolicyBridge, ToolBridge, ControlPlaneProjection, Command) ligando Atlas Dev/Forge/Programming ao novo Kernel sem refatorar runtime nem fundir Atlas Dev com Atlas Forge |
+| `atlas-ai-multi-domain-implementation-sequence.md` | Ordem canonica de 14 metas, paralelismo permitido, fronteiras de arquivos por meta e regras anti-colisao entre Claudes/Codex/Gemini em paralelo |
+| `atlas-local-agent-memory-ingestion.md` | Contrato para ingerir pastas locais de Codex/Claude Code como source material governado, com secret scan, quarentena cognitiva, evidence, review e promocao seletiva |
 | `atlas-ai-runtime-language-boundaries.md` | Contrato de fronteira entre Laravel Kernel, Python AI/Data Runtime, Go Edge/Concurrency Runtime e Swift Native Mac Runtime |
 | `atlas-native-mac-agent.md` | Contrato canonico para Swift/macOS: Keychain, Touch ID, notificacoes, FSEvents, Menu Bar, Accessibility e ScreenCaptureKit opt-in |
 | `atlas-ai-local-performance-memory-strategy.md` | Contrato canonico para usar 48GB RAM em hot context, RAG local, rerank, cache, modelos locais, KV cache e precompute |

@@ -22,6 +22,9 @@ maintenance:
   - Nao crie spec ready para scaffold sem atualizar canonical index, master architecture e onboarding status.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
+  - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
+  - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
+  - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
@@ -111,6 +114,13 @@ Master Architecture:
 
 - Kernel define contratos executaveis, envelopes, receipts, ledgers, SDKs,
   failure domains e SLOs.
+- Autonomous Intelligence OS define Atlas AI como sistema operacional
+  multi-dominio.
+- Domain Company Runtimes define quando uma spec de dominio deve evoluir para
+  empresa digital com departamentos, workflows, gates, artifacts e certification.
+- Multi-Domain Implementation Sequence (`atlas-ai-multi-domain-implementation-sequence.md`)
+  define em que ORDEM cada dominio entra, o que paraleliza, quais arquivos cada
+  meta nao deve tocar e como evitar colisao entre Claudes/Codex em paralelo.
 - Master Architecture define planes, roadmap, onboarding e estrategia de
   produto.
 - Domain Specs definem semantica, flows, safety, sources, gates e status de

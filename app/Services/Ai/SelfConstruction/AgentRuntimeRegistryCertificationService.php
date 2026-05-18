@@ -211,7 +211,7 @@ final class AgentRuntimeRegistryCertificationService
     private function invariantHeartbeatStaleDetection(): array
     {
         $hb = new AgentRuntimeRegistryHeartbeatRepository;
-        $agentId = 'cert.stale.'.bin2hex(random_bytes(4));
+        $agentId = 'cert.stale.probe';
         try {
             $hb->record($agentId, [
                 'status' => 'healthy',

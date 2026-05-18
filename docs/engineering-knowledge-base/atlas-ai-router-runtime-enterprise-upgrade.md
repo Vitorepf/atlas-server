@@ -24,6 +24,8 @@ decisions:
   - Flow decision canonica usa `atlas_dev`, `atlas_research`, `atlas_explain`, `atlas_debug`, `atlas_review`, `atlas_plan`, `atlas_conversation`, `atlas_forge`.
   - Compatibilidade com flows legados `programming.*` deve ser preservada por ponte, nao por ruptura.
   - Enterprise bonito exige decisao auditavel, UX visivel, delegation explicito, telemetry e testes de matriz.
+  - Meta 6 entrega o pipeline AIOS (Intent -> Objective -> Domain Router -> Flow Router -> Policy/Evidence Gates -> Runtime Dispatch -> Decision Receipt) em tabelas separadas `ai_atlas_*` para nao colidir com o `ai_router_decisions` legado de provider routing.
+  - Dispatch v1 nunca chama provider/browser/API real; o status do dispatch e `simulated`, `planned` ou `blocked` com `receipt_hash` deterministico. Execucao real fica para Tool Runtime (Meta 5) e Domain Company Runtimes (Meta 7+).
 maintenance:
   - Atualize este doc quando o runtime do Router, specialist flows, delegation ou Desktop/API UX mudarem.
   - Nao coloque detalhes internos de Atlas Dev ou Forge aqui; este doc governa roteamento e handoff.
@@ -34,9 +36,30 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
+  - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
   - app/Services/Ai/Router/AtlasAiRouterService.php
   - app/Services/Ai/Router/AtlasAiRouterDecision.php
   - app/Models/AiRouterDecision.php
+  - database/migrations/2026_05_18_030000_create_ai_atlas_router_runtime_tables.php
+  - app/Models/AiAtlasIntentClassification.php
+  - app/Models/AiAtlasRouterDecision.php
+  - app/Models/AiAtlasFlowRoute.php
+  - app/Models/AiAtlasRuntimeDispatch.php
+  - app/Models/AiAtlasDecisionReceipt.php
+  - app/Services/Ai/RouterRuntime/RouterRuntimeCanon.php
+  - app/Services/Ai/RouterRuntime/IntentKernelService.php
+  - app/Services/Ai/RouterRuntime/ObjectiveRoutingService.php
+  - app/Services/Ai/RouterRuntime/DomainRouterService.php
+  - app/Services/Ai/RouterRuntime/FlowRouterService.php
+  - app/Services/Ai/RouterRuntime/RuntimeDispatchService.php
+  - app/Services/Ai/RouterRuntime/DecisionReceiptService.php
+  - app/Services/Ai/RouterRuntime/RouterPolicyBridgeService.php
+  - app/Services/Ai/RouterRuntime/RouterEvidenceBridgeService.php
+  - app/Services/Ai/RouterRuntime/RouterRuntimeReadinessService.php
+  - app/Services/Ai/RouterRuntime/RouterRuntimeControlPlaneService.php
+  - app/Console/Commands/AtlasAiRouterRuntimeCommand.php
+  - tests/Concerns/CreatesRouterRuntimeTables.php
+  - tests/Feature/Ai/RouterRuntime/
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-ai-router-runtime-enterprise-upgrade
 graph_title: Atlas AI Router Runtime Enterprise Upgrade
@@ -83,6 +106,10 @@ evidence:
   - tests/Unit/Ai/Router/AtlasAiRouterServiceTest.php
 required_tests:
   - "php artisan test tests/Unit/Ai/Router tests/Feature/Ai/AtlasAiRouterRuntimeTest.php"
+  - "php artisan test tests/Feature/Ai/RouterRuntime"
+  - "php artisan atlas:ai:router-runtime --action=readiness --json"
+  - "php artisan atlas:ai:router-runtime --action=smoke --json"
+  - "php artisan atlas:ai:router-runtime --action=control-plane --json"
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true
 risk_level: high
@@ -112,6 +139,8 @@ next_actions:
   - Completar specialist flow handlers.
   - Expor RouterDecision no Desktop.
   - Criar matrix tests para attachments, slash commands, workspace missing e delegation.
+  - Meta 7+ Domain Runtimes consomem `AiAtlasRuntimeDispatch` via interface canonical para executar trabalho real apos os gates de policy/evidence/tool plan.
+  - Ligar Meta 6 ao Mission Foundation: `AiAtlasIntentClassification.mission_id` ja existe e `ObjectiveRoutingService::resolveObjective` resolve mission ref quando presente.
 line_limit: 520
 ---
 # Atlas AI Router Runtime Enterprise Upgrade
@@ -508,6 +537,74 @@ Evidencia minima:
 ## Exemplos
 
 Workspace -> `atlas_dev`; diff -> `atlas_review`; traceback -> `atlas_debug`; plano -> `atlas_plan`; pesquisa -> `atlas_research`; conversa -> `atlas_conversation`; Atlas Code -> `atlas_forge`.
+
+## Status De Implementacao (Meta 6)
+
+Meta 6 do Multi-Domain Implementation Sequence esta implementada como backend
+do pipeline AIOS (Intent -> Objective -> Domain Router -> Flow Router ->
+Policy/Evidence Gates -> Runtime Dispatch -> Decision Receipt). A camada
+**decide e simula**; nada aqui chama provider, browser ou API real.
+
+Para nao colidir com a tabela `ai_router_decisions` legada (provider routing
+em `app/Services/Ai/Router/AtlasAiRouterService.php`), as tabelas e modelos
+Meta 6 sao prefixados `ai_atlas_*`/`AiAtlas*`.
+
+Persistencia (5 tabelas):
+
+- `ai_atlas_intent_classifications` (`atlas.ai.intent_classification.v1`).
+- `ai_atlas_router_decisions` (`atlas.ai.router_decision.v1`) com primary
+  domain, secondary domains, `routing_mode` em `{lightweight, standard, deep,
+  forge, blocked}` e flags `policy_required`, `evidence_required`,
+  `tool_plan_required`.
+- `ai_atlas_flow_routes` (`atlas.ai.flow_route.v1`).
+- `ai_atlas_runtime_dispatches` (`atlas.ai.runtime_dispatch.v1`) com
+  `dispatch_status` em `{planned, dispatched, simulated, blocked, failed,
+  completed}`.
+- `ai_atlas_decision_receipts` (`atlas.ai.decision_receipt.v1`) com
+  `receipt_hash` deterministico.
+
+Services (`App\Services\Ai\RouterRuntime`):
+
+- `RouterRuntimeCanon` — enums canonicos: intent_types, routing_modes,
+  dispatch_statuses, intent->domain, intent->flow_id, dominios high-risk.
+- `IntentKernelService::classify(rawInput, context)` — kernel deterministico
+  baseado em keywords (v1).
+- `ObjectiveRoutingService::resolveObjective(intent)` — tolerant a ausencia
+  de Mission Foundation.
+- `DomainRouterService::route(intent)` — decide primary domain, secondary
+  domains, routing_mode, policy/evidence/tool flags e receipt_hash.
+- `FlowRouterService::decideFlow(decision, intent)` — escolhe `flow_id`
+  canonical (`atlas_dev`, `atlas_research`, etc.), profile, gates obrigatorios
+  e fallback flows.
+- `RuntimeDispatchService::dispatch(decision, flowRoute, intent)` — persiste
+  dispatch simulated/planned/blocked, NUNCA executa acao externa.
+- `DecisionReceiptService::recordRouterDecision()` / `::recordRuntimeDispatch()`.
+- `RouterPolicyBridgeService` e `RouterEvidenceBridgeService` — bridges
+  tolerantes a Meta 3/Meta 4 ausentes.
+- `RouterRuntimeReadinessService::report()` — schema
+  `atlas.ai.router_runtime.readiness.v1`.
+- `RouterRuntimeControlPlaneService::snapshot()` — schema
+  `atlas.ai.router_runtime.control_plane.v1`.
+
+Comando Artisan:
+
+```bash
+/opt/homebrew/bin/php artisan atlas:ai:router-runtime --action=readiness --json
+/opt/homebrew/bin/php artisan atlas:ai:router-runtime --action=classify --input="..." --json
+/opt/homebrew/bin/php artisan atlas:ai:router-runtime --action=route --input="..." --json
+/opt/homebrew/bin/php artisan atlas:ai:router-runtime --action=dispatch --input="..." --json
+/opt/homebrew/bin/php artisan atlas:ai:router-runtime --action=smoke --json
+/opt/homebrew/bin/php artisan atlas:ai:router-runtime --action=control-plane --json
+```
+
+Fora de escopo de Meta 6 (continua em Metas seguintes):
+
+- Tool Runtime real (Meta 5) — Router apenas marca `tool_plan_required`.
+- Provider invocation (Meta 7+).
+- Browser/terminal/API execution (Tool Factory, Meta 13).
+- UI Desktop/API Control Plane (Meta 14).
+- Substituicao do Atlas AI Router legado (`AtlasAiRouterService`); ele
+  continua governando flow_id legacy de programacao via ponte.
 
 ## Proximas Acoes
 

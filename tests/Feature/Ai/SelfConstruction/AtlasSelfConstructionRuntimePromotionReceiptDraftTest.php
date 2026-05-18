@@ -147,6 +147,33 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftTest extends TestCa
         }
     }
 
+    public function test_receipt_draft_human_output_exposes_operator_inputs_and_gap_hashes(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-runtime-promotion-receipt-draft-status' => true,
+            '--signed-by' => '<operator>',
+            '--reason' => '<operator reason with at least 32 chars>',
+        ]);
+
+        $this->assertSame(0, $exit);
+        $output = Artisan::output();
+
+        $this->assertStringContainsString('Draft status', $output);
+        $this->assertStringContainsString('Candidate gaps', $output);
+        $this->assertStringContainsString('Blocked gaps', $output);
+        $this->assertStringContainsString('Missing operator inputs:', $output);
+        $this->assertStringContainsString('signed_by', $output);
+        $this->assertStringContainsString('Verification status', $output);
+        $this->assertStringContainsString('Verification violations:', $output);
+        $this->assertStringContainsString('runtime_promotion_receipt_signer_must_be_real_operator', $output);
+        $this->assertStringContainsString('Runtime promotion allowed', $output);
+        $this->assertStringContainsString('Persistence command', $output);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', $output);
+        $this->assertStringContainsString('Next action', $output);
+        $this->assertStringContainsString('Runtime gap matrix hash', $output);
+        $this->assertStringContainsString('Receipt hash', $output);
+    }
+
     public function test_receipt_draft_command_threads_persistence_request_with_explicit_operator_inputs(): void
     {
         $exit = Artisan::call('atlas:ai:self-construction', [

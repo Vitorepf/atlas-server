@@ -243,6 +243,10 @@ class AtlasAiSelfConstructionCommand extends Command
         {--atlas-self-construction-completion-evidence-submission-preflight-preflight : Generate the read-only Atlas Self-Construction Completion Evidence Submission Preflight preflight}
         {--atlas-self-construction-completion-evidence-submission-preflight-implementation-packet : Generate the read-only Atlas Self-Construction Completion Evidence Submission Preflight implementation packet}
         {--atlas-self-construction-completion-evidence-submission-preflight-status : Run the read-only Atlas Self-Construction Completion Evidence Submission Preflight}
+        {--atlas-self-construction-os-handoff-contract : Generate the read-only Atlas Self-Construction OS Handoff contract}
+        {--atlas-self-construction-os-handoff-preflight : Generate the read-only Atlas Self-Construction OS Handoff preflight}
+        {--atlas-self-construction-os-handoff-implementation-packet : Generate the read-only Atlas Self-Construction OS Handoff implementation packet}
+        {--atlas-self-construction-os-handoff-status : Run the read-only Atlas Self-Construction OS Handoff projection}
         {--atlas-self-construction-completion-evidence-hash-composer-contract : Generate the read-only Atlas Self-Construction Completion Evidence Hash Composer contract}
         {--atlas-self-construction-completion-evidence-hash-composer-preflight : Generate the read-only Atlas Self-Construction Completion Evidence Hash Composer preflight}
         {--atlas-self-construction-completion-evidence-hash-composer-implementation-packet : Generate the read-only Atlas Self-Construction Completion Evidence Hash Composer implementation packet}
@@ -2255,6 +2259,10 @@ class AtlasAiSelfConstructionCommand extends Command
             (bool) $this->option('atlas-self-construction-completion-evidence-submission-preflight-implementation-packet') => $readiness->atlasSelfConstructionCompletionEvidenceSubmissionPreflightImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-completion-evidence-submission-preflight-preflight') => $readiness->atlasSelfConstructionCompletionEvidenceSubmissionPreflightPreflight($options),
             (bool) $this->option('atlas-self-construction-completion-evidence-submission-preflight-contract') => $readiness->atlasSelfConstructionCompletionEvidenceSubmissionPreflightContract($options),
+            (bool) $this->option('atlas-self-construction-os-handoff-status') => $readiness->atlasSelfConstructionOsHandoffStatus($options),
+            (bool) $this->option('atlas-self-construction-os-handoff-implementation-packet') => $readiness->atlasSelfConstructionOsHandoffImplementationPacket($options),
+            (bool) $this->option('atlas-self-construction-os-handoff-preflight') => $readiness->atlasSelfConstructionOsHandoffPreflight($options),
+            (bool) $this->option('atlas-self-construction-os-handoff-contract') => $readiness->atlasSelfConstructionOsHandoffContract($options),
             (bool) $this->option('atlas-self-construction-completion-evidence-hash-composer-status') => $readiness->atlasSelfConstructionCompletionEvidenceHashComposerStatus($options),
             (bool) $this->option('atlas-self-construction-completion-evidence-hash-composer-implementation-packet') => $readiness->atlasSelfConstructionCompletionEvidenceHashComposerImplementationPacket($options),
             (bool) $this->option('atlas-self-construction-completion-evidence-hash-composer-preflight') => $readiness->atlasSelfConstructionCompletionEvidenceHashComposerPreflight($options),
@@ -2605,10 +2613,279 @@ class AtlasAiSelfConstructionCommand extends Command
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Self-Construction OS</>', (string) $payload['status']);
 
+        if ((bool) $this->option('atlas-self-construction-os-completion-operator-action-packet-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_operator_action_packet_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Current required artifact', (string) data_get($status, 'current_required_operator_artifact'));
+            $this->components->twoColumnDetail('Missing operator artifacts', (string) data_get($status, 'missing_operator_artifact_count', 0));
+            $this->components->twoColumnDetail('Blockers', (string) data_get($status, 'blocker_count', 0));
+            $this->components->twoColumnDetail('Human blockers', (string) data_get($status, 'human_blocker_count', 0));
+            $this->components->twoColumnDetail('Real provider blockers', (string) data_get($status, 'real_provider_blocker_count', 0));
+            $this->components->twoColumnDetail('Technical blockers', (string) data_get($status, 'technical_blocker_count', 0));
+            $this->components->twoColumnDetail('Closure artifacts', (string) data_get($status, 'closure_artifact_sequence_count', 0));
+            $this->components->twoColumnDetail('Checklist passed', data_get($status, 'prompt_to_artifact_checklist_passed_count', 0).' / '.data_get($status, 'prompt_to_artifact_checklist_count', 0));
+            $this->components->twoColumnDetail('Command count', (string) data_get($status, 'command_count', 0));
+            $this->components->twoColumnDetail('Operator readiness command', (string) data_get($status, 'operator_evidence_readiness_command'));
+            $this->components->twoColumnDetail('Closure corridor command', (string) data_get($status, 'final_operator_evidence_closure_corridor_command'));
+            $this->components->twoColumnDetail('Persist terminal proof', (string) data_get($status, 'terminal_loop_operational_proof_binding_persist_command'));
+            $this->components->twoColumnDetail('Canonical audit command', (string) data_get($status, 'completion_audit_with_canonical_terminal_loop_operational_proof_command'));
+            $this->components->twoColumnDetail('Terminal proof required', data_get($status, 'terminal_loop_operational_proof_required_before_final_audit') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Action packet hash', (string) data_get($status, 'operator_action_packet_hash'));
+
+            $missingArtifacts = (array) data_get($status, 'missing_operator_artifacts', []);
+            if ($missingArtifacts !== []) {
+                $this->newLine();
+                $this->line('Missing operator artifacts:');
+                foreach (array_values($missingArtifacts) as $artifact) {
+                    $this->line('  - '.$artifact);
+                }
+            }
+
+            $closureSequence = (array) data_get($status, 'closure_artifact_sequence', []);
+            if ($closureSequence !== []) {
+                $this->newLine();
+                $this->line('Closure artifact sequence:');
+                foreach (array_values($closureSequence) as $step) {
+                    $this->line('  '.data_get($step, 'order').'. '.data_get($step, 'artifact').' ['.data_get($step, 'status').']');
+                    $draftCommand = (string) data_get($step, 'draft_command');
+                    if ($draftCommand !== '') {
+                        $this->line('    draft: '.$draftCommand);
+                    }
+                    $persistCommand = (string) data_get($step, 'persist_command');
+                    if ($persistCommand !== '') {
+                        $this->line('    persist: '.$persistCommand);
+                    }
+                }
+            }
+
+            $promptChecklist = (array) data_get($status, 'prompt_to_artifact_checklist', []);
+            if ($promptChecklist !== []) {
+                $this->newLine();
+                $this->line('Prompt-to-artifact checklist:');
+                foreach (array_values($promptChecklist) as $index => $item) {
+                    $artifact = (string) data_get($item, 'artifact', '');
+                    $requirement = (string) data_get($item, 'requirement', '');
+                    $passed = data_get($item, 'passed') ? 'passed' : 'blocked';
+                    $this->line('  '.($index + 1).'. '.$artifact.' -> '.$requirement.' ['.$passed.']');
+                }
+            }
+
+            $commands = (array) data_get($status, 'commands', []);
+            if ($commands !== []) {
+                $this->newLine();
+                $this->line('Operator command plan:');
+                foreach ($commands as $name => $command) {
+                    if (is_string($command) && $command !== '') {
+                        $this->line('  - '.$name.': '.$command);
+                    }
+                }
+            }
+
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-completion-audit-blocker-explainer-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_completion_audit_blocker_explainer_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Remaining blockers', (string) data_get($status, 'remaining_blocker_count', 0));
+            $this->components->twoColumnDetail('Human required', data_get($status, 'human_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Real provider required', data_get($status, 'real_provider_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Can close automatically', data_get($status, 'can_close_automatically') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Closure artifacts', (string) data_get($status, 'closure_artifact_sequence_count', 0));
+            $this->components->twoColumnDetail('Checklist passed', data_get($status, 'prompt_to_artifact_checklist_passed_count', 0).' / '.data_get($status, 'prompt_to_artifact_checklist_count', 0));
+            $this->components->twoColumnDetail('Terminal proof command', (string) data_get($status, 'terminal_loop_operational_proof_command'));
+            $this->components->twoColumnDetail('Persist terminal proof', (string) data_get($status, 'terminal_loop_operational_proof_binding_persist_command'));
+            $this->components->twoColumnDetail('Canonical terminal proof path', (string) data_get($status, 'terminal_loop_operational_proof_canonical_binding_path'));
+            $this->components->twoColumnDetail('Audit with terminal proof', (string) data_get($status, 'completion_audit_command_with_terminal_loop_operational_proof'));
+            $this->components->twoColumnDetail('Effective canonical audit', (string) data_get($status, 'effective_completion_audit_with_canonical_terminal_loop_operational_proof_command'));
+            $this->components->twoColumnDetail('Explainer hash', (string) data_get($status, 'explainer_hash'));
+
+            $closureSequence = (array) data_get($status, 'closure_artifact_sequence', []);
+            if ($closureSequence !== []) {
+                $this->newLine();
+                $this->line('Closure artifact sequence:');
+                foreach (array_values($closureSequence) as $step) {
+                    $this->line('  '.data_get($step, 'order').'. '.data_get($step, 'artifact').' ['.data_get($step, 'status').']');
+                    $draftCommand = (string) data_get($step, 'draft_command');
+                    if ($draftCommand !== '') {
+                        $this->line('    draft: '.$draftCommand);
+                    }
+                    $persistCommand = (string) data_get($step, 'persist_command');
+                    if ($persistCommand !== '') {
+                        $this->line('    persist: '.$persistCommand);
+                    }
+                }
+            }
+
+            $promptChecklist = (array) data_get($status, 'prompt_to_artifact_checklist', []);
+            if ($promptChecklist !== []) {
+                $this->newLine();
+                $this->line('Prompt-to-artifact checklist:');
+                foreach (array_values($promptChecklist) as $index => $item) {
+                    $artifact = (string) data_get($item, 'artifact', '');
+                    $requirement = (string) data_get($item, 'requirement', '');
+                    $passed = data_get($item, 'passed') ? 'passed' : 'blocked';
+                    $this->line('  '.($index + 1).'. '.$artifact.' -> '.$requirement.' ['.$passed.']');
+                }
+            }
+
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-runtime-promotion-receipt-draft-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_receipt_draft_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Draft status', (string) data_get($status, 'status'));
+            $this->components->twoColumnDetail('Candidate gaps', (string) data_get($status, 'candidate_count', 0));
+            $this->components->twoColumnDetail('Blocked gaps', (string) data_get($status, 'blocked_gap_count', 0));
+            $this->components->twoColumnDetail('Missing operator inputs', (string) data_get($status, 'missing_operator_input_count', 0));
+            $this->components->twoColumnDetail('Verification status', (string) data_get($status, 'verification_status'));
+            $this->components->twoColumnDetail('Verification violations', (string) data_get($status, 'verification_violation_count', 0));
+            $this->components->twoColumnDetail('Runtime promotion allowed', data_get($status, 'runtime_promotion_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Persistence requested', data_get($status, 'persistence_requested') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Persisted', data_get($status, 'persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Persistence command', (string) data_get($status, 'persistence_command'));
+            $this->components->twoColumnDetail('Next action', (string) data_get($status, 'next_action'));
+            $this->components->twoColumnDetail('Runtime gap matrix hash', (string) data_get($status, 'expected_runtime_gap_matrix_hash_for_promotion_receipt'));
+            $this->components->twoColumnDetail('Receipt hash', (string) data_get($status, 'receipt_hash'));
+            $this->components->twoColumnDetail('Draft hash', (string) data_get($status, 'draft_hash'));
+
+            $missingInputs = (array) data_get($status, 'missing_operator_inputs', []);
+            if ($missingInputs !== []) {
+                $this->newLine();
+                $this->line('Missing operator inputs:');
+                foreach (array_values($missingInputs) as $input) {
+                    $this->line('  - '.$input);
+                }
+            }
+
+            $blockedGapIds = (array) data_get($status, 'blocked_gap_ids', []);
+            if ($blockedGapIds !== []) {
+                $this->newLine();
+                $this->line('Runtime gaps to promote:');
+                foreach (array_values($blockedGapIds) as $gapId) {
+                    $this->line('  - '.$gapId);
+                }
+            }
+
+            $violations = (array) data_get($status, 'verification_violations', []);
+            if ($violations !== []) {
+                $this->newLine();
+                $this->line('Verification violations:');
+                foreach (array_values($violations) as $violation) {
+                    $this->line('  - '.data_get($violation, 'code', 'unknown_violation'));
+                }
+            }
+
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-runtime-promotion-endgame-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Endgame status', (string) data_get($status, 'status'));
+            $this->components->twoColumnDetail('Runtime gaps', (string) data_get($status, 'runtime_gap_count', 0));
+            $this->components->twoColumnDetail('Verifier status', (string) data_get($status, 'receipt_pre_submission_verification_status'));
+            $this->components->twoColumnDetail('Verifier violations', (string) data_get($status, 'receipt_pre_submission_verification_violation_count', 0));
+            $this->components->twoColumnDetail('Missing fields', (string) data_get($status, 'receipt_pre_submission_missing_field_count', 0));
+            $this->components->twoColumnDetail('Missing acknowledgements', (string) data_get($status, 'receipt_pre_submission_acknowledgement_missing_count', 0));
+            $this->components->twoColumnDetail('Can persist', data_get($status, 'can_persist') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Persist requested', data_get($status, 'persistence_preflight_persist_requested') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Persistence blocker', (string) data_get($status, 'persistence_preflight_blocked_reason'));
+            $this->components->twoColumnDetail('Persist command', (string) data_get($status, 'persistence_preflight_persist_command'));
+            $this->components->twoColumnDetail('Rerun matrix command', (string) data_get($status, 'persistence_preflight_rerun_matrix_command'));
+            $this->components->twoColumnDetail('Terminal proof command', (string) data_get($status, 'persistence_preflight_terminal_loop_operational_proof_command'));
+            $this->components->twoColumnDetail('Canonical proof path', (string) data_get($status, 'persistence_preflight_terminal_loop_operational_proof_canonical_binding_path'));
+            $this->components->twoColumnDetail('Effective audit command', (string) data_get($status, 'persistence_preflight_effective_rerun_audit_with_canonical_terminal_loop_operational_proof_command'));
+            $this->components->twoColumnDetail('Decision checklist', data_get($status, 'operator_decision_checklist_passed_count', 0).' / '.data_get($status, 'operator_decision_checklist_count', 0));
+            $this->components->twoColumnDetail('Shell packet', (string) data_get($status, 'operator_next_action_shell_packet_status'));
+            $this->components->twoColumnDetail('Shell copy safe', data_get($status, 'operator_next_action_shell_packet_copy_safe') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Shell placeholders', (string) data_get($status, 'operator_next_action_shell_packet_placeholder_count', 0));
+            $this->components->twoColumnDetail('Command to copy', (string) data_get($status, 'operator_next_action_command_to_copy'));
+            $this->components->twoColumnDetail('Persisted', data_get($status, 'persisted') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Completion allowed', data_get($status, 'completion_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Completion claim allowed', data_get($status, 'completion_claim_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Endgame hash', (string) data_get($status, 'endgame_hash'));
+
+            $blockedGapIds = (array) data_get($status, 'blocked_gap_ids', []);
+            if ($blockedGapIds !== []) {
+                $this->newLine();
+                $this->line('Runtime gaps to promote:');
+                foreach (array_values($blockedGapIds) as $gapId) {
+                    $this->line('  - '.$gapId);
+                }
+            }
+
+            $missingFields = (array) data_get($status, 'receipt_pre_submission_missing_fields', []);
+            if ($missingFields !== []) {
+                $this->newLine();
+                $this->line('Missing receipt fields:');
+                foreach (array_values($missingFields) as $field) {
+                    $this->line('  - '.$field);
+                }
+            }
+
+            $missingAcknowledgements = (array) data_get($status, 'receipt_pre_submission_acknowledgement_missing', []);
+            if ($missingAcknowledgements !== []) {
+                $this->newLine();
+                $this->line('Missing acknowledgements:');
+                foreach (array_values($missingAcknowledgements) as $acknowledgement) {
+                    $this->line('  - '.$acknowledgement);
+                }
+            }
+
+            $decisionChecklist = (array) data_get($status, 'operator_decision_checklist', []);
+            if ($decisionChecklist !== []) {
+                $this->newLine();
+                $this->line('Operator decision checklist:');
+                foreach (array_values($decisionChecklist) as $index => $item) {
+                    $passed = data_get($item, 'passed') ? 'passed' : 'blocked';
+                    $this->line('  '.($index + 1).'. '.data_get($item, 'id').' ['.$passed.']');
+                    $blockingReason = (string) data_get($item, 'blocking_reason', '');
+                    if ($blockingReason !== '') {
+                        $this->line('    '.$blockingReason);
+                    }
+                }
+            }
+
+            $postPersistenceCommands = (array) data_get($status, 'post_persistence_next_commands', []);
+            if ($postPersistenceCommands !== []) {
+                $this->newLine();
+                $this->line('Post-persistence commands:');
+                foreach ($postPersistenceCommands as $name => $command) {
+                    if (is_string($command) && $command !== '') {
+                        $this->line('  - '.$name.': '.$command);
+                    }
+                }
+            }
+
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
         if ((bool) $this->option('atlas-self-construction-final-operator-evidence-closure-corridor-status')) {
             $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status', []);
             $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
             $this->components->twoColumnDetail('Next required submission', (string) data_get($status, 'next_required_submission'));
+            $this->components->twoColumnDetail('Current artifact', (string) data_get($status, 'current_required_operator_artifact'));
+            $this->components->twoColumnDetail('Technical closure green', data_get($status, 'technical_closure_green') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Technical blockers', (string) data_get($status, 'technical_blocker_count', 0));
+            $this->components->twoColumnDetail('Human blockers', (string) data_get($status, 'human_blocker_count', 0));
+            $this->components->twoColumnDetail('Real provider blockers', (string) data_get($status, 'real_provider_blocker_count', 0));
+            $this->components->twoColumnDetail('Progress', (string) data_get($status, 'operator_completion_progress_meter_progress_percent', 0).'%');
+            $this->components->twoColumnDetail('Blocked artifacts', (string) data_get($status, 'operator_completion_progress_meter_blocked_artifact_count', 0));
+            $this->components->twoColumnDetail('Operator evidence blocked', (string) data_get($status, 'operator_completion_progress_meter_operator_evidence_blocked_artifact_count', 0));
             $this->components->twoColumnDetail('Next action step', (string) data_get($status, 'operator_next_action_step_id'));
             $this->components->twoColumnDetail('Next action phase', (string) data_get($status, 'operator_next_action_phase'));
             $this->components->twoColumnDetail('Exact command', (string) data_get($status, 'operator_next_action_exact_command'));
@@ -2619,7 +2896,79 @@ class AtlasAiSelfConstructionCommand extends Command
             $this->components->twoColumnDetail('Handoff status', (string) data_get($status, 'operator_closure_handoff_status'));
             $this->components->twoColumnDetail('Handoff immediate command', (string) data_get($status, 'operator_closure_handoff_immediate_command'));
             $this->components->twoColumnDetail('Handoff success predicate', (string) data_get($status, 'operator_closure_handoff_success_predicate'));
+            $this->components->twoColumnDetail('Can resume without chat', data_get($status, 'operator_closure_handoff_can_resume_without_chat_history') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Fresh preflight before persist', data_get($status, 'operator_closure_handoff_requires_fresh_preflight_before_persist') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Handoff hash', (string) data_get($status, 'operator_closure_handoff_hash'));
+            $this->components->twoColumnDetail('Runbook status', (string) data_get($status, 'operator_execution_runbook_status'));
+            $this->components->twoColumnDetail('Runbook current step', (string) data_get($status, 'operator_execution_runbook_current_step_id'));
+            $this->components->twoColumnDetail('Runbook steps', (string) data_get($status, 'operator_execution_runbook_step_count', 0));
+            $this->components->twoColumnDetail('Shell packet', (string) data_get($status, 'operator_next_action_shell_packet_status'));
+            $this->components->twoColumnDetail('Shell commands', (string) data_get($status, 'operator_next_action_shell_packet_ordered_command_count', 0));
+            $this->components->twoColumnDetail('Shell placeholders', (string) data_get($status, 'operator_next_action_shell_packet_placeholder_count', 0));
+            $this->components->twoColumnDetail('Post-action verifier', (string) data_get($status, 'operator_next_action_shell_packet_post_action_verification_status'));
+            $this->components->twoColumnDetail('Recovery matrix', (string) data_get($status, 'operator_failure_recovery_matrix_status'));
+            $this->components->twoColumnDetail('Recovery rows', (string) data_get($status, 'operator_failure_recovery_matrix_row_count', 0));
+            $this->components->twoColumnDetail('Command surface', (string) data_get($status, 'operator_command_surface_integrity_status'));
+            $this->components->twoColumnDetail('Missing CLI options', (string) data_get($status, 'operator_command_surface_integrity_missing_option_count', 0));
+            $this->components->twoColumnDetail('Legacy aliases', (string) data_get($status, 'operator_command_surface_integrity_legacy_alias_count', 0));
+            $this->components->twoColumnDetail('Terminal proof', (string) data_get($status, 'terminal_loop_closure_proof_status'));
+            $this->components->twoColumnDetail('Completion allowed', data_get($status, 'completion_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Completion claim allowed', data_get($status, 'completion_claim_allowed') ? 'yes' : 'no');
+
+            $blockingArtifacts = (array) data_get($status, 'blocking_artifacts', []);
+            if ($blockingArtifacts !== []) {
+                $this->newLine();
+                $this->line('Blocking artifacts:');
+                foreach (array_values($blockingArtifacts) as $artifact) {
+                    $this->line('  - '.$artifact);
+                }
+            }
+
+            $closureSequence = (array) data_get($status, 'closure_artifact_sequence', []);
+            if ($closureSequence !== []) {
+                $this->newLine();
+                $this->line('Closure artifact sequence:');
+                foreach (array_values($closureSequence) as $step) {
+                    $this->line('  '.data_get($step, 'order').'. '.data_get($step, 'artifact').' ['.data_get($step, 'status').']');
+                    $draftCommand = (string) data_get($step, 'draft_command');
+                    if ($draftCommand !== '') {
+                        $this->line('    draft: '.$draftCommand);
+                    }
+                    $persistCommand = (string) data_get($step, 'persist_command');
+                    if ($persistCommand !== '') {
+                        $this->line('    persist: '.$persistCommand);
+                    }
+                }
+            }
+
+            $promptChecklist = (array) data_get($status, 'prompt_to_artifact_checklist', []);
+            if ($promptChecklist !== []) {
+                $this->newLine();
+                $this->line('Prompt-to-artifact checklist:');
+                foreach (array_values($promptChecklist) as $index => $item) {
+                    $artifact = (string) data_get($item, 'artifact', '');
+                    $requirement = (string) data_get($item, 'requirement', '');
+                    $passed = data_get($item, 'passed') ? 'passed' : 'blocked';
+                    $this->line('  '.($index + 1).'. '.$artifact.' -> '.$requirement.' ['.$passed.']');
+                }
+            }
+
+            $terminalProofCommands = [
+                'Proof draft' => (string) data_get($status, 'terminal_loop_closure_proof_command'),
+                'Persist proof' => (string) data_get($status, 'terminal_loop_closure_proof_binding_persist_command'),
+                'Audit with binding' => (string) data_get($status, 'terminal_loop_closure_proof_audit_command_with_binding'),
+                'Canonical audit' => (string) data_get($status, 'terminal_loop_closure_proof_audit_command_with_canonical_binding'),
+                'Effective audit' => (string) data_get($status, 'terminal_loop_closure_proof_effective_audit_command_with_binding'),
+            ];
+            if (array_filter($terminalProofCommands) !== []) {
+                $this->newLine();
+                $this->line('Terminal proof guardrails:');
+                foreach ($terminalProofCommands as $label => $command) {
+                    if ($command !== '') {
+                        $this->line('  - '.$label.': '.$command);
+                    }
+                }
+            }
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 
@@ -2630,15 +2979,408 @@ class AtlasAiSelfConstructionCommand extends Command
             $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_operator_evidence_submission_readiness_status', []);
             $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
             $this->components->twoColumnDetail('Next required', (string) data_get($status, 'next_required'));
+            $this->components->twoColumnDetail('Proof bundle', (string) data_get($status, 'operator_completion_proof_bundle_status'));
+            $this->components->twoColumnDetail('Missing proofs', (string) data_get($status, 'operator_completion_missing_proof_count', 0));
+            $this->components->twoColumnDetail('Ready for final audit', data_get($status, 'operator_completion_ready_for_final_audit') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Terminal proof ready', data_get($status, 'terminal_loop_operational_proof_ready') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Closure runbook', (string) data_get($status, 'operator_evidence_closure_runbook_status'));
+            $this->components->twoColumnDetail('Runbook current step', (string) data_get($status, 'operator_evidence_closure_runbook_current_step_id'));
+            $this->components->twoColumnDetail('Runbook technical blockers', (string) data_get($status, 'operator_evidence_closure_runbook_technical_blocker_count', 0));
+            $this->components->twoColumnDetail('Runbook missing proofs', (string) data_get($status, 'operator_evidence_closure_runbook_missing_operator_proof_count', 0));
+            $this->components->twoColumnDetail('Runbook steps', (string) data_get($status, 'operator_evidence_closure_runbook_ordered_step_count', 0));
+            $this->components->twoColumnDetail('Command surface', (string) data_get($status, 'operator_command_surface_integrity_status'));
+            $this->components->twoColumnDetail('Command count', (string) data_get($status, 'operator_command_surface_integrity_command_count', 0));
+            $this->components->twoColumnDetail('Missing CLI options', (string) data_get($status, 'operator_command_surface_integrity_missing_option_count', 0));
+            $this->components->twoColumnDetail('Legacy aliases', (string) data_get($status, 'operator_command_surface_integrity_legacy_alias_count', 0));
             $this->components->twoColumnDetail('Next action source', (string) data_get($status, 'operator_next_action_action_source'));
             $this->components->twoColumnDetail('Next action artifact', (string) data_get($status, 'operator_next_action_action_artifact'));
             $this->components->twoColumnDetail('Next action step', (string) data_get($status, 'operator_next_action_action_step_id'));
             $this->components->twoColumnDetail('Exact command', (string) data_get($status, 'operator_next_action_exact_command'));
             $this->components->twoColumnDetail('Exact persist command', (string) data_get($status, 'operator_next_action_exact_persist_command'));
+            $this->components->twoColumnDetail('Persist template', (string) data_get($status, 'operator_next_action_expected_persist_command_template'));
             $this->components->twoColumnDetail('Ready for persistence', data_get($status, 'operator_next_action_ready_for_explicit_operator_persistence') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Can persist from readiness', data_get($status, 'operator_next_action_can_persist_from_readiness') ? 'yes' : 'no');
             $this->components->twoColumnDetail('Why not automatic', (string) data_get($status, 'operator_next_action_why_not_automatic'));
             $this->components->twoColumnDetail('Action hash', (string) data_get($status, 'operator_next_action_hash'));
+
+            $missingProofs = (array) data_get($status, 'operator_completion_missing_proofs', []);
+            if ($missingProofs !== []) {
+                $this->newLine();
+                $this->line('Missing operator proofs:');
+                foreach (array_values($missingProofs) as $proof) {
+                    $this->line('  - '.$proof);
+                }
+            }
+
+            $closureSequence = (array) data_get($status, 'closure_artifact_sequence', []);
+            if ($closureSequence !== []) {
+                $this->newLine();
+                $this->line('Closure artifact sequence:');
+                foreach (array_values($closureSequence) as $index => $artifact) {
+                    $requirement = (string) data_get($artifact, 'requirement', '');
+                    $artifactId = (string) data_get($artifact, 'artifact', '');
+                    $command = (string) data_get($artifact, 'command', '');
+                    $this->line('  '.($index + 1).'. '.$artifactId.($requirement !== '' ? ' -> '.$requirement : ''));
+                    if ($command !== '') {
+                        $this->line('    '.$command);
+                    }
+                }
+            }
+
+            $terminalProofCommand = (string) data_get($status, 'operator_evidence_closure_runbook_terminal_loop_operational_proof_command');
+            $terminalProofPersistCommand = (string) data_get($status, 'operator_evidence_closure_runbook_terminal_loop_operational_proof_binding_persist_command');
+            $canonicalAuditCommand = (string) data_get($status, 'operator_evidence_closure_runbook_completion_audit_with_canonical_terminal_loop_operational_proof_command');
+            $effectiveAuditCommand = (string) data_get($status, 'operator_evidence_closure_runbook_effective_completion_audit_with_terminal_loop_operational_proof_command');
+            if ($terminalProofCommand !== '' || $terminalProofPersistCommand !== '' || $canonicalAuditCommand !== '' || $effectiveAuditCommand !== '') {
+                $this->newLine();
+                $this->line('Terminal proof guardrails:');
+                if ($terminalProofCommand !== '') {
+                    $this->line('  - Proof draft: '.$terminalProofCommand);
+                }
+                if ($terminalProofPersistCommand !== '') {
+                    $this->line('  - Persist proof: '.$terminalProofPersistCommand);
+                }
+                if ($canonicalAuditCommand !== '') {
+                    $this->line('  - Canonical audit: '.$canonicalAuditCommand);
+                }
+                if ($effectiveAuditCommand !== '') {
+                    $this->line('  - Effective audit: '.$effectiveAuditCommand);
+                }
+            }
+
+            $promptChecklist = (array) data_get($status, 'prompt_to_artifact_checklist', []);
+            if ($promptChecklist !== []) {
+                $this->newLine();
+                $this->line('Prompt-to-artifact checklist:');
+                foreach (array_values($promptChecklist) as $index => $item) {
+                    $artifactId = (string) data_get($item, 'artifact', '');
+                    $passed = data_get($item, 'passed') ? 'passed' : 'blocked';
+                    $this->line('  '.($index + 1).'. '.$artifactId.' ['.$passed.']');
+                }
+            }
+
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-completion-evidence-submission-preflight-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status', []);
+            $preflight = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Next required submission', (string) data_get($status, 'next_required_submission'));
+            $this->components->twoColumnDetail('Current required artifact', (string) data_get($status, 'current_required_operator_artifact'));
+            $this->components->twoColumnDetail('Completion audit failed', (string) data_get($status, 'completion_audit_failed_count', 0));
+            $this->components->twoColumnDetail('Technical blockers', (string) data_get($status, 'completion_audit_technical_blocker_count', 0));
+            $this->components->twoColumnDetail('Human blockers', (string) data_get($status, 'completion_audit_human_blocker_count', 0));
+            $this->components->twoColumnDetail('Real provider blockers', (string) data_get($status, 'completion_audit_real_provider_blocker_count', 0));
+            $this->components->twoColumnDetail('Terminal proof supplied', data_get($status, 'terminal_loop_operational_proof_supplied_to_completion_audit') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Terminal proof source', (string) data_get($status, 'terminal_loop_operational_proof_source'));
+            $this->components->twoColumnDetail('Can resume without chat', data_get($status, 'resumption_checkpoint_can_resume_without_chat_history') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Fresh preflight before persist', data_get($status, 'resumption_checkpoint_requires_fresh_preflight_before_persist') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Required operator inputs', (string) data_get($status, 'current_required_operator_input_count', 0));
+            $this->components->twoColumnDetail('Stop conditions', (string) data_get($status, 'current_step_stop_condition_count', 0));
+            $this->components->twoColumnDetail('Pre-persist guardrails', (string) data_get($status, 'pre_persist_guardrail_count', 0));
+            $this->components->twoColumnDetail('Command surface', (string) data_get($status, 'operator_command_surface_status'));
+            $this->components->twoColumnDetail('Missing CLI options', (string) data_get($status, 'operator_command_missing_option_count', 0));
+            $this->components->twoColumnDetail('Legacy aliases', (string) data_get($status, 'operator_command_legacy_alias_count', 0));
+            $this->components->twoColumnDetail('Next command', (string) data_get($status, 'next_required_command'));
+            $this->components->twoColumnDetail('Persist command', (string) data_get($status, 'next_required_persist_command'));
+            $this->components->twoColumnDetail('Final audit command', (string) data_get($status, 'operator_execution_plan_effective_final_success_command'));
+
+            $orderedSteps = (array) data_get($preflight, 'ordered_steps', []);
+            if ($orderedSteps !== []) {
+                $this->newLine();
+                $this->line('Submission preflight steps:');
+                foreach (array_values($orderedSteps) as $index => $step) {
+                    $ready = data_get($step, 'ready') ? 'ready' : 'blocked';
+                    $this->line('  '.($index + 1).'. '.data_get($step, 'id').' ['.$ready.']');
+                    $stepCommand = (string) data_get($step, 'command');
+                    if ($stepCommand !== '') {
+                        $this->line('    '.$stepCommand);
+                    }
+                }
+            }
+            $operatorInputs = (array) data_get($status, 'current_required_operator_inputs', []);
+            if ($operatorInputs !== []) {
+                $this->newLine();
+                $this->line('Required operator inputs:');
+                foreach (array_values($operatorInputs) as $input) {
+                    $this->line('  - '.$input);
+                }
+            }
+            $stopConditions = (array) data_get($status, 'current_step_stop_conditions', []);
+            if ($stopConditions !== []) {
+                $this->newLine();
+                $this->line('Current step stop conditions:');
+                foreach (array_values($stopConditions) as $condition) {
+                    $this->line('  - '.$condition);
+                }
+            }
+            $prePersistGuardrails = (array) data_get($status, 'pre_persist_guardrail_sequence', []);
+            if ($prePersistGuardrails !== []) {
+                $this->newLine();
+                $this->line('Pre-persist guardrail sequence:');
+                foreach (array_values($prePersistGuardrails) as $guardrail) {
+                    $required = data_get($guardrail, 'required_before_persist') ? 'before persist' : 'after persist';
+                    $this->line('  '.data_get($guardrail, 'order').'. '.data_get($guardrail, 'step').' ['.$required.']');
+                    $command = (string) data_get($guardrail, 'command');
+                    if ($command !== '') {
+                        $this->line('    '.$command);
+                    }
+                }
+            }
+
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-os-handoff-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_os_handoff_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Handoff doc present', data_get($status, 'handoff_doc_present') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Root doc links handoff', data_get($status, 'root_doc_links_handoff') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Completion audit status', (string) data_get($status, 'completion_audit_status'));
+            $this->components->twoColumnDetail('Failed criteria', (string) data_get($status, 'failed_count', 0));
+            $this->components->twoColumnDetail('Canonical final blockers', (string) data_get($status, 'canonical_final_blocker_count', 0));
+            $this->components->twoColumnDetail('Human blockers', (string) data_get($status, 'human_blocker_count', 0));
+            $this->components->twoColumnDetail('Real provider blockers', (string) data_get($status, 'real_provider_blocker_count', 0));
+            $this->components->twoColumnDetail('Technical blockers', (string) data_get($status, 'technical_blocker_count', 0));
+            $this->components->twoColumnDetail('Release dossier status', (string) data_get($status, 'release_dossier_status'));
+            $this->components->twoColumnDetail('Release dossier snapshot', (string) data_get($status, 'release_dossier_baseline_snapshot_state'));
+            $this->components->twoColumnDetail('Snapshot refresh required', data_get($status, 'release_dossier_baseline_snapshot_capture_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Release dossier green', data_get($status, 'release_dossier_green_effective') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Chain integrity status', (string) data_get($status, 'chain_integrity_status'));
+            $this->components->twoColumnDetail('Chain pointer aligned', data_get($status, 'control_plane_pointer_aligned_with_chain_integrity') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Control plane next slice', (string) data_get($status, 'control_plane_next_required_slice'));
+            $this->components->twoColumnDetail('Expected next slice', (string) data_get($status, 'chain_expected_next_required_slice'));
+            $this->components->twoColumnDetail('Runtime gap count', (string) data_get($status, 'control_plane_not_yet_runtime_capable_count', 0));
+            $this->components->twoColumnDetail('Refresh command', (string) data_get($status, 'release_dossier_refresh_command'));
+            $this->components->twoColumnDetail('Batch command', (string) data_get($status, 'certification_status_batch_command'));
+            $this->components->twoColumnDetail('Preflight command', (string) data_get($status, 'completion_evidence_submission_preflight_command'));
+            $this->components->twoColumnDetail('Resume command count', (string) data_get($status, 'operator_resume_command_count', 0));
+            $this->components->twoColumnDetail('Post-evidence guardrails', (string) data_get($status, 'post_evidence_guardrail_count', 0));
+            $this->components->twoColumnDetail('Current required artifact', (string) data_get($status, 'current_required_operator_artifact'));
+            $this->components->twoColumnDetail('Next command', (string) data_get($status, 'next_required_command'));
+            $this->components->twoColumnDetail('Persist command', (string) data_get($status, 'next_required_persist_command'));
+            $this->components->twoColumnDetail('Terminal loop proof passed', data_get($status, 'terminal_loop_operational_proof_passed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Self-programming allowed', data_get($status, 'self_programming_allowed') ? 'yes' : 'no');
+            $resumeCommands = (array) data_get($status, 'operator_resume_command_sequence', []);
+            if ($resumeCommands !== []) {
+                $this->newLine();
+                $this->line('Operator resume sequence:');
+                foreach (array_values($resumeCommands) as $index => $commandStep) {
+                    $required = data_get($commandStep, 'required_before_persist') ? 'required' : 'optional';
+                    $this->line('  '.($index + 1).'. '.data_get($commandStep, 'step').' ['.$required.']');
+                    $this->line('    '.data_get($commandStep, 'command'));
+                }
+            }
+            $guardrailCommands = (array) data_get($status, 'post_evidence_guardrail_sequence', []);
+            if ($guardrailCommands !== []) {
+                $this->newLine();
+                $this->line('Post-evidence guardrail sequence:');
+                foreach (array_values($guardrailCommands) as $index => $commandStep) {
+                    $required = data_get($commandStep, 'required_after_persist') ? 'required' : 'optional';
+                    $this->line('  '.($index + 1).'. '.data_get($commandStep, 'step').' ['.$required.']');
+                    $this->line('    '.data_get($commandStep, 'command'));
+                }
+            }
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-os-completion-evidence-status')) {
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Failed checks', (string) data_get($payload, 'failed_count', 0));
+            $this->components->twoColumnDetail('Human blockers', (string) data_get($payload, 'human_blocker_count', 0));
+            $this->components->twoColumnDetail('Real provider blockers', (string) data_get($payload, 'real_provider_blocker_count', 0));
+            $this->components->twoColumnDetail('Technical blockers', (string) data_get($payload, 'technical_blocker_count', 0));
+            $this->components->twoColumnDetail('Current required artifact', (string) data_get($payload, 'current_required_operator_artifact'));
+            $this->components->twoColumnDetail('Next command', (string) data_get($payload, 'next_required_command'));
+            $this->components->twoColumnDetail('Persist command', (string) data_get($payload, 'next_required_persist_command'));
+            $this->components->twoColumnDetail('Self-programming allowed', data_get($payload, 'completion_claim_allowed') ? 'yes' : 'no');
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-final-evidence-bundle-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_final_evidence_bundle_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Bundle hash', (string) data_get($status, 'bundle_hash'));
+            $this->components->twoColumnDetail('Blockers', (string) data_get($status, 'blocker_count', 0));
+            $this->components->twoColumnDetail('Human blockers', (string) data_get($status, 'human_blocker_count', 0));
+            $this->components->twoColumnDetail('Real provider blockers', (string) data_get($status, 'real_provider_blocker_count', 0));
+            $this->components->twoColumnDetail('Technical blockers', (string) data_get($status, 'technical_blocker_count', 0));
+            $this->components->twoColumnDetail('Current required artifact', (string) data_get($status, 'current_required_operator_artifact'));
+            $this->components->twoColumnDetail('Next action shell packet', (string) data_get($status, 'next_action_shell_packet_status'));
+            $this->components->twoColumnDetail('Next action copy safe', data_get($status, 'next_action_copy_safe') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Next action placeholders', (string) data_get($status, 'next_action_placeholder_count', 0));
+            $this->components->twoColumnDetail('Next action exact command', (string) data_get($status, 'next_action_exact_command'));
+            $this->components->twoColumnDetail('Next action persist command', (string) data_get($status, 'next_action_persist_command'));
+            $this->components->twoColumnDetail('Release dossier ready', data_get($status, 'release_dossier_ready') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Release dossier refresh required', data_get($status, 'release_dossier_refresh_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Release dossier refresh command', (string) data_get($status, 'release_dossier_refresh_command'));
+            $this->components->twoColumnDetail('Certification batch refresh required', data_get($status, 'certification_status_batch_refresh_required') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Certification batch command', (string) data_get($status, 'certification_status_batch_command'));
+            $this->components->twoColumnDetail('Terminal proof ready', data_get($status, 'terminal_loop_operational_proof_ready') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Completion audit green', data_get($status, 'completion_audit_green') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Completion evidence command', (string) data_get($status, 'completion_evidence_status_command'));
+            $this->components->twoColumnDetail('Operator readiness command', (string) data_get($status, 'operator_evidence_readiness_command'));
+            $this->components->twoColumnDetail('Canonical audit command', (string) data_get($status, 'completion_audit_command_with_canonical_terminal_loop_operational_proof'));
+            $this->components->twoColumnDetail('Completion claim allowed', data_get($status, 'completion_claim_allowed') ? 'yes' : 'no');
+            $closureSequence = (array) data_get($status, 'closure_artifact_sequence', []);
+            if ($closureSequence !== []) {
+                $this->newLine();
+                $this->line('Closure artifact sequence:');
+                foreach (array_values($closureSequence) as $step) {
+                    $this->line('  '.data_get($step, 'order').'. '.data_get($step, 'artifact').' ['.data_get($step, 'status').']');
+                    $draftCommand = (string) data_get($step, 'draft_command');
+                    if ($draftCommand !== '') {
+                        $this->line('    draft: '.$draftCommand);
+                    }
+                    $persistCommand = (string) data_get($step, 'persist_command');
+                    if ($persistCommand !== '') {
+                        $this->line('    persist: '.$persistCommand);
+                    }
+                }
+            }
+            $verificationSteps = (array) data_get($status, 'final_verification_sequence', []);
+            if ($verificationSteps !== []) {
+                $this->newLine();
+                $this->line('Final verification sequence:');
+                foreach (array_values($verificationSteps) as $index => $step) {
+                    $this->line('  '.($index + 1).'. '.data_get($step, 'id'));
+                }
+            }
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-completion-finalization-gate-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_completion_finalization_gate_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Failed criteria', (string) data_get($status, 'failed_count', 0));
+            $this->components->twoColumnDetail('Human blockers', (string) data_get($status, 'human_blocker_count', 0));
+            $this->components->twoColumnDetail('Real provider blockers', (string) data_get($status, 'real_provider_blocker_count', 0));
+            $this->components->twoColumnDetail('Technical blockers', (string) data_get($status, 'technical_blocker_count', 0));
+            $this->components->twoColumnDetail('Current required artifact', (string) data_get($status, 'current_required_operator_artifact'));
+            $this->components->twoColumnDetail('Operator handoff status', (string) data_get($status, 'completion_finalization_operator_handoff_status'));
+            $this->components->twoColumnDetail('Operator handoff failed checks', (string) data_get($status, 'completion_finalization_operator_handoff_failed_check_count', 0));
+            $this->components->twoColumnDetail('Can execute', data_get($status, 'completion_finalization_operator_handoff_can_execute') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Can persist', data_get($status, 'completion_finalization_operator_handoff_can_persist') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Can promote completion', data_get($status, 'completion_finalization_operator_handoff_can_promote_completion') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Operator readiness command', (string) data_get($status, 'completion_finalization_operator_handoff_operator_evidence_readiness_command'));
+            $this->components->twoColumnDetail('Terminal proof green', data_get($status, 'terminal_loop_operational_proof_green') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Terminal proof source', (string) data_get($status, 'terminal_loop_operational_proof_source'));
+            $this->components->twoColumnDetail('Refresh proof command', (string) data_get($status, 'command_to_refresh_terminal_loop_operational_proof'));
+            $this->components->twoColumnDetail('Persist proof command', (string) data_get($status, 'command_to_persist_terminal_loop_operational_proof_binding'));
+            $this->components->twoColumnDetail('Snapshot command', (string) data_get($status, 'command_to_capture_snapshot_after_terminal_loop_operational_proof'));
+            $this->components->twoColumnDetail('Rerun audit command', (string) data_get($status, 'command_to_rerun_audit_with_terminal_loop_operational_proof'));
+            $this->components->twoColumnDetail('Completion claim allowed', data_get($status, 'completion_claim_allowed') ? 'yes' : 'no');
+            $verificationSteps = (array) data_get($status, 'final_verification_sequence', []);
+            if ($verificationSteps !== []) {
+                $this->newLine();
+                $this->line('Final verification sequence:');
+                foreach (array_values($verificationSteps) as $index => $step) {
+                    $this->line('  '.($index + 1).'. '.data_get($step, 'id'));
+                    $command = (string) data_get($step, 'command');
+                    if ($command !== '') {
+                        $this->line('    '.$command);
+                    }
+                }
+            }
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-os-completion-audit-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_os_completion_audit_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Failed criteria', (string) data_get($status, 'failed_count', 0));
+            $this->components->twoColumnDetail('Human blockers', (string) data_get($status, 'human_blocker_count', 0));
+            $this->components->twoColumnDetail('Real provider blockers', (string) data_get($status, 'real_provider_blocker_count', 0));
+            $this->components->twoColumnDetail('Technical blockers', (string) data_get($status, 'technical_blocker_count', 0));
+            $this->components->twoColumnDetail('Current required artifact', (string) data_get($status, 'current_required_operator_artifact'));
+            $this->components->twoColumnDetail('Operator readiness command', (string) data_get($status, 'operator_evidence_readiness_command'));
+            $this->components->twoColumnDetail('Closure corridor command', (string) data_get($status, 'final_operator_evidence_closure_corridor_command'));
+            $this->components->twoColumnDetail('Terminal loop proof passed', data_get($status, 'terminal_loop_operational_proof_passed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Completion allowed', data_get($status, 'completion_allowed') ? 'yes' : 'no');
+
+            $failedCriteria = (array) data_get($status, 'failed_criteria', []);
+            if ($failedCriteria !== []) {
+                $this->newLine();
+                $this->line('Failed criteria:');
+                foreach (array_values($failedCriteria) as $criterion) {
+                    $this->line('  - '.$criterion);
+                }
+            }
+
+            $humanBlockers = (array) data_get($status, 'human_blockers', []);
+            if ($humanBlockers !== []) {
+                $this->newLine();
+                $this->line('Human blockers:');
+                foreach (array_values($humanBlockers) as $blocker) {
+                    $this->line('  - '.$blocker);
+                }
+            }
+
+            $realProviderBlockers = (array) data_get($status, 'real_provider_blockers', []);
+            if ($realProviderBlockers !== []) {
+                $this->newLine();
+                $this->line('Real provider blockers:');
+                foreach (array_values($realProviderBlockers) as $blocker) {
+                    $this->line('  - '.$blocker);
+                }
+            }
+
+            $this->newLine();
+            $this->line((string) $payload['human_summary']);
+
+            return self::SUCCESS;
+        }
+
+        if ((bool) $this->option('atlas-self-construction-final-completion-readiness-gate-status')) {
+            $status = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_final_completion_readiness_gate_status', []);
+            $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
+            $this->components->twoColumnDetail('Failed criteria', (string) data_get($status, 'failed_count', 0));
+            $this->components->twoColumnDetail('Human blockers', (string) data_get($status, 'human_blocker_count', 0));
+            $this->components->twoColumnDetail('Real provider blockers', (string) data_get($status, 'real_provider_blocker_count', 0));
+            $this->components->twoColumnDetail('Technical blockers', (string) data_get($status, 'technical_blocker_count', 0));
+            $this->components->twoColumnDetail('Current required artifact', (string) data_get($status, 'current_required_operator_artifact'));
+            $this->components->twoColumnDetail('Transition status', (string) data_get($status, 'transition_status'));
+            $this->components->twoColumnDetail('Completion allowed', data_get($status, 'completion_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Completion claim allowed', data_get($status, 'completion_claim_allowed') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Terminal proof green', data_get($status, 'terminal_loop_operational_proof_green') ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Terminal proof source', (string) data_get($status, 'terminal_loop_operational_proof_source'));
+            $this->components->twoColumnDetail('Refresh proof command', (string) data_get($status, 'command_to_refresh_terminal_loop_operational_proof'));
+            $this->components->twoColumnDetail('Persist proof command', (string) data_get($status, 'command_to_persist_terminal_loop_operational_proof_binding'));
+            $this->components->twoColumnDetail('Snapshot command', (string) data_get($status, 'command_to_capture_snapshot_after_terminal_loop_operational_proof'));
+            $this->components->twoColumnDetail('Rerun audit command', (string) data_get($status, 'command_to_rerun_audit_with_terminal_loop_operational_proof'));
+            $this->components->twoColumnDetail('Self-programming allowed', data_get($status, 'self_programming_allowed') ? 'yes' : 'no');
+            $verificationSteps = (array) data_get($status, 'final_verification_sequence', []);
+            if ($verificationSteps !== []) {
+                $this->newLine();
+                $this->line('Final verification sequence:');
+                foreach (array_values($verificationSteps) as $index => $step) {
+                    $required = array_key_exists('required', $step) && data_get($step, 'required') === false ? 'optional' : 'required';
+                    $this->line('  '.($index + 1).'. '.data_get($step, 'id').' ['.$required.']');
+                    $command = (string) data_get($step, 'command');
+                    if ($command !== '') {
+                        $this->line('    '.$command);
+                    }
+                }
+            }
             $this->newLine();
             $this->line((string) $payload['human_summary']);
 

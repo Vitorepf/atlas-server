@@ -14,6 +14,7 @@ use App\Http\Controllers\AiThreadController;
 use App\Http\Controllers\AtlasAiAgentBehaviorReportController;
 use App\Http\Controllers\AtlasAiArchitectureOperationsController;
 use App\Http\Controllers\AtlasAiArchitectureValidateController;
+use App\Http\Controllers\AtlasAiControlPlaneController;
 use App\Http\Controllers\AtlasAiDecisionReceiptReportController;
 use App\Http\Controllers\AtlasAiDomainCatalogController;
 use App\Http\Controllers\AtlasAiDynamicComputeMarketController;
@@ -763,4 +764,13 @@ Route::prefix('atlas-code')->group(function () {
         Route::get('/sdd/agent-roles', [AtlasSddAgentRoleController::class, 'index']);
         Route::get('/sdd/agent-roles/{name}', [AtlasSddAgentRoleController::class, 'show']);
     });
+});
+
+// Atlas AI Control Plane (Meta 9) · read-only aggregate snapshots / readiness / blockers
+Route::prefix('atlas/ai/control-plane')->group(function (): void {
+    Route::get('/', [AtlasAiControlPlaneController::class, 'index']);
+    Route::get('/readiness', [AtlasAiControlPlaneController::class, 'readiness']);
+    Route::get('/blockers', [AtlasAiControlPlaneController::class, 'blockers']);
+    Route::get('/next-actions', [AtlasAiControlPlaneController::class, 'nextActions']);
+    Route::get('/missions/{uuid}', [AtlasAiControlPlaneController::class, 'mission']);
 });

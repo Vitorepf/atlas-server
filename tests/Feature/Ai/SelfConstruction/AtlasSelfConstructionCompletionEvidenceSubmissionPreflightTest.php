@@ -69,6 +69,14 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
             '--agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json',
             data_get($payload, 'operator_closure_command_replay.proof_commands_after_each_persist.completion_audit'),
         );
+        $this->assertGreaterThanOrEqual(7, $payload['pre_persist_guardrail_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['pre_persist_guardrail_hash']);
+        $prePersistGuardrails = collect($payload['pre_persist_guardrail_sequence'])->keyBy('step');
+        $this->assertStringContainsString('--atlas-self-construction-os-handoff-status', $prePersistGuardrails['inspect_self_construction_handoff']['command']);
+        $this->assertStringContainsString('--agent-control-plane-certification-status-batch-status', $prePersistGuardrails['verify_certification_status_batch_green']['command']);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-endgame-verifier-status', $prePersistGuardrails['verify_current_artifact_endgame']['command']);
+        $this->assertTrue($prePersistGuardrails['verify_current_artifact_endgame']['requires_operator_payload']);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', $prePersistGuardrails['persist_current_operator_artifact']['command']);
         $this->assertSame('atlas.self_construction.terminal_loop_closure_proof_packet.v1', data_get($payload, 'terminal_loop_closure_proof.schema_version'));
         $this->assertSame('operator_or_ci_should_refresh_before_final_persist', data_get($payload, 'terminal_loop_closure_proof.status'));
         $this->assertTrue(data_get($payload, 'terminal_loop_closure_proof.required_before_final_completion_receipt'));
@@ -198,6 +206,30 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
         $this->assertSame('atlas.self_construction_agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.v1', $status['schema_version']);
         $this->assertSame('blocked', $status['status']);
         $this->assertSame('runtime_promotion_receipt', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.next_required_submission'));
+        $this->assertSame('runtime_promotion_receipt', data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.current_required_operator_artifact'));
+        $this->assertGreaterThanOrEqual(5, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.current_required_operator_input_count'));
+        $this->assertContains(
+            'operator_signed_runtime_promotion_receipt_json',
+            data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.current_required_operator_inputs'),
+        );
+        $this->assertGreaterThanOrEqual(7, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.current_step_stop_condition_count'));
+        $this->assertContains(
+            'stop_if_any_required_input_is_placeholder',
+            data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.current_step_stop_conditions'),
+        );
+        $this->assertGreaterThanOrEqual(1, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.current_completion_blocker_classification_count'));
+        $this->assertSame(
+            'runtime_gap_matrix_all_runtime_y',
+            data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.current_completion_blockers_classified.0.id'),
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-runtime-promotion-receipt-draft-status',
+            data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.next_required_command'),
+        );
+        $this->assertStringContainsString(
+            '--persist-runtime-promotion-receipt',
+            data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.next_required_persist_command'),
+        );
         $this->assertIsInt(data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.completion_audit_failed_count'));
         $this->assertIsInt(data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.completion_audit_technical_blocker_count'));
         $this->assertIsArray(data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.completion_audit_failed_criteria'));
@@ -249,6 +281,20 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
         $this->assertSame(0, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_missing_option_count'));
         $this->assertSame(0, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_legacy_alias_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.operator_command_surface_hash'));
+        $this->assertSame(4, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.closure_artifact_sequence_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.closure_artifact_sequence_hash'));
+        $this->assertSame(4, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.prompt_to_artifact_checklist_count'));
+        $this->assertSame(0, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.prompt_to_artifact_checklist_passed_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.prompt_to_artifact_checklist_hash'));
+        $this->assertGreaterThanOrEqual(7, data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.pre_persist_guardrail_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.pre_persist_guardrail_hash'));
+        $prePersistGuardrailSteps = array_column((array) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.pre_persist_guardrail_sequence'), 'step');
+        $this->assertContains('verify_certification_status_batch_green', $prePersistGuardrailSteps);
+        $this->assertContains('verify_current_artifact_endgame', $prePersistGuardrailSteps);
+        $sequence = collect((array) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.closure_artifact_sequence'))->keyBy('requirement');
+        $checklist = collect((array) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.prompt_to_artifact_checklist'))->keyBy('requirement');
+        $this->assertSame('runtime_promotion_receipt', data_get($sequence, 'runtime_gap_matrix_all_runtime_y.artifact'));
+        $this->assertSame('real_provider_smoke', data_get($checklist, 'end_to_end_real_provider_smoke_green.artifact'));
         $this->assertFalse($status['execution_allowed']);
 
         $exit = Artisan::call('atlas:ai:self-construction', [
@@ -287,6 +333,48 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
         $this->assertTrue((bool) $auditStatus['terminal_loop_operational_proof_supplied']);
         $this->assertTrue((bool) $auditStatus['terminal_loop_operational_proof_passed']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $auditStatus['terminal_loop_operational_proof_hash']);
+    }
+
+    public function test_submission_preflight_human_output_exposes_operator_handoff_fields(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-completion-evidence-submission-preflight-status' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Next required submission', $output);
+        $this->assertStringContainsString('runtime_promotion_receipt', $output);
+        $this->assertStringContainsString('Current required artifact', $output);
+        $this->assertStringContainsString('Completion audit failed', $output);
+        $this->assertStringContainsString('Technical blockers', $output);
+        $this->assertStringContainsString('Human blockers', $output);
+        $this->assertStringContainsString('Real provider blockers', $output);
+        $this->assertStringContainsString('Terminal proof supplied', $output);
+        $this->assertStringContainsString('Terminal proof source', $output);
+        $this->assertStringContainsString('Can resume without chat', $output);
+        $this->assertStringContainsString('Fresh preflight before persist', $output);
+        $this->assertStringContainsString('Required operator inputs', $output);
+        $this->assertStringContainsString('Pre-persist guardrails', $output);
+        $this->assertStringContainsString('operator_signed_runtime_promotion_receipt_json', $output);
+        $this->assertStringContainsString('Stop conditions', $output);
+        $this->assertStringContainsString('Current step stop conditions:', $output);
+        $this->assertStringContainsString('stop_if_any_required_input_is_placeholder', $output);
+        $this->assertStringContainsString('Pre-persist guardrail sequence:', $output);
+        $this->assertStringContainsString('verify_certification_status_batch_green', $output);
+        $this->assertStringContainsString('verify_current_artifact_endgame', $output);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-endgame-verifier-status', $output);
+        $this->assertStringContainsString('Command surface', $output);
+        $this->assertStringContainsString('Missing CLI options', $output);
+        $this->assertStringContainsString('Legacy aliases', $output);
+        $this->assertStringContainsString('Next command', $output);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $output);
+        $this->assertStringContainsString('Persist command', $output);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', $output);
+        $this->assertStringContainsString('Final audit command', $output);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', $output);
+        $this->assertStringContainsString('Submission preflight steps:', $output);
+        $this->assertStringContainsString('[blocked]', $output);
     }
 
     public function test_agent_control_plane_lists_submission_preflight_capabilities(): void

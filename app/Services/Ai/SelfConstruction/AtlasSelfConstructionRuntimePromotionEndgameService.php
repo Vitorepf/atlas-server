@@ -248,6 +248,14 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
                 blockingReason: 'persist runtime promotion receipt first then rerun gap matrix + completion audit',
             ),
         ];
+        $operatorShellPacket = $this->operatorNextActionShellPacket(
+            status: $status,
+            receiptSource: $receiptUnderReviewSource,
+            verifierPassed: $preSubmissionPassed,
+            persisted: $persisted,
+            draftPath: (string) data_get($draftWorkspaceReceipt, 'draft_path', ''),
+            canonicalReceiptLoaded: $canonicalReceiptLoaded,
+        );
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -325,6 +333,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'operator_draft_workspace_receipt' => $draftWorkspaceReceipt,
             'canonical_submission_receipt' => $canonicalSubmissionReceipt,
             'operator_submission_envelope' => $operatorSubmissionEnvelope,
+            'operator_next_action_shell_packet' => $operatorShellPacket,
             'receipt_pre_submission_verification' => $preSubmissionVerification,
             'persistence_preflight' => $persistencePreflight,
             'persistence_result' => $persistenceResult,
@@ -392,6 +401,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
                 'endgame_does_not_promote_completion',
                 'endgame_does_not_declare_os_complete',
                 'operator_submission_envelope_does_not_write_files_or_receipts',
+                'operator_next_action_shell_packet_does_not_execute_or_persist',
             ],
         ];
         $payload['endgame_hash'] = $this->stableHash($payload);
@@ -698,6 +708,104 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         $envelope['envelope_hash'] = $this->stableHash($envelope);
 
         return $envelope;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function operatorNextActionShellPacket(
+        string $status,
+        string $receiptSource,
+        bool $verifierPassed,
+        bool $persisted,
+        string $draftPath,
+        bool $canonicalReceiptLoaded,
+    ): array {
+        $draftCommand = 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json';
+        $canonicalPersistCommand = 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json --persist-runtime-promotion-receipt --json';
+        $workspacePersistCommand = $draftPath !== ''
+            ? 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/private/'.$draftPath.' --persist-runtime-promotion-receipt --json'
+            : '';
+
+        $commandToCopy = match (true) {
+            $persisted => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
+            $verifierPassed && $canonicalReceiptLoaded => $canonicalPersistCommand,
+            $verifierPassed && $receiptSource === 'operator_draft_workspace_runtime_promotion_receipt' && $workspacePersistCommand !== '' => $workspacePersistCommand,
+            $verifierPassed => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-endgame-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --json',
+            default => $draftCommand,
+        };
+        $placeholders = $this->commandPlaceholders($commandToCopy);
+        $copySafe = $placeholders === []
+            && (
+                $persisted
+                || ($verifierPassed && ($canonicalReceiptLoaded || ($receiptSource === 'operator_draft_workspace_runtime_promotion_receipt' && $workspacePersistCommand !== '')))
+            );
+        $packetStatus = match (true) {
+            $persisted => 'copy_ready_rerun_runtime_gap_matrix',
+            $placeholders !== [] => 'blocked_placeholder_replacement_required',
+            $copySafe => 'copy_ready_for_explicit_operator_persistence',
+            $verifierPassed => 'blocked_receipt_file_path_required',
+            default => 'blocked_runtime_promotion_receipt_required',
+        };
+
+        $packet = [
+            'schema_version' => 'atlas.self_construction.runtime_promotion_endgame_next_action_shell_packet.v1',
+            'mode' => 'read_only_runtime_promotion_endgame_next_action_shell_packet',
+            'status' => $packetStatus,
+            'endgame_status' => $status,
+            'receipt_source' => $receiptSource,
+            'verifier_passed' => $verifierPassed,
+            'persisted' => $persisted,
+            'command_to_copy' => $commandToCopy,
+            'command_to_copy_hash' => hash('sha256', $commandToCopy),
+            'draft_command_template' => $draftCommand,
+            'canonical_persist_command' => $canonicalPersistCommand,
+            'workspace_persist_command' => $workspacePersistCommand,
+            'placeholder_count' => count($placeholders),
+            'placeholders' => $placeholders,
+            'copy_safe' => $copySafe,
+            'requires_fresh_endgame_status_before_copy' => true,
+            'requires_verifier_green_before_persist' => true,
+            'requires_explicit_persist_flag' => true,
+            'requires_receipt_file_path_when_payload_supplied_inline' => $verifierPassed && ! $copySafe && ! $persisted,
+            'can_resume_without_chat_history' => true,
+            'post_action_proof_commands' => [
+                'runtime_gap_matrix' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-gap-matrix --json',
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'operator_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+                'terminal_loop_operational_proof' => $this->terminalLoopOperationalProofCommand(),
+                'completion_audit_with_canonical_terminal_loop_operational_proof' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
+            ],
+            'success_check' => 'runtime_promotion_receipt persisted AND runtime_gap_matrix_all_runtime_y=true after rerun',
+            'failure_policy' => [
+                'stop_if_placeholder_remains',
+                'stop_if_verifier_status_is_not_passed',
+                'stop_if_receipt_file_path_is_missing_for_persist_command',
+                'stop_if_hash_mismatch',
+                'stop_if_persist_command_is_run_without_explicit_operator_review',
+            ],
+            'non_execution_guarantees' => [
+                'shell_packet_does_not_execute_command',
+                'shell_packet_does_not_persist_receipts',
+                'shell_packet_does_not_enable_runtime',
+                'shell_packet_does_not_call_provider',
+                'shell_packet_does_not_spend_tokens',
+                'shell_packet_does_not_dispatch_work',
+                'shell_packet_does_not_sign_for_operator',
+                'shell_packet_does_not_promote_completion',
+            ],
+        ];
+        $packet['shell_packet_hash'] = $this->stableHash($packet);
+
+        return $packet;
+    }
+
+    /** @return list<string> */
+    private function commandPlaceholders(string $command): array
+    {
+        preg_match_all('/<[^>]+>/', $command, $matches);
+
+        return array_values(array_unique($matches[0] ?? []));
     }
 
     private function checklistItem(string $id, string $summary, bool $passed, string $blockingReason): array

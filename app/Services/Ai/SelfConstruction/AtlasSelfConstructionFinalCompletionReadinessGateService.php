@@ -44,6 +44,17 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
                 'forge_self_improvement_smoke' => (array) ($options['forge_self_improvement_smoke'] ?? []),
                 'agent_control_plane_terminal_loop_operational_proof' => (array) ($options['agent_control_plane_terminal_loop_operational_proof'] ?? []),
             ]));
+        $completionEvidence = (array) ($options['completion_evidence']
+            ?? $this->readiness->atlasSelfConstructionOsCompletionEvidenceStatus([
+                'runtime_promotion_receipt' => (array) ($options['runtime_promotion_receipt'] ?? []),
+                'real_provider_smoke' => (array) ($options['real_provider_smoke'] ?? []),
+                'completion_receipt' => (array) ($options['completion_receipt'] ?? []),
+                'forge_self_improvement_smoke' => (array) ($options['forge_self_improvement_smoke'] ?? []),
+                'persist_completion_evidence' => false,
+                'persist_runtime_promotion_receipt' => false,
+            ]));
+        $closureArtifactSequence = (array) data_get($completionEvidence, 'closure_artifact_sequence', []);
+        $promptToArtifactChecklist = (array) data_get($completionEvidence, 'prompt_to_artifact_checklist', []);
 
         $criteria = (array) data_get($completionAudit, 'criteria', []);
         $criteriaMatrix = [];
@@ -112,6 +123,8 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
             'self_programming_os_transition_readiness' => $selfProgrammingTransitionReadiness,
             'self_programming_os_transition_status' => (string) $selfProgrammingTransitionReadiness['status'],
             'self_programming_os_transition_blockers' => (array) $selfProgrammingTransitionReadiness['blockers'],
+            'transition_status' => (string) $selfProgrammingTransitionReadiness['status'],
+            'transition_blockers' => (array) $selfProgrammingTransitionReadiness['blockers'],
             'self_programming_safety_contract_hash' => (string) $selfProgrammingTransitionReadiness['safety_contract_hash'],
             'blockers' => $blockers,
             'blocker_count' => count($blockers),
@@ -135,6 +148,14 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
             'terminal_loop_operational_proof_json_reference' => $terminalLoopProofJsonReference,
             'final_verification_sequence' => $this->finalVerificationSequence($terminalLoopProofJsonReference),
             'completion_audit_green_requires_current_snapshot_after_terminal_loop_proof' => true,
+            'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),
+            'closure_artifact_sequence' => $closureArtifactSequence,
+            'closure_artifact_sequence_count' => count($closureArtifactSequence),
+            'closure_artifact_sequence_hash' => (string) data_get($completionEvidence, 'closure_artifact_sequence_hash', ''),
+            'prompt_to_artifact_checklist' => $promptToArtifactChecklist,
+            'prompt_to_artifact_checklist_count' => count($promptToArtifactChecklist),
+            'prompt_to_artifact_checklist_passed_count' => (int) data_get($completionEvidence, 'prompt_to_artifact_checklist_passed_count', 0),
+            'prompt_to_artifact_checklist_hash' => (string) data_get($completionEvidence, 'prompt_to_artifact_checklist_hash', ''),
             'terminal_loop_operational_proof_required_before_completion_claim' => true,
             'terminal_loop_operational_proof_expected_binding_schema' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof_audit_binding_packet.v1',
             'execution_allowed' => false,
@@ -221,6 +242,11 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
     private function terminalLoopOperationalProofJsonReference(array $options): string
     {
         $reference = trim((string) ($options['agent_control_plane_terminal_loop_operational_proof_json'] ?? ''));
+        $canonicalReference = trim((string) ($options['agent_control_plane_terminal_loop_operational_proof_canonical_path'] ?? ''));
+
+        if ($canonicalReference !== '') {
+            return str_starts_with($canonicalReference, '@') ? $canonicalReference : '@'.$canonicalReference;
+        }
 
         return str_starts_with($reference, '@') ? $reference : '';
     }

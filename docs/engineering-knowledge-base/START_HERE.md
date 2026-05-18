@@ -35,6 +35,10 @@ capabilities:
   - canonical_architecture_index
   - atlas_ai_master_architecture
   - atlas_ai_operating_system
+  - autonomous_intelligence_operating_system
+  - domain_company_runtimes
+  - multi_domain_implementation_sequence
+  - local_agent_memory_ingestion
   - resolver_corpus_governance
   - documentation_archive_governance
   - canonical_onboarding
@@ -72,6 +76,13 @@ decisions:
   - Toda IA nova deve ler Atlas AI Content Intelligence And Knowledge Curation antes de propor YouTube ingestion, feed/RSS, scraping, source reputation, blacklist ou promocao de conteudo para memoria.
   - Toda IA nova deve ler Atlas AI Research Intelligence And Self-Improvement Runtime antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, implementacao baseada em pesquisa ou aceleracao de autoaprimoramento.
   - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
+  - Toda IA nova deve ler Atlas Autonomous Intelligence Operating System antes de explicar ou implementar Atlas AI como produto geral, multi-dominio, estrategico, financeiro, marketing, cyber, pesquisa, automacao, desenvolvimento pessoal ou sistema operacional de inteligencia.
+  - Toda IA nova deve ler Atlas Domain Company Runtimes antes de criar dominio novo, empresa digital de dominio, departamento interno, workflow cross-domain, handoff, domain manifest ou maturity assessment.
+  - Toda IA nova deve ler Atlas Domain Runtime Contract (Meta 2 design pack) antes de propor DomainRuntime, DomainManifest, Domain Registry, Capability Catalog, handoff cross-domain ou Maturity Assessment; este doc esta `planned` e nao gera codigo sozinho.
+  - Toda IA nova deve ler Atlas Evidence Certification Runtime antes de declarar conclusao de missao, work order, domain delivery, tool run ou handoff: EvidencePack, Receipt, Claim, Certification, Blocker e AuditEvent sao contratos canonicos universais que impedem falso completo.
+  - Toda IA nova deve ler Atlas Programming Domain Adapter Integration Plan (Meta 7) antes de propor Atlas Dev bridge, ProgrammingDomainRuntimeAdapter, DevMissionAdapter, ForgeHandoffAdapter, ProgrammingEvidenceBridge, ProgrammingPolicyBridge ou refactor de `app/Services/Ai/Programming/AtlasDev/*`/`AtlasForge*Service`; bridges sao thin, runtime de Dev/Forge nao muda.
+  - Toda IA nova deve ler Atlas AI Multi-Domain Implementation Sequence antes de planejar AP, Obra ou Forge run que toque mais de um dominio ou quando varios providers atuarem em paralelo, para respeitar ordem canonica, paralelismo permitido, fronteiras de arquivos e regras anti-colisao entre Claudes/Codex.
+  - Toda IA nova deve ler Atlas Local Agent Memory Ingestion antes de importar, ler, indexar ou promover pastas locais de Codex, Claude Code ou outros agentes; historico local e source material em quarentena, nao memoria primaria.
   - Toda IA nova deve ler Operacao Atlas Hyperflow antes de discutir ou implementar a substituicao de Claude Code/Codex pelo Atlas AI como sistema operacional principal de engenharia.
   - Toda IA nova deve ler Atlas AI Router Runtime Enterprise Upgrade antes de implementar Router Runtime, specialist flows, delegation ou telemetry de flow.
   - Toda IA nova deve ler Atlas Programming Governance System antes de implementar ou alterar placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao.
@@ -122,6 +133,12 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
+  - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
+  - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
+  - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
+  - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
+  - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
+  - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
@@ -248,6 +265,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-skill-system.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-packets.md
   - docs/engineering-knowledge-base/atlas-local-agent-surface.md
+  - docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md
   - docs/engineering-knowledge-base/atlas-ai-autonomy-power-backlog.md
   - docs/engineering-knowledge-base/atlas-ai-governed-backlog.md
   - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
@@ -377,6 +395,11 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 1. `atlas-ai-research-self-improvement-runtime.md` quando envolver pesquisa longa, source quality, promocao para docs, planejamento automatico, implementacao baseada em pesquisa ou autoaprimoramento
 1. `atlas-ai-spec-operating-system.md` quando envolver SDD, spec compiler, one-shot implementation, task compiler, spec graph, drift detector ou execucao governada por Decision Receipt
 1. `atlas-programming-governance-system.md` quando envolver programacao governada, placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao
+1. `atlas-autonomous-intelligence-operating-system.md` e `atlas-domain-company-runtimes.md` quando o pedido nao for programacao pura: pesquisa, financas, marketing, cyber, estrategia, desenvolvimento pessoal, automacao ou qualquer dominio fora de Software
+1. `atlas-kernel-mission-foundation.md` (Meta 1, entregue) quando precisar criar/inspecionar mission, objective, work order, evidence ref, certification ou control-plane snapshot — fundacao universal antes de qualquer dominio especifico
+1. `atlas-evidence-certification-runtime.md` quando envolver conclusao de missao/work order/domain delivery/tool run/handoff, EvidencePack, Receipt, Claim, Certification, Blocker, AuditEvent, prova auditavel, anti falso completo ou status terminal
+1. `atlas-programming-domain-adapter-integration-plan.md` (Meta 7, planned) quando propor bridge Atlas Dev <-> Kernel, ProgrammingDomainRuntimeAdapter, DevMissionAdapter, ForgeHandoffAdapter, ProgrammingEvidence/Policy/Tool/ControlPlane bridges, ou qualquer alteracao em `app/Services/Ai/Programming/AtlasDev/*` ou `AtlasForge*Service*`
+1. `atlas-ai-multi-domain-implementation-sequence.md` quando planejar AP/Obra/Forge run que toque mais de um dominio, ou quando varios providers (Claudes/Codex/Gemini) trabalharem em paralelo no Atlas AI
 1. `atlas-forge-operating-system.md` quando envolver Forge, fabrica de software, packets, multiagente, multiprovider, integration queue ou evidence normalization
 1. `atlas-ai-cognitive-runtime.md` quando envolver memoria governada, busca de contexto, sessoes longas, compactacao automatica, 72h de alta performance ou auditoria cognitiva
 1. `memory/cognitive-immune-learning-kernel.md` quando envolver captura, ruido, promocao de memoria, embeddings, Constelacao, delete ou aprendizado seletivo

@@ -38,6 +38,8 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         $terminalLoopClosureProof = (array) data_get($submissionPreflight, 'terminal_loop_closure_proof', []);
         $submissionReadiness = $this->safeCall(fn () => (new AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService($this->readiness))->build($options));
         $finalEvidenceBundle = $this->safeCall(fn () => $this->readiness->atlasSelfConstructionFinalEvidenceBundleStatus($options));
+        $closureArtifactSequence = (array) data_get($submissionPreflight, 'closure_artifact_sequence', []);
+        $promptToArtifactChecklist = (array) data_get($submissionPreflight, 'prompt_to_artifact_checklist', []);
         $runtimeReceiptInput = (array) ($options['runtime_promotion_receipt'] ?? []);
         $realProviderSmokeInput = (array) ($options['real_provider_smoke'] ?? []);
         $completionReceiptInput = (array) ($options['completion_receipt'] ?? []);
@@ -302,6 +304,13 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
                 'prompt_to_artifact_checklist' => (array) data_get($completionAudit, 'prompt_to_artifact_checklist', []),
                 'prompt_to_artifact_checklist_count' => (int) data_get($completionAudit, 'checklist_count', count((array) data_get($completionAudit, 'prompt_to_artifact_checklist', []))),
             ],
+            'closure_artifact_sequence' => $closureArtifactSequence,
+            'closure_artifact_sequence_count' => count($closureArtifactSequence),
+            'closure_artifact_sequence_hash' => (string) data_get($submissionPreflight, 'closure_artifact_sequence_hash', ''),
+            'prompt_to_artifact_checklist' => $promptToArtifactChecklist,
+            'prompt_to_artifact_checklist_count' => count($promptToArtifactChecklist),
+            'prompt_to_artifact_checklist_passed_count' => (int) data_get($submissionPreflight, 'prompt_to_artifact_checklist_passed_count', 0),
+            'prompt_to_artifact_checklist_hash' => (string) data_get($submissionPreflight, 'prompt_to_artifact_checklist_hash', ''),
             'current_completion_evidence_status' => [
                 'status' => (string) data_get($completionEvidence, 'status', 'unknown'),
                 'completion_evidence_status_hash' => (string) data_get($completionEvidence, 'completion_evidence_status_hash', ''),

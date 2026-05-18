@@ -77,6 +77,14 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             $this->assertTrue($checklist->has($requirement), "missing closure corridor checklist row: {$requirement}");
         }
         $this->assertSame(count($checklist), data_get($payload, 'current_completion_audit.prompt_to_artifact_checklist_count'));
+        $this->assertSame(4, data_get($payload, 'closure_artifact_sequence_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'closure_artifact_sequence_hash'));
+        $this->assertSame(4, data_get($payload, 'prompt_to_artifact_checklist_count'));
+        $this->assertSame(0, data_get($payload, 'prompt_to_artifact_checklist_passed_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'prompt_to_artifact_checklist_hash'));
+        $closureArtifactsByRequirement = collect((array) data_get($payload, 'closure_artifact_sequence'))->keyBy('requirement');
+        $this->assertSame('runtime_promotion_receipt', data_get($closureArtifactsByRequirement, 'runtime_gap_matrix_all_runtime_y.artifact'));
+        $this->assertSame('real_provider_smoke', data_get($closureArtifactsByRequirement, 'end_to_end_real_provider_smoke_green.artifact'));
         $this->assertSame(5, data_get($payload, 'closure_readiness_summary.loop_objective_evidence_row_count'));
         $this->assertSame(5, data_get($payload, 'closure_readiness_summary.loop_objective_evidence_passed_count'));
         $this->assertTrue((bool) data_get($payload, 'closure_readiness_summary.loop_objective_evidence_all_passed'));
@@ -824,6 +832,25 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             'runtime_promotion_receipt',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_current_artifact'),
         );
+        $this->assertSame(
+            'runtime_promotion_receipt',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.current_required_operator_artifact'),
+        );
+        $this->assertSame(4, data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_artifact_sequence_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_artifact_sequence_hash'));
+        $this->assertSame(4, data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.prompt_to_artifact_checklist_count'));
+        $this->assertSame(0, data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.prompt_to_artifact_checklist_passed_count'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.prompt_to_artifact_checklist_hash'));
+        $statusChecklist = collect((array) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.prompt_to_artifact_checklist'))->keyBy('requirement');
+        $this->assertSame('runtime_promotion_receipt', data_get($statusChecklist, 'runtime_gap_matrix_all_runtime_y.artifact'));
+        $this->assertStringContainsString(
+            '--atlas-self-construction-runtime-promotion-receipt-draft-status',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.current_required_operator_command'),
+        );
+        $this->assertSame(
+            '',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.current_required_operator_persist_command'),
+        );
         $this->assertStringContainsString(
             '--atlas-self-construction-runtime-promotion-receipt-draft-status',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_exact_command'),
@@ -1208,6 +1235,37 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             $this->assertFalse($decoded['execution_allowed']);
             $this->assertFalse($decoded['dispatch_allowed']);
         }
+    }
+
+    public function test_cli_closure_corridor_human_output_exposes_final_operator_runbook(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-final-operator-evidence-closure-corridor-status' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $output = Artisan::output();
+
+        $this->assertStringContainsString('Technical closure green', $output);
+        $this->assertStringContainsString('Human blockers', $output);
+        $this->assertStringContainsString('Real provider blockers', $output);
+        $this->assertStringContainsString('Progress', $output);
+        $this->assertStringContainsString('Blocking artifacts:', $output);
+        $this->assertStringContainsString('runtime_promotion_receipt', $output);
+        $this->assertStringContainsString('real_provider_smoke', $output);
+        $this->assertStringContainsString('human_completion_receipt', $output);
+        $this->assertStringContainsString('Closure artifact sequence:', $output);
+        $this->assertStringContainsString('Prompt-to-artifact checklist:', $output);
+        $this->assertStringContainsString('Runbook status', $output);
+        $this->assertStringContainsString('Shell packet', $output);
+        $this->assertStringContainsString('Post-action verifier', $output);
+        $this->assertStringContainsString('Recovery matrix', $output);
+        $this->assertStringContainsString('Command surface', $output);
+        $this->assertStringContainsString('Terminal proof guardrails:', $output);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', $output);
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', $output);
+        $this->assertStringContainsString('Completion allowed', $output);
+        $this->assertStringContainsString('Completion claim allowed', $output);
     }
 
     public function test_agent_control_plane_lists_closure_corridor_capabilities(): void

@@ -120,6 +120,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
             if ($seedDir === '' || ! $this->safeStorageFixturePath($seedDir)) {
                 $missingFixtures[] = $caseId;
                 $invalidCases[] = $caseId.':fixture_seed_path_missing_or_unsafe';
+
                 continue;
             }
 
@@ -543,7 +544,6 @@ MD;
     }
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function stringList(mixed $value): array
@@ -556,7 +556,7 @@ MD;
 
     private function escapePhpString(string $value): string
     {
-        return str_replace(["\\", "'"], ["\\\\", "\\'"], $value);
+        return str_replace(['\\', "'"], ['\\\\', "\\'"], $value);
     }
 
     /**

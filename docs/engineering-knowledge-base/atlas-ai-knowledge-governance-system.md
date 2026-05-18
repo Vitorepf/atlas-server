@@ -48,6 +48,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md
+  - docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md
   - docs/engineering-knowledge-base/obsidian-atlas-vault.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md
   - docs/engineering-knowledge-base/code-intelligence.md

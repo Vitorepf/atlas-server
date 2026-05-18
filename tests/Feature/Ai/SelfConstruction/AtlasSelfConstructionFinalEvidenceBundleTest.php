@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionFinalEvidenceBundleService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
@@ -117,6 +118,22 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
             'capture_replay_snapshot_after_terminal_loop_operational_proof',
             'rerun_completion_audit_with_terminal_loop_operational_proof_binding',
         ], array_column($bundle['final_operator_packet']['final_verification_sequence'], 'id'));
+        $shellPacket = (array) $bundle['final_operator_packet']['next_action_shell_packet'];
+        $this->assertSame('atlas.self_construction.final_evidence_bundle_next_action_shell_packet.v1', $shellPacket['schema_version']);
+        $this->assertSame('blocked_placeholder_replacement_required', $shellPacket['status']);
+        $this->assertSame('runtime_promotion_receipt', $shellPacket['current_required_operator_artifact']);
+        $this->assertSame('runtime_gap_matrix_all_runtime_y', $shellPacket['current_requirement']);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $shellPacket['exact_command']);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', $shellPacket['persist_command']);
+        $this->assertFalse($shellPacket['copy_safe']);
+        $this->assertContains('<operator>', $shellPacket['placeholders']);
+        $this->assertContains('@/path/to/runtime-promotion.json', $shellPacket['placeholders']);
+        $this->assertTrue($shellPacket['requires_fresh_status_before_copy']);
+        $this->assertTrue($shellPacket['requires_fresh_preflight_before_persist']);
+        $this->assertTrue($shellPacket['do_not_run_persist_command_until_verifier_green']);
+        $this->assertSame('runtime_gap_matrix.runtime_promotion_receipt.status=passed AND runtime_gap_matrix.all_runtime_y=true', $shellPacket['success_check']);
+        $this->assertArrayHasKey('completion_audit_with_canonical_terminal_loop_operational_proof', $shellPacket['post_action_proof_commands']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $shellPacket['shell_packet_hash']);
         $this->assertTrue($bundle['final_operator_packet']['final_verification_sequence'][0]['may_make_release_snapshot_stale']);
         $this->assertSame('capture_snapshot_if_stale', $bundle['final_operator_packet']['final_verification_sequence'][1]['command_key']);
         $this->assertSame('completion_audit_with_canonical_terminal_loop_operational_proof', $bundle['final_operator_packet']['final_verification_sequence'][2]['command_key']);
@@ -184,6 +201,27 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
         $this->assertContains('human_signed_os_complete_receipt', $block['what_must_be_signed']);
         $this->assertContains('real_provider_claim_to_completion_smoke', $block['what_must_be_run_with_real_provider']);
         $this->assertSame('runtime_promotion_receipt', $block['current_required_operator_artifact']);
+        $this->assertSame('blocked_placeholder_replacement_required', $block['next_action_shell_packet_status']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $block['next_action_shell_packet_hash']);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $block['next_action_exact_command']);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', $block['next_action_persist_command']);
+        $this->assertGreaterThanOrEqual(2, $block['next_action_placeholder_count']);
+        $this->assertFalse($block['next_action_copy_safe']);
+        $this->assertSame('runtime_promotion_receipt', data_get($block, 'next_action_shell_packet.current_required_operator_artifact'));
+        $this->assertSame(4, (int) $block['closure_artifact_sequence_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['closure_artifact_sequence_hash']);
+        $closureSequence = collect((array) $block['closure_artifact_sequence'])->keyBy('artifact');
+        $this->assertSame('runtime_gap_matrix_all_runtime_y', $closureSequence['runtime_promotion_receipt']['requirement']);
+        $this->assertSame('end_to_end_real_provider_smoke_green', $closureSequence['real_provider_smoke']['requirement']);
+        $this->assertSame('human_signed_os_complete_receipt_present', $closureSequence['human_completion_receipt']['requirement']);
+        $this->assertSame('completion_audit_authorizes_completion_claim', $closureSequence['final_completion_audit']['requirement']);
+        $this->assertSame(4, (int) $block['prompt_to_artifact_checklist_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['prompt_to_artifact_checklist_hash']);
+        $checklist = collect((array) $block['prompt_to_artifact_checklist'])->keyBy('requirement');
+        $this->assertSame('runtime_promotion_receipt', $checklist['runtime_gap_matrix_all_runtime_y']['artifact']);
+        $this->assertSame('real_provider_smoke', $checklist['end_to_end_real_provider_smoke_green']['artifact']);
+        $this->assertSame('human_completion_receipt', $checklist['human_signed_os_complete_receipt_present']['artifact']);
+        $this->assertSame('final_completion_audit', $checklist['completion_audit_authorizes_completion_claim']['artifact']);
         $this->assertSame(2, $block['human_blocker_count']);
         $this->assertSame([
             'runtime_gap_matrix_all_runtime_y',
@@ -193,6 +231,10 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
         $this->assertSame(['end_to_end_real_provider_smoke_green'], $block['real_provider_blockers']);
         $this->assertSame(0, $block['technical_blocker_count']);
         $this->assertSame([], $block['technical_blockers']);
+        $this->assertFalse($block['release_dossier_refresh_required']);
+        $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', $block['release_dossier_refresh_command']);
+        $this->assertFalse($block['certification_status_batch_refresh_required']);
+        $this->assertStringContainsString('--agent-control-plane-certification-status-batch-status', $block['certification_status_batch_command']);
         $this->assertFalse($block['runtime_promotion_ready']);
         $this->assertFalse($block['real_provider_smoke_ready']);
         $this->assertFalse($block['human_completion_receipt_ready']);
@@ -215,6 +257,69 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
         $this->assertTrue($block['completion_audit_green_requires_current_snapshot_after_terminal_loop_proof']);
         $this->assertFalse($block['completion_claim_allowed']);
         $this->assertFalse($block['final_completion_allowed']);
+    }
+
+    public function test_final_evidence_bundle_status_mirrors_green_completion_readiness(): void
+    {
+        $status = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionFinalEvidenceBundleStatus($this->baseOptions([
+            'runtime_all_y' => true,
+            'human_receipt_passed' => true,
+            'real_provider_smoke_passed' => true,
+            'completion_audit_complete' => true,
+            'terminal_loop_operational_proof_passed' => true,
+            'failed_criteria' => [],
+        ]));
+        $block = (array) data_get($status, 'agent_control_plane_atlas_self_construction_final_evidence_bundle_status', []);
+
+        $this->assertSame('available', $status['status']);
+        $this->assertSame(0, $block['blocker_count']);
+        $this->assertSame([], $block['what_is_blocked']);
+        $this->assertSame('none', $block['current_required_operator_artifact']);
+        $this->assertSame(0, $block['human_blocker_count']);
+        $this->assertSame(0, $block['real_provider_blocker_count']);
+        $this->assertSame(0, $block['technical_blocker_count']);
+        $this->assertTrue($block['runtime_promotion_ready']);
+        $this->assertTrue($block['real_provider_smoke_ready']);
+        $this->assertTrue($block['human_completion_receipt_ready']);
+        $this->assertTrue($block['terminal_loop_operational_proof_ready']);
+        $this->assertTrue($block['completion_audit_green']);
+        $this->assertTrue($block['completion_claim_allowed']);
+        $this->assertTrue($block['final_completion_allowed']);
+    }
+
+    public function test_final_evidence_bundle_human_output_exposes_closure_artifacts(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-final-evidence-bundle-status' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('Bundle hash', $output);
+        $this->assertStringContainsString('Blockers', $output);
+        $this->assertStringContainsString('Human blockers', $output);
+        $this->assertStringContainsString('Real provider blockers', $output);
+        $this->assertStringContainsString('Technical blockers', $output);
+        $this->assertStringContainsString('Current required artifact', $output);
+        $this->assertStringContainsString('Next action shell packet', $output);
+        $this->assertStringContainsString('Next action exact command', $output);
+        $this->assertStringContainsString('Release dossier ready', $output);
+        $this->assertStringContainsString('Release dossier refresh required', $output);
+        $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', $output);
+        $this->assertStringContainsString('Terminal proof ready', $output);
+        $this->assertStringContainsString('Completion audit green', $output);
+        $this->assertStringContainsString('Completion evidence command', $output);
+        $this->assertStringContainsString('--atlas-self-construction-os-completion-evidence-status', $output);
+        $this->assertStringContainsString('Operator readiness command', $output);
+        $this->assertStringContainsString('--atlas-self-construction-operator-evidence-submission-readiness-status', $output);
+        $this->assertStringContainsString('Canonical audit command', $output);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', $output);
+        $this->assertStringContainsString('Closure artifact sequence:', $output);
+        $this->assertStringContainsString('runtime_promotion_receipt', $output);
+        $this->assertStringContainsString('real_provider_smoke', $output);
+        $this->assertStringContainsString('human_completion_receipt', $output);
+        $this->assertStringContainsString('Final verification sequence:', $output);
+        $this->assertStringContainsString('rerun_completion_audit_with_terminal_loop_operational_proof_binding', $output);
     }
 
     private function bundle(): AtlasSelfConstructionFinalEvidenceBundleService

@@ -13,6 +13,19 @@ use Tests\TestCase;
 
 final class AtlasForgeRivalsIndustrialExecutionSuiteTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        foreach ([
+            '__tmp_industrial_execution_empty_seed',
+            '__tmp_industrial_execution_missing_expected',
+            '__tmp_industrial_execution_missing_test',
+        ] as $caseId) {
+            File::deleteDirectory(base_path('storage/forge-rivals-corpus/'.$caseId));
+        }
+
+        parent::tearDown();
+    }
+
     public function test_industrial_50_has_50_executable_cases(): void
     {
         $payload = app(AtlasForgeRivalsIndustrialExecutionSuiteService::class)->readiness([
@@ -29,7 +42,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteTest extends TestCase
 
     public function test_empty_fixture_blocks_execution_readiness(): void
     {
-        $case = $this->fixtureCase('industrial-execution-empty-seed');
+        $case = $this->fixtureCase('__tmp_industrial_execution_empty_seed');
         File::ensureDirectoryExists(base_path($case['fixture_seed_path']));
         File::put(base_path($case['fixture_seed_path']).'/README.md', 'readme only');
 
@@ -46,7 +59,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteTest extends TestCase
 
     public function test_missing_expected_changed_files_blocks_readiness(): void
     {
-        $case = $this->fixtureCase('industrial-execution-missing-expected');
+        $case = $this->fixtureCase('__tmp_industrial_execution_missing_expected');
         $case['expected_changed_files'] = [];
         $this->writeExecutableSeed($case);
 
@@ -62,7 +75,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteTest extends TestCase
 
     public function test_missing_test_command_blocks_readiness(): void
     {
-        $case = $this->fixtureCase('industrial-execution-missing-test');
+        $case = $this->fixtureCase('__tmp_industrial_execution_missing_test');
         $case['quick_test_command'] = '';
         $case['full_test_command'] = '';
         $case['test_command'] = '';

@@ -306,6 +306,30 @@ final class AtlasSelfConstructionOsCompletionAuditTest extends TestCase
         }
     }
 
+    public function test_completion_audit_human_output_exposes_blockers_and_operator_commands(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-os-completion-audit-status' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $output = Artisan::output();
+
+        $this->assertStringContainsString('Failed criteria', $output);
+        $this->assertStringContainsString('Human blockers', $output);
+        $this->assertStringContainsString('Real provider blockers', $output);
+        $this->assertStringContainsString('Technical blockers', $output);
+        $this->assertStringContainsString('Current required artifact', $output);
+        $this->assertStringContainsString('Operator readiness command', $output);
+        $this->assertStringContainsString('--atlas-self-construction-operator-evidence-submission-readiness-status', $output);
+        $this->assertStringContainsString('Closure corridor command', $output);
+        $this->assertStringContainsString('--atlas-self-construction-final-operator-evidence-closure-corridor-status', $output);
+        $this->assertStringContainsString('Failed criteria:', $output);
+        $this->assertStringContainsString('Human blockers:', $output);
+        $this->assertStringContainsString('Real provider blockers:', $output);
+        $this->assertStringContainsString('Completion allowed', $output);
+    }
+
     public function test_agent_control_plane_lists_completion_audit_capabilities(): void
     {
         Artisan::call('atlas:ai:self-construction', [

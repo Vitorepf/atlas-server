@@ -7,6 +7,7 @@ use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceipt
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeCertificationService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionReceiptService;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends TestCase
@@ -82,9 +83,43 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
 
         $this->assertSame([], $payload['blockers']);
         $this->assertSame(0, $payload['remaining_blocker_count']);
+        $this->assertSame(4, $payload['closure_artifact_sequence_count']);
+        $this->assertSame(4, $payload['prompt_to_artifact_checklist_count']);
+        $this->assertSame(4, $payload['prompt_to_artifact_checklist_passed_count']);
         $this->assertTrue($payload['machine_status']['closure_ready']);
         $this->assertFalse($payload['machine_status']['can_close_automatically']);
         $this->assertFalse($payload['completion_claim_allowed']);
+    }
+
+    public function test_blocker_explainer_exposes_compact_closure_artifact_map(): void
+    {
+        $payload = $this->service()->build($this->audit([
+            'runtime_gap_matrix_all_runtime_y',
+            'human_signed_os_complete_receipt_present',
+            'end_to_end_real_provider_smoke_green',
+        ]));
+
+        $this->assertSame(4, $payload['closure_artifact_sequence_count']);
+        $this->assertSame(4, $payload['prompt_to_artifact_checklist_count']);
+        $this->assertSame(0, $payload['prompt_to_artifact_checklist_passed_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['closure_artifact_sequence_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['prompt_to_artifact_checklist_hash']);
+
+        $this->assertSame('runtime_promotion_receipt', data_get($payload, 'closure_artifact_sequence.0.artifact'));
+        $this->assertSame('runtime_gap_matrix_all_runtime_y', data_get($payload, 'closure_artifact_sequence.0.requirement'));
+        $this->assertSame('atlas.self_construction.runtime_promotion_receipt.v1', data_get($payload, 'closure_artifact_sequence.0.expected_receipt_schema'));
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', data_get($payload, 'closure_artifact_sequence.0.draft_command'));
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', data_get($payload, 'closure_artifact_sequence.0.persist_command'));
+
+        $this->assertSame('real_provider_smoke', data_get($payload, 'closure_artifact_sequence.1.artifact'));
+        $this->assertTrue(data_get($payload, 'closure_artifact_sequence.1.requires_provider_call'));
+        $this->assertSame('human_completion_receipt', data_get($payload, 'closure_artifact_sequence.2.artifact'));
+        $this->assertTrue(data_get($payload, 'closure_artifact_sequence.2.requires_operator_signature'));
+        $this->assertSame('final_completion_audit', data_get($payload, 'closure_artifact_sequence.3.artifact'));
+        $this->assertStringContainsString('@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', data_get($payload, 'closure_artifact_sequence.3.draft_command'));
+
+        $this->assertSame('runtime_gap_matrix_all_runtime_y', data_get($payload, 'prompt_to_artifact_checklist.0.requirement'));
+        $this->assertFalse(data_get($payload, 'prompt_to_artifact_checklist.0.passed'));
     }
 
     public function test_blocker_explainer_command_plan_lists_required_commands(): void
@@ -129,6 +164,37 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
         $this->assertSame('storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', $block['terminal_loop_operational_proof_canonical_binding_path']);
         $this->assertStringContainsString('@/path/to/terminal-loop-operational-proof-binding.json', (string) $block['completion_audit_command_with_terminal_loop_operational_proof']);
         $this->assertStringContainsString('@storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', (string) $block['effective_completion_audit_with_canonical_terminal_loop_operational_proof_command']);
+        $this->assertSame(4, $block['closure_artifact_sequence_count']);
+        $this->assertSame(4, $block['prompt_to_artifact_checklist_count']);
+        $this->assertSame(0, $block['prompt_to_artifact_checklist_passed_count']);
+        $this->assertSame('runtime_promotion_receipt', data_get($block, 'closure_artifact_sequence.0.artifact'));
+        $this->assertSame('human_signed_os_complete_receipt_present', data_get($block, 'prompt_to_artifact_checklist.2.requirement'));
+    }
+
+    public function test_blocker_explainer_human_output_exposes_closure_artifacts_and_terminal_proof(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-completion-audit-blocker-explainer-status' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $output = Artisan::output();
+
+        $this->assertStringContainsString('Remaining blockers', $output);
+        $this->assertStringContainsString('Human required', $output);
+        $this->assertStringContainsString('Real provider required', $output);
+        $this->assertStringContainsString('Can close automatically', $output);
+        $this->assertStringContainsString('Closure artifact sequence:', $output);
+        $this->assertStringContainsString('runtime_promotion_receipt', $output);
+        $this->assertStringContainsString('real_provider_smoke', $output);
+        $this->assertStringContainsString('human_completion_receipt', $output);
+        $this->assertStringContainsString('Prompt-to-artifact checklist:', $output);
+        $this->assertStringContainsString('runtime_gap_matrix_all_runtime_y', $output);
+        $this->assertStringContainsString('end_to_end_real_provider_smoke_green', $output);
+        $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', $output);
+        $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', $output);
+        $this->assertStringContainsString('Effective canonical audit', $output);
+        $this->assertStringContainsString('Explainer hash', $output);
     }
 
     public function test_blocker_explainer_closure_plan_requires_drafts_before_persistence(): void
@@ -233,6 +299,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
         return [
             'schema_version' => 'atlas.self_construction.os_completion_audit.v1',
             'status' => $failedCriteria === [] ? 'complete' : 'incomplete',
+            'completion_allowed' => $failedCriteria === [],
             'completion_audit_hash' => str_repeat('b', 64),
             'failed_criteria' => $failedCriteria,
             'criteria' => $criteria,

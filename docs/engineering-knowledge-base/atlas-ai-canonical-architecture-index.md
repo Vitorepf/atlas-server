@@ -45,12 +45,20 @@ related_paths:
   - docs/engineering-knowledge-base/master-architecture/
   - docs/engineering-knowledge-base/atlas-ai-evolution-roadmap.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
+  - docs/engineering-knowledge-base/atlas-vox-operational-thinking-interface.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/research-self-improvement/
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
+  - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
+  - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
+  - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
+  - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
+  - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
+  - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
+  - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
   - docs/engineering-knowledge-base/spec-operating-system/
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md
@@ -156,6 +164,7 @@ Layer 0.72 Programming Governance System: placement, spec before code, task cont
 Layer 0.74 Programming Forge Flow: canonical heavy programming taxonomy, flow, graphs, tools, repair and evidence
 Layer 0.75 Forge Operating System: AI software factory over governed programming
 Layer 0.8 Self-Construction OS / governed self-programming
+Layer 0.9 Autonomous Intelligence OS: Atlas AI as multi-domain intelligence OS with Kernel comum + Domain Company Runtimes plugaveis (software is one domain among many)
 Layer 1   Kernel contracts: envelope, receipt, ledger, SDKs, tests, SLOs
 Layer 1.5 Runtime boundaries: Laravel, Python, Go, Swift
 Layer 2   Master Architecture: product, planes, domains, roadmap
@@ -178,11 +187,20 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Atlas System Graph / visual architecture map | `atlas-system-graph.md` |
 | Atlas Living Architecture Graph / Obsidian graph maturity | `system-graph/living-architecture-graph-contract.md` |
 | Knowledge surfaces and source truth | `atlas-ai-knowledge-governance-system.md` |
+| Local agent memory ingestion / Codex and Claude Code history as governed source material | `atlas-local-agent-memory-ingestion.md` |
 | Runtime contracts | `atlas-ai-kernel-architecture.md` |
 | Product architecture | `atlas-ai-master-architecture.md` |
 | Evolution roadmap | `atlas-ai-evolution-roadmap.md` + `evolution/README.md` |
 | Research Intelligence and governed self-improvement | `atlas-ai-research-self-improvement-runtime.md` |
 | Spec Operating System / SDD | `atlas-ai-spec-operating-system.md` |
+| Atlas AI identity as Autonomous Intelligence OS | `atlas-autonomous-intelligence-operating-system.md` |
+| Atlas Kernel Mission Foundation / universal Mission/Objective/WorkOrder with lifecycle, evidence and certification (Meta 1) | `atlas-kernel-mission-foundation.md` |
+| Domain Company Runtimes / enterprise domain companies | `atlas-domain-company-runtimes.md` |
+| Domain Runtime Contract / DomainManifest, Registry, Capability Catalog, Handoff, Maturity (Meta 2 entregue) | `atlas-domain-runtime-contract.md` |
+| Evidence/Certification Runtime / EvidencePack, Receipt, Claim, Certification, Blocker, AuditEvent universais | `atlas-evidence-certification-runtime.md` |
+| Multi-Domain Implementation Sequence / build order, parallelism, anti-collision between Claudes/Codex | `atlas-ai-multi-domain-implementation-sequence.md` |
+| Autonomous Software Company Runtime / programming domain company | `atlas-autonomous-software-company-runtime.md` |
+| Programming Domain Adapter Integration Plan / Meta 7 bridges (Manifest, Dev Mission Adapter, Forge Handoff, Evidence/Policy/Tool/Control Plane bridges) | `atlas-programming-domain-adapter-integration-plan.md` |
 | Programming Governance System / placement, spec before code, task contracts, Code Intelligence, evidence and cartography | `atlas-programming-governance-system.md` |
 | Programming Self-Construction Forge Map / short AI orientation for Atlas Code, Forge Continuum, Self-Construction OS, Self-Programming OS and providers | `atlas-programming-self-construction-forge-map-v1.md` |
 | Programming Forge Flow / heavy programming taxonomy, graphs, tools, repair and evidence | `atlas-programming-forge-flow.md` |
@@ -196,6 +214,7 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Obras Operating System / production primitive | `atlas-ai-obras-operating-system.md` |
 | Obras Shared Workspace / Forge Workspace | `obras/shared-workspace-and-forge.md` |
 | Universal pipeline | `atlas-ai-pipeline.md` |
+| Atlas Vox / voz, intencao, acao governada e interface de pensamento operacional | `atlas-vox-operational-thinking-interface.md` |
 | Cognitive Runtime: memory, retrieval, 72h sessions and compaction | `atlas-ai-cognitive-runtime.md` |
 | Memory noise immunity and promotion | `memory/cognitive-immune-learning-kernel.md` |
 | Code Intelligence and external graph candidates | `code-intelligence.md` + `code-intelligence/external-graph-harness.md` |
