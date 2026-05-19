@@ -153,6 +153,12 @@ class AtlasAiSpecialistFlowExecutionServiceTest extends TestCase
             'explain' => ['atlas_explain', 'atlas_explain_read_only_handler', 'plain_language_explanation', 'no_side_effect_claims', 'scope_boundaries_are_clear', 'no_workspace_action_claimed', 'claiming_files_changed'],
             'conversation' => ['atlas_conversation', 'atlas_conversation_direct_handler', 'direct_answer', 'handoff_when_scope_changes', 'handoff_boundary_is_visible', 'scope_change_gets_handoff_suggestion', 'pretending_workspace_access'],
             'plan' => ['atlas_plan', 'atlas_plan_engineering_plan_handler', 'risk_register', 'execution_flow_recommended', 'plan_is_executable', 'milestones_have_validation_evidence', 'planning_as_completed_work'],
+            'finance' => ['atlas_finance', 'atlas_finance_analysis_with_assumptions_handler', 'risk_register', 'no_live_trade_executed_without_approval', 'risks_quantified_or_declared_unknown', 'no_promised_returns', 'unauthorized_live_trade_claim'],
+            'marketing' => ['atlas_marketing', 'atlas_marketing_campaign_plan_handler', 'budget_options', 'publish_requires_operator_approval', 'audience_hypothesis_is_explicit', 'no_publish_claim_without_approval', 'publish_claim_without_approval'],
+            'strategy' => ['atlas_strategy', 'atlas_strategy_decision_memo_handler', 'options_with_tradeoffs', 'no_execution_claim', 'recommendation_is_defensible', 'recommendation_present', 'single_option_disguised_as_choice'],
+            'cyber' => ['atlas_cyber', 'atlas_cyber_defensive_advisory_handler', 'mitigation_steps', 'offensive_action_blocked_when_roe_unsigned', 'mitigation_steps_are_concrete', 'roe_status_reported', 'offensive_action_without_roe'],
+            'personal_development' => ['atlas_personal_development', 'atlas_personal_development_non_clinical_handler', 'professional_boundary_note', 'professional_boundary_note_present', 'boundary_is_visible_not_buried', 'no_clinical_claim', 'clinical_diagnosis_claim'],
+            'automation' => ['atlas_automation', 'atlas_automation_plan_first_handler', 'rollback_plan', 'rollback_plan_present', 'rollback_is_concrete', 'no_destructive_action_claimed_without_approval', 'silent_destructive_action'],
         ];
     }
 }

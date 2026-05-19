@@ -48,6 +48,25 @@ final class AtlasAiVoxDogfoodController extends Controller
             'eclipse_used' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string', 'max:'.VoxDogfoodService::NOTES_MAX_CHARS],
             'metadata' => ['nullable', 'array'],
+            // V6-E · envelope estruturado opcional. O service sanitiza/dropa
+            // qualquer campo fora da whitelist antes de gravar.
+            'auto_event' => ['nullable', 'array'],
+            'auto_event.suggested_mode' => ['nullable', 'string', 'max:40'],
+            'auto_event.final_mode' => ['nullable', 'string', 'max:40'],
+            'auto_event.manual_override' => ['nullable', 'boolean'],
+            'auto_event.auto_router_confidence' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'auto_event.intervention_present' => ['nullable', 'boolean'],
+            'auto_event.intervention_kind' => ['nullable', 'string', 'max:40'],
+            'auto_event.empty_transcript' => ['nullable', 'boolean'],
+            'auto_event.stt_failed' => ['nullable', 'boolean'],
+            'auto_event.clicked_action' => ['nullable', 'string', 'max:40'],
+            'auto_event.launch_source' => ['nullable', 'string', 'max:40'],
+            'auto_event.error_kind' => ['nullable', 'string', 'max:80'],
+            'auto_event.raw_audio_persisted' => ['nullable', 'boolean'],
+            // V6-K · sinais novos: regravação dentro da sessão e edição
+            // manual do transcript. Booleans, sem texto.
+            'auto_event.re_recorded' => ['nullable', 'boolean'],
+            'auto_event.edited_transcript' => ['nullable', 'boolean'],
         ]);
 
         // Belt-and-braces: the service guards again, but we validate here so
@@ -96,6 +115,36 @@ final class AtlasAiVoxDogfoodController extends Controller
     public function report(): JsonResponse
     {
         return response()->json($this->dogfood->report());
+    }
+
+    /**
+     * V6-E · feedback leve sobre uma sessão já registrada automaticamente.
+     * O chip "Funcionou bem" / "Marcar como ruim" no overlay aciona isto.
+     * Não cria sessão, não muda outcome — só pisca regret_flag.
+     */
+    public function submitFeedback(Request $request, string $dogfoodSessionId): JsonResponse
+    {
+        $payload = $request->validate([
+            'regret_flag' => ['required', 'boolean'],
+        ]);
+
+        $session = $this->dogfood->updateFeedback($dogfoodSessionId, (bool) $payload['regret_flag']);
+        if ($session === null) {
+            return response()->json([
+                'schema' => VoxDogfoodService::SCHEMA_SESSION,
+                'status' => 'not_found',
+                'message' => "dogfood session '{$dogfoodSessionId}' not found",
+            ], 404);
+        }
+        return response()->json([
+            'schema' => VoxDogfoodService::SCHEMA_SESSION,
+            'status' => 'ok',
+            'session' => [
+                'dogfood_session_id' => $session->dogfood_session_id,
+                'regret_flag' => $session->regret_flag,
+                'updated_at' => $session->updated_at?->toIso8601String(),
+            ],
+        ]);
     }
 
     /**

@@ -10,6 +10,8 @@ class MissionControlPlaneService
 {
     public const SCHEMA = 'atlas.ai.mission.control_plane.v1';
 
+    public function __construct(private readonly ?MissionFollowThroughService $followThrough = null) {}
+
     /**
      * @return array<string,mixed>
      */
@@ -76,6 +78,7 @@ class MissionControlPlaneService
                 'has_evidence' => $evidenceRefs->isNotEmpty(),
                 'has_passed_certification' => $latestCertification !== null && $latestCertification->status === MissionCertificationService::STATUS_PASSED,
             ],
+            'follow_through' => ($this->followThrough ?? app(MissionFollowThroughService::class))->snapshot($mission),
         ];
     }
 

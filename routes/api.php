@@ -613,6 +613,12 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     // nunca toca audio. Reporta isolado do gate-v3 (informational only).
     Route::post('/ai/vox/dogfood/session', [AtlasAiVoxDogfoodController::class, 'recordSession']);
     Route::get('/ai/vox/dogfood/report', [AtlasAiVoxDogfoodController::class, 'report']);
+    // V6-E · feedback leve (chip "Funcionou bem" / "Marcar como ruim"). Não
+    // muda outcome, só vira regret_flag para alimentar o report.
+    Route::post(
+        '/ai/vox/dogfood/session/{dogfood_session_id}/feedback',
+        [AtlasAiVoxDogfoodController::class, 'submitFeedback'],
+    )->where('dogfood_session_id', '[A-Za-z0-9_\\-]+');
 });
 
 /*
@@ -816,3 +822,6 @@ Route::prefix('atlas/ai/control-plane')->group(function (): void {
     Route::get('/next-actions', [AtlasAiControlPlaneController::class, 'nextActions']);
     Route::get('/missions/{uuid}', [AtlasAiControlPlaneController::class, 'mission']);
 });
+
+// Atlas AI Runtime Readiness & Release Gate · single-call aggregator
+Route::get('/atlas/ai/runtime-readiness', \App\Http\Controllers\AtlasAiRuntimeReadinessController::class);

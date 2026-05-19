@@ -42,7 +42,7 @@ class MissionLifecycleService
             self::STATUS_FAILED,
             self::STATUS_CANCELLED,
         ],
-        self::STATUS_WAITING_APPROVAL => [self::STATUS_RUNNING, self::STATUS_CANCELLED, self::STATUS_FAILED],
+        self::STATUS_WAITING_APPROVAL => [self::STATUS_RUNNING, self::STATUS_BLOCKED, self::STATUS_CANCELLED, self::STATUS_FAILED],
         self::STATUS_BLOCKED => [self::STATUS_REPAIRING, self::STATUS_CANCELLED, self::STATUS_FAILED],
         self::STATUS_REPAIRING => [self::STATUS_RUNNING, self::STATUS_FAILED, self::STATUS_CANCELLED],
         self::STATUS_CERTIFYING => [self::STATUS_COMPLETED, self::STATUS_FAILED, self::STATUS_REPAIRING],

@@ -57,9 +57,12 @@ final class VoxAutoModeRouter
     private const R4_HARD_VETO = [
         ['label' => 'rm_rf',           'pattern' => '/\brm\s+-rf\b/iu'],
         ['label' => 'sudo',            'pattern' => '/\bsudo\b/iu'],
-        ['label' => 'dd_if',           'pattern' => '/\bdd\s+if=/iu'],
+        // V6-FPG-C · transcrição falada não tem "=". Aceita "dd if=" e "dd if ".
+        ['label' => 'dd_if',           'pattern' => '/\bdd\s+if(?:=|\s)/iu'],
         ['label' => 'mkfs',            'pattern' => '/\bmkfs\b/iu'],
-        ['label' => 'git_push_force',  'pattern' => '/\bgit\s+push\s+(?:--force|-f)\b/iu'],
+        // V6-AUTO-MODE-FINAL · fala natural raramente diz "--force"; aceita
+        // "git push force", "git push --force", "git push -f".
+        ['label' => 'git_push_force',  'pattern' => '/\bgit\s+push\s+(?:--force|-f|force)\b/iu'],
         ['label' => 'git_reset_hard',  'pattern' => '/\bgit\s+reset\s+--hard\b/iu'],
         ['label' => 'drop_database',   'pattern' => '/\bdrop\s+database\b/iu'],
         ['label' => 'truncate_table',  'pattern' => '/\btruncate(?:\s+table)?\b/iu'],
@@ -84,6 +87,17 @@ final class VoxAutoModeRouter
         ['pattern' => 'manda pra ia',            'weight' => 0.88, 'kind' => 'phrase'],
         ['pattern' => 'manda essa pra ia',       'weight' => 0.88, 'kind' => 'phrase'],
         ['pattern' => 'manda pro chatgpt',       'weight' => 0.85, 'kind' => 'phrase'],
+        // V6-AUTO-MODE-FINAL · pronomes neutros + IA. "esse trem" já vira
+        // "isso" no normalise(), então cobrimos goianês + falar coloquial.
+        ['pattern' => 'manda isso pro codex',    'weight' => 0.90, 'kind' => 'phrase'],
+        ['pattern' => 'manda isso pro claude',   'weight' => 0.90, 'kind' => 'phrase'],
+        ['pattern' => 'manda isso pra ia',       'weight' => 0.88, 'kind' => 'phrase'],
+        ['pattern' => 'manda essa pro codex',    'weight' => 0.88, 'kind' => 'phrase'],
+        ['pattern' => 'manda essa pro claude',   'weight' => 0.88, 'kind' => 'phrase'],
+        ['pattern' => 'manda aquilo pro codex',  'weight' => 0.86, 'kind' => 'phrase'],
+        ['pattern' => 'manda aquilo pro claude', 'weight' => 0.86, 'kind' => 'phrase'],
+        // Catch-all em regex: "manda/joga/passa <pron> <pro|pra> <ia>".
+        ['pattern' => '/\b(?:manda|joga|passa|leva)\s+(?:isso|essa|aquilo|aquela)\s+(?:pr[oa]|para\s+(?:o|a)?\s*)(?:codex|claude|gpt|chatgpt|ia)\b/iu', 'weight' => 0.86, 'kind' => 'regex'],
         ['pattern' => 'pergunta pro codex',      'weight' => 0.88, 'kind' => 'phrase'],
         ['pattern' => 'pergunta pro claude',     'weight' => 0.88, 'kind' => 'phrase'],
         ['pattern' => 'pergunta pra ia',         'weight' => 0.85, 'kind' => 'phrase'],
@@ -113,6 +127,24 @@ final class VoxAutoModeRouter
         ['pattern' => 'me ajuda a pedir',        'weight' => 0.74, 'kind' => 'phrase'],
         ['pattern' => 'me ajuda a montar',       'weight' => 0.70, 'kind' => 'phrase'],
         ['pattern' => 'me ajuda a escrever um prompt', 'weight' => 0.86, 'kind' => 'phrase'],
+        // V6-AUTO-MODE-FINAL · pedido "olha esse <coisa>": Vitor quase
+        // sempre quer que a IA olhe pra ele — peso médio porque "olha"
+        // sozinho também é dictation; o confirm cobre o resto.
+        ['pattern' => '/\bolha\s+(?:esse|este|essa|esta|o|a)\s+(?:arquivo|texto|trecho|conteudo|conteúdo|c[óo]digo|prompt|m[óo]dulo|servi[çc]o|controller|model|teste|migration|comando|fluxo)\b/iu', 'weight' => 0.74, 'kind' => 'regex'],
+        ['pattern' => '/\b(?:olha|d[áa]\s+uma\s+olhada)\s+(?:isso|aquilo)\s+pra\s+mim\b/iu', 'weight' => 0.70, 'kind' => 'regex'],
+        // "só analisa esse trecho" / "só lê pra mim" → diagnostic puro,
+        // ainda quer ajuda da IA. Confirma porque sinal fraco.
+        ['pattern' => '/\b(?:s[óo]|somente|apenas)\s+(?:analisa|analise|investiga|investigue|l[êe]|leia|olha)\s+(?:isso|esse|essa|aquilo|esses|essas|aquele|aquela|o|a)\b/iu', 'weight' => 0.72, 'kind' => 'regex'],
+        ['pattern' => '/\bme\s+ajuda\s+a\s+pensar\b/iu', 'weight' => 0.74, 'kind' => 'regex'],
+        ['pattern' => '/\bme\s+ajuda\s+com\s+(?:isso|essa|esse|aquilo)\b/iu', 'weight' => 0.62, 'kind' => 'regex'],
+        // V6-FPG · pedidos canônicos do brief.
+        ['pattern' => 'faz um prompt poderoso',  'weight' => 0.92, 'kind' => 'phrase'],
+        ['pattern' => 'faz um prompt forte',     'weight' => 0.90, 'kind' => 'phrase'],
+        ['pattern' => 'estruture para ia',       'weight' => 0.90, 'kind' => 'phrase'],
+        ['pattern' => 'estruture pra ia',        'weight' => 0.90, 'kind' => 'phrase'],
+        ['pattern' => 'estrutura isso pra ia',   'weight' => 0.84, 'kind' => 'phrase'],
+        ['pattern' => 'estrutura pra ia',        'weight' => 0.84, 'kind' => 'phrase'],
+        ['pattern' => 'transforma em prompt pra', 'weight' => 0.86, 'kind' => 'phrase'],
         // Nome da IA + verbo de pesquisa/implementação (regex preserva ordem).
         ['pattern' => '/\b(?:codex|claude|gpt|ia)\b[^\n]{0,40}\b(?:investiga(?:r|)|investigue|analisa(?:r|)|analise|planeja(?:r|)|planeje|implementa(?:r|)|implemente|diagnostica(?:r|)|diagnostique|estuda(?:r|)|estude)\b/iu', 'weight' => 0.80, 'kind' => 'regex'],
         ['pattern' => '/\b(?:investiga(?:r|)|investigue|analisa(?:r|)|analise|planeja(?:r|)|planeje|implementa(?:r|)|implemente|diagnostica(?:r|)|diagnostique)\b[^\n]{0,40}\b(?:codex|claude|gpt|ia)\b/iu', 'weight' => 0.80, 'kind' => 'regex'],
@@ -159,6 +191,34 @@ final class VoxAutoModeRouter
         ['pattern' => 'arruma esse prompt',      'weight' => 0.78, 'kind' => 'phrase'],
         ['pattern' => 'só limpa',                'weight' => 0.66, 'kind' => 'phrase'],
         ['pattern' => 'so limpa',                'weight' => 0.66, 'kind' => 'phrase'],
+        // V6-FPG · canônicos do brief: "deixa mais profissional", etc.
+        ['pattern' => 'deixa mais profissional', 'weight' => 0.92, 'kind' => 'phrase'],
+        ['pattern' => 'deixa esse texto mais profissional', 'weight' => 0.94, 'kind' => 'phrase'],
+        ['pattern' => 'deixa mais formal',       'weight' => 0.88, 'kind' => 'phrase'],
+        ['pattern' => 'deixa mais elegante',     'weight' => 0.86, 'kind' => 'phrase'],
+        ['pattern' => 'mais profissional',       'weight' => 0.74, 'kind' => 'phrase'],
+        // V6-DOGFOOD · #10 caiu em dictation porque "deixa mais firme" não
+        // tinha trigger. Adjetivos de tom plausíveis que o operador usa.
+        ['pattern' => 'deixa mais firme',        'weight' => 0.86, 'kind' => 'phrase'],
+        ['pattern' => 'deixa mais sério',        'weight' => 0.84, 'kind' => 'phrase'],
+        ['pattern' => 'deixa mais serio',        'weight' => 0.84, 'kind' => 'phrase'],
+        ['pattern' => 'deixa mais direto',       'weight' => 0.84, 'kind' => 'phrase'],
+        ['pattern' => 'deixa mais assertivo',    'weight' => 0.84, 'kind' => 'phrase'],
+        ['pattern' => 'deixa mais educado',      'weight' => 0.82, 'kind' => 'phrase'],
+        // V6-AUTO-MODE-FINAL · "deixa isso mais X" / "deixa essa fala mais X".
+        ['pattern' => 'deixa isso mais profissional', 'weight' => 0.92, 'kind' => 'phrase'],
+        ['pattern' => 'deixa isso mais formal',  'weight' => 0.90, 'kind' => 'phrase'],
+        ['pattern' => 'deixa isso mais elegante','weight' => 0.88, 'kind' => 'phrase'],
+        ['pattern' => 'deixa isso mais claro',   'weight' => 0.86, 'kind' => 'phrase'],
+        ['pattern' => 'deixa isso mais forte',   'weight' => 0.84, 'kind' => 'phrase'],
+        ['pattern' => 'deixa essa fala mais',    'weight' => 0.82, 'kind' => 'phrase'],
+        // "melhora isso" / "organiza isso" já existem; cobrimos a forma
+        // sem pronome explícito também: "melhora aqui pra mim".
+        ['pattern' => 'melhora aqui pra mim',    'weight' => 0.74, 'kind' => 'phrase'],
+        ['pattern' => 'organiza aqui pra mim',   'weight' => 0.72, 'kind' => 'phrase'],
+        ['pattern' => 'corrige isso',            'weight' => 0.80, 'kind' => 'phrase'],
+        ['pattern' => 'corrige esse texto',      'weight' => 0.86, 'kind' => 'phrase'],
+        ['pattern' => 'organiza esse pensamento','weight' => 0.84, 'kind' => 'phrase'],
     ];
 
     /**
@@ -173,6 +233,12 @@ final class VoxAutoModeRouter
         ['pattern' => '/\bexecuta\s+esse\s+comando\b/iu',           'weight' => 0.92, 'kind' => 'regex'],
         ['pattern' => '/\bexecutar?\s+esse\s+comando\b/iu',         'weight' => 0.90, 'kind' => 'regex'],
         ['pattern' => '/\bexecuta\s+o\s+comando\b/iu',              'weight' => 0.90, 'kind' => 'regex'],
+        // V6-DOGFOOD · #17 caiu em dictation: "propõe um comando para ver
+        // arquivos modificados". Vitor pediu PROPOSTA, não execução — o
+        // executor terminal_propose existe pra isso e nunca roda nada
+        // automaticamente, então governed_execute com confirmação é seguro.
+        ['pattern' => '/\b(?:prop[õo]e|prop[õo]r|propor|prop[õo]nha|sugere|sugir|sugerir|sugira)\s+(?:um|o)\s+comando\b/iu', 'weight' => 0.86, 'kind' => 'regex'],
+        ['pattern' => '/\bme\s+(?:d[áa]|d[êe]|d[ar])\s+(?:um|o)\s+comando\b/iu', 'weight' => 0.78, 'kind' => 'regex'],
         // Verbos operacionais frequentes.
         ['pattern' => '/\b(?:edita|edite|editar)\s+(?:o\s+|a\s+|esse\s+|essa\s+|esses\s+|essas\s+)?(?:arquivo|arquivos|pasta|diretorio|diretório|linha)\b/iu', 'weight' => 0.88, 'kind' => 'regex'],
         ['pattern' => '/\b(?:cria|crie|criar)\s+(?:o\s+|um\s+|uma\s+)?(?:arquivo|pasta|diretorio|diretório|branch|teste|migration|seed)\b/iu', 'weight' => 0.88, 'kind' => 'regex'],
@@ -193,6 +259,24 @@ final class VoxAutoModeRouter
         ['pattern' => '/\bnpm\s+(?:run|test|build|install)\b/iu',  'weight' => 0.80, 'kind' => 'regex'],
         ['pattern' => '/\bpnpm\s+(?:run|test|build|install)\b/iu', 'weight' => 0.80, 'kind' => 'regex'],
         ['pattern' => '/\b(?:roda|rode|executa|execute)\s+(?:o\s+)?(?:script|comando)\b/iu', 'weight' => 0.86, 'kind' => 'regex'],
+        // V6-FPG · verbos operacionais canônicos do brief: altera/edita/aplica/cria arquivo.
+        ['pattern' => '/\b(?:altera|altere|alterar)\s+(?:o\s+|a\s+|os\s+|as\s+|esse\s+|essa\s+|esses\s+|essas\s+)?(?:arquivo|valor|campo|config|configuração|linha|coluna|trecho|migration|seed|teste|prompt)\b/iu', 'weight' => 0.86, 'kind' => 'regex'],
+        ['pattern' => '/\b(?:edita|edite|editar)\s+(?:o\s+|a\s+|esse\s+|essa\s+)?(?:trecho|valor|linha|coluna|config|configuração|migration|seed)\b/iu', 'weight' => 0.84, 'kind' => 'regex'],
+        ['pattern' => '/\b(?:aplica|aplique|aplicar)\s+(?:o\s+|a\s+|esse\s+|essa\s+|esses\s+|essas\s+)?(?:patch|diff|fix|correção|correcao|altera[çc][ãa]o|sugest[ãa]o|mudan[çc]a)\b/iu', 'weight' => 0.88, 'kind' => 'regex'],
+        ['pattern' => '/\b(?:cria|crie|criar)\s+(?:o\s+|um\s+|uma\s+|os\s+|umas\s+)?arquivo\b/iu', 'weight' => 0.90, 'kind' => 'regex'],
+        ['pattern' => '/\babre\s+(?:o\s+|esse\s+)?(?:atlas|atlas\s+code|c[óo]digo|arquivo)\b/iu', 'weight' => 0.80, 'kind' => 'regex'],
+        // V6-AUTO-MODE-FINAL · verbo destrutivo + pronome neutro. Confirmação
+        // obrigatória (governed_execute sempre exige). Sem isso, "apaga isso
+        // aí" caía em dictation → risco real de o operador achar que falou
+        // pra IA mas a UI ignorou. R4 propriamente dito continua vencendo
+        // via detectR4() (rm -rf, drop database, …).
+        ['pattern' => '/\b(?:apaga|apague|apagar|deleta|delete|deletar|remove|remova|remover)\s+(?:isso|essa|esse|esses|essas|aquilo|aquele|aquela|aqui)\b/iu', 'weight' => 0.84, 'kind' => 'regex'],
+        // Verbo de execução + pronome neutro: "roda isso", "executa isso aí".
+        ['pattern' => '/\b(?:roda|rode|rodar|executa|execute|executar)\s+(?:isso|essa|esse|esses|essas|aquilo|aqui)\b/iu', 'weight' => 0.86, 'kind' => 'regex'],
+        // "faz isso" sozinho é ambíguo (pode virar polish ou intent_compile).
+        // Mantemos peso baixo pra forçar `needs_confirmation` em vez de
+        // disparar execução. Brief V6-AUTO-MODE-FINAL: nunca executar direto.
+        ['pattern' => '/\b(?:faz|faça|fazer)\s+(?:isso|essa|esse|aquilo)\s+(?:aqui|agora|pra\s+mim|por\s+favor)?\b/iu', 'weight' => 0.52, 'kind' => 'regex'],
     ];
 
     /**
@@ -362,10 +446,20 @@ final class VoxAutoModeRouter
     /**
      * Lowercase + normalise whitespace. Diacritics are kept on purpose so
      * regexes can match both "pontuação" and "pontuacao" explicitly.
+     *
+     * V6-AUTO-MODE-FINAL · normaliza fillers goianos/coloquiais que
+     * funcionalmente equivalem a pronomes neutros:
+     *   - "esse trem" / "este trem" / "esse troço" / "essa coisa" → "isso"
+     *   - "aquele trem" / "aquela coisa" → "aquilo"
+     * Sem isso, "manda esse trem pro codex" cai em dictation porque o
+     * substring matcher procura "manda isso pro codex".
      */
     private function normalise(string $text): string
     {
         $t = mb_strtolower($text);
+        $t = (string) preg_replace('/\b(?:esses?|estes?)\s+(?:trem|troço|troco|tro[çc]o|neg[óo]cio|bagulho|treco)\b/iu', 'isso', $t);
+        $t = (string) preg_replace('/\b(?:essas?|estas?)\s+(?:coisa|parada)\b/iu', 'isso', $t);
+        $t = (string) preg_replace('/\b(?:aquele|aquela)\s+(?:trem|troço|troco|tro[çc]o|coisa|neg[óo]cio)\b/iu', 'aquilo', $t);
         $t = (string) preg_replace('/\s+/u', ' ', $t);
 
         return trim($t);
@@ -560,16 +654,95 @@ final class VoxAutoModeRouter
             $roundedSignals[$k] = $this->round((float) $v);
         }
 
+        // V6-FPG · `reasons_pt_br[]` expande a explicação curta em até 3 frases
+        // humanas. A primeira é a razão principal (=`reason_pt_br` legacy);
+        // depois vem o sinal de confiança e (quando aplicável) o motivo da
+        // confirmação. Tudo em PT-BR.
+        $reasons = $this->buildReasons($mode, $confidence, $needsConfirmation, $markers, $reason);
+
+        // V6-FPG · `fallback_mode` é o modo que o operador provavelmente
+        // escolheria se rejeitasse a sugestão. Usado pela UI pra mostrar
+        // "ou prefere X" sem precisar abrir o seletor completo.
+        $fallback = $this->pickFallback($mode, $alternatives);
+
+        // V6-FPG · `risk_signal` é binário e cresce o `needs_confirmation`
+        // pra cima quando há marcador destrutivo. NUNCA libera execução
+        // sozinho — só sinaliza pra UI mostrar "ação sensível".
+        $riskSignal = isset($markers['r4_marker']) ? 'high' : (
+            $mode === VoxSchema::MODE_GOVERNED_EXECUTE ? 'medium' : 'low'
+        );
+
         return [
             'schema' => self::SCHEMA,
             'selected_mode' => $mode,
             'confidence' => $this->round($confidence),
-            'reason_pt_br' => $reason,
+            'reason_pt_br' => $reason,              // legacy single-line
+            'reasons_pt_br' => $reasons,            // V6-FPG · array humano
+            'fallback_mode' => $fallback,           // V6-FPG · modo alternativo seguro
+            'risk_signal' => $riskSignal,           // V6-FPG · low|medium|high
             'needs_confirmation' => $needsConfirmation,
+            'requires_confirmation' => $needsConfirmation, // alias canon do brief
             'alternatives' => $alternatives,
             'signals' => $roundedSignals,
             'markers' => $markers,
             'router_version' => VoxSchema::AUTO_MODE_ROUTER_VERSION,
         ];
+    }
+
+    /**
+     * V6-FPG · monta `reasons_pt_br` em até 3 frases curtas.
+     *
+     * @param  array<string,mixed>  $markers
+     * @return list<string>
+     */
+    private function buildReasons(
+        string $mode,
+        float $confidence,
+        bool $needsConfirmation,
+        array $markers,
+        string $primaryReason,
+    ): array {
+        $reasons = [];
+        if ($primaryReason !== '') {
+            $reasons[] = $primaryReason;
+        }
+        // Sinal de confiança humanizado.
+        $confLabel = $confidence >= 0.80
+            ? 'Confiança alta na sugestão.'
+            : ($confidence >= self::CONFIDENCE_AUTO
+                ? 'Confiança boa, mas vale conferir.'
+                : 'Confiança baixa — Vitor pode trocar de modo se quiser.');
+        $reasons[] = $confLabel;
+
+        if (isset($markers['r4_marker'])) {
+            $reasons[] = 'Marcador potencialmente destrutivo detectado — confirmação obrigatória.';
+        } elseif ($needsConfirmation && $mode === VoxSchema::MODE_GOVERNED_EXECUTE) {
+            $reasons[] = 'Executar nunca roda no automático — peço confirmação humana.';
+        }
+        return $reasons;
+    }
+
+    /**
+     * @param  list<array{mode: string, confidence: float, reason_pt_br: string}>  $alternatives
+     */
+    private function pickFallback(string $top, array $alternatives): string
+    {
+        foreach ($alternatives as $alt) {
+            if (($alt['mode'] ?? null) !== $top
+                && in_array(
+                    $alt['mode'] ?? '',
+                    [
+                        VoxSchema::MODE_DICTATION,
+                        VoxSchema::MODE_PROMPT_POLISH,
+                        VoxSchema::MODE_INTENT_COMPILE,
+                        VoxSchema::MODE_GOVERNED_EXECUTE,
+                    ],
+                    true,
+                )
+            ) {
+                return (string) $alt['mode'];
+            }
+        }
+        return $this->complementaryMode($top);
     }
 }

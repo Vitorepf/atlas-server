@@ -198,15 +198,28 @@ final class VoxPromptPolisher
     }
 
     /**
-     * Inspect mentions of Codex/Claude (after term normalisation) and
-     * return a provider hint. Conservative defaults to `local` when
+     * Inspect mentions of Codex/Claude/Atlas (after term normalisation)
+     * and return a provider hint. Conservative defaults to `local` when
      * nothing is mentioned. Never invents a provider.
+     *
+     * V6-FPG-B · detecta `Atlas Dev|Atlas AI|Atlas Code|Atlas interno`
+     * explícitos como destinatário separado de Codex/Claude. "Atlas"
+     * solto (sem qualificador) NÃO força — pode ser o nome do projeto.
      */
     private function detectProviderHint(string $text): string
     {
         $hasCodex = (bool) preg_match('/(?<![\p{L}\p{N}_])Codex(?![\p{L}\p{N}_])/u', $text);
         $hasClaude = (bool) preg_match('/(?<![\p{L}\p{N}_])Claude(?![\p{L}\p{N}_])/u', $text);
+        $hasAtlasDest = (bool) preg_match(
+            '/(?<![\p{L}\p{N}_])(?:Atlas\s+(?:Dev|AI|Code|interno|kernel)|fala\s+(?:com|pro)\s+Atlas|pergunta\s+(?:pro|para\s+o)\s+Atlas)/u',
+            $text,
+        );
 
+        // Atlas explícito ganha de Codex/Claude porque é o destinatário
+        // mais específico que o operador pode pedir.
+        if ($hasAtlasDest && ! $hasCodex && ! $hasClaude) {
+            return 'atlas';
+        }
         if ($hasCodex && $hasClaude) {
             return 'auto';
         }
@@ -215,6 +228,9 @@ final class VoxPromptPolisher
         }
         if ($hasClaude) {
             return 'claude_cli';
+        }
+        if ($hasAtlasDest) {
+            return 'atlas';
         }
 
         return 'local';
@@ -244,10 +260,23 @@ final class VoxPromptPolisher
         // constraint would absorb the trailing repetition.
         $boundary = "[\\.!?,;]|\\s+e\\s+|\\s+mas\\s+|\\s+só\\s+|\\s+depois\\s+|\\s+pra\\s+que|\\s+n[ãa]o\\b|$";
 
+        // V6-FPG-B · expansão das negações canônicas:
+        //   * `não X`        → veto direto
+        //   * `não X ainda`  → defer ("ainda" preservado no clause)
+        //   * `sem X`        → veto direto (já existia)
+        //   * `nada de X`    → veto coloquial ("nada de provider pago")
+        //   * `antes de X`   → pré-condição
+        //   * `só X`         → read-only/escopo único ("só analisa")
+        //   * `apenas X`     → idem ("apenas leia")
+        //   * `somente X`    → idem
         $patterns = [
             '/(?<![\p{L}\p{N}_])(n[ãa]o\s+[\p{L}\p{N}_\s\-]{1,80}?)(?='.$boundary.')/iu',
             '/(?<![\p{L}\p{N}_])(sem\s+[\p{L}\p{N}_\s\-]{1,80}?)(?='.$boundary.')/iu',
+            '/(?<![\p{L}\p{N}_])(nada\s+de\s+[\p{L}\p{N}_\s\-]{1,80}?)(?='.$boundary.')/iu',
             '/(?<![\p{L}\p{N}_])(antes\s+de\s+[\p{L}\p{N}_\s\-]{1,80}?)(?='.$boundary.')/iu',
+            '/(?<![\p{L}\p{N}_])(s[óo]\s+(?:analisa|analise|leia|ler|l[êe]|olha|olhar|investiga|investigue|investigar)\b[\p{L}\p{N}_\s\-]{0,60}?)(?='.$boundary.')/iu',
+            '/(?<![\p{L}\p{N}_])(apenas\s+(?:analisa|analise|leia|ler|l[êe]|olha|olhar)\b[\p{L}\p{N}_\s\-]{0,60}?)(?='.$boundary.')/iu',
+            '/(?<![\p{L}\p{N}_])(somente\s+(?:analisa|analise|leia|ler|l[êe]|olha|olhar)\b[\p{L}\p{N}_\s\-]{0,60}?)(?='.$boundary.')/iu',
         ];
 
         foreach ($patterns as $pattern) {
@@ -255,7 +284,7 @@ final class VoxPromptPolisher
                 foreach ($matches[1] ?? [] as $hit) {
                     $clause = trim((string) $hit);
                     // Drop trivial captures like "não" / "sem" alone.
-                    if ($clause === '' || preg_match('/^(n[ãa]o|sem|antes\s+de)$/iu', $clause) === 1) {
+                    if ($clause === '' || preg_match('/^(n[ãa]o|sem|antes\s+de|nada\s+de|s[óo]|apenas|somente)$/iu', $clause) === 1) {
                         continue;
                     }
                     // Normalise inner whitespace.

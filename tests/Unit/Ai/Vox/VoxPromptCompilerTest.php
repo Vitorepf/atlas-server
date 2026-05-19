@@ -32,7 +32,7 @@ final class VoxPromptCompilerTest extends TestCase
     public function test_template_id_encodes_provider_and_output_format(): void
     {
         $r = (new VoxPromptCompiler())->compile('voz original', $this->extracted());
-        $this->assertSame('builtin.intent_compile.codex_cli.diagnostic.pt-br@0.1.0', $r['compiled_prompt_template']);
+        $this->assertSame('builtin.intent_compile.codex_cli.diagnostic.pt-br@0.2.0', $r['compiled_prompt_template']);
     }
 
     public function test_unknown_provider_falls_back_to_local_template(): void
@@ -41,7 +41,7 @@ final class VoxPromptCompilerTest extends TestCase
             'provider_hint' => 'totally_invented_provider',
             'output_format' => 'plan',
         ]));
-        $this->assertSame('builtin.intent_compile.local.plan.pt-br@0.1.0', $r['compiled_prompt_template']);
+        $this->assertSame('builtin.intent_compile.local.plan.pt-br@0.2.0', $r['compiled_prompt_template']);
     }
 
     public function test_codex_header_is_used_for_codex_cli(): void
@@ -139,6 +139,6 @@ final class VoxPromptCompilerTest extends TestCase
         $r = (new VoxPromptCompiler())->compile('voz', $this->extracted([
             'output_format' => 'text',
         ]));
-        $this->assertSame('builtin.intent_compile.codex_cli.text.pt-br@0.1.0', $r['compiled_prompt_template']);
+        $this->assertSame('builtin.intent_compile.codex_cli.text.pt-br@0.2.0', $r['compiled_prompt_template']);
     }
 }

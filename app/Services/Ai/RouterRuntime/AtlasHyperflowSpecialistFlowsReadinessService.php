@@ -65,9 +65,12 @@ class AtlasHyperflowSpecialistFlowsReadinessService
 
     /**
      * Specialist flows the existing AtlasAiSpecialistFlowExecutionService
-     * exposes flow-specific handlers for. Other flow_ids fall through to the
-     * generic conversation handler — that is intentional and still counts as
-     * "not silently routed into atlas_dev" for this readiness gate.
+     * exposes flow-specific handlers for. After Specialist Flows Hardening
+     * 2026-05-19 this is the FULL non-programming surface plus the
+     * programming-adjacent flows that delegate explicitly (atlas_debug,
+     * atlas_review, atlas_plan). Adding a flow_id here also implies that
+     * `AtlasAiSpecialistFlowExecutionService::handler()` MUST return a
+     * dedicated match arm — otherwise the gate fails.
      */
     private const FLOWS_WITH_DEEP_HANDLER = [
         RouterRuntimeCanon::FLOW_RESEARCH,
@@ -76,6 +79,12 @@ class AtlasHyperflowSpecialistFlowsReadinessService
         RouterRuntimeCanon::FLOW_REVIEW,
         RouterRuntimeCanon::FLOW_PLAN,
         RouterRuntimeCanon::FLOW_CONVERSATION,
+        RouterRuntimeCanon::FLOW_FINANCE,
+        RouterRuntimeCanon::FLOW_MARKETING,
+        RouterRuntimeCanon::FLOW_STRATEGY,
+        RouterRuntimeCanon::FLOW_CYBER,
+        RouterRuntimeCanon::FLOW_PERSONAL_DEVELOPMENT,
+        RouterRuntimeCanon::FLOW_AUTOMATION,
     ];
 
     public function __construct(

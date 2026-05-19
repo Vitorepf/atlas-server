@@ -71,6 +71,7 @@ enum LedgerEventType: string
     case VoxV3CertificationPackCreated = 'VOX_V3_CERTIFICATION_PACK_CREATED';
     case VoxV3PromotionReviewRecorded = 'VOX_V3_PROMOTION_REVIEW_RECORDED';
     case VoxDogfoodSessionRecorded = 'VOX_DOGFOOD_SESSION_RECORDED';
+    case VoxInterlocutorIntervened = 'VOX_INTERLOCUTOR_INTERVENED';
     case DreyfusLevelDeltaRecorded = 'DREYFUS_LEVEL_DELTA_RECORDED';
     case DreyfusPedagogyModeResolved = 'DREYFUS_PEDAGOGY_MODE_RESOLVED';
     case DreyfusDisputeOpened = 'DREYFUS_DISPUTE_OPENED';

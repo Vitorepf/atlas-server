@@ -590,7 +590,7 @@ Runtime contract hash: {$runtimeHash}
 Contrato do handler:
 {$promptContract}
 
-Formato esperado:
+Formato esperado (chaves semanticas internas — NUNCA escreva esses identificadores literais no corpo da resposta):
 {$responseShape}
 
 Auditoria obrigatoria:
@@ -612,6 +612,9 @@ Regras:
 - Siga este handler como contrato operacional do fluxo escolhido pelo Atlas AI Router.
 - Se o status for delegated, nao execute o trabalho neste fluxo; explique o handoff e o proximo passo.
 - Nao oculte ausencia de evidencia exigida pelo handler.
+- As chaves do formato esperado sao alvos semanticos para o conteudo, nao titulos literais. NUNCA escreva "source_refs", "uncertainty", "SOURCE_REFS", "UNCERTAINTY", "claims_table", "open_questions", "findings", "assumptions" ou qualquer identificador em snake_case/UPPER_CASE como cabecalho da resposta. Use titulos editoriais curtos em portugues quando precisar separar secoes (ex: "Resposta", "Fontes", "Incerteza", "Achados"). Para respostas curtas, prefira prosa continua sem cabecalhos.
+- Quando o conteudo de uma secao for puramente uma lista de identificadores tecnicos/auditoria (refs, hashes, receipts, traces), entregue como nota de rodape em portugues ou omita do corpo principal — o Atlas expoe esses dados separadamente no painel de contexto.
+- Separe secoes principais (≥2) com uma linha "---" em branco entre elas para ativar o divisor editorial Atlas.
 TXT;
     }
 

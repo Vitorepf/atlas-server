@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\ControlPlane\AtlasAiControlPlaneService;
 use App\Services\Ai\ControlPlane\AtlasControlPlaneBlockerService;
 use App\Services\Ai\ControlPlane\AtlasControlPlaneMissionService;
 use App\Services\Ai\ControlPlane\AtlasControlPlaneNextActionService;
@@ -15,11 +16,12 @@ class AtlasAiControlPlaneCommand extends Command
 {
     protected $signature = 'atlas:ai:control-plane
         {positional? : Optional positional action (alternative to --action)}
-        {--action=readiness : readiness, snapshot, mission, blockers, next-actions, smoke}
+        {--action=readiness : readiness, snapshot, mission, blockers, next-actions, smoke, runtime}
         {--mission= : Mission uuid for mission action}
+        {--hours=24 : Window in hours for the runtime action}
         {--json : Machine-readable JSON output}';
 
-    protected $description = 'Atlas AI Control Plane: aggregate read-model snapshots, readiness, blockers and next actions.';
+    protected $description = 'Atlas AI Control Plane: aggregate read-model snapshots, readiness, blockers, next actions, plus trace-level runtime observability.';
 
     public function handle(
         AtlasControlPlaneReadinessService $readiness,
@@ -27,6 +29,7 @@ class AtlasAiControlPlaneCommand extends Command
         AtlasControlPlaneMissionService $mission,
         AtlasControlPlaneBlockerService $blockers,
         AtlasControlPlaneNextActionService $nextActions,
+        AtlasAiControlPlaneService $aiRuntime,
     ): int {
         $positional = $this->argument('positional');
         $action = is_string($positional) && trim($positional) !== ''
@@ -41,6 +44,7 @@ class AtlasAiControlPlaneCommand extends Command
                 'blockers' => $this->renderBlockers($blockers),
                 'next-actions' => $this->renderNextActions($nextActions),
                 'smoke' => $this->renderSmoke($readiness, $snapshot, $blockers, $nextActions),
+                'runtime' => $this->renderRuntime($aiRuntime),
                 default => $this->invalidAction($action),
             };
         } catch (Throwable $e) {
@@ -181,6 +185,29 @@ class AtlasAiControlPlaneCommand extends Command
         });
 
         return self::SUCCESS;
+    }
+
+    private function renderRuntime(AtlasAiControlPlaneService $service): int
+    {
+        $hours = max(1, (int) $this->option('hours'));
+        $payload = $service->report($hours);
+        $payload['ok'] = ($payload['status'] ?? null) !== AtlasAiControlPlaneService::STATUS_BLOCKED;
+        $summary = (array) ($payload['summary'] ?? []);
+
+        $this->emit($payload, function () use ($payload, $summary, $hours): void {
+            $this->components->twoColumnDetail('schema', (string) ($payload['schema_version'] ?? ''));
+            $this->components->twoColumnDetail('status', (string) ($payload['status'] ?? ''));
+            $this->components->twoColumnDetail('window_hours', (string) $hours);
+            $this->components->twoColumnDetail('traces.total', (string) ($summary['total_traces'] ?? 0));
+            $this->components->twoColumnDetail('traces.succeeded', (string) ($summary['succeeded'] ?? 0));
+            $this->components->twoColumnDetail('traces.failed', (string) ($summary['failed'] ?? 0));
+            $this->components->twoColumnDetail('flows.unique', (string) ($summary['unique_flows'] ?? 0));
+            $this->components->twoColumnDetail('blockers.count', (string) ($summary['blockers_count'] ?? 0));
+            $this->components->twoColumnDetail('handoffs.count', (string) ($summary['handoffs_count'] ?? 0));
+            $this->components->twoColumnDetail('hash', (string) ($payload['hash'] ?? ''));
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
     }
 
     private function failWith(string $message): int

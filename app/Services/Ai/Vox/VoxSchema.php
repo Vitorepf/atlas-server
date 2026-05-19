@@ -24,10 +24,16 @@ final class VoxSchema
     public const RECEIPT_R0 = 'atlas.vox.receipt.r0.v1';
     public const CONFIRMATION_REQUEST = 'atlas.vox.confirmation_request.v1';
     public const AUTO_MODE_DECISION = 'atlas.vox.auto_mode_decision.v1';
+    /** V5-A · Symbiotic Interlocutor decision schema. */
+    public const INTERLOCUTOR_DECISION = 'atlas.vox.interlocutor_decision.v1';
+    /** V6.5 · Flow Orchestrator decision schema. */
+    public const FLOW_DECISION = 'atlas.vox.flow_decision.v1';
 
     public const COMPILER_VERSION = '0.1.0';
     public const KERNEL_VOX_VERSION = '0.2.0';
-    public const AUTO_MODE_ROUTER_VERSION = '0.1.0';
+    public const AUTO_MODE_ROUTER_VERSION = '0.2.0';
+    public const INTERLOCUTOR_VERSION = '0.2.0';
+    public const FLOW_ORCHESTRATOR_VERSION = '0.1.0';
 
     public const DEFAULT_LANGUAGE = 'pt-BR';
 

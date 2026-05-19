@@ -238,9 +238,13 @@ final class AtlasCodeWorkController extends Controller
      */
     private function normaliseRichInput(array $raw): array
     {
+        // Canon: `atlas.rich_input.payload.v1` (see @atlas/rich-input-canon).
+        // When the caller omits the schema we still stamp the canonical v1
+        // string so every Obra metadata carries the same provenance, in
+        // lockstep with mobile/desktop composers.
         $schemaVersion = is_string($raw['schema_version'] ?? null)
             ? (string) $raw['schema_version']
-            : 'atlas.unified_rich_input.adapter.v1';
+            : 'atlas.rich_input.payload.v1';
 
         $uploadedImages = array_values(array_filter(
             (array) ($raw['uploaded_images'] ?? $raw['uploaded_image_ids'] ?? []),

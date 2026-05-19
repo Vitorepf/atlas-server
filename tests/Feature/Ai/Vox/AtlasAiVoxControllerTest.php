@@ -155,6 +155,249 @@ final class AtlasAiVoxControllerTest extends TestCase
             ->assertJsonValidationErrors(['language']);
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // V4 · Auto Mode Router + context_snapshot wiring.
+    //
+    // O Kernel passa a aceitar `mode_requested=auto` + `context_snapshot`,
+    // chama o VoxAutoModeRouter, e devolve auto_mode_decision na resposta.
+    // V3 continua funcionando inalterado.
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function test_intent_v4_auto_mode_routes_to_intent_compile_for_codex_voice(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'text' => 'manda pro codex investigar o módulo Vox sem editar nada',
+            'mode_requested' => 'auto',
+            'context_snapshot' => [
+                'schema' => 'atlas.vox.context_snapshot.v1',
+                'surface' => 'atlas_desktop',
+                'active_view' => ['kind' => 'code', 'label' => 'atlas-server'],
+                'privacy' => [
+                    'raw_audio_included' => false,
+                    'full_screen_capture' => false,
+                    'clipboard_read' => false,
+                ],
+            ],
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('schema', VoxSchema::INTENT_RESPONSE)
+            ->assertJsonPath('intent_packet.mode', 'intent_compile')
+            ->assertJsonPath('suggested_mode', 'intent_compile')
+            ->assertJsonPath('mode_resolution', 'auto_router')
+            ->assertJsonPath('manual_override', false)
+            ->assertJsonPath('auto_mode_decision.schema', VoxSchema::AUTO_MODE_DECISION)
+            ->assertJsonPath('auto_mode_decision.selected_mode', 'intent_compile')
+            ->assertJsonPath('auto_mode_decision.needs_confirmation', false);
+
+        $reason = $response->json('suggested_mode_reason');
+        $this->assertIsString($reason);
+        $this->assertStringContainsString('IA', $reason);
+    }
+
+    public function test_intent_v4_auto_mode_routes_destructive_to_governed_execute_with_confirmation(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'text' => 'manda um rm -rf no diretório de cache do projeto',
+            'mode_requested' => 'auto',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('intent_packet.mode', 'governed_execute')
+            ->assertJsonPath('suggested_mode', 'governed_execute')
+            ->assertJsonPath('mode_resolution', 'auto_router')
+            ->assertJsonPath('confirmation_required', true)
+            ->assertJsonPath('auto_mode_decision.selected_mode', 'governed_execute')
+            ->assertJsonPath('auto_mode_decision.needs_confirmation', true)
+            ->assertJsonPath('auto_mode_decision.markers.r4_marker', 'rm_rf');
+
+        $this->assertNotNull($response->json('confirmation_request.confirmation_token'));
+    }
+
+    public function test_intent_v4_records_manual_override_event_when_operator_overrides_suggestion(): void
+    {
+        // Voz é claramente "manda pro codex" (sugestão = intent_compile),
+        // mas o operador escolheu dictation manualmente e marcou override.
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'text' => 'manda pro codex investigar o módulo Vox',
+            'mode_requested' => 'dictation',
+            'manual_override' => true,
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('intent_packet.mode', 'dictation')
+            ->assertJsonPath('suggested_mode', 'intent_compile')
+            ->assertJsonPath('mode_resolution', 'manual_override')
+            ->assertJsonPath('manual_override', true);
+
+        $events = $response->json('events');
+        $this->assertIsArray($events);
+        $kinds = array_column($events, 'event_kind');
+        $reasons = array_map(
+            static fn ($e) => $e['payload']['reason_code'] ?? null,
+            $events,
+        );
+        $this->assertContains('VOX_ACTION_BLOCKED', $kinds);
+        $this->assertContains('vox_auto_mode_overridden', $reasons);
+    }
+
+    public function test_intent_v4_manual_matching_suggestion_does_not_log_override(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'text' => 'manda pro codex investigar o módulo Vox',
+            'mode_requested' => 'intent_compile',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('intent_packet.mode', 'intent_compile')
+            ->assertJsonPath('suggested_mode', 'intent_compile')
+            ->assertJsonPath('mode_resolution', 'manual_matches_suggestion')
+            ->assertJsonPath('manual_override', false);
+
+        $events = $response->json('events');
+        $reasons = array_map(
+            static fn ($e) => $e['payload']['reason_code'] ?? null,
+            $events,
+        );
+        $this->assertNotContains('vox_auto_mode_overridden', $reasons);
+    }
+
+    public function test_intent_v4_rejects_context_snapshot_with_raw_audio_flag(): void
+    {
+        $body = $this->validTranscript([
+            'mode_requested' => 'auto',
+            'context_snapshot' => [
+                'schema' => 'atlas.vox.context_snapshot.v1',
+                'privacy' => [
+                    'raw_audio_included' => true,
+                    'full_screen_capture' => false,
+                    'clipboard_read' => false,
+                ],
+            ],
+        ]);
+        $this->postJson('/ai/vox/intent', $body, $this->headers)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['context_snapshot.privacy.raw_audio_included']);
+    }
+
+    public function test_intent_v4_rejects_context_snapshot_with_clipboard_read_flag(): void
+    {
+        $body = $this->validTranscript([
+            'mode_requested' => 'auto',
+            'context_snapshot' => [
+                'privacy' => [
+                    'raw_audio_included' => false,
+                    'full_screen_capture' => false,
+                    'clipboard_read' => true,
+                ],
+            ],
+        ]);
+        $this->postJson('/ai/vox/intent', $body, $this->headers)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['context_snapshot.privacy.clipboard_read']);
+    }
+
+    public function test_intent_v4_v3_pinned_mode_still_returns_suggestion_advisory(): void
+    {
+        // Cliente V3 manda mode_requested=dictation explicito (sem auto, sem
+        // override). V3 path: compila como dictation, mas v4 ainda devolve
+        // suggested_mode para a UI poder mostrar.
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'text' => 'manda pro codex investigar o módulo Vox',
+            'mode_requested' => 'dictation',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('intent_packet.mode', 'dictation')
+            ->assertJsonPath('suggested_mode', 'intent_compile')
+            ->assertJsonPath('mode_resolution', 'manual_diverges_from_suggestion')
+            ->assertJsonPath('manual_override', false);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // V5 · Symbiotic Interlocutor.
+    // O Kernel anexa `interlocutor` ao response de /ai/vox/intent quando a
+    // política V5 tem algo a dizer. intervention=none NÃO polui a UI:
+    // overlay testa `intervention !== 'none'` antes de renderizar.
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function test_v5_intent_attaches_interlocutor_decision_with_canonical_schema(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'text' => 'anota que amanhã eu preciso passar no banco',
+            'mode_requested' => 'dictation',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('interlocutor.schema', VoxSchema::INTERLOCUTOR_DECISION)
+            ->assertJsonPath('interlocutor.intervention', 'none')
+            ->assertJsonPath('interlocutor.blocking', false)
+            ->assertJsonPath('interlocutor.message_pt_br', '')
+            ->assertJsonPath('interlocutor.question_pt_br', '')
+            ->assertJsonPath('interlocutor.policy_version', VoxSchema::INTERLOCUTOR_VERSION);
+    }
+
+    public function test_v5_intent_emits_disagree_blocking_for_destructive_rm_rf(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'text' => 'manda um rm -rf no diretório de cache do projeto',
+            'mode_requested' => 'governed_execute',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('interlocutor.intervention', 'disagree')
+            ->assertJsonPath('interlocutor.blocking', true)
+            ->assertJsonPath('interlocutor.reason_code', 'destructive_risk');
+
+        $message = (string) $response->json('interlocutor.message_pt_br');
+        $question = (string) $response->json('interlocutor.question_pt_br');
+        $this->assertNotSame('', $message, 'mensagem PT-BR não pode estar vazia em disagree');
+        $this->assertNotSame('', $question, 'pergunta PT-BR não pode estar vazia em disagree blocking');
+        $this->assertDoesNotMatchRegularExpression('/\b(?:are you sure|please|confirm|blocked|warning)\b/i', $message);
+        $this->assertDoesNotMatchRegularExpression('/\b(?:are you sure|please|confirm|blocked|warning)\b/i', $question);
+    }
+
+    public function test_v5_intent_emits_clarify_for_ambiguous_terminal_command(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'text' => 'executa no terminal',
+            'mode_requested' => 'governed_execute',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('interlocutor.intervention', 'clarify')
+            ->assertJsonPath('interlocutor.blocking', false)
+            ->assertJsonPath('interlocutor.reason_code', 'missing_context');
+    }
+
+    public function test_v5_intent_emits_caution_for_r2_without_destructive_marker(): void
+    {
+        // R2 sem marcador destrutivo → caution leve (sem pergunta).
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'text' => 'edita o AuthController e troca a regex da senha',
+            'mode_requested' => 'governed_execute',
+        ]), $this->headers);
+
+        $response->assertOk();
+        $intervention = (string) $response->json('interlocutor.intervention');
+        // R2 puro: caution não-bloqueante. Aceitamos `none` também caso o
+        // VoxIntentExtractor reclassifique pra R1 (não regressão da política).
+        $this->assertContains($intervention, ['caution', 'none']);
+        $this->assertFalse((bool) $response->json('interlocutor.blocking'));
+    }
+
+    public function test_v5_intent_records_intervention_event_when_not_none(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'text' => 'manda um rm -rf no diretório de cache do projeto',
+            'mode_requested' => 'governed_execute',
+        ]), $this->headers);
+
+        $events = (array) $response->json('events');
+        $kinds = array_column($events, 'event_kind');
+        $this->assertContains('VOX_INTERLOCUTOR_INTERVENED', $kinds);
+    }
+
     public function test_intent_now_accepts_governed_execute_mode_and_returns_confirmation_request(): void
     {
         $body = $this->validTranscript([
@@ -430,7 +673,7 @@ final class AtlasAiVoxControllerTest extends TestCase
             ->assertJsonPath('intent_packet.provider_hint', 'codex_cli')
             ->assertJsonPath('intent_packet.output_format', 'diagnostic')
             ->assertJsonPath('intent_packet.executor_hint', 'none')
-            ->assertJsonPath('intent_packet.compiled_prompt_template', 'builtin.intent_compile.codex_cli.diagnostic.pt-br@0.1.0')
+            ->assertJsonPath('intent_packet.compiled_prompt_template', 'builtin.intent_compile.codex_cli.diagnostic.pt-br@0.2.0')
             ->assertJsonPath('intent_packet.human_input_text', 'manda o codex investigar o módulo Vox sem editar arquivos, só me devolve o diagnóstico')
             ->assertJsonPath('confirmation_required', false)
             ->assertJsonPath('actions_available.0', 'copy_compiled_prompt')

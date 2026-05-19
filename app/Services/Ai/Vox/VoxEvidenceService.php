@@ -382,6 +382,48 @@ final class VoxEvidenceService
     }
 
     /**
+     * V5-A · Atlas Vox Symbiotic Interlocutor intervened before execution.
+     *
+     * Records that the deterministic policy (NOT a provider) decided to
+     * clarify, caution, disagree or suggest a better prompt. Ledger payload
+     * keeps only hashes/lengths of human-facing strings — message_pt_br and
+     * question_pt_br themselves are NOT persisted to avoid leaking transcript
+     * fragments. The HTTP response carries the full strings for the operator;
+     * the ledger only proves "a policy fired and asked X-shaped question".
+     *
+     * @param  array<string,mixed>  $intentPacket
+     * @param  array<string,mixed>  $decision
+     * @return array<string,mixed>
+     */
+    public function interlocutorIntervened(array $intentPacket, array $decision): array
+    {
+        $message = (string) ($decision['message_pt_br'] ?? '');
+        $question = (string) ($decision['question_pt_br'] ?? '');
+
+        return $this->emit(
+            type: LedgerEventType::VoxInterlocutorIntervened,
+            kind: 'VOX_INTERLOCUTOR_INTERVENED',
+            payload: [
+                'session_id' => (string) ($intentPacket['session_id'] ?? ''),
+                'intent_id' => (string) ($intentPacket['intent_id'] ?? ''),
+                'mode' => (string) ($intentPacket['mode'] ?? ''),
+                'risk_class' => (string) ($intentPacket['risk_class'] ?? ''),
+                'intervention' => (string) ($decision['intervention'] ?? 'none'),
+                'reason_code' => (string) ($decision['reason_code'] ?? 'none'),
+                'blocking' => (bool) ($decision['blocking'] ?? false),
+                'message_length' => mb_strlen($message),
+                'question_length' => mb_strlen($question),
+                'message_sha256' => $message === '' ? null : hash('sha256', $message),
+                'question_sha256' => $question === '' ? null : hash('sha256', $question),
+                'has_suggested_edit' => is_array($decision['suggested_edit'] ?? null)
+                    && $decision['suggested_edit'] !== [],
+                'policy_version' => (string) ($decision['policy_version'] ?? ''),
+            ],
+            envelopeId: (string) ($intentPacket['session_id'] ?? 'vox-interlocutor'),
+        );
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */

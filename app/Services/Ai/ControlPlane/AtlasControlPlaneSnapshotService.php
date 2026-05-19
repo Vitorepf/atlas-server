@@ -41,6 +41,7 @@ class AtlasControlPlaneSnapshotService
         $nextActions = $this->nextActions->actions();
 
         $approvalsSummary = $this->approvalsSummary();
+        $operatorApprovalsSummary = $this->operatorApprovalsSummary();
         $certificationsSummary = $this->certificationsSummary();
         $recentEvents = $this->recentEvents(20);
 
@@ -61,6 +62,7 @@ class AtlasControlPlaneSnapshotService
             'tools_summary' => $toolSummary,
             'router_summary' => $routerSummary,
             'approvals_summary' => $approvalsSummary,
+            'operator_approvals_summary' => $operatorApprovalsSummary,
             'blockers_summary' => [
                 'total' => $blockersSnapshot['total'] ?? 0,
                 'critical' => $blockersSnapshot['critical'] ?? 0,
@@ -94,6 +96,51 @@ class AtlasControlPlaneSnapshotService
                 'total' => (int) $model::query()->count(),
                 'by_status' => $byStatus,
                 'pending' => (int) ($byStatus['pending'] ?? 0),
+            ];
+        } catch (Throwable $e) {
+            return ['status' => AtlasControlPlaneStatus::DEGRADED, 'detail' => $e->getMessage(), 'total' => 0];
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function operatorApprovalsSummary(): array
+    {
+        $model = '\\App\\Models\\AiOperatorApproval';
+        if (! Schema::hasTable('ai_operator_approvals') || ! class_exists($model)) {
+            return ['status' => AtlasControlPlaneStatus::MISSING, 'total' => 0];
+        }
+
+        try {
+            $byStatus = $model::query()
+                ->selectRaw('status, COUNT(*) as total')
+                ->groupBy('status')
+                ->pluck('total', 'status')
+                ->all();
+            $byMode = $model::query()
+                ->selectRaw('gate_mode, COUNT(*) as total')
+                ->groupBy('gate_mode')
+                ->pluck('total', 'gate_mode')
+                ->all();
+            $byRisk = $model::query()
+                ->selectRaw('risk_level, COUNT(*) as total')
+                ->groupBy('risk_level')
+                ->pluck('total', 'risk_level')
+                ->all();
+
+            return [
+                'status' => AtlasControlPlaneStatus::READY,
+                'schema_version' => 'atlas.ai.operator_approval.v1',
+                'total' => (int) $model::query()->count(),
+                'pending' => (int) ($byStatus['pending'] ?? 0),
+                'approved' => (int) ($byStatus['approved'] ?? 0),
+                'denied' => (int) ($byStatus['denied'] ?? 0),
+                'expired' => (int) ($byStatus['expired'] ?? 0),
+                'auto_approved' => (int) ($byStatus['auto_approved'] ?? 0),
+                'by_status' => $byStatus,
+                'by_mode' => $byMode,
+                'risk_distribution' => $byRisk,
             ];
         } catch (Throwable $e) {
             return ['status' => AtlasControlPlaneStatus::DEGRADED, 'detail' => $e->getMessage(), 'total' => 0];

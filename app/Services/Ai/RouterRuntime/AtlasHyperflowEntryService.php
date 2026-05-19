@@ -7,6 +7,8 @@ use App\Models\AiAtlasFlowRoute;
 use App\Models\AiAtlasIntentClassification;
 use App\Models\AiAtlasRouterDecision;
 use App\Models\AiAtlasRuntimeDispatch;
+use App\Services\Ai\Mission\MissionModeResult;
+use App\Services\Ai\Mission\MissionModeService;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -63,6 +65,7 @@ class AtlasHyperflowEntryService
         private readonly FlowRouterService $flowRouter,
         private readonly RuntimeDispatchService $runtimeDispatch,
         private readonly DecisionReceiptService $decisionReceipts,
+        private readonly ?MissionModeService $missionMode = null,
     ) {}
 
     /**
@@ -92,10 +95,14 @@ class AtlasHyperflowEntryService
             return $this->withFallbackEnvelope($data, 'empty_input_text');
         }
 
+        $missionModeResult = $this->maybeActivateMissionMode($data, $payload, $rawInput);
+        $missionId = $data['mission_id']
+            ?? ($missionModeResult?->mission?->uuid ?? null);
+
         try {
             $surfaceContract = $this->surfaceContract($payload);
             $intent = $this->intentKernel->classify($rawInput, [
-                'mission_id' => $data['mission_id'] ?? null,
+                'mission_id' => $missionId,
                 'source' => self::SOURCE_GATEWAY,
                 ...$surfaceContract,
             ]);
@@ -118,12 +125,60 @@ class AtlasHyperflowEntryService
             dispatch: $dispatch,
             routerReceipt: $routerReceipt,
             dispatchReceipt: $dispatchReceipt,
+            missionModeResult: $missionModeResult,
         );
 
         $payload['hyperflow_runtime'] = $envelope;
+        if ($missionModeResult !== null) {
+            $payload['mission_mode'] = $missionModeResult->toArray();
+        }
         $data['payload'] = $payload;
+        if ($missionId !== null) {
+            $data['mission_id'] = $missionId;
+        }
 
         return $data;
+    }
+
+    /**
+     * Run Mission Mode detection BEFORE the Intent Kernel classify(). When
+     * the prompt deserves Mission Mode (persistence/Obra signals), creates
+     * a canonical AiMission + plan. The returned mission_uuid is injected as
+     * `mission_id` context downstream so the IntentKernel can link the
+     * classification to the mission.
+     *
+     * Hard rules:
+     *   - Skipped silently when MissionModeService is not bound (back-compat
+     *     for tests that boot the entry service without it).
+     *   - Skipped silently when the inbound payload already carries
+     *     `mission_id` — caller already owns the mission lifecycle.
+     *   - Never throws; failure degrades to no-mission and the pipeline
+     *     continues with the classic Hyperflow envelope.
+     *
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $payload
+     */
+    private function maybeActivateMissionMode(array $data, array $payload, string $rawInput): ?MissionModeResult
+    {
+        if ($this->missionMode === null) {
+            return null;
+        }
+        if (! empty($data['mission_id'])) {
+            return null;
+        }
+
+        try {
+            return $this->missionMode->processIntent($rawInput, [
+                'surface_id' => $this->stringValue(data_get($payload, 'surface_id'))
+                    ?? $this->stringValue(data_get($payload, 'app_surface')),
+                'primary_domain' => $this->stringValue(data_get($payload, 'atlas_focus'))
+                    ?? $this->stringValue(data_get($payload, 'atlas_mode')),
+                'context_summary' => $this->stringValue(data_get($payload, 'context_summary')),
+                'actor_type' => 'hyperflow_entry',
+            ]);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -292,6 +347,7 @@ class AtlasHyperflowEntryService
         AiAtlasRuntimeDispatch $dispatch,
         AiAtlasDecisionReceipt $routerReceipt,
         AiAtlasDecisionReceipt $dispatchReceipt,
+        ?MissionModeResult $missionModeResult = null,
     ): array {
         $handoffTarget = $this->resolveHandoffTarget(
             primaryDomain: (string) $routerDecision->primary_domain,
@@ -359,6 +415,17 @@ class AtlasHyperflowEntryService
                     'receipt_hash' => $dispatchReceipt->receipt_hash,
                 ],
             ],
+            'mission' => $missionModeResult === null || ! $missionModeResult->activated()
+                ? null
+                : [
+                    'mission_id' => $missionModeResult->mission?->id,
+                    'mission_uuid' => $missionModeResult->mission?->uuid,
+                    'mission_type' => $missionModeResult->mission?->mission_type,
+                    'status' => $missionModeResult->mission?->status,
+                    'objectives_count' => $missionModeResult->objectives?->count() ?? 0,
+                    'work_orders_count' => $missionModeResult->workOrders?->count() ?? 0,
+                    'signal' => $missionModeResult->signal->toArray(),
+                ],
         ];
     }
 

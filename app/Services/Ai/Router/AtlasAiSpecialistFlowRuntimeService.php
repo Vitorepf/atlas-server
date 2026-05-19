@@ -106,6 +106,42 @@ class AtlasAiSpecialistFlowRuntimeService
                 'required_evidence' => ['router_decision'],
                 'forbidden_actions' => ['pretend_workspace_access', 'silently_change_flow'],
             ]),
+            'atlas_finance' => array_merge($base, [
+                'execution_mode' => 'analysis_with_assumptions',
+                'output_contract' => ['data_snapshot', 'assumptions', 'analysis_summary', 'risk_register', 'decision_options', 'open_questions', 'evidence_refs'],
+                'required_evidence' => ['router_decision', 'data_snapshot_or_missing_data_statement', 'policy_refs'],
+                'forbidden_actions' => ['execute_live_trade_without_operator_approval', 'fabricate_market_data_or_returns', 'promise_returns', 'leak_account_identifiers'],
+            ]),
+            'atlas_marketing' => array_merge($base, [
+                'execution_mode' => 'campaign_plan',
+                'output_contract' => ['objective', 'audience_hypothesis', 'channels_and_angles', 'budget_options', 'success_metrics', 'risks', 'approval_gate'],
+                'required_evidence' => ['router_decision', 'policy_refs'],
+                'forbidden_actions' => ['publish_without_operator_approval', 'spend_above_budget_without_operator_approval', 'fabricate_audience_data'],
+            ]),
+            'atlas_strategy' => array_merge($base, [
+                'execution_mode' => 'decision_memo',
+                'output_contract' => ['situation', 'assumptions', 'options_with_tradeoffs', 'recommendation', 'rationale', 'open_questions'],
+                'required_evidence' => ['router_decision', 'assumption_log'],
+                'forbidden_actions' => ['claim_execution_happened', 'hide_assumption', 'single_option_disguised_as_choice'],
+            ]),
+            'atlas_cyber' => array_merge($base, [
+                'execution_mode' => 'defensive_advisory',
+                'output_contract' => ['threat_summary', 'evidence_or_indicators', 'mitigation_steps', 'detection_guidance', 'open_questions', 'roe_status'],
+                'required_evidence' => ['router_decision', 'roe_status', 'policy_refs'],
+                'forbidden_actions' => ['offensive_action_without_roe', 'fabricate_indicator_of_compromise', 'claim_compromise_without_evidence'],
+            ]),
+            'atlas_personal_development' => array_merge($base, [
+                'execution_mode' => 'non_clinical_advisory',
+                'output_contract' => ['reflective_frame', 'options_or_experiments', 'success_indicators', 'professional_boundary_note', 'open_questions'],
+                'required_evidence' => ['router_decision', 'professional_boundary_note'],
+                'forbidden_actions' => ['clinical_diagnosis', 'replace_professional_advice', 'crisis_routing_omitted'],
+            ]),
+            'atlas_automation' => array_merge($base, [
+                'execution_mode' => 'workflow_plan_only',
+                'output_contract' => ['workflow_steps', 'triggers', 'side_effects', 'rollback_plan', 'approval_gate', 'risks', 'next_stage'],
+                'required_evidence' => ['router_decision', 'rollback_plan', 'policy_refs'],
+                'forbidden_actions' => ['destructive_action_without_operator_approval', 'execute_without_approval', 'missing_rollback'],
+            ]),
             default => array_merge($base, [
                 'execution_mode' => 'conversation',
                 'output_contract' => ['direct_answer', 'clarifying_question_when_needed', 'handoff_suggestion_when_scope_changes'],

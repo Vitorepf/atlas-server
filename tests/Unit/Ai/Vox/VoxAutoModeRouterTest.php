@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\Vox;
 
 use App\Services\Ai\Vox\Routing\VoxAutoModeRouter;
 use App\Services\Ai\Vox\VoxSchema;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -477,5 +478,367 @@ final class VoxAutoModeRouterTest extends TestCase
         $this->assertArrayHasKey(VoxSchema::MODE_PROMPT_POLISH, $r['signals']);
         $this->assertArrayHasKey(VoxSchema::MODE_INTENT_COMPILE, $r['signals']);
         $this->assertArrayHasKey(VoxSchema::MODE_GOVERNED_EXECUTE, $r['signals']);
+    }
+
+    // ============================================================
+    // V6-FPG · envelope expandido + 20+ frases PT-BR canônicas
+    // ============================================================
+
+    public function test_v6fpg_envelope_carries_new_fields(): void
+    {
+        $r = $this->router()->decide(['text' => 'manda pro codex investigar o módulo Voice']);
+        $this->assertArrayHasKey('reasons_pt_br', $r);
+        $this->assertArrayHasKey('fallback_mode', $r);
+        $this->assertArrayHasKey('risk_signal', $r);
+        $this->assertArrayHasKey('requires_confirmation', $r);
+
+        $this->assertIsArray($r['reasons_pt_br']);
+        $this->assertNotEmpty($r['reasons_pt_br']);
+        foreach ($r['reasons_pt_br'] as $line) {
+            $this->assertIsString($line);
+            $this->assertNotSame('', trim($line));
+        }
+        $this->assertContains($r['fallback_mode'], [
+            VoxSchema::MODE_DICTATION,
+            VoxSchema::MODE_PROMPT_POLISH,
+            VoxSchema::MODE_INTENT_COMPILE,
+            VoxSchema::MODE_GOVERNED_EXECUTE,
+        ]);
+        $this->assertContains($r['risk_signal'], ['low', 'medium', 'high']);
+        $this->assertSame($r['requires_confirmation'], $r['needs_confirmation']);
+        $this->assertSame('0.2.0', $r['router_version']);
+    }
+
+    public function test_v6fpg_router_version_bumped_to_0_2_0(): void
+    {
+        $r = $this->router()->decide(['text' => 'oi tudo bem']);
+        $this->assertSame(VoxSchema::AUTO_MODE_ROUTER_VERSION, $r['router_version']);
+        $this->assertSame('0.2.0', $r['router_version']);
+    }
+
+    /**
+     * 20+ frases reais PT-BR cobrindo os 4 modos + ambíguos + perigosos.
+     * Tabela canônica do brief V6-FPG-A: usa frases que Vitor realmente diz
+     * (sotaque goiano + verbos comuns + Codex/Claude/MacBook).
+     *
+     * @return iterable<string,array{0:string,1:string,2:?bool}>
+     *   id, frase, modo esperado, requires_confirmation esperado (null = não checa)
+     */
+    public static function v6fpgRealCasesProvider(): iterable
+    {
+        // ── Ditado (texto livre / anotação) ─────────────────────────────
+        yield 'anota livre 1' => [
+            'anota aí que amanhã eu preciso passar no banco antes da reunião',
+            VoxSchema::MODE_DICTATION, null,
+        ];
+        yield 'anota livre 2' => [
+            'lembrete: comprar pão e leite na padaria do meu bairro',
+            VoxSchema::MODE_DICTATION, null,
+        ];
+        yield 'fala longa sem comando' => [
+            'estava pensando aqui no projeto Atlas e como ele evoluiu nos últimos meses até virar a base pra tudo que eu construo',
+            VoxSchema::MODE_DICTATION, null,
+        ];
+        yield 'observação curta' => [
+            'achei a interface mais limpa do que ontem',
+            VoxSchema::MODE_DICTATION, null,
+        ];
+
+        // ── Melhorar (polish) ────────────────────────────────────────────
+        yield 'deixa mais profissional' => [
+            'deixa esse texto mais profissional pra eu mandar pro cliente',
+            VoxSchema::MODE_PROMPT_POLISH, null,
+        ];
+        yield 'organiza texto' => [
+            'organiza esse texto que eu vou colocar no documento da empresa',
+            VoxSchema::MODE_PROMPT_POLISH, null,
+        ];
+        yield 'corrige isso' => [
+            'corrige isso e me devolve mais claro pro time entender',
+            VoxSchema::MODE_PROMPT_POLISH, null,
+        ];
+        yield 'reescreve esse parágrafo' => [
+            'reescreve esse parágrafo deixando mais formal',
+            VoxSchema::MODE_PROMPT_POLISH, null,
+        ];
+        yield 'corrige pontuação' => [
+            'corrige a pontuação desse trecho pra ficar mais legível',
+            VoxSchema::MODE_PROMPT_POLISH, null,
+        ];
+
+        // ── Criar prompt (intent_compile) ────────────────────────────────
+        yield 'manda pro codex' => [
+            'manda pro Codex investigar o módulo Voice sem editar nada',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+        yield 'pergunta pro claude' => [
+            'pergunta pro Claude se essa arquitetura faz sentido pra Atlas',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+        yield 'cria prompt poderoso' => [
+            'faz um prompt poderoso pro Codex resolver esse bug de autenticação',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+        yield 'estrutura pra ia' => [
+            'estrutura isso pra IA implementar a paginação no endpoint',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+        yield 'briefing pro codex' => [
+            'briefing pro Codex revisar a função de logout',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+
+        // ── Executar (governed_execute, sempre exige confirmação) ────────
+        yield 'roda os testes' => [
+            'roda os testes do phpunit no atlas-server',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'edita arquivo' => [
+            'edita o arquivo de configuração e troca a porta',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'aplica patch' => [
+            'aplica esse patch que o Codex sugeriu',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'cria arquivo novo' => [
+            'cria um arquivo de configuração novo pra produção',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'altera linha' => [
+            'altera o valor da config pra apontar pro servidor local',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'faz commit' => [
+            'faz commit e push das alterações pro repo',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'abre terminal e roda' => [
+            'abre o terminal e roda os testes',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+
+        // ── Perigosos (R4) — sempre governed_execute + confirmação forte ──
+        yield 'rm -rf cache' => [
+            'roda rm -rf na pasta de cache do projeto',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'git push force' => [
+            'manda um git push --force pro main agora',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'drop database' => [
+            'roda drop database em produção',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'apaga tudo' => [
+            'apaga tudo dessa pasta agora',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+
+        // ── Ambíguos (router deve sugerir + needs_confirmation = true) ────
+        yield 'pega isso' => [
+            'pega isso aí e faz algo útil',
+            null, true,
+        ];
+        yield 'só uma frase curta' => [
+            'verifica',
+            null, true,
+        ];
+
+        // ════════════════════════════════════════════════════════════════
+        // V6-AUTO-MODE-FINAL · sotaque/goianês/coloquial real
+        // Brief: "pra", "tá", "esse trem", "faz isso aqui", "me ajuda a",
+        // "manda pro codex", "olha esse arquivo", "não mexe em nada",
+        // "só analisa". Tudo entra como corpus determinístico aqui.
+        // ════════════════════════════════════════════════════════════════
+
+        // ── Ditado · fala livre coloquial ────────────────────────────────
+        yield 'fala goiano tá' => [
+            'tá tudo bem assim, só queria registrar essa ideia antes de esquecer',
+            VoxSchema::MODE_DICTATION, null,
+        ];
+        yield 'fala goiano pra mim' => [
+            'pra mim a parte mais bonita do projeto Atlas é como ele respeita o tempo do operador',
+            VoxSchema::MODE_DICTATION, null,
+        ];
+        yield 'pensamento aleatório longo' => [
+            'estava aqui pensando que talvez fizesse sentido a gente revisitar a Cartografia depois do V6 estabilizar mas sem pressa nenhuma',
+            VoxSchema::MODE_DICTATION, null,
+        ];
+        yield 'lembrete simples' => [
+            'lembrete pra mim ligar pro contador na quinta antes do almoço',
+            VoxSchema::MODE_DICTATION, null,
+        ];
+
+        // ── Melhorar · variantes coloquiais ──────────────────────────────
+        yield 'deixa isso mais profissional' => [
+            'deixa isso mais profissional pra eu mandar pro cliente amanhã',
+            VoxSchema::MODE_PROMPT_POLISH, null,
+        ];
+        yield 'deixa isso mais formal' => [
+            'deixa isso mais formal que vou mandar pro investidor',
+            VoxSchema::MODE_PROMPT_POLISH, null,
+        ];
+        yield 'melhora esse trem goiano' => [
+            'melhora esse trem aí pra ficar mais decente',
+            VoxSchema::MODE_PROMPT_POLISH, null,
+        ];
+        yield 'limpa esse texto' => [
+            'limpa esse texto e devolve formatado direitinho',
+            VoxSchema::MODE_PROMPT_POLISH, null,
+        ];
+        yield 'arruma esse prompt pra cliente' => [
+            'arruma esse prompt pra ficar mais profissional',
+            VoxSchema::MODE_PROMPT_POLISH, null,
+        ];
+
+        // ── Criar prompt · pronome + IA + goianês ────────────────────────
+        yield 'manda isso pro claude' => [
+            'manda isso pro Claude pensar sem editar nada',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+        yield 'manda esse trem pro codex' => [
+            'manda esse trem pro Codex investigar pra mim',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+        yield 'manda essa pro codex' => [
+            'manda essa pro Codex revisar e me devolve plano',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+        yield 'olha esse arquivo' => [
+            'olha esse arquivo VoxAutoModeRouter.php e me explica o que ele faz',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+        yield 'só analisa esse trecho' => [
+            'só analisa esse trecho aqui e me devolve diagnóstico',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+        yield 'me ajuda a pensar' => [
+            'me ajuda a pensar nessa arquitetura aqui',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+        yield 'não mexe em nada só analisa' => [
+            'não mexe em nada, só analisa esse módulo Vox e me explica',
+            VoxSchema::MODE_INTENT_COMPILE, null,
+        ];
+
+        // ── Executar · pronome + verbo destrutivo, goianês ───────────────
+        yield 'apaga isso aí' => [
+            'apaga isso aí pra mim, não preciso mais',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'deleta isso' => [
+            'deleta isso pra liberar espaço',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'roda esse trem' => [
+            'roda esse trem aqui no terminal',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'executa isso aí' => [
+            'executa isso aí pra ver se passa',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'instala dependência' => [
+            'instala a dependência nova do composer',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+
+        // ── R4 adicionais ────────────────────────────────────────────────
+        yield 'sudo brew' => [
+            'roda sudo brew install ffmpeg pra mim',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+        yield 'git reset hard' => [
+            'manda git reset --hard pra resolver isso aqui',
+            VoxSchema::MODE_GOVERNED_EXECUTE, true,
+        ];
+    }
+
+    #[DataProvider('v6fpgRealCasesProvider')]
+    public function test_v6fpg_classifies_real_pt_br_phrases(
+        string $phrase,
+        ?string $expectedMode,
+        ?bool $expectedConfirmation,
+    ): void {
+        $r = $this->router()->decide(['text' => $phrase]);
+        if ($expectedMode !== null) {
+            $this->assertSame(
+                $expectedMode,
+                $r['selected_mode'],
+                "frase '{$phrase}' deveria ter virado {$expectedMode}, virou {$r['selected_mode']}",
+            );
+        }
+        if ($expectedConfirmation !== null) {
+            $this->assertSame(
+                $expectedConfirmation,
+                (bool) $r['needs_confirmation'],
+                "frase '{$phrase}' confirmation esperada {$expectedConfirmation}, recebeu ".var_export($r['needs_confirmation'], true),
+            );
+        }
+        // Hard invariants pra TODOS os casos:
+        // 1. governed_execute sempre needs_confirmation
+        if ($r['selected_mode'] === VoxSchema::MODE_GOVERNED_EXECUTE) {
+            $this->assertTrue(
+                (bool) $r['needs_confirmation'],
+                "governed_execute para '{$phrase}' tentou auto-executar — gravíssimo",
+            );
+        }
+        // 2. envelope V6-FPG completo
+        $this->assertArrayHasKey('reasons_pt_br', $r);
+        $this->assertArrayHasKey('fallback_mode', $r);
+        $this->assertArrayHasKey('risk_signal', $r);
+    }
+
+    public function test_v6fpg_dangerous_commands_set_risk_signal_high(): void
+    {
+        $dangerous = [
+            'roda rm -rf na pasta de cache',
+            'manda git push --force pro main',
+            'drop database production',
+            'apaga tudo do diretório',
+        ];
+        foreach ($dangerous as $phrase) {
+            $r = $this->router()->decide(['text' => $phrase]);
+            $this->assertSame('high', $r['risk_signal'], "{$phrase} não foi sinalizado como risco alto");
+            $this->assertTrue((bool) $r['needs_confirmation'], "{$phrase} dispensou confirmação");
+            $this->assertSame(VoxSchema::MODE_GOVERNED_EXECUTE, $r['selected_mode']);
+        }
+    }
+
+    public function test_v6fpg_reasons_are_pt_br_only(): void
+    {
+        // Não pode aparecer palavra inglesa de jargão na lista de reasons
+        // visíveis pro operador.
+        $r = $this->router()->decide(['text' => 'manda pro codex investigar o módulo Voice']);
+        $joined = mb_strtolower(implode(' | ', $r['reasons_pt_br']));
+        foreach ([' please ', ' confidence ', ' suggested ', ' confirm ', ' warning '] as $needle) {
+            $this->assertStringNotContainsString(
+                $needle,
+                ' '.$joined.' ',
+                "vazou inglês em reasons_pt_br: {$needle}",
+            );
+        }
+    }
+
+    public function test_v6fpg_fallback_mode_is_never_equal_to_selected(): void
+    {
+        // Tem que ser sempre um modo seguro alternativo.
+        $cases = [
+            'anota aí que amanhã eu vou no banco',
+            'manda pro codex investigar isso',
+            'deixa esse texto mais profissional',
+            'roda os testes no terminal',
+            'pega isso aí',
+        ];
+        foreach ($cases as $phrase) {
+            $r = $this->router()->decide(['text' => $phrase]);
+            $this->assertNotSame(
+                $r['selected_mode'],
+                $r['fallback_mode'],
+                "fallback igual ao selected pra '{$phrase}'",
+            );
+        }
     }
 }

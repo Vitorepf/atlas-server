@@ -123,9 +123,11 @@ class AtlasCodeWorkRichInputTest extends TestCase
             'Attachments alone must not flip forge_work_intake_ready=true.',
         );
 
-        // Normalised rich_input shape.
+        // Normalised rich_input shape. Default stamp is canonical v1 (see
+        // AtlasCodeWorkController::normaliseRichInput); legacy
+        // `atlas.unified_rich_input.adapter.v1` is no longer emitted.
         $rich = $metadata['rich_input'];
-        $this->assertSame('atlas.unified_rich_input.adapter.v1', $rich['schema_version']);
+        $this->assertSame('atlas.rich_input.payload.v1', $rich['schema_version']);
         $this->assertSame(['doc_pdf_a1B2c3'], $rich['uploaded_documents']);
         $this->assertSame(['img_png_zZ9'], $rich['uploaded_images']);
         $this->assertCount(1, $rich['url_attachments']);

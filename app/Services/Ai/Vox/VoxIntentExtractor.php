@@ -47,6 +47,16 @@ final class VoxIntentExtractor
         'audita', 'auditar', 'entender por que', 'descobrir por que',
         'descobrir o porquê', 'identificar por que', 'identificar o porquê',
         'descobre por que', 'descobre o porquê',
+        // V6-ES-C · pedidos read-only/só-olhar caem direto em diagnóstico
+        // mesmo quando o operador também menciona um verbo de edição
+        // (ex.: "olha o arquivo X mas só analisa, não edita").
+        'só analisa', 'so analisa', 'só analise', 'so analise',
+        'só leia', 'so leia', 'só ler', 'so ler', 'só lê', 'so le',
+        'somente analisa', 'somente analise', 'somente leia',
+        'apenas analisa', 'apenas analise', 'apenas leia',
+        'só olha', 'so olha', 'só olhar', 'só dá uma olhada',
+        'read-only', 'read only', 'modo leitura',
+        'sem alterar', 'sem editar', 'sem mexer', 'não execute', 'nao execute',
     ];
 
     /** Indicators that the operator wants notes / inbox capture. */
@@ -205,7 +215,7 @@ final class VoxIntentExtractor
      */
     private function resolveProvider(string $polisherHint, mixed $hintFromRequest): array
     {
-        $valid = ['local', 'codex_cli', 'claude_cli', 'auto'];
+        $valid = ['local', 'codex_cli', 'claude_cli', 'auto', 'atlas'];
         $requested = is_string($hintFromRequest) ? $hintFromRequest : '';
 
         if ($requested !== '' && in_array($requested, $valid, true)) {
@@ -238,28 +248,42 @@ final class VoxIntentExtractor
 
         $lower = mb_strtolower($text);
 
-        foreach (self::DIAGNOSTIC_TOKENS as $tok) {
-            if (mb_strpos($lower, $tok) !== false) {
-                return ['diagnostic', 'voice'];
-            }
-        }
-        foreach (self::DIFF_TOKENS as $tok) {
-            if (mb_strpos($lower, $tok) !== false) {
-                return ['diff', 'voice'];
-            }
-        }
-        foreach (self::PLAN_TOKENS as $tok) {
-            if (mb_strpos($lower, $tok) !== false) {
-                return ['plan', 'voice'];
-            }
-        }
-        foreach (self::NOTES_TOKENS as $tok) {
-            if (mb_strpos($lower, $tok) !== false) {
-                return ['notes', 'voice'];
+        // V6-FPG-B · ordem de precedência (mais específico vence o mais
+        // genérico). "faz um plano" é instrução explícita do operador e
+        // deve vencer "sem mexer" (que é só uma restrição negativa,
+        // catalogada também em DIAGNOSTIC_TOKENS para casos puros de
+        // read-only).
+        $hits = [
+            'plan' => $this->matchesAny($lower, self::PLAN_TOKENS),
+            'diff' => $this->matchesAny($lower, self::DIFF_TOKENS),
+            'diagnostic' => $this->matchesAny($lower, self::DIAGNOSTIC_TOKENS),
+            'notes' => $this->matchesAny($lower, self::NOTES_TOKENS),
+        ];
+        // Precedência canônica:
+        //   1. plan      — "faz um plano", "roteiro", "estrutura"
+        //   2. diff      — "aplica", "patch", "diff"
+        //   3. diagnostic— "investiga", "analisa", "só leia"
+        //   4. notes     — "salva em nota"
+        foreach (['plan', 'diff', 'diagnostic', 'notes'] as $kind) {
+            if ($hits[$kind]) {
+                return [$kind, 'voice'];
             }
         }
 
         return ['text', 'default'];
+    }
+
+    /**
+     * @param  list<string>  $tokens
+     */
+    private function matchesAny(string $lower, array $tokens): bool
+    {
+        foreach ($tokens as $tok) {
+            if (mb_strpos($lower, $tok) !== false) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function detectExecutorHint(string $text, string $outputFormat): string

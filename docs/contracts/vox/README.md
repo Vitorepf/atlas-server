@@ -66,6 +66,7 @@ campos obrigatorios; extensoes adicionam-se via `v1.x` ou nova versao.
 | `VoxIntentPacket.v1` | `VoxIntentPacket.v1.md` | Kernel (`VoxCompiler`) | Kernel (`AtlasDecide`) |
 | `VoxConfirmation.v1` | `VoxConfirmation.v1.md` | Kernel <-> Overlay | Atlas Desktop (`VoxOverlay`) |
 | `VoxActionOutcome.v1` | `VoxActionOutcome.v1.md` | Kernel (Executor) | `AtlasEvidenceLedger` |
+| `VoxInterlocutorDecision.v1` | `VoxInterlocutorDecision.v1.md` | Kernel (`VoxInterlocutorPolicy`) | Atlas Desktop (`VoxOverlay`) |
 
 ## Modo Validacao
 

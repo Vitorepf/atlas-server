@@ -138,6 +138,10 @@ final class VoxCompiler
                     'risk_markers' => $extracted['risk_markers'],
                     'polisher_transformations' => $extracted['polisher_transformations'],
                     'prompt_sections' => $compiled['sections'],
+                    // V6-FPG-B · score + diagnóstico de qualidade do prompt.
+                    // Determinístico, sem chamada externa. Cert V6 amarra
+                    // score mínimo nas 4 vozes canônicas.
+                    'quality_self_check' => $compiled['quality_self_check'] ?? null,
                 ],
             ]);
         }

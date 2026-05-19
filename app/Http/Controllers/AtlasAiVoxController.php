@@ -7,6 +7,8 @@ namespace App\Http\Controllers;
 use App\Services\Ai\Vox\Confirmation\VoxConfirmationService;
 use App\Services\Ai\Vox\Execution\VoxExecutionGate;
 use App\Services\Ai\Vox\Execution\VoxExecutorRouter;
+use App\Services\Ai\Vox\Interlocutor\VoxInterlocutorPolicy;
+use App\Services\Ai\Vox\Routing\VoxAutoModeRouter;
 use App\Services\Ai\Vox\VoxActionOutcomeService;
 use App\Services\Ai\Vox\VoxCompiler;
 use App\Services\Ai\Vox\VoxEvidenceService;
@@ -54,6 +56,8 @@ final class AtlasAiVoxController extends Controller
         private readonly VoxConfirmationService $confirmation,
         private readonly VoxExecutionGate $executionGate,
         private readonly VoxExecutorRouter $executorRouter,
+        private readonly VoxAutoModeRouter $autoModeRouter,
+        private readonly VoxInterlocutorPolicy $interlocutor,
     ) {}
 
     public function health(): JsonResponse
@@ -146,7 +150,7 @@ final class AtlasAiVoxController extends Controller
             'noise_signals' => ['nullable', 'array'],
             'raw_pcm_persisted' => ['required', 'boolean'],
             'eclipse_check' => ['nullable', 'string', 'in:passed,aborted_mid_capture'],
-            'mode_requested' => ['required', 'string', 'in:'
+            'mode_requested' => ['required', 'string', 'in:auto,'
                 .VoxSchema::MODE_DICTATION.','
                 .VoxSchema::MODE_PROMPT_POLISH.','
                 .VoxSchema::MODE_INTENT_COMPILE.','
@@ -158,7 +162,65 @@ final class AtlasAiVoxController extends Controller
             'context_refs.*.kind' => ['required_with:context_refs', 'string', 'in:file,selection,active_window,terminal_recent,workspace,surface,none'],
             'context_refs.*.ref' => ['nullable', 'string', 'max:512'],
             'context_refs.*.resolved' => ['nullable', 'boolean'],
+            // V4 · context snapshot estruturado (atlas.vox.context_snapshot.v1).
+            // Aceito como array livre — o builder canon vive no Desktop e a
+            // forma é validada por shape (campos opcionais, nada de áudio bruto).
+            'context_snapshot' => ['nullable', 'array'],
+            'context_snapshot.schema' => ['nullable', 'string', 'max:120'],
+            'context_snapshot.surface' => ['nullable', 'string', 'max:120'],
+            'context_snapshot.workspace' => ['nullable', 'array'],
+            'context_snapshot.workspace.root' => ['nullable', 'string', 'max:512'],
+            'context_snapshot.workspace.name' => ['nullable', 'string', 'max:256'],
+            'context_snapshot.active_view' => ['nullable', 'array'],
+            'context_snapshot.active_view.kind' => ['nullable', 'string', 'in:atlas_ai,code,terminal,inbox,unknown'],
+            'context_snapshot.active_view.label' => ['nullable', 'string', 'max:240'],
+            'context_snapshot.selection' => ['nullable', 'array'],
+            'context_snapshot.selection.kind' => ['nullable', 'string', 'in:text,none'],
+            'context_snapshot.selection.text' => ['nullable', 'string', 'max:1500'],
+            'context_snapshot.selection.truncated' => ['nullable', 'boolean'],
+            'context_snapshot.thread' => ['nullable', 'array'],
+            'context_snapshot.thread.id' => ['nullable', 'string', 'max:120'],
+            'context_snapshot.thread.title' => ['nullable', 'string', 'max:240'],
+            'context_snapshot.obra' => ['nullable', 'array'],
+            'context_snapshot.obra.id' => ['nullable', 'string', 'max:120'],
+            'context_snapshot.obra.title' => ['nullable', 'string', 'max:240'],
+            'context_snapshot.terminal' => ['nullable', 'array'],
+            'context_snapshot.terminal.cwd' => ['nullable', 'string', 'max:512'],
+            'context_snapshot.terminal.last_output_excerpt' => ['nullable', 'string', 'max:1500'],
+            'context_snapshot.terminal.available' => ['nullable', 'boolean'],
+            'context_snapshot.privacy' => ['nullable', 'array'],
+            'context_snapshot.privacy.raw_audio_included' => ['nullable', 'boolean'],
+            'context_snapshot.privacy.full_screen_capture' => ['nullable', 'boolean'],
+            'context_snapshot.privacy.clipboard_read' => ['nullable', 'boolean'],
+            // V4 · override marker: Desktop pinou um modo manual contra a
+            // sugestão anterior. Apenas telemetria — não muda execução.
+            'manual_override' => ['nullable', 'boolean'],
         ]);
+
+        // V4 · Bloqueio extra: snapshot NUNCA pode declarar áudio bruto ou
+        // captura de tela. Privacidade pinada no canon do builder; se chegou
+        // ligada, é um bug grave que precisa virar 422 ANTES do compile.
+        $snapshotInput = $payload['context_snapshot'] ?? null;
+        if (is_array($snapshotInput)) {
+            $privacy = $snapshotInput['privacy'] ?? [];
+            foreach (['raw_audio_included', 'full_screen_capture', 'clipboard_read'] as $forbidden) {
+                if (! empty($privacy[$forbidden])) {
+                    $this->evidence->actionBlocked(
+                        reasonCode: 'context_snapshot_privacy_violation',
+                        message: "context_snapshot.privacy.{$forbidden}=true é proibido (Lei 0.75)",
+                        payload: [
+                            'session_id' => $payload['session_id'],
+                            'transcript_id' => $payload['transcript_id'],
+                            'forbidden_flag' => $forbidden,
+                        ],
+                    );
+                    throw ValidationException::withMessages([
+                        "context_snapshot.privacy.{$forbidden}" =>
+                            "Flag {$forbidden}=true é proibida — Vox V4 nunca aceita áudio bruto, captura de tela ou clipboard.",
+                    ]);
+                }
+            }
+        }
 
         if ($payload['raw_pcm_persisted'] === true) {
             $event = $this->evidence->actionBlocked(
@@ -188,7 +250,24 @@ final class AtlasAiVoxController extends Controller
             ]);
         }
 
-        $mode = $payload['mode_requested'];
+        $requestedMode = $payload['mode_requested'];
+        $manualOverride = (bool) ($payload['manual_override'] ?? false);
+        $snapshotForRouter = is_array($snapshotInput) ? $snapshotInput : [];
+
+        // V4 · roda o Auto Mode Router ANTES do compile. O router é puro,
+        // determinístico, sem rede, sem LLM, sem random. Devolve sempre uma
+        // sugestão + razão + alternativas — o Desktop usa para mostrar a
+        // cabine "Atlas entendeu". Quando o cliente pediu `mode_requested=auto`,
+        // a sugestão também vira o modo efetivo do compile; caso contrário
+        // a sugestão é apenas advisory (V3 continua intocada).
+        $autoDecision = $this->autoModeRouter->decide(
+            transcript: $payload,
+            context: ['snapshot' => $snapshotForRouter],
+        );
+
+        $autoMode = (string) $autoDecision['selected_mode'];
+        $mode = $requestedMode === 'auto' ? $autoMode : $requestedMode;
+
         $hints = [
             'provider_hint' => $payload['provider_hint'] ?? null,
             'output_format' => $payload['output_format'] ?? null,
@@ -239,9 +318,61 @@ final class AtlasAiVoxController extends Controller
             $events[] = $this->evidence->confirmationRequested($confirmationRequest);
         }
 
+        // V5-A · Symbiotic Interlocutor. Camada determinística que olha
+        // transcript + intent packet + auto_mode_decision e decide se deve
+        // intervir (clarify / caution / disagree / suggest_better_prompt) ou
+        // sair de cena (none). Roda DEPOIS do compile/risco para reusar a
+        // classificação real do Kernel e ANTES de fechar o cache (a UI pode
+        // bloquear o caminho de execução em risco destrutivo R4).
+        $interlocutorDecision = $this->interlocutor->evaluate(
+            transcript: $payload,
+            intentPacket: $intentPacket,
+            autoModeDecision: $autoDecision,
+            context: ['snapshot' => $snapshotForRouter],
+        );
+        if (($interlocutorDecision['intervention'] ?? 'none') !== 'none') {
+            $events[] = $this->evidence->interlocutorIntervened(
+                $intentPacket,
+                $interlocutorDecision,
+            );
+        }
+
         // Cache intent+receipt so /execute can validate the (intent_id, receipt_id)
         // pair without a database write.
         $this->stash($intentPacket, $receipt, $payload['text']);
+
+        // V4 · derive override semantics for the audit trail.
+        //   - `mode_resolution` traces how the effective mode was picked.
+        //   - `auto_mode_overridden` flags a *manual* override (Desktop trocou
+        //     modo depois da sugestão). Quando o cliente pinou um modo
+        //     explícito que coincidentemente bate com a sugestão, isso NÃO
+        //     conta como override.
+        $autoSuggestion = $autoMode;
+        $autoOverridden = false;
+        if ($requestedMode === 'auto') {
+            $modeResolution = 'auto_router';
+        } elseif ($manualOverride && $autoSuggestion !== $requestedMode) {
+            $modeResolution = 'manual_override';
+            $autoOverridden = true;
+        } elseif ($autoSuggestion !== $requestedMode) {
+            $modeResolution = 'manual_diverges_from_suggestion';
+        } else {
+            $modeResolution = 'manual_matches_suggestion';
+        }
+
+        if ($autoOverridden) {
+            $events[] = $this->evidence->actionBlocked(
+                reasonCode: 'vox_auto_mode_overridden',
+                message: 'Operador trocou o modo sugerido pelo Auto Mode Router manualmente.',
+                payload: [
+                    'session_id' => (string) ($payload['session_id'] ?? ''),
+                    'transcript_id' => (string) ($payload['transcript_id'] ?? ''),
+                    'suggested_mode' => $autoSuggestion,
+                    'chosen_mode' => $requestedMode,
+                    'router_confidence' => $autoDecision['confidence'] ?? null,
+                ],
+            );
+        }
 
         return response()->json([
             'schema' => VoxSchema::INTENT_RESPONSE,
@@ -251,6 +382,17 @@ final class AtlasAiVoxController extends Controller
             'confirmation_required' => $confirmationRequired,
             'confirmation_request' => $confirmationRequest,
             'actions_available' => $actions,
+            // V4 · canonical Auto Mode Decision payload (also mirrored as
+            // suggested_mode / suggested_mode_reason for the Desktop bridge
+            // that already speaks those fields).
+            'auto_mode_decision' => $autoDecision,
+            'suggested_mode' => $autoSuggestion,
+            'suggested_mode_reason' => (string) ($autoDecision['reason_pt_br'] ?? ''),
+            'mode_resolution' => $modeResolution,
+            'manual_override' => $autoOverridden,
+            // V5-A · conversational layer. `intervention=none` quando o policy
+            // decidiu não pedir nada; o frontend só mostra UI se vier do Kernel.
+            'interlocutor' => $interlocutorDecision,
             'events' => $events,
         ]);
     }
@@ -270,6 +412,7 @@ final class AtlasAiVoxController extends Controller
                 'what_i_heard' => $heardText,
                 'what_i_understood' => 'Compilar prompt operacional a partir da fala, com restrições e contexto.',
                 'what_i_will_do' => 'Retornar prompt compilado ao Atlas Desktop para copiar/inserir; Kernel NÃO executa.',
+                'spoken_summary' => self::spokenSummaryForCompile($intentPacket),
                 'risk_class' => $intentPacket['risk_class'],
                 'risk_reasoning' => $intentPacket['risk_reasoning'] ?? '',
                 'evidence_promise' => 'Registrar VOX_TRANSCRIPT_READY, VOX_INTENT_COMPILED, VOX_PROMPT_COMPILED, VOX_POLICY_EVALUATED.',
@@ -290,6 +433,7 @@ final class AtlasAiVoxController extends Controller
                 'what_i_heard' => $heardText,
                 'what_i_understood' => 'Polir texto/prompt localmente, preservando intenção e restrições.',
                 'what_i_will_do' => 'Retornar prompt polido ao Atlas Desktop para copiar/inserir.',
+                'spoken_summary' => 'Vou polir esse texto pra você copiar ou inserir — não executo nada.',
                 'risk_class' => $intentPacket['risk_class'],
                 'evidence_promise' => 'Registrar VOX_TRANSCRIPT_READY, VOX_INTENT_COMPILED, VOX_PROMPT_COMPILED, VOX_POLICY_EVALUATED e receipt R0.',
                 'compiled_prompt' => $intentPacket['compiled_prompt'],
@@ -304,14 +448,41 @@ final class AtlasAiVoxController extends Controller
             'what_i_heard' => $heardText,
             'what_i_understood' => 'Ditado local: texto pronto para inserir/copiar.',
             'what_i_will_do' => 'Retornar texto ao Atlas Desktop para clipboard/campo focado.',
+            'spoken_summary' => 'Vou devolver o texto pra você usar no clipboard ou no campo focado.',
             'risk_class' => $intentPacket['risk_class'],
             'evidence_promise' => 'Registrar VOX_TRANSCRIPT_READY, VOX_INTENT_COMPILED, VOX_POLICY_EVALUATED e receipt R0.',
         ];
     }
 
     /**
+     * V6-GEF · resumo falado para `intent_compile`. Uma frase única,
+     * primeira pessoa, em PT-BR. Não inventa execução — deixa claro que
+     * o Kernel só devolve o prompt compilado.
+     *
+     * @param  array<string,mixed>  $intentPacket
+     */
+    private static function spokenSummaryForCompile(array $intentPacket): string
+    {
+        $provider = (string) ($intentPacket['provider_hint'] ?? 'local');
+        $format = (string) ($intentPacket['output_format'] ?? 'text');
+
+        return match (true) {
+            $provider === 'codex_cli' => 'Vou montar um prompt forte pra você colar no Codex — Kernel não chama Codex, você é quem aperta.',
+            $provider === 'claude_cli' => 'Vou montar um prompt forte pra você colar no Claude — Kernel não chama Claude, você é quem aperta.',
+            $provider === 'atlas' => 'Vou montar uma resposta direta vinda do canon do Atlas, sem provider externo.',
+            $format === 'plan' => 'Vou estruturar um plano que você possa revisar antes de implementar.',
+            $format === 'diagnostic' => 'Vou montar um diagnóstico do que você descreveu, sem editar nada.',
+            default => 'Vou compilar o prompt para você usar; Kernel não executa.',
+        };
+    }
+
+    /**
      * V3 preview · used both inside the JSON response and inside the
      * VoxConfirmationRequest sub-object (mirrors VoxConfirmation.v1 spec).
+     *
+     * V6-GEF · agora inclui `spoken_summary` (frase única em PT-BR voz "Vou…")
+     * e `action_label` (slug curto pra UI), sem nunca prometer execução que o
+     * Kernel não faz.
      *
      * @param  array<string,mixed>  $intentPacket
      * @return array<string,mixed>
@@ -326,6 +497,10 @@ final class AtlasAiVoxController extends Controller
             'what_i_heard' => $heardText,
             'what_i_understood' => (string) ($intentPacket['goal'] ?? 'Operador descreveu uma ação operacional via voz.'),
             'what_i_will_do' => $this->describeGovernedAction($executor, $provider),
+            'spoken_summary' => self::spokenSummaryForGovernedExecute($risk, $provider, $executor),
+            'action_label' => self::actionLabelFor($provider, $executor),
+            'requires_confirmation' => true,
+            'requires_literal_confirmation' => $risk === VoxSchema::RISK_R4,
             'risk_class' => $risk,
             'risk_label' => self::riskLabel($risk),
             'risk_reasoning' => (string) ($intentPacket['risk_reasoning'] ?? ''),
@@ -353,6 +528,60 @@ final class AtlasAiVoxController extends Controller
             $executor === 'note' => 'Capturar a fala como nota Atlas Inbox quando disponível, senão devolver desktop_action save_as_note.',
             $executor === 'edit' => 'Edição de filesystem governada por Vox V3 ainda não está disponível — Kernel responde blocked honesto.',
             default => 'Acionar executor governado conforme intent_packet.executor_hint após confirmação humana.',
+        };
+    }
+
+    /**
+     * V6-GEF · resumo falado para governed_execute. Frase única, primeira
+     * pessoa, voz "Vou…". Risco vence: R4 sempre fala "arriscado e
+     * irreversível"; R3 fala "encosta em execução externa"; depois cai no
+     * caminho do executor/provider. Mantém honesto: terminal_propose nunca
+     * promete executar.
+     */
+    private static function spokenSummaryForGovernedExecute(
+        string $risk,
+        string $provider,
+        string $executor,
+    ): string {
+        if ($risk === VoxSchema::RISK_R4) {
+            return 'Isso é arriscado e potencialmente irreversível — vou precisar que você digite a confirmação literal antes de qualquer coisa.';
+        }
+        if ($risk === VoxSchema::RISK_R3) {
+            return 'Isso encosta em execução externa — vou propor o passo, mas só sigo depois que você confirmar.';
+        }
+        if ($executor === 'terminal_propose' || $executor === 'shell') {
+            return 'Vou propor este comando, mas não vou apertar Enter — você copia e executa quando quiser.';
+        }
+        if ($provider === 'codex_cli') {
+            return 'Vou pedir para o Codex analisar isso e devolver a resposta pra você.';
+        }
+        if ($provider === 'claude_cli') {
+            return 'Vou pedir para o Claude analisar isso e devolver a resposta pra você.';
+        }
+        if ($executor === 'note') {
+            return 'Vou salvar isso como nota no Atlas Inbox.';
+        }
+        if ($executor === 'edit') {
+            return 'Edição governada por voz ainda não está disponível — vou bloquear honestamente.';
+        }
+
+        return 'Vou seguir o caminho governado, sempre com confirmação humana antes de qualquer execução.';
+    }
+
+    /**
+     * V6-GEF · slug curto pra UI grudar num botão ou pill. Determinístico,
+     * sem traduzir provider/executor — só faz "Codex CLI", "Claude CLI",
+     * "Propor comando", "Salvar como nota", "Edição (indisponível)".
+     */
+    private static function actionLabelFor(string $provider, string $executor): string
+    {
+        return match (true) {
+            $provider === 'codex_cli' => 'Codex CLI',
+            $provider === 'claude_cli' => 'Claude CLI',
+            $executor === 'terminal_propose' || $executor === 'shell' => 'Propor comando',
+            $executor === 'note' => 'Salvar como nota',
+            $executor === 'edit' => 'Edição (indisponível)',
+            default => 'Ação governada',
         };
     }
 

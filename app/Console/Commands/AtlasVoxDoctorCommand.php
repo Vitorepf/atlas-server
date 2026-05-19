@@ -507,32 +507,116 @@ final class AtlasVoxDoctorCommand extends Command
             return;
         }
 
-        // Compact human summary.
+        // V6-OBSERVABILITY-FINAL · saída humana PT-BR.
+        // Em vez de "[atlas:vox:doctor] ✓ status=pass", abrimos com a resposta
+        // direta à pergunta que importa pro operador: "posso usar agora?".
+        // Schema técnico continua intacto no envelope JSON acima.
         $status = (string) $snapshot['status'];
-        $marker = match ($status) {
+        $this->line('Atlas Vox · backend está pronto pra você usar agora?');
+        $this->line('');
+        $this->line('  '.self::headlinePtBr($status));
+        $this->line('');
+        $this->line('Áreas verificadas:');
+        foreach ((array) $snapshot['sections'] as $name => $section) {
+            $sectionStatus = (string) ($section['status'] ?? '');
+            $marker = self::markerForStatus($sectionStatus);
+            $humanName = self::sectionLabelPtBr((string) $name);
+            $humanStatus = self::statusLabelPtBr($sectionStatus);
+            $this->line("  {$marker}  {$humanName} · {$humanStatus}");
+        }
+
+        $actions = (array) ($snapshot['next_actions'] ?? []);
+        if (! empty($actions)) {
+            $this->line('');
+            $this->line('O que fazer agora:');
+            foreach ($actions as $a) {
+                $this->line('  · '.self::humaniseNextAction((string) $a));
+            }
+        }
+
+        $this->line('');
+        $this->line(sprintf(
+            'Detalhes técnicos completos: rode com --json. (gerado em %s)',
+            (string) $snapshot['generated_at'],
+        ));
+    }
+
+    /**
+     * V6-OBSERVABILITY-FINAL · uma linha direta respondendo
+     * "posso usar agora?". Sem jargão.
+     */
+    private static function headlinePtBr(string $status): string
+    {
+        return match ($status) {
+            self::STATUS_PASS => 'Sim. Tudo certo.',
+            self::STATUS_WARN => 'Pode usar — algumas áreas precisam de atenção.',
+            self::STATUS_FAIL => 'Não — algo crítico está bloqueado. Resolva antes de gravar.',
+            default => 'Estado desconhecido — rode com --json e abra o envelope.',
+        };
+    }
+
+    private static function markerForStatus(string $status): string
+    {
+        return match ($status) {
             self::STATUS_PASS => '✓',
             self::STATUS_WARN => '!',
             self::STATUS_FAIL => '✖',
             default => '?',
         };
-        $this->line("[atlas:vox:doctor] {$marker} status={$status}  generated_at={$snapshot['generated_at']}");
-        foreach ((array) $snapshot['sections'] as $name => $section) {
-            $sMark = match ((string) ($section['status'] ?? '')) {
-                self::STATUS_PASS => '·',
-                self::STATUS_WARN => '!',
-                self::STATUS_FAIL => '✖',
-                default => '?',
-            };
-            $observed = (string) ($section['observed'] ?? $section['observed_gate_status'] ?? '');
-            $note = $observed !== '' ? "  observed={$observed}" : '';
-            $this->line("  {$sMark} [{$section['status']}] {$name}{$note}");
+    }
+
+    private static function statusLabelPtBr(string $status): string
+    {
+        return match ($status) {
+            self::STATUS_PASS => 'Tudo certo',
+            self::STATUS_WARN => 'Precisa de atenção',
+            self::STATUS_FAIL => 'Bloqueado',
+            default => 'Coletando informações',
+        };
+    }
+
+    private static function sectionLabelPtBr(string $name): string
+    {
+        return match ($name) {
+            'health' => 'Saúde do servidor',
+            'readiness' => 'Prontidão (modelo, microfone, atalho)',
+            'hardening' => 'Auditoria de segurança',
+            'metrics' => 'Sinais de uso',
+            'rivals' => 'Comparativos (Vox vs alternativas)',
+            'dogfood' => 'Uso real coletado',
+            'gate_v3' => 'Estado do uso real',
+            'certification' => 'Certificação V3',
+            default => $name,
+        };
+    }
+
+    /**
+     * Traduz cada `next_action` técnica em uma frase PT-BR acionável.
+     * Os strings vindos do collector já são PT-BR — só normalizamos
+     * "investigar/revisar seção X — status=Y" pro humano.
+     */
+    private static function humaniseNextAction(string $raw): string
+    {
+        if (str_starts_with($raw, "investigar seção '")) {
+            $name = self::extractSectionFromAction($raw);
+
+            return "Resolver problemas em \"".self::sectionLabelPtBr($name).'" antes de seguir.';
         }
-        $actions = (array) ($snapshot['next_actions'] ?? []);
-        if (! empty($actions)) {
-            $this->line('  next_actions:');
-            foreach ($actions as $a) {
-                $this->line("    - {$a}");
-            }
+        if (str_starts_with($raw, "revisar seção '")) {
+            $name = self::extractSectionFromAction($raw);
+
+            return 'Revisar "'.self::sectionLabelPtBr($name).'" — está coletando ou parcial.';
         }
+
+        return $raw;
+    }
+
+    private static function extractSectionFromAction(string $raw): string
+    {
+        if (preg_match("/seção\s+'([^']+)'/u", $raw, $m) === 1) {
+            return $m[1];
+        }
+
+        return $raw;
     }
 }
