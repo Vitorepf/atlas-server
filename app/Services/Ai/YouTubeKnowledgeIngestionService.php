@@ -15,7 +15,83 @@ use Throwable;
 
 class YouTubeKnowledgeIngestionService
 {
-    public function __construct(private readonly WhisperTranscriber $whisper) {}
+    public function __construct(
+        private readonly WhisperTranscriber $whisper,
+        private readonly YoutubeCanonicalProjection $projection = new YoutubeCanonicalProjection,
+    ) {}
+
+    /**
+     * Extract canonical YouTube URLs from a rich_input_payload `url_attachments[]`
+     * structure. Caller is responsible for filtering payload shape.
+     *
+     * @param  array<int,mixed>|null  $urlAttachments
+     * @return array<int,string>
+     */
+    public function extractUrlsFromRichInputPayload(?array $urlAttachments): array
+    {
+        if (! is_array($urlAttachments) || $urlAttachments === []) {
+            return [];
+        }
+
+        return collect($urlAttachments)
+            ->filter(fn (mixed $entry): bool => is_array($entry))
+            ->filter(function (array $entry): bool {
+                $kind = isset($entry['kind']) ? strtolower((string) $entry['kind']) : '';
+                $url = isset($entry['url']) ? trim((string) $entry['url']) : '';
+
+                return $kind === 'youtube' && $url !== '';
+            })
+            ->map(fn (array $entry): string => $this->canonicalUrl((string) $entry['url']))
+            ->filter(fn (string $url): bool => $this->videoIdFromUrl($url) !== null)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Ingest from an explicit URL list (already extracted + canonicalized).
+     * Honors the per-turn limit configured under `atlas.youtube.max_videos_per_turn`.
+     *
+     * Returns the same shape as `ingestFromInput` but skips re-parsing the
+     * free text. Used by the gateway when YouTube URLs come from
+     * `rich_input_payload.url_attachments[]` instead of (or alongside)
+     * `input_text`.
+     *
+     * @param  array<int,string>  $urls
+     * @return array<string,mixed>
+     */
+    public function ingestFromUrls(array $urls, array $options = []): array
+    {
+        $urls = collect($urls)
+            ->filter(fn (mixed $url): bool => is_string($url) && $url !== '')
+            ->map(fn (string $url): string => $this->canonicalUrl(trim($url)))
+            ->filter(fn (string $url): bool => $this->videoIdFromUrl($url) !== null)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($urls === []) {
+            return [
+                'schema_version' => 1,
+                'status' => 'skipped',
+                'videos' => [],
+            ];
+        }
+
+        $limit = max(1, (int) config('atlas.youtube.max_videos_per_turn', 2));
+        $videos = [];
+        foreach (array_slice($urls, 0, $limit) as $url) {
+            $videos[] = $this->ingestUrl($url, $options);
+        }
+
+        return [
+            'schema_version' => 1,
+            'status' => collect($videos)->contains(fn (array $video): bool => ($video['status'] ?? null) === 'ready')
+                ? 'ready'
+                : (collect($videos)->contains(fn (array $video): bool => ($video['status'] ?? null) === 'processing') ? 'processing' : 'unavailable'),
+            'videos' => $videos,
+        ];
+    }
 
     /**
      * @return array<string,mixed>
@@ -229,6 +305,9 @@ class YouTubeKnowledgeIngestionService
                 ],
             ], fn (mixed $value): bool => $value !== null && $value !== []),
             'last_ingested_at' => now(),
+            'ingestion_status' => 'failed',
+            'transcript_status' => 'failed',
+            'translation_status' => 'failed',
         ]);
 
         $this->clearProcessingLock(['url' => $stored->url, 'status' => 'failed']);
@@ -573,10 +652,11 @@ class YouTubeKnowledgeIngestionService
      */
     private function finalizeVideoResult(array $result): array
     {
-        $this->persistVideoResult($result);
-        $this->clearProcessingLock($result);
+        $projected = $this->projection->project($result);
+        $this->persistVideoResult($projected);
+        $this->clearProcessingLock($projected);
 
-        return $result;
+        return $projected;
     }
 
     /**
@@ -610,6 +690,13 @@ class YouTubeKnowledgeIngestionService
             'audio_fallback' => $audioFallback ?: null,
         ], fn (mixed $value): bool => $value !== null && $value !== []);
 
+        // Canonical 3-status fields — may have been projected upstream by
+        // `finalizeVideoResult`; if missing (e.g. external caller), project here.
+        $hasCanonical = isset($result['ingestion_status'])
+            && isset($result['transcript_status'])
+            && isset($result['translation_status']);
+        $canonical = $hasCanonical ? $result : $this->projection->project($result);
+
         AiYoutubeIngestion::query()->updateOrCreate(
             ['video_id' => $videoId],
             [
@@ -631,6 +718,12 @@ class YouTubeKnowledgeIngestionService
                 'chunks' => $chunks,
                 'diagnostics' => $diagnostics,
                 'last_ingested_at' => now(),
+                'ingestion_status' => is_string($canonical['ingestion_status'] ?? null) ? $canonical['ingestion_status'] : null,
+                'transcript_status' => is_string($canonical['transcript_status'] ?? null) ? $canonical['transcript_status'] : null,
+                'translation_status' => is_string($canonical['translation_status'] ?? null) ? $canonical['translation_status'] : null,
+                'source_language' => is_string($canonical['source_language'] ?? null) ? $canonical['source_language'] : null,
+                'target_language' => is_string($canonical['target_language'] ?? null) ? $canonical['target_language'] : YoutubeCanonicalProjection::DEFAULT_TARGET_LANGUAGE,
+                'translation_required' => isset($canonical['translation_required']) ? (bool) $canonical['translation_required'] : null,
             ],
         );
     }
@@ -1001,6 +1094,7 @@ class YouTubeKnowledgeIngestionService
                 } elseif ($char === '"') {
                     $inString = false;
                 }
+
                 continue;
             }
 
@@ -1289,6 +1383,7 @@ class YouTubeKnowledgeIngestionService
             $lastReason = $this->processError($process, 'YouTube audio download failed.');
             if ($attempt < $attempts && $this->isRetryableDownloadError($lastReason)) {
                 usleep(min(3_000_000, 400_000 * $attempt));
+
                 continue;
             }
 
@@ -1551,6 +1646,7 @@ class YouTubeKnowledgeIngestionService
             $candidate = trim($buffer === '' ? $part : $buffer.' '.$part);
             if (mb_strlen($candidate) < 700) {
                 $buffer = $candidate;
+
                 continue;
             }
 

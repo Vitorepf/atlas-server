@@ -83,6 +83,10 @@ class AtlasTeosReadinessCertificationService
 
     public const CHECK_NO_EXTERNAL_CLAIM_PROMOTED = 'no_external_claim_promoted';
 
+    public const CHECK_REPLAY_MANIFEST_AVAILABLE = 'replay_manifest_available';
+
+    public const CHECK_CONTINUITY_CERTIFICATION_AVAILABLE = 'continuity_certification_available';
+
     public const ALL_CHECK_IDS = [
         self::CHECK_CANONICAL_DOCS_PRESENT,
         self::CHECK_LONG_HORIZON_CANON_SERVICE,
@@ -96,6 +100,8 @@ class AtlasTeosReadinessCertificationService
         self::CHECK_DECIDE_TOPOLOGY_UNTOUCHED,
         self::CHECK_NO_REAL_PROVIDER_CALLED,
         self::CHECK_NO_EXTERNAL_CLAIM_PROMOTED,
+        self::CHECK_REPLAY_MANIFEST_AVAILABLE,
+        self::CHECK_CONTINUITY_CERTIFICATION_AVAILABLE,
     ];
 
     public function __construct(
@@ -120,6 +126,8 @@ class AtlasTeosReadinessCertificationService
             $this->checkDecideTopologyUntouched(),
             $this->checkNoRealProviderCalled(),
             $this->checkNoExternalClaimPromoted(),
+            $this->checkReplayManifestAvailable(),
+            $this->checkContinuityCertificationAvailable(),
         ];
 
         $status = $this->aggregateStatus($checks);
@@ -573,6 +581,91 @@ class AtlasTeosReadinessCertificationService
     /**
      * @param  list<array<string,mixed>>  $checks
      */
+    /**
+     * TEOS-I2 entry · replay manifest provider-independent reader.
+     *
+     * Treated as a P1 check: the rest of TEOS-I1 stays valid even if the
+     * replay manifest is missing, but readiness cannot be `ready` without
+     * a provider-independent replay surface.
+     *
+     * @return array<string,mixed>
+     */
+    private function checkReplayManifestAvailable(): array
+    {
+        $required = [
+            'model' => 'app/Models/AtlasLongHorizonReplayManifest.php',
+            'migration' => 'database/migrations/2026_05_19_150000_create_atlas_long_horizon_replay_manifests_table.php',
+            'builder' => 'app/Services/Ai/LongHorizon/Replay/LongHorizonReplayManifestBuilder.php',
+            'reader' => 'app/Services/Ai/LongHorizon/Replay/ReplayManifestReader.php',
+            'command' => 'app/Console/Commands/AtlasLongHorizonReplayManifestCommand.php',
+        ];
+
+        $missing = [];
+        foreach ($required as $label => $path) {
+            if (! $this->probe->fileExists($path)) {
+                $missing[] = $label.':'.$path;
+            }
+        }
+
+        if ($missing === []) {
+            return $this->pass(
+                self::CHECK_REPLAY_MANIFEST_AVAILABLE,
+                self::SEVERITY_P1,
+                'replay_manifest.v1 builder + reader + persistence + CLI present (TEOS-I2 entry)',
+                array_values($required),
+            );
+        }
+
+        return $this->fail(
+            self::CHECK_REPLAY_MANIFEST_AVAILABLE,
+            self::SEVERITY_P1,
+            'replay_manifest.v1 surface incomplete: '.implode(', ', $missing),
+            'ship the missing pieces under TEOS-I2 Sprint 1 (replay manifest + provider-independent reader) before claiming readiness',
+            array_values($required),
+        );
+    }
+
+    /**
+     * TEOS-I2 M10 · continuity certification service + CLI must be wired.
+     *
+     * This check only validates presence at the file level — the runtime
+     * certification itself is exposed via
+     * `php artisan atlas:long-horizon:continuity-certify`.
+     *
+     * @return array<string,mixed>
+     */
+    private function checkContinuityCertificationAvailable(): array
+    {
+        $required = [
+            'service' => 'app/Services/Ai/LongHorizon/LongHorizonContinuityCertificationService.php',
+            'command' => 'app/Console/Commands/AtlasLongHorizonContinuityCertifyCommand.php',
+        ];
+
+        $missing = [];
+        foreach ($required as $label => $path) {
+            if (! $this->probe->fileExists($path)) {
+                $missing[] = $label.':'.$path;
+            }
+        }
+
+        if ($missing === []) {
+            return $this->pass(
+                self::CHECK_CONTINUITY_CERTIFICATION_AVAILABLE,
+                self::SEVERITY_P1,
+                'continuity_certification.v1 service + CLI present (TEOS-I2 M10) — run `php artisan atlas:long-horizon:continuity-certify --scope-type=<type> --scope-id=<id> --json`',
+                array_values($required),
+            );
+        }
+
+        return $this->fail(
+            self::CHECK_CONTINUITY_CERTIFICATION_AVAILABLE,
+            self::SEVERITY_P1,
+            'continuity_certification.v1 surface incomplete: '.implode(', ', $missing),
+            'ship LongHorizonContinuityCertificationService + AtlasLongHorizonContinuityCertifyCommand under TEOS-I2 M10',
+            array_values($required),
+        );
+    }
+
     private function aggregateStatus(array $checks): string
     {
         $hasFail = false;

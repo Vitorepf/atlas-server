@@ -778,6 +778,21 @@ TXT;
             return '';
         }
 
+        // Canonical 3-status capability · honest signaling of translation gap.
+        // `translation_required=true && translation_status != translated_ready`
+        // means: we have the original-language transcript but NO translation
+        // pipeline ran. The model reads foreign text and responds in pt-BR by
+        // inference — that is not the same as translation. Tell the operator.
+        $anyTranslationGap = collect($videos)->contains(function (mixed $video): bool {
+            if (! is_array($video)) {
+                return false;
+            }
+            $required = (bool) ($video['translation_required'] ?? false);
+            $status = (string) ($video['translation_status'] ?? '');
+
+            return $required && $status !== 'translated_ready';
+        });
+
         $lines = [
             '# YouTube ingerido',
             'O operador colou link(s) do YouTube. Use a transcricao com timestamps como fonte primaria do video. Cite timestamps no formato [mm:ss] ou [h:mm:ss] quando usar pontos especificos.',
@@ -788,6 +803,10 @@ TXT;
             'Idioma de saida: responda em portugues brasileiro quando o operador escrever em portugues. Se o titulo oficial do video estiver em outro idioma, nao use esse titulo cru como heading principal; crie um titulo curto em portugues para a resposta e cite o original separadamente como "Titulo original: ...". Preserve nomes proprios, marcas, produtos e termos tecnicos quando a traducao prejudicar precisao.',
             'Quando o pedido for amplo ("me diga tudo", "analise", "disseca", "me fala sobre", "resuma completo"), entregue uma analise completa e estruturada, nao apenas um resumo curto. Inclua, no minimo: qualidade da fonte/transcricao, resumo executivo, mapa por timestamps, pontos importantes, exemplos demonstrados, implicacoes para o operador/Atlas, candidatos para memoria e proximas acoes concretas. So seja ultra-curto se o operador pedir explicitamente resposta curta.',
         ];
+
+        if ($anyTranslationGap) {
+            $lines[] = 'TRADUCAO HONESTA: o transcript esta em idioma estrangeiro e o Atlas NAO possui pipeline de traducao explicita ainda — voce esta lendo o transcript original e respondendo em pt-BR por inferencia. Deixe claro na resposta que a base e o transcript ORIGINAL no idioma de origem (cite o idioma quando souber), nao uma traducao certificada. Nao escreva "traduzi o video para voce" nem "aqui esta a traducao": isso seria mentira sobre o que o Atlas fez.';
+        }
 
         foreach (array_slice($videos, 0, 2) as $index => $video) {
             if (! is_array($video)) {

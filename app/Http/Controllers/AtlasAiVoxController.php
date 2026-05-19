@@ -9,6 +9,7 @@ use App\Services\Ai\Vox\Execution\VoxExecutionGate;
 use App\Services\Ai\Vox\Execution\VoxExecutorRouter;
 use App\Services\Ai\Vox\Interlocutor\VoxInterlocutorPolicy;
 use App\Services\Ai\Vox\Routing\VoxAutoModeRouter;
+use App\Services\Ai\Vox\Routing\VoxFlowOrchestrator;
 use App\Services\Ai\Vox\VoxActionOutcomeService;
 use App\Services\Ai\Vox\VoxCompiler;
 use App\Services\Ai\Vox\VoxEvidenceService;
@@ -58,6 +59,7 @@ final class AtlasAiVoxController extends Controller
         private readonly VoxExecutorRouter $executorRouter,
         private readonly VoxAutoModeRouter $autoModeRouter,
         private readonly VoxInterlocutorPolicy $interlocutor,
+        private readonly VoxFlowOrchestrator $flowOrchestrator,
     ) {}
 
     public function health(): JsonResponse
@@ -337,6 +339,18 @@ final class AtlasAiVoxController extends Controller
             );
         }
 
+        // V6.5 · Flow Orchestrator. Consumidor puro do autoDecision + intentPacket
+        // que devolve a camada humana (destino, banda de confiança, what_i_will_do
+        // em PT-BR, clarifying_question quando ambíguo). Não muda nenhuma decisão
+        // existente — apenas enriquece a resposta para o overlay explicar o
+        // fluxo ao operador.
+        $flowDecision = $this->flowOrchestrator->decide(
+            transcript: $payload,
+            intentPacket: $intentPacket,
+            autoDecision: $autoDecision,
+            hints: ['context_refs' => $hints['context_refs']],
+        );
+
         // Cache intent+receipt so /execute can validate the (intent_id, receipt_id)
         // pair without a database write.
         $this->stash($intentPacket, $receipt, $payload['text']);
@@ -393,6 +407,10 @@ final class AtlasAiVoxController extends Controller
             // V5-A · conversational layer. `intervention=none` quando o policy
             // decidiu não pedir nada; o frontend só mostra UI se vier do Kernel.
             'interlocutor' => $interlocutorDecision,
+            // V6.5 · Flow Orchestrator envelope humano (destino, confiança,
+            // what_i_will_do, fallback). Additive: clientes V3/V4/V5/V6 que
+            // não conhecem o campo simplesmente o ignoram.
+            'flow_decision' => $flowDecision,
             'events' => $events,
         ]);
     }

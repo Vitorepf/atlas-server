@@ -2,15 +2,21 @@
 
 namespace App\Http\Resources;
 
+use App\Models\AiYoutubeIngestion;
+use App\Services\Ai\YoutubeCanonicalProjection;
 use App\Support\AiAttachmentPayload;
 use App\Support\Metadata;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Schema;
 
 class AiJobResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $sanitizedPayload = AiAttachmentPayload::sanitizePayload($this->payload);
+        $sanitizedPayload = $this->withFreshYoutubeIngestion($sanitizedPayload);
+
         return [
             'id' => $this->id,
             'trace_id' => $this->trace_id,
@@ -29,7 +35,7 @@ class AiJobResource extends JsonResource
             'model' => $this->model,
             'input_text' => $this->input_text,
             'context_refs' => Metadata::listForResponse($this->context_refs),
-            'payload' => Metadata::forResponse(AiAttachmentPayload::sanitizePayload($this->payload)),
+            'payload' => Metadata::forResponse($sanitizedPayload),
             'atlas_decide_execution' => Metadata::forResponse($this->atlasDecideExecutionForResponse()),
             'atlas_decide_stage' => data_get($this->metadata, 'atlas_decide_stage')
                 ?: data_get($this->payload, 'atlas_decide_execution.atlas_decide_stage'),
@@ -69,5 +75,69 @@ class AiJobResource extends JsonResource
         }
 
         return is_array($payloadExecution) ? $payloadExecution : [];
+    }
+
+    /**
+     * Re-resolve `youtube_ingestion.videos[]` from the live
+     * `ai_youtube_ingestions` table so the client sees the CURRENT
+     * canonical 3-status state (ingestion / transcript / translation), not
+     * the snapshot frozen at POST time. This is the convergence path the
+     * mobile/desktop polling cadence relies on. See
+     * docs/rich-input/youtube-canon.md.
+     *
+     * If the table is absent (fresh install / migration not yet run), the
+     * payload is returned untouched.
+     */
+    private function withFreshYoutubeIngestion(mixed $payload): mixed
+    {
+        if (! is_array($payload)) {
+            return $payload;
+        }
+
+        $videos = data_get($payload, 'youtube_ingestion.videos');
+        if (! is_array($videos) || $videos === []) {
+            return $payload;
+        }
+
+        if (! Schema::hasTable('ai_youtube_ingestions')) {
+            return $payload;
+        }
+
+        $videoIds = collect($videos)
+            ->filter(fn (mixed $v): bool => is_array($v))
+            ->map(fn (array $v): ?string => is_string($v['video_id'] ?? null) ? $v['video_id'] : null)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($videoIds === []) {
+            return $payload;
+        }
+
+        $records = AiYoutubeIngestion::query()->whereIn('video_id', $videoIds)->get()->keyBy('video_id');
+        if ($records->isEmpty()) {
+            return $payload;
+        }
+
+        $projection = new YoutubeCanonicalProjection;
+        $fresh = [];
+        foreach ($videos as $video) {
+            if (! is_array($video)) {
+                continue;
+            }
+            $videoId = is_string($video['video_id'] ?? null) ? $video['video_id'] : null;
+            $record = $videoId !== null ? $records->get($videoId) : null;
+            if ($record instanceof AiYoutubeIngestion) {
+                $fresh[] = $projection->projectFromRecord($record);
+
+                continue;
+            }
+            $fresh[] = $projection->project($video);
+        }
+
+        $payload['youtube_ingestion']['videos'] = $fresh;
+
+        return $payload;
     }
 }

@@ -35,6 +35,14 @@ final class VoxSchema
     public const INTERLOCUTOR_VERSION = '0.2.0';
     public const FLOW_ORCHESTRATOR_VERSION = '0.1.0';
 
+    // V6.5 · Composite Intent Splitter — políticas de execução possíveis
+    // quando a fala mistura duas ou mais intenções. NUNCA executa em
+    // cadeia automaticamente; o frontend pode ignorar o bloco sem perder
+    // back-compat (callers antigos seguem lendo só `mode`/`destination`).
+    public const COMPOSITE_POLICY_PREVIEW_ONLY = 'preview_only';
+    public const COMPOSITE_POLICY_STEP_BY_STEP = 'step_by_step_confirmation';
+    public const COMPOSITE_POLICY_SINGLE_SAFE_STEP = 'single_safe_step';
+
     public const DEFAULT_LANGUAGE = 'pt-BR';
 
     public const MODE_DICTATION = 'dictation';

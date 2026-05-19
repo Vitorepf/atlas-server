@@ -1497,13 +1497,28 @@ PROMPT;
             return $options;
         }
 
-        $urls = $this->youtubeKnowledge->extractUrls($input);
+        // Canonical capability · union YouTube URLs from `input_text` and
+        // `rich_input_payload.url_attachments[]` (kind='youtube'), dedup by
+        // canonical video URL. Desktop/mobile that attach via payload no
+        // longer get silently ignored. See docs/rich-input/youtube-canon.md.
+        $urlsFromText = $this->youtubeKnowledge->extractUrls($input);
+        $payloadUrls = data_get($payload, 'rich_input_payload.url_attachments');
+        $urlsFromPayload = is_array($payloadUrls)
+            ? $this->youtubeKnowledge->extractUrlsFromRichInputPayload($payloadUrls)
+            : [];
+
+        $urls = collect([...$urlsFromText, ...$urlsFromPayload])
+            ->filter(fn (mixed $url): bool => is_string($url) && $url !== '')
+            ->unique()
+            ->values()
+            ->all();
+
         if ($urls === []) {
             return $this->optionsWithRecentThreadYouTubeKnowledge($input, $options);
         }
 
         try {
-            $ingestion = $this->youtubeKnowledge->ingestFromInput($input, [
+            $ingestion = $this->youtubeKnowledge->ingestFromUrls($urls, [
                 'defer_audio_fallback' => (bool) config('atlas.youtube.defer_audio_fallback', true),
             ]);
         } catch (\Throwable $e) {

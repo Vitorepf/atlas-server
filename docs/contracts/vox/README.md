@@ -92,3 +92,30 @@ arquitetural (a confirmar em Onda 2):
   `prompt_polish`/`intent_compile`.
 - `VOX_PERSONAL_DICTIONARY_UPDATED` - correcao recorrente promovida ao
   dicionario pessoal.
+
+## V6.5 · politica de extensoes additive (2026-05-19)
+
+A Onda V6.5 introduziu campos novos no response do `/ai/vox/intent` e
+dentro do `intent_packet`. Regra unica que NUNCA se quebra:
+
+**Campos novos sao SEMPRE additive. Nunca obrigatorios, nunca substitutivos,
+nunca renomeiam campos legados.** Detalhes na secao "V6.5 - extensoes
+additive" de `VoxIntentPacket.v1.md`.
+
+Campos additive ativos:
+
+| Local                                  | Campo            | Schema literal                  | Origem (V6.5)            |
+|----------------------------------------|------------------|---------------------------------|--------------------------|
+| `response.flow_decision`               | `flow_decision`  | `atlas.vox.flow_decision.v1`    | `VoxFlowOrchestrator`    |
+| `response.intent_packet.prompt_quality`| `prompt_quality` | `atlas.vox.prompt_quality.v1`   | `VoxPromptSelfCritic`    |
+
+Clientes V3/V4/V5/V6 que nao conhecem os campos simplesmente os ignoram;
+clientes V6.5+ leem se vierem, caem em fallback se nao vierem.
+
+Garantias:
+
+- Tests backend: `AtlasAiVoxResponseCompatibilityTest` cobre response v1 +
+  additive sem regressao.
+- Tests desktop: `voxResponseBackCompat.test.ts` cobre parser bridge.ts.
+- Regression Wall: `voxRegressionWall.test.ts` checks 12-15 pinam o
+  contrato additive ao nivel de source code.

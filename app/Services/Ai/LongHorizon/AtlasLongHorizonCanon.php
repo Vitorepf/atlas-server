@@ -21,6 +21,115 @@ final class AtlasLongHorizonCanon
 
     public const RECOVERY_PLAN_SCHEMA_VERSION = 'atlas.long_horizon.recovery_plan.v1';
 
+    public const REPLAY_MANIFEST_SCHEMA_VERSION = 'atlas.long_horizon.replay_manifest.v1';
+
+    public const REPLAY_READER_SCHEMA_VERSION = 'atlas.long_horizon.replay_reader_bundle.v1';
+
+    /**
+     * TEOS-I2 · Causal Decision Graph Lite. Read-model (sem tabela) que
+     * compõe um grafo causal navegável sobre Mission Foundation +
+     * Forge intake + Router Decisions + Evidence/Certifications.
+     */
+    public const CAUSAL_GRAPH_LITE_SCHEMA_VERSION = 'atlas.long_horizon.causal_graph_lite.v1';
+
+    /* ------------------------------------------------------------ */
+    /* Causal Graph Lite · node + edge taxonomy */
+    /* ------------------------------------------------------------ */
+
+    public const CAUSAL_NODE_DECISION = 'decision';
+
+    public const CAUSAL_NODE_RECEIPT = 'receipt';
+
+    public const CAUSAL_NODE_WORK_PACKET = 'work_packet';
+
+    public const CAUSAL_NODE_MISSION_STEP = 'mission_step';
+
+    public const CAUSAL_NODE_FILE_REF = 'file_ref';
+
+    public const CAUSAL_NODE_TEST = 'test';
+
+    public const CAUSAL_NODE_REPAIR = 'repair';
+
+    public const CAUSAL_NODE_BLOCKER = 'blocker';
+
+    public const CAUSAL_NODE_CERTIFICATION = 'certification';
+
+    /** @var list<string> */
+    public const ALLOWED_CAUSAL_NODE_KINDS = [
+        self::CAUSAL_NODE_DECISION,
+        self::CAUSAL_NODE_RECEIPT,
+        self::CAUSAL_NODE_WORK_PACKET,
+        self::CAUSAL_NODE_MISSION_STEP,
+        self::CAUSAL_NODE_FILE_REF,
+        self::CAUSAL_NODE_TEST,
+        self::CAUSAL_NODE_REPAIR,
+        self::CAUSAL_NODE_BLOCKER,
+        self::CAUSAL_NODE_CERTIFICATION,
+    ];
+
+    public const CAUSAL_EDGE_CAUSED = 'caused';
+
+    public const CAUSAL_EDGE_DEPENDS_ON = 'depends_on';
+
+    public const CAUSAL_EDGE_VERIFIED_BY = 'verified_by';
+
+    public const CAUSAL_EDGE_REPAIRED_BY = 'repaired_by';
+
+    public const CAUSAL_EDGE_BLOCKED_BY = 'blocked_by';
+
+    public const CAUSAL_EDGE_SUPERSEDED_BY = 'superseded_by';
+
+    /** @var list<string> */
+    public const ALLOWED_CAUSAL_EDGE_KINDS = [
+        self::CAUSAL_EDGE_CAUSED,
+        self::CAUSAL_EDGE_DEPENDS_ON,
+        self::CAUSAL_EDGE_VERIFIED_BY,
+        self::CAUSAL_EDGE_REPAIRED_BY,
+        self::CAUSAL_EDGE_BLOCKED_BY,
+        self::CAUSAL_EDGE_SUPERSEDED_BY,
+    ];
+
+    /**
+     * Scope types que `LongHorizonCausalDecisionGraphService::build()`
+     * aceita hoje. Subset estrito de ALLOWED_SCOPE_TYPES — adicionar
+     * outros exige código novo no service + teste.
+     *
+     * @var list<string>
+     */
+    public const CAUSAL_GRAPH_LITE_ALLOWED_SCOPES = [
+        self::SCOPE_TYPE_MISSION,
+        self::SCOPE_TYPE_WORK_ORDER,
+        self::SCOPE_TYPE_OBRA,
+        self::SCOPE_TYPE_FORGE_OBRA,
+    ];
+
+    /**
+     * Replay manifest status taxonomy. The status reflects how an arbitrary
+     * provider can consume the manifest:
+     *   - `ready`            — all required refs available; reader can resume.
+     *   - `partial`          — some required refs missing; reader should
+     *                          downgrade to read_only/review.
+     *   - `blocked`          — required refs missing AND continuation pack
+     *                          flagged stale/blocked; reader must ask human.
+     *   - `requires_recovery` — recovery_queries from compaction receipt are
+     *                          still open; reader should replay them first.
+     */
+    public const REPLAY_STATUS_READY = 'ready';
+
+    public const REPLAY_STATUS_PARTIAL = 'partial';
+
+    public const REPLAY_STATUS_BLOCKED = 'blocked';
+
+    public const REPLAY_STATUS_REQUIRES_RECOVERY = 'requires_recovery';
+
+    /** @var list<string> */
+    public const ALLOWED_REPLAY_STATUSES = [
+        self::REPLAY_STATUS_READY,
+        self::REPLAY_STATUS_PARTIAL,
+        self::REPLAY_STATUS_BLOCKED,
+        self::REPLAY_STATUS_REQUIRES_RECOVERY,
+    ];
+
     public const SCOPE_TYPE_MISSION = 'mission';
 
     public const SCOPE_TYPE_WORK_ORDER = 'work_order';

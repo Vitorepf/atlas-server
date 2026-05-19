@@ -93,12 +93,33 @@ class AiWorker
 
         $hasProcessingVideo = collect($videos)
             ->contains(fn (mixed $video): bool => is_array($video) && ($video['status'] ?? null) === 'processing');
-        if (! $hasProcessingVideo || trim((string) $job->input_text) === '') {
+        if (! $hasProcessingVideo) {
+            return $job;
+        }
+
+        // Canonical capability · union URLs from input_text and
+        // rich_input_payload.url_attachments[] so the refresh path matches
+        // the gateway extraction path. Mobile/desktop that attach via
+        // payload only otherwise miss the processing→ready refresh.
+        $payloadUrls = data_get($payload, 'rich_input_payload.url_attachments');
+        $urlsFromText = trim((string) $job->input_text) !== ''
+            ? $this->youtubeKnowledge->extractUrls((string) $job->input_text)
+            : [];
+        $urlsFromPayload = is_array($payloadUrls)
+            ? $this->youtubeKnowledge->extractUrlsFromRichInputPayload($payloadUrls)
+            : [];
+        $urls = collect([...$urlsFromText, ...$urlsFromPayload])
+            ->filter(fn (mixed $url): bool => is_string($url) && $url !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($urls === []) {
             return $job;
         }
 
         try {
-            $fresh = $this->youtubeKnowledge->ingestFromInput((string) $job->input_text, [
+            $fresh = $this->youtubeKnowledge->ingestFromUrls($urls, [
                 'defer_audio_fallback' => true,
             ]);
         } catch (\Throwable) {

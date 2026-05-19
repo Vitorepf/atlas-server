@@ -196,3 +196,49 @@ Quando `compiled_prompt` e gerado em modos `prompt_polish` /
 - v1 (2026-05-18): versao inicial canonica.
 - Substitui versao informal mencionada em `atlas-vox-operational-thinking-interface.md`
   secao "V2: Intent Compiler" - este e o canon agora.
+
+## V6.5 - extensoes additive (2026-05-19)
+
+A Onda V6.5 introduziu campos opcionais que **NUNCA alteram o contrato
+v1**. Clientes V3/V4/V5/V6 que nao conhecem o campo simplesmente o
+ignoram; clientes V6.5+ leem se vier, caem em fallback se nao vier.
+
+Politica geral:
+
+1. **Additive somente**: nenhum campo legado e renomeado, removido, ou
+   movido. `session_id`, `intent_id`, `goal`, `constraints`,
+   `compiled_prompt`, etc. permanecem identicos ao v1.
+2. **Opcional + nullable**: cada campo novo pode estar ausente OU `null`.
+   O parser canonico do desktop (`bridge.ts::voxKernelIntent`) ja trata
+   ambos os casos.
+3. **Schema versao propria**: cada campo additive carrega seu proprio
+   `schema` literal (ex.: `atlas.vox.prompt_quality.v1`). Drift de
+   schema interno NAO bumpa o packet v1.
+4. **Sem dependencia mutua**: clientes podem renderizar `flow_decision`
+   sem ler `prompt_quality`, e vice-versa. UI nunca falha por ausencia.
+
+Campos additive ativos:
+
+| Campo                                     | Schema literal                       | Origem                          | Quando preencher                          |
+|-------------------------------------------|--------------------------------------|---------------------------------|-------------------------------------------|
+| `intent_packet.prompt_quality`            | `atlas.vox.prompt_quality.v1`        | `VoxPromptSelfCritic` (V6.5)    | Modos `intent_compile`/`governed_execute` |
+| `intent_packet.compiler_telemetry.prompt_quality` | `atlas.vox.prompt_quality.v1` | `VoxPromptSelfCritic` (V6.5)    | Cópia interna; mesma origem               |
+| `intent_packet.compiler_telemetry.quality_self_check` | (legado V6-FPG-B)        | `VoxPromptCompiler::selfCheck`  | Mantido por back-compat com analytics V6 |
+| `flow_decision` (no response, NAO no packet) | `atlas.vox.flow_decision.v1`      | `VoxFlowOrchestrator` (V6.5)    | Modos com decisao explicita de destino    |
+
+Garantias enforcadas por teste:
+
+- `tests/Feature/Ai/Vox/AtlasAiVoxResponseCompatibilityTest` — prova que
+  o response carrega os campos legados E aceita os additive sem regredir.
+- `tests/Unit/Ai/Vox/VoxPromptSelfCriticTest` — prova que o envelope
+  `atlas.vox.prompt_quality.v1` e determinístico e nao quebra clientes V6.
+- `apps/desktop/src/lib/__tests__/voxResponseBackCompat.test.ts` (desktop)
+  — prova que o parser do bridge aceita response V6 puro E V6.5 cheio.
+
+Politica de drift:
+
+- Acrescentar campo novo no packet: OK desde que seja opcional, nullable,
+  carregue schema literal proprio e exista teste back-compat.
+- Renomear campo legado: PROIBIDO sem bump para `intent_packet.v2`.
+- Tornar campo legado obrigatorio: PROIBIDO.
+- Mover campo legado entre `intent_packet` e root: PROIBIDO.

@@ -132,6 +132,11 @@ final class VoxCompiler
                 'context_refs' => $extracted['context_refs'],
                 'compiled_prompt' => $compiled['compiled_prompt'],
                 'compiled_prompt_template' => $compiled['compiled_prompt_template'],
+                // V6.5-PROMPT-SELF-CRITIC · envelope canônico exposto
+                // diretamente no packet (não só dentro de compiler_telemetry).
+                // Atlas Desktop pode renderizar status + issues + needs_review
+                // sem precisar destrinchar telemetria.
+                'prompt_quality' => $compiled['prompt_quality'] ?? null,
                 'compiler_telemetry' => [
                     'provider_hint_source' => $extracted['provider_hint_source'],
                     'output_format_source' => $extracted['output_format_source'],
@@ -142,6 +147,9 @@ final class VoxCompiler
                     // Determinístico, sem chamada externa. Cert V6 amarra
                     // score mínimo nas 4 vozes canônicas.
                     'quality_self_check' => $compiled['quality_self_check'] ?? null,
+                    // V6.5 · cópia do envelope dentro da telemetria para
+                    // analytics que já consome `compiler_telemetry.*`.
+                    'prompt_quality' => $compiled['prompt_quality'] ?? null,
                 ],
             ]);
         }

@@ -461,6 +461,13 @@ XML, 'json3');
                 $table->json('diagnostics')->nullable();
                 $table->timestamp('last_ingested_at')->nullable()->index();
                 $table->timestamps();
+                // YouTube canonical capability — mirrors @atlas/rich-input-canon
+                $table->string('ingestion_status', 32)->nullable()->index();
+                $table->string('transcript_status', 32)->nullable()->index();
+                $table->string('translation_status', 32)->nullable()->index();
+                $table->string('source_language', 24)->nullable();
+                $table->string('target_language', 24)->nullable()->default('pt-BR');
+                $table->boolean('translation_required')->nullable();
             });
         }
 
@@ -540,6 +547,13 @@ XML, 'json3');
                 $table->json('diagnostics')->nullable();
                 $table->timestamp('last_ingested_at')->nullable()->index();
                 $table->timestamps();
+                // YouTube canonical capability — mirrors @atlas/rich-input-canon
+                $table->string('ingestion_status', 32)->nullable()->index();
+                $table->string('transcript_status', 32)->nullable()->index();
+                $table->string('translation_status', 32)->nullable()->index();
+                $table->string('source_language', 24)->nullable();
+                $table->string('target_language', 24)->nullable()->default('pt-BR');
+                $table->boolean('translation_required')->nullable();
             });
         }
 

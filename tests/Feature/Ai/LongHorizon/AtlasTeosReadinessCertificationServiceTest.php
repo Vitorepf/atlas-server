@@ -136,7 +136,7 @@ class AtlasTeosReadinessCertificationServiceTest extends TestCase
             'app/Services/Ai/LongHorizon/LongHorizonRecoveryPlannerService.php',
             "<?php\n".
             "use App\\Services\\Ai\\Programming\\AtlasForgeClaudeCliInvocationDriver;\n".
-            "class LongHorizonRecoveryPlannerService { public function plan() { return new AtlasForgeClaudeCliInvocationDriver(); } }",
+            'class LongHorizonRecoveryPlannerService { public function plan() { return new AtlasForgeClaudeCliInvocationDriver(); } }',
         );
 
         $payload = (new AtlasTeosReadinessCertificationService($probe))->certify();
@@ -203,6 +203,15 @@ class AtlasTeosReadinessCertificationServiceTest extends TestCase
             'tests/Feature/Ai/LongHorizon/LongHorizonContextFreshnessGateTest.php',
             'tests/Feature/Ai/LongHorizon/LongHorizonMemoryScopesAndPromotionGuardTest.php',
             'app/Services/Ai/LongHorizon/AtlasTeosReadinessCertificationService.php',
+            // TEOS-I2 replay manifest surface.
+            'app/Models/AtlasLongHorizonReplayManifest.php',
+            'database/migrations/2026_05_19_150000_create_atlas_long_horizon_replay_manifests_table.php',
+            'app/Services/Ai/LongHorizon/Replay/LongHorizonReplayManifestBuilder.php',
+            'app/Services/Ai/LongHorizon/Replay/ReplayManifestReader.php',
+            'app/Console/Commands/AtlasLongHorizonReplayManifestCommand.php',
+            // TEOS-I2 M10 · continuity certification full surface.
+            'app/Services/Ai/LongHorizon/LongHorizonContinuityCertificationService.php',
+            'app/Console/Commands/AtlasLongHorizonContinuityCertifyCommand.php',
         ] as $path) {
             $probe->setFile($path, $stub);
         }

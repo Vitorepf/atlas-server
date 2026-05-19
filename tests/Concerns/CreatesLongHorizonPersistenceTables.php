@@ -69,10 +69,33 @@ trait CreatesLongHorizonPersistenceTables
             $table->string('receipt_hash', 64);
             $table->timestamps();
         });
+
+        Schema::create('atlas_long_horizon_replay_manifests', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('schema_version', 120)->default('atlas.long_horizon.replay_manifest.v1');
+            $table->string('uuid', 64)->unique();
+            $table->string('scope_type', 40)->index();
+            $table->string('scope_id', 64)->nullable()->index();
+            $table->uuid('continuation_pack_id')->nullable()->index();
+            $table->uuid('compaction_receipt_id')->nullable()->index();
+            $table->json('required_refs');
+            $table->json('available_refs');
+            $table->json('missing_refs');
+            $table->json('event_refs');
+            $table->json('evidence_refs');
+            $table->string('context_pack_hash', 64)->nullable();
+            $table->text('reader_instructions');
+            $table->text('provider_independent_summary');
+            $table->json('safety_notes');
+            $table->string('replay_status', 40)->index();
+            $table->string('hash', 64)->index();
+            $table->timestamps();
+        });
     }
 
     protected function dropLongHorizonPersistenceTables(): void
     {
+        Schema::dropIfExists('atlas_long_horizon_replay_manifests');
         Schema::dropIfExists('atlas_long_horizon_compaction_receipts');
         Schema::dropIfExists('atlas_long_horizon_continuation_packs');
     }

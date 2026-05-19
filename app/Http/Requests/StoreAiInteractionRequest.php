@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreAiInteractionRequest extends FormRequest
 {
@@ -92,5 +93,39 @@ class StoreAiInteractionRequest extends FormRequest
             'uploaded_documents' => ['nullable', 'array', 'max:4'],
             'uploaded_documents.*' => ['string', 'max:120', 'regex:/^[A-Za-z0-9._-]+$/'],
         ];
+    }
+
+    /**
+     * YouTube canonical capability: when a `rich_input_payload.url_attachments[]`
+     * entry has `kind='youtube'` it MUST carry a valid 11-char video id in
+     * `ref_id`. Surfaces (mobile/desktop) compute this via
+     * `@atlas/rich-input-canon` — a missing ref_id means a bad payload, not
+     * a missing field. See docs/rich-input/youtube-canon.md.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $attachments = $this->input('rich_input_payload.url_attachments');
+            if (! is_array($attachments)) {
+                return;
+            }
+
+            foreach ($attachments as $index => $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+                $kind = strtolower((string) ($entry['kind'] ?? ''));
+                if ($kind !== 'youtube') {
+                    continue;
+                }
+                $refId = (string) ($entry['ref_id'] ?? '');
+                if ($refId === '' || preg_match('/^[A-Za-z0-9_-]{11}$/', $refId) !== 1) {
+                    $validator->errors()->add(
+                        "rich_input_payload.url_attachments.{$index}.ref_id",
+                        "Quando 'kind' = 'youtube', 'ref_id' precisa ser o videoId canonico de 11 caracteres."
+                    );
+                }
+            }
+        });
     }
 }

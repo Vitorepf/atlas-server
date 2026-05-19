@@ -121,6 +121,67 @@ final class AtlasAiVoxControllerTest extends TestCase
             ->assertJsonValidationErrors(['audio_bytes']);
     }
 
+    /**
+     * V6.5 · /ai/vox/intent agrega `flow_decision` (envelope humano que
+     * descreve modo + destino + risco + fallback + clarifying_question).
+     * O Kernel não muda nenhum campo legado — o envelope é puramente
+     * aditivo. Clientes V3/V4/V5/V6 ignoram o campo sem quebrar.
+     */
+    public function test_intent_v65_attaches_flow_decision_envelope(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'mode_requested' => 'auto',
+            'text' => 'manda pro Codex investigar o módulo Vox sem editar arquivos',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('flow_decision.schema', VoxSchema::FLOW_DECISION)
+            ->assertJsonPath('flow_decision.version', VoxSchema::FLOW_ORCHESTRATOR_VERSION)
+            ->assertJsonPath('flow_decision.mode', 'intent_compile')
+            ->assertJsonPath('flow_decision.destination', 'codex')
+            ->assertJsonPath('flow_decision.needs_clarification', false)
+            ->assertJsonPath('flow_decision.confidence', 'high')
+            ->assertJsonPath('flow_decision.safe_fallback', 'copy_text');
+
+        $what = (string) $response->json('flow_decision.what_i_will_do');
+        $this->assertNotSame('', $what);
+        $this->assertStringNotContainsString('rms', $what);
+        $this->assertStringNotContainsString('peak', $what);
+    }
+
+    public function test_intent_v65_flow_decision_signals_R4_cancel_for_destructive_phrase(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'mode_requested' => 'auto',
+            'text' => 'manda um rm -rf no diretório do projeto',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('flow_decision.mode', 'governed_execute')
+            ->assertJsonPath('flow_decision.risk_class', 'R4')
+            ->assertJsonPath('flow_decision.safe_fallback', 'cancel');
+
+        $whatWillDo = (string) $response->json('flow_decision.what_i_will_do');
+        $this->assertStringContainsString('NÃO', $whatWillDo);
+    }
+
+    public function test_intent_v65_flow_decision_asks_for_clarification_on_unresolved_pronoun(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'mode_requested' => 'auto',
+            'text' => 'executa isso',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('flow_decision.needs_clarification', true)
+            ->assertJsonPath('flow_decision.safe_fallback', 'ask_clarification')
+            ->assertJsonPath('flow_decision.destination', 'none');
+
+        $question = (string) $response->json('flow_decision.clarifying_question');
+        $this->assertNotSame('', $question);
+        $this->assertDoesNotMatchRegularExpression('/\b(?:please|sorry|confirm)\b/i', $question);
+    }
+
     public function test_intent_rejects_raw_audio_field(): void
     {
         $body = $this->validTranscript();

@@ -27,6 +27,18 @@ final class VoxPromptCompiler
     public const TEMPLATE_VERSION = '0.2.0';
 
     /**
+     * V6.5-PROMPT-SELF-CRITIC · self-critic determinístico aplicado a cada
+     * `compile()`. Nullable para preservar back-compat com `new VoxPromptCompiler()`
+     * usado em testes e CLI tools antigos.
+     */
+    private VoxPromptSelfCritic $critic;
+
+    public function __construct(?VoxPromptSelfCritic $critic = null)
+    {
+        $this->critic = $critic ?? new VoxPromptSelfCritic();
+    }
+
+    /**
      * V6-ES-C · seções canônicas presentes em todo `compiled_prompt` de
      * `intent_compile`. A certificação V6 confere que cada uma aparece
      * com header `## …`. Mudar nomes aqui quebra o cert intencionalmente.
@@ -113,6 +125,28 @@ final class VoxPromptCompiler
             'risk_class' => $extracted['risk_class'] ?? 'R0',
             'provider_hint' => $provider,
         ]);
+
+        // V6.5-PROMPT-SELF-CRITIC · envelope canônico `atlas.vox.prompt_quality.v1`.
+        // O critic pode patchar `compiled_prompt` se houver issues simples
+        // (boilerplate vazado, voz original ausente, vetos universais
+        // perdidos). Quando há issue grave (negação perdida, risco
+        // suavizado, ação não autorizada), `needs_review=true` para o
+        // operador investigar — o compile NÃO falha.
+        $quality = $this->critic->review($rawTranscript, $result, [
+            'goal' => $extracted['goal'] ?? '',
+            'constraints' => $extracted['constraints'] ?? [],
+            'output_format' => $outputFormat,
+            'risk_class' => $extracted['risk_class'] ?? 'R0',
+            'provider_hint' => $provider,
+        ]);
+
+        // Se o critic patchou o prompt, adotamos a versão reparada — o
+        // result devolvido carrega o prompt limpo, sem boilerplate e com
+        // os blocos canônicos restaurados.
+        if (($quality['repaired'] ?? false) === true) {
+            $result['compiled_prompt'] = (string) ($quality['compiled_prompt'] ?? $result['compiled_prompt']);
+        }
+        $result['prompt_quality'] = $quality;
 
         return $result;
     }

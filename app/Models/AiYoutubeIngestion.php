@@ -29,6 +29,12 @@ class AiYoutubeIngestion extends Model
         'chunks',
         'diagnostics',
         'last_ingested_at',
+        'ingestion_status',
+        'transcript_status',
+        'translation_status',
+        'source_language',
+        'target_language',
+        'translation_required',
     ];
 
     protected function casts(): array
@@ -45,6 +51,7 @@ class AiYoutubeIngestion extends Model
             'last_ingested_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
+            'translation_required' => 'boolean',
         ];
     }
 }
