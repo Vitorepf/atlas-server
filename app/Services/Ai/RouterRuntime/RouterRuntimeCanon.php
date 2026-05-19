@@ -126,27 +126,94 @@ final class RouterRuntimeCanon
         self::INTENT_UNKNOWN => 'conversation',
     ];
 
+    // Canonical flow_id constants for each domain-aligned specialist flow.
+    public const FLOW_CONVERSATION = 'atlas_conversation';
+
+    public const FLOW_RESEARCH = 'atlas_research';
+
+    public const FLOW_DEV = 'atlas_dev';
+
+    public const FLOW_DEBUG = 'atlas_debug';
+
+    public const FLOW_REVIEW = 'atlas_review';
+
+    public const FLOW_EXPLAIN = 'atlas_explain';
+
+    public const FLOW_PLAN = 'atlas_plan';
+
+    public const FLOW_FORGE = 'atlas_forge';
+
+    public const FLOW_FINANCE = 'atlas_finance';
+
+    public const FLOW_MARKETING = 'atlas_marketing';
+
+    public const FLOW_STRATEGY = 'atlas_strategy';
+
+    public const FLOW_CYBER = 'atlas_cyber';
+
+    public const FLOW_PERSONAL_DEVELOPMENT = 'atlas_personal_development';
+
+    public const FLOW_AUTOMATION = 'atlas_automation';
+
     /**
-     * Canonical flow_id mapping aligned with the Router Runtime Enterprise
-     * Upgrade contract: `atlas_dev`, `atlas_research`, `atlas_debug`,
-     * `atlas_review`, `atlas_plan`, `atlas_explain`, `atlas_conversation`,
-     * `atlas_forge`.
+     * Canonical flow_id mapping. Each non-programming domain now has a
+     * dedicated specialist flow — finance/marketing/strategy/cyber/personal/
+     * automation no longer fall back to `atlas_plan`. The fallback for
+     * truly unknown intents stays `atlas_conversation`.
      */
     public const INTENT_TO_FLOW = [
-        self::INTENT_CONVERSATION => 'atlas_conversation',
-        self::INTENT_RESEARCH => 'atlas_research',
-        self::INTENT_PROGRAMMING => 'atlas_dev',
-        self::INTENT_DEBUG => 'atlas_debug',
-        self::INTENT_REVIEW => 'atlas_review',
-        self::INTENT_EXPLAIN => 'atlas_explain',
-        self::INTENT_PLAN => 'atlas_plan',
-        self::INTENT_FINANCE => 'atlas_plan',
-        self::INTENT_MARKETING => 'atlas_plan',
-        self::INTENT_STRATEGY => 'atlas_plan',
-        self::INTENT_CYBER => 'atlas_plan',
-        self::INTENT_PERSONAL_DEVELOPMENT => 'atlas_plan',
-        self::INTENT_AUTOMATION => 'atlas_plan',
-        self::INTENT_UNKNOWN => 'atlas_conversation',
+        self::INTENT_CONVERSATION => self::FLOW_CONVERSATION,
+        self::INTENT_RESEARCH => self::FLOW_RESEARCH,
+        self::INTENT_PROGRAMMING => self::FLOW_DEV,
+        self::INTENT_DEBUG => self::FLOW_DEBUG,
+        self::INTENT_REVIEW => self::FLOW_REVIEW,
+        self::INTENT_EXPLAIN => self::FLOW_EXPLAIN,
+        self::INTENT_PLAN => self::FLOW_PLAN,
+        self::INTENT_FINANCE => self::FLOW_FINANCE,
+        self::INTENT_MARKETING => self::FLOW_MARKETING,
+        self::INTENT_STRATEGY => self::FLOW_STRATEGY,
+        self::INTENT_CYBER => self::FLOW_CYBER,
+        self::INTENT_PERSONAL_DEVELOPMENT => self::FLOW_PERSONAL_DEVELOPMENT,
+        self::INTENT_AUTOMATION => self::FLOW_AUTOMATION,
+        self::INTENT_UNKNOWN => self::FLOW_CONVERSATION,
+    ];
+
+    /**
+     * The 14 canonical specialist flow_ids. Used by SpecialistFlows registry
+     * and asserted by tests — adding/removing requires updating the test
+     * suite + canon doc.
+     *
+     * @var array<int,string>
+     */
+    public const ALLOWED_FLOW_IDS = [
+        self::FLOW_CONVERSATION,
+        self::FLOW_RESEARCH,
+        self::FLOW_DEV,
+        self::FLOW_DEBUG,
+        self::FLOW_REVIEW,
+        self::FLOW_EXPLAIN,
+        self::FLOW_PLAN,
+        self::FLOW_FORGE,
+        self::FLOW_FINANCE,
+        self::FLOW_MARKETING,
+        self::FLOW_STRATEGY,
+        self::FLOW_CYBER,
+        self::FLOW_PERSONAL_DEVELOPMENT,
+        self::FLOW_AUTOMATION,
+    ];
+
+    /**
+     * Programming-anchored flow_ids. Non-programming specialist handlers
+     * MUST refuse to delegate to these flows; otherwise finance/marketing/
+     * cyber traffic could silently land inside Atlas Dev runtime.
+     *
+     * @var array<int,string>
+     */
+    public const PROGRAMMING_FLOW_IDS = [
+        self::FLOW_DEV,
+        self::FLOW_FORGE,
+        self::FLOW_DEBUG,
+        self::FLOW_REVIEW,
     ];
 
     /**

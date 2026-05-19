@@ -351,6 +351,17 @@ intacto. 6–10h. Serial — última missão.
 
 ## Evidencias
 
+### Readiness/Certification canônico
+
+Status auditavel emitido por `AtlasTeosReadinessCertificationService` via
+`php artisan atlas:teos:readiness --json`. Schema
+`atlas.teos.readiness_certification.v1`. 12 checks cobrindo docs, services,
+models, tests, freshness gate, recovery planner, memory promotion guard,
+Hyperflow canon doc, boundary com Atlas Decide e invariantes de segurança
+(`provider_calls_made=false`, `atlas_decide_topology_modified=false`,
+`external_claim_status=not_claimed`). Status `ready` exige zero P0/P1 fail.
+NÃO autoriza promoção contra rival; NÃO mexe em provider topology.
+
 ### Definition of Done
 
 TEOS-I1 é **delivered** quando, simultaneamente:

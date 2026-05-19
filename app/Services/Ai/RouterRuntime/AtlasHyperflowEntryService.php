@@ -93,9 +93,11 @@ class AtlasHyperflowEntryService
         }
 
         try {
+            $surfaceContract = $this->surfaceContract($payload);
             $intent = $this->intentKernel->classify($rawInput, [
                 'mission_id' => $data['mission_id'] ?? null,
                 'source' => self::SOURCE_GATEWAY,
+                ...$surfaceContract,
             ]);
             $routerDecision = $this->domainRouter->route($intent);
             $flowRoute = $this->flowRouter->decideFlow($routerDecision, $intent);
@@ -154,6 +156,108 @@ class AtlasHyperflowEntryService
         }
 
         return true;
+    }
+
+    /**
+     * Convert Desktop/Obra composer metadata into RouterRuntime constraints.
+     *
+     * The surface does not pick a provider or mutate topology; it supplies a
+     * bounded contract. Atlas Hyperflow still emits the canonical decision
+     * receipt, but it must not ignore a scoped surface such as Atlas Code,
+     * where even an ambiguous prompt belongs to the Forge work lane.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function surfaceContract(array $payload): array
+    {
+        $surface = $this->stringValue(data_get($payload, 'surface_id'))
+            ?? $this->stringValue(data_get($payload, 'app_surface'));
+        $mode = $this->stringValue(data_get($payload, 'atlas_mode'))
+            ?? $this->stringValue(data_get($payload, 'current_mode'))
+            ?? $this->stringValue(data_get($payload, 'atlas_focus'));
+        $task = $this->stringValue(data_get($payload, 'routing_task'))
+            ?? $this->stringValue(data_get($payload, 'atlas_workflow_mode'))
+            ?? $this->stringValue(data_get($payload, 'operator_composer_hints.task'));
+        $flowId = $this->stringValue(data_get($payload, 'flow_id'))
+            ?? $this->stringValue(data_get($payload, 'operator_composer_hints.surface_flow'));
+
+        if ($surface === 'atlas_code') {
+            return [
+                'intent_override' => RouterRuntimeCanon::INTENT_PROGRAMMING,
+                'intent_override_confidence' => 0.94,
+                'intent_override_ambiguity_score' => 0.30,
+                'intent_override_matched_keywords' => ['surface:atlas_code', 'flow:programming.forge'],
+                'intent_override_reason' => 'atlas_code_surface_contract_requires_forge',
+                'surface_contract' => [
+                    'schema_version' => 'atlas.hyperflow.surface_contract.v1',
+                    'surface_id' => 'atlas_code',
+                    'mode' => $mode ?? 'forge',
+                    'task' => $task ?? 'forge',
+                    'flow_id' => $flowId ?? 'programming.forge',
+                    'intent_override' => RouterRuntimeCanon::INTENT_PROGRAMMING,
+                    'routing_mode' => RouterRuntimeCanon::MODE_FORGE,
+                    'handoff_target' => 'atlas_forge',
+                    'reason' => 'atlas_code_surface_contract_requires_forge',
+                    'provider_selection_effect' => 'none',
+                    'atlas_decide_authority' => true,
+                ],
+            ];
+        }
+
+        if ($mode === 'programming' || str_starts_with((string) $flowId, 'programming.')) {
+            $intent = match ($task) {
+                'debug', 'repair' => RouterRuntimeCanon::INTENT_DEBUG,
+                'review' => RouterRuntimeCanon::INTENT_REVIEW,
+                'plan' => RouterRuntimeCanon::INTENT_PLAN,
+                default => RouterRuntimeCanon::INTENT_PROGRAMMING,
+            };
+
+            return [
+                'intent_override' => $intent,
+                'intent_override_confidence' => 0.88,
+                'intent_override_ambiguity_score' => 0.35,
+                'intent_override_matched_keywords' => ['composer_mode:programming', 'task:'.($task ?? 'dev')],
+                'intent_override_reason' => 'explicit_programming_composer_contract',
+                'surface_contract' => [
+                    'schema_version' => 'atlas.hyperflow.surface_contract.v1',
+                    'surface_id' => $surface ?? 'atlas_desktop_ai',
+                    'mode' => 'programming',
+                    'task' => $task ?? 'dev',
+                    'flow_id' => $flowId ?? 'programming.dev',
+                    'intent_override' => $intent,
+                    'routing_mode' => RouterRuntimeCanon::MODE_STANDARD,
+                    'handoff_target' => 'atlas_dev',
+                    'reason' => 'explicit_programming_composer_contract',
+                    'provider_selection_effect' => 'none',
+                    'atlas_decide_authority' => true,
+                ],
+            ];
+        }
+
+        return [
+            'surface_contract' => [
+                'schema_version' => 'atlas.hyperflow.surface_contract.v1',
+                'surface_id' => $surface,
+                'mode' => $mode,
+                'task' => $task,
+                'flow_id' => $flowId,
+                'reason' => 'no_surface_intent_override',
+                'provider_selection_effect' => 'none',
+                'atlas_decide_authority' => true,
+            ],
+        ];
+    }
+
+    private function stringValue(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     /**

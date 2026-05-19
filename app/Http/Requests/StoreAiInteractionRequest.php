@@ -14,6 +14,13 @@ class StoreAiInteractionRequest extends FormRequest
                 'payload' => json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : null,
             ]);
         }
+
+        if ($this->has('rich_input_payload') && is_string($this->input('rich_input_payload'))) {
+            $decoded = json_decode((string) $this->input('rich_input_payload'), true);
+            $this->merge([
+                'rich_input_payload' => json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : null,
+            ]);
+        }
     }
 
     public function rules(): array
@@ -37,6 +44,38 @@ class StoreAiInteractionRequest extends FormRequest
             'include_semantic_context' => ['nullable', 'boolean'],
             'context_note_limit' => ['nullable', 'integer', 'between:0,20'],
             'payload' => ['nullable', 'array'],
+            'rich_input_payload' => ['nullable', 'array'],
+            'rich_input_payload.schema_version' => ['nullable', 'string', 'max:80'],
+            'rich_input_payload.uploaded_image_ids' => ['nullable', 'array', 'max:8'],
+            'rich_input_payload.uploaded_image_ids.*' => ['string', 'max:120', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'rich_input_payload.uploaded_document_ids' => ['nullable', 'array', 'max:4'],
+            'rich_input_payload.uploaded_document_ids.*' => ['string', 'max:120', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'rich_input_payload.url_attachments' => ['nullable', 'array', 'max:16'],
+            'rich_input_payload.url_attachments.*' => ['array'],
+            'rich_input_payload.url_attachments.*.url' => ['required_with:rich_input_payload.url_attachments.*', 'string', 'max:2048'],
+            'rich_input_payload.url_attachments.*.kind' => ['nullable', 'string', 'max:40'],
+            'rich_input_payload.url_attachments.*.title' => ['nullable', 'string', 'max:240'],
+            'rich_input_payload.url_attachments.*.author' => ['nullable', 'string', 'max:240'],
+            'rich_input_payload.url_attachments.*.duration_sec' => ['nullable', 'integer', 'min:0'],
+            'rich_input_payload.url_attachments.*.thumbnail_url' => ['nullable', 'string', 'max:2048'],
+            'rich_input_payload.url_attachments.*.ref_id' => ['nullable', 'string', 'max:120'],
+            'rich_input_payload.text_blocks' => ['nullable', 'array', 'max:8'],
+            'rich_input_payload.text_blocks.*' => ['array'],
+            'rich_input_payload.text_blocks.*.file_name' => ['nullable', 'string', 'max:240'],
+            'rich_input_payload.text_blocks.*.mime_type' => ['nullable', 'string', 'max:120'],
+            'rich_input_payload.text_blocks.*.language' => ['nullable', 'string', 'max:40'],
+            'rich_input_payload.text_blocks.*.content' => ['required_with:rich_input_payload.text_blocks.*', 'string', 'max:200000'],
+            'rich_input_payload.text_blocks.*.page_count' => ['nullable', 'integer', 'min:0'],
+            'rich_input_payload.source_manifest' => ['nullable', 'array', 'max:36'],
+            'rich_input_payload.source_manifest.*' => ['array'],
+            'rich_input_payload.source_manifest.*.id' => ['nullable', 'string', 'max:160'],
+            'rich_input_payload.source_manifest.*.kind' => ['nullable', 'string', 'max:40'],
+            'rich_input_payload.source_manifest.*.file_name' => ['nullable', 'string', 'max:2048'],
+            'rich_input_payload.source_manifest.*.mime_type' => ['nullable', 'string', 'max:120'],
+            'rich_input_payload.source_manifest.*.size' => ['nullable', 'integer', 'min:0'],
+            'rich_input_payload.source_manifest.*.uploaded_id' => ['nullable', 'string', 'max:120'],
+            'rich_input_payload.source_manifest.*.source_hash' => ['nullable', 'string', 'max:128'],
+            'rich_input_payload.source_manifest.*.source' => ['nullable', 'string', 'max:80'],
             'images' => ['nullable', 'array', 'max:8'],
             'images.*' => [
                 'file',

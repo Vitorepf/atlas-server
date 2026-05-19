@@ -120,7 +120,9 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertIsArray($envelope);
         $this->assertSame('finance', $envelope['primary_domain']);
         $this->assertSame(RouterRuntimeCanon::INTENT_FINANCE, $envelope['intent']['type']);
-        $this->assertSame('atlas_plan', $envelope['flow_id']);
+        // Canon emits the dedicated specialist flow `atlas_finance` (not the
+        // legacy `atlas_plan` fallback) since the multi-domain refactor.
+        $this->assertSame(RouterRuntimeCanon::FLOW_FINANCE, $envelope['flow_id']);
         $this->assertSame(RouterRuntimeCanon::MODE_DEEP, $envelope['runtime_mode']);
         $this->assertTrue($envelope['policy_required'], 'finance demands policy gate');
         $this->assertTrue($envelope['evidence_required']);
@@ -140,10 +142,159 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertIsArray($envelope);
         $this->assertSame('marketing', $envelope['primary_domain']);
         $this->assertSame(RouterRuntimeCanon::INTENT_MARKETING, $envelope['intent']['type']);
-        $this->assertSame('atlas_plan', $envelope['flow_id']);
+        // Canon emits the dedicated specialist flow `atlas_marketing` (not
+        // the legacy `atlas_plan` fallback) since the multi-domain refactor.
+        $this->assertSame(RouterRuntimeCanon::FLOW_MARKETING, $envelope['flow_id']);
         $this->assertTrue($envelope['policy_required'], 'marketing is high-risk domain');
         $this->assertContains('policy.gate', $envelope['required_gates']);
         $this->assertNull($envelope['handoff_target']);
+    }
+
+    public function test_rich_input_payload_is_preserved_for_hyperflow_gateway_options(): void
+    {
+        $clientId = (string) Str::uuid();
+        $captured = null;
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($clientId, &$captured): void {
+            $mock->shouldReceive('enqueueInteraction')
+                ->once()
+                ->andReturnUsing(function (string $input, array $options) use ($clientId, &$captured): AiTrace {
+                    $captured = $options;
+
+                    return $this->trace($clientId);
+                });
+        });
+
+        $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions', [
+                'input_text' => 'analise este video https://youtu.be/dQw4w9WgXcQ',
+                'client_id' => $clientId,
+                'new_thread' => true,
+                'agent_slug' => 'orquestrador',
+                'provider' => 'codex_cli',
+                'source_type' => 'app',
+                'payload' => ['app_surface' => 'atlas_mobile_ai', 'surface_id' => 'atlas_mobile_ai'],
+                'rich_input_payload' => [
+                    'schema_version' => 'atlas.rich_input.payload.v1',
+                    'uploaded_image_ids' => [],
+                    'uploaded_document_ids' => [],
+                    'text_blocks' => [],
+                    'url_attachments' => [[
+                        'url' => 'https://youtu.be/dQw4w9WgXcQ',
+                        'kind' => 'youtube',
+                        'title' => null,
+                        'author' => null,
+                        'duration_sec' => null,
+                        'thumbnail_url' => 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+                        'ref_id' => 'dQw4w9WgXcQ',
+                    ]],
+                    'source_manifest' => [[
+                        'id' => 'url-test',
+                        'kind' => 'url',
+                        'file_name' => 'https://youtu.be/dQw4w9WgXcQ',
+                        'mime_type' => 'text/uri-list',
+                        'size' => 0,
+                        'uploaded_id' => null,
+                        'source_hash' => null,
+                        'source' => 'paste',
+                    ]],
+                ],
+            ])
+            ->assertAccepted();
+
+        $this->assertIsArray($captured, 'gateway must have been called with options');
+        $this->assertSame('atlas.rich_input.payload.v1', data_get($captured, 'payload.rich_input_payload.schema_version'));
+        $this->assertSame('youtube', data_get($captured, 'payload.rich_input_payload.url_attachments.0.kind'));
+        $this->assertSame('dQw4w9WgXcQ', data_get($captured, 'payload.rich_input_payload.url_attachments.0.ref_id'));
+        $this->assertSame('url', data_get($captured, 'payload.rich_input_payload.source_manifest.0.kind'));
+        $this->assertIsArray(data_get($captured, 'payload.hyperflow_runtime'), 'Hyperflow must still run after rich input normalization');
+    }
+
+    public function test_atlas_code_obra_ambiguous_prompt_uses_surface_contract_for_forge_hyperflow(): void
+    {
+        $captured = $this->postInteraction(
+            input: 'arruma isso',
+            payload: [
+                'app_surface' => 'atlas_code',
+                'surface_id' => 'atlas_code',
+                'requires_obra' => true,
+                'atlas_mode' => 'forge',
+                'current_mode' => 'forge',
+                'atlas_workflow_mode' => 'forge',
+                'domain_id' => 'programming',
+                'flow_id' => 'programming.forge',
+                'routing_domain' => 'programming',
+                'routing_task' => 'forge',
+                'operator_composer_hints' => [
+                    'schema_version' => 'atlas.unified_composer.hints.v1',
+                    'mode' => 'auto',
+                    'task' => 'auto',
+                    'provider' => 'auto',
+                    'preserves_surface_flow' => true,
+                    'surface_flow' => 'programming.forge',
+                    'provider_selection_effect' => 'atlas_decide',
+                ],
+            ],
+        );
+
+        $envelope = data_get($captured, 'payload.hyperflow_runtime');
+        $this->assertIsArray($envelope);
+        $this->assertSame('ready', $envelope['status']);
+        $this->assertSame('programming', $envelope['primary_domain']);
+        $this->assertSame(RouterRuntimeCanon::INTENT_PROGRAMMING, $envelope['intent']['type']);
+        $this->assertSame('atlas_forge', $envelope['flow_id']);
+        $this->assertSame(RouterRuntimeCanon::MODE_FORGE, $envelope['runtime_mode']);
+        $this->assertSame('atlas_forge', $envelope['handoff_target']['kind']);
+        $this->assertSame('hyperflow_programming_flow_handoff', $envelope['handoff_target']['reason']);
+        $this->assertContains('surface:atlas_code', $envelope['intent']['matched_keywords']);
+        $this->assertContains('tool_plan.gate', $envelope['required_gates']);
+        $this->assertTrue($envelope['evidence_required']);
+        $this->assertTrue($envelope['tool_plan_required']);
+
+        $intent = AiAtlasIntentClassification::query()->latest('id')->first();
+        $this->assertSame(
+            'atlas_code_surface_contract_requires_forge',
+            data_get($intent?->signals, 'intent_override.reason'),
+        );
+        $this->assertSame(
+            RouterRuntimeCanon::MODE_FORGE,
+            data_get($intent?->signals, 'surface_contract.routing_mode'),
+        );
+        $this->assertTrue((bool) data_get($intent?->signals, 'surface_contract.atlas_decide_authority'));
+    }
+
+    public function test_desktop_ai_explicit_programming_bad_prompt_routes_to_programming_handoff(): void
+    {
+        $captured = $this->postInteraction(
+            input: 'não funciona',
+            payload: [
+                'app_surface' => 'atlas_desktop_ai',
+                'surface_id' => 'atlas_desktop_ai',
+                'atlas_mode' => 'programming',
+                'atlas_focus' => 'programming',
+                'atlas_workflow_mode' => 'debug',
+                'routing_task' => 'debug',
+                'flow_id' => 'programming.repair',
+                'domain_id' => 'programming',
+                'workspace' => '/tmp/atlas-workspace',
+            ],
+        );
+
+        $envelope = data_get($captured, 'payload.hyperflow_runtime');
+        $this->assertIsArray($envelope);
+        $this->assertSame('programming', $envelope['primary_domain']);
+        $this->assertSame(RouterRuntimeCanon::INTENT_DEBUG, $envelope['intent']['type']);
+        $this->assertSame('atlas_debug', $envelope['flow_id']);
+        $this->assertSame('atlas_dev', $envelope['handoff_target']['kind']);
+        $this->assertContains('composer_mode:programming', $envelope['intent']['matched_keywords']);
+
+        $intent = AiAtlasIntentClassification::query()->latest('id')->first();
+        $this->assertSame(
+            'explicit_programming_composer_contract',
+            data_get($intent?->signals, 'intent_override.reason'),
+        );
+        $this->assertSame('atlas_desktop_ai', data_get($intent?->signals, 'surface_contract.surface_id'));
+        $this->assertSame('debug', data_get($intent?->signals, 'surface_contract.task'));
     }
 
     public function test_envelope_is_idempotent_when_already_present(): void

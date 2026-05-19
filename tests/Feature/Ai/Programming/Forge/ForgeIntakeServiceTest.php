@@ -119,6 +119,55 @@ class ForgeIntakeServiceTest extends TestCase
         );
     }
 
+    public function test_direct_intake_persists_canonical_rich_input_payload_without_raw_text(): void
+    {
+        $intake = app(ForgeIntakeService::class)->intakeFromPrompt(
+            'Implementar Obra longa usando briefing multimodal com anexos',
+            [
+                'context_refs' => ['manual:operator-note'],
+                'rich_input_payload' => [
+                    'schema_version' => 'atlas.rich_input.payload.v1',
+                    'uploaded_image_ids' => ['img_forge_1'],
+                    'uploaded_document_ids' => ['doc_forge_1'],
+                    'url_attachments' => [[
+                        'url' => 'https://youtu.be/dQw4w9WgXcQ',
+                        'kind' => 'youtube',
+                        'ref_id' => 'dQw4w9WgXcQ',
+                    ]],
+                    'text_blocks' => [[
+                        'file_name' => 'brief.md',
+                        'mime_type' => 'text/markdown',
+                        'language' => 'markdown',
+                        'content' => 'conteudo bruto que nao deve persistir no intake Forge',
+                    ]],
+                    'source_manifest' => [[
+                        'id' => 'url-1',
+                        'kind' => 'url',
+                        'file_name' => 'https://youtu.be/dQw4w9WgXcQ',
+                        'mime_type' => 'text/uri-list',
+                        'source' => 'paste',
+                    ]],
+                ],
+            ],
+        );
+
+        $this->assertSame('atlas.rich_input.payload.v1', $intake->rich_input_schema_version);
+        $this->assertSame('atlas.rich_input.payload.v1', $intake->rich_input_payload['schema_version']);
+        $this->assertSame(['img_forge_1'], $intake->rich_input_payload['uploaded_image_ids']);
+        $this->assertSame(['doc_forge_1'], $intake->rich_input_payload['uploaded_document_ids']);
+        $this->assertSame('youtube', $intake->rich_input_payload['url_attachments'][0]['kind']);
+        $this->assertArrayHasKey('content_hash', $intake->rich_input_payload['text_blocks'][0]);
+        $this->assertArrayNotHasKey('content', $intake->rich_input_payload['text_blocks'][0]);
+        $this->assertArrayHasKey('manifest_hash', $intake->rich_input_payload['source_manifest'][0]);
+        $this->assertContains('manual:operator-note', $intake->context_refs);
+        $this->assertContains('image_asset:img_forge_1', $intake->context_refs);
+        $this->assertContains('document_asset:doc_forge_1', $intake->context_refs);
+        $this->assertTrue(
+            collect($intake->context_refs)->contains(fn (string $ref): bool => str_starts_with($ref, 'source_manifest:url:')),
+            'Forge intake must expose source_manifest provenance for audit.',
+        );
+    }
+
     public function test_dod_and_evidence_requirements_are_attached_at_intake_time(): void
     {
         $intake = app(ForgeIntakeService::class)->intakeFromPrompt(
@@ -367,6 +416,8 @@ class ForgeIntakeServiceTest extends TestCase
             'evidence_refs' => $intake->evidence_refs,
             'context_refs' => $intake->context_refs,
             'context_pack_hash' => $intake->context_pack_hash,
+            'rich_input_payload' => $intake->rich_input_payload,
+            'rich_input_schema_version' => $intake->rich_input_schema_version,
             'constraints' => $intake->constraints,
             'non_goals' => $intake->non_goals,
             'sdd_spec' => $intake->sdd_spec,

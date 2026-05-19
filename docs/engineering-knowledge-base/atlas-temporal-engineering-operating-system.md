@@ -216,6 +216,67 @@ Exemplo Forge: uma Obra de 90 dias usa milestone ledger, SDD revisions, work pac
 - Rodar docs-health em toda mudança.
 - Não rodar benchmark até autorização explícita posterior.
 
+## Local Runtime Status TEOS-I1
+
+Estado do canon TEOS-I1 local (`atlas.teos.readiness_certification.v1`
+emitido por `AtlasTeosReadinessCertificationService` + complementado por
+`AtlasTeosRuntimeWiringTest` para invariantes de runtime).
+
+### Comandos canon
+
+| Comando | Função | Output |
+|---|---|---|
+| `atlas:teos:readiness` | TEOS-I1 readiness static audit | `atlas.teos.readiness_certification.v1` |
+| `atlas:teos:readiness --json` | Mesmo, JSON puro | idem |
+| `atlas:teos:readiness --strict` | Exit ≠0 unless `status=ready` | CI gate |
+
+### Serviços canon wired
+
+- `App\Services\Ai\LongHorizon\AtlasLongHorizonCanon` (3 schemas).
+- `App\Services\Ai\LongHorizon\LongHorizonRecoveryPlannerService::plan()`.
+- `App\Services\Ai\LongHorizon\Gate\LongHorizonContextFreshnessGate::evaluate()`.
+- `App\Services\Ai\LongHorizon\LongHorizonMemoryPromotionGuard` injetado em
+  `AtlasMemoryDeltaPromotionService` (constructor refletido pelo runtime
+  wiring test).
+- `App\Services\Ai\Programming\Forge\ForgeLongHorizonStateService::emitContinuationPack()`
+  delegando a `ForgeContinuationPackBuilder`.
+- `App\Support\TemporalTruth\HasTemporalTruth` em `AtlasDecisionReceipt`,
+  `AtlasMemoryEntry`, `AiCodebaseWorldModelEdge` (3 modelos canon).
+- `AtlasMemoryEntry::SCOPES` carrega `obra` + `long_horizon` + const
+  `LONG_HORIZON_SCOPES`.
+- `AtlasLedgerEvent` enforce append-only via `LogicException` em
+  `save()` e `delete()` — invariante exercitada em runtime.
+
+### Persistência canon wired
+
+- `atlas_long_horizon_continuation_packs` (schema `continuation_pack.v2`).
+- `atlas_long_horizon_compaction_receipts` (schema `compaction_receipt.v1`).
+- Colunas temporal-truth (`valid_from..authority_level`) presentes em
+  `atlas_decision_receipts`, `atlas_memory_entries`, `ai_codebase_world_model_edges`.
+
+### Honesty invariants enforcados na readiness
+
+1. `status=ready` recusado enquanto qualquer P0/P1 check estiver `fail`.
+2. `external_claim_status` sempre `not_claimed`.
+3. `provider_calls_made` sempre `false`.
+4. `atlas_decide_topology_modified` sempre `false`.
+5. Atlas Decide / Provider Topology contratos preservados (boundary check).
+6. Provider invocation drivers (Claude/Codex/Gemini) detectados via
+   use-statements/instanciações reais, NÃO menções textuais.
+
+### Limitações declaradas (não escondidas)
+
+- **TEOS-I2+ não implementado**: Causal Decision Graph, Strategic
+  Forgetting, ReplayManifest builder/reader, Continuity Certification
+  full surface continuam em design.
+- **Benchmark contra Claude Code/Codex permanece bloqueado** —
+  `BenchmarkReadinessHarness` é o único harness e nunca executa.
+- **`atlas:teos:readiness` é audit puro**: detecta presença de código e
+  shape de classes, mas não exercita execução end-to-end. A complementação
+  vem dos testes focados (`*LongHorizon*Test`, `*TemporalTruth*Test`,
+  `*ForgeContinuationPack*Test`, `*MemoryPromotion*Test`, runtime wiring
+  test) que cobrem 103+ assertions.
+
 ## North-Star Components
 
 Detalhes completos estão nas specs filhas:

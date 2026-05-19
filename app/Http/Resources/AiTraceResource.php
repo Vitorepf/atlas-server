@@ -325,7 +325,11 @@ class AiTraceResource extends JsonResource
                 'dispatch_status' => null,
                 'handoff_target' => null,
                 'handoff_reason' => null,
+                'fallback_flows' => [],
+                'fallback_provider' => null,
+                'fallback_reason' => $this->resolveFallbackReason($rich),
                 'router_was_overridden' => false,
+                'flow_status' => 'degraded',
                 'reasons' => array_values(array_filter([$rich['error'] ?? null], 'is_string')),
             ];
         }
@@ -350,6 +354,22 @@ class AiTraceResource extends JsonResource
         $reasons = is_array($reasonReasons)
             ? array_values(array_filter($reasonReasons, 'is_string'))
             : [];
+
+        $fallbackFlows = array_values(array_filter(
+            (array) ($rich['fallback_flows'] ?? []),
+            static fn ($f): bool => is_string($f) && $f !== '',
+        ));
+        $fallbackProvider = $this->resource->relationLoaded('routerDecision') && $this->routerDecision
+            ? $this->routerDecision->fallback_provider
+            : null;
+        $fallbackReason = $this->resolveFallbackReason($rich);
+        $wasOverridden = $this->resource->relationLoaded('routerDecision') && $this->routerDecision
+            ? (bool) $this->routerDecision->was_overridden
+            : false;
+
+        $policyRequired = (bool) ($rich['policy_required'] ?? false);
+        $evidenceRequired = (bool) ($rich['evidence_required'] ?? false);
+        $flowStatus = $this->resolveFlowStatus($policyRequired, $evidenceRequired, $policyRefs, $evidenceRefs);
 
         return [
             'schema_version' => $rich['schema_version'] ?? null,
@@ -377,9 +397,81 @@ class AiTraceResource extends JsonResource
                 : null,
             'handoff_target' => $handoffTargetString !== '' ? $handoffTargetString : null,
             'handoff_reason' => $handoffReasonString !== '' ? $handoffReasonString : null,
-            'router_was_overridden' => false,
+            'fallback_flows' => $fallbackFlows,
+            'fallback_provider' => $fallbackProvider,
+            'fallback_reason' => $fallbackReason,
+            'router_was_overridden' => $wasOverridden,
+            'flow_status' => $flowStatus,
             'reasons' => $reasons,
         ];
+    }
+
+    /**
+     * Resolve `fallback_reason` so the Desktop never sees a silent fallback.
+     *
+     * Sources, in priority order:
+     *   1. explicit `fallback_reason` already in the envelope;
+     *   2. degraded envelope `error` field — pipeline crashed; surface verbatim;
+     *   3. dispatch blockers — runtime dispatch refused; list first reason;
+     *   4. router was_overridden — surface `manual_operator_override`.
+     *
+     * Returns `null` only when there genuinely is no fallback signal.
+     *
+     * @param  array<string,mixed>  $rich
+     */
+    private function resolveFallbackReason(array $rich): ?string
+    {
+        if (isset($rich['fallback_reason']) && is_string($rich['fallback_reason']) && $rich['fallback_reason'] !== '') {
+            return $rich['fallback_reason'];
+        }
+        if (($rich['status'] ?? null) === 'degraded' && is_string($rich['error'] ?? null) && $rich['error'] !== '') {
+            return 'degraded_envelope:'.$rich['error'];
+        }
+        $blockers = data_get($rich, 'dispatch.blockers');
+        if (is_array($blockers) && $blockers !== []) {
+            $first = $blockers[0];
+            $label = is_array($first) ? ($first['reason'] ?? $first['kind'] ?? null) : (is_string($first) ? $first : null);
+            if (is_string($label) && $label !== '') {
+                return 'dispatch_blocker:'.$label;
+            }
+        }
+        if ($this->resource->relationLoaded('routerDecision')
+            && $this->routerDecision
+            && $this->routerDecision->was_overridden) {
+            return 'manual_operator_override';
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve `flow_status` honestly so Desktop renders partial/degraded
+     * states instead of false success:
+     *   - `success`              — flow declared no gates OR all required
+     *                              gates have refs.
+     *   - `partial_no_policy`    — policy_required=true but policy_refs=[].
+     *   - `partial_no_evidence`  — evidence_required=true but evidence_refs=[].
+     *   - `partial_no_gates`     — both required and both missing.
+     *
+     * @param  array<int,string>  $policyRefs
+     * @param  array<int,string>  $evidenceRefs
+     */
+    private function resolveFlowStatus(bool $policyRequired, bool $evidenceRequired, array $policyRefs, array $evidenceRefs): string
+    {
+        $policyMissing = $policyRequired && $policyRefs === [];
+        $evidenceMissing = $evidenceRequired && $evidenceRefs === [];
+
+        if ($policyMissing && $evidenceMissing) {
+            return 'partial_no_gates';
+        }
+        if ($policyMissing) {
+            return 'partial_no_policy';
+        }
+        if ($evidenceMissing) {
+            return 'partial_no_evidence';
+        }
+
+        return 'success';
     }
 
     /**

@@ -14,6 +14,7 @@ use Tests\TestCase;
  *   - atlas_rich_input_shared_runtime
  *   - forge_rich_input_adapter
  *   - no_legacy_programming_dev_default
+ *   - composer_to_hyperflow_enterprise_path
  *
  * No provider invocation. No rivals. No benchmark. This test exists to
  * make regressions in either layer (backend wiring or Desktop default)
@@ -32,7 +33,7 @@ class AtlasDesktopHyperflowIntegrationCertificationTest extends TestCase
         $this->assertContains($result['status'], ['passed', 'blocked']);
         $this->assertArrayHasKey('summary', $result);
         $this->assertArrayHasKey('checks', $result);
-        $this->assertSame(4, count($result['checks']));
+        $this->assertSame(5, count($result['checks']));
         $this->assertFalse($result['writes']);
         $this->assertFalse($result['declares_teos']);
         $this->assertFalse($result['declares_benchmark']);
@@ -67,9 +68,32 @@ class AtlasDesktopHyperflowIntegrationCertificationTest extends TestCase
             $byId['no_legacy_programming_dev_default']['status'],
             'Desktop must open in auto/auto and never silently degrade to programming.dev',
         );
+        $this->assertSame(
+            'passed',
+            $byId['composer_to_hyperflow_enterprise_path']['status'],
+            'Composer scope, bridge hints and Hyperflow surface-contract routing must be end-to-end locked',
+        );
 
         $this->assertSame('passed', $result['status']);
         $this->assertSame([], $result['remaining_blockers']);
+    }
+
+    public function test_composer_to_hyperflow_enterprise_path_evidence_pins_bad_prompt_route(): void
+    {
+        $result = app(AtlasDesktopHyperflowIntegrationCertificationService::class)->certify();
+        $byId = [];
+        foreach ($result['checks'] as $check) {
+            $byId[$check['id']] = $check;
+        }
+        $evidence = $byId['composer_to_hyperflow_enterprise_path']['evidence'];
+
+        $this->assertTrue($evidence['desktop_composer_blocks_scope_escape']);
+        $this->assertTrue($evidence['forge_composer_scoped_to_obra_modes']);
+        $this->assertTrue($evidence['desktop_and_tauri_bridge_carry_composer_hints']);
+        $this->assertTrue($evidence['hyperflow_consumes_surface_contract']);
+        $this->assertTrue($evidence['intent_kernel_audits_surface_override']);
+        $this->assertTrue($evidence['domain_router_honors_forge_mode_and_tool_plan']);
+        $this->assertTrue($evidence['integration_tests_cover_bad_prompt_paths']);
     }
 
     public function test_desktop_hyperflow_runtime_integration_evidence_pins_the_call_order(): void

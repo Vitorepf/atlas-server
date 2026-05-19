@@ -117,6 +117,7 @@ final class AtlasCodeWorkController extends Controller
             // Atlas Unified Rich Input adapter. All sub-fields are optional —
             // plain-text Obra creation must continue to work untouched.
             'rich_input' => ['nullable', 'array'],
+            'rich_input_payload' => ['nullable', 'array'],
             'rich_input.uploaded_images' => ['nullable', 'array', 'max:8'],
             'rich_input.uploaded_images.*' => ['string', 'max:120', 'regex:/^[A-Za-z0-9._-]+$/'],
             'rich_input.uploaded_documents' => ['nullable', 'array', 'max:4'],
@@ -137,13 +138,44 @@ final class AtlasCodeWorkController extends Controller
             'rich_input.text_blocks.*.language' => ['nullable', 'string', 'max:40'],
             'rich_input.text_blocks.*.content' => ['required_with:rich_input.text_blocks.*', 'string', 'max:200000'],
             'rich_input.text_blocks.*.page_count' => ['nullable', 'integer', 'min:0'],
+            'rich_input_payload.schema_version' => ['nullable', 'string', 'max:80'],
+            'rich_input_payload.uploaded_image_ids' => ['nullable', 'array', 'max:8'],
+            'rich_input_payload.uploaded_image_ids.*' => ['string', 'max:120', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'rich_input_payload.uploaded_document_ids' => ['nullable', 'array', 'max:4'],
+            'rich_input_payload.uploaded_document_ids.*' => ['string', 'max:120', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'rich_input_payload.url_attachments' => ['nullable', 'array', 'max:16'],
+            'rich_input_payload.url_attachments.*' => ['array'],
+            'rich_input_payload.url_attachments.*.url' => ['required_with:rich_input_payload.url_attachments.*', 'string', 'max:2048'],
+            'rich_input_payload.url_attachments.*.kind' => ['nullable', 'string', 'max:40'],
+            'rich_input_payload.url_attachments.*.title' => ['nullable', 'string', 'max:240'],
+            'rich_input_payload.url_attachments.*.author' => ['nullable', 'string', 'max:240'],
+            'rich_input_payload.url_attachments.*.duration_sec' => ['nullable', 'integer', 'min:0'],
+            'rich_input_payload.url_attachments.*.thumbnail_url' => ['nullable', 'string', 'max:2048'],
+            'rich_input_payload.url_attachments.*.ref_id' => ['nullable', 'string', 'max:120'],
+            'rich_input_payload.text_blocks' => ['nullable', 'array', 'max:8'],
+            'rich_input_payload.text_blocks.*' => ['array'],
+            'rich_input_payload.text_blocks.*.file_name' => ['nullable', 'string', 'max:240'],
+            'rich_input_payload.text_blocks.*.mime_type' => ['nullable', 'string', 'max:120'],
+            'rich_input_payload.text_blocks.*.language' => ['nullable', 'string', 'max:40'],
+            'rich_input_payload.text_blocks.*.content' => ['required_with:rich_input_payload.text_blocks.*', 'string', 'max:200000'],
+            'rich_input_payload.text_blocks.*.page_count' => ['nullable', 'integer', 'min:0'],
+            'rich_input_payload.source_manifest' => ['nullable', 'array', 'max:36'],
+            'rich_input_payload.source_manifest.*' => ['array'],
+            'rich_input_payload.source_manifest.*.id' => ['nullable', 'string', 'max:160'],
+            'rich_input_payload.source_manifest.*.kind' => ['nullable', 'string', 'max:40'],
+            'rich_input_payload.source_manifest.*.file_name' => ['nullable', 'string', 'max:2048'],
+            'rich_input_payload.source_manifest.*.mime_type' => ['nullable', 'string', 'max:120'],
+            'rich_input_payload.source_manifest.*.size' => ['nullable', 'integer', 'min:0'],
+            'rich_input_payload.source_manifest.*.uploaded_id' => ['nullable', 'string', 'max:120'],
+            'rich_input_payload.source_manifest.*.source_hash' => ['nullable', 'string', 'max:128'],
+            'rich_input_payload.source_manifest.*.source' => ['nullable', 'string', 'max:80'],
         ]);
 
         $profiles = app(AtlasCodeWorkspaceProfileService::class);
         $workspaceSlug = $profiles->resolveActiveSlug($data['workspace_slug'] ?? null);
         $profile = $workspaceSlug !== null ? $profiles->findBySlug($workspaceSlug) : null;
 
-        $richInput = $this->normaliseRichInput((array) ($data['rich_input'] ?? []));
+        $richInput = $this->normaliseRichInput($this->rawRichInput($data));
         $hasRichInput = $this->richInputHasContent($richInput);
         $contextRefs = $this->deriveRichInputContextRefs($richInput);
 
@@ -169,6 +201,7 @@ final class AtlasCodeWorkController extends Controller
                 // Obra to a "ready intake" just because attachments were
                 // supplied — `forge_work_intake_ready` stays false here.
                 'rich_input' => $hasRichInput ? $richInput : null,
+                'rich_input_schema_version' => $hasRichInput ? ($richInput['schema_version'] ?? null) : null,
                 'rich_input_has_attachments' => $hasRichInput,
                 'context_refs' => $contextRefs !== [] ? $contextRefs : null,
                 'forge_work_intake_ready' => false,
@@ -181,6 +214,22 @@ final class AtlasCodeWorkController extends Controller
     }
 
     /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function rawRichInput(array $data): array
+    {
+        $legacy = is_array($data['rich_input'] ?? null) ? $data['rich_input'] : [];
+        $canonical = is_array($data['rich_input_payload'] ?? null) ? $data['rich_input_payload'] : [];
+
+        if ($canonical === []) {
+            return $legacy;
+        }
+
+        return array_replace_recursive($legacy, $canonical);
+    }
+
+    /**
      * Normalise the raw rich_input payload into a stable, provider-safe shape.
      * Drops empty sub-arrays so absent attachments don't pollute metadata.
      *
@@ -189,12 +238,16 @@ final class AtlasCodeWorkController extends Controller
      */
     private function normaliseRichInput(array $raw): array
     {
+        $schemaVersion = is_string($raw['schema_version'] ?? null)
+            ? (string) $raw['schema_version']
+            : 'atlas.unified_rich_input.adapter.v1';
+
         $uploadedImages = array_values(array_filter(
-            (array) ($raw['uploaded_images'] ?? []),
+            (array) ($raw['uploaded_images'] ?? $raw['uploaded_image_ids'] ?? []),
             static fn ($v): bool => is_string($v) && $v !== '',
         ));
         $uploadedDocuments = array_values(array_filter(
-            (array) ($raw['uploaded_documents'] ?? []),
+            (array) ($raw['uploaded_documents'] ?? $raw['uploaded_document_ids'] ?? []),
             static fn ($v): bool => is_string($v) && $v !== '',
         ));
 
@@ -236,12 +289,38 @@ final class AtlasCodeWorkController extends Controller
             ];
         }
 
+        $sourceManifest = [];
+        foreach ((array) ($raw['source_manifest'] ?? []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $kind = isset($entry['kind']) && is_string($entry['kind']) ? $entry['kind'] : null;
+            $fileName = isset($entry['file_name']) && is_string($entry['file_name']) ? $entry['file_name'] : null;
+            if ($kind === null && $fileName === null) {
+                continue;
+            }
+
+            $sourceManifest[] = array_filter([
+                'id' => isset($entry['id']) && is_string($entry['id']) ? $entry['id'] : null,
+                'kind' => $kind,
+                'file_name' => $fileName,
+                'mime_type' => isset($entry['mime_type']) && is_string($entry['mime_type']) ? $entry['mime_type'] : null,
+                'size' => is_numeric($entry['size'] ?? null) ? (int) $entry['size'] : null,
+                'uploaded_id' => isset($entry['uploaded_id']) && is_string($entry['uploaded_id']) ? $entry['uploaded_id'] : null,
+                'source_hash' => isset($entry['source_hash']) && is_string($entry['source_hash']) ? $entry['source_hash'] : null,
+                'source' => isset($entry['source']) && is_string($entry['source']) ? $entry['source'] : null,
+                'manifest_hash' => hash('sha256', json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+            ], static fn ($v): bool => $v !== null && $v !== '');
+        }
+
         return array_filter([
-            'schema_version' => 'atlas.unified_rich_input.adapter.v1',
+            'schema_version' => $schemaVersion,
             'uploaded_images' => $uploadedImages !== [] ? $uploadedImages : null,
             'uploaded_documents' => $uploadedDocuments !== [] ? $uploadedDocuments : null,
             'url_attachments' => $urlAttachments !== [] ? $urlAttachments : null,
             'text_blocks' => $textBlocks !== [] ? $textBlocks : null,
+            'source_manifest' => $sourceManifest !== [] ? $sourceManifest : null,
         ], static fn ($v): bool => $v !== null);
     }
 
@@ -250,7 +329,7 @@ final class AtlasCodeWorkController extends Controller
      */
     private function richInputHasContent(array $richInput): bool
     {
-        foreach (['uploaded_images', 'uploaded_documents', 'url_attachments', 'text_blocks'] as $key) {
+        foreach (['uploaded_images', 'uploaded_documents', 'url_attachments', 'text_blocks', 'source_manifest'] as $key) {
             if (is_array($richInput[$key] ?? null) && $richInput[$key] !== []) {
                 return true;
             }
@@ -290,6 +369,17 @@ final class AtlasCodeWorkController extends Controller
             $hash = is_array($block) ? ($block['content_hash'] ?? null) : null;
             if (is_string($hash) && $hash !== '') {
                 $refs[] = 'text_block:'.$hash;
+            }
+        }
+        foreach ((array) ($richInput['source_manifest'] ?? []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $hash = $entry['source_hash'] ?? $entry['manifest_hash'] ?? null;
+            $kind = is_string($entry['kind'] ?? null) && $entry['kind'] !== '' ? $entry['kind'] : 'source';
+            if (is_string($hash) && $hash !== '') {
+                $refs[] = 'source_manifest:'.$kind.':'.$hash;
             }
         }
 

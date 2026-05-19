@@ -280,6 +280,108 @@ final class VoxEvidenceService
     }
 
     /**
+     * V3 certification pack snapshot. The pack body is NOT ledgered (it
+     * contains the full metrics/gate/rivals snapshot, which already lives
+     * in the ledger via its own events). We record the canonical hash + a
+     * minimal summary so auditors can later prove "the pack with this
+     * hash existed at this time", without duplicating the payload.
+     *
+     * @param  array{
+     *     certification_hash: string,
+     *     gate_status: string,
+     *     readiness_summary: string,
+     *     hard_gate_violations: int,
+     *     v4_unlock_allowed: bool,
+     * } $packMeta
+     * @return array<string,mixed>
+     */
+    public function v3CertificationPackCreated(array $packMeta): array
+    {
+        return $this->emit(
+            type: LedgerEventType::VoxV3CertificationPackCreated,
+            kind: 'VOX_V3_CERTIFICATION_PACK_CREATED',
+            payload: [
+                'certification_hash' => (string) ($packMeta['certification_hash'] ?? ''),
+                'gate_status' => (string) ($packMeta['gate_status'] ?? ''),
+                'readiness_summary' => (string) ($packMeta['readiness_summary'] ?? ''),
+                'hard_gate_violations' => (int) ($packMeta['hard_gate_violations'] ?? 0),
+                // explicit non-promotion flag · auditors can grep for accidental flips
+                'v4_unlock_allowed' => false,
+            ],
+            envelopeId: 'vox-v3-cert',
+        );
+    }
+
+    /**
+     * V3 human promotion review. Records WHO reviewed, WHICH pack hash was
+     * reviewed, and WHAT decision was taken. The free-form `notes` field
+     * is intentionally NOT ledgered (it can contain personal context) —
+     * only the structured decision + hash are persisted for audit.
+     *
+     * Even an `approved_for_v4_planning` decision NEVER flips a feature
+     * flag in this wave: V4 unlock requires an explicit follow-up wave.
+     *
+     * @param  array{
+     *     certification_hash: string,
+     *     reviewed_by: string,
+     *     decision: string,
+     *     gate_status: string,
+     * } $reviewMeta
+     * @return array<string,mixed>
+     */
+    public function v3PromotionReviewRecorded(array $reviewMeta): array
+    {
+        return $this->emit(
+            type: LedgerEventType::VoxV3PromotionReviewRecorded,
+            kind: 'VOX_V3_PROMOTION_REVIEW_RECORDED',
+            payload: [
+                'certification_hash' => (string) ($reviewMeta['certification_hash'] ?? ''),
+                'reviewed_by' => (string) ($reviewMeta['reviewed_by'] ?? ''),
+                'decision' => (string) ($reviewMeta['decision'] ?? ''),
+                'gate_status' => (string) ($reviewMeta['gate_status'] ?? ''),
+                'v4_unlocked_by_review' => false,
+            ],
+            envelopeId: 'vox-v3-cert',
+        );
+    }
+
+    /**
+     * Wave 7.9 (Claude Z): emitted when Vitor records one dogfood session
+     * (real Vox usage diary entry). Distinct from `rivalsCaseRecorded` —
+     * a dogfood entry is unilateral ("eu usei e foi assim"), not a
+     * head-to-head comparison.
+     *
+     * Payload is the structured session metadata sans audio, transcript
+     * text, prompt body. `notes` and `metadata` are intentionally NOT
+     * ledgered here — they may contain personal context. Only the
+     * structured signals (mode/outcome/flags/duration) are emitted so the
+     * ledger remains audit-safe.
+     *
+     * @param  array<string,mixed>  $session
+     * @return array<string,mixed>
+     */
+    public function dogfoodSessionRecorded(array $session): array
+    {
+        return $this->emit(
+            type: LedgerEventType::VoxDogfoodSessionRecorded,
+            kind: 'VOX_DOGFOOD_SESSION_RECORDED',
+            payload: [
+                'dogfood_session_id' => (string) ($session['dogfood_session_id'] ?? ''),
+                'vox_session_id' => $session['vox_session_id'] ?? null,
+                'mode' => (string) ($session['mode'] ?? ''),
+                'outcome' => (string) ($session['outcome'] ?? ''),
+                'used_hotkey' => (bool) ($session['used_hotkey'] ?? false),
+                'used_real_stt' => (bool) ($session['used_real_stt'] ?? false),
+                'used_governed_execute' => (bool) ($session['used_governed_execute'] ?? false),
+                'regret_flag' => (bool) ($session['regret_flag'] ?? false),
+                'eclipse_used' => (bool) ($session['eclipse_used'] ?? false),
+                'duration_ms' => $session['duration_ms'] ?? null,
+            ],
+            envelopeId: (string) ($session['vox_session_id'] ?? 'vox-dogfood'),
+        );
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */

@@ -106,6 +106,17 @@ class IntentKernelService
         $scores = $this->scoreKeywords($normalized);
         $ranked = $this->rank($scores);
         [$intentType, $confidence, $ambiguity, $matchedKeywords] = $this->resolveIntent($ranked, $normalized);
+        $surfaceContract = is_array($context['surface_contract'] ?? null)
+            ? $context['surface_contract']
+            : [];
+
+        $override = $this->intentOverride($context);
+        if ($override !== null) {
+            $intentType = $override['intent_type'];
+            $confidence = $override['confidence'];
+            $ambiguity = $override['ambiguity_score'];
+            $matchedKeywords = $override['matched_keywords'];
+        }
 
         return AiAtlasIntentClassification::query()->create([
             'uuid' => (string) Str::uuid(),
@@ -121,9 +132,45 @@ class IntentKernelService
                 'top' => array_slice($ranked, 0, 3),
                 'length' => mb_strlen($normalized),
                 'source' => $context['source'] ?? 'cli',
+                'surface_contract' => $surfaceContract,
+                'intent_override' => $override,
             ],
             'status' => 'classified',
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @return array{intent_type:string,confidence:float,ambiguity_score:float,matched_keywords:array<int,string>,reason:string}|null
+     */
+    private function intentOverride(array $context): ?array
+    {
+        $candidate = $context['intent_override'] ?? null;
+        if (! is_string($candidate) || ! in_array($candidate, RouterRuntimeCanon::INTENT_TYPES, true)) {
+            return null;
+        }
+
+        return [
+            'intent_type' => $candidate,
+            'confidence' => $this->floatBetween($context['intent_override_confidence'] ?? null, 0.82),
+            'ambiguity_score' => $this->floatBetween($context['intent_override_ambiguity_score'] ?? null, 0.25),
+            'matched_keywords' => array_values(array_filter(
+                (array) ($context['intent_override_matched_keywords'] ?? ['surface_contract']),
+                static fn (mixed $value): bool => is_string($value) && trim($value) !== '',
+            )),
+            'reason' => is_string($context['intent_override_reason'] ?? null)
+                ? (string) $context['intent_override_reason']
+                : 'surface_contract_intent_override',
+        ];
+    }
+
+    private function floatBetween(mixed $value, float $fallback): float
+    {
+        if (! is_numeric($value)) {
+            return $fallback;
+        }
+
+        return max(0.0, min(1.0, round((float) $value, 4)));
     }
 
     private function normalize(string $input): string

@@ -15,6 +15,7 @@ namespace App\Services\Ai\Vox;
 final class VoxSchema
 {
     public const HEALTH = 'atlas.vox.health.v1';
+    public const READINESS = 'atlas.vox.readiness.v1';
     public const TRANSCRIPT = 'atlas.vox.transcript.v1';
     public const INTENT_PACKET = 'atlas.vox.intent_packet.v1';
     public const INTENT_RESPONSE = 'atlas.vox.intent_response.v1';
@@ -22,9 +23,11 @@ final class VoxSchema
     public const EXECUTE_RESPONSE = 'atlas.vox.execute_response.v1';
     public const RECEIPT_R0 = 'atlas.vox.receipt.r0.v1';
     public const CONFIRMATION_REQUEST = 'atlas.vox.confirmation_request.v1';
+    public const AUTO_MODE_DECISION = 'atlas.vox.auto_mode_decision.v1';
 
     public const COMPILER_VERSION = '0.1.0';
     public const KERNEL_VOX_VERSION = '0.2.0';
+    public const AUTO_MODE_ROUTER_VERSION = '0.1.0';
 
     public const DEFAULT_LANGUAGE = 'pt-BR';
 

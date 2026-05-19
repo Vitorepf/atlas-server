@@ -374,4 +374,184 @@ final class AtlasAiVoxMetricsControllerTest extends TestCase
             'regret_flag' => false,
         ], $overrides));
     }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Wave 7.6 (Claude R) · V3 Certification Pack + Promotion Review
+    // ──────────────────────────────────────────────────────────────────
+
+    public function test_certification_pack_returns_schema_hash_and_review_required(): void
+    {
+        $response = $this->getJson('/ai/vox/gate-v3/certification-pack', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('schema', 'atlas.vox.v3_certification_pack.v1')
+            ->assertJsonPath('vitor_review_required', true)
+            ->assertJsonPath('v4_unlock_allowed', false)
+            ->assertJsonPath('promotion_constraints.v4_unlock_performed_by_this_service', false);
+
+        $hash = $response->json('certification_hash');
+        $this->assertIsString($hash);
+        $this->assertStringStartsWith('sha256:', $hash);
+
+        // Pack must enumerate ALL the required safety invariants.
+        $names = array_column($response->json('safety_invariants'), 'name');
+        foreach (\App\Services\Ai\Vox\Gate\VoxV3CertificationPackService::SAFETY_INVARIANTS as $req) {
+            $this->assertContains($req, $names, "invariante ausente: {$req}");
+        }
+    }
+
+    public function test_certification_pack_includes_metrics_rivals_gate_and_blockers_blocks(): void
+    {
+        // Force a hard-safety violation by persisting a raw-pcm transcript.
+        $sessionId = (string) Str::uuid();
+        AtlasLedgerEvent::create([
+            'event_id' => (string) Str::ulid(),
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => $sessionId,
+            'correlation_id' => $sessionId,
+            'event_type' => LedgerEventType::VoxTranscriptReady->value,
+            'emitter_stage' => 'atlas.kernel.vox.v0',
+            'emitter_version' => 'v1',
+            'payload' => [
+                'session_id' => $sessionId,
+                'raw_pcm_persisted' => true,
+            ],
+            'payload_hash' => hash('sha256', $sessionId),
+            'occurred_at' => CarbonImmutable::now('UTC'),
+        ]);
+
+        $response = $this->getJson('/ai/vox/gate-v3/certification-pack', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('gate_status', 'blocked')
+            ->assertJsonPath('v4_unlock_allowed', false);
+
+        $this->assertNotEmpty($response->json('metrics_snapshot'));
+        $this->assertNotEmpty($response->json('rivals_report'));
+        $this->assertStringContainsString('BLOQUEADO', (string) $response->json('readiness_summary'));
+        $blockers = $response->json('blockers');
+        $this->assertNotEmpty($blockers);
+        $codes = array_column($blockers, 'code');
+        $this->assertContains('safety_invariant_raw_audio_persisted_count_zero_failed', $codes);
+    }
+
+    public function test_certification_pack_emits_ledger_event_with_hash_and_v4_unlock_false(): void
+    {
+        $this->getJson('/ai/vox/gate-v3/certification-pack', $this->headers)->assertOk();
+
+        $events = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoxV3CertificationPackCreated->value)
+            ->get();
+
+        $this->assertCount(1, $events);
+        $payload = $events[0]->payload;
+        $this->assertStringStartsWith('sha256:', (string) ($payload['certification_hash'] ?? ''));
+        $this->assertFalse($payload['v4_unlock_allowed']);
+    }
+
+    public function test_review_with_wrong_hash_is_rejected_and_does_not_unlock_v4(): void
+    {
+        $response = $this->postJson('/ai/vox/gate-v3/review', [
+            'reviewed_by' => 'vitor',
+            'decision' => 'approved_for_v4_planning',
+            'certification_hash' => 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
+            'notes' => 'tentativa de aprovação com hash inválido',
+        ], $this->headers);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['certification_hash']);
+
+        // Ledger MUST NOT contain a PromotionReviewRecorded event.
+        $reviewEvents = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoxV3PromotionReviewRecorded->value)
+            ->count();
+        $this->assertSame(0, $reviewEvents);
+
+        // BUT a VOX_ACTION_BLOCKED must be present with the hash mismatch reason.
+        $blocked = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoxActionBlocked->value)
+            ->whereJsonContains('payload->reason_code', 'v3_review_hash_mismatch')
+            ->count();
+        $this->assertGreaterThanOrEqual(1, $blocked);
+    }
+
+    public function test_review_with_correct_hash_records_but_does_not_unlock_v4(): void
+    {
+        $pack = $this->getJson('/ai/vox/gate-v3/certification-pack', $this->headers)
+            ->assertOk()
+            ->json();
+
+        $response = $this->postJson('/ai/vox/gate-v3/review', [
+            'reviewed_by' => 'vitor',
+            'decision' => 'approved_for_v4_planning',
+            'certification_hash' => $pack['certification_hash'],
+            'notes' => 'aprovado para planejar V4 manualmente',
+        ], $this->headers);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('schema', 'atlas.vox.v3_promotion_review.v1')
+            ->assertJsonPath('reviewed_by', 'vitor')
+            ->assertJsonPath('decision', 'approved_for_v4_planning')
+            ->assertJsonPath('certification_hash', $pack['certification_hash'])
+            // CRITICAL: even an approval NEVER flips a V4 unlock flag.
+            ->assertJsonPath('v4_unlock_allowed', false)
+            ->assertJsonPath('v4_unlocked_by_review', false);
+
+        $events = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::VoxV3PromotionReviewRecorded->value)
+            ->get();
+        $this->assertCount(1, $events);
+        $this->assertFalse($events[0]->payload['v4_unlocked_by_review']);
+    }
+
+    public function test_review_rejects_invalid_decision(): void
+    {
+        $pack = $this->getJson('/ai/vox/gate-v3/certification-pack', $this->headers)->json();
+        $this->postJson('/ai/vox/gate-v3/review', [
+            'reviewed_by' => 'vitor',
+            'decision' => 'unlock_v4_now', // not in allow-list
+            'certification_hash' => $pack['certification_hash'],
+        ], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['decision']);
+    }
+
+    public function test_review_rejects_audio_fields(): void
+    {
+        $pack = $this->getJson('/ai/vox/gate-v3/certification-pack', $this->headers)->json();
+        $this->postJson('/ai/vox/gate-v3/review', [
+            'reviewed_by' => 'vitor',
+            'decision' => 'needs_more_usage',
+            'certification_hash' => $pack['certification_hash'],
+            'raw_audio' => 'AAAA',
+        ], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['raw_audio']);
+    }
+
+    public function test_review_with_needs_more_usage_decision_is_accepted(): void
+    {
+        $pack = $this->getJson('/ai/vox/gate-v3/certification-pack', $this->headers)->json();
+        $this->postJson('/ai/vox/gate-v3/review', [
+            'reviewed_by' => 'vitor',
+            'decision' => 'needs_more_usage',
+            'certification_hash' => $pack['certification_hash'],
+        ], $this->headers)
+            ->assertStatus(201)
+            ->assertJsonPath('decision', 'needs_more_usage')
+            ->assertJsonPath('v4_unlock_allowed', false);
+    }
+
+    public function test_certification_endpoints_do_not_touch_voice_realtime_surface(): void
+    {
+        // The pack legitimately NAMES the voice_realtime invariant
+        // (`voice_realtime_touched_false`) — what we forbid is any
+        // reference to Voice Realtime *code paths* or atlas-app artefacts
+        // leaking into the response.
+        $pack = $this->getJson('/ai/vox/gate-v3/certification-pack', $this->headers)
+            ->assertOk()
+            ->getContent();
+        $this->assertStringNotContainsString('Services/Ai/Voice', $pack);
+        $this->assertStringNotContainsString('app/Services/Ai/Voice', $pack);
+        $this->assertStringNotContainsString('atlas-app/', $pack);
+    }
 }

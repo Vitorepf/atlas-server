@@ -13,11 +13,12 @@ use Illuminate\Support\Facades\File;
  * **plumbing** that lets the Desktop consume the Router Runtime decision
  * and share the Rich Input capability across surfaces.
  *
- * Four canonical checks (see `atlas-hyperflow-operation.md#Atlas Desktop AI Hyperflow Integration Canon`):
+ * Canonical checks (see `atlas-hyperflow-operation.md#Atlas Desktop AI Hyperflow Integration Canon`):
  *  - `desktop_hyperflow_runtime_integration`
  *  - `atlas_rich_input_shared_runtime`
  *  - `forge_rich_input_adapter`
  *  - `no_legacy_programming_dev_default`
+ *  - `composer_to_hyperflow_enterprise_path`
  *
  * No provider invocation, no rivals, no benchmark. File-inspection based
  * so it's safe to run inside CI / certification pipelines.
@@ -44,6 +45,10 @@ class AtlasDesktopHyperflowIntegrationCertificationService
 
     public const FORGE_RICH_INPUT_HOOK = 'atlas-desktop/apps/desktop/src/lib/rich-input/useAtlasRichInputAttachments.ts';
 
+    public const DESKTOP_UNIFIED_COMPOSER = 'atlas-desktop/apps/desktop/src/components/composer/AtlasUnifiedComposer.tsx';
+
+    public const FORGE_COMPOSER_PANEL = 'atlas-desktop/apps/desktop/src/surfaces/code/stage/ComposerPanel.tsx';
+
     /**
      * @return array<string,mixed>
      */
@@ -54,6 +59,7 @@ class AtlasDesktopHyperflowIntegrationCertificationService
             $this->atlasRichInputSharedRuntimeCheck(),
             $this->forgeRichInputAdapterCheck(),
             $this->noLegacyProgrammingDevDefaultCheck(),
+            $this->composerToHyperflowEnterprisePathCheck(),
         ];
 
         $failed = array_values(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) !== 'passed'));
@@ -194,9 +200,9 @@ class AtlasDesktopHyperflowIntegrationCertificationService
         $forgeObraBarSource = $this->source($forgeObraBarPath);
         $forgeMainStageSource = $this->source($forgeMainStagePath);
         $forgeUsesCanonicalHook = str_contains($forgeObraBarSource, 'useAtlasRichInputAttachments')
-            && str_contains($forgeObraBarSource, "../../../lib/rich-input")
+            && str_contains($forgeObraBarSource, '../../../lib/rich-input')
             && str_contains($forgeMainStageSource, 'useAtlasRichInputAttachments')
-            && str_contains($forgeMainStageSource, "../../../lib/rich-input");
+            && str_contains($forgeMainStageSource, '../../../lib/rich-input');
         $forgeUsesSharedTokenEstimator = str_contains($this->source($this->repoPath('atlas-desktop/apps/desktop/src/surfaces/code/obra/RichInputControls.tsx')), 'estimateRichInputTokens');
 
         $forgeWorkControllerSource = $this->source(app_path('Http/Controllers/AtlasCodeWorkController.php'));
@@ -300,6 +306,75 @@ class AtlasDesktopHyperflowIntegrationCertificationService
             'use_atlas_ai_starts_auto_auto' => $useAtlasAiStartsAuto,
             'contract_file' => self::DESKTOP_CONTRACT,
             'use_atlas_ai_file' => self::DESKTOP_USE_ATLAS_AI,
+        ]);
+    }
+
+    /**
+     * Check 5: the fixed Desktop composer cannot escape its surface contract,
+     * and the backend Hyperflow consumes that contract before producing the
+     * canonical decision envelope.
+     *
+     * @return array<string,mixed>
+     */
+    private function composerToHyperflowEnterprisePathCheck(): array
+    {
+        $composerSource = $this->source($this->repoPath(self::DESKTOP_UNIFIED_COMPOSER));
+        $forgeComposerSource = $this->source($this->repoPath(self::FORGE_COMPOSER_PANEL));
+        $bridgeSource = $this->source($this->repoPath(self::DESKTOP_BRIDGE));
+        $tauriBridgeSource = $this->source($this->repoPath('atlas-desktop/crates/atlas-bridge/src/client.rs'));
+        $hyperflowSource = $this->source(app_path('Services/Ai/RouterRuntime/AtlasHyperflowEntryService.php'));
+        $intentKernelSource = $this->source(app_path('Services/Ai/RouterRuntime/IntentKernelService.php'));
+        $domainRouterSource = $this->source(app_path('Services/Ai/RouterRuntime/DomainRouterService.php'));
+        $integrationTestSource = $this->source(base_path('tests/Feature/Ai/RouterRuntime/AtlasAiInteractionHyperflowEntryTest.php'));
+
+        $desktopComposerScoped = str_contains($composerSource, 'allowedModes')
+            && str_contains($composerSource, 'modeScopeBlocked')
+            && str_contains($composerSource, 'taskScopeBlocked')
+            && str_contains($composerSource, 'slashCommands');
+        $forgeComposerScoped = str_contains($forgeComposerSource, 'OBRA_ALLOWED_MODES')
+            && str_contains($forgeComposerSource, 'Auto (Obra/Forge)')
+            && ! str_contains($forgeComposerSource, 'finance')
+            && ! str_contains($forgeComposerSource, 'marketing')
+            && ! str_contains($forgeComposerSource, 'personal_development')
+            && ! str_contains($forgeComposerSource, 'cyber')
+            && ! str_contains($forgeComposerSource, 'automation');
+        $bridgeCarriesHints = str_contains($bridgeSource, 'operator_composer_hints')
+            && str_contains($bridgeSource, "surface_flow: 'programming.forge'")
+            && str_contains($tauriBridgeSource, '"operator_composer_hints"')
+            && str_contains($tauriBridgeSource, '"surface_flow": "programming.forge"');
+        $hyperflowConsumesSurfaceContract = str_contains($hyperflowSource, 'surfaceContract($payload)')
+            && str_contains($hyperflowSource, 'atlas_code_surface_contract_requires_forge')
+            && str_contains($hyperflowSource, 'explicit_programming_composer_contract');
+        $intentKernelAuditsOverride = str_contains($intentKernelSource, 'intentOverride($context)')
+            && str_contains($intentKernelSource, "'surface_contract' => \$surfaceContract")
+            && str_contains($intentKernelSource, "'intent_override' => \$override");
+        $domainRouterHonorsForgeMode = str_contains($domainRouterSource, 'surfaceRoutingMode($intent)')
+            && str_contains($domainRouterSource, 'RouterRuntimeCanon::MODE_FORGE')
+            && str_contains($domainRouterSource, '$toolPlanRequired = true');
+        $testsCoverBadPrompts = str_contains($integrationTestSource, 'test_atlas_code_obra_ambiguous_prompt_uses_surface_contract_for_forge_hyperflow')
+            && str_contains($integrationTestSource, 'test_desktop_ai_explicit_programming_bad_prompt_routes_to_programming_handoff')
+            && str_contains($integrationTestSource, "'arruma isso'")
+            && str_contains($integrationTestSource, "'não funciona'");
+
+        $passed = $desktopComposerScoped
+            && $forgeComposerScoped
+            && $bridgeCarriesHints
+            && $hyperflowConsumesSurfaceContract
+            && $intentKernelAuditsOverride
+            && $domainRouterHonorsForgeMode
+            && $testsCoverBadPrompts;
+
+        return $this->check('composer_to_hyperflow_enterprise_path', $passed, [
+            'desktop_composer_blocks_scope_escape' => $desktopComposerScoped,
+            'forge_composer_scoped_to_obra_modes' => $forgeComposerScoped,
+            'desktop_and_tauri_bridge_carry_composer_hints' => $bridgeCarriesHints,
+            'hyperflow_consumes_surface_contract' => $hyperflowConsumesSurfaceContract,
+            'intent_kernel_audits_surface_override' => $intentKernelAuditsOverride,
+            'domain_router_honors_forge_mode_and_tool_plan' => $domainRouterHonorsForgeMode,
+            'integration_tests_cover_bad_prompt_paths' => $testsCoverBadPrompts,
+            'composer_file' => self::DESKTOP_UNIFIED_COMPOSER,
+            'forge_composer_file' => self::FORGE_COMPOSER_PANEL,
+            'backend_entry_file' => 'app/Services/Ai/RouterRuntime/AtlasHyperflowEntryService.php',
         ]);
     }
 

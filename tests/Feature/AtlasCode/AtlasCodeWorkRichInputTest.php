@@ -151,6 +151,64 @@ class AtlasCodeWorkRichInputTest extends TestCase
         );
     }
 
+    public function test_obra_creation_accepts_canonical_rich_input_payload_v1(): void
+    {
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/works', [
+            'intent' => 'abrir obra com contrato rich input canonico',
+            'objective' => 'usar mesmo payload do Atlas AI composer',
+            'domain' => 'programming',
+            'rich_input_payload' => [
+                'schema_version' => 'atlas.rich_input.payload.v1',
+                'uploaded_image_ids' => ['img_mobile_1'],
+                'uploaded_document_ids' => ['doc_mobile_1'],
+                'url_attachments' => [[
+                    'url' => 'https://youtu.be/dQw4w9WgXcQ',
+                    'kind' => 'youtube',
+                    'ref_id' => 'dQw4w9WgXcQ',
+                    'thumbnail_url' => 'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+                ]],
+                'text_blocks' => [[
+                    'file_name' => 'brief.md',
+                    'mime_type' => 'text/markdown',
+                    'language' => 'markdown',
+                    'content' => 'conteudo bruto que deve virar hash',
+                ]],
+                'source_manifest' => [[
+                    'id' => 'url-abcd',
+                    'kind' => 'url',
+                    'file_name' => 'https://youtu.be/dQw4w9WgXcQ',
+                    'mime_type' => 'text/uri-list',
+                    'size' => 0,
+                    'uploaded_id' => null,
+                    'source_hash' => null,
+                    'source' => 'paste',
+                ]],
+            ],
+        ]);
+
+        $response->assertCreated();
+
+        $rich = $response->json('work.metadata.rich_input');
+        $this->assertSame('atlas.rich_input.payload.v1', $rich['schema_version']);
+        $this->assertSame(['img_mobile_1'], $rich['uploaded_images']);
+        $this->assertSame(['doc_mobile_1'], $rich['uploaded_documents']);
+        $this->assertSame('youtube', $rich['url_attachments'][0]['kind']);
+        $this->assertSame('dQw4w9WgXcQ', $rich['url_attachments'][0]['ref_id']);
+        $this->assertArrayHasKey('content_hash', $rich['text_blocks'][0]);
+        $this->assertArrayNotHasKey('content', $rich['text_blocks'][0]);
+        $this->assertSame('url', $rich['source_manifest'][0]['kind']);
+        $this->assertArrayHasKey('manifest_hash', $rich['source_manifest'][0]);
+        $this->assertSame('atlas.rich_input.payload.v1', $response->json('work.metadata.rich_input_schema_version'));
+
+        $refs = $response->json('work.metadata.context_refs');
+        $this->assertContains('image_asset:img_mobile_1', $refs);
+        $this->assertContains('document_asset:doc_mobile_1', $refs);
+        $this->assertTrue(
+            collect($refs)->contains(fn (string $ref): bool => str_starts_with($ref, 'source_manifest:url:')),
+            'context_refs must expose source_manifest provenance for Forge audit.',
+        );
+    }
+
     public function test_obra_creation_rejects_invalid_uploaded_image_id_format(): void
     {
         $payload = [

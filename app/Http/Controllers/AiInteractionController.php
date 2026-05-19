@@ -70,10 +70,16 @@ class AiInteractionController extends Controller
         $uploadedDocuments = $this->uploadedDocumentFiles($request->file('documents', []));
         $uploadedImageIds = array_values((array) ($data['uploaded_images'] ?? []));
         $uploadedDocumentIds = array_values((array) ($data['uploaded_documents'] ?? []));
+        $richInputPayload = is_array($data['rich_input_payload'] ?? null) ? $data['rich_input_payload'] : null;
         unset($data['images']);
         unset($data['documents']);
         unset($data['uploaded_images']);
         unset($data['uploaded_documents']);
+        unset($data['rich_input_payload']);
+
+        if ($richInputPayload !== null) {
+            $data['payload'] = $this->payloadWithRichInputPayload($data['payload'] ?? [], $richInputPayload);
+        }
 
         try {
             if ($uploadedImages !== []) {
@@ -143,6 +149,20 @@ class AiInteractionController extends Controller
         return response()->json([
             'trace' => (new AiTraceResource($trace))->resolve(),
         ], 202);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $richInputPayload
+     * @return array<string,mixed>
+     */
+    private function payloadWithRichInputPayload(array $payload, array $richInputPayload): array
+    {
+        $existing = is_array($payload['rich_input_payload'] ?? null) ? $payload['rich_input_payload'] : [];
+
+        $payload['rich_input_payload'] = array_replace_recursive($existing, $richInputPayload);
+
+        return $payload;
     }
 
     public function show(AiTrace $trace): JsonResponse

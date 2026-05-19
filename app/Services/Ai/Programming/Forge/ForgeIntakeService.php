@@ -147,6 +147,11 @@ class ForgeIntakeService
             $options['required_evidence'] ?? null,
             ForgeIntakeCanon::defaultRequiredEvidence(),
         );
+        $richInputPayload = $this->normalizeRichInputPayload($options['rich_input_payload'] ?? $options['rich_input'] ?? null);
+        $contextRefs = array_values(array_unique(array_merge(
+            $this->arrayOrNull($options['context_refs'] ?? null) ?? [],
+            $this->deriveRichInputContextRefs($richInputPayload),
+        )));
 
         $blockerReason = $this->detectIntakeBlocker($prompt, $escalationPacket, $options);
         $status = $blockerReason === null
@@ -176,8 +181,10 @@ class ForgeIntakeService
             'definition_of_done' => $definitionOfDone,
             'required_evidence' => $requiredEvidence,
             'evidence_refs' => $this->arrayOrNull($options['evidence_refs'] ?? null),
-            'context_refs' => $this->arrayOrNull($options['context_refs'] ?? null),
+            'context_refs' => $contextRefs !== [] ? $contextRefs : null,
             'context_pack_hash' => $this->stringOrNull($options['context_pack_hash'] ?? null),
+            'rich_input_payload' => $richInputPayload !== [] ? $richInputPayload : null,
+            'rich_input_schema_version' => $richInputPayload['schema_version'] ?? null,
             'constraints' => $this->arrayOrNull($options['constraints'] ?? null),
             'non_goals' => $this->arrayOrNull($options['non_goals'] ?? null),
             'sdd_spec' => $this->normalizeSddSpec($options['sdd_spec'] ?? null),
@@ -361,6 +368,141 @@ class ForgeIntakeService
         }
 
         return $normalized;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function normalizeRichInputPayload(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $uploadedImages = array_values(array_filter(
+            (array) ($value['uploaded_images'] ?? $value['uploaded_image_ids'] ?? []),
+            static fn ($id): bool => is_string($id) && $id !== '',
+        ));
+        $uploadedDocuments = array_values(array_filter(
+            (array) ($value['uploaded_documents'] ?? $value['uploaded_document_ids'] ?? []),
+            static fn ($id): bool => is_string($id) && $id !== '',
+        ));
+
+        $urlAttachments = [];
+        foreach ((array) ($value['url_attachments'] ?? []) as $attachment) {
+            if (! is_array($attachment) || ! is_string($attachment['url'] ?? null) || $attachment['url'] === '') {
+                continue;
+            }
+
+            $urlAttachments[] = array_filter([
+                'url' => $attachment['url'],
+                'kind' => is_string($attachment['kind'] ?? null) ? $attachment['kind'] : 'url',
+                'title' => is_string($attachment['title'] ?? null) ? $attachment['title'] : null,
+                'author' => is_string($attachment['author'] ?? null) ? $attachment['author'] : null,
+                'duration_sec' => is_numeric($attachment['duration_sec'] ?? null) ? (int) $attachment['duration_sec'] : null,
+                'thumbnail_url' => is_string($attachment['thumbnail_url'] ?? null) ? $attachment['thumbnail_url'] : null,
+                'ref_id' => is_string($attachment['ref_id'] ?? null) ? $attachment['ref_id'] : null,
+                'content_hash' => hash('sha256', $attachment['url']),
+            ], static fn ($field): bool => $field !== null && $field !== '');
+        }
+
+        $textBlocks = [];
+        foreach ((array) ($value['text_blocks'] ?? []) as $block) {
+            if (! is_array($block) || ! is_string($block['content'] ?? null) || $block['content'] === '') {
+                continue;
+            }
+
+            $textBlocks[] = array_filter([
+                'file_name' => is_string($block['file_name'] ?? null) ? $block['file_name'] : null,
+                'mime_type' => is_string($block['mime_type'] ?? null) ? $block['mime_type'] : null,
+                'language' => is_string($block['language'] ?? null) ? $block['language'] : null,
+                'page_count' => is_numeric($block['page_count'] ?? null) ? (int) $block['page_count'] : null,
+                'content_hash' => hash('sha256', $block['content']),
+            ], static fn ($field): bool => $field !== null && $field !== '');
+        }
+
+        $sourceManifest = [];
+        foreach ((array) ($value['source_manifest'] ?? []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $kind = is_string($entry['kind'] ?? null) ? $entry['kind'] : null;
+            $fileName = is_string($entry['file_name'] ?? null) ? $entry['file_name'] : null;
+            if ($kind === null && $fileName === null) {
+                continue;
+            }
+
+            $sourceManifest[] = array_filter([
+                'id' => is_string($entry['id'] ?? null) ? $entry['id'] : null,
+                'kind' => $kind,
+                'file_name' => $fileName,
+                'mime_type' => is_string($entry['mime_type'] ?? null) ? $entry['mime_type'] : null,
+                'size' => is_numeric($entry['size'] ?? null) ? (int) $entry['size'] : null,
+                'uploaded_id' => is_string($entry['uploaded_id'] ?? null) ? $entry['uploaded_id'] : null,
+                'source_hash' => is_string($entry['source_hash'] ?? null) ? $entry['source_hash'] : null,
+                'source' => is_string($entry['source'] ?? null) ? $entry['source'] : null,
+                'manifest_hash' => hash('sha256', json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+            ], static fn ($field): bool => $field !== null && $field !== '');
+        }
+
+        return array_filter([
+            'schema_version' => is_string($value['schema_version'] ?? null)
+                ? $value['schema_version']
+                : 'atlas.rich_input.payload.v1',
+            'uploaded_image_ids' => $uploadedImages !== [] ? $uploadedImages : null,
+            'uploaded_document_ids' => $uploadedDocuments !== [] ? $uploadedDocuments : null,
+            'url_attachments' => $urlAttachments !== [] ? $urlAttachments : null,
+            'text_blocks' => $textBlocks !== [] ? $textBlocks : null,
+            'source_manifest' => $sourceManifest !== [] ? $sourceManifest : null,
+        ], static fn ($field): bool => $field !== null);
+    }
+
+    /**
+     * @param  array<string,mixed>  $richInputPayload
+     * @return list<string>
+     */
+    private function deriveRichInputContextRefs(array $richInputPayload): array
+    {
+        $refs = [];
+
+        foreach ((array) ($richInputPayload['uploaded_image_ids'] ?? []) as $id) {
+            if (is_string($id) && $id !== '') {
+                $refs[] = 'image_asset:'.$id;
+            }
+        }
+
+        foreach ((array) ($richInputPayload['uploaded_document_ids'] ?? []) as $id) {
+            if (is_string($id) && $id !== '') {
+                $refs[] = 'document_asset:'.$id;
+            }
+        }
+
+        foreach ((array) ($richInputPayload['url_attachments'] ?? []) as $attachment) {
+            if (is_array($attachment) && is_string($attachment['content_hash'] ?? null)) {
+                $refs[] = 'url_attachment:'.$attachment['content_hash'];
+            }
+        }
+
+        foreach ((array) ($richInputPayload['text_blocks'] ?? []) as $block) {
+            if (is_array($block) && is_string($block['content_hash'] ?? null)) {
+                $refs[] = 'text_block:'.$block['content_hash'];
+            }
+        }
+
+        foreach ((array) ($richInputPayload['source_manifest'] ?? []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $hash = $entry['source_hash'] ?? $entry['manifest_hash'] ?? null;
+            $kind = is_string($entry['kind'] ?? null) && $entry['kind'] !== '' ? $entry['kind'] : 'source';
+            if (is_string($hash) && $hash !== '') {
+                $refs[] = 'source_manifest:'.$kind.':'.$hash;
+            }
+        }
+
+        return array_values(array_unique($refs));
     }
 
     private function normalizeIntent(string $prompt): string

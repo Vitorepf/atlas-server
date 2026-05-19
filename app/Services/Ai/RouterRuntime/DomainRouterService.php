@@ -37,6 +37,9 @@ class DomainRouterService
         if ($routingMode === RouterRuntimeCanon::MODE_BLOCKED) {
             $policyRequired = true;
         }
+        if ($routingMode === RouterRuntimeCanon::MODE_FORGE) {
+            $toolPlanRequired = true;
+        }
 
         $reason = $this->buildReason(
             $intent,
@@ -116,6 +119,10 @@ class DomainRouterService
         string $primary,
         array $secondary,
     ): string {
+        $surfaceRoutingMode = $this->surfaceRoutingMode($intent);
+        if ($surfaceRoutingMode !== null) {
+            return $surfaceRoutingMode;
+        }
         if ($intent->intent_type === RouterRuntimeCanon::INTENT_UNKNOWN) {
             return RouterRuntimeCanon::MODE_STANDARD;
         }
@@ -143,6 +150,16 @@ class DomainRouterService
         }
 
         return RouterRuntimeCanon::MODE_STANDARD;
+    }
+
+    private function surfaceRoutingMode(AiAtlasIntentClassification $intent): ?string
+    {
+        $mode = data_get($intent->signals, 'surface_contract.routing_mode');
+        if (! is_string($mode)) {
+            return null;
+        }
+
+        return in_array($mode, RouterRuntimeCanon::ROUTING_MODES, true) ? $mode : null;
     }
 
     /**

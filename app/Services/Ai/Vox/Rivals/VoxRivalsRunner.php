@@ -7,8 +7,10 @@ namespace App\Services\Ai\Vox\Rivals;
 use App\Models\AtlasVoxRivalsCase;
 use App\Services\Ai\Vox\VoxEvidenceService;
 use App\Services\Ai\Vox\VoxSchema;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * Records and reports Atlas Vox rivals cases.
@@ -34,6 +36,17 @@ final class VoxRivalsRunner
     public const PREFERENCE_VOX = 'vox';
     public const PREFERENCE_BASELINE = 'baseline';
     public const PREFERENCE_TIE = 'tie';
+
+    /** Persistent backing table. Doctor/setup paths check this before reads. */
+    public const TABLE = 'atlas_vox_rivals_cases';
+
+    /**
+     * Setup-pending next action used both by `report()` (when the table is
+     * missing) and by the doctor (when it surfaces the warn-state to the
+     * operator). Single source of truth so the message can't drift.
+     */
+    public const SETUP_PENDING_NEXT_ACTION =
+        'Rode `php artisan migrate` para criar a tabela atlas_vox_rivals_cases antes de registrar rivals.';
 
     public function __construct(
         private readonly VoxEvidenceService $evidence,
@@ -69,12 +82,34 @@ final class VoxRivalsRunner
     }
 
     /**
+     * Returns true when the persistent backing table is present and
+     * `record()` / `report()` can read+write it. Used by the doctor and
+     * by readiness probes to decide between `ready` and `setup_pending`.
+     */
+    public function isStoragePresent(): bool
+    {
+        try {
+            return Schema::hasTable(self::TABLE);
+        } catch (\Throwable) {
+            // DB connection itself is down — treat as setup pending so the
+            // doctor surfaces a clear next action instead of crashing.
+            return false;
+        }
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      * @return array{case: AtlasVoxRivalsCase, event: array<string,mixed>}
      */
     public function record(array $payload): array
     {
         $this->guardPayload($payload);
+
+        if (! $this->isStoragePresent()) {
+            throw new RuntimeException(
+                'atlas_vox_rivals_cases not present · '.self::SETUP_PENDING_NEXT_ACTION,
+            );
+        }
 
         $case = AtlasVoxRivalsCase::create([
             'case_id' => 'voxc_'.(string) Str::uuid(),
@@ -117,10 +152,22 @@ final class VoxRivalsRunner
      * Aggregated report consumed by `/ai/vox/rivals/report` and the V3
      * promotion gate.
      *
+     * Setup contract: when `atlas_vox_rivals_cases` is missing, returns a
+     * deterministic zero-shape with `storage_status='setup_pending'` and a
+     * `setup_next_action` field. Never throws. The doctor surfaces this as
+     * `warn`, not `fail`.
+     *
      * @return array<string,mixed>
      */
     public function report(): array
     {
+        if (! $this->isStoragePresent()) {
+            return $this->emptyReport(
+                storageStatus: 'setup_pending',
+                nextAction: self::SETUP_PENDING_NEXT_ACTION,
+            );
+        }
+
         $cases = AtlasVoxRivalsCase::query()->get();
         $total = $cases->count();
 
@@ -166,6 +213,32 @@ final class VoxRivalsRunner
             'action_regret_score' => $regretRate,
             'rivals_voice_multiplier' => $multiplier,
             'recommendation' => $this->recommendation($total, $voxWins, $multiplier, $regretRate),
+            'storage_status' => 'present',
+            'setup_next_action' => null,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function emptyReport(string $storageStatus, ?string $nextAction): array
+    {
+        return [
+            'cases_total' => 0,
+            'cases_by_kind' => [
+                self::KIND_WISPR_BASELINE => 0,
+                self::KIND_PROVIDER_DIRECT => 0,
+                self::KIND_MANUAL => 0,
+            ],
+            'vox_wins' => 0,
+            'baseline_wins' => 0,
+            'ties' => 0,
+            'prompt_quality_delta' => 0.0,
+            'action_regret_score' => 0.0,
+            'rivals_voice_multiplier' => 0.0,
+            'recommendation' => 'no_cases_yet',
+            'storage_status' => $storageStatus,
+            'setup_next_action' => $nextAction,
         ];
     }
 

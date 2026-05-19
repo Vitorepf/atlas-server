@@ -442,6 +442,25 @@ rodar `php artisan atlas:ai:hyperflow certify --json`. A certificacao falha
 fechado enquanto `rivals_battery.external_provider_execution` nao estiver
 provado.
 
+### Readiness da Etapa 1 (Hyperflow + Specialist Flows)
+
+A Etapa 1 ganhou um gate dedicado de prontidao em
+`AtlasHyperflowSpecialistFlowsReadinessService` (schema
+`atlas.ai.hyperflow_specialist_flows_readiness.v1`). O comando
+
+```
+php artisan atlas:ai:hyperflow-specialists readiness --json
+```
+
+cobre 13 checks especificos do substrato Specialist Flows: entry wired,
+auto/auto preservado, 14 flows registrados, intents nao-programacao nunca
+caem em `atlas_dev`, runtime emite contrato com receipt, execution emite
+handler com rubric/completion_checks/failure_modes, receipts/evidence/
+telemetry disponiveis, handoff Dev/Forge explicito, alem de invariantes
+`benchmark_not_run = true` e `allows_external_superiority_claim = false`.
+O gate NAO roda bateria de rivals e NAO declara Atlas completo — declara
+apenas prontidao da Etapa 1 quando todos os 13 checks passarem.
+
 ## Gates De Conclusao
 
 Hyperflow nao esta completo ate que todos os gates abaixo passem:

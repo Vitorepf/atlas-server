@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\Ai\Skills\SkillBundleStore;
+use App\Services\Ai\Vox\Audit\VoxV3HardeningAuditService;
 use App\Services\Ai\Vox\Confirmation\VoxConfirmationService;
 use App\Services\Ai\Vox\Execution\VoxClaudeCliExecutor;
 use App\Services\Ai\Vox\Execution\VoxCodexCliExecutor;
@@ -11,6 +12,9 @@ use App\Services\Ai\Vox\Execution\VoxExecutorRouter;
 use App\Services\Ai\Vox\Execution\VoxFilesystemEditExecutor;
 use App\Services\Ai\Vox\Execution\VoxNoteCaptureExecutor;
 use App\Services\Ai\Vox\Execution\VoxTerminalProposeExecutor;
+use App\Services\Ai\Vox\Gate\VoxV3PromotionGateService;
+use App\Services\Ai\Vox\Metrics\VoxMetricsService;
+use App\Services\Ai\Vox\Readiness\VoxReadinessService;
 use App\Services\Ai\Vox\VoxActionOutcomeService;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -35,6 +39,21 @@ class AppServiceProvider extends ServiceProvider
             return new VoxConfirmationService($app->make(CacheRepository::class));
         });
         $this->app->bind(CacheRepository::class, fn () => Cache::store());
+
+        // Vox readiness probe · the constructor declares `hardening` as
+        // nullable with a `null` default for testability (so unit tests
+        // can instantiate it without an audit service). Laravel's
+        // container honors the default and would inject `null` in
+        // production, leaving the doctor / readiness reporting
+        // "unknown" for the hardening audit forever. Bind explicitly so
+        // the production resolution always carries the audit service.
+        $this->app->singleton(VoxReadinessService::class, function ($app) {
+            return new VoxReadinessService(
+                $app->make(VoxMetricsService::class),
+                $app->make(VoxV3PromotionGateService::class),
+                $app->make(VoxV3HardeningAuditService::class),
+            );
+        });
 
         // Vox V3 governed executors. Order is irrelevant — the router keys
         // them by `id()`. Each executor self-reports availability so the

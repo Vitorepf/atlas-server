@@ -45,7 +45,9 @@ use App\Http\Controllers\AtlasAiStrategicDecisionController;
 use App\Http\Controllers\AtlasAiStructureMotherAuditController;
 use App\Http\Controllers\AtlasAiVoiceRealtimeController;
 use App\Http\Controllers\AtlasAiVoxController;
+use App\Http\Controllers\AtlasAiVoxDogfoodController;
 use App\Http\Controllers\AtlasAiVoxMetricsController;
+use App\Http\Controllers\AtlasAiVoxReadinessController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasCartographyController;
 use App\Http\Controllers\AtlasCodeAttentionControlPlaneController;
@@ -588,6 +590,29 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::post('/ai/vox/rivals/case', [AtlasAiVoxMetricsController::class, 'recordRivalsCase']);
     Route::get('/ai/vox/rivals/report', [AtlasAiVoxMetricsController::class, 'rivalsReport']);
     Route::get('/ai/vox/gate-v3', [AtlasAiVoxMetricsController::class, 'gateV3']);
+    // Wave 7.6 (Claude R) · V3 Certification Pack + human review.
+    // The pack snapshot is a deterministic, hash-verifiable read; review
+    // never flips a feature flag (V4 unlock is a separate future wave).
+    Route::get('/ai/vox/gate-v3/certification-pack', [AtlasAiVoxMetricsController::class, 'certificationPack']);
+    Route::post('/ai/vox/gate-v3/review', [AtlasAiVoxMetricsController::class, 'recordPromotionReview']);
+
+    // Wave 7.6 (Claude T) · V3 hardening audit. Read-only. Independently
+    // re-verifies every V3 safety invariant before any V4 work begins.
+    // Sits next to — not on top of — the certification pack: the pack
+    // declares invariants; the audit *measures* them.
+    Route::get('/ai/vox/audit/v3-hardening', [AtlasAiVoxMetricsController::class, 'v3HardeningAudit']);
+    // Wave 7.8 (Claude V) · single readiness probe. Aggregates 16 checks
+    // (modes, metrics, gate, audit, safety, provider CLIs) into a
+    // status: ready|partial|blocked + capabilities + next_actions. Never
+    // executes a CLI; provider absence becomes a warning, not a block.
+    Route::get('/ai/vox/readiness', [AtlasAiVoxReadinessController::class, 'readiness']);
+
+    // Wave 7.9 (Claude Z) · Dogfood Session Evidence. Distinct from rivals:
+    // dogfood é o diário de uso real ("usei Vox hoje, foi assim"), rivals é
+    // comparação head-to-head. Endpoint NUNCA executa, nunca chama provider,
+    // nunca toca audio. Reporta isolado do gate-v3 (informational only).
+    Route::post('/ai/vox/dogfood/session', [AtlasAiVoxDogfoodController::class, 'recordSession']);
+    Route::get('/ai/vox/dogfood/report', [AtlasAiVoxDogfoodController::class, 'report']);
 });
 
 /*
