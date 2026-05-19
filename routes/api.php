@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Ai\YoutubePrewarmController;
 use App\Http\Controllers\AiAttachmentSearchController;
 use App\Http\Controllers\AiChunkedUploadController;
 use App\Http\Controllers\AiDecisionController;
@@ -37,6 +38,7 @@ use App\Http\Controllers\AtlasAiRivalsStrategyController;
 use App\Http\Controllers\AtlasAiRouterRuntimeBootstrapController;
 use App\Http\Controllers\AtlasAiRouterRuntimeReadinessController;
 use App\Http\Controllers\AtlasAiRuntimeBoundaryController;
+use App\Http\Controllers\AtlasAiRuntimeReadinessController;
 use App\Http\Controllers\AtlasAiSelfImprovementScheduleController;
 use App\Http\Controllers\AtlasAiSelfImprovementScheduleHealthController;
 use App\Http\Controllers\AtlasAiSelfImprovementScheduleReportController;
@@ -510,6 +512,18 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/vault/conflicts/{item}', [AtlasVaultController::class, 'item']);
     Route::post('/ai/vault/conflicts/{item}/resolve', [AtlasVaultController::class, 'resolve']);
     Route::post('/ai/interactions', [AiInteractionController::class, 'store']);
+
+    // YouTube canonical capability · paste-time prewarm + live status read.
+    // Robustez: idempotente por video_id, Redis lock, cache reuse, audit.
+    // Doc: atlas-server/docs/rich-input/youtube-canon.md
+    Route::post('/ai/youtube/prewarm', [YoutubePrewarmController::class, 'prewarm'])
+        ->middleware('throttle:60,1')
+        ->name('ai.youtube.prewarm');
+    Route::get('/ai/youtube/ingestion/{videoId}', [YoutubePrewarmController::class, 'status'])
+        ->where('videoId', '[A-Za-z0-9_-]{11}')
+        ->middleware('throttle:120,1')
+        ->name('ai.youtube.status');
+
     Route::get('/ai/interactions/atlas-dev/readiness', ReadinessController::class)
         ->name('atlas-dev.readiness');
     Route::post('/ai/interactions/atlas-dev/plan', PlanController::class)
@@ -824,4 +838,4 @@ Route::prefix('atlas/ai/control-plane')->group(function (): void {
 });
 
 // Atlas AI Runtime Readiness & Release Gate · single-call aggregator
-Route::get('/atlas/ai/runtime-readiness', \App\Http\Controllers\AtlasAiRuntimeReadinessController::class);
+Route::get('/atlas/ai/runtime-readiness', AtlasAiRuntimeReadinessController::class);

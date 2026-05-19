@@ -124,10 +124,90 @@ Quando `translation_required=true && translation_status != translated_ready`:
 - Hyperflow V2, Presentation Contract e Cartografia não foram afetados.
 - Schema `atlas.rich_input.payload.v1` continua estável (mudanças foram aditivas em `UrlAttachment` opcional client-side).
 
+## Paste-time prewarm (entregue 2026-05-19)
+
+O canon detecta link YouTube no draft do composer ANTES do operador clicar enviar. Cliente bate `POST /ai/youtube/prewarm` e o backend dispara `ProcessYouTubeIngestionJob` em background. Quando o operador finalmente envia, a transcrição já está `ready` em `ai_youtube_ingestions` → `optionsWithYouTubeKnowledge` no gateway encontra cache hit e a resposta sai sem latência.
+
+### Endpoints
+
+| Método | Rota | Função |
+|---|---|---|
+| `POST` | `/ai/youtube/prewarm` | Dispara ingestão em background. Aceita `{ url: "..." }` ou `{ urls: ["...", "..."] }` (max 16). Throttle 60/min. |
+| `GET` | `/ai/youtube/ingestion/{videoId}` | Lê snapshot canônico (3-status) do registro persistido. 404 se nunca visto. Throttle 120/min. |
+
+### Robustez (regras invioláveis)
+
+1. **Idempotente por `video_id`** — múltiplas chamadas (formato `youtu.be`, `shorts/`, `watch?v=` da mesma ID) colapsam para 1 ingestão real
+2. **Lock distribuído** `atlas:youtube:prewarming:{video_id}` no cache (Redis em prod, array em test), TTL 300s. Segunda chamada concorrente retorna `locked=true` sem redispatch
+3. **Cache reuse fresco** — se `ingestion_status='ready'` e `last_ingested_at` < 7 dias → `cache_hit=true`, NÃO redispatch
+4. **Stale invalidation** — `ready` > 7 dias → redispatch (metadata pode ter mudado, captions podem ter sido publicadas)
+5. **Throttle** — rate limit por IP/token para evitar abuso
+6. **Validação ref_id** — videoId precisa ser 11 chars canônicos `[A-Za-z0-9_-]{11}` ou retorna `failed` no item (não 500)
+7. **Audit timestamp** — todo prewarm grava `last_ingested_at` quando completa
+8. **Silent client** — qualquer falha no client → composer continua normal, operador paga latência no envio (mesmo comportamento de antes)
+
+### Response shape (POST)
+
+```json
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "url": "https://youtu.be/dQw4w9WgXcQ?t=99",
+      "canonical_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "video_id": "dQw4w9WgXcQ",
+      "ingestion_status": "ready|queued|processing|failed",
+      "transcript_status": "...",
+      "translation_status": "...",
+      "source_language": "en|null",
+      "target_language": "pt-BR",
+      "translation_required": true,
+      "cache_hit": false,
+      "dispatched": true,
+      "locked": false,
+      "last_ingested_at": "2026-05-19T19:42:00+00:00"
+    }
+  ]
+}
+```
+
+### Cliente: debounce + dedup local
+
+Mobile (`atlas-app/lib/atlasAi/useYoutubePrewarm.ts`) e desktop (`atlas-desktop/apps/desktop/src/surfaces/atlas-ai/useYoutubePrewarm.ts`) implementam o MESMO contrato:
+
+- Debounce 500ms entre mudança no draft e disparo do POST
+- `Set` ref persistido cross-render com videoIds já disparados nesta sessão — paste/type/paste cycles nunca redispatch
+- `AbortController` em todo POST: typer rápido cancela in-flight automaticamente
+- Status opcional via polling 3s (opt-in `pollStatusMs`)
+- Cleanup completo no unmount
+
+### Fluxo end-to-end com prewarm
+
+1. Operador cola `https://youtu.be/XYZ` no composer
+2. Canon detecta link → mobile/desktop calculam canonical URL + videoId
+3. 500ms depois (debounce), cliente faz `POST /ai/youtube/prewarm` com a URL canônica
+4. Backend valida, normaliza, dedupa, adquire lock, dispara `ProcessYouTubeIngestionJob`
+5. Worker em paralelo: ingere captions ou Whisper-iza áudio, persiste em `ai_youtube_ingestions` com canonical 3-status
+6. Operador termina de digitar a pergunta (5-60s depois — tempo suficiente pro Whisper rodar)
+7. Operador clica enviar → `POST /ai/interactions`
+8. `optionsWithYouTubeKnowledge` no gateway: `ingestFromUrls` → cache hit → retorna ingestão pronta
+9. `AiPromptBuilder` injeta transcript completo no system prompt
+10. Resposta sai sem espera
+
+### Anti-regressão
+
+- Prewarm não muda o fluxo de envio normal; se prewarm falhar/ficar pending, envio normal segue caminho velho
+- Lock TTL 5min é maior que tempo médio de Whisper (~3min) — race "lock libera antes do job completar" é improvável e benigna (segunda chamada simplesmente redispatch)
+- `AbortController` no cliente garante que se operador apaga o link e cola outro rapidamente, só o último POST efetivamente roda
+- Cliente NUNCA armazena transcript local — fonte de verdade segue sendo `ai_youtube_ingestions`
+- Endpoint protegido por `atlas.token` middleware + throttle (não exposto sem auth)
+
 ## Pontos de extensão futura
 
 - Pipeline real de tradução → quando existir, set `translation_status='translated_ready'` no payload + persist em `AiYoutubeIngestion.translation_status`. Toda a UI já trata esse estado.
 - Reverb/SSE broadcast para `AiYoutubeIngestion` updates → reduz polling. Opcional, não bloqueante.
+- Frame sampling (visão) — capturar 1 frame a cada N segundos para OCR + reasoning sobre slides/código/diagramas. Maior salto qualitativo possível, mas projeto grande.
+- Multi-pass com schema fixo — pass 1 extrai esqueleto JSON, pass 2 escreve resposta. Reduz alucinação + citações verificáveis com timestamp.
 
 ## Onde está o código (mapa rápido)
 
