@@ -35,6 +35,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-governed-backlog.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md
+  - docs/engineering-knowledge-base/atlas-antigravity-cli-governed-terminal-executor-v1.md
+  - docs/engineering-knowledge-base/atlas-antigravity-sdk-governed-executor-v1.md
   - docs/engineering-knowledge-base/domains/finance.md
   - docs/engineering-knowledge-base/domains/marketing.md
   - docs/engineering-knowledge-base/domains/programming.md

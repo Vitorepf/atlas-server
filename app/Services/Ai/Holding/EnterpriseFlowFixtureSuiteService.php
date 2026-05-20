@@ -21,6 +21,36 @@ class EnterpriseFlowFixtureSuiteService
 
     public const EXTERNAL_ACTION_MANDATE_SCHEMA = 'atlas.ai.holding.enterprise_external_action_mandate_suite.v1';
 
+    /**
+     * @var array<string,array<string,mixed>>
+     */
+    private array $runCache = [];
+
+    /**
+     * @var array<string,array<string,mixed>>
+     */
+    private array $shadowReadinessCache = [];
+
+    /**
+     * @var array<string,array<string,mixed>>
+     */
+    private array $supervisedActivationPlanCache = [];
+
+    /**
+     * @var array<string,array<string,mixed>>
+     */
+    private array $supervisedRuntimeCache = [];
+
+    /**
+     * @var array<string,array<string,mixed>>
+     */
+    private array $connectorCertificationCache = [];
+
+    /**
+     * @var array<string,array<string,mixed>>
+     */
+    private array $externalActionMandateCache = [];
+
     public function __construct(
         private readonly AutonomousHoldingEnterpriseBuildoutService $buildout,
         private readonly EnterpriseFlowFixtureActionRuntimeService $runtime,
@@ -31,6 +61,11 @@ class EnterpriseFlowFixtureSuiteService
      */
     public function run(?string $companyId = null): array
     {
+        $cacheKey = $this->cacheKey($companyId);
+        if (array_key_exists($cacheKey, $this->runCache)) {
+            return $this->runCache[$cacheKey];
+        }
+
         $companyIds = $companyId !== null && trim($companyId) !== ''
             ? [trim($companyId)]
             : $this->companyIds();
@@ -67,7 +102,7 @@ class EnterpriseFlowFixtureSuiteService
         ];
         $payload['receipt_hash'] = MissionCanonicalHash::sha256($payload);
 
-        return $payload;
+        return $this->runCache[$cacheKey] = $payload;
     }
 
     /**
@@ -75,6 +110,11 @@ class EnterpriseFlowFixtureSuiteService
      */
     public function shadowReadiness(?string $companyId = null): array
     {
+        $cacheKey = $this->cacheKey($companyId);
+        if (array_key_exists($cacheKey, $this->shadowReadinessCache)) {
+            return $this->shadowReadinessCache[$cacheKey];
+        }
+
         $suite = $this->run($companyId);
         $companies = array_values(array_map(
             fn (array $company): array => $this->shadowReadinessCompany($company),
@@ -111,7 +151,7 @@ class EnterpriseFlowFixtureSuiteService
         ];
         $payload['readiness_hash'] = MissionCanonicalHash::sha256($payload);
 
-        return $payload;
+        return $this->shadowReadinessCache[$cacheKey] = $payload;
     }
 
     /**
@@ -119,6 +159,11 @@ class EnterpriseFlowFixtureSuiteService
      */
     public function supervisedActivationPlan(?string $companyId = null): array
     {
+        $cacheKey = $this->cacheKey($companyId);
+        if (array_key_exists($cacheKey, $this->supervisedActivationPlanCache)) {
+            return $this->supervisedActivationPlanCache[$cacheKey];
+        }
+
         $shadow = $this->shadowReadiness($companyId);
         $companies = array_values(array_map(
             fn (array $company): array => $this->supervisedActivationCompany($company),
@@ -164,7 +209,7 @@ class EnterpriseFlowFixtureSuiteService
         ];
         $payload['activation_plan_hash'] = MissionCanonicalHash::sha256($payload);
 
-        return $payload;
+        return $this->supervisedActivationPlanCache[$cacheKey] = $payload;
     }
 
     /**
@@ -172,6 +217,11 @@ class EnterpriseFlowFixtureSuiteService
      */
     public function supervisedRuntime(?string $companyId = null): array
     {
+        $cacheKey = $this->cacheKey($companyId);
+        if (array_key_exists($cacheKey, $this->supervisedRuntimeCache)) {
+            return $this->supervisedRuntimeCache[$cacheKey];
+        }
+
         $plan = $this->supervisedActivationPlan($companyId);
         $companies = array_values(array_map(
             fn (array $company): array => $this->supervisedRuntimeCompany($company),
@@ -215,7 +265,7 @@ class EnterpriseFlowFixtureSuiteService
         ];
         $payload['runtime_suite_hash'] = MissionCanonicalHash::sha256($payload);
 
-        return $payload;
+        return $this->supervisedRuntimeCache[$cacheKey] = $payload;
     }
 
     /**
@@ -223,6 +273,11 @@ class EnterpriseFlowFixtureSuiteService
      */
     public function connectorCertificationSuite(?string $companyId = null): array
     {
+        $cacheKey = $this->cacheKey($companyId);
+        if (array_key_exists($cacheKey, $this->connectorCertificationCache)) {
+            return $this->connectorCertificationCache[$cacheKey];
+        }
+
         $companyIds = $companyId !== null && trim($companyId) !== ''
             ? [trim($companyId)]
             : $this->companyIds();
@@ -269,7 +324,7 @@ class EnterpriseFlowFixtureSuiteService
         ];
         $payload['certification_suite_hash'] = MissionCanonicalHash::sha256($payload);
 
-        return $payload;
+        return $this->connectorCertificationCache[$cacheKey] = $payload;
     }
 
     /**
@@ -277,6 +332,11 @@ class EnterpriseFlowFixtureSuiteService
      */
     public function externalActionMandateSuite(?string $companyId = null): array
     {
+        $cacheKey = $this->cacheKey($companyId);
+        if (array_key_exists($cacheKey, $this->externalActionMandateCache)) {
+            return $this->externalActionMandateCache[$cacheKey];
+        }
+
         $runtime = $this->supervisedRuntime($companyId);
         $certification = $this->connectorCertificationSuite($companyId);
         $certificationByCompany = [];
@@ -336,7 +396,14 @@ class EnterpriseFlowFixtureSuiteService
         ];
         $payload['mandate_suite_hash'] = MissionCanonicalHash::sha256($payload);
 
-        return $payload;
+        return $this->externalActionMandateCache[$cacheKey] = $payload;
+    }
+
+    private function cacheKey(?string $companyId): string
+    {
+        $normalized = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : '*';
+
+        return $normalized;
     }
 
     /**

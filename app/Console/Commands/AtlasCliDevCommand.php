@@ -10,6 +10,7 @@ use App\Services\Ai\Cli\AtlasCliDevEfficientHandler;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Kernel\Decision\ModelSelectionContractFactory;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineDevPlanBuilder;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
@@ -35,6 +36,7 @@ class AtlasCliDevCommand extends Command
         {--ai= : Session AI/provider alias: claude, codex, gemini or conselho}
         {--provider= : Force claude_cli, codex_cli or claude_codex}
         {--model= : Force model alias/id for the selected provider, for example sonnet, opus, spark, codex-premium, claude-opus-4-7 or gpt-5.5}
+        {--effort= : Atlas compute effort: fast, balanced, deep or max}
         {--claude-only : Fair Claude benchmark mode: force claude_cli + Claude Opus and disable fallback/decide/council}
         {--single-provider : Fair Claude benchmark mode: forbid provider switching}
         {--no-decide : Fair Claude benchmark mode: disable Atlas Decide for this run}
@@ -166,6 +168,7 @@ class AtlasCliDevCommand extends Command
         }
         $modelOverride = is_string($modelSelection['model'] ?? null) ? trim((string) $modelSelection['model']) : null;
         $modelOverride = $modelOverride !== '' ? $modelOverride : null;
+        $computeEffort = $this->computeEffortSelection($this->option('effort'));
         $aiPolicyOverride = $this->aiPolicyOverride($provider, $modelSelection, $modelOverride, fairMode: $fairMode);
         $preflight = $workflow->preflight(
             $workspace,
@@ -186,7 +189,13 @@ class AtlasCliDevCommand extends Command
             context: [
                 'domain' => 'programming',
                 'task' => $task,
+                'compute_effort' => $computeEffort,
             ],
+        );
+        $preflight['compute_effort_contract'] = app(ComputeEffortPolicy::class)->contract(
+            requested: $computeEffort,
+            provider: $provider,
+            context: ['domain' => 'programming', 'task' => $task],
         );
         if ($fairMode) {
             $preflight['fair_mode'] = $fairClaude->metadata();
@@ -209,6 +218,7 @@ class AtlasCliDevCommand extends Command
             'task' => $task,
             'provider' => $provider,
             'model' => $modelOverride,
+            'compute_effort' => $computeEffort,
             'interactive' => false,
             'complete' => $complete,
             'auto_test' => (bool) $this->option('auto-test') || $programmingProfile === 'forge',
@@ -228,6 +238,16 @@ class AtlasCliDevCommand extends Command
             modelSelection: $modelSelection,
             modelOverride: $modelOverride,
             fairMode: $fairMode,
+            context: [
+                'domain' => 'programming',
+                'flow' => data_get($sessionPlan, 'flow'),
+                'task' => $task,
+                'compute_effort' => $computeEffort,
+            ],
+        );
+        $devPlan['compute_effort_contract'] = app(ComputeEffortPolicy::class)->contract(
+            requested: $computeEffort,
+            provider: $provider,
             context: [
                 'domain' => 'programming',
                 'flow' => data_get($sessionPlan, 'flow'),
@@ -254,6 +274,7 @@ class AtlasCliDevCommand extends Command
             'model_label' => $modelSelection['label'] ?? null,
             'model_tier' => $modelSelection['tier'] ?? null,
             'model_source' => $modelSelection['source'] ?? null,
+            'compute_effort' => $computeEffort,
             'critical' => (bool) $this->option('critical'),
             'permission' => $this->permission(),
             'allow_write' => $this->allowWrite(),
@@ -321,6 +342,7 @@ class AtlasCliDevCommand extends Command
                 workspace: $workspace,
                 provider: (string) $preflight['selected_provider'],
                 model: $modelOverride,
+                effort: $computeEffort,
                 permission: $this->permission(),
                 allowWrite: $this->allowWrite(),
                 allowDanger: $this->allowDanger(),
@@ -375,6 +397,7 @@ class AtlasCliDevCommand extends Command
                 'task_id' => $taskId,
                 'provider' => $provider,
                 'model' => $modelOverride,
+                'compute_effort' => $computeEffort,
                 'permission' => $this->permission(),
                 'complete' => true,
                 'auto_test' => true,
@@ -526,6 +549,10 @@ class AtlasCliDevCommand extends Command
 
         if ($model = $this->modelOption()) {
             $command[] = '--model='.$model;
+        }
+
+        if ($effort = $this->computeEffortSelection($this->option('effort'))) {
+            $command[] = '--effort='.$effort;
         }
 
         if ($this->allowWrite()) {
@@ -943,6 +970,15 @@ class AtlasCliDevCommand extends Command
         $model = $this->option('model');
 
         return is_string($model) && trim($model) !== '' ? trim($model) : null;
+    }
+
+    private function computeEffortSelection(mixed $value): ?string
+    {
+        if (! is_scalar($value) || trim((string) $value) === '') {
+            return null;
+        }
+
+        return app(ComputeEffortPolicy::class)->normalize((string) $value);
     }
 
     private function stringOption(string $name): ?string

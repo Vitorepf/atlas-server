@@ -33,7 +33,7 @@ class AtlasAiProductCertifyCommandTest extends TestCase
         $this->assertStringContainsString('certification_hash', $output);
         $this->assertStringContainsString('"declares_benchmark": false', $output);
         $this->assertStringContainsString('"runs_rivals": false', $output);
-        $this->assertStringContainsString('"scope": "product_plumbing_only"', $output);
+        $this->assertStringContainsString('"scope": "product_runtime_governance"', $output);
 
         $decoded = json_decode($output, true);
         $this->assertIsArray($decoded, '--json output must be parseable JSON');
@@ -73,6 +73,11 @@ class AtlasAiProductCertifyCommandTest extends TestCase
             'routing_anti_regression_tests_present',
             'forge_strips_raw_text_to_hash_and_derives_context_refs',
             'no_attachment_path_still_works',
+            'desktop_control_plane_runtime_governance_ux',
+            'agent_control_plane_runtime_standard',
+            'governed_external_execution_control_plane',
+            'internal_autonomous_company_runtime_claim_gate',
+            'capability_usage_and_evolution_loop',
         ];
         foreach ($checks as $check) {
             $this->assertStringContainsString($check, $output);

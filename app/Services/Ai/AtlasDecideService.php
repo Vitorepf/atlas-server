@@ -24,10 +24,9 @@ class AtlasDecideService
 
     private const COUNCIL_PROVIDER = 'claude_codex';
 
-    private const GEMINI_MODEL = 'gemini-3.1-pro-preview';
-
     public function __construct(
         private readonly AtlasAiPolicyService $policies,
+        private readonly AiProviderModelResolver $models,
         private readonly OperationEnvelopeFactory $envelopes,
         private readonly DecisionReceiptIssuer $receipts,
         private readonly DynamicComputeMarketAdvisor $computeMarket,
@@ -119,7 +118,7 @@ class AtlasDecideService
     /**
      * @param  array<string,mixed>  $options
      */
-    public function candidateProvider(array $options, string $defaultProvider): string
+    public function candidateProvider(array $options, string $defaultProvider, string $defaultProviderSelection = 'fixed'): string
     {
         if ($manual = $this->manualOverrideProvider($options)) {
             return $manual;
@@ -133,7 +132,54 @@ class AtlasDecideService
             return 'gemini_cli';
         }
 
+        if ($defaultProviderSelection === 'auto') {
+            return $this->automaticDefaultProvider($options, $defaultProvider);
+        }
+
         return in_array($defaultProvider, self::PROVIDERS, true) ? $defaultProvider : 'claude_cli';
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     */
+    private function automaticDefaultProvider(array $options, string $fallbackProvider): string
+    {
+        if ($this->hasImageAttachments($options)) {
+            return 'gemini_cli';
+        }
+
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $task = strtolower(implode(' ', array_filter([
+            data_get($payload, 'domain'),
+            data_get($payload, 'flow'),
+            data_get($payload, 'task'),
+            data_get($payload, 'task_type'),
+            data_get($options, 'mode'),
+            data_get($options, 'input_text'),
+        ], 'is_string')));
+
+        if (str_contains($task, 'research') || str_contains($task, 'pesquisa') || str_contains($task, 'voice') || str_contains($task, 'voz')) {
+            return 'gemini_cli';
+        }
+
+        return in_array($fallbackProvider, self::PROVIDERS, true) ? $fallbackProvider : 'claude_cli';
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function modelResolutionContext(array $options): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+
+        return array_merge($payload, [
+            'domain' => data_get($payload, 'domain') ?? data_get($payload, 'programming_message_plan.domain') ?? data_get($options, 'mode'),
+            'flow' => data_get($payload, 'flow') ?? data_get($payload, 'programming_message_plan.flow') ?? data_get($payload, 'atlas_workflow_mode'),
+            'task' => data_get($payload, 'task') ?? data_get($options, 'input_text'),
+            'task_type' => data_get($payload, 'task_type') ?? data_get($payload, 'programming_message_plan.task_type') ?? data_get($options, 'mode'),
+            'compute_effort' => data_get($payload, 'compute_effort_contract') ?? data_get($payload, 'model_selection_contract.compute_effort') ?? data_get($payload, 'compute_effort'),
+        ]);
     }
 
     /**
@@ -144,7 +190,7 @@ class AtlasDecideService
         $policy = $this->policies->effectiveProfile($options);
         $manualProvider = $this->manualOverrideProvider($options);
         $selectionMode = $manualProvider !== null ? 'manual_override' : $this->automaticModelSelectionMode($policy);
-        $candidateProvider = $this->candidateProvider($options, (string) ($policy['default_provider'] ?? 'claude_cli'));
+        $candidateProvider = $this->candidateProvider($options, (string) ($policy['default_provider'] ?? 'claude_cli'), (string) ($policy['default_provider_selection'] ?? 'fixed'));
         $automatic = $this->isAutomaticInvocation($options);
         $programmingLike = $this->isProgrammingTask($options);
         $fallbackReason = null;
@@ -166,6 +212,8 @@ class AtlasDecideService
         } elseif ($selectedProvider !== $candidateProvider) {
             $fallbackReason = $this->fallbackReasonFromSelection($options, $policy, $candidateProvider, $selectedProvider);
         }
+        $modelResolution = $this->models->resolveWithSource($selectedProvider, $selectedModel ?: data_get($options, 'payload.requested_model_alias') ?: data_get($options, 'payload.model'), $this->modelResolutionContext($options));
+        $selectedModel = $selectedModel ?: ($modelResolution['model'] ?? null);
 
         $plan = $this->decisionPlan($options, $selectedProvider, $selectedModel);
         $runtimeGraph = $plan['execution_graph'];
@@ -231,7 +279,10 @@ class AtlasDecideService
                 'candidate_provider' => $candidateProvider,
                 'selected_provider' => $selectedProvider,
                 'selected_model' => $selectedModel,
-                'selected_model_source' => data_get($options, 'payload.requested_model_source') ?: 'policy_or_runtime',
+                'selected_model_alias' => $modelResolution['selected_model_alias'] ?? $modelResolution['model_alias'] ?? null,
+                'selected_model_source' => $modelResolution['selection_source'] ?? data_get($options, 'payload.requested_model_source') ?: 'policy_or_runtime',
+                'model_family' => $modelResolution['model_family'] ?? null,
+                'model_tier' => $modelResolution['model_tier'] ?? null,
                 'selection_mode' => $selectionMode,
                 'model_selection_authority' => 'atlas_decide',
                 'available_selection_modes' => ['auto_best_allowed', 'auto_best_available', 'manual_override'],
@@ -1358,7 +1409,7 @@ class AtlasDecideService
                     'id' => 'context_scout',
                     'role' => 'long_context_scout',
                     'provider' => 'gemini_cli',
-                    'model' => self::GEMINI_MODEL,
+                    'model' => $this->models->resolve('gemini_cli', 'auto', $this->modelResolutionContext($options)),
                     'status' => $this->geminiScoutStatus($options),
                     'outputs' => ['context_digest', 'source_map', 'risk_notes', 'implementation_brief'],
                 ],

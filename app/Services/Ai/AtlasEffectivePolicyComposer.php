@@ -462,6 +462,20 @@ class AtlasEffectivePolicyComposer
         }
 
         foreach ($enabled as $provider) {
+            $catalog = data_get($policy, "providers.{$provider}.models");
+            if (is_array($catalog)) {
+                $catalogModels = array_values(array_unique(array_filter(array_map(
+                    fn (mixed $entry): ?string => is_array($entry) && is_string($entry['model'] ?? null) && trim($entry['model']) !== ''
+                        ? trim($entry['model'])
+                        : null,
+                    $catalog,
+                ))));
+                if ($catalogModels !== []) {
+                    $policy['allowed_models'][$provider] = $catalogModels;
+                    continue;
+                }
+            }
+
             $model = data_get($policy, "providers.{$provider}.model");
             if (is_string($model) && trim($model) !== '') {
                 $policy['allowed_models'][$provider] = [trim($model)];

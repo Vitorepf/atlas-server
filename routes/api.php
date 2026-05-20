@@ -182,6 +182,7 @@ $registerAtlasVoiceRoutes = static function (): void {
     Route::post('/ai/voice/wake-word', [AtlasAiVoiceRealtimeController::class, 'wakeWord']);
     Route::post('/ai/voice/turn', [AtlasAiVoiceRealtimeController::class, 'turn']);
     Route::post('/ai/voice/turn/interrupted', [AtlasAiVoiceRealtimeController::class, 'interrupted']);
+    Route::post('/ai/voice/tts/synthesize', [AtlasAiVoiceRealtimeController::class, 'synthesizeTts']);
     Route::post('/ai/voice/turn/synthesized', [AtlasAiVoiceRealtimeController::class, 'synthesized']);
     Route::post('/ai/voice/turn/played', [AtlasAiVoiceRealtimeController::class, 'played']);
     Route::post('/ai/voice/runtime/failed', [AtlasAiVoiceRealtimeController::class, 'failed']);

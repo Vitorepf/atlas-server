@@ -330,6 +330,10 @@ class AiWorkerProviderChoiceTest extends TestCase
             'payload' => [
                 'task_type' => 'feature',
                 'specialist_profile' => 'programming.frontend',
+                'compute_effort_contract' => [
+                    'schema_version' => 'atlas.compute_effort_contract.v1',
+                    'atlas_level' => 'deep',
+                ],
                 'decision_receipt' => [
                     'receipt_v2' => [
                         'envelope_id' => 'env_worker_success',
@@ -404,6 +408,11 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertSame('rcpt_worker_success', data_get($calledPayload, 'receipt_id'));
         $this->assertSame('auto', data_get($calledPayload, 'selection_mode'));
         $this->assertSame('claude_cli', data_get($calledPayload, 'router_fallback_provider'));
+        $this->assertSame('deep', data_get($calledPayload, 'compute_effort'));
+        $this->assertSame('high', data_get($calledPayload, 'provider_effort'));
+        $this->assertSame('atlas.compute_effort_signal.v1', data_get($calledPayload, 'compute_effort_signal.schema_version'));
+        $this->assertSame('started', data_get($calledPayload, 'compute_effort_signal.exit_status'));
+        $this->assertSame('high', data_get($calledPayload, 'compute_effort_signal.provider_effort'));
         $this->assertIsInt(data_get($calledPayload, 'total_tokens'));
         $this->assertSame('estimated_chars', data_get($calledPayload, 'token_source'));
         $this->assertSame('unknown', data_get($calledPayload, 'cost_confidence'));
@@ -413,6 +422,10 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertSame('returned', data_get($returnedPayload, 'phase'));
         $this->assertSame('succeeded', data_get($returnedPayload, 'exit_status'));
         $this->assertSame(0.123, data_get($returnedPayload, 'latency_seconds'));
+        $this->assertSame('deep', data_get($returnedPayload, 'compute_effort'));
+        $this->assertSame('high', data_get($returnedPayload, 'provider_effort'));
+        $this->assertSame(123, data_get($returnedPayload, 'compute_effort_signal.duration_ms'));
+        $this->assertSame('succeeded', data_get($returnedPayload, 'compute_effort_signal.exit_status'));
         $this->assertSame(2, data_get($returnedPayload, 'output_size_estimate'));
         $this->assertIsInt(data_get($returnedPayload, 'total_tokens'));
         $this->assertGreaterThan(0, data_get($returnedPayload, 'total_tokens'));

@@ -134,6 +134,7 @@ graph_kind: contract|system|flow|module|policy|runbook|adr|index|surface|screen|
 graph_parent: parent-graph-id
 graph_status: planned|future|building|active|deprecated
 graph_source: repo
+macro_layer: false
 owner: owner-area
 repo_paths:
   - app/Services/Example.php
@@ -161,6 +162,12 @@ next_actions:
 
 Campos opcionais podem ser usados quando aumentarem clareza:
 
+- `macro_layer`: quando `true`, declara que a doc e uma camada macro estrutural
+  e ativa o gate obrigatorio dos quatro nomes abaixo.
+- `product_name`: obrigatorio para camada macro; nome canonico/produto.
+- `runtime_acronym`: obrigatorio para camada macro; acronimo tecnico.
+- `internal_product_name`: obrigatorio para camada macro; nome de experiencia/superficie.
+- `technical_runtime`: obrigatorio para camada macro; nome tecnico de implementacao/runtime.
 - `graph_order`: ordem visual dentro de um fluxo.
 - `graph_position`: posicao manual da Cartografia quando existir.
 - `related_to`: conexoes laterais nao hierarquicas.
@@ -197,6 +204,11 @@ peca. A Cartografia nao pode inferir patamar a partir de `graph_layer`,
 
 Regra de bolso para humanos e IAs:
 
+- Se a peca for motor, runtime, OS, engine, camada macro, produto interno ou
+  sistema de nivel alto, declarar `macro_layer: true` e preencher
+  `product_name`, `runtime_acronym`, `internal_product_name` e
+  `technical_runtime`. Docs-health bloqueia macro marcada sem esses quatro
+  nomes.
 - `patamar_*` responde maturidade: "qual salto de capacidade isto representa?".
 - `version_*`, `versions` e `schema_version` respondem versao: "qual release,
   fase, schema ou degrau da mesma coisa isto descreve?".

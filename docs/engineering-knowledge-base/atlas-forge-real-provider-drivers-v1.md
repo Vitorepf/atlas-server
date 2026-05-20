@@ -33,6 +33,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
   - docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md
   - docs/engineering-knowledge-base/atlas-forge-governed-provider-invocation-v1.md
+  - docs/engineering-knowledge-base/atlas-antigravity-cli-governed-terminal-executor-v1.md
+  - docs/engineering-knowledge-base/atlas-antigravity-sdk-governed-executor-v1.md
   - docs/engineering-knowledge-base/system-graph/atlas-decide.md
   - docs/engineering-knowledge-base/domains/programming-professional-completion-audit.md
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationDriver.php

@@ -133,6 +133,7 @@ subcomponente quando responder estas perguntas:
 | O que pode mudar? | `allowed_changes`, `forbidden_changes` | Limite operacional antes da IA mexer. |
 | Como provar? | `evidence`, `required_tests`, `quality_gates`, `observability_signals` | Prova antes de promocao ou execucao. |
 | Quem cuida? | `owner`, `category`, `maintenance`, `line_limit` | Governanca explicita. |
+| Qual e o nome macro? | `macro_layer`, `product_name`, `runtime_acronym`, `internal_product_name`, `technical_runtime` | Obrigatorio para OS, Engine, Runtime, Factory, Layer ou camada estrutural nova. |
 | Qual maturidade? | `patamar_*` | So quando houver salto de capacidade/maturidade declarado. |
 | Qual versao? | `version_*`, `versions`, `schema_version` | Revisao/degrau separado de patamar. |
 
@@ -179,18 +180,23 @@ Fluxo obrigatorio para criar ou migrar documentacao:
 4. Se for navegavel ou usado por IA, aplicar `doc_schema:
    atlas_canonical_module_doc.v1`.
 5. Declarar grafo, fonte, escopo, limites, risco, prova e proximas acoes.
-6. Declarar patamar somente com `patamar_*`; declarar versao somente com
+6. Se for camada macro estrutural, declarar `macro_layer: true` e os quatro
+   nomes obrigatorios: produto, acronimo, superficie e runtime tecnico.
+7. Declarar patamar somente com `patamar_*`; declarar versao somente com
    `version_*`, `versions` ou `schema_version`.
-7. Se existir fluxo interno, declarar filhos ou relacoes que a Cartografia
+8. Se existir fluxo interno, declarar filhos ou relacoes que a Cartografia
    consiga renderizar.
-8. Se faltar fluxo, prova ou fonte, registrar lacuna em `next_actions` e
+9. Se faltar fluxo, prova ou fonte, registrar lacuna em `next_actions` e
    `failure_modes`.
-9. Rodar docs-health e testes de cartografia.
-10. So depois usar o doc como contexto de implementacao.
+10. Rodar docs-health e testes de cartografia.
+11. So depois usar o doc como contexto de implementacao.
 
 ## Regras para IA
 
 - Nunca criar doc navegavel sem `doc_schema: atlas_canonical_module_doc.v1`.
+- Nunca criar OS, Runtime, Engine, Factory, Layer ou camada macro sem
+  `macro_layer: true`, `product_name`, `runtime_acronym`,
+  `internal_product_name` e `technical_runtime`.
 - Nunca preencher Cartografia com fallback bonito quando existe fonte canonica
   ausente ou incompleta.
 - Nunca tratar `flows_to`, `unlocks`, camada ou proximo bloco visual como

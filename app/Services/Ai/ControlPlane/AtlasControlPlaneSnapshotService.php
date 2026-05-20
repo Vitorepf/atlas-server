@@ -19,6 +19,7 @@ class AtlasControlPlaneSnapshotService
         private readonly AtlasControlPlaneBlockerService $blockers,
         private readonly AtlasControlPlaneReadinessService $readiness,
         private readonly AtlasControlPlaneNextActionService $nextActions,
+        private readonly AtlasAiControlPlaneService $runtime,
     ) {}
 
     /**
@@ -43,6 +44,7 @@ class AtlasControlPlaneSnapshotService
         $approvalsSummary = $this->approvalsSummary();
         $operatorApprovalsSummary = $this->operatorApprovalsSummary();
         $certificationsSummary = $this->certificationsSummary();
+        $runtimeIntelligenceSummary = $this->runtimeIntelligenceSummary();
         $recentEvents = $this->recentEvents(20);
 
         $overallStatus = $readiness['status'];
@@ -69,9 +71,115 @@ class AtlasControlPlaneSnapshotService
                 'by_source' => $blockersSnapshot['by_source'] ?? [],
             ],
             'certifications_summary' => $certificationsSummary,
+            'runtime_intelligence_summary' => $runtimeIntelligenceSummary,
             'recent_events' => $recentEvents,
             'next_actions' => $nextActions['items'] ?? [],
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runtimeIntelligenceSummary(): array
+    {
+        try {
+            $report = $this->runtime->report(24);
+        } catch (Throwable $e) {
+            return [
+                'status' => AtlasControlPlaneStatus::DEGRADED,
+                'detail' => $e->getMessage(),
+            ];
+        }
+
+        return [
+            'status' => $this->runtimeStatus((string) ($report['status'] ?? AtlasControlPlaneStatus::DEGRADED)),
+            'schema_version' => (string) ($report['schema_version'] ?? AtlasAiControlPlaneService::SCHEMA_VERSION),
+            'summary' => $report['summary'] ?? [],
+            'persistent_context' => $this->runtimeSectionSummary($report['persistent_context'] ?? []),
+            'aemor' => $this->runtimeSectionSummary($report['aemor'] ?? []),
+            'intelligence_factory' => $this->runtimeSectionSummary($report['intelligence_factory'] ?? []),
+            'swarm_company' => $this->runtimeSectionSummary($report['swarm_company'] ?? []),
+            'external_execution' => $this->runtimeSectionSummary($report['external_execution'] ?? []),
+            'action_queue' => $this->runtimeActionQueue($report),
+            'claim_policy' => $report['claim_policy'] ?? [],
+            'hash' => $report['hash'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     * @return array<int,array<string,mixed>>
+     */
+    private function runtimeActionQueue(array $report): array
+    {
+        $items = [];
+
+        foreach (array_slice(is_array($report['blockers'] ?? null) ? $report['blockers'] : [], 0, 8) as $blocker) {
+            if (! is_array($blocker)) {
+                continue;
+            }
+            $items[] = [
+                'kind' => (string) ($blocker['kind'] ?? 'runtime_blocker'),
+                'status' => AtlasControlPlaneStatus::BLOCKED,
+                'detail' => (string) ($blocker['detail'] ?? $blocker['reason'] ?? 'runtime blocker'),
+                'target_id' => $blocker['dispatch_id'] ?? $blocker['id'] ?? null,
+            ];
+        }
+
+        $external = is_array($report['external_execution'] ?? null) ? $report['external_execution'] : [];
+        $externalSummary = is_array($external['summary'] ?? null) ? $external['summary'] : [];
+        $pending = (int) ($externalSummary['pending_operator_review'] ?? 0);
+        if ($pending > 0) {
+            $items[] = [
+                'kind' => 'external_operator_review',
+                'status' => AtlasControlPlaneStatus::DEGRADED,
+                'detail' => "{$pending} external execution mandate(s) pending operator review",
+                'target_id' => null,
+            ];
+        }
+
+        $factory = is_array($report['intelligence_factory'] ?? null) ? $report['intelligence_factory'] : [];
+        $factorySummary = is_array($factory['summary'] ?? null) ? $factory['summary'] : [];
+        $openGaps = (int) ($factorySummary['open_gaps'] ?? 0);
+        if ($openGaps > 0) {
+            $items[] = [
+                'kind' => 'capability_gap_review',
+                'status' => AtlasControlPlaneStatus::DEGRADED,
+                'detail' => "{$openGaps} Intelligence Factory capability gap(s) open",
+                'target_id' => null,
+            ];
+        }
+
+        return array_slice($items, 0, 12);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runtimeSectionSummary(mixed $section): array
+    {
+        if (! is_array($section)) {
+            return ['status' => AtlasControlPlaneStatus::MISSING, 'summary' => []];
+        }
+
+        return [
+            'status' => $this->runtimeStatus((string) ($section['status'] ?? AtlasControlPlaneStatus::DEGRADED)),
+            'summary' => is_array($section['summary'] ?? null) ? $section['summary'] : [],
+        ];
+    }
+
+    private function runtimeStatus(string $status): string
+    {
+        return match ($status) {
+            AtlasAiControlPlaneService::STATUS_HEALTHY => AtlasControlPlaneStatus::READY,
+            AtlasAiControlPlaneService::STATUS_WATCH, 'watch' => AtlasControlPlaneStatus::DEGRADED,
+            AtlasAiControlPlaneService::STATUS_BLOCKED => AtlasControlPlaneStatus::BLOCKED,
+            AtlasControlPlaneStatus::READY,
+            AtlasControlPlaneStatus::DEGRADED,
+            AtlasControlPlaneStatus::MISSING,
+            AtlasControlPlaneStatus::BLOCKED => $status,
+            default => AtlasControlPlaneStatus::DEGRADED,
+        };
     }
 
     /**

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\AtlasDev;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AtlasDev\PlanRequest;
+use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\RoutingDecision;
 use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
@@ -130,6 +131,16 @@ final class PlanController extends Controller
         }
 
         $data = array_merge($summary, [
+            'compute_effort_contract' => app(ComputeEffortPolicy::class)->contract(
+                requested: data_get($request->input('policy_hints'), 'compute_effort')
+                    ?: data_get($request->input('surface_context'), 'compute_effort'),
+                provider: null,
+                context: [
+                    'domain' => 'programming',
+                    'flow' => 'atlas_dev',
+                    'task' => (string) $request->input('raw_intent'),
+                ],
+            ),
             'thread_id' => $plan->envelope->surfaceContext->threadId,
             'confirmation' => $confirmation,
             'routing' => [

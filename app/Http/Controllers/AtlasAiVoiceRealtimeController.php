@@ -9,8 +9,10 @@ use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeCertificationService;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeEventNormalizer;
+use App\Services\Ai\Voice\AtlasVoiceTtsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Throwable;
 
 final class AtlasAiVoiceRealtimeController extends Controller
 {
@@ -22,6 +24,7 @@ final class AtlasAiVoiceRealtimeController extends Controller
         private readonly AtlasVoiceRuntimeCertificationService $certification,
         private readonly AtlasVoiceRuntimeEventNormalizer $runtimeEvents,
         private readonly AtlasVoiceProductionPromotionReviewBundleService $promotionReviews,
+        private readonly AtlasVoiceTtsService $tts,
     ) {}
 
     public function health(Request $request): JsonResponse
@@ -268,6 +271,33 @@ final class AtlasAiVoiceRealtimeController extends Controller
         ]);
 
         return response()->json($this->voice->recordSynthesis($data));
+    }
+
+    public function synthesizeTts(Request $request): JsonResponse
+    {
+        $data = $this->validateRuntimeCallbackPayload($request) + $request->validate([
+            'text' => ['required', 'string', 'max:5000'],
+            'voice_id' => ['nullable', 'string', 'max:120'],
+            'response_text_hash' => ['nullable', 'string', 'regex:/^[a-f0-9]{64}$/i'],
+            'raw_audio' => ['prohibited'],
+            'audio_bytes' => ['prohibited'],
+            'api_key' => ['prohibited'],
+            'token' => ['prohibited'],
+        ]);
+
+        try {
+            return response()->json($this->tts->synthesize($data));
+        } catch (Throwable $error) {
+            return response()->json([
+                'schema_version' => 'atlas.voice_realtime.tts_synthesis.v1',
+                'status' => 'voice_unavailable',
+                'provider' => 'elevenlabs',
+                'error' => [
+                    'code' => $error->getMessage() !== '' ? $error->getMessage() : 'elevenlabs_unavailable',
+                    'class' => class_basename($error),
+                ],
+            ], 503);
+        }
     }
 
     public function played(Request $request): JsonResponse

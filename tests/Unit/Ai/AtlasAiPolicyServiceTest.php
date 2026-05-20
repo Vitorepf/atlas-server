@@ -175,6 +175,28 @@ class AtlasAiPolicyServiceTest extends TestCase
         );
     }
 
+    public function test_gemini_policy_allowlist_includes_flash_and_pro_catalog_models(): void
+    {
+        config()->set('atlas.ai.providers.gemini_cli.models.gemini_flash.model', 'gemini-3.5-flash');
+        config()->set('atlas.ai.providers.gemini_cli.models.gemini_pro.model', 'gemini-3.1-pro-preview');
+
+        $profile = app(AtlasAiPolicyService::class)->effectiveProfile([
+            'source_type' => 'manual',
+            'payload' => [
+                'app_surface' => 'atlas_cli',
+                'atlas_workflow_mode' => 'research',
+            ],
+        ]);
+
+        $this->assertSame(
+            ['gemini-3.5-flash', 'gemini-3.1-pro-preview'],
+            data_get($profile, 'allowed_models.gemini_cli'),
+        );
+        $this->assertSame('gemini_flash', data_get($profile, 'providers.gemini_cli.default_model_alias'));
+        $this->assertSame('gemini-3.5-flash', data_get($profile, 'providers.gemini_cli.models.gemini_flash.model'));
+        $this->assertSame('gemini-3.1-pro-preview', data_get($profile, 'providers.gemini_cli.models.gemini_pro.model'));
+    }
+
     public function test_fair_claude_override_collapses_forge_model_graph_to_single_claude_executor(): void
     {
         $profile = app(AtlasAiPolicyService::class)->effectiveProfile([

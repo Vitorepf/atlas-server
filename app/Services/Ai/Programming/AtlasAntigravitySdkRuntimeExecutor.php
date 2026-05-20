@@ -1,0 +1,468 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\Programming;
+
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
+use Symfony\Component\Process\Process;
+use Throwable;
+
+/**
+ * Dedicated Antigravity SDK runtime bridge.
+ *
+ * This is intentionally separate from the CLI allowlist and from the generic
+ * Python AI/Data runtime. It only runs the Atlas-owned adapter with explicit
+ * argv and a manifest that was already authorized by the provider invocation
+ * service.
+ */
+class AtlasAntigravitySdkRuntimeExecutor
+{
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_FAILED = 'failed';
+    public const STATUS_TIMED_OUT = 'timed_out';
+    public const STATUS_BLOCKED = 'blocked';
+
+    /** @var callable|null */
+    private $processFactory;
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function configured(): array
+    {
+        $config = $this->config();
+        $blockers = [];
+
+        if (! (bool) ($config['enabled'] ?? false)) {
+            $blockers[] = 'antigravity_sdk_disabled';
+        }
+
+        $python = $this->resolvePython((string) ($config['python'] ?? 'python3'));
+        if ($python === null) {
+            $blockers[] = 'antigravity_sdk_python_missing';
+        }
+
+        $adapter = $this->adapterPath();
+        if (! is_file($adapter)) {
+            $blockers[] = 'antigravity_sdk_adapter_missing';
+        }
+
+        $module = trim((string) ($config['module'] ?? 'google.antigravity'));
+        $modulePresent = false;
+        if ($python !== null && $module !== '') {
+            $modulePresent = $this->pythonModulePresent($python, $module);
+            if (! $modulePresent) {
+                $blockers[] = 'antigravity_sdk_module_missing';
+            }
+        } else {
+            $blockers[] = 'antigravity_sdk_module_missing';
+        }
+
+        $authState = $this->authState($this->authEnvVars());
+        if ($authState === 'missing') {
+            $blockers[] = 'antigravity_sdk_auth_required';
+        }
+
+        $blockers = array_values(array_unique($blockers));
+
+        return [
+            'schema_version' => 'atlas.provider.antigravity_sdk.status.v1',
+            'provider' => AtlasForgeAntigravitySdkInvocationDriver::PROVIDER,
+            'configured' => $blockers === [],
+            'runtime_present' => $python !== null && is_file($adapter),
+            'binary_path' => $python,
+            'adapter_path' => $adapter,
+            'auth_state' => $authState,
+            'module' => $module,
+            'module_present' => $modulePresent,
+            'model_prefixes' => ['antigravity', 'gemini-', 'claude-', 'gpt-', 'oss'],
+            'allowed_binaries' => [$python ?: (string) ($config['python'] ?? 'python3')],
+            'blockers' => $blockers,
+            'external_provider_call_possible' => true,
+            'provider_tokens_may_be_spent' => true,
+            'runtime_boundary' => [
+                'owner' => 'laravel_kernel',
+                'runtime_family' => 'python_antigravity_sdk',
+                'authority' => 'executor_only_after_decision_receipt',
+                'forbidden_authorities' => [
+                    'choose_provider_or_model',
+                    'choose_domain_or_flow',
+                    'write_memory_directly',
+                    'mutate_policy',
+                    'bypass_evidence_ledger',
+                    'promote_completion_claim',
+                ],
+            ],
+            'note' => 'Fail-closed SDK status; no external provider was contacted.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    public function plan(array $manifest): array
+    {
+        $config = $this->configured();
+        $blockers = array_values(array_unique(array_merge(
+            (array) ($config['blockers'] ?? []),
+            $this->manifestBlockers($manifest),
+        )));
+
+        return [
+            'schema_version' => 'atlas.provider.antigravity_sdk.invocation_request.v1',
+            'provider' => AtlasForgeAntigravitySdkInvocationDriver::PROVIDER,
+            'model' => $manifest['model'] ?? null,
+            'configured' => (bool) ($config['configured'] ?? false),
+            'plan_safe' => $blockers === [],
+            'provider_called' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'adapter_path' => $config['adapter_path'] ?? $this->adapterPath(),
+            'argv_preview' => array_values(array_filter([
+                $config['binary_path'] ?? null,
+                $config['adapter_path'] ?? $this->adapterPath(),
+                '<manifest.json>',
+            ], 'is_string')),
+            'manifest_hash' => $this->hashPayload($manifest),
+            'allowed_files_hash' => $this->hashPayload((array) data_get($manifest, 'scope_contract.allowed_files', [])),
+            'forbidden_files_hash' => $this->hashPayload((array) data_get($manifest, 'scope_contract.forbidden_files', [])),
+            'blockers' => $blockers,
+            'note' => 'Plan-only: SDK adapter not spawned and no provider contacted.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    public function invoke(array $manifest): array
+    {
+        $plan = $this->plan($manifest);
+        if (($plan['blockers'] ?? []) !== []) {
+            return $this->blocked($manifest, (array) $plan['blockers'], 'Antigravity SDK runtime stayed fail-closed.');
+        }
+
+        $config = $this->configured();
+        $python = (string) ($config['binary_path'] ?? '');
+        $adapter = (string) ($config['adapter_path'] ?? $this->adapterPath());
+        $timeout = max(1, min(3600, (int) ($manifest['timeout_seconds'] ?? 120)));
+        $maxOutputChars = max(200, min(200000, (int) ($manifest['max_output_chars'] ?? 12000)));
+
+        $manifestPath = $this->writeManifest($manifest);
+        $argv = [$python, $adapter, $manifestPath];
+        $started = microtime(true);
+
+        try {
+            $process = $this->makeProcess($argv, $this->workspacePath($manifest), $timeout);
+            $process->run();
+            $stdout = (string) $process->getOutput();
+            $stderr = (string) $process->getErrorOutput();
+            $exitCode = $process->getExitCode();
+            $status = $process->isSuccessful() ? self::STATUS_COMPLETED : self::STATUS_FAILED;
+        } catch (ProcessTimedOutException $e) {
+            $stdout = '';
+            $stderr = $e->getMessage();
+            $exitCode = null;
+            $status = self::STATUS_TIMED_OUT;
+        } catch (Throwable $e) {
+            $stdout = '';
+            $stderr = $e->getMessage();
+            $exitCode = null;
+            $status = self::STATUS_FAILED;
+        } finally {
+            @unlink($manifestPath);
+        }
+
+        $durationMs = (int) round((microtime(true) - $started) * 1000);
+        $decoded = json_decode($stdout, true);
+        $adapterPayload = is_array($decoded) ? $decoded : [];
+        $stderrExcerpt = $this->excerpt($this->redact($stderr), $maxOutputChars);
+        $stdoutExcerpt = $this->excerpt($this->redact($stdout), $maxOutputChars);
+        $blockers = array_values(array_filter((array) ($adapterPayload['blockers'] ?? []), 'is_string'));
+        if ($status === self::STATUS_TIMED_OUT) {
+            $blockers[] = 'timeout';
+        } elseif ($status === self::STATUS_FAILED || (is_int($exitCode) && $exitCode !== 0)) {
+            $blockers[] = (string) ($adapterPayload['failure_type'] ?? 'antigravity_sdk_adapter_failed');
+        }
+
+        return [
+            'schema_version' => 'atlas.provider.antigravity_sdk.invocation_result.v1',
+            'provider' => AtlasForgeAntigravitySdkInvocationDriver::PROVIDER,
+            'model' => $manifest['model'] ?? null,
+            'model_observed' => $adapterPayload['model_observed'] ?? ($manifest['model'] ?? null),
+            'argv' => [$python, $adapter, '<manifest.json>'],
+            'cwd' => $this->workspacePath($manifest),
+            'configured' => true,
+            'provider_called' => (bool) ($adapterPayload['provider_called'] ?? $status === self::STATUS_COMPLETED),
+            'external_provider_call' => (bool) ($adapterPayload['external_provider_call'] ?? $status === self::STATUS_COMPLETED),
+            'provider_tokens_spent' => $adapterPayload['provider_tokens_spent'] ?? 'unknown',
+            'exit_code' => is_int($exitCode) ? $exitCode : null,
+            'duration_ms' => $durationMs,
+            'timeout_seconds' => $timeout,
+            'timed_out' => $status === self::STATUS_TIMED_OUT,
+            'stdout_hash' => hash('sha256', $stdout),
+            'stderr_hash' => hash('sha256', $stderr),
+            'stdout_excerpt' => $stdoutExcerpt,
+            'stderr_excerpt' => $stderrExcerpt,
+            'process_status' => $status,
+            'artifacts' => is_array($adapterPayload['artifacts'] ?? null) ? $adapterPayload['artifacts'] : [],
+            'changed_files' => is_array($adapterPayload['changed_files'] ?? null) ? $adapterPayload['changed_files'] : [],
+            'performance_signal' => is_array($adapterPayload['performance_signal'] ?? null)
+                ? $adapterPayload['performance_signal']
+                : $this->performanceSignal($manifest, $status, $durationMs, $blockers),
+            'classification' => $blockers === [] ? null : [
+                'schema_version' => 'atlas.forge.provider_invocation_failure_classification.v1',
+                'failure_type' => $blockers[0],
+                'confidence' => 'high',
+                'provider' => AtlasForgeAntigravitySdkInvocationDriver::PROVIDER,
+            ],
+            'failure_type' => $blockers[0] ?? null,
+            'blockers' => array_values(array_unique($blockers)),
+            'note' => (string) ($adapterPayload['note'] ?? 'Antigravity SDK adapter finished under Atlas governance.'),
+        ];
+    }
+
+    public function setProcessFactory(?callable $factory): void
+    {
+        $this->processFactory = $factory;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function config(): array
+    {
+        return (array) config('atlas.ai.providers.antigravity_sdk', []);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function authEnvVars(): array
+    {
+        $vars = (array) (($this->config()['auth_env'] ?? null) ?: ['ANTIGRAVITY_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY']);
+
+        return array_values(array_filter($vars, 'is_string'));
+    }
+
+    private function authState(array $vars): string
+    {
+        foreach ($vars as $var) {
+            $value = getenv($var);
+            if (is_string($value) && trim($value) !== '') {
+                return 'configured';
+            }
+        }
+
+        return 'missing';
+    }
+
+    private function resolvePython(string $binary): ?string
+    {
+        $binary = trim($binary);
+        if ($binary === '') {
+            return null;
+        }
+        if (str_contains($binary, '/') && is_file($binary) && is_executable($binary)) {
+            return $binary;
+        }
+
+        $path = getenv('PATH');
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+        foreach (explode(':', $path) as $dir) {
+            $candidate = rtrim($dir, '/').'/'.$binary;
+            if (is_file($candidate) && is_executable($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function pythonModulePresent(string $python, string $module): bool
+    {
+        $process = new Process([$python, '-c', 'import importlib.util,sys; sys.exit(0 if importlib.util.find_spec(sys.argv[1]) else 42)', $module], base_path(), null, null, 5.0);
+
+        try {
+            $process->run();
+
+            return $process->isSuccessful();
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    private function adapterPath(): string
+    {
+        $configured = trim((string) ($this->config()['adapter_path'] ?? ''));
+        if ($configured !== '') {
+            return str_starts_with($configured, '/') ? $configured : base_path($configured);
+        }
+
+        return base_path('runtimes/python/antigravity_sdk/adapter.py');
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return list<string>
+     */
+    private function manifestBlockers(array $manifest): array
+    {
+        $blockers = [];
+        if (trim((string) ($manifest['decision_receipt_id'] ?? '')) === ''
+            || trim((string) ($manifest['decision_receipt_hash'] ?? '')) === '') {
+            $blockers[] = 'decision_receipt_required';
+        }
+        if ($this->workspacePath($manifest) === null) {
+            $blockers[] = 'antigravity_sdk_workspace_required';
+        }
+        $allowed = (array) data_get($manifest, 'scope_contract.allowed_files', []);
+        if (array_values(array_filter($allowed, 'is_string')) === []) {
+            $blockers[] = 'antigravity_sdk_allowed_files_required';
+        }
+
+        return array_values(array_unique($blockers));
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     */
+    private function workspacePath(array $manifest): ?string
+    {
+        $workspace = data_get($manifest, 'workspace.path') ?? data_get($manifest, 'workspace_path') ?? $manifest['cwd'] ?? null;
+        if (! is_string($workspace) || trim($workspace) === '') {
+            return null;
+        }
+
+        return trim($workspace);
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     */
+    private function writeManifest(array $manifest): string
+    {
+        $dir = storage_path('framework/cache/atlas-antigravity-sdk');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0750, true);
+        }
+        $path = $dir.'/manifest-'.bin2hex(random_bytes(8)).'.json';
+        file_put_contents($path, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        chmod($path, 0640);
+
+        return $path;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @param  array<int,string>  $blockers
+     * @return array<string,mixed>
+     */
+    private function blocked(array $manifest, array $blockers, string $note): array
+    {
+        return [
+            'schema_version' => 'atlas.provider.antigravity_sdk.invocation_result.v1',
+            'provider' => AtlasForgeAntigravitySdkInvocationDriver::PROVIDER,
+            'model' => $manifest['model'] ?? null,
+            'configured' => false,
+            'provider_called' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'exit_code' => null,
+            'duration_ms' => 0,
+            'timeout_seconds' => (int) ($manifest['timeout_seconds'] ?? 120),
+            'timed_out' => false,
+            'stdout_hash' => hash('sha256', ''),
+            'stderr_hash' => hash('sha256', ''),
+            'stdout_excerpt' => '',
+            'stderr_excerpt' => '',
+            'process_status' => self::STATUS_BLOCKED,
+            'performance_signal' => $this->performanceSignal($manifest, self::STATUS_BLOCKED, 0, $blockers),
+            'classification' => null,
+            'failure_type' => null,
+            'blockers' => array_values(array_unique($blockers)),
+            'note' => $note,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @param  array<int,string>  $blockers
+     * @return array<string,mixed>
+     */
+    private function performanceSignal(array $manifest, string $status, int $durationMs, array $blockers): array
+    {
+        return [
+            'schema_version' => 'atlas.provider.antigravity_sdk.performance_signal.v1',
+            'provider' => AtlasForgeAntigravitySdkInvocationDriver::PROVIDER,
+            'model_observed' => $manifest['model'] ?? null,
+            'domain' => data_get($manifest, 'metadata.domain', 'programming'),
+            'flow' => data_get($manifest, 'metadata.flow', 'programming.forge'),
+            'task_type' => data_get($manifest, 'metadata.task_type'),
+            'status' => $status === self::STATUS_COMPLETED && $blockers === [] ? 'succeeded' : 'failed',
+            'duration_ms' => $durationMs,
+            'changed_files_count' => 0,
+            'required_gates_passed' => false,
+            'completion_claim_promoted' => false,
+            'routing_effect' => 'none',
+            'advisory_only' => true,
+            'blockers' => array_values(array_unique($blockers)),
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $argv
+     */
+    private function makeProcess(array $argv, ?string $cwd, int $timeout): Process
+    {
+        $env = [
+            'ATLAS_ANTIGRAVITY_SDK_MODULE' => (string) ($this->config()['module'] ?? 'google.antigravity'),
+        ];
+        if ($this->processFactory !== null) {
+            $product = call_user_func($this->processFactory, $argv, $cwd, $env, $timeout);
+            if ($product instanceof Process) {
+                return $product;
+            }
+        }
+
+        $process = new Process($argv, $cwd, $env, null, (float) $timeout);
+        $process->setTimeout((float) $timeout);
+
+        return $process;
+    }
+
+    private function hashPayload(mixed $payload): string
+    {
+        return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    private function redact(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        return (string) preg_replace([
+            '/(sk-[a-zA-Z0-9_\-]{8,})/',
+            '/(api[_-]?key["\']?\s*[:=]\s*["\']?)[^"\'\s,]+/i',
+            '/(bearer\s+)[A-Za-z0-9._\-]+/i',
+        ], [
+            'sk-***redacted***',
+            '$1***redacted***',
+            '$1***redacted***',
+        ], $value);
+    }
+
+    private function excerpt(string $value, int $maxLength): string
+    {
+        if ($value === '' || strlen($value) <= $maxLength) {
+            return $value;
+        }
+
+        return substr($value, 0, $maxLength).'...';
+    }
+}

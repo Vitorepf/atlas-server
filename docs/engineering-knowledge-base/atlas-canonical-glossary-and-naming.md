@@ -26,6 +26,7 @@ decisions:
   - Patamar, versao, camada e fonte sao conceitos separados; Cartografia e IA nunca podem tratar um como sinonimo do outro.
   - Aliases legados sao tolerados, mas nao podem nascer novos.
   - Doc de visao futura NUNCA deve ser interpretado como runtime atual sem checar `graph_status`/`status`.
+  - Toda camada macro estrutural deve declarar Nome canonico/produto, Acronimo tecnico, Nome interno de experiencia/superficie e Runtime tecnico; omitir qualquer um e violacao de naming.
 maintenance:
   - Atualize este doc antes de promover um termo novo a nivel canonico (P0/P1).
   - Nao apagar termo legado; mover para secao "Nomes Proibidos / Deprecados" com substituto.
@@ -111,7 +112,7 @@ observability_signals:
 next_actions:
   - Quando novo termo entrar, adicionar entrada ANTES de criar codigo correspondente.
   - Quando audit apontar novo cluster de naming, registrar aqui na secao "Nomes Proibidos / Deprecados" ou "Aliases Tolerados".
-line_limit: 520
+line_limit: 560
 ---
 # Atlas Canonical Glossary And Naming
 ## Resumo
@@ -136,8 +137,12 @@ sobre QUAL nome usa um conceito ficam aqui.
 
 ## Contratos
 
-- Toda nova classe/servico/namespace cujo nome bata com um termo desta tabela
-  exige citacao do termo no PR.
+- Toda nova classe/servico/namespace cujo nome bata com termo desta tabela exige citacao do termo no PR.
+- Toda camada macro nova DEVE declarar `macro_layer: true` e quatro nomes:
+  `product_name` (nome canonico/produto), `runtime_acronym` (acronimo tecnico),
+  `internal_product_name` (nome interno de experiencia/superficie) e
+  `technical_runtime` (nome tecnico de implementacao/runtime). Docs-health
+  bloqueia macro marcada sem os quatro campos.
 - Todo alias proibido NAO pode aparecer em codigo, doc canonica nova ou
   resposta final de IA — apenas em arquivo legado preservado.
 - Toda doc com `status: active` que use termo desta tabela deve respeitar
@@ -487,7 +492,8 @@ Os termos TEOS/Long-Horizon vivem em `docs/engineering-knowledge-base/atlas-cano
 7. **Para criar Router/Receipt/Certification novo:** valide nao-duplicacao com `atlas-canonical-cleanup-inventory.md`.
 8. **Nao apague termo deprecado** — mova para "Nomes Proibidos" com substituto.
 9. **Quando audit identificar novo cluster** de naming proliferation, abrir entrada aqui ANTES de qualquer cleanup de codigo.
-10. **Resposta final cita o termo canonico**, nao alias proibido. Se citar alias legado para esclarecer, marcar `(legado: substituto canonico = X)`.
+10. **Camada macro sem os 4 nomes obrigatorios deve ser bloqueada** ate declarar: produto, acronimo, superficie e runtime tecnico.
+11. **Resposta final cita o termo canonico**, nao alias proibido. Se citar alias legado para esclarecer, marcar `(legado: substituto canonico = X)`.
 
 ## Escopo de Implementacao
 

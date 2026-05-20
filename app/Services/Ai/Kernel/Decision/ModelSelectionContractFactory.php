@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Decision;
 
+use App\Services\Ai\AiProviderModelResolver;
+
 final class ModelSelectionContractFactory
 {
     public const AUTHORITY = 'atlas_decide';
@@ -55,6 +57,20 @@ final class ModelSelectionContractFactory
     {
         $manual = $provider !== null || $modelSelection !== null || $modelOverride !== null || $fairMode;
         $specialistProfile = $this->specialistProfile($context);
+        $effort = app(ComputeEffortPolicy::class)->contract(
+            requested: $context['compute_effort'] ?? $context['effort'] ?? null,
+            provider: $provider,
+            context: array_merge($context, ['specialist_profile' => $specialistProfile]),
+        );
+        $requestedAlias = is_string($modelSelection['alias'] ?? null) ? (string) $modelSelection['alias'] : null;
+        $modelResolution = app(AiProviderModelResolver::class)->resolveWithSource(
+            $provider,
+            $modelOverride ?: $requestedAlias,
+            array_merge($context, [
+                'compute_effort' => $effort,
+                'specialist_profile' => $specialistProfile,
+            ]),
+        );
 
         return [
             'schema_version' => $schemaVersion,
@@ -64,12 +80,18 @@ final class ModelSelectionContractFactory
             'available_selection_modes' => self::AVAILABLE_SELECTION_MODES,
             'operator_requested_provider' => $provider ?: 'auto',
             'requested_model' => $modelOverride,
-            'requested_model_alias' => is_string($modelSelection['alias'] ?? null) ? (string) $modelSelection['alias'] : null,
+            'requested_model_alias' => $requestedAlias,
             'requested_model_source' => is_string($modelSelection['source'] ?? null) ? (string) $modelSelection['source'] : null,
+            'selected_model' => $modelResolution['model'] ?? null,
+            'selected_model_alias' => $modelResolution['selected_model_alias'] ?? $modelResolution['model_alias'] ?? null,
+            'model_family' => $modelResolution['model_family'] ?? null,
+            'model_tier' => $modelResolution['model_tier'] ?? null,
+            'selection_source' => $modelResolution['selection_source'] ?? $modelResolution['source'] ?? null,
             'domain' => $this->scalar($context['domain'] ?? null),
             'flow' => $this->scalar($context['flow'] ?? null),
             'specialist_profile' => $specialistProfile,
             'specialist_profile_source' => $specialistProfile === null ? null : $this->specialistProfileSource($context),
+            'compute_effort' => $effort,
             'fair_mode' => $fairMode,
         ];
     }

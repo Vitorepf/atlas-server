@@ -285,6 +285,60 @@ class EngineeringDocumentationHealthServiceTest extends TestCase
         );
     }
 
+    public function test_macro_layer_requires_all_four_naming_fields(): void
+    {
+        $service = $this->makeService();
+        $report = $service->analyzeDocs([
+            $this->canonicalDoc('atlas-macro-missing-names.md', [
+                'macro_layer' => true,
+                'product_name' => 'Atlas Macro Product',
+            ]),
+            $this->canonicalDoc('atlas-macro-complete.md', [
+                'macro_layer' => true,
+                'product_name' => 'Atlas Macro Product',
+                'runtime_acronym' => 'AMP',
+                'internal_product_name' => 'Atlas Macro Surface',
+                'technical_runtime' => 'AtlasMacroRuntimeService',
+            ]),
+        ]);
+
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-macro-missing-names.md: macro structural layer missing required naming field [runtime_acronym]',
+            $report['violations'],
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-macro-missing-names.md: macro structural layer missing required naming field [internal_product_name]',
+            $report['violations'],
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-macro-missing-names.md: macro structural layer missing required naming field [technical_runtime]',
+            $report['violations'],
+        );
+        $this->assertNotContains(
+            'docs/engineering-knowledge-base/atlas-macro-complete.md: macro structural layer missing required naming field [product_name]',
+            $report['violations'],
+        );
+    }
+
+    public function test_macro_layer_field_must_be_boolean(): void
+    {
+        $service = $this->makeService();
+        $report = $service->analyzeDocs([
+            $this->canonicalDoc('atlas-bad-macro-marker.md', [
+                'macro_layer' => 'true',
+                'product_name' => 'Atlas Macro Product',
+                'runtime_acronym' => 'AMP',
+                'internal_product_name' => 'Atlas Macro Surface',
+                'technical_runtime' => 'AtlasMacroRuntimeService',
+            ]),
+        ]);
+
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-bad-macro-marker.md: canonical module field [macro_layer] must be boolean',
+            $report['violations'],
+        );
+    }
+
     public function test_summary_carries_warning_count_and_list(): void
     {
         $service = $this->makeService();

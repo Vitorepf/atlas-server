@@ -46,6 +46,41 @@ class AtlasAiRuntimeSettingsTest extends TestCase
         $this->assertTrue((bool) $settings->providerConfig('codex_cli')['allow_auto']);
     }
 
+    public function test_default_provider_auto_preserves_atlas_decide_selection_mode(): void
+    {
+        $settings = app(AtlasAiRuntimeSettings::class);
+
+        $effective = $settings->update([
+            'default_provider' => 'auto',
+        ], 'test');
+
+        $this->assertSame('auto', $effective['default_provider_selection']);
+        $this->assertSame('auto', $settings->defaultProviderSelection());
+        $this->assertSame('claude_cli', $effective['default_provider']);
+    }
+
+    public function test_configured_provider_keys_are_accepted_without_mobile_code_changes(): void
+    {
+        config([
+            'atlas.ai.providers.qwen_cli' => [
+                'model' => 'qwen-3.7',
+                'model_label' => 'Qwen 3.7',
+                'model_tier' => 'daily',
+                'allow_auto' => true,
+                'allow_manual' => true,
+            ],
+        ]);
+
+        $settings = app(AtlasAiRuntimeSettings::class);
+        $effective = $settings->update([
+            'default_provider' => 'qwen_cli',
+        ], 'test');
+
+        $this->assertSame('fixed', $effective['default_provider_selection']);
+        $this->assertSame('qwen_cli', $effective['default_provider']);
+        $this->assertSame('qwen-3.7', data_get($effective, 'providers.qwen_cli.model'));
+    }
+
     public function test_default_provider_cannot_be_disabled_for_auto_routing_in_same_patch(): void
     {
         $settings = app(AtlasAiRuntimeSettings::class);

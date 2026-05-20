@@ -27,6 +27,11 @@ graph_kind: module
 graph_parent: atlas
 graph_status: planned
 graph_source: repo
+macro_layer: false
+product_name:
+runtime_acronym:
+internal_product_name:
+technical_runtime:
 owner: owner-area
 repo_paths:
   - docs/engineering-knowledge-base/exemplo-modulo-canonico.md

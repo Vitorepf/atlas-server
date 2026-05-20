@@ -6,6 +6,7 @@ use App\Models\AiJob;
 use App\Models\AiJobAttempt;
 use App\Models\AiRouterDecision;
 use App\Services\Ai\AiProviderResult;
+use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Telemetry\AiCostEstimator;
 use Illuminate\Support\Facades\Schema;
 
@@ -13,7 +14,10 @@ class ProviderUsagePayload
 {
     public const SCHEMA_VERSION = 'atlas.provider_usage.v1';
 
-    public function __construct(private readonly AiCostEstimator $costEstimator) {}
+    public function __construct(
+        private readonly AiCostEstimator $costEstimator,
+        private readonly ComputeEffortPolicy $computeEffort,
+    ) {}
 
     /**
      * @return array<string,mixed>
@@ -28,6 +32,7 @@ class ProviderUsagePayload
             'exit_status' => 'started',
             'exit_code' => null,
             'quality_gate_result' => $this->qualityGateResult($job),
+            'compute_effort_signal' => $this->computeEffortSignal($job, $attempt, null),
             'failure_reason' => null,
             'output_size_estimate' => null,
             'ledger_event_ref' => null,
@@ -47,6 +52,7 @@ class ProviderUsagePayload
             'exit_status' => $result->ok ? 'succeeded' : 'failed',
             'exit_code' => $result->exitCode,
             'quality_gate_result' => $this->qualityGateResult($job),
+            'compute_effort_signal' => $this->computeEffortSignal($job, $attempt, $result),
             'failure_reason' => $result->errorCode,
             'output_size_estimate' => $this->sizeEstimate($result->output),
             'response_hash' => $responseHash,
@@ -71,6 +77,7 @@ class ProviderUsagePayload
             'exit_status' => 'fallback',
             'exit_code' => $result->exitCode,
             'quality_gate_result' => $this->qualityGateResult($job),
+            'compute_effort_signal' => $this->computeEffortSignal($job, $attempt, $result),
             'failure_reason' => $result->errorCode ?: $reason,
             'fallback_provider' => $fallbackProvider,
             'fallback_reason' => $reason,
@@ -91,6 +98,32 @@ class ProviderUsagePayload
             'schema_version' => self::SCHEMA_VERSION,
             'provider_cli' => (string) ($attempt->provider ?: $job->provider),
             'model_name_if_available' => $attempt->model ?: $job->model,
+            'selected_model' => $this->firstString([
+                data_get($job->payload, 'selected_model'),
+                data_get($job->metadata, 'selected_model'),
+                $attempt->model ?: $job->model,
+            ]),
+            'selected_model_alias' => $this->firstString([
+                data_get($job->payload, 'selected_model_alias'),
+                data_get($job->metadata, 'selected_model_alias'),
+                data_get($job->payload, 'model_selection_contract.selected_model_alias'),
+            ]),
+            'operator_requested_model_alias' => $this->firstString([
+                data_get($job->payload, 'operator_requested_model_alias'),
+                data_get($job->metadata, 'operator_requested_model_alias'),
+                data_get($job->payload, 'model_selection_contract.requested_model_alias'),
+            ]),
+            'model_family' => $this->firstString([
+                data_get($job->payload, 'model_family'),
+                data_get($job->metadata, 'model_family'),
+                data_get($job->payload, 'model_selection_contract.model_family'),
+            ]),
+            'model_selection_source' => $this->firstString([
+                data_get($job->payload, 'model_selection_source'),
+                data_get($job->metadata, 'model_selection_source'),
+                data_get($job->payload, 'model_selection_contract.selection_source'),
+                data_get($job->payload, 'model_identity_source'),
+            ]),
             'domain' => $this->firstString([
                 data_get($receipt, 'domain'),
                 data_get($job->payload, 'domain'),
@@ -142,11 +175,90 @@ class ProviderUsagePayload
             'attempts' => (int) $job->attempts,
             'attempt_number' => (int) $attempt->attempt_number,
             'repair_count' => $this->repairCount($job),
+            'compute_effort' => $this->computeEffortLevel($job),
+            'provider_effort' => $this->providerEffort($job, (string) ($attempt->provider ?: $job->provider)),
             'input_context_size_estimate' => $this->inputContextSizeEstimate($job),
             'user_acceptance' => $this->userAcceptance($job),
             'job_id' => $job->id,
             'attempt_id' => $attempt->id,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function computeEffortSignal(AiJob $job, AiJobAttempt $attempt, ?AiProviderResult $result): array
+    {
+        $provider = (string) ($attempt->provider ?: $job->provider);
+        $contract = $this->computeEffortContract($job, $provider);
+
+        return [
+            'schema_version' => config('atlas.ai.compute_effort.measurement_schema', 'atlas.compute_effort_signal.v1'),
+            'authority' => 'atlas_decide',
+            'atlas_level' => $contract['atlas_level'] ?? $this->computeEffortLevel($job),
+            'provider' => $provider,
+            'provider_effort' => data_get($contract, 'provider_mapping.value'),
+            'provider_control' => data_get($contract, 'provider_mapping.control'),
+            'provider_control_status' => data_get($contract, 'provider_mapping.control_status'),
+            'duration_ms' => $result?->durationMs ?? $attempt->duration_ms,
+            'exit_status' => $result === null ? 'started' : ($result->ok ? 'succeeded' : 'failed'),
+            'exit_code' => $result?->exitCode,
+            'error_code' => $result?->errorCode,
+            'attempt_number' => (int) $attempt->attempt_number,
+            'job_status' => $job->status,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function computeEffortContract(AiJob $job, string $provider): array
+    {
+        $contract = data_get($job->payload, 'compute_effort_contract')
+            ?: data_get($job->payload, 'model_selection_contract.compute_effort')
+            ?: data_get($job->metadata, 'compute_effort_contract')
+            ?: data_get($job->metadata, 'model_selection_contract.compute_effort');
+
+        if (is_array($contract)) {
+            return $this->computeEffort->contract(
+                requested: $contract['atlas_level'] ?? $contract['operator_requested_effort'] ?? null,
+                provider: $provider,
+                context: [
+                    'domain' => data_get($job->payload, 'model_selection_contract.domain') ?: data_get($job->payload, 'domain'),
+                    'flow' => data_get($job->payload, 'model_selection_contract.flow') ?: data_get($job->payload, 'flow'),
+                    'task' => $job->input_text,
+                ],
+            );
+        }
+
+        return $this->computeEffort->contract(
+            requested: data_get($job->payload, 'compute_effort') ?: data_get($job->metadata, 'compute_effort'),
+            provider: $provider,
+            context: [
+                'domain' => data_get($job->payload, 'model_selection_contract.domain') ?: data_get($job->payload, 'domain'),
+                'flow' => data_get($job->payload, 'model_selection_contract.flow') ?: data_get($job->payload, 'flow'),
+                'task' => $job->input_text,
+            ],
+        );
+    }
+
+    private function computeEffortLevel(AiJob $job): string
+    {
+        $level = data_get($job->payload, 'compute_effort_contract.atlas_level')
+            ?: data_get($job->payload, 'model_selection_contract.compute_effort.atlas_level')
+            ?: data_get($job->payload, 'compute_effort')
+            ?: data_get($job->metadata, 'compute_effort_contract.atlas_level')
+            ?: data_get($job->metadata, 'model_selection_contract.compute_effort.atlas_level')
+            ?: data_get($job->metadata, 'compute_effort');
+
+        return $this->computeEffort->normalize($level) ?: $this->computeEffort->defaultLevel();
+    }
+
+    private function providerEffort(AiJob $job, string $provider): ?string
+    {
+        $value = data_get($this->computeEffortContract($job, $provider), 'provider_mapping.value');
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     /**

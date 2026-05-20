@@ -4,9 +4,11 @@ namespace App\Services\Ai\PersistentContext;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasPersistentContextPack;
+use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceService;
 use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
+use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Kernel\Architecture\AtlasSessionBootstrapService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
@@ -29,6 +31,8 @@ class AtlasPersistentContextRuntimeService
         private readonly AiContextPackBuilder $contextPackBuilder,
         private readonly AtlasContextIntelligenceService $contextIntelligence,
         private readonly AtlasContextOperationsRuntimeService $contextOperations,
+        private readonly ?AtlasAemorJudgmentService $aemorJudgment = null,
+        private readonly ?AtlasIntelligenceFactoryRuntimeService $intelligenceFactory = null,
     ) {}
 
     /**
@@ -74,7 +78,17 @@ class AtlasPersistentContextRuntimeService
         $contextCertification = $this->safeContextCertification($prompt, $domain, $contextRefs, $evidenceRefs, $mustKnowLedger);
         $operations = $this->safeOperations($prompt, $domain, $flowId, $contextRefs, $evidenceRefs, $mustKnowLedger, $input);
         $sufficiency = $this->sufficiency($prompt, $bootstrap, $contextPack, $contextCertification, $mustKnowLedger);
-        $providerHandoff = $this->providerHandoff($provider, $prompt, $bootstrap, $contextPack, $contextCertification, $mustKnowLedger, $sufficiency);
+        $aemorRiskPrediction = $this->safeAemorRiskPrediction($prompt, $scopeType, $scopeId);
+        $intelligenceFactory = $this->safeIntelligenceFactoryAdvice($prompt, [
+            'workspace' => $workspace,
+            'surface_id' => $surfaceId,
+            'domain' => $domain,
+            'flow_id' => $flowId,
+            'scope_type' => $scopeType,
+            'scope_id' => $scopeId,
+            'evidence_refs' => $evidenceRefs,
+        ]);
+        $providerHandoff = $this->providerHandoff($provider, $prompt, $bootstrap, $contextPack, $contextCertification, $mustKnowLedger, $sufficiency, $aemorRiskPrediction, $intelligenceFactory);
 
         $contextPackPayload = [
             'bootstrap' => $this->compactBootstrap($bootstrap),
@@ -93,6 +107,8 @@ class AtlasPersistentContextRuntimeService
             'open_questions' => $contextPack['open_questions'] ?? [],
             'context_intelligence' => $contextCertification,
             'context_operations' => $operations,
+            'aemor_risk_prediction' => $aemorRiskPrediction,
+            'intelligence_factory' => $intelligenceFactory,
         ];
         $contextPackHash = MissionCanonicalHash::sha256($contextPackPayload);
         $mustKnowLedgerHash = MissionCanonicalHash::sha256($mustKnowLedger);
@@ -120,6 +136,8 @@ class AtlasPersistentContextRuntimeService
             'must_know_ledger' => $mustKnowLedger,
             'context_pack' => $contextPackPayload,
             'provider_handoff' => $providerHandoff,
+            'aemor_risk_prediction' => $aemorRiskPrediction,
+            'intelligence_factory' => $intelligenceFactory,
             'evidence_refs' => $evidenceRefs,
             'claim_policy' => [
                 'benchmark_not_run' => true,
@@ -409,7 +427,7 @@ class AtlasPersistentContextRuntimeService
      * @param  array<string,mixed>  $sufficiency
      * @return array<string,mixed>
      */
-    private function providerHandoff(?string $provider, string $prompt, array $bootstrap, array $contextPack, array $contextCertification, array $mustKnowLedger, array $sufficiency): array
+    private function providerHandoff(?string $provider, string $prompt, array $bootstrap, array $contextPack, array $contextCertification, array $mustKnowLedger, array $sufficiency, array $aemorRiskPrediction, array $intelligenceFactory): array
     {
         return [
             'schema_version' => 'atlas.persistent_context.provider_handoff.v1',
@@ -426,13 +444,76 @@ class AtlasPersistentContextRuntimeService
             'required_before_execution' => [
                 'read_context_pack',
                 'preserve_must_know_ledger',
+                'review_aemor_risk_prediction',
+                'review_intelligence_factory_advice',
                 'honor_sufficiency_gate',
                 'return_evidence_refs',
                 'do_not_invent_source_refs',
             ],
+            'aemor_risk_prediction' => $aemorRiskPrediction,
+            'intelligence_factory' => $intelligenceFactory,
             'execution_allowed' => $sufficiency['status'] === 'sufficient'
                 && ($contextCertification['status'] ?? null) !== AtlasContextIntelligenceService::STATUS_BLOCKED,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    private function safeIntelligenceFactoryAdvice(string $prompt, array $context): array
+    {
+        if ($this->intelligenceFactory === null) {
+            return [
+                'schema_version' => 'atlas.intelligence_factory.advice.v1',
+                'status' => 'unavailable',
+                'reason' => 'intelligence_factory_not_bound',
+            ];
+        }
+
+        try {
+            return $this->intelligenceFactory->advise([
+                'objective' => $prompt,
+                ...$context,
+                'source' => 'persistent_context_runtime',
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'schema_version' => 'atlas.intelligence_factory.advice.v1',
+                'status' => 'degraded',
+                'reason' => 'intelligence_factory_threw',
+                'exception_class' => $exception::class,
+            ];
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function safeAemorRiskPrediction(string $prompt, string $scopeType, ?string $scopeId): array
+    {
+        if ($this->aemorJudgment === null) {
+            return [
+                'schema_version' => 'atlas.aemor.pre_execution_risk_prediction.v1',
+                'status' => 'unavailable',
+                'similar_failures' => [],
+                'required_mitigations' => [],
+            ];
+        }
+
+        try {
+            return $this->aemorJudgment->riskPredict($prompt, [
+                'scope_type' => $scopeType,
+                'scope_id' => $scopeId,
+            ]);
+        } catch (Throwable) {
+            return [
+                'schema_version' => 'atlas.aemor.pre_execution_risk_prediction.v1',
+                'status' => 'degraded',
+                'similar_failures' => [],
+                'required_mitigations' => ['aemor_risk_prediction_unavailable'],
+            ];
+        }
     }
 
     /**

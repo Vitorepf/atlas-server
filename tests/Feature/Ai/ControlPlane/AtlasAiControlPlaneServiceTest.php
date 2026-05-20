@@ -40,6 +40,7 @@ class AtlasAiControlPlaneServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        $this->dropExternalExecutionTables();
         $this->dropOperatorApprovalTable();
         $this->dropPersistentContextTables();
         $this->dropAiSurfaceTables();
@@ -99,6 +100,9 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertSame(0, $report['summary']['failed']);
         $this->assertSame(0, $report['summary']['context_operations_blockers_count']);
         $this->assertSame(0, $report['summary']['verified_compactions_count']);
+        $this->assertSame(0, $report['summary']['system_blockers_count']);
+        $this->assertSame(0, $report['summary']['operator_queue_count']);
+        $this->assertSame(0, $report['summary']['clarification_queue_count']);
         $this->assertSame([], $report['flows']);
         $this->assertSame([], $report['recent_traces']);
         $this->assertSame([], $report['failures']);
@@ -107,11 +111,94 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertSame(0, $report['receipts']['total']);
         $this->assertSame('missing', $report['context_operations']['status']);
         $this->assertSame('missing', $report['persistent_context']['status']);
+        $this->assertArrayHasKey('swarm_company', $report);
+        $this->assertArrayHasKey('external_execution', $report);
+        $this->assertArrayHasKey('status', $report['swarm_company']);
+        $this->assertArrayHasKey('status', $report['external_execution']);
         $this->assertSame(0, $report['summary']['persistent_context_total']);
+        $this->assertSame(0, $report['summary']['swarm_company_roles_total']);
+        $this->assertSame(0, $report['summary']['external_execution_mandates_total']);
+        $this->assertSame(0, $report['summary']['intelligence_factory_evolution_events']);
+        $this->assertSame(0, $report['summary']['intelligence_factory_capability_used_events']);
+        $this->assertSame(0, $report['intelligence_factory']['summary']['evolution_events_total']);
+        $this->assertSame([], $report['intelligence_factory']['recent_evolution_events']);
         $this->assertSame([], $report['blockers']);
         $this->assertNotEmpty($report['readiness_refs']);
         $this->assertFalse($report['claim_policy']['allows_external_superiority_claim']);
         $this->assertStringStartsWith('sha256:', $report['hash']);
+    }
+
+    public function test_external_execution_pending_approval_is_governed_without_system_blocker(): void
+    {
+        $this->createExternalExecutionTables();
+        $this->insertExternalMandate([
+            'company_id' => 'research',
+            'flow_id' => 'research.youtube',
+            'status' => 'queued_for_operator_review',
+        ]);
+        $this->insertExternalWorkOrder([
+            'work_order_id' => 'wo_research_youtube',
+            'company_id' => 'research',
+            'flow_id' => 'research.youtube',
+            'bound_receipt_count' => 1,
+        ]);
+        $this->insertExternalWorkItem([
+            'work_item_id' => 'wi_research_youtube',
+            'work_order_id' => 'wo_research_youtube',
+            'company_id' => 'research',
+            'flow_id' => 'research.youtube',
+            'required_receipt_ids_json' => json_encode(['youtube_transcript_receipt']),
+            'receipt_binding_hash' => str_repeat('a', 64),
+        ]);
+        $this->insertExternalInvocation([
+            'invocation_id' => 'inv_research_youtube',
+            'work_order_id' => 'wo_research_youtube',
+            'company_id' => 'research',
+            'flow_id' => 'research.youtube',
+            'status' => 'manual_handoff_ready',
+            'manual_handoff_packet_hash' => str_repeat('b', 64),
+        ]);
+
+        $report = $this->service()->report(24);
+
+        $this->assertSame('ready', $report['external_execution']['status']);
+        $this->assertSame(1, $report['summary']['external_execution_mandates_total']);
+        $this->assertSame(1, $report['summary']['external_execution_pending_approval']);
+        $this->assertSame(0, $report['summary']['external_execution_unsafe_enabled']);
+        $this->assertSame(0, $report['summary']['external_execution_missing_receipt_bindings']);
+        $this->assertSame(1.0, $report['external_execution']['summary']['signature_protection_coverage']);
+        $this->assertSame(1, $report['external_execution']['summary']['receipt_binding_count']);
+        $this->assertSame(0, $report['summary']['system_blockers_count']);
+        $this->assertTrue($report['external_execution']['policy']['pending_operator_review_is_operator_queue_not_system_failure']);
+        $this->assertFalse($report['external_execution']['policy']['external_side_effects_allowed_by_control_plane']);
+    }
+
+    public function test_external_execution_enabled_without_policy_blocks_runtime_report(): void
+    {
+        $this->createExternalExecutionTables();
+        $this->insertExternalMandate([
+            'company_id' => 'marketing',
+            'flow_id' => 'marketing.publish',
+            'auto_execute_allowed' => true,
+        ]);
+        $this->insertExternalInvocation([
+            'invocation_id' => 'inv_marketing_publish',
+            'work_order_id' => 'wo_marketing_publish',
+            'company_id' => 'marketing',
+            'flow_id' => 'marketing.publish',
+            'status' => 'runtime_invocation_registered',
+            'external_execution_allowed' => true,
+        ]);
+
+        $report = $this->service()->report(24);
+
+        $this->assertSame('blocked', $report['external_execution']['status']);
+        $this->assertSame('blocked', $report['status']);
+        $this->assertSame(2, $report['summary']['external_execution_unsafe_enabled']);
+        $this->assertGreaterThanOrEqual(2, $report['summary']['system_blockers_count']);
+        $this->assertContains('external_mandate_enabled_without_policy', array_column($report['external_execution']['blockers'], 'kind'));
+        $this->assertContains('external_runtime_invocation_enabled_without_policy', array_column($report['external_execution']['blockers'], 'kind'));
+        $this->assertTrue($report['external_execution']['policy']['unsafe_external_execution_blocks_runtime_status']);
     }
 
     public function test_persistent_context_section_surfaces_blocked_packs(): void
@@ -276,6 +363,40 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertCount(2, $dispatchBlockers);
         $this->assertContains('evidence_missing', collect($dispatchBlockers)->pluck('detail')->all());
         $this->assertContains('policy_gate_required', collect($dispatchBlockers)->pluck('detail')->all());
+        $this->assertSame(2, $report['summary']['system_blockers_count']);
+        $this->assertSame(0, $report['summary']['operator_queue_count']);
+        $this->assertSame('blocked', $report['status']);
+    }
+
+    public function test_clarification_dispatch_blocker_is_operator_queue_not_system_failure(): void
+    {
+        $routerId = $this->insertRouterDecision();
+        DB::table('ai_atlas_runtime_dispatches')->insert([
+            'id' => Str::uuid()->toString(),
+            'schema_version' => 'atlas.ai.runtime_dispatch.v1',
+            'uuid' => Str::random(64),
+            'router_decision_id' => $routerId,
+            'flow_route_id' => null,
+            'mission_id' => null,
+            'work_order_id' => null,
+            'dispatch_target' => 'atlas_conversation',
+            'dispatch_status' => 'blocked',
+            'dispatch_payload' => json_encode([]),
+            'evidence_refs' => null,
+            'blockers' => json_encode([['reason' => 'clarification_needed:high_ambiguity']]),
+            'receipt_hash' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $report = $this->service()->report(24);
+
+        $blocker = collect($report['blockers'])->firstWhere('kind', 'dispatch_blocker');
+        $this->assertSame('operator_queue', $blocker['class']);
+        $this->assertSame(0, $report['summary']['system_blockers_count']);
+        $this->assertSame(1, $report['summary']['operator_queue_count']);
+        $this->assertSame(1, $report['summary']['clarification_queue_count']);
+        $this->assertSame('watch', $report['status']);
     }
 
     public function test_dev_handoff_extracted_from_trace_metadata(): void
@@ -548,6 +669,165 @@ class AtlasAiControlPlaneServiceTest extends TestCase
     private function service(): AtlasAiControlPlaneService
     {
         return $this->app->make(AtlasAiControlPlaneService::class);
+    }
+
+    private function createExternalExecutionTables(): void
+    {
+        $this->dropExternalExecutionTables();
+
+        Schema::create('ai_holding_external_action_mandates', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('company_id', 80);
+            $table->string('flow_id', 160);
+            $table->string('status', 80)->default('queued_for_operator_review');
+            $table->string('mandate_packet_hash', 64)->unique();
+            $table->boolean('operator_signature_required')->default(true);
+            $table->boolean('second_reviewer_required')->default(true);
+            $table->boolean('auto_execute_allowed')->default(false);
+            $table->boolean('external_side_effects_enabled')->default(false);
+            $table->timestamps();
+        });
+
+        Schema::create('ai_holding_external_cutover_work_orders', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('work_order_id', 64)->unique();
+            $table->string('company_id', 80);
+            $table->string('flow_id', 160);
+            $table->string('status', 100)->default('pending_real_receipts_launch_blocked');
+            $table->unsignedInteger('bound_receipt_count')->default(0);
+            $table->boolean('external_execution_allowed')->default(false);
+            $table->boolean('external_side_effects_enabled')->default(false);
+            $table->timestamps();
+        });
+
+        Schema::create('ai_holding_external_cutover_work_items', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('work_item_id', 64)->unique();
+            $table->string('work_order_id', 64);
+            $table->string('company_id', 80);
+            $table->string('flow_id', 160);
+            $table->string('status', 100)->default('pending_real_receipt_or_operator_action');
+            $table->json('required_receipt_ids_json')->nullable();
+            $table->string('bound_receipt_hash', 64)->nullable();
+            $table->string('receipt_binding_hash', 64)->nullable();
+            $table->boolean('external_execution_allowed')->default(false);
+            $table->boolean('external_side_effects_enabled')->default(false);
+            $table->timestamps();
+        });
+
+        Schema::create('ai_holding_external_cutover_runtime_invocations', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('invocation_id', 64)->unique();
+            $table->string('work_order_id', 64)->unique();
+            $table->string('company_id', 80);
+            $table->string('flow_id', 160);
+            $table->string('status', 120);
+            $table->unsignedInteger('execution_receipt_count')->default(0);
+            $table->string('last_execution_receipt_hash', 64)->nullable();
+            $table->string('manual_handoff_packet_hash', 64)->nullable();
+            $table->unsignedInteger('manual_closeout_receipt_count')->default(0);
+            $table->string('last_manual_closeout_receipt_hash', 64)->nullable();
+            $table->boolean('external_execution_allowed')->default(false);
+            $table->boolean('external_side_effects_enabled')->default(false);
+            $table->timestamps();
+        });
+    }
+
+    private function dropExternalExecutionTables(): void
+    {
+        foreach ([
+            'ai_holding_external_cutover_runtime_invocations',
+            'ai_holding_external_cutover_work_items',
+            'ai_holding_external_cutover_work_orders',
+            'ai_holding_external_action_mandates',
+        ] as $table) {
+            Schema::dropIfExists($table);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     */
+    private function insertExternalMandate(array $overrides): void
+    {
+        DB::table('ai_holding_external_action_mandates')->insert(array_merge([
+            'id' => Str::uuid()->toString(),
+            'company_id' => 'research',
+            'flow_id' => 'research.youtube',
+            'status' => 'queued_for_operator_review',
+            'mandate_packet_hash' => hash('sha256', 'mandate|'.Str::uuid()->toString()),
+            'operator_signature_required' => true,
+            'second_reviewer_required' => true,
+            'auto_execute_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $overrides));
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     */
+    private function insertExternalWorkOrder(array $overrides): void
+    {
+        DB::table('ai_holding_external_cutover_work_orders')->insert(array_merge([
+            'id' => Str::uuid()->toString(),
+            'work_order_id' => 'wo_default',
+            'company_id' => 'research',
+            'flow_id' => 'research.youtube',
+            'status' => 'pending_real_receipts_launch_blocked',
+            'bound_receipt_count' => 0,
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $overrides));
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     */
+    private function insertExternalWorkItem(array $overrides): void
+    {
+        DB::table('ai_holding_external_cutover_work_items')->insert(array_merge([
+            'id' => Str::uuid()->toString(),
+            'work_item_id' => 'wi_default',
+            'work_order_id' => 'wo_default',
+            'company_id' => 'research',
+            'flow_id' => 'research.youtube',
+            'status' => 'pending_real_receipt_or_operator_action',
+            'required_receipt_ids_json' => json_encode([]),
+            'bound_receipt_hash' => null,
+            'receipt_binding_hash' => null,
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $overrides));
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     */
+    private function insertExternalInvocation(array $overrides): void
+    {
+        DB::table('ai_holding_external_cutover_runtime_invocations')->insert(array_merge([
+            'id' => Str::uuid()->toString(),
+            'invocation_id' => 'inv_default',
+            'work_order_id' => 'wo_default',
+            'company_id' => 'research',
+            'flow_id' => 'research.youtube',
+            'status' => 'runtime_invocation_registered',
+            'execution_receipt_count' => 0,
+            'last_execution_receipt_hash' => null,
+            'manual_handoff_packet_hash' => null,
+            'manual_closeout_receipt_count' => 0,
+            'last_manual_closeout_receipt_hash' => null,
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $overrides));
     }
 
     private function createAiSurfaceTables(): void

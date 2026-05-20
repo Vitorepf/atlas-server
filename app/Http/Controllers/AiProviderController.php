@@ -15,6 +15,7 @@ use App\Services\Ai\AtlasAiRuntimeSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class AiProviderController extends Controller
 {
@@ -36,6 +37,8 @@ class AiProviderController extends Controller
         return response()->json([
             'generated_at' => now()->toJSON(),
             'runtime_settings' => $runtime,
+            'provider_choice_catalog' => $this->providerChoiceCatalog($models, $settings),
+            'default_provider_selection' => (string) ($runtime['default_provider_selection'] ?? 'fixed'),
             'default_provider' => (string) ($runtime['default_provider'] ?? 'claude_cli'),
             'default_model' => $this->providerModelPolicy((string) ($runtime['default_provider'] ?? 'claude_cli'), $models, $settings),
             'model_policy' => $this->modelPolicyPayload($models, $settings),
@@ -123,17 +126,164 @@ class AiProviderController extends Controller
 
         return [
             'provider' => $provider,
+            'provider_label' => $this->providerLabel($provider),
+            'enabled' => (bool) ($config['enabled'] ?? true),
             'model' => $resolution['model'],
             'model_label' => $resolution['model_label'] ?? $resolution['model'],
             'model_tier' => $resolution['model_tier'] ?? $settings->defaultTier(),
             'model_source' => $resolution['source'],
+            'model_alias' => $resolution['model_alias'] ?? $resolution['selected_model_alias'] ?? $config['default_model_alias'] ?? null,
+            'model_selection' => ($config['default_model_alias'] ?? null) === 'auto' ? 'auto' : 'fixed',
             'allow_auto' => (bool) ($resolution['allow_auto'] ?? true),
             'allow_manual' => (bool) ($resolution['allow_manual'] ?? true),
+            'default_model_alias' => $config['default_model_alias'] ?? null,
+            'model_catalog' => $this->providerModelCatalog($provider, $config, $resolution),
             'fallback_model' => $config['fallback_model'] ?? null,
             'fallback_model_label' => $config['fallback_model_label'] ?? ($config['fallback_model'] ?? null),
             'premium_model' => $config['premium_model'] ?? null,
             'premium_model_label' => $config['premium_model_label'] ?? ($config['premium_model'] ?? null),
         ];
+    }
+
+    private function providerChoiceCatalog(AiProviderModelResolver $models, AtlasAiRuntimeSettings $settings): array
+    {
+        $runtime = $settings->effective();
+        $providers = $this->providerKeys()
+            ->map(fn (string $provider): array => $this->providerModelPolicy($provider, $models, $settings))
+            ->filter(fn (array $provider): bool => $this->providerVisibleOnSurface($provider))
+            ->values()
+            ->all();
+
+        return [
+            'schema_version' => 'atlas.ai.provider_choice_catalog.v1',
+            'default_provider_selection' => (string) ($runtime['default_provider_selection'] ?? 'fixed'),
+            'default_provider' => (string) ($runtime['default_provider'] ?? 'claude_cli'),
+            'default_provider_options' => array_merge([[
+                'key' => 'auto',
+                'provider' => null,
+                'label' => 'Auto',
+                'description' => 'Atlas Decide escolhe o melhor provider permitido.',
+            ]], array_map(fn (array $provider): array => [
+                'key' => (string) $provider['provider'],
+                'provider' => (string) $provider['provider'],
+                'label' => $provider['provider_label'] ?? $this->providerLabel((string) $provider['provider']),
+                'description' => 'Fixar provider padrão.',
+            ], $providers)),
+            'providers' => $providers,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @param  array<string,mixed>  $resolution
+     * @return list<array<string,mixed>>
+     */
+    private function providerModelCatalog(string $provider, array $config, array $resolution): array
+    {
+        $catalog = [[
+            'key' => 'auto',
+            'alias' => 'auto',
+            'model' => null,
+            'label' => 'Auto',
+            'tier' => null,
+            'description' => 'Atlas Decide escolhe o melhor modelo deste provider.',
+        ]];
+
+        $configuredModels = is_array($config['models'] ?? null) ? $config['models'] : [];
+        foreach ($configuredModels as $alias => $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $model = $this->cleanString($entry['model'] ?? null);
+            if ($model === null) {
+                continue;
+            }
+
+            $alias = $this->cleanAlias($alias) ?? $model;
+            $catalog[] = [
+                'key' => $alias,
+                'alias' => $alias,
+                'model' => $model,
+                'label' => $this->cleanString($entry['label'] ?? null) ?: $model,
+                'tier' => $this->cleanString($entry['tier'] ?? null) ?: ($resolution['model_tier'] ?? null),
+                'description' => null,
+            ];
+        }
+
+        foreach ([
+            'default' => ['model', 'model_label', 'model_tier'],
+            'premium' => ['premium_model', 'premium_model_label', 'premium'],
+            'fallback' => ['fallback_model', 'fallback_model_label', $config['model_tier'] ?? 'daily'],
+        ] as $key => [$modelKey, $labelKey, $tierKey]) {
+            $model = $this->cleanString($config[$modelKey] ?? null);
+            if ($model === null || collect($catalog)->contains(fn (array $item): bool => ($item['model'] ?? null) === $model)) {
+                continue;
+            }
+
+            $tier = is_string($tierKey) && isset($config[$tierKey]) ? $config[$tierKey] : $tierKey;
+            $catalog[] = [
+                'key' => $key,
+                'alias' => $key,
+                'model' => $model,
+                'label' => $this->cleanString($config[$labelKey] ?? null) ?: $model,
+                'tier' => $this->cleanString($tier) ?: ($resolution['model_tier'] ?? null),
+                'description' => null,
+            ];
+        }
+
+        if (count($catalog) === 1 && $this->cleanString($resolution['model'] ?? null) !== null) {
+            $catalog[] = [
+                'key' => 'default',
+                'alias' => 'default',
+                'model' => $resolution['model'],
+                'label' => $resolution['model_label'] ?? $resolution['model'],
+                'tier' => $resolution['model_tier'] ?? null,
+                'description' => null,
+            ];
+        }
+
+        return $catalog;
+    }
+
+    private function providerVisibleOnSurface(array $provider): bool
+    {
+        $providerId = (string) ($provider['provider'] ?? '');
+        $surfaceVisible = in_array($providerId, ['claude_cli', 'codex_cli', 'gemini_cli'], true)
+            || Str::endsWith($providerId, '_cli');
+
+        return (bool) ($provider['enabled'] ?? true)
+            && $surfaceVisible
+            && ((bool) ($provider['allow_manual'] ?? false) || (bool) ($provider['allow_auto'] ?? false));
+    }
+
+    private function providerLabel(string $provider): string
+    {
+        return match ($provider) {
+            'claude_cli' => 'Claude',
+            'codex_cli' => 'Codex',
+            'gemini_cli' => 'Gemini',
+            'claude_codex' => 'Conselho',
+            default => Str::headline(Str::replace('_', ' ', preg_replace('/_cli$/', '', $provider) ?: $provider)),
+        };
+    }
+
+    private function cleanString(mixed $value): ?string
+    {
+        if (! is_string($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? Str::limit($value, 160, '') : null;
+    }
+
+    private function cleanAlias(mixed $value): ?string
+    {
+        $value = $this->cleanString($value);
+
+        return $value === null ? null : Str::of($value)->lower()->replace(['-', ' '], '_')->toString();
     }
 
     private function queuePayload(): array

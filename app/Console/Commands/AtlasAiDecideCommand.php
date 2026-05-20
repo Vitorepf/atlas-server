@@ -79,7 +79,12 @@ class AtlasAiDecideCommand extends Command
 
         $candidate = $decide->candidateProvider($options, $settings->defaultProvider());
         $selectedProvider = $this->providerAllowedForPreview($candidate, $options, $decide, $settings);
-        $modelResolution = $models->resolveWithSource($selectedProvider, $this->option('model') ?: null);
+        $modelResolution = $models->resolveWithSource($selectedProvider, $this->option('model') ?: 'auto', array_merge($payload, [
+            'domain' => $mode,
+            'task' => $input,
+            'task_type' => $mode,
+            'compute_effort' => data_get($payload, 'compute_effort_contract') ?? data_get($payload, 'compute_effort'),
+        ]));
         $fallbackReason = $candidate !== $selectedProvider
             ? $this->fallbackReason($candidate, $selectedProvider, $options, $decide, $settings)
             : null;
@@ -95,6 +100,10 @@ class AtlasAiDecideCommand extends Command
             'fallback_provider' => $candidate !== $selectedProvider ? $selectedProvider : null,
             'fallback_reason' => $fallbackReason,
             'selected_model_label' => $modelResolution['model_label'] ?? $modelResolution['model'],
+            'selected_model_alias' => $modelResolution['selected_model_alias'] ?? $modelResolution['model_alias'] ?? null,
+            'model_family' => $modelResolution['model_family'] ?? null,
+            'model_tier' => $modelResolution['model_tier'] ?? null,
+            'model_selection_source' => $modelResolution['selection_source'] ?? $modelResolution['source'] ?? null,
             'model_identity_source' => $modelResolution['source'] ?? 'unresolved',
             'confidence_score' => $this->confidenceScore($decide, $options, $selectedProvider),
             'candidates' => $this->candidates($settings, $models, $selectedProvider, $options, $decide),

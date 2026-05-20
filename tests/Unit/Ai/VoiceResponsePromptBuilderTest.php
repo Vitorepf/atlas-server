@@ -13,17 +13,17 @@ use Tests\TestCase;
 
 class VoiceResponsePromptBuilderTest extends TestCase
 {
-    public function test_voice_response_contract_projects_short_spoken_answer_rules(): void
+    public function test_voice_response_contract_projects_spoken_result_rules_without_reducing_scope(): void
     {
         $section = $this->voiceSection([
             'payload' => [
                 'voice_response_contract' => [
                     'schema_version' => 'atlas.voice.response_contract.v1',
-                    'mode' => 'spoken_concise',
+                    'mode' => 'spoken_result',
                     'language' => 'pt-BR',
-                    'max_sentences' => 3,
-                    'target_chars' => 280,
-                    'hard_max_chars' => 420,
+                    'max_sentences' => 6,
+                    'target_chars' => 650,
+                    'hard_max_chars' => 1000,
                 ],
             ],
         ]);
@@ -31,8 +31,9 @@ class VoiceResponsePromptBuilderTest extends TestCase
         $this->assertStringContainsString('# Contrato de resposta falada Atlas Voice', $section);
         $this->assertStringContainsString('Esta resposta sera falada em voz alta.', $section);
         $this->assertStringContainsString('portugues brasileiro natural', $section);
-        $this->assertStringContainsString('Use no maximo 3 frases curtas', $section);
-        $this->assertStringContainsString('Mira de tamanho: ate 280 caracteres; limite duro: 420 caracteres.', $section);
+        $this->assertStringContainsString('Nao reduza o escopo do pedido por ser voz', $section);
+        $this->assertStringContainsString('Use no maximo 5 frases curtas', $section);
+        $this->assertStringContainsString('Mira de tamanho: ate 650 caracteres; limite duro: 1000 caracteres.', $section);
         $this->assertStringContainsString('sem markdown', $section);
     }
 

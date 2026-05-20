@@ -10,9 +10,11 @@ use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\RouterRuntime\AtlasHyperflowEntryService;
 use App\Services\Ai\RouterRuntime\RouterRuntimeCanon;
+use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use Illuminate\Support\Str;
 use Mockery\MockInterface;
 use Tests\Concerns\CreatesRouterRuntimeTables;
+use Tests\Concerns\CreatesRuntimeEfficiencyTables;
 use Tests\TestCase;
 
 /**
@@ -36,6 +38,7 @@ use Tests\TestCase;
 class AtlasAiInteractionHyperflowEntryTest extends TestCase
 {
     use CreatesRouterRuntimeTables;
+    use CreatesRuntimeEfficiencyTables;
 
     private array $headers = ['X-Atlas-Token' => 'test-token-with-enough-length-123'];
 
@@ -43,11 +46,13 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
     {
         parent::setUp();
         $this->createRouterRuntimeTables();
+        $this->createRuntimeEfficiencyTables();
         config()->set('atlas.token', 'test-token-with-enough-length-123');
     }
 
     protected function tearDown(): void
     {
+        $this->dropRuntimeEfficiencyTables();
         $this->dropRouterRuntimeTables();
         parent::tearDown();
     }
@@ -95,6 +100,11 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertIsString(data_get($envelope, 'persistent_context.persistent_context_hash'));
         $this->assertSame('atlas.persistent_context.provider_handoff.v1', data_get($envelope, 'persistent_context.provider_handoff.schema_version'));
         $this->assertFalse(data_get($envelope, 'persistent_context.claim_policy.provider_calls_made'));
+        $this->assertSame(AtlasRuntimeEfficiencyGovernorService::SCHEMA_VERSION, data_get($envelope, 'runtime_efficiency.schema_version'));
+        $this->assertContains(data_get($envelope, 'runtime_efficiency.path'), ['standard_path', 'deep_path']);
+        $this->assertSame('atlas.context_minimum_pack.v1', data_get($envelope, 'runtime_efficiency.context_minimum_pack.schema_version'));
+        $this->assertSame(false, data_get($envelope, 'runtime_efficiency.claim_policy.provider_invoked'));
+        $this->assertArrayNotHasKey('strategic_reality', $envelope, 'programming handoff must not invoke ASRE by default');
 
         // Canonical rows persisted.
         $this->assertGreaterThan(0, AiAtlasIntentClassification::query()->count());
@@ -149,6 +159,48 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertNull($envelope['handoff_target']);
         $this->assertContains('policy.gate', $envelope['required_gates']);
         $this->assertContains('evidence.gate', $envelope['required_gates']);
+        $this->assertSame('atlas.strategic_reality.decision.v1', data_get($envelope, 'strategic_reality.schema_version'));
+        $this->assertSame(false, data_get($envelope, 'strategic_reality.claim_policy.external_execution_performed'));
+    }
+
+    public function test_strategy_intent_attaches_asre_without_changing_router_decision(): void
+    {
+        $captured = $this->postInteraction(
+            input: 'qual e a melhor estrategia e proxima decisao para o Atlas agora?',
+            payload: ['app_surface' => 'atlas_app'],
+        );
+
+        $envelope = data_get($captured, 'payload.hyperflow_runtime');
+        $this->assertIsArray($envelope);
+        $this->assertSame('strategy', $envelope['primary_domain']);
+        $this->assertSame(RouterRuntimeCanon::INTENT_STRATEGY, $envelope['intent']['type']);
+        $this->assertSame(RouterRuntimeCanon::FLOW_STRATEGY, $envelope['flow_id']);
+        $this->assertSame('atlas.strategic_reality.decision.v1', data_get($envelope, 'strategic_reality.schema_version'));
+        $this->assertContains(data_get($envelope, 'strategic_reality.status'), ['ready', 'watch']);
+        $this->assertIsString(data_get($envelope, 'strategic_reality.decision_hash'));
+        $this->assertNotEmpty(data_get($envelope, 'strategic_reality.context_signals'));
+        $this->assertContains('persistent_context', collect(data_get($envelope, 'strategic_reality.context_signals', []))->pluck('source')->all());
+        $this->assertContains('aemor', collect(data_get($envelope, 'strategic_reality.context_signals', []))->pluck('source')->all());
+        $this->assertContains('intelligence_factory', collect(data_get($envelope, 'strategic_reality.context_signals', []))->pluck('source')->all());
+        $this->assertSame(false, data_get($envelope, 'strategic_reality.claim_policy.provider_invoked'));
+        $this->assertSame(false, data_get($envelope, 'strategic_reality.claim_policy.external_execution_performed'));
+        $this->assertSame('atlas_strategy', $envelope['flow_id'], 'ASRE sidecar must not rewrite RouterRuntime flow');
+    }
+
+    public function test_financial_external_action_asre_blocks_execution_sidecar_only(): void
+    {
+        $captured = $this->postInteraction(
+            input: 'devo comprar e vender automaticamente ativos em day trade agora?',
+            payload: ['app_surface' => 'atlas_app'],
+        );
+
+        $envelope = data_get($captured, 'payload.hyperflow_runtime');
+        $this->assertIsArray($envelope);
+        $this->assertSame('finance', $envelope['primary_domain']);
+        $this->assertSame(RouterRuntimeCanon::FLOW_FINANCE, $envelope['flow_id']);
+        $this->assertSame('blocked', data_get($envelope, 'strategic_reality.status'));
+        $this->assertSame(false, data_get($envelope, 'strategic_reality.claim_policy.external_execution_performed'));
+        $this->assertContains('request_operator_approval', data_get($envelope, 'strategic_reality.next_actions', []));
     }
 
     public function test_marketing_intent_emits_atlas_plan_with_policy_required(): void

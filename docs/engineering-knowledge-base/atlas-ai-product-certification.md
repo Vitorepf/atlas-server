@@ -5,7 +5,7 @@ title: Atlas AI Product Certification
 status: active
 category: certification
 priority: 92
-summary: Certificacao end-to-end do produto Atlas AI atravessando Mobile, Desktop, Server e Forge.
+summary: Certificacao end-to-end do produto Atlas AI atravessando Mobile, Desktop, Server, Forge, Control Plane, Agent Control Plane, governanca externa, Company Runtime e capability evolution.
 tags:
   - atlas-ai
   - certification
@@ -13,11 +13,18 @@ tags:
 capabilities:
   - product_certification
 decisions:
-  - Product certification prova plumbing, nao superioridade ou benchmark.
+  - Product certification prova plumbing e runtime governance interno, nao superioridade ou benchmark.
+  - A cert deve cobrir a meta macro atual: Desktop UX operacional, Agent Control Plane como base de subagentes/metagentes, execucao externa governada, empresa autonoma interna e capabilities usadas/melhoradas por outcome.
+  - AP-695 e o contrato de auditoria da meta macro; esta doc e a especificacao operacional da cert.
 maintenance:
-  - Atualizar quando checks de produto, rich input ou presentation contract mudarem.
+  - Atualizar quando checks de produto, rich input, presentation contract, Control Plane, Company Runtime ou capability evolution mudarem.
 related_paths:
+  - docs/ap/AP-695-product-runtime-governance-certification-contract.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-readiness.md
+  - docs/engineering-knowledge-base/atlas-ai-evolution-lineage-and-target-state.md
+  - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
+  - docs/engineering-knowledge-base/atlas-intelligence-factory-os.md
+  - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-ai-product-certification
 graph_title: Atlas AI Product Certification
@@ -59,7 +66,10 @@ Certifica o caminho de produto end-to-end sem claim de superioridade.
 
 ## Papel no Atlas
 
-Provar plumbing entre surfaces, rich input, Hyperflow, Forge e presentation contract.
+Provar plumbing entre surfaces, rich input, Hyperflow, Forge e presentation
+contract, alem de provar que a meta macro atual tem evidence de produto:
+Desktop Control Plane, Agent Control Plane, external execution governance,
+autonomous company runtime interno e capability usage/evolution loop.
 
 ## Onde Se Encaixa
 
@@ -68,6 +78,8 @@ Dentro da readiness macro do runtime Atlas AI.
 ## Contratos
 
 Checks critical precisam passar para status ready.
+
+Contrato AP: `docs/ap/AP-695-product-runtime-governance-certification-contract.md`.
 
 ## Fluxo
 
@@ -79,11 +91,12 @@ Nao usar este certificado como benchmark externo.
 
 ## Escopo de Implementacao
 
-Certificacao de produto e evidence refs.
+Certificacao de produto, runtime governance e evidence refs.
 
 ## Dependencias
 
-Mobile, Desktop, Server, Forge, Hyperflow e rich input canon.
+Mobile, Desktop, Server, Forge, Hyperflow, rich input canon, Control Plane,
+Agent Control Plane, AEMOR, Intelligence Factory e Engineering Company Runtime.
 
 ## Evidencias
 
@@ -91,7 +104,7 @@ Command JSON, tests e certification_hash.
 
 ## Riscos
 
-Confundir plumbing ready com qualidade comparativa.
+Confundir product runtime governance ready com qualidade comparativa externa.
 
 ## Exemplos
 
@@ -109,9 +122,13 @@ Atualizar a lista de checks quando surfaces mudarem.
 
 ## O que esta certificação cobre
 
-É a **cert de produto end-to-end do Atlas AI**: prova que o produto está montado canônicamente atravessando todas as superfícies (Mobile, Desktop, Server, Forge) com os contratos certos.
+É a **cert de produto end-to-end do Atlas AI**: prova que o produto está
+montado canônicamente atravessando as superfícies e runtimes relevantes
+(Mobile, Desktop, Server, Forge, Control Plane, Agent Control Plane, AEMOR,
+Intelligence Factory e Engineering Company Runtime) com os contratos certos.
 
-A cert NÃO é uma claim de superioridade nem um benchmark — é uma cert de *plumbing*: o caminho
+A cert NÃO é uma claim de superioridade nem um benchmark. Ela certifica
+plumbing e runtime governance interno:
 
 ```
 Atlas AI Surface
@@ -122,12 +139,15 @@ Atlas AI Surface
           → Router · Intent Kernel · Specialist Flow
             → atlas_dev / atlas_forge / atlas_research / etc handoff
               → Presentation Contract (corpo limpo)
-                → Context · Trace · Audit (técnico)
+              → Context · Trace · Audit (técnico)
+                → Control Plane runtime governance
+                  → Agent Control Plane / Company Runtime / capability evolution
+                    / external governance
 ```
 
 está intacto.
 
-### 12 checks canônicos (cada um carrega evidence: paths + booleans)
+### 17 checks canônicos (cada um carrega evidence: paths + booleans)
 
 | # | id | severity | invariante |
 |---|---|---|---|
@@ -143,6 +163,11 @@ está intacto.
 | 10 | `routing_anti_regression_tests_present` | critical | `AtlasAiDesktopHyperflowAntiRegressionTest` cobre: research ≠ programming.dev, finance ≠ atlas_dev, programming → atlas_dev, Obra → atlas_forge; `AtlasAiInteractionHyperflowEntryTest` cobre 6+ cenários E2E reais via gateway mock |
 | 11 | `forge_strips_raw_text_to_hash_and_derives_context_refs` | critical | `ForgeIntakeService` faz `sha256` do conteúdo de URL/text_block e deriva `context_refs` a partir do `source_manifest` |
 | 12 | `no_attachment_path_still_works` | **warn** | testes desktop cobrem fluxo sem anexo (não-blocker) |
+| 13 | `desktop_control_plane_runtime_governance_ux` | critical | Desktop Control Plane renderiza runtime governance: unsafe external execution, receipt gaps, signature coverage e policy blocked-by-default/manual-handoff |
+| 14 | `agent_control_plane_runtime_standard` | critical | Agent Control Plane possui task packets, claim/leases, multi-agent loop certification, context/evidence receipts e runtime safety flags sem dispatch livre |
+| 15 | `governed_external_execution_control_plane` | critical | Control Plane rastreia unsafe execution, receipt bindings, pending approval como operator queue e bloqueia runtime status quando execução externa insegura aparece |
+| 16 | `internal_autonomous_company_runtime_claim_gate` | critical | Engineering Company Runtime só permite claim interna quando roles têm agent task packets; external superiority e benchmark continuam bloqueados |
+| 17 | `capability_usage_and_evolution_loop` | critical | Control Plane, AEMOR e Intelligence Factory conectam capability used events, outcome, evolution candidates e certification registry |
 
 ## Como rodar
 
@@ -167,7 +192,7 @@ vendor/bin/phpunit tests/Feature/Ai/Product/
 
 | status | quando | exit em `--strict` |
 |---|---|---|
-| `ready`   | todos os 12 checks `passed` | 0 |
+| `ready`   | todos os 17 checks `passed` | 0 |
 | `partial` | algum check `warn` falhou, mas nenhum `critical` | 1 |
 | `blocked` | algum check `critical` falhou | 1 |
 
@@ -198,3 +223,17 @@ Esta cert **não roda** cenários — ela aponta para os testes que rodam, em `e
 - **Claim de superioridade** — esta cert NÃO afirma "Atlas substitui Claude Code/Codex". `claims.declares_superiority = false`. (Para a claim de substituição, ver `AtlasAiHyperflowCertificationService` — outra cert, com gate externo dedicado.)
 - **TEOS** — `claims.declares_teos = false`.
 - **Persistência** — cert é read-model puro. `writes = false`.
+
+## Meta macro coberta
+
+Esta certificação agora cobre a fase atual da evolução do Atlas:
+
+- Desktop UX operacional via Control Plane runtime governance;
+- Agent Control Plane como base governada para subagentes/metagentes;
+- execução externa governada, sem free-run;
+- empresa autônoma interna via Engineering Company Runtime;
+- capabilities realmente usadas e melhoradas por AEMOR/Intelligence Factory;
+- benchmark/rivals não executados.
+
+Ela ainda não declara a meta global completa sozinha. Ela é o gate de produto
+que obriga esses pontos a ficarem visíveis e auditáveis.

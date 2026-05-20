@@ -31,6 +31,7 @@ use App\Services\Ai\Cli\Repl\ReplMessages;
 use App\Services\Ai\Cli\Repl\ReplRenderer;
 use App\Services\Ai\Cli\Repl\StatusBarFormatter;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Kernel\Decision\ModelSelectionContractFactory;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineAuditService;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineDevPlanBuilder;
@@ -72,6 +73,7 @@ class AiChatCommand extends Command
         {--ai= : Session AI/provider alias: claude, codex, gemini or conselho}
         {--provider= : claude, codex, gemini, conselho, claude_cli, codex_cli, gemini_cli or claude_codex}
         {--model= : Model alias/id for this run, for example sonnet, opus, spark, codex-premium, claude-opus-4-7 or gpt-5.5}
+        {--effort= : Atlas compute effort: fast, balanced, deep or max}
         {--claude-only : Fair Claude benchmark mode: force claude_cli + Claude Opus and disable fallback/decide/council}
         {--single-provider : Fair Claude benchmark mode: forbid provider switching}
         {--no-decide : Fair Claude benchmark mode: disable Atlas Decide for this run}
@@ -180,6 +182,7 @@ class AiChatCommand extends Command
             $modelOption = FairClaudePolicy::MODEL_LOCK;
         }
         $modelSelection = $this->modelSelection(is_string($modelOption) ? $modelOption : null, $provider);
+        $computeEffort = $this->computeEffortSelection($this->option('effort'));
         if ($modelSelection !== null && ! $provider && is_string($modelSelection['provider'] ?? null)) {
             $provider = $modelSelection['provider'];
         }
@@ -236,7 +239,7 @@ class AiChatCommand extends Command
                 return $this->imageProviderBlocked((string) $provider);
             }
             $effectivePermission = $this->resolveEffectivePermission($intent, trim($input), $permissionMode);
-            $trace = $this->send($gateway, $worker, trim($input), $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null || (bool) $this->option('new-thread'), $activatedSkills, $pendingImages, $modelSelection, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
+            $trace = $this->send($gateway, $worker, trim($input), $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null || (bool) $this->option('new-thread'), $activatedSkills, $pendingImages, $modelSelection, $computeEffort, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
             $this->maybeRunDevQualityGate($quality, $workspace, $mode, $pendingImages);
 
             return $trace->status === 'succeeded' || (bool) $this->option('no-run')
@@ -252,7 +255,7 @@ class AiChatCommand extends Command
         }
 
         while (true) {
-            $drainedTrace = $this->drainQueuedMessages($queuedMessages, $gateway, $worker, $quality, $workspace, $provider, $mode, $permissionMode, $stream, $threadId, $activatedSkills, $intent, $modelSelection, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
+            $drainedTrace = $this->drainQueuedMessages($queuedMessages, $gateway, $worker, $quality, $workspace, $provider, $mode, $permissionMode, $stream, $threadId, $activatedSkills, $intent, $modelSelection, $computeEffort, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
             if ($drainedTrace) {
                 $threadId = $drainedTrace->thread_id ?: $threadId;
             }
@@ -338,6 +341,12 @@ class AiChatCommand extends Command
 
             if ($line === '/model' || str_starts_with($line, '/model ')) {
                 $this->handleModelCommand(trim(Str::after($line, '/model')), $provider, $modelSelection);
+
+                continue;
+            }
+
+            if ($line === '/effort' || str_starts_with($line, '/effort ')) {
+                $computeEffort = $this->handleEffortCommand(trim(Str::after($line, '/effort')), $computeEffort);
 
                 continue;
             }
@@ -642,6 +651,7 @@ class AiChatCommand extends Command
                         'skills' => $messageSkills,
                         'images' => $pendingImages,
                         'model' => $modelSelection,
+                        'effort' => $computeEffort,
                     ];
                     $pendingImages = [];
                     $this->line('(queued - will send next turn)');
@@ -656,6 +666,7 @@ class AiChatCommand extends Command
                             'skills' => $messageSkills,
                             'images' => $pendingImages,
                             'model' => $modelSelection,
+                            'effort' => $computeEffort,
                         ];
                         $pendingImages = [];
                         $this->line('(queued - imagem requer envio visual na proxima chamada)');
@@ -675,7 +686,7 @@ class AiChatCommand extends Command
 
             $effectivePermission = $this->resolveEffectivePermission($intent, $line, $permissionMode);
             $sentImages = $pendingImages;
-            $trace = $this->send($gateway, $worker, $line, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $messageSkills, $sentImages, $modelSelection, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
+            $trace = $this->send($gateway, $worker, $line, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $messageSkills, $sentImages, $modelSelection, $computeEffort, $fairMode ? $fairClaude->metadata() : null, $fairFlags);
             if ($pendingImages !== []) {
                 $lastImages = $pendingImages;
             }
@@ -699,6 +710,7 @@ class AiChatCommand extends Command
         array $activatedSkills = [],
         array $imageAttachments = [],
         ?array $modelSelection = null,
+        ?string $computeEffort = null,
         ?array $fairModeMetadata = null,
         array $fairFlags = [],
     ): AiTrace {
@@ -741,6 +753,7 @@ class AiChatCommand extends Command
                 'model' => $modelOverride,
                 'model_label' => $modelSelection['label'] ?? null,
                 'model_tier' => $modelSelection['tier'] ?? null,
+                'compute_effort' => $computeEffort,
             ],
         );
         $devPlan = $this->activeDevExecutionPlan(
@@ -761,6 +774,17 @@ class AiChatCommand extends Command
                 modelSelection: $modelSelection,
                 modelOverride: $modelOverride,
                 fairMode: $fairModeMetadata !== null,
+                context: [
+                    'domain' => $mode === 'dev' ? 'programming' : null,
+                    'flow' => data_get($devPlan, 'kernel_pipeline.input.safe_hints.flow'),
+                    'task' => $input,
+                    'compute_effort' => $computeEffort,
+                ],
+            ),
+            'compute_effort' => $computeEffort,
+            'compute_effort_contract' => app(ComputeEffortPolicy::class)->contract(
+                requested: $computeEffort,
+                provider: $provider,
                 context: [
                     'domain' => $mode === 'dev' ? 'programming' : null,
                     'flow' => data_get($devPlan, 'kernel_pipeline.input.safe_hints.flow'),
@@ -941,6 +965,7 @@ class AiChatCommand extends Command
         array $activatedSkills = [],
         ?IntentPermissionResolver $intent = null,
         ?array $modelSelection = null,
+        ?string $computeEffort = null,
         ?array $fairModeMetadata = null,
         array $fairFlags = [],
     ): ?AiTrace {
@@ -969,13 +994,17 @@ class AiChatCommand extends Command
             ->map(fn (mixed $item): mixed => is_array($item) ? ($item['model'] ?? null) : null)
             ->filter(fn (mixed $item): bool => is_array($item))
             ->last() ?: $modelSelection;
+        $batchComputeEffort = collect($items)
+            ->map(fn (mixed $item): mixed => is_array($item) ? ($item['effort'] ?? null) : null)
+            ->filter(fn (mixed $item): bool => is_string($item) && $item !== '')
+            ->last() ?: $computeEffort;
         $messageCount = count($items);
         $this->line("(queued batch - sending {$messageCount} message(s))");
 
         $effectivePermission = $intent
             ? $this->resolveEffectivePermission($intent, $batch, $permissionMode)
             : $permissionMode;
-        $trace = $this->send($gateway, $worker, $batch, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $batchSkills, $batchImages, $batchModelSelection, $fairModeMetadata, $fairFlags);
+        $trace = $this->send($gateway, $worker, $batch, $workspace, $provider, $mode, $effectivePermission, $stream, $threadId, $threadId === null, $batchSkills, $batchImages, $batchModelSelection, $batchComputeEffort, $fairModeMetadata, $fairFlags);
         $this->maybeRunDevQualityGate($quality, $workspace, $mode, $batchImages);
 
         return $trace;
@@ -1158,6 +1187,9 @@ class AiChatCommand extends Command
                 'model_tier' => data_get($trace->metadata, 'model_tier'),
                 'model_selection_contract' => data_get($trace->metadata, 'model_selection_contract')
                     ?? data_get($trace->job?->payload, 'model_selection_contract'),
+                'compute_effort_contract' => data_get($trace->metadata, 'compute_effort_contract')
+                    ?? data_get($trace->job?->payload, 'compute_effort_contract')
+                    ?? data_get($trace->job?->payload, 'model_selection_contract.compute_effort'),
                 'agent' => $trace->agent_slug,
                 'skills_activated' => (array) data_get($trace->metadata, 'skills_activated', []),
                 'open_brain_injection' => data_get($trace->metadata, 'open_brain_injection'),
@@ -3634,6 +3666,37 @@ class AiChatCommand extends Command
         $this->line('Modelo ativo: '.$this->modelSelectionLabel($modelSelection));
     }
 
+    private function computeEffortSelection(mixed $value): ?string
+    {
+        if (! is_scalar($value) || trim((string) $value) === '') {
+            return null;
+        }
+
+        return app(ComputeEffortPolicy::class)->normalize((string) $value);
+    }
+
+    private function handleEffortCommand(string $argument, ?string $current): ?string
+    {
+        $argument = trim($argument);
+        if ($argument === '') {
+            $this->line('Esforco atual: '.($current ?: 'balanced'));
+            $this->line('Use /effort fast, /effort balanced, /effort deep ou /effort max.');
+
+            return $current;
+        }
+
+        $effort = $this->computeEffortSelection($argument);
+        if ($effort === null) {
+            $this->warn('Esforco invalido. Use fast, balanced, deep ou max.');
+
+            return $current;
+        }
+
+        $this->line('Esforco ativo: '.$effort);
+
+        return $effort;
+    }
+
     private function printModelCatalog(?string $provider, ?array $modelSelection = null): void
     {
         $decorated = $this->output->isDecorated();
@@ -3707,12 +3770,29 @@ class AiChatCommand extends Command
         );
         $this->appendModelCatalogRow(
             $rows,
-            'gemini-pro',
+            'gemini_flash',
             'gemini_cli',
-            $this->providerConfiguredModel('gemini_cli'),
+            [
+                'model' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_flash.model', 'gemini-3.5-flash'),
+                'label' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_flash.label', 'Gemini Flash'),
+                'tier' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_flash.tier', 'daily'),
+            ],
+            'default',
+            'Gemini rapido',
+            ['gemini', 'gemini-flash', 'gemini_flash', 'gemini-3.5-flash', 'gemini-3-5-flash'],
+        );
+        $this->appendModelCatalogRow(
+            $rows,
+            'gemini_pro',
+            'gemini_cli',
+            [
+                'model' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_pro.model', 'gemini-3.1-pro-preview'),
+                'label' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_pro.label', 'Gemini Pro'),
+                'tier' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_pro.tier', 'premium'),
+            ],
             'premium',
-            'Gemini contexto longo e multimodal',
-            ['gemini', 'gemini-pro', 'gemini-3.1-pro-preview', 'gemini-3-1-pro'],
+            'Gemini raciocinio profundo',
+            ['gemini-pro', 'gemini_pro', 'gemini-3.1-pro-preview', 'gemini-3-1-pro'],
         );
         $this->appendModelCatalogRow(
             $rows,

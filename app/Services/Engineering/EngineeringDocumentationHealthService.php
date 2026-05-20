@@ -74,6 +74,21 @@ class EngineeringDocumentationHealthService
     ];
 
     /**
+     * Required naming fields for macro structural docs. A macro doc is any
+     * canonical module with macro_layer=true, or any doc that starts declaring
+     * one of these fields. The explicit marker prevents retroactive failures on
+     * legacy docs while making the rule enforceable for every new macro layer.
+     *
+     * @var array<int,string>
+     */
+    private const CANONICAL_MACRO_NAMING_FRONTMATTER = [
+        'product_name',
+        'runtime_acronym',
+        'internal_product_name',
+        'technical_runtime',
+    ];
+
+    /**
      * @var array<int,string>
      */
     private const CANONICAL_MODULE_OPTIONAL_LIST_FRONTMATTER = [
@@ -403,6 +418,18 @@ class EngineeringDocumentationHealthService
                 }
             }
 
+            if (array_key_exists('macro_layer', $frontmatter) && ! is_bool($frontmatter['macro_layer'])) {
+                $violations[] = "{$path}: canonical module field [macro_layer] must be boolean";
+            }
+
+            if ($this->requiresMacroNaming($frontmatter)) {
+                foreach (self::CANONICAL_MACRO_NAMING_FRONTMATTER as $field) {
+                    if (! array_key_exists($field, $frontmatter) || trim((string) $frontmatter[$field]) === '') {
+                        $violations[] = "{$path}: macro structural layer missing required naming field [{$field}]";
+                    }
+                }
+            }
+
             $graphId = trim((string) ($frontmatter['graph_id'] ?? ''));
             if ($graphId !== '') {
                 if (isset($graphIds[$graphId])) {
@@ -474,6 +501,24 @@ class EngineeringDocumentationHealthService
         }
 
         return $violations;
+    }
+
+    /**
+     * @param  array<string,mixed>  $frontmatter
+     */
+    private function requiresMacroNaming(array $frontmatter): bool
+    {
+        if (($frontmatter['macro_layer'] ?? false) === true) {
+            return true;
+        }
+
+        foreach (self::CANONICAL_MACRO_NAMING_FRONTMATTER as $field) {
+            if (array_key_exists($field, $frontmatter)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

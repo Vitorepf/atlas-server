@@ -13,8 +13,6 @@ class AtlasAiRuntimeSettings
 
     public const MAX_BUDGET_WINDOW_HOURS = 168;
 
-    private const GEMINI_MODEL = 'gemini-3.1-pro-preview';
-
     /**
      * @return array<string,mixed>
      */
@@ -32,6 +30,7 @@ class AtlasAiRuntimeSettings
         return [
             'source' => $row ? 'database' : 'config',
             'updated_at' => $row?->updated_at?->toJSON(),
+            'default_provider_selection' => $this->normalizeDefaultProviderSelection($stored['default_provider_selection'] ?? null),
             'default_provider' => $this->normalizeProvider($stored['default_provider'] ?? config('atlas.ai.default_provider', 'claude_cli')) ?: 'claude_cli',
             'default_tier' => $this->cleanString($stored['default_tier'] ?? config('atlas.ai.default_tier', 'daily')) ?: 'daily',
             'council_allow_auto' => $this->boolValue($stored['council_allow_auto'] ?? config('atlas.ai.council_allow_auto', false)),
@@ -45,6 +44,11 @@ class AtlasAiRuntimeSettings
         $provider = $this->effective()['default_provider'] ?? 'claude_cli';
 
         return in_array($provider, $this->providerKeys(), true) ? $provider : 'claude_cli';
+    }
+
+    public function defaultProviderSelection(): string
+    {
+        return $this->normalizeDefaultProviderSelection($this->effective()['default_provider_selection'] ?? null);
     }
 
     public function defaultTier(): string
@@ -71,7 +75,7 @@ class AtlasAiRuntimeSettings
             ? data_get($stored, "providers.{$provider}")
             : [];
 
-        foreach (['model', 'model_label', 'model_tier', 'model_identity'] as $key) {
+        foreach (['model', 'model_label', 'model_tier', 'model_identity', 'default_model_alias'] as $key) {
             if (array_key_exists($key, $override)) {
                 $config[$key] = $this->cleanNullableString($override[$key]);
             }
@@ -81,14 +85,6 @@ class AtlasAiRuntimeSettings
             if (array_key_exists($key, $override)) {
                 $config[$key] = $this->boolValue($override[$key]);
             }
-        }
-
-        if ($provider === 'gemini_cli') {
-            $config['model'] = self::GEMINI_MODEL;
-            $config['model_identity'] = self::GEMINI_MODEL;
-            $config['model_label'] = 'Gemini 3.1 Pro Preview';
-            $config['model_tier'] = 'premium';
-            $config['fallback_model'] = null;
         }
 
         return $config;
@@ -145,13 +141,22 @@ class AtlasAiRuntimeSettings
         $normalized = [];
 
         if (array_key_exists('default_provider', $patch)) {
-            $provider = $this->normalizeProvider($patch['default_provider']);
-            if ($provider !== null && in_array($provider, $this->providerKeys(), true)) {
-                $normalized['default_provider'] = $provider;
-                if ($provider !== 'claude_codex') {
-                    $normalized['providers'][$provider]['allow_auto'] = true;
+            if ($this->normalizeDefaultProviderSelection($patch['default_provider']) === 'auto') {
+                $normalized['default_provider_selection'] = 'auto';
+            } else {
+                $provider = $this->normalizeProvider($patch['default_provider']);
+                if ($provider !== null && in_array($provider, $this->providerKeys(), true)) {
+                    $normalized['default_provider_selection'] = 'fixed';
+                    $normalized['default_provider'] = $provider;
+                    if ($provider !== 'claude_codex') {
+                        $normalized['providers'][$provider]['allow_auto'] = true;
+                    }
                 }
             }
+        }
+
+        if (array_key_exists('default_provider_selection', $patch)) {
+            $normalized['default_provider_selection'] = $this->normalizeDefaultProviderSelection($patch['default_provider_selection']);
         }
 
         if (array_key_exists('default_tier', $patch)) {
@@ -169,8 +174,8 @@ class AtlasAiRuntimeSettings
                     continue;
                 }
 
-                foreach (['model', 'model_label', 'model_tier', 'model_identity'] as $key) {
-                    if ($provider !== 'gemini_cli' && array_key_exists($key, $providerPatch)) {
+                foreach (['model', 'model_label', 'model_tier', 'model_identity', 'default_model_alias'] as $key) {
+                    if (array_key_exists($key, $providerPatch)) {
                         $normalized['providers'][$provider][$key] = $this->cleanNullableString($providerPatch[$key]);
                     }
                 }
@@ -293,13 +298,26 @@ class AtlasAiRuntimeSettings
             return null;
         }
 
-        return match (strtolower(str_replace('-', '_', trim((string) $provider)))) {
+        $normalized = strtolower(str_replace('-', '_', trim((string) $provider)));
+
+        $provider = match ($normalized) {
             'claude', 'claude_cli' => 'claude_cli',
             'codex', 'codex_cli' => 'codex_cli',
             'gemini', 'gemini_cli' => 'gemini_cli',
             'conselho', 'council', 'claude_codex' => 'claude_codex',
-            default => null,
+            default => $normalized,
         };
+
+        return in_array($provider, $this->providerKeys(), true) ? $provider : null;
+    }
+
+    private function normalizeDefaultProviderSelection(mixed $selection): string
+    {
+        if (! is_string($selection) && ! is_numeric($selection)) {
+            return 'fixed';
+        }
+
+        return strtolower(str_replace('-', '_', trim((string) $selection))) === 'auto' ? 'auto' : 'fixed';
     }
 
     private function cleanString(mixed $value): ?string

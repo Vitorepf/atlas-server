@@ -38,6 +38,12 @@ class CodexCliProvider implements AiProvider
             '--sandbox',
             (string) (data_get($job->payload, 'tool_permissions.codex_sandbox') ?: ($provider['sandbox'] ?? 'read-only')),
         );
+        $computeEffort = $this->computeEffortContractForJob($job, 'codex_cli');
+        $effortValue = data_get($computeEffort, 'provider_mapping.value');
+        if (is_string($effortValue) && $effortValue !== '') {
+            $args[] = '-c';
+            $args[] = 'model_reasoning_effort="'.$effortValue.'"';
+        }
         $args = $this->withAtlasRuntimeArgs($args, $job);
         $args = $this->withImageAttachments($args, $job);
         $fileAttachments = $this->fileAttachmentAccessPaths($job);
@@ -89,12 +95,27 @@ class CodexCliProvider implements AiProvider
                     stderr: $result->stderr,
                     errorCode: $result->errorCode,
                     errorMessage: $result->errorMessage,
-                    metadata: $result->metadata,
+                    metadata: array_merge($result->metadata, [
+                        'compute_effort' => $computeEffort,
+                    ]),
                 );
             }
         }
 
-        return $result;
+        return new AiProviderResult(
+            ok: $result->ok,
+            output: $result->output,
+            command: $result->command,
+            exitCode: $result->exitCode,
+            durationMs: $result->durationMs,
+            stdout: $result->stdout,
+            stderr: $result->stderr,
+            errorCode: $result->errorCode,
+            errorMessage: $result->errorMessage,
+            metadata: array_merge($result->metadata, [
+                'compute_effort' => $computeEffort,
+            ]),
+        );
     }
 
     public function health(): AiProviderHealthCheck

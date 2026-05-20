@@ -45,8 +45,10 @@ class AtlasControlPlaneSnapshotTest extends TestCase
             'tools_summary',
             'router_summary',
             'approvals_summary',
+            'operator_approvals_summary',
             'blockers_summary',
             'certifications_summary',
+            'runtime_intelligence_summary',
             'recent_events',
             'next_actions',
         ] as $key) {
@@ -66,6 +68,14 @@ class AtlasControlPlaneSnapshotTest extends TestCase
             $this->assertArrayHasKey('status', $snap[$key]);
             $this->assertContains($snap[$key]['status'], AtlasControlPlaneStatus::ALLOWED);
         }
+        $this->assertArrayHasKey('status', $snap['runtime_intelligence_summary']);
+        $this->assertContains($snap['runtime_intelligence_summary']['status'], AtlasControlPlaneStatus::ALLOWED);
+        foreach (['persistent_context', 'aemor', 'intelligence_factory', 'swarm_company', 'external_execution'] as $key) {
+            $this->assertArrayHasKey($key, $snap['runtime_intelligence_summary']);
+            $this->assertArrayHasKey('status', $snap['runtime_intelligence_summary'][$key]);
+        }
+        $this->assertArrayHasKey('action_queue', $snap['runtime_intelligence_summary']);
+        $this->assertIsArray($snap['runtime_intelligence_summary']['action_queue']);
     }
 
     public function test_snapshot_command_exits_zero(): void

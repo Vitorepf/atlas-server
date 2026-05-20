@@ -236,6 +236,8 @@ class AtlasForgeProviderInvocationService
             'role' => $role,
             'dispatch_id' => $dispatchPlan['dispatch_id'] ?? null,
             'decision_receipt_id' => $dispatchPlan['decision_receipt_id'] ?? null,
+            'decision_receipt_hash' => $dispatchPlan['decision_receipt_hash'] ?? null,
+            'cwd' => $this->stringOrNull(data_get($project->metadata, 'workspace_path')),
             'timeout_seconds' => $timeout,
             'max_output_chars' => $maxOutputChars,
         ]);
@@ -472,6 +474,8 @@ class AtlasForgeProviderInvocationService
                 'role' => $role,
                 'dispatch_id' => $dispatchPlan['dispatch_id'] ?? null,
                 'decision_receipt_id' => $dispatchPlan['decision_receipt_id'] ?? null,
+                'decision_receipt_hash' => $dispatchPlan['decision_receipt_hash'] ?? null,
+                'cwd' => $this->stringOrNull(data_get($project->metadata, 'workspace_path')),
                 'timeout_seconds' => $timeout,
                 'max_output_chars' => $maxOutputChars,
             ]);
@@ -515,6 +519,9 @@ class AtlasForgeProviderInvocationService
         $invocation['stderr_hash'] = $stderrHash;
         $invocation['output_excerpt'] = $outputExcerpt;
         $invocation['driver_result_note'] = $this->stringOrNull($result['note'] ?? null);
+        $invocation['changed_files'] = is_array($result['changed_files'] ?? null) ? array_values($result['changed_files']) : [];
+        $invocation['artifacts'] = is_array($result['artifacts'] ?? null) ? array_values($result['artifacts']) : [];
+        $invocation['provider_performance_signal'] = is_array($result['performance_signal'] ?? null) ? $result['performance_signal'] : null;
 
         if ($timedOut) {
             $invocation['status'] = self::STATUS_TIMED_OUT;
@@ -708,6 +715,25 @@ class AtlasForgeProviderInvocationService
                 'status' => $invocation['status'] ?? null,
                 'provider_called' => (bool) ($invocation['provider_called'] ?? false),
                 'external_provider_call' => (bool) ($invocation['external_provider_call'] ?? false),
+                'schema_version' => 'atlas.provider_usage.v1',
+                'provider_cli' => (string) ($invocation['provider'] ?? 'unknown'),
+                'model_name_if_available' => $invocation['model'] ?? null,
+                'domain' => 'programming',
+                'flow' => 'programming.forge',
+                'task_type' => $invocation['role'] ?? null,
+                'phase' => $subtype === self::EVENT_SUBTYPE_STARTED ? 'called' : 'returned',
+                'exit_status' => ($invocation['status'] ?? null) === self::STATUS_EXECUTED
+                    ? 'succeeded'
+                    : ((($invocation['status'] ?? null) === self::STATUS_FAILED || ($invocation['status'] ?? null) === self::STATUS_TIMED_OUT) ? 'failed' : ($invocation['status'] ?? null)),
+                'failure_reason' => $invocation['failure_type'] ?? null,
+                'latency_seconds' => is_numeric($invocation['duration_ms'] ?? null) ? round(((int) $invocation['duration_ms']) / 1000, 3) : null,
+                'cost_microusd' => null,
+                'cost_confidence' => 'unknown',
+                'cost_mode' => 'unknown',
+                'total_tokens' => null,
+                'token_source' => 'unknown',
+                'changed_files' => $invocation['changed_files'] ?? [],
+                'provider_performance_signal' => $invocation['provider_performance_signal'] ?? null,
                 'blockers' => (array) ($invocation['blockers'] ?? []),
                 'stdout_hash' => $invocation['stdout_hash'] ?? null,
                 'stderr_hash' => $invocation['stderr_hash'] ?? null,

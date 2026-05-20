@@ -8,7 +8,7 @@ namespace App\Services\Ai\Programming;
  * Atlas Forge Provider Invocation Driver Router (v2).
  *
  * Maps a provider id (atlas-local, claude_cli, codex_cli, gemini_cli,
- * claude_codex) to a concrete runtime driver implementing
+ * antigravity_sdk, claude_codex) to a concrete runtime driver implementing
  * `AtlasForgeProviderInvocationDriver`. The router exposes:
  *
  *   - `supports(provider)`           — provider is canonical?
@@ -33,6 +33,7 @@ class AtlasForgeProviderInvocationDriverRouter
     public const DRIVER_CLAUDE_CLI = AtlasForgeClaudeCliInvocationDriver::PROVIDER;
     public const DRIVER_CODEX_CLI = AtlasForgeCodexCliInvocationDriver::PROVIDER;
     public const DRIVER_GEMINI_CLI = AtlasForgeGeminiCliInvocationDriver::PROVIDER;
+    public const DRIVER_ANTIGRAVITY_SDK = AtlasForgeAntigravitySdkInvocationDriver::PROVIDER;
     public const DRIVER_CLAUDE_CODEX = 'claude_codex';
 
     /** @var list<string> Drivers the Atlas Forge Continuum OS recognises. */
@@ -41,6 +42,7 @@ class AtlasForgeProviderInvocationDriverRouter
         self::DRIVER_CLAUDE_CLI,
         self::DRIVER_CODEX_CLI,
         self::DRIVER_GEMINI_CLI,
+        self::DRIVER_ANTIGRAVITY_SDK,
         self::DRIVER_CLAUDE_CODEX,
     ];
 
@@ -55,11 +57,13 @@ class AtlasForgeProviderInvocationDriverRouter
         AtlasForgeClaudeCliInvocationDriver $claude,
         AtlasForgeCodexCliInvocationDriver $codex,
         AtlasForgeGeminiCliInvocationDriver $gemini,
+        AtlasForgeAntigravitySdkInvocationDriver $antigravity,
     ) {
         $this->drivers = [
             $claude->provider() => $claude,
             $codex->provider() => $codex,
             $gemini->provider() => $gemini,
+            $antigravity->provider() => $antigravity,
         ];
     }
 
@@ -278,6 +282,7 @@ class AtlasForgeProviderInvocationDriverRouter
             'role' => $context['role'] ?? null,
             'dispatch_id' => $context['dispatch_id'] ?? null,
             'decision_receipt_id' => $context['decision_receipt_id'] ?? null,
+            'decision_receipt_hash' => $context['decision_receipt_hash'] ?? null,
         ]);
 
         return [
@@ -295,6 +300,9 @@ class AtlasForgeProviderInvocationDriverRouter
             'stderr_hash' => $result['stderr_hash'] ?? null,
             'output_excerpt' => $result['stdout_excerpt'] ?? null,
             'output_excerpt_hash' => $result['stdout_hash'] ?? null,
+            'artifacts' => $result['artifacts'] ?? [],
+            'changed_files' => $result['changed_files'] ?? [],
+            'performance_signal' => $result['performance_signal'] ?? null,
             'classification' => $result['classification'] ?? null,
             'blocker' => $result['blockers'][0] ?? null,
             'note' => (string) ($result['note'] ?? 'driver invocation finished'),

@@ -103,6 +103,9 @@ decisions:
   - Toda IA nova deve ler Cognitive Immune Learning Kernel antes de alterar captura, promocao de memoria, embeddings, Constelacao, delete ou filtros contra ruido.
   - Toda IA nova deve ler External Graph Harness antes de usar Graphify, Graph RAG externo, AST graph externo ou qualquer output de grafo como candidato para Code Intelligence.
   - Toda IA nova deve ler Atlas AI Qualitative Levels Roadmap antes de propor outro patamar, co-estrategista, ambiente, Curator auto-mutavel ou memoria longitudinal.
+  - Toda IA nova deve ler Atlas AI Evolution Lineage And Target State antes de classificar o que o Atlas e hoje, propor linha evolutiva, definir meta macro, falar sobre AGI/ASI ou escolher o proximo grande patamar.
+  - Toda IA nova deve ler Atlas Strategic Reality Engine antes de propor estrategia, prioridade macro, proxima melhor acao, foco semanal, portfolio de projetos, resource allocation ou decisao baseada na realidade do usuario.
+  - Toda IA nova deve ler Atlas AI Evolutionary Target And Implementation Goal antes de transformar a linha evolutiva em meta operacional de implementacao.
   - Toda IA nova deve ler este arquivo antes de alterar Memory Core, Knowledge Base ou Code Intelligence.
   - Toda IA nova deve ler Atlas AI Canonical Architecture Index antes de escolher entre Master, Kernel, Pipeline ou Domain Specs.
   - Toda IA nova deve ler Atlas AI Flow Visual Map antes de redesenhar fluxo, explicar camadas, criar slide/diagrama ou revisar imagem de arquitetura.
@@ -247,6 +250,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md
   - docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md
   - docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
+  - docs/engineering-knowledge-base/atlas-ai-evolutionary-maturity-model.md
+  - docs/engineering-knowledge-base/atlas-ai-evolution-lineage-and-target-state.md
+  - docs/engineering-knowledge-base/atlas-ai-evolutionary-target-and-implementation-goal.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-flow-visual-map.md
   - docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md

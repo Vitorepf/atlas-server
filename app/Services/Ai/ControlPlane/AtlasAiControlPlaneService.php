@@ -7,17 +7,50 @@ namespace App\Services\Ai\ControlPlane;
 use App\Models\AiAtlasDecisionReceipt;
 use App\Models\AiAtlasRouterDecision;
 use App\Models\AiAtlasRuntimeDispatch;
+use App\Models\AiEngineeringCompanyCertification;
+use App\Models\AiEngineeringCompanyEngagement;
+use App\Models\AiEngineeringCompanyReleasePack;
+use App\Models\AiEngineeringCompanyRoleRun;
 use App\Models\AiEvidencePack;
+use App\Models\AiHoldingExternalActionMandate;
+use App\Models\AiHoldingExternalCutoverRuntimeInvocation;
+use App\Models\AiHoldingExternalCutoverWorkItem;
+use App\Models\AiHoldingExternalCutoverWorkOrder;
 use App\Models\AiJob;
 use App\Models\AiOperatorApproval;
 use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiRealExecutionForgeHandoff;
 use App\Models\AiTrace;
+use App\Models\AtlasAemorExecutionEpisode;
+use App\Models\AtlasAemorJudgmentReport;
+use App\Models\AtlasAemorLearningSignal;
+use App\Models\AtlasAemorMemoryCandidate;
+use App\Models\AtlasAemorOutcome;
+use App\Models\AtlasAgenticWorkcell;
+use App\Models\AtlasAgenticWorkcellOrgPattern;
+use App\Models\AtlasAgenticWorkcellOutcome;
+use App\Models\AtlasExecutiveBriefing;
+use App\Models\AtlasIntelligenceFactoryCapability;
+use App\Models\AtlasIntelligenceFactoryDecision;
+use App\Models\AtlasIntelligenceFactoryEvolutionEvent;
+use App\Models\AtlasIntelligenceFactoryGap;
+use App\Models\AtlasIntelligenceFactorySimulation;
+use App\Models\AtlasOpportunitySignal;
 use App\Models\AtlasPersistentContextPack;
+use App\Models\AtlasRealityEntity;
+use App\Models\AtlasRiskSignal;
+use App\Models\AtlasRuntimeEfficiencyDecision;
+use App\Models\AtlasRuntimeEfficiencyOutcome;
+use App\Models\AtlasStrategicDecision;
 use App\Services\Ai\Learning\AtlasAiLearningLoopService;
 use App\Services\Ai\OperatorApproval\OperatorApprovalCanon;
 use App\Services\Ai\RouterRuntime\RouterRuntimeCanon;
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
+use App\Services\Ai\SelfConstruction\AgentMergeReviewPacketBuilder;
+use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryHandoffProtocolBuilder;
+use App\Services\Ai\SelfConstruction\AgentValidationGateDryRunEvaluator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -85,7 +118,22 @@ class AtlasAiControlPlaneService
         $providerDecisions = $this->providerDecisions($since);
         $contextOperations = $this->contextOperations($tracesSection['ids']);
         $persistentContext = $this->persistentContext($since);
+        $aemor = $this->aemor($since);
+        $intelligenceFactory = $this->intelligenceFactory($since);
+        $strategicReality = $this->strategicReality($since);
+        $runtimeEfficiency = $this->runtimeEfficiency($since);
+        $agenticWorkcell = $this->agenticWorkcell($since);
+        $swarmCompany = $this->swarmCompany($since);
+        $externalExecution = $this->externalExecution($since);
         $blockers = $this->blockers($since, $tracesSection['ids']);
+        foreach ((array) ($externalExecution['blockers'] ?? []) as $blocker) {
+            if (count($blockers) >= self::BLOCKER_LIMIT) {
+                break;
+            }
+            if (is_array($blocker)) {
+                $blockers[] = $blocker;
+            }
+        }
         foreach ((array) ($persistentContext['blockers'] ?? []) as $blocker) {
             if (count($blockers) >= self::BLOCKER_LIMIT) {
                 break;
@@ -94,6 +142,7 @@ class AtlasAiControlPlaneService
                 $blockers[] = $blocker;
             }
         }
+        $blockerClassification = $this->classifyBlockers($blockers);
         $learning = $this->learningLoop->controlPlaneSummary($since);
         $approvals = $this->approvalsSection($since);
 
@@ -107,12 +156,41 @@ class AtlasAiControlPlaneService
             'unique_flows' => count($flowsSection),
             'unique_providers' => count($tracesSection['by_provider']),
             'blockers_count' => count($blockers),
+            'system_blockers_count' => $blockerClassification['system_blockers_count'],
+            'operator_queue_count' => $blockerClassification['operator_queue_count'],
+            'clarification_queue_count' => $blockerClassification['clarification_queue_count'],
             'handoffs_count' => $handoffs['dev']['count'] + $handoffs['forge']['count'],
             'failures_count' => count($failures),
             'context_operations_blockers_count' => $contextOperations['blockers_count'],
             'verified_compactions_count' => $contextOperations['verified_compaction']['total'],
             'persistent_context_total' => $persistentContext['total'],
             'persistent_context_blocked' => $persistentContext['blocked'],
+            'aemor_episodes_total' => $aemor['summary']['episodes_total'] ?? 0,
+            'aemor_blocked_outcomes' => $aemor['summary']['blocked'] ?? 0,
+            'aemor_failed_outcomes' => $aemor['summary']['failed'] ?? 0,
+            'intelligence_factory_capabilities_total' => $intelligenceFactory['summary']['capabilities_total'] ?? 0,
+            'intelligence_factory_open_gaps' => $intelligenceFactory['summary']['open_gaps'] ?? 0,
+            'intelligence_factory_blocked_decisions' => $intelligenceFactory['summary']['blocked_decisions'] ?? 0,
+            'intelligence_factory_evolution_events' => $intelligenceFactory['summary']['evolution_events_total'] ?? 0,
+            'intelligence_factory_capability_used_events' => $intelligenceFactory['summary']['capability_used_events'] ?? 0,
+            'strategic_reality_entities_total' => $strategicReality['summary']['reality_entities_total'] ?? 0,
+            'strategic_reality_decisions_total' => $strategicReality['summary']['strategic_decisions_total'] ?? 0,
+            'strategic_reality_blocked_decisions' => $strategicReality['summary']['blocked_decisions'] ?? 0,
+            'strategic_reality_critical_risks' => $strategicReality['summary']['critical_risks'] ?? 0,
+            'runtime_efficiency_decisions_total' => $runtimeEfficiency['summary']['decisions_total'] ?? 0,
+            'runtime_efficiency_fast_path' => $runtimeEfficiency['summary']['fast_path'] ?? 0,
+            'runtime_efficiency_deep_path' => $runtimeEfficiency['summary']['deep_path'] ?? 0,
+            'runtime_efficiency_forge_path' => $runtimeEfficiency['summary']['forge_path'] ?? 0,
+            'runtime_efficiency_blocked' => $runtimeEfficiency['summary']['blocked'] ?? 0,
+            'agentic_workcells_total' => $agenticWorkcell['summary']['workcells_total'] ?? 0,
+            'agentic_workcell_blocked' => $agenticWorkcell['summary']['blocked'] ?? 0,
+            'agentic_workcell_org_patterns' => $agenticWorkcell['summary']['org_patterns_total'] ?? 0,
+            'swarm_company_roles_total' => $swarmCompany['summary']['role_runs_total'] ?? 0,
+            'swarm_company_blocked_releases' => $swarmCompany['summary']['blocked_release_packs'] ?? 0,
+            'external_execution_mandates_total' => $externalExecution['summary']['mandates_total'] ?? 0,
+            'external_execution_pending_approval' => $externalExecution['summary']['pending_operator_review'] ?? 0,
+            'external_execution_unsafe_enabled' => $externalExecution['summary']['unsafe_external_execution_enabled'] ?? 0,
+            'external_execution_missing_receipt_bindings' => $externalExecution['summary']['missing_receipt_binding_count'] ?? 0,
         ];
 
         $status = $this->resolveStatus($summary, $blockers);
@@ -139,6 +217,13 @@ class AtlasAiControlPlaneService
             'provider_decisions' => $providerDecisions,
             'context_operations' => $contextOperations,
             'persistent_context' => $persistentContext,
+            'aemor' => $aemor,
+            'intelligence_factory' => $intelligenceFactory,
+            'strategic_reality' => $strategicReality,
+            'runtime_efficiency' => $runtimeEfficiency,
+            'agentic_workcell' => $agenticWorkcell,
+            'swarm_company' => $swarmCompany,
+            'external_execution' => $externalExecution,
             'blockers' => $blockers,
             'learning' => $learning,
             'approvals' => $approvals,
@@ -803,6 +888,8 @@ class AtlasAiControlPlaneService
                     if ($err === '') {
                         $blockers[] = [
                             'kind' => 'silent_failure',
+                            'class' => 'system_blocker',
+                            'severity' => 'critical',
                             'trace_id' => (string) $trace->id,
                             'flow_id' => $this->flowIdFromTrace($trace),
                             'detail' => 'trace failed without persisted error_message',
@@ -828,11 +915,15 @@ class AtlasAiControlPlaneService
                         continue;
                     }
                     foreach ($reasons as $reason) {
+                        $detail = is_array($reason) ? ($this->stringOrNull($reason['reason'] ?? null) ?? 'unspecified') : (string) $reason;
+                        $class = $this->dispatchBlockerClass($detail);
                         $blockers[] = [
                             'kind' => 'dispatch_blocker',
+                            'class' => $class,
+                            'severity' => $class === 'system_blocker' ? 'high' : 'operator_queue',
                             'dispatch_id' => (string) $dispatch->id,
                             'dispatch_status' => $this->stringOrNull($dispatch->dispatch_status),
-                            'detail' => is_array($reason) ? ($this->stringOrNull($reason['reason'] ?? null) ?? 'unspecified') : (string) $reason,
+                            'detail' => $detail,
                         ];
                         if (count($blockers) >= self::BLOCKER_LIMIT) {
                             break 2;
@@ -855,6 +946,8 @@ class AtlasAiControlPlaneService
                 foreach ($rows as $row) {
                     $blockers[] = [
                         'kind' => 'quality_failed',
+                        'class' => 'system_blocker',
+                        'severity' => 'critical',
                         'trace_id' => $this->stringOrNull($row->trace_id),
                         'detail' => 'quality evaluation marked failed',
                     ];
@@ -878,6 +971,8 @@ class AtlasAiControlPlaneService
                 foreach ($stale as $row) {
                     $blockers[] = [
                         'kind' => 'handoff_incomplete',
+                        'class' => 'operator_queue',
+                        'severity' => 'operator_queue',
                         'handoff_id' => $this->stringOrNull($row->handoff_id),
                         'status' => $this->stringOrNull($row->status),
                         'detail' => 'Forge handoff not in terminal succeeded/completed state',
@@ -906,6 +1001,8 @@ class AtlasAiControlPlaneService
                     }
                     $blockers[] = [
                         'kind' => 'context_operations_blocked',
+                        'class' => 'system_blocker',
+                        'severity' => 'critical',
                         'trace_id' => (string) $trace->id,
                         'flow_id' => $this->flowIdFromTrace($trace),
                         'detail' => 'ACIE/ACOL operations runtime marked the flow blocked',
@@ -920,6 +1017,76 @@ class AtlasAiControlPlaneService
         }
 
         return $blockers;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $blockers
+     * @return array{system_blockers_count:int,operator_queue_count:int,clarification_queue_count:int}
+     */
+    private function classifyBlockers(array $blockers): array
+    {
+        $summary = [
+            'system_blockers_count' => 0,
+            'operator_queue_count' => 0,
+            'clarification_queue_count' => 0,
+        ];
+
+        foreach ($blockers as $blocker) {
+            $class = $this->blockerClass($blocker);
+            if ($class === 'system_blocker') {
+                $summary['system_blockers_count']++;
+            } else {
+                $summary['operator_queue_count']++;
+            }
+
+            if ($this->isClarificationBlocker($blocker)) {
+                $summary['clarification_queue_count']++;
+            }
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @param  array<string,mixed>  $blocker
+     */
+    private function blockerClass(array $blocker): string
+    {
+        $class = $this->stringOrNull($blocker['class'] ?? null);
+        if ($class === 'system_blocker' || $class === 'operator_queue') {
+            return $class;
+        }
+
+        return match ($this->stringOrNull($blocker['kind'] ?? null)) {
+            'silent_failure',
+            'quality_failed',
+            'context_operations_blocked',
+            'persistent_context_blocked' => 'system_blocker',
+            'handoff_incomplete' => 'operator_queue',
+            'dispatch_blocker' => $this->dispatchBlockerClass($this->stringOrNull($blocker['detail'] ?? null) ?? ''),
+            default => 'system_blocker',
+        };
+    }
+
+    private function dispatchBlockerClass(string $detail): string
+    {
+        return str_starts_with($detail, 'clarification_needed')
+            || str_contains($detail, 'high_ambiguity')
+            || str_contains($detail, 'operator_review')
+            || str_contains($detail, 'approval_required')
+            ? 'operator_queue'
+            : 'system_blocker';
+    }
+
+    /**
+     * @param  array<string,mixed>  $blocker
+     */
+    private function isClarificationBlocker(array $blocker): bool
+    {
+        $detail = $this->stringOrNull($blocker['detail'] ?? null) ?? '';
+
+        return ($this->stringOrNull($blocker['kind'] ?? null) === 'dispatch_blocker')
+            && (str_starts_with($detail, 'clarification_needed') || str_contains($detail, 'high_ambiguity'));
     }
 
     /**
@@ -1032,6 +1199,691 @@ class AtlasAiControlPlaneService
     }
 
     /**
+     * AEMOR read model. This is intentionally aggregate-only: no raw prompt,
+     * no response text, no provider output.
+     *
+     * @return array<string,mixed>
+     */
+    private function aemor(CarbonImmutable $since): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'summary' => [
+                'episodes_total' => 0,
+                'open' => 0,
+                'succeeded' => 0,
+                'failed' => 0,
+                'blocked' => 0,
+                'learning_signals' => 0,
+                'memory_candidates' => 0,
+                'judgment_reports' => 0,
+            ],
+            'recent_blockers' => [],
+            'recent_judgments' => [],
+        ];
+        if (! Schema::hasTable('atlas_aemor_execution_episodes')) {
+            return $empty;
+        }
+
+        try {
+            $episodes = AtlasAemorExecutionEpisode::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'scope_type', 'scope_id', 'flow_id', 'episode_hash', 'created_at']);
+            $outcomes = Schema::hasTable('atlas_aemor_outcomes')
+                ? AtlasAemorOutcome::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'episode_id', 'status', 'failure_signature', 'outcome_hash', 'created_at'])
+                : collect();
+            $judgments = Schema::hasTable('atlas_aemor_judgment_reports')
+                ? AtlasAemorJudgmentReport::query()->where('created_at', '>=', $since)->latest()->limit(self::RECENT_LIMIT)->get(['id', 'episode_id', 'outcome_id', 'status', 'quality_score', 'judgment_hash', 'created_at'])
+                : collect();
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        return [
+            'status' => 'ready',
+            'summary' => [
+                'episodes_total' => $episodes->count(),
+                'open' => $episodes->where('status', 'open')->count(),
+                'succeeded' => $outcomes->where('status', 'succeeded')->count(),
+                'failed' => $outcomes->where('status', 'failed')->count(),
+                'blocked' => $outcomes->where('status', 'blocked')->count(),
+                'learning_signals' => Schema::hasTable('atlas_aemor_learning_signals') ? AtlasAemorLearningSignal::query()->where('created_at', '>=', $since)->count() : 0,
+                'memory_candidates' => Schema::hasTable('atlas_aemor_memory_candidates') ? AtlasAemorMemoryCandidate::query()->where('created_at', '>=', $since)->count() : 0,
+                'judgment_reports' => $judgments->count(),
+            ],
+            'recent_blockers' => $outcomes
+                ->filter(fn (AtlasAemorOutcome $outcome): bool => in_array($outcome->status, ['failed', 'blocked'], true))
+                ->take(self::RECENT_LIMIT)
+                ->map(fn (AtlasAemorOutcome $outcome): array => [
+                    'episode_id' => (string) $outcome->episode_id,
+                    'outcome_id' => (string) $outcome->id,
+                    'status' => (string) $outcome->status,
+                    'failure_signature' => $this->stringOrNull($outcome->failure_signature),
+                    'outcome_hash' => $this->stringOrNull($outcome->outcome_hash),
+                    'created_at' => $outcome->created_at?->toJSON(),
+                ])
+                ->values()
+                ->all(),
+            'recent_judgments' => $judgments
+                ->map(fn (AtlasAemorJudgmentReport $report): array => [
+                    'episode_id' => (string) $report->episode_id,
+                    'outcome_id' => $this->stringOrNull($report->outcome_id),
+                    'status' => (string) $report->status,
+                    'quality_status' => $this->stringOrNull(data_get($report->quality_score, 'status')),
+                    'quality_score' => data_get($report->quality_score, 'score'),
+                    'judgment_hash' => $this->stringOrNull($report->judgment_hash),
+                    'created_at' => $report->created_at?->toJSON(),
+                ])
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
+     * ASEIF read model. Aggregate-only; no raw prompts or provider output.
+     *
+     * @return array<string,mixed>
+     */
+    private function intelligenceFactory(CarbonImmutable $since): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'summary' => [
+                'capabilities_total' => 0,
+                'certified_capabilities' => 0,
+                'open_gaps' => 0,
+                'blocked_decisions' => 0,
+                'simulations_total' => 0,
+                'blocked_simulations' => 0,
+                'evolution_events_total' => 0,
+                'capability_used_events' => 0,
+            ],
+            'recent_gaps' => [],
+            'recent_decisions' => [],
+            'recent_evolution_events' => [],
+        ];
+        if (! Schema::hasTable('atlas_intelligence_factory_capabilities')) {
+            return $empty;
+        }
+
+        try {
+            $capabilities = AtlasIntelligenceFactoryCapability::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'capability_key', 'capability_type', 'domain', 'flow_id', 'certification_hash', 'created_at']);
+            $gaps = Schema::hasTable('atlas_intelligence_factory_gaps')
+                ? AtlasIntelligenceFactoryGap::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'gap_type', 'severity', 'gap_hash', 'created_at'])
+                : collect();
+            $decisions = Schema::hasTable('atlas_intelligence_factory_decisions')
+                ? AtlasIntelligenceFactoryDecision::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'decision', 'status', 'decision_hash', 'created_at'])
+                : collect();
+            $simulations = Schema::hasTable('atlas_intelligence_factory_simulations')
+                ? AtlasIntelligenceFactorySimulation::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'mode', 'simulation_hash', 'created_at'])
+                : collect();
+            $evolutionEvents = Schema::hasTable('atlas_intelligence_factory_evolution_events')
+                ? AtlasIntelligenceFactoryEvolutionEvent::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'capability_id', 'source_type', 'event_type', 'status', 'event_hash', 'created_at'])
+                : collect();
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        return [
+            'status' => 'ready',
+            'summary' => [
+                'capabilities_total' => $capabilities->count(),
+                'certified_capabilities' => $capabilities->where('status', 'certified')->count(),
+                'open_gaps' => $gaps->where('status', 'open')->count(),
+                'blocked_decisions' => $decisions->where('status', 'blocked')->count(),
+                'simulations_total' => $simulations->count(),
+                'blocked_simulations' => $simulations->where('status', 'blocked')->count(),
+                'evolution_events_total' => $evolutionEvents->count(),
+                'capability_used_events' => $evolutionEvents->where('event_type', 'capability_used')->count(),
+            ],
+            'recent_gaps' => $gaps->take(self::RECENT_LIMIT)->map(fn (AtlasIntelligenceFactoryGap $gap): array => [
+                'gap_id' => (string) $gap->id,
+                'status' => (string) $gap->status,
+                'gap_type' => (string) $gap->gap_type,
+                'severity' => (string) $gap->severity,
+                'gap_hash' => $this->stringOrNull($gap->gap_hash),
+                'created_at' => $gap->created_at?->toJSON(),
+            ])->values()->all(),
+            'recent_decisions' => $decisions->take(self::RECENT_LIMIT)->map(fn (AtlasIntelligenceFactoryDecision $decision): array => [
+                'decision_id' => (string) $decision->id,
+                'decision' => (string) $decision->decision,
+                'status' => (string) $decision->status,
+                'decision_hash' => $this->stringOrNull($decision->decision_hash),
+                'created_at' => $decision->created_at?->toJSON(),
+            ])->values()->all(),
+            'recent_evolution_events' => $evolutionEvents->take(self::RECENT_LIMIT)->map(fn (AtlasIntelligenceFactoryEvolutionEvent $event): array => [
+                'event_id' => (string) $event->id,
+                'capability_id' => $this->stringOrNull($event->capability_id),
+                'source_type' => $this->stringOrNull($event->source_type),
+                'event_type' => (string) $event->event_type,
+                'status' => (string) $event->status,
+                'event_hash' => $this->stringOrNull($event->event_hash),
+                'created_at' => $event->created_at?->toJSON(),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * ASRE read model. Aggregate-only; no raw strategic question text.
+     *
+     * @return array<string,mixed>
+     */
+    private function strategicReality(CarbonImmutable $since): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'summary' => [
+                'reality_entities_total' => 0,
+                'strategic_decisions_total' => 0,
+                'ready_decisions' => 0,
+                'watch_decisions' => 0,
+                'blocked_decisions' => 0,
+                'opportunities_total' => 0,
+                'risks_total' => 0,
+                'critical_risks' => 0,
+                'executive_briefings_total' => 0,
+            ],
+            'recent_decisions' => [],
+            'recent_risks' => [],
+        ];
+        if (! Schema::hasTable('atlas_strategic_decisions')) {
+            return $empty;
+        }
+
+        try {
+            $entities = Schema::hasTable('atlas_reality_entities')
+                ? AtlasRealityEntity::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'entity_type', 'entity_hash', 'created_at'])
+                : collect();
+            $decisions = AtlasStrategicDecision::query()
+                ->where('created_at', '>=', $since)
+                ->latest()
+                ->limit(200)
+                ->get(['id', 'status', 'question_hash', 'recommended_action', 'confidence', 'decision_hash', 'created_at']);
+            $opportunities = Schema::hasTable('atlas_opportunity_signals')
+                ? AtlasOpportunitySignal::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'opportunity_type', 'opportunity_hash', 'created_at'])
+                : collect();
+            $risks = Schema::hasTable('atlas_risk_signals')
+                ? AtlasRiskSignal::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'risk_type', 'severity', 'risk_hash', 'created_at'])
+                : collect();
+            $briefings = Schema::hasTable('atlas_executive_briefings')
+                ? AtlasExecutiveBriefing::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'briefing_hash', 'created_at'])
+                : collect();
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        return [
+            'status' => $decisions->where('status', 'blocked')->isNotEmpty() || $risks->where('severity', 'critical')->isNotEmpty() ? 'watch' : 'ready',
+            'summary' => [
+                'reality_entities_total' => $entities->count(),
+                'strategic_decisions_total' => $decisions->count(),
+                'ready_decisions' => $decisions->where('status', 'ready')->count(),
+                'watch_decisions' => $decisions->where('status', 'watch')->count(),
+                'blocked_decisions' => $decisions->where('status', 'blocked')->count(),
+                'opportunities_total' => $opportunities->count(),
+                'risks_total' => $risks->count(),
+                'critical_risks' => $risks->where('severity', 'critical')->count(),
+                'executive_briefings_total' => $briefings->count(),
+            ],
+            'recent_decisions' => $decisions->take(self::RECENT_LIMIT)->map(fn (AtlasStrategicDecision $decision): array => [
+                'decision_id' => (string) $decision->id,
+                'status' => (string) $decision->status,
+                'question_hash' => $this->stringOrNull($decision->question_hash),
+                'recommended_action_excerpt' => $this->truncate($decision->recommended_action, 160),
+                'confidence' => $decision->confidence,
+                'decision_hash' => $this->stringOrNull($decision->decision_hash),
+                'created_at' => $decision->created_at?->toJSON(),
+            ])->values()->all(),
+            'recent_risks' => $risks->take(self::RECENT_LIMIT)->map(fn (AtlasRiskSignal $risk): array => [
+                'risk_id' => (string) $risk->id,
+                'risk_type' => (string) $risk->risk_type,
+                'severity' => (string) $risk->severity,
+                'risk_hash' => $this->stringOrNull($risk->risk_hash),
+                'created_at' => $risk->created_at?->toJSON(),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * AREG read model. Aggregate-only; never exposes raw prompts.
+     *
+     * @return array<string,mixed>
+     */
+    private function runtimeEfficiency(CarbonImmutable $since): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'summary' => [
+                'decisions_total' => 0,
+                'ready' => 0,
+                'watch' => 0,
+                'blocked' => 0,
+                'fast_path' => 0,
+                'standard_path' => 0,
+                'deep_path' => 0,
+                'forge_path' => 0,
+                'average_context_budget_tokens' => null,
+                'outcomes_total' => 0,
+            ],
+            'by_flow' => [],
+            'recent_decisions' => [],
+        ];
+        if (! Schema::hasTable('atlas_runtime_efficiency_decisions')) {
+            return $empty;
+        }
+
+        try {
+            $decisions = AtlasRuntimeEfficiencyDecision::query()
+                ->where('created_at', '>=', $since)
+                ->latest()
+                ->limit(200)
+                ->get(['id', 'status', 'domain', 'flow_id', 'path', 'prompt_hash', 'context_budget_tokens', 'decision_hash', 'created_at']);
+            $outcomes = Schema::hasTable('atlas_runtime_efficiency_outcomes')
+                ? AtlasRuntimeEfficiencyOutcome::query()->where('created_at', '>=', $since)->limit(200)->get(['id'])
+                : collect();
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        $byFlow = [];
+        foreach ($decisions as $decision) {
+            $flowId = $this->stringOrNull($decision->flow_id) ?? 'unknown';
+            $byFlow[$flowId] = ($byFlow[$flowId] ?? 0) + 1;
+        }
+        ksort($byFlow);
+
+        return [
+            'status' => $decisions->where('status', 'blocked')->isNotEmpty() ? 'watch' : 'ready',
+            'summary' => [
+                'decisions_total' => $decisions->count(),
+                'ready' => $decisions->where('status', 'ready')->count(),
+                'watch' => $decisions->where('status', 'watch')->count(),
+                'blocked' => $decisions->where('status', 'blocked')->count(),
+                'fast_path' => $decisions->where('path', 'fast_path')->count(),
+                'standard_path' => $decisions->where('path', 'standard_path')->count(),
+                'deep_path' => $decisions->where('path', 'deep_path')->count(),
+                'forge_path' => $decisions->where('path', 'forge_path')->count(),
+                'average_context_budget_tokens' => $decisions->isEmpty() ? null : round((float) $decisions->avg('context_budget_tokens'), 2),
+                'outcomes_total' => $outcomes->count(),
+            ],
+            'by_flow' => $byFlow,
+            'recent_decisions' => $decisions->take(self::RECENT_LIMIT)->map(fn (AtlasRuntimeEfficiencyDecision $decision): array => [
+                'decision_id' => (string) $decision->id,
+                'status' => (string) $decision->status,
+                'domain' => $this->stringOrNull($decision->domain),
+                'flow_id' => $this->stringOrNull($decision->flow_id),
+                'path' => (string) $decision->path,
+                'prompt_hash' => $this->stringOrNull($decision->prompt_hash),
+                'context_budget_tokens' => (int) $decision->context_budget_tokens,
+                'decision_hash' => $this->stringOrNull($decision->decision_hash),
+                'created_at' => $decision->created_at?->toJSON(),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * AAWR read model. It is planning-only: exposes organizational contracts,
+     * topology counts and outcome learning without raw objectives.
+     *
+     * @return array<string,mixed>
+     */
+    private function agenticWorkcell(CarbonImmutable $since): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'summary' => [
+                'workcells_total' => 0,
+                'ready' => 0,
+                'watch' => 0,
+                'blocked' => 0,
+                'outcomes_total' => 0,
+                'org_patterns_total' => 0,
+                'average_quality_score' => null,
+                'average_coordination_roi_score' => null,
+            ],
+            'by_topology' => [],
+            'by_flow' => [],
+            'recent_workcells' => [],
+            'recent_patterns' => [],
+        ];
+        if (! Schema::hasTable('atlas_agentic_workcells')) {
+            return $empty;
+        }
+
+        try {
+            $workcells = AtlasAgenticWorkcell::query()
+                ->where('created_at', '>=', $since)
+                ->latest()
+                ->limit(200)
+                ->get(['id', 'status', 'domain', 'flow_id', 'topology', 'maturity_level', 'objective_hash', 'workcell_hash', 'created_at']);
+            $outcomes = Schema::hasTable('atlas_agentic_workcell_outcomes')
+                ? AtlasAgenticWorkcellOutcome::query()->where('created_at', '>=', $since)->limit(200)->get(['id', 'quality_score', 'coordination_roi_score'])
+                : collect();
+            $patterns = Schema::hasTable('atlas_agentic_workcell_org_patterns')
+                ? AtlasAgenticWorkcellOrgPattern::query()->where('created_at', '>=', $since)->latest()->limit(50)->get(['id', 'status', 'flow_id', 'topology', 'pattern_hash'])
+                : collect();
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        return [
+            'status' => $workcells->where('status', 'blocked')->isNotEmpty() ? 'watch' : 'ready',
+            'summary' => [
+                'workcells_total' => $workcells->count(),
+                'ready' => $workcells->where('status', 'ready')->count(),
+                'watch' => $workcells->where('status', 'watch')->count(),
+                'blocked' => $workcells->where('status', 'blocked')->count(),
+                'outcomes_total' => $outcomes->count(),
+                'org_patterns_total' => $patterns->count(),
+                'average_quality_score' => $outcomes->isEmpty() ? null : round((float) $outcomes->avg('quality_score'), 2),
+                'average_coordination_roi_score' => $outcomes->isEmpty() ? null : round((float) $outcomes->avg('coordination_roi_score'), 2),
+            ],
+            'by_topology' => $this->countsBy($workcells, 'topology'),
+            'by_flow' => $this->countsBy($workcells, 'flow_id'),
+            'recent_workcells' => $workcells->take(self::RECENT_LIMIT)->map(fn (AtlasAgenticWorkcell $workcell): array => [
+                'workcell_id' => (string) $workcell->id,
+                'status' => (string) $workcell->status,
+                'domain' => $this->stringOrNull($workcell->domain),
+                'flow_id' => $this->stringOrNull($workcell->flow_id),
+                'topology' => (string) $workcell->topology,
+                'maturity_level' => (string) $workcell->maturity_level,
+                'objective_hash' => $this->stringOrNull($workcell->objective_hash),
+                'workcell_hash' => $this->stringOrNull($workcell->workcell_hash),
+                'created_at' => $workcell->created_at?->toJSON(),
+            ])->values()->all(),
+            'recent_patterns' => $patterns->take(10)->map(fn (AtlasAgenticWorkcellOrgPattern $pattern): array => [
+                'pattern_id' => (string) $pattern->id,
+                'status' => (string) $pattern->status,
+                'flow_id' => $this->stringOrNull($pattern->flow_id),
+                'topology' => (string) $pattern->topology,
+                'pattern_hash' => $this->stringOrNull($pattern->pattern_hash),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * Swarm/Company read model. This does not start agents; it proves whether
+     * the Atlas agent/company substrate is visible as an operational runtime:
+     * roles, releases, certifications and agent-control services.
+     *
+     * @return array<string,mixed>
+     */
+    private function swarmCompany(CarbonImmutable $since): array
+    {
+        $tables = [
+            'engagements' => Schema::hasTable('ai_engineering_company_engagements'),
+            'role_runs' => Schema::hasTable('ai_engineering_company_role_runs'),
+            'release_packs' => Schema::hasTable('ai_engineering_company_release_packs'),
+            'certifications' => Schema::hasTable('ai_engineering_company_certifications'),
+        ];
+        $agentRuntimeClasses = [
+            'scheduler' => class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
+            'task_packet_builder' => class_exists(AgentControlPlaneTaskPacketBuilder::class),
+            'handoff_protocol' => class_exists(AgentRuntimeRegistryHandoffProtocolBuilder::class),
+            'critic_validation' => class_exists(AgentValidationGateDryRunEvaluator::class),
+            'merge_review' => class_exists(AgentMergeReviewPacketBuilder::class),
+        ];
+
+        $empty = [
+            'status' => in_array(false, $tables, true) ? 'missing' : 'ready',
+            'tables' => $tables,
+            'agent_runtime_classes' => $agentRuntimeClasses,
+            'summary' => [
+                'engagements_total' => 0,
+                'role_runs_total' => 0,
+                'blocked_role_runs' => 0,
+                'release_packs_total' => 0,
+                'ready_release_packs' => 0,
+                'blocked_release_packs' => 0,
+                'certifications_total' => 0,
+                'passed_certifications' => 0,
+            ],
+            'recent_engagements' => [],
+        ];
+        if (in_array(false, $tables, true)) {
+            return $empty;
+        }
+
+        try {
+            $engagements = AiEngineeringCompanyEngagement::query()
+                ->where('created_at', '>=', $since)
+                ->latest()
+                ->limit(self::RECENT_LIMIT)
+                ->get(['id', 'engagement_id', 'status', 'receipt_hash', 'created_at']);
+            $roleRuns = AiEngineeringCompanyRoleRun::query()
+                ->where('created_at', '>=', $since)
+                ->limit(500)
+                ->get(['id', 'role_id', 'status']);
+            $releasePacks = AiEngineeringCompanyReleasePack::query()
+                ->where('created_at', '>=', $since)
+                ->limit(200)
+                ->get(['id', 'status', 'release_hash']);
+            $certifications = AiEngineeringCompanyCertification::query()
+                ->where('created_at', '>=', $since)
+                ->limit(200)
+                ->get(['id', 'status', 'certification_hash']);
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        return [
+            'status' => in_array(false, $agentRuntimeClasses, true) ? 'degraded' : 'ready',
+            'tables' => $tables,
+            'agent_runtime_classes' => $agentRuntimeClasses,
+            'summary' => [
+                'engagements_total' => $engagements->count(),
+                'role_runs_total' => $roleRuns->count(),
+                'blocked_role_runs' => $roleRuns->where('status', 'blocked')->count(),
+                'release_packs_total' => $releasePacks->count(),
+                'ready_release_packs' => $releasePacks->where('status', 'ready_for_internal_delivery')->count(),
+                'blocked_release_packs' => $releasePacks->where('status', 'blocked')->count(),
+                'certifications_total' => $certifications->count(),
+                'passed_certifications' => $certifications->where('status', 'passed')->count(),
+            ],
+            'recent_engagements' => $engagements->map(fn (AiEngineeringCompanyEngagement $engagement): array => [
+                'engagement_id' => $this->stringOrNull($engagement->engagement_id),
+                'status' => $this->stringOrNull($engagement->status),
+                'receipt_hash' => $this->stringOrNull($engagement->receipt_hash),
+                'created_at' => $engagement->created_at?->toJSON(),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * Governed external execution read model. It shows mandates, cutover work
+     * and runtime invocations without enabling external side effects.
+     *
+     * @return array<string,mixed>
+     */
+    private function externalExecution(CarbonImmutable $since): array
+    {
+        $tables = [
+            'mandates' => Schema::hasTable('ai_holding_external_action_mandates'),
+            'work_orders' => Schema::hasTable('ai_holding_external_cutover_work_orders'),
+            'work_items' => Schema::hasTable('ai_holding_external_cutover_work_items'),
+            'runtime_invocations' => Schema::hasTable('ai_holding_external_cutover_runtime_invocations'),
+        ];
+        $empty = [
+            'status' => in_array(false, $tables, true) ? 'missing' : 'ready',
+            'tables' => $tables,
+            'summary' => [
+                'mandates_total' => 0,
+                'pending_operator_review' => 0,
+                'preflight_green' => 0,
+                'awaiting_signatures' => 0,
+                'signed_manual_handoff' => 0,
+                'work_orders_total' => 0,
+                'work_items_total' => 0,
+                'runtime_invocations_total' => 0,
+                'manual_handoff_ready' => 0,
+                'unsafe_external_execution_enabled' => 0,
+                'signature_protection_coverage' => 1.0,
+                'receipt_binding_count' => 0,
+                'missing_receipt_binding_count' => 0,
+            ],
+            'recent_mandates' => [],
+            'blockers' => [],
+            'policy' => [
+                'external_side_effects_allowed_by_control_plane' => false,
+                'operator_signature_required' => true,
+                'second_reviewer_required' => true,
+                'manual_handoff_only_even_after_approval' => true,
+                'benchmark_not_run' => true,
+            ],
+        ];
+        if (in_array(false, $tables, true)) {
+            return $empty;
+        }
+
+        try {
+            $mandates = AiHoldingExternalActionMandate::query()
+                ->where('created_at', '>=', $since)
+                ->latest()
+                ->limit(200)
+                ->get([
+                    'id', 'company_id', 'flow_id', 'status', 'mandate_packet_hash',
+                    'operator_signature_required', 'second_reviewer_required',
+                    'auto_execute_allowed', 'external_side_effects_enabled', 'created_at',
+                ]);
+            $workOrders = AiHoldingExternalCutoverWorkOrder::query()
+                ->where('created_at', '>=', $since)
+                ->limit(200)
+                ->get([
+                    'id', 'work_order_id', 'company_id', 'flow_id', 'status',
+                    'bound_receipt_count', 'external_execution_allowed',
+                    'external_side_effects_enabled',
+                ]);
+            $workItems = AiHoldingExternalCutoverWorkItem::query()
+                ->where('created_at', '>=', $since)
+                ->limit(500)
+                ->get([
+                    'id', 'work_item_id', 'work_order_id', 'company_id', 'flow_id',
+                    'status', 'required_receipt_ids_json', 'bound_receipt_hash',
+                    'receipt_binding_hash', 'external_execution_allowed',
+                    'external_side_effects_enabled',
+                ]);
+            $invocations = AiHoldingExternalCutoverRuntimeInvocation::query()
+                ->where('created_at', '>=', $since)
+                ->limit(200)
+                ->get([
+                    'id', 'invocation_id', 'work_order_id', 'company_id', 'flow_id',
+                    'status', 'execution_receipt_count', 'last_execution_receipt_hash',
+                    'manual_handoff_packet_hash', 'manual_closeout_receipt_count',
+                    'last_manual_closeout_receipt_hash', 'external_execution_allowed',
+                    'external_side_effects_enabled',
+                ]);
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        $unsafeMandates = $mandates->filter(
+            fn (AiHoldingExternalActionMandate $mandate): bool => (bool) $mandate->auto_execute_allowed
+                || (bool) $mandate->external_side_effects_enabled,
+        );
+        $unsafeWorkOrders = $workOrders->filter(
+            fn (AiHoldingExternalCutoverWorkOrder $workOrder): bool => (bool) $workOrder->external_execution_allowed
+                || (bool) $workOrder->external_side_effects_enabled,
+        );
+        $unsafeWorkItems = $workItems->filter(
+            fn (AiHoldingExternalCutoverWorkItem $workItem): bool => (bool) $workItem->external_execution_allowed
+                || (bool) $workItem->external_side_effects_enabled,
+        );
+        $unsafeInvocations = $invocations->filter(
+            fn (AiHoldingExternalCutoverRuntimeInvocation $invocation): bool => (bool) $invocation->external_execution_allowed
+                || (bool) $invocation->external_side_effects_enabled,
+        );
+        $unsafeExternalExecutionEnabled = $unsafeMandates->count()
+            + $unsafeWorkOrders->count()
+            + $unsafeWorkItems->count()
+            + $unsafeInvocations->count();
+        $receiptBindingCount = $workItems->filter(
+            fn (AiHoldingExternalCutoverWorkItem $workItem): bool => $this->stringOrNull($workItem->bound_receipt_hash) !== null
+                || $this->stringOrNull($workItem->receipt_binding_hash) !== null,
+        )->count() + $invocations->filter(
+            fn (AiHoldingExternalCutoverRuntimeInvocation $invocation): bool => (int) $invocation->execution_receipt_count > 0
+                || $this->stringOrNull($invocation->last_execution_receipt_hash) !== null
+                || (int) $invocation->manual_closeout_receipt_count > 0
+                || $this->stringOrNull($invocation->last_manual_closeout_receipt_hash) !== null,
+        )->count();
+        $missingReceiptBindings = $workItems->filter(
+            fn (AiHoldingExternalCutoverWorkItem $workItem): bool => count((array) $workItem->required_receipt_ids_json) > 0
+                && $this->stringOrNull($workItem->bound_receipt_hash) === null
+                && $this->stringOrNull($workItem->receipt_binding_hash) === null,
+        )->count();
+        $signatureProtected = $mandates->filter(
+            fn (AiHoldingExternalActionMandate $mandate): bool => (bool) $mandate->operator_signature_required
+                && (bool) $mandate->second_reviewer_required
+                && ! (bool) $mandate->auto_execute_allowed
+                && ! (bool) $mandate->external_side_effects_enabled,
+        )->count();
+        $signatureProtectionCoverage = $mandates->count() > 0 ? round($signatureProtected / $mandates->count(), 4) : 1.0;
+        $externalBlockers = [];
+        foreach ($unsafeMandates as $mandate) {
+            $externalBlockers[] = $this->externalExecutionBlocker('external_mandate_enabled_without_policy', $mandate->company_id, $mandate->flow_id, $mandate->mandate_packet_hash);
+        }
+        foreach ($unsafeWorkOrders as $workOrder) {
+            $externalBlockers[] = $this->externalExecutionBlocker('external_work_order_enabled_without_policy', $workOrder->company_id, $workOrder->flow_id, $workOrder->work_order_id);
+        }
+        foreach ($unsafeWorkItems as $workItem) {
+            $externalBlockers[] = $this->externalExecutionBlocker('external_work_item_enabled_without_policy', $workItem->company_id, $workItem->flow_id, $workItem->work_item_id);
+        }
+        foreach ($unsafeInvocations as $invocation) {
+            $externalBlockers[] = $this->externalExecutionBlocker('external_runtime_invocation_enabled_without_policy', $invocation->company_id, $invocation->flow_id, $invocation->invocation_id);
+        }
+
+        return [
+            'status' => $unsafeExternalExecutionEnabled > 0
+                ? 'blocked'
+                : ($mandates->whereIn('status', ['preflight_blocked', 'approval_denied'])->isNotEmpty() ? 'degraded' : 'ready'),
+            'tables' => $tables,
+            'summary' => [
+                'mandates_total' => $mandates->count(),
+                'pending_operator_review' => $mandates->where('status', 'queued_for_operator_review')->count(),
+                'preflight_green' => $mandates->where('status', 'preflight_green_awaiting_signatures')->count(),
+                'awaiting_signatures' => $mandates->where('status', 'awaiting_operator_and_reviewer_signatures')->count(),
+                'signed_manual_handoff' => $mandates->where('status', 'signed_mandate_ready_manual_execution_only')->count(),
+                'work_orders_total' => $workOrders->count(),
+                'work_items_total' => $workItems->count(),
+                'runtime_invocations_total' => $invocations->count(),
+                'manual_handoff_ready' => $invocations->where('status', 'manual_handoff_ready')->count(),
+                'unsafe_external_execution_enabled' => $unsafeExternalExecutionEnabled,
+                'signature_protection_coverage' => $signatureProtectionCoverage,
+                'receipt_binding_count' => $receiptBindingCount,
+                'missing_receipt_binding_count' => $missingReceiptBindings,
+            ],
+            'recent_mandates' => $mandates->take(self::RECENT_LIMIT)->map(fn (AiHoldingExternalActionMandate $mandate): array => [
+                'company_id' => $this->stringOrNull($mandate->company_id),
+                'flow_id' => $this->stringOrNull($mandate->flow_id),
+                'status' => $this->stringOrNull($mandate->status),
+                'mandate_packet_hash' => $this->stringOrNull($mandate->mandate_packet_hash),
+                'operator_signature_required' => (bool) $mandate->operator_signature_required,
+                'second_reviewer_required' => (bool) $mandate->second_reviewer_required,
+                'auto_execute_allowed' => (bool) $mandate->auto_execute_allowed,
+                'external_side_effects_enabled' => (bool) $mandate->external_side_effects_enabled,
+                'created_at' => $mandate->created_at?->toJSON(),
+            ])->values()->all(),
+            'blockers' => $externalBlockers,
+            'policy' => [
+                ...$empty['policy'],
+                'unsafe_external_execution_blocks_runtime_status' => true,
+                'pending_operator_review_is_operator_queue_not_system_failure' => true,
+                'requires_receipt_binding_before_real_cutover' => true,
+            ],
+        ];
+    }
+
+    private function externalExecutionBlocker(string $kind, mixed $companyId, mixed $flowId, mixed $ref): array
+    {
+        return [
+            'kind' => $kind,
+            'class' => 'system_blocker',
+            'severity' => 'critical',
+            'company_id' => $this->stringOrNull($companyId),
+            'flow_id' => $this->stringOrNull($flowId),
+            'ref' => $this->stringOrNull($ref),
+            'detail' => 'External execution or side effects are enabled even though the Atlas AI control plane policy is block-by-default.',
+        ];
+    }
+
+    /**
      * @return array<int,array<string,mixed>>
      */
     private function readinessRefs(): array
@@ -1068,6 +1920,41 @@ class AtlasAiControlPlaneService
                 'command' => 'php artisan atlas:persistent-context:certify --json --strict',
                 'schema' => 'atlas.persistent_context.certification.v1',
             ],
+            [
+                'name' => 'aemor_runtime',
+                'command' => 'php artisan atlas:aemor:certify --json --strict',
+                'schema' => 'atlas.aemor.certification.v1',
+            ],
+            [
+                'name' => 'intelligence_factory',
+                'command' => 'php artisan atlas:intelligence-factory:certify --json --strict',
+                'schema' => 'atlas.intelligence_factory.certification.v1',
+            ],
+            [
+                'name' => 'strategic_reality_engine',
+                'command' => 'php artisan atlas:strategic-reality:certify --json --strict',
+                'schema' => 'atlas.strategic_reality.certification.v1',
+            ],
+            [
+                'name' => 'runtime_efficiency_governor',
+                'command' => 'php artisan atlas:runtime-efficiency:certify --json --strict',
+                'schema' => 'atlas.runtime_efficiency_governor.certification.v1',
+            ],
+            [
+                'name' => 'agentic_workcell_runtime',
+                'command' => 'php artisan atlas:agentic-workcell:certify --json --strict',
+                'schema' => 'atlas.agentic_workcell.certification.v1',
+            ],
+            [
+                'name' => 'swarm_company_runtime',
+                'service' => 'AtlasRealEngineeringCompanyRuntimeService + AgentControlPlane runtime',
+                'schema' => 'atlas.ai.engineering_company.control_plane.v1',
+            ],
+            [
+                'name' => 'governed_external_execution',
+                'service' => 'ExternalActionMandateRegistryService',
+                'schema' => 'atlas.ai.holding.enterprise_external_action_mandate_registry.v1',
+            ],
         ];
     }
 
@@ -1077,10 +1964,15 @@ class AtlasAiControlPlaneService
      */
     private function resolveStatus(array $summary, array $blockers): string
     {
-        if ($blockers !== [] || ($summary['failed'] ?? 0) > 0) {
+        if (($summary['system_blockers_count'] ?? 0) > 0 || ($summary['failed'] ?? 0) > 0) {
             return self::STATUS_BLOCKED;
         }
-        if (($summary['processing'] ?? 0) > 0 || ($summary['queued'] ?? 0) > 0) {
+        if (
+            ($summary['operator_queue_count'] ?? 0) > 0
+            || ($summary['external_execution_pending_approval'] ?? 0) > 0
+            || ($summary['processing'] ?? 0) > 0
+            || ($summary['queued'] ?? 0) > 0
+        ) {
             return self::STATUS_WATCH;
         }
 

@@ -409,7 +409,8 @@ class AiAtlasDecideContractTest extends TestCase
         $payload = json_decode(Artisan::output(), true);
         $this->assertSame('atlas_decide', data_get($payload, 'decision.decision_mode'));
         $this->assertSame('gemini_cli', data_get($payload, 'decision.selected_provider'));
-        $this->assertSame('gemini-3.1-pro-preview', data_get($payload, 'decision.selected_model'));
+        $this->assertSame('gemini-3.5-flash', data_get($payload, 'decision.selected_model'));
+        $this->assertSame('gemini_flash', data_get($payload, 'decision.selected_model_alias'));
         $this->assertSame('auto_best_allowed', data_get($payload, 'decision.selection_mode'));
         $this->assertSame('atlas_decide', data_get($payload, 'decision.model_selection_authority'));
         $this->assertSame(

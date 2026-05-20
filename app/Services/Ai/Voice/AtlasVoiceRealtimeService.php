@@ -174,6 +174,15 @@ final class AtlasVoiceRealtimeService
             ];
         }
 
+        if ($this->looksLikeSttGhostTranscript($transcript)) {
+            return [
+                'dispatched' => false,
+                'status' => 'skipped_suspect_stt_ghost_transcript',
+                'reason' => 'voice_transcript_looked_like_short_url_or_common_whisper_hallucination',
+                'transcript_hash' => hash('sha256', $transcript),
+            ];
+        }
+
         try {
             $trace = $this->gateway->enqueueInteraction($transcript, [
                 'client_id' => 'voice:'.$session['session_id'].':'.$turnId,
@@ -231,6 +240,62 @@ final class AtlasVoiceRealtimeService
                 'transcript_hash' => hash('sha256', $transcript),
             ];
         }
+    }
+
+    private function looksLikeSttGhostTranscript(string $transcript): bool
+    {
+        $normalized = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $transcript) ?? $transcript));
+        $stripped = trim($normalized, " \t\n\r\0\x0B.!?;,");
+        $ascii = $this->asciiFold($stripped);
+
+        if ($stripped === '') {
+            return true;
+        }
+
+        $commonGhosts = [
+            'www.tinyurl.com.br',
+            'tinyurl.com.br',
+            'www tinyurl com br',
+            'tinyurl com br',
+            'acesse o site www.tinyurl.com.br para mais informações',
+            'acesse o site tinyurl.com.br para mais informações',
+            'acesse o site www.tinyurl.com.br para mais informacoes',
+            'acesse o site tinyurl.com.br para mais informacoes',
+        ];
+
+        if (in_array($stripped, $commonGhosts, true) || in_array($ascii, $commonGhosts, true)) {
+            return true;
+        }
+
+        $wordCount = str_word_count(str_replace(['://', '/', '.', '-'], ' ', $stripped), 0, 'áàâãéêíóôõúç');
+        $isUrlOnly = preg_match('/^(?:acesse\s+(?:o\s+site\s+)?)?(?:https?:\/\/)?(?:www\.)?[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/\S*)?(?:\s+para\s+mais\s+informações)?$/u', $stripped) === 1;
+        $isAsciiUrlOnly = preg_match('/^(?:acesse\s+(?:o\s+site\s+)?)?(?:https?:\/\/)?(?:www\.)?[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/\S*)?(?:\s+para\s+mais\s+informacoes)?$/u', $ascii) === 1;
+        $isGenericMarketingUrlGhost = preg_match('/^acesse\s+(?:o\s+site\s+)?(?:https?:\/\/)?(?:www\.)?[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?:\/\S*)?\s+para\s+mais\s+informacoes$/u', $ascii) === 1;
+
+        return $isGenericMarketingUrlGhost || (($isUrlOnly || $isAsciiUrlOnly) && $wordCount <= 8);
+    }
+
+    private function asciiFold(string $value): string
+    {
+        return strtr($value, [
+            'á' => 'a',
+            'à' => 'a',
+            'â' => 'a',
+            'ã' => 'a',
+            'ä' => 'a',
+            'é' => 'e',
+            'ê' => 'e',
+            'ë' => 'e',
+            'í' => 'i',
+            'ï' => 'i',
+            'ó' => 'o',
+            'ô' => 'o',
+            'õ' => 'o',
+            'ö' => 'o',
+            'ú' => 'u',
+            'ü' => 'u',
+            'ç' => 'c',
+        ]);
     }
 
     /**

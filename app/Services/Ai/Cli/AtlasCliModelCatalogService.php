@@ -104,12 +104,29 @@ class AtlasCliModelCatalogService
         );
         $this->appendModelCatalogRow(
             $rows,
-            'gemini-pro',
+            'gemini_flash',
             'gemini_cli',
-            $this->providerConfiguredModel('gemini_cli'),
+            [
+                'model' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_flash.model', 'gemini-3.5-flash'),
+                'label' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_flash.label', 'Gemini Flash'),
+                'tier' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_flash.tier', 'daily'),
+            ],
+            'default',
+            'Gemini rapido',
+            ['gemini', 'gemini-flash', 'gemini_flash', 'gemini-3.5-flash', 'gemini-3-5-flash'],
+        );
+        $this->appendModelCatalogRow(
+            $rows,
+            'gemini_pro',
+            'gemini_cli',
+            [
+                'model' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_pro.model', 'gemini-3.1-pro-preview'),
+                'label' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_pro.label', 'Gemini Pro'),
+                'tier' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_pro.tier', 'premium'),
+            ],
             'premium',
-            'Gemini contexto longo e multimodal',
-            ['gemini', 'gemini-pro', 'gemini-3.1-pro-preview', 'gemini-3-1-pro'],
+            'Gemini raciocinio profundo',
+            ['gemini-pro', 'gemini_pro', 'gemini-3.1-pro-preview', 'gemini-3-1-pro'],
         );
         $this->appendModelCatalogRow(
             $rows,

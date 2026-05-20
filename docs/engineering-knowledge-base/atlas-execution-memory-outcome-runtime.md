@@ -2,12 +2,12 @@
 id: atlas-execution-memory-outcome-runtime
 type: engineering_knowledge
 title: Atlas Execution Memory & Outcome Runtime
-status: planned
+status: active
 category: intelligence-runtime
 priority: 98
 summary: AEMOR e a camada de memoria operacional verificavel do Atlas. Enquanto APCR garante contexto antes da execucao, AEMOR registra episodios, outcomes, falhas, reparos, decisoes, handoffs e aprendizados depois/durante a execucao, promovendo memoria somente com evidencia.
-implementation_state: planned_not_current_runtime
-blocker: AEMOR ainda nao esta implementado em codigo; esta doc define o contrato canonico para os incrementos I1-I5.
+implementation_state: implemented_local_runtime
+blocker: none_for_local_runtime; future hardening may extend depth without changing the canonical contract.
 tags:
   - atlas-ai
   - aemor
@@ -28,6 +28,16 @@ capabilities:
   - replay_manifest
   - forge_obra_memory
   - temporal_improvement_certification
+  - causal_outcome_graph
+  - outcome_attribution
+  - memory_use_feedback
+  - negative_knowledge
+  - provider_skill_reliability
+  - counterfactual_replay
+  - memory_budget_governance
+  - human_override_learning
+  - operational_doctrine_extraction
+  - aemor_quality_score
 decisions:
   - AEMOR e infraestrutura interna, nao produto ou tela separada.
   - APCR prepara contexto; AEMOR interpreta execucao e cria aprendizado governado.
@@ -54,15 +64,15 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-persistent-context-runtime
-graph_status: planned
+graph_status: active
 graph_source: repo
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
 allowed_changes:
-  - Implementar AEMOR em incrementos I1-I5.
+  - Endurecer AEMOR em incrementos sem quebrar contratos existentes.
   - Adicionar novos consumers de outcome em APCR, Dev, Forge e specialist flows.
-  - Promover schemas planejados para ativos quando houver codigo e testes.
+  - Promover novos schemas apenas quando houver codigo e testes.
 forbidden_changes:
   - Promover memoria duravel sem evidence refs e promotion receipt.
   - Transformar log bruto, chat ou output de provider em memoria confiavel.
@@ -105,9 +115,9 @@ requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Implementar AEMOR-I1 com execution episodes, events, outcomes e certify command.
-  - Ligar AEMOR ao APCR via persistent_context_hash.
-  - Ligar Atlas Dev a patch outcome, command ledger e repair loop.
+  - Expandir AEMOR com deeper provider/skill reliability once real execution data accumulates.
+  - Add UI/control-plane panels only after backend adoption stabilizes.
+  - Keep certification green whenever APCR, Hyperflow, Dev or Forge wiring changes.
 ---
 
 # Atlas Execution Memory & Outcome Runtime
@@ -172,7 +182,7 @@ Escopos:
 
 ## Contratos
 
-Schemas planejados:
+Schemas canonicos:
 
 - `atlas.aemor.execution_episode.v1`
 - `atlas.aemor.execution_event.v1`
@@ -189,6 +199,16 @@ Schemas planejados:
 - `atlas.aemor.memory_supersession_receipt.v1`
 - `atlas.aemor.handoff_receipt.v1`
 - `atlas.aemor.replay_manifest.v1`
+- `atlas.aemor.causal_outcome_graph.v1`
+- `atlas.aemor.outcome_attribution.v1`
+- `atlas.aemor.memory_use_feedback.v1`
+- `atlas.aemor.negative_knowledge.v1`
+- `atlas.aemor.provider_skill_reliability.v1`
+- `atlas.aemor.counterfactual_replay.v1`
+- `atlas.aemor.memory_budget.v1`
+- `atlas.aemor.human_override_learning.v1`
+- `atlas.aemor.operational_doctrine.v1`
+- `atlas.aemor.quality_score.v1`
 - `atlas.aemor.certification.v1`
 
 Campos obrigatorios comuns:
@@ -320,6 +340,19 @@ Dentro do escopo:
 - AEMOR Control Plane.
 - Certification/readiness commands.
 
+AEMOR Intelligence Layer:
+
+- **Causal Outcome Graph**: liga contexto usado, decisao, arquivo, comando, falha, reparo, teste, outcome e memoria. Sem grafo causal, AEMOR so sabe que algo aconteceu; com grafo, sabe por que aconteceu.
+- **Outcome Attribution Engine**: classifica a causa provavel do resultado: contexto ruim, retrieval faltante, provider fraco, teste ausente, patch errado, ambiente, requisito ambiguo ou decisao stale.
+- **Memory Use Feedback**: mede se cada memoria recuperada pelo APCR foi util, irrelevante, stale, perigosa ou ausente. Isso fecha o ciclo APCR -> execucao -> AEMOR -> APCR.
+- **Negative Knowledge Ledger**: registra o que nao fazer de novo, com escopo, validade e evidence. Exemplo: "nao alterar migration X sem rodar teste Y".
+- **Provider/Skill Reliability Memory**: mede confiabilidade por tarefa, dominio, arquivo, teste e modo. Nao e ranking global de provider; e memoria operacional escopada.
+- **Counterfactual Replay**: reconstrói episodio perguntando quais fontes, decisoes ou testes teriam evitado a falha. Gera candidates, nao verdades automaticas.
+- **Memory Budget Governor**: controla crescimento da memoria por projeto, dominio e risco; aplica decay, compressao, supersession e tombstone com receipt.
+- **Human Override Learning**: transforma correcao humana em signal auditavel, sem virar regra automatica sem gate.
+- **Operational Doctrine Extractor**: extrai regras de operacao do repo: sempre, nunca, primeiro, antes de concluir, se falhar, pedir review.
+- **AEMOR Quality Score**: score interno por episodio: evidence coverage, replayability, attribution confidence, memory usefulness, repeated-failure reduction, stale-memory avoidance e unsupported-claim risk.
+
 Fora do escopo:
 
 - Chamar provider.
@@ -328,7 +361,7 @@ Fora do escopo:
 - Criar UI pesada na primeira fase.
 - Substituir APCR, Compounding ou Evidence Runtime.
 
-Comandos alvo:
+Comandos ativos:
 
 ```bash
 php artisan atlas:aemor:readiness --json
@@ -450,27 +483,15 @@ Provider recebe must-know ledger com regra escopada.
 
 ## Proximas Acoes
 
-Fases recomendadas:
+Estado local esperado:
 
-1. **AEMOR-I1: Execution Episodes**  
-   Episodios, eventos, outcome basico, migrations, model, command e certify.
+- I1/I2/I3/I4/I5 existem como runtime local: episodio, evento, outcome, distillation, memory candidate, replay, judgment, negative knowledge, provider reliability, counterfactual, budget, doctrine, APCR, Hyperflow e Control Plane.
+- Certificacao: `php artisan atlas:aemor:certify --json --strict`.
+- Guard separado: `php artisan atlas:aemor:judgment-certify --json --strict`.
+- Operacao: `atlas:aemor:episode-open`, `observe`, `close-outcome`, `distill`, `judgment`, `risk-predict`, `memory-audit`, `replay`, `control-plane`.
 
-2. **AEMOR-I2: Patch/Failure Intelligence**  
-   Patch outcome, command ledger, test impact, repair loop e failure pattern.
+Proximas evolucoes nao bloqueantes:
 
-3. **AEMOR-I3: Memory Promotion Runtime**  
-   Learning candidates, gates, watch/trusted/stale/conflicted e APCR consumption.
-
-4. **AEMOR-I4: Forge Obra Memory**  
-   Milestone memory, work packet ledger, handoff receipt, drift e continuity packs.
-
-5. **AEMOR-I5: Temporal Improvement Certification**  
-   Medir menos falha repetida, melhor first-pass, menos retrabalho e melhor contexto.
-
-Ordem de implementacao:
-
-```text
-I1 -> I2 -> I3 -> I4 -> I5
-```
-
-Nao implementar I3 antes de I1/I2, porque memoria sem episodio/outcome vira ruido. Nao implementar I5 antes de dados reais suficientes.
+1. Alimentar AEMOR com dados reais de mais obras Dev/Forge.
+2. Criar UI de Control Plane quando houver volume operacional suficiente.
+3. Promover policy proposals apenas por review humano/Compounding governance.

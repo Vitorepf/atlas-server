@@ -145,7 +145,7 @@ class AiGatewayService
             return $this->enqueueCouncilInteraction($input, $options, $prompt, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff);
         }
 
-        $modelResolution = $this->models->resolveWithSource($provider, $prompt->model ?: ($options['model'] ?? null));
+        $modelResolution = $this->models->resolveWithSource($provider, $prompt->model ?: ($options['model'] ?? null), $this->modelResolutionContext($options, $prompt, $input));
         $model = $modelResolution['model'];
         $this->enforceFairModeModel((array) ($options['payload'] ?? []), $provider, $model);
         $this->budgets->assertAllows($provider, $model, $options);
@@ -207,6 +207,9 @@ class AiGatewayService
                     'open_brain_injection' => $prompt->openBrainInjection,
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
+                    'compute_effort' => data_get($options, 'payload.compute_effort'),
+                    'compute_effort_contract' => data_get($options, 'payload.compute_effort_contract')
+                        ?? data_get($options, 'payload.model_selection_contract.compute_effort'),
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
                     ...$this->programmingMetadata($options),
                     'decision_receipt' => $decisionReceipt,
@@ -267,6 +270,9 @@ class AiGatewayService
                     'open_brain_injection' => $prompt->openBrainInjection,
                     'execution_plan' => $prompt->executionPlan,
                     'skills_activated' => $prompt->activatedSkills,
+                    'compute_effort' => data_get($options, 'payload.compute_effort'),
+                    'compute_effort_contract' => data_get($options, 'payload.compute_effort_contract')
+                        ?? data_get($options, 'payload.model_selection_contract.compute_effort'),
                     'dev_execution_plan' => data_get($options, 'payload.dev_execution_plan'),
                     ...$this->programmingMetadata($options),
                     'decision_receipt' => $decisionReceipt,
@@ -469,13 +475,13 @@ class AiGatewayService
         return DB::transaction(function () use ($input, $options, $prompt, $providers, $now, $privacy, $threadResolution, $session, $autoCompaction, $providerHandoff): AiTrace {
             $lockedThread = $this->lockThreadForTrace($threadResolution);
             $lockedSession = $this->lockSessionForTrace($session);
-            $traceModelResolution = $this->models->resolveWithSource('claude_codex', $options['model'] ?? null);
+            $traceModelResolution = $this->models->resolveWithSource('claude_codex', $options['model'] ?? null, $this->modelResolutionContext($options, $prompt, $input));
             $options = $this->optionsWithProgrammingModelGraphReceipt($options, 'claude_codex', $traceModelResolution['model'], $providers);
             $this->assertProgrammingModelGraphAllowsRuntime($options);
             $decisionReceipt = $this->decide->receiptForTrace($this->optionsWithPromptContracts($options, $prompt), 'claude_codex', $traceModelResolution['model']);
 
             foreach ($providers as $provider) {
-                $providerModelResolution = $this->models->resolveWithSource($provider, $options['model'] ?? null);
+                $providerModelResolution = $this->models->resolveWithSource($provider, $options['model'] ?? null, $this->modelResolutionContext($options, $prompt, $input));
                 $this->budgets->assertAllows($provider, $providerModelResolution['model'], $options);
             }
 
@@ -525,7 +531,7 @@ class AiGatewayService
 
             foreach ($providers as $index => $provider) {
                 $role = $provider === 'codex_cli' ? 'critical_reviewer' : 'primary_planner';
-                $jobModelResolution = $this->models->resolveWithSource($provider, $options['model'] ?? null);
+                $jobModelResolution = $this->models->resolveWithSource($provider, $options['model'] ?? null, $this->modelResolutionContext($options, $prompt, $input));
                 $job = AiJob::query()->create([
                     'trace_id' => $trace->id,
                     'client_id' => $index === 0 ? ($options['client_id'] ?? null) : null,
@@ -1219,7 +1225,7 @@ class AiGatewayService
         int $priority,
         array $decisionReceipt,
     ): AiJob {
-        $modelResolution = $this->models->resolveWithSource('gemini_cli');
+        $modelResolution = $this->models->resolveWithSource('gemini_cli', 'auto', $this->modelResolutionContext($options, $prompt, $input));
         $execution = array_merge(
             is_array(data_get($executorJob->metadata, 'atlas_decide_execution'))
                 ? data_get($executorJob->metadata, 'atlas_decide_execution')
@@ -1339,9 +1345,33 @@ PROMPT;
             'model_identity_source' => $resolution['source'] ?? 'unresolved',
             'model_label' => $resolution['model_label'] ?? $resolution['model'] ?? null,
             'model_tier' => $resolution['model_tier'] ?? config('atlas.ai.default_tier', 'daily'),
+            'selected_model' => $resolution['selected_model'] ?? $resolution['model'] ?? null,
+            'selected_model_alias' => $resolution['selected_model_alias'] ?? $resolution['model_alias'] ?? null,
+            'operator_requested_model_alias' => $resolution['operator_requested_model_alias'] ?? null,
+            'model_family' => $resolution['model_family'] ?? null,
+            'model_selection_source' => $resolution['selection_source'] ?? $resolution['source'] ?? 'unresolved',
+            'allowed_models' => $resolution['allowed_models'] ?? null,
             'model_allow_auto' => (bool) ($resolution['allow_auto'] ?? true),
             'model_allow_manual' => (bool) ($resolution['allow_manual'] ?? true),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function modelResolutionContext(array $options, ?AiPrompt $prompt = null, ?string $input = null): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+
+        return array_merge($payload, [
+            'domain' => data_get($payload, 'domain') ?? data_get($payload, 'programming_message_plan.domain') ?? data_get($prompt?->taskRequest, 'domain'),
+            'flow' => data_get($payload, 'flow') ?? data_get($payload, 'programming_message_plan.flow') ?? data_get($payload, 'atlas_workflow_mode'),
+            'task' => $input ?? data_get($payload, 'task') ?? data_get($prompt?->taskRequest, 'description'),
+            'task_type' => data_get($payload, 'task_type') ?? data_get($payload, 'programming_message_plan.task_type') ?? data_get($prompt?->taskRequest, 'task_type'),
+            'task_request' => $prompt?->taskRequest,
+            'compute_effort' => data_get($payload, 'compute_effort_contract') ?? data_get($payload, 'model_selection_contract.compute_effort') ?? data_get($payload, 'compute_effort'),
+        ]);
     }
 
     /**

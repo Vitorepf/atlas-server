@@ -278,19 +278,33 @@ class AutonomousHoldingOperatingCycleService
 
     private function observedRecord(string $domainId, string $date): ?AiDomainRuntimeRecord
     {
-        return AiDomainRuntimeRecord::query()
+        $evidenceRef = 'autonomous_holding_operating_cycle:'.$date;
+        $query = AiDomainRuntimeRecord::query()
             ->where('domain_id', $domainId)
             ->where('runtime_status', DomainRuntimeRecordService::STATUS_COMPLETED)
             ->whereDate('created_at', $date)
-            ->latest('id')
-            ->get()
-            ->first(
-                static fn (AiDomainRuntimeRecord $record): bool => in_array(
-                    'autonomous_holding_operating_cycle:'.$date,
-                    (array) $record->evidence_refs,
-                    true,
-                ),
-            );
+            ->latest('id');
+
+        try {
+            $record = (clone $query)
+                ->whereJsonContains('evidence_refs', $evidenceRef)
+                ->first();
+
+            if ($record instanceof AiDomainRuntimeRecord) {
+                return $record;
+            }
+        } catch (\Throwable) {
+            // Some local/test drivers have limited JSON support. Fall back to a
+            // streaming scan instead of materializing every large execution_plan.
+        }
+
+        foreach ($query->cursor() as $record) {
+            if (in_array($evidenceRef, (array) $record->evidence_refs, true)) {
+                return $record;
+            }
+        }
+
+        return null;
     }
 
     /**

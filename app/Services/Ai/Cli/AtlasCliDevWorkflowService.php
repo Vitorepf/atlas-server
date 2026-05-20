@@ -691,6 +691,7 @@ class AtlasCliDevWorkflowService
         int $timeout,
         bool $stream,
         bool $noRun,
+        ?string $effort = null,
         ?array $devExecutionPlan = null,
         array $skills = [],
         bool $json = false,
@@ -720,6 +721,10 @@ class AtlasCliDevWorkflowService
 
         if ($model !== null && trim($model) !== '') {
             $command[] = '--model='.trim($model);
+        }
+
+        if ($effort !== null && trim($effort) !== '') {
+            $command[] = '--effort='.trim($effort);
         }
 
         if ($allowWrite) {

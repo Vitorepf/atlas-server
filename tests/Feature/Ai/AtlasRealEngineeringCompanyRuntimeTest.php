@@ -52,9 +52,22 @@ class AtlasRealEngineeringCompanyRuntimeTest extends TestCase
         $this->assertSame(0, $runExit);
         $this->assertSame('completed', $run['status']);
         $this->assertCount(9, $run['roles']);
+        foreach ($run['roles'] as $role) {
+            $this->assertSame('standard_agent_control_plane_task_packet', data_get($role, 'output.agent_runtime_mode'));
+            $this->assertSame('atlas.self_construction.agent_control_plane_task_packet.v1', data_get($role, 'output.agent_control_plane_task_packet.schema_version'));
+            $this->assertSame('planned', data_get($role, 'output.agent_control_plane_task_packet.status'));
+            $this->assertNotEmpty(data_get($role, 'output.agent_control_plane_task_packet.task_packet_hash'));
+            $this->assertFalse((bool) data_get($role, 'output.agent_control_plane_task_packet.provider_call_allowed'));
+            $this->assertFalse((bool) data_get($role, 'output.agent_control_plane_task_packet.token_spend_allowed'));
+        }
         $this->assertSame('completed', data_get($run, 'real_execution.status'));
         $this->assertSame('ready_for_internal_delivery', data_get($run, 'release_pack.status'));
         $this->assertSame('passed', data_get($run, 'certification.status'));
+        $this->assertSame('passed', collect(data_get($run, 'certification.checks'))->firstWhere('id', 'all_roles_have_agent_control_plane_task_packets')['status'] ?? null);
+        $this->assertTrue((bool) data_get($run, 'certification.claim_policy.ready_to_claim_autonomous_software_company'));
+        $this->assertFalse((bool) data_get($run, 'certification.claim_policy.ready_to_claim_external_superiority'));
+        $this->assertFalse((bool) data_get($run, 'certification.claim_policy.external_benchmark_executed'));
+        $this->assertFalse((bool) data_get($run, 'certification.claim_policy.rivals_provider_called'));
 
         $controlExit = Artisan::call('atlas:ai:engineering-company', ['action' => 'control-plane', '--json' => true]);
         $control = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
@@ -82,6 +95,9 @@ class AtlasRealEngineeringCompanyRuntimeTest extends TestCase
 
         $this->assertTrue(AiEngineeringCompanyEngagement::query()->where('schema_version', 'atlas.ai.engineering_company.engagement.v1')->where('status', 'completed')->exists());
         $this->assertSame(9, AiEngineeringCompanyRoleRun::query()->where('schema_version', 'atlas.ai.engineering_company.role_run.v1')->distinct('role_id')->count('role_id'));
+        $role = AiEngineeringCompanyRoleRun::query()->firstOrFail();
+        $this->assertSame('standard_agent_control_plane_task_packet', data_get($role->output, 'agent_runtime_mode'));
+        $this->assertNotEmpty(data_get($role->output, 'agent_control_plane_task_packet.task_packet_hash'));
     }
 
     private function bootCompanySchema(): void

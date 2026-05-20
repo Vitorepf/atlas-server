@@ -96,6 +96,44 @@ class AtlasAiProductCertificationService
 
     public const PATH_FORGE_INTAKE_TEST = 'tests/Feature/Ai/Programming/Forge/ForgeIntakeServiceTest.php';
 
+    public const PATH_CONTROL_PLANE_SERVICE = 'app/Services/Ai/ControlPlane/AtlasAiControlPlaneService.php';
+
+    public const PATH_CONTROL_PLANE_TEST = 'tests/Feature/Ai/ControlPlane/AtlasAiControlPlaneServiceTest.php';
+
+    public const PATH_DESKTOP_CONTROL_PLANE_SURFACE = 'atlas-desktop/apps/desktop/src/surfaces/control-plane/ControlPlaneSurface.tsx';
+
+    public const PATH_DESKTOP_CONTROL_PLANE_CSS = 'atlas-desktop/apps/desktop/src/surfaces/control-plane/control-plane.css';
+
+    public const PATH_ENGINEERING_COMPANY_SERVICE = 'app/Services/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeService.php';
+
+    public const PATH_ENGINEERING_COMPANY_FEATURE_TEST = 'tests/Feature/Ai/AtlasRealEngineeringCompanyRuntimeTest.php';
+
+    public const PATH_ENGINEERING_COMPANY_UNIT_TEST = 'tests/Unit/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeServiceTest.php';
+
+    public const PATH_AEMOR_RUNTIME_SERVICE = 'app/Services/Ai/Aemor/AtlasAemorRuntimeService.php';
+
+    public const PATH_AEMOR_RUNTIME_TEST = 'tests/Feature/Ai/Aemor/AtlasAemorRuntimeServiceTest.php';
+
+    public const PATH_INTELLIGENCE_FACTORY_RUNTIME_SERVICE = 'app/Services/Ai/IntelligenceFactory/AtlasIntelligenceFactoryRuntimeService.php';
+
+    public const PATH_INTELLIGENCE_FACTORY_CERTIFICATION_SERVICE = 'app/Services/Ai/IntelligenceFactory/AtlasIntelligenceFactoryCertificationService.php';
+
+    public const PATH_AGENT_CONTROL_PLANE_ORCHESTRATOR = 'app/Services/Ai/SelfConstruction/AgentControlPlaneTaskQueueOrchestrator.php';
+
+    public const PATH_AGENT_CONTROL_PLANE_MULTI_AGENT_CERTIFICATION = 'app/Services/Ai/SelfConstruction/AgentControlPlaneMultiAgentLoopCertificationService.php';
+
+    public const PATH_AGENT_CONTROL_PLANE_TASK_PACKET_BUILDER = 'app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketBuilder.php';
+
+    public const PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_REPOSITORY = 'app/Services/Ai/SelfConstruction/AgentControlPlaneClaimLeaseRepository.php';
+
+    public const PATH_AGENT_CONTROL_PLANE_ORCHESTRATOR_TEST = 'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest.php';
+
+    public const PATH_AGENT_CONTROL_PLANE_MULTI_AGENT_TEST = 'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationTest.php';
+
+    public const PATH_AGENT_CONTROL_PLANE_TASK_PACKET_TEST = 'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneTaskPacketBuilderTest.php';
+
+    public const PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_TEST = 'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneClaimLeaseRepositoryTest.php';
+
     /**
      * @return array<string,mixed>
      */
@@ -114,6 +152,11 @@ class AtlasAiProductCertificationService
             $this->routingAntiRegressionCheck(),           // critical
             $this->forgeHashAndContextRefsCheck(),         // critical
             $this->noAttachmentPathStillWorksCheck(),      // warn (not blocker)
+            $this->desktopControlPlaneRuntimeUxCheck(),     // critical
+            $this->agentControlPlaneRuntimeStandardCheck(), // critical
+            $this->governedExternalExecutionCheck(),        // critical
+            $this->autonomousCompanyRuntimeCheck(),         // critical
+            $this->capabilityEvolutionLoopCheck(),          // critical
         ];
 
         $criticalFailed = array_values(array_filter(
@@ -155,7 +198,12 @@ class AtlasAiProductCertificationService
                 'declares_superiority' => false,
                 'invokes_provider' => false,
                 'runs_rivals' => false,
-                'scope' => 'product_plumbing_only',
+                'scope' => 'product_runtime_governance',
+                'covers_desktop_runtime_ux' => true,
+                'covers_agent_control_plane_runtime' => true,
+                'covers_external_execution_governance' => true,
+                'covers_internal_autonomous_company_runtime' => true,
+                'covers_capability_usage_evolution' => true,
             ],
             'writes' => false,
         ];
@@ -272,8 +320,8 @@ class AtlasAiProductCertificationService
         // barrel — this is the canon usage we certify.
         $barrelSourceManifest = $this->source($this->repoPath(self::PATH_MOBILE_RICH_INPUT_BARREL));
         $barrelTypes = $this->source($this->repoPath(self::PATH_MOBILE_RICH_INPUT_TYPES));
-        $barrelReExportsCanon = str_contains($barrelSourceManifest, "from '@atlas/rich-input-canon'")
-            && str_contains($barrelTypes, "from '@atlas/rich-input-canon'");
+        $barrelReExportsCanon = ($this->importsRichInputCanon($barrelSourceManifest)
+            && $this->importsRichInputCanon($barrelTypes));
 
         $clientSource = $this->source($this->repoPath(self::PATH_MOBILE_CANON_IMPORT));
         $usesBuilder = str_contains($clientSource, 'buildRichInputPayload');
@@ -557,6 +605,221 @@ class AtlasAiProductCertificationService
     }
 
     /* ---------------------------------------------------------------- */
+    /* Check 13 · Desktop Control Plane exposes runtime governance state */
+    /* ---------------------------------------------------------------- */
+
+    private function desktopControlPlaneRuntimeUxCheck(): array
+    {
+        $surfaceSource = $this->source($this->repoPath(self::PATH_DESKTOP_CONTROL_PLANE_SURFACE));
+        $cssSource = $this->source($this->repoPath(self::PATH_DESKTOP_CONTROL_PLANE_CSS));
+
+        $readsUnsafeExternal = str_contains($surfaceSource, 'external_execution_unsafe_enabled');
+        $readsReceiptGaps = str_contains($surfaceSource, 'external_execution_missing_receipt_bindings');
+        $rendersUnsafeMetric = str_contains($surfaceSource, 'unsafe enabled');
+        $rendersReceiptMetric = str_contains($surfaceSource, 'receipt gaps');
+        $rendersSignatureCoverage = str_contains($surfaceSource, 'Signature coverage');
+        $rendersBlockedPolicy = str_contains($surfaceSource, 'blocked by default')
+            && str_contains($surfaceSource, 'manual handoff only');
+        $hasGovernanceStrip = str_contains($surfaceSource, 'cp-governance-strip')
+            && str_contains($cssSource, '.cp-governance-strip');
+
+        $passed = $readsUnsafeExternal && $readsReceiptGaps && $rendersUnsafeMetric
+            && $rendersReceiptMetric && $rendersSignatureCoverage
+            && $rendersBlockedPolicy && $hasGovernanceStrip;
+
+        return $this->check('desktop_control_plane_runtime_governance_ux', $passed, 'critical', [
+            'reads_external_execution_unsafe_enabled' => $readsUnsafeExternal,
+            'reads_external_execution_missing_receipt_bindings' => $readsReceiptGaps,
+            'renders_unsafe_execution_metric' => $rendersUnsafeMetric,
+            'renders_receipt_gap_metric' => $rendersReceiptMetric,
+            'renders_signature_coverage' => $rendersSignatureCoverage,
+            'renders_blocked_by_default_policy' => $rendersBlockedPolicy,
+            'governance_strip_styled' => $hasGovernanceStrip,
+            'surface_path' => self::PATH_DESKTOP_CONTROL_PLANE_SURFACE,
+            'css_path' => self::PATH_DESKTOP_CONTROL_PLANE_CSS,
+        ]);
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Check 14 · External execution remains governed, not free-running */
+    /* ---------------------------------------------------------------- */
+
+    private function governedExternalExecutionCheck(): array
+    {
+        $serviceSource = $this->source($this->repoPath(self::PATH_CONTROL_PLANE_SERVICE));
+        $testSource = $this->source($this->repoPath(self::PATH_CONTROL_PLANE_TEST));
+
+        $tracksUnsafeExternal = str_contains($serviceSource, 'external_execution_unsafe_enabled')
+            && str_contains($serviceSource, 'unsafe_external_execution_enabled');
+        $tracksReceiptBindings = str_contains($serviceSource, 'external_execution_missing_receipt_bindings')
+            && str_contains($serviceSource, 'missing_receipt_binding_count');
+        $blocksUnsafeRuntime = str_contains($serviceSource, 'unsafe_external_execution_blocks_runtime_status')
+            && str_contains($serviceSource, 'externalExecutionBlocker');
+        $manualHandoffOnly = str_contains($serviceSource, 'manual_handoff_only_even_after_approval');
+        $operatorQueuePolicy = str_contains($serviceSource, 'pending_operator_review_is_operator_queue_not_system_failure');
+        $testsPendingApproval = str_contains($testSource, 'test_external_execution_pending_approval_is_governed_without_system_blocker');
+        $testsUnsafeBlocker = str_contains($testSource, 'test_external_execution_enabled_without_policy_blocks_runtime_report');
+
+        $passed = $tracksUnsafeExternal && $tracksReceiptBindings && $blocksUnsafeRuntime
+            && $manualHandoffOnly && $operatorQueuePolicy
+            && $testsPendingApproval && $testsUnsafeBlocker;
+
+        return $this->check('governed_external_execution_control_plane', $passed, 'critical', [
+            'tracks_unsafe_external_execution' => $tracksUnsafeExternal,
+            'tracks_missing_receipt_bindings' => $tracksReceiptBindings,
+            'unsafe_execution_blocks_runtime_status' => $blocksUnsafeRuntime,
+            'manual_handoff_only_policy_present' => $manualHandoffOnly,
+            'pending_approval_is_operator_queue_policy_present' => $operatorQueuePolicy,
+            'pending_approval_test_present' => $testsPendingApproval,
+            'unsafe_execution_blocker_test_present' => $testsUnsafeBlocker,
+            'service_path' => self::PATH_CONTROL_PLANE_SERVICE,
+            'test_path' => self::PATH_CONTROL_PLANE_TEST,
+        ]);
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Check 14 · Agent Control Plane is the governed agent runtime base */
+    /* ---------------------------------------------------------------- */
+
+    private function agentControlPlaneRuntimeStandardCheck(): array
+    {
+        $orchestratorSource = $this->source($this->repoPath(self::PATH_AGENT_CONTROL_PLANE_ORCHESTRATOR));
+        $multiAgentSource = $this->source($this->repoPath(self::PATH_AGENT_CONTROL_PLANE_MULTI_AGENT_CERTIFICATION));
+        $taskPacketSource = $this->source($this->repoPath(self::PATH_AGENT_CONTROL_PLANE_TASK_PACKET_BUILDER));
+        $leaseSource = $this->source($this->repoPath(self::PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_REPOSITORY));
+        $orchestratorTestSource = $this->source($this->repoPath(self::PATH_AGENT_CONTROL_PLANE_ORCHESTRATOR_TEST));
+        $multiAgentTestSource = $this->source($this->repoPath(self::PATH_AGENT_CONTROL_PLANE_MULTI_AGENT_TEST));
+        $taskPacketTestSource = $this->source($this->repoPath(self::PATH_AGENT_CONTROL_PLANE_TASK_PACKET_TEST));
+        $leaseTestSource = $this->source($this->repoPath(self::PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_TEST));
+
+        $orchestratesQueueAndLeases = str_contains($orchestratorSource, 'AgentControlPlaneTaskPacketBuilder')
+            && str_contains($orchestratorSource, 'AgentControlPlaneClaimLeaseRepository')
+            && str_contains($orchestratorSource, 'claimNext');
+        $multiAgentLoopCertified = str_contains($multiAgentSource, 'DEFAULT_AGENT_COUNT')
+            && str_contains($multiAgentSource, 'n_agents_received_distinct_tasks')
+            && str_contains($multiAgentSource, 'write_set_no_collision');
+        $taskPacketsHaveAcceptanceAndEvidence = str_contains($taskPacketSource, 'acceptance_criteria')
+            && str_contains($taskPacketSource, 'evidence_requirements')
+            && str_contains($taskPacketSource, 'task_packet_hash');
+        $leasesGovernOwnership = str_contains($leaseSource, 'one ACTIVE lease per task_packet_id')
+            && str_contains($leaseSource, 'dispatch_allowed')
+            && str_contains($leaseSource, 'RECEIPT_CLAIM_ACQUIRED');
+        $testsOrchestrator = str_contains($orchestratorTestSource, 'AgentControlPlaneTaskQueueOrchestrator');
+        $testsMultiAgent = str_contains($multiAgentTestSource, 'MultiAgentLoopCertification')
+            || str_contains($multiAgentTestSource, 'multi_agent_loop');
+        $testsTaskPackets = str_contains($taskPacketTestSource, 'task_packet_hash')
+            && str_contains($taskPacketTestSource, 'dispatch_allowed');
+        $testsLeases = str_contains($leaseTestSource, 'runtime_execution_allowed')
+            && str_contains($leaseTestSource, 'dispatch_allowed')
+            && str_contains($leaseTestSource, 'lease_receipts_local');
+
+        $passed = $orchestratesQueueAndLeases && $multiAgentLoopCertified
+            && $taskPacketsHaveAcceptanceAndEvidence && $leasesGovernOwnership
+            && $testsOrchestrator && $testsMultiAgent && $testsTaskPackets
+            && $testsLeases;
+
+        return $this->check('agent_control_plane_runtime_standard', $passed, 'critical', [
+            'orchestrates_task_queue_and_claim_leases' => $orchestratesQueueAndLeases,
+            'multi_agent_loop_certified' => $multiAgentLoopCertified,
+            'task_packets_have_acceptance_and_evidence' => $taskPacketsHaveAcceptanceAndEvidence,
+            'leases_govern_ownership_and_disable_dispatch' => $leasesGovernOwnership,
+            'orchestrator_test_present' => $testsOrchestrator,
+            'multi_agent_loop_test_present' => $testsMultiAgent,
+            'task_packet_test_present' => $testsTaskPackets,
+            'claim_lease_test_present' => $testsLeases,
+            'orchestrator_path' => self::PATH_AGENT_CONTROL_PLANE_ORCHESTRATOR,
+            'multi_agent_certification_path' => self::PATH_AGENT_CONTROL_PLANE_MULTI_AGENT_CERTIFICATION,
+            'task_packet_builder_path' => self::PATH_AGENT_CONTROL_PLANE_TASK_PACKET_BUILDER,
+            'claim_lease_repository_path' => self::PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_REPOSITORY,
+        ]);
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Check 15 · Internal autonomous software company runtime claim gate */
+    /* ---------------------------------------------------------------- */
+
+    private function autonomousCompanyRuntimeCheck(): array
+    {
+        $serviceSource = $this->source($this->repoPath(self::PATH_ENGINEERING_COMPANY_SERVICE));
+        $featureTestSource = $this->source($this->repoPath(self::PATH_ENGINEERING_COMPANY_FEATURE_TEST));
+        $unitTestSource = $this->source($this->repoPath(self::PATH_ENGINEERING_COMPANY_UNIT_TEST));
+
+        $certifiesRoleTaskPackets = str_contains($serviceSource, 'all_roles_have_agent_control_plane_task_packets')
+            && str_contains($serviceSource, 'allRolesHaveAgentTaskPackets');
+        $claimsInternalCompany = str_contains($serviceSource, 'ready_to_claim_autonomous_software_company');
+        $blocksExternalSuperiority = str_contains($serviceSource, "'ready_to_claim_external_superiority' => false")
+            || str_contains($serviceSource, '"ready_to_claim_external_superiority" => false');
+        $blocksBenchmarkClaim = str_contains($serviceSource, "'external_benchmark_executed' => false")
+            || str_contains($serviceSource, '"external_benchmark_executed" => false');
+        $featureTestCoversClaim = str_contains($featureTestSource, 'ready_to_claim_autonomous_software_company')
+            && str_contains($featureTestSource, 'all_roles_have_agent_control_plane_task_packets');
+        $unitTestCoversClaim = str_contains($unitTestSource, 'ready_to_claim_autonomous_software_company')
+            && str_contains($unitTestSource, 'all_roles_have_agent_control_plane_task_packets');
+
+        $passed = $certifiesRoleTaskPackets && $claimsInternalCompany
+            && $blocksExternalSuperiority && $blocksBenchmarkClaim
+            && $featureTestCoversClaim && $unitTestCoversClaim;
+
+        return $this->check('internal_autonomous_company_runtime_claim_gate', $passed, 'critical', [
+            'certifies_all_roles_have_agent_task_packets' => $certifiesRoleTaskPackets,
+            'internal_autonomous_company_claim_present' => $claimsInternalCompany,
+            'external_superiority_claim_blocked' => $blocksExternalSuperiority,
+            'external_benchmark_claim_blocked' => $blocksBenchmarkClaim,
+            'feature_test_covers_claim_gate' => $featureTestCoversClaim,
+            'unit_test_covers_claim_gate' => $unitTestCoversClaim,
+            'service_path' => self::PATH_ENGINEERING_COMPANY_SERVICE,
+            'feature_test_path' => self::PATH_ENGINEERING_COMPANY_FEATURE_TEST,
+            'unit_test_path' => self::PATH_ENGINEERING_COMPANY_UNIT_TEST,
+        ]);
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Check 16 · Capabilities are used, measured and improved by outcome */
+    /* ---------------------------------------------------------------- */
+
+    private function capabilityEvolutionLoopCheck(): array
+    {
+        $controlPlaneSource = $this->source($this->repoPath(self::PATH_CONTROL_PLANE_SERVICE));
+        $controlPlaneTestSource = $this->source($this->repoPath(self::PATH_CONTROL_PLANE_TEST));
+        $aemorSource = $this->source($this->repoPath(self::PATH_AEMOR_RUNTIME_SERVICE));
+        $aemorTestSource = $this->source($this->repoPath(self::PATH_AEMOR_RUNTIME_TEST));
+        $factoryRuntimeSource = $this->source($this->repoPath(self::PATH_INTELLIGENCE_FACTORY_RUNTIME_SERVICE));
+        $factoryCertSource = $this->source($this->repoPath(self::PATH_INTELLIGENCE_FACTORY_CERTIFICATION_SERVICE));
+
+        $controlPlaneTracksUsage = str_contains($controlPlaneSource, 'intelligence_factory_capability_used_events')
+            && str_contains($controlPlaneSource, 'capability_used_events');
+        $controlPlaneTracksEvolution = str_contains($controlPlaneSource, 'intelligence_factory_evolution_events')
+            && str_contains($controlPlaneSource, 'evolution_events_total');
+        $testsControlPlaneCounters = str_contains($controlPlaneTestSource, 'intelligence_factory_capability_used_events')
+            && str_contains($controlPlaneTestSource, 'intelligence_factory_evolution_events');
+        $aemorCreatesEvolutionCandidate = str_contains($aemorSource, 'intelligenceFactoryEvolution')
+            && str_contains($aemorSource, 'atlas_intelligence_factory_evolution_events');
+        $aemorTestCoversCandidate = str_contains($aemorTestSource, 'test_close_outcome_with_evidence_creates_intelligence_factory_evolution_candidate');
+        $factoryRecordsUsage = str_contains($factoryRuntimeSource, 'capability_used')
+            && str_contains($factoryRuntimeSource, 'atlas_intelligence_factory_evolution_events');
+        $factoryCertifiesRegistry = str_contains($factoryCertSource, 'atlas_intelligence_factory_capabilities')
+            && str_contains($factoryCertSource, 'atlas_intelligence_factory_evolution_events');
+
+        $passed = $controlPlaneTracksUsage && $controlPlaneTracksEvolution
+            && $testsControlPlaneCounters && $aemorCreatesEvolutionCandidate
+            && $aemorTestCoversCandidate && $factoryRecordsUsage
+            && $factoryCertifiesRegistry;
+
+        return $this->check('capability_usage_and_evolution_loop', $passed, 'critical', [
+            'control_plane_tracks_capability_used_events' => $controlPlaneTracksUsage,
+            'control_plane_tracks_evolution_events' => $controlPlaneTracksEvolution,
+            'control_plane_tests_cover_counters' => $testsControlPlaneCounters,
+            'aemor_creates_intelligence_factory_evolution_candidate' => $aemorCreatesEvolutionCandidate,
+            'aemor_test_covers_evolution_candidate' => $aemorTestCoversCandidate,
+            'intelligence_factory_records_usage' => $factoryRecordsUsage,
+            'intelligence_factory_certifies_registry_and_evolution_tables' => $factoryCertifiesRegistry,
+            'control_plane_service_path' => self::PATH_CONTROL_PLANE_SERVICE,
+            'aemor_service_path' => self::PATH_AEMOR_RUNTIME_SERVICE,
+            'intelligence_factory_service_path' => self::PATH_INTELLIGENCE_FACTORY_RUNTIME_SERVICE,
+        ]);
+    }
+
+    /* ---------------------------------------------------------------- */
     /* Evidence refs · canonical artifacts backing the cert */
     /* ---------------------------------------------------------------- */
 
@@ -586,6 +849,25 @@ class AtlasAiProductCertificationService
             'test:'.self::PATH_DESKTOP_PRODUCT_TRIP_TEST,
             'test:'.self::PATH_FORGE_RICH_INPUT_TEST,
             'test:'.self::PATH_FORGE_INTAKE_TEST,
+            'server:'.self::PATH_CONTROL_PLANE_SERVICE,
+            'desktop:'.self::PATH_DESKTOP_CONTROL_PLANE_SURFACE,
+            'desktop:'.self::PATH_DESKTOP_CONTROL_PLANE_CSS,
+            'test:'.self::PATH_CONTROL_PLANE_TEST,
+            'server:'.self::PATH_AGENT_CONTROL_PLANE_ORCHESTRATOR,
+            'server:'.self::PATH_AGENT_CONTROL_PLANE_MULTI_AGENT_CERTIFICATION,
+            'server:'.self::PATH_AGENT_CONTROL_PLANE_TASK_PACKET_BUILDER,
+            'server:'.self::PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_REPOSITORY,
+            'test:'.self::PATH_AGENT_CONTROL_PLANE_ORCHESTRATOR_TEST,
+            'test:'.self::PATH_AGENT_CONTROL_PLANE_MULTI_AGENT_TEST,
+            'test:'.self::PATH_AGENT_CONTROL_PLANE_TASK_PACKET_TEST,
+            'test:'.self::PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_TEST,
+            'server:'.self::PATH_ENGINEERING_COMPANY_SERVICE,
+            'test:'.self::PATH_ENGINEERING_COMPANY_FEATURE_TEST,
+            'test:'.self::PATH_ENGINEERING_COMPANY_UNIT_TEST,
+            'server:'.self::PATH_AEMOR_RUNTIME_SERVICE,
+            'test:'.self::PATH_AEMOR_RUNTIME_TEST,
+            'server:'.self::PATH_INTELLIGENCE_FACTORY_RUNTIME_SERVICE,
+            'server:'.self::PATH_INTELLIGENCE_FACTORY_CERTIFICATION_SERVICE,
         ];
 
         return array_values(array_unique($refs));
@@ -623,6 +905,11 @@ class AtlasAiProductCertificationService
         }
 
         return $needleAt < $afterAt;
+    }
+
+    private function importsRichInputCanon(string $source): bool
+    {
+        return str_contains($source, 'atlas-rich-input-canon');
     }
 
     private function repoPath(string $relative): string

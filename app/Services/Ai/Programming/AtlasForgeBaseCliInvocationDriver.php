@@ -211,6 +211,23 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             $argv[] = '--model';
             $argv[] = $model;
         }
+        $effort = app(\App\Services\Ai\Kernel\Decision\ComputeEffortPolicy::class)->contract(
+            requested: $request['compute_effort'] ?? data_get($request, 'compute_effort_contract.atlas_level'),
+            provider: $this->provider(),
+            context: [
+                'flow' => 'programming.forge',
+                'task' => is_string($request['prompt'] ?? null) ? (string) $request['prompt'] : null,
+            ],
+        );
+        $mapping = is_array($effort['provider_mapping'] ?? null) ? $effort['provider_mapping'] : [];
+        if ($this->provider() === 'claude_cli' && is_string($mapping['value'] ?? null) && $mapping['value'] !== '') {
+            $argv[] = '--effort';
+            $argv[] = (string) $mapping['value'];
+        }
+        if ($this->provider() === 'codex_cli' && is_string($mapping['value'] ?? null) && $mapping['value'] !== '') {
+            $argv[] = '-c';
+            $argv[] = 'model_reasoning_effort="'.((string) $mapping['value']).'"';
+        }
         // The prompt is fed through stdin. The CLI typically supports a
         // `--prompt-stdin` toggle, but the safest cross-CLI convention is to
         // require explicit stdin via the runner — drivers should not embed

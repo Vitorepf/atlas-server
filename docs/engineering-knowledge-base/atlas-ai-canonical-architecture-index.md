@@ -47,6 +47,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/master-architecture/
   - docs/engineering-knowledge-base/atlas-ai-evolution-roadmap.md
+  - docs/engineering-knowledge-base/atlas-ai-evolutionary-maturity-model.md
+  - docs/engineering-knowledge-base/atlas-ai-evolution-lineage-and-target-state.md
+  - docs/engineering-knowledge-base/atlas-ai-evolutionary-target-and-implementation-goal.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
   - docs/engineering-knowledge-base/atlas-vox-operational-thinking-interface.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
@@ -198,6 +201,7 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Runtime contracts | `atlas-ai-kernel-architecture.md` |
 | Product architecture | `atlas-ai-master-architecture.md` |
 | Evolution roadmap | `atlas-ai-evolution-roadmap.md` + `evolution/README.md` |
+| Evolution maturity, lineage and implementation target | `atlas-ai-evolutionary-maturity-model.md` + `atlas-ai-evolution-lineage-and-target-state.md` + `atlas-ai-evolutionary-target-and-implementation-goal.md` |
 | Research Intelligence and governed self-improvement | `atlas-ai-research-self-improvement-runtime.md` |
 | Spec Operating System / SDD | `atlas-ai-spec-operating-system.md` |
 | Atlas AI identity as Autonomous Intelligence OS | `atlas-autonomous-intelligence-operating-system.md` |

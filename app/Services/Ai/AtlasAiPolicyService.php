@@ -61,6 +61,7 @@ class AtlasAiPolicyService
             'surface' => $surface,
             'mode' => $mode,
             'task' => $task,
+            'default_provider_selection' => (string) ($runtime['default_provider_selection'] ?? 'fixed'),
             'default_provider' => (string) ($runtime['default_provider'] ?? 'claude_cli'),
             'default_model_policy' => $forge ? 'best_quality' : 'balanced',
             'enabled_providers' => self::PROVIDERS,
@@ -179,10 +180,19 @@ class AtlasAiPolicyService
     {
         $models = [];
         foreach (self::PROVIDERS as $provider) {
+            $catalog = data_get($providers, "{$provider}.models");
+            if (is_array($catalog)) {
+                $models[$provider] = array_values(array_unique(array_filter(array_map(
+                    fn (mixed $entry): ?string => is_array($entry) && is_string($entry['model'] ?? null) && trim($entry['model']) !== ''
+                        ? trim($entry['model'])
+                        : null,
+                    $catalog,
+                ))));
+                continue;
+            }
+
             $model = data_get($providers, "{$provider}.model");
-            $models[$provider] = is_string($model) && trim($model) !== ''
-                ? [trim($model)]
-                : [];
+            $models[$provider] = is_string($model) && trim($model) !== '' ? [trim($model)] : [];
         }
 
         return $models;
@@ -201,6 +211,9 @@ class AtlasAiPolicyService
                 'model' => data_get($providers, "{$provider}.model"),
                 'model_label' => data_get($providers, "{$provider}.model_label"),
                 'model_tier' => data_get($providers, "{$provider}.model_tier"),
+                'default_model_alias' => data_get($providers, "{$provider}.default_model_alias"),
+                'model_family' => data_get($providers, "{$provider}.model_family"),
+                'models' => data_get($providers, "{$provider}.models"),
                 'allow_auto' => (bool) data_get($providers, "{$provider}.allow_auto", true),
                 'allow_manual' => (bool) data_get($providers, "{$provider}.allow_manual", true),
                 'budget_status' => $this->providerBudgetStatus($budget, $provider),

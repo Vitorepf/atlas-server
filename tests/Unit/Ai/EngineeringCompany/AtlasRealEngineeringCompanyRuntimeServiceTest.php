@@ -50,6 +50,11 @@ class AtlasRealEngineeringCompanyRuntimeServiceTest extends TestCase
         $this->assertSame('ready_for_internal_delivery', data_get($result, 'release_pack.status'));
         $this->assertSame('recorded', data_get($result, 'benchmark.status'));
         $this->assertSame('passed', data_get($result, 'certification.status'));
+        $this->assertSame('passed', collect(data_get($result, 'certification.checks'))->firstWhere('id', 'all_roles_have_agent_control_plane_task_packets')['status'] ?? null);
+        $this->assertTrue((bool) data_get($result, 'certification.claim_policy.ready_to_claim_autonomous_software_company'));
+        $this->assertFalse((bool) data_get($result, 'certification.claim_policy.ready_to_claim_external_superiority'));
+        $this->assertFalse((bool) data_get($result, 'certification.claim_policy.external_benchmark_executed'));
+        $this->assertFalse((bool) data_get($result, 'certification.claim_policy.rivals_provider_called'));
         $this->assertTrue(AiEngineeringCompanyEngagement::query()->where('status', 'completed')->exists());
         $this->assertSame(9, AiEngineeringCompanyRoleRun::query()->distinct('role_id')->count('role_id'));
         $this->assertTrue(AiEngineeringCompanyReview::query()->where('status', 'passed')->exists());

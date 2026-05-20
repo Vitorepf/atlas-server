@@ -298,6 +298,16 @@ viram, quando necessario, capacidade interna ou rival benchmark.
 
 ## Surface Plane e Rich Input
 
+Atlas Unified Rich Input Runtime e a capability **compartilhada** entre Atlas Desktop, Atlas Mobile e Forge/Obras para imagens, documentos, URLs/YouTube, texto/codigo, source manifest, token estimate e payload canonico.
+
+Atlas Desktop AI Hyperflow Integration Canon:
+
+- Desktop Hyperflow Runtime Integration: Desktop deve enviar o contrato Surface Plane para o Hyperflow antes do router legado.
+- Atlas Unified Rich Input Runtime: mobile, desktop e Forge devem consumir o canon compartilhado, sem runtimes paralelos.
+- Forge Rich Input Adapter: Obras recebem o mesmo payload canonico sem raw text sensivel.
+- No Legacy Programming Dev Default: auto/auto permanece o default; programming.dev so entra por decisao de rota.
+- Composer to Hyperflow Enterprise Path: composer, bridge, backend e resource precisam preservar o envelope enterprise.
+
 Detalhes de Desktop Surface, Rich Input e integracao Hyperflow foram extraidos para manter este contrato como mapa executivo:
 
 - `atlas-hyperflow-operation-surface-rich-input.md` — contrato anti-regressao da Surface Plane, Rich Input compartilhado e integracao Desktop Hyperflow.

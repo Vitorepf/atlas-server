@@ -139,6 +139,25 @@ class AtlasCliDevWorkflowServiceTest extends TestCase
         $this->assertContains('--model=gpt-5.3-codex-spark', $command);
     }
 
+    public function test_chat_command_forwards_compute_effort_override(): void
+    {
+        $command = app(AtlasCliDevWorkflowService::class)->chatCommand(
+            task: 'corrigir bug',
+            workspace: $this->workspace,
+            provider: 'codex_cli',
+            model: null,
+            permission: 'write',
+            allowWrite: true,
+            autoTest: false,
+            timeout: 900,
+            stream: true,
+            noRun: true,
+            effort: 'deep',
+        );
+
+        $this->assertContains('--effort=deep', $command);
+    }
+
     public function test_chat_command_forwards_open_brain_policy_options(): void
     {
         $command = app(AtlasCliDevWorkflowService::class)->chatCommand(

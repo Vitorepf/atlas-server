@@ -78,6 +78,11 @@ class AutonomousHoldingReadinessService
     private const MIN_OBSERVED_OPERATING_DAYS = self::OBSERVED_HISTORY_REQUIRED_DAYS;
 
     /**
+     * @var array<string,AiDomainRuntimeRecord|null>
+     */
+    private array $latestHoldingCycleRecordCache = [];
+
+    /**
      * @return array<string,mixed>
      */
     public function report(): array
@@ -1427,9 +1432,9 @@ class AutonomousHoldingReadinessService
         return AiDomainRuntimeRecord::query()
             ->where('domain_id', $domainId)
             ->where('runtime_status', DomainRuntimeRecordService::STATUS_COMPLETED)
+            ->where('execution_plan->runtime_kind', 'enterprise_flow_action')
             ->latest('id')
-            ->get()
-            ->filter(static fn (AiDomainRuntimeRecord $record): bool => data_get($record->execution_plan, 'runtime_kind') === 'enterprise_flow_action')
+            ->cursor()
             ->map(static fn (AiDomainRuntimeRecord $record): array => [
                 'record_id' => (string) $record->id,
                 'uuid' => (string) $record->uuid,
@@ -1448,13 +1453,33 @@ class AutonomousHoldingReadinessService
 
     private function latestHoldingCycleRecord(string $domainId): ?AiDomainRuntimeRecord
     {
-        return AiDomainRuntimeRecord::query()
+        if (array_key_exists($domainId, $this->latestHoldingCycleRecordCache)) {
+            return $this->latestHoldingCycleRecordCache[$domainId];
+        }
+
+        $query = AiDomainRuntimeRecord::query()
             ->where('domain_id', $domainId)
             ->where('runtime_status', DomainRuntimeRecordService::STATUS_COMPLETED)
-            ->latest('id')
-            ->get()
-            ->first(static fn (AiDomainRuntimeRecord $record): bool => collect((array) $record->evidence_refs)
-                ->contains(static fn (mixed $ref): bool => is_string($ref) && str_starts_with($ref, 'autonomous_holding_operating_cycle:')));
+            ->latest('id');
+
+        $todayRef = 'autonomous_holding_operating_cycle:'.Carbon::now()->toDateString();
+
+        $todayRecord = (clone $query)
+            ->whereJsonContains('evidence_refs', $todayRef)
+            ->first();
+
+        if ($todayRecord instanceof AiDomainRuntimeRecord) {
+            return $this->latestHoldingCycleRecordCache[$domainId] = $todayRecord;
+        }
+
+        foreach ($query->cursor() as $record) {
+            if (collect((array) $record->evidence_refs)
+                ->contains(static fn (mixed $ref): bool => is_string($ref) && str_starts_with($ref, 'autonomous_holding_operating_cycle:'))) {
+                return $this->latestHoldingCycleRecordCache[$domainId] = $record;
+            }
+        }
+
+        return $this->latestHoldingCycleRecordCache[$domainId] = null;
     }
 
     /**

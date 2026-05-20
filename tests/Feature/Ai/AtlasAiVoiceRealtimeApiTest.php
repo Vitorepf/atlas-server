@@ -10,6 +10,7 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Mobile\MobilePairingService;
 use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -1393,6 +1394,90 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
             ->assertJsonPath('turn.ai_interaction.thread_id', $threadId);
     }
 
+    public function test_voice_turn_refuses_suspect_stt_ghost_transcript_before_ai_dispatch(): void
+    {
+        $this->mock(AiGatewayService::class, function ($mock): void {
+            $mock->shouldReceive('enqueueInteraction')->never();
+        });
+
+        $transcript = 'Acesse o site www.tinyurl.com.br para mais informações.';
+
+        $this->postJson('/ai/voice/turn', [
+            'session_id' => 'voice_session_suspect_stt_ghost',
+            'envelope_id' => 'env_voice_suspect_stt_ghost',
+            'receipt_id' => 'receipt_voice_suspect_stt_ghost',
+            'turn_id' => 'voice_turn_suspect_stt_ghost',
+            'audio_hash' => hash('sha256', 'voice-audio-suspect-stt-ghost'),
+            'transcript' => $transcript,
+            'domain_hint' => 'general',
+            'flow_hint' => 'voice.realtime',
+            'dispatch_to_ai' => true,
+            'allow_transcript_persistence' => true,
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('turn.provider_execution_enabled', false)
+            ->assertJsonPath('turn.ai_interaction.dispatched', false)
+            ->assertJsonPath('turn.ai_interaction.status', 'skipped_suspect_stt_ghost_transcript')
+            ->assertJsonPath('turn.ai_interaction.reason', 'voice_transcript_looked_like_short_url_or_common_whisper_hallucination')
+            ->assertJsonPath('turn.ai_interaction.transcript_hash', hash('sha256', $transcript));
+    }
+
+    public function test_voice_turn_refuses_accentless_suspect_stt_ghost_transcript_before_ai_dispatch(): void
+    {
+        $this->mock(AiGatewayService::class, function ($mock): void {
+            $mock->shouldReceive('enqueueInteraction')->never();
+        });
+
+        $transcript = 'Acesse o site www.tinyurl.com.br para mais informacoes.';
+
+        $this->postJson('/ai/voice/turn', [
+            'session_id' => 'voice_session_suspect_stt_ghost_ascii',
+            'envelope_id' => 'env_voice_suspect_stt_ghost_ascii',
+            'receipt_id' => 'receipt_voice_suspect_stt_ghost_ascii',
+            'turn_id' => 'voice_turn_suspect_stt_ghost_ascii',
+            'audio_hash' => hash('sha256', 'voice-audio-suspect-stt-ghost-ascii'),
+            'transcript' => $transcript,
+            'domain_hint' => 'general',
+            'flow_hint' => 'voice.realtime',
+            'dispatch_to_ai' => true,
+            'allow_transcript_persistence' => true,
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('turn.provider_execution_enabled', false)
+            ->assertJsonPath('turn.ai_interaction.dispatched', false)
+            ->assertJsonPath('turn.ai_interaction.status', 'skipped_suspect_stt_ghost_transcript')
+            ->assertJsonPath('turn.ai_interaction.reason', 'voice_transcript_looked_like_short_url_or_common_whisper_hallucination')
+            ->assertJsonPath('turn.ai_interaction.transcript_hash', hash('sha256', $transcript));
+    }
+
+    public function test_voice_turn_refuses_generic_marketing_url_ghost_before_ai_dispatch(): void
+    {
+        $this->mock(AiGatewayService::class, function ($mock): void {
+            $mock->shouldReceive('enqueueInteraction')->never();
+        });
+
+        $transcript = 'Acesse o site www.exemplo.com.br para mais informações.';
+
+        $this->postJson('/ai/voice/turn', [
+            'session_id' => 'voice_session_generic_url_ghost',
+            'envelope_id' => 'env_voice_generic_url_ghost',
+            'receipt_id' => 'receipt_voice_generic_url_ghost',
+            'turn_id' => 'voice_turn_generic_url_ghost',
+            'audio_hash' => hash('sha256', 'voice-audio-generic-url-ghost'),
+            'transcript' => $transcript,
+            'domain_hint' => 'general',
+            'flow_hint' => 'voice.realtime',
+            'dispatch_to_ai' => true,
+            'allow_transcript_persistence' => true,
+        ], $this->headers)
+            ->assertOk()
+            ->assertJsonPath('turn.provider_execution_enabled', false)
+            ->assertJsonPath('turn.ai_interaction.dispatched', false)
+            ->assertJsonPath('turn.ai_interaction.status', 'skipped_suspect_stt_ghost_transcript')
+            ->assertJsonPath('turn.ai_interaction.reason', 'voice_transcript_looked_like_short_url_or_common_whisper_hallucination')
+            ->assertJsonPath('turn.ai_interaction.transcript_hash', hash('sha256', $transcript));
+    }
+
     public function test_voice_turn_ai_enqueue_failure_returns_only_error_hash_without_raw_message(): void
     {
         $this->mock(AiGatewayService::class, function ($mock): void {
@@ -2301,6 +2386,59 @@ final class AtlasAiVoiceRealtimeApiTest extends TestCase
         ], $this->headers)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['response_text_hash']);
+    }
+
+    public function test_mobile_voice_tts_synthesis_uses_elevenlabs_without_secret_leak(): void
+    {
+        config()->set('atlas.voice.elevenlabs.api_key', 'secret-test-elevenlabs-key');
+        config()->set('atlas.voice.elevenlabs.voice_id', 'voice_test_ptbr');
+        config()->set('atlas.voice.elevenlabs.model_id', 'eleven_multilingual_v2');
+        config()->set('atlas.voice.elevenlabs.output_format', 'mp3_44100_128');
+
+        Http::fake([
+            'api.elevenlabs.io/*' => Http::response('premium-mp3-bytes', 200, ['Content-Type' => 'audio/mpeg']),
+        ]);
+
+        $response = $this->postJson('/v1/mobile/ai/voice/tts/synthesize', [
+            'session_id' => 'voice_session_mobile_tts',
+            'turn_id' => 'voice_turn_mobile_tts',
+            'text' => 'Sim, estou ouvindo.',
+            'response_text_hash' => hash('sha256', 'Sim, estou ouvindo.'),
+        ], ['Authorization' => 'Bearer '.$this->mobileDeviceToken()])
+            ->assertOk()
+            ->assertJsonPath('status', 'synthesized')
+            ->assertJsonPath('provider', 'elevenlabs')
+            ->assertJsonPath('voice_id', 'voice_test_ptbr')
+            ->assertJsonPath('audio_hash', hash('sha256', 'premium-mp3-bytes'));
+
+        $json = json_encode($response->json(), JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString('secret-test-elevenlabs-key', $json);
+        $this->assertSame(base64_encode('premium-mp3-bytes'), $response->json('audio_base64'));
+
+        Http::assertSent(fn ($request): bool =>
+            $request->hasHeader('xi-api-key', 'secret-test-elevenlabs-key')
+            && $request['text'] === 'Sim, estou ouvindo.'
+            && ! str_contains(json_encode($request->data(), JSON_THROW_ON_ERROR), 'secret-test-elevenlabs-key')
+        );
+    }
+
+    public function test_mobile_voice_tts_synthesis_requires_elevenlabs_config(): void
+    {
+        config()->set('atlas.voice.elevenlabs.api_key', '');
+        config()->set('atlas.voice.elevenlabs.voice_id', '');
+        Http::fake();
+
+        $this->postJson('/v1/mobile/ai/voice/tts/synthesize', [
+            'session_id' => 'voice_session_mobile_tts_missing',
+            'turn_id' => 'voice_turn_mobile_tts_missing',
+            'text' => 'Sim, estou ouvindo.',
+        ], ['Authorization' => 'Bearer '.$this->mobileDeviceToken()])
+            ->assertStatus(503)
+            ->assertJsonPath('status', 'voice_unavailable')
+            ->assertJsonPath('provider', 'elevenlabs')
+            ->assertJsonPath('error.code', 'elevenlabs_not_configured');
+
+        Http::assertNothingSent();
     }
 
     public function test_voice_api_rejects_unknown_runtime_surface_transport_or_privacy_class(): void

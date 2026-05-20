@@ -11,12 +11,11 @@ class GeminiCliProvider implements AiProvider
 {
     use RunsCliProcesses;
 
-    private const REQUIRED_MODEL = 'gemini-3.1-pro-preview';
-
     private string $streamJsonBuffer = '';
 
     public function __construct(
         private readonly AtlasAiRuntimeSettings $runtimeSettings,
+        private readonly GeminiModelCatalog $models,
     ) {}
 
     public function key(): string
@@ -35,12 +34,33 @@ class GeminiCliProvider implements AiProvider
         $binary = (string) ($provider['binary'] ?? 'gemini');
         $args = $this->sanitizeConfiguredArgs((array) ($provider['args'] ?? []));
         $this->streamJsonBuffer = '';
+        $modelResolution = $this->models->resolveForJob($job);
+        $selectedModel = $modelResolution['model'] ?? null;
+        if (! is_string($selectedModel) || trim($selectedModel) === '') {
+            return new AiProviderResult(
+                ok: false,
+                output: '',
+                command: [],
+                exitCode: null,
+                durationMs: 0,
+                stdout: '',
+                stderr: '',
+                errorCode: $modelResolution['error_code'] ?? 'policy_violation',
+                errorMessage: $modelResolution['error_message'] ?? 'Gemini model selection failed closed.',
+                metadata: [
+                    'policy_violation' => 'gemini_model_not_allowed',
+                    'model_resolution' => $modelResolution,
+                    'fallback_provider' => $provider['fallback_provider'] ?? 'claude_cli',
+                ],
+            );
+        }
 
-        $args = $this->withArgValue($args, '--model', self::REQUIRED_MODEL);
+        $args = $this->withArgValue($args, '--model', $selectedModel);
         $args = $this->withArgValue($args, '--prompt', '');
         $args = $this->withArgValue($args, '--output-format', 'stream-json');
         $args[] = '--approval-mode=yolo';
         $args[] = '--skip-trust';
+        $computeEffort = $this->computeEffortContractForJob($job, 'gemini_cli');
 
         $attachmentWorkspace = null;
         $attachments = $this->attachmentAccessPaths($job);
@@ -68,7 +88,7 @@ class GeminiCliProvider implements AiProvider
             }
         }
 
-        return $this->withModelPolicyValidation($result);
+        return $this->withModelPolicyValidation($result, $modelResolution, $computeEffort);
     }
 
     public function health(): AiProviderHealthCheck
@@ -81,7 +101,9 @@ class GeminiCliProvider implements AiProvider
             status: $check->status,
             message: $check->message,
             metadata: array_merge($check->metadata, [
-                'required_model' => self::REQUIRED_MODEL,
+                'model_catalog' => $this->models->models($provider),
+                'default_model_alias' => $provider['default_model_alias'] ?? GeminiModelCatalog::ALIAS_FLASH,
+                'allowed_models' => $this->models->resolve('auto')['allowed_models'] ?? [],
                 'runtime_policy' => 'native_yolo',
             ]),
         );
@@ -211,17 +233,25 @@ class GeminiCliProvider implements AiProvider
         ]), 'provider');
     }
 
-    private function withModelPolicyValidation(AiProviderResult $result): AiProviderResult
+    private function withModelPolicyValidation(AiProviderResult $result, array $modelResolution, array $computeEffort = []): AiProviderResult
     {
         $models = $this->modelsFromStdout($result->stdout);
+        $allowedModels = array_values(array_filter((array) ($modelResolution['allowed_models'] ?? []), 'is_string'));
         $metadata = array_merge($result->metadata, [
-            'required_model' => self::REQUIRED_MODEL,
+            'selected_model' => $modelResolution['selected_model'] ?? $modelResolution['model'] ?? null,
+            'selected_model_alias' => $modelResolution['selected_model_alias'] ?? $modelResolution['model_alias'] ?? null,
+            'operator_requested_model_alias' => $modelResolution['operator_requested_model_alias'] ?? null,
+            'selection_source' => $modelResolution['selection_source'] ?? $modelResolution['source'] ?? null,
+            'model_family' => $modelResolution['model_family'] ?? 'gemini',
+            'model_tier' => $modelResolution['model_tier'] ?? null,
+            'allowed_models' => $allowedModels,
             'observed_models' => $models,
+            'compute_effort' => $computeEffort,
         ]);
 
         $unexpected = array_values(array_filter(
             $models,
-            fn (string $model): bool => $model !== self::REQUIRED_MODEL,
+            fn (string $model): bool => ! in_array($model, $allowedModels, true),
         ));
 
         if ($unexpected !== []) {

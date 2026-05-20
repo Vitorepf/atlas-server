@@ -6,6 +6,7 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\Concerns\RateLimitParser as ProviderRateLimitParser;
+use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -644,6 +645,37 @@ trait RunsCliProcesses
         $mode = Str::of($mode)->lower()->trim()->value();
 
         return in_array($mode, ['read', 'write', 'danger'], true) ? $mode : 'read';
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function computeEffortContractForJob(AiJob $job, string $provider): array
+    {
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $existing = data_get($payload, 'compute_effort_contract')
+            ?: data_get($payload, 'model_selection_contract.compute_effort');
+
+        if (is_array($existing) && is_string($existing['atlas_level'] ?? null)) {
+            return array_replace_recursive($existing, [
+                'provider' => $provider,
+                'provider_mapping' => app(ComputeEffortPolicy::class)->providerMapping($provider, (string) $existing['atlas_level']),
+            ]);
+        }
+
+        return app(ComputeEffortPolicy::class)->contract(
+            requested: data_get($payload, 'compute_effort')
+                ?: data_get($payload, 'operator_options.compute_effort')
+                ?: data_get($payload, 'policy_hints.compute_effort'),
+            provider: $provider,
+            context: [
+                'flow' => data_get($payload, 'model_selection_contract.flow')
+                    ?: data_get($payload, 'programming_message_plan.flow')
+                    ?: data_get($payload, 'dev_execution_plan.programming_session_plan.flow'),
+                'specialist_profile' => data_get($payload, 'model_selection_contract.specialist_profile'),
+                'task' => $job->input_text ?: $job->prompt,
+            ],
+        );
     }
 
     /**

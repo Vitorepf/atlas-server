@@ -50,6 +50,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md
   - docs/engineering-knowledge-base/atlas-tool-economy.md
   - docs/engineering-knowledge-base/atlas-world-model.md
+  - docs/engineering-knowledge-base/atlas-strategic-reality-engine.md
   - docs/engineering-knowledge-base/atlas-permission-budget-safety-layer.md
   - docs/engineering-knowledge-base/atlas-experimentation-engine.md
   - docs/engineering-knowledge-base/atlas-evidence-truth-layer.md

@@ -159,6 +159,29 @@ Atlas Decide deve considerar:
 Release novo de provider pode aumentar prioridade temporaria de benchmark, mas
 nao troca roteamento critico sem evidence suficiente ou override auditado.
 
+## Compute Effort
+
+Selecao de modelo sem selecao de esforco e incompleta. Atlas usa uma linguagem
+canonica de esforco, independente do provider:
+
+| Atlas effort | Uso | Traducao inicial |
+|---|---|---|
+| `fast` | resposta rapida, baixo custo, baixo risco | Claude `--effort low`; Codex `model_reasoning_effort=low`; Gemini observado/API low |
+| `balanced` | default diario | Claude `medium`; Codex `medium`; Gemini observado/API medium |
+| `deep` | debug/refactor/analise pesada | Claude `high`; Codex `high`; Gemini observado/API high ou budget alto |
+| `max` | arquitetura critica, Forge pesado, revisao final | Claude `max`; Codex `xhigh`; Gemini observado ate driver SDK/API |
+
+Surfaces podem pedir `--effort`, `/effort` ou `policy_hints.compute_effort`,
+mas isso vira `atlas.compute_effort_contract.v1` com autoridade
+`atlas_decide`. Provider adapter traduz para a flag/config real; UI/mobile nunca
+deve expor `thinkingBudget`, `model_reasoning_effort` ou flags de vendor como
+autoridade de produto.
+
+Metrica de esforco deve registrar nivel pedido, mapeamento provider, duracao,
+tokens/custo quando disponivel, retries, status de gates, completion e outcome.
+Esses sinais alimentam AP-99/Provider Performance, mas nao mudam roteamento
+automatico sem evidencia suficiente.
+
 ## Programming Specialist Matrix
 
 Esta matriz e uma policy inicial. Ela deve ser substituida por AP-99 quando houver

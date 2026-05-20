@@ -34,7 +34,7 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertArrayHasKey('claims', $report);
         $this->assertArrayHasKey('certification_hash', $report);
         $this->assertSame(64, strlen((string) $report['certification_hash']));
-        $this->assertSame(12, count($report['checks']));
+        $this->assertSame(17, count($report['checks']));
         $this->assertFalse($report['writes']);
     }
 
@@ -47,7 +47,12 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertFalse($report['claims']['declares_superiority']);
         $this->assertFalse($report['claims']['invokes_provider']);
         $this->assertFalse($report['claims']['runs_rivals']);
-        $this->assertSame('product_plumbing_only', $report['claims']['scope']);
+        $this->assertSame('product_runtime_governance', $report['claims']['scope']);
+        $this->assertTrue($report['claims']['covers_desktop_runtime_ux']);
+        $this->assertTrue($report['claims']['covers_agent_control_plane_runtime']);
+        $this->assertTrue($report['claims']['covers_external_execution_governance']);
+        $this->assertTrue($report['claims']['covers_internal_autonomous_company_runtime']);
+        $this->assertTrue($report['claims']['covers_capability_usage_evolution']);
     }
 
     public function test_certification_hash_is_deterministic_across_runs(): void
@@ -85,6 +90,11 @@ class AtlasAiProductCertificationServiceTest extends TestCase
             'routing_anti_regression_tests_present',
             'forge_strips_raw_text_to_hash_and_derives_context_refs',
             'no_attachment_path_still_works',
+            'desktop_control_plane_runtime_governance_ux',
+            'agent_control_plane_runtime_standard',
+            'governed_external_execution_control_plane',
+            'internal_autonomous_company_runtime_claim_gate',
+            'capability_usage_and_evolution_loop',
         ];
 
         foreach ($expected as $id) {
@@ -235,5 +245,95 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($pc['desktop_wired_in_conversation'], 'desktop must call projectPresentation in conversation');
         $this->assertTrue($pc['mobile_separates_technical_sections']);
         $this->assertTrue($pc['desktop_separates_technical_sections']);
+    }
+
+    public function test_evidence_proves_desktop_control_plane_exposes_runtime_governance(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $byId = [];
+        foreach ($report['checks'] as $check) {
+            $byId[$check['id']] = $check;
+        }
+
+        $evidence = $byId['desktop_control_plane_runtime_governance_ux']['evidence'];
+        $this->assertTrue($evidence['reads_external_execution_unsafe_enabled']);
+        $this->assertTrue($evidence['reads_external_execution_missing_receipt_bindings']);
+        $this->assertTrue($evidence['renders_unsafe_execution_metric']);
+        $this->assertTrue($evidence['renders_receipt_gap_metric']);
+        $this->assertTrue($evidence['renders_signature_coverage']);
+        $this->assertTrue($evidence['renders_blocked_by_default_policy']);
+        $this->assertTrue($evidence['governance_strip_styled']);
+    }
+
+    public function test_evidence_proves_external_execution_is_governed(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $byId = [];
+        foreach ($report['checks'] as $check) {
+            $byId[$check['id']] = $check;
+        }
+
+        $evidence = $byId['governed_external_execution_control_plane']['evidence'];
+        $this->assertTrue($evidence['tracks_unsafe_external_execution']);
+        $this->assertTrue($evidence['tracks_missing_receipt_bindings']);
+        $this->assertTrue($evidence['unsafe_execution_blocks_runtime_status']);
+        $this->assertTrue($evidence['manual_handoff_only_policy_present']);
+        $this->assertTrue($evidence['pending_approval_is_operator_queue_policy_present']);
+        $this->assertTrue($evidence['pending_approval_test_present']);
+        $this->assertTrue($evidence['unsafe_execution_blocker_test_present']);
+    }
+
+    public function test_evidence_proves_agent_control_plane_runtime_standard(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $byId = [];
+        foreach ($report['checks'] as $check) {
+            $byId[$check['id']] = $check;
+        }
+
+        $evidence = $byId['agent_control_plane_runtime_standard']['evidence'];
+        $this->assertTrue($evidence['orchestrates_task_queue_and_claim_leases']);
+        $this->assertTrue($evidence['multi_agent_loop_certified']);
+        $this->assertTrue($evidence['task_packets_have_acceptance_and_evidence']);
+        $this->assertTrue($evidence['leases_govern_ownership_and_disable_dispatch']);
+        $this->assertTrue($evidence['orchestrator_test_present']);
+        $this->assertTrue($evidence['multi_agent_loop_test_present']);
+        $this->assertTrue($evidence['task_packet_test_present']);
+        $this->assertTrue($evidence['claim_lease_test_present']);
+    }
+
+    public function test_evidence_proves_internal_autonomous_company_claim_gate(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $byId = [];
+        foreach ($report['checks'] as $check) {
+            $byId[$check['id']] = $check;
+        }
+
+        $evidence = $byId['internal_autonomous_company_runtime_claim_gate']['evidence'];
+        $this->assertTrue($evidence['certifies_all_roles_have_agent_task_packets']);
+        $this->assertTrue($evidence['internal_autonomous_company_claim_present']);
+        $this->assertTrue($evidence['external_superiority_claim_blocked']);
+        $this->assertTrue($evidence['external_benchmark_claim_blocked']);
+        $this->assertTrue($evidence['feature_test_covers_claim_gate']);
+        $this->assertTrue($evidence['unit_test_covers_claim_gate']);
+    }
+
+    public function test_evidence_proves_capability_usage_and_evolution_loop(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $byId = [];
+        foreach ($report['checks'] as $check) {
+            $byId[$check['id']] = $check;
+        }
+
+        $evidence = $byId['capability_usage_and_evolution_loop']['evidence'];
+        $this->assertTrue($evidence['control_plane_tracks_capability_used_events']);
+        $this->assertTrue($evidence['control_plane_tracks_evolution_events']);
+        $this->assertTrue($evidence['control_plane_tests_cover_counters']);
+        $this->assertTrue($evidence['aemor_creates_intelligence_factory_evolution_candidate']);
+        $this->assertTrue($evidence['aemor_test_covers_evolution_candidate']);
+        $this->assertTrue($evidence['intelligence_factory_records_usage']);
+        $this->assertTrue($evidence['intelligence_factory_certifies_registry_and_evolution_tables']);
     }
 }

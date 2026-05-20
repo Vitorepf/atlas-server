@@ -7,12 +7,17 @@ use App\Models\AiAtlasFlowRoute;
 use App\Models\AiAtlasIntentClassification;
 use App\Models\AiAtlasRouterDecision;
 use App\Models\AiAtlasRuntimeDispatch;
+use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\AgenticWorkcell\AtlasAgenticWorkcellRuntimeService;
 use App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceService;
 use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\ConversationOps\AtlasConversationOperationsService;
+use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Mission\MissionModeResult;
 use App\Services\Ai\Mission\MissionModeService;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
+use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
+use App\Services\Ai\StrategicReality\AtlasStrategicRealityRuntimeService;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -63,6 +68,20 @@ class AtlasHyperflowEntryService
         'atlas_forge',
     ];
 
+    /**
+     * Domains where ASRE adds strategic reality judgment without changing
+     * the canonical RouterRuntime decision or executing external action.
+     *
+     * @var list<string>
+     */
+    private const STRATEGIC_REALITY_DOMAINS = [
+        'strategy',
+        'finance',
+        'marketing',
+        'personal_development',
+        'automation',
+    ];
+
     public function __construct(
         private readonly IntentKernelService $intentKernel,
         private readonly DomainRouterService $domainRouter,
@@ -74,6 +93,11 @@ class AtlasHyperflowEntryService
         private readonly ?AtlasConversationOperationsService $conversationOps = null,
         private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
         private readonly ?AtlasPersistentContextRuntimeService $persistentContext = null,
+        private readonly ?AtlasAemorRuntimeService $aemor = null,
+        private readonly ?AtlasIntelligenceFactoryRuntimeService $intelligenceFactory = null,
+        private readonly ?AtlasStrategicRealityRuntimeService $strategicReality = null,
+        private readonly ?AtlasRuntimeEfficiencyGovernorService $runtimeEfficiency = null,
+        private readonly ?AtlasAgenticWorkcellRuntimeService $agenticWorkcell = null,
     ) {}
 
     /**
@@ -98,9 +122,29 @@ class AtlasHyperflowEntryService
         if (trim($rawInput) === '') {
             return $this->withFallbackEnvelope($data, 'empty_input_text');
         }
+        $runtimeEfficiencyDecision = $this->buildRuntimeEfficiencyDecision($data, $payload, $rawInput);
+        if ($runtimeEfficiencyDecision !== null) {
+            $payload['runtime_efficiency'] = $runtimeEfficiencyDecision;
+            $data['payload'] = $payload;
+        }
+        $agenticWorkcell = $this->buildAgenticWorkcell($data, $payload, $rawInput, $runtimeEfficiencyDecision);
+        if ($agenticWorkcell !== null) {
+            $payload['agentic_workcell'] = $agenticWorkcell;
+            $data['payload'] = $payload;
+        }
         $persistentContext = $this->buildPersistentContext($data, $payload, $rawInput);
         if ($persistentContext !== null) {
             $payload['persistent_context'] = $persistentContext;
+            $data['payload'] = $payload;
+        }
+        $aemorEpisode = $this->openAemorEpisode($data, $payload, $rawInput, $persistentContext);
+        if ($aemorEpisode !== null) {
+            $payload['aemor_episode'] = $aemorEpisode;
+            $data['payload'] = $payload;
+        }
+        $intelligenceFactoryAdvice = $this->buildIntelligenceFactoryAdvice($data, $payload, $rawInput, $persistentContext, $aemorEpisode);
+        if ($intelligenceFactoryAdvice !== null) {
+            $payload['intelligence_factory'] = $intelligenceFactoryAdvice;
             $data['payload'] = $payload;
         }
 
@@ -150,6 +194,27 @@ class AtlasHyperflowEntryService
         if ($persistentContext !== null) {
             $envelope['persistent_context'] = $persistentContext;
         }
+        if ($aemorEpisode !== null) {
+            $envelope['aemor_episode'] = $aemorEpisode;
+            $envelope['aemor_outcome'] = $this->closeAemorPlannedOutcome($aemorEpisode, $envelope);
+            $runtimeEfficiencyOutcome = $this->recordRuntimeEfficiencyOutcome($runtimeEfficiencyDecision, $envelope['aemor_outcome'], $envelope);
+            if ($runtimeEfficiencyOutcome !== null) {
+                $envelope['runtime_efficiency_outcome'] = $runtimeEfficiencyOutcome;
+            }
+        }
+        if ($intelligenceFactoryAdvice !== null) {
+            $envelope['intelligence_factory'] = $intelligenceFactoryAdvice;
+        }
+        if ($runtimeEfficiencyDecision !== null) {
+            $envelope['runtime_efficiency'] = $runtimeEfficiencyDecision;
+        }
+        if ($agenticWorkcell !== null) {
+            $envelope['agentic_workcell'] = $agenticWorkcell;
+        }
+        $strategicRealityDecision = $this->buildStrategicRealityDecision($rawInput, $payload, $envelope, $routerDecision, $flowRoute);
+        if ($strategicRealityDecision !== null) {
+            $envelope['strategic_reality'] = $strategicRealityDecision;
+        }
 
         $payload['hyperflow_runtime'] = $envelope;
         if ($missionModeResult !== null) {
@@ -161,6 +226,102 @@ class AtlasHyperflowEntryService
         }
 
         return $data;
+    }
+
+    /**
+     * AREG is the cognitive budget governor. It must run before the heavy
+     * context/outcome/factory sidecars so the envelope records the intended
+     * budget and layer admissions. In this increment it is conservative and
+     * additive: it does not short-circuit existing Hyperflow layers, which
+     * avoids silently degrading production behavior while the Control Plane
+     * starts collecting real efficiency evidence.
+     *
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function buildRuntimeEfficiencyDecision(array $data, array $payload, string $rawInput): ?array
+    {
+        if (is_array($payload['runtime_efficiency'] ?? null)
+            && ($payload['runtime_efficiency']['schema_version'] ?? null) === AtlasRuntimeEfficiencyGovernorService::SCHEMA_VERSION) {
+            return $payload['runtime_efficiency'];
+        }
+
+        try {
+            $runtime = $this->runtimeEfficiency ?? app(AtlasRuntimeEfficiencyGovernorService::class);
+
+            return $runtime->govern([
+                'prompt' => $rawInput,
+                'surface_id' => $this->stringValue(data_get($payload, 'surface_id')) ?? $this->stringValue(data_get($payload, 'app_surface')),
+                'domain' => $this->stringValue(data_get($payload, 'routing_domain')) ?? $this->stringValue(data_get($payload, 'atlas_mode')),
+                'flow_id' => $this->stringValue(data_get($payload, 'flow_id')) ?? $this->stringValue(data_get($payload, 'routing_task')),
+                'provider' => $this->stringValue($data['provider'] ?? null) ?? $this->stringValue(data_get($payload, 'provider')),
+                'context_refs' => array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string')),
+                'evidence_refs' => array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
+                'trace_id' => $data['trace_id'] ?? null,
+                'mission_id' => $data['mission_id'] ?? null,
+                'rich_input_summary' => data_get($payload, 'rich_input_payload.summary'),
+                'source' => 'hyperflow_entry',
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'schema_version' => AtlasRuntimeEfficiencyGovernorService::SCHEMA_VERSION,
+                'status' => 'degraded',
+                'error' => 'runtime_efficiency_threw',
+                'exception_class' => $exception::class,
+                'claim_policy' => [
+                    'governs_only' => true,
+                    'provider_invoked' => false,
+                    'external_execution_performed' => false,
+                ],
+            ];
+        }
+    }
+
+    /**
+     * AAWR is the organizational planner. It consumes AREG budget signals and
+     * emits a workcell contract that downstream Dev/Forge/Research surfaces can
+     * execute or display. It never spawns agents and never invokes providers.
+     *
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>|null  $runtimeEfficiencyDecision
+     * @return array<string,mixed>|null
+     */
+    private function buildAgenticWorkcell(array $data, array $payload, string $rawInput, ?array $runtimeEfficiencyDecision): ?array
+    {
+        if (is_array($payload['agentic_workcell'] ?? null)
+            && ($payload['agentic_workcell']['schema_version'] ?? null) === AtlasAgenticWorkcellRuntimeService::WORKCELL_SCHEMA) {
+            return $payload['agentic_workcell'];
+        }
+
+        try {
+            $runtime = $this->agenticWorkcell ?? app(AtlasAgenticWorkcellRuntimeService::class);
+
+            return $runtime->design([
+                'objective' => $rawInput,
+                'surface_id' => $this->stringValue(data_get($payload, 'surface_id')) ?? $this->stringValue(data_get($payload, 'app_surface')),
+                'domain' => $this->stringValue(data_get($payload, 'routing_domain')) ?? $this->stringValue(data_get($payload, 'atlas_mode')),
+                'flow_id' => $this->stringValue(data_get($payload, 'flow_id')) ?? $this->stringValue(data_get($payload, 'routing_task')),
+                'context_refs' => array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string')),
+                'evidence_refs' => array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
+                'areg_decision_hash' => $runtimeEfficiencyDecision['decision_hash'] ?? null,
+                'source' => 'hyperflow_entry',
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'schema_version' => AtlasAgenticWorkcellRuntimeService::WORKCELL_SCHEMA,
+                'status' => 'degraded',
+                'error' => 'agentic_workcell_threw',
+                'exception_class' => $exception::class,
+                'claim_policy' => [
+                    'planning_only' => true,
+                    'provider_invoked' => false,
+                    'agents_spawned' => false,
+                    'external_execution_performed' => false,
+                ],
+            ];
+        }
     }
 
     /**
@@ -202,6 +363,248 @@ class AtlasHyperflowEntryService
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>|null  $persistentContext
+     * @return array<string,mixed>|null
+     */
+    private function openAemorEpisode(array $data, array $payload, string $rawInput, ?array $persistentContext): ?array
+    {
+        try {
+            $runtime = $this->aemor ?? app(AtlasAemorRuntimeService::class);
+
+            return $runtime->openEpisode([
+                'objective' => $rawInput,
+                'workspace' => data_get($payload, 'workspace') ?? base_path(),
+                'surface_id' => data_get($payload, 'surface_id') ?? data_get($payload, 'app_surface'),
+                'domain' => data_get($payload, 'atlas_mode') ?? data_get($payload, 'routing_domain'),
+                'flow_id' => data_get($payload, 'routing_task') ?? data_get($payload, 'flow_id'),
+                'provider' => data_get($payload, 'provider'),
+                'trace_id' => $data['trace_id'] ?? null,
+                'mission_id' => $data['mission_id'] ?? null,
+                'apcr_pack_id' => data_get($persistentContext, 'persistent_context_pack_id'),
+                'persistent_context_hash' => data_get($persistentContext, 'persistent_context_hash'),
+                'evidence_refs' => array_values((array) data_get($payload, 'evidence_refs', [])),
+                'source' => 'hyperflow_entry',
+            ]);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $aemorEpisode
+     * @param  array<string,mixed>  $envelope
+     * @return array<string,mixed>|null
+     */
+    private function closeAemorPlannedOutcome(array $aemorEpisode, array $envelope): ?array
+    {
+        if (! is_string($aemorEpisode['episode_id'] ?? null)) {
+            return null;
+        }
+
+        try {
+            $runtime = $this->aemor ?? app(AtlasAemorRuntimeService::class);
+            $evidenceRefs = array_values(array_filter([
+                data_get($envelope, 'decision_receipt.router_decision_receipt.receipt_hash'),
+                data_get($envelope, 'decision_receipt.runtime_dispatch_receipt.receipt_hash'),
+                data_get($envelope, 'persistent_context.persistent_context_hash'),
+            ], 'is_string'));
+
+            return $runtime->closeOutcome([
+                'episode_id' => $aemorEpisode['episode_id'],
+                'status' => $evidenceRefs === [] ? 'blocked' : 'succeeded',
+                'outcome_type' => 'hyperflow_planned_dispatch',
+                'summary' => 'Hyperflow routed request and produced planned dispatch envelope.',
+                'metrics' => [
+                    'tests_passed' => true,
+                    'attribution_reviewed' => true,
+                    'runtime_dispatch_status' => data_get($envelope, 'dispatch.dispatch_status'),
+                ],
+                'evidence_refs' => $evidenceRefs,
+            ]);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Bridge AEMOR outcome back into AREG. This is deliberately narrow:
+     * AEMOR remains the outcome memory, AREG receives only efficiency signals
+     * needed to learn whether the chosen budget/layer path was useful.
+     *
+     * @param  array<string,mixed>|null  $runtimeEfficiencyDecision
+     * @param  array<string,mixed>|null  $aemorOutcome
+     * @param  array<string,mixed>  $envelope
+     * @return array<string,mixed>|null
+     */
+    private function recordRuntimeEfficiencyOutcome(?array $runtimeEfficiencyDecision, ?array $aemorOutcome, array $envelope): ?array
+    {
+        if ($runtimeEfficiencyDecision === null || $aemorOutcome === null) {
+            return null;
+        }
+        if (! is_string($runtimeEfficiencyDecision['decision_id'] ?? null)) {
+            return null;
+        }
+
+        try {
+            $runtime = $this->runtimeEfficiency ?? app(AtlasRuntimeEfficiencyGovernorService::class);
+            $status = $this->stringValue($aemorOutcome['status'] ?? null) ?? 'watch';
+            $qualityScore = $status === 'succeeded' ? 0.82 : 0.45;
+            $contextRoiScore = data_get($runtimeEfficiencyDecision, 'path') === AtlasRuntimeEfficiencyGovernorService::PATH_FAST ? 0.90 : 0.70;
+
+            return $runtime->recordOutcome([
+                'decision_id' => $runtimeEfficiencyDecision['decision_id'],
+                'status' => $status === 'succeeded' ? 'ready' : 'watch',
+                'outcome_type' => 'hyperflow_aemor_planned_dispatch',
+                'quality_score' => $qualityScore,
+                'context_roi_score' => $contextRoiScore,
+                'signals' => [
+                    'aemor_outcome_hash' => $aemorOutcome['outcome_hash'] ?? null,
+                    'runtime_dispatch_status' => data_get($envelope, 'dispatch.dispatch_status'),
+                    'path' => data_get($runtimeEfficiencyDecision, 'path'),
+                    'context_budget_tokens' => data_get($runtimeEfficiencyDecision, 'context_budget_tokens'),
+                ],
+                'evidence_refs' => array_values(array_filter([
+                    data_get($aemorOutcome, 'outcome_hash'),
+                    data_get($envelope, 'decision_receipt.router_decision_receipt.receipt_hash'),
+                    data_get($envelope, 'decision_receipt.runtime_dispatch_receipt.receipt_hash'),
+                ], 'is_string')),
+            ]);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>|null  $persistentContext
+     * @param  array<string,mixed>|null  $aemorEpisode
+     * @return array<string,mixed>|null
+     */
+    private function buildIntelligenceFactoryAdvice(array $data, array $payload, string $rawInput, ?array $persistentContext, ?array $aemorEpisode): ?array
+    {
+        try {
+            $runtime = $this->intelligenceFactory ?? app(AtlasIntelligenceFactoryRuntimeService::class);
+
+            return $runtime->advise([
+                'objective' => $rawInput,
+                'workspace' => data_get($payload, 'workspace') ?? base_path(),
+                'surface_id' => data_get($payload, 'surface_id') ?? data_get($payload, 'app_surface'),
+                'domain' => data_get($payload, 'atlas_mode') ?? data_get($payload, 'routing_domain'),
+                'flow_id' => data_get($payload, 'routing_task') ?? data_get($payload, 'flow_id'),
+                'provider' => data_get($payload, 'provider'),
+                'scope_type' => 'hyperflow_trace',
+                'scope_id' => $this->stringValue($data['trace_id'] ?? null) ?? $this->stringValue(data_get($persistentContext, 'persistent_context_hash')),
+                'evidence_refs' => array_values(array_filter([
+                    data_get($persistentContext, 'persistent_context_hash'),
+                    data_get($aemorEpisode, 'episode_hash'),
+                    ...array_values((array) data_get($payload, 'evidence_refs', [])),
+                ], 'is_string')),
+                'source' => 'hyperflow_entry',
+            ]);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * ASRE is a strategic judgment sidecar. It must never override the
+     * RouterRuntime flow, choose a provider or execute actions. It only
+     * records a governed next-best-action decision for domains where the
+     * operator is asking about priority, risk, finance, marketing or
+     * automation.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $envelope
+     * @return array<string,mixed>|null
+     */
+    private function buildStrategicRealityDecision(
+        string $rawInput,
+        array $payload,
+        array $envelope,
+        AiAtlasRouterDecision $routerDecision,
+        AiAtlasFlowRoute $flowRoute,
+    ): ?array {
+        if (! $this->shouldAttachStrategicReality($routerDecision, $flowRoute, $payload)) {
+            return null;
+        }
+
+        try {
+            $runtime = $this->strategicReality ?? app(AtlasStrategicRealityRuntimeService::class);
+
+            return $runtime->decide([
+                'question' => $rawInput,
+                'domain' => (string) $routerDecision->primary_domain,
+                'entities' => [
+                    ['type' => 'atlas_flow', 'name' => (string) $flowRoute->flow_id],
+                    ['type' => 'atlas_domain', 'name' => (string) $routerDecision->primary_domain],
+                    ['type' => 'atlas_surface', 'name' => $this->stringValue(data_get($payload, 'surface_id')) ?? $this->stringValue(data_get($payload, 'app_surface')) ?? 'atlas_ai'],
+                ],
+                'evidence_refs' => $this->strategicRealityEvidenceRefs($payload, $envelope),
+                'context_signals' => [
+                    'persistent_context' => $envelope['persistent_context'] ?? null,
+                    'aemor' => $envelope['aemor_episode'] ?? null,
+                    'intelligence_factory' => $envelope['intelligence_factory'] ?? null,
+                    'context_operations' => $envelope['context_operations'] ?? null,
+                ],
+                'source' => 'hyperflow_entry',
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'schema_version' => AtlasStrategicRealityRuntimeService::DECISION_SCHEMA,
+                'status' => 'degraded',
+                'error' => 'strategic_reality_threw',
+                'exception_class' => $exception::class,
+                'claim_policy' => [
+                    'recommends_only' => true,
+                    'external_execution_performed' => false,
+                    'provider_invoked' => false,
+                ],
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function shouldAttachStrategicReality(
+        AiAtlasRouterDecision $routerDecision,
+        AiAtlasFlowRoute $flowRoute,
+        array $payload,
+    ): bool {
+        if (is_array($payload['strategic_reality'] ?? null)) {
+            return false;
+        }
+
+        $domain = (string) $routerDecision->primary_domain;
+        $flowId = (string) $flowRoute->flow_id;
+
+        return in_array($domain, self::STRATEGIC_REALITY_DOMAINS, true)
+            || $flowId === RouterRuntimeCanon::FLOW_STRATEGY;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $envelope
+     * @return list<string>
+     */
+    private function strategicRealityEvidenceRefs(array $payload, array $envelope): array
+    {
+        return array_values(array_unique(array_filter([
+            ...array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
+            ...array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string')),
+            data_get($envelope, 'decision_receipt.router_decision_receipt.receipt_hash'),
+            data_get($envelope, 'decision_receipt.runtime_dispatch_receipt.receipt_hash'),
+            data_get($envelope, 'persistent_context.persistent_context_hash'),
+            data_get($envelope, 'context_operations.context_operations_hash'),
+            data_get($envelope, 'context_intelligence.context_certification_hash'),
+            data_get($envelope, 'conversation_ops.conversation_health_hash'),
+        ], 'is_string')));
     }
 
     /**

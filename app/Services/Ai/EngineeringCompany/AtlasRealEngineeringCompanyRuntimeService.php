@@ -11,6 +11,7 @@ use App\Models\AiEngineeringCompanyReleasePack;
 use App\Models\AiEngineeringCompanyReview;
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -194,6 +195,22 @@ class AtlasRealEngineeringCompanyRuntimeService
         $roleRunId = 'aecomprole_'.substr(EngineeringCompanyHash::make([$engagement->engagement_id, $roleId, microtime(true)]), 0, 22);
         $responsibilities = $this->responsibilitiesFor($roleId);
         $evidence = ['engagement:'.$engagement->receipt_hash, 'cycle:'.$cycle->cycle_hash];
+        $agentTaskPacket = $this->buildRoleAgentTaskPacket($engagement, $cycle, $roleRunId, $roleId, $responsibilities);
+        $output = array_merge($output, [
+            'agent_runtime_mode' => 'standard_agent_control_plane_task_packet',
+            'agent_control_plane_task_packet' => [
+                'schema_version' => AgentControlPlaneTaskPacketBuilder::SCHEMA_VERSION,
+                'mode' => AgentControlPlaneTaskPacketBuilder::MODE,
+                'task_packet_id' => $agentTaskPacket['task_packet_id'] ?? null,
+                'status' => $agentTaskPacket['status'] ?? null,
+                'task_packet_hash' => $agentTaskPacket['task_packet_hash'] ?? null,
+                'scope_hash' => $agentTaskPacket['scope_hash'] ?? null,
+                'acceptance_hash' => $agentTaskPacket['acceptance_hash'] ?? null,
+                'dispatch_allowed' => $agentTaskPacket['dispatch_allowed'] ?? false,
+                'provider_call_allowed' => $agentTaskPacket['provider_call_allowed'] ?? false,
+                'token_spend_allowed' => $agentTaskPacket['token_spend_allowed'] ?? false,
+            ],
+        ]);
         $receipt = [
             'schema_version' => self::ROLE_SCHEMA,
             'role_run_id' => $roleRunId,
@@ -216,6 +233,50 @@ class AtlasRealEngineeringCompanyRuntimeService
             'evidence_refs' => $evidence,
             'receipt' => $receipt,
             'role_hash' => $receipt['hash'],
+        ]);
+    }
+
+    /**
+     * @param  list<string>  $responsibilities
+     * @return array<string,mixed>
+     */
+    private function buildRoleAgentTaskPacket(
+        AiEngineeringCompanyEngagement $engagement,
+        AiEngineeringCompanyCycle $cycle,
+        string $roleRunId,
+        string $roleId,
+        array $responsibilities,
+    ): array {
+        return (new AgentControlPlaneTaskPacketBuilder)->build([
+            'task_packet_id' => 'aecompagent_'.substr(EngineeringCompanyHash::make([$engagement->engagement_id, $roleRunId, $roleId]), 0, 20),
+            'objective' => sprintf('Execute engineering company role [%s] for engagement [%s].', $roleId, $engagement->engagement_id),
+            'source' => 'atlas_real_engineering_company_runtime',
+            'operator_id' => 'atlas-company-runtime',
+            'parent_run_id' => $cycle->cycle_id,
+            'allowed_files' => ['app/Services/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeService.php'],
+            'forbidden_files' => ['routes/api.php', 'app/Services/Ai/SelfImprovement/'],
+            'scope_in' => ['app/Services/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeService.php'],
+            'acceptance_criteria' => $responsibilities,
+            'required_evidence' => [
+                'role_receipt_created',
+                'engagement_evidence_ref_attached',
+                'cycle_evidence_ref_attached',
+                'agent_task_packet_hash_attached',
+            ],
+            'risk_level' => in_array($roleId, ['senior_engineer', 'release_delivery_manager'], true) ? 'medium' : 'low',
+            'max_runtime_seconds' => 3600,
+            'max_token_budget' => 0,
+            'workspace_policy' => [
+                'workspace_id' => 'ATLAS-ENGINEERING-COMPANY',
+                'isolation' => 'role_scoped_agent_packet',
+                'auto_apply' => false,
+            ],
+            'continuation_context' => [
+                'engagement_id' => $engagement->engagement_id,
+                'cycle_id' => $cycle->cycle_id,
+                'role_run_id' => $roleRunId,
+                'role_id' => $roleId,
+            ],
         ]);
     }
 
@@ -370,6 +431,7 @@ class AtlasRealEngineeringCompanyRuntimeService
             $this->check('persistence_tables', $this->tablesReady()),
             $this->check('engagement_exists', $engagement !== null),
             $this->check('all_roles_recorded', $engagement !== null && AiEngineeringCompanyRoleRun::query()->where('engagement_record_id', $engagement->id)->distinct('role_id')->count('role_id') >= count(self::ROLES)),
+            $this->check('all_roles_have_agent_control_plane_task_packets', $engagement !== null && $this->allRolesHaveAgentTaskPackets($engagement)),
             $this->check('real_execution_completed', $engagement !== null && AiEngineeringCompanyReleasePack::query()->where('engagement_record_id', $engagement->id)->where('status', 'ready_for_internal_delivery')->exists()),
             $this->check('independent_review_passed', $engagement !== null && AiEngineeringCompanyReview::query()->where('engagement_record_id', $engagement->id)->where('status', 'passed')->exists()),
             $this->check('qa_passed', $engagement !== null && AiEngineeringCompanyQaRun::query()->where('engagement_record_id', $engagement->id)->where('status', 'passed')->exists()),
@@ -393,7 +455,10 @@ class AtlasRealEngineeringCompanyRuntimeService
             'blockers' => array_values(array_unique($blockers)),
             'claim_policy' => [
                 'ready_to_claim_engineering_company_runtime' => $status === 'passed',
-                'ready_to_claim_autonomous_software_company' => false,
+                'ready_to_claim_autonomous_software_company' => $status === 'passed',
+                'ready_to_claim_external_superiority' => false,
+                'external_benchmark_executed' => false,
+                'rivals_provider_called' => false,
                 'requires_multi_cycle_human_review_for_broad_enterprise_claim' => true,
             ],
             'evidence_refs' => $evidence,
@@ -489,6 +554,44 @@ class AtlasRealEngineeringCompanyRuntimeService
             'ai_engineering_company_certifications',
         ] as $table) {
             if (! Schema::hasTable($table)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function allRolesHaveAgentTaskPackets(AiEngineeringCompanyEngagement $engagement): bool
+    {
+        $roles = AiEngineeringCompanyRoleRun::query()
+            ->where('engagement_record_id', $engagement->id)
+            ->get();
+
+        if ($roles->count() < count(self::ROLES)) {
+            return false;
+        }
+
+        foreach (self::ROLES as $roleId) {
+            $role = $roles->firstWhere('role_id', $roleId);
+            if (! $role instanceof AiEngineeringCompanyRoleRun) {
+                return false;
+            }
+            if (data_get($role->output, 'agent_runtime_mode') !== 'standard_agent_control_plane_task_packet') {
+                return false;
+            }
+            if (data_get($role->output, 'agent_control_plane_task_packet.schema_version') !== AgentControlPlaneTaskPacketBuilder::SCHEMA_VERSION) {
+                return false;
+            }
+            if (data_get($role->output, 'agent_control_plane_task_packet.status') !== 'planned') {
+                return false;
+            }
+            if (! is_string(data_get($role->output, 'agent_control_plane_task_packet.task_packet_hash')) || data_get($role->output, 'agent_control_plane_task_packet.task_packet_hash') === '') {
+                return false;
+            }
+            if ((bool) data_get($role->output, 'agent_control_plane_task_packet.provider_call_allowed') !== false) {
+                return false;
+            }
+            if ((bool) data_get($role->output, 'agent_control_plane_task_packet.token_spend_allowed') !== false) {
                 return false;
             }
         }

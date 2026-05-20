@@ -1347,7 +1347,7 @@ TXT;
     private function voiceResponseInstructions(array $options): string
     {
         $contract = data_get($options, 'payload.voice_response_contract');
-        if (! is_array($contract) || (string) data_get($contract, 'mode') !== 'spoken_concise') {
+        if (! is_array($contract) || ! in_array((string) data_get($contract, 'mode'), ['spoken_concise', 'spoken_result'], true)) {
             return '';
         }
 
@@ -1362,10 +1362,11 @@ Esta resposta sera falada em voz alta. Priorize tempo ate a primeira fala e clar
 
 Regras:
 - Responda em portugues brasileiro natural, direto e sem markdown.
+- Nao reduza o escopo do pedido por ser voz: execute a intencao completa antes de formular a resposta falada.
 - Use no maximo {$maxSentences} frases curtas quando a pergunta permitir.
 - Mira de tamanho: ate {$targetChars} caracteres; limite duro: {$hardMaxChars} caracteres.
 - Nao use listas longas, cabecalhos, tabelas, JSON, codigo ou referencias internas.
-- Se a resposta completa exigir detalhe, fale primeiro a conclusao e deixe o detalhe em texto curto.
+- Se o trabalho exigir analise longa, faca o trabalho completo, responda em voz com conclusao eficiente e deixe detalhes essenciais no texto da conversa.
 - Se faltar contexto, faca uma pergunta objetiva em uma frase.
 TXT;
     }

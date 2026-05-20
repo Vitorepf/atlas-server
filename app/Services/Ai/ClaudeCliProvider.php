@@ -38,6 +38,12 @@ class ClaudeCliProvider implements AiProvider
             $args[] = $model;
         }
 
+        $computeEffort = $this->computeEffortContractForJob($job, 'claude_cli');
+        $effortValue = data_get($computeEffort, 'provider_mapping.value');
+        if (is_string($effortValue) && $effortValue !== '') {
+            $args = $this->withArgValue($args, '--effort', $effortValue);
+        }
+
         $args = $this->withAtlasRuntimeArgs($args, $job);
         $command = array_values(array_merge([$binary], $args));
         $cwd = $this->workdirForJob($job);
@@ -50,6 +56,7 @@ class ClaudeCliProvider implements AiProvider
             'requested_model' => $this->invocationModel($job, $provider),
             'output_format' => $this->argValue($args, '--output-format'),
             'permission_mode' => $this->argValue($args, '--permission-mode'),
+            'compute_effort' => $computeEffort,
             'add_dirs' => $this->argValuesAfter($args, '--add-dir'),
             'session_policy' => in_array('--no-session-persistence', $args, true) ? 'no_session_persistence' : 'provider_default',
         ]);
@@ -89,6 +96,7 @@ class ClaudeCliProvider implements AiProvider
             helpArgs: ['--help'],
             requiredTokens: [
                 '--model',
+                '--effort',
                 '--permission-mode',
                 '--add-dir',
                 '--output-format',
@@ -530,6 +538,7 @@ class ClaudeCliProvider implements AiProvider
             valueArgs: [
                 '--model',
                 '-m',
+                '--effort',
                 '--permission-mode',
             ],
             standaloneArgs: [

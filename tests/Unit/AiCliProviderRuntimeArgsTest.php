@@ -134,6 +134,25 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertSame(hash('sha256', 'teste'), $fingerprint['prompt_hash']);
     }
 
+    public function test_claude_provider_maps_atlas_compute_effort_to_cli_effort(): void
+    {
+        $binary = $this->fakeClaudeBinary();
+
+        config([
+            'atlas.ai.providers.claude_cli.binary' => $binary,
+            'atlas.ai.providers.claude_cli.args' => ['-p', '--effort', 'low'],
+        ]);
+
+        $result = app(ClaudeCliProvider::class)->runStreaming($this->job([
+            'compute_effort' => 'max',
+        ]), 'teste');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertSame(1, collect($result->command)->filter(fn (mixed $arg): bool => $arg === '--effort')->count());
+        $this->assertSame('max', $result->command[array_search('--effort', $result->command, true) + 1]);
+        $this->assertSame('max', data_get($result->metadata, 'claude_invocation_fingerprint.compute_effort.atlas_level'));
+    }
+
     public function test_codex_provider_maps_danger_runtime_to_full_access_never_approval_and_allowed_roots(): void
     {
         $binary = $this->fakeCodexBinary();
@@ -220,6 +239,25 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertNotContains('/tmp/old-last-message.txt', $result->command);
         $this->assertNotContains('/tmp/old-image.png', $result->command);
         $this->assertNotContains('--full-auto=false', $result->command);
+    }
+
+    public function test_codex_provider_maps_atlas_compute_effort_to_reasoning_config_override(): void
+    {
+        $binary = $this->fakeCodexBinary();
+
+        config([
+            'atlas.ai.providers.codex_cli.binary' => $binary,
+            'atlas.ai.providers.codex_cli.args' => ['exec', '--skip-git-repo-check'],
+        ]);
+
+        $result = app(CodexCliProvider::class)->runStreaming($this->job([
+            'compute_effort' => 'deep',
+        ]), 'teste');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertContains('-c', $result->command);
+        $this->assertContains('model_reasoning_effort="high"', $result->command);
+        $this->assertSame('deep', data_get($result->metadata, 'compute_effort.atlas_level'));
     }
 
     public function test_codex_provider_forwards_image_attachments_to_cli(): void
@@ -328,7 +366,7 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertNotContains('--model', $result->command);
     }
 
-    public function test_gemini_provider_uses_fixed_native_runtime_and_stdin_prompt(): void
+    public function test_gemini_provider_uses_resolved_flash_model_and_stdin_prompt(): void
     {
         $binary = $this->fakeGeminiBinary();
         $policy = dirname($this->operatorRoot).'/gemini-policy.toml';
@@ -351,7 +389,7 @@ class AiCliProviderRuntimeArgsTest extends TestCase
 
         $this->assertTrue($result->ok, $result->errorMessage ?? '');
         $this->assertContains('--model', $result->command);
-        $this->assertSame('gemini-3.1-pro-preview', $result->command[array_search('--model', $result->command, true) + 1]);
+        $this->assertSame('gemini-3.5-flash', $result->command[array_search('--model', $result->command, true) + 1]);
         $this->assertContains('--approval-mode=yolo', $result->command);
         $this->assertContains('--skip-trust', $result->command);
         $this->assertNotContains('--approval-mode', $result->command);
@@ -359,7 +397,68 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertNotContains('--sandbox', $result->command);
         $this->assertNotContains('--admin-policy', $result->command);
         $this->assertNotContains('prompt secreto', $result->command);
-        $this->assertSame(['gemini-3.1-pro-preview'], $result->metadata['observed_models']);
+        $this->assertSame('gemini_flash', $result->metadata['selected_model_alias']);
+        $this->assertSame(['gemini-3.5-flash'], $result->metadata['observed_models']);
+    }
+
+    public function test_gemini_provider_uses_pro_alias_for_deep_compute_effort(): void
+    {
+        $binary = $this->fakeGeminiBinary('gemini-3.1-pro-preview');
+
+        config([
+            'atlas.ai.providers.gemini_cli.binary' => $binary,
+            'atlas.ai.providers.gemini_cli.args' => [],
+        ]);
+
+        $result = app(GeminiCliProvider::class)->runStreaming($this->job([
+            'compute_effort' => ['atlas_level' => 'deep'],
+        ]), 'teste');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertSame('gemini-3.1-pro-preview', $result->command[array_search('--model', $result->command, true) + 1]);
+        $this->assertSame('gemini_pro', $result->metadata['selected_model_alias']);
+        $this->assertSame('atlas_decide', $result->metadata['selection_source']);
+    }
+
+    public function test_gemini_provider_fails_closed_for_unknown_manual_model_alias(): void
+    {
+        $binary = $this->fakeGeminiBinary();
+
+        config([
+            'atlas.ai.providers.gemini_cli.binary' => $binary,
+            'atlas.ai.providers.gemini_cli.args' => [],
+        ]);
+
+        $job = $this->job([
+            'selected_model_alias' => 'gemini_ultra',
+        ]);
+        $job->model = 'gemini_ultra';
+
+        $result = app(GeminiCliProvider::class)->runStreaming($job, 'teste');
+
+        $this->assertFalse($result->ok);
+        $this->assertSame('model_not_allowed', $result->errorCode);
+        $this->assertSame([], $result->command);
+        $this->assertSame('gemini_model_not_allowed', data_get($result->metadata, 'policy_violation'));
+    }
+
+    public function test_gemini_provider_records_compute_effort_as_observed_only_until_sdk_driver(): void
+    {
+        $binary = $this->fakeGeminiBinary();
+
+        config([
+            'atlas.ai.providers.gemini_cli.binary' => $binary,
+            'atlas.ai.providers.gemini_cli.args' => [],
+        ]);
+
+        $result = app(GeminiCliProvider::class)->runStreaming($this->job([
+            'compute_effort' => 'max',
+        ]), 'teste');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertSame('max', data_get($result->metadata, 'compute_effort.atlas_level'));
+        $this->assertSame('observed_only_until_gemini_sdk_driver', data_get($result->metadata, 'compute_effort.provider_mapping.control_status'));
+        $this->assertNotContains('thinkingBudget', $result->command);
     }
 
     public function test_gemini_provider_rejects_model_downgrade_from_cli_output(): void
@@ -467,7 +566,7 @@ if [ "$1" = "--help" ]; then
   exit 0
 fi
 cat >/dev/null
-printf '{"type":"result","response":"ok","stats":{"models":["gemini-3.1-pro-preview"]}}'
+printf '{"type":"result","response":"ok","stats":{"models":["gemini-3.5-flash"]}}'
 SH);
 
         config([
@@ -515,7 +614,7 @@ SH);
 cat >/dev/null
 printf '{"type":"message","role":"user","content":"prompt secreto"}\n'
 printf '{"type":"message","role":"assistant","content":"resposta limpa","delta":true}\n'
-printf '{"type":"result","status":"success","stats":{"models":["gemini-3.1-pro-preview"]}}\n'
+printf '{"type":"result","status":"success","stats":{"models":["gemini-3.5-flash"]}}\n'
 SH);
         $policy = $this->fakeGeminiPolicy();
 
@@ -683,7 +782,7 @@ SH);
         ]), 'teste');
 
         $this->assertTrue($result->ok, $result->errorMessage ?? '');
-        $this->assertSame('gemini-3.1-pro-preview', $result->command[array_search('--model', $result->command, true) + 1]);
+        $this->assertSame('gemini-3.5-flash', $result->command[array_search('--model', $result->command, true) + 1]);
         $this->assertSame('', $result->command[array_search('--prompt', $result->command, true) + 1]);
         $this->assertContains('--approval-mode=yolo', $result->command);
         $this->assertContains('--skip-trust', $result->command);
@@ -735,6 +834,7 @@ if [ "$1" = "--help" ]; then
 Usage: claude [options] [prompt]
   --add-dir <directories...>
   --model <model>
+  --effort <level>
   --output-format <format> text json stream-json
   --permission-mode <mode>
   --no-session-persistence
@@ -781,7 +881,7 @@ printf '{"result":"ok"}'
 SH);
     }
 
-    private function fakeGeminiBinary(string $model = 'gemini-3.1-pro-preview', ?string $capturePromptPath = null): string
+    private function fakeGeminiBinary(string $model = 'gemini-3.5-flash', ?string $capturePromptPath = null): string
     {
         $capture = $capturePromptPath
             ? "printf '%s' \"\$stdin\" > ".escapeshellarg($capturePromptPath)

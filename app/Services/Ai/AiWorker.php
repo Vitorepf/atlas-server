@@ -1390,19 +1390,24 @@ class AiWorker
 
     private function ensureJobModelIdentity(AiJob $job, string $providerKey): AiJob
     {
-        $resolution = $this->models->resolveWithSource($providerKey, $job->model);
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $metadata = is_array($job->metadata) ? $job->metadata : [];
+        $resolution = $this->models->resolveWithSource($providerKey, $job->model, array_merge($metadata, $payload));
         if (! $resolution['model']) {
             return $job;
         }
 
-        $payload = is_array($job->payload) ? $job->payload : [];
-        $metadata = is_array($job->metadata) ? $job->metadata : [];
         $updates = [
             'model' => $resolution['model'],
             'payload' => array_merge($payload, [
                 'model_identity_source' => $resolution['source'],
                 'model_label' => $resolution['model_label'] ?? $resolution['model'],
                 'model_tier' => $resolution['model_tier'] ?? config('atlas.ai.default_tier', 'daily'),
+                'selected_model' => $resolution['selected_model'] ?? $resolution['model'],
+                'selected_model_alias' => $resolution['selected_model_alias'] ?? $resolution['model_alias'] ?? null,
+                'operator_requested_model_alias' => $resolution['operator_requested_model_alias'] ?? null,
+                'model_family' => $resolution['model_family'] ?? null,
+                'model_selection_source' => $resolution['selection_source'] ?? $resolution['source'],
                 'model_allow_auto' => (bool) ($resolution['allow_auto'] ?? true),
                 'model_allow_manual' => (bool) ($resolution['allow_manual'] ?? true),
             ]),
@@ -1410,6 +1415,11 @@ class AiWorker
                 'model_identity_source' => $resolution['source'],
                 'model_label' => $resolution['model_label'] ?? $resolution['model'],
                 'model_tier' => $resolution['model_tier'] ?? config('atlas.ai.default_tier', 'daily'),
+                'selected_model' => $resolution['selected_model'] ?? $resolution['model'],
+                'selected_model_alias' => $resolution['selected_model_alias'] ?? $resolution['model_alias'] ?? null,
+                'operator_requested_model_alias' => $resolution['operator_requested_model_alias'] ?? null,
+                'model_family' => $resolution['model_family'] ?? null,
+                'model_selection_source' => $resolution['selection_source'] ?? $resolution['source'],
                 'model_allow_auto' => (bool) ($resolution['allow_auto'] ?? true),
                 'model_allow_manual' => (bool) ($resolution['allow_manual'] ?? true),
             ]),

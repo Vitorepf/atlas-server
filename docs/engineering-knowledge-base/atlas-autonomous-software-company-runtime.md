@@ -27,6 +27,8 @@ decisions:
   - Um prompt ambiguo deve virar plano, execucao, teste, review, delivery e aprendizado quando o escopo for engenharia de software.
   - Nenhum departamento declara pronto sozinho; delivery final passa por evidencia e certificacao.
   - Tarefas grandes viram Obra no Forge; tarefas leves ficam no Dev/Debug/Review conforme risco.
+  - O runtime interno pode declarar autonomous software company somente quando os 9 departamentos tiverem agent task packets, review, QA, release, evidence e certification passed.
+  - A certificacao interna nao autoriza claim de superioridade externa, benchmark real ou comparacao com rivais.
 maintenance:
   - Atualize este doc antes de adicionar novo flow especializado de programacao.
   - Nao criar especialista solto fora do Company Runtime sem contrato de entrada, saida, evidencias e gates.
@@ -87,8 +89,12 @@ governs:
   - atlas_ai.engineering_delivery
 evidence:
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
+  - app/Services/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeService.php
+  - tests/Feature/Ai/AtlasRealEngineeringCompanyRuntimeTest.php
+  - tests/Unit/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeServiceTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan test tests/Feature/Ai/AtlasRealEngineeringCompanyRuntimeTest.php tests/Unit/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeServiceTest.php --stop-on-failure"
 requires_evidence: true
 risk_level: high
 ai_entrypoints:
@@ -137,6 +143,13 @@ execucao, testa, revisa, entrega, registra evidencia e aprende.
 
 Ele nao substitui Atlas Dev, Debug, Review, Research ou Forge. Ele organiza
 todos como departamentos oficiais dentro de um fluxo unico de engenharia.
+
+Status operacional atual: o runtime interno pode ser certificado como
+`ready_to_claim_autonomous_software_company=true` somente no escopo interno do
+Atlas. Isso significa que o fluxo de software company com 9 departamentos,
+subagentes via Agent Control Plane task packets, review, QA, release e
+certificacao passou. Nao significa claim externo contra Claude/Codex, nem
+benchmark real, nem superioridade publica.
 
 ## Objetivo
 
@@ -258,6 +271,36 @@ heuristicas para melhorar o proximo ciclo.
 - `atlas.ai.company.certification.v1`
 
 Cada contrato deve conter `schema_version`, `goal_id`, `department_id`,
+evidence refs, hash e status bloqueante quando aplicavel.
+
+Contrato de certificacao atual:
+
+```text
+atlas.ai.engineering_company.certification.v1
+```
+
+Checks obrigatorios:
+
+- canonical_doc;
+- persistence_tables;
+- engagement_exists;
+- all_roles_recorded;
+- all_roles_have_agent_control_plane_task_packets;
+- real_execution_completed;
+- independent_review_passed;
+- qa_passed;
+- benchmark_recorded como shadow/internal ledger, sem execucao externa.
+
+Claim policy obrigatoria:
+
+```text
+ready_to_claim_engineering_company_runtime=true quando passed
+ready_to_claim_autonomous_software_company=true quando passed
+ready_to_claim_external_superiority=false
+external_benchmark_executed=false
+rivals_provider_called=false
+requires_multi_cycle_human_review_for_broad_enterprise_claim=true
+```
 `status`, `input_summary`, `output_summary`, `evidence_refs`, `blockers`,
 `next_action` e `receipt_hash`.
 

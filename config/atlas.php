@@ -171,6 +171,13 @@ return [
             'token_ttl_seconds' => (int) env('ATLAS_VOICE_LIVEKIT_TOKEN_TTL_SECONDS', 900),
             'agent_name' => env('ATLAS_VOICE_LIVEKIT_AGENT_NAME', 'atlas-voice-agent'),
         ],
+        'elevenlabs' => [
+            'api_key' => env('ATLAS_ELEVENLABS_API_KEY', env('ELEVENLABS_API_KEY')),
+            'voice_id' => env('ATLAS_ELEVENLABS_VOICE_ID'),
+            'model_id' => env('ATLAS_ELEVENLABS_MODEL_ID', 'eleven_multilingual_v2'),
+            'output_format' => env('ATLAS_ELEVENLABS_OUTPUT_FORMAT', 'mp3_44100_128'),
+            'timeout_seconds' => (int) env('ATLAS_ELEVENLABS_TIMEOUT_SECONDS', 20),
+        ],
     ],
 
     // Atlas Vox V3 governed_execute executors. Each entry is opt-in: if
@@ -672,13 +679,18 @@ return [
             'profile_cache_ttl_seconds' => (int) env('ATLAS_AI_RUNTIME_PROFILE_CACHE_TTL_SECONDS', 300),
             'profile_max_files' => (int) env('ATLAS_AI_RUNTIME_PROFILE_MAX_FILES', 1200),
         ],
+        'compute_effort' => [
+            'default' => env('ATLAS_AI_COMPUTE_EFFORT_DEFAULT', 'balanced'),
+            'levels' => ['fast', 'balanced', 'deep', 'max'],
+            'measurement_schema' => 'atlas.compute_effort_signal.v1',
+        ],
         'providers' => [
             'claude_cli' => [
                 'binary' => env('ATLAS_AI_CLAUDE_BIN', 'claude'),
-                'model' => env('ATLAS_AI_CLAUDE_MODEL', null),
-                'model_label' => env('ATLAS_AI_CLAUDE_MODEL_LABEL', env('ATLAS_AI_CLAUDE_MODEL') ?: 'Claude CLI default'),
+                'model' => env('ATLAS_AI_CLAUDE_MODEL', 'claude-sonnet-4-6'),
+                'model_label' => env('ATLAS_AI_CLAUDE_MODEL_LABEL', env('ATLAS_AI_CLAUDE_MODEL') ?: 'Claude Sonnet 4.6'),
                 'model_tier' => env('ATLAS_AI_CLAUDE_MODEL_TIER', env('ATLAS_AI_DEFAULT_TIER', 'daily')),
-                'model_identity' => env('ATLAS_AI_CLAUDE_MODEL_IDENTITY', env('ATLAS_AI_CLAUDE_MODEL') ?: 'claude_cli_default'),
+                'model_identity' => env('ATLAS_AI_CLAUDE_MODEL_IDENTITY', env('ATLAS_AI_CLAUDE_MODEL') ?: 'claude-sonnet-4-6'),
                 'fallback_model' => env('ATLAS_AI_CLAUDE_FALLBACK_MODEL', 'claude-haiku-4-5'),
                 'fallback_model_label' => env('ATLAS_AI_CLAUDE_FALLBACK_MODEL_LABEL', 'Claude Haiku 4.5'),
                 'premium_model' => env('ATLAS_AI_CLAUDE_PREMIUM_MODEL', 'claude-opus-4-7'),
@@ -691,10 +703,10 @@ return [
             ],
             'codex_cli' => [
                 'binary' => env('ATLAS_AI_CODEX_BIN', 'codex'),
-                'model' => env('ATLAS_AI_CODEX_MODEL', null),
-                'model_label' => env('ATLAS_AI_CODEX_MODEL_LABEL', env('ATLAS_AI_CODEX_MODEL') ?: 'Codex CLI default'),
+                'model' => env('ATLAS_AI_CODEX_MODEL', 'gpt-5.3-codex-spark'),
+                'model_label' => env('ATLAS_AI_CODEX_MODEL_LABEL', env('ATLAS_AI_CODEX_MODEL') ?: 'GPT-5.3-Codex-Spark'),
                 'model_tier' => env('ATLAS_AI_CODEX_MODEL_TIER', env('ATLAS_AI_DEFAULT_TIER', 'daily')),
-                'model_identity' => env('ATLAS_AI_CODEX_MODEL_IDENTITY', env('ATLAS_AI_CODEX_MODEL') ?: 'codex_cli_default'),
+                'model_identity' => env('ATLAS_AI_CODEX_MODEL_IDENTITY', env('ATLAS_AI_CODEX_MODEL') ?: 'gpt-5.3-codex-spark'),
                 'fallback_model' => env('ATLAS_AI_CODEX_FALLBACK_MODEL', 'gpt-5.4-mini'),
                 'fallback_model_label' => env('ATLAS_AI_CODEX_FALLBACK_MODEL_LABEL', 'GPT-5.4-Mini'),
                 'premium_model' => env('ATLAS_AI_CODEX_PREMIUM_MODEL', 'gpt-5.5'),
@@ -708,10 +720,26 @@ return [
             ],
             'gemini_cli' => [
                 'binary' => env('ATLAS_AI_GEMINI_BIN', 'gemini'),
-                'model' => 'gemini-3.1-pro-preview',
-                'model_label' => 'Gemini 3.1 Pro Preview',
-                'model_tier' => 'premium',
-                'model_identity' => 'gemini-3.1-pro-preview',
+                'default_model_alias' => env('ATLAS_AI_GEMINI_DEFAULT_MODEL_ALIAS', 'gemini_flash'),
+                'model' => env('ATLAS_AI_GEMINI_MODEL', env('ATLAS_AI_GEMINI_FLASH_MODEL', 'gemini-3.5-flash')),
+                'model_label' => env('ATLAS_AI_GEMINI_MODEL_LABEL', env('ATLAS_AI_GEMINI_FLASH_LABEL', 'Gemini Flash')),
+                'model_tier' => env('ATLAS_AI_GEMINI_MODEL_TIER', env('ATLAS_AI_GEMINI_FLASH_TIER', 'daily')),
+                'model_identity' => env('ATLAS_AI_GEMINI_MODEL_IDENTITY', env('ATLAS_AI_GEMINI_FLASH_MODEL', 'gemini-3.5-flash')),
+                'model_family' => 'gemini',
+                'models' => [
+                    'gemini_flash' => [
+                        'model' => env('ATLAS_AI_GEMINI_FLASH_MODEL', env('ATLAS_AI_GEMINI_MODEL', 'gemini-3.5-flash')),
+                        'label' => env('ATLAS_AI_GEMINI_FLASH_LABEL', 'Gemini 3.5 Flash'),
+                        'tier' => env('ATLAS_AI_GEMINI_FLASH_TIER', 'daily'),
+                        'family' => 'gemini',
+                    ],
+                    'gemini_pro' => [
+                        'model' => env('ATLAS_AI_GEMINI_PRO_MODEL', 'gemini-3.1-pro-preview'),
+                        'label' => env('ATLAS_AI_GEMINI_PRO_LABEL', 'Gemini 3.1 Pro'),
+                        'tier' => env('ATLAS_AI_GEMINI_PRO_TIER', 'premium'),
+                        'family' => 'gemini',
+                    ],
+                ],
                 'fallback_model' => null,
                 'fallback_provider' => env('ATLAS_AI_GEMINI_FALLBACK_PROVIDER', 'claude_cli'),
                 'allow_auto' => (bool) env('ATLAS_AI_GEMINI_ALLOW_AUTO', false),
@@ -720,6 +748,22 @@ return [
                 'args' => env('ATLAS_AI_GEMINI_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_GEMINI_ARGS'))), fn (string $arg): bool => $arg !== ''))
                     : [],
+            ],
+            'antigravity_sdk' => [
+                'enabled' => (bool) env('ATLAS_ANTIGRAVITY_SDK_ENABLED', false),
+                'python' => env('ATLAS_ANTIGRAVITY_SDK_PYTHON', 'python3'),
+                'module' => env('ATLAS_ANTIGRAVITY_SDK_MODULE', 'google.antigravity'),
+                'adapter_path' => env('ATLAS_ANTIGRAVITY_SDK_ADAPTER_PATH', 'runtimes/python/antigravity_sdk/adapter.py'),
+                'timeout_seconds' => (int) env('ATLAS_ANTIGRAVITY_SDK_TIMEOUT', 120),
+                'max_output_chars' => (int) env('ATLAS_ANTIGRAVITY_SDK_MAX_OUTPUT_CHARS', 12000),
+                'model' => env('ATLAS_ANTIGRAVITY_SDK_MODEL', 'selected-by-atlas-decide'),
+                'model_label' => env('ATLAS_ANTIGRAVITY_SDK_MODEL_LABEL', 'Antigravity SDK selected by Atlas Decide'),
+                'model_tier' => env('ATLAS_ANTIGRAVITY_SDK_MODEL_TIER', 'experimental'),
+                'model_identity' => env('ATLAS_ANTIGRAVITY_SDK_MODEL_IDENTITY', 'antigravity_sdk_selected_by_atlas_decide'),
+                'fallback_model' => null,
+                'allow_auto' => (bool) env('ATLAS_ANTIGRAVITY_SDK_ALLOW_AUTO', false),
+                'allow_manual' => (bool) env('ATLAS_ANTIGRAVITY_SDK_ALLOW_MANUAL', false),
+                'auth_env' => ['ANTIGRAVITY_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY'],
             ],
             'jarvis_mlx' => [
                 'binary' => env('ATLAS_AI_JARVIS_MLX_BIN', 'python3'),
