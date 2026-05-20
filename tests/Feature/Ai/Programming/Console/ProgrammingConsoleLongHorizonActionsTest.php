@@ -72,8 +72,12 @@ class ProgrammingConsoleLongHorizonActionsTest extends TestCase
         $this->assertSame(1, $payload['payload']['continuation_packs']['count']);
         $this->assertSame(1, $payload['payload']['continuation_packs']['count_for_scope']);
         $this->assertCount(1, $payload['payload']['continuation_packs']['recent']);
-        $this->assertFalse($payload['payload']['freshness']['gate_evaluated']);
-        $this->assertSame('not_evaluated', $payload['payload']['freshness']['gate_status']);
+        $this->assertTrue($payload['payload']['freshness']['gate_evaluated']);
+        $this->assertSame('pass', $payload['payload']['freshness']['gate_status']);
+        $this->assertSame('App\Services\Ai\LongHorizon\Gate\LongHorizonContextFreshnessGate', $payload['payload']['freshness']['service']);
+        $this->assertTrue($payload['payload']['recovery']['planner_available']);
+        $this->assertTrue($payload['payload']['recovery']['planned']);
+        $this->assertSame('App\Services\Ai\LongHorizon\LongHorizonRecoveryPlannerService', $payload['payload']['recovery']['service']);
     }
 
     public function test_long_horizon_status_reports_partial_when_no_packs_exist(): void
@@ -156,18 +160,37 @@ class ProgrammingConsoleLongHorizonActionsTest extends TestCase
         $this->assertSame('persisted', $payload['payload']['pack_source']);
     }
 
-    public function test_long_horizon_certify_returns_structural_checks_and_service_not_shipped_blocker(): void
+    public function test_long_horizon_certify_uses_shipped_continuity_certification_service(): void
     {
-        $payload = $this->runConsole('long-horizon:certify');
+        $this->seedContinuationPack('dev-run-certify-1');
+
+        $payload = $this->runConsole('long-horizon:certify', [
+            '--scope-type' => AtlasLongHorizonCanon::SCOPE_TYPE_DEV_RUN,
+            '--scope-id' => 'dev-run-certify-1',
+        ]);
 
         $this->assertCanonicalEnvelope($payload);
         $this->assertSame(ProgrammingConsoleCanon::ACTION_LONG_HORIZON_CERTIFY, $payload['action']);
         $this->assertSame(ProgrammingConsoleCanon::STATUS_PARTIAL, $payload['status']);
         $this->assertIsArray($payload['payload']['checks']);
-        $this->assertGreaterThanOrEqual(4, $payload['payload']['check_count']);
-        $this->assertSame('not_shipped', $payload['payload']['continuity_certification_service']);
+        $this->assertGreaterThanOrEqual(7, $payload['payload']['check_count']);
+        $this->assertSame('shipped', $payload['payload']['continuity_certification_service']);
+        $this->assertSame('atlas.teos.continuity_certification.v1', $payload['payload']['certification']['schema_version']);
+        $this->assertSame(ProgrammingConsoleCanon::CERTIFICATION_STATUS_PARTIAL, $payload['certification_status']);
+        $this->assertNotEmpty($payload['payload']['certification_hash']);
         $blockerIds = array_column($payload['blockers'], 'id');
-        $this->assertContains('long_horizon_certify:service_not_shipped', $blockerIds);
+        $this->assertContains('long_horizon_certify:replay_manifest_available', $blockerIds);
+        $this->assertNotContains('long_horizon_certify:service_not_shipped', $blockerIds);
+    }
+
+    public function test_long_horizon_certify_without_scope_requests_concrete_scope_without_claiming_not_shipped(): void
+    {
+        $payload = $this->runConsole('long-horizon:certify');
+
+        $this->assertCanonicalEnvelope($payload);
+        $this->assertSame(ProgrammingConsoleCanon::STATUS_PARTIAL, $payload['status']);
+        $this->assertSame('shipped', $payload['payload']['continuity_certification_service']);
+        $this->assertSame('long_horizon_certify:missing_scope', $payload['blockers'][0]['id']);
     }
 
     public function test_every_long_horizon_envelope_carries_benchmark_not_run_true(): void

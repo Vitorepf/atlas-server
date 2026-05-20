@@ -4,6 +4,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\AtlasAiPolicyService;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
 use App\Services\Ai\Kernel\Provider\AgentBehaviorContract;
 use App\Services\Ai\Kernel\Repair\RepairStrategy;
@@ -25,6 +26,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         private readonly ProgrammingPatchVerifier $patchVerifier,
         private readonly ProgrammingLearningCandidateProjector $learningCandidates,
         private readonly ProgrammingRepairExecutor $repairExecutor,
+        private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
     ) {}
 
     /**
@@ -171,6 +173,9 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'status' => 'planned',
             'evidence_refs' => ['agentic_rag:'.data_get($plan, 'agentic_rag_plan.retrieval_receipt.receipt_id')],
         ]);
+        $plan['context_operations'] = $this->contextOperationsContract($plan, $options);
+        $plan['context_intelligence'] = data_get($plan, 'context_operations.context_intelligence');
+        $plan['conversation_ops'] = data_get($plan, 'context_operations.conversation_ops');
         $plan['programming_orchestration_contract'] = $this->programmingOrchestrationContract($plan, $options);
         $frontendContract = $this->frontendDesignHarnessContract($plan, $options);
         if ($frontendContract !== null) {
@@ -312,11 +317,67 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'agentic_rag_plan' => data_get($programmingMessagePlan, 'agentic_rag_plan'),
             'stage_receipt_plan' => data_get($programmingMessagePlan, 'stage_receipt_plan'),
             'resume_state' => data_get($programmingMessagePlan, 'resume_state'),
+            'context_operations' => data_get($programmingMessagePlan, 'context_operations'),
+            'context_intelligence' => data_get($programmingMessagePlan, 'context_intelligence'),
+            'conversation_ops' => data_get($programmingMessagePlan, 'conversation_ops'),
             'sandbox_plan' => data_get($programmingMessagePlan, 'sandbox_plan'),
             'operational_decision_id' => data_get($programmingMessagePlan, 'operational_decision.decision_id'),
             'plan_id' => data_get($programmingMessagePlan, 'plan_id'),
             'created_at' => now()->toJSON(),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function contextOperationsContract(array $plan, array $options): array
+    {
+        $flow = (string) data_get($plan, 'programming_flow', 'dev');
+        $profile = (string) data_get($plan, 'programming_profile', 'dev');
+        $flowId = $profile === 'forge' ? 'atlas_forge' : match ($flow) {
+            'repair' => 'atlas_debug',
+            'review' => 'atlas_review',
+            default => 'atlas_dev',
+        };
+        $receiptId = data_get($plan, 'agentic_rag_plan.retrieval_receipt.receipt_id');
+        $decisionId = data_get($plan, 'operational_decision.decision_id');
+        $contextRefs = array_values(array_filter([
+            data_get($plan, 'agentic_rag_plan.context_pack.context_pack_hash'),
+            data_get($plan, 'resume_state.continuation_packet.context_pack_hash'),
+        ], 'is_string'));
+        $evidenceRefs = array_values(array_filter([
+            is_string($receiptId) && $receiptId !== '' ? 'agentic_rag:'.$receiptId : null,
+            is_string($decisionId) && $decisionId !== '' ? 'decision:'.$decisionId : null,
+        ], 'is_string'));
+
+        return ($this->contextOperations ?? app(AtlasContextOperationsRuntimeService::class))->evaluate([
+            'prompt' => (string) ($options['task'] ?? ''),
+            'domain' => 'programming',
+            'flow_id' => $flowId,
+            'flow_profile' => 'programming.'.$flow,
+            'runtime_mode' => $profile === 'forge' ? 'forge' : 'dev',
+            'scope_id' => (string) data_get($plan, 'plan_id'),
+            'context_refs' => $contextRefs,
+            'evidence_refs' => $evidenceRefs,
+            'handoff_target' => [
+                'kind' => $profile === 'forge' ? 'atlas_forge' : 'atlas_dev',
+                'reason' => $profile === 'forge' ? 'programming_forge_profile' : 'programming_dev_profile',
+            ],
+            'policy_required' => true,
+            'evidence_required' => (string) data_get($plan, 'execution_profile.done_policy') === 'evidence_required',
+            'tool_plan_required' => true,
+            'force_verified_compaction' => $profile === 'forge',
+            'must_keep_items' => [
+                ['id' => 'plan_id', 'kind' => 'decision', 'digest' => (string) data_get($plan, 'plan_id')],
+                ['id' => 'programming_flow', 'kind' => 'flow_route', 'digest' => 'programming.'.$flow],
+                ['id' => 'executor', 'kind' => 'runtime_decision', 'digest' => (string) data_get($plan, 'executor_decision.executor')],
+            ],
+            'turns' => [
+                ['role' => 'user', 'content' => (string) ($options['task'] ?? '')],
+            ],
+        ]);
     }
 
     /**

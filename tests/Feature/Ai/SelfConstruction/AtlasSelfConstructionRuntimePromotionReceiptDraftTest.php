@@ -41,7 +41,24 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftTest extends TestCa
 
         $this->assertSame('blocked_operator_input_required', $draft['status']);
         $this->assertContains('signed_by', $draft['missing_operator_inputs']);
+        $this->assertContains('signed_by', $draft['placeholder_operator_inputs']);
+        $this->assertSame(1, $draft['placeholder_operator_input_count']);
         $this->assertContains('runtime_promotion_receipt_signer_must_be_real_operator', array_column((array) data_get($draft, 'verification.violations', []), 'code'));
+    }
+
+    public function test_receipt_draft_exposes_portuguese_placeholder_operator_inputs(): void
+    {
+        $draft = $this->draft([
+            'signed_by' => 'SEU_NOME',
+            'reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+        ]);
+
+        $this->assertSame('blocked_operator_input_required', $draft['status']);
+        $this->assertEqualsCanonicalizing(['signed_by', 'reason'], $draft['missing_operator_inputs']);
+        $this->assertEqualsCanonicalizing(['signed_by', 'reason'], $draft['placeholder_operator_inputs']);
+        $this->assertSame(2, $draft['placeholder_operator_input_count']);
+        $this->assertFalse($draft['persisted']);
+        $this->assertFalse($draft['runtime_write_allowed']);
     }
 
     public function test_receipt_draft_builds_verifier_ready_payload_with_real_operator_inputs(): void
@@ -128,6 +145,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftTest extends TestCa
             'blocked_operator_input_required',
         ]);
         $this->assertSame(0, data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_receipt_draft_status.missing_operator_input_count'));
+        $this->assertSame(0, data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_receipt_draft_status.placeholder_operator_input_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'agent_control_plane_atlas_self_construction_runtime_promotion_receipt_draft_status.receipt_hash'));
         $this->assertFalse($payload['execution_allowed']);
         $this->assertFalse($payload['dispatch_allowed']);

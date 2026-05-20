@@ -64,6 +64,10 @@ final class AtlasSelfConstructionRuntimePromotionEndgameVerifierService
         'claude',
         'codex-autosigned',
         'atlas',
+        'seu_nome',
+        'seu nome',
+        '<operador>',
+        'operador',
     ];
 
     /**
@@ -112,7 +116,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameVerifierService
         $placeholderSigner = in_array(strtolower(trim($signedBy)), self::PLACEHOLDER_SIGNERS, true);
 
         $reason = trim((string) ($receipt['reason'] ?? ''));
-        $reasonInvalid = mb_strlen($reason) < 32 || str_starts_with($reason, '<');
+        $reasonInvalid = mb_strlen($reason) < 32 || $this->isPlaceholderReason($reason);
 
         $expectedReceiptHash = (new AtlasSelfConstructionCompletionEvidenceHashService)->runtimePromotionReceiptHash($receipt);
         $receiptHashMismatch = (string) ($receipt['receipt_hash'] ?? '') !== $expectedReceiptHash;
@@ -326,6 +330,30 @@ final class AtlasSelfConstructionRuntimePromotionEndgameVerifierService
         $payload['verifier_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    private function isPlaceholderReason(string $reason): bool
+    {
+        $normalized = strtolower(trim($reason));
+        if ($normalized === '' || str_starts_with($normalized, '<')) {
+            return true;
+        }
+
+        foreach ([
+            'operator reason',
+            'minimum_32_chars',
+            'pelo menos 32 caracteres',
+            'motivo real',
+            'substitua',
+            'placeholder',
+            'todo',
+        ] as $pattern) {
+            if (str_contains($normalized, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $payload */

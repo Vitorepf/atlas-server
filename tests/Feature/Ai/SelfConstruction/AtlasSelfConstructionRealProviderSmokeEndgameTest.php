@@ -3,7 +3,9 @@
 namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHashService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeEndgameService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -291,6 +293,36 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameTest extends TestCase
             'atlas.self_construction.real_provider_smoke_operator_runbook_exporter.v1',
             (string) $result['operator_runbook_export']['schema_version'],
         );
+    }
+
+    public function test_status_projections_expose_explicit_non_execution_flags(): void
+    {
+        $service = new AtlasSelfConstructionReadinessService(new AtlasSelfConstructionReservationRepository);
+        $statusKeys = [
+            'agent_control_plane_atlas_self_construction_real_provider_smoke_endgame_verifier_status' => $service->atlasSelfConstructionRealProviderSmokeEndgameVerifierStatus(),
+            'agent_control_plane_atlas_self_construction_real_provider_smoke_evidence_ledger_preflight_status' => $service->atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightStatus(),
+            'agent_control_plane_atlas_self_construction_real_provider_smoke_operator_runbook_exporter_status' => $service->atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterStatus(),
+        ];
+
+        foreach ($statusKeys as $summaryKey => $status) {
+            $summary = (array) data_get($status, $summaryKey, []);
+
+            foreach ([
+                'execution_allowed',
+                'dispatch_allowed',
+                'ledger_write_allowed',
+                'runtime_write_allowed',
+                'provider_call_allowed',
+                'token_spend_allowed',
+                'adapter_execution_allowed',
+                'completion_allowed',
+                'completion_claim_allowed',
+                'self_programming_allowed',
+            ] as $flag) {
+                $this->assertArrayHasKey($flag, $summary, "{$summaryKey} must expose {$flag}");
+                $this->assertFalse((bool) $summary[$flag], "{$summaryKey}.{$flag} must stay false");
+            }
+        }
     }
 
     private function endgame(): AtlasSelfConstructionRealProviderSmokeEndgameService

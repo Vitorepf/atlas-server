@@ -59,6 +59,9 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
         if (mb_strlen(trim((string) ($receipt['reason'] ?? ''))) < 32) {
             $violations[] = ['code' => 'runtime_promotion_receipt_reason_too_short'];
         }
+        if ($this->isPlaceholderReason((string) ($receipt['reason'] ?? ''))) {
+            $violations[] = ['code' => 'runtime_promotion_receipt_reason_placeholder'];
+        }
         if (count($promotedGapIds) !== count(array_unique($promotedGapIds))) {
             $violations[] = ['code' => 'promoted_gap_ids_contain_duplicates'];
         }
@@ -275,7 +278,35 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
             'claude',
             'codex-autosigned',
             'atlas',
+            'seu_nome',
+            'seu nome',
+            '<operador>',
+            'operador',
         ], true);
+    }
+
+    private function isPlaceholderReason(string $reason): bool
+    {
+        $normalized = strtolower(trim($reason));
+        if ($normalized === '' || str_starts_with($normalized, '<')) {
+            return true;
+        }
+
+        foreach ([
+            'operator reason',
+            'minimum_32_chars',
+            'pelo menos 32 caracteres',
+            'motivo real',
+            'substitua',
+            'placeholder',
+            'todo',
+        ] as $pattern) {
+            if (str_contains($normalized, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $value */

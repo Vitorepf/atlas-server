@@ -65,6 +65,10 @@ final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierSer
         'claude',
         'codex-autosigned',
         'atlas',
+        'seu_nome',
+        'seu nome',
+        '<operador>',
+        'operador',
     ];
 
     /**
@@ -101,7 +105,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierSer
         }
 
         $reason = trim((string) ($receipt['reason'] ?? ''));
-        if (mb_strlen($reason) < 32 || str_starts_with($reason, '<')) {
+        if (mb_strlen($reason) < 32 || $this->isPlaceholderReason($reason)) {
             $violations[] = ['code' => 'reason_too_short_or_placeholder'];
         }
 
@@ -156,7 +160,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierSer
         $promotedGapIds = array_values(array_filter((array) ($receipt['promoted_gap_ids'] ?? []), 'is_string'));
         $providedGraduationHashes = (array) ($receipt['graduation_evidence_hashes'] ?? []);
         $promotedGapDrift = false;
-        if ($expectedGapIds !== [] && $promotedGapIds !== $expectedGapIds) {
+        if ($promotedGapIds !== $expectedGapIds) {
             $promotedGapDrift = true;
             $violations[] = ['code' => 'promoted_gap_id_drift'];
         }
@@ -291,6 +295,30 @@ final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierSer
     private function isPlaceholderSigner(string $signedBy): bool
     {
         return in_array(strtolower(trim($signedBy)), self::PLACEHOLDER_SIGNERS, true);
+    }
+
+    private function isPlaceholderReason(string $reason): bool
+    {
+        $normalized = strtolower(trim($reason));
+        if ($normalized === '' || str_starts_with($normalized, '<')) {
+            return true;
+        }
+
+        foreach ([
+            'operator reason',
+            'minimum_32_chars',
+            'pelo menos 32 caracteres',
+            'motivo real',
+            'substitua',
+            'placeholder',
+            'todo',
+        ] as $pattern) {
+            if (str_contains($normalized, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $payload */

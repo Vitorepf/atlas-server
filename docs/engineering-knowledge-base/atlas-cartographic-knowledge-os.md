@@ -5,6 +5,7 @@ title: Atlas Cartographic Knowledge OS
 status: future
 category: cartography
 priority: 100
+implementation_state: future_target_not_current_runtime
 summary: Especificacao canonica da Cartografia como sistema operacional visual da verdade do Atlas: navegacao por escala, zoom semantico, engrenagens, fluxos, fonte real, links e estados epistemicos para humanos e IAs.
 tags:
   - atlas
@@ -29,11 +30,14 @@ decisions:
   - A IA deve usar os mesmos links e nodes para navegar contexto com mais precisao e menor desperdicio.
   - Todo node visual precisa apontar para fonte real, owner, status, links, evidencia e estado epistemico/soberano quando existir.
   - Zoom semantico deve esconder o resto do mundo e revelar o funcionamento interno da engrenagem escolhida.
+  - Tap em qualquer node/engrenagem deve trocar a cena para o fluxo visual daquela peca, sem manter o canvas anterior competindo por atencao.
+  - Long press em qualquer node/engrenagem/lane deve abrir documentacao humana estruturada, separando patamar, versao, camada, fonte, regra, risco e teste.
 maintenance:
   - Atualizar quando Cartografia, Atlas Semantic Graph, Knowledge Governance ou Desktop mudarem contrato visual.
   - Manter abaixo de 520 linhas; dividir detalhes de UI, API e layout em specs filhas quando iniciar implementacao.
   - Rodar docs-health depois de alterar.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/atlas-semantic-graph.md
   - docs/engineering-knowledge-base/atlas-system-graph.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
@@ -89,6 +93,7 @@ evidence:
   - docs/engineering-knowledge-base/atlas-semantic-graph.md
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
+  - npm run test:cartografia
 requires_evidence: true
 risk_level: critical
 visual_tags:
@@ -180,6 +185,13 @@ ledger e Epistemic OS. A Cartografia organiza visualmente.
 8. Visual nunca vence doc canonico, codigo, teste ou Evidence Ledger.
 9. Estado epistemico deve aparecer como cor, opacidade, selo, alerta ou camada.
 10. Cartografia precisa permitir ida e volta: mundo -> engrenagem -> mundo.
+11. Tap navega visualmente: mundo -> sistema -> fluxo -> engrenagem -> subfluxo.
+12. Long press explica textualmente: o que e, para que existe, como entra, como sai,
+    patamares, versoes, regras, riscos, provas, testes e docs relacionados.
+13. Fluxo operacional, dependencia, unlock, camada e versao nunca podem ser tratados
+    como patamar. Patamar e salto de maturidade declarado pela documentacao.
+14. Se a documentacao nao declara subfluxo interno, a cena deve mostrar lacuna
+    documental de forma honesta em vez de inventar engrenagens.
 
 ## Metafora Canonica
 
@@ -206,6 +218,51 @@ Atlas inteiro
   -> engrenagens
   -> codigo / teste / evidence / receipt / risco
 ```
+
+## Interacao Canonica
+
+O modelo de interacao da Cartografia e recursivo:
+
+```text
+tap
+  -> substitui a cena atual pelo fluxo visual da peca tocada
+  -> se a peca tiver gear_flow, mostra esse gear_flow
+  -> se tiver filhos no semantic_graph, mostra os filhos como fluxo interno
+  -> se nao tiver subfluxo, mostra fluxo terminal documentado
+  -> se nem isso existir, mostra lacuna documental explicita
+
+long press
+  -> abre modal de documentacao humana
+  -> nao navega, nao altera patamar e nao muda a fonte da verdade
+```
+
+Regra visual: o canvas anterior pode ficar desfocado como contexto somente se
+nao competir com o fluxo atual. A experiencia primaria deve sempre deixar claro
+"estou dentro desta peca agora".
+
+Regra textual: o modal e o unico lugar de texto denso. Ele deve ser escrito para
+suporte, financeiro, marketing, produto, tech, diretoria e parceiros, nao apenas
+para engenheiros. A primeira resposta precisa ser simples; os detalhes canonicos
+vem depois.
+
+## Nomenclatura Obrigatoria
+
+Cartografia precisa seguir `atlas-cartography-nomenclature-contract.md`.
+
+- `Patamar`: salto de capacidade/maturidade declarado por `patamar_*`.
+- `Versao`: V0/V1/V4/V6, schema, release, fase ou degrau da mesma familia.
+- `Camada`: posicao visual/conceitual no mapa.
+- `Fonte`: arquivo canonico onde a verdade vive.
+- `Documentacao relacionada`: leitura auxiliar antes de mexer.
+- `Fluxo`: entrada, saida, dependencia, entrega, unlock e governanca operacional.
+- `Risco`: o que quebra.
+- `Regra`: o que pode ou nao pode mudar.
+- `Teste/prova`: como validar.
+
+Exemplo: `Self-Construction OS -> Self-Programming OS` e patamar porque a
+documentacao declara salto de maturidade. `Atlas Vox V0/V3/V4/V6` sao versoes
+ou degraus Vox; nao sao patamares canonicos por padrao. `Voice Realtime Surface`
+e surface tecnica de audio; `Atlas Vox` e programa produto/arquitetura.
 
 ## Modulos
 
@@ -425,14 +482,14 @@ Doc ou codigo muda
 ```
 
 ## Regras para IA
-
 1. Para fazer uma peca aparecer, atualize a fonte canonica, nao o desenho.
 2. Para mudar posicao visual, preserve graph_id e source_path.
 3. Para criar link, declare tipo e motivo.
 4. Para zoom de engrenagem, mostre fluxo interno e esconda ruido externo.
-5. Para area sem evidencia, marque scaffold/future/unknown.
-6. Para visual de runtime, use evidence real ou replay.
-7. Para nodes criticos, mostre estado epistemico.
+5. Zoom em engrenagem abre visual proprio, com relacoes, estados e fluxo compreensiveis por imagem; ficha textual fica no long press.
+6. Para area sem evidencia, marque scaffold/future/unknown.
+7. Para visual de runtime, use evidence real ou replay.
+8. Para nodes criticos, mostre estado epistemico.
 
 ## Escopo de Implementacao
 

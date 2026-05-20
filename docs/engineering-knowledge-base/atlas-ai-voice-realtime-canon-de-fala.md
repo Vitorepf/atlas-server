@@ -2,9 +2,10 @@
 id: atlas-ai-voice-realtime-canon-de-fala
 type: engineering_knowledge
 title: Atlas AI Voice Realtime Canon De Fala
-status: canon
+status: active
 category: surface-architecture
 priority: 93
+implementation_state: canonical_policy_active_for_voice_persona
 summary: Canon canonico de como o Atlas fala em voz realtime. Define tom, prosódia alvo, regras de turno, interruption policy, abertura/fechamento. Persona não vem por prompt; vem por decisões consistentes amarradas neste contrato.
 tags:
   - atlas-ai

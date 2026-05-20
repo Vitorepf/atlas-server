@@ -7,6 +7,9 @@ use App\Models\AiAtlasFlowRoute;
 use App\Models\AiAtlasIntentClassification;
 use App\Models\AiAtlasRouterDecision;
 use App\Models\AiAtlasRuntimeDispatch;
+use App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceService;
+use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
+use App\Services\Ai\ConversationOps\AtlasConversationOperationsService;
 use App\Services\Ai\Mission\MissionModeResult;
 use App\Services\Ai\Mission\MissionModeService;
 use Illuminate\Support\Facades\Schema;
@@ -66,6 +69,9 @@ class AtlasHyperflowEntryService
         private readonly RuntimeDispatchService $runtimeDispatch,
         private readonly DecisionReceiptService $decisionReceipts,
         private readonly ?MissionModeService $missionMode = null,
+        private readonly ?AtlasContextIntelligenceService $contextIntelligence = null,
+        private readonly ?AtlasConversationOperationsService $conversationOps = null,
+        private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
     ) {}
 
     /**
@@ -126,6 +132,13 @@ class AtlasHyperflowEntryService
             routerReceipt: $routerReceipt,
             dispatchReceipt: $dispatchReceipt,
             missionModeResult: $missionModeResult,
+        );
+        $envelope = $this->withContextOperations(
+            envelope: $envelope,
+            rawInput: $rawInput,
+            payload: $payload,
+            routerDecision: $routerDecision,
+            flowRoute: $flowRoute,
         );
 
         $payload['hyperflow_runtime'] = $envelope;
@@ -458,5 +471,113 @@ class AtlasHyperflowEntryService
         }
 
         return null;
+    }
+
+    /**
+     * Attach ACIE/ACOL as internal infrastructure. These layers must never
+     * select providers, execute tools, run rivals or replace RouterRuntime
+     * decisions. They only certify context/conversation health for the
+     * already selected flow.
+     *
+     * @param  array<string,mixed>  $envelope
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function withContextOperations(
+        array $envelope,
+        string $rawInput,
+        array $payload,
+        AiAtlasRouterDecision $routerDecision,
+        AiAtlasFlowRoute $flowRoute,
+    ): array {
+        $contextRefs = array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string'));
+        $sourceManifest = array_values((array) data_get($payload, 'rich_input_payload.source_manifest', []));
+        foreach ($sourceManifest as $index => $source) {
+            if (is_array($source)) {
+                $kind = $this->stringValue($source['kind'] ?? null) ?? 'source';
+                $id = $this->stringValue($source['id'] ?? null) ?? (string) $index;
+                $contextRefs[] = 'rich_input:'.$kind.':'.$id;
+            }
+        }
+        $contextRefs = array_values(array_unique($contextRefs));
+
+        $evidenceRefs = array_values(array_filter([
+            'receipt:router_decision:'.(string) data_get($envelope, 'router_decision.receipt_hash', ''),
+            'receipt:runtime_dispatch:'.(string) data_get($envelope, 'dispatch.receipt_hash', ''),
+        ], static fn (string $ref): bool => ! str_ends_with($ref, ':')));
+
+        try {
+            $runtime = $this->contextOperations ?? app(AtlasContextOperationsRuntimeService::class);
+            $operations = $runtime->evaluate([
+                'prompt' => $rawInput,
+                'domain' => (string) $routerDecision->primary_domain,
+                'flow_id' => (string) $flowRoute->flow_id,
+                'flow_profile' => (string) ($flowRoute->flow_profile ?? ''),
+                'runtime_mode' => (string) $routerDecision->routing_mode,
+                'policy_required' => (bool) $routerDecision->policy_required,
+                'evidence_required' => (bool) $routerDecision->evidence_required,
+                'tool_plan_required' => (bool) $routerDecision->tool_plan_required,
+                'required_gates' => array_values((array) ($flowRoute->required_gates ?? [])),
+                'context_refs' => $contextRefs,
+                'evidence_refs' => $evidenceRefs,
+                'must_keep_items' => $this->mustKeepFromEnvelope($envelope),
+                'handoff_target' => $envelope['handoff_target'] ?? null,
+                'turns' => [[
+                    'role' => 'system',
+                    'content' => 'hyperflow routed '.$routerDecision->primary_domain.' via '.$flowRoute->flow_id,
+                ]],
+            ]);
+            $envelope['context_operations'] = $operations;
+            $envelope['context_intelligence'] = $operations['context_intelligence'] ?? null;
+            $envelope['conversation_ops'] = $operations['conversation_ops'] ?? null;
+            $envelope['verified_compaction'] = $operations['verified_compaction'] ?? null;
+            $envelope['context_handoff_packet'] = $operations['handoff_packet'] ?? null;
+        } catch (Throwable $exception) {
+            $envelope['context_operations'] = [
+                'schema_version' => AtlasContextOperationsRuntimeService::SCHEMA_VERSION,
+                'status' => AtlasContextOperationsRuntimeService::STATUS_WATCH,
+                'error' => 'context_operations_threw',
+                'exception_class' => $exception::class,
+            ];
+            $envelope['context_intelligence'] = [
+                'schema_version' => AtlasContextIntelligenceService::SCHEMA_VERSION,
+                'status' => AtlasContextIntelligenceService::STATUS_DEGRADED,
+                'error' => 'context_operations_threw',
+                'exception_class' => $exception::class,
+            ];
+            $envelope['conversation_ops'] = [
+                'schema_version' => AtlasConversationOperationsService::HEALTH_SCHEMA_VERSION,
+                'status' => AtlasConversationOperationsService::STATUS_WATCH,
+                'error' => 'context_operations_threw',
+                'exception_class' => $exception::class,
+            ];
+        }
+
+        return $envelope;
+    }
+
+    /**
+     * @param  array<string,mixed>  $envelope
+     * @return list<array<string,string>>
+     */
+    private function mustKeepFromEnvelope(array $envelope): array
+    {
+        return array_values(array_filter([
+            [
+                'kind' => 'router_decision',
+                'id' => 'router_decision_receipt',
+                'digest' => (string) data_get($envelope, 'router_decision.receipt_hash', ''),
+            ],
+            [
+                'kind' => 'runtime_dispatch',
+                'id' => 'runtime_dispatch_receipt',
+                'digest' => (string) data_get($envelope, 'dispatch.receipt_hash', ''),
+            ],
+            [
+                'kind' => 'flow_route',
+                'id' => 'flow_id',
+                'digest' => (string) data_get($envelope, 'flow_id', ''),
+            ],
+        ], static fn (array $item): bool => $item['digest'] !== ''));
     }
 }

@@ -2,8 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
 use App\Services\Ai\MarketingDomain\MarketingControlPlaneProjection;
+use App\Services\Ai\MarketingDomain\MarketingDomainCanon;
 use App\Services\Ai\MarketingDomain\MarketingDomainManifestSeeder;
+use App\Services\Ai\MarketingDomain\MarketingLimitedAutonomyPolicyService;
 use App\Services\Ai\MarketingDomain\MarketingReadinessService;
 use App\Services\Ai\MarketingDomain\MarketingRuntimeService;
 use Illuminate\Console\Command;
@@ -13,7 +16,9 @@ class AtlasAiMarketingDomainCommand extends Command
 {
     protected $signature = 'atlas:ai:marketing-domain
         {positional? : Optional positional action (alternative to --action)}
-        {--action=readiness : readiness, seed-manifest, smoke, control-plane}
+        {--action=readiness : readiness, seed-manifest, smoke, control-plane, limited-autonomy-policy, enterprise-analysis}
+        {--fixture : Run an enterprise flow fixture action}
+        {--runtime-mode=internal : enterprise flow runtime mode: internal or fixture}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Marketing / Growth Company Runtime: ICP, positioning, campaign, copy, creative, funnel, analytics, experiments and approval gates. No auto-publish, no auto-spend.';
@@ -23,18 +28,33 @@ class AtlasAiMarketingDomainCommand extends Command
         MarketingDomainManifestSeeder $seeder,
         MarketingRuntimeService $runtime,
         MarketingControlPlaneProjection $controlPlane,
+        MarketingLimitedAutonomyPolicyService $limitedAutonomy,
+        AutonomousHoldingEnterpriseBuildoutService $enterpriseBuildout,
     ): int {
         $positional = $this->argument('positional');
         $action = is_string($positional) && trim($positional) !== ''
             ? trim($positional)
             : (string) $this->option('action');
+        $fixtureRuntime = app(\App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService::class);
 
         try {
+            if ($fixtureRuntime->supports(MarketingDomainCanon::DOMAIN_ID, $action)) {
+                $this->line($this->encode($fixtureRuntime->run(
+                    MarketingDomainCanon::DOMAIN_ID,
+                    $action,
+                    $this->fixtureRequested(),
+                )));
+
+                return self::SUCCESS;
+            }
+
             return match ($action) {
                 'readiness' => $this->renderReadiness($readiness),
                 'seed-manifest' => $this->renderSeedManifest($seeder),
                 'smoke' => $this->renderSmoke($runtime, $controlPlane),
                 'control-plane' => $this->renderControlPlane($controlPlane),
+                'limited-autonomy-policy' => $this->renderLimitedAutonomyPolicy($limitedAutonomy),
+                'enterprise-analysis' => $this->renderEnterpriseAnalysis($enterpriseBuildout),
                 default => $this->invalidAction($action),
             };
         } catch (Throwable $e) {
@@ -138,6 +158,35 @@ class AtlasAiMarketingDomainCommand extends Command
         return self::SUCCESS;
     }
 
+    private function renderLimitedAutonomyPolicy(MarketingLimitedAutonomyPolicyService $policy): int
+    {
+        $payload = $policy->policyPacket();
+        $payload['ok'] = true;
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('autonomy_level', (string) $payload['autonomy_level']);
+            $this->components->twoColumnDetail('policy_hash', (string) $payload['policy_hash']);
+            $this->components->twoColumnDetail(
+                'external_spend_without_approval',
+                (string) $payload['budget']['external_spend_ceiling_without_approval'],
+            );
+        });
+
+        return self::SUCCESS;
+    }
+
+    private function renderEnterpriseAnalysis(AutonomousHoldingEnterpriseBuildoutService $enterpriseBuildout): int
+    {
+        $payload = $enterpriseBuildout->companyPacket(MarketingDomainCanon::DOMAIN_ID);
+        $payload['ok'] = (bool) ($payload['readiness']['ok'] ?? false);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('company_id', (string) $payload['company_id']);
+            $this->components->twoColumnDetail('flows', (string) $payload['readiness']['flow_count']);
+            $this->components->twoColumnDetail('connectors', (string) $payload['readiness']['connector_count']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
     private function invalidAction(string $action): int
     {
         $this->line($this->encode([
@@ -165,6 +214,12 @@ class AtlasAiMarketingDomainCommand extends Command
     private function json(): bool
     {
         return (bool) $this->option('json');
+    }
+
+    private function fixtureRequested(): bool
+    {
+        return (string) $this->input->getParameterOption('--runtime-mode', (string) $this->option('runtime-mode')) === 'fixture'
+            || (bool) $this->option('fixture');
     }
 
     /**

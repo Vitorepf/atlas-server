@@ -153,6 +153,13 @@ final class AtlasSelfConstructionFinalCompletionHumanGateTest extends TestCase
 
         $this->assertSame('blocked_runtime_promotion_required', $summary['final_completion_human_gate_status']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['human_gate_hash']);
+        $this->assertSame('runtime_promotion_receipt', $summary['current_required_operator_artifact']);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', (string) $summary['next_required_command']);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', (string) $summary['next_required_persist_command']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_gap_matrix_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_promotion_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_promotion_closure_basis_hash']);
         $this->assertSame('blocked', $summary['human_receipt_verification_status']);
         $this->assertGreaterThan(0, (int) $summary['human_receipt_verification_diagnostic_count']);
         $this->assertContains('prerequisites_not_green', (array) $summary['human_receipt_verification_diagnostic_codes']);
@@ -163,11 +170,15 @@ final class AtlasSelfConstructionFinalCompletionHumanGateTest extends TestCase
         $this->assertGreaterThan(0, (int) $summary['persistence_preflight_blocker_count']);
         $this->assertStringContainsString('final_completion_human_gate_persistence_blocked_by_', (string) $summary['persistence_preflight_persistence_blocker']);
         $this->assertTrue((bool) $summary['terminal_loop_operational_proof_required_before_final_audit']);
+        $this->assertTrue((bool) $summary['terminal_loop_operational_proof_required_before_completion_claim']);
+        $this->assertTrue((bool) $summary['completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only']);
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', (string) $summary['terminal_loop_operational_proof_command']);
         $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) $summary['terminal_loop_operational_proof_binding_persist_command']);
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-json=', (string) $summary['rerun_audit_with_terminal_loop_operational_proof_command']);
         $this->assertFalse((bool) $summary['completion_allowed']);
         $this->assertFalse((bool) $summary['completion_claim_allowed']);
+        $this->assertFalse((bool) $summary['ledger_write_allowed']);
+        $this->assertFalse((bool) $summary['runtime_write_allowed']);
         $this->assertFalse((bool) $summary['execution_allowed']);
         $this->assertFalse((bool) $summary['dispatch_allowed']);
         $this->assertFalse((bool) $summary['provider_call_allowed']);

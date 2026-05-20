@@ -156,7 +156,36 @@ final class AtlasSelfConstructionRealProviderSmokeDraftService
         return array_values(array_filter($fields, static function (string $field) use ($payload): bool {
             $value = trim((string) ($payload[$field] ?? ''));
 
-            return $value === '' || str_starts_with($value, '<');
+            if ($value === '' || str_starts_with($value, '<') || str_starts_with($value, '__')) {
+                return true;
+            }
+
+            $normalized = strtolower($value);
+            foreach ([
+                'seu_nome',
+                'seu nome',
+                'operador',
+                'motivo real',
+                'pelo menos 32 caracteres',
+                'substitua',
+                'placeholder',
+                'todo',
+                'synthetic',
+                'fixture-only',
+                'fixture_only',
+                'test_only',
+                'test-only',
+                'fake',
+                'simulated',
+                'mock-',
+                'dummy',
+            ] as $fragment) {
+                if (str_contains($normalized, $fragment)) {
+                    return true;
+                }
+            }
+
+            return false;
         }));
     }
 

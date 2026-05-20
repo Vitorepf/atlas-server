@@ -1,4 +1,105 @@
+---
+id: atlas-long-horizon-replay-manifest
+type: engineering_knowledge
+title: Atlas Long-Horizon Replay Manifest
+status: active
+category: long-horizon
+priority: 91
+summary: Manifest provider-independent para retomar scopes long-horizon sem reabrir chat bruto.
+tags:
+  - atlas-ai
+  - long-horizon
+  - replay
+capabilities:
+  - long_horizon_replay_manifest
+decisions:
+  - Replay Manifest indexa refs canonicas e nunca invoca provider.
+maintenance:
+  - Atualizar quando continuation packs ou replay reader mudarem.
+related_paths:
+  - docs/engineering-knowledge-base/cognitive-runtime/runbook.md
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-long-horizon-replay-manifest
+graph_title: Atlas Long-Horizon Replay Manifest
+graph_world: atlas
+graph_layer: module
+graph_kind: contract
+graph_parent: atlas-ai-cognitive-runtime
+graph_status: active
+graph_source: repo
+owner: long-horizon-runtime
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-long-horizon-replay-manifest.md
+allowed_changes:
+  - Atualizar contrato com codigo e testes de replay manifest.
+forbidden_changes:
+  - Ler transcript bruto ou invocar provider para completar manifest.
+depends_on:
+  - atlas-ai-cognitive-runtime
+flows_to:
+  - atlas-code
+unlocks:
+  - provider-independent-resume
+governs:
+  - long-horizon-replay
+evidence:
+  - docs/engineering-knowledge-base/atlas-long-horizon-replay-manifest.md
+required_tests:
+  - "php artisan test tests/Feature/Ai/LongHorizon"
+requires_evidence: true
+risk_level: medium
+next_actions:
+  - Manter reader independente de provider e chat bruto.
+---
 # Atlas Long-Horizon Replay Manifest + Provider-Independent Reader
+
+## Resumo
+
+Manifest para retomada long-horizon baseada em refs canonicas.
+
+## Papel no Atlas
+
+Permitir que outra IA retome escopo sem transcript bruto.
+
+## Onde Se Encaixa
+
+Acima de TEOS-I1 continuation pack e compaction receipt.
+
+## Contratos
+
+Nao invoca provider, nao le chat bruto e usa hashes.
+
+## Fluxo
+
+Build, show, read e list de manifests.
+
+## Regras para IA
+
+Consumir bundle e safety notes antes de continuar.
+
+## Escopo de Implementacao
+
+Replay manifest e reader bundle.
+
+## Dependencias
+
+Continuation packs, compaction receipts e freshness gates.
+
+## Evidencias
+
+Manifest hash, bundle hash e evidence refs.
+
+## Riscos
+
+Perder contexto critico ou reabrir transcript cru.
+
+## Exemplos
+
+`php artisan atlas:long-horizon:replay-manifest read --manifest=<uuid> --json`.
+
+## Proximas Acoes
+
+Manter integridade e recovery queries sincronizadas.
 
 **Status:** ativo · entregue 2026-05-19 · TEOS-I2 Sprint 1 entry
 **Schema raiz:** `atlas.long_horizon.replay_manifest.v1` + `atlas.long_horizon.replay_reader_bundle.v1`

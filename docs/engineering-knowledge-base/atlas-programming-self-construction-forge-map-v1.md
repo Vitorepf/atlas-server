@@ -55,6 +55,11 @@ graph_parent: atlas-programming-forge-flow
 graph_status: active
 graph_source: repo
 owner: programming
+patamar_current: Self-Construction OS
+patamar_next: Self-Programming OS
+patamar_after:
+  - Self-Programming OS so pode avancar para runtime mais autonomo depois de safety contracts, receipts, gates e evidencia real.
+version_note: Este mapa pode ter versoes do documento, mas a relacao Self-Construction OS -> Self-Programming OS e patamar, nao versao.
 repo_paths:
   - docs/engineering-knowledge-base/atlas-programming-self-construction-forge-map-v1.md
 allowed_changes:

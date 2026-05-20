@@ -1,4 +1,105 @@
+---
+id: atlas-ai-operator-review-approval-gates
+type: engineering_knowledge
+title: Atlas AI Operator Review Approval Gates
+status: active
+category: governance
+priority: 92
+summary: Camada deterministica de review e aprovacao humana para acoes do Atlas.
+tags:
+  - atlas-ai
+  - approval
+  - governance
+capabilities:
+  - operator_approval_gates
+decisions:
+  - Acoes sensiveis passam por modos allow, confirmation, review, block ou forge escalation.
+maintenance:
+  - Atualizar quando risk policy ou OperatorApprovalGateService mudarem.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-permission-budget-safety-layer.md
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-ai-operator-review-approval-gates
+graph_title: Atlas AI Operator Review Approval Gates
+graph_world: atlas
+graph_layer: system
+graph_kind: policy
+graph_parent: atlas-ai-canonical-architecture-index
+graph_status: active
+graph_source: repo
+owner: policy-governance
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-ai-operator-review-approval-gates.md
+allowed_changes:
+  - Atualizar gates com policy, codigo e testes correspondentes.
+forbidden_changes:
+  - Permitir bypass humano para acoes block ou critical.
+depends_on:
+  - atlas-permission-budget-safety-layer
+flows_to:
+  - atlas-code
+unlocks:
+  - operator-review-gates
+governs:
+  - operator-approval
+evidence:
+  - docs/engineering-knowledge-base/atlas-ai-operator-review-approval-gates.md
+required_tests:
+  - "php artisan test tests/Feature/Ai"
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Manter policy fail-closed para acoes sensiveis.
+---
 # Atlas AI Operator Review & Approval Gates
+
+## Resumo
+
+Gate deterministico para decidir quando Atlas pode agir, pedir confirmacao ou bloquear.
+
+## Papel no Atlas
+
+Governar acoes operacionais acima de Mission, Follow-Through e Hyperflow.
+
+## Onde Se Encaixa
+
+Acima de Policy/Permission Gate de baixo nivel.
+
+## Contratos
+
+Acoes criticas elevam para review ou block conforme risk policy.
+
+## Fluxo
+
+Classifica acao, persiste approval e consome decisao do operador.
+
+## Regras para IA
+
+Nao contornar approval gates para acelerar execucao.
+
+## Escopo de Implementacao
+
+Risk policy, approval persistence e consumo por mission/follow-through.
+
+## Dependencias
+
+Mission runtime, permission gates e evidence refs.
+
+## Evidencias
+
+Approval records, receipt hashes e testes de policy.
+
+## Riscos
+
+Auto-execucao de acoes financeiras, cyber ou destrutivas.
+
+## Exemplos
+
+`finance.trade.*` deve exigir review ou block.
+
+## Proximas Acoes
+
+Manter regras sincronizadas com novos dominios.
 
 **Status:** ativo · entregue 2026-05-19
 **Schema raiz:** `atlas.ai.operator_approval.v1` · `atlas.ai.operator_approval.decision.v1` · `atlas.ai.operator_approval.control_plane.v1`

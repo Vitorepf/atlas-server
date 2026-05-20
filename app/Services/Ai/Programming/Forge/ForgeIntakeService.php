@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Forge;
 
 use App\Models\AiForgeIntake;
+use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
 use Illuminate\Support\Str;
@@ -46,6 +47,7 @@ class ForgeIntakeService
     public function __construct(
         private readonly ForgeMilestonePlanner $milestones,
         private readonly ForgeWorkPacketComposer $workPackets,
+        private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
     ) {}
 
     /**
@@ -159,6 +161,16 @@ class ForgeIntakeService
             : ForgeIntakeCanon::STATUS_BLOCKED;
 
         $uuid = (string) Str::uuid();
+        $contextOperations = $this->contextOperationsForIntake(
+            uuid: $uuid,
+            origin: $origin,
+            prompt: $prompt,
+            normalizedIntent: $normalizedIntent,
+            recommendedMode: $recommendedMode,
+            riskBand: $riskBand,
+            options: $options,
+            contextRefs: $contextRefs,
+        );
 
         $hashPayload = [
             'schema' => ForgeIntakeCanon::INTAKE_SCHEMA_VERSION,
@@ -185,6 +197,7 @@ class ForgeIntakeService
             'context_pack_hash' => $this->stringOrNull($options['context_pack_hash'] ?? null),
             'rich_input_payload' => $richInputPayload !== [] ? $richInputPayload : null,
             'rich_input_schema_version' => $richInputPayload['schema_version'] ?? null,
+            'context_operations_hash' => $contextOperations['operations_runtime_hash'] ?? null,
             'constraints' => $this->arrayOrNull($options['constraints'] ?? null),
             'non_goals' => $this->arrayOrNull($options['non_goals'] ?? null),
             'sdd_spec' => $this->normalizeSddSpec($options['sdd_spec'] ?? null),
@@ -199,8 +212,60 @@ class ForgeIntakeService
 
         return AiForgeIntake::query()->create(array_merge($hashPayload, [
             'schema_version' => ForgeIntakeCanon::INTAKE_SCHEMA_VERSION,
+            'context_operations' => $contextOperations,
             'intake_hash' => $intakeHash,
         ]));
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  list<string>  $contextRefs
+     * @return array<string,mixed>
+     */
+    private function contextOperationsForIntake(
+        string $uuid,
+        string $origin,
+        string $prompt,
+        ?string $normalizedIntent,
+        string $recommendedMode,
+        string $riskBand,
+        array $options,
+        array $contextRefs,
+    ): array {
+        $explicitEvidenceRefs = array_values(array_filter((array) ($options['evidence_refs'] ?? []), 'is_string'));
+        $evidenceRefs = array_values(array_unique(array_merge($explicitEvidenceRefs, [
+            'forge_intake:'.$uuid,
+        ])));
+
+        return ($this->contextOperations ?? app(AtlasContextOperationsRuntimeService::class))->evaluate([
+            'prompt' => $prompt,
+            'domain' => 'programming',
+            'flow_id' => 'atlas_forge',
+            'flow_profile' => 'programming.forge',
+            'runtime_mode' => 'forge',
+            'scope_id' => $uuid,
+            'context_refs' => $contextRefs,
+            'evidence_refs' => $evidenceRefs,
+            'handoff_target' => [
+                'kind' => 'atlas_forge',
+                'reason' => $origin === ForgeIntakeCanon::ORIGIN_ESCALATION_PACKET
+                    ? 'dev_to_forge_escalation_packet'
+                    : 'direct_forge_intake',
+            ],
+            'policy_required' => true,
+            'evidence_required' => true,
+            'tool_plan_required' => true,
+            'force_verified_compaction' => true,
+            'must_keep_items' => [
+                ['id' => 'forge_intake_uuid', 'kind' => 'decision', 'digest' => $uuid],
+                ['id' => 'recommended_forge_mode', 'kind' => 'runtime_decision', 'digest' => $recommendedMode],
+                ['id' => 'risk_band', 'kind' => 'risk', 'digest' => $riskBand],
+                ['id' => 'normalized_intent', 'kind' => 'intent', 'digest' => $normalizedIntent ?? MissionCanonicalHash::sha256(['prompt' => $prompt])],
+            ],
+            'turns' => [
+                ['role' => 'user', 'content' => $prompt],
+            ],
+        ]);
     }
 
     /**

@@ -1,4 +1,105 @@
+---
+id: atlas-ai-product-certification
+type: engineering_knowledge
+title: Atlas AI Product Certification
+status: active
+category: certification
+priority: 92
+summary: Certificacao end-to-end do produto Atlas AI atravessando Mobile, Desktop, Server e Forge.
+tags:
+  - atlas-ai
+  - certification
+  - product
+capabilities:
+  - product_certification
+decisions:
+  - Product certification prova plumbing, nao superioridade ou benchmark.
+maintenance:
+  - Atualizar quando checks de produto, rich input ou presentation contract mudarem.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-runtime-readiness.md
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-ai-product-certification
+graph_title: Atlas AI Product Certification
+graph_world: atlas
+graph_layer: system
+graph_kind: contract
+graph_parent: atlas-ai-canonical-architecture-index
+graph_status: active
+graph_source: repo
+owner: product-certification
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-ai-product-certification.md
+allowed_changes:
+  - Atualizar checks quando surfaces ou contracts mudarem.
+forbidden_changes:
+  - Declarar benchmark ou superioridade a partir desta cert.
+depends_on:
+  - atlas-ai-runtime-readiness
+flows_to:
+  - atlas-code
+unlocks:
+  - product-certification
+governs:
+  - product-runtime-readiness
+evidence:
+  - docs/engineering-knowledge-base/atlas-ai-product-certification.md
+required_tests:
+  - "php artisan atlas:ai:product-certify --json"
+requires_evidence: true
+risk_level: medium
+next_actions:
+  - Manter checks de plumbing sincronizados.
+---
 # Atlas AI · Product Certification
+
+## Resumo
+
+Certifica o caminho de produto end-to-end sem claim de superioridade.
+
+## Papel no Atlas
+
+Provar plumbing entre surfaces, rich input, Hyperflow, Forge e presentation contract.
+
+## Onde Se Encaixa
+
+Dentro da readiness macro do runtime Atlas AI.
+
+## Contratos
+
+Checks critical precisam passar para status ready.
+
+## Fluxo
+
+Executa service/command de certificacao e retorna hash deterministico.
+
+## Regras para IA
+
+Nao usar este certificado como benchmark externo.
+
+## Escopo de Implementacao
+
+Certificacao de produto e evidence refs.
+
+## Dependencias
+
+Mobile, Desktop, Server, Forge, Hyperflow e rich input canon.
+
+## Evidencias
+
+Command JSON, tests e certification_hash.
+
+## Riscos
+
+Confundir plumbing ready com qualidade comparativa.
+
+## Exemplos
+
+`php artisan atlas:ai:product-certify --json --strict`.
+
+## Proximas Acoes
+
+Atualizar a lista de checks quando surfaces mudarem.
 
 > Schema: `atlas.ai.product_certification.v1`
 > Service: `App\Services\Ai\Product\AtlasAiProductCertificationService`

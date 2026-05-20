@@ -1,4 +1,105 @@
+---
+id: atlas-ai-follow-through-loop
+type: engineering_knowledge
+title: Atlas AI Autonomous Follow-Through Loop
+status: active
+category: runtime
+priority: 91
+summary: Loop seguro que conduz missions planejadas ciclo a ciclo sem provider externo nem acao perigosa.
+tags:
+  - atlas-ai
+  - mission
+  - follow-through
+capabilities:
+  - mission_follow_through
+decisions:
+  - Follow-Through executa ciclos seguros sobre Mission Foundation sem duplicar Mission Mode.
+maintenance:
+  - Atualizar quando MissionFollowThroughService, comandos ou lifecycle mudarem.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-kernel-mission-foundation.md
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-ai-follow-through-loop
+graph_title: Atlas AI Autonomous Follow-Through Loop
+graph_world: atlas
+graph_layer: flow
+graph_kind: flow
+graph_parent: atlas-kernel-mission-foundation
+graph_status: active
+graph_source: repo
+owner: mission-runtime
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-ai-follow-through-loop.md
+allowed_changes:
+  - Atualizar contrato de follow-through com codigo e testes correspondentes.
+forbidden_changes:
+  - Declarar provider execution ou acao perigosa dentro do loop.
+depends_on:
+  - atlas-kernel-mission-foundation
+flows_to:
+  - atlas-code
+unlocks:
+  - mission-cycle-execution
+governs:
+  - mission-follow-through
+evidence:
+  - docs/engineering-knowledge-base/atlas-ai-follow-through-loop.md
+required_tests:
+  - "php artisan test tests/Feature/Ai/Mission"
+requires_evidence: true
+risk_level: medium
+next_actions:
+  - Manter loop alinhado aos gates de Mission Foundation.
+---
 # Atlas AI Autonomous Follow-Through Loop
+
+## Resumo
+
+Loop backend-first que conduz uma mission planejada ate terminal/blocked.
+
+## Papel no Atlas
+
+Executa progresso seguro sobre missions sem provider externo.
+
+## Onde Se Encaixa
+
+Acima de Mission Mode e abaixo de Hyperflow runtime.
+
+## Contratos
+
+Nao executa acao perigosa, provider externo ou conclusao sem certificacao.
+
+## Fluxo
+
+Seleciona work order, resolve flow, registra evidencia e tenta certificacao.
+
+## Regras para IA
+
+Nao trate simulated dispatch como execucao externa real.
+
+## Escopo de Implementacao
+
+Documento governa o loop de follow-through e seus comandos.
+
+## Dependencias
+
+Mission Foundation, lifecycle, work orders e evidence refs.
+
+## Evidencias
+
+Codigo, comandos e eventos de mission/follow-through.
+
+## Riscos
+
+Confundir handoff/simulated dispatch com autonomia irrestrita.
+
+## Exemplos
+
+`php artisan atlas:ai:mission run --mission=<uuid> --json`.
+
+## Proximas Acoes
+
+Manter testes e docs sincronizados com o runtime.
 
 **Status:** ativo · entregue 2026-05-19
 **Schema raiz:** `atlas.ai.mission_follow_through.cycle.v1` · `atlas.ai.mission_follow_through.run.v1` · `atlas.ai.control_plane.follow_through.v1`

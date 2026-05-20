@@ -69,6 +69,52 @@ requires_evidence: true
 risk_level: critical
 next_actions:
   - Conectar Decision Receipt v2 aos sinais reais do Atlas Decide.
+gear_flow:
+  - graph_id: atlas-decide-intent-risk
+    name: Intento + risco
+    kind: input
+    summary: Recebe tipo de tarefa, risco, surface e dominio antes de qualquer escolha de provider.
+  - graph_id: atlas-decide-policy-limits
+    name: Policy limits
+    kind: policy
+    summary: Aplica privacidade, permissao, autonomia, budget e limites de ferramentas.
+  - graph_id: atlas-decide-context-signals
+    name: Contexto + evidencia
+    kind: context
+    summary: Cruza Context Builder, Evidence Loop, historico de performance e capacidade local.
+    gear_flow:
+      - graph_id: atlas-decide-context-builder-contract
+        name: Context Builder
+        kind: context
+        summary: Monta pacote de contexto governado para a decisao.
+      - graph_id: atlas-decide-evidence-loop-signal
+        name: Evidence Loop
+        kind: input
+        summary: Retorna sinais reais, historico e aprendizado operacional.
+      - graph_id: atlas-decide-performance-ledger
+        name: Performance Ledger
+        kind: decision
+        summary: Projeta qualidade, latencia e confiabilidade por provider/modelo.
+      - graph_id: atlas-decide-capacity-state
+        name: Capacidade + quota
+        kind: gate
+        summary: Bloqueia ou limita execucao quando quota, rate limit ou budget falham.
+  - graph_id: atlas-decide-provider-topology
+    name: Provider topology
+    kind: decision
+    summary: Escolhe provider, modelo, papeis, fallback chain e blocker quando nao ha capacidade.
+  - graph_id: atlas-decide-budget-autonomy
+    name: Budget + autonomia
+    kind: gate
+    summary: Define custo estimado, nivel de autonomia, dry-run e necessidade de revisao humana.
+  - graph_id: atlas-decide-receipt-output
+    name: Decision Receipt
+    kind: output
+    summary: Emite contrato auditavel para Runtime Executor; sem receipt, runtime nao executa.
+  - graph_id: atlas-decide-failure-path
+    name: Falha governada
+    kind: failure
+    summary: Rate limit, quota, timeout ou provider incapaz exigem child receipt ou bloqueio visivel.
 visual_tags:
   - module
   - module

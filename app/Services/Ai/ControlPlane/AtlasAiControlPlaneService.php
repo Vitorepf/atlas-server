@@ -82,6 +82,7 @@ class AtlasAiControlPlaneService
         $evidence = $this->evidence($since, $tracesSection['ids']);
         $quality = $this->quality($since, $tracesSection['ids']);
         $providerDecisions = $this->providerDecisions($since);
+        $contextOperations = $this->contextOperations($tracesSection['ids']);
         $blockers = $this->blockers($since, $tracesSection['ids']);
         $learning = $this->learningLoop->controlPlaneSummary($since);
         $approvals = $this->approvalsSection($since);
@@ -98,6 +99,8 @@ class AtlasAiControlPlaneService
             'blockers_count' => count($blockers),
             'handoffs_count' => $handoffs['dev']['count'] + $handoffs['forge']['count'],
             'failures_count' => count($failures),
+            'context_operations_blockers_count' => $contextOperations['blockers_count'],
+            'verified_compactions_count' => $contextOperations['verified_compaction']['total'],
         ];
 
         $status = $this->resolveStatus($summary, $blockers);
@@ -122,6 +125,7 @@ class AtlasAiControlPlaneService
             'evidence' => $evidence,
             'quality' => $quality,
             'provider_decisions' => $providerDecisions,
+            'context_operations' => $contextOperations,
             'blockers' => $blockers,
             'learning' => $learning,
             'approvals' => $approvals,
@@ -583,6 +587,112 @@ class AtlasAiControlPlaneService
 
     /**
      * @param  array<int,string>  $traceIds
+     * @return array<string,mixed>
+     */
+    private function contextOperations(array $traceIds): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'total' => 0,
+            'by_status' => [],
+            'context_intelligence' => ['by_status' => [], 'blocked' => 0, 'degraded' => 0],
+            'conversation_ops' => ['by_status' => [], 'blocked' => 0, 'watch' => 0],
+            'verified_compaction' => ['total' => 0, 'passed' => 0, 'blocked' => 0, 'skipped' => 0, 'required' => 0],
+            'handoff_packets' => ['total' => 0],
+            'blockers_count' => 0,
+            'recent' => [],
+        ];
+
+        if (! Schema::hasTable('ai_traces') || $traceIds === []) {
+            return $empty;
+        }
+
+        try {
+            $traces = AiTrace::query()
+                ->whereIn('id', $traceIds)
+                ->orderByDesc('created_at')
+                ->limit(200)
+                ->get(['id', 'metadata', 'created_at']);
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        $section = $empty;
+        $section['status'] = 'ready';
+        foreach ($traces as $trace) {
+            $metadata = is_array($trace->metadata) ? $trace->metadata : [];
+            $runtime = (array) data_get($metadata, 'hyperflow_runtime', []);
+            $operations = (array) data_get($runtime, 'context_operations', []);
+            if ($operations === []) {
+                continue;
+            }
+
+            $section['total']++;
+            $status = $this->stringOrNull(data_get($operations, 'status')) ?? 'unknown';
+            $section['by_status'][$status] = ($section['by_status'][$status] ?? 0) + 1;
+
+            $contextStatus = $this->stringOrNull(data_get($operations, 'context_intelligence.status'))
+                ?? $this->stringOrNull(data_get($runtime, 'context_intelligence.status'))
+                ?? 'unknown';
+            $section['context_intelligence']['by_status'][$contextStatus] = ($section['context_intelligence']['by_status'][$contextStatus] ?? 0) + 1;
+            if ($contextStatus === 'blocked') {
+                $section['context_intelligence']['blocked']++;
+            }
+            if ($contextStatus === 'degraded') {
+                $section['context_intelligence']['degraded']++;
+            }
+
+            $conversationStatus = $this->stringOrNull(data_get($operations, 'conversation_ops.status'))
+                ?? $this->stringOrNull(data_get($runtime, 'conversation_ops.status'))
+                ?? 'unknown';
+            $section['conversation_ops']['by_status'][$conversationStatus] = ($section['conversation_ops']['by_status'][$conversationStatus] ?? 0) + 1;
+            if ($conversationStatus === 'blocked') {
+                $section['conversation_ops']['blocked']++;
+            }
+            if ($conversationStatus === 'watch') {
+                $section['conversation_ops']['watch']++;
+            }
+
+            $compactionStatus = $this->stringOrNull(data_get($operations, 'verified_compaction.status'))
+                ?? $this->stringOrNull(data_get($runtime, 'verified_compaction.status'));
+            if ($compactionStatus !== null) {
+                $section['verified_compaction']['total']++;
+                $section['verified_compaction'][$compactionStatus] = ($section['verified_compaction'][$compactionStatus] ?? 0) + 1;
+            }
+            if ((bool) data_get($operations, 'integration_policy.verified_compaction_required', false)) {
+                $section['verified_compaction']['required']++;
+            }
+            if (is_array(data_get($operations, 'handoff_packet')) || is_array(data_get($runtime, 'context_handoff_packet'))) {
+                $section['handoff_packets']['total']++;
+            }
+
+            $blockerCount = count((array) data_get($operations, 'context_intelligence.blockers', []))
+                + count((array) data_get($operations, 'verified_compaction.blockers', []))
+                + count((array) data_get($operations, 'compression_critic.blockers', []));
+            if ($status === 'blocked') {
+                $blockerCount = max(1, $blockerCount);
+            }
+            $section['blockers_count'] += $blockerCount;
+
+            if (count($section['recent']) < self::RECENT_LIMIT) {
+                $section['recent'][] = [
+                    'trace_id' => (string) $trace->id,
+                    'flow_id' => $this->flowIdFromTrace($trace),
+                    'status' => $status,
+                    'context_status' => $contextStatus,
+                    'conversation_status' => $conversationStatus,
+                    'verified_compaction_status' => $compactionStatus,
+                    'operations_runtime_hash' => $this->stringOrNull(data_get($operations, 'operations_runtime_hash')),
+                    'created_at' => $trace->created_at?->toJSON(),
+                ];
+            }
+        }
+
+        return $section;
+    }
+
+    /**
+     * @param  array<int,string>  $traceIds
      * @return array<int,array<string,mixed>>
      */
     private function blockers(CarbonImmutable $since, array $traceIds): array
@@ -681,6 +791,34 @@ class AtlasAiControlPlaneService
                         'handoff_id' => $this->stringOrNull($row->handoff_id),
                         'status' => $this->stringOrNull($row->status),
                         'detail' => 'Forge handoff not in terminal succeeded/completed state',
+                    ];
+                    if (count($blockers) >= self::BLOCKER_LIMIT) {
+                        break;
+                    }
+                }
+            } catch (Throwable) {
+                // tolerate.
+            }
+        }
+
+        // 5. ACIE/ACOL runtime blockers persisted in Hyperflow metadata.
+        if (Schema::hasTable('ai_traces') && $traceIds !== []) {
+            try {
+                $traces = AiTrace::query()
+                    ->whereIn('id', $traceIds)
+                    ->limit(self::BLOCKER_LIMIT)
+                    ->get(['id', 'metadata']);
+                foreach ($traces as $trace) {
+                    $metadata = is_array($trace->metadata) ? $trace->metadata : [];
+                    $operations = (array) data_get($metadata, 'hyperflow_runtime.context_operations', []);
+                    if (($operations['status'] ?? null) !== 'blocked') {
+                        continue;
+                    }
+                    $blockers[] = [
+                        'kind' => 'context_operations_blocked',
+                        'trace_id' => (string) $trace->id,
+                        'flow_id' => $this->flowIdFromTrace($trace),
+                        'detail' => 'ACIE/ACOL operations runtime marked the flow blocked',
                     ];
                     if (count($blockers) >= self::BLOCKER_LIMIT) {
                         break;
@@ -825,6 +963,16 @@ class AtlasAiControlPlaneService
                 'service' => 'AtlasAiHyperflowCertificationService',
                 'schema' => 'atlas.ai.hyperflow_certification.v1',
             ],
+            [
+                'name' => 'context_intelligence',
+                'command' => 'php artisan atlas:context-intelligence:certify --json --strict',
+                'schema' => 'atlas.context_intelligence.certification.v1',
+            ],
+            [
+                'name' => 'conversation_ops',
+                'command' => 'php artisan atlas:conversation-ops:certify --json --strict',
+                'schema' => 'atlas.conversation_ops.certification.v1',
+            ],
         ];
     }
 
@@ -892,7 +1040,8 @@ class AtlasAiControlPlaneService
     private function extractDevHandoff(AiTrace $trace): ?array
     {
         $metadata = is_array($trace->metadata) ? $trace->metadata : [];
-        $handoffTarget = $this->stringOrNull(data_get($metadata, 'hyperflow_runtime.handoff_target'))
+        $handoffTarget = $this->stringOrNull(data_get($metadata, 'hyperflow_runtime.handoff_target.kind'))
+            ?? $this->stringOrNull(data_get($metadata, 'hyperflow_runtime.handoff_target'))
             ?? $this->stringOrNull(data_get($metadata, 'specialist_flow_runtime.delegation.target_flow_id'));
         if ($handoffTarget !== 'atlas_dev') {
             return null;

@@ -250,6 +250,11 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 && (bool) data_get($completionAudit, 'completion_allowed', false),
         );
         $promptToArtifactChecklist = $this->promptToArtifactChecklist($closureArtifactSequence);
+        $externalCompletionClaimPolicy = $this->externalCompletionClaimPolicy(
+            completionAudit: $completionAudit,
+            closureArtifactSequence: $closureArtifactSequence,
+            nextRequired: $nextRequired,
+        );
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -271,6 +276,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'operator_evidence_sequence_integrity' => $operatorEvidenceSequenceIntegrity,
             'operator_completion_proof_bundle' => $operatorCompletionProofBundle,
             'operator_evidence_closure_runbook' => $operatorEvidenceClosureRunbook,
+            'external_completion_claim_policy' => $externalCompletionClaimPolicy,
             'closure_artifact_sequence' => $closureArtifactSequence,
             'closure_artifact_sequence_count' => count($closureArtifactSequence),
             'closure_artifact_sequence_hash' => $this->stableHash($closureArtifactSequence),
@@ -315,6 +321,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 'operator_evidence_submission_readiness_does_not_enable_runtime',
                 'operator_evidence_submission_readiness_does_not_sign_for_operator',
                 'operator_evidence_submission_readiness_does_not_promote_completion',
+                'operator_evidence_submission_readiness_does_not_accept_external_completion_claims',
                 'operator_evidence_submission_readiness_does_not_persist_operator_submission_envelopes',
                 'operator_evidence_submission_readiness_reads_draft_workspace_without_marking_it_as_evidence',
                 'operator_evidence_submission_readiness_reads_canonical_submission_files_without_marking_them_as_persisted_evidence',
@@ -1120,6 +1127,8 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
     {
         $loaded = in_array($artifact, $loadedArtifacts, true);
         $ready = $loaded && $prerequisiteReady && (bool) data_get($diagnostic, 'ready', false);
+        $violationCodes = (array) data_get($diagnostic, 'violation_codes', []);
+        $staleContextHashes = $this->canonicalSubmissionStaleContextHashes($violationCodes);
         $path = match ($artifact) {
             'runtime_promotion_receipt' => 'storage/app/atlas/self-construction/operator-submissions/runtime-promotion.json',
             'real_provider_smoke' => 'storage/app/atlas/self-construction/operator-submissions/real-provider-smoke.json',
@@ -1149,7 +1158,34 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'can_run_from_readiness' => false,
             'blocker' => $blocker,
             'errors' => (array) data_get($diagnostic, 'errors', []),
+            'placeholder_fields' => (array) data_get($diagnostic, 'placeholders', []),
+            'stale_context_hashes' => $staleContextHashes,
+            'stale_context_hash_count' => count($staleContextHashes),
+            'fresh_operator_draft_required' => $artifact === 'runtime_promotion_receipt'
+                && ($staleContextHashes !== [] || (array) data_get($diagnostic, 'placeholders', []) !== []),
+            'violation_count' => (int) data_get($diagnostic, 'violation_count', 0),
+            'violation_codes' => $violationCodes,
+            'violations' => (array) data_get($diagnostic, 'violations', []),
         ];
+    }
+
+    /** @param list<string> $violationCodes */
+    private function canonicalSubmissionStaleContextHashes(array $violationCodes): array
+    {
+        $stale = [];
+        $codeToField = [
+            'runtime_gap_matrix_hash_mismatch' => 'runtime_gap_matrix_hash',
+            'runtime_promotion_basis_hash_mismatch' => 'runtime_promotion_basis_hash',
+            'runtime_promotion_closure_basis_hash_mismatch' => 'runtime_promotion_closure_basis_hash',
+            'graduation_hash_mismatch' => 'graduation_evidence_hashes',
+        ];
+        foreach ($codeToField as $code => $field) {
+            if (in_array($code, $violationCodes, true)) {
+                $stale[] = $field;
+            }
+        }
+
+        return $stale;
     }
 
     /**
@@ -1717,6 +1753,12 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             if ($status !== 'passed') {
                 $errors[] = 'verifier_status_'.$status;
             }
+            foreach ((array) data_get($verification, 'violations', []) as $violation) {
+                $code = (string) data_get($violation, 'code', '');
+                if ($code !== '') {
+                    $errors[] = 'violation_code_'.$code;
+                }
+            }
             foreach ($placeholders as $field) {
                 $errors[] = 'placeholder_field_'.$field;
             }
@@ -1734,8 +1776,12 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'forbidden_flags_true' => $forbiddenFlagsTrue,
             'forbidden_flag_list' => $forbiddenFlagList,
             'violations' => (array) data_get($verification, 'violations', []),
+            'violation_codes' => array_values(array_filter(array_map(
+                static fn (mixed $violation): string => (string) data_get($violation, 'code', ''),
+                (array) data_get($verification, 'violations', []),
+            ))),
             'violation_count' => (int) data_get($verification, 'violation_count', 0),
-            'errors' => $errors,
+            'errors' => array_values(array_unique($errors)),
         ];
     }
 
@@ -1759,7 +1805,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'operator_approval_receipt_hash',
         ] as $field) {
             $value = trim((string) ($smoke[$field] ?? ''));
-            if ($value === '' || str_starts_with($value, '<')) {
+            if ($this->isPlaceholderValue($value)) {
                 $missing[] = 'missing_or_placeholder_'.$field;
             }
         }
@@ -1777,6 +1823,40 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
         }
 
         return $missing;
+    }
+
+    private function isPlaceholderValue(string $value): bool
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
+            return true;
+        }
+
+        foreach ([
+            'seu_nome',
+            'seu nome',
+            'operador',
+            'motivo real',
+            'pelo menos 32 caracteres',
+            'substitua',
+            'placeholder',
+            'todo',
+            'synthetic',
+            'fixture-only',
+            'fixture_only',
+            'test_only',
+            'test-only',
+            'fake',
+            'simulated',
+            'mock-',
+            'dummy',
+        ] as $fragment) {
+            if (str_contains($normalized, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1921,6 +2001,74 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'command' => (string) $row['draft_command'],
             'persist_command' => (string) $row['persist_command'],
         ], $closureArtifactSequence);
+    }
+
+    /**
+     * @param  array<string, mixed>  $completionAudit
+     * @param  list<array<string, mixed>>  $closureArtifactSequence
+     * @return array<string, mixed>
+     */
+    private function externalCompletionClaimPolicy(array $completionAudit, array $closureArtifactSequence, string $nextRequired): array
+    {
+        $auditComplete = (string) data_get($completionAudit, 'status') === 'complete'
+            && (bool) data_get($completionAudit, 'completion_allowed', false)
+            && (int) data_get($completionAudit, 'failed_count', count((array) data_get($completionAudit, 'failed_criteria', []))) === 0;
+        $missingArtifacts = array_values(array_map(
+            static fn (array $row): array => [
+                'artifact' => (string) $row['artifact'],
+                'requirement' => (string) $row['requirement'],
+                'status' => (string) $row['status'],
+                'blocker_type' => (string) $row['blocker_type'],
+            ],
+            array_filter(
+                $closureArtifactSequence,
+                static fn (array $row): bool => ! (bool) $row['passed'],
+            ),
+        ));
+
+        $policy = [
+            'schema_version' => 'atlas.self_construction.external_completion_claim_policy.v1',
+            'mode' => 'read_only_external_completion_claim_policy',
+            'status' => $auditComplete ? 'audit_authorizes_completion_claim' : 'reject_external_completion_claim',
+            'completion_authority' => 'atlas_self_construction_os_completion_audit',
+            'external_agent_claim_accepted' => false,
+            'external_agent_claim_can_mark_os_complete' => false,
+            'external_agent_claim_can_override_audit' => false,
+            'completion_claim_allowed_by_audit' => $auditComplete,
+            'required_completion_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'current_completion_audit_status' => (string) data_get($completionAudit, 'status', 'unknown'),
+            'current_completion_allowed' => (bool) data_get($completionAudit, 'completion_allowed', false),
+            'current_failed_count' => (int) data_get($completionAudit, 'failed_count', count((array) data_get($completionAudit, 'failed_criteria', []))),
+            'current_failed_criteria' => (array) data_get($completionAudit, 'failed_criteria', []),
+            'current_required_operator_artifact' => $nextRequired,
+            'missing_required_evidence_artifacts' => $missingArtifacts,
+            'missing_required_evidence_artifact_count' => count($missingArtifacts),
+            'operator_verification_commands' => [
+                'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'operator_evidence_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'completion_audit_with_canonical_terminal_loop_operational_proof' => $this->completionAuditWithCanonicalTerminalLoopOperationalProofCommand(),
+            ],
+            'failure_policy' => [
+                'ignore_external_agent_completion_claim_until_completion_audit_complete',
+                'stop_if_failed_criteria_is_not_empty',
+                'stop_if_completion_allowed_is_false',
+                'stop_if_human_receipt_or_real_provider_smoke_is_missing',
+                'rerun_operator_evidence_readiness_after_every_persisted_artifact',
+            ],
+            'non_execution_guarantees' => [
+                'external_completion_claim_policy_does_not_persist_receipts',
+                'external_completion_claim_policy_does_not_sign_for_operator',
+                'external_completion_claim_policy_does_not_call_provider',
+                'external_completion_claim_policy_does_not_spend_tokens',
+                'external_completion_claim_policy_does_not_dispatch',
+                'external_completion_claim_policy_does_not_enable_runtime',
+                'external_completion_claim_policy_does_not_promote_completion',
+            ],
+        ];
+        $policy['external_completion_claim_policy_hash'] = $this->stableHash($policy);
+
+        return $policy;
     }
 
     /** @return list<string> */

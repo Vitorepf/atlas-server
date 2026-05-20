@@ -56,7 +56,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptDraftService
         if ($this->isPlaceholderSigner((string) $receipt['signed_by'])) {
             $missingOperatorInputs[] = 'signed_by';
         }
-        if (mb_strlen(trim((string) $receipt['reason'])) < 32 || str_starts_with((string) $receipt['reason'], '<')) {
+        if (mb_strlen(trim((string) $receipt['reason'])) < 32 || $this->isPlaceholderValue((string) $receipt['reason'])) {
             $missingOperatorInputs[] = 'reason';
         }
 
@@ -165,7 +165,9 @@ final class AtlasSelfConstructionHumanCompletionReceiptDraftService
 
     private function isPlaceholderSigner(string $signedBy): bool
     {
-        return in_array(strtolower(trim($signedBy)), [
+        $normalized = strtolower(trim($signedBy));
+
+        return in_array($normalized, [
             '',
             '<operator>',
             'operator',
@@ -176,7 +178,41 @@ final class AtlasSelfConstructionHumanCompletionReceiptDraftService
             'claude',
             'codex-autosigned',
             'atlas',
-        ], true);
+        ], true) || $this->isPlaceholderValue($normalized);
+    }
+
+    private function isPlaceholderValue(string $value): bool
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
+            return true;
+        }
+
+        foreach ([
+            'seu_nome',
+            'seu nome',
+            'operador',
+            'motivo real',
+            'pelo menos 32 caracteres',
+            'substitua',
+            'placeholder',
+            'todo',
+            'synthetic',
+            'fixture-only',
+            'fixture_only',
+            'test_only',
+            'test-only',
+            'fake',
+            'simulated',
+            'mock-',
+            'dummy',
+        ] as $fragment) {
+            if (str_contains($normalized, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $payload */

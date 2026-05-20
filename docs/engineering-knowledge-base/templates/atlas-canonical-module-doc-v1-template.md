@@ -17,6 +17,7 @@ maintenance:
   - Copie este template para o local canonico do novo modulo.
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
+  - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: exemplo-modulo-canonico
 graph_title: Exemplo Modulo Canonico
@@ -59,6 +60,13 @@ failure_modes:
   - Declarar implementado sem evidencia real.
 observability_signals:
   - docs-health status ok
+patamar_current:
+patamar_next_of:
+patamar_next:
+patamar_after: []
+version_family:
+versions: []
+version_note:
 next_actions:
   - Substituir este template por conteudo real.
 ---
@@ -76,6 +84,10 @@ Explique o papel operacional do modulo no Atlas.
 
 Declare pai, filhos, irmaos, camada e relacao com outros sistemas.
 
+Se houver patamar, declare em `patamar_current`, `patamar_next_of`,
+`patamar_next` ou `patamar_after`. Nao use `flows_to`, `unlocks`, camada visual
+ou versao como substituto de patamar.
+
 ## Contratos
 
 Liste entradas, saidas, invariantes, limites e responsabilidades.
@@ -83,6 +95,10 @@ Liste entradas, saidas, invariantes, limites e responsabilidades.
 ## Fluxo
 
 Mostre a sequencia operacional ou conexoes principais.
+
+Se este modulo tiver subfluxo interno visual, declare `gear_flow` no
+frontmatter. Se ainda nao tiver subfluxo, deixe claro aqui e em `next_actions`
+qual lacuna documental/operacional impede a Cartografia de abrir um fluxo rico.
 
 ## Regras para IA
 
@@ -100,6 +116,10 @@ Liste dependencias reais com `graph_id`, paths ou docs canonicos.
 
 Liste docs, comandos, testes, receipts, logs ou paths reais.
 
+Todo doc que alimenta Cartografia deve manter pelo menos um teste ou gate em
+`required_tests`/`quality_gates`. Se nao houver teste automatizado especifico,
+declare o gate de docs-health e explique a lacuna em `failure_modes`.
+
 ## Riscos
 
 Liste riscos, anti-patterns e confusoes provaveis.
@@ -107,6 +127,16 @@ Liste riscos, anti-patterns e confusoes provaveis.
 ## Exemplos
 
 Inclua exemplos concretos quando ajudarem humanos e IAs.
+
+Exemplo de nomenclatura:
+
+- Patamar: salto de maturidade/capacidade. Ex.: Self-Construction OS ->
+  Self-Programming OS.
+- Versao: revisao, release ou degrau da mesma peca. Ex.: Atlas Vox V0/V3/V4/V6.
+- Documentacao relacionada: leitura auxiliar em `related_paths`; nao e fonte
+  principal, prova, patamar ou versao.
+- Fluxo visual: `gear_flow`/`target_graph_id` abre outra visualizacao; nao e
+  patamar e nao e versao.
 
 ## Proximas Acoes
 

@@ -30,7 +30,9 @@ maintenance:
   - Nao marque um modulo como implemented sem evidencia real, comandos ou paths verificaveis.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-documentation-creation-gate.md
   - docs/engineering-knowledge-base/atlas-system-graph.md
+  - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema.md
   - docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema-contracts.md
   - docs/engineering-knowledge-base/templates/atlas-canonical-module-doc-v1-template.md
@@ -112,6 +114,8 @@ Este schema fica acima dos docs comuns da Engineering Knowledge Base. Ele nao su
 Hierarquia:
 
 - `atlas-ai-documentation-operating-system.md`: regras gerais de documentacao.
+- `atlas-documentation-creation-gate.md`: gate obrigatorio antes de criar,
+  migrar ou promover doc navegavel.
 - `atlas-canonical-module-doc-v1.md`: contrato forte para modulo tecnico navegavel e executavel por IA.
 - `templates/atlas-canonical-module-doc-v1-template.md`: ponto de partida para novos docs nesse formato.
 - `EngineeringDocumentationHealthService`: validacao automatica inicial.
@@ -172,25 +176,66 @@ Campos opcionais podem ser usados quando aumentarem clareza:
 - `quality_gates`: gates adicionais de qualidade alem de `required_tests`.
 - `failure_modes`: modos de falha conhecidos que a IA deve evitar.
 - `observability_signals`: sinais, reports ou metricas que indicam saude real.
+- `related_paths`: documentacao auxiliar que deve ser lida antes de mexer, sem ser confundida com fonte principal, prova, patamar ou versao.
+- `patamar_current`: patamar de maturidade/capacidade declarado para esta peca.
+- `patamar_next_of`: quando esta peca e o proximo patamar de outra peca.
+- `patamar_next`: proximo patamar esperado depois desta peca.
+- `patamar_after`: outros patamares possiveis depois do proximo salto.
+- `version_family`: familia de versoes/degraus da mesma superficie ou contrato.
+- `versions`: versoes, releases ou degraus conhecidos da mesma coisa.
+- `version_note`: nota explicita separando versao de patamar.
 
 Esses campos avancados sao recomendados para docs de alto valor visual ou alto
 risco operacional. Eles nao entram no obrigatorio v1 porque campo preenchido por
 burocracia reduz qualidade de contexto. Quando presentes, `docs-health` valida
 que sejam listas para a Cartografia e Atlas Code consumirem sem parsing ambiguo.
 
+Patamar e versao seguem `atlas-cartography-nomenclature-contract.md`: patamar e
+salto de maturidade/capacidade; versao e revisao ou degrau interno da mesma
+peca. A Cartografia nao pode inferir patamar a partir de `graph_layer`,
+`flows_to`, `unlocks`, path, nome de arquivo ou numero de versao.
+
+Regra de bolso para humanos e IAs:
+
+- `patamar_*` responde maturidade: "qual salto de capacidade isto representa?".
+- `version_*`, `versions` e `schema_version` respondem versao: "qual release,
+  fase, schema ou degrau da mesma coisa isto descreve?".
+- `source_path` e `repo_paths` respondem fonte: "onde a verdade vive?".
+- `related_paths` responde contexto: "o que precisa ser lido junto?".
+- `flows_to`, `unlocks` e `gear_flow` respondem navegacao/operacao: "para onde
+  isto vai?", nao "qual e o proximo patamar?".
+
+Regra de nomenclatura para modais:
+
+- Se a peca e o patamar atual, declarar `patamar_current`.
+- Se a peca e o proximo patamar de outra, declarar `patamar_next_of`.
+- Se esta peca aponta para um salto de maturidade posterior, declarar
+  `patamar_next`.
+- Se ha horizonte de maturidade depois do proximo salto, declarar
+  `patamar_after`.
+- Se a peca tem V0/V1/V4/V6, release, schema ou fase interna, declarar
+  `version_family`, `versions`, `schema_version` ou `version_note`; nao usar
+  esses campos como patamar.
+- Exemplo canonico: `Self-Construction OS` tem `patamar_next:
+  Self-Programming OS`. `Atlas Vox` pode ter varias versoes, mas essas versoes
+  nao sao patamares sem campo `patamar_*` explicito.
+
 ## Fluxo
 
 O fluxo esperado para criar ou atualizar um doc tecnico e:
 
 1. Definir o modulo real que esta sendo documentado.
-2. Criar ou migrar o arquivo `.md` na Engineering Knowledge Base.
-3. Preencher frontmatter base da KB.
-4. Preencher `doc_schema: atlas_canonical_module_doc.v1`.
-5. Preencher campos `graph_*` para Cartografia.
-6. Preencher campos operacionais para IA: escopo, proibicoes, evidencias e testes.
-7. Escrever corpo com as secoes obrigatorias.
-8. Rodar `php artisan atlas:engineering:knowledge docs-health --json`.
-9. Corrigir violacoes antes de usar o doc como contexto de implementacao.
+2. Aplicar `atlas-documentation-creation-gate.md`.
+3. Criar ou migrar o arquivo `.md` na Engineering Knowledge Base.
+4. Preencher frontmatter base da KB.
+5. Preencher `doc_schema: atlas_canonical_module_doc.v1`.
+6. Preencher campos `graph_*` para Cartografia.
+7. Preencher campos operacionais para IA: escopo, proibicoes, evidencias e testes.
+8. Declarar fluxo visual real ou lacuna documental explicita.
+9. Escrever corpo com as secoes obrigatorias.
+10. Rodar `php artisan atlas:engineering:knowledge docs-health --json`.
+11. Rodar `npm run test:cartografia` quando mudar grafo, fluxo, parent, patamar ou modal.
+12. Corrigir violacoes antes de usar o doc como contexto de implementacao.
 
 ## Regras para IA
 
@@ -235,6 +280,7 @@ Validacoes futuras:
 ## Dependencias
 
 - `atlas-ai-documentation-operating-system.md`
+- `atlas-documentation-creation-gate.md`
 - `atlas-system-graph.md`
 - `vault/atlas-vault-cartography-schema.md`
 - `app/Services/Engineering/EngineeringDocumentationHealthService.php`

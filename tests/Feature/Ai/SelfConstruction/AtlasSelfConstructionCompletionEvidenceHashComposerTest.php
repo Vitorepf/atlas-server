@@ -76,6 +76,38 @@ final class AtlasSelfConstructionCompletionEvidenceHashComposerTest extends Test
         $this->assertFalse($payload['token_spend_allowed']);
     }
 
+    public function test_composer_flags_portuguese_operator_placeholders_without_promoting_completion(): void
+    {
+        $runtime = $this->runtimePromotionReceipt([
+            'signed_by' => 'SEU_NOME',
+            'reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+        ]);
+        $human = $this->humanCompletionReceipt([
+            'signed_by' => 'SEU_NOME',
+            'reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+        ]);
+        $smoke = $this->realProviderSmoke([
+            'provider_run_id' => 'substitua pelo provider run real',
+            'task_packet_id' => 'substitua pelo task packet real',
+            'observed_by' => 'SEU_NOME',
+            'approval_reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+        ]);
+
+        $payload = (new AtlasSelfConstructionCompletionEvidenceHashComposerService)->compose([
+            'runtime_promotion_receipt' => $runtime,
+            'completion_receipt' => $human,
+            'real_provider_smoke' => $smoke,
+        ]);
+
+        $this->assertEqualsCanonicalizing(['signed_by', 'reason'], data_get($payload, 'runtime_promotion_receipt.placeholder_fields'));
+        $this->assertEqualsCanonicalizing(['signed_by', 'reason'], data_get($payload, 'human_completion_receipt.placeholder_fields'));
+        $this->assertEqualsCanonicalizing(['provider_run_id', 'task_packet_id', 'observed_by', 'approval_reason'], data_get($payload, 'real_provider_smoke.placeholder_fields'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($payload, 'runtime_promotion_receipt.computed_hash'));
+        $this->assertFalse($payload['completion_claim_allowed']);
+        $this->assertFalse($payload['runtime_write_allowed']);
+        $this->assertFalse($payload['provider_call_allowed']);
+    }
+
     public function test_readiness_status_and_cli_contract_are_exposed(): void
     {
         $status = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionCompletionEvidenceHashComposerStatus([

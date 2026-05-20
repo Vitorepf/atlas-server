@@ -3,7 +3,9 @@
 namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHashService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeCertificationService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeEndgameVerifierService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeEvidenceVerifierService;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -101,6 +103,29 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameVerifierTest extends Te
         $codes = array_column((array) $result['diagnostics'], 'code');
         $this->assertContains('synthetic_marker_present', $codes);
         $this->assertSame('blocked', $result['status']);
+    }
+
+    public function test_portuguese_placeholder_operator_smoke_inputs_are_blocked(): void
+    {
+        $payload = $this->validTestPayload([
+            'observed_by' => 'SEU_NOME',
+            'approval_reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+        ]);
+
+        $endgame = $this->verifier()->verify($payload);
+        $evidence = (new AtlasSelfConstructionRealProviderSmokeEvidenceVerifierService)->verify($payload);
+        $certification = (new AtlasSelfConstructionRealProviderSmokeCertificationService)->certify($payload);
+
+        $this->assertSame('blocked', $endgame['status']);
+        $this->assertContains('missing_observed_by', array_column((array) $endgame['diagnostics'], 'code'));
+        $this->assertContains('missing_approval_reason', array_column((array) $endgame['diagnostics'], 'code'));
+        $this->assertSame('blocked', $evidence['status']);
+        $this->assertContains('operator_smoke_placeholder_or_missing', array_column((array) $evidence['violations'], 'code'));
+        $this->assertSame('blocked_missing_real_provider_smoke', $certification['status']);
+        $this->assertContains('required_real_smoke_field_placeholder', array_column((array) $certification['violations'], 'code'));
+        $this->assertFalse((bool) $endgame['can_persist']);
+        $this->assertFalse((bool) $evidence['completion_criterion_green']);
+        $this->assertFalse((bool) $certification['completion_criterion_green']);
     }
 
     public function test_forbidden_flags_true_are_blocked(): void

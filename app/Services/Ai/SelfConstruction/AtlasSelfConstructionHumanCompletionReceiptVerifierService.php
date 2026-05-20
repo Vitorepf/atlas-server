@@ -16,8 +16,14 @@ final class AtlasSelfConstructionHumanCompletionReceiptVerifierService
         $base = (new AtlasSelfConstructionHumanSignedCompletionReceiptService)->verify($receipt);
         $violations = (array) data_get($base, 'violations', []);
 
-        if (in_array(strtolower((string) ($receipt['signed_by'] ?? '')), ['', '<operator>', 'codex', 'codex-autosigned', 'assistant', 'system'], true)) {
+        if ($this->isPlaceholderSigner((string) ($receipt['signed_by'] ?? ''))) {
             $violations[] = ['code' => 'human_completion_receipt_signer_invalid_or_placeholder'];
+        }
+        if ($this->isPlaceholderReason((string) ($receipt['reason'] ?? ''))) {
+            $violations[] = ['code' => 'human_completion_receipt_reason_placeholder'];
+        }
+        if ($this->isExternalCompletionClaimReason((string) ($receipt['reason'] ?? ''))) {
+            $violations[] = ['code' => 'human_completion_receipt_reason_relies_on_external_agent_claim'];
         }
         foreach (['completion_audit_hash', 'release_dossier_hash', 'replay_diff_hash', 'runtime_gap_matrix_hash', 'runtime_promotion_receipt_hash', 'real_provider_smoke_hash', 'certification_status_batch_hash'] as $field) {
             $expected = (string) data_get($context, $field, '');
@@ -82,6 +88,77 @@ final class AtlasSelfConstructionHumanCompletionReceiptVerifierService
         unset($payload['verified_at'], $payload['verification_hash']);
 
         return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    private function isPlaceholderSigner(string $signedBy): bool
+    {
+        return in_array(strtolower(trim($signedBy)), [
+            '',
+            '<operator>',
+            '<operator_name>',
+            '<operator_full_name>',
+            'operator',
+            'human',
+            'codex',
+            'codex-autosigned',
+            'claude',
+            'assistant',
+            'system',
+            'atlas',
+            'seu_nome',
+            'seu nome',
+            '<operador>',
+            'operador',
+        ], true);
+    }
+
+    private function isPlaceholderReason(string $reason): bool
+    {
+        $normalized = strtolower(trim($reason));
+        if ($normalized === '' || str_starts_with($normalized, '<')) {
+            return true;
+        }
+
+        foreach ([
+            'operator reason',
+            'minimum_32_chars',
+            'pelo menos 32 caracteres',
+            'motivo real',
+            'substitua',
+            'placeholder',
+            'todo',
+            'autosigned',
+            'lorem',
+        ] as $pattern) {
+            if (str_contains($normalized, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isExternalCompletionClaimReason(string $reason): bool
+    {
+        $normalized = strtolower(trim($reason));
+        foreach ([
+            'gemini disse',
+            'gemini said',
+            'claude disse',
+            'claude said',
+            'codex disse',
+            'codex said',
+            'agente externo disse',
+            'external agent said',
+            'external completion claim',
+            'claim externo',
+        ] as $pattern) {
+            if (str_contains($normalized, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $value */

@@ -205,6 +205,12 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $block['next_action_shell_packet_hash']);
         $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $block['next_action_exact_command']);
         $this->assertStringContainsString('--persist-runtime-promotion-receipt', $block['next_action_persist_command']);
+        $this->assertSame($block['next_action_exact_command'], $block['next_required_command']);
+        $this->assertSame($block['next_action_persist_command'], $block['next_required_persist_command']);
+        $this->assertSame(str_repeat('a', 64), $block['runtime_gap_matrix_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['runtime_promotion_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['runtime_promotion_closure_basis_hash']);
         $this->assertGreaterThanOrEqual(2, $block['next_action_placeholder_count']);
         $this->assertFalse($block['next_action_copy_safe']);
         $this->assertSame('runtime_promotion_receipt', data_get($block, 'next_action_shell_packet.current_required_operator_artifact'));
@@ -241,6 +247,7 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
         $this->assertTrue($block['release_dossier_ready']);
         $this->assertFalse($block['terminal_loop_operational_proof_ready']);
         $this->assertFalse($block['completion_audit_green']);
+        $this->assertFalse($block['self_programming_allowed']);
         $this->assertStringContainsString('--atlas-self-construction-os-completion-evidence-status', $block['completion_evidence_status_command']);
         $this->assertStringContainsString('--atlas-self-construction-operator-evidence-submission-readiness-status', $block['operator_evidence_readiness_command']);
         $this->assertStringContainsString('--agent-control-plane-replay-snapshot-store-capture', $block['capture_snapshot_if_stale_command']);
@@ -347,6 +354,9 @@ final class AtlasSelfConstructionFinalEvidenceBundleTest extends TestCase
                 'status' => $runtimeAllY ? 'passed' : 'blocked',
                 'all_runtime_y' => $runtimeAllY,
                 'runtime_gap_matrix_hash' => $hash,
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => str_repeat('b', 64),
+                'runtime_promotion_basis_hash' => str_repeat('c', 64),
+                'runtime_promotion_closure_basis_hash' => str_repeat('d', 64),
                 'runtime_gap_count' => $runtimeAllY ? 0 : 3,
                 'blocked_gap_ids' => $runtimeAllY ? [] : [
                     'adapter_execution_runtime',

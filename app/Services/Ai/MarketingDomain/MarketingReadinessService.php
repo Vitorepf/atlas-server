@@ -36,6 +36,7 @@ class MarketingReadinessService
         MarketingAnalyticsPlanService::class,
         GrowthExperimentPlanService::class,
         MarketingApprovalGateService::class,
+        MarketingLimitedAutonomyPolicyService::class,
         MarketingControlPlaneProjection::class,
     ];
 

@@ -30,6 +30,10 @@ final class AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService
         'assistant',
         'system',
         'atlas',
+        'seu_nome',
+        'seu nome',
+        '<operador>',
+        'operador',
     ];
 
     private const FORBIDDEN_REASON_PATTERNS = [
@@ -39,6 +43,11 @@ final class AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService
         'placeholder',
         'autosigned',
         'lorem',
+        'operator reason',
+        'minimum_32_chars',
+        'pelo menos 32 caracteres',
+        'motivo real',
+        'substitua',
     ];
 
     private const FORBIDDEN_FLAGS = [

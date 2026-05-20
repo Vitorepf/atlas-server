@@ -99,6 +99,30 @@ final class AtlasSelfConstructionRuntimePromotionDraftHashFinalizerTest extends 
         $this->assertSame($receipt['receipt_hash'], $written['receipt_hash']);
     }
 
+    public function test_finalizer_refuses_portuguese_operator_placeholders_even_with_write_flag(): void
+    {
+        [$workspace, $receipt] = $this->writeDraftWorkspace(array_replace($this->receiptWithPlaceholderHash(), [
+            'signed_by' => 'SEU_NOME',
+            'reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+        ]));
+
+        $payload = (new AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService)->finalize([
+            'operator_draft_workspace_path' => $workspace.'/runtime-promotion.json',
+            'write_computed_runtime_promotion_receipt_hash' => true,
+        ]);
+        $written = json_decode(Storage::disk('local')->get($workspace.'/runtime-promotion.json'), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('blocked_operator_draft_not_ready_for_hash_write', $payload['status']);
+        $this->assertSame('operator_identity_or_reason_not_ready', $payload['write_blocker']);
+        $this->assertEqualsCanonicalizing(['signed_by', 'reason'], $payload['placeholder_fields']);
+        $this->assertFalse($payload['can_write_hash_to_draft']);
+        $this->assertFalse($payload['written']);
+        $this->assertSame($receipt['receipt_hash'], $written['receipt_hash']);
+        $this->assertFalse($payload['completion_allowed']);
+        $this->assertFalse($payload['completion_claim_allowed']);
+        $this->assertFalse($payload['runtime_write_allowed']);
+    }
+
     public function test_finalizer_refuses_runtime_enabling_flags_even_with_write_flag(): void
     {
         [$workspace] = $this->writeDraftWorkspace(array_replace($this->receiptWithPlaceholderHash(), [

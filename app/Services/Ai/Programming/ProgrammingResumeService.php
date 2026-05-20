@@ -157,9 +157,10 @@ class ProgrammingResumeService
      *    the same canonical payload the persisted pack would carry, safe
      *    defaults for `stale_after`, `safe_resume_mode`, `next_safe_action`.
      *
-     * This is the M5 adapter shape — not a builder, not a FreshnessGate. Both
-     * arrive in a future increment; today the field surface is what callers
-     * need.
+     * This is the M5 adapter shape — not a builder and not the enforcement
+     * gate. Freshness/recovery/continuity checks are evaluated by the
+     * Programming Console long-horizon actions so this read-only resume
+     * surface can stay side-effect free.
      *
      * @param  array<int,array<string,mixed>>  $previousReceipts
      * @param  array<string,mixed>  $validation
@@ -236,9 +237,10 @@ class ProgrammingResumeService
             'stale_refs' => $staleRefs,
             'next_safe_action' => $nextSafeAction,
             'human_decisions_required' => $humanDecisionsRequired,
-            // No FreshnessGate evaluated yet — this is the structural surface,
-            // not an enforcement gate. Callers must treat freshness as
-            // "advisory" until the gate ships.
+            // No FreshnessGate is evaluated inside this read-only adapter.
+            // ProgrammingConsoleService runs the shipped freshness/recovery/
+            // continuity gates when the operator asks for long-horizon status
+            // or certification.
             'freshness_gate_evaluated' => false,
             'freshness_gate_status' => 'not_evaluated',
         ];

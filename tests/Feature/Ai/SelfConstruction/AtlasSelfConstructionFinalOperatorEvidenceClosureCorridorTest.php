@@ -836,6 +836,26 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
             'runtime_promotion_receipt',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.current_required_operator_artifact'),
         );
+        $this->assertSame(
+            'runtime_promotion_receipt',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.current_required_artifact'),
+        );
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            (string) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.runtime_gap_matrix_hash'),
+        );
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            (string) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.expected_runtime_gap_matrix_hash_for_promotion_receipt'),
+        );
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            (string) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.runtime_promotion_basis_hash'),
+        );
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            (string) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.runtime_promotion_closure_basis_hash'),
+        );
         $this->assertSame(4, data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_artifact_sequence_count'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.closure_artifact_sequence_hash'));
         $this->assertSame(4, data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.prompt_to_artifact_checklist_count'));
@@ -854,6 +874,43 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorTest extend
         $this->assertStringContainsString(
             '--atlas-self-construction-runtime-promotion-receipt-draft-status',
             data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_exact_command'),
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-runtime-promotion-receipt-draft-status',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.operator_next_action_command_to_copy'),
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-runtime-promotion-receipt-draft-status',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.next_required_command'),
+        );
+        $this->assertSame(
+            '',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.next_required_persist_command'),
+        );
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.completion_claim_allowed'));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.self_programming_allowed'));
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.terminal_loop_operational_proof_required_before_completion_claim'));
+        $this->assertTrue((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only'));
+        $this->assertSame(
+            'reject_external_completion_claim',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.external_completion_claim_policy_status'),
+        );
+        $this->assertSame(
+            'atlas_self_construction_os_completion_audit',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.external_completion_claim_policy_completion_authority'),
+        );
+        $this->assertSame(
+            'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.external_completion_claim_policy_required_completion_predicate'),
+        );
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.external_completion_claim_policy_external_agent_claim_accepted', true));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.external_completion_claim_policy_external_agent_claim_can_mark_os_complete', true));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.external_completion_claim_policy_external_agent_claim_can_override_audit', true));
+        $this->assertGreaterThan(0, (int) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.external_completion_claim_policy_current_failed_count', 0));
+        $this->assertGreaterThan(0, (int) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.external_completion_claim_policy_missing_required_evidence_artifact_count', 0));
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            (string) data_get($status, 'agent_control_plane_atlas_self_construction_final_operator_evidence_closure_corridor_status.external_completion_claim_policy_hash'),
         );
         $this->assertSame(
             '',

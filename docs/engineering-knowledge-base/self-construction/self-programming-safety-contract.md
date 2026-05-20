@@ -19,6 +19,7 @@ decisions:
 maintenance:
   - Update before enabling self-programming beyond documentation or low-risk patches.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
 owner: atlas-ai
@@ -41,6 +42,8 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+
+version_note: Este contrato pertence a ponte para Self-Programming OS, mas contrato de safety nao e patamar por si so. O patamar precisa ser declarado nos campos patamar_* do doc dono.
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md

@@ -97,6 +97,30 @@ final class AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierTest exte
         $this->assertSame('blocked', $result['status']);
     }
 
+    public function test_portuguese_operator_placeholders_are_blocked_before_submission(): void
+    {
+        $result = $this->verifier()->verify($this->validTestPayload([
+            'provider_run_id' => 'substitua pelo provider run real',
+            'task_packet_id' => 'substitua pelo task packet real',
+            'observed_by' => 'SEU_NOME',
+            'approval_reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+        ]));
+
+        $codes = array_column((array) $result['diagnostics'], 'code');
+        $fields = array_column((array) $result['diagnostics'], 'field');
+        $this->assertContains('missing_provider_run_id', $codes);
+        $this->assertContains('missing_task_packet_id', $codes);
+        $this->assertContains('missing_observed_by', $codes);
+        $this->assertContains('missing_approval_reason', $codes);
+        $this->assertContains('provider_run_id', $fields);
+        $this->assertContains('task_packet_id', $fields);
+        $this->assertContains('observed_by', $fields);
+        $this->assertContains('approval_reason', $fields);
+        $this->assertSame('blocked', $result['status']);
+        $this->assertFalse((bool) $result['can_persist']);
+        $this->assertFalse((bool) $result['persistence_allowed_here']);
+    }
+
     public function test_smoke_hash_mismatch_is_blocked(): void
     {
         $payload = $this->validTestPayload();

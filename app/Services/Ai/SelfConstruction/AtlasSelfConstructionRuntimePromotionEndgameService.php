@@ -124,6 +124,8 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             ? $endgameVerifier->verify($receiptUnderReview, $matrix)
             : $endgameVerifier->emptyVerification();
         $preSubmissionPassed = (string) data_get($preSubmissionVerification, 'status') === 'passed';
+        $verifierViolationCodes = $this->verifierViolationCodes($preSubmissionVerification);
+        $staleReceiptDetected = $receiptUnderReview !== [] && $this->staleReceiptDetected($verifierViolationCodes);
 
         $persistencePreflight = [
             'persist_flag_required' => '--persist-runtime-promotion-receipt',
@@ -255,6 +257,8 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             persisted: $persisted,
             draftPath: (string) data_get($draftWorkspaceReceipt, 'draft_path', ''),
             canonicalReceiptLoaded: $canonicalReceiptLoaded,
+            verifierViolationCodes: $verifierViolationCodes,
+            staleReceiptDetected: $staleReceiptDetected,
         );
 
         $payload = [
@@ -334,6 +338,12 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'canonical_submission_receipt' => $canonicalSubmissionReceipt,
             'operator_submission_envelope' => $operatorSubmissionEnvelope,
             'operator_next_action_shell_packet' => $operatorShellPacket,
+            'verifier_violation_codes' => $verifierViolationCodes,
+            'stale_runtime_promotion_receipt_detected' => $staleReceiptDetected,
+            'fresh_runtime_promotion_receipt_required' => $staleReceiptDetected,
+            'fresh_runtime_promotion_receipt_recovery_command' => $staleReceiptDetected
+                ? 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json'
+                : '',
             'receipt_pre_submission_verification' => $preSubmissionVerification,
             'persistence_preflight' => $persistencePreflight,
             'persistence_result' => $persistenceResult,
@@ -444,7 +454,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
 
     private function checklistSignerReal(string $signedBy): bool
     {
-        $placeholders = ['', '<operator>', 'operator', 'human', 'codex', 'assistant', 'system', 'claude', 'codex-autosigned', 'atlas'];
+        $placeholders = ['', '<operator>', 'operator', 'human', 'codex', 'assistant', 'system', 'claude', 'codex-autosigned', 'atlas', 'seu_nome', 'seu nome', '<operador>', 'operador'];
 
         return ! in_array(strtolower(trim($signedBy)), $placeholders, true);
     }
@@ -720,8 +730,15 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         bool $persisted,
         string $draftPath,
         bool $canonicalReceiptLoaded,
+        array $verifierViolationCodes,
+        bool $staleReceiptDetected,
     ): array {
         $draftCommand = 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json';
+        $draftReceiptPayloadPath = '.agent_control_plane_atlas_self_construction_runtime_promotion_receipt_draft.receipt_payload';
+        $canonicalDraftFileCommand = 'mkdir -p storage/app/private/atlas/self-construction/operator-submissions && '
+            .$draftCommand
+            .' | jq \''.$draftReceiptPayloadPath.'\''
+            .' > storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json';
         $canonicalPersistCommand = 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json --persist-runtime-promotion-receipt --json';
         $workspacePersistCommand = $draftPath !== ''
             ? 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@storage/app/private/'.$draftPath.' --persist-runtime-promotion-receipt --json'
@@ -742,6 +759,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             );
         $packetStatus = match (true) {
             $persisted => 'copy_ready_rerun_runtime_gap_matrix',
+            $staleReceiptDetected => 'blocked_stale_runtime_promotion_receipt_regenerate_draft',
             $placeholders !== [] => 'blocked_placeholder_replacement_required',
             $copySafe => 'copy_ready_for_explicit_operator_persistence',
             $verifierPassed => 'blocked_receipt_file_path_required',
@@ -755,6 +773,19 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'endgame_status' => $status,
             'receipt_source' => $receiptSource,
             'verifier_passed' => $verifierPassed,
+            'verifier_violation_codes' => $verifierViolationCodes,
+            'stale_runtime_promotion_receipt_detected' => $staleReceiptDetected,
+            'fresh_runtime_promotion_receipt_required' => $staleReceiptDetected,
+            'stale_runtime_promotion_receipt_blocking_codes' => $staleReceiptDetected
+                ? array_values(array_intersect($verifierViolationCodes, $this->staleReceiptViolationCodes()))
+                : [],
+            'stale_runtime_promotion_receipt_must_be_discarded' => $staleReceiptDetected,
+            'fresh_runtime_promotion_receipt_recovery_command' => $staleReceiptDetected ? $draftCommand : '',
+            'fresh_runtime_promotion_receipt_recovery_file_command' => $staleReceiptDetected ? $canonicalDraftFileCommand : '',
+            'fresh_runtime_promotion_receipt_recovery_file_command_hash' => $staleReceiptDetected ? hash('sha256', $canonicalDraftFileCommand) : '',
+            'fresh_runtime_promotion_receipt_recovery_file_command_payload_path' => $staleReceiptDetected ? $draftReceiptPayloadPath : '',
+            'fresh_runtime_promotion_receipt_recovery_file_command_placeholder_fields' => $staleReceiptDetected ? $this->commandPlaceholders($canonicalDraftFileCommand) : [],
+            'fresh_runtime_promotion_receipt_recovery_file_command_copy_safe' => $staleReceiptDetected && $this->commandPlaceholders($canonicalDraftFileCommand) === [],
             'persisted' => $persisted,
             'command_to_copy' => $commandToCopy,
             'command_to_copy_hash' => hash('sha256', $commandToCopy),
@@ -780,6 +811,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
             'failure_policy' => [
                 'stop_if_placeholder_remains',
                 'stop_if_verifier_status_is_not_passed',
+                'stop_if_stale_runtime_promotion_receipt_detected',
                 'stop_if_receipt_file_path_is_missing_for_persist_command',
                 'stop_if_hash_mismatch',
                 'stop_if_persist_command_is_run_without_explicit_operator_review',
@@ -806,6 +838,44 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
         preg_match_all('/<[^>]+>/', $command, $matches);
 
         return array_values(array_unique($matches[0] ?? []));
+    }
+
+    /** @return list<string> */
+    private function verifierViolationCodes(array $verification): array
+    {
+        $codes = [];
+        foreach ((array) data_get($verification, 'violations', []) as $violation) {
+            $code = (string) data_get($violation, 'code', '');
+            if ($code !== '') {
+                $codes[] = $code;
+            }
+        }
+
+        return array_values(array_unique($codes));
+    }
+
+    /** @param list<string> $violationCodes */
+    private function staleReceiptDetected(array $violationCodes): bool
+    {
+        foreach ($this->staleReceiptViolationCodes() as $staleCode) {
+            if (in_array($staleCode, $violationCodes, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return list<string> */
+    private function staleReceiptViolationCodes(): array
+    {
+        return [
+            'stale_runtime_gap_matrix_hash',
+            'stale_runtime_promotion_basis_hash',
+            'stale_runtime_promotion_closure_basis_hash',
+            'promoted_gap_id_drift',
+            'graduation_hash_mismatch',
+        ];
     }
 
     private function checklistItem(string $id, string $summary, bool $passed, string $blockingReason): array

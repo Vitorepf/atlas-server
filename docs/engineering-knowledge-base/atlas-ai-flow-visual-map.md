@@ -56,6 +56,98 @@ graph_source: repo
 
 owner: architecture
 
+gear_flow:
+  - graph_id: atlas-ai-flow-visual-map:surface
+    target_graph_id: surface-plane
+    name: Surface
+    kind: input
+    summary: usuario, app, mobile, CLI, API ou MCP coleta entrada sem decidir
+  - graph_id: atlas-ai-flow-visual-map:atlas-input
+    target_graph_id: atlas-input
+    name: Atlas Input
+    kind: input
+    summary: normaliza texto, imagem, audio, arquivo, paste e contexto
+  - graph_id: atlas-ai-flow-visual-map:operation-envelope
+    target_graph_id: operation-envelope
+    name: Operation Envelope
+    kind: context
+    summary: cria unidade canonica com trace, tenant e origem
+  - graph_id: atlas-ai-flow-visual-map:intent-routing
+    target_graph_id: intent-routing
+    name: Intent / Routing
+    kind: context
+    summary: classifica pedido, risco e tipo de tarefa
+  - graph_id: atlas-ai-flow-visual-map:business-context
+    target_graph_id: business-context
+    name: Business Context
+    kind: context
+    summary: separa projeto, ambiente, empresa e produto do dominio cognitivo
+  - graph_id: atlas-ai-flow-visual-map:domain-plane
+    target_graph_id: domain-plane
+    name: Domain Plane
+    kind: context
+    summary: seleciona capacidade cognitiva ou operacional
+  - graph_id: atlas-ai-flow-visual-map:domain-profile
+    target_graph_id: domain-profile-flow
+    name: Domain Profile
+    kind: context
+    summary: resolve sistema operacional vertical
+  - graph_id: atlas-ai-flow-visual-map:flow-profile
+    target_graph_id: domain-profile-flow
+    name: Flow Profile
+    kind: context
+    summary: resolve processo operacional dentro do dominio
+  - graph_id: atlas-ai-flow-visual-map:context-builder
+    target_graph_id: context-builder
+    name: Context Builder
+    kind: context
+    summary: monta Open Brain, Memory, KB, Code Intelligence e AtlasVault sync
+  - graph_id: atlas-ai-flow-visual-map:policy-profile
+    target_graph_id: policy-profile
+    name: Policy / Profile
+    kind: policy
+    summary: define permissao, privacidade, autonomia, custo e gates
+  - graph_id: atlas-ai-flow-visual-map:atlas-decide
+    target_graph_id: atlas-decide
+    name: Atlas Decide
+    kind: decision
+    summary: compila modelo, provider, fallback e evidence contract
+  - graph_id: atlas-ai-flow-visual-map:decision-receipt
+    target_graph_id: decision-receipt
+    name: Decision Receipt
+    kind: gate
+    summary: assina contrato, dry-run, limites e auditoria
+  - graph_id: atlas-ai-flow-visual-map:runtime-executor
+    target_graph_id: runtime-executor
+    name: Runtime / Executor
+    kind: output
+    summary: executa providers, harnesses, workers e tools dentro do receipt
+  - graph_id: atlas-ai-flow-visual-map:quality-gates
+    target_graph_id: quality-gates
+    name: Quality Gates
+    kind: gate
+    summary: valida seguranca, testes, SLO, compliance e visual QA
+  - graph_id: atlas-ai-flow-visual-map:repair-escalation
+    target_graph_id: repair-escalation
+    name: Repair / Escalation
+    kind: failure
+    summary: corrige, reexecuta, pede review ou bloqueia
+  - graph_id: atlas-ai-flow-visual-map:evidence-ledger
+    target_graph_id: evidence-ledger
+    name: Evidence Ledger
+    kind: gate
+    summary: persiste eventos append-only para replay e auditoria
+  - graph_id: atlas-ai-flow-visual-map:learning-proposals
+    target_graph_id: learning-proposals
+    name: Learning / Proposals
+    kind: context
+    summary: gera memoria, metricas, proposals e human review sem autoalterar criticamente
+  - graph_id: atlas-ai-flow-visual-map:output-renderer
+    target_graph_id: output-renderer
+    name: Output Renderer
+    kind: output
+    summary: surface apresenta resposta, patch, plano, proposta ou briefing
+
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-flow-visual-map.md
 

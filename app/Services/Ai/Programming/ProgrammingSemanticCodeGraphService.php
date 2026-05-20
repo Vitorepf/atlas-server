@@ -291,40 +291,47 @@ class ProgrammingSemanticCodeGraphService
         if (! is_dir($workspace)) {
             return [];
         }
-        if (! File::exists($workspace.'/app')
-            && ! File::exists($workspace.'/src')
-            && ! File::exists($workspace.'/tests')
-            && ! File::exists($workspace.'/docs')
-        ) {
+
+        $dirs = [];
+        foreach (['app', 'src', 'tests', 'docs'] as $subDir) {
+            $fullPath = $workspace . DIRECTORY_SEPARATOR . $subDir;
+            if (is_dir($fullPath)) {
+                $dirs[] = $fullPath;
+            }
+        }
+
+        if ($dirs === []) {
             return [];
         }
 
-        $files = collect(File::allFiles($workspace))
-            ->filter(function ($file): bool {
-                $path = $file->getPathname();
+        try {
+            $finder = (new \Symfony\Component\Finder\Finder())
+                ->files()
+                ->in($dirs)
+                ->exclude(['vendor', 'node_modules', 'storage', '.git'])
+                ->name(['*.php', '*.ts', '*.tsx', '*.js', '*.jsx', '*.md']);
 
-                return ! str_contains($path, '/vendor/')
-                    && ! str_contains($path, '/node_modules/')
-                    && ! str_contains($path, '/.git/')
-                    && in_array(strtolower($file->getExtension()), ['php', 'ts', 'tsx', 'js', 'jsx', 'md'], true);
-            })
-            ->filter(function ($file) use ($terms, $workspace): bool {
-                $relative = $this->relative($workspace, $file->getPathname());
-                $haystack = strtolower($relative);
-                foreach ($terms as $term) {
-                    if (str_contains($haystack, $term)) {
-                        return true;
+            $files = collect(iterator_to_array($finder, false))
+                ->filter(function ($file) use ($terms, $workspace): bool {
+                    $relative = $this->relative($workspace, $file->getPathname());
+                    $haystack = strtolower($relative);
+                    foreach ($terms as $term) {
+                        if (str_contains($haystack, $term)) {
+                            return true;
+                        }
                     }
-                }
 
-                return str_contains($relative, 'tests/') || str_contains($relative, 'docs/engineering-knowledge-base/domains/programming');
-            })
-            ->take(30)
-            ->map(fn ($file): string => $file->getPathname())
-            ->values()
-            ->all();
+                    return str_contains($relative, 'tests/') || str_contains($relative, 'docs/engineering-knowledge-base/domains/programming');
+                })
+                ->take(30)
+                ->map(fn ($file): string => $file->getPathname())
+                ->values()
+                ->all();
 
-        return $files;
+            return $files;
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     private function nodeKind(string $relative): string

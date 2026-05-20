@@ -18,6 +18,7 @@ capabilities:
   - ai_readability_contract
   - canonical_source_governance
   - documentation_health
+  - documentation_creation_gate
   - session_bootstrap
   - canonical_module_doc_v1
 decisions:
@@ -26,6 +27,7 @@ decisions:
   - A hierarquia entre repo docs, Postgres, Obsidian, provider projections e chat e definida por `atlas-ai-knowledge-governance-system.md`.
   - Docs ativos devem ser curtos, indexaveis, com ownership claro e links para implementacao.
   - Docs tecnicos que alimentam Cartografia ou Atlas Code devem usar `doc_schema: atlas_canonical_module_doc.v1`.
+  - Docs novos, migrados ou promovidos que aparecem na Cartografia devem passar pelo `atlas-documentation-creation-gate.md`.
   - Docs longos devem ser divididos em specs menores antes de receber novas responsabilidades.
 maintenance:
   - Manter abaixo de 260 linhas.
@@ -33,7 +35,9 @@ maintenance:
   - Rodar sync e index-code depois de alterar docs canonicos.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
+  - docs/engineering-knowledge-base/atlas-documentation-creation-gate.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
+  - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/START_HERE.md
   - docs/engineering-knowledge-base/README.md
@@ -153,6 +157,7 @@ Toda organizacao documental deve permitir responder rapidamente:
 | Bootstrap | resposta curta para nova sessao | `atlas-ai-session-bootstrap.md` |
 | Authority | hierarquia e conflito entre docs | `atlas-ai-canonical-architecture-index.md` |
 | Documentation OS | regras de documentacao | este documento |
+| Creation Gate | condicao obrigatoria para criar, migrar ou promover docs navegaveis | `atlas-documentation-creation-gate.md` |
 | Canonical Module Doc | formato forte para docs tecnicos navegaveis e seguros para IA | `atlas-canonical-module-doc-v1.md` |
 | Knowledge Governance | fonte de verdade entre repo docs, Postgres, Obsidian, provider projections e chat | `atlas-ai-knowledge-governance-system.md` |
 | Kernel | contratos executaveis | `atlas-ai-kernel-architecture.md` e specs fatiadas |
@@ -200,6 +205,50 @@ related_paths:
 Campos `summary`, `decisions`, `maintenance` e `related_paths` sao criticos para context pack, retrieval, revisao e continuidade.
 
 Quando o doc governa uma peca navegavel da Cartografia ou uma area executada por IA, ele tambem deve declarar `doc_schema: atlas_canonical_module_doc.v1` e os campos de grafo, escopo, proibicoes, evidencias e testes definidos em `atlas-canonical-module-doc-v1.md`.
+
+Antes de criar, migrar ou promover qualquer doc navegavel, aplique
+`atlas-documentation-creation-gate.md`. O gate obriga identidade visual, fluxo
+real ou lacuna explicita, fonte canonica, modal humano, prova, governanca,
+nomenclatura e testes. Sem isso, a Cartografia pode ficar bonita e falsa.
+
+## Cartografia Como Gate Obrigatorio
+
+Todo doc ativo/building que governa uma peca navegavel precisa conseguir
+alimentar a Cartografia sem interpretacao livre da IA. Isso significa:
+
+| Necessidade | Campo / secao obrigatoria | Falha se faltar |
+|---|---|---|
+| Identidade visual | `graph_id`, `graph_title`, `graph_world`, `graph_layer`, `graph_kind`, `graph_parent`, `graph_status` | a peca nao aparece ou aparece no lugar errado |
+| Fonte real | `repo_paths`, `graph_source: repo`, `source_path` derivado pelo scanner | a Cartografia pode apontar para verdade falsa |
+| Fluxo | `depends_on`, `flows_to`, `unlocks`, `governs`, `gear_flow` quando houver subfluxo interno | tap abre fluxo vazio ou inventado |
+| Modal humano | `summary`, `decisions`, `capabilities`, `allowed_changes`, `forbidden_changes`, `risk_level`, `next_actions` | longa pressao vira texto pobre ou confuso |
+| Prova | `evidence`, `required_tests`, `quality_gates`, `observability_signals` | IA nao sabe validar antes de mexer |
+| Nomenclatura | `patamar_*` apenas quando houver salto de maturidade; `version_*` apenas quando houver versao/degrau | patamar, versao, fonte e camada viram bagunca |
+
+Regra operacional: doc novo de sistema/fluxo/modulo que nao declara fluxo real
+deve declarar a lacuna em `next_actions` e `failure_modes`. A Cartografia deve
+mostrar lacuna documental explicita, nunca preencher com chute.
+
+Antes de promover doc para `active` ou `building`, rode:
+
+```bash
+php artisan atlas:engineering:knowledge docs-health --json
+npm run test:cartografia
+```
+
+Se o doc criar nova engrenagem, novo fluxo, novo parent ou novo patamar, tambem
+deve atualizar a visualizacao mobile/desktop ou garantir que o grafo semantico
+exponha esse caminho para busca e drilldown.
+
+Definition of Ready para Cartografia:
+
+1. Tap tem destino visual real ou declara peca terminal/lacuna documental.
+2. Longa pressao tem modal humano com resumo, fluxo, prova, riscos, fontes,
+   governanca, patamares e versoes separados.
+3. `repo_paths`, `related_paths`, `evidence` e `required_tests` aparecem em
+   categorias diferentes.
+4. `patamar_*` nunca e inferido por camada, versao, arquivo, fluxo ou unlock.
+5. `docs-health` e `npm run test:cartografia` passam antes da promocao.
 
 ## Status Permitidos
 

@@ -5,6 +5,7 @@ title: Atlas Next Patamar Operating Systems
 status: future
 category: architecture
 priority: 100
+implementation_state: future_target_not_current_runtime
 summary: Manifesto canonico que fixa a hierarquia Sovereign OS, Epistemic OS e Cartographic Knowledge OS como patamares obrigatorios para o Atlas se autoevoluir por IA sem perder verdade, direcao ou legibilidade humana.
 tags:
   - atlas
@@ -47,6 +48,13 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: future
 graph_source: repo
 owner: architecture
+patamar_after:
+  - atlas-ai-self-construction-os
+patamar_next:
+  - atlas-sovereign-operating-system
+  - atlas-epistemic-operating-system
+  - atlas-cartographic-knowledge-os
+versions: []
 repo_paths:
   - docs/engineering-knowledge-base/atlas-next-patamar-operating-systems.md
 allowed_changes:

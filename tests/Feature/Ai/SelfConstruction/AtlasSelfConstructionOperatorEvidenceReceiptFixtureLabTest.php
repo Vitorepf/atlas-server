@@ -139,6 +139,61 @@ final class AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabTest extends T
         $this->assertContains('human_completion_receipt_signer_invalid_or_placeholder', $codes);
     }
 
+    public function test_lab_detects_portuguese_operator_placeholders_across_all_operator_artifacts(): void
+    {
+        $result = $this->lab()->build([
+            'runtime_promotion_receipt' => [
+                'receipt_id' => 'runtime-placeholder-test',
+                'signed_by' => 'SEU_NOME',
+                'reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+                'runtime_gap_matrix_hash' => str_repeat('1', 64),
+                'runtime_promotion_basis_hash' => str_repeat('2', 64),
+                'runtime_promotion_closure_basis_hash' => str_repeat('3', 64),
+                'receipt_hash' => str_repeat('4', 64),
+            ],
+            'real_provider_smoke' => [
+                'kind' => 'real_provider_packet_claim_to_completion',
+                'status' => 'passed',
+                'provider_run_id' => 'substitua pelo provider run real',
+                'task_packet_id' => 'substitua pelo task packet real',
+                'observed_by' => 'SEU_NOME',
+                'approval_reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+                'smoke_hash' => str_repeat('5', 64),
+                'operator_approval_receipt_hash' => str_repeat('6', 64),
+                'evidence_ledger_hash' => str_repeat('7', 64),
+                'work_product_manifest_hash' => str_repeat('8', 64),
+                'cost_event_hash' => str_repeat('9', 64),
+                'continuation_summary_hash' => str_repeat('a', 64),
+                'provider_response_hash' => str_repeat('b', 64),
+            ],
+            'completion_receipt' => [
+                'receipt_id' => 'completion-placeholder-test',
+                'signed_by' => 'SEU_NOME',
+                'reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+                'completion_audit_hash' => str_repeat('c', 64),
+                'release_dossier_hash' => str_repeat('d', 64),
+                'replay_diff_hash' => str_repeat('e', 64),
+                'runtime_gap_matrix_hash' => str_repeat('f', 64),
+                'runtime_promotion_receipt_hash' => str_repeat('1', 64),
+                'real_provider_smoke_hash' => str_repeat('2', 64),
+                'certification_status_batch_hash' => str_repeat('3', 64),
+                'receipt_hash' => str_repeat('4', 64),
+            ],
+        ]);
+
+        $runtime = $this->diagnosticFor($result, 'runtime_promotion_receipt');
+        $this->assertEqualsCanonicalizing(['signed_by', 'reason'], $runtime['placeholder_fields']);
+        $this->assertFalse((bool) $runtime['persistence_allowed_here']);
+
+        $smoke = $this->diagnosticFor($result, 'real_provider_smoke');
+        $this->assertEqualsCanonicalizing(['provider_run_id', 'task_packet_id', 'observed_by', 'approval_reason'], $smoke['placeholder_fields']);
+        $this->assertFalse((bool) $smoke['persistence_allowed_here']);
+
+        $completion = $this->diagnosticFor($result, 'human_completion_receipt');
+        $this->assertEqualsCanonicalizing(['signed_by', 'reason'], $completion['placeholder_fields']);
+        $this->assertFalse((bool) $completion['persistence_allowed_here']);
+    }
+
     public function test_forbidden_flags_true_are_reported(): void
     {
         $result = $this->lab()->build([

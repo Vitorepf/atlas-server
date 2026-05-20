@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
 use App\Services\Ai\AutomationDomain\AutomationControlPlaneProjection;
+use App\Services\Ai\AutomationDomain\AutomationDomainCanon;
 use App\Services\Ai\AutomationDomain\AutomationDomainException;
 use App\Services\Ai\AutomationDomain\AutomationDomainManifestSeeder;
 use App\Services\Ai\AutomationDomain\AutomationReadinessService;
@@ -14,7 +16,9 @@ class AtlasAiAutomationDomainCommand extends Command
 {
     protected $signature = 'atlas:ai:automation-domain
         {positional? : Optional positional action (alternative to --action)}
-        {--action=readiness : readiness, seed-manifest, smoke, control-plane}
+        {--action=readiness : readiness, seed-manifest, smoke, control-plane, enterprise-analysis}
+        {--fixture : Run an enterprise flow fixture action}
+        {--runtime-mode=internal : enterprise flow runtime mode: internal or fixture}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Automation / Tool Factory Runtime (Meta 8 · Automation): readiness, seed-manifest, smoke and control-plane projection.';
@@ -24,18 +28,31 @@ class AtlasAiAutomationDomainCommand extends Command
         AutomationDomainManifestSeeder $manifestSeeder,
         AutomationRuntimeService $runtime,
         AutomationControlPlaneProjection $controlPlane,
+        AutonomousHoldingEnterpriseBuildoutService $enterpriseBuildout,
     ): int {
         $positional = $this->argument('positional');
         $action = is_string($positional) && trim($positional) !== ''
             ? trim($positional)
             : (string) $this->option('action');
+        $fixtureRuntime = app(\App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService::class);
 
         try {
+            if ($fixtureRuntime->supports(AutomationDomainCanon::DOMAIN_ID, $action)) {
+                $this->line($this->encode($fixtureRuntime->run(
+                    AutomationDomainCanon::DOMAIN_ID,
+                    $action,
+                    $this->fixtureRequested(),
+                )));
+
+                return self::SUCCESS;
+            }
+
             return match ($action) {
                 'readiness' => $this->renderReadiness($readiness),
                 'seed-manifest' => $this->renderSeedManifest($manifestSeeder),
                 'smoke' => $this->renderSmoke($runtime, $controlPlane),
                 'control-plane' => $this->renderControlPlane($controlPlane),
+                'enterprise-analysis' => $this->renderEnterpriseAnalysis($enterpriseBuildout),
                 default => $this->invalidAction($action),
             };
         } catch (AutomationDomainException $e) {
@@ -151,6 +168,19 @@ class AtlasAiAutomationDomainCommand extends Command
         return self::SUCCESS;
     }
 
+    private function renderEnterpriseAnalysis(AutonomousHoldingEnterpriseBuildoutService $enterpriseBuildout): int
+    {
+        $payload = $enterpriseBuildout->companyPacket(AutomationDomainCanon::DOMAIN_ID);
+        $payload['ok'] = (bool) ($payload['readiness']['ok'] ?? false);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('company_id', (string) $payload['company_id']);
+            $this->components->twoColumnDetail('flows', (string) $payload['readiness']['flow_count']);
+            $this->components->twoColumnDetail('connectors', (string) $payload['readiness']['connector_count']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
     private function invalidAction(string $action): int
     {
         $this->line($this->encode([
@@ -181,5 +211,11 @@ class AtlasAiAutomationDomainCommand extends Command
     private function encode(array $payload): string
     {
         return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    }
+
+    private function fixtureRequested(): bool
+    {
+        return (string) $this->input->getParameterOption('--runtime-mode', (string) $this->option('runtime-mode')) === 'fixture'
+            || (bool) $this->option('fixture');
     }
 }

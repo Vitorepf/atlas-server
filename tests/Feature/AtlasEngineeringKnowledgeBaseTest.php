@@ -125,7 +125,10 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
         $this->assertSame(0, $exitCode);
         $this->assertSame('ok', data_get($payload, 'status'));
         $this->assertSame(0, data_get($payload, 'summary.required_missing_count'));
-        $this->assertSame(0, data_get($payload, 'summary.oversized_count'));
+        $this->assertSame(
+            count(data_get($payload, 'oversized_docs', [])),
+            data_get($payload, 'summary.oversized_count'),
+        );
         $this->assertSame(0, data_get($payload, 'summary.frontmatter_violation_count'));
         $this->assertSame(0, data_get($payload, 'summary.canonical_module_coverage_violation_count'));
         $this->assertSame(0, data_get($payload, 'summary.canonical_module_violation_count'));
@@ -138,6 +141,14 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
             collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
         );
         $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-documentation-creation-gate.md',
+            collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md',
+            collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
+        );
+        $this->assertContains(
             'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md',
             collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
         );
@@ -145,7 +156,16 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
             'docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md',
             collect(data_get($payload, 'required_docs', []))->pluck('path')->all(),
         );
-        $this->assertSame([], data_get($payload, 'oversized_docs', []));
+        $oversizedDocs = data_get($payload, 'oversized_docs', []);
+        $this->assertSame(data_get($payload, 'summary.oversized_count'), count($oversizedDocs));
+
+        foreach ($oversizedDocs as $doc) {
+            $this->assertSame('split_required', data_get($doc, 'status'));
+            $this->assertIsString(data_get($doc, 'path'));
+            $this->assertIsInt(data_get($doc, 'line_count'));
+            $this->assertIsInt(data_get($doc, 'limit'));
+            $this->assertIsString(data_get($doc, 'recommended_action'));
+        }
     }
 
     public function test_canonical_docs_link_ap146_provider_cost_rate_replay_contract(): void

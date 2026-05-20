@@ -6,6 +6,7 @@ use App\Services\Ai\Finance\Kernel\FinanceControlPlaneProjection;
 use App\Services\Ai\Finance\Kernel\FinanceDomainException;
 use App\Services\Ai\Finance\Kernel\FinanceDomainReadinessService;
 use App\Services\Ai\Finance\Kernel\FinanceDomainSmokeService;
+use App\Services\Ai\Finance\Kernel\FinanceEnterpriseAnalysisService;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -13,7 +14,9 @@ class AtlasAiFinanceDomainCommand extends Command
 {
     protected $signature = 'atlas:ai:finance-domain
         {positional? : Optional positional action (alternative to --action)}
-        {--action=readiness : readiness, smoke, control-plane}
+        {--action=readiness : readiness, smoke, control-plane, enterprise-analysis}
+        {--fixture : Run an enterprise flow fixture action}
+        {--runtime-mode=internal : enterprise flow runtime mode: internal or fixture}
         {--prompt= : Optional prompt for smoke}
         {--asset=AAPL : Asset to use for smoke (default AAPL)}
         {--json : Machine-readable JSON output}';
@@ -24,17 +27,27 @@ class AtlasAiFinanceDomainCommand extends Command
         FinanceDomainReadinessService $readiness,
         FinanceDomainSmokeService $smoke,
         FinanceControlPlaneProjection $controlPlane,
+        FinanceEnterpriseAnalysisService $enterprise,
     ): int {
         $positional = $this->argument('positional');
         $action = is_string($positional) && trim($positional) !== ''
             ? trim($positional)
             : (string) $this->option('action');
+        $fixtureRuntime = app(\App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService::class);
 
         try {
+            if ($fixtureRuntime->supports('finance', $action)) {
+                $payload = $fixtureRuntime->run('finance', $action, $this->fixtureRequested());
+                $this->line($this->encode($payload));
+
+                return self::SUCCESS;
+            }
+
             return match ($action) {
                 'readiness' => $this->renderReadiness($readiness),
                 'smoke' => $this->renderSmoke($smoke),
                 'control-plane' => $this->renderControlPlane($controlPlane),
+                'enterprise-analysis' => $this->renderEnterpriseAnalysis($enterprise),
                 default => $this->invalidAction($action),
             };
         } catch (FinanceDomainException $e) {
@@ -96,6 +109,22 @@ class AtlasAiFinanceDomainCommand extends Command
         return self::SUCCESS;
     }
 
+    private function renderEnterpriseAnalysis(FinanceEnterpriseAnalysisService $enterprise): int
+    {
+        $payload = $enterprise->packet((string) ($this->option('asset') ?? 'AAPL'));
+        $payload['ok'] = (bool) ($payload['readiness']['ok'] ?? false);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('asset', (string) $payload['asset']);
+            $this->components->twoColumnDetail('connectors', (string) $payload['readiness']['connector_count']);
+            $this->components->twoColumnDetail('flows', (string) $payload['readiness']['flow_count']);
+            $this->components->twoColumnDetail('agents', (string) $payload['readiness']['agent_count']);
+            $this->components->twoColumnDetail('live_trading_blocked_default', $payload['invariants']['live_trading_blocked_default'] ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
     private function renderError(string $error, string $message, ?string $type = null): int
     {
         $payload = ['ok' => false, 'error' => $error, 'message' => $message];
@@ -117,6 +146,12 @@ class AtlasAiFinanceDomainCommand extends Command
         $value = $this->option($key);
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function fixtureRequested(): bool
+    {
+        return (string) $this->input->getParameterOption('--runtime-mode', (string) $this->option('runtime-mode')) === 'fixture'
+            || (bool) $this->option('fixture');
     }
 
     private function json(): bool

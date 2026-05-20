@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHashService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionEndgameService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionReceiptDraftService;
@@ -373,6 +374,114 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         $this->assertFalse($payload['persisted']);
     }
 
+    public function test_endgame_detects_stale_runtime_promotion_receipt_and_requires_fresh_draft(): void
+    {
+        Storage::fake('local');
+        [$matrix, $receipt] = $this->runtimePromotionReceiptFixture();
+        $matrix['expected_runtime_gap_matrix_hash_for_promotion_receipt'] = str_repeat('e', 64);
+        $matrix['runtime_promotion_basis_hash'] = str_repeat('f', 64);
+        $matrix['runtime_promotion_closure_basis_hash'] = str_repeat('9', 64);
+        $matrix['rows'][1]['graduation_evidence_hash'] = str_repeat('8', 64);
+
+        $payload = (new AtlasSelfConstructionRuntimePromotionEndgameService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'runtime_gap_matrix' => $matrix,
+            'runtime_promotion_receipt' => $receipt,
+            'skip_completion_surfaces' => true,
+        ]);
+
+        $this->assertSame('receipt_loaded_verifier_blocked', $payload['status']);
+        $this->assertTrue($payload['stale_runtime_promotion_receipt_detected']);
+        $this->assertTrue($payload['fresh_runtime_promotion_receipt_required']);
+        $this->assertContains('stale_runtime_gap_matrix_hash', $payload['verifier_violation_codes']);
+        $this->assertContains('stale_runtime_promotion_basis_hash', $payload['verifier_violation_codes']);
+        $this->assertContains('stale_runtime_promotion_closure_basis_hash', $payload['verifier_violation_codes']);
+        $this->assertContains('graduation_hash_mismatch', $payload['verifier_violation_codes']);
+        $this->assertSame(
+            'blocked_stale_runtime_promotion_receipt_regenerate_draft',
+            data_get($payload, 'operator_next_action_shell_packet.status'),
+        );
+        $this->assertTrue((bool) data_get($payload, 'operator_next_action_shell_packet.stale_runtime_promotion_receipt_detected'));
+        $this->assertTrue((bool) data_get($payload, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_required'));
+        $this->assertTrue((bool) data_get($payload, 'operator_next_action_shell_packet.stale_runtime_promotion_receipt_must_be_discarded'));
+        $this->assertEqualsCanonicalizing(
+            [
+                'stale_runtime_gap_matrix_hash',
+                'stale_runtime_promotion_basis_hash',
+                'stale_runtime_promotion_closure_basis_hash',
+                'graduation_hash_mismatch',
+            ],
+            data_get($payload, 'operator_next_action_shell_packet.stale_runtime_promotion_receipt_blocking_codes'),
+        );
+        $this->assertStringContainsString(
+            '--atlas-self-construction-runtime-promotion-receipt-draft-status',
+            data_get($payload, 'fresh_runtime_promotion_receipt_recovery_command'),
+        );
+        $this->assertStringContainsString(
+            'storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            data_get($payload, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command'),
+        );
+        $this->assertStringContainsString(
+            '.agent_control_plane_atlas_self_construction_runtime_promotion_receipt_draft.receipt_payload',
+            data_get($payload, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command'),
+        );
+        $this->assertSame(
+            '.agent_control_plane_atlas_self_construction_runtime_promotion_receipt_draft.receipt_payload',
+            data_get($payload, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command_payload_path'),
+        );
+        $this->assertContains(
+            '<operator>',
+            data_get($payload, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command_placeholder_fields'),
+        );
+        $this->assertFalse((bool) data_get($payload, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command_copy_safe'));
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            data_get($payload, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command_hash'),
+        );
+        $this->assertContains(
+            'stop_if_stale_runtime_promotion_receipt_detected',
+            data_get($payload, 'operator_next_action_shell_packet.failure_policy'),
+        );
+        $this->assertFalse($payload['persisted']);
+    }
+
+    public function test_endgame_rejects_portuguese_placeholder_operator_inputs(): void
+    {
+        Storage::fake('local');
+        [$matrix, $receipt] = $this->runtimePromotionReceiptFixture();
+        $receipt['signed_by'] = 'SEU_NOME';
+        $receipt['reason'] = 'MOTIVO REAL COM PELO MENOS 32 CARACTERES';
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)
+            ->runtimePromotionReceiptHash($receipt);
+
+        $payload = (new AtlasSelfConstructionRuntimePromotionEndgameService(app(AtlasSelfConstructionReadinessService::class)))->build([
+            'runtime_gap_matrix' => $matrix,
+            'runtime_promotion_receipt' => $receipt,
+            'skip_completion_surfaces' => true,
+        ]);
+
+        $this->assertSame('receipt_loaded_verifier_blocked', $payload['status']);
+        $this->assertSame('blocked', data_get($payload, 'receipt_pre_submission_verification.status'));
+        $this->assertTrue((bool) data_get($payload, 'receipt_pre_submission_verification.placeholder_signer'));
+        $this->assertTrue((bool) data_get($payload, 'receipt_pre_submission_verification.reason_invalid'));
+        $this->assertContains('placeholder_signer', $payload['verifier_violation_codes']);
+        $this->assertContains('reason_too_short_or_placeholder', $payload['verifier_violation_codes']);
+        $this->assertFalse((bool) data_get($payload, 'operator_decision_checklist.4.passed'));
+        $this->assertFalse($payload['persisted']);
+    }
+
+    public function test_draft_blocks_portuguese_placeholder_operator_inputs(): void
+    {
+        $draft = (new AtlasSelfConstructionRuntimePromotionReceiptDraftService)->build($this->runtimeGapMatrixFixture(), [
+            'signed_by' => 'SEU_NOME',
+            'reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+        ]);
+
+        $this->assertSame('blocked_operator_input_required', $draft['status']);
+        $this->assertContains('signed_by', $draft['missing_operator_inputs']);
+        $this->assertContains('reason', $draft['missing_operator_inputs']);
+        $this->assertFalse((bool) data_get($draft, 'persistence.persisted', false));
+    }
+
     public function test_endgame_persists_operator_supplied_receipt_only_with_explicit_flag_and_green_verifier(): void
     {
         Storage::fake('local');
@@ -453,6 +562,7 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
 
     public function test_readiness_status_json_and_cli_quartet(): void
     {
+        Storage::fake('local');
         $status = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionRuntimePromotionEndgameStatus();
 
         $this->assertSame('atlas.self_construction_agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.v1', $status['schema_version']);
@@ -461,6 +571,20 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
         $this->assertSame('blocked_placeholder_replacement_required', data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.operator_next_action_shell_packet_status'));
         $this->assertSame(2, data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.operator_next_action_shell_packet_placeholder_count'));
         $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.operator_next_action_shell_packet_copy_safe'));
+        $this->assertSame('runtime_promotion_receipt', data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.current_required_operator_artifact'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.runtime_gap_matrix_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.expected_runtime_gap_matrix_hash_for_promotion_receipt'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.runtime_promotion_basis_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.runtime_promotion_closure_basis_hash'));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.self_programming_allowed'));
+        $this->assertStringContainsString(
+            '--atlas-self-construction-runtime-promotion-receipt-draft-status',
+            data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.next_required_command')
+        );
+        $this->assertStringContainsString(
+            '--persist-runtime-promotion-receipt',
+            data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.next_required_persist_command')
+        );
         $this->assertStringContainsString(
             '--atlas-self-construction-runtime-promotion-receipt-draft-status',
             data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status.operator_next_action_command_to_copy')
@@ -481,6 +605,68 @@ final class AtlasSelfConstructionRuntimePromotionEndgameTest extends TestCase
             $this->assertIsArray($decoded);
             $this->assertFalse($decoded['dispatch_allowed']);
         }
+    }
+
+    public function test_readiness_status_blocks_stale_runtime_promotion_receipt(): void
+    {
+        Storage::fake('local');
+        [, $receipt] = $this->runtimePromotionReceiptFixture();
+
+        $status = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionRuntimePromotionEndgameStatus([
+            'runtime_promotion_receipt' => $receipt,
+        ]);
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status', []);
+
+        $this->assertSame('receipt_loaded_verifier_blocked', (string) data_get($summary, 'status'));
+        $this->assertTrue((bool) data_get($summary, 'stale_runtime_promotion_receipt_detected'));
+        $this->assertTrue((bool) data_get($summary, 'fresh_runtime_promotion_receipt_required'));
+        $this->assertContains('stale_runtime_gap_matrix_hash', (array) data_get($summary, 'verifier_violation_codes'));
+        $this->assertStringContainsString(
+            '--atlas-self-construction-runtime-promotion-receipt-draft-status',
+            (string) data_get($summary, 'fresh_runtime_promotion_receipt_recovery_command'),
+        );
+        $this->assertStringContainsString(
+            'storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json',
+            (string) data_get($summary, 'fresh_runtime_promotion_receipt_recovery_file_command'),
+        );
+        $this->assertContains(
+            '<operator>',
+            (array) data_get($summary, 'fresh_runtime_promotion_receipt_recovery_file_command_placeholder_fields'),
+        );
+        $this->assertFalse((bool) data_get($summary, 'fresh_runtime_promotion_receipt_recovery_file_command_copy_safe'));
+        $this->assertSame(
+            'blocked_stale_runtime_promotion_receipt_regenerate_draft',
+            (string) data_get($summary, 'operator_next_action_shell_packet_status'),
+        );
+        $this->assertFalse((bool) data_get($summary, 'operator_next_action_shell_packet_copy_safe', true));
+        $this->assertFalse((bool) data_get($summary, 'can_persist', true));
+        $this->assertFalse((bool) data_get($summary, 'completion_claim_allowed', true));
+        $this->assertFalse((bool) data_get($summary, 'self_programming_allowed', true));
+    }
+
+    public function test_readiness_status_exposes_operator_placeholder_diagnostics(): void
+    {
+        Storage::fake('local');
+        [, $receipt] = $this->runtimePromotionReceiptFixture();
+        $receipt['signed_by'] = 'SEU_NOME';
+        $receipt['reason'] = 'MOTIVO REAL COM PELO MENOS 32 CARACTERES';
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)
+            ->runtimePromotionReceiptHash($receipt);
+
+        $status = app(AtlasSelfConstructionReadinessService::class)->atlasSelfConstructionRuntimePromotionEndgameStatus([
+            'runtime_promotion_receipt' => $receipt,
+        ]);
+        $summary = (array) data_get($status, 'agent_control_plane_atlas_self_construction_runtime_promotion_endgame_status', []);
+
+        $this->assertSame('receipt_loaded_verifier_blocked', (string) data_get($summary, 'status'));
+        $this->assertSame('blocked', (string) data_get($summary, 'receipt_pre_submission_verification_status'));
+        $this->assertTrue((bool) data_get($summary, 'placeholder_signer'));
+        $this->assertTrue((bool) data_get($summary, 'reason_invalid'));
+        $this->assertContains('placeholder_signer', (array) data_get($summary, 'verifier_violation_codes', []));
+        $this->assertContains('reason_too_short_or_placeholder', (array) data_get($summary, 'verifier_violation_codes', []));
+        $this->assertFalse((bool) data_get($summary, 'can_persist', true));
+        $this->assertFalse((bool) data_get($summary, 'completion_claim_allowed', true));
+        $this->assertFalse((bool) data_get($summary, 'self_programming_allowed', true));
     }
 
     public function test_endgame_human_output_exposes_operator_decision_path(): void

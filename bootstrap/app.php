@@ -16,21 +16,32 @@ use App\Console\Commands\AiTelemetryPerformanceReportCommand;
 use App\Console\Commands\AiTelemetryRollupCommand;
 use App\Console\Commands\AiWorkCommand;
 use App\Console\Commands\AtlasAiArchitectureValidateCommand;
+use App\Console\Commands\AtlasAiAutomationDomainCommand;
+use App\Console\Commands\AtlasAiAutonomousHoldingCommand;
+use App\Console\Commands\AtlasAiCyberDomainCommand;
 use App\Console\Commands\AtlasAiDecideCommand;
 use App\Console\Commands\AtlasAiDomainsCommand;
 use App\Console\Commands\AtlasAiDynamicComputeMarketCommand;
+use App\Console\Commands\AtlasAiEngineeringCompanyCommand;
+use App\Console\Commands\AtlasAiFinanceDomainCommand;
 use App\Console\Commands\AtlasAiHyperflowCommand;
 use App\Console\Commands\AtlasAiLedgerCommand;
 use App\Console\Commands\AtlasAiLedgerProjectionCommand;
 use App\Console\Commands\AtlasAiLocalRagBenchmarkCommand;
 use App\Console\Commands\AtlasAiLocalRagReadinessCommand;
+use App\Console\Commands\AtlasAiMarketingDomainCommand;
+use App\Console\Commands\AtlasAiOperationsDomainCommand;
+use App\Console\Commands\AtlasAiPersonalDevelopmentDomainCommand;
+use App\Console\Commands\AtlasAiProgrammingRuntimeControlPlaneCommand;
 use App\Console\Commands\AtlasAiProviderPerformanceCommand;
 use App\Console\Commands\AtlasAiProviderReleaseSourcesCommand;
 use App\Console\Commands\AtlasAiQualitativeLevelsCommand;
+use App\Console\Commands\AtlasAiResearchDomainCommand;
 use App\Console\Commands\AtlasAiRivalsStrategyCommand;
 use App\Console\Commands\AtlasAiRuntimeBoundaryCommand;
 use App\Console\Commands\AtlasAiSelfImproveCommand;
 use App\Console\Commands\AtlasAiStrategicDecisionCommand;
+use App\Console\Commands\AtlasAiStrategyDomainCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
 use App\Console\Commands\AtlasCliCheckpointCommand;
 use App\Console\Commands\AtlasCliCompareCommand;
@@ -85,6 +96,7 @@ use App\Console\Commands\AtlasEngineeringVisualBaselineCommand;
 use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
 use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
 use App\Console\Commands\AtlasForgeRivalsCommand;
+use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
@@ -157,21 +169,32 @@ return Application::configure(basePath: dirname(__DIR__))
         AiTelemetryRollupCommand::class,
         AiWorkCommand::class,
         AtlasAiArchitectureValidateCommand::class,
+        AtlasAiAutomationDomainCommand::class,
+        AtlasAiAutonomousHoldingCommand::class,
+        AtlasAiCyberDomainCommand::class,
         AtlasAiDecideCommand::class,
         AtlasAiDomainsCommand::class,
         AtlasAiDynamicComputeMarketCommand::class,
+        AtlasAiEngineeringCompanyCommand::class,
+        AtlasAiFinanceDomainCommand::class,
         AtlasAiHyperflowCommand::class,
         AtlasAiLedgerCommand::class,
         AtlasAiLedgerProjectionCommand::class,
         AtlasAiLocalRagBenchmarkCommand::class,
         AtlasAiLocalRagReadinessCommand::class,
+        AtlasAiMarketingDomainCommand::class,
+        AtlasAiOperationsDomainCommand::class,
+        AtlasAiPersonalDevelopmentDomainCommand::class,
+        AtlasAiProgrammingRuntimeControlPlaneCommand::class,
         AtlasAiProviderPerformanceCommand::class,
         AtlasAiProviderReleaseSourcesCommand::class,
         AtlasAiQualitativeLevelsCommand::class,
+        AtlasAiResearchDomainCommand::class,
         AtlasAiRivalsStrategyCommand::class,
         AtlasAiRuntimeBoundaryCommand::class,
         AtlasAiSelfImproveCommand::class,
         AtlasAiStrategicDecisionCommand::class,
+        AtlasAiStrategyDomainCommand::class,
         AtlasCliBootstrapCommand::class,
         AtlasCliCheckpointCommand::class,
         AtlasCliCompareCommand::class,
@@ -238,6 +261,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkReportCommand::class,
         AtlasEngineeringBenchmarkSeedCommand::class,
         AtlasForgeRivalsCommand::class,
+        AtlasForgeRuntimeCertifyCommand::class,
         AtlasRivalsCommand::class,
         AtlasRivalsHarnessCommand::class,
         AtlasEngineeringApiContractCommand::class,
@@ -293,6 +317,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
             $schedule->command("atlas:ai:ledger-project --hours={$projectionHours} --limit={$projectionLimit} --json")
                 ->everyTenMinutes()
+                ->withoutOverlapping();
+        }
+
+        if (config('atlas_ai.autonomous_holding.operating_cycle_enabled', true)) {
+            $schedule->command('atlas:ai:autonomous-holding observe-cycle --json')
+                ->dailyAt((string) config('atlas_ai.autonomous_holding.operating_cycle_time', '05:40'))
+                ->timezone((string) config('atlas_ai.autonomous_holding.timezone', config('app.timezone', 'UTC')))
                 ->withoutOverlapping();
         }
 

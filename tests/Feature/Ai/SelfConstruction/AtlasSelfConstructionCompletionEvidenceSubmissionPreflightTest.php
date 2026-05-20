@@ -230,6 +230,11 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightTest exten
             '--persist-runtime-promotion-receipt',
             data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.next_required_persist_command'),
         );
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.runtime_gap_matrix_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.expected_runtime_gap_matrix_hash_for_promotion_receipt'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.runtime_promotion_basis_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.runtime_promotion_closure_basis_hash'));
+        $this->assertFalse((bool) data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.self_programming_allowed'));
         $this->assertIsInt(data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.completion_audit_failed_count'));
         $this->assertIsInt(data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.completion_audit_technical_blocker_count'));
         $this->assertIsArray(data_get($status, 'agent_control_plane_atlas_self_construction_completion_evidence_submission_preflight_status.completion_audit_failed_criteria'));

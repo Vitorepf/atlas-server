@@ -16,6 +16,7 @@ class ProviderDriverRegistry
         CodexCliProviderDriver::class,
         GeminiCliProviderDriver::class,
         ClaudeCodexCouncilProviderDriver::class,
+        JarvisMlxProviderDriver::class,
     ];
 
     public function __construct(

@@ -26,6 +26,7 @@ maintenance:
   - Read before changing Atlas core, self-improvement, SDD runtime, memory, research automation, autonomous coding or governance.
   - Update when a new self-programming loop, maturity level, build dependency or core safety gate is promoted.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - app/Console/Commands/AtlasAiSelfConstructionCommand.php
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php
   - tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php
@@ -102,6 +103,15 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+
+patamar_current: Self-Construction OS
+
+patamar_next: Self-Programming OS
+
+patamar_after:
+  - Self-Programming OS so pode avancar para runtime mais autonomo depois de safety contracts, receipts, gates, completion audit e evidencia real.
+
+version_note: Este OS pode ter docs, contracts e fases internas, mas Self-Construction OS -> Self-Programming OS e patamar de maturidade, nao versao.
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md

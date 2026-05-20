@@ -47,6 +47,11 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
             $workerTaskEligibility,
             $liveFinalizationGate !== [] ? 'live_finalization_gate_with_operator_terminal_loop_binding' : 'structural_finalization_gate_probe',
         );
+        $externalCompletionClaimPolicy = $this->externalCompletionClaimPolicy(
+            transition: $transition,
+            finalizationGate: $liveFinalizationGate !== [] ? $liveFinalizationGate : $finalizationGate,
+            workerTaskEligibility: $workerTaskEligibility,
+        );
         $path = self::SAFETY_CONTRACT_PATH;
         $absolutePath = base_path($path);
         $content = is_file($absolutePath) ? (string) file_get_contents($absolutePath) : '';
@@ -138,6 +143,10 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
                 && (bool) data_get($bootstrapPlan, 'can_spend_tokens', true) === false
                 && (bool) data_get($bootstrapPlan, 'can_dispatch_work', true) === false
                 && (bool) data_get($bootstrapPlan, 'can_enable_self_programming_runtime', true) === false,
+            'external_completion_claim_policy_rejects_external_claims_until_audit_complete' => (bool) data_get($externalCompletionClaimPolicy, 'external_agent_claim_accepted', true) === false
+                && (bool) data_get($externalCompletionClaimPolicy, 'external_agent_claim_can_mark_os_complete', true) === false
+                && (bool) data_get($externalCompletionClaimPolicy, 'external_agent_claim_can_override_audit', true) === false
+                && (bool) data_get($externalCompletionClaimPolicy, 'self_programming_allowed_from_external_claim', true) === false,
         ];
         $failedCheckIds = array_keys(array_filter($checks, static fn (bool $passed): bool => ! $passed));
         $nextStageChecklist = $this->nextStagePromptToArtifactChecklist(
@@ -202,6 +211,18 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
             'self_programming_bootstrap_plan_status' => (string) data_get($bootstrapPlan, 'status', ''),
             'self_programming_bootstrap_plan_phase_count' => count((array) data_get($bootstrapPlan, 'phases', [])),
             'self_programming_bootstrap_plan_hash' => (string) data_get($bootstrapPlan, 'bootstrap_plan_hash', ''),
+            'external_completion_claim_policy' => $externalCompletionClaimPolicy,
+            'external_completion_claim_policy_status' => (string) data_get($externalCompletionClaimPolicy, 'status', ''),
+            'external_completion_claim_policy_completion_authority' => (string) data_get($externalCompletionClaimPolicy, 'completion_authority', ''),
+            'external_completion_claim_policy_required_completion_predicate' => (string) data_get($externalCompletionClaimPolicy, 'required_completion_predicate', ''),
+            'external_completion_claim_policy_external_agent_claim_accepted' => (bool) data_get($externalCompletionClaimPolicy, 'external_agent_claim_accepted', true),
+            'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => (bool) data_get($externalCompletionClaimPolicy, 'external_agent_claim_can_mark_os_complete', true),
+            'external_completion_claim_policy_external_agent_claim_can_override_audit' => (bool) data_get($externalCompletionClaimPolicy, 'external_agent_claim_can_override_audit', true),
+            'external_completion_claim_policy_transition_allowed_from_external_claim' => (bool) data_get($externalCompletionClaimPolicy, 'transition_allowed_from_external_claim', true),
+            'external_completion_claim_policy_self_programming_allowed_from_external_claim' => (bool) data_get($externalCompletionClaimPolicy, 'self_programming_allowed_from_external_claim', true),
+            'external_completion_claim_policy_current_required_operator_artifact' => (string) data_get($externalCompletionClaimPolicy, 'current_required_operator_artifact', ''),
+            'external_completion_claim_policy_current_failed_count' => (int) data_get($externalCompletionClaimPolicy, 'current_failed_count', 0),
+            'external_completion_claim_policy_hash' => (string) data_get($externalCompletionClaimPolicy, 'external_completion_claim_policy_hash', ''),
             'next_stage_prompt_to_artifact_checklist' => $nextStageChecklist,
             'next_stage_prompt_to_artifact_checklist_count' => count($nextStageChecklist),
             'next_stage_prompt_to_artifact_checklist_passed_count' => count(array_filter($nextStageChecklist, static fn (array $row): bool => (string) ($row['evidence_status'] ?? '') === 'passed')),
@@ -245,6 +266,58 @@ final class AtlasSelfProgrammingSafetyContractCertificationService
         $payload['certification_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $transition
+     * @param  array<string, mixed>  $finalizationGate
+     * @param  array<string, mixed>  $workerTaskEligibility
+     * @return array<string, mixed>
+     */
+    private function externalCompletionClaimPolicy(
+        array $transition,
+        array $finalizationGate,
+        array $workerTaskEligibility,
+    ): array {
+        $failedCriteria = (array) data_get($finalizationGate, 'completion_audit_failed_criteria', []);
+        if ($failedCriteria === []) {
+            $failedCriteria = (array) data_get($workerTaskEligibility, 'operator_only_failed_criteria', []);
+        }
+
+        $policy = [
+            'schema_version' => 'atlas.self_programming.safety_contract_external_completion_claim_policy.v1',
+            'mode' => 'read_only_self_programming_safety_contract_external_completion_claim_policy',
+            'status' => (bool) data_get($transition, 'self_construction_complete', false) ? 'completion_claim_delegated_to_completion_audit' : 'reject_external_completion_claim',
+            'completion_authority' => 'atlas_self_construction_os_completion_audit',
+            'required_completion_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'external_agent_claim_accepted' => false,
+            'external_agent_claim_can_mark_os_complete' => false,
+            'external_agent_claim_can_override_audit' => false,
+            'transition_allowed_from_external_claim' => false,
+            'self_programming_allowed_from_external_claim' => false,
+            'current_required_operator_artifact' => (string) data_get($finalizationGate, 'completion_finalization_operator_handoff.current_required_operator_artifact', ''),
+            'current_failed_count' => count($failedCriteria),
+            'failed_criteria' => $failedCriteria,
+            'failure_policy' => [
+                'reject_external_agent_completion_claim',
+                'require_completion_audit_status_complete',
+                'require_completion_allowed_true',
+                'require_failed_count_zero',
+                'require_runtime_promotion_receipt_real_provider_smoke_and_human_completion_receipt',
+            ],
+            'non_execution_guarantees' => [
+                'safety_contract_external_completion_claim_policy_does_not_execute_commands',
+                'safety_contract_external_completion_claim_policy_does_not_persist_receipts',
+                'safety_contract_external_completion_claim_policy_does_not_sign_for_operator',
+                'safety_contract_external_completion_claim_policy_does_not_call_provider',
+                'safety_contract_external_completion_claim_policy_does_not_spend_tokens',
+                'safety_contract_external_completion_claim_policy_does_not_dispatch',
+                'safety_contract_external_completion_claim_policy_does_not_enable_self_programming',
+            ],
+        ];
+        $policy['external_completion_claim_policy_hash'] = $this->stableHash($policy);
+
+        return $policy;
     }
 
     /**

@@ -111,22 +111,59 @@ final class AtlasSelfConstructionCompletionEvidenceHashComposerService
             'input_hash' => $inputHash,
             'input_hash_matches_computed_hash' => $inputHash !== '' && $inputHash === $hash,
             'payload_with_computed_hash' => $payloadWithHash,
-            'placeholder_fields' => $this->placeholderFields($payload),
+            'placeholder_fields' => $this->placeholderFields($payload, $hashField),
             'runtime_enabling_flags_true' => $this->runtimeEnablingFlagsTrue($payload),
         ];
     }
 
     /** @param array<string, mixed> $payload */
-    private function placeholderFields(array $payload): array
+    private function placeholderFields(array $payload, string $hashField): array
     {
         $fields = [];
         foreach ($payload as $field => $value) {
-            if (is_string($value) && str_starts_with(trim($value), '<') && str_ends_with(trim($value), '>')) {
+            if ((string) $field === $hashField) {
+                continue;
+            }
+            if (is_string($value) && $this->isPlaceholderValue($value)) {
                 $fields[] = (string) $field;
             }
         }
 
         return $fields;
+    }
+
+    private function isPlaceholderValue(string $value): bool
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
+            return true;
+        }
+
+        foreach ([
+            'seu_nome',
+            'seu nome',
+            'operador',
+            'motivo real',
+            'pelo menos 32 caracteres',
+            'substitua',
+            'placeholder',
+            'todo',
+            'synthetic',
+            'fixture-only',
+            'fixture_only',
+            'test_only',
+            'test-only',
+            'fake',
+            'simulated',
+            'mock-',
+            'dummy',
+        ] as $fragment) {
+            if (str_contains($normalized, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $payload */

@@ -176,6 +176,11 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             completionClaimAllowed: $completionClaimAllowed,
             terminalLoopProofJsonReference: $terminalLoopProofJsonReference,
         );
+        $externalCompletionClaimPolicy = $this->externalCompletionClaimPolicy(
+            completionAudit: $completionAudit,
+            operatorHandoff: $operatorHandoff,
+            completionClaimAllowed: $completionClaimAllowed,
+        );
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -222,6 +227,9 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
             'completion_audit_failed_criteria' => (array) data_get($completionAudit, 'failed_criteria', []),
             'completion_finalization_operator_handoff' => $operatorHandoff,
             'completion_finalization_operator_handoff_hash' => $operatorHandoff['completion_finalization_operator_handoff_hash'],
+            'external_completion_claim_policy' => $externalCompletionClaimPolicy,
+            'external_completion_claim_policy_status' => (string) data_get($externalCompletionClaimPolicy, 'status', ''),
+            'external_completion_claim_policy_hash' => (string) data_get($externalCompletionClaimPolicy, 'external_completion_claim_policy_hash', ''),
             'execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
@@ -241,6 +249,56 @@ final class AtlasSelfConstructionCompletionFinalizationGateService
         $payload['completion_finalization_gate_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $completionAudit
+     * @param  array<string, mixed>  $operatorHandoff
+     * @return array<string, mixed>
+     */
+    private function externalCompletionClaimPolicy(
+        array $completionAudit,
+        array $operatorHandoff,
+        bool $completionClaimAllowed,
+    ): array {
+        $failedCriteria = (array) data_get($completionAudit, 'failed_criteria', []);
+        $policy = [
+            'schema_version' => 'atlas.self_construction.completion_finalization_external_completion_claim_policy.v1',
+            'mode' => 'read_only_completion_finalization_external_completion_claim_policy',
+            'status' => $completionClaimAllowed ? 'completion_claim_delegated_to_completion_audit' : 'reject_external_completion_claim',
+            'completion_authority' => 'atlas_self_construction_os_completion_audit',
+            'required_completion_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'external_agent_claim_accepted' => false,
+            'external_agent_claim_can_mark_os_complete' => false,
+            'external_agent_claim_can_override_audit' => false,
+            'next_stage_allowed_from_external_claim' => false,
+            'self_programming_allowed_from_external_claim' => false,
+            'completion_claim_allowed_by_gate' => $completionClaimAllowed,
+            'current_required_operator_artifact' => (string) data_get($operatorHandoff, 'current_required_operator_artifact', ''),
+            'current_failed_count' => (int) data_get($completionAudit, 'failed_count', count($failedCriteria)),
+            'failed_criteria' => $failedCriteria,
+            'failure_policy' => [
+                'reject_external_agent_completion_claim',
+                'require_completion_audit_status_complete',
+                'require_completion_allowed_true',
+                'require_failed_count_zero',
+                'require_finalization_gate_passed',
+                'require_terminal_loop_operational_proof_binding',
+            ],
+            'non_execution_guarantees' => [
+                'completion_finalization_external_claim_policy_does_not_execute_commands',
+                'completion_finalization_external_claim_policy_does_not_persist_receipts',
+                'completion_finalization_external_claim_policy_does_not_sign_for_operator',
+                'completion_finalization_external_claim_policy_does_not_call_provider',
+                'completion_finalization_external_claim_policy_does_not_spend_tokens',
+                'completion_finalization_external_claim_policy_does_not_dispatch',
+                'completion_finalization_external_claim_policy_does_not_enable_self_programming',
+                'completion_finalization_external_claim_policy_does_not_promote_completion',
+            ],
+        ];
+        $policy['external_completion_claim_policy_hash'] = $this->stableHash($policy);
+
+        return $policy;
     }
 
     /**

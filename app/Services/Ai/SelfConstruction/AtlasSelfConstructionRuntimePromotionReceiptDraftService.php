@@ -73,11 +73,14 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftService
             loadLatestWhenEmpty: false,
         );
         $missingOperatorInputs = [];
+        $placeholderOperatorInputs = [];
         if ($this->isPlaceholderSigner((string) $receipt['signed_by'])) {
             $missingOperatorInputs[] = 'signed_by';
+            $placeholderOperatorInputs[] = 'signed_by';
         }
-        if (mb_strlen(trim((string) $receipt['reason'])) < 32 || str_starts_with((string) $receipt['reason'], '<')) {
+        if (mb_strlen(trim((string) $receipt['reason'])) < 32 || $this->isPlaceholderReason((string) $receipt['reason'])) {
             $missingOperatorInputs[] = 'reason';
+            $placeholderOperatorInputs[] = 'reason';
         }
 
         $ready = $missingOperatorInputs === [] && (string) data_get($verification, 'status') === 'passed';
@@ -113,6 +116,8 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftService
             'persistence_blocker' => $persistenceBlocker,
             'receipt_path' => (string) data_get($persistence, 'receipt_path', ''),
             'missing_operator_inputs' => $missingOperatorInputs,
+            'placeholder_operator_inputs' => $placeholderOperatorInputs,
+            'placeholder_operator_input_count' => count($placeholderOperatorInputs),
             'candidate_gap_ids' => array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $candidateRows)),
             'candidate_count' => count($candidateRows),
             'blocked_gap_ids' => array_values(array_map(static fn (array $row): string => (string) ($row['gap_id'] ?? ''), $gapRows)),
@@ -163,7 +168,35 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftService
             'claude',
             'codex-autosigned',
             'atlas',
+            'seu_nome',
+            'seu nome',
+            '<operador>',
+            'operador',
         ], true);
+    }
+
+    private function isPlaceholderReason(string $reason): bool
+    {
+        $normalized = strtolower(trim($reason));
+        if ($normalized === '' || str_starts_with($normalized, '<')) {
+            return true;
+        }
+
+        foreach ([
+            'operator reason',
+            'minimum_32_chars',
+            'pelo menos 32 caracteres',
+            'motivo real',
+            'substitua',
+            'placeholder',
+            'todo',
+        ] as $pattern) {
+            if (str_contains($normalized, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $payload */

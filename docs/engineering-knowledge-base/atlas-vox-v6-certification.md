@@ -35,8 +35,8 @@ doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-vox-v6-certification
 graph_title: Atlas Vox V6 — Certificação Final e Como Usar
 graph_world: atlas
-graph_layer: certification
-graph_kind: handbook
+graph_layer: system
+graph_kind: runbook
 graph_parent: atlas-vox-operational-thinking-interface
 graph_status: active
 graph_source: repo
@@ -62,6 +62,18 @@ depends_on:
   - atlas-vox-operational-thinking-interface
   - adr-0003-vox-vs-voice-realtime-surface-boundary
 
+flows_to:
+  - atlas-ai-runtime-release-gate
+  - atlas-ai-product-certification
+
+unlocks:
+  - vox_v6_dogfood_handbook
+  - vox_v6_certification
+
+governs:
+  - vox_v6_certification_gate
+  - vox_v7_unlock_boundary
+
 evidence:
   - app/Services/Ai/Vox/Gate/VoxV6CertificationService.php
   - test-results/vox-v6-certify/manifest.json (gerado pelo companion desktop)
@@ -69,7 +81,12 @@ evidence:
 required_tests:
   - php artisan atlas:vox:v6-certify --json
 
+requires_evidence: true
 risk_level: medium
+
+next_actions:
+  - Rodar cert V6 antes de dogfood real.
+  - Abrir nova ADR antes de destravar V7.
 
 ai_entrypoints:
   - Leia esta doc antes de tocar o serviço de cert ou tentar destravar V7.
@@ -86,6 +103,54 @@ failure_modes:
   - Touchar atlas-app/ ou Voice Realtime → cert.backend_no_voice_realtime_touched falha.
 ---
 # Atlas Vox V6 — Certificação Final
+
+## Resumo
+
+Este runbook define como certificar o Atlas Vox V6 para dogfood real e quando manter V7 bloqueado.
+
+## Papel no Atlas
+
+Ele funciona como contrato operacional para o fechamento do ciclo Vox V6.
+
+## Onde Se Encaixa
+
+O documento fica entre a interface operacional Vox, os contratos de interlocutor e os gates de release.
+
+## Contratos
+
+O comando `php artisan atlas:vox:v6-certify --json` e o envelope canonico de certificacao governam a promocao.
+
+## Fluxo
+
+O operador roda o cert, revisa checks por area, confirma dogfood V6 e mantem V7 bloqueado ate nova ADR.
+
+## Regras para IA
+
+Nao destravar V7, nao adicionar provider pago e nao transformar warnings em aprovacao sem evidencia.
+
+## Escopo de Implementacao
+
+O escopo cobre certificacao read-only, companion desktop e criterios de retorno para V7.
+
+## Dependencias
+
+Depende dos contratos Vox, da decisao de fronteira Vox versus Voice Realtime e do service de gate V6.
+
+## Evidencias
+
+As evidencias minimas sao o service de certificacao, o comando artisan e o manifest gerado pelo companion desktop.
+
+## Riscos
+
+O risco principal e promover memoria longitudinal V7 sem decisao humana ou sem ADR explicita.
+
+## Exemplos
+
+Um resultado `pass` pode liberar dogfood V6, mas nunca deve retornar `v7_unlock_allowed=true`.
+
+## Proximas Acoes
+
+Executar o cert antes de dogfood e abrir nova ADR quando V7 voltar ao roadmap ativo.
 
 > V6 fecha a primeira jornada Atlas Vox: ambient Mac, Option+Space, auto mode,
 > interlocutor que pergunta/avisa/discorda/sugere, resposta curta opcional,

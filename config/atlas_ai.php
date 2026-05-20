@@ -546,6 +546,12 @@ return [
         'max_lag_seconds' => (int) env('ATLAS_AI_LEDGER_PROJECTION_MAX_LAG_SECONDS', 900),
     ],
 
+    'autonomous_holding' => [
+        'operating_cycle_enabled' => (bool) env('ATLAS_AI_AUTONOMOUS_HOLDING_OPERATING_CYCLE_ENABLED', true),
+        'operating_cycle_time' => env('ATLAS_AI_AUTONOMOUS_HOLDING_OPERATING_CYCLE_TIME', '05:40'),
+        'timezone' => env('ATLAS_AI_AUTONOMOUS_HOLDING_TIMEZONE', env('APP_TIMEZONE', 'UTC')),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Tool Runtime · Policy/Evidence strict mode

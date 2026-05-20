@@ -10,6 +10,7 @@ use App\Services\Ai\Provider\Drivers\ClaudeCliProviderDriver;
 use App\Services\Ai\Provider\Drivers\ClaudeCodexCouncilProviderDriver;
 use App\Services\Ai\Provider\Drivers\CodexCliProviderDriver;
 use App\Services\Ai\Provider\Drivers\GeminiCliProviderDriver;
+use App\Services\Ai\Provider\Drivers\JarvisMlxProviderDriver;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -27,6 +28,7 @@ class ProviderDriverWrappersTest extends TestCase
             'codex cli' => [CodexCliProviderDriver::class, 'codex_cli'],
             'gemini cli' => [GeminiCliProviderDriver::class, 'gemini_cli'],
             'claude codex council' => [ClaudeCodexCouncilProviderDriver::class, 'claude_codex'],
+            'jarvis mlx' => [JarvisMlxProviderDriver::class, 'jarvis_mlx'],
         ];
     }
 
@@ -257,21 +259,23 @@ class ProviderDriverWrappersTest extends TestCase
     {
         $registry = app(ProviderDriverRegistry::class);
 
-        $this->assertSame(['claude_cli', 'codex_cli', 'gemini_cli', 'claude_codex'], $registry->providerIds());
+        $this->assertSame(['claude_cli', 'codex_cli', 'gemini_cli', 'claude_codex', 'jarvis_mlx'], $registry->providerIds());
         $this->assertInstanceOf(ClaudeCliProviderDriver::class, $registry->get('claude_cli'));
         $this->assertInstanceOf(CodexCliProviderDriver::class, $registry->get('codex_cli'));
         $this->assertInstanceOf(GeminiCliProviderDriver::class, $registry->get('gemini_cli'));
         $this->assertInstanceOf(ClaudeCodexCouncilProviderDriver::class, $registry->get('claude_codex'));
+        $this->assertInstanceOf(JarvisMlxProviderDriver::class, $registry->get('jarvis_mlx'));
 
         $report = $registry->complianceReport();
         $this->assertTrue($report['ok'], implode("\n", $report['errors']));
-        $this->assertSame(4, $report['count']);
+        $this->assertSame(5, $report['count']);
         $this->assertIsArray($report['warnings']);
         $this->assertSame([
             ClaudeCliProviderDriver::class,
             CodexCliProviderDriver::class,
             GeminiCliProviderDriver::class,
             ClaudeCodexCouncilProviderDriver::class,
+            JarvisMlxProviderDriver::class,
         ], $registry->driverClasses());
     }
 
@@ -279,8 +283,8 @@ class ProviderDriverWrappersTest extends TestCase
     {
         $manifest = app(ProviderDriverRegistry::class)->manifest();
 
-        $this->assertCount(4, $manifest);
-        $this->assertSame(['claude_cli', 'codex_cli', 'gemini_cli', 'claude_codex'], array_column($manifest, 'provider_id'));
+        $this->assertCount(5, $manifest);
+        $this->assertSame(['claude_cli', 'codex_cli', 'gemini_cli', 'claude_codex', 'jarvis_mlx'], array_column($manifest, 'provider_id'));
 
         foreach ($manifest as $entry) {
             $this->assertNotEmpty($entry['driver_class']);

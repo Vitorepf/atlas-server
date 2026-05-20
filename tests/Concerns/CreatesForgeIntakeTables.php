@@ -37,6 +37,8 @@ trait CreatesForgeIntakeTables
             $table->string('context_pack_hash', 64)->nullable();
             $table->json('rich_input_payload')->nullable();
             $table->string('rich_input_schema_version', 120)->nullable();
+            $table->json('context_operations')->nullable();
+            $table->string('context_operations_hash', 64)->nullable()->index();
             $table->json('constraints')->nullable();
             $table->json('non_goals')->nullable();
             $table->json('sdd_spec')->nullable();

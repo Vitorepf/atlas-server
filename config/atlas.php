@@ -470,6 +470,10 @@ return [
                     'max_visible_tokens' => env('ATLAS_AI_GEMINI_BUDGET_MAX_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_GEMINI_BUDGET_MAX_VISIBLE_TOKENS') : null,
                     'warn_visible_tokens' => env('ATLAS_AI_GEMINI_BUDGET_WARN_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_GEMINI_BUDGET_WARN_VISIBLE_TOKENS') : null,
                 ],
+                'jarvis_mlx' => [
+                    'max_visible_tokens' => env('ATLAS_AI_JARVIS_BUDGET_MAX_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_JARVIS_BUDGET_MAX_VISIBLE_TOKENS') : null,
+                    'warn_visible_tokens' => env('ATLAS_AI_JARVIS_BUDGET_WARN_VISIBLE_TOKENS') !== null ? (int) env('ATLAS_AI_JARVIS_BUDGET_WARN_VISIBLE_TOKENS') : null,
+                ],
             ],
         ],
         'default_agent' => env('ATLAS_AI_DEFAULT_AGENT', 'orquestrador'),
@@ -716,6 +720,19 @@ return [
                 'args' => env('ATLAS_AI_GEMINI_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_GEMINI_ARGS'))), fn (string $arg): bool => $arg !== ''))
                     : [],
+            ],
+            'jarvis_mlx' => [
+                'binary' => env('ATLAS_AI_JARVIS_MLX_BIN', 'python3'),
+                'model' => env('ATLAS_AI_JARVIS_MLX_MODEL', 'jarvis_mlx_default'),
+                'model_label' => 'Jarvis MLX Local Engine',
+                'model_tier' => 'daily',
+                'model_identity' => 'jarvis_mlx_default',
+                'fallback_model' => null,
+                'allow_auto' => (bool) env('ATLAS_AI_JARVIS_MLX_ALLOW_AUTO', true),
+                'allow_manual' => (bool) env('ATLAS_AI_JARVIS_MLX_ALLOW_MANUAL', true),
+                'args' => [
+                    'dissecar/huw-prosser/jarvis-mlx/repo/cli.py',
+                ],
             ],
         ],
     ],

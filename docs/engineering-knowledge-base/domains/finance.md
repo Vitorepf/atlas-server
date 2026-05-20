@@ -106,7 +106,7 @@ observability_signals:
   - docs-health status ok
 
 next_actions:
-  - Finance Company Runtime entregue 2026-05-18 via app/Services/Ai/Finance/Kernel/ + comando atlas:ai:finance-domain --action=readiness|smoke|control-plane. Live trading permanece hard-blocked.
+  - Finance Company Runtime entregue 2026-05-18 via app/Services/Ai/Finance/Kernel/ + comando atlas:ai:finance-domain --action=readiness|smoke|control-plane|enterprise-analysis. Live trading permanece hard-blocked.
 ---
 # Atlas AI Finance Domain
 
@@ -202,6 +202,7 @@ Finance is now centrally registered as a first-class Atlas AI domain.
 - `atlas:ai:architecture-validate --json` includes Finance in the ready domain count.
 - Finance Company Runtime upgrade (2026-05-18) registers manifest `finance` no Domain Runtime com 7 capabilities (research_desk, valuation, portfolio_review, risk_review, compliance, reporting, paper_trading_simulation) sob `app/Services/Ai/Finance/Kernel/`. Bridges seguros para Mission/Domain Runtime/Policy/Evidence; live trading hard-blocked por FinanceDomainCanon::liveTradingBlocked() e FinanceComplianceService::assertNotLiveTrade.
 - Comando `atlas:ai:finance-domain --action=readiness|smoke|control-plane` valida invariantes (live_trading_blocked_default=true, broker_execution_allowed=false, auto_rebalance_allowed=false) e roda smoke E2E research→valuation→portfolio→risk→compliance→paper-trading→reporting.
+- Comando `atlas:ai:finance-domain --action=enterprise-analysis --json` entrega o pacote institucional inspirado no padrao Claude for Financial Services: interface unificada de dados, conectores read-only/governados, source links, audit trail de modelos, due diligence de data room, portfolio monitoring, compliance automation e investment committee memo. Continua sem live trading, broker execution, auto rebalance ou money movement.
 
 Implemented files:
 
@@ -212,11 +213,13 @@ Implemented files:
 - `app/Services/Ai/Finance/AtlasFinanceOrchestrator.php`
 - `app/Services/Ai/Finance/AtlasFinanceRuntime.php`
 - `app/Services/Ai/Finance/AtlasFinanceSafetyPolicy.php`
+- `app/Services/Ai/Finance/Kernel/FinanceEnterpriseAnalysisService.php`
 - `database/migrations/2026_05_05_080000_expand_finance_domain_contract.php`
 
 Validation:
 
 - `php artisan test tests/Unit/Ai/Finance tests/Feature/Ai/Finance`
+- `php artisan test tests/Feature/Ai/FinanceDomain/FinanceEnterpriseAnalysisTest.php`
 - `php artisan test tests/Feature/Architecture/DomainProfileComplianceTest.php tests/Feature/Ai/AtlasAiDomainsCommandTest.php`
 - `php artisan atlas:ai:domains --json`
 - `php artisan atlas:ai:architecture-validate --json`

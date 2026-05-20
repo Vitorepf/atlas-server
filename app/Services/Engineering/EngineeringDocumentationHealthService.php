@@ -16,7 +16,9 @@ class EngineeringDocumentationHealthService
     private const REQUIRED_DOCS = [
         'docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md' => 520,
         'docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md' => 520,
+        'docs/engineering-knowledge-base/atlas-documentation-creation-gate.md' => 520,
         'docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md' => 520,
+        'docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md' => 520,
         'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md' => 520,
         'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md' => 520,
         'docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md' => 520,
@@ -86,6 +88,8 @@ class EngineeringDocumentationHealthService
         'quality_gates',
         'failure_modes',
         'observability_signals',
+        'patamar_after',
+        'versions',
     ];
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
 use App\Services\Ai\Cyber\AppSecReviewService;
 use App\Services\Ai\Cyber\CyberControlPlaneProjection;
 use App\Services\Ai\Cyber\CyberDomainException;
@@ -19,7 +20,9 @@ class AtlasAiCyberDomainCommand extends Command
 {
     protected $signature = 'atlas:ai:cyber-domain
         {positional? : Optional positional action (alternative to --action)}
-        {--action=readiness : readiness, smoke, control-plane, seed-manifest}
+        {--action=readiness : readiness, smoke, control-plane, seed-manifest, enterprise-analysis}
+        {--fixture : Run an enterprise flow fixture action}
+        {--runtime-mode=internal : enterprise flow runtime mode: internal or fixture}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Cyber Security Company Runtime: defensive review, AppSec, GRC, remediation, authorized bug bounty intake. NEVER executes offensive actions.';
@@ -29,18 +32,31 @@ class AtlasAiCyberDomainCommand extends Command
         CyberRuntimeService $runtime,
         CyberControlPlaneProjection $controlPlane,
         CyberDomainManifestSeeder $manifestSeeder,
+        AutonomousHoldingEnterpriseBuildoutService $enterpriseBuildout,
     ): int {
         $positional = $this->argument('positional');
         $action = is_string($positional) && trim($positional) !== ''
             ? trim($positional)
             : (string) $this->option('action');
+        $fixtureRuntime = app(\App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService::class);
 
         try {
+            if ($fixtureRuntime->supports(CyberDomainManifestSeeder::DOMAIN_ID, $action)) {
+                $this->line($this->encode($fixtureRuntime->run(
+                    CyberDomainManifestSeeder::DOMAIN_ID,
+                    $action,
+                    $this->fixtureRequested(),
+                )));
+
+                return self::SUCCESS;
+            }
+
             return match ($action) {
                 'readiness' => $this->renderReadiness($readiness),
                 'smoke' => $this->renderSmoke($runtime, $controlPlane),
                 'control-plane' => $this->renderControlPlane($controlPlane),
                 'seed-manifest' => $this->renderSeedManifest($manifestSeeder),
+                'enterprise-analysis' => $this->renderEnterpriseAnalysis($enterpriseBuildout),
                 default => $this->invalidAction($action),
             };
         } catch (CyberDomainException $e) {
@@ -211,6 +227,19 @@ class AtlasAiCyberDomainCommand extends Command
         return self::SUCCESS;
     }
 
+    private function renderEnterpriseAnalysis(AutonomousHoldingEnterpriseBuildoutService $enterpriseBuildout): int
+    {
+        $payload = $enterpriseBuildout->companyPacket(CyberDomainManifestSeeder::DOMAIN_ID);
+        $payload['ok'] = (bool) ($payload['readiness']['ok'] ?? false);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('company_id', (string) $payload['company_id']);
+            $this->components->twoColumnDetail('flows', (string) $payload['readiness']['flow_count']);
+            $this->components->twoColumnDetail('connectors', (string) $payload['readiness']['connector_count']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
     private function invalidAction(string $action): int
     {
         $payload = ['ok' => false, 'error' => 'invalid_action', 'message' => "invalid action [{$action}]"];
@@ -243,5 +272,11 @@ class AtlasAiCyberDomainCommand extends Command
     private function encode(array $payload): string
     {
         return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    }
+
+    private function fixtureRequested(): bool
+    {
+        return (string) $this->input->getParameterOption('--runtime-mode', (string) $this->option('runtime-mode')) === 'fixture'
+            || (bool) $this->option('fixture');
     }
 }

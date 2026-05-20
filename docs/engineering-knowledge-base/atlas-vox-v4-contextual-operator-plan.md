@@ -5,6 +5,7 @@ title: Atlas Vox V4 Contextual Operator - Plan (paper-only, gated by V3)
 status: planned
 category: planning
 priority: 92
+implementation_state: paper_only_gated_by_v3_not_current_runtime
 summary: Plano decision-complete para V4 Contextual Operator do Atlas Vox. Define quais context_refs sao permitidos / opt-in / proibidos, como overlay mostra contexto usado, como remover contexto antes de executar, evidence ledger, privacidade e fronteiras com mobile / Voice Realtime. Documento de papel; NENHUM runtime V4 implementado. Bloqueado por GATE V3 (Lei 0.9 + ADR 0003).
 tags:
   - atlas-vox
@@ -56,6 +57,14 @@ graph_status: planned
 graph_source: repo
 
 owner: surface-architecture
+
+patamar_after: []
+patamar_next: []
+versions:
+  - atlas-vox-v0
+  - atlas-vox-v3
+  - atlas-vox-v4
+  - atlas-vox-v6
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-vox-v4-contextual-operator-plan.md

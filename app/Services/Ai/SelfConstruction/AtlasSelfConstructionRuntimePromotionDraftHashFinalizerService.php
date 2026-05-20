@@ -210,7 +210,7 @@ final class AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService
             $fields[] = 'signed_by';
         }
         $reason = trim((string) ($receipt['reason'] ?? ''));
-        if (mb_strlen($reason) < 32 || str_starts_with($reason, '<')) {
+        if (mb_strlen($reason) < 32 || $this->isPlaceholderValue($reason)) {
             $fields[] = 'reason';
         }
 
@@ -250,7 +250,9 @@ final class AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService
 
     private function isPlaceholderSigner(string $signedBy): bool
     {
-        return in_array(strtolower(trim($signedBy)), [
+        $normalized = strtolower(trim($signedBy));
+
+        return in_array($normalized, [
             '',
             '<operator>',
             'operator',
@@ -261,7 +263,41 @@ final class AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService
             'claude',
             'codex-autosigned',
             'atlas',
-        ], true);
+        ], true) || $this->isPlaceholderValue($normalized);
+    }
+
+    private function isPlaceholderValue(string $value): bool
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
+            return true;
+        }
+
+        foreach ([
+            'seu_nome',
+            'seu nome',
+            'operador',
+            'motivo real',
+            'pelo menos 32 caracteres',
+            'substitua',
+            'placeholder',
+            'todo',
+            'synthetic',
+            'fixture-only',
+            'fixture_only',
+            'test_only',
+            'test-only',
+            'fake',
+            'simulated',
+            'mock-',
+            'dummy',
+        ] as $fragment) {
+            if (str_contains($normalized, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function storageFileHash(string $path): string

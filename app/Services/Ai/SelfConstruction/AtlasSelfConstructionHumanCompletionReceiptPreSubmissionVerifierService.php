@@ -29,6 +29,10 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierServ
         'assistant',
         'system',
         'atlas',
+        'seu_nome',
+        'seu nome',
+        '<operador>',
+        'operador',
     ];
 
     private const FORBIDDEN_REASON_PATTERNS = [
@@ -38,6 +42,11 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierServ
         'placeholder',
         'autosigned',
         'lorem',
+        'operator reason',
+        'minimum_32_chars',
+        'pelo menos 32 caracteres',
+        'motivo real',
+        'substitua',
     ];
 
     private const FORBIDDEN_FLAGS = [
@@ -88,6 +97,11 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierServ
             foreach (self::FORBIDDEN_REASON_PATTERNS as $pattern) {
                 if (str_contains($reasonLower, $pattern)) {
                     $diagnostics[] = ['code' => 'placeholder_reason_pattern', 'pattern' => $pattern];
+                }
+            }
+            foreach ($this->externalCompletionClaimReasonPatterns() as $pattern) {
+                if (str_contains($reasonLower, $pattern)) {
+                    $diagnostics[] = ['code' => 'external_completion_claim_reason_pattern', 'pattern' => $pattern];
                 }
             }
             if (mb_strlen($reason) < 32) {
@@ -205,6 +219,23 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierServ
         $normalized = mb_strtolower(trim($signedBy));
 
         return in_array($normalized, self::PLACEHOLDER_SIGNERS, true);
+    }
+
+    /** @return list<string> */
+    private function externalCompletionClaimReasonPatterns(): array
+    {
+        return [
+            'gemini disse',
+            'gemini said',
+            'claude disse',
+            'claude said',
+            'codex disse',
+            'codex said',
+            'agente externo disse',
+            'external agent said',
+            'external completion claim',
+            'claim externo',
+        ];
     }
 
     /**

@@ -1,4 +1,105 @@
+---
+id: atlas-ai-runtime-readiness
+type: engineering_knowledge
+title: Atlas AI Runtime Readiness
+status: active
+category: runtime
+priority: 93
+summary: Agregador canonico que responde se o runtime Atlas AI esta pronto para release.
+tags:
+  - atlas-ai
+  - runtime
+  - readiness
+capabilities:
+  - runtime_readiness
+decisions:
+  - Runtime readiness agrega checks existentes sem substituir suas fontes autoritativas.
+maintenance:
+  - Atualizar quando sub-certifications ou readiness services mudarem.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-runtime-release-gate.md
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-ai-runtime-readiness
+graph_title: Atlas AI Runtime Readiness
+graph_world: atlas
+graph_layer: system
+graph_kind: contract
+graph_parent: atlas-ai-canonical-architecture-index
+graph_status: active
+graph_source: repo
+owner: runtime-readiness
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-ai-runtime-readiness.md
+allowed_changes:
+  - Atualizar checks agregados junto com codigo e testes.
+forbidden_changes:
+  - Declarar ready ignorando critical_failed.
+depends_on:
+  - atlas-ai-product-certification
+flows_to:
+  - atlas-code
+unlocks:
+  - runtime-release-readiness
+governs:
+  - runtime-readiness
+evidence:
+  - docs/engineering-knowledge-base/atlas-ai-runtime-readiness.md
+required_tests:
+  - "php artisan atlas:ai:runtime-readiness --json"
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Manter agregacao honesta de critical e warn checks.
+---
 # Atlas AI Runtime Readiness & Release Gate
+
+## Resumo
+
+Agrega readiness/certification services em decisao unica ready/partial/blocked.
+
+## Papel no Atlas
+
+Servir como fonte de prontidao macro do runtime principal.
+
+## Onde Se Encaixa
+
+Acima de Product Certification, Router Runtime e Mission layers.
+
+## Contratos
+
+Critical failed bloqueia ready.
+
+## Fluxo
+
+Executa subchecks, normaliza status e calcula certification_hash.
+
+## Regras para IA
+
+Nao declarar release quando status for partial ou blocked.
+
+## Escopo de Implementacao
+
+Readiness aggregate e command JSON/strict.
+
+## Dependencias
+
+Product, control plane, router, specialist flows e mission stack.
+
+## Evidencias
+
+Command output e checks agregados.
+
+## Riscos
+
+Mascarar falhas criticas em macro ready.
+
+## Exemplos
+
+`php artisan atlas:ai:runtime-readiness --strict --json`.
+
+## Proximas Acoes
+
+Manter subchecks e severity coerentes.
 
 **Status:** ativo · entregue 2026-05-19
 **Schema raiz:** `atlas.ai.runtime_readiness.v1`

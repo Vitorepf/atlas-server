@@ -54,6 +54,48 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 graph_source: repo
 owner: product-architecture
+version_family: Atlas Vox
+versions:
+  - V0 dictation pura com Kernel e receipt R0.
+  - V3 gate de certificacao antes de promover V4+.
+  - V4 contextual operator somente depois de GATE V3 verde.
+  - V6 ambient cognitive layer e retomada possivel da Voice Realtime Surface.
+version_note: Atlas Vox V0/V3/V4/V6 sao versoes/degraus da Escada Vox; nao sao patamares canonicos do Atlas inteiro por padrao.
+gear_flow:
+  - graph_id: atlas-vox-operational-thinking-interface:voice
+    target_graph_id: atlas-ai-voice-realtime-canon-de-fala
+    name: Fala humana
+    kind: input
+    summary: fala bruta vira transcript governado
+  - graph_id: atlas-vox-operational-thinking-interface:intent
+    target_graph_id: intent-routing
+    name: Intent Packet
+    kind: context
+    summary: transcript vira intencao estruturada com risco, dominio e restricoes
+  - graph_id: atlas-vox-operational-thinking-interface:policy
+    target_graph_id: atlas-ai-kernel-architecture
+    name: Kernel + Policy
+    kind: policy
+    summary: Kernel decide autoridade; voz nao executa sozinha
+  - graph_id: atlas-vox-operational-thinking-interface:receipt
+    target_graph_id: decision-receipt
+    name: Decision Receipt
+    kind: decision
+    summary: acao relevante so avanca com receipt e evidencia
+  - graph_id: atlas-vox-operational-thinking-interface:action
+    name: Acao governada
+    kind: output
+    summary: comando, proposta, work order, memoria candidata ou resposta
+  - graph_id: atlas-vox-operational-thinking-interface:memory
+    target_graph_id: evidence-ledger
+    name: Memoria revisavel
+    kind: gate
+    summary: evidence e memoria viva melhoram o proximo pensamento
+  - graph_id: atlas-vox-operational-thinking-interface:boundary
+    target_graph_id: atlas-ai-voice-realtime-surface
+    name: Fronteira Voice Realtime
+    kind: gate
+    summary: Voice Realtime e surface tecnica; Vox e programa produto/arquitetura
 repo_paths:
   - docs/engineering-knowledge-base/atlas-vox-operational-thinking-interface.md
 allowed_changes:

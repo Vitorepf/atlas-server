@@ -49,6 +49,11 @@ class ForgeIntakeServiceTest extends TestCase
         $this->assertSame('atlas-server', $intake->workspace_slug);
         $this->assertSame(64, strlen($intake->intake_hash));
         $this->assertNull($intake->blocker_reason);
+        $this->assertSame('atlas.context_intelligence.operations_runtime.v1', data_get($intake->context_operations, 'schema_version'));
+        $this->assertSame('atlas_forge', data_get($intake->context_operations, 'flow_binding.flow_id'));
+        $this->assertTrue((bool) data_get($intake->context_operations, 'integration_policy.verified_compaction_required'));
+        $this->assertSame('forge_intake', data_get($intake->context_operations, 'handoff_packet.role'));
+        $this->assertSame(data_get($intake->context_operations, 'operations_runtime_hash'), $intake->context_operations_hash);
 
         // 5 canonical milestones present, in canonical order.
         $milestones = $intake->milestones()->orderBy('position')->get();
@@ -418,6 +423,7 @@ class ForgeIntakeServiceTest extends TestCase
             'context_pack_hash' => $intake->context_pack_hash,
             'rich_input_payload' => $intake->rich_input_payload,
             'rich_input_schema_version' => $intake->rich_input_schema_version,
+            'context_operations_hash' => $intake->context_operations_hash,
             'constraints' => $intake->constraints,
             'non_goals' => $intake->non_goals,
             'sdd_spec' => $intake->sdd_spec,

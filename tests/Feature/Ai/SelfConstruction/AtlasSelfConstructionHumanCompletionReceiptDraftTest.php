@@ -6,6 +6,7 @@ use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHash
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceiptDraftService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -38,6 +39,25 @@ final class AtlasSelfConstructionHumanCompletionReceiptDraftTest extends TestCas
         $this->assertSame('blocked_operator_or_evidence_input_required', $result['status']);
         $this->assertContains('signed_by', $result['missing_operator_inputs']);
         $this->assertContains('human_completion_receipt_signer_invalid_or_placeholder', array_column((array) data_get($result, 'verification.violations', []), 'code'));
+    }
+
+    public function test_receipt_draft_rejects_portuguese_operator_placeholders(): void
+    {
+        $result = (new AtlasSelfConstructionHumanCompletionReceiptDraftService)->build($this->completionAudit(), $this->completionEvidence(), [
+            'signed_by' => 'SEU_NOME',
+            'reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+            'persist_completion_evidence' => true,
+        ]);
+
+        $this->assertSame('blocked_operator_or_evidence_input_required', $result['status']);
+        $this->assertSame('human_completion_receipt_draft_not_ready_for_persistence', $result['persistence_blocker']);
+        $this->assertContains('signed_by', $result['missing_operator_inputs']);
+        $this->assertContains('reason', $result['missing_operator_inputs']);
+        $this->assertContains('human_completion_receipt_signer_invalid_or_placeholder', array_column((array) data_get($result, 'verification.violations', []), 'code'));
+        $this->assertContains('human_completion_receipt_reason_placeholder', array_column((array) data_get($result, 'verification.violations', []), 'code'));
+        $this->assertFalse((bool) $result['persisted']);
+        $this->assertFalse((bool) $result['completion_claim_allowed']);
+        $this->assertFalse((bool) $result['self_programming_allowed']);
     }
 
     public function test_receipt_draft_builds_verifier_ready_payload_with_real_operator_inputs(): void
@@ -83,12 +103,30 @@ final class AtlasSelfConstructionHumanCompletionReceiptDraftTest extends TestCas
 
     public function test_command_exposes_status_and_quartet(): void
     {
-        $payload = $this->artisan('atlas:ai:self-construction', [
+        $payload = Artisan::call('atlas:ai:self-construction', [
             '--atlas-self-construction-human-completion-receipt-draft-status' => true,
             '--json' => true,
-        ])->run();
+        ]);
 
         $this->assertSame(0, $payload);
+        $decoded = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $summary = (array) data_get($decoded, 'agent_control_plane_atlas_self_construction_human_completion_receipt_draft_status', []);
+
+        $this->assertSame('runtime_promotion_receipt', $summary['current_required_operator_artifact']);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $summary['next_required_command']);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', $summary['next_required_persist_command']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_gap_matrix_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_promotion_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_promotion_closure_basis_hash']);
+        $this->assertFalse((bool) $summary['execution_allowed']);
+        $this->assertFalse((bool) $summary['dispatch_allowed']);
+        $this->assertFalse((bool) $summary['provider_call_allowed']);
+        $this->assertFalse((bool) $summary['token_spend_allowed']);
+        $this->assertFalse((bool) $summary['adapter_execution_allowed']);
+        $this->assertFalse((bool) $summary['completion_allowed']);
+        $this->assertFalse((bool) $summary['completion_claim_allowed']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
 
         foreach ([
             '--atlas-self-construction-human-completion-receipt-draft-contract' => 'atlas.self_construction_agent_control_plane_atlas_self_construction_human_completion_receipt_draft_contract.v1',

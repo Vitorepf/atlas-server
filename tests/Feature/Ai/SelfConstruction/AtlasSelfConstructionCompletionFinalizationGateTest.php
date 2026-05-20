@@ -19,6 +19,19 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertSame('blocked', $gate['status']);
         $this->assertFalse((bool) $gate['completion_claim_allowed']);
         $this->assertFalse((bool) $gate['next_stage_allowed']);
+        $this->assertSame('reject_external_completion_claim', (string) data_get($gate, 'external_completion_claim_policy.status'));
+        $this->assertSame('atlas_self_construction_os_completion_audit', (string) data_get($gate, 'external_completion_claim_policy.completion_authority'));
+        $this->assertSame(
+            'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            (string) data_get($gate, 'external_completion_claim_policy.required_completion_predicate'),
+        );
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.external_agent_claim_accepted'));
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete'));
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.external_agent_claim_can_override_audit'));
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.next_stage_allowed_from_external_claim'));
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.self_programming_allowed_from_external_claim'));
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.completion_claim_allowed_by_gate'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($gate, 'external_completion_claim_policy.external_completion_claim_policy_hash'));
         $this->assertNotEmpty((array) $gate['next_stage_blockers']);
         $this->assertGreaterThan(0, count((array) $gate['failed_check_ids']));
         $this->assertNotEmpty((string) $gate['completion_evidence_status_hash']);
@@ -109,6 +122,14 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertSame('passed', $gate['status']);
         $this->assertTrue((bool) $gate['completion_claim_allowed']);
         $this->assertTrue((bool) $gate['next_stage_allowed']);
+        $this->assertSame('completion_claim_delegated_to_completion_audit', (string) data_get($gate, 'external_completion_claim_policy.status'));
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.external_agent_claim_accepted'));
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.external_agent_claim_can_override_audit'));
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete'));
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.next_stage_allowed_from_external_claim'));
+        $this->assertFalse((bool) data_get($gate, 'external_completion_claim_policy.self_programming_allowed_from_external_claim'));
+        $this->assertTrue((bool) data_get($gate, 'external_completion_claim_policy.completion_claim_allowed_by_gate'));
+        $this->assertSame(0, (int) data_get($gate, 'external_completion_claim_policy.current_failed_count'));
         $this->assertTrue((bool) $gate['evidence_hashes_match_completion_audit']);
         $this->assertSame([], (array) $gate['next_stage_blockers']);
         $this->assertSame([], (array) $gate['failed_check_ids']);
@@ -256,6 +277,20 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
             (int) $summary['completion_audit_failed_count'],
             (int) $summary['failed_count'],
         );
+        $this->assertSame('reject_external_completion_claim', (string) $summary['external_completion_claim_policy_status']);
+        $this->assertSame('atlas_self_construction_os_completion_audit', (string) $summary['external_completion_claim_policy_completion_authority']);
+        $this->assertSame(
+            'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            (string) $summary['external_completion_claim_policy_required_completion_predicate'],
+        );
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_external_agent_claim_accepted']);
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_external_agent_claim_can_mark_os_complete']);
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_external_agent_claim_can_override_audit']);
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_next_stage_allowed_from_external_claim']);
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_self_programming_allowed_from_external_claim']);
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_completion_claim_allowed_by_gate']);
+        $this->assertSame((int) $summary['failed_count'], (int) $summary['external_completion_claim_policy_current_failed_count']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['external_completion_claim_policy_hash']);
         $this->assertContains(
             (string) $summary['current_required_operator_artifact'],
             [
@@ -296,6 +331,8 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertSame('real_provider_smoke', $checklist['end_to_end_real_provider_smoke_green']['artifact']);
         $this->assertSame('human_completion_receipt', $checklist['human_signed_os_complete_receipt_present']['artifact']);
         $this->assertSame('final_completion_audit', $checklist['completion_audit_authorizes_completion_claim']['artifact']);
+        $this->assertTrue((bool) $summary['terminal_loop_operational_proof_required_before_completion_claim']);
+        $this->assertTrue((bool) $summary['completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only']);
         $this->assertSame('terminal_loop_end_to_end_contract_available', $summary['terminal_loop_operational_proof_post_cycle_end_to_end_contract_status']);
         $this->assertTrue((bool) $summary['terminal_loop_operational_proof_post_cycle_end_to_end_contract_all_required_surfaces_present']);
         $this->assertSame([], $summary['terminal_loop_operational_proof_post_cycle_end_to_end_contract_missing_required_capabilities']);
@@ -307,8 +344,15 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertSame('copy_ready_after_fresh_status_review', $summary['completion_finalization_next_action_shell_packet_status']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $summary['completion_finalization_next_action_shell_packet_hash']);
         $this->assertStringContainsString('--atlas-self-construction-operator-evidence-submission-readiness-status', $summary['completion_finalization_next_action_exact_command']);
+        $this->assertSame($summary['completion_finalization_next_action_exact_command'], $summary['next_required_command']);
+        $this->assertArrayHasKey('next_required_persist_command', $summary);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_gap_matrix_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_promotion_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_promotion_closure_basis_hash']);
         $this->assertSame(0, (int) $summary['completion_finalization_next_action_placeholder_count']);
         $this->assertTrue((bool) $summary['completion_finalization_next_action_copy_safe']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
         $this->assertSame(
             (string) $summary['current_required_operator_artifact'],
             (string) data_get($summary, 'completion_finalization_next_action_shell_packet.current_required_operator_artifact'),
@@ -334,6 +378,14 @@ final class AtlasSelfConstructionCompletionFinalizationGateTest extends TestCase
         $this->assertSame('final_operator_review', (string) $summary['current_required_operator_artifact']);
         $this->assertSame([], (array) $summary['next_stage_blockers']);
         $this->assertSame(0, (int) $summary['next_stage_blocker_count']);
+        $this->assertSame('completion_claim_delegated_to_completion_audit', (string) $summary['external_completion_claim_policy_status']);
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_external_agent_claim_accepted']);
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_external_agent_claim_can_mark_os_complete']);
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_external_agent_claim_can_override_audit']);
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_next_stage_allowed_from_external_claim']);
+        $this->assertFalse((bool) $summary['external_completion_claim_policy_self_programming_allowed_from_external_claim']);
+        $this->assertTrue((bool) $summary['external_completion_claim_policy_completion_claim_allowed_by_gate']);
+        $this->assertSame(0, (int) $summary['external_completion_claim_policy_current_failed_count']);
     }
 
     public function test_finalization_handoff_preserves_terminal_loop_proof_path_in_next_commands(): void

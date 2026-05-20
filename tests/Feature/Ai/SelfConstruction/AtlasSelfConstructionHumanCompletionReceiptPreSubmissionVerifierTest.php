@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHashService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceiptVerifierService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierTest extends TestCase
@@ -35,6 +36,23 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierTest
         $this->assertContains('placeholder_or_fake_signer', $codes);
     }
 
+    public function test_verifier_rejects_portuguese_placeholder_operator_inputs(): void
+    {
+        $receipt = $this->canonicalReceipt();
+        $receipt['signed_by'] = 'SEU_NOME';
+        $receipt['reason'] = 'MOTIVO REAL COM PELO MENOS 32 CARACTERES';
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->humanCompletionReceiptHash($receipt);
+
+        $result = (new AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService)
+            ->verify($receipt, $this->context());
+
+        $codes = (array) data_get($result, 'diagnostic_codes', []);
+        $this->assertContains('placeholder_or_fake_signer', $codes);
+        $this->assertContains('placeholder_reason_pattern', $codes);
+        $this->assertFalse((bool) data_get($result, 'can_persist'));
+        $this->assertFalse((bool) data_get($result, 'completion_claim_allowed'));
+    }
+
     public function test_verifier_detects_short_reason(): void
     {
         $receipt = $this->canonicalReceipt();
@@ -46,6 +64,34 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierTest
 
         $codes = (array) data_get($result, 'diagnostic_codes', []);
         $this->assertContains('reason_too_short', $codes);
+    }
+
+    public function test_verifier_rejects_reason_that_relies_on_external_agent_completion_claim(): void
+    {
+        $receipt = $this->canonicalReceipt();
+        $receipt['reason'] = 'Gemini disse que terminou o Self-Construction OS, entao estou assinando com base nesse claim externo.';
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->humanCompletionReceiptHash($receipt);
+        $context = $this->context() + [
+            'prerequisites' => [
+                'runtime_gap_matrix_all_runtime_y' => ['green' => true],
+                'end_to_end_real_provider_smoke_green' => ['green' => true],
+            ],
+        ];
+
+        $result = (new AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService)
+            ->verify($receipt, $context);
+        $strong = (new AtlasSelfConstructionHumanCompletionReceiptVerifierService)
+            ->verify($receipt, $this->context());
+
+        $this->assertContains('external_completion_claim_reason_pattern', (array) data_get($result, 'diagnostic_codes', []));
+        $this->assertSame('blocked', $result['status']);
+        $this->assertFalse((bool) $result['can_persist']);
+        $this->assertContains(
+            'human_completion_receipt_reason_relies_on_external_agent_claim',
+            array_column((array) $strong['violations'], 'code'),
+        );
+        $this->assertSame('blocked', $strong['status']);
+        $this->assertFalse((bool) $strong['completion_claim_allowed']);
     }
 
     public function test_verifier_detects_missing_evidence_hashes(): void

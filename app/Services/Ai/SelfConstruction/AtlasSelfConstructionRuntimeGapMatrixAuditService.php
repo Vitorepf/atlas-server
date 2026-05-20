@@ -125,7 +125,22 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
             'completion_audit_status' => (string) data_get($completionAudit, 'status', 'unknown'),
             'runtime_gap_matrix_status' => (string) data_get($matrix, 'status', 'unknown'),
             'runtime_gap_matrix_hash' => (string) data_get($matrix, 'runtime_gap_matrix_hash', ''),
+            'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($matrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+            'runtime_promotion_basis_hash' => (string) data_get($matrix, 'runtime_promotion_basis_hash', ''),
+            'runtime_promotion_closure_basis_hash' => (string) data_get($matrix, 'runtime_promotion_closure_basis_hash', ''),
             'all_runtime_y' => $allRuntimeY,
+            'runtime_gap_count' => (int) data_get($matrix, 'runtime_gap_count', 0),
+            'runtime_y_count' => (int) data_get($matrix, 'runtime_y_count', 0),
+            'runtime_y_candidate_count' => (int) data_get($matrix, 'runtime_y_candidate_count', 0),
+            'blocked_gap_ids' => (array) data_get($matrix, 'blocked_gap_ids', []),
+            'graduation_candidate_gap_ids' => (array) data_get($matrix, 'graduation_candidate_gap_ids', []),
+            'current_required_operator_artifact' => $allRuntimeY ? 'real_provider_smoke' : 'runtime_promotion_receipt',
+            'operator_next_action_command' => $allRuntimeY
+                ? 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --json'
+                : 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            'operator_next_action_persist_command' => $allRuntimeY
+                ? 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json'
+                : 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
             'human_signed_os_complete_receipt_present' => $humanReceipt,
             'real_provider_smoke_green' => $smokeGreen,
             'gap_count' => count($gaps),

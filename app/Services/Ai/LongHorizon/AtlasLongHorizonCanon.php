@@ -32,6 +32,80 @@ final class AtlasLongHorizonCanon
      */
     public const CAUSAL_GRAPH_LITE_SCHEMA_VERSION = 'atlas.long_horizon.causal_graph_lite.v1';
 
+    /**
+     * TEOS-I3 · Strategic Forgetting. Read-only receipt over durable memory
+     * entries deciding whether to retain, compress, archive, demote, expire,
+     * supersede or forget. The service never deletes by default.
+     */
+    public const STRATEGIC_FORGETTING_RECEIPT_SCHEMA_VERSION = 'atlas.teos.strategic_forgetting_receipt.v1';
+
+    public const OBRA_REVIEW_RECEIPT_SCHEMA_VERSION = 'atlas.teos.obra_review_receipt.v1';
+
+    public const OPERATOR_ATTENTION_QUEUE_SCHEMA_VERSION = 'atlas.teos.operator_attention_queue.v1';
+
+    public const TIME_AWARE_WORLD_MODEL_SCHEMA_VERSION = 'atlas.teos.time_aware_world_model.v1';
+
+    public const ATTENTION_SEVERITY_CRITICAL = 'critical';
+
+    public const ATTENTION_SEVERITY_HIGH = 'high';
+
+    public const ATTENTION_SEVERITY_MEDIUM = 'medium';
+
+    public const ATTENTION_SEVERITY_LOW = 'low';
+
+    /** @var list<string> */
+    public const OPERATOR_ATTENTION_SEVERITIES = [
+        self::ATTENTION_SEVERITY_CRITICAL,
+        self::ATTENTION_SEVERITY_HIGH,
+        self::ATTENTION_SEVERITY_MEDIUM,
+        self::ATTENTION_SEVERITY_LOW,
+    ];
+
+    public const FORGETTING_POLICY_RETAIN = 'retain';
+
+    public const FORGETTING_POLICY_COMPRESS = 'compress';
+
+    public const FORGETTING_POLICY_ARCHIVE = 'archive';
+
+    public const FORGETTING_POLICY_DEMOTE = 'demote';
+
+    public const FORGETTING_POLICY_EXPIRE = 'expire';
+
+    public const FORGETTING_POLICY_SUPERSEDE = 'supersede';
+
+    public const FORGETTING_POLICY_FORGET = 'forget';
+
+    public const OBRA_REVIEW_WEEKLY_SYNTHESIS = 'weekly_synthesis';
+
+    public const OBRA_REVIEW_MONTHLY_ARCHITECTURE = 'monthly_architecture_review';
+
+    public const OBRA_REVIEW_DECISION_CONTINUE = 'continue';
+
+    public const OBRA_REVIEW_DECISION_ADJUST_SCOPE = 'adjust_scope';
+
+    public const OBRA_REVIEW_DECISION_PAUSE = 'pause';
+
+    public const OBRA_REVIEW_DECISION_CLOSE = 'close';
+
+    /** @var list<string> */
+    public const OBRA_REVIEW_DECISIONS = [
+        self::OBRA_REVIEW_DECISION_CONTINUE,
+        self::OBRA_REVIEW_DECISION_ADJUST_SCOPE,
+        self::OBRA_REVIEW_DECISION_PAUSE,
+        self::OBRA_REVIEW_DECISION_CLOSE,
+    ];
+
+    /** @var list<string> */
+    public const STRATEGIC_FORGETTING_POLICIES = [
+        self::FORGETTING_POLICY_RETAIN,
+        self::FORGETTING_POLICY_COMPRESS,
+        self::FORGETTING_POLICY_ARCHIVE,
+        self::FORGETTING_POLICY_DEMOTE,
+        self::FORGETTING_POLICY_EXPIRE,
+        self::FORGETTING_POLICY_SUPERSEDE,
+        self::FORGETTING_POLICY_FORGET,
+    ];
+
     /* ------------------------------------------------------------ */
     /* Causal Graph Lite · node + edge taxonomy */
     /* ------------------------------------------------------------ */

@@ -138,8 +138,9 @@ final class VoxMetricsServiceTest extends TestCase
     public function test_usage_window_collapses_same_day_sessions_to_one_day(): void
     {
         $this->bootTables();
-        $this->seedIntentCompiled((string) Str::uuid(), 'dictation', CarbonImmutable::now('UTC'));
-        $this->seedIntentCompiled((string) Str::uuid(), 'dictation', CarbonImmutable::now('UTC')->addHours(2));
+        $sameDay = CarbonImmutable::parse('2026-05-19T12:00:00Z');
+        $this->seedIntentCompiled((string) Str::uuid(), 'dictation', $sameDay);
+        $this->seedIntentCompiled((string) Str::uuid(), 'dictation', $sameDay->addHours(2));
         $snap = (new VoxMetricsService())->snapshot();
         $this->assertSame(1, $snap['summary']['real_usage_days']);
         $this->assertSame(2.0, $snap['summary']['average_sessions_per_day']);

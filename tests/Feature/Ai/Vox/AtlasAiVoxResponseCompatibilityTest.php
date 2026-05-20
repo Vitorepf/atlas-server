@@ -13,8 +13,9 @@ use Tests\TestCase;
  *
  * Pergunta única: "o `/ai/vox/intent` continua emitindo o response shape
  * V6 (intent_packet, receipt, preview, confirmation_required) E pode
- * adicionar os campos additive V6.5 (flow_decision, prompt_quality,
- * interlocutor, auto_mode_decision) sem quebrar clientes antigos?"
+ * adicionar os campos additive V6.5/V6.8 (flow_decision, prompt_quality,
+ * interlocutor, auto_mode_decision, cognitive_flow_governor) sem quebrar
+ * clientes antigos?"
  *
  * Cada teste cobre uma regressão concreta:
  *   1. Schema canônico do response permanece `atlas.vox.intent_response.v1`.
@@ -133,6 +134,15 @@ final class AtlasAiVoxResponseCompatibilityTest extends TestCase
         }
         if (isset($body['auto_mode_decision']) && $body['auto_mode_decision'] !== null) {
             $this->assertSame('atlas.vox.auto_mode_decision.v1', $body['auto_mode_decision']['schema']);
+        }
+        if (isset($body['cognitive_flow_governor']) && $body['cognitive_flow_governor'] !== null) {
+            $this->assertSame(VoxSchema::COGNITIVE_FLOW_GOVERNOR, $body['cognitive_flow_governor']['schema']);
+            $this->assertTrue($body['cognitive_flow_governor']['local_only']);
+            $this->assertFalse($body['cognitive_flow_governor']['v7_unlock_allowed']);
+            $this->assertFalse($body['cognitive_flow_governor']['guards']['terminal_execute']);
+            $this->assertFalse($body['cognitive_flow_governor']['guards']['paid_api_required']);
+            $this->assertFalse($body['cognitive_flow_governor']['guards']['mobile_touched']);
+            $this->assertFalse($body['cognitive_flow_governor']['guards']['voice_realtime_touched']);
         }
     }
 

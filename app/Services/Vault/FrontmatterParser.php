@@ -106,8 +106,109 @@ final class FrontmatterParser
             // Otherwise: orphan content (ignored)
         }
 
+        if (str_contains($yaml, 'gear_flow:')) {
+            $gearFlow = $this->parseNamedObjectList($lines, 'gear_flow');
+            if ($gearFlow !== null) {
+                $result['gear_flow'] = $gearFlow;
+            }
+        }
+
         // collapse empty placeholder lists into [] when they were initialized
         return $result;
+    }
+
+    /**
+     * Parse a frontmatter key whose value is a YAML list of objects. This keeps
+     * the parser small while letting cartography read real visual drill-downs
+     * such as `gear_flow`, including nested `gear_flow` blocks.
+     *
+     * @param  array<int, string>  $lines
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function parseNamedObjectList(array $lines, string $key): ?array
+    {
+        foreach ($lines as $index => $line) {
+            if (preg_match('/^(\s*)'.preg_quote($key, '/').':\s*$/', rtrim($line, "\r"), $m) !== 1) {
+                continue;
+            }
+
+            $indent = strlen($m[1]);
+            if ($indent !== 0) {
+                continue;
+            }
+            [$items] = $this->parseObjectListAt($lines, $index + 1, $indent + 2);
+
+            return $items;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int, string>  $lines
+     * @return array{0: array<int, array<string, mixed>>, 1: int}
+     */
+    private function parseObjectListAt(array $lines, int $start, int $itemIndent): array
+    {
+        $items = [];
+        $i = $start;
+        $count = count($lines);
+
+        while ($i < $count) {
+            $line = rtrim($lines[$i], "\r");
+            $trimmed = trim($line);
+            if ($trimmed === '' || str_starts_with($trimmed, '#')) {
+                $i++;
+                continue;
+            }
+
+            $indent = strlen($line) - strlen(ltrim($line, ' '));
+            if ($indent < $itemIndent) {
+                break;
+            }
+
+            if (! preg_match('/^\s{'.$itemIndent.'}-\s*([\w\-\.]+):\s*(.*)$/', $line, $m)) {
+                break;
+            }
+
+            $item = [$m[1] => $this->parseScalar(trim($m[2]))];
+            $i++;
+
+            while ($i < $count) {
+                $childLine = rtrim($lines[$i], "\r");
+                $childTrimmed = trim($childLine);
+                if ($childTrimmed === '' || str_starts_with($childTrimmed, '#')) {
+                    $i++;
+                    continue;
+                }
+
+                $childIndent = strlen($childLine) - strlen(ltrim($childLine, ' '));
+                if ($childIndent <= $itemIndent) {
+                    break;
+                }
+
+                if (preg_match('/^\s{'.($itemIndent + 2).'}([\w\-\.]+):\s*(.*)$/', $childLine, $childMatch) !== 1) {
+                    $i++;
+                    continue;
+                }
+
+                $childKey = $childMatch[1];
+                $childValue = trim($childMatch[2]);
+                if ($childKey === 'gear_flow' && $childValue === '') {
+                    [$nested, $next] = $this->parseObjectListAt($lines, $i + 1, $itemIndent + 4);
+                    $item[$childKey] = $nested;
+                    $i = $next;
+                    continue;
+                }
+
+                $item[$childKey] = $this->parseScalar($childValue);
+                $i++;
+            }
+
+            $items[] = $item;
+        }
+
+        return [$items, $i];
     }
 
     private function parseScalar(string $val): mixed

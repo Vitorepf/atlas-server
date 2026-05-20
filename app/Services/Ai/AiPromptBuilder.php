@@ -98,6 +98,7 @@ class AiPromptBuilder
             $this->permissionInstructions($options),
             $this->workflowInstructions($options),
             $this->attachmentInstructions($options, $input),
+            $this->voiceResponseInstructions($options),
             $this->outputContract($options),
             $this->activatedSkillContentSection($activatedBundles),
             "# Pedido do operador\n\n{$input}",
@@ -1261,6 +1262,32 @@ TXT;
         }
 
         return $base;
+    }
+
+    private function voiceResponseInstructions(array $options): string
+    {
+        $contract = data_get($options, 'payload.voice_response_contract');
+        if (! is_array($contract) || (string) data_get($contract, 'mode') !== 'spoken_concise') {
+            return '';
+        }
+
+        $targetChars = max(160, min(800, (int) data_get($contract, 'target_chars', 360)));
+        $hardMaxChars = max($targetChars, min(1200, (int) data_get($contract, 'hard_max_chars', 520)));
+        $maxSentences = max(1, min(5, (int) data_get($contract, 'max_sentences', 3)));
+
+        return <<<TXT
+# Contrato de resposta falada Atlas Voice
+
+Esta resposta sera falada em voz alta. Priorize tempo ate a primeira fala e clareza oral.
+
+Regras:
+- Responda em portugues brasileiro natural, direto e sem markdown.
+- Use no maximo {$maxSentences} frases curtas quando a pergunta permitir.
+- Mira de tamanho: ate {$targetChars} caracteres; limite duro: {$hardMaxChars} caracteres.
+- Nao use listas longas, cabecalhos, tabelas, JSON, codigo ou referencias internas.
+- Se a resposta completa exigir detalhe, fale primeiro a conclusao e deixe o detalhe em texto curto.
+- Se faltar contexto, faca uma pergunta objetiva em uma frase.
+TXT;
     }
 
     private function shouldAttachOutputGovernor(array $options, string $agent): bool

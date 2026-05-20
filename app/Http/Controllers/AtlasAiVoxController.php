@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Services\Ai\Vox\Confirmation\VoxConfirmationService;
 use App\Services\Ai\Vox\Execution\VoxExecutionGate;
 use App\Services\Ai\Vox\Execution\VoxExecutorRouter;
+use App\Services\Ai\Vox\Governor\VoxCognitiveFlowGovernor;
 use App\Services\Ai\Vox\Interlocutor\VoxInterlocutorPolicy;
 use App\Services\Ai\Vox\Routing\VoxAutoModeRouter;
 use App\Services\Ai\Vox\Routing\VoxFlowOrchestrator;
@@ -60,6 +61,7 @@ final class AtlasAiVoxController extends Controller
         private readonly VoxAutoModeRouter $autoModeRouter,
         private readonly VoxInterlocutorPolicy $interlocutor,
         private readonly VoxFlowOrchestrator $flowOrchestrator,
+        private readonly VoxCognitiveFlowGovernor $cognitiveFlowGovernor,
     ) {}
 
     public function health(): JsonResponse
@@ -79,6 +81,7 @@ final class AtlasAiVoxController extends Controller
                 'prompt_polish' => true,
                 'intent_compile' => true,
                 'governed_execute' => true,
+                'cognitive_flow_governor' => true,
             ],
             'prompt_polish' => [
                 'template' => VoxPromptPolisher::TEMPLATE_ID,
@@ -108,6 +111,17 @@ final class AtlasAiVoxController extends Controller
                 'confirmation_required_for' => ['R2', 'R3', 'R4'],
                 'literal_confirmation_required_for' => ['R4'],
                 'risk_classes_emitted' => ['R0', 'R1', 'R2', 'R3', 'R4'],
+            ],
+            'cognitive_flow_governor' => [
+                'schema' => VoxSchema::COGNITIVE_FLOW_GOVERNOR,
+                'version' => VoxSchema::COGNITIVE_FLOW_GOVERNOR_VERSION,
+                'engine' => 'deterministic_local_rules',
+                'provider_call' => false,
+                'llm_call' => false,
+                'cloud_stt' => false,
+                'terminal_execute' => false,
+                'mobile_touched' => false,
+                'voice_realtime_touched' => false,
             ],
             'executors' => [
                 VoxSchema::EXECUTOR_TERMINAL_PROPOSE => ['available' => true, 'never_executes' => true],
@@ -351,6 +365,18 @@ final class AtlasAiVoxController extends Controller
             hints: ['context_refs' => $hints['context_refs']],
         );
 
+        // V6.8 · Cognitive Flow Governor. Camada final determinística que
+        // consolida intenção, destino, risco, lacunas de contexto, política de
+        // execução e preview humano. Não executa e não muda campos legados.
+        $cognitiveFlowGovernor = $this->cognitiveFlowGovernor->govern(
+            transcript: $payload,
+            intentPacket: $intentPacket,
+            flowDecision: $flowDecision,
+            promptQuality: is_array($intentPacket['prompt_quality'] ?? null)
+                ? $intentPacket['prompt_quality']
+                : null,
+        );
+
         // Cache intent+receipt so /execute can validate the (intent_id, receipt_id)
         // pair without a database write.
         $this->stash($intentPacket, $receipt, $payload['text']);
@@ -411,6 +437,9 @@ final class AtlasAiVoxController extends Controller
             // what_i_will_do, fallback). Additive: clientes V3/V4/V5/V6 que
             // não conhecem o campo simplesmente o ignoram.
             'flow_decision' => $flowDecision,
+            // V6.8 · política final de fluxo inteligente para UI enterprise.
+            // Additive: clientes antigos seguem usando `flow_decision`.
+            'cognitive_flow_governor' => $cognitiveFlowGovernor,
             'events' => $events,
         ]);
     }

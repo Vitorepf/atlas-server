@@ -23,7 +23,7 @@ final class AtlasSelfConstructionRealProviderSmokeEvidenceVerifierService
         }
         foreach (['provider_run_id', 'task_packet_id', 'observed_by', 'approval_reason'] as $field) {
             $value = trim((string) ($payload[$field] ?? ''));
-            if ($value === '' || str_starts_with($value, '<')) {
+            if ($value === '' || $this->isPlaceholderOperatorSmokeValue($value)) {
                 $violations[] = ['code' => 'operator_smoke_placeholder_or_missing', 'field' => $field];
             }
         }
@@ -57,6 +57,39 @@ final class AtlasSelfConstructionRealProviderSmokeEvidenceVerifierService
         $result['verification_hash'] = $this->stableHash($result);
 
         return $result;
+    }
+
+    private function isPlaceholderOperatorSmokeValue(string $value): bool
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
+            return true;
+        }
+
+        foreach ([
+            'synthetic',
+            'fixture-only',
+            'fixture_only',
+            'test_only',
+            'test-only',
+            'fake',
+            'simulated',
+            'mock-',
+            'dummy',
+            'placeholder',
+            'seu_nome',
+            'seu nome',
+            'operador',
+            'motivo real',
+            'pelo menos 32 caracteres',
+            'substitua',
+        ] as $fragment) {
+            if (str_contains($normalized, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $payload */

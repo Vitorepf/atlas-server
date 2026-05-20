@@ -79,6 +79,44 @@ final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierTes
         $this->assertSame('blocked', $result['status']);
     }
 
+    public function test_verifier_detects_stale_promoted_gap_ids_when_live_matrix_has_no_gaps(): void
+    {
+        $matrix = array_replace($this->syntheticMatrix(), [
+            'all_runtime_y' => true,
+            'rows' => [
+                [
+                    'gap_id' => 'adapter_execution_runtime',
+                    'runtime_y' => true,
+                    'runtime_y_candidate' => true,
+                    'runtime_enabled' => false,
+                    'graduation_evidence_hash' => str_repeat('a', 64),
+                ],
+            ],
+        ]);
+        $receipt = $this->syntheticReceipt(array_replace($matrix, [
+            'all_runtime_y' => false,
+            'rows' => [
+                [
+                    'gap_id' => 'adapter_execution_runtime',
+                    'runtime_y' => false,
+                    'runtime_y_candidate' => true,
+                    'runtime_enabled' => false,
+                    'graduation_evidence_hash' => str_repeat('a', 64),
+                ],
+            ],
+        ]));
+        $receipt['receipt_hash'] = (new AtlasSelfConstructionCompletionEvidenceHashService)->runtimePromotionReceiptHash($receipt);
+
+        $result = (new AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierService)->verify($receipt, $matrix);
+
+        $this->assertSame([], $result['expected_gap_ids']);
+        $this->assertSame(['adapter_execution_runtime'], $result['promoted_gap_ids']);
+        $this->assertTrue($result['promoted_gap_drift']);
+        $this->assertContains('promoted_gap_id_drift', array_column($result['violations'], 'code'));
+        $this->assertSame('blocked', $result['status']);
+        $this->assertFalse($result['can_persist']);
+    }
+
     public function test_verifier_detects_receipt_hash_mismatch(): void
     {
         $matrix = $this->matrix();

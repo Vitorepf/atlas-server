@@ -91,7 +91,7 @@ final class AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierService
         ];
         foreach ($fields as $field => $code) {
             $value = trim((string) ($smoke[$field] ?? ''));
-            if ($value === '' || in_array($value, self::PLACEHOLDER_VALUES, true) || str_starts_with($value, '<')) {
+            if ($this->isPlaceholderValue($value)) {
                 $diagnostics[] = ['code' => $code, 'field' => $field];
             }
         }
@@ -202,6 +202,43 @@ final class AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierService
         }
 
         return $diagnostics;
+    }
+
+    private function isPlaceholderValue(string $value): bool
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
+            return true;
+        }
+        if (in_array($normalized, self::PLACEHOLDER_VALUES, true)) {
+            return true;
+        }
+
+        foreach ([
+            'seu_nome',
+            'seu nome',
+            'operador',
+            'motivo real',
+            'pelo menos 32 caracteres',
+            'substitua',
+            'placeholder',
+            'todo',
+            'synthetic',
+            'fixture-only',
+            'fixture_only',
+            'test_only',
+            'test-only',
+            'fake',
+            'simulated',
+            'mock-',
+            'dummy',
+        ] as $fragment) {
+            if (str_contains($normalized, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $payload */

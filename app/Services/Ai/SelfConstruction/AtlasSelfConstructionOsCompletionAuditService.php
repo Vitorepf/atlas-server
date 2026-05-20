@@ -302,6 +302,11 @@ final class AtlasSelfConstructionOsCompletionAuditService
             $realProviderSmoke,
             $forgeSmoke,
         );
+        $completionClaimAuthorityVerdict = $this->completionClaimAuthorityVerdict(
+            status: $status,
+            failedCriteriaDetailed: $failedCriteriaDetailed,
+            blockerClassification: $blockerClassification,
+        );
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -321,6 +326,7 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'failed_criteria_detailed' => $failedCriteriaDetailed,
             'passed_criteria_detailed' => $passedCriteriaDetailed,
             'blocker_classification' => $blockerClassification,
+            'completion_claim_authority_verdict' => $completionClaimAuthorityVerdict,
             'audit_blocks' => $auditBlocks,
             'prompt_to_artifact_checklist' => $checklist,
             'checklist_count' => count($checklist),
@@ -350,6 +356,7 @@ final class AtlasSelfConstructionOsCompletionAuditService
                 'completion_audit_does_not_spend_tokens',
                 'completion_audit_does_not_enable_self_programming',
                 'completion_audit_does_not_promote_completion_without_all_criteria',
+                'completion_audit_does_not_accept_external_completion_claims',
             ],
         ];
         $payload['completion_audit_hash'] = $this->stableHash($payload);
@@ -543,6 +550,71 @@ final class AtlasSelfConstructionOsCompletionAuditService
             'no_blockers_at_all' => $failedDetailed === [],
             'completion_allowed' => $failedDetailed === [],
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $failedCriteriaDetailed
+     * @param  array<string, mixed>  $blockerClassification
+     * @return array<string, mixed>
+     */
+    private function completionClaimAuthorityVerdict(string $status, array $failedCriteriaDetailed, array $blockerClassification): array
+    {
+        $completionAllowed = $status === 'complete' && $failedCriteriaDetailed === [];
+        $missingEvidence = array_values(array_map(
+            static fn (array $entry): array => [
+                'criterion_id' => (string) ($entry['id'] ?? ''),
+                'blocker_type' => (string) ($entry['blocker_type'] ?? 'technical'),
+                'expected_receipt_schema' => (string) ($entry['expected_receipt_schema'] ?? ''),
+                'remediation_command' => (string) ($entry['remediation_command'] ?? ''),
+                'why_blocking' => (string) ($entry['why_blocking'] ?? ''),
+            ],
+            $failedCriteriaDetailed,
+        ));
+
+        $verdict = [
+            'schema_version' => 'atlas.self_construction.completion_claim_authority_verdict.v1',
+            'mode' => 'read_only_completion_claim_authority_verdict',
+            'status' => $completionAllowed ? 'completion_claim_authorized_by_audit' : 'completion_claim_rejected_by_audit',
+            'completion_authority' => 'atlas_self_construction_os_completion_audit',
+            'required_completion_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'audit_status' => $status,
+            'completion_allowed_by_audit' => $completionAllowed,
+            'completion_claim_allowed_by_audit' => $completionAllowed,
+            'external_agent_claim_accepted' => false,
+            'external_agent_claim_can_override_audit' => false,
+            'external_agent_claim_can_mark_os_complete' => false,
+            'failed_criterion_count' => count($failedCriteriaDetailed),
+            'missing_evidence' => $missingEvidence,
+            'missing_evidence_count' => count($missingEvidence),
+            'blocker_classification' => $blockerClassification,
+            'operator_next_action' => $completionAllowed
+                ? 'operator_may_review_completion_claim_and_next_stage'
+                : 'resolve_missing_evidence_then_rerun_completion_audit',
+            'operator_verification_commands' => [
+                'completion_audit' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'operator_evidence_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+            ],
+            'failure_policy' => [
+                'reject_external_completion_claim_until_audit_status_complete',
+                'reject_completion_claim_when_failed_criteria_present',
+                'reject_completion_claim_without_human_signed_receipt',
+                'reject_completion_claim_without_real_provider_smoke',
+                'reject_completion_claim_without_runtime_gap_matrix_all_runtime_y',
+            ],
+            'non_execution_guarantees' => [
+                'completion_claim_authority_verdict_does_not_persist_receipts',
+                'completion_claim_authority_verdict_does_not_sign_for_operator',
+                'completion_claim_authority_verdict_does_not_call_provider',
+                'completion_claim_authority_verdict_does_not_spend_tokens',
+                'completion_claim_authority_verdict_does_not_dispatch',
+                'completion_claim_authority_verdict_does_not_enable_runtime',
+                'completion_claim_authority_verdict_does_not_promote_completion',
+            ],
+        ];
+        $verdict['completion_claim_authority_verdict_hash'] = $this->stableHash($verdict);
+
+        return $verdict;
     }
 
     /**

@@ -6,6 +6,9 @@ use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Models\AtlasLongHorizonContinuationPack;
 use App\Services\Ai\AiCompactionService;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
+use App\Services\Ai\LongHorizon\Gate\LongHorizonContextFreshnessGate;
+use App\Services\Ai\LongHorizon\LongHorizonContinuityCertificationService;
+use App\Services\Ai\LongHorizon\LongHorizonRecoveryPlannerService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Forge\ForgeIntakeCanon;
 use App\Services\Ai\Programming\Forge\ForgeIntakeService;
@@ -43,6 +46,9 @@ class ProgrammingConsoleService
         private readonly ForgeIntakeService $forgeIntake,
         private readonly ProgrammingResumeService $resume,
         private readonly AiCompactionService $compaction,
+        private readonly LongHorizonContextFreshnessGate $freshnessGate,
+        private readonly LongHorizonRecoveryPlannerService $recoveryPlanner,
+        private readonly LongHorizonContinuityCertificationService $continuityCertification,
     ) {}
 
     /**
@@ -489,6 +495,8 @@ class ProgrammingConsoleService
 
         $packs = $this->loadRecentPacks($scopeType, $scopeId, $packsAvailable);
         $receipts = $this->loadRecentReceipts($scopeType, $scopeId, $receiptsAvailable);
+        $freshness = $this->evaluateFreshnessForScope($scopeType, $scopeId, $packs);
+        $recovery = $this->planRecoveryForScope($scopeType, $scopeId, $freshness, $packs);
 
         $payload = [
             'scope_type' => $scopeType,
@@ -509,20 +517,16 @@ class ProgrammingConsoleService
                     : null,
                 'recent' => $receipts,
             ],
-            'freshness' => [
-                'gate_evaluated' => false,
-                'gate_status' => 'not_evaluated',
-                'note' => 'LongHorizonContextFreshnessGate not shipped yet; status is structural only.',
-            ],
-            'recovery' => [
-                'planner_available' => false,
-                'note' => 'LongHorizonRecoveryPlannerService not shipped yet; surface placeholder only.',
-            ],
+            'freshness' => $freshness,
+            'recovery' => $recovery,
         ];
 
+        $hasRequestedScope = $scopeType !== null && $scopeId !== null;
+        $hasGlobalPack = $packsAvailable && AtlasLongHorizonContinuationPack::query()->exists();
+        $hasScopePack = $hasRequestedScope && $packsAvailable && $this->countPacksForScope($scopeType, $scopeId) > 0;
         $status = $blockers !== []
             ? ProgrammingConsoleCanon::STATUS_BLOCKED
-            : (($packsAvailable && AtlasLongHorizonContinuationPack::query()->exists())
+            : (($hasRequestedScope ? $hasScopePack : $hasGlobalPack)
                 ? ProgrammingConsoleCanon::STATUS_GREEN
                 : ProgrammingConsoleCanon::STATUS_PARTIAL);
 
@@ -814,10 +818,9 @@ class ProgrammingConsoleService
     }
 
     /**
-     * Long-horizon certify. Until the full Continuity Certification (TEOS-I1
-     * M10) ships, we surface a structural checks block + an explicit blocker
-     * stating the certification service is not yet implemented. Always
-     * non-destructive.
+     * Long-horizon certify. Composes the shipped TEOS continuity
+     * certification service over the concrete scope and returns a programming
+     * console envelope. Always read-only and non-destructive.
      *
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
@@ -827,74 +830,99 @@ class ProgrammingConsoleService
         $scopeType = $this->stringOption($options, 'scope_type');
         $scopeId = $this->stringOption($options, 'scope_id');
 
-        $packsAvailable = Schema::hasTable('atlas_long_horizon_continuation_packs');
-        $receiptsAvailable = Schema::hasTable('atlas_long_horizon_compaction_receipts');
-
-        $checks = [
-            $this->certifyCheck(
-                id: 'continuation_pack_table_present',
-                ok: $packsAvailable,
-                detail: $packsAvailable
-                    ? 'atlas_long_horizon_continuation_packs table is present.'
-                    : 'atlas_long_horizon_continuation_packs table missing.',
-            ),
-            $this->certifyCheck(
-                id: 'compaction_receipt_table_present',
-                ok: $receiptsAvailable,
-                detail: $receiptsAvailable
-                    ? 'atlas_long_horizon_compaction_receipts table is present.'
-                    : 'atlas_long_horizon_compaction_receipts table missing.',
-            ),
-            $this->certifyCheck(
-                id: 'pack_exists_for_scope',
-                ok: $packsAvailable && $scopeType !== null && $scopeId !== null
-                    ? $this->countPacksForScope($scopeType, $scopeId) > 0
-                    : false,
-                detail: $scopeType === null || $scopeId === null
-                    ? 'scope_type+scope_id not provided; check skipped.'
-                    : ($packsAvailable && $this->countPacksForScope($scopeType, $scopeId) > 0
-                        ? 'at least one continuation pack exists for the scope.'
-                        : 'no continuation pack found for the scope.'),
-                severity: 'medium',
-            ),
-            $this->certifyCheck(
-                id: 'continuity_certification_service_shipped',
-                ok: false,
-                detail: 'AtlasContinuityCertificationService not implemented yet (TEOS-I1 M10 pending).',
-                severity: 'low',
-            ),
-        ];
-
-        $blockerChecks = array_values(array_filter(
-            $checks,
-            static fn (array $check): bool => $check['status'] === 'blocked' && $check['severity'] === 'high',
-        ));
-        $status = $blockerChecks !== []
-            ? ProgrammingConsoleCanon::STATUS_BLOCKED
-            : ProgrammingConsoleCanon::STATUS_PARTIAL;
-        $certificationStatus = $blockerChecks !== []
-            ? ProgrammingConsoleCanon::CERTIFICATION_STATUS_BLOCKED
-            : ProgrammingConsoleCanon::CERTIFICATION_STATUS_NOT_EVALUATED;
-
         $blockers = [];
-        $blockers[] = [
-            'source' => 'long_horizon',
-            'severity' => 'warn',
-            'id' => 'long_horizon_certify:service_not_shipped',
-            'message' => 'Continuity Certification not implemented yet. Surface returns structural checks only.',
-            'evidence_refs' => [],
-            'remediation' => 'Ship AtlasContinuityCertificationService (TEOS-I1 M10) before relying on this surface.',
-        ];
-        foreach ($blockerChecks as $check) {
+        if ($scopeType === null || $scopeId === null) {
+            return $this->envelope(
+                action: ProgrammingConsoleCanon::ACTION_LONG_HORIZON_CERTIFY,
+                status: ProgrammingConsoleCanon::STATUS_PARTIAL,
+                ids: ['scope_type' => $scopeType, 'scope_id' => $scopeId],
+                payload: [
+                    'attempted' => false,
+                    'writes' => false,
+                    'continuity_certification_service' => 'shipped',
+                    'note' => 'Pass --scope-type and --scope-id to run concrete continuity certification.',
+                ],
+                blockers: [[
+                    'source' => 'long_horizon',
+                    'severity' => 'warn',
+                    'id' => 'long_horizon_certify:missing_scope',
+                    'message' => 'Concrete continuity certification requires scope_type and scope_id.',
+                    'evidence_refs' => [],
+                    'remediation' => 'Retry with --scope-type=<canonical_scope> --scope-id=<id>.',
+                ]],
+                nextActions: [['priority' => 'normal', 'source' => 'long_horizon', 'description' => 'Provide a concrete Dev run or Forge Obra scope and retry certification.']],
+                certificationStatus: ProgrammingConsoleCanon::CERTIFICATION_STATUS_NOT_EVALUATED,
+            );
+        }
+
+        try {
+            $certification = $this->continuityCertification->certify([
+                'scope_type' => $scopeType,
+                'scope_id' => $scopeId,
+                'intended_mode' => AtlasLongHorizonCanon::SAFE_RESUME_EXECUTE,
+                'strict' => false,
+                'strict_replay_required' => false,
+            ]);
+        } catch (Throwable $e) {
+            return $this->envelope(
+                action: ProgrammingConsoleCanon::ACTION_LONG_HORIZON_CERTIFY,
+                status: ProgrammingConsoleCanon::STATUS_BLOCKED,
+                ids: ['scope_type' => $scopeType, 'scope_id' => $scopeId],
+                payload: [
+                    'attempted' => true,
+                    'writes' => false,
+                    'continuity_certification_service' => 'shipped',
+                    'exception_class' => $e::class,
+                ],
+                blockers: [[
+                    'source' => 'long_horizon',
+                    'severity' => 'blocker',
+                    'id' => 'long_horizon_certify:exception',
+                    'message' => $e->getMessage(),
+                    'evidence_refs' => [],
+                    'remediation' => 'Fix scope inputs or continuity dependencies before retrying.',
+                ]],
+                certificationStatus: ProgrammingConsoleCanon::CERTIFICATION_STATUS_BLOCKED,
+            );
+        }
+
+        foreach ((array) ($certification['blockers'] ?? []) as $blocker) {
+            if (! is_array($blocker)) {
+                continue;
+            }
             $blockers[] = [
                 'source' => 'long_horizon',
                 'severity' => 'blocker',
-                'id' => 'long_horizon_certify:'.$check['id'],
-                'message' => $check['detail'],
-                'evidence_refs' => $check['evidence_refs'] ?? [],
-                'remediation' => 'Run pending migrations or fix the listed dependency.',
+                'id' => 'long_horizon_certify:'.(string) ($blocker['id'] ?? $blocker['check_id'] ?? 'unknown'),
+                'message' => (string) ($blocker['detail'] ?? $blocker['message'] ?? $blocker['reason'] ?? 'continuity certification blocker'),
+                'evidence_refs' => array_values((array) ($blocker['evidence_refs'] ?? [])),
+                'remediation' => $blocker['remediation'] ?? 'Resolve continuity certification blocker.',
             ];
         }
+        foreach ((array) ($certification['warnings'] ?? []) as $warning) {
+            if (! is_array($warning)) {
+                continue;
+            }
+            $blockers[] = [
+                'source' => 'long_horizon',
+                'severity' => 'warn',
+                'id' => 'long_horizon_certify:'.(string) ($warning['id'] ?? $warning['check_id'] ?? 'warning'),
+                'message' => (string) ($warning['detail'] ?? $warning['message'] ?? $warning['reason'] ?? 'continuity certification warning'),
+                'evidence_refs' => array_values((array) ($warning['evidence_refs'] ?? [])),
+                'remediation' => $warning['remediation'] ?? 'Review continuity warning.',
+            ];
+        }
+
+        $status = match ((string) ($certification['status'] ?? LongHorizonContinuityCertificationService::STATUS_BLOCKED)) {
+            LongHorizonContinuityCertificationService::STATUS_READY => ProgrammingConsoleCanon::STATUS_GREEN,
+            LongHorizonContinuityCertificationService::STATUS_PARTIAL => ProgrammingConsoleCanon::STATUS_PARTIAL,
+            default => ProgrammingConsoleCanon::STATUS_BLOCKED,
+        };
+        $certificationStatus = match ($status) {
+            ProgrammingConsoleCanon::STATUS_GREEN => ProgrammingConsoleCanon::CERTIFICATION_STATUS_PASSED,
+            ProgrammingConsoleCanon::STATUS_PARTIAL => ProgrammingConsoleCanon::CERTIFICATION_STATUS_PARTIAL,
+            default => ProgrammingConsoleCanon::CERTIFICATION_STATUS_BLOCKED,
+        };
 
         return $this->envelope(
             action: ProgrammingConsoleCanon::ACTION_LONG_HORIZON_CERTIFY,
@@ -903,14 +931,19 @@ class ProgrammingConsoleService
             payload: [
                 'attempted' => true,
                 'writes' => false,
-                'checks' => $checks,
-                'check_count' => count($checks),
-                'pass_count' => count(array_filter($checks, static fn (array $c): bool => $c['status'] === 'passed')),
-                'continuity_certification_service' => 'not_shipped',
-                'note' => 'Structural surface only. Real Continuity Certification arrives in TEOS-I1 M10.',
+                'continuity_certification_service' => 'shipped',
+                'certification' => $certification,
+                'checks' => $certification['checks'] ?? [],
+                'check_count' => count((array) ($certification['checks'] ?? [])),
+                'pass_count' => (int) data_get($certification, 'summary.pass', 0),
+                'safe_resume_mode' => $certification['safe_resume_mode'] ?? null,
+                'certification_hash' => $certification['certification_hash'] ?? null,
             ],
+            evidenceRefs: array_values((array) ($certification['evidence_refs'] ?? [])),
             blockers: $blockers,
-            nextActions: [['priority' => 'normal', 'source' => 'long_horizon', 'description' => 'Track TEOS-I1 M10 implementation; this surface will tighten once the service ships.']],
+            nextActions: $status === ProgrammingConsoleCanon::STATUS_GREEN
+                ? [['priority' => 'normal', 'source' => 'long_horizon', 'description' => 'Continuity certification is ready; resume according to safe_resume_mode.']]
+                : [['priority' => 'high', 'source' => 'long_horizon', 'description' => 'Resolve continuity warnings/blockers before provider execution.']],
             certificationStatus: $certificationStatus,
         );
     }
@@ -1227,6 +1260,7 @@ class ProgrammingConsoleService
 
         return $query->get()->map(fn (AtlasLongHorizonContinuationPack $pack): array => [
             'id' => $pack->id,
+            'uuid' => $pack->uuid,
             'scope_type' => $pack->scope_type,
             'scope_id' => $pack->scope_id,
             'safe_resume_mode' => $pack->safe_resume_mode,
@@ -1290,12 +1324,120 @@ class ProgrammingConsoleService
     {
         $refs = [];
         foreach ($packs as $pack) {
-            if (! empty($pack['id'])) {
+            if (! empty($pack['uuid'])) {
+                $refs[] = 'continuation_pack:'.$pack['uuid'];
+            } elseif (! empty($pack['id'])) {
                 $refs[] = 'continuation_pack:'.$pack['id'];
             }
         }
 
         return array_values(array_unique($refs));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $packs
+     * @return array<string,mixed>
+     */
+    private function evaluateFreshnessForScope(?string $scopeType, ?string $scopeId, array $packs): array
+    {
+        if ($scopeType === null || $scopeId === null) {
+            return [
+                'gate_evaluated' => false,
+                'gate_status' => 'not_evaluated',
+                'service' => LongHorizonContextFreshnessGate::class,
+                'note' => 'Pass scope_type+scope_id to evaluate the shipped freshness gate.',
+            ];
+        }
+        if ($packs === []) {
+            return [
+                'gate_evaluated' => false,
+                'gate_status' => 'missing_pack',
+                'service' => LongHorizonContextFreshnessGate::class,
+                'note' => 'No continuation pack exists for this scope.',
+            ];
+        }
+
+        $pack = $packs[0];
+        try {
+            $result = $this->freshnessGate->evaluate([
+                'scope_type' => $scopeType,
+                'scope_id' => $scopeId,
+                'continuation_pack_id' => $pack['uuid'] ?? $pack['id'] ?? null,
+                'intended_mode' => AtlasLongHorizonCanon::SAFE_RESUME_EXECUTE,
+                'strict' => false,
+                'now' => Carbon::now(),
+            ])->toCanonicalArray();
+        } catch (Throwable $e) {
+            return [
+                'gate_evaluated' => true,
+                'gate_status' => 'exception',
+                'service' => LongHorizonContextFreshnessGate::class,
+                'exception_class' => $e::class,
+                'message' => $e->getMessage(),
+            ];
+        }
+
+        return [
+            'gate_evaluated' => true,
+            'gate_status' => $result['status'] ?? 'unknown',
+            'service' => LongHorizonContextFreshnessGate::class,
+            'freshness_hash' => $result['freshness_hash'] ?? null,
+            'blocking_reasons' => array_values((array) ($result['blocking_reasons'] ?? [])),
+            'warnings' => array_values((array) ($result['warnings'] ?? [])),
+            'safe_resume_mode' => $result['safe_resume_mode'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $freshness
+     * @param  array<int,array<string,mixed>>  $packs
+     * @return array<string,mixed>
+     */
+    private function planRecoveryForScope(?string $scopeType, ?string $scopeId, array $freshness, array $packs): array
+    {
+        if ($scopeType === null || $scopeId === null || $packs === []) {
+            return [
+                'planner_available' => true,
+                'planned' => false,
+                'service' => LongHorizonRecoveryPlannerService::class,
+                'note' => 'Recovery plan requires a concrete scope with a continuation pack.',
+            ];
+        }
+
+        $pack = $packs[0];
+        try {
+            $plan = $this->recoveryPlanner->plan([
+                'scope_type' => $scopeType,
+                'scope_id' => $scopeId,
+                'continuation_pack' => $pack,
+                'freshness_result' => [
+                    'status' => $freshness['gate_status'] ?? 'unknown',
+                    'blocking_reasons' => $freshness['blocking_reasons'] ?? [],
+                    'warnings' => $freshness['warnings'] ?? [],
+                    'freshness_hash' => $freshness['freshness_hash'] ?? null,
+                ],
+            ]);
+        } catch (Throwable $e) {
+            return [
+                'planner_available' => true,
+                'planned' => false,
+                'service' => LongHorizonRecoveryPlannerService::class,
+                'exception_class' => $e::class,
+                'message' => $e->getMessage(),
+            ];
+        }
+
+        return [
+            'planner_available' => true,
+            'planned' => true,
+            'service' => LongHorizonRecoveryPlannerService::class,
+            'safe_resume_mode' => $plan['safe_resume_mode'] ?? null,
+            'next_safe_action' => $plan['next_safe_action'] ?? null,
+            'plan_hash' => $plan['plan_hash'] ?? null,
+            'escalate_to_forge' => (bool) ($plan['escalate_to_forge'] ?? false),
+            'required_context_refresh_count' => count((array) ($plan['required_context_refresh'] ?? [])),
+            'required_human_decisions_count' => count((array) ($plan['required_human_decisions'] ?? [])),
+        ];
     }
 
     /**

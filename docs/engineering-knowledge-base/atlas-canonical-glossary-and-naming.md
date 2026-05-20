@@ -23,6 +23,7 @@ decisions:
   - Atlas possui UMA fonte de nomes; conflitos resolvem-se aqui.
   - Atlas Dev e Atlas Forge sao nucleos paralelos, nunca pai/filho nem sub-flows um do outro.
   - Domain, Flow, Runtime e Harness sao conceitos disjuntos; usar como sinonimos quebra arquitetura.
+  - Patamar, versao, camada e fonte sao conceitos separados; Cartografia e IA nunca podem tratar um como sinonimo do outro.
   - Aliases legados sao tolerados, mas nao podem nascer novos.
   - Doc de visao futura NUNCA deve ser interpretado como runtime atual sem checar `graph_status`/`status`.
 maintenance:
@@ -41,6 +42,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-superiority-roadmap.md
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
+  - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-canonical-glossary-and-naming
 graph_title: Atlas Canonical Glossary And Naming
@@ -62,6 +64,8 @@ forbidden_changes:
   - Renomear termo sem deixar redirect/alias.
   - Inverter relacao Atlas Dev <-> Atlas Forge (nunca pai/filho).
   - Promover doc de visao futura como runtime atual sem checar status.
+  - Tratar versao, release, schema, camada ou arquivo-fonte como patamar canonico.
+  - Tratar Atlas Vox V0/V3/V4/V6 como patamares canonicos fora da Escada Vox.
 depends_on:
   - atlas-canonical-cleanup-inventory
   - atlas-ai-canonical-architecture-index
@@ -86,6 +90,7 @@ ai_entrypoints:
   - Leia Termos Canonicos antes de criar classe/servico novo cujo nome bata com algum termo registrado.
   - Leia "Dev vs Forge" antes de mover codigo entre AtlasDev e AtlasForge.
   - Leia "Domain vs Flow vs Runtime vs Harness" antes de criar diretorio ou namespace novo.
+  - Leia "Patamar vs Versao vs Camada vs Fonte" antes de preencher Cartografia, modal, graph_layer, versao ou relacao de maturidade.
   - Leia "Regras para IA" antes de propor doc com `status: active`.
 ai_usage_notes:
   - Este doc nao executa; valida nomenclatura. Use junto com `atlas-ai-canonical-architecture-index.md` para resolver autoridade.
@@ -97,6 +102,8 @@ failure_modes:
   - Termo novo criado sem entrada aqui — risco alto de duplicacao downstream.
   - Termo legado renomeado sem deixar alias — quebra links e provedor projection.
   - Doc de visao tratada como runtime atual — IA implementa contra contrato planned.
+  - IA confunde patamar com versao/camada/fonte — Cartografia passa a mentir sobre maturidade real.
+  - Atlas Vox V4/V6 tratado como patamar canonico — IA mistura escada Vox com patamar do Atlas inteiro.
 observability_signals:
   - docs-health-status
   - canonical-glossary-coverage
@@ -147,6 +154,20 @@ Nome aparece em roadmap / chat / doc / classe nova
 -> Esta em "Nomes Proibidos"? -> Sim: usar substituto.
 -> Conflita com Domain/Flow/Runtime/Harness? -> resolver pela tabela.
 ```
+
+## Patamar vs Versao vs Camada vs Fonte
+
+Contrato detalhado: `atlas-cartography-nomenclature-contract.md`.
+
+Resumo obrigatorio:
+
+- Patamar = salto de capacidade/maturidade.
+- Versao = revisao, schema, fase ou release da mesma superficie/contrato.
+- Camada = localizacao visual/conceitual no grafo.
+- Fonte = arquivo canonico onde a verdade vive.
+- `Self-Construction OS` -> `Self-Programming OS` e patamar.
+- `Atlas Vox V0/V3/V4/V6` sao versoes/degraus da Escada Vox, nao patamares
+  canonicos do Atlas inteiro por padrao.
 
 ## Termos Canonicos
 

@@ -6,6 +6,7 @@ use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHash
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimeGapMatrixService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionReceiptService;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -47,6 +48,37 @@ final class AtlasSelfConstructionRuntimeGapMatrixTest extends TestCase
         $this->assertSame($first['runtime_promotion_closure_basis_hash'], $second['runtime_promotion_closure_basis_hash']);
         $this->assertSame($first['expected_runtime_gap_matrix_hash_for_promotion_receipt'], $second['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
         $this->assertSame($first['runtime_gap_matrix_hash'], $second['runtime_gap_matrix_hash']);
+    }
+
+    public function test_runtime_gap_matrix_command_status_exposes_operator_resume_hashes(): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-runtime-gap-matrix' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $status = $payload['agent_control_plane_runtime_gap_matrix_audit_status'];
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.self_construction_agent_control_plane_runtime_gap_matrix_audit_status.v1', $payload['schema_version']);
+        $this->assertSame('blocked', $status['status']);
+        if ((bool) $status['all_runtime_y']) {
+            $this->assertSame('real_provider_smoke', $status['current_required_operator_artifact']);
+            $this->assertStringContainsString('--atlas-self-construction-real-provider-smoke-draft-status', $status['operator_next_action_command']);
+            $this->assertStringContainsString('--persist-completion-evidence', $status['operator_next_action_persist_command']);
+        } else {
+            $this->assertSame('runtime_promotion_receipt', $status['current_required_operator_artifact']);
+            $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $status['operator_next_action_command']);
+            $this->assertStringContainsString('--persist-runtime-promotion-receipt', $status['operator_next_action_persist_command']);
+        }
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $status['runtime_gap_matrix_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $status['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $status['runtime_promotion_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $status['runtime_promotion_closure_basis_hash']);
+        $this->assertIsInt($status['runtime_gap_count']);
+        $this->assertGreaterThanOrEqual(1, $status['runtime_y_candidate_count']);
+        $this->assertIsArray($status['blocked_gap_ids']);
+        $this->assertContains('adapter_execution_runtime', $status['graduation_candidate_gap_ids']);
     }
 
     public function test_expected_runtime_gap_matrix_hash_uses_stable_signable_base(): void

@@ -1,4 +1,105 @@
+---
+id: atlas-ai-runtime-release-gate
+type: engineering_knowledge
+title: Atlas AI Runtime Release Gate
+status: active
+category: runtime
+priority: 93
+summary: Gate macro final para release do Atlas AI Hyperflow Runtime Principal.
+tags:
+  - atlas-ai
+  - release
+  - runtime
+capabilities:
+  - runtime_release_gate
+decisions:
+  - Release gate herda Runtime Readiness e nao inclui Rivals externos ou TEOS-I2.
+maintenance:
+  - Atualizar quando macro release ou runtime readiness mudarem.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-ai-runtime-readiness.md
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-ai-runtime-release-gate
+graph_title: Atlas AI Runtime Release Gate
+graph_world: atlas
+graph_layer: system
+graph_kind: contract
+graph_parent: atlas-ai-runtime-readiness
+graph_status: active
+graph_source: repo
+owner: runtime-readiness
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-ai-runtime-release-gate.md
+allowed_changes:
+  - Atualizar gate macro quando readiness upstream mudar.
+forbidden_changes:
+  - Incluir benchmark externo ou claim de superioridade neste macro.
+depends_on:
+  - atlas-ai-runtime-readiness
+flows_to:
+  - atlas-code
+unlocks:
+  - runtime-release-gate
+governs:
+  - runtime-release
+evidence:
+  - docs/engineering-knowledge-base/atlas-ai-runtime-release-gate.md
+required_tests:
+  - "php artisan atlas:ai:runtime-release-gate --json"
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Manter precondicoes explicitas antes de TEOS-I2.
+---
 # Atlas AI Runtime Release Gate
+
+## Resumo
+
+Gate macro que decide se o runtime principal pode ser tratado como release ready.
+
+## Papel no Atlas
+
+Envelopar runtime readiness sem refazer subchecks.
+
+## Onde Se Encaixa
+
+Acima de Runtime Readiness e antes de macros futuros.
+
+## Contratos
+
+Nao inclui TEOS-I2, Rivals externos ou claims comparativas.
+
+## Fluxo
+
+Consome readiness upstream e emite ready/partial/blocked.
+
+## Regras para IA
+
+Nao abrir macro seguinte com gate partial ou blocked.
+
+## Escopo de Implementacao
+
+Release gate macro e hard fences.
+
+## Dependencias
+
+Runtime Readiness e Product Certification.
+
+## Evidencias
+
+Command output e upstream readiness.
+
+## Riscos
+
+Confundir macro principal com benchmark externo.
+
+## Exemplos
+
+`php artisan atlas:ai:runtime-release-gate --strict --json`.
+
+## Proximas Acoes
+
+Manter next_macro_recommendation honesto.
 
 **Status:** ativo · entregue 2026-05-19
 **Schema raiz:** `atlas.ai.runtime_release_gate.v1`

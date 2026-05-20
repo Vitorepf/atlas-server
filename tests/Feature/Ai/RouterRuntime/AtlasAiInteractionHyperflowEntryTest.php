@@ -80,6 +80,17 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertSame(64, strlen((string) $envelope['dispatch']['receipt_hash']));
         $this->assertNotNull($envelope['handoff_target'], 'programming flow must declare hand-off');
         $this->assertSame('atlas_dev', $envelope['handoff_target']['kind']);
+        $this->assertSame('atlas.context_intelligence.context_certification.v1', data_get($envelope, 'context_intelligence.schema_version'));
+        $this->assertContains(data_get($envelope, 'context_intelligence.status'), ['ready', 'degraded']);
+        $this->assertIsString(data_get($envelope, 'context_intelligence.context_certification_hash'));
+        $this->assertFalse(data_get($envelope, 'context_intelligence.claim_policy.provider_calls_made'));
+        $this->assertSame('atlas.conversation_ops.health_report.v1', data_get($envelope, 'conversation_ops.schema_version'));
+        $this->assertIsString(data_get($envelope, 'conversation_ops.conversation_health_hash'));
+        $this->assertFalse(data_get($envelope, 'conversation_ops.claim_policy.provider_calls_made'));
+        $this->assertSame('atlas.context_intelligence.operations_runtime.v1', data_get($envelope, 'context_operations.schema_version'));
+        $this->assertSame('atlas.conversation_ops.handoff_packet.v1', data_get($envelope, 'context_handoff_packet.schema_version'));
+        $this->assertTrue(data_get($envelope, 'context_operations.integration_policy.handoff_required'));
+        $this->assertFalse(data_get($envelope, 'context_operations.claim_policy.provider_calls_made'));
 
         // Canonical rows persisted.
         $this->assertGreaterThan(0, AiAtlasIntentClassification::query()->count());
@@ -107,6 +118,11 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertTrue($envelope['evidence_required'], 'research demands evidence');
         $this->assertNull($envelope['handoff_target'], 'non-programming intent must not declare programming hand-off');
         $this->assertContains('evidence.gate', $envelope['required_gates']);
+        $this->assertSame('atlas.context_intelligence.context_certification.v1', data_get($envelope, 'context_intelligence.schema_version'));
+        $this->assertSame('atlas.conversation_ops.health_report.v1', data_get($envelope, 'conversation_ops.schema_version'));
+        $this->assertIsString(data_get($envelope, 'context_intelligence.context_certification_hash'));
+        $this->assertSame('atlas.context_intelligence.operations_runtime.v1', data_get($envelope, 'context_operations.schema_version'));
+        $this->assertFalse(data_get($envelope, 'context_operations.integration_policy.handoff_required'));
     }
 
     public function test_finance_intent_emits_atlas_plan_with_policy_and_evidence_required(): void
@@ -208,6 +224,14 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertSame('dQw4w9WgXcQ', data_get($captured, 'payload.rich_input_payload.url_attachments.0.ref_id'));
         $this->assertSame('url', data_get($captured, 'payload.rich_input_payload.source_manifest.0.kind'));
         $this->assertIsArray(data_get($captured, 'payload.hyperflow_runtime'), 'Hyperflow must still run after rich input normalization');
+        $this->assertContains(
+            'context:rich_input:url:url-test',
+            data_get($captured, 'payload.hyperflow_runtime.context_intelligence.evidence_refs', []),
+        );
+        $this->assertSame(
+            'atlas.context_intelligence.operations_runtime.v1',
+            data_get($captured, 'payload.hyperflow_runtime.context_operations.schema_version'),
+        );
     }
 
     public function test_atlas_code_obra_ambiguous_prompt_uses_surface_contract_for_forge_hyperflow(): void
@@ -246,6 +270,8 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertSame(RouterRuntimeCanon::MODE_FORGE, $envelope['runtime_mode']);
         $this->assertSame('atlas_forge', $envelope['handoff_target']['kind']);
         $this->assertSame('hyperflow_programming_flow_handoff', $envelope['handoff_target']['reason']);
+        $this->assertSame('atlas.conversation_ops.handoff_packet.v1', data_get($envelope, 'context_handoff_packet.schema_version'));
+        $this->assertTrue(data_get($envelope, 'context_operations.integration_policy.verified_compaction_required'));
         $this->assertContains('surface:atlas_code', $envelope['intent']['matched_keywords']);
         $this->assertContains('tool_plan.gate', $envelope['required_gates']);
         $this->assertTrue($envelope['evidence_required']);

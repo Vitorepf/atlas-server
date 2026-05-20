@@ -92,6 +92,69 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorTest ext
         $this->assertContains('runtime_promotion_receipt:verify_command_contains_persist_flag', $payload['violations']);
     }
 
+    public function test_inspector_reports_portuguese_operator_placeholders_in_draft_workspace(): void
+    {
+        Storage::fake('local');
+        $workspace = $this->writeWorkspace();
+
+        $runtimePath = $workspace.'/runtime-promotion.json';
+        Storage::disk('local')->put($runtimePath, $this->draftJson([
+            'receipt_id' => 'runtime-test',
+            'signed_by' => 'SEU_NOME',
+            'reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+            'receipt_hash' => '<hash>',
+        ]));
+
+        $smokePath = $workspace.'/real-provider-smoke.json';
+        Storage::disk('local')->put($smokePath, $this->draftJson([
+            'provider_run_id' => 'substitua pelo provider run real',
+            'task_packet_id' => 'substitua pelo task packet real',
+            'observed_by' => 'SEU_NOME',
+            'approval_reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+            'smoke_hash' => '<hash>',
+        ]));
+
+        $completionPath = $workspace.'/completion-receipt.json';
+        Storage::disk('local')->put($completionPath, $this->draftJson([
+            'receipt_id' => 'completion-test',
+            'signed_by' => 'SEU_NOME',
+            'reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+            'receipt_hash' => '<hash>',
+        ]));
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService)->inspect([
+            'operator_draft_workspace_path' => $workspace,
+        ]);
+
+        $this->assertSame('workspace_safe_for_operator_editing', $payload['status']);
+        $this->assertSame(0, $payload['violation_count']);
+        $runtime = $this->fileReport($payload, 'runtime_promotion_receipt');
+        $smoke = $this->fileReport($payload, 'real_provider_smoke');
+        $completion = $this->fileReport($payload, 'human_completion_receipt');
+        $this->assertContains('signed_by', $runtime['placeholders']);
+        $this->assertContains('reason', $runtime['placeholders']);
+        $this->assertContains('provider_run_id', $smoke['placeholders']);
+        $this->assertContains('task_packet_id', $smoke['placeholders']);
+        $this->assertContains('observed_by', $smoke['placeholders']);
+        $this->assertContains('approval_reason', $smoke['placeholders']);
+        $this->assertContains('signed_by', $completion['placeholders']);
+        $this->assertContains('reason', $completion['placeholders']);
+        $this->assertFalse((bool) $payload['completion_claim_allowed']);
+        $this->assertFalse((bool) $payload['runtime_write_allowed']);
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function fileReport(array $payload, string $artifact): array
+    {
+        foreach ((array) $payload['files'] as $file) {
+            if ((string) ($file['artifact'] ?? '') === $artifact) {
+                return (array) $file;
+            }
+        }
+
+        $this->fail('Missing file report for '.$artifact);
+    }
+
     public function test_readiness_and_cli_quartet_are_registered(): void
     {
         Storage::fake('local');

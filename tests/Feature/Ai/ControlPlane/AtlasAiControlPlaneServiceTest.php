@@ -93,12 +93,15 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertSame('healthy', $report['status']);
         $this->assertSame(0, $report['summary']['total_traces']);
         $this->assertSame(0, $report['summary']['failed']);
+        $this->assertSame(0, $report['summary']['context_operations_blockers_count']);
+        $this->assertSame(0, $report['summary']['verified_compactions_count']);
         $this->assertSame([], $report['flows']);
         $this->assertSame([], $report['recent_traces']);
         $this->assertSame([], $report['failures']);
         $this->assertSame(0, $report['handoffs']['dev']['count']);
         $this->assertSame(0, $report['handoffs']['forge']['count']);
         $this->assertSame(0, $report['receipts']['total']);
+        $this->assertSame('missing', $report['context_operations']['status']);
         $this->assertSame([], $report['blockers']);
         $this->assertNotEmpty($report['readiness_refs']);
         $this->assertFalse($report['claim_policy']['allows_external_superiority_claim']);
@@ -241,7 +244,7 @@ class AtlasAiControlPlaneServiceTest extends TestCase
             'metadata' => json_encode([
                 'hyperflow_runtime' => [
                     'flow_id' => 'atlas_debug',
-                    'handoff_target' => 'atlas_dev',
+                    'handoff_target' => ['kind' => 'atlas_dev'],
                 ],
                 'specialist_flow_runtime' => [
                     'delegation' => [
@@ -257,6 +260,105 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertSame(1, $report['handoffs']['dev']['count']);
         $this->assertSame('atlas_dev', $report['handoffs']['dev']['items'][0]['handoff_target']);
         $this->assertSame(1, $report['summary']['handoffs_count']);
+    }
+
+    public function test_context_operations_section_aggregates_acie_acol_and_compaction(): void
+    {
+        $traceId = Str::uuid()->toString();
+        $this->insertTrace([
+            'id' => $traceId,
+            'status' => 'succeeded',
+            'provider' => 'claude',
+            'metadata' => json_encode([
+                'hyperflow_runtime' => [
+                    'flow_id' => 'atlas_forge',
+                    'handoff_target' => ['kind' => 'atlas_forge'],
+                    'context_operations' => [
+                        'schema_version' => 'atlas.context_intelligence.operations_runtime.v1',
+                        'status' => 'ready',
+                        'operations_runtime_hash' => str_repeat('a', 64),
+                        'context_intelligence' => [
+                            'schema_version' => 'atlas.context_intelligence.context_certification.v1',
+                            'status' => 'ready',
+                            'blockers' => [],
+                        ],
+                        'conversation_ops' => [
+                            'schema_version' => 'atlas.conversation_ops.health_report.v1',
+                            'status' => 'healthy',
+                        ],
+                        'verified_compaction' => [
+                            'schema_version' => 'atlas.context_intelligence.verified_compaction.v1',
+                            'status' => 'passed',
+                            'blockers' => [],
+                        ],
+                        'compression_critic' => [
+                            'schema_version' => 'atlas.conversation_ops.compression_critic_report.v1',
+                            'status' => 'healthy',
+                            'blockers' => [],
+                        ],
+                        'handoff_packet' => [
+                            'schema_version' => 'atlas.conversation_ops.handoff_packet.v1',
+                        ],
+                        'integration_policy' => [
+                            'verified_compaction_required' => true,
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $report = $this->service()->report(24);
+
+        $this->assertSame('ready', $report['context_operations']['status']);
+        $this->assertSame(1, $report['context_operations']['total']);
+        $this->assertSame(1, $report['context_operations']['by_status']['ready']);
+        $this->assertSame(1, $report['context_operations']['context_intelligence']['by_status']['ready']);
+        $this->assertSame(1, $report['context_operations']['conversation_ops']['by_status']['healthy']);
+        $this->assertSame(1, $report['context_operations']['verified_compaction']['passed']);
+        $this->assertSame(1, $report['context_operations']['verified_compaction']['required']);
+        $this->assertSame(1, $report['context_operations']['handoff_packets']['total']);
+        $this->assertSame(1, $report['summary']['verified_compactions_count']);
+        $this->assertSame(0, $report['summary']['context_operations_blockers_count']);
+        $this->assertSame($traceId, $report['context_operations']['recent'][0]['trace_id']);
+    }
+
+    public function test_context_operations_blocked_trace_surfaces_blocker(): void
+    {
+        $traceId = Str::uuid()->toString();
+        $this->insertTrace([
+            'id' => $traceId,
+            'status' => 'succeeded',
+            'provider' => 'claude',
+            'metadata' => json_encode([
+                'hyperflow_runtime' => [
+                    'flow_id' => 'atlas_forge',
+                    'context_operations' => [
+                        'schema_version' => 'atlas.context_intelligence.operations_runtime.v1',
+                        'status' => 'blocked',
+                        'context_intelligence' => [
+                            'status' => 'blocked',
+                            'blockers' => [['id' => 'must_keep_without_evidence']],
+                        ],
+                        'verified_compaction' => [
+                            'status' => 'blocked',
+                            'blockers' => [['id' => 'must_keep_coverage_below_one']],
+                        ],
+                        'compression_critic' => [
+                            'status' => 'blocked',
+                            'blockers' => [['id' => 'compression_lost_must_keep']],
+                        ],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $report = $this->service()->report(24);
+
+        $this->assertSame('blocked', $report['status']);
+        $this->assertSame(3, $report['summary']['context_operations_blockers_count']);
+        $blocker = collect($report['blockers'])->firstWhere('kind', 'context_operations_blocked');
+        $this->assertNotNull($blocker);
+        $this->assertSame($traceId, $blocker['trace_id']);
     }
 
     public function test_forge_handoff_incomplete_emits_blocker(): void

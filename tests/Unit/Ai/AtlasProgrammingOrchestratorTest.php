@@ -36,6 +36,11 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('atlas.programming.execution_sandbox.plan.v1', data_get($normal, 'sandbox_plan.schema_version'));
         $this->assertSame('atlas.programming.patch_verifier.report.v1', data_get($normal, 'patch_verifier_gate.schema_version'));
         $this->assertSame('atlas.programming.learning_candidate.v1', data_get($normal, 'learning_candidate_policy.schema_version'));
+        $this->assertSame('atlas.context_intelligence.operations_runtime.v1', data_get($normal, 'context_operations.schema_version'));
+        $this->assertSame('atlas.context_intelligence.context_certification.v1', data_get($normal, 'context_intelligence.schema_version'));
+        $this->assertSame('atlas.conversation_ops.health_report.v1', data_get($normal, 'conversation_ops.schema_version'));
+        $this->assertSame('dev_runtime', data_get($normal, 'context_operations.handoff_packet.role'));
+        $this->assertFalse((bool) data_get($normal, 'context_operations.claim_policy.provider_calls_made'));
         $this->assertSame(['plan', 'review', 'patch', 'test', 'repair'], data_get($normal, 'programming_orchestration_contract.stage_order'));
         $this->assertSame('required', data_get($normal, 'programming_orchestration_contract.stages.0.mode'));
         $this->assertSame('required', data_get($normal, 'programming_orchestration_contract.stages.2.mode'));
@@ -72,6 +77,9 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('harness', data_get($forge, 'execution_profile.tool_contract.mode'));
         $this->assertSame('strict', data_get($forge, 'execution_profile.gate_contract.minimum_gate'));
         $this->assertSame('atlas-ai.agent-behavior.v1', data_get($forge, 'agent_behavior_contract.contract_id'));
+        $this->assertSame('atlas.context_intelligence.operations_runtime.v1', data_get($forge, 'context_operations.schema_version'));
+        $this->assertTrue((bool) data_get($forge, 'context_operations.integration_policy.verified_compaction_required'));
+        $this->assertSame('forge_intake', data_get($forge, 'context_operations.handoff_packet.role'));
     }
 
     public function test_session_plan_has_resume_orchestration_contract_for_broken_task_continuation(): void
@@ -215,6 +223,7 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('atlas.programming.agentic_rag.plan.v1', data_get($dispatch, 'agentic_rag_plan.schema_version'));
         $this->assertSame('atlas.programming.stage_receipt_plan.v1', data_get($dispatch, 'stage_receipt_plan.schema_version'));
         $this->assertSame('atlas.programming.resume_state.v1', data_get($dispatch, 'resume_state.schema_version'));
+        $this->assertSame('atlas.context_intelligence.operations_runtime.v1', data_get($dispatch, 'context_operations.schema_version'));
         $this->assertSame('atlas.programming.execution_sandbox.plan.v1', data_get($dispatch, 'sandbox_plan.schema_version'));
 
         $frontendPlan = app(AtlasProgrammingOrchestrator::class)->sessionPlan(sys_get_temp_dir(), 'dev', [

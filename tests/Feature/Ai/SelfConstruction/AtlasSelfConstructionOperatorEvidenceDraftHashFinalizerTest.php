@@ -126,6 +126,41 @@ final class AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerTest extends 
         $this->assertContains('dispatch_allowed', data_get($payload, 'artifacts.human_completion_receipt.forbidden_flags_true'));
     }
 
+    public function test_workspace_finalizer_blocks_portuguese_operator_placeholders_before_hash_write(): void
+    {
+        $drafts = $this->readyDrafts();
+        $drafts['runtime_promotion_receipt']['signed_by'] = 'SEU_NOME';
+        $drafts['runtime_promotion_receipt']['reason'] = 'MOTIVO REAL COM PELO MENOS 32 CARACTERES';
+        $drafts['real_provider_smoke']['provider_run_id'] = 'substitua pelo provider run real';
+        $drafts['real_provider_smoke']['observed_by'] = 'SEU_NOME';
+        $drafts['real_provider_smoke']['approval_reason'] = 'MOTIVO REAL COM PELO MENOS 32 CARACTERES';
+        $drafts['human_completion_receipt']['signed_by'] = 'SEU_NOME';
+        $drafts['human_completion_receipt']['reason'] = 'MOTIVO REAL COM PELO MENOS 32 CARACTERES';
+        [$workspace] = $this->writeWorkspace($drafts);
+
+        $payload = (new AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService)->finalize([
+            'operator_draft_workspace_path' => $workspace,
+            'write_computed_operator_draft_hashes' => true,
+        ]);
+
+        $this->assertSame('blocked_operator_drafts_not_ready_for_hash_write', $payload['status']);
+        $this->assertSame(0, $payload['ready_artifact_count']);
+        $this->assertSame(3, $payload['blocked_artifact_count']);
+        $this->assertSame(0, $payload['written_artifact_count']);
+        $this->assertSame('operator_placeholders_or_reason_not_ready', data_get($payload, 'artifacts.runtime_promotion_receipt.write_blocker'));
+        $this->assertSame('operator_placeholders_or_reason_not_ready', data_get($payload, 'artifacts.real_provider_smoke.write_blocker'));
+        $this->assertSame('operator_placeholders_or_reason_not_ready', data_get($payload, 'artifacts.human_completion_receipt.write_blocker'));
+        $this->assertEqualsCanonicalizing(['signed_by', 'reason'], data_get($payload, 'artifacts.runtime_promotion_receipt.placeholder_fields'));
+        $this->assertEqualsCanonicalizing(['provider_run_id', 'observed_by', 'approval_reason'], data_get($payload, 'artifacts.real_provider_smoke.placeholder_fields'));
+        $this->assertEqualsCanonicalizing(['signed_by', 'reason'], data_get($payload, 'artifacts.human_completion_receipt.placeholder_fields'));
+        $this->assertFalse((bool) data_get($payload, 'artifacts.runtime_promotion_receipt.written'));
+        $this->assertFalse((bool) data_get($payload, 'artifacts.real_provider_smoke.written'));
+        $this->assertFalse((bool) data_get($payload, 'artifacts.human_completion_receipt.written'));
+        $this->assertFalse($payload['completion_allowed']);
+        $this->assertFalse($payload['completion_claim_allowed']);
+        $this->assertFalse($payload['runtime_write_allowed']);
+    }
+
     public function test_readiness_status_cli_quartet_and_capabilities_are_exposed(): void
     {
         [$workspace] = $this->writeWorkspace($this->readyDrafts());

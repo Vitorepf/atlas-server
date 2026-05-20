@@ -221,6 +221,70 @@ class EngineeringDocumentationHealthServiceTest extends TestCase
         $this->assertSame(0, $report['summary']['canonical_module_coverage_violation_count']);
     }
 
+    public function test_cartography_nomenclature_contract_is_required_bootstrap_doc(): void
+    {
+        $service = $this->makeService();
+        $report = $service->analyzeDocs([
+            $this->canonicalDoc('atlas-ai-session-bootstrap.md'),
+            $this->canonicalDoc('atlas-ai-documentation-operating-system.md'),
+            $this->canonicalDoc('atlas-canonical-module-doc-v1.md'),
+            $this->canonicalDoc('atlas-documentation-creation-gate.md'),
+            $this->canonicalDoc('atlas-ai-knowledge-governance-system.md'),
+            $this->canonicalDoc('atlas-ai-runtime-language-boundaries.md'),
+            $this->canonicalDoc('atlas-ai-qualitative-levels-roadmap.md'),
+            $this->canonicalDoc('atlas-ai-canonical-architecture-index.md'),
+            $this->canonicalDoc('START_HERE.md'),
+            $this->canonicalDoc('README.md'),
+        ]);
+
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md: required documentation bootstrap file is missing',
+            $report['violations'],
+        );
+    }
+
+    public function test_documentation_creation_gate_is_required_bootstrap_doc(): void
+    {
+        $service = $this->makeService();
+        $report = $service->analyzeDocs([
+            $this->canonicalDoc('atlas-ai-session-bootstrap.md'),
+            $this->canonicalDoc('atlas-ai-documentation-operating-system.md'),
+            $this->canonicalDoc('atlas-canonical-module-doc-v1.md'),
+            $this->canonicalDoc('atlas-cartography-nomenclature-contract.md'),
+            $this->canonicalDoc('atlas-ai-knowledge-governance-system.md'),
+            $this->canonicalDoc('atlas-ai-runtime-language-boundaries.md'),
+            $this->canonicalDoc('atlas-ai-qualitative-levels-roadmap.md'),
+            $this->canonicalDoc('atlas-ai-canonical-architecture-index.md'),
+            $this->canonicalDoc('START_HERE.md'),
+            $this->canonicalDoc('README.md'),
+        ]);
+
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-documentation-creation-gate.md: required documentation bootstrap file is missing',
+            $report['violations'],
+        );
+    }
+
+    public function test_patamar_and_version_collection_fields_must_be_lists(): void
+    {
+        $service = $this->makeService();
+        $report = $service->analyzeDocs([
+            $this->canonicalDoc('atlas-bad-patamar-version.md', [
+                'patamar_after' => 'Self-Programming OS',
+                'versions' => 'V0/V3/V4/V6',
+            ]),
+        ]);
+
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-bad-patamar-version.md: optional canonical module field [patamar_after] must be a list',
+            $report['violations'],
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-bad-patamar-version.md: optional canonical module field [versions] must be a list',
+            $report['violations'],
+        );
+    }
+
     public function test_summary_carries_warning_count_and_list(): void
     {
         $service = $this->makeService();

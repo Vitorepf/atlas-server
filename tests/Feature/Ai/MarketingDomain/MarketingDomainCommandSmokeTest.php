@@ -38,4 +38,11 @@ class MarketingDomainCommandSmokeTest extends TestCase
         $exit = $this->artisan('atlas:ai:marketing-domain', ['--action' => 'control-plane', '--json' => true])->run();
         $this->assertSame(0, $exit);
     }
+
+    public function test_limited_autonomy_policy_command(): void
+    {
+        $exit = $this->artisan('atlas:ai:marketing-domain', ['--action' => 'limited-autonomy-policy', '--json' => true])->run();
+
+        $this->assertSame(0, $exit);
+    }
 }

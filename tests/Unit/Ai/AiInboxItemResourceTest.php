@@ -240,7 +240,7 @@ final class AiInboxItemResourceTest extends TestCase
         $payload = (new AiInboxItemResource($item))->resolve();
 
         $this->assertSame('77,9', data_get($payload, 'presentation.primary_metric.value'));
-        $this->assertSame('Status critical; 16 traces; qualidade 77,9; eficiencia 74,6; data 2026-05-12.', data_get($payload, 'presentation.plain_summary'));
+        $this->assertSame('Status critico; 16 traces; qualidade 77,9; eficiencia 74,6; data 2026-05-12.', data_get($payload, 'presentation.plain_summary'));
         $this->assertSame('16', data_get($payload, 'presentation.metrics.0.value'));
         $this->assertSame('93,8%', data_get($payload, 'presentation.metrics.3.value'));
         $this->assertSame('4,96s', data_get($payload, 'presentation.metrics.4.value'));

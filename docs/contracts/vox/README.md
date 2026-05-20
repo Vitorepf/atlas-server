@@ -5,7 +5,7 @@ title: Atlas Vox v1 Contracts Index
 status: active
 category: contracts
 priority: 95
-summary: Indice canonico dos 5 contratos v1 do Atlas Vox usados em V0-V3. Schemas obrigatorios para qualquer implementacao de runtime Vox.
+summary: Indice canonico dos contratos v1 do Atlas Vox e extensoes additive V6.5/V6.8. Schemas obrigatorios para qualquer implementacao de runtime Vox.
 tags:
   - atlas-vox
   - contracts
@@ -55,7 +55,7 @@ quality_gates:
 ---
 # Atlas Vox v1 Contracts Index
 
-5 contratos canonicos. Versao `v1` aprovada 2026-05-18 via revisao
+Contratos canonicos. Versao `v1` aprovada 2026-05-18 via revisao
 arquitetural (`plans/synchronous-weaving-meteor.md`) e ADR 0003. Imutaveis em
 campos obrigatorios; extensoes adicionam-se via `v1.x` ou nova versao.
 
@@ -108,9 +108,36 @@ Campos additive ativos:
 |----------------------------------------|------------------|---------------------------------|--------------------------|
 | `response.flow_decision`               | `flow_decision`  | `atlas.vox.flow_decision.v1`    | `VoxFlowOrchestrator`    |
 | `response.intent_packet.prompt_quality`| `prompt_quality` | `atlas.vox.prompt_quality.v1`   | `VoxPromptSelfCritic`    |
+| `response.cognitive_flow_governor`     | `cognitive_flow_governor` | `atlas.vox.cognitive_flow_governor.v1` | `VoxCognitiveFlowGovernor` |
 
 Clientes V3/V4/V5/V6 que nao conhecem os campos simplesmente os ignoram;
 clientes V6.5+ leem se vierem, caem em fallback se nao vierem.
+
+## V6.8 · Cognitive Flow Governor (2026-05-19)
+
+Nome da versao: **Atlas Vox V6.8 - Cognitive Flow Governor**.
+
+Objetivo: consolidar a decisao final do fluxo antes da UI agir. O governador
+responde, de forma deterministica e local, sete perguntas:
+
+1. O que eu ouvi.
+2. Qual e a intencao primaria.
+3. Qual modo e destino fazem sentido.
+4. Qual contexto esta faltando.
+5. Qual risco governa a proxima acao.
+6. Qual politica de execucao e permitida.
+7. Qual proximo passo humano a interface deve mostrar.
+
+Garantias:
+
+- Sem provider call, sem LLM, sem API paga.
+- Sem mobile, sem Voice Realtime Surface.
+- Sem terminal execute.
+- Sem audio cru no Kernel.
+- V7 continua bloqueada.
+- Campo additive; clientes antigos podem ignorar.
+
+Contrato detalhado: `VoxCognitiveFlowGovernor.v1.md`.
 
 Garantias:
 

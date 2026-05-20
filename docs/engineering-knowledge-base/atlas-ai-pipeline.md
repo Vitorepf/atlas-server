@@ -49,6 +49,78 @@ graph_source: repo
 
 owner: architecture
 
+gear_flow:
+  - graph_id: atlas-ai-pipeline:input
+    target_graph_id: atlas-input
+    name: Input
+    kind: input
+    summary: preserva origem, surface, workspace e anexos
+  - graph_id: atlas-ai-pipeline:intent
+    target_graph_id: intent-routing
+    name: Intent
+    kind: context
+    summary: entende o pedido, risco e confianca antes de executar
+  - graph_id: atlas-ai-pipeline:domain
+    target_graph_id: domain-plane
+    name: Domain
+    kind: context
+    summary: escolhe a vertical operacional responsavel
+  - graph_id: atlas-ai-pipeline:domain-profile
+    target_graph_id: domain-profile-flow
+    name: Domain Profile
+    kind: context
+    summary: escolhe o sistema operacional vertical correto
+  - graph_id: atlas-ai-pipeline:flow-profile
+    target_graph_id: domain-profile-flow
+    name: Flow Profile
+    kind: context
+    summary: escolhe o fluxo operacional dentro do dominio
+  - graph_id: atlas-ai-pipeline:context
+    target_graph_id: context-builder
+    name: Context
+    kind: context
+    summary: monta memoria, docs, arquivos e historico com budget
+  - graph_id: atlas-ai-pipeline:policy
+    target_graph_id: policy-profile
+    name: Policy
+    kind: policy
+    summary: aplica regras, permissao, custo, tools, gates e autonomia
+  - graph_id: atlas-ai-pipeline:decide
+    target_graph_id: atlas-decide
+    name: Decide
+    kind: decision
+    summary: Atlas Decide compila provider, modelo, fallback e contrato de evidencia
+  - graph_id: atlas-ai-pipeline:executor
+    target_graph_id: runtime-executor
+    name: Executor
+    kind: output
+    summary: executa dentro do Decision Receipt
+  - graph_id: atlas-ai-pipeline:gate
+    target_graph_id: quality-gates
+    name: Gate
+    kind: gate
+    summary: verifica sucesso com evidence, SLO, seguranca e qualidade
+  - graph_id: atlas-ai-pipeline:repair
+    target_graph_id: repair-escalation
+    name: Repair / Escalation
+    kind: failure
+    summary: corrige, reexecuta, escala ou bloqueia sem improviso
+  - graph_id: atlas-ai-pipeline:evidence
+    target_graph_id: evidence-ledger
+    name: Evidence
+    kind: gate
+    summary: registra o que foi feito, medido e persistido
+  - graph_id: atlas-ai-pipeline:learning
+    target_graph_id: learning-proposals
+    name: Learning
+    kind: context
+    summary: promove memoria, benchmark ou proposta sem violar policy
+  - graph_id: atlas-ai-pipeline:output
+    target_graph_id: output-renderer
+    name: Output
+    kind: output
+    summary: surface apresenta a resposta ou artefato ao operador
+
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
 

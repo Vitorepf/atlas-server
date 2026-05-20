@@ -238,13 +238,13 @@ final class AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService
             if ((string) $field === $hashField) {
                 continue;
             }
-            if (is_string($value) && str_starts_with(trim($value), '<')) {
+            if (is_string($value) && $this->isPlaceholderValue($value)) {
                 $fields[] = (string) $field;
             }
         }
         if (in_array($artifact, ['runtime_promotion_receipt', 'human_completion_receipt'], true)) {
             $reason = trim((string) ($payload['reason'] ?? ''));
-            if (mb_strlen($reason) < 32) {
+            if (mb_strlen($reason) < 32 || $this->isPlaceholderValue($reason)) {
                 $fields[] = 'reason';
             }
             if ($this->isPlaceholderSigner((string) ($payload['signed_by'] ?? ''))) {
@@ -336,7 +336,44 @@ final class AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService
 
     private function isPlaceholderSigner(string $signedBy): bool
     {
-        return in_array(strtolower(trim($signedBy)), ['', '<operator>', 'operator', 'human', 'codex', 'assistant', 'system', 'claude', 'codex-autosigned', 'atlas'], true);
+        $normalized = strtolower(trim($signedBy));
+
+        return in_array($normalized, ['', '<operator>', 'operator', 'human', 'codex', 'assistant', 'system', 'claude', 'codex-autosigned', 'atlas'], true)
+            || $this->isPlaceholderValue($normalized);
+    }
+
+    private function isPlaceholderValue(string $value): bool
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
+            return true;
+        }
+
+        foreach ([
+            'seu_nome',
+            'seu nome',
+            'operador',
+            'motivo real',
+            'pelo menos 32 caracteres',
+            'substitua',
+            'placeholder',
+            'todo',
+            'synthetic',
+            'fixture-only',
+            'fixture_only',
+            'test_only',
+            'test-only',
+            'fake',
+            'simulated',
+            'mock-',
+            'dummy',
+        ] as $fragment) {
+            if (str_contains($normalized, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return array<string, mixed> */

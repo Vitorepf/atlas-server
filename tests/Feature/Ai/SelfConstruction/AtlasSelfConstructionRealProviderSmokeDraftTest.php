@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeDraftService;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -30,6 +31,29 @@ final class AtlasSelfConstructionRealProviderSmokeDraftTest extends TestCase
         $this->assertSame([], $draft['missing_evidence_hashes']);
         $this->assertSame([], $draft['missing_observation_flags']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $draft['smoke_hash']);
+    }
+
+    public function test_draft_blocks_portuguese_operator_placeholders(): void
+    {
+        $draft = (new AtlasSelfConstructionRealProviderSmokeDraftService)->build(array_merge($this->validSmokePreimage(), [
+            'provider_run_id' => 'substitua pelo provider run real',
+            'task_packet_id' => 'substitua pelo task packet real',
+            'observed_by' => 'SEU_NOME',
+            'approval_reason' => 'MOTIVO REAL COM PELO MENOS 32 CARACTERES',
+        ]), [
+            'persist_completion_evidence' => true,
+        ]);
+
+        $this->assertSame('blocked_operator_or_evidence_input_required', $draft['status']);
+        $this->assertSame('real_provider_smoke_draft_not_ready_for_persistence', $draft['persistence_blocker']);
+        $this->assertContains('provider_run_id', $draft['missing_operator_inputs']);
+        $this->assertContains('task_packet_id', $draft['missing_operator_inputs']);
+        $this->assertContains('observed_by', $draft['missing_operator_inputs']);
+        $this->assertContains('approval_reason', $draft['missing_operator_inputs']);
+        $this->assertFalse((bool) $draft['persisted']);
+        $this->assertFalse((bool) $draft['completion_claim_allowed']);
+        $this->assertFalse((bool) $draft['provider_call_allowed']);
+        $this->assertFalse((bool) $draft['token_spend_allowed']);
     }
 
     public function test_draft_persists_only_when_ready_and_requested(): void
@@ -70,6 +94,33 @@ final class AtlasSelfConstructionRealProviderSmokeDraftTest extends TestCase
                 ->assertExitCode(0)
                 ->expectsOutputToContain($schema);
         }
+
+        Artisan::call('atlas:ai:self-construction', [
+            '--atlas-self-construction-real-provider-smoke-draft-status' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $summary = (array) data_get($payload, 'agent_control_plane_atlas_self_construction_real_provider_smoke_draft_status', []);
+
+        $this->assertContains((string) $summary['current_required_operator_artifact'], [
+            'runtime_promotion_receipt',
+            'real_provider_smoke',
+            'human_completion_receipt',
+            'none',
+        ]);
+        $this->assertIsString($summary['next_required_command']);
+        $this->assertArrayHasKey('next_required_persist_command', $summary);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_gap_matrix_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_promotion_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_promotion_closure_basis_hash']);
+        $this->assertFalse((bool) $summary['execution_allowed']);
+        $this->assertFalse((bool) $summary['dispatch_allowed']);
+        $this->assertFalse((bool) $summary['provider_call_allowed']);
+        $this->assertFalse((bool) $summary['token_spend_allowed']);
+        $this->assertFalse((bool) $summary['adapter_execution_allowed']);
+        $this->assertFalse((bool) $summary['completion_claim_allowed']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
     }
 
     /** @return array<string, mixed> */

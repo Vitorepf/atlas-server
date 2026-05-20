@@ -65,7 +65,7 @@ final class AtlasSelfConstructionRealProviderSmokeCertificationService
             if ($value === '') {
                 $violations[] = ['code' => 'required_real_smoke_field_missing', 'field' => $field];
             }
-            if ($value !== '' && str_starts_with($value, '<')) {
+            if ($value !== '' && $this->isPlaceholderOperatorSmokeValue($value)) {
                 $violations[] = ['code' => 'required_real_smoke_field_placeholder', 'field' => $field];
             }
         }
@@ -220,6 +220,39 @@ final class AtlasSelfConstructionRealProviderSmokeCertificationService
     private function hashes(): AtlasSelfConstructionCompletionEvidenceHashService
     {
         return new AtlasSelfConstructionCompletionEvidenceHashService;
+    }
+
+    private function isPlaceholderOperatorSmokeValue(string $value): bool
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
+            return true;
+        }
+
+        foreach ([
+            'synthetic',
+            'fixture-only',
+            'fixture_only',
+            'test_only',
+            'test-only',
+            'fake',
+            'simulated',
+            'mock-',
+            'dummy',
+            'placeholder',
+            'seu_nome',
+            'seu nome',
+            'operador',
+            'motivo real',
+            'pelo menos 32 caracteres',
+            'substitua',
+        ] as $fragment) {
+            if (str_contains($normalized, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function ksortRecursive(array $value): array

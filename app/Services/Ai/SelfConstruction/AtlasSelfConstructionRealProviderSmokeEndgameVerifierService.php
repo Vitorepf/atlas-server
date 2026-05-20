@@ -56,6 +56,12 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameVerifierService
         'mock-',
         'dummy',
         'placeholder',
+        'seu_nome',
+        'seu nome',
+        'operador',
+        'motivo real',
+        'pelo menos 32 caracteres',
+        'substitua',
     ];
 
     private const PLACEHOLDER_PREFIXES = ['<', '__'];
@@ -163,8 +169,15 @@ final class AtlasSelfConstructionRealProviderSmokeEndgameVerifierService
 
     private function isPlaceholder(string $value): bool
     {
+        $normalized = strtolower(trim($value));
         foreach (self::PLACEHOLDER_PREFIXES as $prefix) {
-            if (str_starts_with($value, $prefix)) {
+            if (str_starts_with($normalized, $prefix)) {
+                return true;
+            }
+        }
+
+        foreach (self::SYNTHETIC_FRAGMENTS as $fragment) {
+            if (str_contains($normalized, $fragment)) {
                 return true;
             }
         }

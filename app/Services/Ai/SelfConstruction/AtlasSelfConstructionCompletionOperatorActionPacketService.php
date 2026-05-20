@@ -170,6 +170,7 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
             'operator_evidence_artifact_template_pack' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-artifact-template-pack-status --json',
             'operator_evidence_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
             'draft_runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            'draft_runtime_promotion_receipt_to_canonical_submission_file' => $this->draftRuntimePromotionReceiptToCanonicalSubmissionFileCommand(),
             'draft_human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --real-provider-smoke-json=@/path/to/real-provider-smoke.json --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
             'draft_human_completion_receipt_with_canonical_submission_paths' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --runtime-promotion-receipt-json=@'.self::RUNTIME_PROMOTION_RECEIPT_PRIVATE_PATH.' --real-provider-smoke-json=@'.self::REAL_PROVIDER_SMOKE_PRIVATE_PATH.' --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
             'prepare_real_provider_smoke_offline_harness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-offline-harness-status --json',
@@ -300,6 +301,11 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
     private function persistRuntimePromotionReceiptCommand(): string
     {
         return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@'.self::RUNTIME_PROMOTION_RECEIPT_PRIVATE_PATH.' --persist-runtime-promotion-receipt --json';
+    }
+
+    private function draftRuntimePromotionReceiptToCanonicalSubmissionFileCommand(): string
+    {
+        return 'mkdir -p storage/app/private/atlas/self-construction/operator-submissions && php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json | jq \'.agent_control_plane_atlas_self_construction_runtime_promotion_receipt_draft.receipt_payload\' > '.self::RUNTIME_PROMOTION_RECEIPT_PRIVATE_PATH;
     }
 
     private function persistRealProviderSmokeCommand(): string

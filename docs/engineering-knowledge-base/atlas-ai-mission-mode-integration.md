@@ -1,4 +1,105 @@
+---
+id: atlas-ai-mission-mode-integration
+type: engineering_knowledge
+title: Atlas AI Mission Mode Integration
+status: active
+category: runtime
+priority: 91
+summary: Integra Mission Mode ao Hyperflow para detectar objetivos persistentes e criar missions canonicas.
+tags:
+  - atlas-ai
+  - mission
+  - hyperflow
+capabilities:
+  - mission_mode
+decisions:
+  - Mission Mode cria e planeja missions, mas nao executa specialist flows.
+maintenance:
+  - Atualizar quando MissionModeService, comandos ou Hyperflow entry mudarem.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-kernel-mission-foundation.md
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-ai-mission-mode-integration
+graph_title: Atlas AI Mission Mode Integration
+graph_world: atlas
+graph_layer: flow
+graph_kind: flow
+graph_parent: atlas-kernel-mission-foundation
+graph_status: active
+graph_source: repo
+owner: mission-runtime
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-ai-mission-mode-integration.md
+allowed_changes:
+  - Atualizar quando Mission Mode mudar contratos ou entrypoints.
+forbidden_changes:
+  - Transformar toda conversa em mission pesada.
+depends_on:
+  - atlas-kernel-mission-foundation
+flows_to:
+  - atlas-code
+unlocks:
+  - persistent-mission-mode
+governs:
+  - mission-mode
+evidence:
+  - docs/engineering-knowledge-base/atlas-ai-mission-mode-integration.md
+required_tests:
+  - "php artisan test tests/Feature/Ai/Mission"
+requires_evidence: true
+risk_level: medium
+next_actions:
+  - Manter deteccao e lifecycle alinhados ao Hyperflow.
+---
 # Atlas AI Mission Mode · integração canônica
+
+## Resumo
+
+Camada leve de deteccao e criacao de missions persistentes.
+
+## Papel no Atlas
+
+Transforma objetivos persistentes em Mission Foundation sem duplicar runtime.
+
+## Onde Se Encaixa
+
+Antes de IntentKernelService no Hyperflow.
+
+## Contratos
+
+Cria/plana missions; nao executa provider nem specialist flow.
+
+## Fluxo
+
+Detecta intent, cria mission, decompoe objectives e transita para planned.
+
+## Regras para IA
+
+Nao usar Mission Mode para perguntas simples ou tasks triviais.
+
+## Escopo de Implementacao
+
+Mission detection, command surface e integracao com Hyperflow.
+
+## Dependencias
+
+Mission Foundation, Hyperflow entry e specialist flows.
+
+## Evidencias
+
+Service, comando e testes de mission.
+
+## Riscos
+
+Criar missions pesadas para conversas simples.
+
+## Exemplos
+
+`php artisan atlas:ai:mission create --goal="..." --json`.
+
+## Proximas Acoes
+
+Manter signal detection e certification coerentes.
 
 **Status:** ativo · entregue 2026-05-19
 **Schema raiz:** `atlas.ai.mission_signal.v1` · `atlas.ai.mission_mode_result.v1` · `atlas.ai.mission_mode_snapshot.v1`

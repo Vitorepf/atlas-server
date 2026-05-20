@@ -2,9 +2,11 @@
 id: adr-0002-voice-realtime-sdk-loop-kernel-response-path
 type: engineering_adr
 title: ADR 0002 - Voice Realtime SDK Loop E Kernel Response Path
-status: proposed
+status: building
 category: architecture_decision
 priority: 95
+implementation_state: proposed_decision_not_accepted
+blocker: operator_must_choose_response_text_path_before_sdk_loop
 summary: Resolve a unica fronteira arquitetural ainda aberta antes de Phase 1 promotion do Voice Realtime: como o runtime LiveKit Agents obtem response_text do Kernel para TTS, sem violar privacy_audio_not_persisted nem o contrato runtime_execution_enabled=false.
 tags:
   - adr

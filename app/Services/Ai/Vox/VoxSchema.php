@@ -28,12 +28,15 @@ final class VoxSchema
     public const INTERLOCUTOR_DECISION = 'atlas.vox.interlocutor_decision.v1';
     /** V6.5 · Flow Orchestrator decision schema. */
     public const FLOW_DECISION = 'atlas.vox.flow_decision.v1';
+    /** V6.8 · Cognitive Flow Governor schema. */
+    public const COGNITIVE_FLOW_GOVERNOR = 'atlas.vox.cognitive_flow_governor.v1';
 
     public const COMPILER_VERSION = '0.1.0';
     public const KERNEL_VOX_VERSION = '0.2.0';
     public const AUTO_MODE_ROUTER_VERSION = '0.2.0';
     public const INTERLOCUTOR_VERSION = '0.2.0';
     public const FLOW_ORCHESTRATOR_VERSION = '0.1.0';
+    public const COGNITIVE_FLOW_GOVERNOR_VERSION = '0.1.0';
 
     // V6.5 · Composite Intent Splitter — políticas de execução possíveis
     // quando a fala mistura duas ou mais intenções. NUNCA executa em

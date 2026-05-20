@@ -17,6 +17,8 @@ final class AtlasAiVoxControllerTest extends TestCase
     {
         parent::setUp();
         config()->set('atlas.token', 'test-token-with-enough-length-123');
+        config()->set('atlas.vox.executors.codex_cli.binary', null);
+        config()->set('atlas.vox.executors.claude_cli.binary', null);
         // V0 must work without atlas_ledger_events present (response-first).
         Schema::dropIfExists('atlas_ledger_events');
     }
@@ -33,6 +35,14 @@ final class AtlasAiVoxControllerTest extends TestCase
             ->assertJsonPath('supports.prompt_polish', true)
             ->assertJsonPath('supports.intent_compile', true)
             ->assertJsonPath('supports.governed_execute', true)
+            ->assertJsonPath('supports.cognitive_flow_governor', true)
+            ->assertJsonPath('cognitive_flow_governor.schema', VoxSchema::COGNITIVE_FLOW_GOVERNOR)
+            ->assertJsonPath('cognitive_flow_governor.provider_call', false)
+            ->assertJsonPath('cognitive_flow_governor.llm_call', false)
+            ->assertJsonPath('cognitive_flow_governor.cloud_stt', false)
+            ->assertJsonPath('cognitive_flow_governor.terminal_execute', false)
+            ->assertJsonPath('cognitive_flow_governor.mobile_touched', false)
+            ->assertJsonPath('cognitive_flow_governor.voice_realtime_touched', false)
             ->assertJsonPath('prompt_polish.engine', 'deterministic_rules')
             ->assertJsonPath('prompt_polish.language', 'pt-BR')
             ->assertJsonPath('prompt_polish.provider_call', false)
@@ -147,6 +157,61 @@ final class AtlasAiVoxControllerTest extends TestCase
         $this->assertNotSame('', $what);
         $this->assertStringNotContainsString('rms', $what);
         $this->assertStringNotContainsString('peak', $what);
+    }
+
+    /**
+     * V6.8 · Cognitive Flow Governor agrega a política final de ação para a
+     * UI: intenção, destino, lacunas, risco, allowed_actions e guards locais.
+     */
+    public function test_intent_v68_attaches_cognitive_flow_governor_envelope(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'mode_requested' => 'auto',
+            'text' => 'cria um prompt pro Codex investigar o Atlas Vox sem editar nada',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('cognitive_flow_governor.schema', VoxSchema::COGNITIVE_FLOW_GOVERNOR)
+            ->assertJsonPath('cognitive_flow_governor.version', VoxSchema::COGNITIVE_FLOW_GOVERNOR_VERSION)
+            ->assertJsonPath('cognitive_flow_governor.engine', 'deterministic_local_rules')
+            ->assertJsonPath('cognitive_flow_governor.local_only', true)
+            ->assertJsonPath('cognitive_flow_governor.v7_unlock_allowed', false)
+            ->assertJsonPath('cognitive_flow_governor.flow.mode', 'intent_compile')
+            ->assertJsonPath('cognitive_flow_governor.flow.destination', 'codex')
+            ->assertJsonPath('cognitive_flow_governor.context.missing', false)
+            ->assertJsonPath('cognitive_flow_governor.risk.blocked', false)
+            ->assertJsonPath('cognitive_flow_governor.execution.policy', 'single_safe_action')
+            ->assertJsonPath('cognitive_flow_governor.quality.prompt_quality_required', true)
+            ->assertJsonPath('cognitive_flow_governor.guards.raw_audio_accepted', false)
+            ->assertJsonPath('cognitive_flow_governor.guards.cloud_stt', false)
+            ->assertJsonPath('cognitive_flow_governor.guards.paid_api_required', false)
+            ->assertJsonPath('cognitive_flow_governor.guards.terminal_execute', false)
+            ->assertJsonPath('cognitive_flow_governor.guards.voice_realtime_touched', false)
+            ->assertJsonPath('cognitive_flow_governor.guards.mobile_touched', false);
+
+        $allowed = $response->json('cognitive_flow_governor.execution.allowed_actions');
+        $this->assertContains('copy', $allowed);
+        $this->assertContains('send_to_atlas', $allowed);
+        $this->assertContains('cancel', $allowed);
+        $this->assertContains('codex', $response->json('cognitive_flow_governor.intent.user_words_preserved'));
+        $this->assertContains('não mexer', $response->json('cognitive_flow_governor.intent.user_words_preserved'));
+    }
+
+    public function test_intent_v68_blocks_destructive_request_at_governor_layer(): void
+    {
+        $response = $this->postJson('/ai/vox/intent', $this->validTranscript([
+            'mode_requested' => 'auto',
+            'text' => 'manda um rm -rf no diretório do projeto',
+        ]), $this->headers);
+
+        $response->assertOk()
+            ->assertJsonPath('cognitive_flow_governor.risk.class', 'R4')
+            ->assertJsonPath('cognitive_flow_governor.risk.blocked', true)
+            ->assertJsonPath('cognitive_flow_governor.risk.requires_confirmation', true)
+            ->assertJsonPath('cognitive_flow_governor.execution.policy', 'blocked')
+            ->assertJsonPath('cognitive_flow_governor.execution.allowed_actions.0', 'cancel')
+            ->assertJsonPath('cognitive_flow_governor.human_preview.warning', 'Ação bloqueada por segurança.')
+            ->assertJsonPath('cognitive_flow_governor.guards.terminal_execute', false);
     }
 
     public function test_intent_v65_flow_decision_signals_R4_cancel_for_destructive_phrase(): void

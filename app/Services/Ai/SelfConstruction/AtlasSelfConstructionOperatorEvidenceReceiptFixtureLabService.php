@@ -195,7 +195,7 @@ final class AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService
 
         $missing = $this->missingFields($receipt, self::REQUIRED_FIELDS_RUNTIME_RECEIPT);
         $invalidHashes = $this->invalidHashFields($receipt, self::HASH_FIELDS_RUNTIME_RECEIPT);
-        $placeholders = $this->placeholderFields($receipt, ['signed_by']);
+        $placeholders = $this->placeholderFields($receipt, ['signed_by', 'reason']);
         $forbiddenTrue = $this->forbiddenFlagsTrue($receipt, self::FORBIDDEN_FLAGS_RUNTIME_RECEIPT);
 
         $computedHash = $this->hashes->runtimePromotionReceiptHash($receipt);
@@ -240,7 +240,7 @@ final class AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService
 
         $missing = $this->missingFields($smoke, self::REQUIRED_FIELDS_REAL_PROVIDER_SMOKE);
         $invalidHashes = $this->invalidHashFields($smoke, self::HASH_FIELDS_REAL_PROVIDER_SMOKE);
-        $placeholders = $this->placeholderFieldsStartingWithAngle($smoke, [
+        $placeholders = $this->placeholderFields($smoke, [
             'provider_run_id',
             'task_packet_id',
             'observed_by',
@@ -290,7 +290,7 @@ final class AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService
 
         $missing = $this->missingFields($receipt, self::REQUIRED_FIELDS_COMPLETION_RECEIPT);
         $invalidHashes = $this->invalidHashFields($receipt, self::HASH_FIELDS_COMPLETION_RECEIPT);
-        $placeholders = $this->placeholderFields($receipt, ['signed_by']);
+        $placeholders = $this->placeholderFields($receipt, ['signed_by', 'reason']);
         $forbiddenTrue = $this->forbiddenFlagsTrue($receipt, self::FORBIDDEN_FLAGS_COMPLETION_RECEIPT);
 
         $computedHash = $this->hashes->humanCompletionReceiptHash($receipt);
@@ -391,8 +391,8 @@ final class AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService
     {
         $placeholders = [];
         foreach ($fields as $field) {
-            $value = strtolower(trim((string) ($payload[$field] ?? '')));
-            if (in_array($value, self::PLACEHOLDER_SIGNERS, true)) {
+            $value = (string) ($payload[$field] ?? '');
+            if ($this->isPlaceholderValue($value)) {
                 $placeholders[] = $field;
             }
         }
@@ -416,6 +416,43 @@ final class AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService
         }
 
         return $placeholders;
+    }
+
+    private function isPlaceholderValue(string $value): bool
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
+            return true;
+        }
+        if (in_array($normalized, self::PLACEHOLDER_SIGNERS, true)) {
+            return true;
+        }
+
+        foreach ([
+            'seu_nome',
+            'seu nome',
+            'operador',
+            'motivo real',
+            'pelo menos 32 caracteres',
+            'substitua',
+            'placeholder',
+            'todo',
+            'synthetic',
+            'fixture-only',
+            'fixture_only',
+            'test_only',
+            'test-only',
+            'fake',
+            'simulated',
+            'mock-',
+            'dummy',
+        ] as $fragment) {
+            if (str_contains($normalized, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

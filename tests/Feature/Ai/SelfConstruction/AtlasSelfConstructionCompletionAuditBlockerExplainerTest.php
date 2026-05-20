@@ -159,6 +159,15 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerTest extends Tes
         $block = (array) data_get($status, 'agent_control_plane_atlas_self_construction_completion_audit_blocker_explainer_status', []);
 
         $this->assertSame('available', $status['status']);
+        $this->assertSame('human_completion_receipt', $block['current_required_operator_artifact']);
+        $this->assertStringContainsString('--atlas-self-construction-human-completion-receipt-draft-status', (string) $block['next_required_command']);
+        $this->assertStringContainsString('--persist-completion-evidence', (string) $block['next_required_persist_command']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['runtime_gap_matrix_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['runtime_promotion_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $block['runtime_promotion_closure_basis_hash']);
+        $this->assertFalse((bool) $block['completion_claim_allowed']);
+        $this->assertFalse((bool) $block['self_programming_allowed']);
         $this->assertStringContainsString('--agent-control-plane-terminal-loop-operational-proof-status', (string) $block['terminal_loop_operational_proof_command']);
         $this->assertStringContainsString('--persist-terminal-loop-operational-proof-binding', (string) $block['terminal_loop_operational_proof_binding_persist_command']);
         $this->assertSame('storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json', $block['terminal_loop_operational_proof_canonical_binding_path']);

@@ -112,6 +112,13 @@ final class AtlasSelfConstructionFinalCompletionDossierExporterTest extends Test
         $this->assertFalse((bool) $summary['final_audit_complete']);
         $this->assertContains('runtime_gap_matrix_all_runtime_y', (array) $summary['failed_blockers']);
         $this->assertSame(count((array) $summary['failed_blockers']), $summary['failed_blocker_count']);
+        $this->assertSame('runtime_promotion_receipt', $summary['current_required_operator_artifact']);
+        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', (string) $summary['next_required_command']);
+        $this->assertStringContainsString('--persist-runtime-promotion-receipt', (string) $summary['next_required_persist_command']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_gap_matrix_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['expected_runtime_gap_matrix_hash_for_promotion_receipt']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_promotion_basis_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_promotion_closure_basis_hash']);
         $this->assertGreaterThan(0, $summary['next_command_count']);
         $this->assertSame(count((array) $summary['next_commands']), $summary['next_command_count']);
         $this->assertTrue((bool) collect((array) $summary['next_commands'])->contains(
@@ -121,7 +128,9 @@ final class AtlasSelfConstructionFinalCompletionDossierExporterTest extends Test
         $this->assertFalse((bool) $summary['export_persisted']);
         $this->assertSame('', $summary['export_path']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['exporter_hash']);
+        $this->assertSame($summary['exporter_hash'], $summary['dossier_hash']);
         $this->assertFalse((bool) $summary['completion_claim_allowed']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
     }
 
     public function test_status_projection_builds_current_audit_when_no_override_is_supplied(): void
@@ -136,7 +145,12 @@ final class AtlasSelfConstructionFinalCompletionDossierExporterTest extends Test
         $this->assertGreaterThanOrEqual(0, $summary['failed_blocker_count']);
         $this->assertGreaterThan(0, $summary['next_command_count']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['exporter_hash']);
+        $this->assertArrayHasKey('current_required_operator_artifact', $summary);
+        $this->assertArrayHasKey('next_required_command', $summary);
+        $this->assertArrayHasKey('next_required_persist_command', $summary);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $summary['runtime_gap_matrix_hash']);
         $this->assertFalse((bool) $summary['completion_claim_allowed']);
+        $this->assertFalse((bool) $summary['self_programming_allowed']);
     }
 
     private function exporter(): AtlasSelfConstructionFinalCompletionDossierExporterService

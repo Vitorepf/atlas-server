@@ -227,12 +227,46 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService
             $path = $prefix === '' ? (string) $key : $prefix.'.'.$key;
             if (is_array($value)) {
                 array_push($paths, ...$this->placeholderPaths($value, $path));
-            } elseif (is_string($value) && str_starts_with(trim($value), '<') && str_ends_with(trim($value), '>')) {
+            } elseif (is_string($value) && $this->isPlaceholderValue($value)) {
                 $paths[] = $path;
             }
         }
 
         return $paths;
+    }
+
+    private function isPlaceholderValue(string $value): bool
+    {
+        $normalized = strtolower(trim($value));
+        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
+            return true;
+        }
+
+        foreach ([
+            'seu_nome',
+            'seu nome',
+            'operador',
+            'motivo real',
+            'pelo menos 32 caracteres',
+            'substitua',
+            'placeholder',
+            'todo',
+            'synthetic',
+            'fixture-only',
+            'fixture_only',
+            'test_only',
+            'test-only',
+            'fake',
+            'simulated',
+            'mock-',
+            'dummy',
+        ] as $fragment) {
+            if (str_contains($normalized, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

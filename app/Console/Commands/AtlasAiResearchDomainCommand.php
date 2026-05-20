@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
 use App\Services\Ai\ResearchDomain\ResearchControlPlaneProjection;
 use App\Services\Ai\ResearchDomain\ResearchDomainCanon;
 use App\Services\Ai\ResearchDomain\ResearchDomainManifestSeeder;
@@ -14,7 +15,9 @@ class AtlasAiResearchDomainCommand extends Command
 {
     protected $signature = 'atlas:ai:research-domain
         {positional? : Optional positional action (alternative to --action)}
-        {--action=readiness : readiness, seed-manifest, smoke, control-plane}
+        {--action=readiness : readiness, seed-manifest, smoke, control-plane, enterprise-analysis}
+        {--fixture : Run an enterprise flow fixture action}
+        {--runtime-mode=internal : enterprise flow runtime mode: internal or fixture}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Research Company Runtime (Meta 8A): source plan, source quality, claims, contradiction check, synthesis, evidence pack, certification.';
@@ -24,18 +27,31 @@ class AtlasAiResearchDomainCommand extends Command
         ResearchDomainManifestSeeder $manifestSeeder,
         ResearchRuntimeService $runtime,
         ResearchControlPlaneProjection $controlPlane,
+        AutonomousHoldingEnterpriseBuildoutService $enterpriseBuildout,
     ): int {
         $positional = $this->argument('positional');
         $action = is_string($positional) && trim($positional) !== ''
             ? trim($positional)
             : (string) $this->option('action');
+        $fixtureRuntime = app(\App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService::class);
 
         try {
+            if ($fixtureRuntime->supports(ResearchDomainCanon::DOMAIN_ID, $action)) {
+                $this->line($this->encode($fixtureRuntime->run(
+                    ResearchDomainCanon::DOMAIN_ID,
+                    $action,
+                    $this->fixtureRequested(),
+                )));
+
+                return self::SUCCESS;
+            }
+
             return match ($action) {
                 'readiness' => $this->renderReadiness($readiness),
                 'seed-manifest' => $this->renderSeedManifest($manifestSeeder),
                 'smoke' => $this->renderSmoke($runtime, $controlPlane),
                 'control-plane' => $this->renderControlPlane($controlPlane),
+                'enterprise-analysis' => $this->renderEnterpriseAnalysis($enterpriseBuildout),
                 default => $this->invalidAction($action),
             };
         } catch (Throwable $e) {
@@ -149,6 +165,19 @@ class AtlasAiResearchDomainCommand extends Command
         return self::SUCCESS;
     }
 
+    private function renderEnterpriseAnalysis(AutonomousHoldingEnterpriseBuildoutService $enterpriseBuildout): int
+    {
+        $payload = $enterpriseBuildout->companyPacket(ResearchDomainCanon::DOMAIN_ID);
+        $payload['ok'] = (bool) ($payload['readiness']['ok'] ?? false);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('company_id', (string) $payload['company_id']);
+            $this->components->twoColumnDetail('flows', (string) $payload['readiness']['flow_count']);
+            $this->components->twoColumnDetail('connectors', (string) $payload['readiness']['connector_count']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
     private function invalidAction(string $action): int
     {
         $this->line($this->encode([
@@ -176,6 +205,12 @@ class AtlasAiResearchDomainCommand extends Command
     private function json(): bool
     {
         return (bool) $this->option('json');
+    }
+
+    private function fixtureRequested(): bool
+    {
+        return (string) $this->input->getParameterOption('--runtime-mode', (string) $this->option('runtime-mode')) === 'fixture'
+            || (bool) $this->option('fixture');
     }
 
     /**

@@ -75588,6 +75588,16 @@ final class AtlasSelfConstructionReadinessService
         $options = $this->withTerminalLoopOperationalProofPayload($options);
 
         $result = (new AtlasSelfConstructionOsCompletionAuditService($this))->audit($options);
+        $certificationStatusBatchCriterion = [];
+        foreach ((array) data_get($result, 'criteria', []) as $criterion) {
+            if ((string) data_get($criterion, 'id', '') === 'certification_status_batch_green') {
+                $certificationStatusBatchCriterion = (array) $criterion;
+                break;
+            }
+        }
+        $certificationStatusBatchCommand = 'php artisan atlas:ai:self-construction --agent-control-plane-certification-status-batch-status --json';
+        $terminalLoopOperationalProofCanonicalBindingPath = 'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
+        $completionAuditWithCanonicalTerminalLoopOperationalProofCommand = 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@'.$terminalLoopOperationalProofCanonicalBindingPath.' --json';
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_os_completion_audit',
@@ -75597,6 +75607,8 @@ final class AtlasSelfConstructionReadinessService
             extraStatusFields: [
                 'completion_audit_hash' => (string) data_get($result, 'completion_audit_hash'),
                 'completion_allowed' => (bool) data_get($result, 'completion_allowed', false),
+                'completion_claim_allowed' => (bool) data_get($result, 'completion_claim_allowed', false),
+                'self_programming_allowed' => false,
                 'criteria_count' => (int) data_get($result, 'criteria_count'),
                 'passed_count' => (int) data_get($result, 'passed_count'),
                 'failed_count' => (int) data_get($result, 'failed_count'),
@@ -75607,6 +75619,27 @@ final class AtlasSelfConstructionReadinessService
                 'real_provider_blockers' => (array) data_get($result, 'blocker_classification.real_provider_blockers', []),
                 'technical_blocker_count' => (int) data_get($result, 'blocker_classification.technical_blocker_count', 0),
                 'technical_blockers' => (array) data_get($result, 'blocker_classification.technical_blockers', []),
+                'completion_claim_authority_verdict_status' => (string) data_get($result, 'completion_claim_authority_verdict.status', ''),
+                'completion_claim_authority' => (string) data_get($result, 'completion_claim_authority_verdict.completion_authority', ''),
+                'completion_claim_required_completion_predicate' => (string) data_get($result, 'completion_claim_authority_verdict.required_completion_predicate', ''),
+                'completion_claim_external_agent_claim_accepted' => (bool) data_get($result, 'completion_claim_authority_verdict.external_agent_claim_accepted', true),
+                'completion_claim_external_agent_claim_can_override_audit' => (bool) data_get($result, 'completion_claim_authority_verdict.external_agent_claim_can_override_audit', true),
+                'completion_claim_external_agent_claim_can_mark_os_complete' => (bool) data_get($result, 'completion_claim_authority_verdict.external_agent_claim_can_mark_os_complete', true),
+                'completion_claim_missing_evidence_count' => (int) data_get($result, 'completion_claim_authority_verdict.missing_evidence_count', 0),
+                'completion_claim_authority_verdict_hash' => (string) data_get($result, 'completion_claim_authority_verdict.completion_claim_authority_verdict_hash', ''),
+                'certification_status_batch_green_passed' => (bool) data_get($certificationStatusBatchCriterion, 'passed', false),
+                'certification_status_batch_status' => (string) data_get($certificationStatusBatchCriterion, 'evidence.status', ''),
+                'certification_status_batch_hash' => (string) data_get($certificationStatusBatchCriterion, 'evidence.hash', ''),
+                'certification_status_batch_checked_count' => (int) data_get($certificationStatusBatchCriterion, 'evidence.checked_count', 0),
+                'certification_status_batch_failed_count' => (int) data_get($certificationStatusBatchCriterion, 'evidence.failed_count', 0),
+                'certification_status_batch_full_batch_required' => (bool) data_get($certificationStatusBatchCriterion, 'evidence.full_batch_required', false),
+                'certification_status_batch_refresh_required' => in_array('certification_status_batch_green', (array) data_get($result, 'failed_criteria', []), true),
+                'certification_status_batch_command' => $certificationStatusBatchCommand,
+                'certification_status_batch_is_current_technical_blocker' => in_array('certification_status_batch_green', (array) data_get($result, 'blocker_classification.technical_blockers', []), true),
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'terminal_loop_operational_proof_canonical_binding_path' => $terminalLoopOperationalProofCanonicalBindingPath,
+                'completion_audit_with_canonical_terminal_loop_operational_proof_command' => $completionAuditWithCanonicalTerminalLoopOperationalProofCommand,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
                 'current_required_operator_artifact' => match (true) {
                     in_array('runtime_gap_matrix_all_runtime_y', (array) data_get($result, 'failed_criteria', []), true) => 'runtime_promotion_receipt',
                     in_array('end_to_end_real_provider_smoke_green', (array) data_get($result, 'failed_criteria', []), true) => 'real_provider_smoke',
@@ -75738,6 +75771,18 @@ final class AtlasSelfConstructionReadinessService
             in_array('human_signed_os_complete_receipt', (array) data_get($result, 'missing_operator_artifacts', []), true) => 'human_completion_receipt',
             default => 'none',
         };
+        $nextRequiredCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => (string) data_get($result, 'commands.draft_runtime_promotion_receipt', ''),
+            'real_provider_smoke' => (string) data_get($result, 'commands.draft_real_provider_smoke', ''),
+            'human_completion_receipt' => (string) data_get($result, 'commands.draft_human_completion_receipt', ''),
+            default => (string) data_get($result, 'commands.run_completion_audit_with_canonical_terminal_loop_operational_proof', ''),
+        };
+        $nextRequiredPersistCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => (string) data_get($result, 'commands.persist_runtime_promotion_receipt', ''),
+            'real_provider_smoke' => (string) data_get($result, 'commands.persist_real_provider_smoke', ''),
+            'human_completion_receipt' => (string) data_get($result, 'commands.persist_human_completion_receipt', ''),
+            default => '',
+        };
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_os_completion_operator_action_packet',
@@ -75749,6 +75794,12 @@ final class AtlasSelfConstructionReadinessService
                 'missing_operator_artifact_count' => count((array) data_get($result, 'missing_operator_artifacts', [])),
                 'missing_operator_artifacts' => (array) data_get($result, 'missing_operator_artifacts', []),
                 'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+                'next_required_command' => $nextRequiredCommand,
+                'next_required_persist_command' => $nextRequiredPersistCommand,
+                'runtime_gap_matrix_hash' => (string) data_get($evidence, 'runtime_gap_matrix.runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($evidence, 'runtime_gap_matrix.expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($evidence, 'runtime_gap_matrix.runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($evidence, 'runtime_gap_matrix.runtime_promotion_closure_basis_hash', ''),
                 'closure_artifact_sequence' => (array) data_get($result, 'closure_artifact_sequence', []),
                 'closure_artifact_sequence_count' => (int) data_get($result, 'closure_artifact_sequence_count', 0),
                 'closure_artifact_sequence_hash' => (string) data_get($result, 'closure_artifact_sequence_hash', ''),
@@ -75772,6 +75823,11 @@ final class AtlasSelfConstructionReadinessService
                 'canonical_submission_private_storage_paths' => (array) data_get($result, 'canonical_submission_private_storage_paths', []),
                 'terminal_loop_operational_proof_required_before_final_audit' => (bool) data_get($result, 'terminal_loop_operational_proof_required_before_final_audit', false),
                 'terminal_loop_operational_proof_expected_binding_schema' => (string) data_get($result, 'terminal_loop_operational_proof_expected_binding_schema', ''),
+                'completion_allowed' => false,
+                'self_programming_allowed' => false,
+                'completion_claim_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
             ],
         );
     }
@@ -75809,6 +75865,7 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfConstructionFinalEvidenceBundleStatus(array $options = []): array
     {
+        $liveStatusProjection = $options === [];
         $options = $this->withTerminalLoopOperationalProofPayload($options);
         $result = (new AtlasSelfConstructionFinalEvidenceBundleService($this))->build($options);
         $blockedCriteria = (array) data_get($result, 'final_operator_packet.what_is_blocked', []);
@@ -75831,6 +75888,20 @@ final class AtlasSelfConstructionReadinessService
             ! (bool) data_get($result, 'final_readiness_map.completion_audit_green', false) => 'completion_audit_with_terminal_loop_binding',
             default => 'none',
         };
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
+        if ($liveStatusProjection) {
+            $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+            $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', $currentRequiredOperatorArtifact);
+            data_set($result, 'final_operator_packet.next_action_shell_packet.exact_command', (string) data_get($completionEvidence, 'next_required_command', data_get($result, 'final_operator_packet.next_action_shell_packet.exact_command', '')));
+            data_set($result, 'final_operator_packet.next_action_shell_packet.persist_command', (string) data_get($completionEvidence, 'next_required_persist_command', data_get($result, 'final_operator_packet.next_action_shell_packet.persist_command', '')));
+        }
+        $completionClaimAuthorityAliases = $this->completionClaimAuthorityAliases(
+            failedCriteria: $blockedCriteria,
+            currentRequiredOperatorArtifact: $currentRequiredOperatorArtifact,
+        );
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_final_evidence_bundle',
@@ -75852,6 +75923,13 @@ final class AtlasSelfConstructionReadinessService
                 'next_action_shell_packet_hash' => (string) data_get($result, 'final_operator_packet.next_action_shell_packet.shell_packet_hash', ''),
                 'next_action_exact_command' => (string) data_get($result, 'final_operator_packet.next_action_shell_packet.exact_command', ''),
                 'next_action_persist_command' => (string) data_get($result, 'final_operator_packet.next_action_shell_packet.persist_command', ''),
+                'next_required_command' => (string) data_get($result, 'final_operator_packet.next_action_shell_packet.exact_command', ''),
+                'next_required_persist_command' => (string) data_get($result, 'final_operator_packet.next_action_shell_packet.persist_command', ''),
+                ...$completionClaimAuthorityAliases,
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
                 'next_action_placeholder_count' => (int) data_get($result, 'final_operator_packet.next_action_shell_packet.placeholder_count', 0),
                 'next_action_copy_safe' => (bool) data_get($result, 'final_operator_packet.next_action_shell_packet.copy_safe', false),
                 'closure_artifact_sequence' => (array) data_get($result, 'closure_artifact_sequence', []),
@@ -75890,6 +75968,10 @@ final class AtlasSelfConstructionReadinessService
                 'completion_audit_green_requires_current_snapshot_after_terminal_loop_proof' => (bool) data_get($result, 'final_operator_packet.completion_audit_green_requires_current_snapshot_after_terminal_loop_proof', false),
                 'completion_claim_allowed' => (bool) data_get($result, 'machine_status.completion_claim_allowed', false),
                 'final_completion_allowed' => (bool) data_get($result, 'final_readiness_map.final_completion_allowed', false),
+                'completion_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
             ],
         );
     }
@@ -75927,8 +76009,42 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfConstructionCompletionAuditBlockerExplainerStatus(array $options = []): array
     {
+        $explicitAuditProvided = array_key_exists('completion_audit', $options);
         $audit = (array) ($options['completion_audit'] ?? (new AtlasSelfConstructionOsCompletionAuditService($this))->audit($options));
         $result = (new AtlasSelfConstructionCompletionAuditBlockerExplainerService)->build($audit);
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
+        $failedCriteria = (array) data_get($audit, 'failed_criteria', []);
+        $currentRequiredOperatorArtifact = match (true) {
+            in_array('runtime_gap_matrix_all_runtime_y', $failedCriteria, true) => 'runtime_promotion_receipt',
+            in_array('end_to_end_real_provider_smoke_green', $failedCriteria, true) => 'real_provider_smoke',
+            in_array('human_signed_os_complete_receipt_present', $failedCriteria, true) => 'human_completion_receipt',
+            default => 'none',
+        };
+        $nextRequiredCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            default => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+        };
+        $nextRequiredPersistCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
+            default => '',
+        };
+        if (! $explicitAuditProvided) {
+            $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+            $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', $currentRequiredOperatorArtifact);
+            $nextRequiredCommand = (string) data_get($completionEvidence, 'next_required_command', $nextRequiredCommand);
+            $nextRequiredPersistCommand = (string) data_get($completionEvidence, 'next_required_persist_command', $nextRequiredPersistCommand);
+        }
+        $completionClaimAuthorityAliases = $this->completionClaimAuthorityAliases(
+            failedCriteria: $failedCriteria,
+            currentRequiredOperatorArtifact: $currentRequiredOperatorArtifact,
+        );
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_completion_audit_blocker_explainer',
@@ -75938,6 +76054,14 @@ final class AtlasSelfConstructionReadinessService
             extraStatusFields: [
                 'explainer_hash' => (string) data_get($result, 'explainer_hash'),
                 'remaining_blocker_count' => (int) data_get($result, 'remaining_blocker_count', 0),
+                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+                'next_required_command' => $nextRequiredCommand,
+                'next_required_persist_command' => $nextRequiredPersistCommand,
+                ...$completionClaimAuthorityAliases,
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
                 'closure_artifact_sequence' => (array) data_get($result, 'closure_artifact_sequence', []),
                 'closure_artifact_sequence_count' => (int) data_get($result, 'closure_artifact_sequence_count', 0),
                 'closure_artifact_sequence_hash' => (string) data_get($result, 'closure_artifact_sequence_hash', ''),
@@ -75953,6 +76077,11 @@ final class AtlasSelfConstructionReadinessService
                 'terminal_loop_operational_proof_canonical_binding_path' => (string) data_get($result, 'command_plan.terminal_loop_operational_proof_canonical_binding_path', ''),
                 'completion_audit_command_with_terminal_loop_operational_proof' => (string) data_get($result, 'command_plan.completion_audit_with_terminal_loop_operational_proof', ''),
                 'effective_completion_audit_with_canonical_terminal_loop_operational_proof_command' => (string) data_get($result, 'command_plan.effective_completion_audit_with_canonical_terminal_loop_operational_proof', ''),
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
             ],
         );
     }
@@ -75995,6 +76124,10 @@ final class AtlasSelfConstructionReadinessService
         $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
         $blockerExplainer = (new AtlasSelfConstructionCompletionAuditBlockerExplainerService)->build($audit);
         $result = (new AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService)->build($audit, $completionEvidence, $blockerExplainer);
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
         $currentCompletionBlockersClassified = (array) data_get($result, 'operator_handoff_packet.current_completion_blockers_classified', []);
         if ($currentCompletionBlockersClassified === []) {
             $currentCompletionBlockersClassified = array_values(array_map(
@@ -76039,6 +76172,10 @@ final class AtlasSelfConstructionReadinessService
                 'current_completion_blocker_classification_count' => count($currentCompletionBlockersClassified),
                 'next_required_command' => (string) data_get($result, 'next_required_command', ''),
                 'next_required_persist_command' => (string) data_get($result, 'next_required_persist_command', ''),
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
                 'resumption_checkpoint_hash' => (string) data_get($result, 'operator_resumption_checkpoint.resumption_checkpoint_hash'),
                 'resumption_checkpoint_current_step' => (string) data_get($result, 'operator_resumption_checkpoint.current_step'),
                 'resumption_checkpoint_can_resume_without_chat_history' => (bool) data_get($result, 'operator_resumption_checkpoint.can_resume_without_chat_history', false),
@@ -76077,7 +76214,11 @@ final class AtlasSelfConstructionReadinessService
                 'pre_persist_guardrail_hash' => (string) data_get($result, 'pre_persist_guardrail_hash', ''),
                 'operator_required' => (bool) data_get($result, 'operator_required', false),
                 'real_provider_required' => (bool) data_get($result, 'real_provider_required', false),
+                'completion_allowed' => false,
                 'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
             ],
         );
     }
@@ -76124,6 +76265,12 @@ final class AtlasSelfConstructionReadinessService
         $rootDoc = is_file($rootPath) ? (string) file_get_contents($rootPath) : '';
         $completionAudit = $this->atlasSelfConstructionOsCompletionAuditStatus($options);
         $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+        $completionAuditStatus = (array) data_get($completionAudit, 'agent_control_plane_atlas_self_construction_os_completion_audit_status', []);
+        $completionEvidenceStatus = (array) data_get(
+            $completionEvidence,
+            'agent_control_plane_atlas_self_construction_os_completion_evidence_status',
+            $completionEvidence,
+        );
         $releaseDossierStatus = $this->agentControlPlaneReleaseDossierStatus(['skip_simulator' => true]);
         $controlPlane = $this->agentControlPlane($options);
         $controlPlaneBody = (array) data_get($controlPlane, 'control_plane', $controlPlane);
@@ -76226,6 +76373,44 @@ final class AtlasSelfConstructionReadinessService
                 'required_after_persist' => true,
             ],
         ];
+        preg_match_all('/<[^>]+>|@\/path\/to\/[^\s]+/', $nextRequiredCommand, $handoffResumePlaceholderMatches);
+        $handoffResumePlaceholders = array_values(array_unique($handoffResumePlaceholderMatches[0] ?? []));
+        $operatorResumePacket = [
+            'schema_version' => 'atlas.self_construction.operator_evidence_submission_resume_packet.v1',
+            'status' => $nextRequiredCommand === '' ? 'blocked_next_required_command_missing' : 'blocked_operator_action_required',
+            'current_required_operator_artifact' => (string) data_get($completionEvidence, 'current_required_operator_artifact', ''),
+            'next_required_submission' => (string) data_get($completionEvidence, 'current_required_operator_artifact', ''),
+            'command_to_copy' => $nextRequiredCommand,
+            'command_to_copy_hash' => $nextRequiredCommand === '' ? '' : hash('sha256', $nextRequiredCommand),
+            'copy_safe' => $handoffResumePlaceholders === [] && $nextRequiredCommand !== '',
+            'placeholder_count' => count($handoffResumePlaceholders),
+            'placeholders' => $handoffResumePlaceholders,
+            'expected_persist_command_template' => $nextRequiredPersistCommand,
+            'why_not_automatic' => 'requires_operator_signature_or_real_provider_evidence',
+            'requires_operator_review' => true,
+            'can_persist_from_readiness' => false,
+            'terminal_loop_operational_proof_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json',
+            'completion_audit_with_canonical_terminal_loop_operational_proof_command' => $completionAuditWithProofCommand,
+            'success_predicate_after_all_actions' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'failure_policy' => [
+                'stop_if_placeholder_remains',
+                'stop_if_copy_safe_is_false',
+                'stop_if_operator_review_missing',
+                'stop_if_verifier_status_is_not_passed',
+                'stop_if_persist_command_is_run_from_handoff_surface',
+                'stop_if_completion_audit_remains_incomplete',
+            ],
+            'non_execution_guarantees' => [
+                'resume_packet_does_not_execute_command',
+                'resume_packet_does_not_persist_receipts',
+                'resume_packet_does_not_sign_for_operator',
+                'resume_packet_does_not_call_provider',
+                'resume_packet_does_not_spend_tokens',
+                'resume_packet_does_not_dispatch_work',
+                'resume_packet_does_not_promote_completion',
+            ],
+        ];
+        $operatorResumePacket['resume_packet_hash'] = $this->stableHash($operatorResumePacket);
 
         $result = [
             'schema_version' => 'atlas.self_construction.os_handoff.v1',
@@ -76237,7 +76422,7 @@ final class AtlasSelfConstructionReadinessService
             'root_doc_path' => $rootRelativePath,
             'root_doc_links_handoff' => str_contains($rootDoc, $handoffRelativePath)
                 || str_contains($rootDoc, 'atlas-self-construction-os-handoff.md'),
-            'completion_audit_status' => (string) data_get($completionAudit, 'agent_control_plane_atlas_self_construction_os_completion_audit_status.status', ''),
+            'completion_audit_status' => (string) data_get($completionAuditStatus, 'status', ''),
             'completion_audit_raw_failed_count' => count($rawFailedCriteria),
             'completion_audit_raw_failed_criteria' => $rawFailedCriteria,
             'completion_audit_failed_count' => count($failedCriteria),
@@ -76249,6 +76434,10 @@ final class AtlasSelfConstructionReadinessService
             'current_required_operator_artifact' => (string) data_get($completionEvidence, 'current_required_operator_artifact', ''),
             'next_required_command' => $nextRequiredCommand,
             'next_required_persist_command' => $nextRequiredPersistCommand,
+            'runtime_gap_matrix_hash' => (string) data_get($completionEvidenceStatus, 'runtime_gap_matrix_hash', ''),
+            'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($completionEvidenceStatus, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+            'runtime_promotion_basis_hash' => (string) data_get($completionEvidenceStatus, 'runtime_promotion_basis_hash', ''),
+            'runtime_promotion_closure_basis_hash' => (string) data_get($completionEvidenceStatus, 'runtime_promotion_closure_basis_hash', ''),
             'completion_audit_with_canonical_terminal_loop_operational_proof_command' => $completionAuditWithProofCommand,
             'certification_status_batch_command' => $certificationStatusBatchCommand,
             'completion_evidence_submission_preflight_command' => $completionEvidenceSubmissionPreflightCommand,
@@ -76256,6 +76445,12 @@ final class AtlasSelfConstructionReadinessService
             'release_dossier_status_command' => $releaseDossierStatusCommand,
             'operator_resume_command_sequence' => $operatorResumeCommandSequence,
             'operator_resume_command_count' => count($operatorResumeCommandSequence),
+            'operator_resume_packet' => $operatorResumePacket,
+            'operator_resume_packet_hash' => (string) $operatorResumePacket['resume_packet_hash'],
+            'operator_resume_packet_command_to_copy' => (string) $operatorResumePacket['command_to_copy'],
+            'operator_resume_packet_copy_safe' => (bool) $operatorResumePacket['copy_safe'],
+            'operator_resume_packet_placeholder_count' => (int) $operatorResumePacket['placeholder_count'],
+            'operator_resume_packet_requires_operator_review' => (bool) $operatorResumePacket['requires_operator_review'],
             'post_evidence_guardrail_sequence' => $postEvidenceGuardrailSequence,
             'post_evidence_guardrail_count' => count($postEvidenceGuardrailSequence),
             'closure_artifact_sequence' => $closureArtifactSequence,
@@ -76290,12 +76485,26 @@ final class AtlasSelfConstructionReadinessService
             'real_provider_blocker_count' => count($realProviderBlockers),
             'technical_blockers' => $technicalBlockers,
             'technical_blocker_count' => count($technicalBlockers),
-            'terminal_loop_operational_proof_supplied' => (bool) data_get($completionAudit, 'agent_control_plane_atlas_self_construction_os_completion_audit_status.terminal_loop_operational_proof_supplied', false),
-            'terminal_loop_operational_proof_passed' => (bool) data_get($completionAudit, 'agent_control_plane_atlas_self_construction_os_completion_audit_status.terminal_loop_operational_proof_passed', false),
-            'source_completion_allowed' => (bool) data_get($completionAudit, 'agent_control_plane_atlas_self_construction_os_completion_audit_status.completion_allowed', false),
-            'source_completion_claim_allowed' => (bool) data_get($completionAudit, 'agent_control_plane_atlas_self_construction_os_completion_audit_status.completion_claim_allowed', false),
+            'terminal_loop_operational_proof_supplied' => (bool) data_get($completionAuditStatus, 'terminal_loop_operational_proof_supplied', false),
+            'terminal_loop_operational_proof_passed' => (bool) data_get($completionAuditStatus, 'terminal_loop_operational_proof_passed', false),
+            'terminal_loop_operational_proof_required_before_completion_claim' => true,
+            'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
+            'source_completion_allowed' => (bool) data_get($completionAuditStatus, 'completion_allowed', false),
+            'source_completion_claim_allowed' => (bool) data_get($completionAuditStatus, 'completion_claim_allowed', false),
             'completion_claim_requires_completion_audit' => true,
-            'completion_claim_authority' => 'atlas_self_construction_os_completion_audit',
+            'completion_claim_authority_verdict_status' => (string) data_get($completionAuditStatus, 'completion_claim_authority_verdict_status', ''),
+            'completion_claim_authority' => (string) data_get($completionAuditStatus, 'completion_claim_authority', 'atlas_self_construction_os_completion_audit'),
+            'completion_claim_required_completion_predicate' => (string) data_get($completionAuditStatus, 'completion_claim_required_completion_predicate', 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0'),
+            'completion_claim_external_agent_claim_accepted' => (bool) data_get($completionAuditStatus, 'completion_claim_external_agent_claim_accepted', false),
+            'completion_claim_external_agent_claim_can_override_audit' => (bool) data_get($completionAuditStatus, 'completion_claim_external_agent_claim_can_override_audit', false),
+            'completion_claim_external_agent_claim_can_mark_os_complete' => (bool) data_get($completionAuditStatus, 'completion_claim_external_agent_claim_can_mark_os_complete', false),
+            'completion_claim_missing_evidence_count' => (int) data_get($completionAuditStatus, 'completion_claim_missing_evidence_count', 0),
+            'completion_claim_authority_verdict_hash' => (string) data_get($completionAuditStatus, 'completion_claim_authority_verdict_hash', ''),
+            'completion_evidence_claim_authority_status' => (string) data_get($completionEvidenceStatus, 'completion_evidence_claim_authority.status', ''),
+            'completion_evidence_claim_allowed_from_evidence_status' => (bool) data_get($completionEvidenceStatus, 'completion_evidence_claim_authority.completion_claim_allowed_from_evidence_status', false),
+            'completion_evidence_external_agent_claim_accepted' => (bool) data_get($completionEvidenceStatus, 'completion_evidence_claim_authority.external_agent_claim_accepted', false),
+            'completion_evidence_external_agent_claim_can_mark_os_complete' => (bool) data_get($completionEvidenceStatus, 'completion_evidence_claim_authority.external_agent_claim_can_mark_os_complete', false),
+            'completion_evidence_claim_authority_hash' => (string) data_get($completionEvidenceStatus, 'completion_evidence_claim_authority.completion_evidence_claim_authority_hash', ''),
             'completion_claim_blocked_until_audit_complete' => true,
             'completion_allowed' => false,
             'completion_claim_allowed' => false,
@@ -76337,6 +76546,10 @@ final class AtlasSelfConstructionReadinessService
                 'current_required_operator_artifact' => (string) data_get($result, 'current_required_operator_artifact', ''),
                 'next_required_command' => (string) data_get($result, 'next_required_command', ''),
                 'next_required_persist_command' => (string) data_get($result, 'next_required_persist_command', ''),
+                'runtime_gap_matrix_hash' => (string) data_get($result, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($result, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($result, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($result, 'runtime_promotion_closure_basis_hash', ''),
                 'completion_audit_with_canonical_terminal_loop_operational_proof_command' => (string) data_get($result, 'completion_audit_with_canonical_terminal_loop_operational_proof_command', ''),
                 'certification_status_batch_command' => (string) data_get($result, 'certification_status_batch_command', ''),
                 'completion_evidence_submission_preflight_command' => (string) data_get($result, 'completion_evidence_submission_preflight_command', ''),
@@ -76344,6 +76557,12 @@ final class AtlasSelfConstructionReadinessService
                 'release_dossier_status_command' => (string) data_get($result, 'release_dossier_status_command', ''),
                 'operator_resume_command_sequence' => (array) data_get($result, 'operator_resume_command_sequence', []),
                 'operator_resume_command_count' => (int) data_get($result, 'operator_resume_command_count', 0),
+                'operator_resume_packet' => (array) data_get($result, 'operator_resume_packet', []),
+                'operator_resume_packet_hash' => (string) data_get($result, 'operator_resume_packet_hash', ''),
+                'operator_resume_packet_command_to_copy' => (string) data_get($result, 'operator_resume_packet_command_to_copy', ''),
+                'operator_resume_packet_copy_safe' => (bool) data_get($result, 'operator_resume_packet_copy_safe', false),
+                'operator_resume_packet_placeholder_count' => (int) data_get($result, 'operator_resume_packet_placeholder_count', 0),
+                'operator_resume_packet_requires_operator_review' => (bool) data_get($result, 'operator_resume_packet_requires_operator_review', false),
                 'post_evidence_guardrail_sequence' => (array) data_get($result, 'post_evidence_guardrail_sequence', []),
                 'post_evidence_guardrail_count' => (int) data_get($result, 'post_evidence_guardrail_count', 0),
                 'closure_artifact_sequence' => (array) data_get($result, 'closure_artifact_sequence', []),
@@ -76380,10 +76599,24 @@ final class AtlasSelfConstructionReadinessService
                 'technical_blockers' => (array) data_get($result, 'technical_blockers', []),
                 'terminal_loop_operational_proof_supplied' => (bool) data_get($result, 'terminal_loop_operational_proof_supplied', false),
                 'terminal_loop_operational_proof_passed' => (bool) data_get($result, 'terminal_loop_operational_proof_passed', false),
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
                 'source_completion_allowed' => (bool) data_get($result, 'source_completion_allowed', false),
                 'source_completion_claim_allowed' => (bool) data_get($result, 'source_completion_claim_allowed', false),
                 'completion_claim_requires_completion_audit' => (bool) data_get($result, 'completion_claim_requires_completion_audit', true),
+                'completion_claim_authority_verdict_status' => (string) data_get($result, 'completion_claim_authority_verdict_status', ''),
                 'completion_claim_authority' => (string) data_get($result, 'completion_claim_authority', ''),
+                'completion_claim_required_completion_predicate' => (string) data_get($result, 'completion_claim_required_completion_predicate', ''),
+                'completion_claim_external_agent_claim_accepted' => (bool) data_get($result, 'completion_claim_external_agent_claim_accepted', false),
+                'completion_claim_external_agent_claim_can_override_audit' => (bool) data_get($result, 'completion_claim_external_agent_claim_can_override_audit', false),
+                'completion_claim_external_agent_claim_can_mark_os_complete' => (bool) data_get($result, 'completion_claim_external_agent_claim_can_mark_os_complete', false),
+                'completion_claim_missing_evidence_count' => (int) data_get($result, 'completion_claim_missing_evidence_count', 0),
+                'completion_claim_authority_verdict_hash' => (string) data_get($result, 'completion_claim_authority_verdict_hash', ''),
+                'completion_evidence_claim_authority_status' => (string) data_get($result, 'completion_evidence_claim_authority_status', ''),
+                'completion_evidence_claim_allowed_from_evidence_status' => (bool) data_get($result, 'completion_evidence_claim_allowed_from_evidence_status', false),
+                'completion_evidence_external_agent_claim_accepted' => (bool) data_get($result, 'completion_evidence_external_agent_claim_accepted', false),
+                'completion_evidence_external_agent_claim_can_mark_os_complete' => (bool) data_get($result, 'completion_evidence_external_agent_claim_can_mark_os_complete', false),
+                'completion_evidence_claim_authority_hash' => (string) data_get($result, 'completion_evidence_claim_authority_hash', ''),
                 'completion_claim_blocked_until_audit_complete' => (bool) data_get($result, 'completion_claim_blocked_until_audit_complete', true),
                 'completion_allowed' => false,
                 'completion_claim_allowed' => false,
@@ -76503,6 +76736,8 @@ final class AtlasSelfConstructionReadinessService
                 'blocked_gap_count' => (int) data_get($result, 'blocked_gap_count', 0),
                 'missing_operator_input_count' => count((array) data_get($result, 'missing_operator_inputs', [])),
                 'missing_operator_inputs' => (array) data_get($result, 'missing_operator_inputs', []),
+                'placeholder_operator_input_count' => (int) data_get($result, 'placeholder_operator_input_count', 0),
+                'placeholder_operator_inputs' => (array) data_get($result, 'placeholder_operator_inputs', []),
                 'verification_status' => (string) data_get($result, 'verification.status'),
                 'verification_violation_count' => (int) data_get($result, 'verification.violation_count', 0),
                 'verification_violations' => (array) data_get($result, 'verification.violations', []),
@@ -76720,6 +76955,9 @@ final class AtlasSelfConstructionReadinessService
     {
         $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
         $completionAudit = (new AtlasSelfConstructionOsCompletionAuditService($this))->audit($options);
+        $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', '');
+        $nextRequiredCommand = (string) data_get($completionEvidence, 'next_required_command', '');
+        $nextRequiredPersistCommand = (string) data_get($completionEvidence, 'next_required_persist_command', '');
         $result = (new AtlasSelfConstructionHumanCompletionReceiptDraftService)->build($completionAudit, $completionEvidence, [
             'signed_by' => (string) ($options['signed_by'] ?? ''),
             'reason' => (string) ($options['reason'] ?? ''),
@@ -76734,13 +76972,34 @@ final class AtlasSelfConstructionReadinessService
             extraStatusFields: [
                 'draft_hash' => (string) data_get($result, 'draft_hash'),
                 'receipt_hash' => (string) data_get($result, 'receipt_hash'),
+                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+                'next_required_command' => $nextRequiredCommand,
+                'next_required_persist_command' => $nextRequiredPersistCommand,
+                'runtime_gap_matrix_hash' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($completionEvidence, 'runtime_gap_matrix.expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_promotion_closure_basis_hash', ''),
                 'missing_operator_input_count' => count((array) data_get($result, 'missing_operator_inputs', [])),
+                'missing_operator_inputs' => (array) data_get($result, 'missing_operator_inputs', []),
                 'missing_evidence_hash_count' => count((array) data_get($result, 'missing_evidence_hashes', [])),
+                'missing_evidence_hashes' => (array) data_get($result, 'missing_evidence_hashes', []),
                 'failed_prerequisite_count' => count((array) data_get($result, 'failed_prerequisites', [])),
+                'failed_prerequisites' => (array) data_get($result, 'failed_prerequisites', []),
                 'verification_status' => (string) data_get($result, 'verification.status'),
-                'completion_claim_allowed' => (bool) data_get($result, 'verification.completion_claim_allowed', false),
                 'persistence_requested' => (bool) data_get($result, 'persistence_requested', false),
                 'persisted' => (bool) data_get($result, 'persisted', false),
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'adapter_execution_allowed' => false,
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
             ],
         );
     }
@@ -76799,7 +77058,16 @@ final class AtlasSelfConstructionReadinessService
                 'prompt_to_artifact_checklist_passed_count' => (int) data_get($result, 'prompt_to_artifact_checklist_passed_count', 0),
                 'prompt_to_artifact_checklist_hash' => (string) data_get($result, 'prompt_to_artifact_checklist_hash', ''),
                 'next_required_submission' => (string) data_get($result, 'submission_preflight.next_required_submission'),
-                'current_required_operator_artifact' => (string) data_get($result, 'operator_closure_handoff.next_required_submission', data_get($result, 'submission_preflight.next_required_submission', '')),
+                'current_required_artifact' => (string) data_get(
+                    $result,
+                    'operator_completion_progress_meter.current_required_artifact',
+                    data_get($result, 'operator_next_action.next_required_submission', data_get($result, 'submission_preflight.next_required_submission', '')),
+                ),
+                'current_required_operator_artifact' => (string) data_get(
+                    $result,
+                    'operator_completion_progress_meter.current_required_artifact',
+                    data_get($result, 'operator_next_action.next_required_submission', data_get($result, 'submission_preflight.next_required_submission', '')),
+                ),
                 'current_required_operator_command' => (string) data_get($result, 'operator_next_action.exact_command', ''),
                 'current_required_operator_persist_command' => (string) data_get($result, 'operator_next_action.exact_persist_command', ''),
                 'operator_next_action_status' => (string) data_get($result, 'operator_next_action.status'),
@@ -76807,7 +77075,26 @@ final class AtlasSelfConstructionReadinessService
                 'operator_next_action_phase' => (string) data_get($result, 'operator_next_action.next_step_phase'),
                 'operator_next_action_current_artifact' => (string) data_get($result, 'operator_next_action.next_required_submission', ''),
                 'operator_next_action_exact_command' => (string) data_get($result, 'operator_next_action.exact_command'),
+                'operator_next_action_command_to_copy' => (string) data_get($result, 'operator_next_action.exact_command'),
                 'operator_next_action_exact_persist_command' => (string) data_get($result, 'operator_next_action.exact_persist_command'),
+                'next_required_command' => (string) data_get(
+                    $result,
+                    'operator_next_action.exact_command',
+                    data_get($result, 'submission_preflight.next_required_command', ''),
+                ),
+                'next_required_persist_command' => (string) data_get(
+                    $result,
+                    'operator_next_action.exact_persist_command',
+                    data_get($result, 'operator_closure_handoff.immediate_persist_command', ''),
+                ),
+                'runtime_gap_matrix_hash' => (string) data_get($result, 'current_completion_evidence_status.runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($result, 'current_completion_evidence_status.expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($result, 'current_completion_evidence_status.runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($result, 'current_completion_evidence_status.runtime_promotion_closure_basis_hash', ''),
+                'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
                 'operator_next_action_can_run_automatically' => (bool) data_get($result, 'operator_next_action.can_run_automatically', false),
                 'operator_next_action_placeholder_fields_to_replace' => (array) data_get($result, 'operator_next_action.placeholder_fields_to_replace', []),
                 'operator_next_action_why_not_automatic' => (string) data_get($result, 'operator_next_action.why_not_automatic'),
@@ -76885,6 +77172,15 @@ final class AtlasSelfConstructionReadinessService
                 'operator_next_action_readiness_gate_blocking_reason_count' => (int) data_get($result, 'operator_next_action_readiness_gate.blocking_reason_count', 0),
                 'operator_next_action_readiness_gate_current_step_id' => (string) data_get($result, 'operator_next_action_readiness_gate.current_step_id', ''),
                 'operator_next_action_readiness_gate_hash' => (string) data_get($result, 'operator_next_action_readiness_gate.readiness_gate_hash', ''),
+                'external_completion_claim_policy_status' => (string) data_get($result, 'external_completion_claim_policy.status', ''),
+                'external_completion_claim_policy_completion_authority' => (string) data_get($result, 'external_completion_claim_policy.completion_authority', ''),
+                'external_completion_claim_policy_required_completion_predicate' => (string) data_get($result, 'external_completion_claim_policy.required_completion_predicate', ''),
+                'external_completion_claim_policy_external_agent_claim_accepted' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_accepted', true),
+                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete', true),
+                'external_completion_claim_policy_external_agent_claim_can_override_audit' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_override_audit', true),
+                'external_completion_claim_policy_current_failed_count' => (int) data_get($result, 'external_completion_claim_policy.current_failed_count', 0),
+                'external_completion_claim_policy_missing_required_evidence_artifact_count' => (int) data_get($result, 'external_completion_claim_policy.missing_required_evidence_artifact_count', 0),
+                'external_completion_claim_policy_hash' => (string) data_get($result, 'external_completion_claim_policy.external_completion_claim_policy_hash', ''),
                 'operator_command_surface_integrity_status' => (string) data_get($result, 'operator_command_surface_integrity.status', ''),
                 'operator_command_surface_integrity_command_count' => (int) data_get($result, 'operator_command_surface_integrity.command_count', 0),
                 'operator_command_surface_integrity_missing_option_count' => (int) data_get($result, 'operator_command_surface_integrity.missing_option_count', 0),
@@ -77126,6 +77422,98 @@ final class AtlasSelfConstructionReadinessService
             $diagnosticArtifactIds,
             fn (string $artifactId): bool => (bool) data_get($result, "diagnostics.{$artifactId}.ready", false),
         ));
+        $currentRequiredOperatorArtifact = (string) data_get(
+            $result,
+            'operator_evidence_sequence_integrity.current_required_artifact',
+            data_get($result, 'next_required', ''),
+        );
+        $operatorNextActionCommandToCopy = (string) data_get($result, 'operator_next_action.shell_packet.command_to_copy', '');
+        $operatorNextActionExactPersistCommand = (string) data_get($result, 'operator_next_action.exact_persist_command', '');
+        if ($operatorNextActionExactPersistCommand === '') {
+            $operatorNextActionExactPersistCommand = (string) data_get($result, 'operator_next_action.expected_persist_command_template', '');
+        }
+        $canonicalSubmissionNextStepId = (string) data_get($result, 'canonical_submission_persistence_plan.next_step_id', '');
+        $canonicalSubmissionNextStep = [];
+        foreach ((array) data_get($result, 'canonical_submission_persistence_plan.steps', []) as $canonicalSubmissionStep) {
+            if ((string) data_get($canonicalSubmissionStep, 'id', '') === $canonicalSubmissionNextStepId) {
+                $canonicalSubmissionNextStep = (array) $canonicalSubmissionStep;
+                break;
+            }
+        }
+        $canonicalSubmissionNextStepReady = (bool) data_get($canonicalSubmissionNextStep, 'ready_for_explicit_operator_persistence', false);
+        $canonicalSubmissionNextStepRepairCommand = $canonicalSubmissionNextStepReady
+            ? ''
+            : $operatorNextActionCommandToCopy;
+        $canonicalSubmissionNextStepRepairFileCommand = '';
+        $canonicalSubmissionNextStepRepairFileCommandPayloadPath = '';
+        if (
+            ! $canonicalSubmissionNextStepReady
+            && (string) data_get($canonicalSubmissionNextStep, 'artifact', '') === 'runtime_promotion_receipt'
+            && $canonicalSubmissionNextStepRepairCommand !== ''
+        ) {
+            $canonicalSubmissionNextStepRepairFileCommandPayloadPath = '.agent_control_plane_atlas_self_construction_runtime_promotion_receipt_draft.receipt_payload';
+            $canonicalSubmissionNextStepRepairFileCommand = 'mkdir -p storage/app/private/atlas/self-construction/operator-submissions && '
+                .$canonicalSubmissionNextStepRepairCommand
+                .' | jq \''.$canonicalSubmissionNextStepRepairFileCommandPayloadPath.'\''
+                .' > storage/app/private/atlas/self-construction/operator-submissions/runtime-promotion.json';
+        }
+        $canonicalSubmissionNextStepRepairFileCommandPlaceholders = $canonicalSubmissionNextStepRepairFileCommand === ''
+            ? []
+            : $this->placeholderFieldsFromCommand($canonicalSubmissionNextStepRepairFileCommand);
+        $canonicalSubmissionNextStepRepairFileCommandCopySafe = $canonicalSubmissionNextStepRepairFileCommand !== ''
+            && $canonicalSubmissionNextStepRepairFileCommandPlaceholders === [];
+        $canonicalSubmissionNextStepStaleContextHashes = (array) data_get($canonicalSubmissionNextStep, 'stale_context_hashes', []);
+        $canonicalSubmissionNextStepFreshDraftRequired = (bool) data_get($canonicalSubmissionNextStep, 'fresh_operator_draft_required', false);
+
+        $operatorResumePacket = [
+            'schema_version' => 'atlas.self_construction.operator_evidence_submission_resume_packet.v1',
+            'status' => (string) data_get($result, 'operator_next_action.status', ''),
+            'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+            'next_required_submission' => (string) data_get($result, 'next_required', ''),
+            'command_to_copy' => $operatorNextActionCommandToCopy,
+            'command_to_copy_hash' => $operatorNextActionCommandToCopy === '' ? '' : hash('sha256', $operatorNextActionCommandToCopy),
+            'copy_safe' => (bool) data_get($result, 'operator_next_action.shell_packet.copy_safe', false),
+            'placeholder_count' => (int) data_get($result, 'operator_next_action.shell_packet.placeholder_count', 0),
+            'placeholders' => (array) data_get($result, 'operator_next_action.placeholder_fields_to_replace', []),
+            'expected_persist_command_template' => $operatorNextActionExactPersistCommand,
+            'canonical_submission_repair_file_command' => $canonicalSubmissionNextStepRepairFileCommand,
+            'canonical_submission_repair_file_command_hash' => $canonicalSubmissionNextStepRepairFileCommand === '' ? '' : hash('sha256', $canonicalSubmissionNextStepRepairFileCommand),
+            'canonical_submission_repair_file_command_payload_path' => $canonicalSubmissionNextStepRepairFileCommandPayloadPath,
+            'canonical_submission_repair_file_command_copy_safe' => $canonicalSubmissionNextStepRepairFileCommandCopySafe,
+            'canonical_submission_repair_file_command_placeholder_fields' => $canonicalSubmissionNextStepRepairFileCommandPlaceholders,
+            'canonical_submission_stale_context_hashes' => $canonicalSubmissionNextStepStaleContextHashes,
+            'canonical_submission_stale_context_hash_count' => count($canonicalSubmissionNextStepStaleContextHashes),
+            'fresh_canonical_submission_draft_required' => $canonicalSubmissionNextStepFreshDraftRequired,
+            'why_not_automatic' => (string) data_get($result, 'operator_next_action.why_not_automatic', ''),
+            'requires_operator_review' => true,
+            'can_persist_from_readiness' => false,
+            'terminal_loop_operational_proof_command' => (string) data_get($result, 'operator_completion_proof_bundle.proof_commands.terminal_loop_operational_proof', ''),
+            'completion_audit_with_canonical_terminal_loop_operational_proof_command' => (string) data_get($result, 'operator_completion_proof_bundle.proof_commands.completion_audit_with_canonical_terminal_loop_operational_proof', ''),
+            'success_predicate_after_all_actions' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'failure_policy' => [
+                'stop_if_placeholder_remains',
+                'stop_if_copy_safe_is_false',
+                'stop_if_operator_review_missing',
+                'stop_if_verifier_status_is_not_passed',
+                'stop_if_stale_context_hashes_detected',
+                'stop_if_persist_command_is_run_from_readiness_surface',
+                'stop_if_completion_audit_remains_incomplete',
+            ],
+            'non_execution_guarantees' => [
+                'resume_packet_does_not_execute_command',
+                'resume_packet_does_not_persist_receipts',
+                'resume_packet_does_not_sign_for_operator',
+                'resume_packet_does_not_call_provider',
+                'resume_packet_does_not_spend_tokens',
+                'resume_packet_does_not_dispatch_work',
+                'resume_packet_does_not_promote_completion',
+            ],
+        ];
+        $operatorResumePacket['resume_packet_hash'] = $this->stableHash($operatorResumePacket);
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_operator_evidence_submission_readiness',
@@ -77137,6 +77525,46 @@ final class AtlasSelfConstructionReadinessService
                 'summary_status' => (string) data_get($result, 'status', ''),
                 'next_required' => (string) data_get($result, 'next_required'),
                 'next_required_submission' => (string) data_get($result, 'next_required'),
+                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+                'next_required_command' => $operatorNextActionCommandToCopy,
+                'next_required_persist_command' => $operatorNextActionExactPersistCommand,
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
+                'current_required_operator_artifact_source' => 'operator_evidence_sequence_integrity.current_required_artifact',
+                'operator_resume_aliases_hash' => $this->stableHash([
+                    'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+                    'next_required_command' => $operatorNextActionCommandToCopy,
+                    'next_required_persist_command' => $operatorNextActionExactPersistCommand,
+                    'next_required_submission' => (string) data_get($result, 'next_required'),
+                ]),
+                'operator_resume_packet' => $operatorResumePacket,
+                'operator_resume_packet_hash' => (string) $operatorResumePacket['resume_packet_hash'],
+                'operator_resume_packet_status' => (string) $operatorResumePacket['status'],
+                'operator_resume_packet_next_action' => (string) data_get($result, 'operator_next_action.action_step_id', ''),
+                'operator_resume_packet_current_required_operator_artifact' => (string) $operatorResumePacket['current_required_operator_artifact'],
+                'operator_resume_packet_command_to_copy' => (string) $operatorResumePacket['command_to_copy'],
+                'operator_resume_packet_copy_safe' => (bool) $operatorResumePacket['copy_safe'],
+                'operator_resume_packet_placeholder_count' => (int) $operatorResumePacket['placeholder_count'],
+                'operator_resume_packet_placeholders' => (array) $operatorResumePacket['placeholders'],
+                'operator_resume_packet_requires_operator_review' => (bool) $operatorResumePacket['requires_operator_review'],
+                'operator_resume_packet_failure_policy' => (array) $operatorResumePacket['failure_policy'],
+                'operator_resume_packet_canonical_submission_repair_file_command' => (string) $operatorResumePacket['canonical_submission_repair_file_command'],
+                'operator_resume_packet_canonical_submission_repair_file_command_hash' => (string) $operatorResumePacket['canonical_submission_repair_file_command_hash'],
+                'operator_resume_packet_canonical_submission_repair_file_command_copy_safe' => (bool) $operatorResumePacket['canonical_submission_repair_file_command_copy_safe'],
+                'operator_resume_packet_canonical_submission_repair_file_command_placeholder_fields' => (array) $operatorResumePacket['canonical_submission_repair_file_command_placeholder_fields'],
+                'stale_context_hashes_detected' => count($canonicalSubmissionNextStepStaleContextHashes) > 0,
+                'stale_context_hash_count' => count($canonicalSubmissionNextStepStaleContextHashes),
+                'stale_context_hashes' => $canonicalSubmissionNextStepStaleContextHashes,
+                'fresh_operator_draft_required' => $canonicalSubmissionNextStepFreshDraftRequired,
+                'missing_operator_inputs' => (array) $operatorResumePacket['placeholders'],
+                'failed_prerequisites' => (array) data_get($canonicalSubmissionNextStep, 'errors', []),
                 'runtime_promotion_receipt_passed' => (bool) data_get($result, 'runtime_promotion_receipt_passed', false),
                 'real_provider_smoke_passed' => (bool) data_get($result, 'real_provider_smoke_passed', false),
                 'human_completion_receipt_passed' => (bool) data_get($result, 'human_completion_receipt_passed', false),
@@ -77191,6 +77619,31 @@ final class AtlasSelfConstructionReadinessService
                 'canonical_submission_persistence_plan_workspace_payload_supplied' => (bool) data_get($result, 'canonical_submission_persistence_plan.workspace_payload_supplied', false),
                 'canonical_submission_persistence_plan_loaded_artifact_count' => (int) data_get($result, 'canonical_submission_persistence_plan.loaded_artifact_count', 0),
                 'canonical_submission_persistence_plan_next_step_id' => (string) data_get($result, 'canonical_submission_persistence_plan.next_step_id', ''),
+                'canonical_submission_next_step' => $canonicalSubmissionNextStep,
+                'canonical_submission_next_step_status' => (string) data_get($canonicalSubmissionNextStep, 'status', ''),
+                'canonical_submission_next_step_artifact' => (string) data_get($canonicalSubmissionNextStep, 'artifact', ''),
+                'canonical_submission_next_step_blocker' => (string) data_get($canonicalSubmissionNextStep, 'blocker', ''),
+                'canonical_submission_next_step_verifier_status' => (string) data_get($canonicalSubmissionNextStep, 'verifier_status', ''),
+                'canonical_submission_next_step_error_count' => count((array) data_get($canonicalSubmissionNextStep, 'errors', [])),
+                'canonical_submission_next_step_errors' => (array) data_get($canonicalSubmissionNextStep, 'errors', []),
+                'canonical_submission_next_step_placeholder_fields' => (array) data_get($canonicalSubmissionNextStep, 'placeholder_fields', []),
+                'canonical_submission_next_step_stale_context_hashes' => $canonicalSubmissionNextStepStaleContextHashes,
+                'canonical_submission_next_step_stale_context_hash_count' => count($canonicalSubmissionNextStepStaleContextHashes),
+                'canonical_submission_next_step_fresh_operator_draft_required' => $canonicalSubmissionNextStepFreshDraftRequired,
+                'canonical_submission_next_step_violation_count' => (int) data_get($canonicalSubmissionNextStep, 'violation_count', 0),
+                'canonical_submission_next_step_violation_codes' => (array) data_get($canonicalSubmissionNextStep, 'violation_codes', []),
+                'canonical_submission_next_step_violations' => (array) data_get($canonicalSubmissionNextStep, 'violations', []),
+                'canonical_submission_next_step_command' => (string) data_get($canonicalSubmissionNextStep, 'command', ''),
+                'canonical_submission_next_step_private_storage_path' => (string) data_get($canonicalSubmissionNextStep, 'canonical_submission_private_storage_path', ''),
+                'canonical_submission_next_step_ready_for_explicit_operator_persistence' => $canonicalSubmissionNextStepReady,
+                'canonical_submission_next_step_must_not_persist_until_ready' => ! $canonicalSubmissionNextStepReady && $canonicalSubmissionNextStep !== [],
+                'canonical_submission_next_step_recommended_repair_command' => $canonicalSubmissionNextStepRepairCommand,
+                'canonical_submission_next_step_recommended_repair_command_hash' => $canonicalSubmissionNextStepRepairCommand === '' ? '' : hash('sha256', $canonicalSubmissionNextStepRepairCommand),
+                'canonical_submission_next_step_recommended_repair_file_command' => $canonicalSubmissionNextStepRepairFileCommand,
+                'canonical_submission_next_step_recommended_repair_file_command_hash' => $canonicalSubmissionNextStepRepairFileCommand === '' ? '' : hash('sha256', $canonicalSubmissionNextStepRepairFileCommand),
+                'canonical_submission_next_step_recommended_repair_file_command_payload_path' => $canonicalSubmissionNextStepRepairFileCommandPayloadPath,
+                'canonical_submission_next_step_recommended_repair_file_command_copy_safe' => $canonicalSubmissionNextStepRepairFileCommand !== '' && $this->placeholderFieldsFromCommand($canonicalSubmissionNextStepRepairFileCommand) === [],
+                'canonical_submission_next_step_recommended_repair_file_command_placeholder_fields' => $canonicalSubmissionNextStepRepairFileCommand === '' ? [] : $this->placeholderFieldsFromCommand($canonicalSubmissionNextStepRepairFileCommand),
                 'canonical_submission_persistence_plan_step_count' => count((array) data_get($result, 'canonical_submission_persistence_plan.steps', [])),
                 'canonical_submission_persistence_plan_sequence_ordered' => (bool) data_get($result, 'canonical_submission_persistence_plan.sequence_ordered', false),
                 'operator_next_action_status' => (string) data_get($result, 'operator_next_action.status', ''),
@@ -77211,7 +77664,7 @@ final class AtlasSelfConstructionReadinessService
                 'operator_next_action_shell_packet' => (array) data_get($result, 'operator_next_action.shell_packet', []),
                 'operator_next_action_shell_packet_status' => (string) data_get($result, 'operator_next_action.shell_packet.status', ''),
                 'operator_next_action_shell_packet_hash' => (string) data_get($result, 'operator_next_action.shell_packet.shell_packet_hash', ''),
-                'operator_next_action_command_to_copy' => (string) data_get($result, 'operator_next_action.shell_packet.command_to_copy', ''),
+                'operator_next_action_command_to_copy' => $operatorNextActionCommandToCopy,
                 'operator_next_action_command_to_copy_hash' => (string) data_get($result, 'operator_next_action.shell_packet.command_to_copy_hash', ''),
                 'operator_next_action_shell_packet_placeholder_count' => (int) data_get($result, 'operator_next_action.shell_packet.placeholder_count', 0),
                 'operator_next_action_shell_packet_copy_safe' => (bool) data_get($result, 'operator_next_action.shell_packet.copy_safe', false),
@@ -77261,6 +77714,20 @@ final class AtlasSelfConstructionReadinessService
                 'operator_evidence_closure_runbook_can_execute' => (bool) data_get($result, 'operator_evidence_closure_runbook.can_execute_from_runbook', false),
                 'operator_evidence_closure_runbook_can_persist' => (bool) data_get($result, 'operator_evidence_closure_runbook.can_persist_from_runbook', false),
                 'operator_evidence_closure_runbook_hash' => (string) data_get($result, 'operator_evidence_closure_runbook.operator_evidence_closure_runbook_hash', ''),
+                'external_completion_claim_policy_status' => (string) data_get($result, 'external_completion_claim_policy.status', ''),
+                'external_completion_claim_policy_completion_authority' => (string) data_get($result, 'external_completion_claim_policy.completion_authority', ''),
+                'completion_claim_authority' => (string) data_get($result, 'external_completion_claim_policy.completion_authority', ''),
+                'completion_claim_required_completion_predicate' => (string) data_get($result, 'external_completion_claim_policy.required_completion_predicate', ''),
+                'completion_claim_external_agent_claim_accepted' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_accepted', true),
+                'completion_claim_external_agent_claim_can_mark_os_complete' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete', true),
+                'completion_claim_external_agent_claim_can_override_audit' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_override_audit', true),
+                'external_completion_claim_policy_external_agent_claim_accepted' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_accepted', true),
+                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete', true),
+                'external_completion_claim_policy_external_agent_claim_can_override_audit' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_override_audit', true),
+                'external_completion_claim_policy_required_completion_predicate' => (string) data_get($result, 'external_completion_claim_policy.required_completion_predicate', ''),
+                'external_completion_claim_policy_current_failed_count' => (int) data_get($result, 'external_completion_claim_policy.current_failed_count', 0),
+                'external_completion_claim_policy_missing_required_evidence_artifact_count' => (int) data_get($result, 'external_completion_claim_policy.missing_required_evidence_artifact_count', 0),
+                'external_completion_claim_policy_hash' => (string) data_get($result, 'external_completion_claim_policy.external_completion_claim_policy_hash', ''),
                 'closure_artifact_sequence' => (array) data_get($result, 'closure_artifact_sequence', []),
                 'closure_artifact_sequence_count' => (int) data_get($result, 'closure_artifact_sequence_count', 0),
                 'closure_artifact_sequence_hash' => (string) data_get($result, 'closure_artifact_sequence_hash', ''),
@@ -77630,12 +78097,43 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfConstructionRealProviderSmokeDraftStatus(array $options = []): array
     {
+        $liveStatusProjection = $options === [];
         $result = (new AtlasSelfConstructionRealProviderSmokeDraftService)->build(
             input: (array) ($options['real_provider_smoke'] ?? $this->decodeJsonOption($options['real_provider_smoke_json'] ?? null)),
             options: [
                 'persist_completion_evidence' => (bool) ($options['persist_completion_evidence'] ?? false),
             ],
         );
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
+        $completionAudit = (new AtlasSelfConstructionOsCompletionAuditService($this))->audit();
+        $failedCriteria = (array) data_get($completionAudit, 'failed_criteria', []);
+        $currentRequiredOperatorArtifact = match (true) {
+            in_array('runtime_gap_matrix_all_runtime_y', $failedCriteria, true) => 'runtime_promotion_receipt',
+            in_array('end_to_end_real_provider_smoke_green', $failedCriteria, true) => 'real_provider_smoke',
+            in_array('human_signed_os_complete_receipt_present', $failedCriteria, true) => 'human_completion_receipt',
+            default => 'none',
+        };
+        $nextRequiredCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            default => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+        };
+        $nextRequiredPersistCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
+            default => '',
+        };
+        if ($liveStatusProjection) {
+            $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+            $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', $currentRequiredOperatorArtifact);
+            $nextRequiredCommand = (string) data_get($completionEvidence, 'next_required_command', $nextRequiredCommand);
+            $nextRequiredPersistCommand = (string) data_get($completionEvidence, 'next_required_persist_command', $nextRequiredPersistCommand);
+        }
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_real_provider_smoke_draft',
@@ -77645,12 +78143,31 @@ final class AtlasSelfConstructionReadinessService
             extraStatusFields: [
                 'draft_hash' => (string) data_get($result, 'draft_hash'),
                 'smoke_hash' => (string) data_get($result, 'smoke_hash'),
+                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+                'next_required_command' => $nextRequiredCommand,
+                'next_required_persist_command' => $nextRequiredPersistCommand,
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
                 'missing_operator_input_count' => count((array) data_get($result, 'missing_operator_inputs', [])),
                 'missing_evidence_hash_count' => count((array) data_get($result, 'missing_evidence_hashes', [])),
                 'missing_observation_flag_count' => count((array) data_get($result, 'missing_observation_flags', [])),
                 'verification_status' => (string) data_get($result, 'verification.status'),
                 'persistence_requested' => (bool) data_get($result, 'persistence_requested', false),
                 'persisted' => (bool) data_get($result, 'persisted', false),
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'adapter_execution_allowed' => false,
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
             ],
         );
     }
@@ -77690,6 +78207,10 @@ final class AtlasSelfConstructionReadinessService
     {
         $evidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
         $result = (array) data_get($evidence, 'operator_action_packet.human_completion_receipt_runbook', []);
+        $completionClaimAuthorityAliases = $this->completionClaimAuthorityAliases(
+            failedCriteria: (array) data_get($evidence, 'completion_audit_failed_criteria', []),
+            currentRequiredOperatorArtifact: (string) data_get($evidence, 'current_required_operator_artifact', 'human_completion_receipt'),
+        );
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_human_completion_receipt_runbook',
@@ -77706,6 +78227,9 @@ final class AtlasSelfConstructionReadinessService
                 'run_completion_audit_diagnostic_command' => (string) data_get($result, 'commands.run_completion_audit_diagnostic', ''),
                 'terminal_loop_operational_proof_canonical_binding_path' => (string) data_get($result, 'commands.terminal_loop_operational_proof_canonical_binding_path'),
                 'run_completion_audit_with_canonical_terminal_loop_operational_proof' => (string) data_get($result, 'commands.run_completion_audit_with_canonical_terminal_loop_operational_proof'),
+                ...$completionClaimAuthorityAliases,
+                'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
             ],
         );
     }
@@ -77745,6 +78269,10 @@ final class AtlasSelfConstructionReadinessService
     {
         $evidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
         $result = (array) data_get($evidence, 'operator_action_packet.runtime_promotion_receipt_runbook', []);
+        $completionClaimAuthorityAliases = $this->completionClaimAuthorityAliases(
+            failedCriteria: (array) data_get($evidence, 'completion_audit_failed_criteria', []),
+            currentRequiredOperatorArtifact: (string) data_get($evidence, 'current_required_operator_artifact', 'runtime_promotion_receipt'),
+        );
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_runtime_promotion_receipt_runbook',
@@ -77762,6 +78290,9 @@ final class AtlasSelfConstructionReadinessService
                 'run_completion_audit_diagnostic_command' => (string) data_get($result, 'commands.run_completion_audit_diagnostic', ''),
                 'terminal_loop_operational_proof_canonical_binding_path' => (string) data_get($result, 'commands.terminal_loop_operational_proof_canonical_binding_path'),
                 'run_completion_audit_with_canonical_terminal_loop_operational_proof' => (string) data_get($result, 'commands.run_completion_audit_with_canonical_terminal_loop_operational_proof'),
+                ...$completionClaimAuthorityAliases,
+                'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
             ],
         );
     }
@@ -77934,6 +78465,10 @@ final class AtlasSelfConstructionReadinessService
                 'runtime_gap_count' => (int) data_get($result, 'runtime_gap_count', 0),
                 'blocked_gap_ids' => (array) data_get($result, 'blocked_gap_ids', []),
                 'promoted_gap_ids' => (array) data_get($result, 'promoted_gap_ids', []),
+                'current_required_operator_artifact' => 'runtime_promotion_receipt',
+                'next_required_command' => (string) data_get($result, 'operator_next_action_shell_packet.command_to_copy', ''),
+                'next_required_persist_command' => (string) data_get($result, 'operator_next_action_shell_packet.canonical_persist_command', data_get($result, 'persistence_preflight.persist_command', '')),
+                'runtime_gap_matrix_hash' => (string) data_get($result, 'current_runtime_gap_matrix_hash', ''),
                 'current_runtime_gap_matrix_hash' => (string) data_get($result, 'current_runtime_gap_matrix_hash', ''),
                 'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($result, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
                 'runtime_promotion_basis_hash' => (string) data_get($result, 'runtime_promotion_basis_hash', ''),
@@ -77941,6 +78476,19 @@ final class AtlasSelfConstructionReadinessService
                 'receipt_pre_submission_verification_status' => (string) data_get($result, 'receipt_pre_submission_verification.status'),
                 'receipt_pre_submission_verification_violation_count' => (int) data_get($result, 'receipt_pre_submission_verification.violation_count', 0),
                 'receipt_pre_submission_verification_violations' => (array) data_get($result, 'receipt_pre_submission_verification.violations', []),
+                'placeholder_signer' => (bool) data_get($result, 'receipt_pre_submission_verification.placeholder_signer', false),
+                'reason_invalid' => (bool) data_get($result, 'receipt_pre_submission_verification.reason_invalid', false),
+                'receipt_hash_mismatch' => (bool) data_get($result, 'receipt_pre_submission_verification.receipt_hash_mismatch', false),
+                'promoted_gap_id_drift' => (bool) data_get($result, 'receipt_pre_submission_verification.promoted_gap_id_drift', false),
+                'verifier_violation_codes' => (array) data_get($result, 'verifier_violation_codes', []),
+                'stale_runtime_promotion_receipt_detected' => (bool) data_get($result, 'stale_runtime_promotion_receipt_detected', false),
+                'fresh_runtime_promotion_receipt_required' => (bool) data_get($result, 'fresh_runtime_promotion_receipt_required', false),
+                'fresh_runtime_promotion_receipt_recovery_command' => (string) data_get($result, 'fresh_runtime_promotion_receipt_recovery_command', ''),
+                'fresh_runtime_promotion_receipt_recovery_file_command' => (string) data_get($result, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command', ''),
+                'fresh_runtime_promotion_receipt_recovery_file_command_hash' => (string) data_get($result, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command_hash', ''),
+                'fresh_runtime_promotion_receipt_recovery_file_command_payload_path' => (string) data_get($result, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command_payload_path', ''),
+                'fresh_runtime_promotion_receipt_recovery_file_command_placeholder_fields' => (array) data_get($result, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command_placeholder_fields', []),
+                'fresh_runtime_promotion_receipt_recovery_file_command_copy_safe' => (bool) data_get($result, 'operator_next_action_shell_packet.fresh_runtime_promotion_receipt_recovery_file_command_copy_safe', false),
                 'receipt_pre_submission_missing_field_count' => count((array) data_get($result, 'receipt_pre_submission_verification.missing_fields', [])),
                 'receipt_pre_submission_missing_fields' => (array) data_get($result, 'receipt_pre_submission_verification.missing_fields', []),
                 'receipt_pre_submission_acknowledgement_missing_count' => count((array) data_get($result, 'receipt_pre_submission_verification.acknowledgement_missing', [])),
@@ -77968,6 +78516,9 @@ final class AtlasSelfConstructionReadinessService
                 'persisted' => (bool) data_get($result, 'persisted', false),
                 'completion_allowed' => false,
                 'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
             ],
         );
     }
@@ -78183,8 +78734,16 @@ final class AtlasSelfConstructionReadinessService
             payload: $result,
             statusKey: 'status',
             extraStatusFields: [
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'adapter_execution_allowed' => false,
                 'completion_allowed' => false,
                 'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
             ],
         );
     }
@@ -78231,8 +78790,16 @@ final class AtlasSelfConstructionReadinessService
             payload: $result,
             statusKey: 'status',
             extraStatusFields: [
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'adapter_execution_allowed' => false,
                 'completion_allowed' => false,
                 'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
             ],
         );
     }
@@ -78281,8 +78848,16 @@ final class AtlasSelfConstructionReadinessService
             payload: $result,
             statusKey: 'status',
             extraStatusFields: [
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'adapter_execution_allowed' => false,
                 'completion_allowed' => false,
                 'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
             ],
         );
     }
@@ -78320,9 +78895,40 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierStatus(array $options = []): array
     {
+        $liveStatusProjection = $options === [];
         $receipt = (array) ($options['completion_receipt'] ?? $this->decodeJsonOption($options['completion_receipt_json'] ?? null));
         $context = (array) ($options['human_completion_receipt_context'] ?? []);
         $result = (new AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService)->verify($receipt, $context);
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
+        $completionAudit = (new AtlasSelfConstructionOsCompletionAuditService($this))->audit();
+        $failedCriteria = (array) data_get($completionAudit, 'failed_criteria', []);
+        $currentRequiredOperatorArtifact = match (true) {
+            in_array('runtime_gap_matrix_all_runtime_y', $failedCriteria, true) => 'runtime_promotion_receipt',
+            in_array('end_to_end_real_provider_smoke_green', $failedCriteria, true) => 'real_provider_smoke',
+            in_array('human_signed_os_complete_receipt_present', $failedCriteria, true) => 'human_completion_receipt',
+            default => 'none',
+        };
+        $nextRequiredCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            default => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+        };
+        $nextRequiredPersistCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
+            default => '',
+        };
+        if ($liveStatusProjection) {
+            $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+            $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', $currentRequiredOperatorArtifact);
+            $nextRequiredCommand = (string) data_get($completionEvidence, 'next_required_command', $nextRequiredCommand);
+            $nextRequiredPersistCommand = (string) data_get($completionEvidence, 'next_required_persist_command', $nextRequiredPersistCommand);
+        }
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_human_completion_receipt_endgame_verifier',
@@ -78330,8 +78936,25 @@ final class AtlasSelfConstructionReadinessService
             payload: $result,
             statusKey: 'status',
             extraStatusFields: [
+                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+                'next_required_command' => $nextRequiredCommand,
+                'next_required_persist_command' => $nextRequiredPersistCommand,
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
+                'execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'adapter_execution_allowed' => false,
                 'completion_allowed' => false,
                 'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
             ],
         );
     }
@@ -78372,6 +78995,33 @@ final class AtlasSelfConstructionReadinessService
         $result = (new AtlasSelfConstructionFinalCompletionHumanGateService($this))->build([
             'completion_receipt' => (array) ($options['completion_receipt'] ?? $this->decodeJsonOption($options['completion_receipt_json'] ?? null)),
         ]);
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
+        $currentRequiredOperatorArtifact = match ((string) data_get($result, 'status', '')) {
+            'blocked_runtime_promotion_required' => 'runtime_promotion_receipt',
+            'blocked_real_provider_smoke_required' => 'real_provider_smoke',
+            'blocked_missing_operator_receipt' => 'human_completion_receipt',
+            default => match ((string) data_get($result, 'blocker_id', '')) {
+                'runtime_gap_matrix_all_runtime_y' => 'runtime_promotion_receipt',
+                'end_to_end_real_provider_smoke_green' => 'real_provider_smoke',
+                'human_signed_os_complete_receipt_present' => 'human_completion_receipt',
+                default => 'none',
+            },
+        };
+        $nextRequiredCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => (string) data_get($result, 'exact_commands.draft_runtime_promotion_receipt', ''),
+            'real_provider_smoke' => (string) data_get($result, 'exact_commands.draft_real_provider_smoke', ''),
+            'human_completion_receipt' => (string) data_get($result, 'exact_commands.draft_human_completion_receipt', ''),
+            default => (string) data_get($result, 'exact_commands.final_completion_readiness_gate_status', ''),
+        };
+        $nextRequiredPersistCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => (string) data_get($result, 'exact_commands.persist_runtime_promotion_receipt', ''),
+            'real_provider_smoke' => (string) data_get($result, 'exact_commands.persist_real_provider_smoke', ''),
+            'human_completion_receipt' => (string) data_get($result, 'exact_commands.persist_human_completion_receipt', ''),
+            default => '',
+        };
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_final_completion_human_gate',
@@ -78381,6 +79031,13 @@ final class AtlasSelfConstructionReadinessService
             extraStatusFields: [
                 'final_completion_human_gate_status' => (string) data_get($result, 'status', ''),
                 'human_gate_hash' => (string) data_get($result, 'human_gate_hash', ''),
+                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+                'next_required_command' => $nextRequiredCommand,
+                'next_required_persist_command' => $nextRequiredPersistCommand,
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
                 'human_receipt_verification_status' => (string) data_get($result, 'human_receipt_verification.status', ''),
                 'human_receipt_verification_diagnostic_count' => (int) data_get($result, 'human_receipt_verification.diagnostic_count', 0),
                 'human_receipt_verification_diagnostic_codes' => (array) data_get($result, 'human_receipt_verification.diagnostic_codes', []),
@@ -78391,11 +79048,15 @@ final class AtlasSelfConstructionReadinessService
                 'persistence_preflight_blocker_count' => (int) data_get($result, 'persistence_preflight.blocker_count', 0),
                 'persistence_preflight_persistence_blocker' => (string) data_get($result, 'persistence_preflight.persistence_blocker', ''),
                 'terminal_loop_operational_proof_required_before_final_audit' => (bool) data_get($result, 'terminal_loop_operational_proof_required_before_final_audit', false),
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
                 'terminal_loop_operational_proof_command' => (string) data_get($result, 'persistence_preflight.terminal_loop_operational_proof_command', ''),
                 'terminal_loop_operational_proof_binding_persist_command' => (string) data_get($result, 'persistence_preflight.terminal_loop_operational_proof_binding_persist_command', ''),
                 'rerun_audit_with_terminal_loop_operational_proof_command' => (string) data_get($result, 'persistence_preflight.rerun_audit_with_terminal_loop_operational_proof_command', ''),
                 'completion_allowed' => false,
                 'completion_claim_allowed' => false,
+                'ledger_write_allowed' => false,
+                'runtime_write_allowed' => false,
                 'execution_allowed' => (bool) data_get($result, 'execution_allowed', false),
                 'dispatch_allowed' => (bool) data_get($result, 'dispatch_allowed', false),
                 'provider_call_allowed' => (bool) data_get($result, 'provider_call_allowed', false),
@@ -78439,6 +79100,7 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfConstructionFinalCompletionDossierExporterStatus(array $options = []): array
     {
+        $liveStatusProjection = $options === [];
         $buildOptions = [
             'persist_export' => (bool) ($options['persist_export'] ?? false),
         ];
@@ -78449,6 +79111,39 @@ final class AtlasSelfConstructionReadinessService
         }
 
         $result = (new AtlasSelfConstructionFinalCompletionDossierExporterService($this))->build($buildOptions);
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
+        $failedBlockers = (array) data_get($result, 'failed_blockers', []);
+        $currentRequiredOperatorArtifact = match (true) {
+            in_array('runtime_gap_matrix_all_runtime_y', $failedBlockers, true) => 'runtime_promotion_receipt',
+            in_array('end_to_end_real_provider_smoke_green', $failedBlockers, true) => 'real_provider_smoke',
+            in_array('human_signed_os_complete_receipt_present', $failedBlockers, true) => 'human_completion_receipt',
+            default => 'none',
+        };
+        $nextRequiredCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            default => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+        };
+        $nextRequiredPersistCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
+            default => '',
+        };
+        if ($liveStatusProjection) {
+            $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+            $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', $currentRequiredOperatorArtifact);
+            $nextRequiredCommand = (string) data_get($completionEvidence, 'next_required_command', $nextRequiredCommand);
+            $nextRequiredPersistCommand = (string) data_get($completionEvidence, 'next_required_persist_command', $nextRequiredPersistCommand);
+        }
+        $completionClaimAuthorityAliases = $this->completionClaimAuthorityAliases(
+            failedCriteria: $failedBlockers,
+            currentRequiredOperatorArtifact: $currentRequiredOperatorArtifact,
+        );
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_final_completion_dossier_exporter',
@@ -78459,8 +79154,16 @@ final class AtlasSelfConstructionReadinessService
                 'final_audit_status' => (string) data_get($result, 'final_audit_status', ''),
                 'final_audit_complete' => (bool) data_get($result, 'final_audit_complete', false),
                 'final_completion_human_gate_status' => (string) data_get($result, 'final_completion_human_gate_status', ''),
-                'failed_blockers' => (array) data_get($result, 'failed_blockers', []),
-                'failed_blocker_count' => count((array) data_get($result, 'failed_blockers', [])),
+                'failed_blockers' => $failedBlockers,
+                'failed_blocker_count' => count($failedBlockers),
+                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+                'next_required_command' => $nextRequiredCommand,
+                'next_required_persist_command' => $nextRequiredPersistCommand,
+                ...$completionClaimAuthorityAliases,
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
                 'next_commands' => (array) data_get($result, 'next_commands', []),
                 'next_command_count' => count((array) data_get($result, 'next_commands', [])),
                 'markdown_byte_size' => (int) data_get($result, 'markdown_byte_size', 0),
@@ -78468,8 +79171,12 @@ final class AtlasSelfConstructionReadinessService
                 'export_path' => (string) data_get($result, 'export_path', ''),
                 'export_persistence_blocker' => (string) data_get($result, 'export_persistence_blocker', ''),
                 'exporter_hash' => (string) data_get($result, 'exporter_hash', ''),
+                'dossier_hash' => (string) data_get($result, 'exporter_hash', ''),
                 'completion_allowed' => false,
                 'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
             ],
         );
     }
@@ -78507,6 +79214,7 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfConstructionFinalCompletionReadinessGateStatus(array $options = []): array
     {
+        $liveStatusProjection = $options === [];
         $options = $this->withTerminalLoopOperationalProofPayload($options);
 
         $result = (new AtlasSelfConstructionFinalCompletionReadinessGateService($this))->evaluate($options);
@@ -78529,6 +79237,28 @@ final class AtlasSelfConstructionReadinessService
             in_array('human_signed_os_complete_receipt_present', $failedCriteria, true) => 'human_completion_receipt',
             default => 'none',
         };
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
+        $nextRequiredCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            default => (string) data_get($result, 'command_to_rerun_audit_with_terminal_loop_operational_proof', ''),
+        };
+        $nextRequiredPersistCommand = match ($currentRequiredOperatorArtifact) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
+            default => '',
+        };
+        if ($liveStatusProjection) {
+            $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+            $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', $currentRequiredOperatorArtifact);
+            $nextRequiredCommand = (string) data_get($completionEvidence, 'next_required_command', $nextRequiredCommand);
+            $nextRequiredPersistCommand = (string) data_get($completionEvidence, 'next_required_persist_command', $nextRequiredPersistCommand);
+        }
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_final_completion_readiness_gate',
@@ -78543,6 +79273,12 @@ final class AtlasSelfConstructionReadinessService
                 'failed_count' => count($failedCriteria),
                 'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
                 'next_required_artifact' => $currentRequiredOperatorArtifact,
+                'next_required_command' => $nextRequiredCommand,
+                'next_required_persist_command' => $nextRequiredPersistCommand,
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
                 'human_blocker_count' => count($humanBlockers),
                 'human_blockers' => $humanBlockers,
                 'real_provider_blocker_count' => count($realProviderBlockers),
@@ -78555,6 +79291,7 @@ final class AtlasSelfConstructionReadinessService
                 'certification_status_batch_command' => $certificationStatusBatchCommand,
                 'next_stage_blocked_by' => (array) data_get($result, 'next_stage_blocked_by', []),
                 'terminal_loop_operational_proof_required_before_completion_claim' => (bool) data_get($result, 'terminal_loop_operational_proof_required_before_completion_claim', false),
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
                 'terminal_loop_operational_proof_expected_binding_schema' => (string) data_get($result, 'terminal_loop_operational_proof_expected_binding_schema', ''),
                 'terminal_loop_operational_proof_green' => (bool) data_get($result, 'terminal_loop_operational_proof_green', false),
                 'terminal_loop_operational_proof_status' => (string) data_get($result, 'terminal_loop_operational_proof_evidence.status', ''),
@@ -78620,6 +79357,7 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfProgrammingOsTransitionReadinessStatus(array $options = []): array
     {
+        $liveStatusProjection = $options === [];
         $options = $this->withTerminalLoopOperationalProofPayload($options);
 
         $gate = (new AtlasSelfConstructionFinalCompletionReadinessGateService($this))->evaluate($options);
@@ -78628,6 +79366,7 @@ final class AtlasSelfConstructionReadinessService
         $transition['source_final_completion_readiness_gate_hash'] = (string) data_get($gate, 'gate_hash', '');
         $transition['source_completion_audit_hash'] = (string) data_get($gate, 'completion_audit_hash', '');
         $transition['source_completion_audit_failed_criteria'] = (array) data_get($gate, 'completion_audit_failed_criteria', []);
+        $transition['completion_allowed'] = false;
         $transition['completion_claim_allowed'] = (bool) data_get($gate, 'completion_claim_allowed', false);
         $transition['next_stage_allowed'] = (bool) data_get($gate, 'next_stage_allowed', false);
         $transition['closure_artifact_sequence'] = (array) data_get($gate, 'closure_artifact_sequence', []);
@@ -78639,11 +79378,46 @@ final class AtlasSelfConstructionReadinessService
         $transition['prompt_to_artifact_checklist_hash'] = (string) data_get($gate, 'prompt_to_artifact_checklist_hash', '');
         $terminalLoopBindingPath = 'storage/app/private/'.self::CANONICAL_OPERATOR_SUBMISSION_PATHS['terminal_loop_operational_proof_binding'];
         $transition['terminal_loop_operational_proof_canonical_binding_path'] = $terminalLoopBindingPath;
+        $transition['terminal_loop_operational_proof_required_before_completion_claim'] = true;
+        $transition['completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only'] = true;
         $transition['transition_readiness_command_with_canonical_terminal_loop_binding'] = 'php artisan atlas:ai:self-construction --atlas-self-programming-os-transition-readiness-status --agent-control-plane-terminal-loop-operational-proof-json=@'.$terminalLoopBindingPath.' --json';
         $transition['completion_audit_command_with_canonical_terminal_loop_binding'] = 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@'.$terminalLoopBindingPath.' --json';
         $transition['terminal_loop_operational_proof_supplied_to_transition_readiness'] = isset($options['agent_control_plane_terminal_loop_operational_proof']);
         $transition['terminal_loop_operational_proof_source'] = (string) ($options['agent_control_plane_terminal_loop_operational_proof_source'] ?? (isset($options['agent_control_plane_terminal_loop_operational_proof_json']) ? 'explicit_json_option' : ''));
         $transition['source_completion_audit_failed_criteria_count'] = count((array) data_get($transition, 'source_completion_audit_failed_criteria', []));
+        $transition['external_completion_claim_policy'] = [
+            'schema_version' => 'atlas.self_programming.transition_external_completion_claim_policy.v1',
+            'mode' => 'read_only_self_programming_transition_external_completion_claim_policy',
+            'status' => (bool) data_get($transition, 'self_construction_complete', false) ? 'completion_claim_delegated_to_completion_audit' : 'reject_external_completion_claim',
+            'completion_authority' => 'atlas_self_construction_os_completion_audit',
+            'required_completion_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'source_completion_audit_hash' => (string) data_get($transition, 'source_completion_audit_hash', ''),
+            'external_agent_claim_accepted' => false,
+            'external_agent_claim_can_mark_os_complete' => false,
+            'external_agent_claim_can_override_audit' => false,
+            'current_failed_count' => (int) data_get($transition, 'source_completion_audit_failed_criteria_count', 0),
+            'current_failed_criteria' => (array) data_get($transition, 'source_completion_audit_failed_criteria', []),
+            'transition_allowed_from_external_claim' => false,
+            'self_programming_allowed_from_external_claim' => false,
+            'failure_policy' => [
+                'reject_external_agent_completion_claim',
+                'require_completion_audit_status_complete',
+                'require_completion_allowed_true',
+                'require_failed_count_zero',
+                'require_final_completion_readiness_gate_green',
+                'require_self_programming_transition_readiness_green',
+            ],
+            'non_execution_guarantees' => [
+                'transition_external_completion_claim_policy_does_not_execute_commands',
+                'transition_external_completion_claim_policy_does_not_persist_receipts',
+                'transition_external_completion_claim_policy_does_not_sign_for_operator',
+                'transition_external_completion_claim_policy_does_not_call_provider',
+                'transition_external_completion_claim_policy_does_not_spend_tokens',
+                'transition_external_completion_claim_policy_does_not_dispatch',
+                'transition_external_completion_claim_policy_does_not_enable_self_programming',
+            ],
+        ];
+        $transition['external_completion_claim_policy']['external_completion_claim_policy_hash'] = $this->stableHash($transition['external_completion_claim_policy']);
         $transition['transition_blocker_count'] = count((array) data_get($transition, 'blockers', []));
         $operatorOnlyHumanClosureBlockers = [
             'runtime_gap_matrix_all_runtime_y',
@@ -78680,6 +79454,32 @@ final class AtlasSelfConstructionReadinessService
         $transition['final_operator_evidence_closure_corridor_command'] = 'php artisan atlas:ai:self-construction --atlas-self-construction-final-operator-evidence-closure-corridor-status --json';
         $transition['next_stage_first_self_programming_task_allowed'] = false;
         $transition['next_stage_runtime_activation_allowed'] = false;
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
+        $transition['next_required_command'] = match ((string) data_get($transition, 'current_required_operator_artifact', '')) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
+            default => (string) data_get($transition, 'completion_audit_command_with_canonical_terminal_loop_binding', ''),
+        };
+        $transition['next_required_persist_command'] = match ((string) data_get($transition, 'current_required_operator_artifact', '')) {
+            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
+            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
+            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
+            default => '',
+        };
+        if ($liveStatusProjection) {
+            $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+            $transition['current_required_operator_artifact'] = (string) data_get($completionEvidence, 'current_required_operator_artifact', data_get($transition, 'current_required_operator_artifact', ''));
+            $transition['next_required_command'] = (string) data_get($completionEvidence, 'next_required_command', data_get($transition, 'next_required_command', ''));
+            $transition['next_required_persist_command'] = (string) data_get($completionEvidence, 'next_required_persist_command', data_get($transition, 'next_required_persist_command', ''));
+        }
+        $transition['runtime_gap_matrix_hash'] = (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', '');
+        $transition['expected_runtime_gap_matrix_hash_for_promotion_receipt'] = (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', '');
+        $transition['runtime_promotion_basis_hash'] = (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', '');
+        $transition['runtime_promotion_closure_basis_hash'] = (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', '');
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_programming_os_transition_readiness',
@@ -78725,11 +79525,30 @@ final class AtlasSelfConstructionReadinessService
                 'prompt_to_artifact_checklist_hash' => (string) data_get($transition, 'prompt_to_artifact_checklist_hash', ''),
                 'operator_evidence_readiness_command' => (string) data_get($transition, 'operator_evidence_readiness_command', ''),
                 'final_operator_evidence_closure_corridor_command' => (string) data_get($transition, 'final_operator_evidence_closure_corridor_command', ''),
+                'next_required_command' => (string) data_get($transition, 'next_required_command', ''),
+                'next_required_persist_command' => (string) data_get($transition, 'next_required_persist_command', ''),
+                'runtime_gap_matrix_hash' => (string) data_get($transition, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($transition, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($transition, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($transition, 'runtime_promotion_closure_basis_hash', ''),
                 'next_stage_first_self_programming_task_allowed' => (bool) data_get($transition, 'next_stage_first_self_programming_task_allowed', false),
                 'next_stage_runtime_activation_allowed' => (bool) data_get($transition, 'next_stage_runtime_activation_allowed', false),
+                'completion_allowed' => (bool) data_get($transition, 'completion_allowed', false),
                 'completion_claim_allowed' => (bool) data_get($transition, 'completion_claim_allowed', false),
                 'next_stage_allowed' => (bool) data_get($transition, 'next_stage_allowed', false),
+                'external_completion_claim_policy_status' => (string) data_get($transition, 'external_completion_claim_policy.status', ''),
+                'external_completion_claim_policy_completion_authority' => (string) data_get($transition, 'external_completion_claim_policy.completion_authority', ''),
+                'external_completion_claim_policy_required_completion_predicate' => (string) data_get($transition, 'external_completion_claim_policy.required_completion_predicate', ''),
+                'external_completion_claim_policy_external_agent_claim_accepted' => (bool) data_get($transition, 'external_completion_claim_policy.external_agent_claim_accepted', true),
+                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => (bool) data_get($transition, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete', true),
+                'external_completion_claim_policy_external_agent_claim_can_override_audit' => (bool) data_get($transition, 'external_completion_claim_policy.external_agent_claim_can_override_audit', true),
+                'external_completion_claim_policy_transition_allowed_from_external_claim' => (bool) data_get($transition, 'external_completion_claim_policy.transition_allowed_from_external_claim', true),
+                'external_completion_claim_policy_self_programming_allowed_from_external_claim' => (bool) data_get($transition, 'external_completion_claim_policy.self_programming_allowed_from_external_claim', true),
+                'external_completion_claim_policy_current_failed_count' => (int) data_get($transition, 'external_completion_claim_policy.current_failed_count', 0),
+                'external_completion_claim_policy_hash' => (string) data_get($transition, 'external_completion_claim_policy.external_completion_claim_policy_hash', ''),
                 'terminal_loop_operational_proof_canonical_binding_path' => (string) data_get($transition, 'terminal_loop_operational_proof_canonical_binding_path', ''),
+                'terminal_loop_operational_proof_required_before_completion_claim' => (bool) data_get($transition, 'terminal_loop_operational_proof_required_before_completion_claim', false),
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => (bool) data_get($transition, 'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only', false),
                 'terminal_loop_operational_proof_supplied_to_transition_readiness' => (bool) data_get($transition, 'terminal_loop_operational_proof_supplied_to_transition_readiness', false),
                 'terminal_loop_operational_proof_source' => (string) data_get($transition, 'terminal_loop_operational_proof_source', ''),
                 'transition_readiness_command_with_canonical_terminal_loop_binding' => (string) data_get($transition, 'transition_readiness_command_with_canonical_terminal_loop_binding', ''),
@@ -78835,6 +79654,17 @@ final class AtlasSelfConstructionReadinessService
                 'self_programming_bootstrap_plan_status' => (string) data_get($payload, 'self_programming_bootstrap_plan_status', ''),
                 'self_programming_bootstrap_plan_phase_count' => (int) data_get($payload, 'self_programming_bootstrap_plan_phase_count', 0),
                 'self_programming_bootstrap_plan_hash' => (string) data_get($payload, 'self_programming_bootstrap_plan_hash', ''),
+                'external_completion_claim_policy_status' => (string) data_get($payload, 'external_completion_claim_policy_status', data_get($payload, 'external_completion_claim_policy.status', '')),
+                'external_completion_claim_policy_completion_authority' => (string) data_get($payload, 'external_completion_claim_policy_completion_authority', data_get($payload, 'external_completion_claim_policy.completion_authority', '')),
+                'external_completion_claim_policy_required_completion_predicate' => (string) data_get($payload, 'external_completion_claim_policy_required_completion_predicate', data_get($payload, 'external_completion_claim_policy.required_completion_predicate', '')),
+                'external_completion_claim_policy_external_agent_claim_accepted' => (bool) data_get($payload, 'external_completion_claim_policy_external_agent_claim_accepted', data_get($payload, 'external_completion_claim_policy.external_agent_claim_accepted', true)),
+                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => (bool) data_get($payload, 'external_completion_claim_policy_external_agent_claim_can_mark_os_complete', data_get($payload, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete', true)),
+                'external_completion_claim_policy_external_agent_claim_can_override_audit' => (bool) data_get($payload, 'external_completion_claim_policy_external_agent_claim_can_override_audit', data_get($payload, 'external_completion_claim_policy.external_agent_claim_can_override_audit', true)),
+                'external_completion_claim_policy_transition_allowed_from_external_claim' => (bool) data_get($payload, 'external_completion_claim_policy_transition_allowed_from_external_claim', data_get($payload, 'external_completion_claim_policy.transition_allowed_from_external_claim', true)),
+                'external_completion_claim_policy_self_programming_allowed_from_external_claim' => (bool) data_get($payload, 'external_completion_claim_policy_self_programming_allowed_from_external_claim', data_get($payload, 'external_completion_claim_policy.self_programming_allowed_from_external_claim', true)),
+                'external_completion_claim_policy_current_required_operator_artifact' => (string) data_get($payload, 'external_completion_claim_policy_current_required_operator_artifact', data_get($payload, 'external_completion_claim_policy.current_required_operator_artifact', '')),
+                'external_completion_claim_policy_current_failed_count' => (int) data_get($payload, 'external_completion_claim_policy_current_failed_count', data_get($payload, 'external_completion_claim_policy.current_failed_count', 0)),
+                'external_completion_claim_policy_hash' => (string) data_get($payload, 'external_completion_claim_policy_hash', data_get($payload, 'external_completion_claim_policy.external_completion_claim_policy_hash', '')),
                 'next_stage_prompt_to_artifact_checklist_count' => (int) data_get($payload, 'next_stage_prompt_to_artifact_checklist_count', 0),
                 'next_stage_prompt_to_artifact_checklist_passed_count' => (int) data_get($payload, 'next_stage_prompt_to_artifact_checklist_passed_count', 0),
                 'closure_artifact_sequence' => (array) data_get($payload, 'closure_artifact_sequence', []),
@@ -78908,11 +79738,21 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfConstructionCompletionFinalizationGateStatus(array $options = []): array
     {
+        $liveStatusProjection = $options === [];
         $options = $this->withTerminalLoopOperationalProofPayload($options);
 
         $result = (new AtlasSelfConstructionCompletionFinalizationGateService($this))->evaluate($options);
         $handoff = (array) data_get($result, 'completion_finalization_operator_handoff', []);
         $blockerClassification = (array) data_get($handoff, 'blocker_classification', []);
+        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
+        if ($runtimeGapMatrix === []) {
+            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
+        }
+        $currentRequiredOperatorArtifact = (string) data_get($handoff, 'current_required_operator_artifact', '');
+        if ($liveStatusProjection) {
+            $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+            $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', $currentRequiredOperatorArtifact);
+        }
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'atlas_self_construction_completion_finalization_gate',
@@ -78933,7 +79773,7 @@ final class AtlasSelfConstructionReadinessService
                 'completion_audit_failed_count' => (int) data_get($handoff, 'completion_audit_failed_count', 0),
                 'failed_criteria' => (array) data_get($handoff, 'completion_audit_failed_criteria', []),
                 'failed_count' => (int) data_get($handoff, 'completion_audit_failed_count', 0),
-                'current_required_operator_artifact' => (string) data_get($handoff, 'current_required_operator_artifact', ''),
+                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
                 'human_blocker_count' => (int) data_get($blockerClassification, 'human_blocker_count', 0),
                 'human_blockers' => (array) data_get($blockerClassification, 'human_blockers', []),
                 'real_provider_blocker_count' => (int) data_get($blockerClassification, 'real_provider_blocker_count', 0),
@@ -78949,10 +79789,28 @@ final class AtlasSelfConstructionReadinessService
                 'completion_finalization_operator_handoff_ordered_next_command_count' => count((array) data_get($result, 'completion_finalization_operator_handoff.ordered_next_commands', [])),
                 'completion_finalization_operator_handoff_final_verification_sequence_count' => count((array) data_get($result, 'completion_finalization_operator_handoff.final_verification_sequence', [])),
                 'completion_finalization_operator_handoff_hash' => (string) data_get($result, 'completion_finalization_operator_handoff.completion_finalization_operator_handoff_hash', ''),
+                'external_completion_claim_policy_status' => (string) data_get($result, 'external_completion_claim_policy.status', ''),
+                'external_completion_claim_policy_completion_authority' => (string) data_get($result, 'external_completion_claim_policy.completion_authority', ''),
+                'external_completion_claim_policy_required_completion_predicate' => (string) data_get($result, 'external_completion_claim_policy.required_completion_predicate', ''),
+                'external_completion_claim_policy_external_agent_claim_accepted' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_accepted', true),
+                'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_mark_os_complete', true),
+                'external_completion_claim_policy_external_agent_claim_can_override_audit' => (bool) data_get($result, 'external_completion_claim_policy.external_agent_claim_can_override_audit', true),
+                'external_completion_claim_policy_next_stage_allowed_from_external_claim' => (bool) data_get($result, 'external_completion_claim_policy.next_stage_allowed_from_external_claim', true),
+                'external_completion_claim_policy_self_programming_allowed_from_external_claim' => (bool) data_get($result, 'external_completion_claim_policy.self_programming_allowed_from_external_claim', true),
+                'external_completion_claim_policy_completion_claim_allowed_by_gate' => (bool) data_get($result, 'external_completion_claim_policy.completion_claim_allowed_by_gate', false),
+                'external_completion_claim_policy_current_required_operator_artifact' => (string) data_get($result, 'external_completion_claim_policy.current_required_operator_artifact', ''),
+                'external_completion_claim_policy_current_failed_count' => (int) data_get($result, 'external_completion_claim_policy.current_failed_count', 0),
+                'external_completion_claim_policy_hash' => (string) data_get($result, 'external_completion_claim_policy.external_completion_claim_policy_hash', ''),
                 'completion_finalization_next_action_shell_packet' => (array) data_get($result, 'completion_finalization_operator_handoff.next_action_shell_packet', []),
                 'completion_finalization_next_action_shell_packet_status' => (string) data_get($result, 'completion_finalization_operator_handoff.next_action_shell_packet.status', ''),
                 'completion_finalization_next_action_shell_packet_hash' => (string) data_get($result, 'completion_finalization_operator_handoff.next_action_shell_packet.shell_packet_hash', ''),
                 'completion_finalization_next_action_exact_command' => (string) data_get($result, 'completion_finalization_operator_handoff.next_action_shell_packet.exact_command', ''),
+                'next_required_command' => (string) data_get($result, 'completion_finalization_operator_handoff.next_action_shell_packet.exact_command', ''),
+                'next_required_persist_command' => (string) data_get($result, 'completion_finalization_operator_handoff.next_action_shell_packet.persist_command', ''),
+                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
                 'completion_finalization_next_action_placeholder_count' => (int) data_get($result, 'completion_finalization_operator_handoff.next_action_shell_packet.placeholder_count', 0),
                 'completion_finalization_next_action_copy_safe' => (bool) data_get($result, 'completion_finalization_operator_handoff.next_action_shell_packet.copy_safe', false),
                 'closure_artifact_sequence' => (array) data_get($result, 'closure_artifact_sequence', []),
@@ -78963,6 +79821,7 @@ final class AtlasSelfConstructionReadinessService
                 'prompt_to_artifact_checklist_passed_count' => (int) data_get($result, 'prompt_to_artifact_checklist_passed_count', 0),
                 'prompt_to_artifact_checklist_hash' => (string) data_get($result, 'prompt_to_artifact_checklist_hash', ''),
                 'terminal_loop_operational_proof_required_before_completion_claim' => (bool) data_get($result, 'terminal_loop_operational_proof_required_before_completion_claim', false),
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
                 'terminal_loop_operational_proof_expected_binding_schema' => (string) data_get($result, 'terminal_loop_operational_proof_expected_binding_schema', ''),
                 'terminal_loop_operational_proof_green' => (bool) data_get($result, 'terminal_loop_green', false),
                 'terminal_loop_operational_proof_status' => (string) data_get($result, 'checks.terminal_loop_green.evidence.operational_proof_status', ''),
@@ -78979,6 +79838,7 @@ final class AtlasSelfConstructionReadinessService
                 'final_verification_sequence' => (array) data_get($result, 'final_verification_sequence', []),
                 'final_verification_sequence_step_count' => count((array) data_get($result, 'final_verification_sequence', [])),
                 'completion_audit_green_requires_current_snapshot_after_terminal_loop_proof' => (bool) data_get($result, 'completion_audit_green_requires_current_snapshot_after_terminal_loop_proof', false),
+                'self_programming_allowed' => false,
             ],
         );
     }
@@ -79196,6 +80056,52 @@ final class AtlasSelfConstructionReadinessService
             'technical_blocker_count' => count($technicalBlockers),
             'technical_blockers' => $technicalBlockers,
         ];
+        $completionEvidenceClaimAuthority = [
+            'schema_version' => 'atlas.self_construction.completion_evidence_claim_authority.v1',
+            'mode' => 'read_only_completion_evidence_claim_authority',
+            'status' => $failed === [] ? 'evidence_ready_for_completion_audit' : 'evidence_incomplete_reject_completion_claim',
+            'completion_authority' => 'atlas_self_construction_os_completion_audit',
+            'required_completion_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'completion_evidence_complete' => $failed === [],
+            'completion_claim_allowed_from_evidence_status' => false,
+            'completion_allowed_from_evidence_status' => false,
+            'self_programming_allowed_from_evidence_status' => false,
+            'terminal_loop_operational_proof_required_before_completion_claim' => true,
+            'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
+            'external_agent_claim_accepted' => false,
+            'external_agent_claim_can_mark_os_complete' => false,
+            'external_agent_claim_can_override_completion_audit' => false,
+            'failed_checks' => $failed,
+            'failed_count' => count($failed),
+            'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+            'blocker_classification' => $blockerClassification,
+            'operator_next_action' => $failed === []
+                ? 'rerun_completion_audit_with_canonical_terminal_loop_operational_proof'
+                : 'persist_missing_operator_or_provider_evidence_then_rerun_evidence_status',
+            'verification_commands' => [
+                'completion_evidence_status' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --json',
+                'operator_evidence_submission_readiness' => 'php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status --json',
+                'completion_audit_with_canonical_terminal_loop_operational_proof' => (string) data_get($operatorActionPacket, 'commands.run_completion_audit_with_canonical_terminal_loop_operational_proof', ''),
+            ],
+            'failure_policy' => [
+                'reject_completion_claim_from_evidence_status_alone',
+                'reject_external_agent_completion_claim',
+                'require_completion_audit_after_all_evidence_is_persisted',
+                'require_human_signed_completion_receipt',
+                'require_real_provider_smoke',
+                'require_runtime_promotion_receipt',
+            ],
+            'non_execution_guarantees' => [
+                'completion_evidence_claim_authority_does_not_persist_receipts',
+                'completion_evidence_claim_authority_does_not_sign_for_operator',
+                'completion_evidence_claim_authority_does_not_call_provider',
+                'completion_evidence_claim_authority_does_not_spend_tokens',
+                'completion_evidence_claim_authority_does_not_dispatch',
+                'completion_evidence_claim_authority_does_not_enable_runtime',
+                'completion_evidence_claim_authority_does_not_promote_completion',
+            ],
+        ];
+        $completionEvidenceClaimAuthority['completion_evidence_claim_authority_hash'] = $this->stableHash($completionEvidenceClaimAuthority);
         $payload = [
             'schema_version' => 'atlas.self_construction_agent_control_plane_completion_evidence_status.v1',
             'status' => $failed === [] ? 'passed' : 'blocked',
@@ -79204,11 +80110,16 @@ final class AtlasSelfConstructionReadinessService
             'dispatch_allowed' => false,
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
+            'completion_allowed' => false,
             'completion_claim_allowed' => false,
+            'self_programming_allowed' => false,
+            'terminal_loop_operational_proof_required_before_completion_claim' => true,
+            'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
             'completion_evidence_complete' => $failed === [],
             'completion_claim_requires_completion_audit' => true,
             'completion_claim_authority' => 'atlas_self_construction_os_completion_audit',
             'completion_claim_blocked_until_audit_complete' => true,
+            'completion_evidence_claim_authority' => $completionEvidenceClaimAuthority,
             'checks' => $checks,
             'failed_checks' => $failed,
             'failed_count' => count($failed),
@@ -79234,6 +80145,10 @@ final class AtlasSelfConstructionReadinessService
             'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
             'next_required_command' => $nextRequiredCommand,
             'next_required_persist_command' => $nextRequiredPersistCommand,
+            'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
+            'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+            'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
+            'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
             'closure_artifact_sequence' => $closureArtifactSequence,
             'closure_artifact_sequence_count' => count($closureArtifactSequence),
             'closure_artifact_sequence_hash' => $this->stableHash($closureArtifactSequence),
@@ -79248,6 +80163,7 @@ final class AtlasSelfConstructionReadinessService
                 'completion_evidence_status_does_not_dispatch_work',
                 'completion_evidence_status_does_not_spend_tokens',
                 'completion_evidence_status_does_not_enable_self_programming',
+                'completion_evidence_status_does_not_accept_external_completion_claims',
             ],
             'human_summary' => $failed === []
                 ? 'Atlas Self-Construction OS completion evidence is present, but the full completion audit must still pass before any claim.'
@@ -81595,8 +82511,18 @@ final class AtlasSelfConstructionReadinessService
      */
     public function atlasSelfConstructionOsRuntimeGapMatrixAuditStatus(array $options = []): array
     {
+        $liveStatusProjection = $options === [];
         $service = new AtlasSelfConstructionRuntimeGapMatrixAuditService($this);
         $result = $service->audit($options);
+        $currentRequiredOperatorArtifact = (string) data_get($result, 'current_required_operator_artifact', '');
+        $nextRequiredCommand = (string) data_get($result, 'operator_next_action_command', '');
+        $nextRequiredPersistCommand = (string) data_get($result, 'operator_next_action_persist_command', '');
+        if ($liveStatusProjection) {
+            $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
+            $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', $currentRequiredOperatorArtifact);
+            $nextRequiredCommand = (string) data_get($completionEvidence, 'next_required_command', $nextRequiredCommand);
+            $nextRequiredPersistCommand = (string) data_get($completionEvidence, 'next_required_persist_command', $nextRequiredPersistCommand);
+        }
 
         return $this->wrapCertificationWorkbenchStatus(
             keyPrefix: 'runtime_gap_matrix_audit',
@@ -81608,11 +82534,29 @@ final class AtlasSelfConstructionReadinessService
                 'still_open_count' => (int) data_get($result, 'still_open_count'),
                 'auto_closeable_locally_count' => (int) data_get($result, 'auto_closeable_locally_count'),
                 'all_runtime_y' => (bool) data_get($result, 'all_runtime_y', false),
+                'runtime_gap_count' => (int) data_get($result, 'runtime_gap_count', 0),
+                'runtime_y_count' => (int) data_get($result, 'runtime_y_count', 0),
+                'runtime_y_candidate_count' => (int) data_get($result, 'runtime_y_candidate_count', 0),
+                'blocked_gap_ids' => (array) data_get($result, 'blocked_gap_ids', []),
+                'graduation_candidate_gap_ids' => (array) data_get($result, 'graduation_candidate_gap_ids', []),
                 'human_signed_os_complete_receipt_present' => (bool) data_get($result, 'human_signed_os_complete_receipt_present', false),
                 'real_provider_smoke_green' => (bool) data_get($result, 'real_provider_smoke_green', false),
                 'os_complete_promotion_allowed' => (bool) data_get($result, 'os_complete_promotion_allowed', false),
                 'runtime_gap_matrix_audit_hash' => (string) data_get($result, 'runtime_gap_matrix_audit_hash'),
                 'runtime_gap_matrix_hash' => (string) data_get($result, 'runtime_gap_matrix_hash'),
+                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($result, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
+                'runtime_promotion_basis_hash' => (string) data_get($result, 'runtime_promotion_basis_hash', ''),
+                'runtime_promotion_closure_basis_hash' => (string) data_get($result, 'runtime_promotion_closure_basis_hash', ''),
+                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+                'operator_next_action_command' => (string) data_get($result, 'operator_next_action_command', ''),
+                'operator_next_action_persist_command' => (string) data_get($result, 'operator_next_action_persist_command', ''),
+                'next_required_command' => $nextRequiredCommand,
+                'next_required_persist_command' => $nextRequiredPersistCommand,
+                'completion_allowed' => false,
+                'completion_claim_allowed' => false,
+                'self_programming_allowed' => false,
+                'terminal_loop_operational_proof_required_before_completion_claim' => true,
+                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
                 'implementation_packet_command_surface_status' => (string) data_get($result, 'implementation_packet_command_surface.status', ''),
                 'implementation_packet_command_surface_hash' => (string) data_get($result, 'implementation_packet_command_surface.command_surface_hash', ''),
                 'implementation_packet_command_count' => (int) data_get($result, 'implementation_packet_command_surface.command_count', 0),
@@ -103508,6 +104452,46 @@ final class AtlasSelfConstructionReadinessService
         ];
     }
 
+    /**
+     * @param  list<string>  $failedCriteria
+     * @return array<string, mixed>
+     */
+    private function completionClaimAuthorityAliases(array $failedCriteria, string $currentRequiredOperatorArtifact): array
+    {
+        $missingCount = max(1, count($failedCriteria));
+        $policy = [
+            'schema_version' => 'atlas.self_construction.completion_claim_authority_aliases.v1',
+            'mode' => 'read_only_completion_claim_authority_aliases',
+            'status' => 'reject_external_completion_claim',
+            'completion_authority' => 'atlas_self_construction_os_completion_audit',
+            'required_completion_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
+            'external_agent_claim_accepted' => false,
+            'external_agent_claim_can_mark_os_complete' => false,
+            'external_agent_claim_can_override_audit' => false,
+            'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+            'current_failed_count' => $missingCount,
+            'failed_criteria' => $failedCriteria,
+        ];
+        $policy['external_completion_claim_policy_hash'] = $this->stableHash($policy);
+
+        return [
+            'completion_claim_authority' => $policy['completion_authority'],
+            'completion_claim_required_completion_predicate' => $policy['required_completion_predicate'],
+            'completion_claim_external_agent_claim_accepted' => false,
+            'completion_claim_external_agent_claim_can_mark_os_complete' => false,
+            'completion_claim_external_agent_claim_can_override_audit' => false,
+            'external_completion_claim_policy_status' => $policy['status'],
+            'external_completion_claim_policy_completion_authority' => $policy['completion_authority'],
+            'external_completion_claim_policy_required_completion_predicate' => $policy['required_completion_predicate'],
+            'external_completion_claim_policy_external_agent_claim_accepted' => false,
+            'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => false,
+            'external_completion_claim_policy_external_agent_claim_can_override_audit' => false,
+            'external_completion_claim_policy_current_required_operator_artifact' => $currentRequiredOperatorArtifact,
+            'external_completion_claim_policy_current_failed_count' => $missingCount,
+            'external_completion_claim_policy_hash' => $policy['external_completion_claim_policy_hash'],
+        ];
+    }
+
     /** @param array<string, mixed> $value */
     private function ksortRecursive(array $value): array
     {
@@ -103612,5 +104596,15 @@ final class AtlasSelfConstructionReadinessService
                 'required_tests_count' => count((array) data_get($payload, 'required_tests', [])),
             ],
         );
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function placeholderFieldsFromCommand(string $command): array
+    {
+        preg_match_all('/<[^>]+>/', $command, $matches);
+
+        return array_values(array_unique(array_map('strval', $matches[0] ?? [])));
     }
 }

@@ -41,7 +41,7 @@ class DomainSeedManifests
             'domain_id' => 'software',
             'name' => 'Software Company Runtime',
             'status' => 'active',
-            'maturity_stage' => self::STAGE_DEPARTMENT,
+            'maturity_stage' => self::STAGE_OPERATING_UNIT,
             'owner' => 'atlas-software',
             'charter' => [
                 'mission' => 'Engenharia de software ponta a ponta com placement, spec, plan, execucao, evidencia e certificacao.',
@@ -62,6 +62,7 @@ class DomainSeedManifests
             'forbidden_actions' => ['silent merge', 'unreviewed deploy'],
             'policy_profile' => ['autonomy' => 'execute_with_approval', 'risk' => 'medium'],
             'memory_scope' => ['retain_days' => 365, 'kinds' => ['decisions', 'patches', 'reviews']],
+            ...self::enterpriseOperatingModel('software'),
             'capabilities' => [
                 [
                     'capability_id' => 'software.plan_change',
@@ -100,13 +101,19 @@ class DomainSeedManifests
             'domain_id' => 'research',
             'name' => 'Research Company Runtime',
             'status' => 'active',
-            'maturity_stage' => self::STAGE_SPECIALIST,
+            'maturity_stage' => self::STAGE_OPERATING_UNIT,
             'owner' => 'atlas-research',
             'charter' => [
                 'mission' => 'Pesquisa profunda com fontes primarias, contradiction check e sintese auditavel.',
                 'audience' => 'Atlas AI, software, strategy, finance, cyber',
                 'outcomes' => ['research_brief', 'evidence_pack', 'opportunity_radar'],
                 'forbidden' => ['claim sem source_ref', 'fonte unica para risco alto'],
+                'promotion_evidence' => [
+                    'php artisan atlas:ai:research-domain readiness --json',
+                    'php artisan atlas:ai:research-domain smoke --json',
+                    'tests/Feature/Ai/ResearchDomain',
+                    'certification requires diverse accepted sources and attributed claims',
+                ],
             ],
             'ontology' => ['research_question', 'source_ref', 'claim', 'evidence_pack'],
             'departments' => ['discovery', 'verification', 'synthesis'],
@@ -120,6 +127,7 @@ class DomainSeedManifests
             'forbidden_actions' => ['inference sem citation'],
             'policy_profile' => ['autonomy' => 'execute_with_approval', 'risk' => 'low'],
             'memory_scope' => ['retain_days' => 365, 'kinds' => ['sources', 'briefs']],
+            ...self::enterpriseOperatingModel('research'),
             'capabilities' => [
                 [
                     'capability_id' => 'research.brief',
@@ -146,7 +154,7 @@ class DomainSeedManifests
             'domain_id' => 'strategy',
             'name' => 'Corporate Strategy / Venture Studio',
             'status' => 'active',
-            'maturity_stage' => self::STAGE_SPECIALIST,
+            'maturity_stage' => self::STAGE_OPERATING_UNIT,
             'owner' => 'atlas-strategy',
             'charter' => [
                 'mission' => 'Identificar oportunidades, modelar empresa, dimensionar mercado, planejar GTM e experimentos.',
@@ -165,6 +173,7 @@ class DomainSeedManifests
             'forbidden_actions' => ['real spend without operator approval'],
             'policy_profile' => ['autonomy' => 'suggest', 'risk' => 'medium'],
             'memory_scope' => ['retain_days' => 365, 'kinds' => ['opportunities', 'models']],
+            ...self::enterpriseOperatingModel('strategy'),
             'capabilities' => [
                 [
                     'capability_id' => 'strategy.opportunity_scan',
@@ -191,12 +200,19 @@ class DomainSeedManifests
             'domain_id' => 'finance',
             'name' => 'Finance / Investment Research',
             'status' => 'active',
-            'maturity_stage' => self::STAGE_SPECIALIST,
+            'maturity_stage' => self::STAGE_OPERATING_UNIT,
             'owner' => 'atlas-finance',
             'charter' => [
                 'mission' => 'Research desk, valuation, portfolio analysis, risk/compliance reporting; no real trade without explicit mandate.',
                 'outcomes' => ['research_note', 'valuation_model', 'portfolio_view'],
                 'forbidden' => ['real trade execution without mandate', 'leverage without limits'],
+                'promotion_evidence' => [
+                    'php artisan atlas:ai:finance-domain readiness --json',
+                    'php artisan atlas:ai:finance-domain smoke --json',
+                    'tests/Feature/Ai/Finance',
+                    'tests/Feature/Ai/FinanceDomain',
+                    'live trading and broker execution blocked by default',
+                ],
             ],
             'ontology' => ['asset', 'portfolio', 'valuation_model', 'risk_metric'],
             'departments' => ['research_desk', 'valuation', 'portfolio', 'compliance'],
@@ -210,6 +226,7 @@ class DomainSeedManifests
             'forbidden_actions' => ['execute trade without mandate', 'omit risk disclosure'],
             'policy_profile' => ['autonomy' => 'suggest', 'risk' => 'high'],
             'memory_scope' => ['retain_days' => 1825, 'kinds' => ['notes', 'models']],
+            ...self::enterpriseOperatingModel('finance'),
             'capabilities' => [
                 [
                     'capability_id' => 'finance.research_note',
@@ -236,12 +253,20 @@ class DomainSeedManifests
             'domain_id' => 'marketing',
             'name' => 'Marketing / Growth',
             'status' => 'active',
-            'maturity_stage' => self::STAGE_SPECIALIST,
+            'maturity_stage' => self::STAGE_AUTONOMOUS_ENTERPRISE_UNIT,
             'owner' => 'atlas-marketing',
             'charter' => [
                 'mission' => 'Positioning, ICP, campaign planning, copy, funnel experiments; no public publishing or spend without approval.',
                 'outcomes' => ['positioning_doc', 'campaign_plan', 'copy_pack'],
                 'forbidden' => ['publish without approval', 'paid spend without approval'],
+                'promotion_evidence' => [
+                    'php artisan atlas:ai:marketing-domain readiness --json',
+                    'php artisan atlas:ai:marketing-domain smoke --json',
+                    'php artisan atlas:ai:marketing-domain limited-autonomy-policy --json',
+                    'tests/Feature/Ai/MarketingDomain',
+                    'approval gates block auto-publish and auto-spend',
+                    'limited autonomy policy caps external spend at zero without approval',
+                ],
             ],
             'ontology' => ['positioning', 'icp', 'campaign', 'copy', 'funnel'],
             'departments' => ['positioning', 'campaign', 'copy', 'analytics'],
@@ -253,8 +278,9 @@ class DomainSeedManifests
             'delivery_types' => ['positioning_doc', 'campaign_plan'],
             'metrics' => ['message_clarity', 'asset_throughput'],
             'forbidden_actions' => ['publish without approval'],
-            'policy_profile' => ['autonomy' => 'suggest', 'risk' => 'medium'],
+            'policy_profile' => ['autonomy' => 'limited_internal_autonomy', 'risk' => 'medium'],
             'memory_scope' => ['retain_days' => 365, 'kinds' => ['positioning', 'campaigns']],
+            ...self::enterpriseOperatingModel('marketing'),
             'capabilities' => [
                 [
                     'capability_id' => 'marketing.positioning_draft',
@@ -281,7 +307,7 @@ class DomainSeedManifests
             'domain_id' => 'cyber',
             'name' => 'Cyber Security',
             'status' => 'active',
-            'maturity_stage' => self::STAGE_SPECIALIST,
+            'maturity_stage' => self::STAGE_OPERATING_UNIT,
             'owner' => 'atlas-cyber',
             'charter' => [
                 'mission' => 'AppSec, GRC, defensive ops, remediation, authorized pentest/bug bounty; no offensive ops without RoE.',
@@ -300,6 +326,7 @@ class DomainSeedManifests
             'forbidden_actions' => ['unauthorized offensive operation', 'detection evasion for malicious use'],
             'policy_profile' => ['autonomy' => 'execute_with_approval', 'risk' => 'high'],
             'memory_scope' => ['retain_days' => 1825, 'kinds' => ['findings', 'patches', 'detections']],
+            ...self::enterpriseOperatingModel('cyber'),
             'capabilities' => [
                 [
                     'capability_id' => 'cyber.finding_review',
@@ -326,7 +353,7 @@ class DomainSeedManifests
             'domain_id' => 'personal_development',
             'name' => 'Personal Development / Learning',
             'status' => 'active',
-            'maturity_stage' => self::STAGE_ASSISTANT,
+            'maturity_stage' => self::STAGE_OPERATING_UNIT,
             'owner' => 'atlas-personal',
             'charter' => [
                 'mission' => 'Goals, habits, study planning, deliberate practice for the operator. Not clinical.',
@@ -345,6 +372,7 @@ class DomainSeedManifests
             'forbidden_actions' => ['clinical diagnosis'],
             'policy_profile' => ['autonomy' => 'suggest', 'risk' => 'low'],
             'memory_scope' => ['retain_days' => 730, 'kinds' => ['goals', 'habits']],
+            ...self::enterpriseOperatingModel('personal_development'),
             'capabilities' => [
                 [
                     'capability_id' => 'personal.goal_plan',
@@ -371,7 +399,7 @@ class DomainSeedManifests
             'domain_id' => 'automation',
             'name' => 'Automation / Tool Factory',
             'status' => 'active',
-            'maturity_stage' => self::STAGE_SPECIALIST,
+            'maturity_stage' => self::STAGE_OPERATING_UNIT,
             'owner' => 'atlas-automation',
             'charter' => [
                 'mission' => 'Browser/terminal/GitHub/API automation, repo evaluation and tool builder/evolution.',
@@ -390,6 +418,7 @@ class DomainSeedManifests
             'forbidden_actions' => ['credential exfiltration', 'destructive op without approval'],
             'policy_profile' => ['autonomy' => 'execute_with_approval', 'risk' => 'high'],
             'memory_scope' => ['retain_days' => 365, 'kinds' => ['tools', 'recipes']],
+            ...self::enterpriseOperatingModel('automation'),
             'capabilities' => [
                 [
                     'capability_id' => 'automation.tool_build',
@@ -416,7 +445,7 @@ class DomainSeedManifests
             'domain_id' => 'operations',
             'name' => 'Operations',
             'status' => 'active',
-            'maturity_stage' => self::STAGE_ASSISTANT,
+            'maturity_stage' => self::STAGE_OPERATING_UNIT,
             'owner' => 'atlas-operations',
             'charter' => [
                 'mission' => 'Diagnostico, runbook, incident handling, readiness review; no deploy/restart/infra mutation without approval.',
@@ -435,6 +464,7 @@ class DomainSeedManifests
             'forbidden_actions' => ['unauthorized deploy', 'unauthorized restart'],
             'policy_profile' => ['autonomy' => 'execute_with_approval', 'risk' => 'high'],
             'memory_scope' => ['retain_days' => 1825, 'kinds' => ['incidents', 'runbooks']],
+            ...self::enterpriseOperatingModel('operations'),
             'capabilities' => [
                 [
                     'capability_id' => 'operations.incident_handle',
@@ -450,5 +480,152 @@ class DomainSeedManifests
                 ],
             ],
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private static function enterpriseOperatingModel(string $domainId): array
+    {
+        $models = [
+            'software' => [
+                'enterprise_functions' => ['intake', 'architecture', 'implementation', 'qa', 'security_review', 'release', 'maintenance'],
+                'agent_roles' => ['planner_agent', 'code_discovery_agent', 'patch_agent', 'test_agent', 'review_agent', 'repair_agent'],
+                'flow_profiles' => ['placement', 'spec', 'plan', 'patch', 'test', 'review', 'repair'],
+                'delivery_types' => ['spec_pack', 'patch_set', 'test_report', 'review_report', 'release_evidence_pack'],
+                'integration_contracts' => ['git_workspace', 'shell_test_runner', 'evidence_ledger', 'decision_receipt'],
+                'recurring_cadences' => ['per_change_preflight', 'per_patch_test_run', 'daily_runtime_review'],
+                'metrics' => ['delivery_lead_time', 'review_pass_rate', 'evidence_completeness', 'repair_success_rate'],
+                'operational_history' => ['atlas_engineering_runs', 'ai_traces', 'programming_runtime_control_plane'],
+                'runtime_commands' => [
+                    'php artisan atlas:ai:engineering-company --json',
+                    'php artisan atlas:ai:programming-runtime-control-plane --json',
+                    'php artisan atlas:forge:runtime-certify --json',
+                ],
+            ],
+            'research' => [
+                'enterprise_functions' => ['source_discovery', 'source_quality', 'claim_attribution', 'contradiction_review', 'synthesis'],
+                'agent_roles' => ['source_planner_agent', 'source_quality_agent', 'claim_agent', 'contradiction_agent', 'synthesis_agent'],
+                'flow_profiles' => ['source_plan', 'source_quality', 'claim_record', 'contradiction_check', 'synthesis_certification'],
+                'delivery_types' => ['source_plan', 'evidence_pack', 'claim_map', 'contradiction_report', 'research_brief'],
+                'integration_contracts' => ['web_search_read_adapter', 'source_registry', 'evidence_bridge'],
+                'recurring_cadences' => ['daily_source_watch', 'per_brief_claim_audit', 'weekly_contradiction_review'],
+                'metrics' => ['source_diversity', 'claim_attribution_rate', 'contradiction_resolution_rate', 'time_to_brief'],
+                'operational_history' => ['ai_research_runs', 'ai_research_sources', 'ai_research_claims', 'ai_research_syntheses'],
+                'runtime_commands' => [
+                    'php artisan atlas:ai:research-domain readiness --json',
+                    'php artisan atlas:ai:research-domain smoke --json',
+                    'php artisan atlas:ai:research-domain control-plane --json',
+                ],
+            ],
+            'strategy' => [
+                'enterprise_functions' => ['opportunity_radar', 'venture_blueprint', 'market_modeling', 'unit_economics', 'experiment_decision'],
+                'agent_roles' => ['opportunity_agent', 'venture_architect_agent', 'market_model_agent', 'unit_economics_agent', 'strategy_memo_agent'],
+                'flow_profiles' => ['opportunity_scan', 'venture_blueprint', 'market_model', 'unit_economics', 'experiment_decision'],
+                'delivery_types' => ['opportunity_pack', 'venture_blueprint', 'market_model', 'unit_economics_memo', 'experiment_decision_record'],
+                'integration_contracts' => ['research_handoff', 'finance_handoff', 'marketing_handoff'],
+                'recurring_cadences' => ['weekly_opportunity_radar', 'per_experiment_decision', 'monthly_portfolio_review'],
+                'metrics' => ['assumption_coverage', 'opportunity_throughput', 'experiment_decision_rate', 'memo_completion_rate'],
+                'operational_history' => ['ai_strategy_runs', 'ai_opportunities', 'ai_experiment_plans', 'ai_strategy_memos'],
+                'runtime_commands' => [
+                    'php artisan atlas:ai:strategy-domain readiness --json',
+                    'php artisan atlas:ai:strategy-domain smoke --json',
+                    'php artisan atlas:ai:strategy-domain control-plane --json',
+                ],
+            ],
+            'finance' => [
+                'enterprise_functions' => ['research_desk', 'valuation', 'portfolio_review', 'risk_review', 'compliance'],
+                'agent_roles' => ['research_desk_agent', 'valuation_agent', 'portfolio_agent', 'risk_agent', 'compliance_agent'],
+                'flow_profiles' => ['research_note', 'valuation', 'portfolio_review', 'risk_review', 'paper_trading_simulation'],
+                'delivery_types' => ['research_note', 'valuation_model', 'portfolio_review', 'risk_report', 'compliance_memo'],
+                'integration_contracts' => ['market_data_read_adapter', 'spreadsheet_eval', 'compliance_gate'],
+                'recurring_cadences' => ['daily_watchlist_review', 'per_asset_risk_review', 'monthly_portfolio_review'],
+                'metrics' => ['source_diversity', 'risk_disclosure_rate', 'compliance_block_rate', 'portfolio_drift'],
+                'operational_history' => ['finance_smoke_payloads', 'finance_control_plane', 'ai_receipts'],
+                'runtime_commands' => [
+                    'php artisan atlas:ai:finance-domain readiness --json',
+                    'php artisan atlas:ai:finance-domain smoke --json',
+                    'php artisan atlas:ai:finance-domain control-plane --json',
+                ],
+            ],
+            'marketing' => [
+                'enterprise_functions' => ['icp_positioning', 'campaign_planning', 'copy_creative', 'funnel_analytics', 'experimentation'],
+                'agent_roles' => ['icp_agent', 'positioning_agent', 'campaign_agent', 'copy_agent', 'analytics_agent', 'experiment_agent'],
+                'flow_profiles' => ['icp', 'positioning', 'campaign_plan', 'copy_brief', 'funnel_analytics', 'growth_experiment'],
+                'delivery_types' => ['icp_brief', 'positioning_doc', 'campaign_plan', 'copy_pack', 'experiment_readout'],
+                'integration_contracts' => ['analytics_read_adapter', 'content_calendar_proposal', 'approval_gate'],
+                'recurring_cadences' => ['weekly_campaign_review', 'per_asset_approval_gate', 'monthly_funnel_review'],
+                'metrics' => ['message_clarity', 'asset_throughput', 'approval_latency', 'experiment_velocity'],
+                'operational_history' => ['ai_marketing_runs', 'ai_marketing_artifacts', 'ai_marketing_experiments', 'ai_marketing_approval_gates'],
+                'runtime_commands' => [
+                    'php artisan atlas:ai:marketing-domain readiness --json',
+                    'php artisan atlas:ai:marketing-domain smoke --json',
+                    'php artisan atlas:ai:marketing-domain control-plane --json',
+                    'php artisan atlas:ai:marketing-domain limited-autonomy-policy --json',
+                ],
+            ],
+            'cyber' => [
+                'enterprise_functions' => ['engagement_intake', 'appsec_review', 'grc_mapping', 'defensive_review', 'remediation'],
+                'agent_roles' => ['scope_agent', 'appsec_agent', 'grc_agent', 'defensive_review_agent', 'remediation_agent'],
+                'flow_profiles' => ['engagement_intake', 'scope_rules', 'appsec_review', 'grc_mapping', 'remediation_plan'],
+                'delivery_types' => ['scope_packet', 'appsec_report', 'grc_mapping', 'remediation_plan', 'defensive_review'],
+                'integration_contracts' => ['sbom_read_adapter', 'repo_read_adapter', 'evidence_chain'],
+                'recurring_cadences' => ['weekly_defensive_review', 'per_finding_triage', 'monthly_grc_mapping_review'],
+                'metrics' => ['mttr', 'finding_quality', 'detection_coverage', 'scope_block_rate'],
+                'operational_history' => ['ai_cyber_engagements', 'ai_cyber_appsec_reviews', 'ai_cyber_remediation_plans', 'cyber_control_plane'],
+                'runtime_commands' => [
+                    'php artisan atlas:ai:cyber-domain readiness --json',
+                    'php artisan atlas:ai:cyber-domain smoke --json',
+                    'php artisan atlas:ai:cyber-domain control-plane --json',
+                ],
+            ],
+            'automation' => [
+                'enterprise_functions' => ['automation_planning', 'tool_selection', 'browser_automation', 'api_automation', 'tool_evolution'],
+                'agent_roles' => ['automation_planner_agent', 'tool_selector_agent', 'browser_agent', 'api_agent', 'tool_evolution_agent'],
+                'flow_profiles' => ['automation_plan', 'tool_selection', 'browser_plan', 'api_plan', 'tool_evolution_loop'],
+                'delivery_types' => ['automation_plan', 'tool_selection_record', 'browser_runbook', 'api_runbook', 'tool_evolution_report'],
+                'integration_contracts' => ['tool_runtime_registry', 'browser_planning_adapter', 'api_planning_adapter'],
+                'recurring_cadences' => ['per_tool_selection_review', 'weekly_tool_evolution_review', 'per_automation_receipt_review'],
+                'metrics' => ['automation_success_rate', 'tool_lead_time', 'blocked_plan_rate', 'evolution_event_count'],
+                'operational_history' => ['ai_automation_runs', 'ai_automation_plans', 'ai_automation_tool_decisions', 'ai_automation_evolution_events'],
+                'runtime_commands' => [
+                    'php artisan atlas:ai:automation-domain readiness --json',
+                    'php artisan atlas:ai:automation-domain smoke --json',
+                    'php artisan atlas:ai:automation-domain control-plane --json',
+                ],
+            ],
+            'personal_development' => [
+                'enterprise_functions' => ['goal_architecture', 'habit_design', 'focus_planning', 'learning_plan', 'weekly_review'],
+                'agent_roles' => ['goal_agent', 'habit_agent', 'focus_agent', 'learning_agent', 'review_agent'],
+                'flow_profiles' => ['reflect', 'daily_review', 'weekly_review', 'habit_design', 'focus_plan', 'learning_plan', 'forge'],
+                'delivery_types' => ['goal_architecture', 'habit_plan', 'focus_plan', 'learning_plan', 'weekly_review'],
+                'integration_contracts' => ['private_memory_policy', 'evidence_refs', 'human_review_packet'],
+                'recurring_cadences' => ['daily_review', 'weekly_review', 'per_goal_checkpoint'],
+                'metrics' => ['plan_adherence', 'practice_sessions', 'focus_block_completion', 'review_completion_rate'],
+                'operational_history' => ['personal_development_runtime_packets', 'personal_development_control_plane', 'evidence_refs'],
+                'runtime_commands' => [
+                    'php artisan atlas:ai:personal-development-domain readiness --json',
+                    'php artisan atlas:ai:personal-development-domain smoke --json',
+                    'php artisan atlas:ai:personal-development-domain control-plane --json',
+                ],
+            ],
+            'operations' => [
+                'enterprise_functions' => ['diagnostic', 'runbook_authoring', 'incident_review', 'readiness_review', 'postmortem_actions'],
+                'agent_roles' => ['diagnostic_agent', 'runbook_agent', 'incident_agent', 'readiness_agent', 'postmortem_agent'],
+                'flow_profiles' => ['diagnostic', 'runbook', 'incident_review', 'readiness_review'],
+                'delivery_types' => ['diagnostic_report', 'runbook', 'incident_review', 'readiness_report', 'postmortem_action_plan'],
+                'integration_contracts' => ['log_read_adapter', 'metrics_read_adapter', 'evidence_ledger'],
+                'recurring_cadences' => ['daily_readiness_check', 'per_incident_review', 'weekly_runbook_review'],
+                'metrics' => ['mttr', 'incident_volume', 'runbook_coverage', 'readiness_blocker_count'],
+                'operational_history' => ['ai_traces', 'evidence_ledger', 'operations_packets'],
+                'runtime_commands' => [
+                    'php artisan atlas:ai:operations-domain readiness --json',
+                    'php artisan atlas:ai:operations-domain smoke --json',
+                    'php artisan atlas:ai:operations-domain control-plane --json',
+                ],
+            ],
+        ];
+
+        return $models[$domainId] ?? [];
     }
 }

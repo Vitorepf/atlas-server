@@ -2,9 +2,11 @@
 id: atlas-ai-voice-realtime-surface
 type: engineering_knowledge
 title: Atlas AI Voice Realtime Surface
-status: scaffold
+status: building
 category: surface-architecture
 priority: 94
+implementation_state: certified_scaffold_runtime_boundary_not_promoted
+blocker: livekit_agents_sdk_callback_loop_not_wired_to_livekit_callback_router
 summary: Contrato canonico do Voice Realtime Surface do Atlas AI. Voz nasce mobile-first, usa LiveKit Agents SDK como runtime conversacional, preserva o Kernel Laravel como decisor soberano e deixa Swift/macOS como edge ambiental posterior.
 tags:
   - atlas-ai
@@ -61,6 +63,43 @@ graph_status: building
 graph_source: repo
 
 owner: surface-architecture
+
+gear_flow:
+  - graph_id: atlas-ai-voice-realtime-surface:mobile
+    target_graph_id: atlas-ai-voice-realtime-canon-de-fala
+    name: Mobile Voice
+    kind: input
+    summary: push-to-talk/realtime captura audio com permissao e eclipse
+  - graph_id: atlas-ai-voice-realtime-surface:livekit
+    target_graph_id: adr-0002-voice-realtime-sdk-loop-kernel-response-path
+    name: LiveKit Agents SDK
+    kind: context
+    summary: VAD, turn detection, STT/TTS e interruption sem decidir provider
+  - graph_id: atlas-ai-voice-realtime-surface:envelope
+    target_graph_id: operation-envelope
+    name: Operation Envelope
+    kind: context
+    summary: transcript e metadados entram no caminho unico do Kernel
+  - graph_id: atlas-ai-voice-realtime-surface:decide
+    target_graph_id: atlas-decide
+    name: Atlas Decide
+    kind: decision
+    summary: Laravel Kernel escolhe policy, provider e autorizacao
+  - graph_id: atlas-ai-voice-realtime-surface:receipt
+    target_graph_id: decision-receipt
+    name: Decision Receipt
+    kind: gate
+    summary: resposta ou acao so sai com receipt, privacy e gates
+  - graph_id: atlas-ai-voice-realtime-surface:tts
+    target_graph_id: adr-0002-voice-realtime-sdk-loop-kernel-response-path
+    name: Response / TTS
+    kind: output
+    summary: resposta volta ao mobile por audio aprovado
+  - graph_id: atlas-ai-voice-realtime-surface:evidence
+    target_graph_id: evidence-ledger
+    name: Evidence + Learning
+    kind: gate
+    summary: eventos VOICE_*, metricas e propostas fecham o loop
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md

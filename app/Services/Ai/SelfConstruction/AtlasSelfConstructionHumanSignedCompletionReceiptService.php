@@ -59,6 +59,12 @@ final class AtlasSelfConstructionHumanSignedCompletionReceiptService
         if ($receiptHash !== $expectedReceiptHash) {
             $violations[] = ['code' => 'receipt_hash_mismatch'];
         }
+        if ($this->isPlaceholderSigner((string) ($receipt['signed_by'] ?? ''))) {
+            $violations[] = ['code' => 'human_signed_completion_receipt_signer_placeholder'];
+        }
+        if ($this->isPlaceholderReason((string) ($receipt['reason'] ?? ''))) {
+            $violations[] = ['code' => 'human_signed_completion_receipt_reason_placeholder'];
+        }
         foreach ([
             'completion_audit_hash',
             'release_dossier_hash',
@@ -208,6 +214,54 @@ final class AtlasSelfConstructionHumanSignedCompletionReceiptService
     private function hashes(): AtlasSelfConstructionCompletionEvidenceHashService
     {
         return new AtlasSelfConstructionCompletionEvidenceHashService;
+    }
+
+    private function isPlaceholderSigner(string $signedBy): bool
+    {
+        return in_array(strtolower(trim($signedBy)), [
+            '',
+            '<operator>',
+            '<operator_name>',
+            '<operator_full_name>',
+            'operator',
+            'human',
+            'codex',
+            'codex-autosigned',
+            'claude',
+            'assistant',
+            'system',
+            'atlas',
+            'seu_nome',
+            'seu nome',
+            '<operador>',
+            'operador',
+        ], true);
+    }
+
+    private function isPlaceholderReason(string $reason): bool
+    {
+        $normalized = strtolower(trim($reason));
+        if ($normalized === '' || str_starts_with($normalized, '<')) {
+            return true;
+        }
+
+        foreach ([
+            'operator reason',
+            'minimum_32_chars',
+            'pelo menos 32 caracteres',
+            'motivo real',
+            'substitua',
+            'placeholder',
+            'todo',
+            'autosigned',
+            'lorem',
+        ] as $pattern) {
+            if (str_contains($normalized, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function ksortRecursive(array $value): array
