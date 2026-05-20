@@ -27,6 +27,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
   - docs/engineering-knowledge-base/atlas-code-scor-1-implementation-contract.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-runtime-certification-one-shot
 graph_title: Atlas Forge Runtime Certification One Shot

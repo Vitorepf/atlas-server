@@ -12,6 +12,7 @@ use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\ConversationOps\AtlasConversationOperationsService;
 use App\Services\Ai\Mission\MissionModeResult;
 use App\Services\Ai\Mission\MissionModeService;
+use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -72,6 +73,7 @@ class AtlasHyperflowEntryService
         private readonly ?AtlasContextIntelligenceService $contextIntelligence = null,
         private readonly ?AtlasConversationOperationsService $conversationOps = null,
         private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
+        private readonly ?AtlasPersistentContextRuntimeService $persistentContext = null,
     ) {}
 
     /**
@@ -87,10 +89,6 @@ class AtlasHyperflowEntryService
      */
     public function run(array $data): array
     {
-        if (! $this->canPersist()) {
-            return $this->withFallbackEnvelope($data, 'router_runtime_tables_unavailable');
-        }
-
         $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
         if ($this->envelopeAlreadyPresent($payload)) {
             return $data;
@@ -99,6 +97,15 @@ class AtlasHyperflowEntryService
         $rawInput = is_string($data['input_text'] ?? null) ? (string) $data['input_text'] : '';
         if (trim($rawInput) === '') {
             return $this->withFallbackEnvelope($data, 'empty_input_text');
+        }
+        $persistentContext = $this->buildPersistentContext($data, $payload, $rawInput);
+        if ($persistentContext !== null) {
+            $payload['persistent_context'] = $persistentContext;
+            $data['payload'] = $payload;
+        }
+
+        if (! $this->canPersist()) {
+            return $this->withFallbackEnvelope($data, 'router_runtime_tables_unavailable');
         }
 
         $missionModeResult = $this->maybeActivateMissionMode($data, $payload, $rawInput);
@@ -140,6 +147,9 @@ class AtlasHyperflowEntryService
             routerDecision: $routerDecision,
             flowRoute: $flowRoute,
         );
+        if ($persistentContext !== null) {
+            $envelope['persistent_context'] = $persistentContext;
+        }
 
         $payload['hyperflow_runtime'] = $envelope;
         if ($missionModeResult !== null) {
@@ -315,6 +325,41 @@ class AtlasHyperflowEntryService
                 'atlas_decide_authority' => true,
             ],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function buildPersistentContext(array $data, array $payload, string $rawInput): ?array
+    {
+        if (is_array($payload['persistent_context'] ?? null)
+            && ($payload['persistent_context']['schema_version'] ?? null) === AtlasPersistentContextRuntimeService::SCHEMA_VERSION) {
+            return $payload['persistent_context'];
+        }
+
+        try {
+            return ($this->persistentContext ?? app(AtlasPersistentContextRuntimeService::class))->build([
+                'prompt' => $rawInput,
+                'workspace' => $this->stringValue(data_get($payload, 'workspace')) ?? base_path(),
+                'surface_id' => $this->stringValue(data_get($payload, 'surface_id')) ?? $this->stringValue(data_get($payload, 'app_surface')),
+                'domain' => $this->stringValue(data_get($payload, 'routing_domain')) ?? $this->stringValue(data_get($payload, 'atlas_mode')) ?? 'atlas',
+                'flow_id' => $this->stringValue(data_get($payload, 'flow_id')) ?? $this->stringValue(data_get($payload, 'routing_task')),
+                'provider' => $this->stringValue($data['provider'] ?? null) ?? $this->stringValue(data_get($payload, 'provider')),
+                'source_type' => $this->stringValue($data['source_type'] ?? null) ?? self::SOURCE_GATEWAY,
+                'payload' => $payload,
+                'evidence_refs' => array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'schema_version' => AtlasPersistentContextRuntimeService::SCHEMA_VERSION,
+                'status' => AtlasPersistentContextRuntimeService::STATUS_DEGRADED,
+                'error' => 'persistent_context_threw',
+                'exception_class' => $exception::class,
+                'writes' => false,
+            ];
+        }
     }
 
     private function stringValue(mixed $value): ?string

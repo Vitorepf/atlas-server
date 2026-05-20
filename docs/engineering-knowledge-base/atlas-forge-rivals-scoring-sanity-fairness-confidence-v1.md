@@ -54,6 +54,7 @@ related_paths:
   - tests/Feature/Ai/Programming/AtlasForgeRivalsBatteryReportReleaseTrustedV1Test.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-benchmark-strategy-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-battery-report-v2.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 allowed_changes:
   - Ajustar thresholds, gates e mensagens quando testes de adjudicator e battery report forem atualizados juntos.
   - Adicionar novos blockers de fairness desde que invalidem scores inseguros por default.

@@ -36,6 +36,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
   - ../atlas-desktop/apps/desktop/src/surfaces/code/
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 owner: programming
 layer: 2.3-attention-control-plane
 line_limit: 520

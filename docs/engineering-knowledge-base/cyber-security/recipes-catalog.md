@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-recipes-catalog
 type: engineering_knowledge
 title: Atlas AI Cyber Recipes Catalog
-status: scaffold
+status: building
 category: knowledge-base
 priority: 81
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Compact index for proposed cyber-security recipes that may extend the canonical Super Tool Runtime without creating a parallel security runtime.
 tags:
   - atlas-ai

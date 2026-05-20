@@ -43,6 +43,7 @@ related_paths:
   - app/Console/Commands/AtlasForgeContinuumCertifyCommand.php
   - app/Http/Controllers/AtlasCodeForgeProviderTopologyController.php
   - apps/desktop/src/surfaces/code/panels/ForgeProviderTopologyPanel.tsx
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-provider-topology-and-fallback-v1
 graph_title: Atlas Forge Provider Topology and Governed Fallback v1

@@ -33,6 +33,7 @@ related_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunRealService.php
   - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsIndustrialExecutionSuiteCertification.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsIndustrialExecutionSuiteTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-industrial-execution-suite-v1

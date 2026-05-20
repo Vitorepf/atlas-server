@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-playbooks-techniques
 type: engineering_knowledge
 title: Atlas AI Cyber Playbooks and Techniques
-status: scaffold
+status: building
 category: knowledge-base
 priority: 85
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Tecnicas Red consolidadas por categoria (webapp, api, mobile, cloud, network/AD, source review, crypto, supply chain, AI/ML, IoT, threat modeling, red team coord); referenciadas por skills cyber-* via cross-link, nunca copiadas inline em skill.
 tags:
   - atlas-ai
@@ -25,6 +26,7 @@ related_paths:
   - atlas-server/docs/engineering-knowledge-base/cyber-security/refusal-matrix.md
   - atlas-server/docs/engineering-knowledge-base/cyber-security/remediation-patterns.md
   - atlas-server/docs/engineering-knowledge-base/cyber-security/recipes-catalog.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 owner: atlas-ai
 layer: extension
 line_limit: 280

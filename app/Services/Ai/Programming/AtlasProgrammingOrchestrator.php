@@ -8,8 +8,10 @@ use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
 use App\Services\Ai\Kernel\Provider\AgentBehaviorContract;
 use App\Services\Ai\Kernel\Repair\RepairStrategy;
+use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Engineering\EngineeringHarnessExecutionService;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
 {
@@ -27,6 +29,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         private readonly ProgrammingLearningCandidateProjector $learningCandidates,
         private readonly ProgrammingRepairExecutor $repairExecutor,
         private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
+        private readonly ?AtlasPersistentContextRuntimeService $persistentContext = null,
     ) {}
 
     /**
@@ -173,6 +176,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'status' => 'planned',
             'evidence_refs' => ['agentic_rag:'.data_get($plan, 'agentic_rag_plan.retrieval_receipt.receipt_id')],
         ]);
+        $plan['persistent_context'] = $this->persistentContextContract($plan, $options);
         $plan['context_operations'] = $this->contextOperationsContract($plan, $options);
         $plan['context_intelligence'] = data_get($plan, 'context_operations.context_intelligence');
         $plan['conversation_ops'] = data_get($plan, 'context_operations.conversation_ops');
@@ -317,6 +321,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'agentic_rag_plan' => data_get($programmingMessagePlan, 'agentic_rag_plan'),
             'stage_receipt_plan' => data_get($programmingMessagePlan, 'stage_receipt_plan'),
             'resume_state' => data_get($programmingMessagePlan, 'resume_state'),
+            'persistent_context' => data_get($programmingMessagePlan, 'persistent_context'),
             'context_operations' => data_get($programmingMessagePlan, 'context_operations'),
             'context_intelligence' => data_get($programmingMessagePlan, 'context_intelligence'),
             'conversation_ops' => data_get($programmingMessagePlan, 'conversation_ops'),
@@ -325,6 +330,72 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'plan_id' => data_get($programmingMessagePlan, 'plan_id'),
             'created_at' => now()->toJSON(),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function persistentContextContract(array $plan, array $options): array
+    {
+        $flow = (string) data_get($plan, 'programming_flow', 'dev');
+        $profile = (string) data_get($plan, 'programming_profile', 'dev');
+        $flowId = $profile === 'forge' ? 'atlas_forge' : match ($flow) {
+            'repair' => 'atlas_debug',
+            'review' => 'atlas_review',
+            default => 'atlas_dev',
+        };
+        $receiptId = data_get($plan, 'agentic_rag_plan.retrieval_receipt.receipt_id');
+        $decisionId = data_get($plan, 'operational_decision.decision_id');
+        $contextRefs = array_values(array_filter([
+            data_get($plan, 'agentic_rag_plan.context_pack.context_pack_hash'),
+            data_get($plan, 'resume_state.continuation_packet.context_pack_hash'),
+        ], 'is_string'));
+        $evidenceRefs = array_values(array_filter([
+            is_string($receiptId) && $receiptId !== '' ? 'agentic_rag:'.$receiptId : null,
+            is_string($decisionId) && $decisionId !== '' ? 'decision:'.$decisionId : null,
+        ], 'is_string'));
+
+        try {
+            return ($this->persistentContext ?? app(AtlasPersistentContextRuntimeService::class))->build([
+                'prompt' => (string) ($options['task'] ?? data_get($plan, 'operational_decision.input_text', '')),
+                'workspace' => (string) data_get($plan, 'workspace', base_path()),
+                'surface_id' => 'atlas_programming_orchestrator',
+                'domain' => 'programming',
+                'flow_id' => $flowId,
+                'flow_profile' => 'programming.'.$flow,
+                'runtime_mode' => $profile === 'forge' ? 'forge' : 'dev',
+                'provider' => data_get($plan, 'executor_decision.provider') ?: data_get($plan, 'executor_decision.executor'),
+                'scope_type' => 'programming_plan',
+                'scope_id' => (string) data_get($plan, 'plan_id'),
+                'payload' => [
+                    'workspace' => data_get($plan, 'workspace'),
+                    'context_refs' => $contextRefs,
+                    'routing_domain' => 'programming',
+                    'routing_task' => $flowId,
+                    'programming_profile' => $profile,
+                    'programming_flow' => $flow,
+                    'plan_id' => data_get($plan, 'plan_id'),
+                    'agentic_rag_plan' => data_get($plan, 'agentic_rag_plan'),
+                    'resume_state' => data_get($plan, 'resume_state'),
+                ],
+                'evidence_refs' => $evidenceRefs,
+                'must_keep_items' => [
+                    ['id' => 'plan_id', 'kind' => 'decision', 'value' => (string) data_get($plan, 'plan_id')],
+                    ['id' => 'programming_flow', 'kind' => 'flow_route', 'value' => 'programming.'.$flow],
+                    ['id' => 'executor', 'kind' => 'runtime_decision', 'value' => (string) data_get($plan, 'executor_decision.executor')],
+                ],
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'schema_version' => AtlasPersistentContextRuntimeService::SCHEMA_VERSION,
+                'status' => AtlasPersistentContextRuntimeService::STATUS_DEGRADED,
+                'error' => 'persistent_context_threw',
+                'exception_class' => $exception::class,
+                'writes' => false,
+            ];
+        }
     }
 
     /**
@@ -402,7 +473,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'action_manifests' => $actionManifests !== [] ? $actionManifests : [['schema_version' => 'atlas.programming.action_manifest.v1', 'stage' => 'completion_projection']],
         ]);
 
-        return array_filter([
+        $completion = [
             'schema_version' => 1,
             'status' => in_array($status, ['passed', 'partial'], true) ? 'passed' : 'blocked',
             'executor' => (string) ($result['executor'] ?? data_get($dispatch, 'executor', 'engineering_harness')),
@@ -426,7 +497,45 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
                 'evidence_refs' => (array) ($result['evidence_refs'] ?? []),
             ]),
             'completed_at' => now()->toJSON(),
-        ], fn (mixed $value): bool => $value !== null && $value !== []);
+        ];
+
+        $persistentContextUpdate = $this->persistentContextOutcomeContract($completion, $dispatch);
+        if ($persistentContextUpdate !== null) {
+            $completion['persistent_context_update'] = $persistentContextUpdate;
+        }
+
+        return array_filter($completion, fn (mixed $value): bool => $value !== null && $value !== []);
+    }
+
+    /**
+     * @param  array<string,mixed>  $completion
+     * @param  array<string,mixed>  $dispatch
+     * @return array<string,mixed>|null
+     */
+    private function persistentContextOutcomeContract(array $completion, array $dispatch): ?array
+    {
+        $runtime = data_get($dispatch, 'persistent_context');
+        if (! is_array($runtime) || ($runtime['schema_version'] ?? null) !== AtlasPersistentContextRuntimeService::SCHEMA_VERSION) {
+            return null;
+        }
+
+        try {
+            return ($this->persistentContext ?? app(AtlasPersistentContextRuntimeService::class))->recordOutcome($runtime, [
+                'summary' => 'Programming completion projected by AtlasProgrammingOrchestrator.',
+                'evidence_refs' => array_values(array_filter((array) ($completion['evidence_refs'] ?? []), 'is_string')),
+                'confidence' => in_array(($completion['status'] ?? null), ['passed', 'partial'], true) ? 0.8 : 0.4,
+                'memory_type' => 'technical_context',
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'schema_version' => 'atlas.persistent_context.post_execution_update.v1',
+                'status' => 'degraded',
+                'error' => 'persistent_context_outcome_threw',
+                'exception_class' => $exception::class,
+                'promotion_allowed' => false,
+                'requires_confirmation' => true,
+            ];
+        }
     }
 
     /**

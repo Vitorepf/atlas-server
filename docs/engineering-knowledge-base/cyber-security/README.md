@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-security-kb-index
 type: engineering_knowledge
 title: Atlas AI Cyber Security KB Index
-status: scaffold
+status: building
 category: knowledge-base
 priority: 87
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Indice da Knowledge Base tecnica da Cyber Security extension; consolida tecnicas de pentest, patterns de remediacao, detection engineering, refusal matrix, compliance mapping, flow profiles propostos e recipes propostas.
 tags:
   - atlas-ai

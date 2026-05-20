@@ -39,6 +39,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-industrial-benchmark-suite-v1.md
   - docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
   - docs/engineering-knowledge-base/system-graph/atlas-decide.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-battery-modes-and-human-prompts-v1

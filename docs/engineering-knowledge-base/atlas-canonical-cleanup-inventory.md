@@ -40,6 +40,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-superiority-contracts.md
   - docs/engineering-knowledge-base/atlas-programming-superiority-roadmap.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-canonical-cleanup-inventory
 graph_title: Atlas Canonical Cleanup Inventory
@@ -101,17 +102,13 @@ next_actions:
   - Quando audit Phase 3 rodar, regenerar este inventario.
 line_limit: 540
 ---
-
 # Atlas Canonical Cleanup Inventory
-
 ## Resumo
-
 Atlas hoje tem **601 docs canonicos** em `docs/engineering-knowledge-base/`,
 **~700+ services** em `app/Services/Ai/**`, e duas auditorias profundas
 recentes (`atlas-architecture-critical-judgment-report.md` e
 `atlas-dev-forge-relationship-critical-audit.md`, ambas de 2026-05-18) que
 ja diagnosticaram os maiores riscos.
-
 Esta doc **consolida** esses diagnosticos e **adiciona inventario filesystem**
 de naming clusters e service overlaps em forma classificada e auditavel.
 Estado real (verificado por `grep`/`find` em 2026-05-18):

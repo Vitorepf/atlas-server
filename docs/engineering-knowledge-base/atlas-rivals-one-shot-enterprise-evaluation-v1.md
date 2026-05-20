@@ -35,6 +35,7 @@ related_paths:
   - app/Services/Ai/Programming/AtlasRivalsOneShotEnterpriseRubricService.php
   - app/Services/Ai/Programming/AtlasRivalsOneShotEnterpriseEvaluationService.php
   - app/Console/Commands/AtlasProgrammingRivalsOneShotEvaluateCommand.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-rivals-one-shot-enterprise-evaluation-v1
 graph_title: Atlas Rivals One-Shot Enterprise Evaluation v1

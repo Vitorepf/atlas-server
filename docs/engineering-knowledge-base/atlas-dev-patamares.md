@@ -32,6 +32,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-runbook-v1.md
   - docs/engineering-knowledge-base/obras/patamares-l0-l5.md
   - docs/engineering-knowledge-base/atlas-ai-evolution-roadmap.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-dev-patamares
 graph_title: Atlas Dev Patamares

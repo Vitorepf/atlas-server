@@ -2,9 +2,10 @@
 id: atlas-ai-cognitive-development-plane
 type: engineering_knowledge
 title: Atlas AI Cognitive Development Plane (redirect)
-status: split_required
+status: active
 category: redirect
 priority: 95
+implementation_state: active_redirect_to_split_cognitive_specs
 summary: Doc original do Cognitive Development Plane foi fragmentado conforme `line_limit` canonico do Doc-OS. Conteudo migrou para a pasta `cognitive/` em 7 specs menores. Este arquivo permanece como redirector para preservar links externos.
 tags:
   - atlas-ai

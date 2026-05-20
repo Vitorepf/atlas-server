@@ -481,99 +481,11 @@ await bridge.rejectSelfImprovementForgeActivation('act_01HXXXX', {
 // → status: 'rejected', sem Obra, trust ledger registra
 ```
 
-## UI
+## UI, Seguranca, Evidence e Testes
 
-Painel: `atlas-desktop/apps/desktop/src/surfaces/code/panels/AtlasSelfImprovementActivationCockpitPanel.tsx`.
+Detalhes extensos foram extraidos para manter este contrato legivel:
 
-Estrutura editorial linear peso-decrescente (canon):
-
-1. **PanelTitle** "Self-Improvement" + contador total.
-2. **Status strip** — eyebrow + humanSummary + nextSafeAction.
-3. **Propostas** — FilterBar (Todas/Pendentes/Aceitas/Rejeitadas/Com Obra) + lista de cards.
-4. **Avaliação** — ProposalSummaryView + PowerGateView (visível apenas com selected).
-5. **Before Snapshot** — 6 linhas Row + rationale (visível apenas com selected).
-6. **Aprovação** — Form accept/reject ou histórico de decisão (visível apenas com selected).
-7. **Obra criada** — CreatedObraView + botão Abrir (visível apenas após accept).
-8. **Histórico / Trust** — trust_band + strategy_bucket + portfolio (visível com selected).
-9. **Safety strip** — 5 invariantes sempre visíveis (provider externo · tokens · Fast Path auto · completion claim · separated_from).
-10. **Avançado** — `<details>` com JSON raw + hashes + evidence refs para auditoria.
-
-Registrado em `rightRailRegistry.tsx` com priority 3 (antes do Forge, depois de pré-Forge se houver). Tab id: `self_improvement`.
-
-Origin badge no Forge: `ForgeWorkIntakePanel.tsx` renderiza "Criada por Self-Improvement Activation · {activationId}" quando `selfImprovementActivation?.activationId` está presente no state projection.
-
-Tokens visuais (canon editorial cream + bronze + moss + rec-red, viewport 393, sem grade 2D).
-
-## Segurança
-
-Invariantes enforced no cockpit:
-
-| Invariante | Como | Camada |
-|---|---|---|
-| Accept exige reviewer | Botão desabilitado + service v1 rejeita | UI + backend |
-| Accept exige reason | Botão desabilitado + service v1 rejeita | UI + backend |
-| Accept exige checkbox no-fast-path | Botão desabilitado se `!acknowledgesNoFastPath` | UI |
-| Reject exige reviewer | Botão desabilitado + service v1 rejeita | UI + backend |
-| Reject exige reason | Botão desabilitado + service v1 rejeita | UI + backend |
-| Nunca cria Obra silenciosa | service v1 garante | backend |
-| Nunca executa Fast Path | cockpit nunca chama runForgeFastPath | UI |
-| Nunca chama provider | service não tem driver | backend |
-| Nunca promove completion claim | receipt explícito false | backend |
-| Nunca toca external_rivals_certification | separated_from = `external_rivals_certification` | backend |
-
-Bridge layer também valida reviewer + reason + ack antes de chamar accept/reject (lança erro local sem fazer round-trip se condições não atendidas).
-
-## Evidence
-
-`evidence_refs[]` no payload de cada activation referencia:
-- `doc:<path>@<sha256>` para cada doc canônica presente.
-- `proposal:<id>` para o proposal_id.
-- `power_gate:<gate_id>` para o gate.
-- `baseline:<kind>@<hash>` para cada componente do before_snapshot (maturity, invariant_lock, regression_sentinel, strategy_portfolio, trust_ledger).
-- `approval:<receipt_hash>` quando aceito.
-- `obra:<obra_id>` quando obra materializada.
-
-Tudo verificável via filesystem (docs) ou ledger (`atlas_ledger_events`, event_type `SELF_IMPROVEMENT_*`).
-
-## Testes
-
-```bash
-php artisan test --filter='AtlasSelfImprovementForgeActivation|AtlasSelfImprovementActivationCockpit'
-php artisan atlas:self-improvement:activation-cockpit --json --strict
-npm run lint --workspace=@atlas/desktop
-npm run build --workspace=@atlas/desktop
-cargo check -p atlas-tauri
-php artisan atlas:programming:completion-audit --json
-php artisan atlas:engineering:knowledge docs-health --json
-php artisan atlas:ai:architecture-validate --json
-```
-
-Os 16 tests do `AtlasSelfImprovementActivationCockpitTest` cobrem:
-
-- Schema canônico vazio (counters zerados, ack do read-model).
-- Lista com labels humanos (tone + statusLabel).
-- Detail expondo proposal + power gate + before snapshot.
-- Detail de activation inexistente devolvendo blocked.
-- Filtros por status preservando counters totais.
-- Accept materializando Obra + receipt visível + open_obra_action habilitado.
-- Rejection visível, sem Obra, com tone rec-red.
-- API list e detail (200) + 404 para id inexistente.
-- Forge controller enrichment (human_summary + next_safe_action backwards-compatible).
-- CLI strict success (sem activation selecionada).
-- CLI strict fail (activation bloqueada).
-- Invariantes de não-execução (provider call false, tokens false, fast path false, completion claim false, separated_from correto).
-- Completion audit expondo certification nova com >=25 invariantes.
-- External rivals certification permanecendo presente e inalterada.
-
-## Limites
-
-- Cockpit nunca substitui a fonte canônica: accept/reject continuam servidos por `AtlasSelfImprovementForgeActivationService::accept/reject`.
-- Cockpit nunca toca Voice, Cartografia, Inbox, Embodiment.
-- Cockpit nunca desbloqueia `external_rivals_certification` (continua governado externamente).
-- Botão "Abrir Obra" apenas troca contexto; Fast Path continua sendo decisão manual no Forge Human Panel.
-- Tauri commands nativos foram entregues mas o cockpit suporta operação somente-HTTP (offline-shim) sem quebrar.
-- O cockpit não tenta inferir trust band ou portfolio deviation — apenas projeta o que o service retornou.
-- Nenhuma persistência local de form data — cada navegação entre activations exige reentrada de reviewer + reason + checkbox (intencional · previne accept-after-navigation).
+- `atlas-self-improvement-activation-cockpit-v1-ui-tests.md` — UI, seguranca, evidence refs, testes e limites operacionais do cockpit.
 
 ## Proximas Acoes
 

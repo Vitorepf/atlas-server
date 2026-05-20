@@ -44,6 +44,7 @@ related_paths:
   - ../../../atlas-desktop/crates/atlas-bridge/src/client.rs
   - ../../../atlas-desktop/crates/atlas-tauri/src/commands_bridge.rs
   - tests/Feature/Ai/Programming/AtlasCodeProviderArenaControllerTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-code-provider-arena-ui-v1
 graph_title: Atlas Code Provider Arena UI v1

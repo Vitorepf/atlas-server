@@ -39,6 +39,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/ap/AP-683-local-rag-graph-promotion-review.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-local-performance-memory-strategy

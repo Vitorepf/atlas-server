@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-security-extension
 type: engineering_knowledge
 title: Atlas AI Cyber Security Extension
-status: scaffold
+status: building
 category: architecture
 priority: 88
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Spec scaffold da extensao Cyber Security do Atlas para automacao de bug bounty, pentest e auditoria ofensiva, alocada como flows de programming + skills no Vault, sem criar Domain Plane novo enquanto onboarding formal nao for aprovado.
 tags:
   - atlas-ai

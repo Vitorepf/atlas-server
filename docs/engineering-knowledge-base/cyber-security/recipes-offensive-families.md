@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-recipes-offensive-families
 type: engineering_knowledge
 title: Atlas AI Cyber Offensive Recipe Families
-status: scaffold
+status: building
 category: knowledge-base
 priority: 80
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Focused list of proposed offensive cyber recipe families and tool candidates for future Super Tool Runtime promotion.
 tags:
   - atlas-ai

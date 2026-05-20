@@ -74,6 +74,7 @@ related_paths:
   - ../atlas-desktop/apps/desktop/src/surfaces/code/panels/ForgeReviewGate.tsx
   - ../atlas-desktop/apps/desktop/src/surfaces/code/panels/ForgeReviewHistoryPanel.tsx
   - ../atlas-desktop/apps/desktop/src/surfaces/code/panels/TaskContractPanel.tsx
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-code-forge-live-execution-surface-contract
 graph_title: Atlas Code Forge Live Execution Surface Contract
@@ -118,14 +119,11 @@ next_actions:
   - Manter endpoint, snapshot, bridge e banner sincronizados com Forge Live Execution.
 ---
 # Atlas Code Forge Live Execution Surface Contract
-
 ## Resumo
-
 Este doc governa a ponte de produto entre Atlas Code SCOR-1 e Forge Live
 Execution. A CLI `atlas:forge:live-execute` prova o runtime; este contrato
 prova que a surface consegue acionar esse runtime por Obra e renderizar o
 resultado sem mock.
-
 ## Papel no Atlas
 
 Atlas Code e a cabine desktop; o Programming Domain continua sendo o setor de

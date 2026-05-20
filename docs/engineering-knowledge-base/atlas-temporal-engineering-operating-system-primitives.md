@@ -5,6 +5,7 @@ title: Atlas TEOS Temporal Primitives
 status: planned
 category: programming
 priority: 97
+implementation_state: planned_design_not_current_runtime
 summary: Focused child spec for TEOS temporal primitives: Temporal Truth Layer, Event-Sourced Timeline, Continuation Pack, Context Manifest, Compaction Receipt, Freshness/Drift, Replay, Recovery, Causal Decision Graph, Time-Aware World Model, Strategic Forgetting, and Memory Promotion. North-star only; benchmark_not_run.
 tags:
   - atlas

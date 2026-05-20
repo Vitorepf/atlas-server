@@ -5,6 +5,7 @@ title: Atlas TEOS Operational Protocols
 status: planned
 category: programming
 priority: 97
+implementation_state: planned_design_not_current_runtime
 summary: Focused child spec for TEOS operational protocols: Atlas Dev long-context runtime, Atlas Forge multi-month Obra runtime, monthly review, operator attention, continuity certification, provider-independent continuity, metrics, anti-patterns, DoD, and benchmark relationship. North-star only; benchmark_not_run.
 tags:
   - atlas

@@ -34,6 +34,7 @@ related_paths:
   - app/Services/Ai/Programming/ProgrammingProfessionalCompletionAuditService.php
   - app/Console/Commands/AtlasProgrammingRivalsReadinessCommand.php
   - app/Console/Commands/AtlasProgrammingCompletionAuditCommand.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-ai-programming-professional-completion-audit
 graph_title: Programming Professional Completion Audit

@@ -57,6 +57,7 @@ related_paths:
   - docs/engineering-knowledge-base/domains/programming-repair-contract.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/archive/source-material/domains-programming-full-2026-05-08.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-programming-domain

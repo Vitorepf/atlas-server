@@ -41,6 +41,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
   - docs/engineering-knowledge-base/atlas-kernel-mission-foundation.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-runtime-spine-completion-audit
 graph_title: Atlas Runtime Spine Completion Audit
@@ -103,14 +104,11 @@ next_actions:
   - Auditar callers Tool e flipar strict_mode em dev/CI.
 ---
 # Atlas Runtime Spine Completion Audit
-
 ## Resumo
-
 **Veredicto executivo (2026-05-18):** a espinha do Atlas AI Programming
 Runtime esta **60% fechada e honestamente classificada**. Foundation, contratos
 e seams operacionais existem em codigo e tem testes; o gap restante e
 **execucao real em producao**.
-
 - **8 PASS** (PASS=evidencia forte): route_decision.v1 implementado + caller +
   tres rotas; escalation_packet.v1 implementado + caller Dev->Forge; Mandatory
   RAG Gate fail-closed; RAG bypass auditavel; MissionCertification
@@ -125,7 +123,6 @@ e seams operacionais existem em codigo e tem testes; o gap restante e
   ADR pendente); green-indevido protecao existe mas detalhe `mandatory_rag`
   e `aiworker_kernel` produzem false positive/negative por sentinels stale.
 - **0 UNKNOWN.**
-
 Spine pronta para **Phase 2** (Router wire-up + AiWorker mission consumption)
 sem refatoracao adicional dos contratos. Sequencia segura no §"Proximas Acoes".
 

@@ -44,6 +44,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-evolution-roadmap.md
   - docs/engineering-knowledge-base/domains/README.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-session-bootstrap

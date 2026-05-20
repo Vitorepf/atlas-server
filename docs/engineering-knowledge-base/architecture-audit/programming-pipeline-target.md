@@ -23,6 +23,7 @@ related_paths:
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - docs/engineering-knowledge-base/super-tool-runtime-core.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-architecture-audit-programming-pipeline-target

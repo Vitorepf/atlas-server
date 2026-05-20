@@ -36,6 +36,9 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('atlas.programming.execution_sandbox.plan.v1', data_get($normal, 'sandbox_plan.schema_version'));
         $this->assertSame('atlas.programming.patch_verifier.report.v1', data_get($normal, 'patch_verifier_gate.schema_version'));
         $this->assertSame('atlas.programming.learning_candidate.v1', data_get($normal, 'learning_candidate_policy.schema_version'));
+        $this->assertSame('atlas.persistent_context.runtime.v1', data_get($normal, 'persistent_context.schema_version'));
+        $this->assertSame('atlas_dev', data_get($normal, 'persistent_context.scope.flow_id'));
+        $this->assertIsString(data_get($normal, 'persistent_context.persistent_context_hash'));
         $this->assertSame('atlas.context_intelligence.operations_runtime.v1', data_get($normal, 'context_operations.schema_version'));
         $this->assertSame('atlas.context_intelligence.context_certification.v1', data_get($normal, 'context_intelligence.schema_version'));
         $this->assertSame('atlas.conversation_ops.health_report.v1', data_get($normal, 'conversation_ops.schema_version'));
@@ -80,6 +83,7 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('atlas.context_intelligence.operations_runtime.v1', data_get($forge, 'context_operations.schema_version'));
         $this->assertTrue((bool) data_get($forge, 'context_operations.integration_policy.verified_compaction_required'));
         $this->assertSame('forge_intake', data_get($forge, 'context_operations.handoff_packet.role'));
+        $this->assertSame('atlas_forge', data_get($forge, 'persistent_context.scope.flow_id'));
     }
 
     public function test_session_plan_has_resume_orchestration_contract_for_broken_task_continuation(): void
@@ -218,6 +222,7 @@ class AtlasProgrammingOrchestratorTest extends TestCase
 
         $this->assertSame(data_get($plan, 'programming_orchestration_contract.plan_id'), data_get($dispatch, 'programming_orchestration_contract.plan_id'));
         $this->assertSame('atlas.programming.orchestration.v1', data_get($dispatch, 'programming_orchestration_contract.schema_version'));
+        $this->assertSame('atlas.persistent_context.runtime.v1', data_get($dispatch, 'persistent_context.schema_version'));
         $this->assertSame('all_cli_app_chat_programming_surfaces_must_follow_this_contract', data_get($dispatch, 'programming_orchestration_contract.surface_rule'));
         $this->assertSame('atlas.programming.stage_receipt.v1', data_get($dispatch, 'programming_orchestration_contract.receipt_contract.schema_version'));
         $this->assertSame('atlas.programming.agentic_rag.plan.v1', data_get($dispatch, 'agentic_rag_plan.schema_version'));
@@ -262,6 +267,15 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         ], [
             'dispatch_path' => 'programming_orchestrator_harness',
             'executor' => 'engineering_harness',
+            'persistent_context' => [
+                'schema_version' => 'atlas.persistent_context.runtime.v1',
+                'scope' => [
+                    'scope_type' => 'programming_plan',
+                    'scope_id' => 'plan-1',
+                    'workspace' => sys_get_temp_dir(),
+                ],
+                'evidence_refs' => ['plan:1'],
+            ],
             'policy_contracts' => [
                 'tools' => ['mode' => 'harness'],
                 'gates' => ['minimum_gate' => 'strict'],
@@ -284,6 +298,9 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('atlas.programming.test_impact.receipt.v1', data_get($completion, 'test_impact_receipt.schema_version'));
         $this->assertSame('atlas.programming.patch_verifier.report.v1', data_get($completion, 'patch_verifier_report.schema_version'));
         $this->assertSame('atlas.programming.learning_candidate.v1', data_get($completion, 'learning_candidate.schema_version'));
+        $this->assertSame('atlas.persistent_context.post_execution_update.v1', data_get($completion, 'persistent_context_update.schema_version'));
+        $this->assertSame('recorded', data_get($completion, 'persistent_context_update.status'));
+        $this->assertFalse((bool) data_get($completion, 'persistent_context_update.promotion_allowed'));
 
         $dispatch['programming_orchestration_contract'] = [
             'schema_version' => 'atlas.programming.orchestration.v1',

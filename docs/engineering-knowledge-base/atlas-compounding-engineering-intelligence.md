@@ -40,6 +40,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-compounding-engineering-intelligence
 graph_title: Atlas Compounding Engineering Intelligence

@@ -5,6 +5,7 @@ title: Atlas Code SCOR-1 Long Session Programming Cockpit
 status: future
 category: surface
 priority: 99
+implementation_state: future_surface_contract_not_current_runtime
 summary: Contrato canonico do Atlas Code SCOR-1, Software Construction Operating Room v1, para sessoes longas e dificeis de programacao assistida por IA, com contexto navegavel, spec/plan/tasks vivos, task contracts, checkpoints, scope guard, gates, evidence, repair e cartografia de execucao.
 tags:
   - atlas-code

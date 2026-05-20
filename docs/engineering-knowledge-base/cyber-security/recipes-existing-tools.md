@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-recipes-existing-tools
 type: engineering_knowledge
 title: Atlas AI Cyber Existing Tools
-status: scaffold
+status: building
 category: knowledge-base
 priority: 80
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Defensive and quality tools already available in the canonical Atlas Super Tool Runtime for cyber-security flows.
 tags:
   - atlas-ai

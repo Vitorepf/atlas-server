@@ -5,6 +5,7 @@ title: Atlas Native Mac Agent
 status: future
 category: runtime-architecture
 priority: 92
+implementation_state: future_native_runtime_not_current_runtime
 summary: Contrato canonico para Swift/macOS como runtime nativo local do Atlas, limitado a integracao Apple, permissoes, contexto ambiental e automacao assistida sem virar Kernel paralelo.
 tags:
   - atlas-ai

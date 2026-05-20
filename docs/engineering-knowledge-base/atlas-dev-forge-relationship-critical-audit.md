@@ -40,12 +40,10 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md
   - docs/engineering-knowledge-base/atlas-forge-governed-provider-invocation-v1.md
   - docs/engineering-knowledge-base/atlas-architecture-critical-judgment-report.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
-
 graph_id: atlas-dev-forge-relationship-critical-audit
-
 graph_title: Atlas Dev x Atlas Forge Relationship Critical Audit
-
 graph_world: atlas
 
 graph_layer: system

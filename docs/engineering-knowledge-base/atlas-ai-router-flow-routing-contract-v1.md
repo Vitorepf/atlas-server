@@ -2,9 +2,10 @@
 id: atlas-ai-router-flow-routing-contract-v1
 type: engineering_knowledge
 title: Atlas AI Router · Flow Routing Contract v1
-status: draft
+status: active
 category: programming
 priority: 110
+implementation_state: active_contract_not_runtime_service
 summary: Contrato canonico do Atlas AI Router. Atlas AI e o produto/superficie unica do programador; o Router e a camada acima dos fluxos especializados (Atlas Dev, Atlas Research, Atlas Explain, Atlas Debug, Atlas Review, Atlas Conversation, Atlas Forge, futuros QA/Security/DB/Design) que decide qual fluxo atende cada pedido. Este doc define inputs, outputs, flow_ids canonicos, tabela de roteamento e invariantes de nao-acoplamento. Nao define runtime nem implementa codigo.
 tags:
   - atlas-ai
@@ -41,6 +42,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-dev-flow-map-and-product-options-v1.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-ai-router-flow-routing-contract-v1
 graph_title: Atlas AI Router · Flow Routing Contract v1

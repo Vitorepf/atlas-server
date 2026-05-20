@@ -2,9 +2,10 @@
 id: atlas-ai-cognitive-multiplier-edge-redirect
 type: engineering_knowledge
 title: Atlas AI Cognitive Multiplier Edge (redirect)
-status: split_required
+status: active
 category: redirect
 priority: 96
+implementation_state: active_redirect_to_cognitive_multiplier_edge
 summary: Doc original do Cognitive Multiplier Edge foi movido para `cognitive/multiplier-edge.md` para passar no `line_limit` canonico do Doc-OS. Detalhe operacional por capability migrou para APs em `docs/ap/AP-COG-EDGE-*.md`.
 tags:
   - atlas-ai

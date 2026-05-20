@@ -54,6 +54,10 @@ class ExternalActionMandateRegistryService
 
     public const REAL_EXTERNAL_EXECUTION_HANDOFF_PACK_SCHEMA = 'atlas.ai.holding.enterprise_real_external_execution_handoff_pack.v1';
 
+    public const SUPERVISED_EXTERNAL_EXECUTION_PACKET_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_supervised_external_execution_packet_status.v1';
+
+    public const EXTERNAL_WORKER_PREFLIGHT_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_external_worker_preflight_status.v1';
+
     public const ACTIVATION_BACKLOG_REGISTRY_SCHEMA = 'atlas.ai.holding.enterprise_activation_backlog_registry.v1';
 
     public const ACTIVATION_BACKLOG_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_activation_backlog_status.v1';
@@ -1460,6 +1464,171 @@ class ExternalActionMandateRegistryService
             'companies' => $companyRows,
         ];
         $payload['real_external_execution_handoff_pack_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function supervisedExternalExecutionPacketStatus(?string $companyId = null): array
+    {
+        return $this->supervisedExternalExecutionPacketStatusFromHandoff($this->realExternalExecutionHandoffPack($companyId));
+    }
+
+    /**
+     * @param array<string,mixed> $handoff
+     * @return array<string,mixed>
+     */
+    public function supervisedExternalExecutionPacketStatusFromHandoff(array $handoff): array
+    {
+        $companyRows = [];
+
+        foreach ((array) ($handoff['companies'] ?? []) as $company) {
+            $packets = array_values(array_map(
+                fn (array $pack): array => $this->supervisedExternalExecutionPacketForFlow((array) $pack),
+                (array) ($company['flow_handoff_packs'] ?? []),
+            ));
+
+            $companyRows[] = [
+                'schema' => 'atlas.ai.company.supervised_external_execution_packet_status.v1',
+                'company_id' => (string) ($company['company_id'] ?? 'unknown'),
+                'flow_count' => count($packets),
+                'packet_ready_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['packet_ready'] ?? false))),
+                'operator_signature_required_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['operator_signature_required'] ?? false))),
+                'second_reviewer_required_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['second_reviewer_required'] ?? false))),
+                'kill_switch_bound_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'runtime_control.kill_switch_bound', false))),
+                'post_execution_reconciliation_bound_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'post_execution_reconciliation.bound', false))),
+                'external_execution_allowed_count' => 0,
+                'external_side_effects_enabled_count' => 0,
+                'flow_packets' => $packets,
+            ];
+            $companyRows[array_key_last($companyRows)]['company_packet_status_hash'] = MissionCanonicalHash::sha256($companyRows[array_key_last($companyRows)]);
+        }
+
+        $packets = [];
+        foreach ($companyRows as $company) {
+            $packets = array_merge($packets, (array) ($company['flow_packets'] ?? []));
+        }
+
+        $readyCount = count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['packet_ready'] ?? false)));
+
+        $payload = [
+            'ok' => (bool) ($handoff['ok'] ?? false) && $packets !== [] && $readyCount === count($packets),
+            'schema' => self::SUPERVISED_EXTERNAL_EXECUTION_PACKET_STATUS_SCHEMA,
+            'status' => $packets !== [] && $readyCount === count($packets)
+                ? 'supervised_external_execution_packets_ready_external_worker_disabled'
+                : 'supervised_external_execution_packets_attention_required',
+            'generated_at' => now()->toJSON(),
+            'source_handoff_pack_hash' => $handoff['real_external_execution_handoff_pack_hash'] ?? null,
+            'summary' => [
+                'company_count' => count($companyRows),
+                'flow_count' => count($packets),
+                'packet_ready_count' => $readyCount,
+                'operator_signature_required_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['operator_signature_required'] ?? false))),
+                'second_reviewer_required_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['second_reviewer_required'] ?? false))),
+                'production_scope_contract_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'production_scope.ready', false))),
+                'runtime_control_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'runtime_control.ready', false))),
+                'post_execution_reconciliation_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'post_execution_reconciliation.bound', false))),
+                'external_execution_allowed_count' => 0,
+                'external_side_effects_enabled_count' => 0,
+            ],
+            'policy' => [
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+                'external_worker_enabled' => false,
+                'packet_is_execution_plan_not_execution_authority' => true,
+                'operator_and_second_reviewer_required_for_real_action' => true,
+                'credential_material_in_packet_allowed' => false,
+                'auto_retry_external_action_allowed' => false,
+                'blocked_operations' => ['auto_execute', 'write', 'publish', 'spend', 'trade', 'deploy', 'delete', 'offensive_security', 'admin', 'secret_export'],
+            ],
+            'companies' => $companyRows,
+        ];
+        $payload['supervised_external_execution_packet_status_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function externalWorkerPreflightStatus(?string $companyId = null): array
+    {
+        return $this->externalWorkerPreflightStatusFromPackets($this->supervisedExternalExecutionPacketStatus($companyId));
+    }
+
+    /**
+     * @param array<string,mixed> $packetStatus
+     * @return array<string,mixed>
+     */
+    public function externalWorkerPreflightStatusFromPackets(array $packetStatus): array
+    {
+        $companyRows = [];
+
+        foreach ((array) ($packetStatus['companies'] ?? []) as $company) {
+            $preflights = array_values(array_map(
+                fn (array $packet): array => $this->externalWorkerPreflightForPacket((array) $packet),
+                (array) ($company['flow_packets'] ?? []),
+            ));
+
+            $companyRows[] = [
+                'schema' => 'atlas.ai.company.external_worker_preflight_status.v1',
+                'company_id' => (string) ($company['company_id'] ?? 'unknown'),
+                'flow_count' => count($preflights),
+                'worker_preflight_ready_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) ($preflight['worker_preflight_ready'] ?? false))),
+                'worker_dispatch_disabled_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'worker_controls.external_worker_dispatch_enabled', true) === false)),
+                'credential_gate_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'credential_gate.bound', false))),
+                'idempotency_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'execution_envelope.idempotency_key_required', false))),
+                'reconciliation_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'post_execution_reconciliation.bound', false))),
+                'external_execution_allowed_count' => 0,
+                'flow_worker_preflights' => $preflights,
+            ];
+            $companyRows[array_key_last($companyRows)]['company_external_worker_preflight_hash'] = MissionCanonicalHash::sha256($companyRows[array_key_last($companyRows)]);
+        }
+
+        $preflights = [];
+        foreach ($companyRows as $company) {
+            $preflights = array_merge($preflights, (array) ($company['flow_worker_preflights'] ?? []));
+        }
+
+        $readyCount = count(array_filter($preflights, static fn (array $preflight): bool => (bool) ($preflight['worker_preflight_ready'] ?? false)));
+
+        $payload = [
+            'ok' => (bool) ($packetStatus['ok'] ?? false) && $preflights !== [] && $readyCount === count($preflights),
+            'schema' => self::EXTERNAL_WORKER_PREFLIGHT_STATUS_SCHEMA,
+            'status' => $preflights !== [] && $readyCount === count($preflights)
+                ? 'external_worker_preflight_ready_execution_disabled'
+                : 'external_worker_preflight_attention_required',
+            'generated_at' => now()->toJSON(),
+            'source_supervised_external_execution_packet_status_hash' => $packetStatus['supervised_external_execution_packet_status_hash'] ?? null,
+            'summary' => [
+                'company_count' => count($companyRows),
+                'flow_count' => count($preflights),
+                'worker_preflight_ready_count' => $readyCount,
+                'worker_plan_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'worker_plan.bound', false))),
+                'execution_envelope_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'execution_envelope.bound', false))),
+                'credential_gate_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'credential_gate.bound', false))),
+                'worker_controls_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'worker_controls.bound', false))),
+                'post_execution_reconciliation_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'post_execution_reconciliation.bound', false))),
+                'external_worker_dispatch_disabled_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'worker_controls.external_worker_dispatch_enabled', true) === false)),
+                'external_execution_allowed_count' => 0,
+                'external_side_effects_enabled_count' => 0,
+            ],
+            'policy' => [
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+                'external_worker_dispatch_enabled' => false,
+                'preflight_is_not_execution_authority' => true,
+                'calendar_wait_blocker_enabled' => false,
+                'operator_and_second_reviewer_required_for_dispatch' => true,
+                'credential_material_in_packet_allowed' => false,
+                'worker_requires_signed_scope_vault_reference_idempotency_kill_switch_and_reconciliation' => true,
+                'blocked_operations' => ['auto_dispatch', 'write', 'publish', 'spend', 'trade', 'deploy', 'delete', 'offensive_security', 'admin', 'secret_export'],
+            ],
+            'companies' => $companyRows,
+        ];
+        $payload['external_worker_preflight_status_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
     }
@@ -4430,6 +4599,174 @@ class ExternalActionMandateRegistryService
         $pack['handoff_pack_hash'] = MissionCanonicalHash::sha256($pack);
 
         return $pack;
+    }
+
+    /**
+     * @param array<string,mixed> $pack
+     * @return array<string,mixed>
+     */
+    private function supervisedExternalExecutionPacketForFlow(array $pack): array
+    {
+        $companyId = (string) ($pack['company_id'] ?? 'unknown');
+        $flowId = (string) ($pack['flow_id'] ?? 'unknown');
+        $ready = (bool) ($pack['ready_for_manual_handoff_gate'] ?? false)
+            && (bool) data_get($pack, 'production_scope_contract.requires_operator_signature', false)
+            && (bool) data_get($pack, 'production_scope_contract.requires_second_reviewer_signature', false)
+            && (bool) data_get($pack, 'production_connector_preflight_contract.ready', false)
+            && (bool) data_get($pack, 'live_read_connector_readiness_contract.ready', false)
+            && (bool) data_get($pack, 'flow_quality_research_contract.ready', false)
+            && (bool) data_get($pack, 'flow_operating_package_contract.ready', false)
+            && (bool) data_get($pack, 'company_command_center_contract.ready', false)
+            && (bool) data_get($pack, 'run_queue_worker_binding.external_action_worker_enabled', true) === false
+            && (bool) ($pack['external_execution_allowed'] ?? true) === false
+            && (bool) ($pack['external_side_effects_enabled'] ?? true) === false;
+
+        $packet = [
+            'schema' => 'atlas.ai.company.supervised_external_execution_packet.v1',
+            'company_id' => $companyId,
+            'flow_id' => $flowId,
+            'packet_ready' => $ready,
+            'execution_mode' => 'manual_or_supervised_window_after_real_signatures_external_worker_disabled',
+            'operator_signature_required' => (bool) data_get($pack, 'production_scope_contract.requires_operator_signature', false),
+            'second_reviewer_required' => (bool) data_get($pack, 'production_scope_contract.requires_second_reviewer_signature', false),
+            'production_scope' => [
+                'ready' => isset($pack['production_scope_contract']),
+                'scope_mode' => (string) data_get($pack, 'production_scope_contract.scope_mode', ''),
+                'allowed_execution_surface' => (string) data_get($pack, 'production_scope_contract.allowed_execution_surface', ''),
+                'blocked_in_autonomous_suite' => array_values((array) data_get($pack, 'production_scope_contract.blocked_in_autonomous_suite', [])),
+            ],
+            'runtime_control' => [
+                'ready' => true,
+                'external_worker_enabled' => false,
+                'kill_switch_bound' => true,
+                'pause_protocol' => 'operator_interrupt_or_policy_exception_immediately_blocks_external_action',
+                'change_window_required' => (bool) data_get($pack, 'recurring_schedule_binding.requires_change_window', true),
+                'auto_retry_external_action_allowed' => false,
+                'dlq_replay_supported_for_internal_preparation_only' => (bool) data_get($pack, 'run_queue_worker_binding.dlq_replay_supported', false),
+            ],
+            'pre_execution_checklist' => [
+                'signed_operator_scope',
+                'second_reviewer_signature',
+                'legal_risk_acceptance',
+                'budget_or_loss_cap_signature',
+                'credential_vault_reference_verified',
+                'production_connector_preflight_green',
+                'live_read_schema_snapshot_green',
+                'rollback_or_compensation_drill_green',
+                'incident_route_confirmed',
+                'stakeholder_acceptance_loop_bound',
+            ],
+            'post_execution_reconciliation' => [
+                'bound' => true,
+                'required_artifacts' => ['tool_receipts', 'external_result_receipt', 'ledger_update', 'metric_delta', 'incident_or_exception_report', 'operator_closeout'],
+                'reconciliation_owner' => 'portfolio_governor',
+                'external_result_claim_allowed_without_receipt' => false,
+            ],
+            'source_contract_hashes' => [
+                'handoff_pack_hash' => (string) ($pack['handoff_pack_hash'] ?? ''),
+                'production_connector_company_hash' => (string) data_get($pack, 'production_connector_preflight_contract.company_status_hash', ''),
+                'flow_quality_company_hash' => (string) data_get($pack, 'flow_quality_research_contract.company_status_hash', ''),
+                'flow_package_company_hash' => (string) data_get($pack, 'flow_operating_package_contract.company_status_hash', ''),
+                'command_center_company_hash' => (string) data_get($pack, 'company_command_center_contract.company_status_hash', ''),
+            ],
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'credential_material_in_packet_allowed' => false,
+        ];
+        $packet['packet_hash'] = MissionCanonicalHash::sha256($packet);
+
+        return $packet;
+    }
+
+    /**
+     * @param array<string,mixed> $packet
+     * @return array<string,mixed>
+     */
+    private function externalWorkerPreflightForPacket(array $packet): array
+    {
+        $companyId = (string) ($packet['company_id'] ?? 'unknown');
+        $flowId = (string) ($packet['flow_id'] ?? 'unknown');
+        $checklist = array_values(array_map('strval', (array) ($packet['pre_execution_checklist'] ?? [])));
+        $sourceHashes = (array) ($packet['source_contract_hashes'] ?? []);
+        $requiredArtifacts = array_values(array_map('strval', (array) data_get($packet, 'post_execution_reconciliation.required_artifacts', [])));
+        $blockedOperations = array_values(array_unique(array_filter(array_map(
+            'strval',
+            (array) data_get($packet, 'production_scope.blocked_in_autonomous_suite', []),
+        ))));
+        $dispatchBlockers = [
+            'external_worker_dispatch_disabled_by_policy',
+            'operator_signature_receipt_missing',
+            'second_reviewer_signature_receipt_missing',
+            'real_credential_vault_reference_not_bound_to_dispatch_runtime',
+            'legal_risk_acceptance_receipt_missing',
+            'budget_or_loss_cap_signature_receipt_missing',
+            'external_result_reconciliation_adapter_not_live_executed',
+            'operator_closeout_receipt_missing',
+        ];
+
+        $ready = (bool) ($packet['packet_ready'] ?? false)
+            && count($checklist) >= 10
+            && count(array_filter($sourceHashes, static fn (mixed $hash): bool => strlen((string) $hash) >= 32)) >= 5
+            && (bool) data_get($packet, 'runtime_control.kill_switch_bound', false)
+            && (bool) data_get($packet, 'runtime_control.auto_retry_external_action_allowed', true) === false
+            && (bool) data_get($packet, 'post_execution_reconciliation.bound', false)
+            && count($requiredArtifacts) >= 6
+            && (bool) ($packet['external_execution_allowed'] ?? true) === false
+            && (bool) ($packet['external_side_effects_enabled'] ?? true) === false
+            && (bool) ($packet['credential_material_in_packet_allowed'] ?? true) === false;
+
+        $preflight = [
+            'schema' => 'atlas.ai.company.external_worker_preflight.v1',
+            'company_id' => $companyId,
+            'flow_id' => $flowId,
+            'worker_preflight_ready' => $ready,
+            'dispatch_mode' => 'prepared_supervised_external_worker_dispatch_disabled',
+            'worker_plan' => [
+                'bound' => true,
+                'worker_family' => 'atlas_external_action_worker',
+                'allowed_runtime_mode' => 'dry_run_or_operator_supervised_dispatch_after_real_signatures',
+                'tool_use_mode' => 'connector_scoped_with_tool_receipts',
+                'blocked_operations' => $blockedOperations,
+                'dispatch_blockers' => $dispatchBlockers,
+            ],
+            'execution_envelope' => [
+                'bound' => true,
+                'decision_receipt_hash_required' => true,
+                'idempotency_key_required' => true,
+                'idempotency_key' => hash('sha256', 'external_worker_idempotency|'.$companyId.'|'.$flowId.'|'.(string) ($packet['packet_hash'] ?? '')),
+                'run_context_required' => ['company_id', 'flow_id', 'mandate_hash', 'operator_signature_receipt', 'second_reviewer_signature_receipt'],
+                'external_side_effects_default' => false,
+            ],
+            'credential_gate' => [
+                'bound' => true,
+                'vault_reference_required' => true,
+                'credential_material_in_packet_allowed' => false,
+                'read_scope_must_match_live_read_connector_readiness' => true,
+                'write_or_paid_scope_requires_signed_dispatch_receipt' => true,
+            ],
+            'worker_controls' => [
+                'bound' => true,
+                'external_worker_dispatch_enabled' => false,
+                'kill_switch_bound' => (bool) data_get($packet, 'runtime_control.kill_switch_bound', false),
+                'pause_protocol' => (string) data_get($packet, 'runtime_control.pause_protocol', ''),
+                'change_window_required' => (bool) data_get($packet, 'runtime_control.change_window_required', true),
+                'auto_retry_external_action_allowed' => false,
+                'dlq_replay_supported_for_internal_preparation_only' => (bool) data_get($packet, 'runtime_control.dlq_replay_supported_for_internal_preparation_only', false),
+            ],
+            'post_execution_reconciliation' => [
+                'bound' => (bool) data_get($packet, 'post_execution_reconciliation.bound', false),
+                'required_artifacts' => $requiredArtifacts,
+                'external_result_claim_allowed_without_receipt' => (bool) data_get($packet, 'post_execution_reconciliation.external_result_claim_allowed_without_receipt', true),
+                'operator_closeout_required' => in_array('operator_closeout', $requiredArtifacts, true),
+            ],
+            'source_contract_hashes' => $sourceHashes,
+            'pre_execution_checklist' => $checklist,
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+        ];
+        $preflight['worker_preflight_hash'] = MissionCanonicalHash::sha256($preflight);
+
+        return $preflight;
     }
 
     private function activationStage(string $mandateStatus, bool $registered, bool $preflighted, int $approvalCount): string

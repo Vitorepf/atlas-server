@@ -64,6 +64,7 @@ related_paths:
   - ../atlas-desktop/apps/desktop/src/surfaces/code/stage/ObraCommandCenterPanel.tsx
   - ../atlas-desktop/apps/desktop/src/lib/bridge.ts
   - ../atlas-desktop/packages/atlas-domain/src/index.ts
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-self-improvement-closed-loop-level7-v1
 graph_title: Atlas Self-Improvement Closed Loop Level 7 v1

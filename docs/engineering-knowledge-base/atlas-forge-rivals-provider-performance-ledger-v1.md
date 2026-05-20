@@ -36,6 +36,7 @@ related_paths:
   - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsProviderPerformanceLedgerCertification.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-operator-battery-v2.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-rivals-provider-performance-ledger-v1
 graph_title: Atlas Forge Rivals · Provider Performance Ledger v1

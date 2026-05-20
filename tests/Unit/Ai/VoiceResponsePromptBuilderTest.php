@@ -22,8 +22,8 @@ class VoiceResponsePromptBuilderTest extends TestCase
                     'mode' => 'spoken_concise',
                     'language' => 'pt-BR',
                     'max_sentences' => 3,
-                    'target_chars' => 360,
-                    'hard_max_chars' => 520,
+                    'target_chars' => 280,
+                    'hard_max_chars' => 420,
                 ],
             ],
         ]);
@@ -32,7 +32,7 @@ class VoiceResponsePromptBuilderTest extends TestCase
         $this->assertStringContainsString('Esta resposta sera falada em voz alta.', $section);
         $this->assertStringContainsString('portugues brasileiro natural', $section);
         $this->assertStringContainsString('Use no maximo 3 frases curtas', $section);
-        $this->assertStringContainsString('Mira de tamanho: ate 360 caracteres; limite duro: 520 caracteres.', $section);
+        $this->assertStringContainsString('Mira de tamanho: ate 280 caracteres; limite duro: 420 caracteres.', $section);
         $this->assertStringContainsString('sem markdown', $section);
     }
 

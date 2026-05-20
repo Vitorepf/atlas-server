@@ -59,6 +59,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - app/Services/Ai/AiWorker.php
   - app/Services/Ai/Programming/ProgrammingProfessionalCompletionAuditService.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-continuum-os
 graph_title: Atlas Forge Continuum OS
@@ -162,17 +163,13 @@ next_actions:
   - Implementar Provider Topology read model, UI e fallback classification caso ainda nao existam como eixo certificado.
 ---
 # Atlas Forge Continuum OS
-
 ## Resumo
-
 Atlas Forge Continuum OS e o sistema canonico de programacao pesada do Atlas.
 Ele transforma uma intencao de software em uma entrega one-shot enterprise:
 completa, robusta, testada, auditavel, revisavel, reparavel e continuamente
 melhorada.
-
 Ele nao e uma tela, um executor, um provider router ou um prompt grande. Ele e
 o conjunto governado que une:
-
 ```text
 Atlas Code Surface
 -> Obra
@@ -188,13 +185,10 @@ Atlas Code Surface
 -> Rivals / Learning
 -> proxima execucao melhor
 ```
-
 ## Nome Canonico
-
 Sistema: Atlas Forge Continuum OS. Modulo: `atlas.forge.continuum`. Audit
 esperado: `atlas_forge_continuum_certification`. Doc-mae:
 `atlas-forge-continuum-os.md`.
-
 ## Papel no Atlas
 
 O objetivo do Atlas Code nao e apenas abrir uma tela de programacao. O objetivo

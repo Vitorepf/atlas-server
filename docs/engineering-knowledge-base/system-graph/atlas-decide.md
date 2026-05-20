@@ -29,6 +29,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/system-graph/decision-receipt.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-decide
 graph_title: Atlas Decide

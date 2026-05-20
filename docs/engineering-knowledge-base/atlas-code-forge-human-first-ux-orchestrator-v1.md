@@ -24,6 +24,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
   - docs/engineering-knowledge-base/atlas-code-forge-operator-cockpit-v1.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-code-forge-human-first-ux-orchestrator-v1
 graph_title: Atlas Code Forge Human-First UX Orchestrator v1

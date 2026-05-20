@@ -91,6 +91,10 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertSame('atlas.conversation_ops.handoff_packet.v1', data_get($envelope, 'context_handoff_packet.schema_version'));
         $this->assertTrue(data_get($envelope, 'context_operations.integration_policy.handoff_required'));
         $this->assertFalse(data_get($envelope, 'context_operations.claim_policy.provider_calls_made'));
+        $this->assertSame('atlas.persistent_context.runtime.v1', data_get($envelope, 'persistent_context.schema_version'));
+        $this->assertIsString(data_get($envelope, 'persistent_context.persistent_context_hash'));
+        $this->assertSame('atlas.persistent_context.provider_handoff.v1', data_get($envelope, 'persistent_context.provider_handoff.schema_version'));
+        $this->assertFalse(data_get($envelope, 'persistent_context.claim_policy.provider_calls_made'));
 
         // Canonical rows persisted.
         $this->assertGreaterThan(0, AiAtlasIntentClassification::query()->count());

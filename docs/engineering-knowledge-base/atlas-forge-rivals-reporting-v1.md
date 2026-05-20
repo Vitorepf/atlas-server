@@ -32,6 +32,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-benchmark-strategy-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-performance-ledger-v1.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-reporting-v1

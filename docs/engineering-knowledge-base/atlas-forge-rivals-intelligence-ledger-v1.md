@@ -2,9 +2,11 @@
 id: atlas-forge-rivals-intelligence-ledger-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals · Intelligence Ledger v1
-status: proposed
+status: planned
 category: programming-forge
 priority: 94
+implementation_state: proposed_next_patamar_not_promoted
+blocker: ledger_historical_tests_and_two_real_batteries_required
 summary: Proximo patamar do Rivals: transformar baterias reais replayable em inteligencia historica segmentada por provider, modelo, modo de prompt, categoria, dificuldade, custo, tempo, estabilidade e confianca estatistica, sempre advisory-only para Atlas Decide.
 tags:
   - atlas
@@ -39,6 +41,7 @@ related_paths:
   - docs/engineering-knowledge-base/system-graph/atlas-decide.md
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-intelligence-ledger-v1
@@ -47,7 +50,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-forge-rivals-provider-performance-ledger-v1
-graph_status: active
+graph_status: planned
 graph_source: repo
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-intelligence-ledger-v1.md

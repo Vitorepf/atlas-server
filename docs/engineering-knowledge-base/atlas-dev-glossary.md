@@ -31,6 +31,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-router-flow-routing-contract-v1.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-dev-glossary
 graph_title: Atlas Dev Glossary

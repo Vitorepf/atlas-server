@@ -43,6 +43,7 @@ related_paths:
   - app/Services/Ai/Programming/Kernel/AtlasForgeHandoffAdapter.php
   - app/Services/Ai/Programming/Kernel/ProgrammingDomainKernelCanon.php
   - app/Http/Controllers/AtlasCodeDevToForgePromotionController.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-dev-forge-escalation-consolidation-plan
 graph_title: Atlas Dev -> Forge Escalation Consolidation Plan

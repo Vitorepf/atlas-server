@@ -91,6 +91,7 @@ class AiPromptBuilder
             $sessionSearchSection,
             $attachmentSearchSection,
             $youtubeKnowledgeSection,
+            $this->persistentContextPromptSection($options),
             $this->contextPackPromptSection($contextPack, $openBrainInjection),
             $executionPlan->toPromptSection(),
             $this->atlasModeInstructions($options),
@@ -148,6 +149,85 @@ TXT,
             skillCatalog: $catalog,
             openBrainInjection: $openBrainMetadata,
         );
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     */
+    private function persistentContextPromptSection(array $options): string
+    {
+        $runtime = data_get($options, 'payload.persistent_context');
+        if (! is_array($runtime) || ($runtime['schema_version'] ?? null) !== 'atlas.persistent_context.runtime.v1') {
+            return '';
+        }
+
+        $handoff = is_array($runtime['provider_handoff'] ?? null) ? $runtime['provider_handoff'] : [];
+        $ledgerItems = array_slice((array) data_get($runtime, 'must_know_ledger.items', []), 0, 12);
+        $readFirst = array_slice((array) data_get($handoff, 'read_first', []), 0, 8);
+        $required = array_slice((array) data_get($handoff, 'required_before_execution', []), 0, 8);
+        $blockers = array_slice((array) data_get($runtime, 'sufficiency.blockers', []), 0, 8);
+
+        $lines = [
+            '# Atlas Persistent Context Runtime',
+            '',
+            'Use este bloco como contexto obrigatorio antes de responder. Ele existe para impedir que a sessao/provider nasca sem memoria operacional.',
+            '- Status: '.(string) ($runtime['status'] ?? 'unknown'),
+            '- Sufficiency: '.(string) data_get($runtime, 'sufficiency.status', 'unknown'),
+            '- Context pack hash: '.(string) ($runtime['context_pack_hash'] ?? 'missing'),
+            '- Must-know ledger hash: '.(string) ($runtime['must_know_ledger_hash'] ?? 'missing'),
+            '- Provider handoff hash: '.(string) data_get($handoff, 'context_pack_hash', 'missing'),
+            '- Execution allowed: '.((bool) data_get($handoff, 'execution_allowed', false) ? 'yes' : 'no'),
+        ];
+
+        if ($readFirst !== []) {
+            $lines[] = '';
+            $lines[] = 'Read-first refs:';
+            foreach ($readFirst as $ref) {
+                if (is_scalar($ref)) {
+                    $lines[] = '- '.(string) $ref;
+                }
+            }
+        }
+
+        if ($ledgerItems !== []) {
+            $lines[] = '';
+            $lines[] = 'Must-know ledger:';
+            foreach ($ledgerItems as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $digest = trim((string) ($item['digest'] ?? ''));
+                if ($digest === '') {
+                    continue;
+                }
+
+                $lines[] = '- '.(string) ($item['kind'] ?? 'fact').': '.$digest;
+            }
+        }
+
+        if ($required !== []) {
+            $lines[] = '';
+            $lines[] = 'Antes de executar:';
+            foreach ($required as $rule) {
+                if (is_scalar($rule)) {
+                    $lines[] = '- '.(string) $rule;
+                }
+            }
+        }
+
+        if ($blockers !== []) {
+            $lines[] = '';
+            $lines[] = 'Blockers de contexto:';
+            foreach ($blockers as $blocker) {
+                $lines[] = '- '.(is_scalar($blocker) ? (string) $blocker : json_encode($blocker, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            }
+        }
+
+        $lines[] = '';
+        $lines[] = 'Nao invente source refs. Se este bloco disser execution_allowed=no ou sufficiency=blocked, declare o bloqueio antes de executar.';
+
+        return implode("\n", $lines);
     }
 
     /**

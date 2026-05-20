@@ -33,6 +33,7 @@ related_paths:
   - app/Http/Controllers/AtlasCodeForgeReviewCompletionController.php
   - app/Console/Commands/AtlasCodeForgeReviewCommand.php
   - tests/Feature/Ai/Programming/AtlasCodeForgeReviewCompletionTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-code-forge-review-completion-gate-v1
 graph_title: Atlas Code Forge Review & Completion Gate v1

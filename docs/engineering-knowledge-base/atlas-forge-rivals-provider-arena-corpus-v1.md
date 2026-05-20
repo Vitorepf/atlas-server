@@ -48,6 +48,7 @@ related_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
   - app/Console/Commands/AtlasForgeRivalsCommand.php
   - storage/forge-rivals-corpus
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-rivals-provider-arena-corpus-v1
 graph_title: Atlas Forge Rivals · Provider Arena Corpus Release v1
@@ -122,28 +123,20 @@ next_actions:
   - Implementar loop real multi-case em run-arena (atualmente honestly pending).
   - Adicionar deep_set (25+ casos) para slice futura.
 ---
-
 # Atlas Forge Rivals · Provider Arena Corpus Release v1
-
 > Strategy canon: `atlas-forge-rivals-benchmark-strategy-v1.md`
 > Schema canon: `atlas.forge.rivals.provider_arena_corpus.v1` (release_v1)
 > Certificação: `atlas_forge_rivals_provider_arena_corpus_certification` (20 invariants)
 > Comando canon: `php artisan atlas:forge:rivals cases --case-set=release --json --strict`
-
 ## 1. Por quê este corpus existe
-
 A Provider Arena já sabe pôr `arm_a vs arm_b` (Atlas Forge, Claude Code, Codex CLI, Gemini CLI, scripted_runner, manual_runner, future_runner) frente a frente para uma `task_category`. Faltava o **instrumento de medição**: um corpus canon, real, multi-categoria, replayable, que permita afirmar com honestidade:
-
 - Atlas Forge vs Claude Code em **frontend_ui** com a mesma régua.
 - Sonnet vs Opus em **backend_logic** com a mesma régua.
 - Forge fair vs Forge full_power em **realistic_bugfix**.
 - Atlas Forge usando Sonnet vs usando Codex em **architecture**.
 - Claude Code vs Codex CLI em **integration** e **performance_edge_case**.
-
 Release v1 é esse instrumento. Resultado sintético nunca vira claim. Evidence/replay/scope-guard são invioláveis. `external_rivals_certification` permanece **blocked**.
-
 ## 2. Escopo
-
 - **40 casos canon** Release Matrix v1.
 - **8 categorias canon** como primary category (todas cobertas).
 - **6 case sets** com regras de filtro determinísticas (`quick`, `release`, `frontend`, `backend`, `bugfix`, `architecture`).
@@ -152,11 +145,8 @@ Release v1 é esse instrumento. Resultado sintético nunca vira claim. Evidence/
 - **Replay manifest determinístico** com `plan_hash` reprodutível byte a byte (não depende de `generated_at`).
 - **`content_hash`** sha256 do corpus inteiro (mesmo bytes => mesmo hash).
 - **Modo real multi-case** está **honestly pending** — somente `local_fake` é wired neste slice.
-
 ## 3. Release Matrix v1 — 40 casos (8 categorias × 5 níveis)
-
 ### Matriz canônica
-
 | Categoria              | L1                                       | L2                                       | L3                                       | L4                                       | L5                                       |
 | ---------------------- | ---------------------------------------- | ---------------------------------------- | ---------------------------------------- | ---------------------------------------- | ---------------------------------------- |
 | `planning`             | planning-l1-acceptance-checklist         | planning-l2-incremental-slices           | planning-l3-risk-register                | planning-l4-contract-first-spec          | planning-l5-phased-migration-plan        |
@@ -167,11 +157,8 @@ Release v1 é esse instrumento. Resultado sintético nunca vira claim. Evidence/
 | `test_design`          | testdesign-l1-add-edge-case-tests        | test-regression-before-fix               | testdesign-l3-property-based-parser      | testdesign-l4-contract-test-between-modules | testdesign-l5-mutation-baseline       |
 | `architecture`         | architecture-l1-public-api-readme        | architecture-l2-module-boundary-namespace| architecture-l3-adr-document             | architecture-l4-versioned-contract-strategy | architecture-schema-versioned-receipt  |
 | `integration_performance` | intperf-l1-eager-load-relation        | performance-n-plus-one-query             | backend-idempotent-webhook               | integration-fake-provider-timeout-retry  | intperf-l5-circuit-breaker-state-machine |
-
 Cada célula da matriz tem **exatamente 1 caso** (cert invariant 2 `release_matrix_fills_every_cell_8x5`). Total = 8 × 5 = 40 cases. Distribuição de difficulty L1×8, L2×8, L3×8, L4×8, L5×8.
-
 ### Calibração de dificuldade (régua canônica)
-
 | Level | Score | Multiplier (score/3.0) | Quando aplicar                                                                                                                                                                                       |
 | ----- | ----- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | L1    | 1.0   | 0.3333                 | **Rápido e objetivo**. Patch ≤ 20 linhas, 1 arquivo, ambiguidade zero, risco low. Exemplos: extract method, eager load mecânica, button loading state, lista de critérios numerada.                  |
@@ -179,24 +166,18 @@ Cada célula da matriz tem **exatamente 1 caso** (cert invariant 2 `release_matr
 | L3    | 3.0   | 1.0 (**neutral**)      | **Produto ou integração real**. Cruza módulos, exige decisão técnica não-trivial mas com playbook claro. Cache invalidation, idempotency, ADR, property-based test, refator controller→service.    |
 | L4    | 4.0   | 1.3333                 | **Contrato, arquitetura, fail-closed**. Versionamento de contrato, deny-by-default, circuit breaker, retry policy. Decisões com impacto cross-module e compatibilidade explícita.                  |
 | L5    | 5.0   | 1.6667                 | **Planejamento, decomposição, tradeoffs**. State machine canon, god-class decomposition, cascade-failure root cause, plano de migração com rollback, virtualização com budget. Ambiguity high.     |
-
 **Como cada caso foi calibrado**:
-
 - **L1** = a tarefa cabe em 1 PR de 1-2 commits, escopo "óbvio" para um engenheiro júnior depois de ver o teste falhando.
 - **L2** = exige sequência ou disciplina (TDD, deprecation, fallback documentado); ainda 1 arquivo, mas o "como" é onde a régua aperta.
 - **L3** = atravessa pelo menos 2 conceitos (cache + write-through; webhook + idempotência; refator + contract preservation). Playbook conhecido, sem decisão arquitetural.
 - **L4** = contrato explícito ou fail-closed obrigatório; arm precisa documentar tradeoff (versão N suporta v1+v2; circuit breaker tem upper bound; strategy pattern aceita unknown como blocker).
 - **L5** = planejamento real antes de código; decomposição em sub-problemas; falar sobre rollback/migração/risco; risk_level normalmente high ou critical.
-
 ### Distribuição por ambiguidade × risco
-
 ```
 ambiguity:  low → 17 cases   medium → 18 cases   high → 5 cases
 risk:       low → 11 cases   medium → 15 cases   high → 10 cases   critical → 4 cases
 ```
-
 Cobertura honesta: a maior parte dos casos é low/medium ambiguity (régua mecânica), enquanto L4/L5 concentram o high/critical (ambiente real).
-
 ## 4. Schema do case manifest (29 campos canônicos: 22 do release v1 + 7 do difficulty block L1..L5)
 
 Cada caso declara **exatamente** estes 29 campos (validados por `AtlasForgeRivalsProviderArenaCorpusService::validateManifest` que delega o bloco de dificuldade ao `AtlasForgeRivalsSchemaContractService`):

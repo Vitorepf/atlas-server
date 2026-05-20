@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\ControlPlane;
 
+use App\Models\AtlasPersistentContextPack;
 use App\Services\Ai\ControlPlane\AtlasAiControlPlaneService;
 use App\Services\Ai\OperatorApproval\OperatorApprovalCanon;
 use App\Services\Ai\OperatorApproval\OperatorApprovalGateService;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\Concerns\CreatesOperatorApprovalTable;
+use Tests\Concerns\CreatesPersistentContextTables;
 use Tests\Concerns\CreatesRouterRuntimeTables;
 use Tests\TestCase;
 
@@ -25,6 +27,7 @@ use Tests\TestCase;
 class AtlasAiControlPlaneServiceTest extends TestCase
 {
     use CreatesOperatorApprovalTable;
+    use CreatesPersistentContextTables;
     use CreatesRouterRuntimeTables;
 
     protected function setUp(): void
@@ -38,6 +41,7 @@ class AtlasAiControlPlaneServiceTest extends TestCase
     protected function tearDown(): void
     {
         $this->dropOperatorApprovalTable();
+        $this->dropPersistentContextTables();
         $this->dropAiSurfaceTables();
         $this->dropRouterRuntimeTables();
         parent::tearDown();
@@ -102,10 +106,49 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertSame(0, $report['handoffs']['forge']['count']);
         $this->assertSame(0, $report['receipts']['total']);
         $this->assertSame('missing', $report['context_operations']['status']);
+        $this->assertSame('missing', $report['persistent_context']['status']);
+        $this->assertSame(0, $report['summary']['persistent_context_total']);
         $this->assertSame([], $report['blockers']);
         $this->assertNotEmpty($report['readiness_refs']);
         $this->assertFalse($report['claim_policy']['allows_external_superiority_claim']);
         $this->assertStringStartsWith('sha256:', $report['hash']);
+    }
+
+    public function test_persistent_context_section_surfaces_blocked_packs(): void
+    {
+        $this->createPersistentContextTables(false);
+
+        AtlasPersistentContextPack::query()->create([
+            'uuid' => 'apcr_test_blocked',
+            'schema_version' => 'atlas.persistent_context.runtime.v1',
+            'status' => 'blocked',
+            'scope_type' => 'workspace',
+            'scope_id' => 'atlas',
+            'workspace' => base_path(),
+            'surface_id' => 'test',
+            'domain' => 'programming',
+            'flow_id' => 'atlas_dev',
+            'provider' => 'auto',
+            'prompt_hash' => str_repeat('a', 64),
+            'context_pack_hash' => str_repeat('b', 64),
+            'must_know_ledger_hash' => str_repeat('c', 64),
+            'sufficiency_status' => 'blocked',
+            'retrieval_report' => ['included_sources' => []],
+            'must_know_ledger' => ['items' => []],
+            'context_pack' => ['manifest' => []],
+            'provider_handoff' => ['execution_allowed' => false],
+            'evidence_refs' => [],
+            'metadata' => ['persistent_context_hash' => 'sha256:apcr'],
+        ]);
+
+        $report = $this->service()->report(24);
+
+        $this->assertSame('ready', $report['persistent_context']['status']);
+        $this->assertSame(1, $report['summary']['persistent_context_total']);
+        $this->assertSame(1, $report['summary']['persistent_context_blocked']);
+        $this->assertSame('persistent_context_blocked', $report['persistent_context']['blockers'][0]['kind']);
+        $this->assertSame('persistent_context_blocked', collect($report['blockers'])->firstWhere('kind', 'persistent_context_blocked')['kind'] ?? null);
+        $this->assertSame('blocked', $report['status']);
     }
 
     public function test_aggregates_traces_by_flow_with_per_flow_counts(): void

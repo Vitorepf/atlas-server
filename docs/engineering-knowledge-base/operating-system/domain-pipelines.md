@@ -26,6 +26,7 @@ related_paths:
   - docs/engineering-knowledge-base/domains/personal-development.md
   - docs/engineering-knowledge-base/domains/finance.md
   - docs/engineering-knowledge-base/domains/self-improvement.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-os-domain-pipelines

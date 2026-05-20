@@ -42,6 +42,7 @@ related_paths:
   - app/Console/Commands/AtlasForgeProviderFailureRecordCommand.php
   - app/Http/Controllers/AtlasCodeForgeProviderCapacityController.php
   - apps/desktop/src/surfaces/code/panels/ForgeProviderCapacityPanel.tsx
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-provider-capacity-continuity-v1
 graph_title: Atlas Forge Provider Capacity & Continuity v1

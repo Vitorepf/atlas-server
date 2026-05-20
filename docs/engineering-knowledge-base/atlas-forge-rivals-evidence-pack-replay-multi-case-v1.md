@@ -38,6 +38,7 @@ related_paths:
   - app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsProviderArenaCorpusService.php
   - app/Console/Commands/AtlasForgeRivalsCommand.php
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-evidence-pack-replay-multi-case-v1

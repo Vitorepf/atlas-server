@@ -35,6 +35,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/self-construction/paperclip-control-plane-benchmark.md
   - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 owner: atlas-ai
 layer: 2.2-obras-shared-workspace
 line_limit: 220

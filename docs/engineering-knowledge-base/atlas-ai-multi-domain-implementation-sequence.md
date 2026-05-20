@@ -40,6 +40,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/domains/README.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-ai-multi-domain-implementation-sequence
 graph_title: Atlas AI Multi-Domain Implementation Sequence

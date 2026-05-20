@@ -32,6 +32,7 @@ related_paths:
   - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsProviderArenaCoreCertification.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
   - docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-provider-arena-core-v1

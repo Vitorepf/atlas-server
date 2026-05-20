@@ -2,9 +2,10 @@
 id: atlas-code-intelligence-external-graph-harness
 type: engineering_knowledge
 title: Atlas Code Intelligence External Graph Harness
-status: implemented_partial
+status: building
 category: code-intelligence
 priority: 90
+implementation_state: implemented_partial_read_only_harness
 summary: Contrato canonico para usar grafos externos de codigo/docs como evidencia revisavel, sem criar memoria, contexto, Constelacao ou runtime paralelo.
 tags:
   - atlas

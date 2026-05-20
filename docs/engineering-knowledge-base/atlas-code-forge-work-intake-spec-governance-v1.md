@@ -37,6 +37,7 @@ related_paths:
   - app/Http/Controllers/AtlasCodeForgeWorkIntakeController.php
   - app/Console/Commands/AtlasCodeForgeWorkIntakeCommand.php
   - tests/Feature/Ai/Programming/AtlasCodeForgeWorkIntakeTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-code-forge-work-intake-spec-governance-v1
 graph_title: Atlas Code Forge Work Intake & Spec Governance v1

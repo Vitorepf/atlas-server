@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-recipes-external-mcp
 type: engineering_knowledge
 title: Atlas AI Cyber External MCP Tooling
-status: scaffold
+status: building
 category: knowledge-base
 priority: 80
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Governance for integrating offensive external MCP tooling through Atlas wrappers instead of raw provider configuration.
 tags:
   - atlas-ai

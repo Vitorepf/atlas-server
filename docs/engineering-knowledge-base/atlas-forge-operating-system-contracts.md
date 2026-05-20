@@ -33,12 +33,10 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/scope-validator-contract.md
   - docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md
   - docs/engineering-knowledge-base/self-construction/packet-evidence-report-contract.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
-
 graph_id: atlas-forge-operating-system-contracts
-
 graph_title: Atlas Forge Operating System Contracts
-
 graph_world: atlas
 
 graph_layer: system

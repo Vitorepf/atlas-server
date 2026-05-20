@@ -5,6 +5,7 @@ title: Atlas Epistemic Operating System
 status: future
 category: knowledge-governance
 priority: 100
+implementation_state: future_truth_os_not_current_runtime
 summary: Especificacao canonica do proximo patamar do Knowledge Governance System: sistema operacional de verdade, confianca, contradicao, maturidade, permissoes e autoevolucao para IAs que constroem o Atlas.
 tags:
   - atlas

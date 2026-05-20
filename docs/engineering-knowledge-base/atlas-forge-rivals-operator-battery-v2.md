@@ -52,6 +52,7 @@ related_paths:
   - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsOperatorBatteryCertification.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-real-battery-operator-harness-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-reliability-lockdown-v1.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-rivals-operator-battery-v2
 graph_title: Atlas Forge Rivals · Operator Battery v2

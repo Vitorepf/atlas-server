@@ -31,6 +31,7 @@ related_paths:
   - app/Services/Ai/Router/AtlasAiHyperflowCertificationService.php
   - app/Services/Ai/Router/AtlasAiHyperflowRivalsBatteryService.php
   - tests/Feature/Ai/AtlasAiHyperflowCertificationApiTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-hyperflow-completion-audit-v1
 graph_title: Atlas Hyperflow Completion Audit v1

@@ -40,6 +40,7 @@ related_paths:
   - app/Http/Controllers/AtlasCodeProgrammingWorkItemController.php
   - app/Console/Commands/AtlasForgeLiveExecuteCommand.php
   - tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-live-execution-e2e-v1
 graph_title: Atlas Forge Live Execution E2E v1

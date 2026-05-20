@@ -45,6 +45,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-code-forge-review-completion-gate-v1.md
   - docs/engineering-knowledge-base/atlas-code-scor-1-implementation-contract.md
   - ../atlas-desktop/apps/desktop/src/surfaces/code/
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 owner: programming
 layer: 2.2-obras-programming
 line_limit: 520

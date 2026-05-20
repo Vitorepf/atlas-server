@@ -39,6 +39,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md
   - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-autonomous-software-company-runtime
 graph_title: Atlas Autonomous Software Company Runtime

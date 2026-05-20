@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-compliance-mapping
 type: engineering_knowledge
 title: Atlas AI Cyber Compliance Mapping
-status: scaffold
+status: building
 category: knowledge-base
 priority: 82
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Mapping de regulamentacoes (LGPD, GDPR, HIPAA, PCI-DSS, DFARS/NIST 800-171, SOC2, ISO 27001) aplicaveis quando programa BB ou alvo Cyber tocar dados regulados; constraints de runtime injetadas via Policy do kernel.
 tags:
   - atlas-ai

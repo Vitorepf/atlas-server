@@ -40,6 +40,7 @@ related_paths:
   - app/Console/Commands/AtlasForgeProviderInvokeCommand.php
   - app/Http/Controllers/AtlasCodeForgeProviderInvocationController.php
   - tests/Feature/Ai/Programming/AtlasForgeProviderInvocationTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-governed-provider-invocation-v1
 graph_title: Atlas Forge Governed Provider Invocation v1

@@ -41,6 +41,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 owner: atlas-ai
 layer: 2-product-primitive
 line_limit: 260

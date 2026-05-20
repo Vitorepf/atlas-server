@@ -41,6 +41,7 @@ related_paths:
   - app/Services/Ai/Programming/AtlasForgeNativeRivalsDryRunService.php
   - app/Console/Commands/AtlasProgrammingRivalsForgePreflightCommand.php
   - app/Console/Commands/AtlasProgrammingRivalsForgeDryRunCommand.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-native-rivals-protocol-v1
 graph_title: Atlas Forge-Native Rivals Protocol v1

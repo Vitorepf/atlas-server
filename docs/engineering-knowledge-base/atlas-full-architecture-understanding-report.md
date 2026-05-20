@@ -37,6 +37,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
   - docs/engineering-knowledge-base/domains/README.md
   - docs/engineering-knowledge-base/domains/domain-routing-governance.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-full-architecture-understanding-report

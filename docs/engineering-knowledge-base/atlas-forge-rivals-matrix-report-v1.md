@@ -34,6 +34,7 @@ related_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsActionDispatcher.php
   - app/Console/Commands/AtlasForgeRivalsCommand.php
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsMatrixReportV1Test.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-matrix-report-v1
@@ -77,31 +78,23 @@ risk_level: medium
 next_actions:
   - Sincronizar este doc se novos eixos (cost vs quality, mode-aware tabelas) forem adicionados ao matrix.
 ---
-
 # Atlas Forge Rivals · Matrix Report v1
-
 **Status:** Delivered 2026-05-15 (Claude D · Matrix Report slice)
 **Schema:** `atlas.forge.rivals.matrix_report.v1`
 **Entrypoint:** `php artisan atlas:forge:rivals matrix-report --run-id=<id> --json`
 **Companion docs:** `atlas-forge-rivals-evidence-pack-replay-multi-case-v1.md`,
 `atlas-forge-rivals-evidence-pack-replay-hardening-v2.md`,
 `atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md`.
-
 Relatório humano final da bateria Rivals multi-case. Lê o battery
 evidence pack + scorecards per-case e devolve um snapshot legível
 (Markdown) + estruturado (JSON) com tudo que o operador precisa para
 **ler o resultado de uma bateria de 40 cases sem inventar nada**.
-
 > **External rivals canon.** Matrix Report NUNCA destrava
 > `external_rivals_certification`. Sempre `claim_ready=false`. Quando faltar
 > evidência, retorna `insufficient_evidence` por desenho.
-
 ---
-
 ## 1. O que o relatório responde (e o que NÃO responde)
-
 O matrix report responde:
-
 1. **Winner geral** — Atlas vs Rival (Claude/Codex) ponderado por L1-L5.
 2. **Ranking por categoria** — qual arm ganha mais em cada `task_category`.
 3. **Ranking por dificuldade** — qual arm ganha mais em cada nível L1-L5.
@@ -110,13 +103,10 @@ O matrix report responde:
 6. **Invalid cases vs Suspicious cases** — separados, com motivo.
 7. **Onde Atlas é melhor / onde Rival é melhor** — listas de categorias e dificuldades.
 8. **Recomendação para Atlas Decide** — por categoria + global, advisory.
-
 O matrix NÃO responde:
-
 - Se a bateria pode virar claim externo (sempre `false`, ver Adjudicator).
 - Se o resultado vale para release sem revisão humana (sempre `human_review_required` quando o spread é pequeno).
 - Se o Atlas é "globalmente melhor" — só fala da bateria específica medida.
-
 ---
 
 ## 2. Inputs e fontes de dados

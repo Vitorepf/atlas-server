@@ -45,6 +45,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md
   - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
   - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-programming-self-construction-forge-map-v1
 graph_title: Atlas Programming Self-Construction Forge Map v1

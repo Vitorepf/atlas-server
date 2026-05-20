@@ -5,8 +5,11 @@ namespace App\Services\Ai\Programming\Forge;
 use App\Models\AiForgeIntake;
 use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Canonical entry point into Atlas Forge.
@@ -48,6 +51,7 @@ class ForgeIntakeService
         private readonly ForgeMilestonePlanner $milestones,
         private readonly ForgeWorkPacketComposer $workPackets,
         private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
+        private readonly ?AtlasPersistentContextRuntimeService $persistentContext = null,
     ) {}
 
     /**
@@ -171,6 +175,17 @@ class ForgeIntakeService
             options: $options,
             contextRefs: $contextRefs,
         );
+        $persistentContext = $this->persistentContextForIntake(
+            uuid: $uuid,
+            origin: $origin,
+            prompt: $prompt,
+            normalizedIntent: $normalizedIntent,
+            recommendedMode: $recommendedMode,
+            riskBand: $riskBand,
+            options: $options,
+            contextRefs: $contextRefs,
+            contextOperations: $contextOperations,
+        );
 
         $hashPayload = [
             'schema' => ForgeIntakeCanon::INTAKE_SCHEMA_VERSION,
@@ -198,6 +213,7 @@ class ForgeIntakeService
             'rich_input_payload' => $richInputPayload !== [] ? $richInputPayload : null,
             'rich_input_schema_version' => $richInputPayload['schema_version'] ?? null,
             'context_operations_hash' => $contextOperations['operations_runtime_hash'] ?? null,
+            'persistent_context_hash' => $persistentContext['persistent_context_hash'] ?? null,
             'constraints' => $this->arrayOrNull($options['constraints'] ?? null),
             'non_goals' => $this->arrayOrNull($options['non_goals'] ?? null),
             'sdd_spec' => $this->normalizeSddSpec($options['sdd_spec'] ?? null),
@@ -210,11 +226,18 @@ class ForgeIntakeService
         ];
         $intakeHash = MissionCanonicalHash::sha256($hashPayload);
 
-        return AiForgeIntake::query()->create(array_merge($hashPayload, [
+        $createPayload = array_merge($hashPayload, [
             'schema_version' => ForgeIntakeCanon::INTAKE_SCHEMA_VERSION,
             'context_operations' => $contextOperations,
             'intake_hash' => $intakeHash,
-        ]));
+        ]);
+        if (Schema::hasColumn('ai_forge_intakes', 'persistent_context')) {
+            $createPayload['persistent_context'] = $persistentContext;
+        } else {
+            unset($createPayload['persistent_context_hash']);
+        }
+
+        return AiForgeIntake::query()->create($createPayload);
     }
 
     /**
@@ -266,6 +289,69 @@ class ForgeIntakeService
                 ['role' => 'user', 'content' => $prompt],
             ],
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  list<string>  $contextRefs
+     * @param  array<string,mixed>  $contextOperations
+     * @return array<string,mixed>
+     */
+    private function persistentContextForIntake(
+        string $uuid,
+        string $origin,
+        string $prompt,
+        ?string $normalizedIntent,
+        string $recommendedMode,
+        string $riskBand,
+        array $options,
+        array $contextRefs,
+        array $contextOperations,
+    ): array {
+        try {
+            return ($this->persistentContext ?? app(AtlasPersistentContextRuntimeService::class))->build([
+                'prompt' => $prompt,
+                'workspace' => (string) ($options['workspace'] ?? $options['workspace_slug'] ?? base_path()),
+                'surface_id' => 'atlas_forge_intake',
+                'domain' => 'programming',
+                'flow_id' => 'atlas_forge',
+                'flow_profile' => 'programming.forge',
+                'runtime_mode' => 'forge',
+                'provider' => $this->stringOrNull($options['provider'] ?? null),
+                'scope_type' => 'forge_intake',
+                'scope_id' => $uuid,
+                'payload' => [
+                    'workspace' => $options['workspace'] ?? $options['workspace_slug'] ?? base_path(),
+                    'context_refs' => $contextRefs,
+                    'routing_domain' => 'programming',
+                    'routing_task' => 'atlas_forge',
+                    'origin' => $origin,
+                    'recommended_forge_mode' => $recommendedMode,
+                    'risk_band' => $riskBand,
+                    'normalized_intent' => $normalizedIntent,
+                    'context_operations_hash' => $contextOperations['operations_runtime_hash'] ?? null,
+                    'rich_input_payload' => $options['rich_input_payload'] ?? $options['rich_input'] ?? null,
+                ],
+                'evidence_refs' => array_values(array_unique(array_merge(
+                    array_values(array_filter((array) ($options['evidence_refs'] ?? []), 'is_string')),
+                    ['forge_intake:'.$uuid],
+                ))),
+                'must_keep_items' => [
+                    ['id' => 'forge_intake_uuid', 'kind' => 'decision', 'value' => $uuid],
+                    ['id' => 'recommended_forge_mode', 'kind' => 'runtime_decision', 'value' => $recommendedMode],
+                    ['id' => 'risk_band', 'kind' => 'risk', 'value' => $riskBand],
+                    ['id' => 'normalized_intent', 'kind' => 'intent', 'value' => $normalizedIntent ?? MissionCanonicalHash::sha256(['prompt' => $prompt])],
+                ],
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'schema_version' => AtlasPersistentContextRuntimeService::SCHEMA_VERSION,
+                'status' => AtlasPersistentContextRuntimeService::STATUS_DEGRADED,
+                'error' => 'persistent_context_threw',
+                'exception_class' => $exception::class,
+                'writes' => false,
+            ];
+        }
     }
 
     /**

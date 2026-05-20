@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-remediation-patterns
 type: engineering_knowledge
 title: Atlas AI Cyber Remediation Patterns
-status: scaffold
+status: building
 category: knowledge-base
 priority: 84
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Patterns canonicos de fix por classe de vulnerabilidade (CWE primario), com snippets por stack, anti-fixes, variants para Negative PoC e refactor playbook; consumido por skill desenvolvedor + cyber-* na fase remediacao.
 tags:
   - atlas-ai

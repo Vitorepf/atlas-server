@@ -34,6 +34,7 @@ related_paths:
   - app/Services/Ai/AtlasDecideService.php
   - app/Services/Ai/Cli/AtlasCliProviderStrategyService.php
   - app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-evolution-phase-0-audit

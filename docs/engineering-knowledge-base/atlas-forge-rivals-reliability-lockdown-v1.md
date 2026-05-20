@@ -41,6 +41,7 @@ related_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCorpusPreValidationService.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsReliabilityLockdownIntegrationTest.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsRunBatteryReleaseTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-reliability-lockdown-v1.md
   - app/Services/Ai/Programming/WorkspaceHygieneService.php

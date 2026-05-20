@@ -44,6 +44,7 @@ related_paths:
   - app/Console/Commands/AtlasSelfImprovementActivateForgeCommand.php
   - app/Http/Controllers/AtlasCodeSelfImprovementForgeActivationController.php
   - tests/Feature/Ai/SelfImprovement/AtlasSelfImprovementForgeActivationTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-self-improvement-forge-activation-v1
 graph_title: Atlas Self-Improvement → Forge Activation v1

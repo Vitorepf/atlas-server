@@ -30,6 +30,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/code-intelligence.md
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-forge-operating-system-runbook

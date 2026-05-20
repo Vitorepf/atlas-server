@@ -2,9 +2,10 @@
 id: atlas-ai-cognitive-multiplier-edge
 type: engineering_knowledge
 title: Atlas AI Cognitive Plane - Multiplier Edge
-status: implemented-operational-read-model
+status: active
 category: architecture
 priority: 96
+implementation_state: implemented_operational_read_model
 summary: 10 capabilities cardinais cognitivas que NENHUM sistema educacional concorrente pode replicar por motivo arquitetural - onde a Tese de canal multiplicador encontra o Cognitive Plane. Lista resumida; detalhe operacional em APs dedicados.
 tags:
   - atlas-ai

@@ -5,6 +5,7 @@ title: Atlas Temporal Engineering Operating System
 status: planned
 category: programming
 priority: 98
+implementation_state: planned_north_star_not_current_runtime
 summary: North-star canônica do Atlas Temporal Engineering Operating System (TEOS). Eleva Atlas Dev e Atlas Forge de IA com memória longa para sistema temporal de engenharia: tempo, verdade, validade, replay, recovery, evidence e continuity certification. Este índice preserva a tese e aponta para specs filhas detalhadas; benchmark_not_run.
 tags:
   - atlas

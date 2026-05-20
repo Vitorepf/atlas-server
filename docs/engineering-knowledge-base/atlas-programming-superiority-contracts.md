@@ -36,12 +36,10 @@ related_paths:
   - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
   - docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md
   - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
-
 graph_id: atlas-programming-superiority-contracts
-
 graph_title: Atlas Programming Superiority Contracts
-
 graph_world: atlas
 
 graph_layer: system

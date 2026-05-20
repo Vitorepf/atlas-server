@@ -31,6 +31,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md
   - docs/engineering-knowledge-base/self-construction/parallel-session-plan-contract.md
   - docs/engineering-knowledge-base/self-construction/multi-session-readiness-gate-contract.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 owner: atlas-ai
 layer: 0.8-self-construction
 line_limit: 240

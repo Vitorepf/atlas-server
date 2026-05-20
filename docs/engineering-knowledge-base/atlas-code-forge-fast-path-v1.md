@@ -39,6 +39,7 @@ related_paths:
   - app/Http/Controllers/AtlasCodeForgeFastPathController.php
   - app/Console/Commands/AtlasCodeForgeFastPathCommand.php
   - tests/Feature/Ai/Programming/AtlasCodeForgeFastPathTest.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-code-forge-fast-path-v1
 graph_title: Atlas Code Forge Operator Fast Path v1

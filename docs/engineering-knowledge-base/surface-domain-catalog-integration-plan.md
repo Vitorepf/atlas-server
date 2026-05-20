@@ -3,8 +3,9 @@ id: surface-domain-catalog-integration-plan
 type: engineering_knowledge
 title: Surface Domain Catalog Integration Plan
 category: engineering
-status: draft
+status: building
 priority: 70
+implementation_state: incremental_integration_plan_not_runtime_complete
 summary: Mapa e plano incremental para fazer CLI, API, app, mobile e MCP consumirem o Atlas AI domain catalog sem duplicar contratos centrais.
 tags:
   - atlas-ai
@@ -25,6 +26,7 @@ related_paths:
   - docs/engineering-knowledge-base/domains/README.md
   - app/Services/Ai/Kernel/Domain/AtlasAiDomainCatalogService.php
   - app/Console/Commands/AtlasAiDomainsCommand.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: surface-domain-catalog-integration-plan

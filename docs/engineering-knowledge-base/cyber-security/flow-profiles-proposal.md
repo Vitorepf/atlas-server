@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-flow-profiles-proposal
 type: engineering_knowledge
 title: Atlas AI Cyber Flow Profiles Proposal
-status: scaffold
+status: building
 category: architecture
 priority: 86
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Flow profiles propostos para a Cyber Security extension; nao registrados em AtlasDomainProfileRegistry ate onboarding formal de cada flow ou promocao a domain proprio.
 tags:
   - atlas-ai

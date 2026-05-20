@@ -36,6 +36,7 @@ related_paths:
   - app/Services/Ai/Programming/AtlasRivalsEvidencePackVerifierService.php
   - app/Console/Commands/AtlasProgrammingRivalsEvidencePackCommand.php
   - app/Console/Commands/AtlasProgrammingRivalsOneShotEvaluateCommand.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-rivals-evidence-pack-replay-manifest-v1
 graph_title: Atlas Rivals Evidence Pack & Replay Manifest v1

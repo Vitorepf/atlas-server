@@ -37,6 +37,7 @@ related_paths:
   - apps/desktop/src/lib/bridge.ts
   - crates/atlas-tauri/src/commands_bridge.rs
   - crates/atlas-tauri/src/lib.rs
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-code-forge-operator-cockpit-v1
 graph_title: Atlas Code Forge Operator Cockpit v1

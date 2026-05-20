@@ -39,6 +39,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-contracts-v1.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-runbook-v1.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-obra-enterprise-loop-upgrade
 graph_title: Atlas Forge Obra Enterprise Loop Upgrade

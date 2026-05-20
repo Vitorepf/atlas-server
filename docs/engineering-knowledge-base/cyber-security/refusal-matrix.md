@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-refusal-matrix
 type: engineering_knowledge
 title: Atlas AI Cyber Refusal Matrix
-status: scaffold
+status: building
 category: policy
 priority: 91
+implementation_state: cyber_security_policy_matrix_building_not_kernel_enforced
 summary: Matriz canonica de acoes que skills cyber-* NUNCA executam, integrada com Policy do kernel via Refusal-with-Receipt; nao bypassa policy nem cria policy paralela.
 tags:
   - atlas-ai

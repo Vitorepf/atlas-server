@@ -14,6 +14,7 @@ use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiRealExecutionForgeHandoff;
 use App\Models\AiTrace;
+use App\Models\AtlasPersistentContextPack;
 use App\Services\Ai\Learning\AtlasAiLearningLoopService;
 use App\Services\Ai\OperatorApproval\OperatorApprovalCanon;
 use App\Services\Ai\RouterRuntime\RouterRuntimeCanon;
@@ -83,7 +84,16 @@ class AtlasAiControlPlaneService
         $quality = $this->quality($since, $tracesSection['ids']);
         $providerDecisions = $this->providerDecisions($since);
         $contextOperations = $this->contextOperations($tracesSection['ids']);
+        $persistentContext = $this->persistentContext($since);
         $blockers = $this->blockers($since, $tracesSection['ids']);
+        foreach ((array) ($persistentContext['blockers'] ?? []) as $blocker) {
+            if (count($blockers) >= self::BLOCKER_LIMIT) {
+                break;
+            }
+            if (is_array($blocker)) {
+                $blockers[] = $blocker;
+            }
+        }
         $learning = $this->learningLoop->controlPlaneSummary($since);
         $approvals = $this->approvalsSection($since);
 
@@ -101,6 +111,8 @@ class AtlasAiControlPlaneService
             'failures_count' => count($failures),
             'context_operations_blockers_count' => $contextOperations['blockers_count'],
             'verified_compactions_count' => $contextOperations['verified_compaction']['total'],
+            'persistent_context_total' => $persistentContext['total'],
+            'persistent_context_blocked' => $persistentContext['blocked'],
         ];
 
         $status = $this->resolveStatus($summary, $blockers);
@@ -126,6 +138,7 @@ class AtlasAiControlPlaneService
             'quality' => $quality,
             'provider_decisions' => $providerDecisions,
             'context_operations' => $contextOperations,
+            'persistent_context' => $persistentContext,
             'blockers' => $blockers,
             'learning' => $learning,
             'approvals' => $approvals,
@@ -183,6 +196,83 @@ class AtlasAiControlPlaneService
             'by_flow' => $byFlow,
             'ids' => $ids,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function persistentContext(CarbonImmutable $since): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'total' => 0,
+            'ready' => 0,
+            'degraded' => 0,
+            'blocked' => 0,
+            'by_flow' => [],
+            'by_scope_type' => [],
+            'recent' => [],
+            'blockers' => [],
+        ];
+        if (! Schema::hasTable('atlas_persistent_context_packs')) {
+            return $empty;
+        }
+
+        try {
+            $packs = AtlasPersistentContextPack::query()
+                ->where('created_at', '>=', $since)
+                ->orderByDesc('created_at')
+                ->limit(200)
+                ->get(['id', 'uuid', 'status', 'scope_type', 'scope_id', 'workspace', 'domain', 'flow_id', 'sufficiency_status', 'context_pack_hash', 'must_know_ledger_hash', 'provider_handoff', 'created_at']);
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        $section = $empty;
+        $section['status'] = 'ready';
+        $section['total'] = count($packs);
+        foreach ($packs as $pack) {
+            $status = $this->stringOrNull($pack->status) ?? 'unknown';
+            if (isset($section[$status]) && is_int($section[$status])) {
+                $section[$status]++;
+            }
+            $flowId = $this->stringOrNull($pack->flow_id) ?? 'unknown';
+            $scopeType = $this->stringOrNull($pack->scope_type) ?? 'unknown';
+            $section['by_flow'][$flowId] = ($section['by_flow'][$flowId] ?? 0) + 1;
+            $section['by_scope_type'][$scopeType] = ($section['by_scope_type'][$scopeType] ?? 0) + 1;
+
+            if ($status === 'blocked') {
+                $section['blockers'][] = [
+                    'kind' => 'persistent_context_blocked',
+                    'persistent_context_pack_uuid' => $this->stringOrNull($pack->uuid),
+                    'flow_id' => $flowId,
+                    'scope_type' => $scopeType,
+                    'scope_id' => $this->stringOrNull($pack->scope_id),
+                    'detail' => 'APCR sufficiency gate blocked provider handoff',
+                ];
+            }
+
+            if (count($section['recent']) < self::RECENT_LIMIT) {
+                $section['recent'][] = [
+                    'uuid' => $this->stringOrNull($pack->uuid),
+                    'status' => $status,
+                    'sufficiency_status' => $this->stringOrNull($pack->sufficiency_status),
+                    'scope_type' => $scopeType,
+                    'scope_id' => $this->stringOrNull($pack->scope_id),
+                    'domain' => $this->stringOrNull($pack->domain),
+                    'flow_id' => $flowId,
+                    'context_pack_hash' => $this->stringOrNull($pack->context_pack_hash),
+                    'must_know_ledger_hash' => $this->stringOrNull($pack->must_know_ledger_hash),
+                    'execution_allowed' => (bool) data_get($pack->provider_handoff, 'execution_allowed', false),
+                    'created_at' => $pack->created_at?->toJSON(),
+                ];
+            }
+        }
+
+        ksort($section['by_flow']);
+        ksort($section['by_scope_type']);
+
+        return $section;
     }
 
     /**
@@ -972,6 +1062,11 @@ class AtlasAiControlPlaneService
                 'name' => 'conversation_ops',
                 'command' => 'php artisan atlas:conversation-ops:certify --json --strict',
                 'schema' => 'atlas.conversation_ops.certification.v1',
+            ],
+            [
+                'name' => 'persistent_context_runtime',
+                'command' => 'php artisan atlas:persistent-context:certify --json --strict',
+                'schema' => 'atlas.persistent_context.certification.v1',
             ],
         ];
     }

@@ -63,6 +63,7 @@ related_paths:
   - app/Services/Ai/Programming/ProgrammingRepairExecutor.php
   - app/Services/Engineering/EngineeringHarnessExecutionService.php
   - app/Services/Engineering/EngineeringHarnessRunnerService.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-programming-forge-flow
 graph_title: Atlas Programming Forge Flow
@@ -160,18 +161,13 @@ next_actions:
   - Manter esta pagina sincronizada com Forge OS, Engineering Harness, Programming RAG e docs de cartografia.
 ---
 # Atlas Programming Forge Flow
-
 ## Resumo
-
 Este e o mapa canonico do fluxo de programacao pesada do Atlas.
-
 Leia este documento quando aparecer qualquer um destes termos: `atlas forge`,
 `programming.forge`, Forge OS, Forge Workspace, programacao pesada,
 multiagente, multiprovider, Engineering Harness, repair loop, Agentic RAG,
 Semantic Code Graph, graph RAG, tools, evidence ou cartografia de codigo.
-
 ## Papel no Atlas
-
 ```text
 Programming Domain = setor de programacao.
 programming.forge = flow pesado dentro do setor.

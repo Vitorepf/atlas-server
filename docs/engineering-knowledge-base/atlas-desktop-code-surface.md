@@ -2,9 +2,11 @@
 id: atlas-desktop-code-surface
 type: engineering_knowledge
 title: Atlas Desktop · Code Surface Specification
-status: scaffold
+status: building
 category: surface
 priority: 98
+implementation_state: surface_spec_building_not_runtime_complete
+blocker: desktop_code_surface_requires_live_runtime_certification
 summary: Canonical specification for the Atlas Desktop Code surface — the operational window into the Atlas Kernel for programming work. Materializes 11 canonical axes (Obras+Forge, Self-Construction OS, Multi-Agent Orchestration, Programming Domain+Harness, Spec OS, Kernel Pipeline, Memory+Continuity, Skill System+Cognitive Plane, Voice+Mobile+Multimodal, Documentation OS+Knowledge Governance, Tool Runtime+CLI). Replaces Cursor / Codex / Claude Code as Vitor's primary programming surface — the human directs, Atlas programs, evidence is signed.
 tags:
   - atlas-ai
@@ -95,6 +97,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
   - docs/engineering-knowledge-base/obras/ai-harness-governance-and-quality.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-desktop-code-surface
 graph_title: Atlas Desktop Code Surface
@@ -152,21 +155,16 @@ visual_tags:
   - surface
 ai_entrypoints:
   - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
-
 ai_usage_notes:
   - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
-
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-
 failure_modes:
   - Contexto desatualizado entre doc, codigo, teste e evidencia.
-
 observability_signals:
   - docs-health status ok
 ---
 # Atlas Desktop · Code Surface Specification
-
 ## Resumo
 
 Este doc define a tela Atlas Code como cabine operacional de programacao, nao

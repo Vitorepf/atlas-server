@@ -15,7 +15,7 @@ class AtlasAiAutonomousHoldingCommand extends Command
 {
     protected $signature = 'atlas:ai:autonomous-holding
         {positional? : Optional positional action (alternative to --action)}
-        {--action=readiness : readiness, observe-cycle, enterprise-operating-packet-status, enterprise-buildout, enterprise-consolidation-run, enterprise-fixture-suite, enterprise-flow-action-runtime-run, enterprise-flow-action-runtime-status, enterprise-vertical-solution-runtime-status, enterprise-domain-solution-playbook-runtime-status, enterprise-operational-dossier-runtime-status, enterprise-domain-business-execution-runtime-status, enterprise-company-operating-spine-runtime-status, enterprise-commercial-operations-runtime-status, enterprise-domain-provider-workbench-runtime-status, enterprise-semantic-operating-graph-runtime-status, enterprise-agent-toolchain-runtime-status, enterprise-cross-company-handoff-runtime-status, enterprise-customer-account-revenue-runtime-status, enterprise-unit-economics-capacity-runtime-status, enterprise-delivery-risk-runtime-status, enterprise-operational-outcome-runtime-status, enterprise-holding-outcome-scorecard-status, enterprise-portfolio-decision-packet-status, enterprise-shadow-readiness, enterprise-supervised-activation-plan, enterprise-supervised-runtime, enterprise-connector-certification, enterprise-external-action-mandates, enterprise-external-action-register, enterprise-external-action-preflight, enterprise-external-action-request-approval, enterprise-external-action-approve, enterprise-external-action-reject, enterprise-external-action-approval-status, enterprise-control-tower, enterprise-activation-cockpit, enterprise-premium-activation-status, enterprise-provider-workbench-status, enterprise-agent-repository-adoption-status, enterprise-industry-solution-ecosystem-status, enterprise-business-operating-backbone-status, enterprise-production-connector-preflight-status, enterprise-flow-quality-research-status, enterprise-vertical-solution-suite-status, enterprise-domain-business-execution-mesh-status, enterprise-flow-operating-package-status, enterprise-company-command-center-status, enterprise-operational-dress-rehearsal-status, enterprise-real-external-execution-readiness-dossier, enterprise-real-external-execution-handoff-pack, enterprise-activation-backlog-register, enterprise-activation-backlog-status, enterprise-activation-backlog-run, enterprise-connector-activation-register, enterprise-connector-activation-probe, enterprise-connector-activation-status, enterprise-live-read-connector-readiness-status, enterprise-flow-run-queue-register, enterprise-flow-run-queue-execute, enterprise-flow-run-queue-replay, enterprise-flow-run-queue-status, enterprise-flow-operations-runbook-register, enterprise-flow-operations-runbook-drill, enterprise-flow-operations-runbook-status}
+        {--action=readiness : readiness, observe-cycle, enterprise-operating-packet-status, enterprise-buildout, enterprise-consolidation-run, enterprise-fixture-suite, enterprise-flow-action-runtime-run, enterprise-flow-action-runtime-status, enterprise-vertical-solution-runtime-status, enterprise-domain-solution-playbook-runtime-status, enterprise-domain-operating-depth-runtime-status, enterprise-domain-agent-workforce-runtime-status, enterprise-operational-dossier-runtime-status, enterprise-autonomy-promotion-runtime-status, enterprise-domain-business-execution-runtime-status, enterprise-company-operating-spine-runtime-status, enterprise-commercial-operations-runtime-status, enterprise-domain-provider-workbench-runtime-status, enterprise-external-research-adoption-runtime-status, enterprise-flow-benchmark-replay-runtime-status, enterprise-connector-certification-preflight-runtime-status, enterprise-command-center-control-tower-runtime-status, enterprise-operational-dress-rehearsal-runtime-status, enterprise-semantic-operating-graph-runtime-status, enterprise-agent-toolchain-runtime-status, enterprise-cross-company-handoff-runtime-status, enterprise-customer-account-revenue-runtime-status, enterprise-unit-economics-capacity-runtime-status, enterprise-business-operating-packet-runtime-status, enterprise-delivery-risk-runtime-status, enterprise-operational-outcome-runtime-status, enterprise-holding-outcome-scorecard-status, enterprise-portfolio-decision-packet-status, enterprise-company-board-operating-review-status, enterprise-shadow-readiness, enterprise-supervised-activation-plan, enterprise-supervised-runtime, enterprise-connector-certification, enterprise-external-action-mandates, enterprise-external-action-register, enterprise-external-action-preflight, enterprise-external-action-request-approval, enterprise-external-action-approve, enterprise-external-action-reject, enterprise-external-action-approval-status, enterprise-control-tower, enterprise-activation-cockpit, enterprise-premium-activation-status, enterprise-provider-workbench-status, enterprise-agent-repository-adoption-status, enterprise-industry-solution-ecosystem-status, enterprise-business-operating-backbone-status, enterprise-production-connector-preflight-status, enterprise-flow-quality-research-status, enterprise-vertical-solution-suite-status, enterprise-domain-business-execution-mesh-status, enterprise-flow-operating-package-status, enterprise-company-command-center-status, enterprise-operational-dress-rehearsal-status, enterprise-real-external-execution-readiness-dossier, enterprise-real-external-execution-handoff-pack, enterprise-supervised-external-execution-packet-status, enterprise-external-worker-preflight-status, enterprise-activation-backlog-register, enterprise-activation-backlog-status, enterprise-activation-backlog-run, enterprise-connector-activation-register, enterprise-connector-activation-probe, enterprise-connector-activation-status, enterprise-live-read-connector-readiness-status, enterprise-flow-run-queue-register, enterprise-flow-run-queue-execute, enterprise-flow-run-queue-replay, enterprise-flow-run-queue-status, enterprise-flow-operations-runbook-register, enterprise-flow-operations-runbook-drill, enterprise-flow-operations-runbook-status}
         {--company= : Optional company id for enterprise fixture/shadow actions}
         {--flow= : Optional flow id for mandate registration}
         {--work-package= : Optional activation backlog work package id}
@@ -54,20 +54,30 @@ class AtlasAiAutonomousHoldingCommand extends Command
                 'enterprise-flow-action-runtime-status' => $this->renderEnterpriseFlowActionRuntimeStatus($flowActionRuntime),
                 'enterprise-vertical-solution-runtime-status' => $this->renderEnterpriseVerticalSolutionRuntimeStatus($flowActionRuntime),
                 'enterprise-domain-solution-playbook-runtime-status' => $this->renderEnterpriseDomainSolutionPlaybookRuntimeStatus($flowActionRuntime),
+                'enterprise-domain-operating-depth-runtime-status' => $this->renderEnterpriseDomainOperatingDepthRuntimeStatus($flowActionRuntime),
+                'enterprise-domain-agent-workforce-runtime-status' => $this->renderEnterpriseDomainAgentWorkforceRuntimeStatus($flowActionRuntime),
                 'enterprise-operational-dossier-runtime-status' => $this->renderEnterpriseOperationalDossierRuntimeStatus($flowActionRuntime),
+                'enterprise-autonomy-promotion-runtime-status' => $this->renderEnterpriseAutonomyPromotionRuntimeStatus($flowActionRuntime),
                 'enterprise-domain-business-execution-runtime-status' => $this->renderEnterpriseDomainBusinessExecutionRuntimeStatus($flowActionRuntime),
                 'enterprise-company-operating-spine-runtime-status' => $this->renderEnterpriseCompanyOperatingSpineRuntimeStatus($flowActionRuntime),
                 'enterprise-commercial-operations-runtime-status' => $this->renderEnterpriseCommercialOperationsRuntimeStatus($flowActionRuntime),
                 'enterprise-domain-provider-workbench-runtime-status' => $this->renderEnterpriseDomainProviderWorkbenchRuntimeStatus($flowActionRuntime),
+                'enterprise-external-research-adoption-runtime-status' => $this->renderEnterpriseExternalResearchAdoptionRuntimeStatus($flowActionRuntime),
+                'enterprise-flow-benchmark-replay-runtime-status' => $this->renderEnterpriseFlowBenchmarkReplayRuntimeStatus($flowActionRuntime),
+                'enterprise-connector-certification-preflight-runtime-status' => $this->renderEnterpriseConnectorCertificationPreflightRuntimeStatus($flowActionRuntime),
+                'enterprise-command-center-control-tower-runtime-status' => $this->renderEnterpriseCommandCenterControlTowerRuntimeStatus($flowActionRuntime),
+                'enterprise-operational-dress-rehearsal-runtime-status' => $this->renderEnterpriseOperationalDressRehearsalRuntimeStatus($flowActionRuntime),
                 'enterprise-semantic-operating-graph-runtime-status' => $this->renderEnterpriseSemanticOperatingGraphRuntimeStatus($flowActionRuntime),
                 'enterprise-agent-toolchain-runtime-status' => $this->renderEnterpriseAgentToolchainRuntimeStatus($flowActionRuntime),
                 'enterprise-cross-company-handoff-runtime-status' => $this->renderEnterpriseCrossCompanyHandoffRuntimeStatus($flowActionRuntime),
                 'enterprise-customer-account-revenue-runtime-status' => $this->renderEnterpriseCustomerAccountRevenueRuntimeStatus($flowActionRuntime),
                 'enterprise-unit-economics-capacity-runtime-status' => $this->renderEnterpriseUnitEconomicsCapacityRuntimeStatus($flowActionRuntime),
+                'enterprise-business-operating-packet-runtime-status' => $this->renderEnterpriseBusinessOperatingPacketRuntimeStatus($flowActionRuntime),
                 'enterprise-delivery-risk-runtime-status' => $this->renderEnterpriseDeliveryRiskRuntimeStatus($flowActionRuntime),
                 'enterprise-operational-outcome-runtime-status' => $this->renderEnterpriseOperationalOutcomeRuntimeStatus($flowActionRuntime),
                 'enterprise-holding-outcome-scorecard-status' => $this->renderEnterpriseHoldingOutcomeScorecardStatus($flowActionRuntime),
                 'enterprise-portfolio-decision-packet-status' => $this->renderEnterprisePortfolioDecisionPacketStatus($flowActionRuntime),
+                'enterprise-company-board-operating-review-status' => $this->renderEnterpriseCompanyBoardOperatingReviewStatus($flowActionRuntime),
                 'enterprise-shadow-readiness' => $this->renderEnterpriseShadowReadiness($fixtureSuite),
                 'enterprise-supervised-activation-plan' => $this->renderEnterpriseSupervisedActivationPlan($fixtureSuite),
                 'enterprise-supervised-runtime' => $this->renderEnterpriseSupervisedRuntime($fixtureSuite),
@@ -95,6 +105,8 @@ class AtlasAiAutonomousHoldingCommand extends Command
                 'enterprise-operational-dress-rehearsal-status' => $this->renderEnterpriseOperationalDressRehearsalStatus($mandateRegistry),
                 'enterprise-real-external-execution-readiness-dossier' => $this->renderEnterpriseRealExternalExecutionReadinessDossier($mandateRegistry),
                 'enterprise-real-external-execution-handoff-pack' => $this->renderEnterpriseRealExternalExecutionHandoffPack($mandateRegistry),
+                'enterprise-supervised-external-execution-packet-status' => $this->renderEnterpriseSupervisedExternalExecutionPacketStatus($mandateRegistry),
+                'enterprise-external-worker-preflight-status' => $this->renderEnterpriseExternalWorkerPreflightStatus($mandateRegistry),
                 'enterprise-activation-backlog-register' => $this->renderEnterpriseActivationBacklogRegister($mandateRegistry),
                 'enterprise-activation-backlog-status' => $this->renderEnterpriseActivationBacklogStatus($mandateRegistry),
                 'enterprise-activation-backlog-run' => $this->renderEnterpriseActivationBacklogRun($mandateRegistry),
@@ -206,34 +218,52 @@ class AtlasAiAutonomousHoldingCommand extends Command
             'flow_operating_package_status' => $mandateRegistry->flowOperatingPackageStatus($companyId),
             'company_command_center_status' => $mandateRegistry->companyCommandCenterStatus($companyId),
             'operational_dress_rehearsal_status' => $mandateRegistry->operationalDressRehearsalStatus($companyId),
-            'real_external_execution_readiness_dossier' => $mandateRegistry->realExternalExecutionReadinessDossier($companyId),
-            'real_external_execution_handoff_pack' => $mandateRegistry->realExternalExecutionHandoffPack($companyId),
             'flow_run_queue_register' => $mandateRegistry->registerFlowRunQueue($companyId),
             'flow_operations_runbook_register' => $mandateRegistry->registerFlowOperationsRunbooks($companyId),
             'flow_operations_runbook_drill' => $mandateRegistry->drillFlowOperationsRunbooks($companyId, null),
+            'real_external_execution_readiness_dossier' => $mandateRegistry->realExternalExecutionReadinessDossier($companyId),
+            'real_external_execution_handoff_pack' => $mandateRegistry->realExternalExecutionHandoffPack($companyId),
             'flow_action_runtime_run' => $flowActionRuntime->runPortfolioInternal($companyId),
             'observe_cycle' => $operatingCycle->observeToday(),
         ];
+        $steps['supervised_external_execution_packet_status'] = $mandateRegistry->supervisedExternalExecutionPacketStatusFromHandoff($steps['real_external_execution_handoff_pack']);
+        $steps['external_worker_preflight_status'] = $mandateRegistry->externalWorkerPreflightStatusFromPackets($steps['supervised_external_execution_packet_status']);
+        $steps['real_external_execution_readiness_dossier'] = $this->compactConsolidationStep($steps['real_external_execution_readiness_dossier']);
+        $steps['real_external_execution_handoff_pack'] = $this->compactConsolidationStep($steps['real_external_execution_handoff_pack']);
+        $steps['supervised_external_execution_packet_status'] = $this->compactConsolidationStep($steps['supervised_external_execution_packet_status']);
+        $steps['external_worker_preflight_status'] = $this->compactConsolidationStep($steps['external_worker_preflight_status']);
 
         $steps['flow_action_runtime_status'] = $flowActionRuntime->runtimeStatus($companyId);
         $steps['vertical_solution_runtime_status'] = $flowActionRuntime->verticalSolutionRuntimeStatus($companyId);
         $steps['domain_solution_playbook_runtime_status'] = $flowActionRuntime->domainSolutionPlaybookRuntimeStatus($companyId);
+        $steps['domain_operating_depth_runtime_status'] = $flowActionRuntime->domainOperatingDepthRuntimeStatus($companyId);
+        $steps['domain_agent_workforce_runtime_status'] = $flowActionRuntime->domainAgentWorkforceRuntimeStatus($companyId);
         $steps['operational_dossier_runtime_status'] = $flowActionRuntime->operationalDossierRuntimeStatus($companyId);
+        $steps['autonomy_promotion_runtime_status'] = $flowActionRuntime->autonomyPromotionRuntimeStatus($companyId);
         $steps['domain_business_execution_runtime_status'] = $flowActionRuntime->domainBusinessExecutionRuntimeStatus($companyId);
         $steps['company_operating_spine_runtime_status'] = $flowActionRuntime->companyOperatingSpineRuntimeStatus($companyId);
         $steps['commercial_operations_runtime_status'] = $flowActionRuntime->commercialOperationsRuntimeStatus($companyId);
         $steps['domain_provider_workbench_runtime_status'] = $flowActionRuntime->domainProviderWorkbenchRuntimeStatus($companyId);
+        $steps['external_research_adoption_runtime_status'] = $flowActionRuntime->externalResearchAdoptionRuntimeStatus($companyId);
+        $steps['flow_benchmark_replay_runtime_status'] = $flowActionRuntime->flowBenchmarkReplayRuntimeStatus($companyId);
+        $steps['connector_certification_preflight_runtime_status'] = $flowActionRuntime->connectorCertificationPreflightRuntimeStatus($companyId);
+        $steps['command_center_control_tower_runtime_status'] = $flowActionRuntime->commandCenterControlTowerRuntimeStatus($companyId);
+        $steps['operational_dress_rehearsal_runtime_status'] = $flowActionRuntime->operationalDressRehearsalRuntimeStatus($companyId);
         $steps['semantic_operating_graph_runtime_status'] = $flowActionRuntime->semanticOperatingGraphRuntimeStatus($companyId);
         $steps['agent_toolchain_runtime_status'] = $flowActionRuntime->agentToolchainRuntimeStatus($companyId);
         $steps['cross_company_handoff_runtime_status'] = $flowActionRuntime->crossCompanyHandoffRuntimeStatus($companyId);
         $steps['customer_account_revenue_runtime_status'] = $flowActionRuntime->customerAccountRevenueRuntimeStatus($companyId);
         $steps['unit_economics_capacity_runtime_status'] = $flowActionRuntime->unitEconomicsCapacityRuntimeStatus($companyId);
+        $steps['business_operating_packet_runtime_status'] = $flowActionRuntime->businessOperatingPacketRuntimeStatus($companyId);
         $steps['delivery_risk_runtime_status'] = $flowActionRuntime->deliveryRiskRuntimeStatus($companyId);
         $steps['operational_outcome_runtime_status'] = $flowActionRuntime->operationalOutcomeRuntimeStatus($companyId);
         $steps['holding_outcome_scorecard_status'] = $flowActionRuntime->holdingOutcomeScorecardStatus($companyId);
         $steps['portfolio_decision_packet_status'] = $flowActionRuntime->portfolioDecisionPacketStatus($companyId);
+        $steps['company_board_operating_review_status'] = $flowActionRuntime->companyBoardOperatingReviewStatus($companyId);
         $steps['operating_packet_status'] = $operatingCycle->operatingPacketStatus($companyId);
         $steps['readiness'] = $readiness->report();
+
+        $steps = array_map(fn (array $step): array => $this->compactConsolidationStep($step), $steps);
 
         $payload = [
             'ok' => collect($steps)->every(static fn (array $step): bool => (bool) ($step['ok'] ?? false))
@@ -250,20 +280,31 @@ class AtlasAiAutonomousHoldingCommand extends Command
                 'flow_action_runtime_coverage_rate' => (float) data_get($steps, 'flow_action_runtime_status.summary.coverage_rate', 0.0),
                 'vertical_solution_runtime_coverage_rate' => (float) data_get($steps, 'vertical_solution_runtime_status.summary.coverage_rate', 0.0),
                 'domain_solution_playbook_runtime_coverage_rate' => (float) data_get($steps, 'domain_solution_playbook_runtime_status.summary.coverage_rate', 0.0),
+                'domain_operating_depth_runtime_coverage_rate' => (float) data_get($steps, 'domain_operating_depth_runtime_status.summary.coverage_rate', 0.0),
+                'domain_agent_workforce_runtime_coverage_rate' => (float) data_get($steps, 'domain_agent_workforce_runtime_status.summary.coverage_rate', 0.0),
                 'operational_dossier_runtime_coverage_rate' => (float) data_get($steps, 'operational_dossier_runtime_status.summary.coverage_rate', 0.0),
+                'autonomy_promotion_runtime_coverage_rate' => (float) data_get($steps, 'autonomy_promotion_runtime_status.summary.coverage_rate', 0.0),
                 'domain_business_execution_runtime_coverage_rate' => (float) data_get($steps, 'domain_business_execution_runtime_status.summary.coverage_rate', 0.0),
                 'company_operating_spine_runtime_coverage_rate' => (float) data_get($steps, 'company_operating_spine_runtime_status.summary.coverage_rate', 0.0),
                 'commercial_operations_runtime_coverage_rate' => (float) data_get($steps, 'commercial_operations_runtime_status.summary.coverage_rate', 0.0),
                 'domain_provider_workbench_runtime_coverage_rate' => (float) data_get($steps, 'domain_provider_workbench_runtime_status.summary.coverage_rate', 0.0),
+                'external_research_adoption_runtime_coverage_rate' => (float) data_get($steps, 'external_research_adoption_runtime_status.summary.coverage_rate', 0.0),
+                'flow_benchmark_replay_runtime_coverage_rate' => (float) data_get($steps, 'flow_benchmark_replay_runtime_status.summary.coverage_rate', 0.0),
+                'connector_certification_preflight_runtime_coverage_rate' => (float) data_get($steps, 'connector_certification_preflight_runtime_status.summary.coverage_rate', 0.0),
+                'command_center_control_tower_runtime_coverage_rate' => (float) data_get($steps, 'command_center_control_tower_runtime_status.summary.coverage_rate', 0.0),
+                'operational_dress_rehearsal_runtime_coverage_rate' => (float) data_get($steps, 'operational_dress_rehearsal_runtime_status.summary.coverage_rate', 0.0),
                 'semantic_operating_graph_runtime_coverage_rate' => (float) data_get($steps, 'semantic_operating_graph_runtime_status.summary.coverage_rate', 0.0),
                 'agent_toolchain_runtime_coverage_rate' => (float) data_get($steps, 'agent_toolchain_runtime_status.summary.coverage_rate', 0.0),
                 'cross_company_handoff_runtime_coverage_rate' => (float) data_get($steps, 'cross_company_handoff_runtime_status.summary.coverage_rate', 0.0),
                 'customer_account_revenue_runtime_coverage_rate' => (float) data_get($steps, 'customer_account_revenue_runtime_status.summary.coverage_rate', 0.0),
                 'unit_economics_capacity_runtime_coverage_rate' => (float) data_get($steps, 'unit_economics_capacity_runtime_status.summary.coverage_rate', 0.0),
+                'business_operating_packet_runtime_coverage_rate' => (float) data_get($steps, 'business_operating_packet_runtime_status.summary.coverage_rate', 0.0),
                 'delivery_risk_runtime_coverage_rate' => (float) data_get($steps, 'delivery_risk_runtime_status.summary.coverage_rate', 0.0),
                 'operational_outcome_runtime_coverage_rate' => (float) data_get($steps, 'operational_outcome_runtime_status.summary.coverage_rate', 0.0),
                 'holding_outcome_scorecard_average_score' => (float) data_get($steps, 'holding_outcome_scorecard_status.summary.average_score', 0.0),
                 'portfolio_decision_packet_ready_count' => (int) data_get($steps, 'portfolio_decision_packet_status.summary.ready_decision_packet_count', 0),
+                'company_board_operating_review_ready_count' => (int) data_get($steps, 'company_board_operating_review_status.summary.ready_company_count', 0),
+                'external_worker_preflight_ready_count' => (int) data_get($steps, 'external_worker_preflight_status.summary.worker_preflight_ready_count', 0),
                 'operating_packet_count' => (int) data_get($steps, 'operating_packet_status.summary.operating_packet_count', 0),
                 'readiness_score' => (float) data_get($steps, 'readiness.current_score', 0.0),
                 'target_score' => (float) data_get($steps, 'readiness.target_score', 0.0),
@@ -304,6 +345,65 @@ class AtlasAiAutonomousHoldingCommand extends Command
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * @param array<string,mixed> $step
+     * @return array<string,mixed>
+     */
+    private function compactConsolidationStep(array $step): array
+    {
+        $compact = [
+            'ok' => (bool) ($step['ok'] ?? false),
+            'schema' => (string) ($step['schema'] ?? ''),
+            'status' => (string) ($step['status'] ?? ''),
+            'generated_at' => (string) ($step['generated_at'] ?? now()->toJSON()),
+            'summary' => (array) ($step['summary'] ?? []),
+            'policy' => (array) ($step['policy'] ?? []),
+        ];
+
+        foreach ([
+            'source_hashes',
+            'source_dossier_hash',
+            'source_handoff_pack_hash',
+            'current_score',
+            'target_score',
+            'real_external_execution_readiness_dossier_hash',
+            'real_external_execution_handoff_pack_hash',
+            'supervised_external_execution_packet_status_hash',
+            'external_worker_preflight_status_hash',
+            'runtime_run_hash',
+            'runtime_status_hash',
+            'vertical_solution_runtime_status_hash',
+            'domain_solution_playbook_runtime_status_hash',
+            'domain_operating_depth_runtime_status_hash',
+            'domain_agent_workforce_runtime_status_hash',
+            'operational_dossier_runtime_status_hash',
+            'autonomy_promotion_runtime_status_hash',
+            'domain_business_execution_runtime_status_hash',
+            'company_operating_spine_runtime_status_hash',
+            'commercial_operations_runtime_status_hash',
+            'domain_provider_workbench_runtime_status_hash',
+            'external_research_adoption_runtime_status_hash',
+            'semantic_operating_graph_runtime_status_hash',
+            'agent_toolchain_runtime_status_hash',
+            'cross_company_handoff_runtime_status_hash',
+            'customer_account_revenue_runtime_status_hash',
+            'unit_economics_capacity_runtime_status_hash',
+            'business_operating_packet_runtime_status_hash',
+            'delivery_risk_runtime_status_hash',
+            'operational_outcome_runtime_status_hash',
+            'holding_outcome_scorecard_status_hash',
+            'portfolio_decision_packet_status_hash',
+            'company_board_operating_review_status_hash',
+            'operating_packet_status_hash',
+        ] as $field) {
+            if (array_key_exists($field, $step)) {
+                $compact[$field] = $step[$field];
+            }
+        }
+
+        return $compact;
     }
 
     private function renderEnterpriseFlowActionRuntimeRun(EnterpriseFlowFixtureActionRuntimeService $runtime): int
@@ -371,6 +471,38 @@ class AtlasAiAutonomousHoldingCommand extends Command
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
     }
 
+    private function renderEnterpriseDomainOperatingDepthRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
+    {
+        $company = $this->option('company');
+        $payload = $runtime->domainOperatingDepthRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('completed_domain_depth_flows', (string) $payload['summary']['completed_domain_operating_depth_flow_count']);
+            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseDomainAgentWorkforceRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
+    {
+        $company = $this->option('company');
+        $payload = $runtime->domainAgentWorkforceRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('completed_agent_workforce_flows', (string) $payload['summary']['completed_domain_agent_workforce_flow_count']);
+            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
     private function renderEnterpriseOperationalDossierRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
     {
         $company = $this->option('company');
@@ -381,6 +513,23 @@ class AtlasAiAutonomousHoldingCommand extends Command
             $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
             $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
             $this->components->twoColumnDetail('completed_dossier_flows', (string) $payload['summary']['completed_operational_dossier_flow_count']);
+            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseAutonomyPromotionRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
+    {
+        $company = $this->option('company');
+        $payload = $runtime->autonomyPromotionRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('completed_autonomy_flows', (string) $payload['summary']['completed_autonomy_promotion_flow_count']);
+            $this->components->twoColumnDetail('limited_autonomy_blocked', (string) $payload['summary']['limited_external_autonomy_blocked_count']);
             $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
         });
 
@@ -446,6 +595,86 @@ class AtlasAiAutonomousHoldingCommand extends Command
             $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
             $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
             $this->components->twoColumnDetail('completed_provider_workbench_flows', (string) $payload['summary']['completed_provider_workbench_flow_count']);
+            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseExternalResearchAdoptionRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
+    {
+        $company = $this->option('company');
+        $payload = $runtime->externalResearchAdoptionRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('completed_research_adoption_flows', (string) $payload['summary']['completed_external_research_adoption_flow_count']);
+            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseFlowBenchmarkReplayRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
+    {
+        $company = $this->option('company');
+        $payload = $runtime->flowBenchmarkReplayRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('completed_benchmark_flows', (string) $payload['summary']['completed_benchmark_replay_flow_count']);
+            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseConnectorCertificationPreflightRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
+    {
+        $company = $this->option('company');
+        $payload = $runtime->connectorCertificationPreflightRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('completed_connector_flows', (string) $payload['summary']['completed_connector_certification_preflight_flow_count']);
+            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCommandCenterControlTowerRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
+    {
+        $company = $this->option('company');
+        $payload = $runtime->commandCenterControlTowerRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('completed_command_center_flows', (string) $payload['summary']['completed_command_center_control_tower_flow_count']);
+            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseOperationalDressRehearsalRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
+    {
+        $company = $this->option('company');
+        $payload = $runtime->operationalDressRehearsalRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('completed_rehearsal_flows', (string) $payload['summary']['completed_operational_dress_rehearsal_flow_count']);
             $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
         });
 
@@ -532,6 +761,23 @@ class AtlasAiAutonomousHoldingCommand extends Command
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
     }
 
+    private function renderEnterpriseBusinessOperatingPacketRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
+    {
+        $company = $this->option('company');
+        $payload = $runtime->businessOperatingPacketRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('completed_business_packets', (string) $payload['summary']['completed_business_operating_packet_flow_count']);
+            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
+            $this->components->twoColumnDetail('external_commitments_blocked', (string) $payload['summary']['external_commitments_blocked_count']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
     private function renderEnterpriseDeliveryRiskRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
     {
         $company = $this->option('company');
@@ -593,6 +839,23 @@ class AtlasAiAutonomousHoldingCommand extends Command
             $this->components->twoColumnDetail('ready_packets', (string) $payload['summary']['ready_decision_packet_count']);
             $this->components->twoColumnDetail('scale_internal', (string) $payload['summary']['scale_internal_supervised_capacity_count']);
             $this->components->twoColumnDetail('real_capital_blocked', (string) $payload['summary']['blocked_real_capital_action_count']);
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyBoardOperatingReviewStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
+    {
+        $company = $this->option('company');
+        $payload = $runtime->companyBoardOperatingReviewStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('ready_companies', (string) $payload['summary']['ready_company_count']);
+            $this->components->twoColumnDetail('business_packets', (string) $payload['summary']['business_operating_packet_flow_count']);
+            $this->components->twoColumnDetail('command_center_flows', (string) $payload['summary']['command_center_flow_count']);
+            $this->components->twoColumnDetail('external_commitments_allowed', (string) $payload['summary']['external_commitment_allowed_count']);
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
@@ -1018,6 +1281,38 @@ class AtlasAiAutonomousHoldingCommand extends Command
             $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
             $this->components->twoColumnDetail('handoff_packs', (string) $payload['summary']['handoff_pack_ready_count']);
             $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseSupervisedExternalExecutionPacketStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->supervisedExternalExecutionPacketStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
+            $this->components->twoColumnDetail('ready_packets', (string) $payload['summary']['packet_ready_count']);
+            $this->components->twoColumnDetail('external_worker_enabled', $payload['policy']['external_worker_enabled'] ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseExternalWorkerPreflightStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->externalWorkerPreflightStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
+            $this->components->twoColumnDetail('worker_preflights', (string) $payload['summary']['worker_preflight_ready_count']);
+            $this->components->twoColumnDetail('dispatch_enabled', $payload['policy']['external_worker_dispatch_enabled'] ? 'true' : 'false');
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;

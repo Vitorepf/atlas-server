@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-detection-engineering
 type: engineering_knowledge
 title: Atlas AI Cyber Detection Engineering
-status: scaffold
+status: building
 category: knowledge-base
 priority: 83
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Detection-as-code para Cyber extension; pareamento Red-Blue, Sigma rules, false positive budget, lifecycle draft->staged->live, integracao com Purple validation.
 tags:
   - atlas-ai

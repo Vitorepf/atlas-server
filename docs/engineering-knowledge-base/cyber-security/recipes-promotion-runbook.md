@@ -2,9 +2,10 @@
 id: atlas-ai-cyber-recipes-promotion-runbook
 type: engineering_knowledge
 title: Atlas AI Cyber Recipes Promotion Runbook
-status: scaffold
+status: building
 category: knowledge-base
 priority: 80
+implementation_state: cyber_security_scaffold_not_runtime_promoted
 summary: Operational checklist for promoting an individual cyber recipe into the canonical Super Tool Runtime.
 tags:
   - atlas-ai

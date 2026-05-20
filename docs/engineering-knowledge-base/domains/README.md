@@ -33,6 +33,7 @@ related_paths:
   - docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
   - docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md
   - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-domain-specs-index

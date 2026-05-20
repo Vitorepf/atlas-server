@@ -16,6 +16,7 @@ use App\Services\Ai\Cli\AtlasFileAttachmentService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Mission\AiGatewayMissionBridge;
+use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\ValueObjects\AiThreadResolution;
 use App\Services\AuditLogService;
@@ -56,6 +57,7 @@ class AiGatewayService
         private readonly YouTubeKnowledgeIngestionService $youtubeKnowledge,
         private readonly AiStreamRecorder $stream,
         private readonly AiGatewayMissionBridge $missionBridge,
+        private readonly ?AtlasPersistentContextRuntimeService $persistentContext = null,
     ) {}
 
     public function enqueueInteraction(string $input, array $options = []): AiTrace
@@ -130,6 +132,7 @@ class AiGatewayService
         if ($fairMode) {
             $options['payload']['provider_handoff_disabled_by_fair_mode'] = true;
         }
+        $options = $this->optionsWithPersistentContext($input, $options, $provider);
         $options = $this->optionsWithYouTubeKnowledge($input, $options);
         $options = $this->optionsWithPdfQuestionVisuals($input, $options);
         $prompt = $this->prompts->build($input, $options);
@@ -1410,6 +1413,47 @@ PROMPT;
         $payload['conversation_context'] = $conversationContext;
         $options['thread_id'] = $threadId;
         $options['session_id'] = $sessionId;
+        $options['payload'] = $payload;
+
+        return $options;
+    }
+
+    private function optionsWithPersistentContext(string $input, array $options, string $provider): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        if (($payload['persistent_context']['schema_version'] ?? null) === AtlasPersistentContextRuntimeService::SCHEMA_VERSION) {
+            return $options;
+        }
+
+        try {
+            $payload['persistent_context'] = ($this->persistentContext ?? app(AtlasPersistentContextRuntimeService::class))->build([
+                'prompt' => $input,
+                'workspace' => data_get($payload, 'workspace', data_get($options, 'workspace', base_path())),
+                'surface_id' => data_get($payload, 'surface_id', data_get($payload, 'app_surface')),
+                'domain' => data_get($payload, 'routing_domain', data_get($payload, 'atlas_mode', data_get($payload, 'programming_profile', 'atlas'))),
+                'flow_id' => data_get($payload, 'hyperflow_runtime.flow_id', data_get($payload, 'programming_dispatch.execution_path', data_get($payload, 'atlas_workflow_mode'))),
+                'provider' => $provider,
+                'payload' => $payload,
+                'evidence_refs' => (array) data_get($payload, 'evidence_refs', []),
+                'scope_type' => is_string(data_get($payload, 'thread_id')) ? 'thread' : 'workspace',
+                'scope_id' => data_get($payload, 'thread_id'),
+                'source_type' => $options['source_type'] ?? 'gateway',
+            ]);
+        } catch (\Throwable $exception) {
+            $payload['persistent_context'] = [
+                'schema_version' => AtlasPersistentContextRuntimeService::SCHEMA_VERSION,
+                'status' => AtlasPersistentContextRuntimeService::STATUS_DEGRADED,
+                'error' => 'persistent_context_gateway_threw',
+                'exception_class' => $exception::class,
+                'claim_policy' => [
+                    'benchmark_not_run' => true,
+                    'rivals_compared' => false,
+                    'provider_calls_made' => false,
+                    'provider_is_context_consumer_only' => true,
+                ],
+            ];
+        }
+
         $options['payload'] = $payload;
 
         return $options;

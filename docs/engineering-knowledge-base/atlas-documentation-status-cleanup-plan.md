@@ -43,6 +43,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
   - docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md
   - docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-documentation-status-cleanup-plan
 graph_title: Atlas Documentation Status Cleanup Plan
@@ -112,27 +113,21 @@ next_actions:
   - Auditar grupo "Unknown" antes de qualquer outro flip.
 line_limit: 520
 ---
-
 # Atlas Documentation Status Cleanup Plan
-
 ## Resumo
-
 Distribuicao real de `^status:` em 2026-05-18 (~200 docs em
 `docs/engineering-knowledge-base/`): 170 `active`, 10 `future`, 4 `draft`,
 4 `deprecated`, 4 `building`, 3 `scaffold`, 2 `split_required`, 2
 `archived`, 1 `source_material`, 1 `proposed`, 1 `canon`.
-
 Audits 2026-05-18 (`atlas-architecture-critical-judgment-report.md` +
 `atlas-dev-forge-relationship-critical-audit.md`) identificam
 **divergencia sistematica** status-vs-codigo:
-
 - **Forge OS trio** em `future` mas tem 32 svcs + 46 ForgeRivals + 30-40
   endpoints HTTP + 81 testes em producao.
 - **Programming Governance trio** em `building`/`future` mas tem 8
   migrations vivas + CLI + Programming domain enterprise.
 - **Atlas Dev efficient pair** em `draft` mas tem 138 files / 20.7k LOC +
   feature flag em uso.
-
 Ao mesmo tempo, **visao futura legitima** (Sovereign/Epistemic/Cartographic
 OS, Next Patamar, Thesis Multiplier, Resolver Corpus) PRECISA permanecer
 em `future` — `future` significa "tese estrategica nao construida", nao
