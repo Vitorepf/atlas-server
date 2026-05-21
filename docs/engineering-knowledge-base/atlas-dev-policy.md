@@ -45,6 +45,11 @@ graph_kind: policy
 graph_parent: atlas-dev-index
 graph_status: active
 graph_source: repo
+human_name: Atlas Dev Policy
+canonical_name: Atlas Dev Policy
+technical_name: atlas-dev-policy
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-dev-policy.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-dev-policy.md

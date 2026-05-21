@@ -39,6 +39,11 @@ graph_kind: module
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Real Provider Smoke Closure Execution Pack v1
+canonical_name: Real Provider Smoke Closure Execution Pack v1
+technical_name: real-provider-smoke-closure-execution-pack-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/real-provider-smoke-closure-execution-pack-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/real-provider-smoke-closure-execution-pack-v1.md
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService.php
@@ -97,7 +102,6 @@ next_actions:
   - Integrar quartet de cada service na ReadinessService e CLI quando os outros agentes terminarem suas slices centrais.
   - Adicionar bullet canonico em agent-control-plane-contract.md depois que ele estiver liberado.
 ---
-
 ## Purpose
 
 The Real Provider Smoke Closure Execution Pack v1 is the read-only closure surface for the completion audit blocker `end_to_end_real_provider_smoke_green`. It composes every existing read-only artifact relevant to the blocker (runbook, offline harness, draft, evidence dossier, completion evidence status, blocker explainer, final evidence bundle and certifier) into a single payload, and adds two new closure services — a pre-submission verifier and an operator checklist — that the operator can run before attempting to persist a real provider smoke.

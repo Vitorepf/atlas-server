@@ -38,17 +38,16 @@ doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-operating-system-contracts
 graph_title: Atlas Forge Operating System Contracts
 graph_world: atlas
-
 graph_layer: system
-
 graph_kind: module
-
 graph_parent: atlas-forge-operating-system
-
 graph_status: active
-
 graph_source: repo
-
+human_name: Atlas Forge Operating System Contracts
+canonical_name: Atlas Forge Operating System Contracts
+technical_name: atlas-forge-operating-system-contracts
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-forge-operating-system-contracts.md
 owner: programming
 
 repo_paths:

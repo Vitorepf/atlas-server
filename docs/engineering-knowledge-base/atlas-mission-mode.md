@@ -16,9 +16,9 @@ capabilities:
   - goal_first_execution
   - mission_definition
   - evidence_driven_completion
-  - quality_gates
+  - mission_quality_gates
   - blocker_reporting
-  - completion_audit
+  - mission_completion_audit
 decisions:
   - Todo pedido nao trivial deve virar missao interna, mesmo quando o usuario nao usar /goal.
   - Missao so termina com evidencia verificavel, certification ou blocker real.
@@ -43,6 +43,11 @@ graph_kind: policy
 graph_parent: atlas-ai
 graph_status: active
 graph_source: repo
+human_name: Atlas Mission Mode
+canonical_name: Atlas Mission Mode
+technical_name: atlas-mission-mode
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-mission-mode.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-mission-mode.md
@@ -357,4 +362,3 @@ Mission Mode esta pronto quando:
 - Company Runtime e Forge respeitam a missao;
 - docs-health passa;
 - testes cobrem trivial, task, mission, obra e blocker.
-

@@ -48,6 +48,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: building
 
 graph_source: repo
+human_name: Atlas AI Cyber Refusal Matrix
+canonical_name: Atlas AI Cyber Refusal Matrix
+technical_name: atlas-ai-cyber-refusal-matrix
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/cyber-security/refusal-matrix.md
 
 repo_paths:
   - docs/engineering-knowledge-base/cyber-security/refusal-matrix.md

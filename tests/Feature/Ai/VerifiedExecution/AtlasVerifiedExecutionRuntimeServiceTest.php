@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\VerifiedExecution;
 use App\Services\Ai\AutonomousWorkExecution\AtlasAutonomousWorkExecutionService;
 use App\Services\Ai\ControlPlane\AtlasAiControlPlaneService;
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
+use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\Concerns\CreatesAverTables;
 use Tests\Concerns\CreatesAweosTables;
@@ -45,6 +46,40 @@ class AtlasVerifiedExecutionRuntimeServiceTest extends TestCase
         $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_READY, $payload['status']);
         $this->assertTrue(data_get($payload, 'execution_contract.requires_certified_execution'));
         $this->assertDatabaseCount('atlas_aver_executions', 1);
+    }
+
+    public function test_plan_from_verified_evolution_contract_consumes_aveor_execution_contract(): void
+    {
+        $contract = app(AtlasVerifiedEvolutionRuntimeService::class)->executionContract(
+            'executar patch de AVEOR via AVER',
+            'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php'
+        );
+
+        $payload = app(AtlasVerifiedExecutionRuntimeService::class)->planFromVerifiedEvolutionContract($contract);
+
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::EXECUTION_SCHEMA, $payload['schema_version']);
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_READY, $payload['status']);
+        $this->assertSame(AtlasVerifiedEvolutionRuntimeService::EXECUTION_CONTRACT_SCHEMA_VERSION, data_get($payload, 'execution_contract.source_verified_evolution_schema'));
+        $this->assertSame('ready', data_get($payload, 'execution_contract.source_verified_evolution_status'));
+        $this->assertNotEmpty(data_get($payload, 'execution_contract.source_verified_evolution_contract_hash'));
+        $this->assertContains('app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php', data_get($payload, 'execution_contract.allowed_write_paths'));
+        $this->assertContains('app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php', data_get($payload, 'patch_plan.expected_files'));
+        $this->assertContains('git diff --check', data_get($payload, 'verification_plan.expected_commands'));
+        $this->assertSame([], data_get($payload, 'safety_gate.blockers'));
+        $this->assertDatabaseCount('atlas_aver_executions', 1);
+    }
+
+    public function test_invalid_verified_evolution_contract_blocks_aver_plan(): void
+    {
+        $payload = app(AtlasVerifiedExecutionRuntimeService::class)->planFromVerifiedEvolutionContract([
+            'schema_version' => 'invalid.schema',
+            'status' => 'blocked',
+        ]);
+
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_BLOCKED, $payload['status']);
+        $this->assertContains('invalid_verified_evolution_contract_schema', data_get($payload, 'safety_gate.blockers'));
+        $this->assertContains('verified_evolution_contract_not_ready', data_get($payload, 'safety_gate.blockers'));
+        $this->assertContains('missing_aver_plan_input', data_get($payload, 'safety_gate.blockers'));
     }
 
     public function test_run_command_records_safe_command_without_raw_command_text(): void
@@ -170,5 +205,25 @@ class AtlasVerifiedExecutionRuntimeServiceTest extends TestCase
 
         $this->assertSame(AtlasVerifiedExecutionRuntimeService::CONTROL_PLANE_SCHEMA, $control['schema_version']);
         $this->assertGreaterThanOrEqual(1, data_get($control, 'summary.executions_total'));
+    }
+
+    public function test_cli_plan_from_verified_evolution_emits_json(): void
+    {
+        $contract = app(AtlasVerifiedEvolutionRuntimeService::class)->executionContract(
+            'cli AVER from AVEOR',
+            'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php'
+        );
+
+        $exit = Artisan::call('atlas:aver', [
+            'action' => 'plan-from-verified-evolution',
+            '--contract-json' => json_encode($contract, JSON_THROW_ON_ERROR),
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::EXECUTION_SCHEMA, $payload['schema_version']);
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::STATUS_READY, $payload['status']);
+        $this->assertSame(AtlasVerifiedEvolutionRuntimeService::EXECUTION_CONTRACT_SCHEMA_VERSION, data_get($payload, 'execution_contract.source_verified_evolution_schema'));
     }
 }

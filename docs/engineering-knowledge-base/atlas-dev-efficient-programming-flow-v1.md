@@ -101,6 +101,11 @@ graph_kind: contract
 graph_parent: atlas-dev-flow-map-and-product-options-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Dev Efficient Programming Flow v1
+canonical_name: Atlas Dev Efficient Programming Flow v1
+technical_name: atlas-dev-efficient-programming-flow-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
 owner: programming
 allowed_changes:
   - Adicionar services, testes e comandos quando o fluxo alvo virar implementacao real.

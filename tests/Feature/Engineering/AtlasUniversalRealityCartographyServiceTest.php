@@ -35,6 +35,12 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
         $this->assertSame('atlas.universal_reality_cartography.human_route_map.v1', $payload['human_route_map']['schema_version']);
         $this->assertSame('ready', $payload['human_route_map']['status']);
         $this->assertSame(0, $payload['human_route_map']['invalid_route_count']);
+        $this->assertSame(AtlasUniversalRealityCartographyService::HUMAN_CLARITY_SCHEMA_VERSION, $payload['human_clarity']['schema_version']);
+        $this->assertSame('ready', $payload['human_clarity']['status']);
+        $this->assertGreaterThanOrEqual(9.8, $payload['human_clarity']['score']);
+        $this->assertSame('9.8_human_visual_clarity', $payload['human_clarity']['grade']);
+        $this->assertTrue($payload['human_clarity']['invariants']['human_understands_macro_flow_before_modal']);
+        $this->assertTrue($payload['human_clarity']['invariants']['map_text_is_short_label_only']);
 
         $this->assertSame('Universe', $nodes->get('universe')['label']);
         $this->assertSame('organization', $nodes->get('org.atlas')['semantic_level']);
@@ -55,6 +61,9 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
         $this->assertSame('implementation', $scene['mode']);
         $this->assertSame('ready', $scene['status']);
         $this->assertSame('labels_only_on_map_dense_text_in_human_modal', $scene['cognitive_budget']['text_policy']);
+        $this->assertSame('semantic_lanes_left_to_right', $scene['viewport']['layout']);
+        $this->assertSame('ready', $scene['breadcrumb']['status']);
+        $this->assertSame('ready', $scene['legend']['status']);
         $this->assertLessThanOrEqual($scene['cognitive_budget']['max_visible_nodes'], $scene['cognitive_budget']['visible_node_count']);
         $this->assertLessThanOrEqual($scene['cognitive_budget']['max_visible_edges'], $scene['cognitive_budget']['visible_edge_count']);
 
@@ -62,8 +71,35 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
             $this->assertContains($node['id'], $nodeIds);
             $this->assertArrayHasKey('visual_state', $node);
             $this->assertArrayHasKey('semantic_zoom', $node);
+            $this->assertArrayHasKey('layout', $node);
+            $this->assertArrayHasKey('microcopy', $node);
+            $this->assertLessThanOrEqual(28, mb_strlen((string) $node['microcopy']['label_short']));
+            $this->assertLessThanOrEqual(96, mb_strlen((string) $node['microcopy']['tooltip']));
             $this->assertNotSame('', $node['source_path']);
         }
+    }
+
+    public function test_human_clarity_contract_reaches_9_8_with_visual_first_invariants(): void
+    {
+        $payload = app(AtlasUniversalRealityCartographyService::class)->map('flow');
+        $clarity = $payload['human_clarity'];
+        $dimensions = collect($clarity['dimensions'])->keyBy('id');
+
+        $this->assertSame(AtlasUniversalRealityCartographyService::HUMAN_CLARITY_SCHEMA_VERSION, $clarity['schema_version']);
+        $this->assertSame('ready', $clarity['status']);
+        $this->assertGreaterThanOrEqual(9.8, $clarity['score']);
+        $this->assertSame(9.8, $clarity['target_score']);
+        $this->assertSame(7, $dimensions->count());
+        $this->assertGreaterThanOrEqual(9.8, $dimensions->get('visual_hierarchy')['score']);
+        $this->assertGreaterThanOrEqual(9.8, $dimensions->get('cognitive_load')['score']);
+        $this->assertGreaterThanOrEqual(9.8, $dimensions->get('source_truth')['score']);
+        $this->assertGreaterThanOrEqual(9.8, $dimensions->get('semantic_zoom')['score']);
+        $this->assertGreaterThanOrEqual(9.8, $dimensions->get('human_wayfinding')['score']);
+        $this->assertGreaterThanOrEqual(9.8, $dimensions->get('nontechnical_microcopy')['score']);
+        $this->assertGreaterThanOrEqual(9.8, $dimensions->get('task_simulation')['score']);
+        $this->assertTrue($clarity['invariants']['visual_truth_never_overrides_canonical_docs']);
+        $this->assertTrue($clarity['invariants']['all_routes_have_sources']);
+        $this->assertContains('start_at_universe', $clarity['recommended_operator_use']);
     }
 
     public function test_semantic_zoom_and_human_routes_are_validated_against_node_graph(): void
@@ -122,7 +158,7 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
         $commandPath = 'app/Console/Commands/AtlasUniversalRealityCartographyCommand.php';
         $this->assertStringEndsWith('AtlasUniversalRealityCartographyCommand.php', $commandPath);
 
-        foreach (['map', 'nodes', 'visual-scene', 'semantic-zoom', 'human-routes', 'task-simulator', 'navigation-slice'] as $action) {
+        foreach (['map', 'nodes', 'visual-scene', 'semantic-zoom', 'human-routes', 'task-simulator', 'human-clarity', 'navigation-slice'] as $action) {
             $exit = Artisan::call('atlas:universal-reality-cartography', [
                 'action' => $action,
                 '--mode' => 'universe',

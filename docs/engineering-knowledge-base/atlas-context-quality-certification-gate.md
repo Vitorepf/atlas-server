@@ -29,6 +29,11 @@ graph_layer: module
 graph_kind: module
 graph_status: active
 graph_source: repo
+human_name: Atlas Context Quality Certification Gate
+canonical_name: Atlas Context Quality Certification Gate
+technical_name: AtlasContextQualityCertificationService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-context-quality-certification-gate.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-context-quality-certification-gate.md
@@ -77,7 +82,6 @@ next_actions:
   - Persistir historico longitudinal depois de ACOP.
   - Conectar score com AEMOR real quando houver outcomes suficientes.
 ---
-
 # Atlas Context Quality Certification Gate
 
 ## Resumo

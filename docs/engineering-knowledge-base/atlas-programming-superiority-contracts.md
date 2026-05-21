@@ -41,16 +41,16 @@ doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-programming-superiority-contracts
 graph_title: Atlas Programming Superiority Contracts
 graph_world: atlas
-
 graph_layer: system
-
 graph_kind: contract
-
 graph_parent: atlas-programming-superiority-architecture
-
 graph_status: active
-
 graph_source: repo
+human_name: Atlas Programming Superiority Contracts
+canonical_name: Atlas Programming Superiority Contracts
+technical_name: atlas-programming-superiority-contracts
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-programming-superiority-contracts.md
 
 owner: programming
 
@@ -105,7 +105,6 @@ next_actions:
   - Catalogar tabelas atuais vs faltantes em sync com a roadmap doc.
 
 ---
-
 # Atlas Programming Superiority Contracts
 
 ## Resumo

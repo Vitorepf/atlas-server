@@ -28,7 +28,7 @@ capabilities:
   - task_graph
   - execution_schedule
   - independent_verification
-  - counterfactual_replay
+  - counterfactual_replay_consumption
   - org_pattern_learning
 decisions:
   - O nome canonico/produto e Atlas Agentic Workcell Runtime.
@@ -61,6 +61,11 @@ graph_kind: system
 graph_parent: atlas-ai
 graph_status: active
 graph_source: repo
+human_name: Atlas Agentic Workcell Runtime
+canonical_name: Atlas Agentic Workcell Runtime
+technical_name: AtlasAgenticWorkcellRuntimeService
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-agentic-workcell-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-agentic-workcell-runtime.md
@@ -100,7 +105,6 @@ requires_evidence: true
 risk_level: high
 line_limit: 520
 ---
-
 # Atlas Agentic Workcell Runtime
 
 ## Resumo

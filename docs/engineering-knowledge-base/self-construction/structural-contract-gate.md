@@ -12,7 +12,7 @@ tags:
   - governance
   - structural-contract
 capabilities:
-  - self_construction_os
+  - self_construction_structural_contract_gate
   - structural_contract_gate
   - ai_implementation_packet
   - work_splitter
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Structural Contract Gate
+canonical_name: Atlas Self-Construction Structural Contract Gate
+technical_name: atlas-ai-self-construction-structural-contract-gate
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/structural-contract-gate.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/structural-contract-gate.md

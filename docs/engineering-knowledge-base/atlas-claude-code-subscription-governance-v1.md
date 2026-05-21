@@ -15,7 +15,7 @@ tags:
   - provider-governance
 capabilities:
   - dynamic_provider_bootstrap_defaults
-  - claude_code_interactive_observed
+  - claude_code_subscription_governance
   - gemini_interactive_research_fallback
   - subscription_only_provider_mode
   - no_api_no_extra_credits
@@ -64,6 +64,11 @@ graph_kind: runbook
 graph_parent: atlas-ai-provider-evolution-intelligence
 graph_status: active
 graph_source: repo
+human_name: Atlas Claude Code Subscription Governance v1
+canonical_name: Atlas Claude Code Subscription Governance v1
+technical_name: atlas-claude-code-subscription-governance-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md
 owner: provider-governance
 repo_paths:
   - docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md

@@ -14,9 +14,9 @@ tags:
   - context-builder
 capabilities:
   - atlas_ai_evolution_roadmap
-  - provider_performance_contract
-  - hybrid_context_builder
-  - self_improvement_evolution
+  - provider_performance_roadmap
+  - hybrid_context_roadmap
+  - self_improvement_roadmap
 decisions:
   - This document is an index, not a parallel architecture.
   - Evolution ideas must extend existing Kernel, Context Builder, Evidence Ledger, Provider Strategy, Policy/Profile and Curator contracts.
@@ -52,6 +52,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Evolution Roadmap
+canonical_name: Atlas AI Evolution Roadmap
+technical_name: atlas-ai-evolution-roadmap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-evolution-roadmap.md
 
 owner: roadmap
 

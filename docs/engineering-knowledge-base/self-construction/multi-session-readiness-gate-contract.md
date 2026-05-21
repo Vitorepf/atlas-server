@@ -12,7 +12,7 @@ tags:
   - multi-session
   - readiness-gate
 capabilities:
-  - self_construction_os
+  - self_construction_multi_session_readiness_gate_contract
   - parallel_ai
   - governance_gate
 decisions:
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Multi-Session Readiness Gate Contract
+canonical_name: Atlas Self-Construction Multi-Session Readiness Gate Contract
+technical_name: atlas-ai-self-construction-multi-session-readiness-gate-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/multi-session-readiness-gate-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/multi-session-readiness-gate-contract.md

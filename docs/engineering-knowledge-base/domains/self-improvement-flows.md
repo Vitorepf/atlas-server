@@ -11,8 +11,8 @@ tags:
   - self-improvement
   - domains
 capabilities:
-  - self_improvement_domain
-  - proposal_generation
+  - self_improvement_flows
+  - self_improvement_flow_proposal_generation
 decisions:
   - Self-Improvement flows create findings and proposals; they do not auto-apply critical behavior changes.
 maintenance:
@@ -31,11 +31,16 @@ graph_layer: flow
 
 graph_kind: flow
 
-graph_parent: atlas-ai-pipeline
+graph_parent: atlas-ai-self-improvement-domain
 
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Self-Improvement Flows
+canonical_name: Atlas AI Self-Improvement Flows
+technical_name: atlas-ai-self-improvement-flows
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/domains/self-improvement-flows.md
 
 owner: domains
 

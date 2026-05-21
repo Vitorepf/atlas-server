@@ -53,6 +53,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Programming Specialist Profiles
+canonical_name: Atlas AI Programming Specialist Profiles
+technical_name: atlas-ai-programming-specialist-profiles
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
 
 owner: domains
 

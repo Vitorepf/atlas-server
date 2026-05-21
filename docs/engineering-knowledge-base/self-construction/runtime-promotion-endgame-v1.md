@@ -46,6 +46,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Runtime Promotion Endgame v1
+canonical_name: Atlas Self-Construction Runtime Promotion Endgame v1
+technical_name: atlas-ai-self-construction-runtime-promotion-endgame-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/runtime-promotion-endgame-v1.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/runtime-promotion-endgame-v1.md
@@ -113,7 +118,6 @@ observability_signals:
 next_actions:
   - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
 ---
-
 # Atlas Self-Construction Runtime Promotion Endgame v1
 
 Read-only macro corridor that walks the Atlas Self-Construction OS operator

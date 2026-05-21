@@ -40,6 +40,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: building
 graph_source: repo
+human_name: Atlas Semantic Embedding Foundation
+canonical_name: Atlas Semantic Embedding Foundation
+technical_name: AtlasSemanticEmbeddingFoundationService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-semantic-embedding-foundation.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-semantic-embedding-foundation.md
@@ -70,7 +75,6 @@ next_actions:
   - Conectar candidate_set ASEF ao AHRI como input governado.
   - Criar runtime python_ai_data para embeddings semanticos reais somente com Decision Receipt.
 ---
-
 # Atlas Semantic Embedding Foundation
 
 ## Resumo

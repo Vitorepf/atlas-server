@@ -44,6 +44,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-industrial-benchmark-suite-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Rivals Industrial Execution Suite v1
+canonical_name: Atlas Forge Rivals Industrial Execution Suite v1
+technical_name: atlas-forge-rivals-industrial-execution-suite-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-industrial-execution-suite-v1.md
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsIndustrialExecutionSuiteService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunBatteryService.php
@@ -80,7 +85,6 @@ next_actions:
   - Expandir fixtures executaveis para industrial-100 e industrial-200.
   - Rodar provider real somente com confirmacoes explicitas do operador.
 ---
-
 # Atlas Forge Rivals Industrial Execution Suite v1
 
 Status: canonical local execution readiness.

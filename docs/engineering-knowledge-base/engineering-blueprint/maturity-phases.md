@@ -11,8 +11,8 @@ tags:
   - engineering
   - maturity
 capabilities:
-  - engineering_blueprint
-  - project_blueprint_pipeline
+  - engineering_blueprint_maturity_phases
+  - blueprint_maturity_project_pipeline
 decisions:
   - Engineering Blueprint maturity is measured by executable project-to-memory flow, not by documentation alone.
 maintenance:
@@ -36,6 +36,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Blueprint Maturity Phases
+canonical_name: Atlas Engineering Blueprint Maturity Phases
+technical_name: atlas-engineering-blueprint-maturity-phases
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/engineering-blueprint/maturity-phases.md
 
 owner: engineering-blueprint
 

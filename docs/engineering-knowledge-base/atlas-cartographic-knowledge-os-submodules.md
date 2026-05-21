@@ -7,6 +7,11 @@ category: cartography
 priority: 90
 implementation_state: future_target_not_current_runtime
 summary: Detalhes extraidos dos submodulos da Cartografia visual: graph, semantic zoom, LOD, gear flow, links, inspector, overlays, shell humana, API de navegacao, auditor e replay.
+human_name: Submodulos da Cartografia
+canonical_name: Atlas Cartographic Knowledge OS Submodules
+technical_name: CartographySubmodulesContract
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-cartographic-knowledge-os-submodules.md
 tags:
   - atlas
   - cartography
@@ -14,8 +19,8 @@ tags:
   - semantic-zoom
 capabilities:
   - cartographic_submodules
-  - semantic_zoom
-  - gear_flow_visualization
+  - cartographic_submodule_semantic_zoom
+  - cartographic_submodule_gear_flow_visualization
   - visual_completeness_audit
 decisions:
   - Submodulos detalham a execucao visual, mas nao substituem o contrato pai.
@@ -25,6 +30,7 @@ maintenance:
   - Manter abaixo de 520 linhas e dividir se crescer.
 related_paths:
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
+  - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
@@ -99,7 +105,7 @@ Contrato pai da Cartografia -> submodulos visuais -> implementacao mobile/deskto
 1. Semantic Graph entrega nodes e edges.
 2. Submodulos transformam nodes em cenas visuais.
 3. Tap troca a cena para o fluxo do node.
-4. Long press abre modal humano estruturado.
+4. Long press abre modal humano nas 7 camadas canonicas.
 5. Auditor aponta lacunas reais.
 
 ## Regras para IA

@@ -6,6 +6,11 @@ status: active
 category: documentation-governance
 priority: 100
 summary: Gate obrigatorio para criar, migrar ou promover documentacao do Atlas sem quebrar Cartografia, contexto de IA, nomenclatura, fonte canonica ou prova operacional.
+human_name: Gate de Criacao Documental
+canonical_name: Atlas Documentation Creation Gate
+technical_name: DocumentationCreationGate
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-creation-gate.md
 tags:
   - atlas
   - documentation
@@ -143,31 +148,39 @@ deve explicar que a lacuna e documental ou que a peca e terminal.
 
 ## Contrato Do Modal Humano
 
-Long press e o unico lugar da Cartografia onde texto estruturado pode ser
-denso. Esse texto nao pode virar dump de frontmatter. Ele deve servir uma pessoa
-nova do suporte, financeiro, marketing, tech, diretoria ou parceiro.
+Long press abre a explicacao humana da peca. Ele nao pode ser dump de
+frontmatter, tabela por area, markdown completo ou texto promocional. O modal
+deve responder rapido, em camadas, o que a peca e e como uma pessoa ou IA deve
+agir com seguranca.
 
-A ordem obrigatoria do modal e:
+A ordem canonica obrigatoria tem 7 camadas:
 
-1. Perguntas essenciais: o que e, para que existe, como entra, como sai,
-   como prova e o que nao confundir.
-2. Mapa rapido: entrada -> peca atual -> saida, com prova visivel.
-3. Quadro de decisao: respostas antes de pedir alteracao para IA.
-4. Patamares e versoes: maturidade separada de release/degrau.
-5. Leitura guiada por area: diretoria, produto, marketing, suporte,
-   financeiro/juridico, tech e parceiros.
-6. Saude documental: campos presentes e ausentes sem esconder lacuna.
-7. Manual humano: fluxo, regras, riscos, provas, governanca, fontes e docs
-   relacionadas.
-8. Nomenclatura sem mistura: patamar, versao, fonte, camada, regra, risco e
-   prova em categorias diferentes.
-9. Documento Markdown completo como aprofundamento, nunca como primeira coisa
-   que o humano precisa decifrar.
+| Camada | Perguntas obrigatorias | Regra |
+|---|---|---|
+| 1. Essencial | nome humano, nome tecnico/canonico, tipo, status, fonte canonica, o que e, para que serve, quando usar | Primeira dobra. Sem isso, a peca nao e legivel. |
+| 2. Fluxo | entrada, peca atual, saida, quem consome e onde trava | Mostrar antes/depois sem texto longo. |
+| 3. Relacoes | pai, filhos, dependencias, desbloqueios e fronteiras | Separar relacao operacional de patamar. |
+| 4. Evolucao | o que existe, o que falta e proxima acao segura | Nao transformar backlog em maturidade. |
+| 5. Patamares | patamar atual, proximo patamar de, proximo patamar e cadeia futura | Usar somente campos `patamar_*` declarados. |
+| 6. Versoes | schema, release, familia e versoes internas | Nunca misturar com Patamares. |
+| 7. Prova e Seguranca | testes, evidence, riscos, allowed/forbidden changes, owner e lacunas | Fechar com como validar e quando bloquear. |
 
-Se alguma informacao essencial estiver ausente, o modal deve dizer "ausente" ou
-"nao declarado" na categoria correta. Nunca mover fonte para patamar, patamar
-para versao, risco para regra, teste para fonte ou fluxo operacional para
-proximo patamar.
+Campos essenciais obrigatorios para a Camada 1:
+
+```yaml
+human_name:
+canonical_name:
+technical_name:
+cartography_type: system|flow|contract|runtime|surface|policy|module|engine|os|layer|registry
+status: active|building|deprecated|planned|scaffold|future|unknown
+canonical_source:
+```
+
+Docs novos devem declarar esses campos. Docs legados podem receber fallback
+derivado no grafo (`cartography_essential_source: derived_fallback`) a partir de
+titulo, tipo e caminho, mas a Cartografia nao deve tratar isso como declaracao
+canonica. Nunca mover fonte para patamar, patamar para versao, risco para regra,
+teste para fonte ou fluxo operacional para proximo patamar.
 
 ## Fluxo
 

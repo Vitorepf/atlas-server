@@ -11,8 +11,8 @@ tags:
   - architecture
   - programming
 capabilities:
-  - programming_pipeline
-  - flow_consolidation
+  - programming_pipeline_target
+  - flow_consolidation_target
 decisions:
   - Atlas Dev, Forge, Fix and Continue are surfaces/flows of Programming, not separate products.
   - Programming must use one context, quality, repair and evidence model.
@@ -41,6 +41,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Architecture Audit Programming Pipeline Target
+canonical_name: Atlas AI Architecture Audit Programming Pipeline Target
+technical_name: atlas-ai-architecture-audit-programming-pipeline-target
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/architecture-audit/programming-pipeline-target.md
 
 owner: architecture-audit
 

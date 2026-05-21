@@ -15,7 +15,7 @@ tags:
 capabilities:
   - memory_os
   - temporal_knowledge_graph
-  - hybrid_retrieval
+  - hybrid_retrieval_checklist
   - agentic_memory_manager
   - structured_canonical_state
   - raw_immutable_transcript
@@ -54,6 +54,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Runtime Enterprise Excellence Checklist
+canonical_name: Atlas AI Cognitive Runtime Enterprise Excellence Checklist
+technical_name: atlas-ai-cognitive-runtime-enterprise-excellence-checklist
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/cognitive-runtime/enterprise-excellence-checklist.md
 
 owner: cognitive-runtime
 

@@ -18,7 +18,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($payload, 'architecture_operations.section'));
-        $this->assertSame(90, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(101, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $commands = array_column(data_get($payload, 'architecture_operations.commands'), 'command');
@@ -38,6 +38,17 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertContains('php artisan atlas:code-reality deletion-preflight --target="<target>" --json', $commands);
         $this->assertContains('php artisan atlas:universal-reality-cartography navigation-slice --strict --json', $commands);
         $this->assertContains('php artisan atlas:universal-reality-cartography visual-scene --mode=implementation --strict --json', $commands);
+        $this->assertContains('php artisan atlas:universal-reality-cartography human-clarity --mode=flow --strict --json', $commands);
+        $this->assertContains('php artisan atlas:software-twin quality-score --json', $commands);
+        $this->assertContains('php artisan atlas:software-twin impact --target="<target>" --json', $commands);
+        $this->assertContains('php artisan atlas:software-twin snapshot --target="<target>" --json', $commands);
+        $this->assertContains('php artisan atlas:verified-evolution boundary-contract --objective="<objective>" --target="<target>" --json', $commands);
+        $this->assertContains('php artisan atlas:verified-evolution proof-plan --objective="<objective>" --target="<target>" --json', $commands);
+        $this->assertContains('php artisan atlas:verified-evolution execution-contract --objective="<objective>" --target="<target>" --json', $commands);
+        $this->assertContains('php artisan atlas:verified-evolution drift-watch --objective="<objective>" --target="<target>" --changed-file="<path>" --json', $commands);
+        $this->assertContains('php artisan atlas:verified-evolution patch-simulation --objective="<objective>" --target="<target>" --changed-file="<path>" --json', $commands);
+        $this->assertContains('php artisan atlas:verified-evolution outcome-bridge --objective="<objective>" --target="<target>" --evidence="<evidence>" --json', $commands);
+        $this->assertContains('php artisan atlas:software-twin-verified-evolution:certify --json --strict', $commands);
         $this->assertContains('php artisan atlas:ai:ap-agent-workflow --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection status --target=all --workspace=<workspace> --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection write --target=all --workspace=<workspace> --force --json', $commands);
@@ -231,7 +242,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertSame(['section' => 'arquitetura_mae'], data_get($payload, 'architecture_operations.filters'));
-        $this->assertSame(90, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(101, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [

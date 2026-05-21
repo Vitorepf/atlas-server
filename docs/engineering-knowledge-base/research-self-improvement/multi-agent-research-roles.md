@@ -41,6 +41,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Multi-Agent Research Roles
+canonical_name: Atlas AI Multi-Agent Research Roles
+technical_name: atlas-ai-multi-agent-research-roles
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/multi-agent-research-roles.md
 
 owner: research-self-improvement
 

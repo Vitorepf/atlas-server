@@ -12,9 +12,8 @@ tags:
   - self-improvement
   - provider-projection
 capabilities:
-  - self_improvement_domain
+  - self_improvement_domain_alias
   - feature_placement
-  - session_bootstrap
 decisions:
   - O domain id canonico em codigo e self_improvement.
   - O documento autoritativo humano continua sendo domains/self-improvement.md.
@@ -32,9 +31,14 @@ graph_title: Atlas AI Self Improvement Domain Alias
 graph_world: atlas
 graph_layer: system
 graph_kind: module
-graph_parent: atlas-ai-canonical-architecture-index
+graph_parent: atlas-ai-self-improvement-domain
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Self Improvement Domain Alias
+canonical_name: Atlas AI Self Improvement Domain Alias
+technical_name: atlas-ai-self-improvement-domain-alias
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/self_improvement.md
 owner: domains
 repo_paths:
   - docs/engineering-knowledge-base/domains/self_improvement.md

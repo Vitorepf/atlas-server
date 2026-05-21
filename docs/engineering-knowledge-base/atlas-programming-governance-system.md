@@ -77,6 +77,11 @@ graph_parent: atlas-ai-programming-domain
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Programming Governance System
+canonical_name: Atlas Programming Governance System
+technical_name: atlas-programming-governance-system
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-programming-governance-system.md
 
 owner: programming
 

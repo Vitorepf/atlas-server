@@ -45,6 +45,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Memory Specs Index
+canonical_name: Atlas AI Memory Specs Index
+technical_name: atlas-ai-memory-readme
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/memory/README.md
 
 owner: memory
 

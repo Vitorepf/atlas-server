@@ -35,6 +35,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: building
 graph_source: repo
+human_name: Atlas Context Freshness Quality Gate
+canonical_name: Atlas Context Freshness Quality Gate
+technical_name: AtlasContextFreshnessQualityGateService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-context-freshness-quality-gate.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-context-freshness-quality-gate.md
@@ -61,7 +66,6 @@ line_limit: 520
 next_actions:
   - Persistir freshness quality receipts quando ACCR/ACOP estiverem prontos.
 ---
-
 # Atlas Context Freshness Quality Gate
 
 ## Resumo

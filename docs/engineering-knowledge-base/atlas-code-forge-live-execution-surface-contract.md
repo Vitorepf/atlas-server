@@ -84,6 +84,11 @@ graph_kind: contract
 graph_parent: atlas-code-scor-1-implementation-contract
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Forge Live Execution Surface Contract
+canonical_name: Atlas Code Forge Live Execution Surface Contract
+technical_name: atlas-code-forge-live-execution-surface-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-code-forge-live-execution-surface-contract.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-forge-live-execution-surface-contract.md
@@ -125,19 +130,14 @@ Execution. A CLI `atlas:forge:live-execute` prova o runtime; este contrato
 prova que a surface consegue acionar esse runtime por Obra e renderizar o
 resultado sem mock.
 ## Papel no Atlas
-
 Atlas Code e a cabine desktop; o Programming Domain continua sendo o setor de
 programacao. Esta ponte transforma a Obra selecionada em execucao local
 certificada do Forge sem provider externo.
-
 ## Onde Se Encaixa
-
 Fica entre a surface `atlas_code`, o endpoint `/atlas-code/works/*` e
 `AtlasForgeLiveExecutionService`. O resultado volta para os paineis Plan,
 Verify e Evidence por `WorkStateSnapshot.forgeLiveExecution`.
-
 ## Contratos
-
 - A Obra selecionada e a unidade de execucao: `obra_id == work_id`.
 - Sem Obra, a UI exibe `forge_workspace_blocker.v1`; nao chama endpoint.
 - Com Obra, a UI pode chamar `POST /atlas-code/works/{obra_id}/forge/live-executions`.
@@ -171,7 +171,6 @@ Verify e Evidence por `WorkStateSnapshot.forgeLiveExecution`.
 - `forge_task_queue.source_authority=programming_governance.tasks_json` tem precedencia sobre fallback de live execution.
 - `forge_task_queue.source_authority=latest_forge_live_execution.task_contract` so existe quando o ultimo snapshot carrega `task_contract`.
 - `forge_task_queue.entries[*].completion_claim_allowed` vem do completion gate/diff scope ou do estado fechado da governanca; nao vem de texto de chat.
-
 ## Fluxo
 
 ```text

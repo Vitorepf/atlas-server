@@ -43,6 +43,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Tool Runtime Contracts
+canonical_name: Atlas Tool Runtime Contracts
+technical_name: atlas-tool-runtime-contracts
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/tool-runtime/contracts.md
 
 owner: tool-runtime
 

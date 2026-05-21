@@ -12,13 +12,13 @@ tags:
   - contracts
   - api
 capabilities:
-  - cognitive_immune_gate
+  - memory_core_contracts
   - memory_refs
   - knowledge_refs
   - code_refs
   - api_contracts
   - cli_contracts
-  - open_brain_context_injection
+  - open_brain_context_contracts
   - obsidian_atlas_vault
 decisions:
   - Raw capture, evidence, learning signal, memory, context and decision are separate layers.
@@ -64,6 +64,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Memory Core Contracts
+canonical_name: Atlas Memory Core Contracts
+technical_name: atlas-memory-core-contracts
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/memory-core-contracts.md
 
 owner: architecture
 

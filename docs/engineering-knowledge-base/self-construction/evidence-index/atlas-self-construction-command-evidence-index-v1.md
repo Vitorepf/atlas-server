@@ -39,6 +39,11 @@ graph_kind: index
 graph_parent: atlas-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction Command Evidence Index v1
+canonical_name: Atlas Self-Construction Command Evidence Index v1
+technical_name: atlas-self-construction-command-evidence-index-v1
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/self-construction/evidence-index/atlas-self-construction-command-evidence-index-v1.md
 owner: atlas-self-construction-os
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/evidence-index/atlas-self-construction-command-evidence-index-v1.md
@@ -76,7 +81,6 @@ visual_tags:
 generated_at: 2026-05-14
 scope: read-only catalog of verification commands; no writes, no dispatch
 ---
-
 ## Resumo
 
 Catalogo curado dos comandos read-only que o operador pode rodar com

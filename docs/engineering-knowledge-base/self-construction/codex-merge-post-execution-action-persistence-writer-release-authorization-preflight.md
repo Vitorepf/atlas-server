@@ -12,7 +12,7 @@ tags:
   - codex-review
   - merge-governance
 capabilities:
-  - self_construction_os
+  - self_construction_codex_merge_post_execution_action_persistence_writer_release_authorization_preflight
   - review_governance
   - merge_authorization
 decisions:
@@ -45,6 +45,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Authorization Preflight
+canonical_name: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Authorization Preflight
+technical_name: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-authorization-preflight
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-authorization-preflight.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-authorization-preflight.md

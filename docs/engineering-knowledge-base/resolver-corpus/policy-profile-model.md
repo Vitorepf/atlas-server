@@ -39,6 +39,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Resolver Corpus Policy Profile Model
+canonical_name: Atlas AI Resolver Corpus Policy Profile Model
+technical_name: atlas-ai-resolver-corpus-policy-profile-model
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/resolver-corpus/policy-profile-model.md
 
 owner: resolver-corpus
 

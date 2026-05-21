@@ -39,6 +39,11 @@ graph_kind: index
 graph_parent: atlas-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction Verification Command Catalog v1
+canonical_name: Atlas Self-Construction Verification Command Catalog v1
+technical_name: atlas-self-construction-verification-command-catalog-v1
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/self-construction/evidence-index/atlas-self-construction-verification-command-catalog-v1.md
 owner: atlas-self-construction-os
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/evidence-index/atlas-self-construction-verification-command-catalog-v1.md
@@ -76,7 +81,6 @@ visual_tags:
 generated_at: 2026-05-14
 scope: ordering, isolation rules and evidence registration for read-only verification commands
 ---
-
 ## Resumo
 
 Catalogo de sequencias recomendadas para verificar a Self-Construction

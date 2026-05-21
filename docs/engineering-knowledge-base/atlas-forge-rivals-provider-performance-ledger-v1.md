@@ -46,6 +46,11 @@ graph_kind: module
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Provider Performance Ledger v1"
+canonical_name: "Atlas Forge Rivals · Provider Performance Ledger v1"
+technical_name: atlas-forge-rivals-provider-performance-ledger-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-provider-performance-ledger-v1.md
 owner: programming
 
 repo_paths:
@@ -87,7 +92,6 @@ next_actions:
   - Adicionar retention/compaction ao entries.jsonl quando volume justificar.
   - Surface UI Atlas Code Premium (ranking, provider cards, cost/quality scatter).
 ---
-
 # Atlas Forge Rivals · Provider Performance Ledger v1
 
 Strategy canon: `atlas-forge-rivals-benchmark-strategy-v1.md`

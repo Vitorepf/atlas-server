@@ -14,7 +14,7 @@ tags:
 capabilities:
   - hybrid_context_builder
   - retrieval_router
-  - graph_rag
+  - graph_rag_roadmap
 decisions:
   - Atlas should not choose between Vector RAG and Graph RAG; it routes by intent.
   - Evidence Ledger is the source for replayable operational memory.
@@ -43,6 +43,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Context Builder Evolution Roadmap
+canonical_name: Context Builder Evolution Roadmap
+technical_name: atlas-ai-evolution-context-builder-roadmap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/evolution/context-builder-roadmap.md
 
 owner: evolution
 

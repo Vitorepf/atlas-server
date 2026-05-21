@@ -17,7 +17,7 @@ capabilities:
   - provider_performance_memory
   - multi_provider_work_packets
   - provider_operating_room
-  - subscription_safe_provider_use
+  - adaptive_subscription_safe_provider_use
 decisions:
   - Atlas Code must become a software-production operating system above individual providers, not a fixed wrapper around Claude, Codex or Gemini.
   - Provider identity and provider role are separate concepts; every provider is a candidate for each role, subject to evidence, capacity, constraints and human override.
@@ -57,6 +57,11 @@ graph_kind: module
 graph_parent: atlas-code-programming-obras-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Adaptive Provider Operating Room v1
+canonical_name: Atlas Code Adaptive Provider Operating Room v1
+technical_name: atlas-code-adaptive-provider-operating-room-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-code-adaptive-provider-operating-room-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-adaptive-provider-operating-room-v1.md
 allowed_changes:
@@ -139,25 +144,17 @@ next_actions:
   - Implementar Provider Board no RightRail com roles, packets, confidence, capacity, ledger signal e estado interativo observado.
 ---
 # Atlas Code Adaptive Provider Operating Room v1
-
 ## Resumo
-
 O Atlas Code nao deve ser "Claude Code com uma UI melhor", "Codex com obras" ou "Gemini com cartografia". A tese correta e mais alta:
-
 ```text
 Atlas Code e o sistema operacional de producao de software assistida por IA.
 Providers sao motores substituiveis dentro de uma Obra governada.
 Atlas decide, mede, coordena, valida e aprende.
 ```
-
 Isso e o caminho para sair mais forte de qualquer limitacao de provider. Se Claude muda billing, Codex muda capacidade, Gemini melhora em pesquisa ou surge outro motor superior, o Atlas nao quebra. Ele registra capacidade, compara evidencia, atribui papeis e aprende onde cada provider e melhor.
-
 ## Papel no Atlas
-
 Este modulo e a camada de producao multi-provider dentro de Programming Obras. Ele fica acima de Provider Topology, Capacity, Arena e Governed Invocation, e abaixo da decisao humana final.
-
 Papel pratico:
-
 - transformar uma Obra em work packets governados;
 - atribuir role slots a providers por evidencia e capacidade;
 - mostrar a operacao da Obra sem virar painel de logs;

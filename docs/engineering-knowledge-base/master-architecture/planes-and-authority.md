@@ -11,8 +11,8 @@ tags:
   - master-architecture
   - planes
 capabilities:
-  - enterprise_orchestration
-  - operational_intelligence
+  - authority_planes
+  - operational_authority_model
   - policy_profile_governance
 decisions:
   - Planes are authority boundaries, not folders or UI sections.
@@ -40,6 +40,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Master Architecture Planes and Authority
+canonical_name: Master Architecture Planes and Authority
+technical_name: atlas-ai-master-planes-and-authority
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/master-architecture/planes-and-authority.md
 
 owner: master-architecture
 

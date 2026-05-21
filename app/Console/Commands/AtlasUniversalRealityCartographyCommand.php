@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 final class AtlasUniversalRealityCartographyCommand extends Command
 {
     protected $signature = 'atlas:universal-reality-cartography
-        {action=map : map|nodes|visual-scene|semantic-zoom|human-routes|task-simulator|navigation-slice}
+        {action=map : map|nodes|visual-scene|semantic-zoom|human-routes|task-simulator|human-clarity|navigation-slice}
         {--mode=universe : universe|system|flow|evidence|risk|implementation}
         {--json : Emit canonical JSON}
         {--strict : Exit non-zero unless ready}';
@@ -57,6 +57,12 @@ final class AtlasUniversalRealityCartographyCommand extends Command
                 'task_simulator' => $payload['task_simulator'],
                 'writes' => false,
             ],
+            'human-clarity' => [
+                'schema_version' => $payload['schema_version'],
+                'status' => data_get($payload, 'human_clarity.status') === 'ready' ? $payload['status'] : 'review',
+                'human_clarity' => $payload['human_clarity'],
+                'writes' => false,
+            ],
             'navigation-slice' => [
                 'schema_version' => $payload['schema_version'],
                 'status' => $payload['status'],
@@ -67,7 +73,7 @@ final class AtlasUniversalRealityCartographyCommand extends Command
         };
 
         if ($output === null) {
-            $this->error('Unknown action. Expected map, nodes, visual-scene, semantic-zoom, human-routes, task-simulator or navigation-slice.');
+            $this->error('Unknown action. Expected map, nodes, visual-scene, semantic-zoom, human-routes, task-simulator, human-clarity or navigation-slice.');
 
             return self::FAILURE;
         }

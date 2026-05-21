@@ -107,6 +107,11 @@ graph_kind: surface
 graph_parent: atlas-desktop
 graph_status: building
 graph_source: repo
+human_name: Atlas Desktop Code Surface
+canonical_name: Atlas Desktop Code Surface
+technical_name: atlas-desktop-code-surface
+cartography_type: surface
+canonical_source: docs/engineering-knowledge-base/atlas-desktop-code-surface.md
 owner: atlas-ai
 layer: 1-surfaces
 line_limit: 360
@@ -166,25 +171,19 @@ observability_signals:
 ---
 # Atlas Desktop · Code Surface Specification
 ## Resumo
-
 Este doc define a tela Atlas Code como cabine operacional de programacao, nao
 como editor tradicional. A tela deve permitir declarar intencao, acompanhar SDD,
 assinar contrato, observar execucao, validar gates, ler evidencia e operar
 terminal real.
-
 Nome canonico da primeira versao enterprise:
-
 ```text
 Atlas Code SCOR-1
 Software Construction Operating Room v1
 ```
-
 ## Papel no Atlas
-
 Atlas Code materializa o Engineering Operations System: humano dirige,
 Kernel decide, IAs executam, evidencia prova. Ele deve substituir o padrao
 Cursor/Claude Code/Codex chat-wrapper por uma sala de operacao governada.
-
 Atlas Code nao e o setor de programacao. O setor e Programming Domain. Para o
 fluxo pesado completo, leia `atlas-programming-forge-flow.md`; Atlas Code apenas
 exibe e opera esse fluxo como surface.

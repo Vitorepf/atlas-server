@@ -37,6 +37,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: building
 graph_source: repo
+human_name: Atlas Agentic RAG Framework
+canonical_name: Atlas Agentic RAG Framework
+technical_name: AtlasAgenticRagFrameworkService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-agentic-rag-framework.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-agentic-rag-framework.md
@@ -65,7 +70,6 @@ next_actions:
   - Integrar AARF como gate mandatory nos flows AUCRI/Atlas AI quando ACRS e ACFQ existirem.
   - Persistir receipts de plano/critic quando ACOP estiver pronto.
 ---
-
 # Atlas Agentic RAG Framework
 
 ## Resumo

@@ -12,7 +12,7 @@ tags:
   - collision-guard
   - durable-reservation
 capabilities:
-  - self_construction_os
+  - self_construction_durable_reservation_collision_guard_contract
   - reservation_ledger
   - parallel_session_safety
 decisions:
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Durable Reservation Collision Guard Contract
+canonical_name: Atlas Self-Construction Durable Reservation Collision Guard Contract
+technical_name: atlas-ai-self-construction-durable-reservation-collision-guard-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-contract.md

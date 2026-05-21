@@ -59,6 +59,11 @@ graph_parent: atlas-dual-core-engineering-system
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Programming Superiority Architecture
+canonical_name: Atlas Programming Superiority Architecture
+technical_name: atlas-programming-superiority-architecture
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/atlas-programming-superiority-architecture.md
 
 owner: programming
 
@@ -119,7 +124,6 @@ next_actions:
   - Promover Atlas Dev em produção (feature flag `atlas_dev_efficient_plan_enabled` ON; Fatia 5 surface).
 
 ---
-
 # Atlas Programming Superiority Architecture
 
 ## Resumo

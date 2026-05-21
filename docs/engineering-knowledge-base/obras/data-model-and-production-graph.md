@@ -12,7 +12,7 @@ tags:
   - data-model
   - production-graph
 capabilities:
-  - obras_operating_system
+  - obras_data_model_and_production_graph
   - production_graph
 decisions:
   - Postgres is the live state source; Markdown is a projection/export, not the brain.
@@ -43,6 +43,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Obras - Data Model And Production Graph
+canonical_name: Atlas Obras - Data Model And Production Graph
+technical_name: atlas-ai-obras-data-model-and-production-graph
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/obras/data-model-and-production-graph.md
 
 repo_paths:
   - docs/engineering-knowledge-base/obras/data-model-and-production-graph.md

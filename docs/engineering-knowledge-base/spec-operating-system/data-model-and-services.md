@@ -12,9 +12,9 @@ tags:
   - data-model
   - laravel
 capabilities:
-  - spec_operating_system
-  - sdd_core
-  - evidence_ledger
+  - spec_data_model_and_services
+  - sdd_data_model_core
+  - sdd_evidence_data_model
 decisions:
   - SDD artifacts must be stored as structured records, not only Markdown.
   - Specs, requirements, acceptance criteria, tasks, receipts and evidence must be traceable by operation.
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Spec Operating System Data Model And Services
+canonical_name: Atlas Spec Operating System Data Model And Services
+technical_name: atlas-ai-spec-operating-system-data-model-and-services
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/data-model-and-services.md
 
 repo_paths:
   - docs/engineering-knowledge-base/spec-operating-system/data-model-and-services.md

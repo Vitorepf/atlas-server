@@ -14,7 +14,6 @@ tags:
 capabilities:
   - atlas_vault_cartography
   - live_documentation
-  - documentation_health
 decisions:
   - Cartography is a source-aware reader over repo docs and AtlasVault.
   - Missing source is a visible drift state, never an acceptable default.
@@ -48,6 +47,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Vault Cartography Schema Runbook
+canonical_name: Atlas Vault Cartography Schema Runbook
+technical_name: atlas-vault-cartography-schema-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema-runbook.md
 
 repo_paths:
   - docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema-runbook.md

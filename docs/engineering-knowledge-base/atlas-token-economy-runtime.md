@@ -17,6 +17,7 @@ decisions:
 maintenance:
   - Atualizar antes de mudar budgets, compression, provider selection ou output contracts.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-quality-preserving-efficiency-system.md
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
   - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
   - docs/engineering-knowledge-base/atlas-retrieval-cost-latency-governor.md
@@ -49,7 +50,7 @@ forbidden_changes:
   - Escolher provider barato quando risk/sufficiency exige modelo superior.
   - Declarar economia sem receipt antes/depois.
 depends_on: [atlas-context-compiler-runtime, atlas-retrieval-cost-latency-governor]
-flows_to: [atlas-ai-product-certification, atlas-context-observability-plane]
+flows_to: [atlas-quality-preserving-efficiency-system, atlas-ai-product-certification, atlas-context-observability-plane]
 unlocks: [safe_token_reduction, provider_cost_optimization, output_contract_compression]
 governs: [token_budget, semantic_compression, provider_token_cost, output_length_contract]
 evidence:

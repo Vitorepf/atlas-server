@@ -43,6 +43,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Advanced Capabilities Backlog
+canonical_name: Advanced Capabilities Backlog
+technical_name: atlas-ai-evolution-advanced-capabilities-backlog
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/evolution/advanced-capabilities-backlog.md
 
 owner: evolution
 

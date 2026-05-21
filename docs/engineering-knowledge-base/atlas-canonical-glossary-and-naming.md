@@ -6,6 +6,13 @@ status: active
 category: documentation
 priority: 99
 summary: Fonte unica de nomes, definicoes, aliases permitidos/proibidos e regras de uso para Atlas, Atlas AI, Atlas Dev, Atlas Forge, Atlas Code, Obra, Mission, WorkOrder, Work Packet, Domain, Flow, Specialist Flow, Company Runtime, Runtime, Harness, Tool Runtime, Provider, Agent, Router, Kernel, Intent, Context Pack, RAG Gate, Evidence, Receipt, Certification, Readiness, Compounding, Memory, World Model e Control Plane. Impede que docs futuras parecam runtime atual, que naming proliferation crie duplicacao de servicos e que IAs implementem no lugar errado.
+human_summary: Dicionario oficial dos nomes do Atlas para impedir sinonimos confusos, duplicacao e implementacao no lugar errado.
+human_what: Glossario canonico de produtos, runtimes, aliases, termos permitidos, termos proibidos e relacoes.
+human_purpose: Fazer IA e humano usarem o mesmo nome para a mesma coisa, sem criar sistemas paralelos por confusao.
+human_input: Recebe termos novos, termos legados, nomes tecnicos, nomes humanos, aliases e conflitos de nomenclatura.
+human_output: Entrega nome permitido, nome proibido, substituto canonico e regra de uso para docs e codigo.
+human_change_when: Mexa antes de promover novo nome canonico ou quando uma auditoria achar proliferacao de nomes.
+human_block_when: Bloqueie quando uma IA criar novo termo sem glossario, inverter relacao Dev/Forge ou tratar visao futura como runtime pronto.
 tags:
   - atlas
   - glossary
@@ -38,9 +45,6 @@ related_paths:
   - docs/engineering-knowledge-base/domains/domain-routing-governance.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
   - docs/engineering-knowledge-base/atlas-dev-forge-relationship-critical-audit.md
-  - docs/engineering-knowledge-base/atlas-programming-superiority-architecture.md
-  - docs/engineering-knowledge-base/atlas-programming-superiority-contracts.md
-  - docs/engineering-knowledge-base/atlas-programming-superiority-roadmap.md
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
@@ -54,6 +58,11 @@ graph_kind: contract
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: Atlas Canonical Glossary And Naming
+canonical_name: Atlas Canonical Glossary And Naming
+technical_name: atlas-canonical-glossary-and-naming
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 owner: documentation-operating-system
 repo_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
@@ -63,7 +72,6 @@ allowed_changes:
   - Refinar regras Dev vs Forge ou Domain/Flow/Runtime/Harness conforme novos contratos canonicos.
 forbidden_changes:
   - Apagar termo canonico ja referenciado por outra doc.
-  - Renomear termo sem deixar redirect/alias.
   - Inverter relacao Atlas Dev <-> Atlas Forge (nunca pai/filho).
   - Promover doc de visao futura como runtime atual sem checar status.
   - Tratar versao, release, schema, camada ou arquivo-fonte como patamar canonico.
@@ -121,22 +129,17 @@ uso e aliases. Tres secoes especiais: Dev vs Forge, Domain/Flow/Runtime/
 Harness, Nomes Proibidos. Toda IA futura DEVE consultar antes de criar
 classe, servico, namespace ou doc.
 ## Papel no Atlas
-
 Atlas cresceu rapidamente; auditorias identificaram naming proliferation
 (8 nomes em torno de "Forge", 5 de "Router", 45 services com "Certification")
 e risco de futuras IAs (1) implementarem no lugar errado, (2) duplicarem
 servicos, (3) tratarem doc de visao como runtime atual. Este glossario
 elimina ambiguidade SEM apagar nenhuma doc/codigo.
-
 ## Onde Se Encaixa
-
 Camada `Layer 0.5` — documentation operating system. Fica entre o `Canonical
 Architecture Index` (autoridade entre layers/docs) e os docs canonicos por
 modulo. Conflitos sobre QUAL doc decide um conceito sobem ao Index; conflitos
 sobre QUAL nome usa um conceito ficam aqui.
-
 ## Contratos
-
 - Toda nova classe/servico/namespace cujo nome bata com termo desta tabela exige citacao do termo no PR.
 - Toda camada macro nova DEVE declarar `macro_layer: true` e quatro nomes:
   `product_name` (nome canonico/produto), `runtime_acronym` (acronimo tecnico),
@@ -147,9 +150,7 @@ sobre QUAL nome usa um conceito ficam aqui.
   resposta final de IA — apenas em arquivo legado preservado.
 - Toda doc com `status: active` que use termo desta tabela deve respeitar
   a definicao canonica.
-
 ## Fluxo
-
 ```text
 Nome aparece em roadmap / chat / doc / classe nova
 -> Existe termo canonico aqui? -> Sim: usar exatamente como definido.
@@ -157,7 +158,6 @@ Nome aparece em roadmap / chat / doc / classe nova
 -> Esta em "Nomes Proibidos"? -> Sim: usar substituto.
 -> Conflita com Domain/Flow/Runtime/Harness? -> resolver pela tabela.
 ```
-
 ## Patamar vs Versao vs Camada vs Fonte
 
 Contrato detalhado: `atlas-cartography-nomenclature-contract.md`.
@@ -508,16 +508,12 @@ Doc nao implementa codigo. Edita-se quando: termo novo entra (P0/P1); audit iden
 Cluster 1-6 em `atlas-canonical-cleanup-inventory.md:209-289`. Dev vs Forge invariantes em `atlas-dual-core-engineering-system.md:166-171` + `atlas-dev-forge-relationship-critical-audit.md:443-446`. Domain Creation Gate em `domains/domain-routing-governance.md`. 5 Routers / 45 Certifications / 4 mecanismos Dev->Forge confirmados via `grep`/`rg` no audit.
 
 ## Riscos
-
-- Glossario envelhecer, IA tratar este doc como exaustivo ou termo legado voltar sem contexto. Mitigacao: registrar termo novo antes do codigo e manter aliases proibidos com substituto.
+Glossario envelhecer ou termo legado voltar sem contexto; mitigacao: registrar termo novo antes do codigo e manter aliases proibidos com substituto.
 
 ## Exemplos
-
-- `AtlasCodeForgeFastPathV2` exige checar Cluster 1; "domain frontend" vira specialist profile de programming; "Router decidiu" precisa qualificar qual Router; "Mini Forge" em doc active e violacao.
+`AtlasCodeForgeFastPathV2` exige checar Cluster 1; "Router decidiu" precisa qualificar qual Router.
 
 ## Proximas Acoes
-
-1. Registrar Cluster 7+ em "Nomes Proibidos", linkar o futuro `atlas-forge-naming-disambiguator.md`, atualizar RAG Gate quando Hyperflow virar runtime ativo e mover legacy permission/evidence/router para proibidos quando ADR Phase 7 deprecar.
-
+Registrar Cluster 7+, linkar futuro disambiguator, atualizar RAG Gate quando Hyperflow virar runtime ativo e mover legacy permission/evidence/router para proibidos quando ADR Phase 7 deprecar.
 ## Definition of Done
-Vivo enquanto: toda nova classe/servico cujo nome bata com termo registrado e citada em PR; nenhum termo proibido aparece em doc com `status: active` posterior a 2026-05-18; audit subsequente confirma reducao de duplicacao de servicos por cluster.
+Vivo enquanto termos novos sao checados contra o glossario, termos proibidos nao aparecem em docs active novos e audit confirma reducao de duplicacao por cluster.

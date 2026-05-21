@@ -9,7 +9,7 @@ category: intelligence-runtime
 priority: 100
 summary: Doc filha AUCRI para grafo unificado da realidade: empresas, projetos, pessoas, documentos, codigo, decisoes, metas, riscos, oportunidades, outcomes e evidencias.
 tags: [atlas-ai, aucri, aurg, reality-graph, world-model]
-capabilities: [reality_graph, world_model, entity_edges, strategic_context]
+capabilities: [unified_reality_graph, world_model, entity_edges, strategic_context]
 decisions:
   - AURG e grafo de realidade, nao substitui memoria, evidence ou ASRE.
   - Toda edge precisa fonte, confidence, freshness e authority.
@@ -38,6 +38,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: building
 graph_source: repo
+human_name: Atlas Unified Reality Graph
+canonical_name: Atlas Unified Reality Graph
+technical_name: AtlasUnifiedRealityGraphService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-unified-reality-graph.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-unified-reality-graph.md
@@ -65,7 +70,6 @@ line_limit: 520
 next_actions:
   - Conectar ingestion/trust/freshness ampliados ao snapshot AURG.
 ---
-
 # Atlas Unified Reality Graph
 
 ## Resumo

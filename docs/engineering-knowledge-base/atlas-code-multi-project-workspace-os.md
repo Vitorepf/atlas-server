@@ -49,6 +49,11 @@ graph_kind: module
 graph_parent: atlas-desktop-code-surface
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Multi-Project Workspace OS
+canonical_name: Atlas Code Multi-Project Workspace OS
+technical_name: atlas-code-multi-project-workspace-os
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-code-multi-project-workspace-os.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-multi-project-workspace-os.md
 allowed_changes:

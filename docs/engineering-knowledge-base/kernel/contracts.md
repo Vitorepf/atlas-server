@@ -44,6 +44,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Kernel Contracts
+canonical_name: Atlas AI Kernel Contracts
+technical_name: atlas-ai-kernel-contracts
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/kernel/contracts.md
 
 owner: kernel
 

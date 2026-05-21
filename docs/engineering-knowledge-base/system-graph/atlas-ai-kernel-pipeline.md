@@ -13,7 +13,7 @@ tags:
   - cartography
 capabilities:
   - atlas_ai_kernel_pipeline
-  - atlas_semantic_graph
+  - kernel_pipeline_semantic_graph
   - kernel_flow
 decisions:
   - O Kernel Pipeline e o fluxo central que nenhuma surface, provider, tool ou dominio pode burlar.
@@ -37,6 +37,11 @@ graph_kind: flow
 graph_parent: atlas
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Kernel Pipeline
+canonical_name: Atlas AI Kernel Pipeline
+technical_name: atlas-ai-kernel-pipeline
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/system-graph/atlas-ai-kernel-pipeline.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/atlas-ai-kernel-pipeline.md

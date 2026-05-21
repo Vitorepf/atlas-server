@@ -12,9 +12,8 @@ tags:
   - context-engineering
   - projections
 capabilities:
-  - spec_operating_system
+  - spec_context_packages_and_projections
   - context_discovery
-  - documentation_operating_system
 decisions:
   - Agents must use versioned context packages instead of reinventing project rules.
   - Local `.atlas` trees may project canonical docs into project form, but cannot outrank them.
@@ -47,6 +46,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Spec Operating System Context Packages And Projections
+canonical_name: Atlas Spec Operating System Context Packages And Projections
+technical_name: atlas-ai-spec-operating-system-context-packages-and-projections
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/context-packages-and-projections.md
 
 repo_paths:
   - docs/engineering-knowledge-base/spec-operating-system/context-packages-and-projections.md

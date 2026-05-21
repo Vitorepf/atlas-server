@@ -36,6 +36,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas SDD Implementation Roadmap
+canonical_name: Atlas SDD Implementation Roadmap
+technical_name: atlas-ai-sdd-implementation-roadmap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/implementation-roadmap.md
 
 owner: spec-operating-system
 

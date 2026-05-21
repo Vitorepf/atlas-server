@@ -55,6 +55,11 @@ graph_parent: atlas-ai-architecture-audit
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Full Architecture Understanding Report
+canonical_name: Atlas Full Architecture Understanding Report
+technical_name: atlas-full-architecture-understanding-report
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-full-architecture-understanding-report.md
 
 owner: architecture
 
@@ -99,7 +104,6 @@ next_actions:
   - Consolidar manifesto canônico de Self-Improvement (domain × cockpit × closed-loop).
 
 ---
-
 # Atlas Full Architecture Understanding Report
 
 ## Resumo

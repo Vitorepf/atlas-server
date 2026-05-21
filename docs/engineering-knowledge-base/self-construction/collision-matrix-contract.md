@@ -12,9 +12,9 @@ tags:
   - collision-matrix
   - parallel-ai
 capabilities:
-  - self_construction_os
+  - self_construction_collision_matrix_contract
   - packet_queue
-  - scope_validation
+  - collision_scope_validation
 decisions:
   - Parallel work is unsafe until packet write scopes are proven disjoint.
   - Collision checks must include allowed files, forbidden scopes and withheld hot work.
@@ -46,6 +46,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Collision Matrix Contract
+canonical_name: Atlas Self-Construction Collision Matrix Contract
+technical_name: atlas-ai-self-construction-collision-matrix-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/collision-matrix-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/collision-matrix-contract.md

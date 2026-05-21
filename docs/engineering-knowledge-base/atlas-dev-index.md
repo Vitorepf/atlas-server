@@ -45,6 +45,11 @@ graph_kind: index
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: Atlas Dev Index
+canonical_name: Atlas Dev Index
+technical_name: atlas-dev-index
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/atlas-dev-index.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-dev-index.md

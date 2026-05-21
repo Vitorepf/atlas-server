@@ -43,6 +43,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Skill System
+canonical_name: Atlas AI Skill System
+technical_name: atlas-ai-skill-system
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-ai-skill-system.md
 
 owner: runtime-governance
 

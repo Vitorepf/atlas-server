@@ -37,6 +37,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Programming Surfaces
+canonical_name: Atlas AI Programming Surfaces
+technical_name: atlas-ai-programming-surfaces
+cartography_type: surface
+canonical_source: docs/engineering-knowledge-base/domains/programming-surfaces.md
 
 owner: domains
 

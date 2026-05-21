@@ -14,7 +14,7 @@ tags:
 capabilities:
   - spec_compiler
   - spec_critic
-  - assumption_ledger
+  - spec_assumption_ledger
 decisions:
   - Spec Compiler converts intent into requirements and acceptance criteria.
   - Spec Critic must attack ambiguity, overreach, missing tests and policy/design conflicts before plan.
@@ -40,6 +40,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas SDD Spec Compiler And Critic
+canonical_name: Atlas SDD Spec Compiler And Critic
+technical_name: atlas-ai-sdd-spec-compiler-critic
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/spec-compiler-and-critic.md
 
 owner: spec-operating-system
 

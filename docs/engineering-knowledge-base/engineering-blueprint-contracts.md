@@ -12,12 +12,12 @@ tags:
   - contracts
   - schema
 capabilities:
-  - engineering_blueprint
-  - task_contracts
-  - scenario_inventory
-  - qa_evidence
-  - review_gates
-  - postgres_gate
+  - engineering_blueprint_contracts
+  - blueprint_task_contracts
+  - blueprint_scenario_inventory
+  - blueprint_qa_evidence
+  - blueprint_review_gates
+  - blueprint_postgres_gate
 decisions:
   - Operational contracts live in Postgres and versioned payloads.
   - Markdown describes schema, invariants and evolution expectations.
@@ -49,6 +49,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Blueprint Contracts
+canonical_name: Atlas Engineering Blueprint Contracts
+technical_name: atlas-engineering-blueprint-contracts
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/engineering-blueprint-contracts.md
 
 owner: contracts
 

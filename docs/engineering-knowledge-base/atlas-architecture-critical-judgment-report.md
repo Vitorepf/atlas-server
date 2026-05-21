@@ -52,6 +52,11 @@ graph_parent: atlas-full-architecture-understanding-report
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Architecture Critical Judgment Report
+canonical_name: Atlas Architecture Critical Judgment Report
+technical_name: atlas-architecture-critical-judgment-report
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-architecture-critical-judgment-report.md
 
 owner: architecture
 
@@ -106,7 +111,6 @@ next_actions:
   - Adicionar testes para strategic_decision e self_improvement (hoje 0 testes cada).
 
 ---
-
 # Atlas Architecture Critical Judgment Report
 
 ## Resumo

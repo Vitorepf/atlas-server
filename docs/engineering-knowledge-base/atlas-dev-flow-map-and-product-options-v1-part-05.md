@@ -31,6 +31,11 @@ graph_kind: module
 graph_parent: atlas-dev-flow-map-and-product-options-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Dev Flow Map And Product Options v1 Parte 5
+canonical_name: Atlas Dev Flow Map And Product Options v1 Parte 5
+technical_name: atlas-dev-flow-map-and-product-options-v1-part-05
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-dev-flow-map-and-product-options-v1-part-05.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-dev-flow-map-and-product-options-v1-part-05.md

@@ -53,6 +53,11 @@ graph_kind: index
 graph_parent: atlas-canonical-cleanup-inventory
 graph_status: active
 graph_source: repo
+human_name: Atlas Documentation Status Cleanup Plan
+canonical_name: Atlas Documentation Status Cleanup Plan
+technical_name: atlas-documentation-status-cleanup-plan
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-status-cleanup-plan.md
 owner: architecture
 repo_paths:
   - docs/engineering-knowledge-base/atlas-documentation-status-cleanup-plan.md
@@ -132,28 +137,22 @@ Ao mesmo tempo, **visao futura legitima** (Sovereign/Epistemic/Cartographic
 OS, Next Patamar, Thesis Multiplier, Resolver Corpus) PRECISA permanecer
 em `future` — `future` significa "tese estrategica nao construida", nao
 "obsoleta".
-
 Este plano: (1) define taxonomia de 8 estados conceituais com mapeamento
 para os 5 canonicos do schema; (2) classifica docs criticas (Forge,
 Dev legacy vs efficient, Hyperflow, AIOS, Programming Superiority,
 Domain Company Runtimes, Router Runtime, Evidence/Certification,
 Compounding, Local Agent Memory) em 7 grupos; (3) sequencia flips
 P0-P3 — todos **frontmatter only**.
-
 **NAO altera massa de docs agora**, **NAO deleta**, **NAO altera
 codigo**. Cada flip futuro vira AP individual.
-
 ## Papel no Atlas
-
 Camada de governanca **acima** do inventario filesystem
 (`atlas-canonical-cleanup-inventory.md`). Inventario diz "o que existe e
 onde diverge"; este plano diz "qual status passar a usar, em que ordem e
 por que". Quatro funcoes: (1) taxonomy canon dos 5 status admissiveis +
 mapeamento dos 8 conceituais; (2) status-flip sequencing; (3) never-remove
 guardrail; (4) audit trail por flip executado.
-
 ## Onde Se Encaixa
-
 Filho de `atlas-canonical-cleanup-inventory.md`. Cruza com
 `atlas-ai-canonical-architecture-index.md`. Nao vence Layer -1 nem
 Kernel. Instrumento operacional para preparar reconciliacao

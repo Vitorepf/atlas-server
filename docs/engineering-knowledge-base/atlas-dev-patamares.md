@@ -42,6 +42,11 @@ graph_kind: module
 graph_parent: atlas-dev-index
 graph_status: active
 graph_source: repo
+human_name: Atlas Dev Patamares
+canonical_name: Atlas Dev Patamares
+technical_name: atlas-dev-patamares
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-dev-patamares.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-dev-patamares.md

@@ -12,8 +12,7 @@ tags:
   - session-state
   - open-brain
 capabilities:
-  - open_brain_context_injection
-  - provider_safe_context
+  - continuity_context_projection
   - session_continuity
 decisions:
   - Continuidade e extensao auditavel do mesmo trabalho, nao replay cego de chat.
@@ -43,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Continuity And Session State
+canonical_name: Atlas AI Continuity And Session State
+technical_name: atlas-ai-continuity-session-state
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-continuity-session-state.md
 
 owner: memory-context
 

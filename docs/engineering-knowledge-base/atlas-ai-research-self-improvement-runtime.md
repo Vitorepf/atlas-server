@@ -13,10 +13,10 @@ tags:
   - source-quality
   - evolution-runtime
 capabilities:
-  - research_intelligence_runtime
-  - source_quality_gate
-  - research_to_docs_promotion
-  - governed_self_improvement
+  - research_self_improvement_runtime
+  - research_source_quality_consumption
+  - research_to_docs_runtime_consumption
+  - governed_self_improvement_runtime
   - evolution_velocity
 decisions:
   - Pesquisa de alto nivel e frente P0 do Atlas, nao atividade auxiliar.
@@ -90,6 +90,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Intelligence And Self-Improvement Runtime
+canonical_name: Atlas AI Research Intelligence And Self-Improvement Runtime
+technical_name: atlas-ai-research-self-improvement-runtime
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md

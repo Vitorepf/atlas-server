@@ -12,9 +12,9 @@ tags:
   - scope-validator
   - quality-gates
 capabilities:
-  - self_construction_os
+  - self_construction_scope_validator_contract
   - scope_validator
-  - governed_implementation
+  - scope_validator_governed_implementation
 decisions:
   - Scope validation is blocking evidence for every packet.
   - Unknown writes are unsafe until classified.
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Scope Validator Contract
+canonical_name: Atlas Self-Construction Scope Validator Contract
+technical_name: atlas-ai-self-construction-scope-validator-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/scope-validator-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/scope-validator-contract.md

@@ -12,7 +12,7 @@ tags:
   - assignment
   - multi-agent
 capabilities:
-  - self_construction_os
+  - self_construction_assignment_and_claim_contract
   - ai_implementation_packet
   - work_splitter
   - packet_assignment
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Assignment And Claim Contract
+canonical_name: Atlas Self-Construction Assignment And Claim Contract
+technical_name: atlas-ai-self-construction-assignment-and-claim-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md

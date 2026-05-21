@@ -27,6 +27,11 @@ graph_kind: flow
 graph_parent: atlas-kernel-mission-foundation
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Autonomous Follow-Through Loop
+canonical_name: Atlas AI Autonomous Follow-Through Loop
+technical_name: atlas-ai-follow-through-loop
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/atlas-ai-follow-through-loop.md
 owner: mission-runtime
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-follow-through-loop.md

@@ -12,7 +12,7 @@ tags:
   - agent-control-plane
   - audit
 capabilities:
-  - self_construction_os
+  - self_construction_atlas_agent_control_plane_runtime_readiness_gap_matrix_v1
   - runtime_readiness_audit
 decisions:
   - The matrix is observational; it does not promote any row to runtime.
@@ -36,6 +36,11 @@ graph_kind: runbook
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Agent Control Plane Runtime Readiness Gap Matrix v1
+canonical_name: Atlas Agent Control Plane Runtime Readiness Gap Matrix v1
+technical_name: atlas-agent-control-plane-runtime-readiness-gap-matrix-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/self-construction/audits/atlas-agent-control-plane-runtime-readiness-gap-matrix-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/audits/atlas-agent-control-plane-runtime-readiness-gap-matrix-v1.md
 allowed_changes:

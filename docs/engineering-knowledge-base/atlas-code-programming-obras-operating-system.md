@@ -14,9 +14,9 @@ tags:
   - attention-control-plane
 capabilities:
   - programming_obras
-  - atlas_code
-  - forge_workspace
-  - attention_control_plane
+  - programming_obras_atlas_code
+  - programming_obras_forge_workspace
+  - programming_obras_attention_control
   - ai_governed_software_production
 decisions:
   - Atlas Code exists primarily for heavy programming, ultra-hard software problems and extremely long AI-assisted development sessions; this is the maximum product priority.
@@ -58,6 +58,11 @@ graph_kind: module
 graph_parent: atlas-programming-forge-flow
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Programming Obras Operating System
+canonical_name: Atlas Code Programming Obras Operating System
+technical_name: atlas-code-programming-obras-operating-system
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
 allowed_changes:

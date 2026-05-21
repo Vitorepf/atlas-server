@@ -12,7 +12,7 @@ tags:
   - repository-blueprint
   - durable-reservation
 capabilities:
-  - self_construction_os
+  - self_construction_durable_reservation_repository_blueprint_contract
   - reservation_ledger
   - repository_blueprint
 decisions:
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Durable Reservation Repository Blueprint Contract
+canonical_name: Atlas Self-Construction Durable Reservation Repository Blueprint Contract
+technical_name: atlas-ai-self-construction-durable-reservation-repository-blueprint-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/durable-reservation-repository-blueprint-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-repository-blueprint-contract.md

@@ -45,6 +45,11 @@ graph_kind: contract
 graph_parent: atlas-forge-native-rivals-protocol-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Rivals One-Shot Enterprise Evaluation v1
+canonical_name: Atlas Rivals One-Shot Enterprise Evaluation v1
+technical_name: atlas-rivals-one-shot-enterprise-evaluation-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-rivals-one-shot-enterprise-evaluation-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-rivals-one-shot-enterprise-evaluation-v1.md

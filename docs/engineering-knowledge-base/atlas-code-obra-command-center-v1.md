@@ -48,6 +48,11 @@ graph_kind: runbook
 graph_parent: atlas-code-forge-human-first-ux-orchestrator-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Obra Command Center v1
+canonical_name: Atlas Code Obra Command Center v1
+technical_name: atlas-code-obra-command-center-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-code-obra-command-center-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-obra-command-center-v1.md
@@ -96,7 +101,6 @@ next_actions:
   - Decision inbox interativo (clicar em decisao abre tab correspondente com payload preparado).
   - fix_scope flow integrado com Definir > Pode mexer (one-click add).
 ---
-
 # Atlas Code Obra Command Center v1
 
 > Schema canonico: `atlas.code.obra_command_center.v1`

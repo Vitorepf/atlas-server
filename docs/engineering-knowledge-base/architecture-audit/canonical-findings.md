@@ -11,8 +11,7 @@ tags:
   - architecture
   - findings
 capabilities:
-  - architecture_audit
-  - anti_duplication_governance
+  - architecture_findings
 decisions:
   - Atlas value comes from orchestration, memory, gates, evidence and learning above providers.
   - Surface-specific business logic is the root cause of duplicated behavior.
@@ -39,6 +38,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Architecture Audit Canonical Findings
+canonical_name: Atlas AI Architecture Audit Canonical Findings
+technical_name: atlas-ai-architecture-audit-canonical-findings
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/architecture-audit/canonical-findings.md
 
 owner: architecture-audit
 

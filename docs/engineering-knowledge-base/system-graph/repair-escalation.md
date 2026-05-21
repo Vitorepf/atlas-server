@@ -24,6 +24,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Repair Escalation
+canonical_name: Repair Escalation
+technical_name: repair-escalation
+cartography_type: step
+canonical_source: docs/engineering-knowledge-base/system-graph/repair-escalation.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/repair-escalation.md

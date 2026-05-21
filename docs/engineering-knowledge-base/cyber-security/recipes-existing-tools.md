@@ -38,6 +38,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: building
 
 graph_source: repo
+human_name: Atlas AI Cyber Existing Tools
+canonical_name: Atlas AI Cyber Existing Tools
+technical_name: atlas-ai-cyber-recipes-existing-tools
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/cyber-security/recipes-existing-tools.md
 
 owner: cyber-security
 

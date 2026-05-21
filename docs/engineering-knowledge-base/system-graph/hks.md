@@ -24,6 +24,11 @@ graph_kind: module
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Human Knowledge Surface
+canonical_name: Human Knowledge Surface
+technical_name: hks
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/system-graph/hks.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/hks.md

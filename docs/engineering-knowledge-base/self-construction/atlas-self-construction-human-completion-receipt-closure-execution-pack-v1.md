@@ -39,6 +39,11 @@ graph_kind: module
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: "Atlas Self-Construction · Human Completion Receipt Closure Execution Pack v1"
+canonical_name: "Atlas Self-Construction · Human Completion Receipt Closure Execution Pack v1"
+technical_name: atlas-self-construction-human-completion-receipt-closure-execution-pack-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/atlas-self-construction-human-completion-receipt-closure-execution-pack-v1.md
 repo_paths:
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
@@ -74,7 +79,6 @@ next_actions:
   - Aguardar agentes paralelos liberarem readiness/CLI/contract para aplicar integration patch.
   - Manter pack sincronizado com mudanças no certifier real.
 ---
-
 # Atlas Self-Construction · Human Completion Receipt Closure Execution Pack v1
 
 > **Status:** services + tests **delivered green**; readiness/CLI/contract

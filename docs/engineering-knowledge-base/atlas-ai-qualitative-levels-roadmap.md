@@ -14,10 +14,10 @@ tags:
   - curator
 capabilities:
   - qualitative_levels_roadmap
-  - strategic_decision_domain
+  - strategic_decision_roadmap
   - curator_self_evolution
   - long_lived_memory
-  - rivals_strategy_validation
+  - rivals_strategy_roadmap
 decisions:
   - O roadmap de patamares e uma bussola qualitativa, nao metrica comercial nem autorizacao para execucao automatica.
   - Patamar superior significa mudanca de natureza da relacao Atlas/Vitor, nao apenas mais velocidade ou mais features.
@@ -61,6 +61,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Qualitative Levels Roadmap
+canonical_name: Atlas AI Qualitative Levels Roadmap
+technical_name: atlas-ai-qualitative-levels-roadmap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
 
 owner: roadmap
 

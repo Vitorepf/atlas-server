@@ -12,7 +12,7 @@ tags:
   - completion-gate
   - evidence
 capabilities:
-  - self_construction_os
+  - self_construction_packet_completion_gate_contract
   - packet_completion_review
   - implementation_evidence
 decisions:
@@ -46,6 +46,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Packet Completion Gate Contract
+canonical_name: Atlas Self-Construction Packet Completion Gate Contract
+technical_name: atlas-ai-self-construction-packet-completion-gate-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/packet-completion-gate-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/packet-completion-gate-contract.md

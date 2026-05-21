@@ -32,6 +32,11 @@ graph_kind: module
 graph_parent: atlas-self-construction-agent-control-plane-contract
 graph_status: active
 graph_source: repo
+human_name: Agent Control Plane Contract Parte 2
+canonical_name: Agent Control Plane Contract Parte 2
+technical_name: atlas-self-construction-agent-control-plane-contract-part-02
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/agent-control-plane-contract-part-02.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/agent-control-plane-contract-part-02.md

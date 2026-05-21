@@ -14,7 +14,7 @@ tags:
 capabilities:
   - cognitive_plane_visual_map
   - cognitive_onboarding
-  - visual_flow_governance
+  - cognitive_visual_flow_map
 decisions:
   - Este e o visual canonico do Cognitive Development Plane.
   - A imagem representa o estado final enterprise do plano cognitivo, nao apenas o estado atual de implementacao.
@@ -52,6 +52,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Plane Visual Map
+canonical_name: Atlas AI Cognitive Plane Visual Map
+technical_name: atlas-ai-cognitive-plane-visual-map
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/cognitive/visual-map.md
 
 repo_paths:
   - docs/engineering-knowledge-base/cognitive/visual-map.md

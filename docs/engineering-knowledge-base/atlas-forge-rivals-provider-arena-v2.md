@@ -51,6 +51,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-benchmark-strategy-v1
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Provider Arena v2"
+canonical_name: "Atlas Forge Rivals · Provider Arena v2"
+technical_name: atlas-forge-rivals-provider-arena-v2
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderModelRegistryService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArmCommandBuilderService.php
@@ -100,7 +105,6 @@ next_actions:
   - Validar gemini_cli real em ambiente com driver configurado.
   - Registrar outcomes no Intelligence Ledger por arm/provider/model/mode.
 ---
-
 # Atlas Forge Rivals · Provider Arena v2
 
 ## Resumo

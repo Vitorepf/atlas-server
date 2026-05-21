@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Services\Engineering\AtlasUniversalRealityCartographyService;
 use App\Services\Vault\GraphAssembler;
 use App\Services\Vault\ObsidianVaultReader;
 use App\Services\Vault\RepoVaultReader;
@@ -24,8 +25,8 @@ final class AtlasCartographyController extends Controller
         private readonly GraphAssembler $assembler,
         private readonly RepoVaultReader $repoReader,
         private readonly ObsidianVaultReader $vaultReader,
-    ) {
-    }
+        private readonly AtlasUniversalRealityCartographyService $universalRealityCartography,
+    ) {}
 
     public function graph(): JsonResponse
     {
@@ -38,12 +39,39 @@ final class AtlasCartographyController extends Controller
         $ttl = (int) config('atlas_vault.cache_seconds', 2);
         // Bump default TTL when a large vault is in play (filesystem walk is
         // expensive). Operator can still override via env.
-        if ($ttl < 30) $ttl = 30;
+        if ($ttl < 30) {
+            $ttl = 30;
+        }
         $graph = $ttl > 0
             ? Cache::remember('atlas-cartography:graph', $ttl, fn () => $this->assembler->assemble())
             : $this->assembler->assemble();
 
+        $clarity = $this->universalRealityCartography->map('flow');
+        $graph['human_clarity_contract'] = [
+            'human_clarity' => $clarity['human_clarity'],
+            'visual_scene' => $clarity['visual_scene'],
+            'human_route_map' => $clarity['human_route_map'],
+            'semantic_zoom_scenes' => $clarity['semantic_zoom_scenes'],
+            'writes' => false,
+        ];
+
         return response()->json($graph);
+    }
+
+    public function humanClarity(): JsonResponse
+    {
+        $payload = $this->universalRealityCartography->map('flow');
+
+        return response()->json([
+            'schema_version' => $payload['schema_version'],
+            'status' => data_get($payload, 'human_clarity.status') === 'ready' ? $payload['status'] : 'review',
+            'human_clarity' => $payload['human_clarity'],
+            'visual_scene' => $payload['visual_scene'],
+            'human_route_map' => $payload['human_route_map'],
+            'semantic_zoom_scenes' => $payload['semantic_zoom_scenes'],
+            'claim_policy' => $payload['claim_policy'],
+            'writes' => false,
+        ]);
     }
 
     public function note(string $graphId): JsonResponse
@@ -147,8 +175,11 @@ final class AtlasCartographyController extends Controller
     private function currentChecksum(): ?string
     {
         $ttl = (int) config('atlas_vault.cache_seconds', 2);
-        if ($ttl < 30) $ttl = 30;
+        if ($ttl < 30) {
+            $ttl = 30;
+        }
         $graph = Cache::remember('atlas-cartography:graph', $ttl, fn () => $this->assembler->assemble());
+
         return is_array($graph) && isset($graph['checksum']) ? (string) $graph['checksum'] : null;
     }
 
@@ -159,8 +190,8 @@ final class AtlasCartographyController extends Controller
      */
     private function emitSse(string $event, array $data): void
     {
-        echo 'event: ' . $event . "\n";
-        echo 'data: ' . json_encode($data) . "\n\n";
+        echo 'event: '.$event."\n";
+        echo 'data: '.json_encode($data)."\n\n";
         @ob_flush();
         @flush();
     }
@@ -184,7 +215,9 @@ final class AtlasCartographyController extends Controller
         $seenPaths = [];
         foreach ($all as $change) {
             $path = $change['path'] ?? '';
-            if (in_array($path, $seenPaths, true)) continue;
+            if (in_array($path, $seenPaths, true)) {
+                continue;
+            }
             $seenPaths[] = $path;
 
             $enriched[] = [
@@ -199,7 +232,9 @@ final class AtlasCartographyController extends Controller
                 'seconds_ago' => max(0, time() - (int) ($change['timestamp'] ?? 0)),
                 'time' => gmdate('H:i', (int) ($change['timestamp'] ?? 0)),
             ];
-            if (count($enriched) >= $limit) break;
+            if (count($enriched) >= $limit) {
+                break;
+            }
         }
 
         return response()->json([
@@ -228,7 +263,9 @@ final class AtlasCartographyController extends Controller
         $rows = [];
         foreach ($index as $id => $entry) {
             $mtime = (int) ($entry['mtime'] ?? 0);
-            if ($mtime <= 0 || $mtime < $cutoff) continue;
+            if ($mtime <= 0 || $mtime < $cutoff) {
+                continue;
+            }
             $rows[] = [
                 'graph_id' => (string) $id,
                 'name' => (string) ($entry['frontmatter']['title'] ?? $id),
@@ -241,6 +278,7 @@ final class AtlasCartographyController extends Controller
             ];
         }
         usort($rows, fn (array $a, array $b): int => ($b['timestamp'] ?? 0) - ($a['timestamp'] ?? 0));
+
         return array_slice($rows, 0, $limit);
     }
 
@@ -279,6 +317,7 @@ final class AtlasCartographyController extends Controller
                     'author' => $parts[2],
                     'subject' => $parts[3] ?? '',
                 ];
+
                 continue;
             }
             $path = trim($line);

@@ -12,7 +12,7 @@ tags:
   - codex-review
   - merge-governance
 capabilities:
-  - self_construction_os
+  - self_construction_codex_merge_post_execution_action_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_archive_index_template
   - review_governance
   - merge_authorization
 decisions:
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization New Cycle Disable Execution Later-Cycle Authorization Decision Record Activation Archive Index Template
+canonical_name: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization New Cycle Disable Execution Later-Cycle Authorization Decision Record Activation Archive Index Template
+technical_name: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-archive-index-template
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-archive-index-template.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-archive-index-template.md

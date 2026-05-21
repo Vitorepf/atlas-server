@@ -41,6 +41,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Legacy Cleanup README
+canonical_name: Legacy Cleanup README
+technical_name: legacy-cleanup-readme
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/legacy-cleanup/README.md
 
 owner: legacy-cleanup
 

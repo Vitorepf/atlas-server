@@ -14,7 +14,7 @@ tags:
   - self-improvement
 capabilities:
   - compounding_engineering_intelligence
-  - outcome_evaluation
+  - compounding_outcome_evaluation
   - learning_distillation
   - compounding_memory
   - heuristic_evolution
@@ -50,6 +50,11 @@ graph_kind: module
 graph_parent: atlas-hyperflow-operation
 graph_status: active
 graph_source: repo
+human_name: Atlas Compounding Engineering Intelligence
+canonical_name: Atlas Compounding Engineering Intelligence
+technical_name: atlas-compounding-engineering-intelligence
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md

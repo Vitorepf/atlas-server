@@ -52,6 +52,11 @@ graph_kind: contract
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Local Agent Memory Ingestion
+canonical_name: Atlas Local Agent Memory Ingestion
+technical_name: atlas-local-agent-memory-ingestion
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md
 owner: memory
 repo_paths:
   - docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md

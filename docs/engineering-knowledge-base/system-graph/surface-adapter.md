@@ -24,6 +24,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Surface Adapter
+canonical_name: Surface Adapter
+technical_name: surface-adapter
+cartography_type: step
+canonical_source: docs/engineering-knowledge-base/system-graph/surface-adapter.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/surface-adapter.md

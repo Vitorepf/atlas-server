@@ -13,7 +13,6 @@ tags:
   - anti-duplication
 capabilities:
   - core_domain_boundary
-  - anti_duplication_governance
   - capability_ownership
 decisions:
   - Core contem capacidades horizontais compartilhadas.
@@ -49,6 +48,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Core Vs Domain
+canonical_name: Atlas AI Core Vs Domain
+technical_name: atlas-ai-core-vs-domain
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
 
 owner: architecture
 

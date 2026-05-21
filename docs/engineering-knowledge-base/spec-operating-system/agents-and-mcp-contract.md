@@ -12,9 +12,9 @@ tags:
   - agents
   - mcp
 capabilities:
-  - spec_operating_system
+  - spec_agents_and_mcp_contract
   - agent_orchestration
-  - open_brain
+  - spec_open_brain_agent_context
 decisions:
   - SDD uses specialized agents, but Kernel and receipts remain the authority.
   - MCP may expose context, prompts and tools only through governed Atlas surfaces.
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Spec Operating System Agents And MCP Contract
+canonical_name: Atlas Spec Operating System Agents And MCP Contract
+technical_name: atlas-ai-spec-operating-system-agents-and-mcp-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/agents-and-mcp-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/spec-operating-system/agents-and-mcp-contract.md

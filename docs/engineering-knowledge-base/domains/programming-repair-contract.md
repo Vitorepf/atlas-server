@@ -37,6 +37,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Programming Repair Contract
+canonical_name: Atlas AI Programming Repair Contract
+technical_name: atlas-ai-programming-repair-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/domains/programming-repair-contract.md
 
 owner: domains
 

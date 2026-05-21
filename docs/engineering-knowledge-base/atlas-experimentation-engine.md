@@ -34,6 +34,11 @@ graph_kind: module
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Experimentation Engine
+canonical_name: Atlas Experimentation Engine
+technical_name: atlas-experimentation-engine
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-experimentation-engine.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-experimentation-engine.md

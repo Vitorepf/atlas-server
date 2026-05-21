@@ -642,6 +642,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
  */
 Route::prefix('atlas-cartography')->group(function () {
     Route::get('/graph', [AtlasCartographyController::class, 'graph']);
+    Route::get('/human-clarity', [AtlasCartographyController::class, 'humanClarity']);
     Route::get('/note/{graph_id}', [AtlasCartographyController::class, 'note'])->where('graph_id', '.*');
     Route::get('/recent-changes', [AtlasCartographyController::class, 'recentChanges']);
     // SSE · live-doc stream. Heartbeat every 15s + emit `graph_changed` when

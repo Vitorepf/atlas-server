@@ -24,6 +24,11 @@ graph_kind: module
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Capabilities
+canonical_name: Capabilities
+technical_name: capabilities
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/system-graph/capabilities.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/capabilities.md

@@ -14,7 +14,7 @@ tags:
   - context-quality
 capabilities:
   - retrieval_quality
-  - context_pack_recall
+  - context_pack_recall_benchmark
   - benchmark
   - cognitive_audit
 decisions:
@@ -45,6 +45,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Runtime Retrieval Benchmark
+canonical_name: Atlas AI Cognitive Runtime Retrieval Benchmark
+technical_name: atlas-ai-cognitive-runtime-retrieval-benchmark
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/cognitive-runtime/retrieval-benchmark.md
 
 owner: cognitive-runtime
 

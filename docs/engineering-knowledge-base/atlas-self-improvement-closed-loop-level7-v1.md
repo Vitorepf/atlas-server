@@ -74,6 +74,11 @@ graph_kind: runbook
 graph_parent: atlas-self-improvement-activation-cockpit-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Improvement Closed Loop Level 7 v1
+canonical_name: Atlas Self-Improvement Closed Loop Level 7 v1
+technical_name: atlas-self-improvement-closed-loop-level7-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-self-improvement-closed-loop-level7-v1.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-self-improvement-closed-loop-level7-v1.md
@@ -150,7 +155,6 @@ next_actions:
   - Tauri commands nativos para mutações Level 7 (HTTP fallback continua válido).
   - Integração Cartografia: drill-down do evidence_refs[] para abrir doc/ledger event correspondente.
 ---
-
 # Atlas Self-Improvement Closed Loop Level 7 v1
 
 ## Resumo

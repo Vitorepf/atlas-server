@@ -57,6 +57,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Local Performance Memory Strategy
+canonical_name: Atlas AI Local Performance Memory Strategy
+technical_name: atlas-ai-local-performance-memory-strategy
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
 
 owner: performance-architecture
 

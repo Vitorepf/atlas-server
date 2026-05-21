@@ -51,6 +51,11 @@ graph_kind: contract
 graph_parent: atlas-domain-company-runtimes
 graph_status: active
 graph_source: repo
+human_name: Atlas Domain Runtime Contract
+canonical_name: Atlas Domain Runtime Contract
+technical_name: atlas-domain-runtime-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
@@ -121,34 +126,26 @@ next_actions:
 line_limit: 520
 ---
 # Atlas Domain Runtime Contract
-
 ## Resumo
-
 Design pack da Meta 2 do Autonomous Intelligence OS: contrato executavel
 para o Atlas operar cada dominio como empresa digital plugavel. Consolida
 DomainRuntime, DomainManifest, Domain Registry, Capability Catalog, Handoff
 cross-domain e Maturity Assessment, sem criar Kernel, Tool Runtime, Policy
 Engine ou Evidence Ledger paralelos.
-
 Meta 1 (Mission Foundation) entrega mission/objetivo/DoD e contratos
 `atlas.ai.mission.*`. Esta Meta 2 entra logo depois: dado o objetivo, qual
 dominio executa, com que capabilities, sob qual manifest, com qual handoff
 e em que estagio de maturidade.
-
 ## Papel no Atlas
-
 Define **como** um dominio existe e opera. Responsabilidades:
-
 - declarar contrato executavel de cada DomainRuntime;
 - padronizar DomainManifest como cadastro unico do dominio;
 - governar Domain Registry como indice consultavel e anti-duplicacao;
 - catalogar Capabilities com schemas, gates e maturidade;
 - formalizar Handoff cross-domain auditavel;
 - aplicar Maturity Assessment com criterios verificaveis.
-
 Fora do escopo: substituir Mission Foundation (Meta 1), duplicar Kernel,
 criar Tool Runtime/Policy Engine/Evidence Ledger paralelos por dominio.
-
 ## Onde Se Encaixa
 
 ```text

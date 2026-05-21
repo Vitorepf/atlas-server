@@ -62,6 +62,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Obsidian And AtlasVault Architecture
+canonical_name: Atlas Obsidian And AtlasVault Architecture
+technical_name: atlas-obsidian-atlas-vault
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/obsidian-atlas-vault.md
 
 owner: architecture
 

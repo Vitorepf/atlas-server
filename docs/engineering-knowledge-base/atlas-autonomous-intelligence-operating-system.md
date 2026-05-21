@@ -15,11 +15,11 @@ tags:
   - automation
   - evidence
 capabilities:
-  - mission_mode
+  - autonomous_mission_orchestration
   - world_intelligence
   - deep_research
   - tool_selection
-  - tool_creation
+  - autonomous_tool_creation
   - browser_automation
   - terminal_execution
   - github_execution
@@ -71,6 +71,11 @@ graph_kind: system
 graph_parent: atlas-ai
 graph_status: active
 graph_source: repo
+human_name: Atlas Autonomous Intelligence Operating System
+canonical_name: Atlas Autonomous Intelligence Operating System
+technical_name: atlas-autonomous-intelligence-operating-system
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md

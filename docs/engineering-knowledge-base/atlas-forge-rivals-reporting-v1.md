@@ -43,6 +43,11 @@ graph_kind: runbook
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Rivals Reporting v1
+canonical_name: Atlas Forge Rivals Reporting v1
+technical_name: atlas-forge-rivals-reporting-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-reporting-v1.md
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsNextService.php
@@ -82,7 +87,6 @@ next_actions:
   - Quando multi-case real chegar, agregar categorias com mais de uma run e ampliar confidence ladder.
   - Conectar provider_performance_signal ao Ledger como entrada advisory.
 ---
-
 # Atlas Forge Rivals · Reporting v1
 
 **Schema:** `atlas.forge.rivals.report.v3`

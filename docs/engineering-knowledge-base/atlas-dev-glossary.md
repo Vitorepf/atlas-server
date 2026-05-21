@@ -41,6 +41,11 @@ graph_kind: module
 graph_parent: atlas-dev-index
 graph_status: active
 graph_source: repo
+human_name: Atlas Dev Glossary
+canonical_name: Atlas Dev Glossary
+technical_name: atlas-dev-glossary
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-dev-glossary.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-dev-glossary.md

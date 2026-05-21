@@ -39,6 +39,11 @@ graph_kind: module
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Operator Evidence Receipt Fixture Lab v1
+canonical_name: Operator Evidence Receipt Fixture Lab v1
+technical_name: operator-evidence-receipt-fixture-lab-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/operator-evidence-receipt-fixture-lab-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/operator-evidence-receipt-fixture-lab-v1.md
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService.php
@@ -91,7 +96,6 @@ next_actions:
   - Manter o lab sincronizado com mudancas nos verifiers reais e hash services.
   - Nao integrar no readiness/CLI sem macro-slice proprio com gates verdes.
 ---
-
 ## Purpose
 
 The Operator Evidence Receipt Fixture Lab v1 is a read-only diagnostic surface that explains, in plain language, why an operator evidence payload (runtime promotion receipt, real provider smoke, or human completion receipt) is failing the existing verifiers. It exists so the operator can iterate on a payload locally, see exactly which fields are missing, malformed or carrying forbidden runtime flags, and arrive at the real verifier with a clean payload — without persisting anything, without calling a provider and without claiming completion.

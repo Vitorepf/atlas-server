@@ -6,6 +6,18 @@ status: active
 category: documentation-governance
 priority: 100
 summary: Documento mae da area que organiza a dependencia entre documentacao canonica, ACRUI e Cartografia/AURC para que IAs tenham verdade operacional e humanos tenham acesso visual compreensivel.
+human_summary: Garante que existe uma verdade canonica unica: a IA usa documentos confiaveis e o humano enxerga essa verdade pela Cartografia.
+human_what: Area-mae que une governanca documental, realidade de codigo e acesso visual humano.
+human_purpose: Fazer o Atlas sobreviver a muitas IAs trabalhando sem bagunca, duplicacao ou perda de verdade.
+human_input: Recebe docs canonicos, ACRUI, AURC, Code Intelligence, evidence, testes, fontes e regras de projeto.
+human_output: Entrega mapa de blocos, ordem de implementacao, regras de verdade e ponte entre IA e humano.
+human_change_when: Mexa quando mudar a organizacao da documentacao, os blocos ACRUI/AURC ou o modo como humanos acessam a verdade.
+human_block_when: Bloqueie quando existir segunda fonte canonica, cartografia falsa, doc sem prova ou IA tentando implementar a partir de material solto.
+human_name: Sistema de Realidade da Documentacao
+canonical_name: Atlas Documentation Reality System
+technical_name: AtlasDocumentationRealitySystemService
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-reality-system.md
 tags:
   - atlas-ai
   - documentation
@@ -16,9 +28,9 @@ tags:
 capabilities:
   - documentation_reality_system
   - documentation_human_dependency
-  - code_reality_usage_intelligence
-  - universal_reality_cartography
-  - human_visual_documentation_access
+  - documentation_code_reality_dependency
+  - documentation_cartography_dependency
+  - documentation_human_visual_access_dependency
   - ai_safe_documentation_navigation
   - documentation_context_efficiency
   - documentation_reality_scoring
@@ -46,8 +58,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
   - docs/engineering-knowledge-base/atlas-universal-reality-cartography.md
+  - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
+  - docs/engineering-knowledge-base/atlas-software-twin-verified-evolution-runtime.md
   - docs/engineering-knowledge-base/atlas-documentation-reality-implementation-blueprint.md
-  - docs/engineering-knowledge-base/atlas-documentation-reality-block-upgrade-map.md
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/atlas-system-graph.md
@@ -104,6 +117,7 @@ governs:
   - human-documentation-access
 evidence:
   - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
+  - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
   - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
   - docs/engineering-knowledge-base/atlas-universal-reality-cartography.md
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
@@ -232,6 +246,8 @@ Filhos canonicos:
 |---|---|---|---|---|
 | Operational truth | Atlas Code Reality & Usage Intelligence | ACRUI | Atlas Reality of Code | `AtlasCodeRealityUsageIntelligenceService` |
 | Human cartography | Atlas Universal Reality Cartography | AURC | Atlas Universe Map | `AtlasUniversalRealityCartographyService` |
+| Software twin | Atlas Software Twin Runtime | ASTR | Atlas Living System Twin | `AtlasSoftwareTwinRuntimeService` |
+| Verified evolution | Atlas Verified Evolution Runtime | AVEOR | Atlas Change Safety Kernel | `AtlasVerifiedEvolutionRuntimeService` |
 
 Regra de autoridade:
 
@@ -309,7 +325,8 @@ humano percebe confusao visual
 
 ADRS organiza 52 blocos em 6 planes oficiais. Eles sao contratos da area;
 runtime so nasce quando o bloco tiver owner, evidencia, teste e regra de consumo
-clara.
+clara. O registro navegavel dos ids, planes, tipos, status, fontes e
+avaliadores vive em `atlas-documentation-reality-block-registry.md`.
 
 ## Planes Oficiais
 
@@ -415,6 +432,10 @@ php artisan atlas:documentation-reality acceptance --strict --json
 `accepted` significa contrato ADRS materializado em runtime read-only e coberto
 por teste; nao declara produto filho completo.
 
+`atlas-documentation-reality-block-registry.md` e o catalogo compacto que a
+Cartografia deve usar para renderizar os 52 blocos sem depender de inferencia
+livre sobre nomes, planes, fontes ou evaluation refs.
+
 ## Definition Of Complete Da Area
 
 ADRS so pode ser tratado como completo quando:
@@ -465,18 +486,12 @@ php artisan atlas:engineering:knowledge docs-health --json
 php artisan atlas:documentation-reality score --strict --json
 php artisan atlas:documentation-reality evaluations --strict --json
 php artisan atlas:documentation-reality acceptance --strict --json
+php artisan atlas:documentation-reality blocks --strict --json
 php artisan atlas:ai:session-bootstrap --task="<task>" --json
 php artisan atlas:ai:place-feature "<feature>" --json
 php artisan atlas:ai:docs-authority-audit --json
 php artisan atlas:ai:architecture-validate --json
 atlas engineering knowledge sync --prune --json
-```
-
-Evidencia atual para AURC:
-
-```bash
-php artisan atlas:universal-reality-cartography map --strict --json
-php artisan atlas:universal-reality-cartography navigation-slice --strict --json
 ```
 
 ## Riscos
@@ -494,20 +509,11 @@ php artisan atlas:universal-reality-cartography navigation-slice --strict --json
 
 ## Exemplos
 
-- Atlas interno: pergunta sobre Atlas Dev/TEOS -> ADRS acha owner docs -> ACRUI
-  verifica codigo/testes -> AURC mostra boundary visual -> resposta separa fluxo
-  ativo, scaffold e lacuna.
-- Projeto externo: Universo -> Blackink -> repositorios/sistemas/fluxos; docs
-  canonicos continuam no repo Blackink, Atlas apenas consome e visualiza.
-- Codigo possivelmente morto: ACRUI classifica como
-  `implemented_unused_candidate`, nunca `dead_code_confirmed`; ADRS exige
-  quarantine plan e aprovacao humana.
+Atlas interno usa ADRS -> ACRUI -> AURC; projeto externo fica no repo canonico
+externo; codigo possivelmente morto vira quarantine candidate, nao delete direto.
 
 ## Proximas Acoes
 
 1. Manter ADRS como doc mae e runtime integrado read-only da area, sem criar segunda fonte de verdade.
-2. Evoluir ACRUI para service integrado usando Code Intelligence, docs-authority e reachability real.
-3. Evoluir AURC para schema visual e task simulator consumindo ADRS/ACRUI.
-4. Manter `session-bootstrap` e `feature-placement` consumindo `documentation_reality_gate`, ACRUI anti-duplicate e AURC navigation slice antes de codar.
-5. Fazer a Cartografia mostrar universo -> organizacao -> projeto -> sistema -> fluxo -> componente.
-6. Promover blocos criticos para L5 quando houver feedback real de uso, adoption meter e repair loop.
+2. Manter ACRUI, AURC e Block Registry sincronizados com runtime, testes e Cartografia.
+3. Promover blocos criticos para L5 quando houver feedback real de uso, adoption meter e repair loop.

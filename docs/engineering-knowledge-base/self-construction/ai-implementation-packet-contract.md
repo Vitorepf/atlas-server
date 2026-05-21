@@ -12,7 +12,7 @@ tags:
   - ai-implementation-packet
   - multi-agent
 capabilities:
-  - self_construction_os
+  - self_construction_ai_implementation_packet_contract
   - ai_implementation_packet
   - governed_implementation
 decisions:
@@ -49,6 +49,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction AI Implementation Packet Contract
+canonical_name: Atlas Self-Construction AI Implementation Packet Contract
+technical_name: atlas-ai-self-construction-ai-implementation-packet-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md

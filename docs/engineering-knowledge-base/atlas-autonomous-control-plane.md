@@ -59,6 +59,11 @@ graph_kind: module
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Autonomous Control Plane
+canonical_name: Atlas Autonomous Control Plane
+technical_name: atlas-autonomous-control-plane
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-autonomous-control-plane.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-autonomous-control-plane.md

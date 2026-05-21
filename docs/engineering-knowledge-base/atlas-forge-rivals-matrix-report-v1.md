@@ -45,6 +45,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-evidence-pack-replay-multi-case-v1
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Matrix Report v1"
+canonical_name: "Atlas Forge Rivals · Matrix Report v1"
+technical_name: atlas-forge-rivals-matrix-report-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-matrix-report-v1.md
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsMatrixReportService.php
   - app/Console/Commands/AtlasForgeRivalsCommand.php
@@ -108,9 +113,7 @@ O matrix NÃO responde:
 - Se o resultado vale para release sem revisão humana (sempre `human_review_required` quando o spread é pequeno).
 - Se o Atlas é "globalmente melhor" — só fala da bateria específica medida.
 ---
-
 ## 2. Inputs e fontes de dados
-
 | Fonte                                                                | Para que serve                                                |
 | -------------------------------------------------------------------- | ------------------------------------------------------------- |
 | `runs/<run_id>/evidence/battery_evidence_pack.json`                  | Agregação de cases multi-run (per-case digest com L5).        |
@@ -118,15 +121,11 @@ O matrix NÃO responde:
 | `runs/<run_id>/evidence/cases/<case_subdir>/scorecard.json`          | Per-case scorecard (preferido).                               |
 | `runs/<run_id>/evidence/scorecard.json` (`cases_breakdown[case_id]`) | Fallback: scorecard run-level com breakdown por case.         |
 | `runs/<run_id>/evidence/scorecard.json` (run-level)                  | Fallback final: legacy single-case run.                       |
-
 Quando nenhuma das fontes existe ou produz `comparable+scored=true`, o
 matrix devolve `status=insufficient_evidence` e refuses to declare winner
 or recommendation.
-
 ---
-
 ## 3. Algoritmos canon
-
 ### 3.1 Winner geral (ponderado L1-L5)
 
 Para cada case `comparable+scored=true`:

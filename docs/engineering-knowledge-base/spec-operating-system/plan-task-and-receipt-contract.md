@@ -40,6 +40,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas SDD Plan Task And Receipt Contract
+canonical_name: Atlas SDD Plan Task And Receipt Contract
+technical_name: atlas-ai-sdd-plan-task-receipt-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/plan-task-and-receipt-contract.md
 
 owner: spec-operating-system
 

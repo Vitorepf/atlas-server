@@ -14,11 +14,11 @@ tags:
   - graphify
   - governance
 capabilities:
-  - code_intelligence_index
+  - external_code_graph_harness
   - external_graph_candidate
   - architecture_operations
   - curator_proposal
-  - cognitive_immune_gate
+  - external_graph_cognitive_gate
 decisions:
   - Grafos externos sao candidatos de evidencia, nunca autoridade operacional primaria.
   - Graphify e o primeiro source material dissecado, mas o contrato pertence ao Atlas.
@@ -54,6 +54,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Code Intelligence External Graph Harness
+canonical_name: Atlas Code Intelligence External Graph Harness
+technical_name: atlas-code-intelligence-external-graph-harness
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/code-intelligence/external-graph-harness.md
 
 owner: code-intelligence
 

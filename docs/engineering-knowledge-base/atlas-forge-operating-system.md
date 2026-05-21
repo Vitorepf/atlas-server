@@ -80,6 +80,11 @@ graph_parent: atlas-programming-governance-system
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Forge Operating System
+canonical_name: Atlas Forge Operating System
+technical_name: atlas-forge-operating-system
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-forge-operating-system.md
 
 owner: programming
 

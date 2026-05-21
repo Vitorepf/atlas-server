@@ -34,6 +34,11 @@ graph_kind: contract
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Product Certification
+canonical_name: Atlas AI Product Certification
+technical_name: atlas-ai-product-certification
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-ai-product-certification.md
 owner: product-certification
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-product-certification.md

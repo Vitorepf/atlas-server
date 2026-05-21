@@ -12,7 +12,7 @@ tags:
   - maturity
 capabilities:
   - capability_maturity_ladder
-  - self_construction_os
+  - self_construction_capability_maturity_ladder
 decisions:
   - Atlas capabilities must advance by evidence-backed maturity levels.
   - A capability is not complete because it is documented or scaffolded.
@@ -41,6 +41,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Capability Maturity Ladder
+canonical_name: Atlas Self-Construction Capability Maturity Ladder
+technical_name: atlas-ai-self-construction-capability-maturity-ladder
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md

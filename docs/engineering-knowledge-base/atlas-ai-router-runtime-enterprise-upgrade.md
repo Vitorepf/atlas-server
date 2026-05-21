@@ -70,6 +70,11 @@ graph_kind: contract
 graph_parent: atlas-ai-router-flow-routing-contract-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Router Runtime Enterprise Upgrade
+canonical_name: Atlas AI Router Runtime Enterprise Upgrade
+technical_name: atlas-ai-router-runtime-enterprise-upgrade
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md

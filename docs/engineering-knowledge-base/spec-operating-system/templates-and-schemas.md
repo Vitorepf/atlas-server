@@ -37,6 +37,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas SDD Templates And Schemas
+canonical_name: Atlas SDD Templates And Schemas
+technical_name: atlas-ai-sdd-templates-and-schemas
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/templates-and-schemas.md
 
 owner: spec-operating-system
 

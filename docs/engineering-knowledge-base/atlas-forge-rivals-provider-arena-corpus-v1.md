@@ -58,6 +58,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Provider Arena Corpus Release v1"
+canonical_name: "Atlas Forge Rivals · Provider Arena Corpus Release v1"
+technical_name: atlas-forge-rivals-provider-arena-corpus-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-corpus-v1.md
 owner: rivals
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsProviderArenaCorpusService.php
@@ -179,9 +184,7 @@ risk:       low → 11 cases   medium → 15 cases   high → 10 cases   critica
 ```
 Cobertura honesta: a maior parte dos casos é low/medium ambiguity (régua mecânica), enquanto L4/L5 concentram o high/critical (ambiente real).
 ## 4. Schema do case manifest (29 campos canônicos: 22 do release v1 + 7 do difficulty block L1..L5)
-
 Cada caso declara **exatamente** estes 29 campos (validados por `AtlasForgeRivalsProviderArenaCorpusService::validateManifest` que delega o bloco de dificuldade ao `AtlasForgeRivalsSchemaContractService`):
-
 ```
 case_id                : string, kebab (ex: 'backend-pagination-off-by-one')
 title                  : string, título humano curto
@@ -213,15 +216,11 @@ fairness_notes         : string, por que comparação é justa entre arms
 human_review_notes     : string, o que o operador audita
 claim_level            : 'case_result_only', único valor admitido
 ```
-
 ### Hard gates obrigatórios em `invalid_if`
-
 Todo caso precisa listar (cert invariants 8 + 10 + 11):
-
 - `synthetic_score_admitted`
 - `touched_forbidden_files`
 - `external_rivals_unlock_attempted`
-
 ### Back-compat aliases (auto-populados, nunca declarados à mão)
 
 `adaptCase()` deriva automaticamente:

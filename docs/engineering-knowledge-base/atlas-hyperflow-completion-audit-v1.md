@@ -13,8 +13,8 @@ tags:
   - audit
   - rivals-battery
 capabilities:
-  - hyperflow_certification
-  - completion_audit
+  - hyperflow_completion_certification_audit
+  - hyperflow_completion_audit
   - evidence_contracts
   - rivals_battery
   - external_evidence_gate
@@ -41,6 +41,11 @@ graph_kind: contract
 graph_parent: atlas-hyperflow-operation
 graph_status: active
 graph_source: repo
+human_name: Atlas Hyperflow Completion Audit v1
+canonical_name: Atlas Hyperflow Completion Audit v1
+technical_name: atlas-hyperflow-completion-audit-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-hyperflow-completion-audit-v1.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-hyperflow-completion-audit-v1.md
@@ -71,7 +76,6 @@ risk_level: high
 next_actions:
   - Manter o audit alinhado ao escopo obrigatorio da Operacao Atlas Hyperflow.
 ---
-
 # Atlas Hyperflow Completion Audit v1
 
 ## Resumo

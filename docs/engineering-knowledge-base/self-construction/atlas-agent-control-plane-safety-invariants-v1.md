@@ -44,6 +44,11 @@ graph_kind: policy
 graph_parent: atlas-self-construction-agent-control-plane-contract
 graph_status: active
 graph_source: repo
+human_name: Atlas Agent Control Plane - Safety Invariants v1
+canonical_name: Atlas Agent Control Plane - Safety Invariants v1
+technical_name: atlas-agent-control-plane-safety-invariants-v1
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/self-construction/atlas-agent-control-plane-safety-invariants-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/atlas-agent-control-plane-safety-invariants-v1.md
 allowed_changes:
@@ -84,7 +89,6 @@ observability_signals:
 next_actions:
   - Manter este doc sincronizado com agent-control-plane-contract.md e safety contract.
 ---
-
 # Atlas Agent Control Plane - Safety Invariants v1
 
 These are the hard-law invariants for the Agent Control Plane projection

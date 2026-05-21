@@ -12,8 +12,8 @@ tags:
   - ai-harness
   - governance
 capabilities:
-  - obras_operating_system
-  - quality_gates
+  - obras_ai_harness_governance_and_quality
+  - obras_quality_gates
   - governed_ai_execution
 decisions:
   - AI inside Obras must operate against Obra context, not loose chat context.
@@ -46,6 +46,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Obras - AI Harness Governance And Quality
+canonical_name: Atlas Obras - AI Harness Governance And Quality
+technical_name: atlas-ai-obras-ai-harness-governance-and-quality
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/obras/ai-harness-governance-and-quality.md
 
 repo_paths:
   - docs/engineering-knowledge-base/obras/ai-harness-governance-and-quality.md

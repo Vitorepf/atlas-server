@@ -37,6 +37,11 @@ graph_kind: runbook
 graph_parent: atlas-programming-forge-flow
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Runtime Certification One Shot
+canonical_name: Atlas Forge Runtime Certification One Shot
+technical_name: atlas-forge-runtime-certification-one-shot
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-forge-runtime-certification-one-shot.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-runtime-certification-one-shot.md

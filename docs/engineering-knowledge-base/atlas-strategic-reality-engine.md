@@ -69,6 +69,11 @@ graph_kind: system
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Strategic Reality Engine
+canonical_name: Atlas Strategic Reality Engine
+technical_name: AtlasStrategicRealityRuntimeService
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-strategic-reality-engine.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-strategic-reality-engine.md
@@ -135,7 +140,6 @@ next_actions:
   - Expandir Reality Graph com entidades de empresas, produtos, canais e investimentos reais.
   - Evoluir APCR, AEMOR e ASEIF como fontes iniciais do Reality Graph.
 ---
-
 ## Resumo
 
 ASRE, Atlas Strategic Reality Engine, e a camada que torna o Atlas capaz de

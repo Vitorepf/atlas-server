@@ -15,7 +15,7 @@ tags:
 capabilities:
   - atlas_vault_cartography
   - graph_projection
-  - source_authority
+  - vault_source_authority
 decisions:
   - Repo docs and AtlasVault are independent canonical sources.
   - `graph_*` fields are visual-only and additive.
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Vault Cartography Schema Contracts
+canonical_name: Atlas Vault Cartography Schema Contracts
+technical_name: atlas-vault-cartography-schema-contracts
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema-contracts.md
 
 repo_paths:
   - docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema-contracts.md

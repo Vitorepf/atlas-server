@@ -12,7 +12,7 @@ tags:
   - readiness-projection
   - durable-reservation
 capabilities:
-  - self_construction_os
+  - self_construction_durable_reservation_readiness_projection_contract
   - reservation_ledger
   - multi_session_readiness
 decisions:
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Durable Reservation Readiness Projection Contract
+canonical_name: Atlas Self-Construction Durable Reservation Readiness Projection Contract
+technical_name: atlas-ai-self-construction-durable-reservation-readiness-projection-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-contract.md

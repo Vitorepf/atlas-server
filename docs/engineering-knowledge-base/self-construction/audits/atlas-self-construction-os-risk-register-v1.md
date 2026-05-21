@@ -12,7 +12,7 @@ tags:
   - audit
   - risk
 capabilities:
-  - self_construction_os
+  - self_construction_atlas_self_construction_os_risk_register_v1
   - risk_register
 decisions:
   - Every risk must declare a signal an operator can observe BEFORE damage.
@@ -37,6 +37,11 @@ graph_kind: runbook
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction OS Risk Register v1
+canonical_name: Atlas Self-Construction OS Risk Register v1
+technical_name: atlas-self-construction-os-risk-register-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-risk-register-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-risk-register-v1.md
 allowed_changes:

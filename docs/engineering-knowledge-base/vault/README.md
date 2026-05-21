@@ -43,6 +43,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: AtlasVault Specs Index
+canonical_name: AtlasVault Specs Index
+technical_name: atlas-vault-specs-index
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/vault/README.md
 
 owner: vault
 

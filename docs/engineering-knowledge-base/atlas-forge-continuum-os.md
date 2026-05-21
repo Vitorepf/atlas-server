@@ -16,8 +16,8 @@ tags:
   - provider-topology
 capabilities:
   - atlas_forge_continuum
-  - forge_provider_topology
-  - governed_provider_fallback
+  - forge_continuum_provider_topology
+  - forge_continuum_provider_fallback
   - one_shot_enterprise_programming
   - atlas_code_forge_surface
   - programming_continuity
@@ -69,6 +69,11 @@ graph_kind: module
 graph_parent: atlas-programming-forge-flow
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Continuum OS
+canonical_name: Atlas Forge Continuum OS
+technical_name: atlas-forge-continuum-os
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-forge-continuum-os.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
@@ -190,10 +195,8 @@ Sistema: Atlas Forge Continuum OS. Modulo: `atlas.forge.continuum`. Audit
 esperado: `atlas_forge_continuum_certification`. Doc-mae:
 `atlas-forge-continuum-os.md`.
 ## Papel no Atlas
-
 O objetivo do Atlas Code nao e apenas abrir uma tela de programacao. O objetivo
 e automatizar ao maximo o melhor fluxo humano atual de construcao de software:
-
 ```text
 meta clara
 -> contexto longo
@@ -204,13 +207,10 @@ meta clara
 -> evidence
 -> proxima meta
 ```
-
 O Continuum torna esse fluxo nativo do Atlas. O operador nao deve precisar
 orquestrar manualmente Claude, Codex, Gemini, tools, testes, review e docs a
 cada ciclo. O Atlas deve decidir, executar, continuar e mostrar o que aconteceu.
-
 ## Onde Se Encaixa
-
 ```text
 Programming Domain
 └─ programming.forge
@@ -254,7 +254,6 @@ Programming Domain
          ├─ weakness detection
          └─ policy improvement
 ```
-
 ## Contratos
 
 | Camada | Responsabilidade | Nao pode fazer |

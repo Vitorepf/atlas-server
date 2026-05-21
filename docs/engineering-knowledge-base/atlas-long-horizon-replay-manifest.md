@@ -27,6 +27,11 @@ graph_kind: contract
 graph_parent: atlas-ai-cognitive-runtime
 graph_status: active
 graph_source: repo
+human_name: Atlas Long-Horizon Replay Manifest
+canonical_name: Atlas Long-Horizon Replay Manifest
+technical_name: atlas-long-horizon-replay-manifest
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-long-horizon-replay-manifest.md
 owner: long-horizon-runtime
 repo_paths:
   - docs/engineering-knowledge-base/atlas-long-horizon-replay-manifest.md

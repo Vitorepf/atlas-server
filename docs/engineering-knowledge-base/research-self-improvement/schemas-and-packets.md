@@ -40,6 +40,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Self-Improvement Schemas And Packets
+canonical_name: Atlas AI Research Self-Improvement Schemas And Packets
+technical_name: atlas-ai-research-self-improvement-schemas-and-packets
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/schemas-and-packets.md
 
 owner: research-self-improvement
 

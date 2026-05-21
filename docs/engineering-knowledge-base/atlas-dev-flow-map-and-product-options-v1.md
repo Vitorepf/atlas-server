@@ -17,8 +17,8 @@ capabilities:
   - atlas_dev_flow_map
   - atlas_dev_light_design
   - daily_programming_runtime
-  - programming_repair_loop
-  - dev_to_forge_promotion
+  - atlas_dev_programming_repair_loop
+  - dev_to_forge_flow_map
 decisions:
   - Atlas Dev e a camada diaria de programacao antes de Forge, nao um Forge menor com outro nome.
   - O Atlas Dev atual ja passa por CLI, chat, surface adapters, Domain Catalog, Atlas Decide, Open Brain, Kernel Pipeline, provider execution, quality gate e promocao Dev -> Forge.
@@ -88,6 +88,11 @@ graph_kind: module
 graph_parent: atlas-ai-conversation-surface-and-atlas-dev-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Dev Flow Map And Product Options v1
+canonical_name: Atlas Dev Flow Map And Product Options v1
+technical_name: atlas-dev-flow-map-and-product-options-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-dev-flow-map-and-product-options-v1.md
 owner: programming
 next_actions:
   - Normalizar o contrato de execucao diaria do Atlas Dev como fast lane do Programming Governance System.

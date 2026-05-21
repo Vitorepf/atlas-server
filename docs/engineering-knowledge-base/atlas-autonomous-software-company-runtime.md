@@ -51,6 +51,11 @@ graph_kind: system
 graph_parent: atlas-ai
 graph_status: active
 graph_source: repo
+human_name: Atlas Autonomous Software Company Runtime
+canonical_name: Atlas Autonomous Software Company Runtime
+technical_name: atlas-autonomous-software-company-runtime
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md

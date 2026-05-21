@@ -13,14 +13,12 @@ tags:
   - documentation-governance
 capabilities:
   - session_bootstrap
-  - knowledge_governance_system
   - anti_hallucination_context
   - implementation_status_navigation
-  - evolution_navigation
-  - runtime_language_boundaries
-  - local_ai_performance_strategy
-  - content_intelligence_curation
-  - qualitative_levels_roadmap
+  - bootstrap_evolution_navigation
+  - runtime_language_boundary_navigation
+  - local_ai_performance_navigation
+  - qualitative_levels_navigation
 decisions:
   - Toda sessao nova deve conseguir responder o que e Atlas, o que existe, o que falta e como evoluir lendo este bootstrap e os docs apontados.
   - Nenhuma IA deve declarar que algo nao existe sem verificar docs canonicos, indice de codigo e busca local.
@@ -62,6 +60,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Session Bootstrap
+canonical_name: Atlas AI Session Bootstrap
+technical_name: atlas-ai-session-bootstrap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
 
 owner: onboarding
 

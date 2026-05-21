@@ -49,6 +49,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Programming Frontend Superpower
+canonical_name: Atlas AI Programming Frontend Superpower
+technical_name: atlas-ai-programming-frontend-superpower
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
 
 owner: domains
 

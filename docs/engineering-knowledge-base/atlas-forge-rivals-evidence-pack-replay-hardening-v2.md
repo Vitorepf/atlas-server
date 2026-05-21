@@ -48,6 +48,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Evidence Pack + Replay Hardening v2"
+canonical_name: "Atlas Forge Rivals · Evidence Pack + Replay Hardening v2"
+technical_name: atlas-forge-rivals-evidence-pack-replay-hardening-v2
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-evidence-pack-replay-hardening-v2.md
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCollectEvidenceService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidencePackVerifierService.php
@@ -83,7 +88,6 @@ next_actions:
   - Monitorar pipeline `run-battery` em `fair`/`full_power` para regressões na coleta de provider_receipts.
   - Sincronizar este doc se novos artifact keys forem adicionados.
 ---
-
 # Atlas Forge Rivals · Evidence Pack + Replay Hardening v2
 
 **Status:** Delivered 2026-05-15 (Claude D · Evidence/Replay slice)

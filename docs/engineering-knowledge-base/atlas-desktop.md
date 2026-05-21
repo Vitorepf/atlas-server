@@ -33,6 +33,11 @@ graph_kind: surface
 graph_parent: atlas
 graph_status: active
 graph_source: repo
+human_name: Atlas Desktop
+canonical_name: Atlas Desktop
+technical_name: atlas-desktop
+cartography_type: surface
+canonical_source: docs/engineering-knowledge-base/atlas-desktop.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-desktop.md

@@ -24,6 +24,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Atlas Input
+canonical_name: Atlas Input
+technical_name: atlas-input
+cartography_type: step
+canonical_source: docs/engineering-knowledge-base/system-graph/atlas-input.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/atlas-input.md

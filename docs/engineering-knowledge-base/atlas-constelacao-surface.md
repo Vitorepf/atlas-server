@@ -17,8 +17,8 @@ capabilities:
   - constellation_surface
   - semantic_serendipity_engine
   - mobile_surface_gateway
-  - python_ai_data_runtime
-  - human_knowledge_surface
+  - constelacao_python_runtime_usage
+  - constelacao_human_knowledge_surface
 decisions:
   - Constelacao e uma surface contemplativa do Atlas, nao um Domain, nao um dashboard e nao uma substituicao do Inbox.
   - A funcao primaria e cross-pollination entre capturas/ideias por gravidade semantica, preservando silencio operacional.
@@ -64,6 +64,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Constelacao Surface
+canonical_name: Atlas Constelacao Surface
+technical_name: atlas-constelacao-surface
+cartography_type: surface
+canonical_source: docs/engineering-knowledge-base/atlas-constelacao-surface.md
 
 owner: surface-architecture
 

@@ -13,7 +13,7 @@ tags:
   - learning
 capabilities:
   - governed_self_improvement
-  - proposal_generation
+  - research_self_improvement_proposal_generation
   - quality_learning
 decisions:
   - Self-improvement remains proposal-first until promotion gates prove safety.
@@ -41,6 +41,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Continuous Self-Improvement Loop
+canonical_name: Atlas AI Continuous Self-Improvement Loop
+technical_name: atlas-ai-continuous-self-improvement-loop
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/continuous-self-improvement-loop.md
 
 owner: research-self-improvement
 

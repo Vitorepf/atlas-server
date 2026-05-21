@@ -23,8 +23,8 @@ capabilities:
   - must_keep_ledger
   - semantic_context_diff
   - codebase_world_model
-  - freshness_gate
-  - replay_manifest
+  - context_freshness_gate_consumption
+  - context_replay_manifest
   - context_repair_loop
   - provider_ensemble
   - critic_adjudicator
@@ -61,6 +61,11 @@ graph_kind: contract
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Context Intelligence Engine
+canonical_name: Atlas Context Intelligence Engine
+technical_name: atlas-context-intelligence-engine
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-context-intelligence-engine.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-context-intelligence-engine.md
@@ -115,7 +120,6 @@ next_actions:
   - Adicionar UX operacional leve para inspecionar context packs, semantic diff e blockers.
   - Manter certificacao ACIE sincronizada com Hyperflow, Atlas Dev direto e Forge intake.
 ---
-
 # Atlas Context Intelligence Engine
 
 ## Resumo

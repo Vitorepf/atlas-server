@@ -43,6 +43,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Scheduled Research And Triggers
+canonical_name: Atlas AI Scheduled Research And Triggers
+technical_name: atlas-ai-scheduled-research-triggers
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/scheduled-research-and-triggers.md
 
 owner: research-self-improvement
 

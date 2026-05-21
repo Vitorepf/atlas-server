@@ -13,7 +13,7 @@ tags:
   - gateway
   - inbox
 capabilities:
-  - surface_adapter
+  - mobile_surface_adapter
   - mobile_gateway
   - domain_catalog
 decisions:
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Mobile Surface Gateway
+canonical_name: Atlas AI Mobile Surface Gateway
+technical_name: atlas-ai-mobile-surface-gateway
+cartography_type: surface
+canonical_source: docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md
 
 owner: surface-architecture
 

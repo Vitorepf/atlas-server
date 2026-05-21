@@ -97,6 +97,11 @@ graph_parent: atlas
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Canonical Architecture Index
+canonical_name: Atlas AI Canonical Architecture Index
+technical_name: atlas-ai-canonical-architecture-index
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
 
 owner: architecture
 

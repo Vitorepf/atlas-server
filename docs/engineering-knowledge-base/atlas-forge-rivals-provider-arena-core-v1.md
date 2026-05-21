@@ -43,6 +43,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Provider Arena Core v1"
+canonical_name: "Atlas Forge Rivals · Provider Arena Core v1"
+technical_name: atlas-forge-rivals-provider-arena-core-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
@@ -78,7 +83,6 @@ next_actions:
   - Liberar drivers scripted/manual/gemini conforme amadurecerem.
   - Manter doc sincronizado com novos arms/categorias.
 ---
-
 # Atlas Forge Rivals · Provider Arena Core v1
 
 **Strategy canon:** `atlas-forge-rivals-benchmark-strategy-v1.md`

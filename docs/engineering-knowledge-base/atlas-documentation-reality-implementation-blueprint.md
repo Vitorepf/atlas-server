@@ -6,6 +6,11 @@ status: active
 category: documentation-governance
 priority: 100
 summary: Receita executavel para implementar ADRS, ACRUI e AURC com qualidade nota 10, sem duplicar verdade canonica, sem iniciar por UI, e sem permitir que IA confunda doc, codigo, scaffold, legado ou cartografia.
+human_name: Receita de Implementacao da Realidade Documental
+canonical_name: Atlas Documentation Reality Implementation Blueprint
+technical_name: ADRSImplementationBlueprint
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-reality-implementation-blueprint.md
 tags:
   - atlas-ai
   - documentation
@@ -17,7 +22,7 @@ capabilities:
   - documentation_reality_implementation_blueprint
   - acrui_implementation_sequence
   - aurc_implementation_sequence
-  - documentation_reality_scoring
+  - documentation_reality_scoring_blueprint
   - ai_implementation_recipe
 decisions:
   - Nome canonico/produto obrigatorio: Atlas Documentation Reality Implementation Blueprint.
@@ -475,13 +480,8 @@ Evidencias minimas por fase:
 - source refs e evidence refs em payloads;
 - docs-health, docs-authority-audit, architecture-validate e diff-check.
 
-Evidencias proibidas como conclusao unica:
-
-- print de tela;
-- opiniao do agente;
-- grep isolado;
-- chat antigo;
-- doc externa copiada.
+Evidencias proibidas como conclusao unica: print, opiniao do agente, grep
+isolado, chat antigo ou doc externa copiada.
 
 ## Riscos
 
@@ -502,18 +502,11 @@ Mitigacao:
 
 ## Exemplos
 
-- Feature nova: IA quer criar runtime YouTube; ACRUI acha service existente
-  `unused_candidate`; IA nao duplica e cria plano de reuso.
-- Cartografia: humano abre Universe -> Atlas -> Atlas AI -> Atlas Dev; AURC
-  mostra fluxos, gargalos, status e riscos; click abre doc humana.
-- Projeto externo: humano abre Blackink; Atlas consome o repo Blackink, mas a
-  documentacao canonica continua no proprio projeto.
+- YouTube existente vira reuso via ACRUI, nao runtime duplicado.
+- Cartografia mostra fluxos, gargalos, status e riscos antes do texto.
+- Projeto externo fica no repo canonico proprio; Atlas so consome e renderiza.
 
 ## Proximas Acoes
 
-1. Manter ADRIB linkado no ADRS.
-2. Implementar Fase 1 antes de qualquer UI.
-3. Implementar ACRUI MVP read-only.
-4. Criar score ADRS depois que ACRUI classificar realidade.
-5. Criar AURC visual schema antes da superficie visual.
-6. Evoluir Cartografia com semantic zoom so depois dos gates.
+1. Manter ADRIB linkado no ADRS e priorizar read-only antes de UI.
+2. Evoluir ACRUI, score ADRS e AURC visual schema antes de semantic zoom.

@@ -12,6 +12,7 @@ use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\ProgrammingPatchVerifier;
 use App\Services\Ai\Programming\ProgrammingRepairExecutor;
+use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService as AtlasVerifiedEvolutionRuntime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -68,7 +69,7 @@ final class AtlasVerifiedExecutionRuntimeService
         $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
         $flowId = (string) ($input['flow_id'] ?? 'atlas_dev');
         $domain = (string) ($input['domain'] ?? 'programming');
-        $executionContract = $this->executionContract($objectiveHash, $workspaceHash, $flowId);
+        $executionContract = $this->executionContract($objectiveHash, $workspaceHash, $flowId, $input);
         $patchPlan = $this->patchPlan($input, $objectiveHash);
         $safetyGate = $this->safetyGateForPlan($input);
         $verificationPlan = $this->verificationPlan($input, $flowId);
@@ -107,6 +108,41 @@ final class AtlasVerifiedExecutionRuntimeService
         }
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $verifiedEvolutionContract
+     * @return array<string,mixed>
+     */
+    public function planFromVerifiedEvolutionContract(array $verifiedEvolutionContract, array $overrides = []): array
+    {
+        $schema = (string) ($verifiedEvolutionContract['schema_version'] ?? '');
+        $contract = (array) ($verifiedEvolutionContract['execution_contract'] ?? []);
+        $planInput = (array) ($contract['aver_plan_input'] ?? []);
+        $blockers = [];
+
+        if ($schema !== AtlasVerifiedEvolutionRuntime::EXECUTION_CONTRACT_SCHEMA_VERSION) {
+            $blockers[] = 'invalid_verified_evolution_contract_schema';
+        }
+        if (($verifiedEvolutionContract['status'] ?? null) !== self::STATUS_READY || ($contract['status'] ?? null) !== 'ready_for_aver_plan') {
+            $blockers[] = 'verified_evolution_contract_not_ready';
+        }
+        if ($planInput === []) {
+            $blockers[] = 'missing_aver_plan_input';
+        }
+
+        return $this->plan(array_merge([
+            'objective' => (string) ($planInput['objective'] ?? 'AVER execution from AVEOR contract'),
+            'domain' => (string) ($planInput['domain'] ?? 'programming'),
+            'flow_id' => (string) ($planInput['flow_id'] ?? 'atlas_dev'),
+            'surface_id' => (string) ($planInput['surface_id'] ?? 'atlas_ai'),
+            'expected_files' => $this->stringList($planInput['allowed_write_paths'] ?? []),
+            'expected_commands' => $this->stringList(data_get($planInput, 'verification_plan.required_gates', [])),
+            'evidence_refs' => $this->stringList($planInput['evidence_refs'] ?? []),
+            'verified_evolution_contract' => $verifiedEvolutionContract,
+            'verified_evolution_contract_hash' => MissionCanonicalHash::sha256($verifiedEvolutionContract),
+            'verified_evolution_blockers' => $blockers,
+        ], $overrides));
     }
 
     /**
@@ -498,13 +534,20 @@ final class AtlasVerifiedExecutionRuntimeService
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
-    private function executionContract(array|string $objectiveHash, ?string $workspaceHash, string $flowId): array
+    private function executionContract(array|string $objectiveHash, ?string $workspaceHash, string $flowId, array $input = []): array
     {
+        $verifiedEvolutionContract = (array) ($input['verified_evolution_contract'] ?? []);
+
         return [
             'schema_version' => 'atlas.aver.execution_contract.v1',
             'objective_hash' => $objectiveHash,
             'workspace_hash' => $workspaceHash,
             'flow_id' => $flowId,
+            'source_verified_evolution_contract_hash' => $input['verified_evolution_contract_hash'] ?? null,
+            'source_verified_evolution_schema' => $verifiedEvolutionContract['schema_version'] ?? null,
+            'source_verified_evolution_status' => $verifiedEvolutionContract['status'] ?? null,
+            'allowed_write_paths' => $this->stringList(data_get($verifiedEvolutionContract, 'execution_contract.aver_plan_input.allowed_write_paths', [])),
+            'read_first' => $this->stringList(data_get($verifiedEvolutionContract, 'execution_contract.aver_plan_input.read_first', [])),
             'requires_command_ledger' => true,
             'requires_diff_ledger' => true,
             'requires_test_ledger' => true,
@@ -536,11 +579,14 @@ final class AtlasVerifiedExecutionRuntimeService
     private function safetyGateForPlan(array $input): array
     {
         $external = (bool) ($input['external_side_effect_requested'] ?? false);
+        $verifiedEvolutionBlockers = $this->stringList($input['verified_evolution_blockers'] ?? []);
+        $blockers = $external ? ['external_side_effect_requested'] : [];
+        $blockers = array_values(array_unique(array_merge($blockers, $verifiedEvolutionBlockers)));
 
         return [
             'schema_version' => 'atlas.aver.safety_gate.v1',
-            'status' => $external ? self::STATUS_BLOCKED : self::STATUS_READY,
-            'blockers' => $external ? ['external_side_effect_requested'] : [],
+            'status' => $blockers === [] ? self::STATUS_READY : self::STATUS_BLOCKED,
+            'blockers' => $blockers,
             'destructive_commands_allowed' => false,
             'requires_human_review_for_live_workspace_write' => true,
         ];

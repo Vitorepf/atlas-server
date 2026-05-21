@@ -12,8 +12,8 @@ tags:
   - metrics
   - risks
 capabilities:
-  - obras_operating_system
-  - quality_gates
+  - obras_metrics_risks_and_excellence
+  - obras_quality_metrics
   - risk_governance
 decisions:
   - Obras quality must be measured by artifact delivery, evidence, assets and autonomy gain.
@@ -44,6 +44,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Obras - Metrics Risks And Excellence
+canonical_name: Atlas Obras - Metrics Risks And Excellence
+technical_name: atlas-ai-obras-metrics-risks-and-excellence
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/obras/metrics-risks-and-excellence.md
 
 repo_paths:
   - docs/engineering-knowledge-base/obras/metrics-risks-and-excellence.md

@@ -7,7 +7,7 @@ category: kernel
 priority: 86
 summary: Plano lateral que orienta humanos e IAs para START_HERE, Canonical Index, KB e Code Intelligence.
 tags: [atlas, kernel, documentation, docs]
-capabilities: [documentation_os, canonical_docs]
+capabilities: [documentation_os]
 decisions:
   - Documentacao oficial tecnica e fonte de verdade para arquitetura do Atlas.
 maintenance:
@@ -24,6 +24,11 @@ graph_kind: module
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Documentation Operating System
+canonical_name: Documentation Operating System
+technical_name: doc-os
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/system-graph/doc-os.md
 owner: atlas-documentation
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/doc-os.md

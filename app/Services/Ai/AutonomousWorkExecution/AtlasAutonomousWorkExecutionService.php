@@ -13,6 +13,7 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
+use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -50,6 +51,7 @@ final class AtlasAutonomousWorkExecutionService
         private readonly ?AtlasAgenticWorkcellRuntimeService $agenticWorkcell = null,
         private readonly ?AtlasAemorRuntimeService $aemor = null,
         private readonly ?AtlasVerifiedExecutionRuntimeService $verifiedExecution = null,
+        private readonly ?AtlasVerifiedEvolutionRuntimeService $verifiedEvolution = null,
     ) {}
 
     /**
@@ -423,6 +425,31 @@ final class AtlasAutonomousWorkExecutionService
     {
         try {
             $runtime = $this->verifiedExecution ?? app(AtlasVerifiedExecutionRuntimeService::class);
+            $verifiedEvolution = $this->verifiedEvolution ?? app(AtlasVerifiedEvolutionRuntimeService::class);
+            $expectedFiles = $this->stringList($input['expected_files'] ?? []);
+            $target = $this->stringValue($input['target'] ?? null) ?? ($expectedFiles[0] ?? null);
+            if ($target !== null) {
+                $contract = $verifiedEvolution->executionContract($objective, $target);
+                $payload = $runtime->planFromVerifiedEvolutionContract($contract, [
+                    'aweos_execution_id' => $execution?->id,
+                    'workspace' => $workspace,
+                    'evidence_refs' => array_values(array_unique([
+                        ...$evidenceRefs,
+                        ...array_filter([$execution?->execution_hash]),
+                    ])),
+                ]);
+
+                return [
+                    ...$payload,
+                    'verified_evolution_contract' => $contract,
+                    'aweos_bridge' => [
+                        'schema_version' => 'atlas.aweos.verified_evolution_bridge.v1',
+                        'status' => ($payload['status'] ?? null) === AtlasVerifiedExecutionRuntimeService::STATUS_READY ? self::STATUS_READY : self::STATUS_BLOCKED,
+                        'target' => $target,
+                        'uses_verified_evolution_contract' => true,
+                    ],
+                ];
+            }
 
             return $runtime->plan([
                 'objective' => $objective,
@@ -431,7 +458,7 @@ final class AtlasAutonomousWorkExecutionService
                 'flow_id' => $flowId,
                 'workspace' => $workspace,
                 'aweos_execution_id' => $execution?->id,
-                'expected_files' => $this->stringList($input['expected_files'] ?? []),
+                'expected_files' => $expectedFiles,
                 'expected_commands' => $this->stringList($input['expected_tests'] ?? $this->defaultTests($domain)),
                 'evidence_refs' => array_values(array_unique([
                     ...$evidenceRefs,

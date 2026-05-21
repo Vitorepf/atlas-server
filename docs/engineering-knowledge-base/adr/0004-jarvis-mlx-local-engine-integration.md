@@ -38,6 +38,11 @@ graph_kind: adr
 graph_parent: atlas-ai-router-runtime-enterprise-upgrade
 graph_status: active
 graph_source: repo
+human_name: ADR 0004 - Integracao do Motor Local Jarvis-MLX no AI Gateway Plane
+canonical_name: ADR 0004 - Integracao do Motor Local Jarvis-MLX no AI Gateway Plane
+technical_name: adr-0004-jarvis-mlx-local-engine-integration
+cartography_type: adr
+canonical_source: docs/engineering-knowledge-base/adr/0004-jarvis-mlx-local-engine-integration.md
 
 owner: ai-gateway
 repo_paths:
@@ -82,7 +87,6 @@ next_actions:
   - Implementar comandos read-only de certificacao antes de ativar runtime local.
   - Registrar evidencias de latencia antes de promover qualquer executor.
 ---
-
 # ADR 0004 - Integração do Motor Local Jarvis-MLX no AI Gateway Plane
 
 ## Resumo

@@ -12,7 +12,7 @@ tags:
   - packet-queue
   - parallel-ai
 capabilities:
-  - self_construction_os
+  - self_construction_packet_queue_contract
   - work_splitter
   - packet_assignment
 decisions:
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Packet Queue Contract
+canonical_name: Atlas Self-Construction Packet Queue Contract
+technical_name: atlas-ai-self-construction-packet-queue-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/packet-queue-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/packet-queue-contract.md

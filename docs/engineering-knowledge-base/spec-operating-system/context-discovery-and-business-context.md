@@ -40,6 +40,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas SDD Context Discovery And Business Context
+canonical_name: Atlas SDD Context Discovery And Business Context
+technical_name: atlas-ai-sdd-context-discovery-business-context
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/context-discovery-and-business-context.md
 
 owner: spec-operating-system
 

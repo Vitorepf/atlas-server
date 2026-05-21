@@ -15,9 +15,9 @@ tags:
 capabilities:
   - provider_strategy_matrix
   - provider_usage_contract
-  - evidence_ledger
-  - telemetry_rollup
-  - self_improvement
+  - phase_0_evidence_audit
+  - phase_0_telemetry_audit
+  - phase_0_self_improvement_audit
 decisions:
   - Fase 0 e AP-99: CLI Provider Usage / Performance Contract.
   - Fase 0 deve estender Evidence Ledger, DecisionReceipt, ai_router_decisions, telemetry e AtlasCliProviderStrategyService; nao deve criar ledger, receipt, router ou policy paralelos.
@@ -52,6 +52,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Evolution Phase 0 Audit
+canonical_name: Atlas AI Evolution Phase 0 Audit
+technical_name: atlas-ai-evolution-phase-0-audit
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-evolution-phase-0-audit.md
 
 owner: architecture
 

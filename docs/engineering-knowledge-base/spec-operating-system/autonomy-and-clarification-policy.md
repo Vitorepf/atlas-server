@@ -39,6 +39,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas SDD Autonomy And Clarification Policy
+canonical_name: Atlas SDD Autonomy And Clarification Policy
+technical_name: atlas-ai-sdd-autonomy-clarification-policy
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/autonomy-and-clarification-policy.md
 
 owner: spec-operating-system
 

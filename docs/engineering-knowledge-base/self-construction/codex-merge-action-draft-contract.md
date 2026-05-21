@@ -12,7 +12,7 @@ tags:
   - codex-review
   - merge-governance
 capabilities:
-  - self_construction_os
+  - self_construction_codex_merge_action_draft_contract
   - review_governance
   - merge_preflight
 decisions:
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Codex Merge Action Draft Contract
+canonical_name: Atlas Self-Construction Codex Merge Action Draft Contract
+technical_name: atlas-ai-self-construction-codex-merge-action-draft-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/codex-merge-action-draft-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/codex-merge-action-draft-contract.md

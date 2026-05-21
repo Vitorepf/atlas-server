@@ -12,7 +12,7 @@ tags:
   - migration-blueprint
   - durable-reservation
 capabilities:
-  - self_construction_os
+  - self_construction_durable_reservation_migration_blueprint_contract
   - reservation_ledger
   - migration_blueprint
 decisions:
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Durable Reservation Migration Blueprint Contract
+canonical_name: Atlas Self-Construction Durable Reservation Migration Blueprint Contract
+technical_name: atlas-ai-self-construction-durable-reservation-migration-blueprint-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/durable-reservation-migration-blueprint-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-migration-blueprint-contract.md

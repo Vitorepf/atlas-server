@@ -14,7 +14,7 @@ tags:
 capabilities:
   - evidence_driven_execution
   - super_tool_runtime
-  - self_improvement_evolution
+  - runtime_evidence_learning
 decisions:
   - Runtime executes receipts; Evidence records outcomes; Learning proposes improvements.
   - Critical learning changes require proposal review.
@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Master Runtime Evidence Learning
+canonical_name: Master Runtime Evidence Learning
+technical_name: atlas-ai-master-runtime-evidence-learning
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/master-architecture/runtime-evidence-learning.md
 
 owner: master-architecture
 

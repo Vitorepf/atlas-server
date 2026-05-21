@@ -12,7 +12,7 @@ tags:
   - safety
 capabilities:
   - self_programming_safety
-  - autonomous_implementation_loop
+  - autonomous_loop_safety
 decisions:
   - Self-programming requires stronger scope, rollback and evidence than normal implementation.
   - Autonomy must shrink, not expand, when context or gates are weak.
@@ -42,6 +42,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Programming Safety Contract
+canonical_name: Atlas Self-Programming Safety Contract
+technical_name: atlas-ai-self-construction-self-programming-safety-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md
 
 version_note: Este contrato pertence a ponte para Self-Programming OS, mas contrato de safety nao e patamar por si so. O patamar precisa ser declarado nos campos patamar_* do doc dono.
 

@@ -12,7 +12,7 @@ tags:
   - cleanup
   - gates
 capabilities:
-  - legacy_documentation_cleanup
+  - legacy_cleanup_waves_and_gates
 decisions:
   - Cleanup waves must be small, reversible and validated.
   - Runtime changes are outside cleanup scope unless explicitly declared.
@@ -39,6 +39,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Legacy Cleanup Waves And Gates
+canonical_name: Legacy Cleanup Waves And Gates
+technical_name: legacy-cleanup-waves-and-gates
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/legacy-cleanup/waves-and-gates.md
 
 owner: legacy-cleanup
 

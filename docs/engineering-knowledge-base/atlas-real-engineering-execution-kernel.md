@@ -46,6 +46,11 @@ graph_kind: module
 graph_parent: atlas-autonomous-engineering-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Real Engineering Execution Kernel
+canonical_name: Atlas Real Engineering Execution Kernel
+technical_name: atlas-real-engineering-execution-kernel
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-real-engineering-execution-kernel.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-real-engineering-execution-kernel.md

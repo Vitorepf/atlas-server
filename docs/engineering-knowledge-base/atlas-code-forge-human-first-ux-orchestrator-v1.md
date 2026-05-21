@@ -34,6 +34,11 @@ graph_kind: runbook
 graph_parent: atlas-code-forge-operator-cockpit-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Forge Human-First UX Orchestrator v1
+canonical_name: Atlas Code Forge Human-First UX Orchestrator v1
+technical_name: atlas-code-forge-human-first-ux-orchestrator-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-code-forge-human-first-ux-orchestrator-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-forge-human-first-ux-orchestrator-v1.md
@@ -62,7 +67,6 @@ risk_level: medium
 next_actions:
   - Manter este doc sincronizado com o orchestrator service quando novos passos canônicos forem adicionados.
 ---
-
 # Atlas Code Forge Human-First UX Orchestrator v1
 
 > Schema canônico: `atlas.code.forge_ux_orchestrator.v1`

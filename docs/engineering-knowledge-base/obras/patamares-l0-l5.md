@@ -11,10 +11,10 @@ tags:
   - obras
   - maturity-ladder
 capabilities:
-  - obras_operating_system
-  - obraos
-  - atlas_foundry
-  - atlas_sovereign_os
+  - obras_patamares_l0_l5
+  - obras_patamar_obraos
+  - obras_patamar_atlas_foundry
+  - obras_patamar_atlas_sovereign_os
 decisions:
   - Obras must be implemented in layers while preserving the final-state ontology.
   - L5 is strategic direction, not MVP scope.
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Obras - Patamares L0 To L5
+canonical_name: Atlas Obras - Patamares L0 To L5
+technical_name: atlas-ai-obras-patamares-l0-l5
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/obras/patamares-l0-l5.md
 
 repo_paths:
   - docs/engineering-knowledge-base/obras/patamares-l0-l5.md

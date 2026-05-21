@@ -24,6 +24,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Output Renderer
+canonical_name: Output Renderer
+technical_name: output-renderer
+cartography_type: step
+canonical_source: docs/engineering-knowledge-base/system-graph/output-renderer.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/output-renderer.md

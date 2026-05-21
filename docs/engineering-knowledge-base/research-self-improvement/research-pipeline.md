@@ -39,6 +39,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Intelligence Pipeline
+canonical_name: Atlas AI Research Intelligence Pipeline
+technical_name: atlas-ai-research-intelligence-pipeline
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/research-pipeline.md
 
 owner: research-self-improvement
 

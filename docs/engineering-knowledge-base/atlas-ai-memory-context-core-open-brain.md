@@ -13,13 +13,11 @@ tags:
   - open-brain
   - source-of-truth
 capabilities:
-  - cognitive_immune_gate
   - memory_registry
-  - context_pack_recall
   - engineering_knowledge_base
   - code_intelligence_index
   - provider_projection
-  - open_brain_context_injection
+  - open_brain_context_core
   - documentation_preservation
 decisions:
   - Atlas memory belongs to Atlas, not providers.
@@ -69,6 +67,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Memory Context Core - Open Brain
+canonical_name: Atlas AI Memory Context Core - Open Brain
+technical_name: atlas-ai-memory-context-core-open-brain
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
 
 owner: architecture
 

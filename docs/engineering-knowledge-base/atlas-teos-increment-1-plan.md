@@ -22,7 +22,7 @@ capabilities:
   - replay_manifest_design
   - freshness_gate_design
   - recovery_planner_design
-  - continuity_certification_design
+  - teos_increment_1_continuity_certification_design
 decisions:
   - TEOS é north-star, multi-increment. Increment 1 é a primeira fatia implementável; não tenta entregar TEOS completo.
   - Reuse-first é regra. Não criar runtime paralelo a Compaction, SessionState, Resume, LongHorizonState, Ledger, Memory, Evidence, Compounding, Control Plane, Telemetry, BenchmarkReadiness.
@@ -51,9 +51,14 @@ graph_title: Atlas TEOS Increment 1 Plan
 graph_world: atlas
 graph_layer: system
 graph_kind: runbook
-graph_parent: atlas-long-horizon-intelligence-layer
+graph_parent: atlas-temporal-engineering-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas TEOS Increment 1 Plan
+canonical_name: Atlas TEOS Increment 1 Plan
+technical_name: atlas-teos-increment-1-plan
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-teos-increment-1-plan.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-teos-increment-1-plan.md
@@ -95,7 +100,6 @@ next_actions:
   - Em Sprint C, abrir M3 + M4 em paralelo (áreas distintas).
   - Após M10 fechar, atualizar pre-benchmark-readiness-audit com "TEOS-I1 delivered" para habilitar promoção a TEOS-I2.
 ---
-
 # Atlas TEOS Increment 1 Plan
 
 ## Resumo

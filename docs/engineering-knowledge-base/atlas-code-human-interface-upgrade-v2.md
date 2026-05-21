@@ -71,6 +71,11 @@ graph_kind: runbook
 graph_parent: atlas-code-forge-human-first-ux-orchestrator-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Human Interface Upgrade v2
+canonical_name: Atlas Code Human Interface Upgrade v2
+technical_name: atlas-code-human-interface-upgrade-v2
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-code-human-interface-upgrade-v2.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-human-interface-upgrade-v2.md
@@ -82,7 +87,6 @@ required_tests:
 requires_evidence: true
 risk_level: medium
 ---
-
 # Atlas Code Human Interface Upgrade v2
 
 > Schema canônico: `atlas.code.forge_ux_orchestrator.v1`

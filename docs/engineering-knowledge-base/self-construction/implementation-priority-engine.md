@@ -12,7 +12,7 @@ tags:
   - prioritization
 capabilities:
   - implementation_priority_engine
-  - self_construction_os
+  - self_construction_implementation_priority_engine
 decisions:
   - Atlas should prioritize compounding foundations over isolated feature excitement.
   - Priority must be scored by leverage, dependency unlock, risk and evidence.
@@ -41,6 +41,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Implementation Priority Engine
+canonical_name: Atlas Self-Construction Implementation Priority Engine
+technical_name: atlas-ai-self-construction-implementation-priority-engine
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/implementation-priority-engine.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/implementation-priority-engine.md

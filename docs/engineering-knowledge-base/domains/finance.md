@@ -50,6 +50,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Finance Domain
+canonical_name: Atlas AI Finance Domain
+technical_name: atlas-ai-finance-domain
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/finance.md
 
 owner: domains
 

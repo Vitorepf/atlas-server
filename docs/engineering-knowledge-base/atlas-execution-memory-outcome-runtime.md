@@ -66,6 +66,11 @@ graph_kind: contract
 graph_parent: atlas-persistent-context-runtime
 graph_status: active
 graph_source: repo
+human_name: Atlas Execution Memory & Outcome Runtime
+canonical_name: Atlas Execution Memory & Outcome Runtime
+technical_name: atlas-execution-memory-outcome-runtime
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
@@ -119,7 +124,6 @@ next_actions:
   - Add UI/control-plane panels only after backend adoption stabilizes.
   - Keep certification green whenever APCR, Hyperflow, Dev or Forge wiring changes.
 ---
-
 # Atlas Execution Memory & Outcome Runtime
 
 ## Resumo

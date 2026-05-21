@@ -54,6 +54,11 @@ graph_kind: runbook
 graph_parent: atlas-forge-rivals-operator-battery-v2
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Provider Arena UI v1
+canonical_name: Atlas Code Provider Arena UI v1
+technical_name: atlas-code-provider-arena-ui-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
 owner: programming_rivals
 repo_paths:
   - app/Http/Controllers/AtlasCodeProviderArenaController.php
@@ -90,7 +95,6 @@ next_actions:
   - Subir o atlas-server local e validar visualmente o painel (RightRail → tab Arena).
   - Rodar `php artisan atlas:forge:rivals full-smoke --json` para confirmar end-to-end offline.
 ---
-
 # Atlas Code Provider Arena UI v1
 
 > Schema snapshot: `atlas.code.provider_arena_snapshot.v1`

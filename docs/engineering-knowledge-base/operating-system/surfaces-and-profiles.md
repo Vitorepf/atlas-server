@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI OS - Surfaces And Profiles
+canonical_name: Atlas AI OS - Surfaces And Profiles
+technical_name: atlas-ai-os-surfaces-and-profiles
+cartography_type: surface
+canonical_source: docs/engineering-knowledge-base/operating-system/surfaces-and-profiles.md
 
 owner: operating-system
 

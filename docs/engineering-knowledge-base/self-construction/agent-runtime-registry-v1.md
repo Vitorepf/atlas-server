@@ -18,7 +18,7 @@ tags:
 capabilities:
   - agent_registry_persistence
   - agent_heartbeat_persistence
-  - capability_catalog
+  - agent_capability_catalog
   - availability_planning
   - task_matching
   - load_balancing_policy
@@ -62,6 +62,11 @@ graph_kind: contract
 graph_parent: atlas-self-construction-agent-control-plane-contract
 graph_status: active
 graph_source: repo
+human_name: Atlas Agent Control Plane - Agent Runtime Registry v1
+canonical_name: Atlas Agent Control Plane - Agent Runtime Registry v1
+technical_name: atlas-self-construction-agent-runtime-registry-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/agent-runtime-registry-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/agent-runtime-registry-v1.md
 allowed_changes:
@@ -102,7 +107,6 @@ observability_signals:
 next_actions:
   - Manter doc sincronizado com runtime-pilot-map e safety-invariants.
 ---
-
 # Atlas Agent Control Plane - Agent Runtime Registry v1
 
 The Agent Runtime Registry is the persistent-local Agent Control Plane

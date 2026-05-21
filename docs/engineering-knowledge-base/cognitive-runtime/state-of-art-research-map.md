@@ -48,6 +48,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Runtime State Of Art Research Map
+canonical_name: Atlas AI Cognitive Runtime State Of Art Research Map
+technical_name: atlas-ai-cognitive-runtime-state-of-art-research-map
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/cognitive-runtime/state-of-art-research-map.md
 
 owner: cognitive-runtime
 

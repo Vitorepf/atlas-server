@@ -15,7 +15,7 @@ capabilities:
   - domain_routing
   - company_runtime_contracts
   - department_model
-  - cross_domain_handoff
+  - company_cross_domain_handoff
   - domain_maturity_model
   - enterprise_domain_operating_model
 decisions:
@@ -41,6 +41,11 @@ graph_kind: contract
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Domain Company Runtimes
+canonical_name: Atlas Domain Company Runtimes
+technical_name: atlas-domain-company-runtimes
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md

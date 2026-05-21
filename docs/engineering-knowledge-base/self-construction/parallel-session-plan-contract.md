@@ -12,7 +12,7 @@ tags:
   - parallel-sessions
   - packet-queue
 capabilities:
-  - self_construction_os
+  - self_construction_parallel_session_plan_contract
   - packet_queue
   - parallel_ai
 decisions:
@@ -59,6 +59,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Parallel Session Plan Contract
+canonical_name: Atlas Self-Construction Parallel Session Plan Contract
+technical_name: atlas-ai-self-construction-parallel-session-plan-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/parallel-session-plan-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/parallel-session-plan-contract.md

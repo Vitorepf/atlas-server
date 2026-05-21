@@ -41,6 +41,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Blueprint Focused Index
+canonical_name: Atlas Engineering Blueprint Focused Index
+technical_name: atlas-engineering-blueprint-focused-index
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/engineering-blueprint/README.md
 
 owner: engineering-blueprint
 

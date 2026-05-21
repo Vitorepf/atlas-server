@@ -18,7 +18,6 @@ tags:
 capabilities:
   - persistent_context_pack
   - mandatory_context_bootstrap
-  - sufficiency_gate
   - must_know_ledger
   - provider_context_handoff
   - post_execution_memory_candidate
@@ -49,6 +48,11 @@ graph_kind: contract
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Persistent Context Runtime
+canonical_name: Atlas Persistent Context Runtime
+technical_name: atlas-persistent-context-runtime
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
 owner: atlas-ai
 repo_paths:
   - app/Services/Ai/PersistentContext/AtlasPersistentContextRuntimeService.php
@@ -104,7 +108,6 @@ next_actions:
   - Adicionar linking direto trace_id -> persistent_context_pack_id quando o schema de trace permitir.
   - Usar outcomes APCR para melhorar ranking de retrieval e bootstrap docs.
 ---
-
 # Atlas Persistent Context Runtime
 
 ## Resumo

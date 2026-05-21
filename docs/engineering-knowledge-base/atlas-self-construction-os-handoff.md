@@ -38,6 +38,11 @@ graph_kind: runbook
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction OS Handoff
+canonical_name: Atlas Self-Construction OS Handoff
+technical_name: atlas-self-construction-os-handoff
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-self-construction-os-handoff.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-self-construction-os-handoff.md

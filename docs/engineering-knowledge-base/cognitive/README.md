@@ -63,6 +63,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Plane - Bootstrap
+canonical_name: Atlas AI Cognitive Plane - Bootstrap
+technical_name: atlas-ai-cognitive-readme
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/cognitive/README.md
 
 repo_paths:
   - docs/engineering-knowledge-base/cognitive/README.md

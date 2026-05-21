@@ -44,6 +44,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Tool Runtime Evidence And Gates
+canonical_name: Atlas Tool Runtime Evidence And Gates
+technical_name: atlas-tool-runtime-evidence-gates
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/tool-runtime/evidence-gates.md
 
 owner: tool-runtime
 

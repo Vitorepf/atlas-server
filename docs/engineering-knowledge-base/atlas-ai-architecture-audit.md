@@ -15,10 +15,6 @@ tags:
   - documentation
 capabilities:
   - architecture_audit
-  - flow_consolidation
-  - anti_duplication_governance
-  - programming_pipeline
-  - context_pack_governance
   - tool_runtime_governance
 decisions:
   - The main Atlas problem identified by this audit is not missing capability; it is insufficient unified orchestration.
@@ -54,6 +50,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Architecture Audit
+canonical_name: Atlas AI Architecture Audit
+technical_name: atlas-ai-architecture-audit
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
 
 owner: architecture
 

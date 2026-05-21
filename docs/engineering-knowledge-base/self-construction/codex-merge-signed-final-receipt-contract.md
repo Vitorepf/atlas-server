@@ -12,7 +12,7 @@ tags:
   - codex-review
   - merge-governance
 capabilities:
-  - self_construction_os
+  - self_construction_codex_merge_signed_final_receipt_contract
   - review_governance
   - merge_authorization
 decisions:
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Codex Merge Signed Final Receipt Contract
+canonical_name: Atlas Self-Construction Codex Merge Signed Final Receipt Contract
+technical_name: atlas-ai-self-construction-codex-merge-signed-final-receipt-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/codex-merge-signed-final-receipt-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/codex-merge-signed-final-receipt-contract.md

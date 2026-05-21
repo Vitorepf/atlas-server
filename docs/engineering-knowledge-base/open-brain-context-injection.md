@@ -14,7 +14,6 @@ tags:
   - app-ai
 capabilities:
   - open_brain_context_injection
-  - cli_context_injection
   - app_ai_context_injection
   - provider_safe_recall
   - audited_context_pack
@@ -61,6 +60,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Open Brain Context Injection
+canonical_name: Atlas Open Brain Context Injection
+technical_name: atlas-open-brain-context-injection
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/open-brain-context-injection.md
 
 owner: architecture
 

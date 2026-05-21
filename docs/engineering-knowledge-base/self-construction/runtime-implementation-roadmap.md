@@ -11,7 +11,7 @@ tags:
   - self-construction
   - roadmap
 capabilities:
-  - self_construction_os
+  - self_construction_runtime_implementation_roadmap
   - roadmap
 decisions:
   - Runtime begins read-only and advisory before autonomous patching.
@@ -41,6 +41,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Runtime Implementation Roadmap
+canonical_name: Atlas Self-Construction Runtime Implementation Roadmap
+technical_name: atlas-ai-self-construction-runtime-implementation-roadmap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md

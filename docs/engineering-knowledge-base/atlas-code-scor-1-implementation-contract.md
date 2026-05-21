@@ -45,7 +45,6 @@ related_paths:
   - ../atlas-desktop/apps/desktop/src/surfaces/code/panels/RightRail.tsx
   - ../atlas-desktop/apps/desktop/src/surfaces/code/panels/rightRailRegistry.tsx
 doc_schema: atlas_canonical_module_doc.v1
-
 graph_id: atlas-code-scor-1-implementation-contract
 graph_title: Atlas Code SCOR-1 Implementation Contract
 graph_world: atlas
@@ -54,37 +53,36 @@ graph_kind: contract
 graph_parent: atlas-code-long-session-programming-cockpit
 graph_status: building
 graph_source: repo
+human_name: Atlas Code SCOR-1 Implementation Contract
+canonical_name: Atlas Code SCOR-1 Implementation Contract
+technical_name: atlas-code-scor-1-implementation-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-code-scor-1-implementation-contract.md
 owner: atlas-ai
 layer: 1-surfaces
 line_limit: 520
-
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-scor-1-implementation-contract.md
   - ../atlas-desktop/packages/atlas-domain/src/index.ts
   - ../atlas-desktop/apps/desktop/src/lib/bridge.ts
   - ../atlas-desktop/apps/desktop/src/hooks/useBridge.ts
   - ../atlas-desktop/apps/desktop/src/surfaces/code/
-
 allowed_changes:
   - Evoluir tipos de dominio, bridge, hook useBridge e paineis da surface Code para exibir dados reais SCOR-1.
   - Adicionar componentes pequenos e registries para WorkItem, Spec, Plan, Tasks, Gates e Evidence.
   - Adicionar estados vazios/degradados honestos quando backend ainda nao expuser um artefato.
-
 forbidden_changes:
   - Criar mock data, obras fake, gates fake, evidence fake ou work items inventados.
   - Criar nova tela paralela fora de surfaces/code.
   - Implementar Forge OS, multi-provider reservations, collision matrix ou DSL completa nesta fatia.
   - Fazer o Desktop virar fonte de verdade de Programming Governance.
-
 depends_on:
   - atlas-code-long-session-programming-cockpit
   - atlas-desktop-backend-contract
   - atlas-programming-governance-system
-
 flows_to:
   - atlas-desktop-code-surface
   - atlas-code
-
 unlocks:
   - scor-1-thin-slice
   - programming-governance-visual-runtime

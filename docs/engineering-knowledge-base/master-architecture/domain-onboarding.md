@@ -12,7 +12,6 @@ tags:
   - onboarding
 capabilities:
   - domain_profile_orchestration
-  - anti_duplication_governance
   - domain_manifest_sdk
 decisions:
   - A domain is a cognitive/operational vertical, not a company or project.
@@ -40,6 +39,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Master Architecture Domain Onboarding
+canonical_name: Master Architecture Domain Onboarding
+technical_name: atlas-ai-master-domain-onboarding
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/master-architecture/domain-onboarding.md
 
 owner: master-architecture
 

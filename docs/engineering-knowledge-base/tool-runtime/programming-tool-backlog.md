@@ -36,6 +36,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Programming Tool Backlog
+canonical_name: Atlas Programming Tool Backlog
+technical_name: atlas-programming-tool-backlog
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/tool-runtime/programming-tool-backlog.md
 
 owner: tool-runtime
 

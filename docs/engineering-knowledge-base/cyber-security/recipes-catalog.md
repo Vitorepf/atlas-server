@@ -51,6 +51,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: building
 
 graph_source: repo
+human_name: Atlas AI Cyber Recipes Catalog
+canonical_name: Atlas AI Cyber Recipes Catalog
+technical_name: atlas-ai-cyber-recipes-catalog
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/cyber-security/recipes-catalog.md
 
 repo_paths:
   - docs/engineering-knowledge-base/cyber-security/recipes-catalog.md

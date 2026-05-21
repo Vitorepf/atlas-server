@@ -51,6 +51,11 @@ graph_kind: module
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Evolutionary Maturity Model
+canonical_name: Atlas AI Evolutionary Maturity Model
+technical_name: atlas-ai-evolutionary-maturity-model
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-evolutionary-maturity-model.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-evolutionary-maturity-model.md
@@ -99,7 +104,6 @@ ai_usage_notes:
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 ---
-
 ## Resumo
 
 Este documento define a linha evolutiva canonica do Atlas. Ele existe para

@@ -339,6 +339,57 @@ class EngineeringDocumentationHealthServiceTest extends TestCase
         );
     }
 
+    public function test_human_gold_docs_require_human_fields_and_relations(): void
+    {
+        $service = $this->makeService();
+        $report = $service->analyzeDocs([
+            $this->canonicalDoc('atlas-documentation-reality-system.md', [
+                'graph_id' => 'atlas-documentation-reality-system',
+                'human_summary' => '',
+                'human_what' => 'Area-mae da verdade documental.',
+                'human_purpose' => 'Evitar bagunca documental.',
+                'human_input' => 'Docs canonicos.',
+                'human_output' => 'Mapa de blocos.',
+                'human_change_when' => 'Quando a governanca mudar.',
+                'human_block_when' => 'Quando faltar fonte.',
+                'depends_on' => [],
+            ]),
+        ]);
+
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-documentation-reality-system.md: human gold doc missing field [human_summary]',
+            $report['violations'],
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-documentation-reality-system.md: human gold doc relation [depends_on] must be a non-empty list',
+            $report['violations'],
+        );
+        $this->assertSame(2, $report['summary']['human_gold_violation_count']);
+    }
+
+    public function test_human_gold_docs_reject_internal_prompt_summaries(): void
+    {
+        $service = $this->makeService();
+        $report = $service->analyzeDocs([
+            $this->canonicalDoc('atlas-documentation-reality-system.md', [
+                'graph_id' => 'atlas-documentation-reality-system',
+                'summary' => 'Me manda um prompt completo para o Claude.',
+                'human_summary' => 'Define a verdade documental para humanos e IAs.',
+                'human_what' => 'Area-mae da verdade documental.',
+                'human_purpose' => 'Evitar bagunca documental.',
+                'human_input' => 'Docs canonicos.',
+                'human_output' => 'Mapa de blocos.',
+                'human_change_when' => 'Quando a governanca mudar.',
+                'human_block_when' => 'Quando faltar fonte.',
+            ]),
+        ]);
+
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-documentation-reality-system.md: human gold doc field [summary] looks like internal prompt/task text',
+            $report['violations'],
+        );
+    }
+
     public function test_summary_carries_warning_count_and_list(): void
     {
         $service = $this->makeService();

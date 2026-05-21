@@ -43,6 +43,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Personal Longitudinal Intelligence Roadmap
+canonical_name: Personal Longitudinal Intelligence Roadmap
+technical_name: atlas-ai-evolution-personal-longitudinal-roadmap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/evolution/personal-longitudinal-roadmap.md
 
 owner: evolution
 

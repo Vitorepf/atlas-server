@@ -28,6 +28,11 @@ graph_kind: policy
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Operator Review Approval Gates
+canonical_name: Atlas AI Operator Review Approval Gates
+technical_name: atlas-ai-operator-review-approval-gates
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-ai-operator-review-approval-gates.md
 owner: policy-governance
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-operator-review-approval-gates.md

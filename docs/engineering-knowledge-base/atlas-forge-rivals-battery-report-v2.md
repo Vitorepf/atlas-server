@@ -76,6 +76,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Battery Report v2"
+canonical_name: "Atlas Forge Rivals · Battery Report v2"
+technical_name: atlas-forge-rivals-battery-report-v2
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-battery-report-v2.md
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReportService.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-battery-report-v2.md
@@ -97,7 +102,6 @@ breaks_when:
   - TASK_CATEGORIES é renomeado sem atualizar legacy alias.
   - DIFFICULTY_LEVELS deixa de ser L1-L5.
 ---
-
 # Atlas Forge Rivals · Battery Report v2
 
 ## Resumo

@@ -13,9 +13,9 @@ tags:
   - personal-development
 capabilities:
   - backlog_governance
-  - privacy_review
+  - privacy_review_backlog
   - domain_promotion
-  - qualitative_levels_roadmap
+  - qualitative_levels_backlog
 decisions:
   - Backlog legado e source material, nao compromisso de implementacao.
   - Itens de Personal Development, sensores e vida pessoal exigem privacy/redaction antes de qualquer promocao.
@@ -51,6 +51,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Governed Backlog
+canonical_name: Atlas AI Governed Backlog
+technical_name: atlas-ai-governed-backlog
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-ai-governed-backlog.md
 
 owner: roadmap-governance
 

@@ -13,9 +13,9 @@ tags:
   - programming
 capabilities:
   - spec_operating_system
-  - sdd_core
-  - spec_compiler
-  - spec_graph
+  - sdd_core_overview
+  - spec_compiler_overview
+  - spec_graph_overview
 decisions:
   - Atlas SDD is an internal capability, not a manual ritual for the user.
   - Simple intent must become governed engineering artifacts before risky execution.
@@ -63,6 +63,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Spec Operating System
+canonical_name: Atlas AI Spec Operating System
+technical_name: atlas-ai-spec-operating-system
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md

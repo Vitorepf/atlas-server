@@ -58,6 +58,11 @@ graph_kind: contract
 graph_parent: atlas-programming-forge-flow
 graph_status: active
 graph_source: repo
+human_name: Atlas Dual-Core Engineering System
+canonical_name: Atlas Dual-Core Engineering System
+technical_name: atlas-dual-core-engineering-system
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md

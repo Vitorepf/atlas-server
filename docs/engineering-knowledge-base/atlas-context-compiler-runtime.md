@@ -17,6 +17,7 @@ decisions:
 maintenance:
   - Atualizar antes de mudar formato final de prompt, provider profile ou loss check.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-quality-preserving-efficiency-system.md
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
   - docs/engineering-knowledge-base/atlas-cognitive-memory-fabric.md
   - docs/engineering-knowledge-base/atlas-context-ranking-system.md
@@ -49,7 +50,7 @@ forbidden_changes:
   - Misturar fato, inferencia, memoria e estimativa no contexto final.
   - Declarar economia de token sem sufficiency/evidence preservadas.
 depends_on: [atlas-unified-context-retrieval-intelligence, atlas-cognitive-memory-fabric]
-flows_to: [atlas-ai-router-runtime-enterprise-upgrade, atlas-ai-product-certification]
+flows_to: [atlas-quality-preserving-efficiency-system, atlas-ai-router-runtime-enterprise-upgrade, atlas-ai-product-certification]
 unlocks: [provider_aware_context_pack, prompt_loss_check, token_efficient_reasoning_input]
 governs: [final_context_pack, provider_prompt_contract, context_loss_accounting]
 evidence:

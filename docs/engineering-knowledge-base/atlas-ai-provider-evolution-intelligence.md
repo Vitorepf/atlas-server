@@ -61,6 +61,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Provider Evolution Intelligence
+canonical_name: Atlas AI Provider Evolution Intelligence
+technical_name: atlas-ai-provider-evolution-intelligence
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md

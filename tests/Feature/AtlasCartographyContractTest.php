@@ -58,6 +58,7 @@ final class AtlasCartographyContractTest extends TestCase
                 'universe',
                 'views',
                 'semantic_graph',
+                'human_clarity_contract',
             ]);
 
         $graph = $response->json();
@@ -73,6 +74,34 @@ final class AtlasCartographyContractTest extends TestCase
         );
 
         $this->assertSame(2, data_get($graph, 'audit.pieces_missing'));
+        $this->assertSame('ready', data_get($graph, 'audit.essential_fields.status'));
+        $this->assertSame(0, data_get($graph, 'audit.essential_fields.active_repo_fallback_count'));
+        $this->assertGreaterThanOrEqual(600, data_get($graph, 'audit.essential_fields.declared_count'));
+        $this->assertGreaterThanOrEqual(9.8, data_get($graph, 'human_clarity_contract.human_clarity.score'));
+        $this->assertSame('ready', data_get($graph, 'human_clarity_contract.visual_scene.status'));
+        $this->assertSame('ready', data_get($graph, 'human_clarity_contract.human_route_map.status'));
+    }
+
+    public function test_human_clarity_endpoint_exposes_9_8_visual_contract(): void
+    {
+        $payload = $this->getJson('/atlas-cartography/human-clarity')
+            ->assertOk()
+            ->json();
+
+        $this->assertSame('atlas.universal_reality_cartography.v1', data_get($payload, 'schema_version'));
+        $this->assertSame('ready', data_get($payload, 'status'));
+        $this->assertSame('atlas.universal_reality_cartography.human_clarity.v1', data_get($payload, 'human_clarity.schema_version'));
+        $this->assertGreaterThanOrEqual(9.8, data_get($payload, 'human_clarity.score'));
+        $this->assertSame('9.8_human_visual_clarity', data_get($payload, 'human_clarity.grade'));
+        $this->assertTrue((bool) data_get($payload, 'human_clarity.invariants.map_text_is_short_label_only'));
+        $this->assertTrue((bool) data_get($payload, 'human_clarity.invariants.semantic_zoom_not_pixel_zoom_only'));
+        $this->assertSame('ready', data_get($payload, 'visual_scene.status'));
+        $this->assertSame('ready', data_get($payload, 'visual_scene.legend.status'));
+        $this->assertSame('ready', data_get($payload, 'visual_scene.breadcrumb.status'));
+        $this->assertSame('ready', data_get($payload, 'human_route_map.status'));
+        $this->assertSame('ready', data_get($payload, 'semantic_zoom_scenes.status'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.cartography_is_source_of_truth'));
+        $this->assertFalse((bool) data_get($payload, 'writes'));
     }
 
     public function test_graph_prefers_promoted_docs_over_archived_duplicate_graph_ids(): void
@@ -223,11 +252,33 @@ final class AtlasCartographyContractTest extends TestCase
         $this->assertSame('kernel', data_get($atlasDecide, 'category'));
         $this->assertSame(98, data_get($atlasDecide, 'priority'));
         $this->assertSame('atlas_canonical_module_doc.v1', data_get($atlasDecide, 'doc_schema'));
+        $this->assertSame('Atlas Decide', data_get($atlasDecide, 'human_name'));
+        $this->assertSame('Atlas Decide', data_get($atlasDecide, 'canonical_name'));
+        $this->assertSame('AtlasDecideService', data_get($atlasDecide, 'technical_name'));
+        $this->assertSame('runtime', data_get($atlasDecide, 'cartography_type'));
+        $this->assertSame('docs/engineering-knowledge-base/system-graph/atlas-decide.md', data_get($atlasDecide, 'canonical_source'));
+        $this->assertSame('declared', data_get($atlasDecide, 'cartography_essential_source'));
         $this->assertContains('Validar com docs-health apos qualquer alteracao.', data_get($atlasDecide, 'maintenance', []));
 
         $this->assertIsArray($qualityGates);
         $this->assertContains('qa_evidence', data_get($qualityGates, 'capabilities', []));
         $this->assertContains('docs-health status ok', data_get($qualityGates, 'observability_signals', []));
+
+        $documentationReality = $nodes->get('atlas-documentation-reality-system');
+        $this->assertIsArray($documentationReality);
+        $this->assertSame(
+            'Garante que existe uma verdade canonica unica: a IA usa documentos confiaveis e o humano enxerga essa verdade pela Cartografia.',
+            data_get($documentationReality, 'human_summary')
+        );
+        $this->assertSame(
+            'Area-mae que une governanca documental, realidade de codigo e acesso visual humano.',
+            data_get($documentationReality, 'human_what')
+        );
+        $this->assertStringContainsString('muitas IAs trabalhando', (string) data_get($documentationReality, 'human_purpose'));
+        $this->assertStringContainsString('docs canonicos', (string) data_get($documentationReality, 'human_input'));
+        $this->assertStringContainsString('mapa de blocos', (string) data_get($documentationReality, 'human_output'));
+        $this->assertStringContainsString('mudar a organizacao', (string) data_get($documentationReality, 'human_change_when'));
+        $this->assertStringContainsString('segunda fonte canonica', (string) data_get($documentationReality, 'human_block_when'));
 
         $selfConstructionOs = $nodes->get('atlas-ai-self-construction-os');
         $this->assertIsArray($selfConstructionOs);
@@ -280,6 +331,62 @@ final class AtlasCartographyContractTest extends TestCase
         $this->assertContains(
             'Publicar conteudo externo automaticamente.',
             data_get($marketing, 'forbidden_changes', [])
+        );
+    }
+
+    public function test_active_repo_graph_nodes_expose_essential_cartography_fields(): void
+    {
+        $graph = $this->getJson('/atlas-cartography/graph')
+            ->assertOk()
+            ->json();
+
+        $nodes = collect(data_get($graph, 'semantic_graph.nodes', []))->keyBy('graph_id');
+
+        /** @var RepoVaultReader $repoReader */
+        $repoReader = app(RepoVaultReader::class);
+        $missing = [];
+
+        foreach ($repoReader->index() as $id => $entry) {
+            $frontmatter = $entry['frontmatter'] ?? [];
+            $status = (string) ($frontmatter['graph_status'] ?? $frontmatter['status'] ?? '');
+            $graphId = (string) ($frontmatter['graph_id'] ?? $id);
+
+            if ($graphId === '' || ! in_array($status, ['active', 'building'], true)) {
+                continue;
+            }
+
+            $node = $nodes->get($graphId);
+            foreach (['human_name', 'canonical_name', 'technical_name', 'cartography_type', 'canonical_source'] as $field) {
+                if (! is_array($node) || trim((string) data_get($node, $field, '')) === '') {
+                    $missing[] = $graphId.' missing '.$field.' @ '.($entry['relative_path'] ?? 'unknown');
+                }
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $missing,
+            'Every active/building repo graph node must expose Layer 1 essential fields for the mobile long-press modal.'
+        );
+
+        $activeRepoFallback = $nodes
+            ->filter(fn (array $node): bool => data_get($node, 'graph_source') === 'repo')
+            ->filter(fn (array $node): bool => in_array((string) data_get($node, 'graph_status'), ['active', 'building'], true))
+            ->filter(fn (array $node): bool => data_get($node, 'cartography_essential_source') !== 'declared')
+            ->map(fn (array $node): string => (string) data_get($node, 'graph_id').' @ '.(string) data_get($node, 'source_path'))
+            ->values()
+            ->all();
+
+        $this->assertSame(
+            [],
+            $activeRepoFallback,
+            'Active/building repo docs must declare Layer 1 fields in frontmatter, not depend on derived fallback.'
+        );
+
+        $this->assertContains(
+            'derived_fallback',
+            $nodes->pluck('cartography_essential_source')->filter()->unique()->values()->all(),
+            'Legacy graph docs without explicit Layer 1 fields must be visible as derived fallback, not silently treated as declared.'
         );
     }
 

@@ -53,6 +53,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: building
 
 graph_source: repo
+human_name: Atlas AI Cyber Security KB Index
+canonical_name: Atlas AI Cyber Security KB Index
+technical_name: atlas-ai-cyber-security-kb-index
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/cyber-security/README.md
 
 repo_paths:
   - docs/engineering-knowledge-base/cyber-security/README.md

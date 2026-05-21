@@ -34,6 +34,11 @@ graph_kind: module
 graph_parent: atlas-vox-operational-thinking-interface
 graph_status: active
 graph_source: repo
+human_name: Atlas Vox Operational Thinking Interface Ladder
+canonical_name: Atlas Vox Operational Thinking Interface Ladder
+technical_name: atlas-vox-operational-thinking-interface-ladder
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-vox-operational-thinking-interface-ladder.md
 owner: product-architecture
 version_family: Atlas Vox
 version_note: Esta doc descreve versoes/degraus Vox; nao transforme V0/V3/V4/V6 em patamares canonicos globais.

@@ -32,22 +32,19 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
-
 graph_id: atlas-forge-operating-system-runbook
-
 graph_title: Atlas Forge Operating System Runbook
-
 graph_world: atlas
-
 graph_layer: system
-
 graph_kind: runbook
-
 graph_parent: atlas-forge-operating-system
-
 graph_status: active
-
 graph_source: repo
+human_name: Atlas Forge Operating System Runbook
+canonical_name: Atlas Forge Operating System Runbook
+technical_name: atlas-forge-operating-system-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-forge-operating-system-runbook.md
 
 owner: programming
 

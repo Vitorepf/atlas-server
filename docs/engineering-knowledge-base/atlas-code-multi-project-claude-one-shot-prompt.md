@@ -14,7 +14,7 @@ tags:
   - implementation
 capabilities:
   - external_agent_prompt
-  - multi_project_workspace
+  - multi_project_workspace_prompt
   - atlas_code_implementation
 decisions:
   - External agents must treat Atlas Code as a heavy-programming cockpit, not a generic chat or IDE.
@@ -41,6 +41,11 @@ graph_kind: runbook
 graph_parent: atlas-code-multi-project-workspace-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Multi-Project Claude One-Shot Prompt
+canonical_name: Atlas Code Multi-Project Claude One-Shot Prompt
+technical_name: atlas-code-multi-project-claude-one-shot-prompt
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-code-multi-project-claude-one-shot-prompt.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-multi-project-claude-one-shot-prompt.md
 allowed_changes:

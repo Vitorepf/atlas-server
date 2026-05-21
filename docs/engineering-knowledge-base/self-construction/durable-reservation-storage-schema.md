@@ -12,7 +12,7 @@ tags:
   - storage-schema
   - durable-reservation
 capabilities:
-  - self_construction_os
+  - self_construction_durable_reservation_storage_schema
   - reservation_ledger
   - durable_claims
 decisions:
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Durable Reservation Storage Schema
+canonical_name: Atlas Self-Construction Durable Reservation Storage Schema
+technical_name: atlas-ai-self-construction-durable-reservation-storage-schema
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/durable-reservation-storage-schema.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-storage-schema.md

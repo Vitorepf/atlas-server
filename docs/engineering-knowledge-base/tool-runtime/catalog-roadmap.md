@@ -40,6 +40,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Tool Runtime Catalog Roadmap
+canonical_name: Atlas Tool Runtime Catalog Roadmap
+technical_name: atlas-tool-runtime-catalog-roadmap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/tool-runtime/catalog-roadmap.md
 
 owner: tool-runtime
 

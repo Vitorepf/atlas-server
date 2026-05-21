@@ -49,6 +49,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-evidence-pack-replay-hardening-v2
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Evidence Pack + Replay Multi-Case v1"
+canonical_name: "Atlas Forge Rivals · Evidence Pack + Replay Multi-Case v1"
+technical_name: atlas-forge-rivals-evidence-pack-replay-multi-case-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-evidence-pack-replay-multi-case-v1.md
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReplayVerifierService.php
@@ -83,7 +88,6 @@ next_actions:
   - Monitorar pipeline `run-battery` em release/full quanto a regressões em coleta multi-case.
   - Sincronizar este doc se novos artifact keys per-case entrarem na chain.
 ---
-
 # Atlas Forge Rivals · Evidence Pack + Replay Multi-Case v1
 
 **Status:** Delivered 2026-05-15 (Claude D · Multi-Case slice)

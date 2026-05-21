@@ -13,10 +13,10 @@ tags:
   - qa
   - postgres
 capabilities:
-  - engineering_blueprint
-  - qa_evidence
-  - review_gates
-  - postgres_gate
+  - engineering_blueprint_quality_gates
+  - blueprint_quality_qa_evidence
+  - blueprint_quality_review_gates
+  - blueprint_quality_postgres_gate
   - release_readiness
 decisions:
   - Evidencia persistida e requisito de conclusao, nao detalhe opcional.
@@ -51,6 +51,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Blueprint Quality Gates
+canonical_name: Atlas Engineering Blueprint Quality Gates
+technical_name: atlas-engineering-blueprint-quality-gates
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
 
 owner: quality
 

@@ -13,7 +13,7 @@ tags:
   - completion-roadmap
   - maturity
 capabilities:
-  - self_construction_os
+  - self_construction_atlas_self_construction_os_completion_roadmap_v1
   - completion_roadmap
   - maturity_promotion
 decisions:
@@ -43,6 +43,11 @@ graph_kind: module
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction OS - Completion Roadmap v1
+canonical_name: Atlas Self-Construction OS - Completion Roadmap v1
+technical_name: atlas-self-construction-os-completion-roadmap-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/atlas-self-construction-os-completion-roadmap-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/atlas-self-construction-os-completion-roadmap-v1.md
 allowed_changes:
@@ -83,7 +88,6 @@ observability_signals:
 next_actions:
   - Manter este roadmap sincronizado com contrato, runbook, pilot map e safety invariants.
 ---
-
 # Atlas Self-Construction OS - Completion Roadmap v1
 
 This is the honest, phased completion roadmap for Atlas Self-Construction

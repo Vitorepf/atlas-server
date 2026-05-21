@@ -12,7 +12,7 @@ tags:
   - handoff
 capabilities:
   - documentation_quality_gate
-  - legacy_documentation_cleanup
+  - legacy_cleanup_handoff_checklist
 decisions:
   - Cleanup handoff must report files changed, source material preserved and validation commands.
 maintenance:
@@ -37,6 +37,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Legacy Cleanup Handoff Checklist
+canonical_name: Legacy Cleanup Handoff Checklist
+technical_name: legacy-cleanup-handoff-checklist
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/legacy-cleanup/handoff-checklist.md
 
 owner: legacy-cleanup
 

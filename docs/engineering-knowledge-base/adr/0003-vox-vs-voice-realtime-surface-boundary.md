@@ -56,6 +56,11 @@ graph_parent: atlas-vox-operational-thinking-interface
 graph_status: active
 
 graph_source: repo
+human_name: ADR 0003 - Atlas Vox V0-V3 Mac-First Vs Voice Realtime Surface Mobile-First
+canonical_name: ADR 0003 - Atlas Vox V0-V3 Mac-First Vs Voice Realtime Surface Mobile-First
+technical_name: adr-0003-vox-vs-voice-realtime-surface-boundary
+cartography_type: adr
+canonical_source: docs/engineering-knowledge-base/adr/0003-vox-vs-voice-realtime-surface-boundary.md
 
 owner: surface-architecture
 

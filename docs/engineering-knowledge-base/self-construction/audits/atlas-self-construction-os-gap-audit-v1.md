@@ -11,7 +11,7 @@ tags:
   - self-construction
   - audit
 capabilities:
-  - self_construction_os
+  - self_construction_atlas_self_construction_os_gap_audit_v1
   - gap_audit
 decisions:
   - This audit is observational; it does not change code, schemas, contracts or claims.
@@ -37,6 +37,11 @@ graph_kind: runbook
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction OS Gap Audit v1
+canonical_name: Atlas Self-Construction OS Gap Audit v1
+technical_name: atlas-self-construction-os-gap-audit-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-gap-audit-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-gap-audit-v1.md
 allowed_changes:

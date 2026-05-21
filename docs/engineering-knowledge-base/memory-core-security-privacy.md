@@ -12,8 +12,8 @@ tags:
   - privacy
   - security
 capabilities:
-  - cognitive_immune_gate
-  - privacy_review
+  - memory_core_security_privacy
+  - memory_privacy_review
   - redaction
   - provider_safety
   - projection_guardrails
@@ -50,6 +50,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Memory Core Security And Privacy Policy
+canonical_name: Atlas Memory Core Security And Privacy Policy
+technical_name: atlas-memory-core-security-privacy
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/memory-core-security-privacy.md
 
 owner: maintenance
 

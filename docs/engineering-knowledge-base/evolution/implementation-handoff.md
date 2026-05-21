@@ -14,7 +14,7 @@ tags:
 capabilities:
   - roadmap_handoff
   - architecture_validation
-  - documentation_governance
+  - implementation_handoff
 decisions:
   - Implement evolution as APs and focused contracts.
   - Close one DoD before opening the next autonomy layer.
@@ -43,6 +43,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Evolution Implementation Handoff
+canonical_name: Evolution Implementation Handoff
+technical_name: atlas-ai-evolution-implementation-handoff
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/evolution/implementation-handoff.md
 
 owner: evolution
 

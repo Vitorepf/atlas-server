@@ -49,6 +49,11 @@ graph_kind: system
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Kernel Mission Foundation
+canonical_name: Atlas Kernel Mission Foundation
+technical_name: atlas-kernel-mission-foundation
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-kernel-mission-foundation.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-kernel-mission-foundation.md
@@ -123,7 +128,6 @@ next_actions:
   - Meta 2: ligar Tool Runtime para anexar evidence pack automatico.
   - Meta 2: primeiro Domain Company Runtime (Software) consumir Mission via WorkOrder.
 ---
-
 # Atlas Kernel Mission Foundation
 
 ## Resumo

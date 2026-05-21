@@ -17,7 +17,7 @@ capabilities:
   - memory_promotion
   - noise_filtering
   - learning_signal_layer
-  - retrieval_quality
+  - retrieval_noise_filtering
   - forgetting_receipts
 decisions:
   - Raw capture nunca e memoria, evidence, context ou decision.
@@ -51,6 +51,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Cognitive Immune And Learning Kernel
+canonical_name: Atlas Cognitive Immune And Learning Kernel
+technical_name: atlas-ai-cognitive-immune-learning-kernel
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
 
 owner: memory
 

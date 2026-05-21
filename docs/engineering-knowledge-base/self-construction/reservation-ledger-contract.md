@@ -12,7 +12,7 @@ tags:
   - reservation-ledger
   - multi-agent
 capabilities:
-  - self_construction_os
+  - self_construction_reservation_ledger_contract
   - packet_assignment
   - reservation_ledger
 decisions:
@@ -46,6 +46,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Reservation Ledger Contract
+canonical_name: Atlas Self-Construction Reservation Ledger Contract
+technical_name: atlas-ai-self-construction-reservation-ledger-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md

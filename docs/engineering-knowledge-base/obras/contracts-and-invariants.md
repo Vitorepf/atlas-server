@@ -12,7 +12,7 @@ tags:
   - contracts
   - invariants
 capabilities:
-  - obras_operating_system
+  - obras_contracts_and_invariants
   - governance_contracts
 decisions:
   - L0 implementation must not block L2-L5 maturity.
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Obras - Contracts And Invariants
+canonical_name: Atlas Obras - Contracts And Invariants
+technical_name: atlas-ai-obras-contracts-and-invariants
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/obras/contracts-and-invariants.md
 
 repo_paths:
   - docs/engineering-knowledge-base/obras/contracts-and-invariants.md

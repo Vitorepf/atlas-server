@@ -352,6 +352,11 @@ graph_parent: atlas
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Knowledge Base
+canonical_name: Atlas Engineering Knowledge Base
+technical_name: engineering-knowledge-base-overview
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/README.md
 
 owner: architecture
 

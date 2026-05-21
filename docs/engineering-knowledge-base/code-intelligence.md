@@ -30,6 +30,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/code-intelligence/README.md
   - docs/engineering-knowledge-base/code-intelligence/external-graph-harness.md
+  - docs/engineering-knowledge-base/atlas-software-twin-verified-evolution-runtime.md
   - docs/ap/AP-684-graphify-external-graph-harness.md
   - docs/engineering-knowledge-base/archive/source-material/code-intelligence/graphify-v0-7-11-dissection-2026-05-09.md
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
@@ -62,6 +63,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Code Intelligence Index
+canonical_name: Atlas Engineering Code Intelligence Index
+technical_name: engineering-code-intelligence-index
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/code-intelligence.md
 
 owner: architecture
 
@@ -262,6 +268,12 @@ analise profunda por AST completa. O proximo salto profissional e adicionar:
 - grafo de dependencias entre modulos;
 - health score de documentacao por modulo.
 
+O limite tecnico superior desta area esta definido em
+`atlas-software-twin-verified-evolution-runtime.md`: ACIR deve evoluir de indice
+batch para runtime incremental; depois ASTR cria o gemeo vivo do software; depois
+AVEOR controla evolucao verificada em cima desse twin. `AVER` permanece o
+executor verificado existente e nao deve ser confundido com AVEOR.
+
 ## External Graph Harness
 
 Ferramentas como Graphify podem acelerar cartografia de codigo, comunidades,
@@ -321,4 +333,7 @@ Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para human
 
 ## Proximas Acoes
 
-Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+1. Evoluir `index-code` para ACIR incremental, checkpointed e freshness-aware.
+2. Alimentar ACRUI com o ACIR persistido para reachability real.
+3. Implementar ASTR read-only antes de qualquer camada mutativa.
+4. Implementar AVEOR somente depois do ASTR, usando AVER como executor verificado.

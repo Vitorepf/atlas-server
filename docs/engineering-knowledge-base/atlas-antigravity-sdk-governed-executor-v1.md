@@ -67,6 +67,11 @@ graph_kind: module
 graph_parent: atlas-forge-governed-provider-invocation-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Antigravity SDK Governed Executor v1
+canonical_name: Atlas Antigravity SDK Governed Executor v1
+technical_name: atlas-antigravity-sdk-governed-executor-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-antigravity-sdk-governed-executor-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-antigravity-sdk-governed-executor-v1.md

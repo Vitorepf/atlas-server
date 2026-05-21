@@ -42,6 +42,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Evolution Roadmap Index
+canonical_name: Atlas AI Evolution Roadmap Index
+technical_name: atlas-ai-evolution-roadmap-index
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/evolution/README.md
 
 owner: evolution
 

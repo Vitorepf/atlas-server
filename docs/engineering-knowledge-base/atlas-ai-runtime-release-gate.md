@@ -27,6 +27,11 @@ graph_kind: contract
 graph_parent: atlas-ai-runtime-readiness
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Runtime Release Gate
+canonical_name: Atlas AI Runtime Release Gate
+technical_name: atlas-ai-runtime-release-gate
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-ai-runtime-release-gate.md
 owner: runtime-readiness
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-runtime-release-gate.md

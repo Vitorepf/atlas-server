@@ -50,6 +50,11 @@ graph_kind: index
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: Atlas Canonical Cleanup Inventory
+canonical_name: Atlas Canonical Cleanup Inventory
+technical_name: atlas-canonical-cleanup-inventory
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/atlas-canonical-cleanup-inventory.md
 owner: architecture
 repo_paths:
   - docs/engineering-knowledge-base/atlas-canonical-cleanup-inventory.md
@@ -112,7 +117,6 @@ ja diagnosticaram os maiores riscos.
 Esta doc **consolida** esses diagnosticos e **adiciona inventario filesystem**
 de naming clusters e service overlaps em forma classificada e auditavel.
 Estado real (verificado por `grep`/`find` em 2026-05-18):
-
 - **169 docs `active`**, **10 docs `future`**, **4 `building`**, **4
   `deprecated`**, **3 `scaffold`**, **2 `split_required`**, **4 `draft`**,
   **2 `archived`**, mais 4 entradas raras (`source_material`, `proposed`,
@@ -128,14 +132,10 @@ Estado real (verificado por `grep`/`find` em 2026-05-18):
   tambem ja implementado (3 arquivos em `app/Services/Ai/Programming/AtlasDev/Escalation/`
   e `Schemas/EscalationPacket.php`) — corrige claim original do audit
   Dev/Forge `:111-112` que dizia "0 matches".
-
 Esta missao **NAO apaga**, **NAO move**, **NAO renomeia**. Apenas inventaria
 e propoe sequencia segura.
-
 ## Papel no Atlas
-
 Inventario governanca-leve para:
-
 1. **Pre-flight cleanup**: dar ao operador um mapa de baixo risco do que
    tocar e em que ordem.
 2. **Continuity check**: novas IAs leem isto antes de assumir que doc
@@ -146,7 +146,6 @@ Inventario governanca-leve para:
    para que nenhum cleanup zelo-excessivo a apague.
 4. **Naming hygiene baseline**: registrar onde naming proliferacao ja virou
    risco operacional (`Atlas Code` / `Atlas Forge` / `Atlas Code Forge` / `Cockpit`).
-
 ## Onde Se Encaixa
 
 Filho de `atlas-ai-canonical-architecture-index.md`. Consome os dois audits

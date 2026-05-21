@@ -32,6 +32,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Decision Receipt
+canonical_name: Decision Receipt
+technical_name: decision-receipt
+cartography_type: step
+canonical_source: docs/engineering-knowledge-base/system-graph/decision-receipt.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/decision-receipt.md

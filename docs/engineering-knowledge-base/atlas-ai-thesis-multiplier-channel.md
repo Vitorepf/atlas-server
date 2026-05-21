@@ -14,9 +14,9 @@ tags:
   - channel
   - antifragile
 capabilities:
-  - canonical_thesis
-  - architectural_north_star
-  - feature_decision_filter
+  - multiplier_channel_thesis
+  - multiplier_architectural_north_star
+  - multiplier_feature_decision_filter
 decisions:
   - Atlas multiplies provider output instead of competing with frontier models.
   - Atlas replaces direct provider use as operational channel, not by force but by superior gravity.
@@ -57,6 +57,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI - Tese Central do Multiplicador / Canal Soberano
+canonical_name: Atlas AI - Tese Central do Multiplicador / Canal Soberano
+technical_name: atlas-ai-thesis-multiplier-channel
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
 
 owner: constitutional
 

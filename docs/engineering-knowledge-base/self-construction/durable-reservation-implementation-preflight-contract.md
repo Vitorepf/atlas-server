@@ -12,7 +12,7 @@ tags:
   - implementation-preflight
   - durable-reservation
 capabilities:
-  - self_construction_os
+  - self_construction_durable_reservation_implementation_preflight_contract
   - reservation_ledger
   - implementation_preflight
 decisions:
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Durable Reservation Implementation Preflight Contract
+canonical_name: Atlas Self-Construction Durable Reservation Implementation Preflight Contract
+technical_name: atlas-ai-self-construction-durable-reservation-implementation-preflight-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-preflight-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-preflight-contract.md

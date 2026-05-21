@@ -47,6 +47,11 @@ graph_kind: module
 graph_parent: atlas-programming-superiority-architecture
 graph_status: active
 graph_source: repo
+human_name: Atlas Pre-Benchmark Readiness Audit
+canonical_name: Atlas Pre-Benchmark Readiness Audit
+technical_name: atlas-pre-benchmark-readiness-audit
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-pre-benchmark-readiness-audit.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-pre-benchmark-readiness-audit.md
@@ -98,7 +103,6 @@ next_actions:
   - Manter benchmark_not_run=true ate o operador autorizar explicitamente a bateria.
 line_limit: 520
 ---
-
 # Atlas Pre-Benchmark Readiness Audit
 
 ## Resumo

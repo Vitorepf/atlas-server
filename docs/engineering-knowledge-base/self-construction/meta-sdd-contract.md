@@ -12,7 +12,7 @@ tags:
   - meta-sdd
 capabilities:
   - meta_sdd
-  - spec_operating_system
+  - self_construction_spec_operating_system_bridge
 decisions:
   - Atlas core changes require Meta-SDD, not ordinary feature specs.
   - Meta-SDD must include layer impact, maturity delta and system risk.
@@ -42,6 +42,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Meta-SDD Contract
+canonical_name: Atlas Self-Construction Meta-SDD Contract
+technical_name: atlas-ai-self-construction-meta-sdd-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/meta-sdd-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/meta-sdd-contract.md

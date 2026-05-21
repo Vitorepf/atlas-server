@@ -90,9 +90,13 @@ graph_kind: runbook
 graph_parent: atlas-forge-native-rivals-protocol-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Rivals Reliability Lockdown v1
+canonical_name: Atlas Forge Rivals Reliability Lockdown v1
+technical_name: atlas-forge-rivals-reliability-lockdown-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-reliability-lockdown-v1.md
 owner: atlas-ai
 ---
-
 # Atlas Forge Rivals Reliability Lockdown v1
 
 ## Resumo

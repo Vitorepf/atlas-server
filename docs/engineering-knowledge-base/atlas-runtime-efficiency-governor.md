@@ -31,7 +31,7 @@ capabilities:
   - context_minimum_pack
   - fast_path
   - deep_path
-  - counterfactual_replay
+  - efficiency_counterfactual_estimation
   - cognitive_policy_compiler
 decisions:
   - O nome canonico/produto e Atlas Runtime Efficiency Governor.
@@ -47,6 +47,7 @@ maintenance:
   - Nao adicionar camada pesada ao Hyperflow sem regra AREG de admissao, custo e utilidade.
   - Nao confundir AREG com ASRE: ASRE decide estrategia; AREG decide eficiencia operacional.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-quality-preserving-efficiency-system.md
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
   - docs/engineering-knowledge-base/atlas-context-intelligence-engine.md
@@ -64,6 +65,11 @@ graph_kind: system
 graph_parent: atlas-ai
 graph_status: active
 graph_source: repo
+human_name: Atlas Runtime Efficiency Governor
+canonical_name: Atlas Runtime Efficiency Governor
+technical_name: AtlasRuntimeEfficiencyGovernorService
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-runtime-efficiency-governor.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-runtime-efficiency-governor.md
@@ -84,6 +90,7 @@ depends_on:
   - atlas-intelligence-factory-os
   - atlas-strategic-reality-engine
 flows_to:
+  - atlas-quality-preserving-efficiency-system
   - atlas_ai
   - atlas_dev
   - atlas_forge
@@ -152,7 +159,6 @@ next_actions:
   - Conectar outcomes reais de AEMOR ao recordOutcome do AREG automaticamente.
   - Calibrar politicas aprendidas por flow com dados reais de producao.
 ---
-
 # Atlas Runtime Efficiency Governor
 
 ## Resumo

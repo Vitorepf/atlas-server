@@ -32,6 +32,11 @@ graph_kind: contract
 graph_parent: atlas-hyperflow-operation
 graph_status: active
 graph_source: repo
+human_name: Operacao Atlas Hyperflow Surface Rich Input
+canonical_name: Operacao Atlas Hyperflow Surface Rich Input
+technical_name: atlas-hyperflow-operation-surface-rich-input
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-hyperflow-operation-surface-rich-input.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-hyperflow-operation-surface-rich-input.md

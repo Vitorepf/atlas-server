@@ -18,7 +18,7 @@ capabilities:
   - provider_driver_router_v2
   - safe_process_runner
   - provider_command_allowlist
-  - provider_failure_classifier
+  - real_provider_failure_classifier
 decisions:
   - Provider real so pode ser chamado quando os 13 gates de invocation + driver configurado + allowlist + capacity estiverem todos verdes.
   - atlas-local continua executor seguro deterministico; nunca chama provider externo.
@@ -60,6 +60,11 @@ graph_kind: module
 graph_parent: atlas-forge-governed-provider-invocation-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Governed Real Provider Drivers v1
+canonical_name: Atlas Forge Governed Real Provider Drivers v1
+technical_name: atlas-forge-real-provider-drivers-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-forge-real-provider-drivers-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-real-provider-drivers-v1.md

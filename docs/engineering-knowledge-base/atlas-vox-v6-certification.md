@@ -40,6 +40,11 @@ graph_kind: runbook
 graph_parent: atlas-vox-operational-thinking-interface
 graph_status: active
 graph_source: repo
+human_name: "Atlas Vox V6 — Certificação Final e Como Usar"
+canonical_name: "Atlas Vox V6 — Certificação Final e Como Usar"
+technical_name: atlas-vox-v6-certification
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-vox-v6-certification.md
 
 owner: surface-architecture
 repo_paths:

@@ -6,6 +6,13 @@ status: active
 category: intelligence-runtime
 priority: 99
 summary: Protocolo transversal para melhorar continuamente os 18 blocos AUCRI com foco em reducao de tokens, preservacao de qualidade, evidencias e falsificacao de economias aparentes.
+human_summary: Melhora continuamente como o Atlas escolhe contexto: corta token inutil, mas so aceita economia quando a qualidade e a prova continuam iguais ou melhores.
+human_what: Protocolo de melhoria continua para reduzir tokens e ruido sem perder qualidade de contexto.
+human_purpose: Evitar economia falsa: menos token so vale se resposta, evidencia, must-keep e risco continuarem corretos.
+human_input: Recebe baseline, variante, metricas, canarios, context packs, custos, qualidade e resultados de tarefas.
+human_output: Entrega decisao de manter, reverter ou promover uma otimizacao de contexto com prova.
+human_change_when: Mexa quando AUCRI ganhar novo bloco, nova tecnica de compressao, novo benchmark ou novo provider profile.
+human_block_when: Bloqueie quando a reducao de token piorar qualidade, remover evidencia, quebrar must-keep ou nao tiver rollback.
 tags: [atlas-ai, aucri, optimization, token-economy, quality-gate]
 capabilities: [continuous_optimization, token_quality_audit, context_ablation, prompt_distillation, roi_scoring]
 decisions:
@@ -36,6 +43,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: active
 graph_source: repo
+human_name: Atlas AUCRI Continuous Optimization Protocol
+canonical_name: Atlas AUCRI Continuous Optimization Protocol
+technical_name: AtlasAucriContinuousOptimizationProtocol
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-aucri-continuous-optimization-protocol.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-aucri-continuous-optimization-protocol.md
@@ -62,7 +74,6 @@ line_limit: 520
 next_actions:
   - Criar primeiro audit AUCRI com baseline de token/qualidade por flow.
 ---
-
 # Atlas AUCRI Continuous Optimization Protocol
 
 ## Resumo

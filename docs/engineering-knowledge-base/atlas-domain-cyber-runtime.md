@@ -90,6 +90,11 @@ graph_kind: module
 graph_parent: atlas-domain-company-runtimes
 graph_status: active
 graph_source: repo
+human_name: Atlas Cyber Security Company Runtime
+canonical_name: Atlas Cyber Security Company Runtime
+technical_name: atlas-domain-cyber-runtime
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-domain-cyber-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-domain-cyber-runtime.md

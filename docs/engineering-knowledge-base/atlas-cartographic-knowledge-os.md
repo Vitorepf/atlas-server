@@ -7,6 +7,11 @@ category: cartography
 priority: 100
 implementation_state: future_target_not_current_runtime
 summary: Especificacao canonica da Cartografia como sistema operacional visual da verdade do Atlas: navegacao por escala, zoom semantico, engrenagens, fluxos, fonte real, links e estados epistemicos para humanos e IAs.
+human_name: Sistema Visual da Cartografia
+canonical_name: Atlas Cartographic Knowledge OS
+technical_name: AtlasCartographicKnowledgeOS
+cartography_type: os
+canonical_source: docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
 tags:
   - atlas
   - cartography
@@ -31,13 +36,14 @@ decisions:
   - Todo node visual precisa apontar para fonte real, owner, status, links, evidencia e estado epistemico/soberano quando existir.
   - Zoom semantico deve esconder o resto do mundo e revelar o funcionamento interno da engrenagem escolhida.
   - Tap em qualquer node/engrenagem deve trocar a cena para o fluxo visual daquela peca, sem manter o canvas anterior competindo por atencao.
-  - Long press em qualquer node/engrenagem/lane deve abrir documentacao humana estruturada, separando patamar, versao, camada, fonte, regra, risco e teste.
+  - Long press em qualquer node/engrenagem/lane deve abrir documentacao humana nas 7 camadas canonicas: Essencial, Fluxo, Relacoes, Evolucao, Patamares, Versoes, Prova e Seguranca.
 maintenance:
   - Atualizar quando Cartografia, Atlas Semantic Graph, Knowledge Governance ou Desktop mudarem contrato visual.
   - Manter abaixo de 520 linhas; dividir detalhes de UI, API e layout em specs filhas quando iniciar implementacao.
   - Rodar docs-health depois de alterar.
 related_paths:
   - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
+  - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
   - docs/engineering-knowledge-base/atlas-universal-reality-cartography.md
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/atlas-semantic-graph.md
@@ -247,10 +253,9 @@ Regra visual: o canvas anterior pode ficar desfocado como contexto somente se
 nao competir com o fluxo atual. A experiencia primaria deve sempre deixar claro
 "estou dentro desta peca agora".
 
-Regra textual: o modal e o unico lugar de texto denso. Ele deve ser escrito para
-suporte, financeiro, marketing, produto, tech, diretoria e parceiros, nao apenas
-para engenheiros. A primeira resposta precisa ser simples; os detalhes canonicos
-vem depois.
+Regra textual: o modal e o unico lugar de texto denso. Ele deve abrir pelas 7
+camadas canonicas, com Essencial primeiro e Prova/Seguranca no fechamento.
+Detalhe completo so entra depois da identidade, fluxo e acao segura.
 
 ## Nomenclatura Obrigatoria
 

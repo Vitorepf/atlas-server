@@ -15,7 +15,7 @@ tags:
 capabilities:
   - programming_agentic_rag
   - semantic_code_graph
-  - retrieval_quality
+  - programming_retrieval_quality
   - context_pack_governance
   - code_repair
 decisions:
@@ -53,6 +53,11 @@ graph_kind: module
 graph_parent: atlas-ai-programming-domain
 graph_status: active
 graph_source: repo
+human_name: Programming Agentic RAG Professional Spec
+canonical_name: Programming Agentic RAG Professional Spec
+technical_name: atlas-ai-programming-agentic-rag-professional-spec
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
 owner: domains
 repo_paths:
   - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
@@ -92,7 +97,6 @@ next_actions:
 requires_evidence: true
 risk_level: high
 ---
-
 # Programming Agentic RAG Professional Spec
 
 ## Resumo

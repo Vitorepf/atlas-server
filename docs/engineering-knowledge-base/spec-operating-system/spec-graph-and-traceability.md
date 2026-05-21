@@ -13,7 +13,7 @@ tags:
   - traceability
 capabilities:
   - spec_graph
-  - traceability
+  - spec_traceability
   - requirement_to_evidence
 decisions:
   - Markdown alone is insufficient for enterprise SDD.
@@ -40,6 +40,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas SDD Spec Graph And Traceability
+canonical_name: Atlas SDD Spec Graph And Traceability
+technical_name: atlas-ai-sdd-spec-graph-traceability
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/spec-graph-and-traceability.md
 
 owner: spec-operating-system
 

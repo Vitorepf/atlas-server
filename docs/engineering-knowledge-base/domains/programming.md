@@ -76,6 +76,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Programming Domain
+canonical_name: Atlas AI Programming Domain
+technical_name: atlas-ai-programming-domain
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/programming.md
 
 owner: domains
 

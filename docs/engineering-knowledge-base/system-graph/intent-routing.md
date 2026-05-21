@@ -24,6 +24,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Intent Routing
+canonical_name: Intent Routing
+technical_name: intent-routing
+cartography_type: step
+canonical_source: docs/engineering-knowledge-base/system-graph/intent-routing.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/intent-routing.md

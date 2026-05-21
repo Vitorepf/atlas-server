@@ -11,7 +11,7 @@ tags:
   - self-construction
   - constitution
 capabilities:
-  - self_construction_os
+  - self_construction_constitution
   - governance
 decisions:
   - Atlas self-construction is allowed only as governed evolution.
@@ -43,6 +43,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Constitution
+canonical_name: Atlas Self-Construction Constitution
+technical_name: atlas-ai-self-construction-constitution
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/constitution.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/constitution.md

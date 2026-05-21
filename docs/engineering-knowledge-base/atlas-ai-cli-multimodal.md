@@ -14,7 +14,7 @@ tags:
 capabilities:
   - atlas_input_image_paste
   - cli_context_injection
-  - surface_adapter
+  - cli_surface_adapter
 decisions:
   - Paste de imagem e capability de input da surface CLI, nao mudanca de provider ou runtime core.
   - Setup operacional fica em docs/paste-image-setup.md; este doc governa arquitetura e limites.
@@ -44,6 +44,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI CLI Multimodal
+canonical_name: Atlas AI CLI Multimodal
+technical_name: atlas-ai-cli-multimodal
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-cli-multimodal.md
 
 owner: cli
 

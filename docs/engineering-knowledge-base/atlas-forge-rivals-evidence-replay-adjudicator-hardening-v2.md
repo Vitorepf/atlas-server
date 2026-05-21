@@ -42,6 +42,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Evidence / Replay / Adjudicator Hardening v2"
+canonical_name: "Atlas Forge Rivals · Evidence / Replay / Adjudicator Hardening v2"
+technical_name: atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2.md
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCollectEvidenceService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReplayService.php
@@ -74,7 +79,6 @@ risk_level: high
 next_actions:
   - Monitorar pipeline `run-battery` em modos `fair`/`full_power` quanto a regressões circulares.
 ---
-
 # Atlas Forge Rivals · Evidence / Replay / Adjudicator Hardening v2
 
 **Schema:** `atlas.forge.rivals.evidence_pack.v2`

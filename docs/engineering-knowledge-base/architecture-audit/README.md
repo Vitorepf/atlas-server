@@ -38,6 +38,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Architecture Audit README
+canonical_name: Atlas AI Architecture Audit README
+technical_name: atlas-ai-architecture-audit-readme
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/architecture-audit/README.md
 
 owner: architecture-audit
 

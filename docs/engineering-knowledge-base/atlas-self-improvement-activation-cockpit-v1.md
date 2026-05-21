@@ -70,6 +70,11 @@ graph_kind: runbook
 graph_parent: atlas-self-improvement-forge-activation-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Improvement Activation Cockpit v1
+canonical_name: Atlas Self-Improvement Activation Cockpit v1
+technical_name: atlas-self-improvement-activation-cockpit-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-self-improvement-activation-cockpit-v1.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-self-improvement-activation-cockpit-v1.md
@@ -137,7 +142,6 @@ next_actions:
   - Suportar drill-down do evidence_refs[] para abrir doc/ledger event correspondente no Cartografia.
   - Quando dispatcher executor estiver pronto, expor "Iniciar Fast Path" como ação separada (com confirmação dupla).
 ---
-
 # Atlas Self-Improvement Activation Cockpit v1
 
 ## Resumo

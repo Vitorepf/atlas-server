@@ -45,6 +45,11 @@ graph_kind: module
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: Atlas Autonomous Evolution Loop
+canonical_name: Atlas Autonomous Evolution Loop
+technical_name: atlas-autonomous-evolution-loop
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-autonomous-evolution-loop.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-autonomous-evolution-loop.md
   - app/Services/Ai/AutonomousEvolution

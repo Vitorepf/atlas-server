@@ -39,6 +39,11 @@ graph_kind: system
 graph_parent: atlas
 graph_status: building
 graph_source: repo
+human_name: Atlas Semantic Graph
+canonical_name: Atlas Semantic Graph
+technical_name: atlas-semantic-graph
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-semantic-graph.md
 owner: atlas-cartography
 repo_paths:
   - docs/engineering-knowledge-base/atlas-semantic-graph.md

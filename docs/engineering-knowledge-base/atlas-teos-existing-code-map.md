@@ -48,6 +48,11 @@ graph_kind: index
 graph_parent: atlas-long-horizon-intelligence-layer
 graph_status: active
 graph_source: repo
+human_name: Atlas TEOS Existing Code Map
+canonical_name: Atlas TEOS Existing Code Map
+technical_name: atlas-teos-existing-code-map
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/atlas-teos-existing-code-map.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-teos-existing-code-map.md
@@ -97,7 +102,6 @@ next_actions:
   - Validar que TEOS commands sempre carregam `claim_policy.benchmark_not_run=true` (regra herdada de `ProgrammingConsoleService`).
 line_limit: 520
 ---
-
 # Atlas TEOS Existing Code Map
 
 ## Resumo

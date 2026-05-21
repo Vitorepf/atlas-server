@@ -89,6 +89,44 @@ class EngineeringDocumentationHealthService
     ];
 
     /**
+     * Fields required on the docs that define Atlas documentation reality and
+     * human cartography. They are intentionally separate from generic
+     * canonical_module fields because legacy docs can stay technical, while
+     * these operator-facing docs must be readable by humans and safe for AI
+     * bootstrap.
+     *
+     * @var array<int,string>
+     */
+    private const HUMAN_GOLD_FRONTMATTER = [
+        'human_summary',
+        'human_what',
+        'human_purpose',
+        'human_input',
+        'human_output',
+        'human_change_when',
+        'human_block_when',
+    ];
+
+    /**
+     * P0 documentation reality docs. Any degradation here means future agents
+     * and the mobile Cartografia can receive context that is technically valid
+     * but hard for humans to understand.
+     *
+     * @var array<int,string>
+     */
+    private const HUMAN_GOLD_GRAPH_IDS = [
+        'atlas-ai-documentation-operating-system',
+        'atlas-ai-knowledge-governance-system',
+        'atlas-cartography-nomenclature-contract',
+        'atlas-canonical-glossary-and-naming',
+        'atlas-documentation-reality-system',
+        'atlas-code-reality-usage-intelligence',
+        'atlas-universal-reality-cartography',
+        'atlas-unified-context-retrieval-intelligence',
+        'atlas-aucri-continuous-optimization-protocol',
+    ];
+
+    /**
      * @var array<int,string>
      */
     private const CANONICAL_MODULE_OPTIONAL_LIST_FRONTMATTER = [
@@ -245,11 +283,13 @@ class EngineeringDocumentationHealthService
         $frontmatterViolations = $this->frontmatterViolations($docs);
         $canonicalCoverageViolations = $this->canonicalModuleCoverageViolations($docs);
         $canonicalViolations = $this->canonicalModuleViolations($docs);
+        $humanGoldViolations = $this->humanGoldDocumentationViolations($docs);
         $violations = array_values(array_merge(
             $required['missing'],
             $frontmatterViolations,
             $canonicalCoverageViolations,
             $canonicalViolations,
+            $humanGoldViolations,
         ));
         $warnings = $this->collectWarnings($docs);
         $oversized = $this->oversizedDocs($docs);
@@ -265,6 +305,7 @@ class EngineeringDocumentationHealthService
                 'frontmatter_violation_count' => count($frontmatterViolations),
                 'canonical_module_coverage_violation_count' => count($canonicalCoverageViolations),
                 'canonical_module_violation_count' => count($canonicalViolations),
+                'human_gold_violation_count' => count($humanGoldViolations),
                 'warning_count' => count($warnings),
             ],
             'required_docs' => $required['items'],
@@ -367,6 +408,86 @@ class EngineeringDocumentationHealthService
         }
 
         return $violations;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $docs
+     * @return array<int,string>
+     */
+    private function humanGoldDocumentationViolations(array $docs): array
+    {
+        $violations = [];
+
+        foreach ($docs as $doc) {
+            $path = (string) $doc['path'];
+            $frontmatter = (array) $doc['frontmatter'];
+            $graphId = (string) ($frontmatter['graph_id'] ?? '');
+            if (! in_array($graphId, self::HUMAN_GOLD_GRAPH_IDS, true)) {
+                continue;
+            }
+
+            foreach (self::HUMAN_GOLD_FRONTMATTER as $field) {
+                if (! array_key_exists($field, $frontmatter) || trim((string) $frontmatter[$field]) === '') {
+                    $violations[] = "{$path}: human gold doc missing field [{$field}]";
+                }
+            }
+
+            foreach (['depends_on', 'flows_to', 'unlocks', 'governs'] as $field) {
+                $value = $frontmatter[$field] ?? null;
+                if (! is_array($value) || $this->nonEmptyListStrings($value) === []) {
+                    $violations[] = "{$path}: human gold doc relation [{$field}] must be a non-empty list";
+                }
+            }
+
+            $summaryFields = [
+                'summary' => (string) ($frontmatter['summary'] ?? ''),
+                'human_summary' => (string) ($frontmatter['human_summary'] ?? ''),
+            ];
+            foreach ($summaryFields as $field => $value) {
+                if ($this->looksLikeInternalPrompt($value)) {
+                    $violations[] = "{$path}: human gold doc field [{$field}] looks like internal prompt/task text";
+                }
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @param  array<int,mixed>  $items
+     * @return array<int,string>
+     */
+    private function nonEmptyListStrings(array $items): array
+    {
+        return array_values(array_filter(array_map(
+            fn (mixed $item): string => trim((string) $item),
+            $items
+        ), fn (string $item): bool => $item !== ''));
+    }
+
+    private function looksLikeInternalPrompt(string $value): bool
+    {
+        $value = strtolower($value);
+        foreach ([
+            'prompt completo',
+            'prompt para',
+            'me manda',
+            'voce pediu',
+            'você pediu',
+            'manda o claude',
+            'manda o codex',
+            'manda o gemini',
+            'goal enorme',
+            'type something',
+            'chat about this',
+            'skip interview',
+        ] as $marker) {
+            if (str_contains($value, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

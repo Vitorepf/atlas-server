@@ -13,9 +13,9 @@ tags:
   - agentic-rag
   - rivals
 capabilities:
-  - programming_agentic_rag
+  - programming_agentic_rag_audit
   - programming_rivals_readiness
-  - semantic_code_graph
+  - programming_semantic_code_graph_audit
   - programming_quality_gates
 decisions:
   - A frente profissional de programacao nao pode ser marcada como totalmente concluida enquanto Rivals-Programming real nao tiver bateria pareada verificavel.
@@ -44,6 +44,11 @@ graph_kind: module
 graph_parent: atlas-ai-programming-domain
 graph_status: active
 graph_source: repo
+human_name: Programming Professional Completion Audit
+canonical_name: Programming Professional Completion Audit
+technical_name: atlas-ai-programming-professional-completion-audit
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/programming-professional-completion-audit.md
 owner: domains
 repo_paths:
   - docs/engineering-knowledge-base/domains/programming-professional-completion-audit.md
@@ -74,7 +79,6 @@ next_actions:
 requires_evidence: true
 risk_level: medium
 ---
-
 # Programming Professional Completion Audit
 
 ## Resumo

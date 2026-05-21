@@ -12,7 +12,7 @@ tags:
   - runtime-build-packet
   - durable-reservation
 capabilities:
-  - self_construction_os
+  - self_construction_durable_reservation_runtime_build_packet_contract
   - reservation_ledger
   - runtime_build_packet
 decisions:
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Durable Reservation Runtime Build Packet Contract
+canonical_name: Atlas Self-Construction Durable Reservation Runtime Build Packet Contract
+technical_name: atlas-ai-self-construction-durable-reservation-runtime-build-packet-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/durable-reservation-runtime-build-packet-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-runtime-build-packet-contract.md

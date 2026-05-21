@@ -12,12 +12,12 @@ tags:
   - maturity
   - dod
 capabilities:
-  - engineering_blueprint
-  - project_blueprint_pipeline
-  - task_contracts
-  - qa_evidence
-  - review_gates
-  - postgres_gate
+  - engineering_blueprint_maturity_dod
+  - blueprint_maturity_pipeline
+  - blueprint_maturity_task_contracts
+  - blueprint_maturity_qa_evidence
+  - blueprint_maturity_review_gates
+  - blueprint_maturity_postgres_gate
 decisions:
   - Current implementation is a strong operational base, not the final mature product.
   - Maturity detail lives in a focused child doc to keep this index readable.
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Blueprint Maturity And DoD
+canonical_name: Atlas Engineering Blueprint Maturity And DoD
+technical_name: atlas-engineering-blueprint-maturity-dod
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/engineering-blueprint-maturity-dod.md
 
 owner: maturity
 

@@ -12,7 +12,7 @@ tags:
   - promotions
 capabilities:
   - resolver_corpus_governance
-  - domain_profile_orchestration
+  - resolver_p0_domain_promotions
 decisions:
   - P0 resolver material has been promoted as compact canonical decisions, not copied wholesale.
 maintenance:
@@ -39,6 +39,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Resolver Corpus P0 Promotions
+canonical_name: Atlas AI Resolver Corpus P0 Promotions
+technical_name: atlas-ai-resolver-corpus-p0-promotions
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/resolver-corpus/p0-promotions.md
 
 owner: resolver-corpus
 

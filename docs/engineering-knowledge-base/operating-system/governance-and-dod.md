@@ -11,7 +11,7 @@ tags:
   - governance
   - dod
 capabilities:
-  - anti_duplication_governance
+  - governance_and_dod
   - unified_capability_pipeline
 decisions:
   - Horizontal capabilities belong to Core when useful across surfaces/domains.
@@ -39,6 +39,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI OS - Governance And DoD
+canonical_name: Atlas AI OS - Governance And DoD
+technical_name: atlas-ai-os-governance-and-dod
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/operating-system/governance-and-dod.md
 
 owner: operating-system
 

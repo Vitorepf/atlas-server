@@ -43,6 +43,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Memory Core Failure Modes
+canonical_name: Atlas Memory Core Failure Modes
+technical_name: atlas-memory-core-failure-modes
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/memory-core-failure-modes.md
 
 owner: maintenance
 

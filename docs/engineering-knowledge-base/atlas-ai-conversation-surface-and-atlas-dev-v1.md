@@ -56,6 +56,11 @@ graph_kind: module
 graph_parent: atlas-ai-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Conversation Surface And Atlas Dev v1
+canonical_name: Atlas AI Conversation Surface And Atlas Dev v1
+technical_name: atlas-ai-conversation-surface-and-atlas-dev-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md

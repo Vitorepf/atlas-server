@@ -12,7 +12,7 @@ tags:
   - validation
   - gates
 capabilities:
-  - self_construction_os
+  - self_construction_agent_validation_gate_runtime_v1
   - agent_validation_gate_catalog
   - agent_validation_gate_plan_builder
   - agent_validation_gate_dry_run_evaluator
@@ -50,6 +50,11 @@ graph_kind: contract
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction Agent Validation Gate Runtime v1
+canonical_name: Atlas Self-Construction Agent Validation Gate Runtime v1
+technical_name: atlas-self-construction-agent-validation-gate-runtime-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/agent-validation-gate-runtime-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/agent-validation-gate-runtime-v1.md
 allowed_changes:

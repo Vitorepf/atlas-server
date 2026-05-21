@@ -38,6 +38,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Legacy Cleanup Inventory Summary
+canonical_name: Legacy Cleanup Inventory Summary
+technical_name: legacy-cleanup-inventory-summary
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/legacy-cleanup/inventory-summary.md
 
 owner: legacy-cleanup
 

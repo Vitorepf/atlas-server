@@ -55,6 +55,11 @@ graph_kind: module
 graph_parent: atlas-programming-forge-flow
 graph_status: active
 graph_source: repo
+human_name: Atlas Programming Self-Construction Forge Map v1
+canonical_name: Atlas Programming Self-Construction Forge Map v1
+technical_name: atlas-programming-self-construction-forge-map-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-programming-self-construction-forge-map-v1.md
 owner: programming
 patamar_current: Self-Construction OS
 patamar_next: Self-Programming OS

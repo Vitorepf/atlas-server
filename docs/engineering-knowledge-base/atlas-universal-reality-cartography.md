@@ -6,6 +6,18 @@ status: active
 category: cartography
 priority: 100
 summary: Doc filha da ADRS que define AURC como a superficie visual universal para humanos entenderem documentacao, codigo, fluxos, empresas, projetos, provas e riscos por Cartografia em escala.
+human_summary: Transforma a documentacao em mapa visual para o humano entender sistemas, fluxos, riscos e provas sem precisar ler centenas de arquivos.
+human_what: Superficie visual que transforma docs canonicos em mapa navegavel por escala, relacao, fonte, risco e prova.
+human_purpose: Dar acesso humano real a documentacao e arquitetura sem exigir leitura manual de centenas de arquivos.
+human_input: Recebe docs canonicos, system graph, relacoes, status, fontes, riscos, provas e projetos externos indexados.
+human_output: Entrega Cartografia com zoom semantico, modais humanos, deep links, cenas e sinais de saude documental.
+human_change_when: Mexa quando mudar contrato visual, grafo, fonte canonica, fluxo de zoom, modal ou leitura humana.
+human_block_when: Bloqueie quando o mapa esconder fonte, mostrar texto demais, confundir humano ou renderizar verdade sem doc canonica.
+human_name: Cartografia Universal da Realidade
+canonical_name: Atlas Universal Reality Cartography
+technical_name: AtlasUniversalRealityCartographyService
+cartography_type: surface
+canonical_source: docs/engineering-knowledge-base/atlas-universal-reality-cartography.md
 tags:
   - atlas-ai
   - cartography
@@ -16,10 +28,11 @@ tags:
 capabilities:
   - universal_reality_cartography
   - human_visual_documentation_access
-  - semantic_zoom
+  - universal_reality_semantic_zoom
   - cross_project_cartography
   - visual_reality_navigation
   - cartography_task_simulation
+  - human_clarity_score_9_8
 decisions:
   - Nome canonico/produto obrigatorio: Atlas Universal Reality Cartography.
   - Acronimo tecnico obrigatorio: AURC.
@@ -28,6 +41,7 @@ decisions:
   - AURC e filha do Atlas Documentation Reality System; ela nao cria segunda documentacao.
   - AURC usa Cartographic Knowledge OS como contrato visual, mas foca no produto universal multiempresa/multiprojeto.
   - O humano deve entender 90% do fluxo por imagem, posicao, escala, cor, movimento e relacao; texto denso fica no modal.
+  - Meta operacional de clareza humana visual: score minimo 9.8 no contrato `atlas.universal_reality_cartography.human_clarity.v1`.
   - Cada empresa/projeto mantem sua documentacao canonica no proprio repo; AURC consome, indexa e renderiza sem copiar verdade.
 maintenance:
   - Manter abaixo de 520 linhas.
@@ -35,6 +49,7 @@ maintenance:
   - Rodar docs-health, docs-authority-audit e architecture-validate apos alteracoes.
 related_paths:
   - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
+  - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/atlas-system-graph.md
@@ -88,6 +103,7 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-universal-reality-cartography.md
   - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
+  - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
@@ -124,7 +140,7 @@ observability_signals:
   - future: human task success rate
   - future: cartography cognitive load score
 next_actions:
-  - Conectar o contrato `visual_scene` a surface visual da Cartografia.
+  - Conectar `visual_scene` e `human_clarity` a surface visual da Cartografia.
   - Expandir task simulator com perguntas canonicas de navegacao humana reais.
   - Conectar primeira cena Universe -> Atlas -> Documentation Reality -> AURC na surface visual.
 ---
@@ -212,6 +228,21 @@ Contratos duros:
 7. Nenhum visual pode promover claim de implementacao sem evidence.
 8. Se humano nao entende o fluxo macro por imagem, o mapa falhou.
 
+Contrato humano da Cartografia:
+
+| Camada | Funcao no modal |
+|---|---|
+| Essencial | identidade minima: nome humano, nome canonico/tecnico, tipo, status, fonte, o que e, para que serve e quando usar |
+| Fluxo | antes -> peca -> depois, com travas principais |
+| Relacoes | pai, filhos, dependencias, desbloqueios e fronteiras |
+| Evolucao | estado atual, lacunas e proxima acao segura |
+| Patamares | saltos de maturidade declarados por `patamar_*` |
+| Versoes | releases, schemas e versoes internas da mesma familia |
+| Prova e Seguranca | testes, evidence, riscos, allowed/forbidden changes, owner e lacunas |
+
+AURC deve renderizar o mapa para o humano entender 90% por imagem. O modal
+serve para confirmar, auditar e agir, nao para substituir a clareza visual.
+
 ## Fluxo
 
 Fluxo de construcao visual:
@@ -269,6 +300,7 @@ long press
 | 14 | Cartography Task Simulator | testa se humano/IA acha resposta pelo mapa | QA de navegacao |
 | 15 | AI Navigation Slice API | retorna context slice por node, profundidade e objetivo | contexto minimo |
 | 16 | Reality Replay View | mostra mudancas e fluxo vivo por evidence/replay | movimento auditavel |
+| 17 | Human Clarity Score | prova visual hierarchy, microcopy, rotas, zoom e carga cognitiva | nota 9.8 verificavel |
 
 ## Modos De Visualizacao
 
@@ -307,6 +339,7 @@ Forge, Context Pack e futura UI de Cartografia:
 | Visual scene | `atlas.universal_reality_cartography.visual_scene.v1` | cena pronta para UI por modo |
 | Semantic zoom scenes | `atlas.universal_reality_cartography.semantic_zoom_scenes.v1` | cenas validas universe -> evidence |
 | Human route map | `atlas.universal_reality_cartography.human_route_map.v1` | caminhos humanos para achar doc/prova/status |
+| Human clarity | `atlas.universal_reality_cartography.human_clarity.v1` | score 9.8 de clareza visual nao tecnica |
 | AI navigation slice | `atlas.universal_reality_cartography.ai_navigation_slice.v1` | contexto minimo provider-safe |
 
 Comandos:
@@ -316,19 +349,39 @@ php artisan atlas:universal-reality-cartography map --strict --json
 php artisan atlas:universal-reality-cartography visual-scene --mode=implementation --strict --json
 php artisan atlas:universal-reality-cartography semantic-zoom --strict --json
 php artisan atlas:universal-reality-cartography human-routes --strict --json
+php artisan atlas:universal-reality-cartography human-clarity --strict --json
 php artisan atlas:universal-reality-cartography navigation-slice --strict --json
 ```
+
+Surface HTTP read-only:
+
+```text
+GET /atlas-cartography/graph
+GET /atlas-cartography/human-clarity
+```
+
+`/graph` inclui `human_clarity_contract` para desktop/mobile atuais receberem a
+prova junto do grafo principal. `/human-clarity` retorna o mesmo contrato de
+forma focada: `human_clarity`, `visual_scene`, `human_route_map` e
+`semantic_zoom_scenes`, sem escrita.
 
 Regra: `visual_scene` e contrato de dados, nao UI final. Ele existe para impedir
 que a futura superficie visual invente layout sem source, owner, status,
 semantic zoom e prova.
+
+`human_clarity` e o contrato que impede a Cartografia de virar apenas grafo
+bonito: a cena precisa ter budget cognitivo, breadcrumb, legenda nao tecnica,
+microcopy curta, rotas humanas verificadas, zoom semantico e source real. A meta
+minima para declarar o acesso humano visual como excelente e `score >= 9.8`.
 
 ## Dependencias
 
 | Dependencia | Uso |
 |---|---|
 | ADRS | autoridade da area e fronteira com ACRUI |
+| ADRS Block Registry | ids, planes, tipos, status, fontes e evaluation refs dos 52 blocos |
 | ACRUI | classificacao operacional do que o mapa mostra |
+| ADRS Block Registry | ids, planes, owners e evaluation refs dos 52 blocos ADRS |
 | Cartographic Knowledge OS | regras visuais gerais |
 | Nomenclature Contract | separacao patamar/versao/camada/fonte |
 | System Graph | hierarquia macro |
@@ -344,6 +397,7 @@ php artisan atlas:universal-reality-cartography map --strict --json
 php artisan atlas:universal-reality-cartography visual-scene --strict --json
 php artisan atlas:universal-reality-cartography semantic-zoom --strict --json
 php artisan atlas:universal-reality-cartography human-routes --strict --json
+php artisan atlas:universal-reality-cartography human-clarity --strict --json
 php artisan atlas:universal-reality-cartography navigation-slice --strict --json
 php artisan atlas:ai:session-bootstrap --task="<task>" --json
 php artisan atlas:engineering:knowledge docs-health --json

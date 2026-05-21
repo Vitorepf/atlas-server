@@ -12,7 +12,7 @@ tags:
   - single-session
   - ai-instruction
 capabilities:
-  - self_construction_os
+  - self_construction_single_session_instruction_packet_contract
   - ai_session_bootstrap
   - governance_gate
 decisions:
@@ -50,6 +50,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Single Session Instruction Packet Contract
+canonical_name: Atlas Self-Construction Single Session Instruction Packet Contract
+technical_name: atlas-ai-self-construction-single-session-instruction-packet-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/single-session-instruction-packet-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/single-session-instruction-packet-contract.md

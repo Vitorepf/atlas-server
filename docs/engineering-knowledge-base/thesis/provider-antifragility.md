@@ -12,7 +12,7 @@ tags:
   - antifragile
   - providers
 capabilities:
-  - provider_evolution_intelligence
+  - provider_antifragility_thesis
   - architectural_north_star
 decisions:
   - Provider releases are inputs, not threats.
@@ -40,6 +40,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Thesis - Provider Antifragility
+canonical_name: Atlas Thesis - Provider Antifragility
+technical_name: atlas-thesis-provider-antifragility
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/thesis/provider-antifragility.md
 
 owner: thesis
 

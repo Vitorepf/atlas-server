@@ -11,7 +11,7 @@ tags:
   - engineering
   - surfaces
 capabilities:
-  - engineering_blueprint
+  - engineering_blueprint_surfaces_runbook
 decisions:
   - Blueprint operations should keep app, CLI and API parity unless an omission is explicitly documented.
 maintenance:
@@ -35,6 +35,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Blueprint Surfaces Runbook
+canonical_name: Atlas Engineering Blueprint Surfaces Runbook
+technical_name: atlas-engineering-blueprint-surfaces-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/engineering-blueprint/surfaces-runbook.md
 
 owner: engineering-blueprint
 

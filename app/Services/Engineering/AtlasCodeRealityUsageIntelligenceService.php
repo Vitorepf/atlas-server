@@ -34,6 +34,18 @@ final class AtlasCodeRealityUsageIntelligenceService
         'app/Console/Commands/AtlasUniversalRealityCartographyCommand.php',
     ];
 
+    /**
+     * @var array<string,array<int,SplFileInfo>>
+     */
+    private array $filesByRootsCache = [];
+
+    /**
+     * @var array<string,string>
+     */
+    private array $textContentsCache = [];
+
+    private const MAX_CACHED_TEXT_BYTES = 64_000;
+
     public function __construct(
         private readonly EngineeringDocumentationAuthorityAuditService $authorityAudit,
     ) {}
@@ -523,7 +535,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                 continue;
             }
 
-            $contents = File::get($path);
+            $contents = $this->textContents($path);
             foreach ($terms as $term) {
                 if (str_contains($contents, $term)) {
                     $matches[] = $this->relativePath($path);
@@ -543,6 +555,11 @@ final class AtlasCodeRealityUsageIntelligenceService
      */
     private function allFiles(array $roots = self::SEARCH_ROOTS): array
     {
+        $cacheKey = implode('|', $roots);
+        if (array_key_exists($cacheKey, $this->filesByRootsCache)) {
+            return $this->filesByRootsCache[$cacheKey];
+        }
+
         $files = [];
         foreach ($roots as $root) {
             $path = base_path($root);
@@ -555,7 +572,25 @@ final class AtlasCodeRealityUsageIntelligenceService
             }
         }
 
+        $this->filesByRootsCache[$cacheKey] = $files;
+
         return $files;
+    }
+
+    private function textContents(string $path): string
+    {
+        if (array_key_exists($path, $this->textContentsCache)) {
+            return $this->textContentsCache[$path];
+        }
+
+        $contents = File::get($path);
+        if (File::size($path) > self::MAX_CACHED_TEXT_BYTES) {
+            return $contents;
+        }
+
+        $this->textContentsCache[$path] = $contents;
+
+        return $contents;
     }
 
     private function isTextFile(string $path): bool

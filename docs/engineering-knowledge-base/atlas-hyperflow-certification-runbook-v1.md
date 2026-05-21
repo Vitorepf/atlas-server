@@ -40,6 +40,11 @@ graph_kind: runbook
 graph_parent: atlas-hyperflow-operation
 graph_status: active
 graph_source: repo
+human_name: Atlas Hyperflow Certification Runbook v1
+canonical_name: Atlas Hyperflow Certification Runbook v1
+technical_name: atlas-hyperflow-certification-runbook-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-hyperflow-certification-runbook-v1.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-hyperflow-certification-runbook-v1.md
@@ -71,7 +76,6 @@ risk_level: high
 next_actions:
   - Rodar/importar evidencia externa real Claude Code/Codex para destravar certificacao.
 ---
-
 # Atlas Hyperflow Certification Runbook v1
 
 ## Resumo

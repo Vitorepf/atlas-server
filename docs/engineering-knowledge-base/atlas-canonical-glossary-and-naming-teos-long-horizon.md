@@ -13,8 +13,8 @@ tags:
   - teos
   - long-horizon
 capabilities:
-  - canonical_glossary
-  - naming_governance
+  - teos_long_horizon_glossary
+  - teos_long_horizon_naming_governance
   - teos_long_horizon_disambiguation
 decisions:
   - Termos TEOS e Long-Horizon são recorte do glossário canônico, não glossário paralelo.
@@ -32,6 +32,11 @@ graph_kind: contract
 graph_parent: atlas-canonical-glossary-and-naming
 graph_status: active
 graph_source: repo
+human_name: Atlas Canonical Glossary - TEOS And Long-Horizon Terms
+canonical_name: Atlas Canonical Glossary - TEOS And Long-Horizon Terms
+technical_name: atlas-canonical-glossary-and-naming-teos-long-horizon
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming-teos-long-horizon.md
 owner: documentation-operating-system
 repo_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming-teos-long-horizon.md

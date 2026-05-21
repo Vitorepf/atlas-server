@@ -53,6 +53,11 @@ graph_kind: module
 graph_parent: atlas-dev-forge-relationship-critical-audit
 graph_status: active
 graph_source: repo
+human_name: "Atlas Dev -> Forge Escalation Consolidation Plan"
+canonical_name: "Atlas Dev -> Forge Escalation Consolidation Plan"
+technical_name: atlas-dev-forge-escalation-consolidation-plan
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-dev-forge-escalation-consolidation-plan.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-dev-forge-escalation-consolidation-plan.md

@@ -1,9 +1,14 @@
 ---
 id: engineering-kb-archive
 title: Engineering KB Archive
-status: active
+status: archived
 category: documentation-governance
 summary: Registry and operating rules for preserved legacy Atlas architecture material that must not compete with canonical architecture docs.
+human_name: Engineering KB Archive
+canonical_name: Engineering KB Archive
+technical_name: engineering-kb-archive
+cartography_type: registry
+canonical_source: docs/engineering-knowledge-base/archive/README.md
 last_reviewed: 2026-05-05
 ---
 

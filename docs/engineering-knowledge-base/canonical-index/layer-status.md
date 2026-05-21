@@ -35,6 +35,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Canonical Layer Status
+canonical_name: Atlas AI Canonical Layer Status
+technical_name: atlas-ai-canonical-layer-status
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/canonical-index/layer-status.md
 
 owner: canonical-index
 

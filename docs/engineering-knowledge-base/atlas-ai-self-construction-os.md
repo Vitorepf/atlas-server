@@ -13,9 +13,8 @@ tags:
   - governance
 capabilities:
   - self_construction_os
-  - meta_sdd
-  - autonomous_implementation_loop
-  - capability_maturity_ladder
+  - self_construction_overview
+  - self_construction_runtime_map
 decisions:
   - Atlas may become self-programming only through documentation-as-law, SDD, receipts, evidence and gates.
   - Self-construction is not vibe coding; it is governed evolution of the system that builds itself.
@@ -103,6 +102,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Self-Construction OS
+canonical_name: Atlas AI Self-Construction OS
+technical_name: atlas-ai-self-construction-os
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
 
 patamar_current: Self-Construction OS
 

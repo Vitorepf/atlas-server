@@ -40,6 +40,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Self-Improvement Automation Runbook
+canonical_name: Atlas AI Research Self-Improvement Automation Runbook
+technical_name: atlas-ai-research-self-improvement-automation-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md
 
 owner: research-self-improvement
 

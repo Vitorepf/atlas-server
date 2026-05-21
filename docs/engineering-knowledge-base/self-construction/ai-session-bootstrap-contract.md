@@ -12,7 +12,7 @@ tags:
   - ai-bootstrap
   - parallel-ai
 capabilities:
-  - self_construction_os
+  - self_construction_ai_session_bootstrap_contract
   - ai_implementation_packet
   - packet_assignment
 decisions:
@@ -49,6 +49,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction AI Session Bootstrap Contract
+canonical_name: Atlas Self-Construction AI Session Bootstrap Contract
+technical_name: atlas-ai-self-construction-ai-session-bootstrap-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md

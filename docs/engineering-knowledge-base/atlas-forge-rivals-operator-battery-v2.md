@@ -62,6 +62,11 @@ graph_kind: runbook
 graph_parent: atlas-forge-rivals-real-battery-operator-harness-v1
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Operator Battery v2"
+canonical_name: "Atlas Forge Rivals · Operator Battery v2"
+technical_name: atlas-forge-rivals-operator-battery-v2
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-operator-battery-v2.md
 owner: programming_rivals
 repo_paths:
   - app/Console/Commands/AtlasForgeRivalsCommand.php
@@ -109,7 +114,6 @@ next_actions:
   - php artisan atlas:forge:rivals audit --json
   - php artisan atlas:programming:completion-audit --json
 ---
-
 # Atlas Forge Rivals · Operator Battery v2
 
 > Single canonical operator surface for Atlas vs. external rivals (Claude Sonnet, Claude Opus, Codex).

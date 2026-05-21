@@ -15,7 +15,7 @@ tags:
 capabilities:
   - autonomous_work_loop
   - goal_decomposition
-  - codebase_world_model
+  - autonomous_codebase_world_model
   - mandatory_rag_spine_gate
   - execution_planner
   - test_repair_loop
@@ -47,6 +47,11 @@ graph_kind: module
 graph_parent: atlas-compounding-engineering-intelligence
 graph_status: active
 graph_source: repo
+human_name: Atlas Autonomous Engineering Operating System
+canonical_name: Atlas Autonomous Engineering Operating System
+technical_name: atlas-autonomous-engineering-operating-system
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-autonomous-engineering-operating-system.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-autonomous-engineering-operating-system.md

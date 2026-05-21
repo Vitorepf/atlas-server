@@ -64,6 +64,15 @@ class AtlasFeaturePlacementService
                 'php artisan atlas:documentation-reality score --strict --json',
                 'php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json',
                 'php artisan atlas:code-reality reachability --target="<target>" --json',
+                'php artisan atlas:software-twin impact --target="<target>" --json',
+                'php artisan atlas:software-twin snapshot --target="<target>" --json',
+                'php artisan atlas:verified-evolution boundary-contract --objective="<objective>" --target="<target>" --json',
+                'php artisan atlas:verified-evolution proof-plan --objective="<objective>" --target="<target>" --json',
+                'php artisan atlas:verified-evolution execution-contract --objective="<objective>" --target="<target>" --json',
+                'php artisan atlas:verified-evolution drift-watch --objective="<objective>" --target="<target>" --changed-file="<path>" --json',
+                'php artisan atlas:verified-evolution patch-simulation --objective="<objective>" --target="<target>" --changed-file="<path>" --json',
+                'php artisan atlas:verified-evolution outcome-bridge --objective="<objective>" --target="<target>" --evidence="<evidence>" --json',
+                'php artisan atlas:software-twin-verified-evolution:certify --json --strict',
                 'php artisan atlas:ai:architecture-validate --json',
                 'php artisan atlas:ai:runtime-boundary --json',
                 'atlas engineering knowledge sync --prune',
@@ -142,6 +151,12 @@ class AtlasFeaturePlacementService
             'code_reality_deletion_preflight',
             'universal_reality_cartography_navigation_slice',
             'universal_reality_cartography_visual_scene',
+            'universal_reality_cartography_human_clarity',
+            'software_twin_quality_score',
+            'software_twin_impact',
+            'verified_evolution_boundary_contract',
+            'verified_evolution_proof_plan',
+            'software_twin_verified_evolution_certification',
             'architecture_validate',
             'runtime_language_boundary',
             'documentation_health',
@@ -488,18 +503,26 @@ class AtlasFeaturePlacementService
         }
 
         $roots = ['app', 'routes', 'config', 'database/migrations', 'tests'];
+        $maxCandidateBytes = 120_000;
 
         return collect($roots)
             ->flatMap(fn (string $root) => File::isDirectory(base_path($root)) ? File::allFiles(base_path($root)) : [])
             ->filter(fn (SplFileInfo $file): bool => in_array($file->getExtension(), ['php', 'json', 'yaml', 'yml'], true))
+            ->filter(fn (SplFileInfo $file): bool => $file->getSize() <= $maxCandidateBytes)
             ->map(function (SplFileInfo $file) use ($terms): array {
                 $path = str_replace(base_path().'/', '', $file->getPathname());
                 $body = Str::lower((string) File::get($file->getPathname()));
-                $matchedTerms = collect($terms)
-                    ->filter(fn (string $term): bool => str_contains($body, $term))
-                    ->values()
-                    ->all();
-                $score = collect($terms)->sum(fn (string $term): int => substr_count($body, $term));
+                $matchedTerms = [];
+                $score = 0;
+
+                foreach ($terms as $term) {
+                    if (! str_contains($body, $term)) {
+                        continue;
+                    }
+
+                    $matchedTerms[] = $term;
+                    $score += substr_count($body, $term);
+                }
 
                 return [
                     'source' => 'repo_code',

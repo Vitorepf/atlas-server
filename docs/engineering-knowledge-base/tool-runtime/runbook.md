@@ -41,6 +41,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Tool Runtime Runbook
+canonical_name: Atlas Tool Runtime Runbook
+technical_name: atlas-tool-runtime-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/tool-runtime/runbook.md
 
 owner: tool-runtime
 

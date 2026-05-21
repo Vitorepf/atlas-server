@@ -11,7 +11,7 @@ tags:
   - obras
   - roadmap
 capabilities:
-  - obras_operating_system
+  - obras_implementation_roadmap
   - implementation_roadmap
 decisions:
   - Implement in phases, but document the final state first.
@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Obras - Implementation Roadmap
+canonical_name: Atlas Obras - Implementation Roadmap
+technical_name: atlas-ai-obras-implementation-roadmap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/obras/implementation-roadmap.md
 
 repo_paths:
   - docs/engineering-knowledge-base/obras/implementation-roadmap.md

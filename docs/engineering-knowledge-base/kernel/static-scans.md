@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Kernel Static Scans
+canonical_name: Atlas AI Kernel Static Scans
+technical_name: atlas-ai-kernel-static-scans
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/kernel/static-scans.md
 
 owner: kernel
 

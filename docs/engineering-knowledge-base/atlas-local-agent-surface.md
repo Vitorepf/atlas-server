@@ -14,7 +14,7 @@ tags:
 capabilities:
   - local_agent_surface
   - background_job_readiness
-  - mobile_gateway
+  - local_agent_mobile_bridge
 decisions:
   - Mac Agent e surface/automation local, nao arquitetura-mae.
   - Atlas Native Mac Agent cobre Swift/macOS APIs sensiveis; este doc cobre readiness/background automation.
@@ -44,6 +44,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Local Agent Surface
+canonical_name: Atlas Local Agent Surface
+technical_name: atlas-local-agent-surface
+cartography_type: surface
+canonical_source: docs/engineering-knowledge-base/atlas-local-agent-surface.md
 
 owner: surface-architecture
 

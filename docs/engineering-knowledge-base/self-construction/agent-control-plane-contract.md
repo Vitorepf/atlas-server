@@ -53,6 +53,11 @@ graph_kind: contract
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction - Agent Control Plane Contract
+canonical_name: Atlas Self-Construction - Agent Control Plane Contract
+technical_name: atlas-self-construction-agent-control-plane-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md
 allowed_changes:

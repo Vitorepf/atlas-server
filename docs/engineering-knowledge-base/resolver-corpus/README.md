@@ -36,6 +36,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Resolver Corpus README
+canonical_name: Atlas AI Resolver Corpus README
+technical_name: atlas-ai-resolver-corpus-readme
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/resolver-corpus/README.md
 
 owner: resolver-corpus
 

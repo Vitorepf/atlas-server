@@ -12,11 +12,10 @@ tags:
   - retrieval
   - context-pack
 capabilities:
-  - cognitive_immune_gate
   - context_pack_recall
   - deterministic_recall
-  - code_intelligence_index
-  - engineering_knowledge_base
+  - retrieval_code_context
+  - retrieval_engineering_context
 decisions:
   - Context is selected deterministically with explicit reasons and budgets.
   - Context packs carry refs, not unbounded raw dumps.
@@ -48,6 +47,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Memory Retrieval And Context
+canonical_name: Atlas AI Memory Retrieval And Context
+technical_name: atlas-ai-memory-retrieval-and-context
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/memory/retrieval-and-context.md
 
 owner: memory
 

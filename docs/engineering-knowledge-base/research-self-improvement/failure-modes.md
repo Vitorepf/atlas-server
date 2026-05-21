@@ -39,6 +39,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Self-Improvement Failure Modes
+canonical_name: Atlas AI Research Self-Improvement Failure Modes
+technical_name: atlas-ai-research-self-improvement-failure-modes
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/failure-modes.md
 
 owner: research-self-improvement
 

@@ -52,6 +52,11 @@ graph_kind: contract
 graph_parent: atlas-desktop
 graph_status: active
 graph_source: repo
+human_name: Atlas Desktop Backend Contract
+canonical_name: Atlas Desktop Backend Contract
+technical_name: atlas-desktop-backend-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
 owner: atlas-ai
 layer: 1-surfaces
 line_limit: 360
@@ -98,27 +103,20 @@ visual_tags:
   - module
   - contract
   - surface
-
 ai_entrypoints:
   - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
-
 ai_usage_notes:
   - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
-
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-
 failure_modes:
   - Contexto desatualizado entre doc, codigo, teste e evidencia.
-
 observability_signals:
   - docs-health status ok
 ---
 # Atlas Desktop Backend Contract
-
 Este contrato define o que o `atlas-server` precisa entregar para duas telas
 do Atlas Desktop:
-
 1. **Cartografia**: mapa navegavel da verdade canonica.
 2. **Atlas Code**: cabine operacional do Engineering Operations System.
 

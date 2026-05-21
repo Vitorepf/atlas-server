@@ -14,8 +14,8 @@ tags:
   - programming
 capabilities:
   - model_selection_strategy
-  - provider_performance_contract
-  - atlas_decide
+  - provider_performance_signal_consumption
+  - atlas_decide_signal_consumption
 decisions:
   - Atlas Decide e a unica autoridade para selecao automatica de provider/modelo.
   - Surfaces podem solicitar override manual, mas isso vira `manual_override` auditavel e policy dura ainda vence.
@@ -52,6 +52,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Model Selection Strategy
+canonical_name: Atlas AI Model Selection Strategy
+technical_name: atlas-ai-model-selection-strategy
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md
 
 owner: architecture
 

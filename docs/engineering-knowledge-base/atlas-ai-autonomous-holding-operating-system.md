@@ -34,7 +34,6 @@ related_paths:
   - app/Services/Ai/DomainRuntime/DomainSeedManifests.php
   - app/Services/Ai/MarketingDomain/MarketingRuntimeService.php
 doc_schema: atlas_canonical_module_doc.v1
-
 graph_id: atlas-ai-autonomous-holding-operating-system
 graph_title: Atlas AI Autonomous Holding Operating System
 graph_world: atlas
@@ -43,6 +42,11 @@ graph_kind: module
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Autonomous Holding Operating System
+canonical_name: Atlas AI Autonomous Holding Operating System
+technical_name: atlas-ai-autonomous-holding-operating-system
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-autonomous-holding-operating-system.md
 owner: autonomous-holding
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-autonomous-holding-operating-system.md
@@ -93,13 +97,10 @@ next_actions:
   - Completar cada empresa antes de voltar a declarar score 9.
 ---
 # Atlas AI Autonomous Holding Operating System
-
 ## Resumo
-
 Este modulo define a camada de holding que agrega Domain Company Runtimes e
 mede a distancia ate uma operacao multi-dominio autonoma real nota 9/10 pelo
 criterio forte: cada dominio precisa funcionar como empresa.
-
 ## Papel no Atlas
 
 A holding nao substitui dominios. Ela le empresas existentes, calcula maturidade,

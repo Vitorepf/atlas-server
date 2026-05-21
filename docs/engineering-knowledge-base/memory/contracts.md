@@ -11,12 +11,12 @@ tags:
   - memory
   - contracts
 capabilities:
-  - cognitive_immune_gate
-  - memory_registry
+  - memory_contracts
+  - memory_registry_contracts
   - verbatim_store
-  - engineering_knowledge_base
-  - code_intelligence_index
-  - provider_projection
+  - engineering_knowledge_contracts
+  - code_intelligence_contracts
+  - provider_projection_contracts
 decisions:
   - Raw capture, evidence, learning signal, memory, context and decision are separate layers.
   - Atlas memory is canonical only after governed promotion.
@@ -51,6 +51,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Memory Contracts
+canonical_name: Atlas AI Memory Contracts
+technical_name: atlas-ai-memory-contracts-focused
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/memory/contracts.md
 
 owner: memory
 

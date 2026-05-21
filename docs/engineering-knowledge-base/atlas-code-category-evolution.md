@@ -15,8 +15,8 @@ tags:
   - self-programming
   - category-design
 capabilities:
-  - atlas_code
-  - engineering_operations_system
+  - atlas_code_category_evolution
+  - engineering_operations_evolution
   - software_construction_operating_room
   - software_evolution_operating_system
   - autonomous_software_organism
@@ -57,6 +57,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Code Category Evolution
+canonical_name: Atlas Code Category Evolution
+technical_name: atlas-code-category-evolution
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-code-category-evolution.md
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-category-evolution.md

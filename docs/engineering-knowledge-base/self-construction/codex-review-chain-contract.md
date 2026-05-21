@@ -12,7 +12,7 @@ tags:
   - codex-review
   - governance
 capabilities:
-  - self_construction_os
+  - self_construction_codex_review_chain_contract
   - parallel_ai
   - review_governance
 decisions:
@@ -52,6 +52,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Codex Review Chain Contract
+canonical_name: Atlas Self-Construction Codex Review Chain Contract
+technical_name: atlas-ai-self-construction-codex-review-chain-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/codex-review-chain-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/codex-review-chain-contract.md

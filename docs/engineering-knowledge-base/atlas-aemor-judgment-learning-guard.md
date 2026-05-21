@@ -54,6 +54,11 @@ graph_kind: contract
 graph_parent: atlas-execution-memory-outcome-runtime
 graph_status: active
 graph_source: repo
+human_name: Atlas AEMOR Judgment & Learning Guard
+canonical_name: Atlas AEMOR Judgment & Learning Guard
+technical_name: atlas-aemor-judgment-learning-guard
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-aemor-judgment-learning-guard.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-aemor-judgment-learning-guard.md
@@ -105,7 +110,6 @@ next_actions:
   - Feed repeated failure blockers deeper into Dev/Forge execution gates.
   - Keep judgment certification green whenever learning gates change.
 ---
-
 # Atlas AEMOR Judgment & Learning Guard
 
 ## Resumo

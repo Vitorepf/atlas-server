@@ -53,6 +53,7 @@ final class EngineeringDocumentationAuthorityAuditServiceTest extends TestCase
             'id' => 'first-doc',
             'title' => 'First Owner',
             'graph_id' => 'first-doc',
+            'graph_parent' => 'first-parent',
             'owner' => 'owner-a',
             'technical_runtime' => 'FirstRuntimeService',
             'runtime_acronym' => 'ONE',
@@ -63,6 +64,7 @@ final class EngineeringDocumentationAuthorityAuditServiceTest extends TestCase
             'id' => 'second-doc',
             'title' => 'Second Owner',
             'graph_id' => 'second-doc',
+            'graph_parent' => 'second-parent',
             'owner' => 'owner-b',
             'technical_runtime' => 'SecondRuntimeService',
             'runtime_acronym' => 'TWO',
@@ -76,6 +78,76 @@ final class EngineeringDocumentationAuthorityAuditServiceTest extends TestCase
         $this->assertSame(0, $payload['summary']['blocker_count']);
         $this->assertSame(1, $payload['summary']['capability_overlap_group_count']);
         $this->assertContains('capability_overlap_cluster', array_column($payload['review_items'], 'reason'));
+    }
+
+    public function test_same_owner_graph_family_capability_overlap_is_not_review_noise(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-doc-authority-'.bin2hex(random_bytes(4));
+        mkdir($root, 0777, true);
+
+        file_put_contents($root.'/parent.md', $this->canonicalDoc([
+            'id' => 'parent-doc',
+            'title' => 'Parent Runtime',
+            'graph_id' => 'parent-doc',
+            'graph_parent' => 'atlas-root',
+            'owner' => 'same-owner',
+            'technical_runtime' => 'ParentRuntimeService',
+            'runtime_acronym' => 'PAR',
+            'product_name' => 'Parent Runtime',
+            'capabilities' => ['family_capability'],
+        ]));
+        file_put_contents($root.'/child.md', $this->canonicalDoc([
+            'id' => 'child-doc',
+            'title' => 'Child Runtime',
+            'graph_id' => 'child-doc',
+            'graph_parent' => 'parent-doc',
+            'owner' => 'same-owner',
+            'technical_runtime' => 'ChildRuntimeService',
+            'runtime_acronym' => 'CHI',
+            'product_name' => 'Child Runtime',
+            'capabilities' => ['family_capability'],
+        ]));
+
+        $payload = (new EngineeringDocumentationAuthorityAuditService(new FrontmatterParser))->report($root);
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertSame(0, $payload['summary']['capability_overlap_group_count']);
+        $this->assertSame([], $payload['review_items']);
+    }
+
+    public function test_cross_owner_graph_family_capability_overlap_is_not_review_noise(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-doc-authority-'.bin2hex(random_bytes(4));
+        mkdir($root, 0777, true);
+
+        file_put_contents($root.'/parent.md', $this->canonicalDoc([
+            'id' => 'parent-doc',
+            'title' => 'Parent Runtime',
+            'graph_id' => 'parent-doc',
+            'graph_parent' => 'atlas-root',
+            'owner' => 'parent-owner',
+            'technical_runtime' => 'ParentRuntimeService',
+            'runtime_acronym' => 'PAR',
+            'product_name' => 'Parent Runtime',
+            'capabilities' => ['family_capability'],
+        ]));
+        file_put_contents($root.'/child.md', $this->canonicalDoc([
+            'id' => 'child-doc',
+            'title' => 'Child Runtime',
+            'graph_id' => 'child-doc',
+            'graph_parent' => 'parent-doc',
+            'owner' => 'child-owner',
+            'technical_runtime' => 'ChildRuntimeService',
+            'runtime_acronym' => 'CHI',
+            'product_name' => 'Child Runtime',
+            'capabilities' => ['family_capability'],
+        ]));
+
+        $payload = (new EngineeringDocumentationAuthorityAuditService(new FrontmatterParser))->report($root);
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertSame(0, $payload['summary']['capability_overlap_group_count']);
+        $this->assertSame([], $payload['review_items']);
     }
 
     /**

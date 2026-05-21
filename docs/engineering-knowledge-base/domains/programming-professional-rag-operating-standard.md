@@ -13,8 +13,8 @@ tags:
   - agentic-rag
   - enterprise
 capabilities:
-  - programming_agentic_rag
-  - semantic_code_graph
+  - programming_agentic_rag_standard
+  - programming_semantic_code_graph_standard
   - programming_context_pack
   - programming_quality_gates
   - programming_rivals_readiness
@@ -48,6 +48,11 @@ graph_kind: module
 graph_parent: atlas-ai-programming-domain
 graph_status: active
 graph_source: repo
+human_name: Programming Professional RAG Operating Standard
+canonical_name: Programming Professional RAG Operating Standard
+technical_name: atlas-ai-programming-professional-rag-operating-standard
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
 owner: domains
 repo_paths:
   - docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
@@ -89,7 +94,6 @@ next_actions:
 requires_evidence: true
 risk_level: high
 ---
-
 # Programming Professional RAG Operating Standard
 
 ## Resumo

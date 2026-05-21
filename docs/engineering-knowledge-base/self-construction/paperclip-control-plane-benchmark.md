@@ -19,7 +19,7 @@ capabilities:
   - heartbeat_runs
   - checkout_locks
   - execution_workspaces
-  - forge_workspace
+  - paperclip_forge_workspace_fixture
 decisions:
   - Paperclip is a benchmark for agent company control-plane mechanics, not the target identity of Atlas.
   - Atlas must absorb Paperclip's operational primitives, then exceed them with Obras, SDD, Evidence, Decision Receipts, Spec Graph and Self-Programming safety.
@@ -55,6 +55,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction - Paperclip Control Plane Benchmark
+canonical_name: Atlas Self-Construction - Paperclip Control Plane Benchmark
+technical_name: atlas-self-construction-paperclip-control-plane-benchmark
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/paperclip-control-plane-benchmark.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/paperclip-control-plane-benchmark.md

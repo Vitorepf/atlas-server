@@ -12,7 +12,7 @@ tags:
   - audit
   - open-questions
 capabilities:
-  - self_construction_os
+  - self_construction_atlas_self_construction_os_open_questions_v1
   - decision_inbox
 decisions:
   - These questions block runtime activation; they are not for AI to answer alone.
@@ -38,6 +38,11 @@ graph_kind: runbook
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction OS Open Questions v1
+canonical_name: Atlas Self-Construction OS Open Questions v1
+technical_name: atlas-self-construction-os-open-questions-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-open-questions-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-open-questions-v1.md
 allowed_changes:

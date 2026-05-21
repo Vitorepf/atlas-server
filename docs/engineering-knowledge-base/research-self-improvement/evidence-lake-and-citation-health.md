@@ -14,7 +14,7 @@ tags:
 capabilities:
   - evidence_lake
   - citation_health
-  - claim_verification
+  - research_claim_verification
 decisions:
   - Raw evidence is the source of truth; reports and summaries are derived artifacts.
   - Every critical claim needs source support and citation health.
@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Evidence Lake And Citation Health
+canonical_name: Atlas AI Evidence Lake And Citation Health
+technical_name: atlas-ai-evidence-lake-citation-health
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/evidence-lake-and-citation-health.md
 
 owner: research-self-improvement
 

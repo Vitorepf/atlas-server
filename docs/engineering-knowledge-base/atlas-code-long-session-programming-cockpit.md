@@ -14,12 +14,12 @@ tags:
   - ai-assisted-programming
   - cockpit
 capabilities:
-  - atlas_code_scor_1
+  - long_session_scor_1_cockpit
   - software_construction_operating_room_v1
   - long_session_programming
-  - governed_ai_coding_cockpit
+  - long_session_governed_coding_cockpit
   - programming_session_memory
-  - evidence_driven_execution
+  - long_session_evidence_driven_execution
 decisions:
   - Atlas Code existe para programacao pesada, problemas ultra-hard e sessoes extremamente longas; esta prioridade nao deve ser diluida por fluxos leves ou genericos.
   - Esta versao canonica do Atlas Code se chama Atlas Code SCOR-1, Software Construction Operating Room v1.

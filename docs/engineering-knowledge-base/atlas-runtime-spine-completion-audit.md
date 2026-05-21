@@ -15,8 +15,8 @@ tags:
   - 2026-05-18
 capabilities:
   - runtime_spine_completion_audit
-  - integration_verification
-  - severity_classification
+  - runtime_spine_integration_verification
+  - runtime_spine_severity_classification
   - readiness_drift_detection
 decisions:
   - 15 requisitos auditados; 8 PASS, 5 PARTIAL, 2 FAIL, 0 UNKNOWN.
@@ -51,6 +51,11 @@ graph_kind: module
 graph_parent: atlas-architecture-critical-judgment-report
 graph_status: active
 graph_source: repo
+human_name: Atlas Runtime Spine Completion Audit
+canonical_name: Atlas Runtime Spine Completion Audit
+technical_name: atlas-runtime-spine-completion-audit
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-runtime-spine-completion-audit.md
 owner: architecture
 repo_paths:
   - docs/engineering-knowledge-base/atlas-runtime-spine-completion-audit.md
@@ -125,23 +130,17 @@ e seams operacionais existem em codigo e tem testes; o gap restante e
 - **0 UNKNOWN.**
 Spine pronta para **Phase 2** (Router wire-up + AiWorker mission consumption)
 sem refatoracao adicional dos contratos. Sequencia segura no §"Proximas Acoes".
-
 ## Papel no Atlas
-
 Este audit READ-ONLY responde uma unica pergunta: **as ultimas correcoes
 realmente fecharam os P0/P1 listados em
 `atlas-architecture-critical-judgment-report.md` e
 `atlas-dev-forge-relationship-critical-audit.md`?**
-
 Resposta curta: as fundacoes contratuais estao fechadas; a execucao no path
 HTTP real ainda nao. A espinha esta pronta para receber tráfego, mas o
 tráfego ainda nao passa por ela em producao default.
-
 Nao substitui os audits ou ADRs originais; reporta delta real (apos
 implementacao) versus delta declarado.
-
 ## Onde Se Encaixa
-
 Filho de `atlas-architecture-critical-judgment-report.md` (gap critico #1
 "Kernel canonico nao integrado") e
 `atlas-dev-forge-relationship-critical-audit.md` (gap "schemas dual-core

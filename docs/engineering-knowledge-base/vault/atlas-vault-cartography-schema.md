@@ -54,6 +54,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Vault Cartography Schema
+canonical_name: Atlas Vault Cartography Schema
+technical_name: atlas-vault-cartography-schema
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema.md
 
 repo_paths:
   - docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema.md

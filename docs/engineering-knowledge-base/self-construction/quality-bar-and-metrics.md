@@ -12,7 +12,7 @@ tags:
   - quality
   - metrics
 capabilities:
-  - self_construction_os
+  - self_construction_quality_bar_and_metrics
   - quality_metrics
 decisions:
   - "Absurd level" must be measured as behavior, not declared as ambition.
@@ -42,6 +42,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Quality Bar And Metrics
+canonical_name: Atlas Self-Construction Quality Bar And Metrics
+technical_name: atlas-ai-self-construction-quality-bar-and-metrics
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/quality-bar-and-metrics.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/quality-bar-and-metrics.md

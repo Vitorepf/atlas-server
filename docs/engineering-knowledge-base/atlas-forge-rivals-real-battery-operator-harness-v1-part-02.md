@@ -29,6 +29,11 @@ graph_kind: module
 graph_parent: atlas-forge-rivals-real-battery-operator-harness-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Rivals Real Battery Operator Harness v1 Parte 2
+canonical_name: Atlas Forge Rivals Real Battery Operator Harness v1 Parte 2
+technical_name: atlas-forge-rivals-real-battery-operator-harness-v1-part-02
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-real-battery-operator-harness-v1-part-02.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-real-battery-operator-harness-v1-part-02.md

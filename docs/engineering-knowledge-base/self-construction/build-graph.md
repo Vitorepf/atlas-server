@@ -11,7 +11,7 @@ tags:
   - self-construction
   - build-graph
 capabilities:
-  - self_construction_os
+  - self_construction_build_graph
   - dependency_governance
 decisions:
   - Atlas must build high-leverage dependencies before surface features.
@@ -43,6 +43,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Build Graph
+canonical_name: Atlas Self-Construction Build Graph
+technical_name: atlas-ai-self-construction-build-graph
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/build-graph.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/build-graph.md

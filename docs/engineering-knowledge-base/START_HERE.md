@@ -326,6 +326,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: START HERE - Atlas Memory And Engineering Knowledge
+canonical_name: START HERE - Atlas Memory And Engineering Knowledge
+technical_name: atlas-memory-core-start-here
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/START_HERE.md
 
 owner: onboarding
 

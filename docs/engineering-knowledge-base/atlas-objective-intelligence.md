@@ -35,6 +35,11 @@ graph_kind: module
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Objective Intelligence
+canonical_name: Atlas Objective Intelligence
+technical_name: atlas-objective-intelligence
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-objective-intelligence.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-objective-intelligence.md

@@ -76,12 +76,16 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-benchmark-strategy-v1
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Scoring Sanity, Fairness & Confidence v1"
+canonical_name: "Atlas Forge Rivals · Scoring Sanity, Fairness & Confidence v1"
+technical_name: atlas-forge-rivals-scoring-sanity-fairness-confidence-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-scoring-sanity-fairness-confidence-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-scoring-sanity-fairness-confidence-v1.md
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReportService.php
 ---
-
 # Atlas Forge Rivals · Scoring Sanity, Fairness & Confidence v1
 
 **Status:** active · canon · 2026-05-16

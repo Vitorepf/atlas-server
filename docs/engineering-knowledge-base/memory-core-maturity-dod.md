@@ -12,12 +12,12 @@ tags:
   - maturity
   - definition-of-done
 capabilities:
-  - cognitive_immune_gate
+  - memory_core_maturity_dod
   - maturity_model
   - release_gates
   - documentation_hardening
   - validation_policy
-  - open_brain_context_injection
+  - open_brain_maturity_gate
 decisions:
   - Cada fase deve declarar o que foi entregue, validado e deixado para depois.
   - O Memory Core so escala quando captura, evidencia, learning signal, memoria, contexto e decisao permanecem separados.
@@ -50,6 +50,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Memory Core Maturity And Definition Of Done
+canonical_name: Atlas Memory Core Maturity And Definition Of Done
+technical_name: atlas-memory-core-maturity-dod
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/memory-core-maturity-dod.md
 
 owner: capability-matrix
 

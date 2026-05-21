@@ -24,6 +24,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Business Context
+canonical_name: Business Context
+technical_name: business-context
+cartography_type: step
+canonical_source: docs/engineering-knowledge-base/system-graph/business-context.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/business-context.md

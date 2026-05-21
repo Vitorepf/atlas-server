@@ -52,6 +52,11 @@ graph_kind: module
 graph_parent: atlas-autonomous-work-execution-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Verified Execution Runtime
+canonical_name: Atlas Verified Execution Runtime
+technical_name: AtlasVerifiedExecutionRuntimeService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-verified-execution-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-verified-execution-runtime.md
@@ -93,7 +98,6 @@ requires_evidence: true
 risk_level: high
 line_limit: 520
 ---
-
 # Atlas Verified Execution Runtime
 
 ## Resumo
@@ -155,15 +159,16 @@ Uma execucao certificada exige:
 ## Fluxo
 
 1. Recebe objetivo, dominio, flow e workspace.
-2. Gera `execution_contract` com hashes e requisitos.
-3. Aplica safety gate para plano e comandos.
-4. Executa somente comandos allowlisted.
-5. Persiste excerpts e hashes, nunca output bruto como contrato.
-6. Verifica patch via `ProgrammingPatchVerifier`.
-7. Roda teste focado e cria `test_ledger`.
-8. Se falhar, cria repair cycle via `ProgrammingRepairExecutor`.
-9. Certifica somente se command, diff e test estiverem verdes.
-10. Publica estado em `atlas:aver` e Control Plane.
+2. Opcionalmente consome `atlas.verified_evolution.execution_contract.v1`.
+3. Gera `execution_contract` AVER com hashes, boundary e requisitos.
+4. Aplica safety gate para plano e comandos.
+5. Executa somente comandos allowlisted.
+6. Persiste excerpts e hashes, nunca output bruto como contrato.
+7. Verifica patch via `ProgrammingPatchVerifier`.
+8. Roda teste focado e cria `test_ledger`.
+9. Se falhar, cria repair cycle via `ProgrammingRepairExecutor`.
+10. Certifica somente se command, diff e test estiverem verdes.
+11. Publica estado em `atlas:aver` e Control Plane.
 
 ## Regras para IA
 
@@ -173,6 +178,7 @@ Uma execucao certificada exige:
 - Nunca esconder falha de teste: falha vira repair cycle ou blocker.
 - Nunca reverter mudancas de usuario fora do proprio patch.
 - Nunca chamar provider, benchmark ou rivals dentro do AVER.
+- Nunca ignorar blockers vindos do contrato AVEOR.
 - Sempre preferir comandos focados antes de suites longas.
 - Sempre manter rollback plan de mudancas proprias.
 

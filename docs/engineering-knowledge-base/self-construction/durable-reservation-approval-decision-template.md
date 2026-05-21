@@ -12,9 +12,9 @@ tags:
   - approval-decision
   - durable-reservation
 capabilities:
-  - self_construction_os
+  - self_construction_durable_reservation_approval_decision_template
   - approval_gate
-  - decision_receipt
+  - durable_reservation_decision_receipt
 decisions:
   - Approval decisions must be explicit, signed and hash-bound to the request, AP candidate and plan.
   - A decision template is not an approval and must keep execution, migration, storage and dispatch disabled.
@@ -46,6 +46,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Durable Reservation Approval Decision Template
+canonical_name: Atlas Self-Construction Durable Reservation Approval Decision Template
+technical_name: atlas-ai-self-construction-durable-reservation-approval-decision-template
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/durable-reservation-approval-decision-template.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-approval-decision-template.md

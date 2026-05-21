@@ -12,9 +12,9 @@ tags:
   - mcp
   - context
 capabilities:
-  - open_brain_context_injection
-  - context_pack_recall
-  - provider_projection
+  - open_brain_mcp
+  - mcp_context_recall
+  - mcp_provider_projection
 decisions:
   - Open Brain exports governed context; it does not decide, execute or promote memory.
   - MCP/HTTP consumers receive provider-safe context packets with audit refs.
@@ -45,6 +45,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Open Brain MCP And API Contract
+canonical_name: Atlas AI Open Brain MCP And API Contract
+technical_name: atlas-ai-open-brain-mcp
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/memory/open-brain-mcp.md
 
 owner: memory
 

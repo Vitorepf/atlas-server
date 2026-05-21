@@ -12,7 +12,7 @@ tags:
   - codex-review
   - merge-governance
 capabilities:
-  - self_construction_os
+  - self_construction_codex_merge_post_execution_action_persistence_writer_release_fresh_authorization_signed_receipt_template
   - review_governance
   - merge_authorization
 decisions:
@@ -44,6 +44,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization Signed Receipt Template
+canonical_name: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization Signed Receipt Template
+technical_name: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-signed-receipt-template
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-signed-receipt-template.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-signed-receipt-template.md

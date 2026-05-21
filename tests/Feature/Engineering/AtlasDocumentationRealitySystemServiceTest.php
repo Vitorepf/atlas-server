@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Services\Engineering\AtlasCodeRealityUsageIntelligenceService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasDocumentationRealitySystemServiceTest extends TestCase
@@ -115,8 +116,10 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         $sources = collect($payload['source_registry'])->keyBy('id');
 
         $this->assertSame('tier_1_mother_contract', $sources->get('adrs')['authority_tier']);
+        $this->assertSame('tier_1_canonical_child', $sources->get('adrs_block_registry')['authority_tier']);
         $this->assertSame('tier_1_canonical_child', $sources->get('acrui')['authority_tier']);
         $this->assertSame('tier_1_canonical_child', $sources->get('aurc')['authority_tier']);
+        $this->assertSame('docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md', $sources->get('adrs_block_registry')['path']);
         $this->assertSame('tier_2_supporting_canonical', $sources->get('implemented_vs_scaffold')['authority_tier']);
         $this->assertSame($payload['summary']['source_count'], $payload['summary']['source_present_count']);
     }
@@ -168,6 +171,49 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         $aurc = collect($matrix['items'])->firstWhere('block_name', 'AURC Visual Reality');
         $this->assertContains('php artisan atlas:universal-reality-cartography visual-scene --mode=implementation --strict --json', $aurc['required_commands']);
         $this->assertContains('tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php', $aurc['required_tests']);
+    }
+
+    public function test_block_registry_stays_in_sync_with_runtime_blocks_for_cartography(): void
+    {
+        $payload = app(AtlasDocumentationRealitySystemService::class)->report();
+        $runtimeBlocks = collect($payload['blocks'])->keyBy('number');
+        $registryPath = base_path('docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md');
+        $registry = File::get($registryPath);
+
+        preg_match_all(
+            '/^\|\s*(\d+)\s*\|\s*([a-z0-9-]+)\s*\|\s*([a-z_]+)\s*\|\s*([a-z_]+)\s*\|\s*([a-z0-9_]+)\s*\|$/m',
+            $registry,
+            $matches,
+            PREG_SET_ORDER
+        );
+
+        $rows = collect($matches)
+            ->map(static fn (array $match): array => [
+                'number' => (int) $match[1],
+                'block_id' => $match[2],
+                'plane' => $match[3],
+                'kind' => $match[4],
+                'evaluation_ref' => $match[5],
+            ])
+            ->values();
+
+        $this->assertCount(52, $rows);
+        $this->assertSame(range(1, 52), $rows->pluck('number')->all());
+        $this->assertSame(52, $rows->pluck('block_id')->unique()->count());
+
+        foreach ($rows as $row) {
+            $block = $runtimeBlocks->get($row['number']);
+
+            $this->assertIsArray($block, 'Missing runtime block '.$row['number']);
+            $this->assertSame(
+                strtolower(trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($block['name'])), '-')),
+                $row['block_id'],
+                $block['name']
+            );
+            $this->assertContains($row['plane'], $block['planes'], $block['name']);
+            $this->assertNotSame('', $row['kind'], $block['name']);
+            $this->assertSame($block['evaluation_ref'], $row['evaluation_ref'], $block['name']);
+        }
     }
 
     public function test_certification_hash_is_stable_for_same_content(): void

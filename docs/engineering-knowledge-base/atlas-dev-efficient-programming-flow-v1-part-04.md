@@ -33,6 +33,11 @@ graph_kind: module
 graph_parent: atlas-dev-efficient-programming-flow-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Dev Efficient Programming Flow v1 Parte 4
+canonical_name: Atlas Dev Efficient Programming Flow v1 Parte 4
+technical_name: atlas-dev-efficient-programming-flow-v1-part-04
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1-part-04.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1-part-04.md

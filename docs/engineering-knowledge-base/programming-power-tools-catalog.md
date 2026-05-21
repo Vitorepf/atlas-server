@@ -53,6 +53,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Programming Power Tools Catalog
+canonical_name: Atlas Programming Power Tools Catalog
+technical_name: atlas-programming-power-tools-catalog
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/programming-power-tools-catalog.md
 
 owner: tool-runtime
 

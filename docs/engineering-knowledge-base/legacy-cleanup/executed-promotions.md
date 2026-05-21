@@ -11,8 +11,8 @@ tags:
   - documentation
   - promotions
 capabilities:
-  - source_material_promotion
-  - documentation_archive_governance
+  - executed_source_material_promotions
+  - executed_archive_governance
 decisions:
   - Executed promotions are historical record; active authority lives in their destination docs.
   - Future sessions should not re-promote the same source without diffing against the destination.
@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Legacy Cleanup Executed Promotions
+canonical_name: Legacy Cleanup Executed Promotions
+technical_name: legacy-cleanup-executed-promotions
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/legacy-cleanup/executed-promotions.md
 
 owner: legacy-cleanup
 

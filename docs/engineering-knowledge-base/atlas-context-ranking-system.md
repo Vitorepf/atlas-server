@@ -36,6 +36,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: building
 graph_source: repo
+human_name: Atlas Context Ranking System
+canonical_name: Atlas Context Ranking System
+technical_name: AtlasContextRankingSystemService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-context-ranking-system.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-context-ranking-system.md
@@ -63,7 +68,6 @@ next_actions:
   - Ligar ACRS ao ACFQ para freshness/quality fail-closed.
   - Persistir ranking receipts quando ACOP/ARFL estiverem ativos.
 ---
-
 # Atlas Context Ranking System
 
 ## Resumo

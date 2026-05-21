@@ -14,7 +14,7 @@ tags:
   - memory
 capabilities:
   - content_intelligence_curation
-  - source_quality_gate
+  - content_source_quality_triage
   - knowledge_destination_routing
   - youtube_global_ingestion
   - semantic_curation
@@ -56,6 +56,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Content Intelligence And Knowledge Curation
+canonical_name: Atlas AI Content Intelligence And Knowledge Curation
+technical_name: atlas-ai-content-intelligence-curation
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
 
 owner: architecture
 

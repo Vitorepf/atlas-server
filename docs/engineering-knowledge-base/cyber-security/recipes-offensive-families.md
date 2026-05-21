@@ -39,6 +39,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: building
 
 graph_source: repo
+human_name: Atlas AI Cyber Offensive Recipe Families
+canonical_name: Atlas AI Cyber Offensive Recipe Families
+technical_name: atlas-ai-cyber-recipes-offensive-families
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/cyber-security/recipes-offensive-families.md
 
 owner: cyber-security
 

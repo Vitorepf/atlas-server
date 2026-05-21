@@ -12,7 +12,7 @@ tags:
   - dependency-unlock
   - packet-queue
 capabilities:
-  - self_construction_os
+  - self_construction_dependency_unlock_plan_contract
   - packet_queue
   - parallel_ai
 decisions:
@@ -46,6 +46,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Dependency Unlock Plan Contract
+canonical_name: Atlas Self-Construction Dependency Unlock Plan Contract
+technical_name: atlas-ai-self-construction-dependency-unlock-plan-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/dependency-unlock-plan-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/dependency-unlock-plan-contract.md

@@ -13,9 +13,9 @@ tags:
   - ai-execution
   - canon
 capabilities:
-  - canonical_docs
-  - atlas_semantic_graph
-  - atlas_cartography
+  - canonical_module_doc_v1
+  - canonical_module_semantic_graph_contract
+  - canonical_module_cartography_contract
   - ai_implementation_context
   - scope_validation
   - evidence_governance
@@ -45,6 +45,11 @@ graph_kind: contract
 graph_parent: atlas-documentation-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Canonical Module Doc v1
+canonical_name: Atlas Canonical Module Doc v1
+technical_name: atlas-canonical-module-doc-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
 owner: documentation-operating-system
 repo_paths:
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md

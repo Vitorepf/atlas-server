@@ -14,11 +14,11 @@ tags:
   - super-tool-runtime
   - atlas-decide
 capabilities:
-  - resolver_corpus_governance
-  - policy_profile_architecture
-  - decision_receipt_governance
+  - resolver_corpus_audit
+  - policy_profile_audit
+  - decision_receipt_audit
   - super_tool_runtime_governance
-  - domain_profile_orchestration
+  - resolver_domain_profile_audit
 decisions:
   - The resolver corpus contains valuable source material, but the KB is the operational authority.
   - Domain Profile / Flow Profile remains the canonical way to organize large Atlas domains.
@@ -52,6 +52,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Resolver Corpus Audit
+canonical_name: Atlas AI Resolver Corpus Audit
+technical_name: atlas-ai-resolver-corpus-audit
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md
 
 owner: architecture
 

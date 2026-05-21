@@ -58,6 +58,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Plane - Roadmap
+canonical_name: Atlas AI Cognitive Plane - Roadmap
+technical_name: atlas-ai-cognitive-roadmap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/cognitive/roadmap.md
 
 repo_paths:
   - docs/engineering-knowledge-base/cognitive/roadmap.md

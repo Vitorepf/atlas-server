@@ -48,6 +48,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Multiplier Edge (redirect)
+canonical_name: Atlas AI Cognitive Multiplier Edge (redirect)
+technical_name: atlas-ai-cognitive-multiplier-edge-redirect
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-cognitive-multiplier-edge.md
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-cognitive-multiplier-edge.md

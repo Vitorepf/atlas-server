@@ -47,6 +47,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Legacy Documentation Cleanup Plan
+canonical_name: Legacy Documentation Cleanup Plan
+technical_name: legacy-documentation-cleanup-plan
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/legacy-documentation-cleanup-plan.md
 
 owner: documentation-governance
 

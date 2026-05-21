@@ -35,6 +35,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: building
 graph_source: repo
+human_name: Atlas Retrieval Feedback Loop
+canonical_name: Atlas Retrieval Feedback Loop
+technical_name: AtlasRetrievalFeedbackLoopService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-retrieval-feedback-loop.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-retrieval-feedback-loop.md
@@ -61,7 +66,6 @@ line_limit: 520
 next_actions:
   - Integrar feedback ARFL ao ranking ACRS depois de ACOP/AREBA.
 ---
-
 # Atlas Retrieval Feedback Loop
 
 ## Resumo

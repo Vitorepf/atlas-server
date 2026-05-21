@@ -41,6 +41,11 @@ graph_kind: module
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Real Provider Smoke Endgame v1
+canonical_name: Real Provider Smoke Endgame v1
+technical_name: real-provider-smoke-endgame-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/real-provider-smoke-endgame-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/real-provider-smoke-endgame-v1.md
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEndgameService.php
@@ -104,7 +109,6 @@ next_actions:
   - Integrar quartet (4 services) na ReadinessService e CLI quando os agentes paralelos liberarem os arquivos centrais.
   - Adicionar bullet canonico em agent-control-plane-contract.md.
 ---
-
 ## Purpose
 
 The Real Provider Smoke Endgame v1 is the highest-level read-only coordinator for closing the completion audit blocker `end_to_end_real_provider_smoke_green`. It composes every existing read-only surface relevant to the blocker (offline harness, runbook, evidence dossier, draft, certification, blocker explainer, final evidence bundle) and adds three new services that complete the closure corridor:

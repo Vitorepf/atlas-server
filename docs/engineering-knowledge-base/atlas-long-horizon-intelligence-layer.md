@@ -48,15 +48,10 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md
   - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
 doc_schema: atlas_canonical_module_doc.v1
-
 graph_id: atlas-long-horizon-intelligence-layer
-
 graph_title: Atlas Long-Horizon Intelligence Layer
-
 graph_world: atlas
-
 graph_layer: system
-
 graph_kind: system
 
 graph_parent: atlas-programming-superiority-architecture
@@ -64,6 +59,11 @@ graph_parent: atlas-programming-superiority-architecture
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Long-Horizon Intelligence Layer
+canonical_name: Atlas Long-Horizon Intelligence Layer
+technical_name: atlas-long-horizon-intelligence-layer
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-long-horizon-intelligence-layer.md
 
 owner: programming
 
@@ -140,7 +140,6 @@ next_actions:
   - Adicionar scopes `obra` e `long_horizon` em `AtlasMemoryEntry::SCOPES`.
 
 ---
-
 # Atlas Long-Horizon Intelligence Layer
 
 ## Resumo

@@ -12,9 +12,9 @@ tags:
   - atlas-vault
   - runbook
 capabilities:
-  - obsidian_atlas_vault
-  - vault_ingestion
-  - managed_human_notes
+  - vault_runbook
+  - vault_runbook_ingestion
+  - vault_runbook_managed_human_notes
 decisions:
   - Vault operations must be local, explicit, auditable and dry-run friendly.
   - Sync must preserve human edits and never promote memory silently.
@@ -44,6 +44,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: AtlasVault Runbook
+canonical_name: AtlasVault Runbook
+technical_name: atlas-vault-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/vault/runbook.md
 
 owner: vault
 

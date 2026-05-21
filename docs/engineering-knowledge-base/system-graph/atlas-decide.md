@@ -15,7 +15,7 @@ capabilities:
   - atlas_decide
   - model_selection
   - provider_routing
-  - decision_receipt
+  - atlas_decide_decision_receipt
 decisions:
   - Atlas Decide e dono da escolha de provider/modelo; surfaces exibem a decisao, nao decidem sozinhas.
   - Manual override precisa ser auditado e refletido no Decision Receipt.
@@ -39,6 +39,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Atlas Decide
+canonical_name: Atlas Decide
+technical_name: AtlasDecideService
+cartography_type: runtime
+canonical_source: docs/engineering-knowledge-base/system-graph/atlas-decide.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/atlas-decide.md

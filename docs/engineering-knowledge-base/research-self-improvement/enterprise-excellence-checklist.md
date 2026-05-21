@@ -39,6 +39,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Self-Improvement Enterprise Excellence Checklist
+canonical_name: Atlas AI Research Self-Improvement Enterprise Excellence Checklist
+technical_name: atlas-ai-research-self-improvement-enterprise-excellence-checklist
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
 
 owner: research-self-improvement
 

@@ -12,7 +12,7 @@ tags:
   - work-splitter
   - multi-agent
 capabilities:
-  - self_construction_os
+  - self_construction_work_splitter_contract
   - work_splitter
   - parallel_implementation
 decisions:
@@ -48,6 +48,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Work Splitter Contract
+canonical_name: Atlas Self-Construction Work Splitter Contract
+technical_name: atlas-ai-self-construction-work-splitter-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/work-splitter-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/work-splitter-contract.md

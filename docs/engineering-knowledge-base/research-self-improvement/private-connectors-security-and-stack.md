@@ -43,6 +43,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Private Connectors Security And Stack
+canonical_name: Atlas AI Research Private Connectors Security And Stack
+technical_name: atlas-ai-research-private-connectors-security-stack
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/private-connectors-security-and-stack.md
 
 owner: research-self-improvement
 

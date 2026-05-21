@@ -14,7 +14,7 @@ tags:
   - experimentation
   - evidence
 capabilities:
-  - opportunity_radar
+  - domain_strategy_opportunity_radar
   - venture_blueprint
   - market_model
   - unit_economics
@@ -79,6 +79,11 @@ graph_kind: module
 graph_parent: atlas-domain-company-runtimes
 graph_status: active
 graph_source: repo
+human_name: Atlas Corporate Strategy / Venture Studio Runtime
+canonical_name: Atlas Corporate Strategy / Venture Studio Runtime
+technical_name: atlas-domain-strategy-runtime
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-domain-strategy-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-domain-strategy-runtime.md

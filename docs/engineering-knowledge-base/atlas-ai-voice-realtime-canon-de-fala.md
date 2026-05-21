@@ -55,6 +55,11 @@ graph_parent: atlas-ai-voice-realtime-surface
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Voice Realtime Canon De Fala
+canonical_name: Atlas AI Voice Realtime Canon De Fala
+technical_name: atlas-ai-voice-realtime-canon-de-fala
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-ai-voice-realtime-canon-de-fala.md
 
 owner: surface-architecture
 
@@ -119,7 +124,6 @@ next_actions:
   - Codificar este canon como system prompt enxuto no LLM plugin do voice runtime.
   - Adicionar regression test de tom (transcript snapshot vs canon).
 ---
-
 # Atlas AI Voice Realtime Canon De Fala
 
 Persona conversacional do Atlas em voz realtime. **Tom não vem por prompt com adjetivos.** Vem por decisões escritas aqui que amarram tudo abaixo: escolha de TTS, turn-taking, ritmo, abertura, fechamento.

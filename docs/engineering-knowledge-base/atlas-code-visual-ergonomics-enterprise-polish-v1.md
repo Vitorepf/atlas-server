@@ -43,6 +43,11 @@ graph_kind: runbook
 graph_parent: atlas-code-obra-command-center-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Visual Ergonomics & Enterprise Polish v1
+canonical_name: Atlas Code Visual Ergonomics & Enterprise Polish v1
+technical_name: atlas-code-visual-ergonomics-enterprise-polish-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-code-visual-ergonomics-enterprise-polish-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-visual-ergonomics-enterprise-polish-v1.md
@@ -82,7 +87,6 @@ next_actions:
   - Adicionar toggle de densidade na ObraBar quando houver demanda real.
   - Validar contraste AA em todos os pares texto/fundo dos tokens enterprise.
 ---
-
 # Atlas Code Visual Ergonomics & Enterprise Polish v1
 
 > Schema canonico: `atlas.code.visual_ergonomics_certification.v1`

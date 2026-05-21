@@ -13,8 +13,7 @@ tags:
   - readiness
   - anti-duplication
 capabilities:
-  - architecture_audit
-  - documentation_governance
+  - implemented_vs_scaffold_matrix
   - implementation_readiness
 decisions:
   - Esta matriz e diagnostico, nao fonte de autoridade superior ao Kernel, Master Architecture, Domain specs ou APs.
@@ -52,6 +51,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Implemented vs Scaffold Matrix
+canonical_name: Atlas AI Implemented vs Scaffold Matrix
+technical_name: atlas-ai-implemented-vs-scaffold-matrix
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md
 
 owner: architecture-audit
 

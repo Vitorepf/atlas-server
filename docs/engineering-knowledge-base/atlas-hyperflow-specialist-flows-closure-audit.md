@@ -43,6 +43,11 @@ graph_kind: contract
 graph_parent: atlas-hyperflow-operation
 graph_status: active
 graph_source: repo
+human_name: Atlas Hyperflow Specialist Flows Closure Audit
+canonical_name: Atlas Hyperflow Specialist Flows Closure Audit
+technical_name: atlas-hyperflow-specialist-flows-closure-audit
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-hyperflow-specialist-flows-closure-audit.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-hyperflow-specialist-flows-closure-audit.md
@@ -90,7 +95,6 @@ next_actions:
   - Adicionar testes feature por flow non-programming.
 line_limit: 520
 ---
-
 # Atlas Hyperflow Specialist Flows Closure Audit
 
 ## Resumo

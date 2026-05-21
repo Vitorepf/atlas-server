@@ -40,6 +40,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: building
 
 graph_source: repo
+human_name: Atlas AI Cyber Recipes Promotion Runbook
+canonical_name: Atlas AI Cyber Recipes Promotion Runbook
+technical_name: atlas-ai-cyber-recipes-promotion-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/cyber-security/recipes-promotion-runbook.md
 
 owner: cyber-security
 

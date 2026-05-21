@@ -38,6 +38,11 @@ graph_kind: index
 graph_parent: atlas-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Agent Control Plane Certification Output Map v1
+canonical_name: Atlas Agent Control Plane Certification Output Map v1
+technical_name: atlas-agent-control-plane-certification-output-map-v1
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/self-construction/evidence-index/atlas-agent-control-plane-certification-output-map-v1.md
 owner: atlas-self-construction-os
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/evidence-index/atlas-agent-control-plane-certification-output-map-v1.md
@@ -75,7 +80,6 @@ visual_tags:
 generated_at: 2026-05-14
 scope: read-only — descricao semantica de campos JSON; nenhuma execucao
 ---
-
 ## Resumo
 
 Mapa de campos JSON que o operador precisa ler para decidir se uma

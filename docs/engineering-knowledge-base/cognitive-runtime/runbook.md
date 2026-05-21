@@ -43,6 +43,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Runtime Runbook
+canonical_name: Atlas AI Cognitive Runtime Runbook
+technical_name: atlas-ai-cognitive-runtime-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/cognitive-runtime/runbook.md
 
 owner: cognitive-runtime
 

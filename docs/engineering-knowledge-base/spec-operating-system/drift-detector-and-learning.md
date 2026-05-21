@@ -39,6 +39,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas SDD Drift Detector And Learning
+canonical_name: Atlas SDD Drift Detector And Learning
+technical_name: atlas-ai-sdd-drift-detector-learning
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/spec-operating-system/drift-detector-and-learning.md
 
 owner: spec-operating-system
 

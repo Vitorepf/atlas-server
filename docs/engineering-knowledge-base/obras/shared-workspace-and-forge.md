@@ -14,7 +14,7 @@ tags:
   - shared-workspace
 capabilities:
   - obras_shared_workspace
-  - forge_workspace
+  - obras_forge_workspace_bridge
   - multi_provider_orchestration
   - programming_operating_system
 decisions:
@@ -56,6 +56,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Obras - Shared Workspace And Forge
+canonical_name: Atlas Obras - Shared Workspace And Forge
+technical_name: atlas-ai-obras-shared-workspace-and-forge
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
 
 repo_paths:
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md

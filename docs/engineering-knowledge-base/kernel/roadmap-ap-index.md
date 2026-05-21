@@ -42,6 +42,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Kernel Roadmap AP Index
+canonical_name: Atlas AI Kernel Roadmap AP Index
+technical_name: atlas-ai-kernel-roadmap-ap-index
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/kernel/roadmap-ap-index.md
 
 owner: kernel
 

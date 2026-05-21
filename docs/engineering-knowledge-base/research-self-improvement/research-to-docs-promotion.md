@@ -41,6 +41,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research To Documentation Promotion
+canonical_name: Atlas AI Research To Documentation Promotion
+technical_name: atlas-ai-research-to-docs-promotion
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/research-to-docs-promotion.md
 
 owner: research-self-improvement
 

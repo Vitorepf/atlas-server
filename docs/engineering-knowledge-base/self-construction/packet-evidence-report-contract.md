@@ -12,7 +12,7 @@ tags:
   - evidence
   - packet-completion
 capabilities:
-  - self_construction_os
+  - self_construction_packet_evidence_report_contract
   - implementation_evidence
   - packet_completion_review
 decisions:
@@ -46,6 +46,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Packet Evidence Report Contract
+canonical_name: Atlas Self-Construction Packet Evidence Report Contract
+technical_name: atlas-ai-self-construction-packet-evidence-report-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/packet-evidence-report-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/packet-evidence-report-contract.md

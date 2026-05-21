@@ -44,6 +44,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: building
 
 graph_source: repo
+human_name: Surface Domain Catalog Integration Plan
+canonical_name: Surface Domain Catalog Integration Plan
+technical_name: surface-domain-catalog-integration-plan
+cartography_type: surface
+canonical_source: docs/engineering-knowledge-base/surface-domain-catalog-integration-plan.md
 
 owner: engineering
 

@@ -8,6 +8,13 @@ blocker: none_for_programming_flows; ampliar enforcement para flows nao-programm
 category: intelligence-runtime
 priority: 100
 summary: Documentacao mae da area de contexto, memoria, embeddings, RAG, Graph RAG, ranking, freshness, feedback, Python/data retrieval, cognitive memory, context compiler e token economy.
+human_summary: E o mapa-mae da memoria e contexto do Atlas: decide como encontrar a informacao certa, na hora certa, sem encher a IA de ruido.
+human_what: Area-mae de contexto, memoria, retrieval, embeddings, RAG, grafo, ranking, freshness e economia de tokens.
+human_purpose: Dar para cada IA o contexto certo e minimo, com prova e relacao, sem nascer zerada nem receber ruido.
+human_input: Recebe docs, codigo, embeddings, grafo, historico, evidence, freshness, feedback e budget de contexto.
+human_output: Entrega context packs, ranking, filtros, gates de suficiencia, memoria util e menor custo de token.
+human_change_when: Mexa quando criar novo retriever, ranking, embedding, graph RAG, compiler, memory fabric ou token governor.
+human_block_when: Bloqueie quando embeddings forem tratados como verdade, contexto estiver velho, sem fonte, sem prova ou excessivo.
 tags: [atlas-ai, aucri, context, retrieval, rag, embeddings, graph-rag, memory, world-model, token-economy]
 capabilities: [unified_context_retrieval, semantic_embedding_retrieval, agentic_rag, graph_rag, context_reranking, context_freshness, cognitive_memory_fabric, context_compiler_runtime, token_economy_runtime]
 decisions:
@@ -21,7 +28,7 @@ maintenance:
   - Manter nomes canonicos internos sincronizados com atlas-canonical-glossary-and-naming.md.
   - Separar status real de estado-alvo; nao declarar completo sem certificacao e gates.
 related_paths:
-  - docs/engineering-knowledge-base/atlas-rag-graph-python-context-handoff.md
+  - docs/engineering-knowledge-base/atlas-quality-preserving-efficiency-system.md
   - docs/engineering-knowledge-base/atlas-semantic-embedding-foundation.md
   - docs/engineering-knowledge-base/atlas-hybrid-retrieval-infrastructure.md
   - docs/engineering-knowledge-base/atlas-agentic-rag-framework.md
@@ -44,11 +51,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-aucri-continuous-optimization-protocol.md
   - docs/engineering-knowledge-base/atlas-context-intelligence-engine.md
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
-  - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
-  - docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
   - docs/engineering-knowledge-base/memory/retrieval-and-context.md
   - docs/engineering-knowledge-base/atlas-world-model.md
-  - docs/engineering-knowledge-base/atlas-semantic-graph.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - app/Services/Ai/Context/LocalRagReadinessService.php
   - app/Services/Ai/Programming/ProgrammingRetrievalPlanner.php
@@ -83,6 +87,7 @@ depends_on:
   - atlas-rag-graph-python-context-handoff
   - atlas-canonical-glossary-and-naming
 flows_to:
+  - atlas-quality-preserving-efficiency-system
   - atlas-ai-router-runtime
   - atlas-dev
   - atlas-forge

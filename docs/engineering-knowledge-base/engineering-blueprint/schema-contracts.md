@@ -11,9 +11,9 @@ tags:
   - engineering
   - schema
 capabilities:
-  - engineering_blueprint
-  - task_contracts
-  - qa_evidence
+  - engineering_blueprint_schema_contracts
+  - blueprint_schema_task_contracts
+  - blueprint_schema_qa_evidence
 decisions:
   - Blueprint schema evolution must be explicit, versioned, additive when possible and covered by tests.
 maintenance:
@@ -38,6 +38,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Blueprint Schema Contracts
+canonical_name: Atlas Engineering Blueprint Schema Contracts
+technical_name: atlas-engineering-blueprint-schema-contracts
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/engineering-blueprint/schema-contracts.md
 
 owner: engineering-blueprint
 

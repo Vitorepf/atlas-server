@@ -44,6 +44,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI OS - Domain Pipelines
+canonical_name: Atlas AI OS - Domain Pipelines
+technical_name: atlas-ai-os-domain-pipelines
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/operating-system/domain-pipelines.md
 
 owner: operating-system
 

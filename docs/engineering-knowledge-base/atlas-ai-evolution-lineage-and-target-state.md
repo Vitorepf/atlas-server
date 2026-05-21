@@ -16,8 +16,7 @@ capabilities:
   - evolutionary_lineage
   - target_state_definition
   - maturity_classification
-  - implementation_sequence
-  - ai_onboarding
+  - evolution_ai_orientation
 decisions:
   - Atlas nao deve ser descrito como AGI ou ASI; Atlas e um sistema operacional de inteligencia que orquestra modelos, memoria, contexto, agentes, ferramentas, evidence, aprendizado e execucao governada.
   - A linha evolutiva oficial deve medir mudanca de natureza operacional, nao quantidade de features ou nomes novos.
@@ -55,6 +54,11 @@ graph_kind: module
 graph_parent: atlas-ai-evolutionary-maturity-model
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Evolution Lineage And Target State
+canonical_name: Atlas AI Evolution Lineage And Target State
+technical_name: atlas-ai-evolution-lineage-and-target-state
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-evolution-lineage-and-target-state.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-evolution-lineage-and-target-state.md
@@ -116,7 +120,6 @@ next_actions:
   - Implementar Swarm Company Runtime com subagentes, metagentes, handoff, leases e context isolation.
   - Expandir para Autonomous Company OS multi-dominio e depois World Action Engine governado.
 ---
-
 ## Resumo
 
 Este documento define a linha evolutiva completa do Atlas AI. Ele existe para

@@ -49,6 +49,11 @@ graph_kind: module
 graph_parent: atlas-code-programming-obras-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Attention Control Plane v1
+canonical_name: Atlas Code Attention Control Plane v1
+technical_name: atlas-code-attention-control-plane-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-code-attention-control-plane-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-attention-control-plane-v1.md
 allowed_changes:

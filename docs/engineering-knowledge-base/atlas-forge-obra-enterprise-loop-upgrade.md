@@ -49,6 +49,11 @@ graph_kind: contract
 graph_parent: atlas-forge-continuum-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Obra Enterprise Loop Upgrade
+canonical_name: Atlas Forge Obra Enterprise Loop Upgrade
+technical_name: atlas-forge-obra-enterprise-loop-upgrade
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-obra-enterprise-loop-upgrade.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-obra-enterprise-loop-upgrade.md

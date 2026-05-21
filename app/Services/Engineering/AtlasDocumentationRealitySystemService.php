@@ -14,6 +14,7 @@ class AtlasDocumentationRealitySystemService
      */
     private const CANONICAL_DOCS = [
         'adrs' => 'docs/engineering-knowledge-base/atlas-documentation-reality-system.md',
+        'adrs_block_registry' => 'docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md',
         'adrib' => 'docs/engineering-knowledge-base/atlas-documentation-reality-implementation-blueprint.md',
         'adr_bum' => 'docs/engineering-knowledge-base/atlas-documentation-reality-block-upgrade-map.md',
         'acrui' => 'docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md',
@@ -1640,7 +1641,7 @@ class AtlasDocumentationRealitySystemService
     {
         return match ($id) {
             'adrs' => 'tier_1_mother_contract',
-            'adrib', 'adr_bum', 'acrui', 'aurc', 'documentation_os', 'knowledge_governance' => 'tier_1_canonical_child',
+            'adrs_block_registry', 'adrib', 'adr_bum', 'acrui', 'aurc', 'documentation_os', 'knowledge_governance' => 'tier_1_canonical_child',
             'system_graph', 'implemented_vs_scaffold', 'cartography_os' => 'tier_2_supporting_canonical',
             default => 'tier_unknown',
         };

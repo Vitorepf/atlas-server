@@ -50,6 +50,11 @@ graph_kind: runbook
 graph_parent: atlas-programming-forge-flow
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Live Execution E2E v1
+canonical_name: Atlas Forge Live Execution E2E v1
+technical_name: atlas-forge-live-execution-e2e-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md

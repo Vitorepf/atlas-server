@@ -16,12 +16,12 @@ tags:
 capabilities:
   - programming_forge_flow
   - heavy_programming_flow
-  - forge_operating_system
-  - forge_workspace
-  - engineering_harness
-  - programming_agentic_rag
-  - semantic_code_graph
-  - repair_loop
+  - programming_forge_os_consumption
+  - programming_forge_workspace
+  - programming_forge_engineering_harness
+  - programming_forge_agentic_rag
+  - programming_forge_semantic_code_graph
+  - programming_forge_repair_loop
   - tool_runtime_gateway
 decisions:
   - Atlas Forge Continuum OS e o nome canonico do sistema completo que amarra Atlas Code, Obra, Forge Workspace, Atlas Decide, provider topology, fallback, review, evidence, Rivals e learning.
@@ -73,6 +73,11 @@ graph_kind: flow
 graph_parent: atlas-ai-programming-domain
 graph_status: active
 graph_source: repo
+human_name: Atlas Programming Forge Flow
+canonical_name: Atlas Programming Forge Flow
+technical_name: atlas-programming-forge-flow
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/atlas-programming-forge-flow.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
@@ -180,11 +185,8 @@ Atlas Code = surface desktop.
 Atlas Code SCOR-1 = versao da surface desktop.
 Atlas Code SCOR-1 mode = Forge only.
 ```
-
 Nenhum desses nomes substitui os outros.
-
 ## Contratos
-
 | Nome | Papel canonico | Nao e |
 |---|---|---|
 | Programming Domain | Dominio/setor de codigo do Atlas AI | Tela, harness ou produto separado |
@@ -203,9 +205,7 @@ Nenhum desses nomes substitui os outros.
 | System Graph / Cartography | Mapa visual/navegavel para humano e IA | Autoridade operacional primaria |
 | Atlas Code | Surface desktop de programacao | Programming Domain |
 | Atlas Code SCOR-1 | Primeira versao/categoria da surface desktop; modo unico Forge | Flow, harness ou Forge OS |
-
 ## Onde Se Encaixa
-
 ```text
 Atlas AI
 └─ Domain Plane
@@ -240,7 +240,6 @@ Atlas AI
       └─ Finalization: Evidence Ledger, Tool Evidence Store, Code Intelligence
          refresh, docs, System Graph/Cartography, Learning, Output
 ```
-
 ## Fluxo
 
 ```text

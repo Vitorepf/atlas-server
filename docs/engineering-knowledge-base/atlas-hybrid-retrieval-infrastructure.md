@@ -38,6 +38,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: building
 graph_source: repo
+human_name: Atlas Hybrid Retrieval Infrastructure
+canonical_name: Atlas Hybrid Retrieval Infrastructure
+technical_name: AtlasHybridRetrievalInfrastructureService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-hybrid-retrieval-infrastructure.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-hybrid-retrieval-infrastructure.md
@@ -66,7 +71,6 @@ next_actions:
   - Conectar AHRI ao ACRS como entrada de ranking.
   - Trocar candidatos shallow por adapters profundos de docs/code/evidence sem duplicar stores.
 ---
-
 # Atlas Hybrid Retrieval Infrastructure
 
 ## Resumo

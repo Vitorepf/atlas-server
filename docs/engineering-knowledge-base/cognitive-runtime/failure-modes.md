@@ -14,7 +14,7 @@ tags:
 capabilities:
   - cognitive_failure_detection
   - compaction_quality_gate
-  - retrieval_quality
+  - retrieval_failure_detection
   - long_session_audit
 decisions:
   - Falhas cognitivas devem degradar para read/plan/watch antes de afetar runtime critico.
@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Runtime Failure Modes
+canonical_name: Atlas AI Cognitive Runtime Failure Modes
+technical_name: atlas-ai-cognitive-runtime-failure-modes
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/cognitive-runtime/failure-modes.md
 
 owner: cognitive-runtime
 

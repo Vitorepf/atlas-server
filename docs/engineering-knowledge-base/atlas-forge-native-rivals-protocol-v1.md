@@ -51,6 +51,11 @@ graph_kind: contract
 graph_parent: atlas-programming-forge-flow
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge-Native Rivals Protocol v1
+canonical_name: Atlas Forge-Native Rivals Protocol v1
+technical_name: atlas-forge-native-rivals-protocol-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-native-rivals-protocol-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-native-rivals-protocol-v1.md

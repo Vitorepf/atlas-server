@@ -14,14 +14,6 @@ tags:
   - event-sourcing
 capabilities:
   - kernel_specification
-  - operation_envelope_contract
-  - decision_receipt_v2_contract
-  - evidence_ledger_event_sourcing
-  - capability_registry_enforcement
-  - domain_manifest_sdk
-  - surface_adapter_contract
-  - provider_driver_contract
-  - architectural_test_doctrine
   - kernel_slo_governance
 decisions:
   - Kernel is the executable architecture layer; product docs cannot bypass it.
@@ -57,6 +49,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Kernel Architecture
+canonical_name: Atlas AI Kernel Architecture
+technical_name: atlas-ai-kernel-architecture
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
 
 owner: architecture
 

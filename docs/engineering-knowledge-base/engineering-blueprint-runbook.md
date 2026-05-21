@@ -13,11 +13,11 @@ tags:
   - cli
   - app
 capabilities:
-  - engineering_blueprint
-  - task_contracts
-  - qa_evidence
-  - review_gates
-  - context_pack_recall
+  - engineering_blueprint_runbook
+  - blueprint_runbook_task_contracts
+  - blueprint_runbook_qa_evidence
+  - blueprint_runbook_review_gates
+  - blueprint_context_recall
 decisions:
   - App, CLI and API must expose equivalent Engineering Blueprint operations.
   - Commands are wrappers over tested services.
@@ -50,6 +50,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Blueprint Runbook
+canonical_name: Atlas Engineering Blueprint Runbook
+technical_name: atlas-engineering-blueprint-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/engineering-blueprint-runbook.md
 
 owner: runbook
 

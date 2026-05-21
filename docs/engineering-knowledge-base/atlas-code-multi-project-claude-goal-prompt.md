@@ -34,6 +34,11 @@ graph_kind: runbook
 graph_parent: atlas-code-multi-project-claude-one-shot-prompt
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Multi-Project Claude Goal Prompt
+canonical_name: Atlas Code Multi-Project Claude Goal Prompt
+technical_name: atlas-code-multi-project-claude-goal-prompt
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-code-multi-project-claude-goal-prompt.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-multi-project-claude-goal-prompt.md
 allowed_changes:

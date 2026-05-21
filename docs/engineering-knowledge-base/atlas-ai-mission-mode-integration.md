@@ -27,6 +27,11 @@ graph_kind: flow
 graph_parent: atlas-kernel-mission-foundation
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Mission Mode Integration
+canonical_name: Atlas AI Mission Mode Integration
+technical_name: atlas-ai-mission-mode-integration
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/atlas-ai-mission-mode-integration.md
 owner: mission-runtime
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-mission-mode-integration.md

@@ -41,6 +41,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Source Connectors And Capture
+canonical_name: Atlas AI Research Source Connectors And Capture
+technical_name: atlas-ai-research-source-connectors-capture
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/source-connectors-and-capture.md
 
 owner: research-self-improvement
 

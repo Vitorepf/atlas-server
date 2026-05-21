@@ -30,6 +30,11 @@ graph_kind: contract
 graph_parent: atlas-dev-efficient-programming-flow-contracts-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Dev Efficient Programming Flow Contracts v1 Parte 2
+canonical_name: Atlas Dev Efficient Programming Flow Contracts v1 Parte 2
+technical_name: atlas-dev-efficient-programming-flow-contracts-v1-part-02
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-contracts-v1-part-02.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-contracts-v1-part-02.md

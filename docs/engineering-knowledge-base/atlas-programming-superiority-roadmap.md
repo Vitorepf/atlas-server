@@ -57,6 +57,11 @@ graph_parent: atlas-programming-superiority-architecture
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Programming Superiority Roadmap
+canonical_name: Atlas Programming Superiority Roadmap
+technical_name: atlas-programming-superiority-roadmap
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-programming-superiority-roadmap.md
 
 owner: programming
 
@@ -105,7 +110,6 @@ next_actions:
   - Não iniciar M10 (benchmark methodology) antes de M1-M9 estarem em produção.
 
 ---
-
 # Atlas Programming Superiority Roadmap
 
 ## Resumo

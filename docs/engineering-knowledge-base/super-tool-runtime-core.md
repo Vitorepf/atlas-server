@@ -63,6 +63,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Super Tool Runtime Core
+canonical_name: Atlas Super Tool Runtime Core
+technical_name: atlas-super-tool-runtime-core
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/super-tool-runtime-core.md
 
 owner: architecture
 

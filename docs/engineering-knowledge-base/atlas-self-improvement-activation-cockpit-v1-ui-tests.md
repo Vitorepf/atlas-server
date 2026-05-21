@@ -32,6 +32,11 @@ graph_kind: runbook
 graph_parent: atlas-self-improvement-activation-cockpit-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Improvement Activation Cockpit v1 UI Tests
+canonical_name: Atlas Self-Improvement Activation Cockpit v1 UI Tests
+technical_name: atlas-self-improvement-activation-cockpit-v1-ui-tests
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-self-improvement-activation-cockpit-v1-ui-tests.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-self-improvement-activation-cockpit-v1-ui-tests.md

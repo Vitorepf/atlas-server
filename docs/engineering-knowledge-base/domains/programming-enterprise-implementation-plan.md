@@ -13,8 +13,8 @@ tags:
   - semantic-code-graph
   - repair-loop
 capabilities:
-  - programming_agentic_rag
-  - semantic_code_graph
+  - programming_agentic_rag_implementation
+  - programming_semantic_code_graph_implementation
   - programming_stage_receipts
   - programming_resume
   - programming_action_manifest
@@ -22,7 +22,7 @@ capabilities:
   - test_impact_analysis
   - execution_sandbox
   - repair_loop_executor
-  - programming_learning_loop
+  - programming_implementation_learning_loop
 decisions:
   - Programming Agentic RAG e a camada de inteligencia antes de plan/patch/test/repair.
   - O standard operacional de nivel profissional vive em programming-professional-rag-operating-standard.md e deve ser lido antes de mudar RAG/Agentic RAG.
@@ -65,6 +65,11 @@ graph_kind: module
 graph_parent: atlas-ai-programming-domain
 graph_status: active
 graph_source: repo
+human_name: Programming Enterprise Implementation Plan
+canonical_name: Programming Enterprise Implementation Plan
+technical_name: atlas-ai-programming-enterprise-implementation-plan
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md
 owner: domains
 repo_paths:
   - docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md
@@ -114,7 +119,6 @@ next_actions:
 requires_evidence: true
 risk_level: medium
 ---
-
 # Programming Enterprise Implementation Plan
 
 ## Resumo

@@ -14,8 +14,7 @@ tags:
   - backend
 capabilities:
   - architecture_handoff
-  - documentation_governance
-  - session_bootstrap
+  - structure_mother_handoff
 decisions:
   - Voice/LiveKit permanece scaffold governado e estacionado fora do caminho critico.
   - Memory/Open Brain, Capture, Tasks, Tools, Long-Running Work, Rivals readiness and Proactive contracts now have read-only audit surfaces.
@@ -45,6 +44,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Structure Mother Handoff
+canonical_name: Atlas Structure Mother Handoff
+technical_name: atlas-structure-mother-handoff
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-structure-mother-handoff.md
 
 owner: architecture-handoff
 

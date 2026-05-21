@@ -11,9 +11,9 @@ tags:
   - engineering
   - lifecycle
 capabilities:
-  - engineering_blueprint
-  - qa_evidence
-  - review_gates
+  - engineering_blueprint_lifecycle_runbook
+  - blueprint_lifecycle_qa_evidence
+  - blueprint_lifecycle_review_gates
 decisions:
   - Blueprint lifecycle runs from project intent to evidence and memory delta through governed gates.
 maintenance:
@@ -38,6 +38,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Blueprint Lifecycle Runbook
+canonical_name: Atlas Engineering Blueprint Lifecycle Runbook
+technical_name: atlas-engineering-blueprint-lifecycle-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/engineering-blueprint/lifecycle-runbook.md
 
 owner: engineering-blueprint
 

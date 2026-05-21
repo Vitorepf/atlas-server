@@ -50,6 +50,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-benchmark-strategy-v1
 graph_status: active
 graph_source: repo
+human_name: "Atlas Forge Rivals · Battery Modes and Human Prompts v1"
+canonical_name: "Atlas Forge Rivals · Battery Modes and Human Prompts v1"
+technical_name: atlas-forge-rivals-battery-modes-and-human-prompts-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-battery-modes-and-human-prompts-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-battery-modes-and-human-prompts-v1.md
 allowed_changes:
@@ -87,7 +92,6 @@ next_actions:
   - Implementar messy-real com hidden oracle e triage de ambiguidade.
   - Registrar resultados validos no Provider Performance Ledger por modo, categoria e dificuldade.
 ---
-
 # Atlas Forge Rivals · Battery Modes and Human Prompts v1
 
 ## Resumo

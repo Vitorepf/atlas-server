@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Source Quality And Trust Ladder
+canonical_name: Atlas AI Research Source Quality And Trust Ladder
+technical_name: atlas-ai-research-source-quality-trust-ladder
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/source-quality-and-trust-ladder.md
 
 owner: research-self-improvement
 

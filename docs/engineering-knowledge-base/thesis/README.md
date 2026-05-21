@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Thesis Specs Index
+canonical_name: Atlas Thesis Specs Index
+technical_name: atlas-thesis-specs-index
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/thesis/README.md
 
 owner: thesis
 

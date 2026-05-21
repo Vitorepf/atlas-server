@@ -35,6 +35,11 @@ graph_kind: policy
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Evidence Truth Layer
+canonical_name: Atlas Evidence Truth Layer
+technical_name: atlas-evidence-truth-layer
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-evidence-truth-layer.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-evidence-truth-layer.md

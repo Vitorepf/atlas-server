@@ -44,6 +44,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Tool Runtime Specs Index
+canonical_name: Atlas Tool Runtime Specs Index
+technical_name: atlas-tool-runtime-specs-index
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/tool-runtime/README.md
 
 owner: tool-runtime
 

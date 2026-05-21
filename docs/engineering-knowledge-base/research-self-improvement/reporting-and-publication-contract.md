@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Reporting And Publication Contract
+canonical_name: Atlas AI Research Reporting And Publication Contract
+technical_name: atlas-ai-research-reporting-publication-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/reporting-and-publication-contract.md
 
 owner: research-self-improvement
 

@@ -12,7 +12,7 @@ tags:
   - product-ux
   - use-cases
 capabilities:
-  - obras_operating_system
+  - obras_product_ux_and_use_cases
   - product_workspace
 decisions:
   - Obras must not be reduced to TCC, but TCC remains a strong validation case.
@@ -44,6 +44,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Obras - Product UX And Use Cases
+canonical_name: Atlas Obras - Product UX And Use Cases
+technical_name: atlas-ai-obras-product-ux-and-use-cases
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/obras/product-ux-and-use-cases.md
 
 repo_paths:
   - docs/engineering-knowledge-base/obras/product-ux-and-use-cases.md

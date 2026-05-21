@@ -110,6 +110,7 @@ class EngineeringDocumentationAuthorityAuditService
                     'id' => $this->scalar($frontmatter['id'] ?? null),
                     'graph_id' => $this->scalar($frontmatter['graph_id'] ?? null),
                     'graph_kind' => $this->scalar($frontmatter['graph_kind'] ?? null),
+                    'graph_parent' => $this->scalar($frontmatter['graph_parent'] ?? null),
                     'status' => $status,
                     'title' => $this->scalar($frontmatter['title'] ?? null),
                     'owner' => $this->scalar($frontmatter['owner'] ?? null),
@@ -192,6 +193,9 @@ class EngineeringDocumentationAuthorityAuditService
             if (count($paths) < 2) {
                 return null;
             }
+            if ($this->isDeclaredGraphFamily($items)) {
+                return null;
+            }
 
             return [
                 'capability' => $key,
@@ -203,6 +207,37 @@ class EngineeringDocumentationAuthorityAuditService
                 'owners' => $owners,
             ];
         }, $groups, array_keys($groups))));
+    }
+
+    /**
+     * Capability overlap inside a declared graph family is intentional:
+     * parent docs, contracts and runbooks repeat the same capability so humans
+     * and agents can navigate the family without inventing a second owner.
+     *
+     * @param  array<int,array<string,mixed>>  $items
+     */
+    private function isDeclaredGraphFamily(array $items): bool
+    {
+        $graphIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $item): string => (string) ($item['graph_id'] ?? ''),
+            $items,
+        ))));
+        $graphParents = array_values(array_unique(array_filter(array_map(
+            static fn (array $item): string => (string) ($item['graph_parent'] ?? ''),
+            $items,
+        ))));
+
+        if ($graphIds === [] || $graphParents === []) {
+            return false;
+        }
+
+        foreach ($graphParents as $parent) {
+            if (in_array($parent, $graphIds, true)) {
+                return true;
+            }
+        }
+
+        return count($graphParents) === 1;
     }
 
     /**
@@ -361,6 +396,7 @@ class EngineeringDocumentationAuthorityAuditService
         $path = (string) ($doc['path'] ?? '');
 
         return ($doc['graph_kind'] ?? null) === 'index'
+            || preg_match('/-part-\d+\.md$/', $path) === 1
             || str_ends_with($path, '/README.md')
             || str_ends_with($path, '/START_HERE.md')
             || $path === 'docs/engineering-knowledge-base/README.md'

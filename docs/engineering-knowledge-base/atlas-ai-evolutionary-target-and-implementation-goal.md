@@ -57,6 +57,11 @@ graph_kind: module
 graph_parent: atlas-ai-evolutionary-maturity-model
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Evolutionary Target And Implementation Goal
+canonical_name: Atlas AI Evolutionary Target And Implementation Goal
+technical_name: atlas-ai-evolutionary-target-and-implementation-goal
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-evolutionary-target-and-implementation-goal.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-evolutionary-target-and-implementation-goal.md
@@ -118,7 +123,6 @@ next_actions:
   - Implementar Swarm Company Runtime com subagentes/metagentes governados.
   - Evoluir para Autonomous Company OS e depois World Action Engine com execucao externa governada.
 ---
-
 ## Resumo
 
 Esta doc transforma a linha evolutiva do Atlas em um alvo implementavel. Ela

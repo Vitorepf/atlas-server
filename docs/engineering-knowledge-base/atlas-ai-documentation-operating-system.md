@@ -6,6 +6,18 @@ status: active
 category: documentation-governance
 priority: 100
 summary: Contrato canonico para documentacao de alta performance do Atlas AI, com limites de tamanho, autoridade, bootstrap, promocao, arquivo, verificacao e anti-duplicacao.
+human_summary: Define como a documentacao do Atlas deve ser escrita, validada e mantida para que IAs e humanos entendam a mesma verdade.
+human_what: Sistema de regras para criar, dividir, validar e manter docs canonicos do Atlas.
+human_purpose: Impedir documentacao gigante, duplicada, ambigua ou sem prova antes de virar contexto de IA ou Cartografia.
+human_input: Recebe docs, frontmatter, owner docs, limites de linhas, relacoes e comandos de validacao.
+human_output: Entrega docs-health, regras de criacao, bootstrap confiavel e padrao comum para novas IAs.
+human_change_when: Mexa quando mudar regra de documentacao, bootstrap, autoridade, limite, Cartografia ou sync de conhecimento.
+human_block_when: Bloqueie quando uma doc nova nao tiver owner, fonte canonica, relacoes, prova, status real ou leitura humana clara.
+human_name: Sistema Operacional da Documentacao
+canonical_name: Atlas AI Documentation Operating System
+technical_name: EngineeringDocumentationHealthService
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
 tags:
   - atlas-ai
   - documentation
@@ -14,13 +26,9 @@ tags:
   - anti-duplication
 capabilities:
   - documentation_operating_system
-  - knowledge_governance_system
   - ai_readability_contract
   - canonical_source_governance
   - documentation_health
-  - documentation_creation_gate
-  - session_bootstrap
-  - canonical_module_doc_v1
 decisions:
   - Documentacao e parte do produto Atlas, nao tarefa secundaria.
   - Toda sessao nova deve conseguir descobrir status real sem depender de memoria de chat.
@@ -35,6 +43,7 @@ maintenance:
   - Rodar sync e index-code depois de alterar docs canonicos.
 related_paths:
   - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
+  - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-documentation-creation-gate.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
@@ -165,6 +174,7 @@ Toda organizacao documental deve permitir responder rapidamente:
 | Canonical Module Doc | formato forte para docs tecnicos navegaveis e seguros para IA | `atlas-canonical-module-doc-v1.md` |
 | Knowledge Governance | fonte de verdade entre repo docs, Postgres, Obsidian, provider projections e chat | `atlas-ai-knowledge-governance-system.md` |
 | Documentation Reality | doc mae que organiza documentacao canonica, ACRUI e Cartografia/AURC | `atlas-documentation-reality-system.md` |
+| Documentation Reality Block Registry | registro navegavel dos 52 blocos ADRS | `atlas-documentation-reality-block-registry.md` |
 | Code Reality | prova mecanica de uso real, scaffold, legado, duplicacao e quarantine | `atlas-code-reality-usage-intelligence.md` |
 | Kernel | contratos executaveis | `atlas-ai-kernel-architecture.md` e specs fatiadas |
 | Master | produto, planes, dominios e estrategia | `atlas-ai-master-architecture.md` |
@@ -249,8 +259,8 @@ exponha esse caminho para busca e drilldown.
 Definition of Ready para Cartografia:
 
 1. Tap tem destino visual real ou declara peca terminal/lacuna documental.
-2. Longa pressao tem modal humano com resumo, fluxo, prova, riscos, fontes,
-   governanca, patamares e versoes separados.
+2. Longa pressao segue as 7 camadas canonicas: Essencial, Fluxo, Relacoes,
+   Evolucao, Patamares, Versoes, Prova e Seguranca.
 3. `repo_paths`, `related_paths`, `evidence` e `required_tests` aparecem em
    categorias diferentes.
 4. `patamar_*` nunca e inferido por camada, versao, arquivo, fluxo ou unlock.

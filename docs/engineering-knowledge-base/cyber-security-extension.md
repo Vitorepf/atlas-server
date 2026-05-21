@@ -87,6 +87,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: building
 
 graph_source: repo
+human_name: Atlas AI Cyber Security Extension
+canonical_name: Atlas AI Cyber Security Extension
+technical_name: atlas-ai-cyber-security-extension
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/cyber-security-extension.md
 
 repo_paths:
   - docs/engineering-knowledge-base/cyber-security-extension.md

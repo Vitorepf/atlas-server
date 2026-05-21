@@ -12,12 +12,12 @@ tags:
   - runbook
   - operations
 capabilities:
-  - memory_registry
+  - memory_core_runbook
   - knowledge_base
-  - code_intelligence_index
-  - provider_projection
-  - context_pack_recall
-  - open_brain_context_injection
+  - code_intelligence_runbook
+  - provider_projection_runbook
+  - context_recall_runbook
+  - open_brain_runbook
 decisions:
   - Memory operations must be auditable, repeatable and small.
   - Dry-run precedes destructive actions, purge and provider projection apply/write.
@@ -56,6 +56,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Memory Core Runbook
+canonical_name: Atlas Memory Core Runbook
+technical_name: atlas-memory-core-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/memory-core-runbook.md
 
 owner: maintenance
 

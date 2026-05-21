@@ -45,16 +45,16 @@ doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-dev-forge-relationship-critical-audit
 graph_title: Atlas Dev x Atlas Forge Relationship Critical Audit
 graph_world: atlas
-
 graph_layer: system
-
 graph_kind: module
-
 graph_parent: atlas-dual-core-engineering-system
-
 graph_status: active
-
 graph_source: repo
+human_name: Atlas Dev x Atlas Forge Relationship Critical Audit
+canonical_name: Atlas Dev x Atlas Forge Relationship Critical Audit
+technical_name: atlas-dev-forge-relationship-critical-audit
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-dev-forge-relationship-critical-audit.md
 
 owner: programming
 
@@ -114,7 +114,6 @@ next_actions:
   - Decidir configuração de drivers reais (claude_cli/codex_cli/gemini_cli) ou explicitar que Forge é fixture-only.
 
 ---
-
 # Atlas Dev x Atlas Forge Relationship Critical Audit
 
 ## Resumo

@@ -47,6 +47,11 @@ graph_kind: runbook
 graph_parent: atlas-code-visual-ergonomics-enterprise-polish-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Premium Workbench Visual Comfort v1
+canonical_name: Atlas Code Premium Workbench Visual Comfort v1
+technical_name: atlas-code-premium-workbench-visual-comfort-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-code-premium-workbench-visual-comfort-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-code-premium-workbench-visual-comfort-v1.md
@@ -88,7 +93,6 @@ next_actions:
   - Validar contraste AA em todos pares texto/fundo do tema dark warm.
   - Rebuild Tauri para .app/.dmg refletirem novo visual.
 ---
-
 # Atlas Code Premium Workbench Visual Comfort v1
 
 > Schema canonico: `atlas.code.premium_workbench_visual_comfort_certification.v1`

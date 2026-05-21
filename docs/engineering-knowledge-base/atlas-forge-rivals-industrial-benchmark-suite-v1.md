@@ -49,6 +49,11 @@ graph_kind: contract
 graph_parent: atlas-forge-rivals-provider-arena-v2
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Rivals Industrial Benchmark Suite v1
+canonical_name: Atlas Forge Rivals Industrial Benchmark Suite v1
+technical_name: atlas-forge-rivals-industrial-benchmark-suite-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-industrial-benchmark-suite-v1.md
 repo_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsIndustrialBenchmarkSuiteService.php
   - app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsProviderArenaCorpusService.php
@@ -85,7 +90,6 @@ next_actions:
   - Manter `run-arena --case-set=<preset industrial>` como caminho operacional principal ate a migracao total do preflight legado.
 updated_at: 2026-05-17
 ---
-
 # Atlas Forge Rivals Industrial Benchmark Suite v1
 
 ## Resumo

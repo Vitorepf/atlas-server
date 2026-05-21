@@ -6,6 +6,18 @@ status: active
 category: documentation
 priority: 99
 summary: Contrato de nomenclatura da Cartografia para separar patamar, versao, camada, fonte, risco, regra, teste e documento canonico. Impede que a IA transforme numero de versao, camada visual ou arquivo-fonte em evolucao de maturidade.
+human_summary: Separa patamar, versao, camada, fonte, risco, regra e teste para a Cartografia nao misturar conceitos.
+human_what: Contrato de nomes usados pela Cartografia e pelos modais humanos.
+human_purpose: Impedir que IA ou interface chamem versao de patamar, fonte de verdade ou maturidade que nao existe.
+human_input: Recebe frontmatter, nomes canonicos, status, patamar, versoes, camada visual, fonte e risco declarado.
+human_output: Entrega leitura consistente para mapa, modal, legenda e deep links da Cartografia.
+human_change_when: Mexa quando surgir novo tipo visual, novo patamar, nova versao, novo status ou nova regra de nomenclatura.
+human_block_when: Bloqueie quando a Cartografia inventar patamar, esconder fonte, misturar status ou usar nome tecnico como verdade humana.
+human_name: Contrato de Nomes da Cartografia
+canonical_name: Atlas Cartography Nomenclature Contract
+technical_name: CartographyNomenclatureContract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
 tags:
   - atlas
   - cartography
@@ -144,12 +156,20 @@ ter muitas versoes e nenhum patamar declarado; nesse caso o modal deve mostrar
 O modal de longa pressao e o unico lugar textual da Cartografia. Ele deve ser
 organizado para humano novato entender rapido.
 
-- `Leitura guiada`: primeira area do modal. Deve conduzir qualquer pessoa por
-  quatro passos: entender a peca, ver o caminho, conferir maturidade/patamar e
-  validar prova antes de pedir alteracao para IA.
-- `Nomenclatura: nao confundir`: primeira trava textual para separar
-  Patamar, Versao, Fonte, Documentacao relacionada, Camada, Regra, Risco e
-  Prova antes de qualquer pedido de implementacao para IA.
+O modal deve seguir o contrato de 7 camadas do
+`atlas-documentation-creation-gate.md`: Essencial, Fluxo, Relacoes, Evolucao,
+Patamares, Versoes, Prova e Seguranca.
+
+- `Essencial`: deve mostrar nome humano, nome tecnico/canonico, tipo, status e
+  fonte canonica antes de qualquer explicacao longa. Se a origem for
+  `derived_fallback`, mostrar como legado/derivado, nao como declaracao plena.
+- `Fluxo`: deve mostrar entrada -> peca -> saida sem converter seta visual em
+  patamar.
+- `Relacoes`: deve mostrar pai, filhos, dependencias e desbloqueios sem
+  confundir relacao operacional com maturidade.
+- `Evolucao`: deve separar o que existe, o que falta e a proxima acao segura.
+- `Prova e Seguranca`: deve manter fonte, teste, evidence, risco, regra e owner
+  em categorias distintas.
 - `Patamares`: patamar atual, e proximo patamar de alguem, proximo
   patamar, outros patamares depois. Nao colocar versao aqui.
   - Campos canonicos: `patamar_current`, `patamar_next_of`,

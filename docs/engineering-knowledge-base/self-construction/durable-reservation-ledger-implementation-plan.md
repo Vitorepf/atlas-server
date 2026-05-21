@@ -12,7 +12,7 @@ tags:
   - reservation-ledger
   - implementation-plan
 capabilities:
-  - self_construction_os
+  - self_construction_durable_reservation_ledger_implementation_plan
   - durable_claims
   - parallel_ai
 decisions:
@@ -46,6 +46,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Durable Reservation Ledger Implementation Plan
+canonical_name: Atlas Self-Construction Durable Reservation Ledger Implementation Plan
+technical_name: atlas-ai-self-construction-durable-reservation-ledger-implementation-plan
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/durable-reservation-ledger-implementation-plan.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-ledger-implementation-plan.md

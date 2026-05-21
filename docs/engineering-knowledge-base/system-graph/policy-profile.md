@@ -24,6 +24,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Policy Profile
+canonical_name: Policy Profile
+technical_name: policy-profile
+cartography_type: step
+canonical_source: docs/engineering-knowledge-base/system-graph/policy-profile.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/policy-profile.md

@@ -50,6 +50,11 @@ graph_kind: runbook
 graph_parent: atlas-temporal-engineering-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas TEOS I2-I5 Runtime Certification
+canonical_name: Atlas TEOS I2-I5 Runtime Certification
+technical_name: atlas-teos-i2-i5-runtime-certification
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-teos-i2-i5-runtime-certification.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-teos-i2-i5-runtime-certification.md
@@ -92,7 +97,6 @@ next_actions:
   - Selecionar Forge intake real quando certificar Obra viva fora do smoke.
   - Só depois preparar pre-benchmark readiness; não rodar rivals ainda.
 ---
-
 # Atlas TEOS I2-I5 Runtime Certification
 
 ## Resumo

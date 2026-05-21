@@ -13,7 +13,7 @@ tags:
   - constitution
 capabilities:
   - canonical_architecture_index
-  - documentation_governance
+  - layer_0_glossary
   - provider_safe_identity
 decisions:
   - A Tese do Multiplicador / Canal Unico (Layer -1, ver atlas-ai-thesis-multiplier-channel.md) governa identidade operacional do Atlas. Atlas e canal soberano que multiplica output de qualquer provider; nao competidor.
@@ -52,6 +52,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Layer 0 Constitution And Glossary
+canonical_name: Atlas AI Layer 0 Constitution And Glossary
+technical_name: atlas-ai-layer-0-glossary
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md
 
 owner: architecture-governance
 

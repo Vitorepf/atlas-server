@@ -40,6 +40,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: ADR 0001 - Fonte De Verdade Do Conhecimento De Engenharia
+canonical_name: ADR 0001 - Fonte De Verdade Do Conhecimento De Engenharia
+technical_name: adr-0001-engineering-knowledge-source-of-truth
+cartography_type: adr
+canonical_source: docs/engineering-knowledge-base/adr/0001-engineering-knowledge-source-of-truth.md
 
 owner: adr
 

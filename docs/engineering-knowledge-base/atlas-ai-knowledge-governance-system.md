@@ -6,6 +6,13 @@ status: active
 category: knowledge-governance
 priority: 100
 summary: Contrato enterprise que conecta docs canonicos no repo, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian/AtlasVault, AGENTS/CLAUDE e bootstrap de sessao para qualquer IA se orientar sem memoria de chat.
+human_summary: Define quem manda quando repo docs, codigo, ledger, Postgres, Obsidian, AGENTS, CLAUDE ou chat discordam.
+human_what: Hierarquia de autoridade do conhecimento do Atlas.
+human_purpose: Fazer qualquer IA nascer orientada pela fonte certa, sem depender de memoria de chat ou resumo incompleto.
+human_input: Recebe docs canonicos, read models, evidence ledger, vault humano, projections de provider e contexto de sessao.
+human_output: Entrega regra de conflito, bootstrap, fonte de verdade e caminho seguro para promover conhecimento.
+human_change_when: Mexa quando mudar a autoridade entre repo, ledger, KB, Obsidian, provider projection ou bootstrap.
+human_block_when: Bloqueie quando uma IA quiser confiar em chat, Obsidian, Postgres ou projection contra uma doc canonica do repo.
 tags:
   - atlas-ai
   - documentation
@@ -21,7 +28,7 @@ capabilities:
   - documentation_source_of_truth
   - context_pack_contract
   - agent_projection_governance
-  - provider_release_ingestion
+  - provider_release_governance
 decisions:
   - Documentacao e infraestrutura operacional do Atlas, nao material auxiliar.
   - `docs/engineering-knowledge-base` e a fonte canonica versionada de engenharia.
@@ -76,6 +83,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Knowledge Governance System
+canonical_name: Atlas AI Knowledge Governance System
+technical_name: atlas-ai-knowledge-governance-system
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
 
 owner: knowledge-governance
 

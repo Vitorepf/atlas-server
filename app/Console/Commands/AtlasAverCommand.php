@@ -8,13 +8,14 @@ use Illuminate\Console\Command;
 class AtlasAverCommand extends Command
 {
     protected $signature = 'atlas:aver
-        {action=control-plane : plan|run-command|run-test|fixture-cycle|certify|control-plane}
+        {action=control-plane : plan|plan-from-verified-evolution|run-command|run-test|fixture-cycle|certify|control-plane}
         {--objective= : Execution objective}
         {--execution-id= : AVER execution UUID}
         {--command= : Safe command to run}
         {--cwd= : Working directory}
         {--domain=programming : Domain}
         {--flow-id=atlas_dev : Flow id}
+        {--contract-json= : AVEOR execution-contract JSON for plan-from-verified-evolution}
         {--evidence=* : Evidence refs}
         {--simulate-test-failure : Simulate failing fixture test}
         {--hours=24 : Control plane window}
@@ -27,6 +28,7 @@ class AtlasAverCommand extends Command
         $action = (string) $this->argument('action');
         $payload = match ($action) {
             'plan' => $runtime->plan($this->baseInput()),
+            'plan-from-verified-evolution' => $runtime->planFromVerifiedEvolutionContract($this->contractJson()),
             'run-command' => $runtime->runCommand(array_merge($this->baseInput(), ['execution_id' => $this->option('execution-id'), 'command' => $this->option('command'), 'cwd' => $this->option('cwd')])),
             'run-test' => $runtime->runTest(array_merge($this->baseInput(), ['execution_id' => $this->option('execution-id'), 'command' => $this->option('command'), 'cwd' => $this->option('cwd')])),
             'fixture-cycle' => $runtime->executeFixtureCycle(array_merge($this->baseInput(), ['simulate_test_failure' => (bool) $this->option('simulate-test-failure')])),
@@ -57,5 +59,20 @@ class AtlasAverCommand extends Command
             'flow_id' => $this->option('flow-id'),
             'evidence_refs' => $this->option('evidence'),
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function contractJson(): array
+    {
+        $json = trim((string) $this->option('contract-json'));
+        if ($json === '') {
+            return [];
+        }
+
+        $decoded = json_decode($json, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 }

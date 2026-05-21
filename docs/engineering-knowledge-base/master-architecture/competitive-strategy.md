@@ -12,7 +12,7 @@ tags:
   - providers
 capabilities:
   - atlas_vs_claude_code_strategy
-  - provider_evolution_intelligence
+  - provider_evolution_strategy
   - rivals_validation
 decisions:
   - Atlas does not compete model-vs-model; it competes as the governed upper layer.
@@ -41,6 +41,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Master Architecture Competitive Strategy
+canonical_name: Master Architecture Competitive Strategy
+technical_name: atlas-ai-master-competitive-strategy
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/master-architecture/competitive-strategy.md
 
 owner: master-architecture
 

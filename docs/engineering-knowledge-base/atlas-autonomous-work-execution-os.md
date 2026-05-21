@@ -54,6 +54,11 @@ graph_kind: system
 graph_parent: atlas-ai
 graph_status: active
 graph_source: repo
+human_name: Atlas Autonomous Work Execution OS
+canonical_name: Atlas Autonomous Work Execution OS
+technical_name: AtlasAutonomousWorkExecutionService
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-autonomous-work-execution-os.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-autonomous-work-execution-os.md
@@ -95,7 +100,6 @@ requires_evidence: true
 risk_level: high
 line_limit: 520
 ---
-
 # Atlas Autonomous Work Execution OS
 
 ## Resumo

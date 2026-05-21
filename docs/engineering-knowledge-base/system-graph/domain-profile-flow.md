@@ -7,7 +7,7 @@ category: kernel
 priority: 88
 summary: Seleciona dominio cognitivo, sistema operacional vertical e fluxo executivo antes de montar contexto.
 tags: [atlas, kernel, domain, flow]
-capabilities: [domain_profile, flow_selection]
+capabilities: [domain_profile, domain_profile_flow_selection]
 decisions:
   - Dominio cognitivo e separado de Business Context e de provider.
 maintenance:
@@ -24,6 +24,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Domain Profile Flow
+canonical_name: Domain Profile Flow
+technical_name: domain-profile-flow
+cartography_type: step
+canonical_source: docs/engineering-knowledge-base/system-graph/domain-profile-flow.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/domain-profile-flow.md

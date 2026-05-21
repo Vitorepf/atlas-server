@@ -32,6 +32,11 @@ graph_kind: module
 graph_parent: atlas-teos-existing-code-map
 graph_status: active
 graph_source: repo
+human_name: Atlas TEOS Existing Code Map Parte 2
+canonical_name: Atlas TEOS Existing Code Map Parte 2
+technical_name: atlas-teos-existing-code-map-part-02
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-teos-existing-code-map-part-02.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-teos-existing-code-map-part-02.md

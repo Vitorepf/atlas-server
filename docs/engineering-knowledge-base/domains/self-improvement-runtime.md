@@ -11,7 +11,7 @@ tags:
   - self-improvement
   - runtime
 capabilities:
-  - self_improvement_domain
+  - self_improvement_runtime
   - docs_drift_review
 decisions:
   - Self-Improvement runtime consumes shared read models and emits reviewable proposals, not direct critical mutations.
@@ -32,11 +32,16 @@ graph_layer: system
 
 graph_kind: module
 
-graph_parent: atlas-ai-canonical-architecture-index
+graph_parent: atlas-ai-self-improvement-domain
 
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Self-Improvement Runtime
+canonical_name: Atlas AI Self-Improvement Runtime
+technical_name: atlas-ai-self-improvement-runtime
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/self-improvement-runtime.md
 
 owner: domains
 

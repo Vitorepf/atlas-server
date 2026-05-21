@@ -12,8 +12,8 @@ tags:
   - runtime
   - evidence
 capabilities:
-  - evidence_ledger
-  - operation_envelope
+  - runtime_packet_evidence_contract
+  - runtime_operation_envelope_contract
   - runtime_contracts
 decisions:
   - Packet final e projecao; fonte de verdade auditavel e Evidence Ledger + Operation Envelope + Decision Receipt.
@@ -42,6 +42,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Runtime Packets
+canonical_name: Atlas AI Runtime Packets
+technical_name: atlas-ai-runtime-packets
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-ai-runtime-packets.md
 
 owner: runtime-contracts
 

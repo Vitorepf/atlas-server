@@ -48,6 +48,7 @@ class AtlasAutonomousWorkExecutionServiceTest extends TestCase
             'objective' => 'implemente um fluxo de programacao com contexto, testes e certificacao',
             'domain' => 'programming',
             'flow_id' => 'atlas_dev',
+            'expected_files' => ['app/Services/Ai/AutonomousWorkExecution/AtlasAutonomousWorkExecutionService.php'],
             'evidence_refs' => ['doc:aweos'],
             'context_refs' => ['file:app/Services/Ai'],
         ]);
@@ -59,6 +60,8 @@ class AtlasAutonomousWorkExecutionServiceTest extends TestCase
         $this->assertNotEmpty($payload['runtime_efficiency']['decision_hash']);
         $this->assertNotEmpty($payload['agentic_workcell']['workcell_hash']);
         $this->assertNotEmpty($payload['aemor_episode']['episode_hash']);
+        $this->assertTrue(data_get($payload, 'verified_execution.aweos_bridge.uses_verified_evolution_contract'));
+        $this->assertSame('atlas.verified_evolution.execution_contract.v1', data_get($payload, 'verified_execution.execution_contract.source_verified_evolution_schema'));
         $this->assertTrue(data_get($payload, 'claim_policy.completion_requires_certified_outcome'));
         $this->assertDatabaseCount('atlas_aweos_executions', 1);
         $this->assertDatabaseCount('atlas_aweos_events', 1);

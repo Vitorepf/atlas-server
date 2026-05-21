@@ -11,7 +11,7 @@ tags:
   - self-construction
   - handoff
 capabilities:
-  - self_construction_os
+  - self_construction_builder_persona_and_handoff
   - handoff
 decisions:
   - Any AI building Atlas acts as governed architect, not generic coder.
@@ -41,6 +41,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Builder Persona And Handoff
+canonical_name: Atlas Self-Construction Builder Persona And Handoff
+technical_name: atlas-ai-self-construction-builder-persona-and-handoff
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/builder-persona-and-handoff.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/builder-persona-and-handoff.md

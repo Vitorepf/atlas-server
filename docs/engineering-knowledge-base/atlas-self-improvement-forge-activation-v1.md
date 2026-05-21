@@ -54,6 +54,11 @@ graph_kind: runbook
 graph_parent: atlas-self-improvement-governance-ladder
 graph_status: active
 graph_source: repo
+human_name: "Atlas Self-Improvement → Forge Activation v1"
+canonical_name: "Atlas Self-Improvement → Forge Activation v1"
+technical_name: atlas-self-improvement-forge-activation-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-self-improvement-forge-activation-v1.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-self-improvement-forge-activation-v1.md

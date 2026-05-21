@@ -15,9 +15,9 @@ tags:
 capabilities:
   - engineering_blueprint
   - project_blueprint_pipeline
-  - task_contracts
+  - blueprint_task_contracts_core
   - scenario_inventory
-  - qa_evidence
+  - blueprint_qa_evidence_core
   - review_gates
   - postgres_gate
 decisions:
@@ -66,6 +66,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Engineering Blueprint System
+canonical_name: Atlas Engineering Blueprint System
+technical_name: atlas-engineering-blueprint
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/engineering-blueprint.md
 
 owner: architecture
 

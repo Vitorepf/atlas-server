@@ -60,6 +60,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Plane - Pipeline Overlay
+canonical_name: Atlas AI Cognitive Plane - Pipeline Overlay
+technical_name: atlas-ai-cognitive-pipeline-overlay
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/cognitive/pipeline-overlay.md
 
 repo_paths:
   - docs/engineering-knowledge-base/cognitive/pipeline-overlay.md

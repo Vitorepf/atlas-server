@@ -71,6 +71,11 @@ graph_kind: policy
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Permission Budget Safety Layer
+canonical_name: Atlas Permission Budget Safety Layer
+technical_name: atlas-permission-budget-safety-layer
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-permission-budget-safety-layer.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-permission-budget-safety-layer.md

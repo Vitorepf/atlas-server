@@ -52,6 +52,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Cognitive Plane - Principles, Evidence Hierarchy, External Input Filter
+canonical_name: Atlas AI Cognitive Plane - Principles, Evidence Hierarchy, External Input Filter
+technical_name: atlas-ai-cognitive-principles
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/cognitive/principles.md
 
 repo_paths:
   - docs/engineering-knowledge-base/cognitive/principles.md

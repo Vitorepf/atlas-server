@@ -44,6 +44,11 @@ graph_parent: atlas-programming-governance-system
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Programming Governance System Runbook
+canonical_name: Atlas Programming Governance System Runbook
+technical_name: atlas-programming-governance-system-runbook
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
 
 owner: programming
 

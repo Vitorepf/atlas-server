@@ -6,6 +6,18 @@ status: active
 category: architecture-audit
 priority: 100
 summary: Camada canonica que prova mecanicamente se codigo, docs, rotas, comandos, testes e runtimes estao vivos, legados, scaffold, duplicados, headless ou candidatos a quarentena antes de qualquer IA implementar ou apagar algo.
+human_summary: Mostra o que no codigo e real, usado, duplicado, legado ou perigoso de apagar antes de qualquer IA mexer no Atlas.
+human_what: Runtime de realidade operacional que cruza codigo, docs, testes, rotas, comandos e uso real.
+human_purpose: Evitar que uma IA implemente duplicado, apague codigo vivo ou confunda scaffold com produto pronto.
+human_input: Recebe arquivos, referencias, testes, comandos, reachability, docs canonicas e sinais de uso runtime.
+human_output: Entrega classificacao de usado, legado, duplicado, scaffold, headless, bloqueado ou candidato a quarentena.
+human_change_when: Mexa quando surgir novo scanner, novo tipo de evidencia, novo fluxo Dev/Forge ou nova regra de quarentena.
+human_block_when: Bloqueie quando nao houver prova de reachability, teste, fonte canonica ou plano seguro antes de apagar ou duplicar.
+human_name: Realidade de Codigo e Uso
+canonical_name: Atlas Code Reality & Usage Intelligence
+technical_name: AtlasCodeRealityUsageIntelligenceService
+cartography_type: runtime
+canonical_source: docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
 tags:
   - atlas-ai
   - code-intelligence
@@ -39,6 +51,7 @@ related_paths:
   - docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/code-intelligence.md
+  - docs/engineering-knowledge-base/atlas-software-twin-verified-evolution-runtime.md
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
   - app/Services/Engineering/EngineeringDocumentationAuthorityAuditService.php
   - app/Services/Ai/Kernel/Architecture/KernelArchitectureStaticScanner.php
@@ -112,6 +125,7 @@ observability_signals:
   - code-intelligence index freshness
 next_actions:
   - Evoluir ACRUI de service read-only para reachability graph integrado com Code Intelligence, Static Scanner, docs-authority e Feature Placement.
+  - Integrar ACRUI como fonte de realidade operacional para ASTR e AVEOR sem autorizar delecao automatica.
 ---
 # Atlas Code Reality & Usage Intelligence
 ## Resumo
@@ -492,4 +506,5 @@ parked/scaffold. O status correto pode ser:
 4. Manter resumo ACRUI integrado em `session-bootstrap` e `feature-placement`.
 5. Adicionar operation ao Architecture Operations catalog.
 6. Criar context-pack provider-safe para Claude/Codex/Gemini.
-7. Rodar docs-health, docs-authority-audit e architecture-validate.
+7. Alimentar ASTR com classificacao `active_runtime`, `headless_available`, `parked_scaffold`, `legacy_adapter`, `duplicate_candidate` e quarantine state.
+8. Rodar docs-health, docs-authority-audit e architecture-validate.

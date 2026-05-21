@@ -13,7 +13,7 @@ tags:
   - operator-runbook
   - safety
 capabilities:
-  - self_construction_os
+  - self_construction_atlas_self_construction_os_operator_runbook_v1
   - agent_control_plane
   - operator_workflow
   - safety_governance
@@ -46,6 +46,11 @@ graph_kind: runbook
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction OS - Operator Runbook v1
+canonical_name: Atlas Self-Construction OS - Operator Runbook v1
+technical_name: atlas-self-construction-os-operator-runbook-v1
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/self-construction/atlas-self-construction-os-operator-runbook-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/atlas-self-construction-os-operator-runbook-v1.md
 allowed_changes:
@@ -86,7 +91,6 @@ observability_signals:
 next_actions:
   - Manter este runbook sincronizado com comandos, certificacoes e safety invariants.
 ---
-
 # Atlas Self-Construction OS - Operator Runbook v1
 
 This is the operator-facing runbook for driving Atlas Self-Construction OS

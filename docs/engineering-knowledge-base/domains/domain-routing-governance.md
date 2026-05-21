@@ -40,6 +40,11 @@ graph_kind: policy
 graph_parent: atlas-ai-domain-specs-index
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Domain Routing Governance
+canonical_name: Atlas AI Domain Routing Governance
+technical_name: atlas-ai-domain-routing-governance
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/domains/domain-routing-governance.md
 owner: domains
 repo_paths:
   - docs/engineering-knowledge-base/domains/domain-routing-governance.md

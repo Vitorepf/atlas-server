@@ -62,6 +62,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Obras Operating System
+canonical_name: Atlas AI Obras Operating System
+technical_name: atlas-ai-obras-operating-system
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md

@@ -38,6 +38,11 @@ graph_kind: contract
 graph_parent: atlas-code-forge-live-execution-surface-contract
 graph_status: active
 graph_source: repo
+human_name: Atlas Code Enterprise Certification
+canonical_name: Atlas Code Enterprise Certification
+technical_name: atlas-code-enterprise-certification
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-code-enterprise-certification.md
 owner: atlas-ai
 repo_paths:
   - app/Services/Ai/Programming/AtlasCodeEnterpriseCertificationService.php

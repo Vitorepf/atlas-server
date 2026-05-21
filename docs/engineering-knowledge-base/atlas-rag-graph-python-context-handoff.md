@@ -52,6 +52,11 @@ graph_kind: module
 graph_parent: atlas-context-intelligence-engine
 graph_status: active
 graph_source: repo
+human_name: Atlas RAG Graph Python Context Handoff
+canonical_name: Atlas RAG Graph Python Context Handoff
+technical_name: atlas-rag-graph-python-context-handoff
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-rag-graph-python-context-handoff.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-rag-graph-python-context-handoff.md
@@ -88,7 +93,6 @@ next_actions:
   - Usar este handoff antes de desenhar AURG ou qualquer nova camada de Graph/Reality Graph.
   - Rodar readiness/certifications listadas antes de dizer que RAG/Graph/Python esta pronto.
 ---
-
 # Atlas RAG Graph Python Context Handoff
 
 ## Resumo

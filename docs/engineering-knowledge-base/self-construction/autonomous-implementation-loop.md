@@ -12,7 +12,7 @@ tags:
   - autonomous-loop
 capabilities:
   - autonomous_implementation_loop
-  - self_construction_os
+  - self_construction_autonomous_implementation_loop
 decisions:
   - Autonomous construction is a loop with gates, not an open-ended coding session.
   - Every loop stage must emit an artifact or evidence.
@@ -41,6 +41,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Autonomous Implementation Loop
+canonical_name: Atlas Self-Construction Autonomous Implementation Loop
+technical_name: atlas-ai-self-construction-autonomous-implementation-loop
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/autonomous-implementation-loop.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/autonomous-implementation-loop.md

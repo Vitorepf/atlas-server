@@ -21,14 +21,15 @@ final class AtlasVerifiedExecutionCertificationService
     {
         $checks = [
             $this->fileCheck('canonical_doc', 'docs/engineering-knowledge-base/atlas-verified-execution-runtime.md', ['Atlas Verified Execution Runtime', 'AVER', 'Atlas Execution Cockpit']),
-            $this->fileCheck('runtime_service', 'app/Services/Ai/VerifiedExecution/AtlasVerifiedExecutionRuntimeService.php', ['executeFixtureCycle', 'safetyGateForCommand', 'certify']),
+            $this->fileCheck('runtime_service', 'app/Services/Ai/VerifiedExecution/AtlasVerifiedExecutionRuntimeService.php', ['executeFixtureCycle', 'planFromVerifiedEvolutionContract', 'safetyGateForCommand', 'certify']),
             $this->fileCheck('persistence', 'database/migrations/2026_05_20_200000_create_atlas_aver_tables.php', ['atlas_aver_executions', 'atlas_aver_command_ledgers', 'atlas_aver_certified_executions']),
             $this->fileCheck('models', 'app/Models/AtlasAverExecution.php', ['AtlasAverExecution', 'commandLedgers', 'certifiedExecution']),
             $this->runtimeSmoke(),
+            $this->verifiedEvolutionContractSmoke(),
             $this->blockedCommandSmoke(),
             $this->failedTestRepairSmoke(),
             $this->certifiedFixtureSmoke(),
-            $this->fileCheck('commands', 'app/Console/Commands/AtlasAverCommand.php', ['atlas:aver', 'fixture-cycle', 'run-command']),
+            $this->fileCheck('commands', 'app/Console/Commands/AtlasAverCommand.php', ['atlas:aver', 'plan-from-verified-evolution', 'fixture-cycle', 'run-command']),
             $this->fileCheck('certify_command', 'app/Console/Commands/AtlasAverCertifyCommand.php', ['atlas:aver:certify']),
             $this->fileCheck('tests', 'tests/Feature/Ai/VerifiedExecution/AtlasVerifiedExecutionRuntimeServiceTest.php', ['test_fixture_cycle_certifies_gold_execution', 'test_dangerous_command_is_blocked']),
             $this->integrationWiring(),
@@ -90,6 +91,37 @@ final class AtlasVerifiedExecutionCertificationService
             && isset($payload['execution_contract'], $payload['patch_plan'], $payload['safety_gate'], $payload['verification_plan']);
 
         return ['id' => 'runtime_smoke', 'status' => $ok ? 'pass' : 'fail', 'evidence' => ['execution_hash' => $payload['execution_hash'] ?? null]];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function verifiedEvolutionContractSmoke(): array
+    {
+        $contract = [
+            'schema_version' => 'atlas.verified_evolution.execution_contract.v1',
+            'status' => 'ready',
+            'execution_contract' => [
+                'status' => 'ready_for_aver_plan',
+                'aver_plan_input' => [
+                    'objective' => 'AVER from AVEOR certification smoke',
+                    'domain' => 'programming',
+                    'flow_id' => 'atlas_dev',
+                    'surface_id' => 'atlas_ai',
+                    'allowed_write_paths' => ['app/Services/Ai/VerifiedExecution/AtlasVerifiedExecutionRuntimeService.php'],
+                    'evidence_refs' => ['test:aver_from_aveor'],
+                    'verification_plan' => [
+                        'required_gates' => ['git diff --check'],
+                    ],
+                ],
+            ],
+        ];
+        $payload = $this->withoutPersistingSmoke(fn (): array => $this->runtime->planFromVerifiedEvolutionContract($contract));
+        $ok = ($payload['schema_version'] ?? null) === AtlasVerifiedExecutionRuntimeService::EXECUTION_SCHEMA
+            && ($payload['status'] ?? null) === AtlasVerifiedExecutionRuntimeService::STATUS_READY
+            && data_get($payload, 'execution_contract.source_verified_evolution_schema') === 'atlas.verified_evolution.execution_contract.v1';
+
+        return ['id' => 'verified_evolution_contract_smoke', 'status' => $ok ? 'pass' : 'fail', 'evidence' => ['execution_hash' => $payload['execution_hash'] ?? null]];
     }
 
     /**

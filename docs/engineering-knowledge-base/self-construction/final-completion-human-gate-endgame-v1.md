@@ -55,6 +55,11 @@ graph_kind: contract
 graph_parent: atlas-self-construction-agent-control-plane-contract
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Construction - Final Completion Human Gate and Endgame v1
+canonical_name: Atlas Self-Construction - Final Completion Human Gate and Endgame v1
+technical_name: atlas-self-construction-final-completion-human-gate-endgame-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/final-completion-human-gate-endgame-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/final-completion-human-gate-endgame-v1.md
 allowed_changes:
@@ -98,9 +103,7 @@ next_actions:
   - Aplicar o integration patch pending nas readiness service, CLI command e agent-control-plane-contract.md depois que a concorrencia liberar.
   - Manter os 4 services e tests determinacao do hash.
 ---
-
 # Atlas Self-Construction · Final Completion Human Gate + Endgame v1
-
 > **Status:** 4 services + 4 tests **delivered green** (37 tests / 148
 > assertions). Readiness/CLI/contract wiring is **integration patch pending**
 > because the shared central files
@@ -109,15 +112,11 @@ next_actions:
 > `docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md`)
 > were being modified concurrently by another agent throughout this slice.
 > Per operator instruction this slice did not rewrite them.
-
 ---
-
 ## What this slice closes
-
 The endgame corridor for the canonical blocker
 `human_signed_os_complete_receipt_present` and the final completion claim of
 Atlas Self-Construction OS. It NEVER:
-
 - signs the receipt on behalf of the operator;
 - persists receipts or evidence;
 - promotes completion;
@@ -125,10 +124,8 @@ Atlas Self-Construction OS. It NEVER:
 - calls a provider, dispatches work, spends tokens or enables runtime / self-programming;
 - mutates Atlas state in any way other than (optionally) persisting an exportable
   read-only dossier markdown+JSON to local storage when explicitly asked.
-
 Together with the Closure Execution Pack v1 corridor delivered earlier, this
 slice provides:
-
 1. A composing **Final Completion Human Gate** (status machine).
 2. An **Endgame Verifier** (read-only diagnostic).
 3. A **Final Completion Dossier Exporter** (markdown + JSON + checklist + evidence map; default no-persist).

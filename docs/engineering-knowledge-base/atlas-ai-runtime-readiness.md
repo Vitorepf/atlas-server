@@ -27,6 +27,11 @@ graph_kind: contract
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Runtime Readiness
+canonical_name: Atlas AI Runtime Readiness
+technical_name: atlas-ai-runtime-readiness
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-ai-runtime-readiness.md
 owner: runtime-readiness
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-runtime-readiness.md

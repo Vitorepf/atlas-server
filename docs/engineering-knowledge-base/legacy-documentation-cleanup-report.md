@@ -12,9 +12,9 @@ tags:
   - cleanup
   - legacy
 capabilities:
-  - legacy_documentation_inventory
-  - documentation_archive_governance
-  - source_material_promotion
+  - legacy_cleanup_report_inventory
+  - legacy_cleanup_report_archive_governance
+  - legacy_cleanup_report_source_promotions
 decisions:
   - This active report is an index; detailed matrices live in focused child docs.
   - Legacy source material must not compete with README, START_HERE, Canonical Architecture Index or Documentation OS.
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Legacy Documentation Cleanup Report
+canonical_name: Legacy Documentation Cleanup Report
+technical_name: legacy-documentation-cleanup-report
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/legacy-documentation-cleanup-report.md
 
 owner: documentation-governance
 

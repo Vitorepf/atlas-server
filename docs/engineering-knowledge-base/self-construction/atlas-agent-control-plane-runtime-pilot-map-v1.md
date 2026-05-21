@@ -45,6 +45,11 @@ graph_kind: module
 graph_parent: atlas-self-construction-agent-control-plane-contract
 graph_status: active
 graph_source: repo
+human_name: Atlas Agent Control Plane - Runtime Pilot Map v1
+canonical_name: Atlas Agent Control Plane - Runtime Pilot Map v1
+technical_name: atlas-agent-control-plane-runtime-pilot-map-v1
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/atlas-agent-control-plane-runtime-pilot-map-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/atlas-agent-control-plane-runtime-pilot-map-v1.md
 allowed_changes:
@@ -85,7 +90,6 @@ observability_signals:
 next_actions:
   - Manter este mapa sincronizado com agent-control-plane-contract.md e safety invariants.
 ---
-
 # Atlas Agent Control Plane - Runtime Pilot Map v1
 
 The Agent Control Plane runtime pilot is a set of projection-only components

@@ -30,6 +30,7 @@ final class GraphAssembler
         $vaultPath = (string) config('atlas_vault.obsidian_vault_path');
 
         $semanticGraph = $this->semanticGraph($repoIndex, $vaultIndex);
+        $essentialFieldAudit = $this->essentialFieldAudit($semanticGraph['nodes']);
 
         $continents = array_map(function (array $c) use ($repoIndex, $vaultIndex, $semanticGraph): array {
             $resolved = $this->resolveAtom($c, $repoIndex, $vaultIndex);
@@ -143,6 +144,7 @@ final class GraphAssembler
                 'orphan_count' => count($orphanIds),
                 'semantic_node_count' => count($semanticGraph['nodes']),
                 'semantic_relation_count' => count($semanticGraph['relations']),
+                'essential_fields' => $essentialFieldAudit,
             ],
             'universe' => $continents,
             'views' => [
@@ -257,6 +259,23 @@ final class GraphAssembler
             'frontmatter_id' => $foundIdUsed,
             'mtime' => $found['mtime'] ?? null,
             // Inject any canonical frontmatter fields the cartography can use directly
+            'human_summary' => $fm['human_summary'] ?? $fm['summary'] ?? null,
+            'human_what' => $fm['human_what'] ?? null,
+            'human_purpose' => $fm['human_purpose'] ?? null,
+            'human_input' => $fm['human_input'] ?? null,
+            'human_output' => $fm['human_output'] ?? null,
+            'human_change_when' => $fm['human_change_when'] ?? null,
+            'human_block_when' => $fm['human_block_when'] ?? null,
+            'human_name' => $fm['human_name'] ?? $fm['graph_title'] ?? $fm['title'] ?? $foundIdUsed,
+            'canonical_name' => $fm['canonical_name'] ?? $fm['graph_title'] ?? $fm['title'] ?? $foundIdUsed,
+            'technical_name' => $fm['technical_name'] ?? $fm['technical_runtime'] ?? $fm['graph_title'] ?? $fm['title'] ?? $foundIdUsed,
+            'product_name' => $fm['product_name'] ?? null,
+            'runtime_acronym' => $fm['runtime_acronym'] ?? null,
+            'internal_product_name' => $fm['internal_product_name'] ?? null,
+            'technical_runtime' => $fm['technical_runtime'] ?? null,
+            'cartography_type' => $fm['cartography_type'] ?? $fm['graph_kind'] ?? $fm['type'] ?? 'module',
+            'canonical_source' => $fm['canonical_source'] ?? $found['relative_path'],
+            'cartography_essential_source' => $this->essentialFieldsDeclared($fm) ? 'declared' : 'derived_fallback',
             'graph_title' => $fm['graph_title'] ?? null,
             'graph_world' => $fm['graph_world'] ?? null,
             'graph_layer' => $fm['graph_layer'] ?? null,
@@ -394,6 +413,23 @@ final class GraphAssembler
             'graph_parent' => $fm['graph_parent'] ?? null,
             'graph_status' => $fm['graph_status'] ?? $fm['status'] ?? null,
             'graph_source' => $source,
+            'human_summary' => $fm['human_summary'] ?? $fm['summary'] ?? null,
+            'human_what' => $fm['human_what'] ?? null,
+            'human_purpose' => $fm['human_purpose'] ?? null,
+            'human_input' => $fm['human_input'] ?? null,
+            'human_output' => $fm['human_output'] ?? null,
+            'human_change_when' => $fm['human_change_when'] ?? null,
+            'human_block_when' => $fm['human_block_when'] ?? null,
+            'human_name' => $fm['human_name'] ?? $fm['graph_title'] ?? $fm['title'] ?? $graphId,
+            'canonical_name' => $fm['canonical_name'] ?? $fm['graph_title'] ?? $fm['title'] ?? $graphId,
+            'technical_name' => $fm['technical_name'] ?? $fm['technical_runtime'] ?? $fm['graph_title'] ?? $fm['title'] ?? $graphId,
+            'product_name' => $fm['product_name'] ?? null,
+            'runtime_acronym' => $fm['runtime_acronym'] ?? null,
+            'internal_product_name' => $fm['internal_product_name'] ?? null,
+            'technical_runtime' => $fm['technical_runtime'] ?? null,
+            'cartography_type' => $fm['cartography_type'] ?? $fm['graph_kind'] ?? $fm['type'] ?? 'module',
+            'canonical_source' => $fm['canonical_source'] ?? $entry['relative_path'] ?? null,
+            'cartography_essential_source' => $this->essentialFieldsDeclared($fm) ? 'declared' : 'derived_fallback',
             'layer' => $fm['layer'] ?? null,
             'doc_schema' => $fm['doc_schema'] ?? null,
             'owner' => $fm['owner'] ?? null,
@@ -440,6 +476,61 @@ final class GraphAssembler
     private function defaultWorldForSource(string $source): string
     {
         return $source === 'vault' ? 'vault' : 'atlas';
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $nodes
+     * @return array<string,mixed>
+     */
+    private function essentialFieldAudit(array $nodes): array
+    {
+        $declared = 0;
+        $fallback = 0;
+        $activeRepoFallback = [];
+
+        foreach ($nodes as $node) {
+            $source = (string) ($node['cartography_essential_source'] ?? '');
+            if ($source === 'declared') {
+                $declared++;
+            } elseif ($source === 'derived_fallback') {
+                $fallback++;
+            }
+
+            if (
+                ($node['graph_source'] ?? null) === 'repo'
+                && in_array((string) ($node['graph_status'] ?? ''), ['active', 'building'], true)
+                && $source !== 'declared'
+            ) {
+                $activeRepoFallback[] = [
+                    'graph_id' => (string) ($node['graph_id'] ?? ''),
+                    'source_path' => (string) ($node['source_path'] ?? ''),
+                    'status' => (string) ($node['graph_status'] ?? ''),
+                ];
+            }
+        }
+
+        return [
+            'status' => $activeRepoFallback === [] ? 'ready' : 'blocked',
+            'declared_count' => $declared,
+            'derived_fallback_count' => $fallback,
+            'active_repo_fallback_count' => count($activeRepoFallback),
+            'active_repo_fallback' => $activeRepoFallback,
+            'policy' => 'active_building_repo_docs_must_declare_layer_1_fields; fallback_is_allowed_only_for_archive_legacy_or_external_vault_sources',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $frontmatter
+     */
+    private function essentialFieldsDeclared(array $frontmatter): bool
+    {
+        foreach (['human_name', 'canonical_name', 'technical_name', 'cartography_type', 'canonical_source'] as $field) {
+            if (trim((string) ($frontmatter[$field] ?? '')) === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -33,6 +33,11 @@ graph_kind: contract
 graph_parent: atlas-ai-router-runtime-enterprise-upgrade
 graph_status: active
 graph_source: repo
+human_name: Atlas AI Router Runtime Enterprise Specialist Flow
+canonical_name: Atlas AI Router Runtime Enterprise Specialist Flow
+technical_name: atlas-ai-router-runtime-enterprise-specialist-flow
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-specialist-flow.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-specialist-flow.md

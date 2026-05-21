@@ -55,6 +55,11 @@ graph_kind: contract
 graph_parent: atlas-domain-runtime-contract
 graph_status: active
 graph_source: repo
+human_name: Atlas Programming Domain Adapter Integration Plan
+canonical_name: Atlas Programming Domain Adapter Integration Plan
+technical_name: atlas-programming-domain-adapter-integration-plan
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
@@ -131,34 +136,26 @@ next_actions:
 line_limit: 520
 ---
 # Atlas Programming Domain Adapter Integration Plan
-
 ## Resumo
-
 Programming Adapter (Meta 7) e o conjunto canonico de bridges que conecta o
 Programming Domain (Atlas Dev, Forge, Repair, Review, QA, Security, Database,
 Visual, Forge handoff) ao novo Atlas AI Kernel (Mission Foundation Meta 1,
 Domain Runtime Meta 2, Policy Meta 3, Evidence/Certification Meta 4, Router,
 Tool Economy, Control Plane). Este pack e design only: nenhuma migration,
 model ou service e criado nesta sessao. Implementacao real abre AP por fase.
-
 ## Papel no Atlas
-
 Programming e o primeiro dominio real completo a ser plenamente plugado no
 novo Kernel. O Adapter:
-
 - Mantem Atlas Dev como flow rapido e completo dentro do dominio.
 - Mantem Atlas Forge como sistema de Obra, intacto, plugado por handoff.
 - Garante que todo trabalho relevante de programacao carregue `mission_id`,
   `objective_id`, `work_order_id`, `evidence_pack_id`, `certification_id`.
 - Promove Programming a Domain Stage 3 (Department) por evidencia, nao por
   declaracao.
-
 O Adapter nao decide rota, modelo, provider, ferramenta, custo ou prompt. Quem
 decide: Router (flow), Atlas Decide (provider), Policy (permission/budget),
 Tool Economy (tool). O Adapter traduz contratos.
-
 ## Onde Se Encaixa
-
 ```text
 Atlas AI Surface (Desktop, CLI, Chat, MCP)
 -> Mission Mode + Objective Intelligence (cria mission e objectives)

@@ -43,6 +43,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Provider Performance Evolution Roadmap
+canonical_name: Provider Performance Evolution Roadmap
+technical_name: atlas-ai-evolution-provider-performance-roadmap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/evolution/provider-performance-roadmap.md
 
 owner: evolution
 

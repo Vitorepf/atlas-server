@@ -31,8 +31,8 @@ class AtlasVerifiedExecutionCertificationServiceTest extends TestCase
 
         $this->assertSame(AtlasVerifiedExecutionCertificationService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('passed', $payload['status']);
-        $this->assertSame(13, $payload['summary']['total']);
-        $this->assertSame(13, $payload['summary']['pass']);
+        $this->assertSame(14, $payload['summary']['total']);
+        $this->assertSame(14, $payload['summary']['pass']);
         $this->assertSame(0, $payload['summary']['fail']);
         $this->assertNotEmpty($payload['certification_hash']);
         $this->assertTrue(data_get($payload, 'claim_policy.destructive_commands_blocked'));

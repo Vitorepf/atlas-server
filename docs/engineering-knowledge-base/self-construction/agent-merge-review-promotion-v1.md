@@ -52,6 +52,11 @@ graph_kind: contract
 graph_parent: atlas-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Agent Merge Review + Promotion Dry-Run v1
+canonical_name: Atlas Agent Merge Review + Promotion Dry-Run v1
+technical_name: atlas-agent-merge-review-promotion-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/agent-merge-review-promotion-v1.md
 owner: atlas-self-construction-os
 repo_paths:
   - app/Services/Ai/SelfConstruction/AgentMergeReviewPacketBuilder.php
@@ -99,7 +104,6 @@ visual_tags:
   - merge-review
   - dry-run
 ---
-
 ## Resumo
 
 Camada de revisão dry-run de merges de work-products que o Atlas

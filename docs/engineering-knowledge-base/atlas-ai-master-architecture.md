@@ -15,8 +15,7 @@ capabilities:
   - atlas_ai_master_architecture
   - enterprise_orchestration
   - operational_intelligence
-  - domain_profile_orchestration
-  - anti_duplication_governance
+  - domain_profile_architecture
 decisions:
   - Atlas AI is the operational intelligence of Atlas, not a chat, provider wrapper or single harness.
   - Atlas does not compete with Claude, ChatGPT, Gemini or Codex; it replaces direct dependence on them through an upper orchestration layer.
@@ -54,6 +53,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Master Architecture
+canonical_name: Atlas AI Master Architecture
+technical_name: atlas-ai-master-architecture
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-master-architecture.md
 
 owner: architecture
 

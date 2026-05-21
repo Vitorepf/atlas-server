@@ -24,6 +24,11 @@ graph_kind: step
 graph_parent: atlas-ai-kernel-pipeline
 graph_status: active
 graph_source: repo
+human_name: Operation Envelope
+canonical_name: Operation Envelope
+technical_name: operation-envelope
+cartography_type: step
+canonical_source: docs/engineering-knowledge-base/system-graph/operation-envelope.md
 owner: atlas-kernel
 repo_paths:
   - docs/engineering-knowledge-base/system-graph/operation-envelope.md

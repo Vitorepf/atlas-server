@@ -37,6 +37,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: building
 graph_source: repo
+human_name: Atlas Graph Retrieval Network
+canonical_name: Atlas Graph Retrieval Network
+technical_name: AtlasGraphRetrievalNetworkService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-graph-retrieval-network.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-graph-retrieval-network.md
@@ -64,7 +69,6 @@ next_actions:
   - Integrar AGRN como source opcional em AHRI/ACRS depois de ACOP/AREBA.
   - Criar AP/plan para mover graph_retrieval global de future_governed para bounded.
 ---
-
 # Atlas Graph Retrieval Network
 
 ## Resumo

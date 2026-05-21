@@ -12,10 +12,10 @@ tags:
   - open-brain
   - implementation-map
 capabilities:
-  - memory_registry
-  - context_pack_recall
-  - engineering_knowledge_base
-  - open_brain_context_injection
+  - memory_foundation_map
+  - context_pack_foundation
+  - engineering_knowledge_foundation
+  - open_brain_foundation_map
 decisions:
   - Memory/Open Brain is the active structure-mother priority; Voice remains a later surface.
   - Recall items must carry lineage, freshness and audit metadata before provider export.
@@ -50,6 +50,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Memory Open Brain Foundation Map
+canonical_name: Atlas AI Memory Open Brain Foundation Map
+technical_name: atlas-ai-memory-open-brain-foundation-map
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/memory/foundation-map.md
 
 owner: memory
 

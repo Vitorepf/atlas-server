@@ -41,6 +41,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Thesis - Multiplier And Sovereign Channel
+canonical_name: Atlas Thesis - Multiplier And Sovereign Channel
+technical_name: atlas-thesis-multiplier-channel-core
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/thesis/multiplier-channel.md
 
 owner: thesis
 

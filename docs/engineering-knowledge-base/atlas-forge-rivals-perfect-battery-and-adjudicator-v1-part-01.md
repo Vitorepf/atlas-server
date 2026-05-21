@@ -29,6 +29,11 @@ graph_kind: module
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Forge Rivals Perfect Battery & Adjudicator v1 Parte 1
+canonical_name: Atlas Forge Rivals Perfect Battery & Adjudicator v1 Parte 1
+technical_name: atlas-forge-rivals-perfect-battery-and-adjudicator-v1-part-01
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1-part-01.md
 owner: programming_rivals
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1-part-01.md

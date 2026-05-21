@@ -12,7 +12,7 @@ tags:
   - approval
   - durable-reservation
 capabilities:
-  - self_construction_os
+  - self_construction_durable_reservation_approval_request
   - approval_gate
   - durable_claims
 decisions:
@@ -46,6 +46,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Durable Reservation Approval Request
+canonical_name: Atlas Self-Construction Durable Reservation Approval Request
+technical_name: atlas-ai-self-construction-durable-reservation-approval-request
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/self-construction/durable-reservation-approval-request.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-approval-request.md

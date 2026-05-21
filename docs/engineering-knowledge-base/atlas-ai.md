@@ -34,6 +34,11 @@ graph_kind: system
 graph_parent: atlas
 graph_status: active
 graph_source: repo
+human_name: Atlas AI
+canonical_name: Atlas AI
+technical_name: atlas-ai
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-ai.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai.md

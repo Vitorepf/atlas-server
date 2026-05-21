@@ -39,6 +39,11 @@ graph_kind: module
 graph_parent: atlas-real-engineering-execution-kernel
 graph_status: active
 graph_source: repo
+human_name: Atlas Real Engineering Company Runtime
+canonical_name: Atlas Real Engineering Company Runtime
+technical_name: atlas-real-engineering-company-runtime
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-real-engineering-company-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-real-engineering-company-runtime.md

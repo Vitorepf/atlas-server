@@ -20,7 +20,7 @@ capabilities:
   - go_edge_runtime
   - swift_native_mac_runtime
   - laravel_kernel
-  - local_ai_performance_strategy
+  - runtime_local_performance_boundary
 decisions:
   - Laravel/PHP e o Kernel/Maestro canonico do Atlas AI.
   - Python pode existir como runtime especializado de IA, dados, RAG, ML, multimodal e analytics.
@@ -58,6 +58,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Runtime Language Boundaries
+canonical_name: Atlas AI Runtime Language Boundaries
+technical_name: atlas-ai-runtime-language-boundaries
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
 
 owner: architecture
 

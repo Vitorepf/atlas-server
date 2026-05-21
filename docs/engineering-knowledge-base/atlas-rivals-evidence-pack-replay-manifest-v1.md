@@ -46,6 +46,11 @@ graph_kind: contract
 graph_parent: atlas-rivals-one-shot-enterprise-evaluation-v1
 graph_status: active
 graph_source: repo
+human_name: Atlas Rivals Evidence Pack & Replay Manifest v1
+canonical_name: Atlas Rivals Evidence Pack & Replay Manifest v1
+technical_name: atlas-rivals-evidence-pack-replay-manifest-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-rivals-evidence-pack-replay-manifest-v1.md
 owner: programming
 repo_paths:
   - docs/engineering-knowledge-base/atlas-rivals-evidence-pack-replay-manifest-v1.md

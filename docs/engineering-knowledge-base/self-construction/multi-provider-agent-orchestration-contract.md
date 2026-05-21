@@ -12,9 +12,9 @@ tags:
   - multi-provider
   - agent-orchestration
 capabilities:
-  - self_construction_os
-  - multi_provider_orchestration
-  - governed_implementation
+  - self_construction_multi_provider_agent_orchestration_contract
+  - self_construction_multi_provider_orchestration
+  - multi_provider_governed_implementation
 decisions:
   - "Five Codex" is an operator shorthand; the architecture target is multiple providers consuming the same contract.
   - Multi-provider work should coordinate through Obras Shared Workspace; provider chats are adapters, not shared state.
@@ -52,6 +52,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Multi-Provider Agent Orchestration Contract
+canonical_name: Atlas Self-Construction Multi-Provider Agent Orchestration Contract
+technical_name: atlas-ai-self-construction-multi-provider-agent-orchestration-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md

@@ -53,6 +53,11 @@ graph_kind: module
 graph_parent: atlas-ai-pipeline
 graph_status: active
 graph_source: repo
+human_name: Atlas Vox Operational Thinking Interface
+canonical_name: Atlas Vox Operational Thinking Interface
+technical_name: atlas-vox-operational-thinking-interface
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-vox-operational-thinking-interface.md
 owner: product-architecture
 version_family: Atlas Vox
 versions:

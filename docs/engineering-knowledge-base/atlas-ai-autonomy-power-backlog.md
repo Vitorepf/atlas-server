@@ -15,13 +15,11 @@ tags:
   - tool-runtime
 capabilities:
   - autonomy_plane
-  - dynamic_compute_market
-  - tool_synthesis
   - zero_click_shadow_mode
   - real_world_feedback_loop
   - multimodal_context
   - cross_domain_learning
-  - scenario_simulation_harness
+  - scenario_simulation_backlog
 decisions:
   - Este backlog e governado, nao compromisso de implementacao imediata.
   - Toda autonomia nova deve passar por Operation Envelope, Policy/Profile, Decision Receipt, Evidence Ledger, Quality Gates e Inbox approval quando houver risco real.
@@ -61,6 +59,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Autonomy And Power Backlog
+canonical_name: Atlas AI Autonomy And Power Backlog
+technical_name: atlas-ai-autonomy-power-backlog
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-ai-autonomy-power-backlog.md
 
 owner: roadmap-governance
 

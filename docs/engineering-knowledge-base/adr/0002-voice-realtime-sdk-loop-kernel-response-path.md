@@ -51,6 +51,11 @@ graph_parent: atlas-ai-voice-realtime-surface
 graph_status: building
 
 graph_source: repo
+human_name: ADR 0002 - Voice Realtime SDK Loop E Kernel Response Path
+canonical_name: ADR 0002 - Voice Realtime SDK Loop E Kernel Response Path
+technical_name: adr-0002-voice-realtime-sdk-loop-kernel-response-path
+cartography_type: adr
+canonical_source: docs/engineering-knowledge-base/adr/0002-voice-realtime-sdk-loop-kernel-response-path.md
 
 owner: surface-architecture
 

@@ -46,6 +46,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: building
 
 graph_source: repo
+human_name: Atlas AI Cyber Flow Profiles Proposal
+canonical_name: Atlas AI Cyber Flow Profiles Proposal
+technical_name: atlas-ai-cyber-flow-profiles-proposal
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/cyber-security/flow-profiles-proposal.md
 
 repo_paths:
   - docs/engineering-knowledge-base/cyber-security/flow-profiles-proposal.md

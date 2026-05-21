@@ -12,9 +12,9 @@ tags:
   - runbook
   - evidence
 capabilities:
-  - self_construction_os
+  - self_construction_packet_consumption_runbook_contract
   - packet_assignment
-  - governed_implementation
+  - packet_consumption_governed_implementation
   - implementation_evidence
 decisions:
   - A selected packet must produce a deterministic runbook before implementation.
@@ -47,6 +47,11 @@ graph_parent: atlas-ai-self-construction-os
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Self-Construction Packet Consumption Runbook Contract
+canonical_name: Atlas Self-Construction Packet Consumption Runbook Contract
+technical_name: atlas-ai-self-construction-packet-consumption-runbook-contract
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/self-construction/packet-consumption-runbook-contract.md
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/packet-consumption-runbook-contract.md

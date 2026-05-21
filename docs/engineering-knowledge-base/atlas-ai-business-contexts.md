@@ -52,6 +52,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Business Contexts
+canonical_name: Atlas AI Business Contexts
+technical_name: atlas-ai-business-contexts
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-business-contexts.md
 
 owner: architecture
 

@@ -48,6 +48,11 @@ graph_kind: contract
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Evidence Certification Runtime
+canonical_name: Atlas Evidence Certification Runtime
+technical_name: atlas-evidence-certification-runtime
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
@@ -165,18 +170,14 @@ next_actions:
 line_limit: 620
 ---
 # Atlas Evidence Certification Runtime
-
 ## Estado Atual
-
 Meta 4 backend entregue 2026-05-18, mirror do padrao Mission Foundation:
 11 tabelas `ai_*`, 11 models `Ai*`, 14 services em `app/Services/Ai/Evidence/`
 (incluindo `EvidenceCanonicalHash` e `MissionEvidenceAdapter`), comando
 `atlas:ai:evidence` com actions `readiness | smoke | pack | receipt | certify
 | control-plane` e 10 feature tests em `tests/Feature/Ai/Evidence/` (367
 tests / 1710 assertions verdes apos `--filter=EvidenceRuntime`).
-
 Comandos canonicos:
-
 ```bash
 php artisan atlas:ai:evidence --action=readiness --json
 php artisan atlas:ai:evidence --action=smoke --json
@@ -188,20 +189,16 @@ php artisan atlas:ai:evidence --action=certify \
     --target-type=mission --target-id=<uuid> --json
 php artisan atlas:ai:evidence --action=control-plane --json
 ```
-
 `MissionEvidenceAdapter` projeta uma `AiMission` para um `AiEvidencePack`
 (target_type `mission`) e chama `CertificationRuntimeService::certify` sem
 reescrever `MissionCertificationService`. `canCompleteMission` so e true
 quando a certification universal esta `passed`.
-
 ## Resumo
-
 Atlas Evidence Certification Runtime e a camada universal de prova do Atlas AI.
 Ele impede tres falhas estruturais: resposta convincente sem base, falso
 completo e claim sem evidencia. Toda meta, missao, work order, domain delivery,
 tool run, handoff e operator decision deve emitir evidencia auditavel e passar
 por certification antes de virar `completed`.
-
 Este pack e design only. Ele declara contratos para que Meta 1 Mission
 Foundation, Meta 2 Domain Runtime, Meta 3 Policy e o Control Plane implementem
 consistente sob a mesma verdade operacional. Nao cria migrations, models ou

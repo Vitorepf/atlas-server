@@ -52,6 +52,11 @@ graph_kind: contract
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: "Atlas AI Router · Flow Routing Contract v1"
+canonical_name: "Atlas AI Router · Flow Routing Contract v1"
+technical_name: atlas-ai-router-flow-routing-contract-v1
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-ai-router-flow-routing-contract-v1.md
 owner: programming
 allowed_changes:
   - Adicionar um flow_id novo com responsabilidade unica, payload de handoff e linha na tabela de roteamento.

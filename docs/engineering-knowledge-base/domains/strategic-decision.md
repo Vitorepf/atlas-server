@@ -53,6 +53,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Strategic Decision Domain
+canonical_name: Atlas AI Strategic Decision Domain
+technical_name: atlas-ai-strategic-decision-domain
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/strategic-decision.md
 
 repo_paths:
   - docs/engineering-knowledge-base/domains/strategic-decision.md

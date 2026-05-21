@@ -41,6 +41,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Research Implementation Planning And Rollout
+canonical_name: Atlas AI Research Implementation Planning And Rollout
+technical_name: atlas-ai-research-implementation-planning-rollout
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/implementation-planning-and-rollout.md
 
 owner: research-self-improvement
 

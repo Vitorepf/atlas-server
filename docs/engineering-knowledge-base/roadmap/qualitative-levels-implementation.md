@@ -11,7 +11,7 @@ tags:
   - qualitative-levels
   - roadmap
 capabilities:
-  - qualitative_levels_roadmap
+  - qualitative_levels_implementation_plan
 decisions:
   - Qualitative level implementation remains proposal/gated until Evidence Ledger and Rivals prove benefit.
 maintenance:
@@ -35,6 +35,11 @@ graph_parent: atlas-ai-pipeline
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Qualitative Levels Implementation Queue
+canonical_name: Atlas AI Qualitative Levels Implementation Queue
+technical_name: atlas-ai-qualitative-levels-implementation
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/roadmap/qualitative-levels-implementation.md
 
 owner: roadmap
 

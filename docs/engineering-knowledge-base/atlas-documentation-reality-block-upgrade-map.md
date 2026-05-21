@@ -6,6 +6,11 @@ status: active
 category: documentation-governance
 priority: 100
 summary: Mapa de evolucao dos blocos ADRS para elevar autoridade documental, realidade operacional, eficiencia de contexto, Cartografia humana e feedback humano-doc ao nivel mais robusto antes da implementacao.
+human_name: Mapa de Upgrade dos Blocos ADRS
+canonical_name: Atlas Documentation Reality Block Upgrade Map
+technical_name: ADRSBlockUpgradeMap
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-reality-block-upgrade-map.md
 tags:
   - atlas-ai
   - documentation
@@ -32,6 +37,7 @@ maintenance:
   - Rodar docs-health, docs-authority-audit e architecture-validate apos alteracoes.
 related_paths:
   - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
+  - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
   - docs/engineering-knowledge-base/atlas-documentation-reality-implementation-blueprint.md
   - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
   - docs/engineering-knowledge-base/atlas-universal-reality-cartography.md
@@ -136,6 +142,7 @@ governanca, acesso, privacidade, ciclo de vida e fronteira multi-projeto.
 
 ```text
 ADRS define blocos oficiais
+ADRS Block Registry da ids e metadados navegaveis aos 52 blocos
 ADR-BUM eleva cada bloco
 ADRIB define ordem de implementacao
 ACRUI implementa realidade operacional

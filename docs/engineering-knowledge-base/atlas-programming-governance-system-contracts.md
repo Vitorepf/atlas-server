@@ -13,10 +13,10 @@ tags:
   - contracts
 capabilities:
   - programming_governance_contracts
-  - feature_placement_gate
-  - spec_before_code
-  - task_contracts
-  - evidence_required
+  - programming_contract_feature_placement_gate
+  - programming_contract_spec_before_code
+  - programming_contract_task_contracts
+  - programming_contract_evidence_required
 decisions:
   - Programacao estrutural exige placement, contexto, spec, contrato e evidence.
   - Spec retroativa nao fecha gate.
@@ -47,6 +47,11 @@ graph_parent: atlas-programming-governance-system
 graph_status: active
 
 graph_source: repo
+human_name: Atlas Programming Governance System Contracts
+canonical_name: Atlas Programming Governance System Contracts
+technical_name: atlas-programming-governance-system-contracts
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
 
 owner: programming
 

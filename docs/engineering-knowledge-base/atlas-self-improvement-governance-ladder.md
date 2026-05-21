@@ -48,6 +48,11 @@ graph_kind: policy
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo
+human_name: Atlas Self-Improvement Governance Ladder
+canonical_name: Atlas Self-Improvement Governance Ladder
+technical_name: atlas-self-improvement-governance-ladder
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md
@@ -108,7 +113,6 @@ observability_signals:
 next_actions:
   - Implementar packets e comandos para Proposal Power Gate, Before/After Delta Scorecard, Invariant Lock e Regression Sentinel.
 ---
-
 # Atlas Self-Improvement Governance Ladder
 
 ## Resumo

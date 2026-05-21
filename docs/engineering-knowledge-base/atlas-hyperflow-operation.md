@@ -18,7 +18,7 @@ capabilities:
   - atlas_hyperflow_engineering_runtime
   - intent_kernel
   - router_runtime
-  - specialist_flow_runtime
+  - hyperflow_specialist_flow_consumption
   - atlas_dev_delegation
   - atlas_forge_promotion
   - evidence_telemetry_loop
@@ -54,6 +54,11 @@ graph_kind: contract
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: Operacao Atlas Hyperflow
+canonical_name: Operacao Atlas Hyperflow
+technical_name: atlas-hyperflow-operation
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-hyperflow-operation.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md

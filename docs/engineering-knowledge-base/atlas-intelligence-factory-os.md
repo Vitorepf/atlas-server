@@ -23,7 +23,7 @@ capabilities:
   - build_buy_borrow_decision
   - tool_synthesis_lab
   - simulation_swarm
-  - sandbox_certification
+  - factory_sandbox_certification
   - agent_foundry
   - workflow_foundry
   - experimentation_runtime
@@ -65,6 +65,11 @@ graph_kind: system
 graph_parent: atlas-autonomous-intelligence-operating-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Intelligence Factory OS
+canonical_name: Atlas Intelligence Factory OS
+technical_name: atlas-intelligence-factory-os
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-intelligence-factory-os.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-intelligence-factory-os.md
@@ -124,7 +129,6 @@ next_actions:
   - Promover capabilities certificadas para trusted somente com revisao humana e outcomes AEMOR repetidos.
   - Expandir marketplace para UI quando Control Plane confirmar uso real suficiente.
 ---
-
 # Atlas Intelligence Factory OS
 
 ## Resumo

@@ -16,13 +16,8 @@ tags:
   - self-improvement
 capabilities:
   - atlas_ai_operating_system
-  - domain_flow_registry
-  - unified_capability_pipeline
-  - anti_duplication_governance
-  - programming_pipeline
-  - personal_development_pipeline
-  - finance_pipeline
-  - self_evolution_pipeline
+  - operating_system_overview
+  - domain_pipeline_overview
 decisions:
   - Atlas AI is the central orchestration intelligence.
   - Commands, app screens, workers, mobile, voice and MCP are surfaces.
@@ -63,6 +58,11 @@ graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 
 graph_source: repo
+human_name: Atlas AI Operating System
+canonical_name: Atlas AI Operating System
+technical_name: atlas-ai-operating-system
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-ai-operating-system.md
 
 owner: architecture
 

@@ -39,6 +39,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: building
 graph_source: repo
+human_name: Atlas Python Data Retrieval Runtime
+canonical_name: Atlas Python Data Retrieval Runtime
+technical_name: AtlasPythonDataRetrievalRuntimeService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-python-data-retrieval-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-python-data-retrieval-runtime.md
@@ -65,7 +70,6 @@ line_limit: 520
 next_actions:
   - Integrar APDR outputs em AREBA/ACRS depois dos gates.
 ---
-
 # Atlas Python Data Retrieval Runtime
 
 ## Resumo
