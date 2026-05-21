@@ -27,6 +27,10 @@ use App\Models\AtlasAaelEvolutionExperiment;
 use App\Models\AtlasAaelOpportunity;
 use App\Models\AtlasAaelPortfolioCycle;
 use App\Models\AtlasAaelPromotionDecision;
+use App\Models\AtlasAarsCertification;
+use App\Models\AtlasAarsRiskProjection;
+use App\Models\AtlasAarsScenario;
+use App\Models\AtlasAarsSimulation;
 use App\Models\AtlasAemorExecutionEpisode;
 use App\Models\AtlasAemorJudgmentReport;
 use App\Models\AtlasAemorLearningSignal;
@@ -136,6 +140,7 @@ class AtlasAiControlPlaneService
         $autonomousWorkExecution = $this->autonomousWorkExecution($since);
         $verifiedExecution = $this->verifiedExecution($since);
         $autonomousEvolution = $this->autonomousEvolution($since);
+        $autonomousRealitySandbox = $this->autonomousRealitySandbox($since);
         $swarmCompany = $this->swarmCompany($since);
         $externalExecution = $this->externalExecution($since);
         $blockers = $this->blockers($since, $tracesSection['ids']);
@@ -211,6 +216,10 @@ class AtlasAiControlPlaneService
             'aael_experiments_total' => $autonomousEvolution['summary']['experiments_total'] ?? 0,
             'aael_operator_review_required' => $autonomousEvolution['summary']['operator_review_required'] ?? 0,
             'aael_blocked' => $autonomousEvolution['summary']['blocked'] ?? 0,
+            'aars_scenarios_total' => $autonomousRealitySandbox['summary']['scenarios_total'] ?? 0,
+            'aars_simulations_total' => $autonomousRealitySandbox['summary']['simulations_total'] ?? 0,
+            'aars_high_risk' => $autonomousRealitySandbox['summary']['high_risk'] ?? 0,
+            'aars_blocked' => $autonomousRealitySandbox['summary']['blocked'] ?? 0,
             'swarm_company_roles_total' => $swarmCompany['summary']['role_runs_total'] ?? 0,
             'swarm_company_blocked_releases' => $swarmCompany['summary']['blocked_release_packs'] ?? 0,
             'external_execution_mandates_total' => $externalExecution['summary']['mandates_total'] ?? 0,
@@ -251,6 +260,7 @@ class AtlasAiControlPlaneService
             'autonomous_work_execution' => $autonomousWorkExecution,
             'verified_execution' => $verifiedExecution,
             'autonomous_evolution' => $autonomousEvolution,
+            'autonomous_reality_sandbox' => $autonomousRealitySandbox,
             'swarm_company' => $swarmCompany,
             'external_execution' => $externalExecution,
             'blockers' => $blockers,
@@ -1837,6 +1847,83 @@ class AtlasAiControlPlaneService
     }
 
     /**
+     * AARS read model. Aggregate-only; no raw objectives or scenario text.
+     *
+     * @return array<string,mixed>
+     */
+    private function autonomousRealitySandbox(CarbonImmutable $since): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'summary' => [
+                'scenarios_total' => 0,
+                'simulations_total' => 0,
+                'risk_projections_total' => 0,
+                'certifications_total' => 0,
+                'high_risk' => 0,
+                'blocked' => 0,
+            ],
+            'recent_scenarios' => [],
+            'recent_certifications' => [],
+        ];
+        if (! Schema::hasTable('atlas_aars_scenarios')) {
+            return $empty;
+        }
+
+        try {
+            $scenarios = AtlasAarsScenario::query()
+                ->where('created_at', '>=', $since)
+                ->latest()
+                ->limit(100)
+                ->get(['id', 'status', 'domain', 'flow_id', 'scenario_type', 'objective_hash', 'scenario_hash', 'created_at']);
+            $simulations = Schema::hasTable('atlas_aars_simulations')
+                ? AtlasAarsSimulation::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'mode', 'simulation_hash'])
+                : collect();
+            $risks = Schema::hasTable('atlas_aars_risk_projections')
+                ? AtlasAarsRiskProjection::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'risk_level', 'risk_hash'])
+                : collect();
+            $certifications = Schema::hasTable('atlas_aars_certifications')
+                ? AtlasAarsCertification::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'certification_hash', 'created_at'])
+                : collect();
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        $blocked = $risks->where('status', 'blocked')->count() + $certifications->where('status', 'blocked')->count();
+        $highRisk = $risks->whereIn('risk_level', ['high', 'critical'])->count();
+
+        return [
+            'status' => $blocked > 0 ? 'blocked' : ($highRisk > 0 ? 'watch' : 'ready'),
+            'summary' => [
+                'scenarios_total' => $scenarios->count(),
+                'simulations_total' => $simulations->count(),
+                'risk_projections_total' => $risks->count(),
+                'certifications_total' => $certifications->count(),
+                'high_risk' => $highRisk,
+                'blocked' => $blocked,
+            ],
+            'by_scenario_type' => $this->countsBy($scenarios, 'scenario_type'),
+            'by_risk_level' => $this->countsBy($risks, 'risk_level'),
+            'recent_scenarios' => $scenarios->take(self::RECENT_LIMIT)->map(fn (AtlasAarsScenario $scenario): array => [
+                'scenario_id' => (string) $scenario->id,
+                'status' => (string) $scenario->status,
+                'domain' => $this->stringOrNull($scenario->domain),
+                'flow_id' => $this->stringOrNull($scenario->flow_id),
+                'scenario_type' => (string) $scenario->scenario_type,
+                'objective_hash' => $this->stringOrNull($scenario->objective_hash),
+                'scenario_hash' => $this->stringOrNull($scenario->scenario_hash),
+                'created_at' => $scenario->created_at?->toJSON(),
+            ])->values()->all(),
+            'recent_certifications' => $certifications->take(self::RECENT_LIMIT)->map(fn (AtlasAarsCertification $certification): array => [
+                'certification_id' => (string) $certification->id,
+                'status' => (string) $certification->status,
+                'certification_hash' => $this->stringOrNull($certification->certification_hash),
+                'created_at' => $certification->created_at?->toJSON(),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
      * Swarm/Company read model. This does not start agents; it proves whether
      * the Atlas agent/company substrate is visible as an operational runtime:
      * roles, releases, certifications and agent-control services.
@@ -2196,6 +2283,11 @@ class AtlasAiControlPlaneService
                 'name' => 'autonomous_evolution_loop',
                 'command' => 'php artisan atlas:aael:certify --json --strict',
                 'schema' => 'atlas.aael.certification.v1',
+            ],
+            [
+                'name' => 'autonomous_reality_sandbox',
+                'command' => 'php artisan atlas:aars:certify --json --strict',
+                'schema' => 'atlas.aars.certification.v1',
             ],
             [
                 'name' => 'swarm_company_runtime',

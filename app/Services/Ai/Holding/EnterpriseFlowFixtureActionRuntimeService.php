@@ -34,6 +34,17 @@ class EnterpriseFlowFixtureActionRuntimeService
         return $this->actionContract($companyId, $action) !== null;
     }
 
+    public function clearRuntimeRecordCache(?string $companyId = null): void
+    {
+        if ($companyId !== null && trim($companyId) !== '') {
+            unset($this->runtimeRecordCache[trim($companyId)]);
+
+            return;
+        }
+
+        $this->runtimeRecordCache = [];
+    }
+
     /**
      * @return array<string,mixed>
      */
@@ -51,6 +62,8 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function runPortfolioInternal(?string $companyId = null): array
     {
+        $this->clearRuntimeRecordCache();
+
         $records = [];
         $companies = [];
 
@@ -126,6 +139,7 @@ class EnterpriseFlowFixtureActionRuntimeService
             ],
         ];
         $payload['runtime_run_hash'] = MissionCanonicalHash::sha256($payload);
+        $this->clearRuntimeRecordCache();
 
         return $payload;
     }
@@ -2817,6 +2831,11 @@ class EnterpriseFlowFixtureActionRuntimeService
                 $companyRecords,
                 static fn (array $record): bool => (string) ($record['operational_outcome_ledger_hash'] ?? '') !== ''
                     && (bool) ($record['operational_outcome_ledger_bound'] ?? false)
+                    && (bool) ($record['operational_outcome_value_proxy_bound'] ?? false)
+                    && (bool) ($record['operational_outcome_acceptance_contract_bound'] ?? false)
+                    && (bool) ($record['operational_outcome_risk_scorecard_bound'] ?? false)
+                    && (bool) ($record['operational_outcome_next_cycle_bound'] ?? false)
+                    && (int) ($record['operational_outcome_evidence_ref_count'] ?? 0) >= 4
                     && (bool) ($record['external_side_effects'] ?? true) === false,
             ));
             $completedFlows = array_values(array_unique(array_filter(array_map(
@@ -2824,14 +2843,21 @@ class EnterpriseFlowFixtureActionRuntimeService
                 $outcomeRecords,
             ))));
 
-            $companies[] = [
+            $row = [
                 'company_id' => $currentCompanyId,
                 'expected_flow_count' => count($flows),
                 'completed_operational_outcome_flow_count' => count(array_intersect($flows, $completedFlows)),
                 'missing_operational_outcome_flows' => array_values(array_diff($flows, $completedFlows)),
                 'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
                 'operational_outcome_ledger_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['operational_outcome_ledger_bound'] ?? false))),
+                'value_proxy_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['operational_outcome_value_proxy_bound'] ?? false))),
+                'acceptance_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['operational_outcome_acceptance_contract_bound'] ?? false))),
+                'risk_scorecard_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['operational_outcome_risk_scorecard_bound'] ?? false))),
+                'next_cycle_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['operational_outcome_next_cycle_bound'] ?? false))),
+                'evidence_ref_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['operational_outcome_evidence_ref_count'] ?? 0), $companyRecords)),
             ];
+            $row['operational_outcome_runtime_record_hash'] = MissionCanonicalHash::sha256($row);
+            $companies[] = $row;
             array_push($records, ...$companyRecords);
         }
 
@@ -2851,6 +2877,12 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'completed_operational_outcome_flow_count' => $completedFlowCount,
                 'runtime_record_count' => count($records),
                 'operational_outcome_ledger_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['operational_outcome_ledger_bound_count'], $companies)),
+                'value_proxy_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['value_proxy_bound_count'], $companies)),
+                'acceptance_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['acceptance_contract_bound_count'], $companies)),
+                'risk_scorecard_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['risk_scorecard_bound_count'], $companies)),
+                'next_cycle_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['next_cycle_bound_count'], $companies)),
+                'evidence_ref_count' => array_sum(array_map(static fn (array $company): int => (int) $company['evidence_ref_count'], $companies)),
+                'external_value_claim_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_value_claim_allowed'] ?? false))),
                 'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
                 'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
             ],
@@ -2859,7 +2891,7 @@ class EnterpriseFlowFixtureActionRuntimeService
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
-                'operational_outcome_runtime_requires_ledger_per_flow' => true,
+                'operational_outcome_runtime_requires_ledger_value_proxy_acceptance_risk_next_cycle_and_evidence_refs_per_flow' => true,
                 'real_world_outcome_claim_requires_external_evidence_and_operator_acceptance' => true,
             ],
         ];
@@ -2981,6 +3013,10 @@ class EnterpriseFlowFixtureActionRuntimeService
                 $companyRecords,
                 static fn (array $record): bool => (bool) ($record['operational_outcome_ledger_bound'] ?? false)
                     && (string) ($record['operational_outcome_ledger_hash'] ?? '') !== ''
+                    && (bool) ($record['operational_outcome_value_proxy_bound'] ?? false)
+                    && (bool) ($record['operational_outcome_acceptance_contract_bound'] ?? false)
+                    && (bool) ($record['operational_outcome_risk_scorecard_bound'] ?? false)
+                    && (bool) ($record['operational_outcome_next_cycle_bound'] ?? false)
                     && (bool) ($record['external_value_claim_allowed'] ?? true) === false
                     && (bool) ($record['external_side_effects'] ?? true) === false,
             ));
@@ -2989,6 +3025,9 @@ class EnterpriseFlowFixtureActionRuntimeService
                 $outcomeRecords,
             ))));
             $kpiCount = array_sum(array_map(static fn (array $record): int => (int) ($record['operational_outcome_kpi_count'] ?? 0), $outcomeRecords));
+            $acceptanceContractCount = count(array_filter($outcomeRecords, static fn (array $record): bool => (bool) ($record['operational_outcome_acceptance_contract_bound'] ?? false)));
+            $riskScorecardCount = count(array_filter($outcomeRecords, static fn (array $record): bool => (bool) ($record['operational_outcome_risk_scorecard_bound'] ?? false)));
+            $nextCycleCount = count(array_filter($outcomeRecords, static fn (array $record): bool => (bool) ($record['operational_outcome_next_cycle_bound'] ?? false)));
             $coverage = $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0;
 
             $row = [
@@ -2998,11 +3037,19 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'completed_outcome_flow_count' => $completedFlowCount,
                 'operational_outcome_ledger_count' => count($outcomeRecords),
                 'measured_kpi_count' => $kpiCount,
+                'acceptance_contract_count' => $acceptanceContractCount,
+                'risk_scorecard_count' => $riskScorecardCount,
+                'next_cycle_count' => $nextCycleCount,
                 'coverage_rate' => $coverage,
                 'score' => round($coverage * 10, 2),
                 'external_value_claim_allowed' => false,
                 'external_side_effects' => false,
-                'ready' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount && $kpiCount >= $expectedFlowCount,
+                'ready' => $expectedFlowCount > 0
+                    && $expectedFlowCount === $completedFlowCount
+                    && $kpiCount >= $expectedFlowCount
+                    && $acceptanceContractCount >= $expectedFlowCount
+                    && $riskScorecardCount >= $expectedFlowCount
+                    && $nextCycleCount >= $expectedFlowCount,
                 'missing_flows' => array_values(array_diff(
                     array_values(array_map(
                         static fn (array $cell): string => (string) ($cell['flow_id'] ?? ''),
@@ -3036,6 +3083,9 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'completed_outcome_flow_count' => $completedFlowCount,
                 'operational_outcome_ledger_count' => array_sum(array_map(static fn (array $company): int => (int) $company['operational_outcome_ledger_count'], $companies)),
                 'measured_kpi_count' => array_sum(array_map(static fn (array $company): int => (int) $company['measured_kpi_count'], $companies)),
+                'acceptance_contract_count' => array_sum(array_map(static fn (array $company): int => (int) $company['acceptance_contract_count'], $companies)),
+                'risk_scorecard_count' => array_sum(array_map(static fn (array $company): int => (int) $company['risk_scorecard_count'], $companies)),
+                'next_cycle_count' => array_sum(array_map(static fn (array $company): int => (int) $company['next_cycle_count'], $companies)),
                 'average_score' => $companyCount > 0 ? round(array_sum(array_map(static fn (array $company): float => (float) $company['score'], $companies)) / $companyCount, 2) : 0.0,
                 'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
                 'external_value_claim_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_value_claim_allowed'] ?? false))),
@@ -3045,7 +3095,7 @@ class EnterpriseFlowFixtureActionRuntimeService
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_value_claim_allowed' => false,
-                'scorecard_source' => 'internal_operational_outcome_ledgers',
+                'scorecard_source' => 'internal_operational_outcome_ledgers_with_acceptance_risk_and_next_cycle_evidence',
                 'real_business_value_claim_requires_external_evidence_operator_acceptance_and_signed_scope' => true,
             ],
         ];
@@ -3170,10 +3220,19 @@ class EnterpriseFlowFixtureActionRuntimeService
                 $commandCenterPacket = (array) ($commandCenterByCompany[$companyId] ?? []);
                 $expectedFlows = (int) ($scorecard['expected_flow_count'] ?? 0);
                 $completedFlows = (int) ($scorecard['completed_outcome_flow_count'] ?? 0);
+                $acceptanceContractCount = (int) ($scorecard['acceptance_contract_count'] ?? 0);
+                $riskScorecardCount = (int) ($scorecard['risk_scorecard_count'] ?? 0);
+                $nextCycleCount = (int) ($scorecard['next_cycle_count'] ?? 0);
+                $requiredOperatorDecisions = array_values((array) ($portfolioPacket['required_operator_decisions'] ?? []));
                 $businessReady = $expectedFlows > 0
                     && (int) ($businessPacket['completed_business_operating_packet_flow_count'] ?? 0) === $expectedFlows;
                 $commandReady = $expectedFlows > 0
                     && (int) ($commandCenterPacket['completed_command_center_control_tower_flow_count'] ?? 0) === $expectedFlows;
+                $improvementBacklogReady = $expectedFlows > 0
+                    && $acceptanceContractCount >= $expectedFlows
+                    && $riskScorecardCount >= $expectedFlows
+                    && $nextCycleCount >= $expectedFlows
+                    && count($requiredOperatorDecisions) >= 3;
 
                 $row = [
                     'schema' => 'atlas.ai.company.board_operating_review_packet.v1',
@@ -3186,16 +3245,38 @@ class EnterpriseFlowFixtureActionRuntimeService
                     'business_operating_packet_flow_count' => (int) ($businessPacket['completed_business_operating_packet_flow_count'] ?? 0),
                     'command_center_flow_count' => (int) ($commandCenterPacket['completed_command_center_control_tower_flow_count'] ?? 0),
                     'measured_kpi_count' => (int) ($scorecard['measured_kpi_count'] ?? 0),
+                    'acceptance_contract_count' => $acceptanceContractCount,
+                    'risk_scorecard_count' => $riskScorecardCount,
+                    'next_cycle_count' => $nextCycleCount,
                     'decision_recommendation' => (string) ($portfolioPacket['decision_recommendation'] ?? 'repair_before_scale'),
                     'review_sections' => [
                         'operational_outcomes',
                         'business_operating_packets',
                         'command_center_control_tower',
                         'portfolio_decision',
+                        'continuous_improvement_backlog',
                         'risk_and_external_commitment_blocks',
                         'next_operator_decisions',
                     ],
-                    'required_operator_decisions' => array_values((array) ($portfolioPacket['required_operator_decisions'] ?? [])),
+                    'required_operator_decisions' => $requiredOperatorDecisions,
+                    'required_operator_decision_count' => count($requiredOperatorDecisions),
+                    'continuous_improvement_backlog' => [
+                        'acceptance_followup_count' => $acceptanceContractCount,
+                        'risk_remediation_count' => $riskScorecardCount,
+                        'next_cycle_action_count' => $nextCycleCount,
+                        'board_decision_action_count' => count($requiredOperatorDecisions),
+                        'bound_to_outcome_scorecard' => $improvementBacklogReady,
+                        'external_commitments_allowed' => false,
+                    ],
+                    'board_review_gates' => [
+                        'scorecard_ready' => (bool) ($scorecard['ready'] ?? false),
+                        'portfolio_decision_ready' => (bool) ($portfolioPacket['ready'] ?? false),
+                        'business_operating_packet_ready' => $businessReady,
+                        'command_center_ready' => $commandReady,
+                        'continuous_improvement_backlog_ready' => $improvementBacklogReady,
+                        'external_value_claim_blocked' => (bool) ($scorecard['external_value_claim_allowed'] ?? true) === false,
+                        'external_side_effects_blocked' => (bool) ($scorecard['external_side_effects'] ?? true) === false,
+                    ],
                     'external_commitment_controls' => [
                         'external_execution_allowed' => false,
                         'external_customer_commitment_allowed' => false,
@@ -3207,6 +3288,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                         && (bool) ($portfolioPacket['ready'] ?? false)
                         && $businessReady
                         && $commandReady
+                        && $improvementBacklogReady
                         && (bool) ($scorecard['external_value_claim_allowed'] ?? true) === false
                         && (bool) ($scorecard['external_side_effects'] ?? true) === false,
                 ];
@@ -3235,6 +3317,10 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'business_operating_packet_flow_count' => array_sum(array_map(static fn (array $company): int => (int) $company['business_operating_packet_flow_count'], $companies)),
                 'command_center_flow_count' => array_sum(array_map(static fn (array $company): int => (int) $company['command_center_flow_count'], $companies)),
                 'measured_kpi_count' => array_sum(array_map(static fn (array $company): int => (int) $company['measured_kpi_count'], $companies)),
+                'acceptance_contract_count' => array_sum(array_map(static fn (array $company): int => (int) $company['acceptance_contract_count'], $companies)),
+                'risk_remediation_count' => array_sum(array_map(static fn (array $company): int => (int) data_get($company, 'continuous_improvement_backlog.risk_remediation_count', 0), $companies)),
+                'next_cycle_action_count' => array_sum(array_map(static fn (array $company): int => (int) data_get($company, 'continuous_improvement_backlog.next_cycle_action_count', 0), $companies)),
+                'board_decision_action_count' => array_sum(array_map(static fn (array $company): int => (int) data_get($company, 'continuous_improvement_backlog.board_decision_action_count', 0), $companies)),
                 'scale_internal_supervised_capacity_count' => count(array_filter(
                     $companies,
                     static fn (array $company): bool => ($company['decision_recommendation'] ?? null) === 'scale_internal_supervised_capacity',
@@ -7692,17 +7778,46 @@ class EnterpriseFlowFixtureActionRuntimeService
             )),
             'value_proxy' => [
                 'mode' => 'operator_accepted_work_product_proxy',
+                'value_unit' => 'internal_operational_readiness_and_accepted_artifact_proxy',
+                'proxy_score' => 1.0,
                 'accepted_work_product_present' => true,
                 'decision_packet_present' => true,
                 'source_lineage_present' => true,
                 'policy_gate_green' => true,
                 'external_value_claim_allowed' => false,
             ],
+            'outcome_acceptance_contract' => [
+                'acceptance_status' => 'internal_acceptance_packet_ready_requires_operator_for_external_claim',
+                'acceptance_metric' => 'operator_accepted_work_product_with_source_lineage',
+                'required_evidence' => ['accepted_work_product', 'decision_packet', 'source_lineage', 'policy_gate', 'risk_review'],
+                'operator_acceptance_required_for_external_claim' => true,
+                'auto_accept_allowed' => false,
+            ],
+            'risk_adjusted_scorecard' => [
+                'risk_status' => 'controlled_internal_proxy_external_claim_blocked',
+                'risk_score' => 0.1,
+                'delivery_risk_review_required' => true,
+                'policy_exception_count' => 0,
+                'external_commitment_risk_blocked' => true,
+            ],
+            'next_cycle' => [
+                'cycle_state' => 'ready_for_operator_review_shadow_or_supervised_internal_run',
+                'promotion_candidate_mode' => 'internal_shadow_or_supervised_only',
+                'next_actions' => ['operator_review', 'shadow_run', 'supervised_internal_run'],
+                'blocked_external_actions' => ['publish', 'spend', 'trade', 'deploy', 'delete', 'external_customer_commitment', 'external_revenue_claim'],
+            ],
             'acceptance_evidence' => [
                 'domain_execution_brief_hash' => (string) ($domainExecutionBrief['brief_hash'] ?? ''),
                 'business_cell_hash' => (string) data_get($businessExecutionCell, 'cell_hash', ''),
                 'kpi_binding_hash' => (string) data_get($businessKpiBinding, 'binding_hash', ''),
                 'service_lane_hash' => (string) data_get($businessServiceLane, 'lane_hash', ''),
+            ],
+            'evidence_refs' => [
+                'domain_execution_brief:'.(string) ($domainExecutionBrief['brief_hash'] ?? ''),
+                'business_cell:'.(string) data_get($businessExecutionCell, 'cell_hash', ''),
+                'kpi_binding:'.(string) data_get($businessKpiBinding, 'binding_hash', ''),
+                'service_lane:'.(string) data_get($businessServiceLane, 'lane_hash', ''),
+                'artifact_contract:'.(string) data_get($businessArtifactContract, 'delivery_contract_hash', ''),
             ],
             'external_side_effects' => false,
         ];
@@ -8598,6 +8713,19 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operational_outcome_ledger_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.quality_gate_result.operational_outcome_ledger_bound', false),
                 'operational_outcome_ledger_hash' => (string) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.outcome_ledger_hash', ''),
                 'operational_outcome_kpi_count' => count((array) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.measured_kpis', [])),
+                'operational_outcome_value_proxy_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.accepted_work_product_present', false)
+                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.decision_packet_present', false)
+                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.source_lineage_present', false)
+                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.policy_gate_green', false)
+                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.external_value_claim_allowed', true) === false,
+                'operational_outcome_acceptance_contract_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.outcome_acceptance_contract.operator_acceptance_required_for_external_claim', false)
+                    && (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.outcome_acceptance_contract.auto_accept_allowed', true) === false
+                    && count((array) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.outcome_acceptance_contract.required_evidence', [])) >= 5,
+                'operational_outcome_risk_scorecard_bound' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.risk_adjusted_scorecard.external_commitment_risk_blocked', false)
+                    && (int) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.risk_adjusted_scorecard.policy_exception_count', 1) === 0,
+                'operational_outcome_next_cycle_bound' => count((array) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.next_cycle.next_actions', [])) >= 3
+                    && count((array) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.next_cycle.blocked_external_actions', [])) >= 6,
+                'operational_outcome_evidence_ref_count' => count(array_filter((array) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.evidence_refs', []))),
                 'external_value_claim_allowed' => (bool) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.operational_outcome_ledger.value_proxy.external_value_claim_allowed', true),
                 'artifact_hash' => (string) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.artifact_hash', ''),
                 'domain_execution_brief_hash' => (string) data_get($record->execution_plan, 'runtime_packet.enterprise_artifact.domain_execution_brief.brief_hash', ''),

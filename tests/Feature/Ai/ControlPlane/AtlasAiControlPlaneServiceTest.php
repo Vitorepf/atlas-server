@@ -8,10 +8,12 @@ use App\Models\AtlasPersistentContextPack;
 use App\Services\Ai\ControlPlane\AtlasAiControlPlaneService;
 use App\Services\Ai\OperatorApproval\OperatorApprovalCanon;
 use App\Services\Ai\OperatorApproval\OperatorApprovalGateService;
+use App\Services\Ai\RealitySandbox\AtlasAutonomousRealitySandboxService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Tests\Concerns\CreatesAarsTables;
 use Tests\Concerns\CreatesOperatorApprovalTable;
 use Tests\Concerns\CreatesPersistentContextTables;
 use Tests\Concerns\CreatesRouterRuntimeTables;
@@ -26,6 +28,7 @@ use Tests\TestCase;
  */
 class AtlasAiControlPlaneServiceTest extends TestCase
 {
+    use CreatesAarsTables;
     use CreatesOperatorApprovalTable;
     use CreatesPersistentContextTables;
     use CreatesRouterRuntimeTables;
@@ -36,10 +39,12 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->createRouterRuntimeTables();
         $this->createAiSurfaceTables();
         $this->createOperatorApprovalTable();
+        $this->createAarsTables();
     }
 
     protected function tearDown(): void
     {
+        $this->dropAarsTables();
         $this->dropExternalExecutionTables();
         $this->dropOperatorApprovalTable();
         $this->dropPersistentContextTables();
@@ -86,6 +91,25 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertSame('approved', $decided['status']);
         $this->assertSame('approve', $decided['operator_decision']);
         $this->assertNotEmpty($decided['receipt_hash']);
+    }
+
+    public function test_autonomous_reality_sandbox_section_is_aggregate_only(): void
+    {
+        app(AtlasAutonomousRealitySandboxService::class)->run([
+            'objective' => 'control plane nao deve mostrar este objetivo bruto AARS',
+            'domain' => 'programming',
+            'evidence_refs' => ['test:control_plane_aars'],
+        ]);
+
+        $report = $this->service()->report(24);
+        $encoded = json_encode($report['autonomous_reality_sandbox'], JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, $report['summary']['aars_scenarios_total']);
+        $this->assertSame(1, $report['summary']['aars_simulations_total']);
+        $this->assertSame(0, $report['summary']['aars_blocked']);
+        $this->assertSame('ready', $report['autonomous_reality_sandbox']['status']);
+        $this->assertStringContainsString('objective_hash', $encoded);
+        $this->assertStringNotContainsString('objetivo bruto', $encoded);
     }
 
     public function test_empty_window_returns_healthy_report_with_zeros(): void

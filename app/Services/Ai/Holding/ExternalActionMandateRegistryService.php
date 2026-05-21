@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\Schema;
 
 class ExternalActionMandateRegistryService
 {
+    /**
+     * @var array<string,array<string,mixed>>
+     */
+    private array $runtimeStatusCache = [];
+
     public const REGISTRY_SCHEMA = 'atlas.ai.holding.enterprise_external_action_mandate_registry.v1';
 
     public const PREFLIGHT_SCHEMA = 'atlas.ai.holding.enterprise_external_action_mandate_preflight.v1';
@@ -48,6 +53,8 @@ class ExternalActionMandateRegistryService
     public const EXTERNAL_RESEARCH_ADOPTION_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_external_research_adoption_status.v1';
 
     public const FLOW_BENCHMARK_REPLAY_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_flow_benchmark_replay_status.v1';
+
+    public const CONNECTOR_CERTIFICATION_PREFLIGHT_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_connector_certification_preflight_status.v1';
 
     public const DOMAIN_AGENT_TOOLCHAIN_CERTIFICATION_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_domain_agent_toolchain_certification_status.v1';
 
@@ -141,6 +148,10 @@ class ExternalActionMandateRegistryService
 
     public const ENTERPRISE_COMPANY_AGENT_OPERATIONS_PACK_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_company_agent_operations_pack_status.v1';
 
+    public const ENTERPRISE_COMPANY_AGENT_WORKFORCE_RUNTIME_REGISTER_SCHEMA = 'atlas.ai.holding.enterprise_company_agent_workforce_runtime_register.v1';
+
+    public const ENTERPRISE_COMPANY_AGENT_WORKFORCE_RUNTIME_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_company_agent_workforce_runtime_status.v1';
+
     public const ENTERPRISE_COMPANY_DOMAIN_OPERATING_MODEL_CERTIFICATION_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_company_domain_operating_model_certification_status.v1';
 
     public const ENTERPRISE_COMPANY_DOMAIN_TOOL_EXECUTION_READINESS_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_company_domain_tool_execution_readiness_status.v1';
@@ -178,6 +189,14 @@ class ExternalActionMandateRegistryService
     public const ENTERPRISE_COMPANY_SUPERVISED_CONNECTOR_EXECUTION_REGISTER_SCHEMA = 'atlas.ai.holding.enterprise_company_supervised_connector_execution_register.v1';
 
     public const ENTERPRISE_COMPANY_SUPERVISED_CONNECTOR_EXECUTION_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_company_supervised_connector_execution_status.v1';
+
+    public const ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_WORK_ORDER_REGISTER_SCHEMA = 'atlas.ai.holding.enterprise_company_external_tool_activation_work_order_register.v1';
+
+    public const ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_WORK_ORDER_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_company_external_tool_activation_work_order_status.v1';
+
+    public const ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_PACKET_REGISTER_SCHEMA = 'atlas.ai.holding.enterprise_company_external_tool_activation_packet_register.v1';
+
+    public const ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_PACKET_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_company_external_tool_activation_packet_status.v1';
 
     public const ENTERPRISE_COMPANY_COMMERCIAL_SERVICE_CATALOG_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_company_commercial_service_catalog_status.v1';
 
@@ -1220,6 +1239,76 @@ class ExternalActionMandateRegistryService
             'companies' => $companyRows,
         ];
         $payload['flow_benchmark_replay_status_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function connectorCertificationPreflightStatus(?string $companyId = null): array
+    {
+        $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
+        $runtimeStatus = $this->flowActionRuntime->connectorCertificationPreflightRuntimeStatus($wantedCompany);
+        $runtimeByCompany = $this->companyRowsById($runtimeStatus);
+
+        $companyRows = array_values(array_map(
+            fn (array $company): array => $this->connectorCertificationPreflightCompany(
+                (array) $company,
+                (array) ($runtimeByCompany[(string) ($company['company_id'] ?? 'unknown')] ?? []),
+            ),
+            $this->buildoutCompanies($wantedCompany),
+        ));
+        $readyCompanies = count(array_filter($companyRows, static fn (array $company): bool => (bool) $company['ready']));
+
+        $payload = [
+            'ok' => $companyRows !== [] && $readyCompanies === count($companyRows),
+            'schema' => self::CONNECTOR_CERTIFICATION_PREFLIGHT_STATUS_SCHEMA,
+            'status' => $companyRows !== [] && $readyCompanies === count($companyRows)
+                ? 'connector_certification_preflight_ready_external_cutover_blocked'
+                : 'connector_certification_preflight_attention_required',
+            'generated_at' => now()->toJSON(),
+            'summary' => [
+                'company_count' => count($companyRows),
+                'ready_company_count' => $readyCompanies,
+                'connector_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_count'], $companyRows)),
+                'expected_flow_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_count'], $companyRows)),
+                'adapter_contract_count' => array_sum(array_map(static fn (array $company): int => (int) $company['adapter_contract_count'], $companyRows)),
+                'auth_boundary_count' => array_sum(array_map(static fn (array $company): int => (int) $company['auth_boundary_count'], $companyRows)),
+                'sandbox_probe_count' => array_sum(array_map(static fn (array $company): int => (int) $company['sandbox_probe_count'], $companyRows)),
+                'contract_test_count' => array_sum(array_map(static fn (array $company): int => (int) $company['contract_test_count'], $companyRows)),
+                'data_lineage_count' => array_sum(array_map(static fn (array $company): int => (int) $company['data_lineage_count'], $companyRows)),
+                'flow_connector_usage_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_connector_usage_count'], $companyRows)),
+                'replay_fixture_count' => array_sum(array_map(static fn (array $company): int => (int) $company['replay_fixture_count'], $companyRows)),
+                'slo_failure_mode_count' => array_sum(array_map(static fn (array $company): int => (int) $company['slo_failure_mode_count'], $companyRows)),
+                'certification_metric_count' => array_sum(array_map(static fn (array $company): int => (int) $company['certification_metric_count'], $companyRows)),
+                'production_preflight_contract_count' => array_sum(array_map(static fn (array $company): int => (int) $company['production_preflight_contract_count'], $companyRows)),
+                'flow_cutover_matrix_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_cutover_matrix_count'], $companyRows)),
+                'production_evidence_register_count' => array_sum(array_map(static fn (array $company): int => (int) $company['production_evidence_register_count'], $companyRows)),
+                'cutover_metric_count' => array_sum(array_map(static fn (array $company): int => (int) $company['cutover_metric_count'], $companyRows)),
+                'runtime_completed_connector_flow_count' => array_sum(array_map(static fn (array $company): int => (int) $company['runtime_completed_connector_flow_count'], $companyRows)),
+                'external_connector_cutover_allowed_count' => 0,
+                'write_or_paid_mode_allowed_count' => 0,
+                'real_credential_material_in_packet_allowed_count' => 0,
+            ],
+            'source_hashes' => [
+                'connector_certification_preflight_runtime_status_hash' => $runtimeStatus['connector_certification_preflight_runtime_status_hash'] ?? null,
+            ],
+            'policy' => [
+                'calendar_wait_blocker_enabled' => false,
+                'external_execution_allowed' => false,
+                'external_connector_cutover_allowed' => false,
+                'write_or_paid_mode_allowed_by_default' => false,
+                'real_credential_material_in_packet_allowed' => false,
+                'production_cutover_without_operator_signed_scope_allowed' => false,
+                'operator_approval_required_for_write_publish_spend_trade_delete_or_secret_scope_expansion' => true,
+                'manual_execution_handoff_only_after_signed_mandate' => true,
+                'required_connector_surfaces' => ['adapter_contract', 'auth_boundary', 'sandbox_probe', 'consumer_provider_contract_test', 'data_lineage', 'flow_usage_matrix', 'replay_fixture', 'slo_failure_mode', 'production_preflight_contract', 'flow_cutover_matrix', 'production_evidence_register'],
+                'blocked_operations' => ['external_connector_cutover', 'write_without_operator_scope', 'publish_without_operator_scope', 'spend_without_operator_scope', 'trade_without_operator_scope', 'delete_without_operator_scope', 'admin_scope_expansion', 'secret_export', 'real_credential_material_in_packet', 'deploy'],
+            ],
+            'companies' => $companyRows,
+        ];
+        $payload['connector_certification_preflight_status_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
     }
@@ -7122,6 +7211,814 @@ class ExternalActionMandateRegistryService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    public function enterpriseCompanyExternalToolActivationWorkOrderRegister(?string $companyId = null): array
+    {
+        $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
+        unset($this->runtimeStatusCache['external_tool_activation_work_order_status:'.($wantedCompany ?? '*')]);
+        unset($this->runtimeStatusCache['external_tool_activation_packet_status:'.($wantedCompany ?? '*')]);
+        $supervisedExecution = $this->enterpriseCompanySupervisedConnectorExecutionStatus($wantedCompany);
+        $supervisedByCompany = $this->companyRowsById($supervisedExecution);
+
+        if (! Schema::hasTable('atlas_tool_runs')) {
+            return [
+                'ok' => false,
+                'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_WORK_ORDER_REGISTER_SCHEMA,
+                'status' => 'atlas_tool_runs_table_unavailable',
+                'generated_at' => now()->toJSON(),
+                'summary' => [
+                    'company_count' => 0,
+                    'expected_external_tool_activation_work_order_count' => 0,
+                    'registered_external_tool_activation_work_order_count' => 0,
+                    'external_execution_allowed_count' => 0,
+                    'external_side_effects_enabled_count' => 0,
+                ],
+                'companies' => [],
+                'policy' => $this->externalToolActivationWorkOrderPolicy(),
+            ];
+        }
+
+        $companies = [];
+        foreach ($this->buildoutCompanies($wantedCompany) as $company) {
+            $id = (string) ($company['company_id'] ?? 'unknown');
+            $supervisedRow = (array) ($supervisedByCompany[$id] ?? []);
+            $registeredWorkOrders = [];
+
+            foreach ((array) ($supervisedRow['runtime_records'] ?? []) as $supervisedRecord) {
+                $flowId = (string) ($supervisedRecord['flow_id'] ?? '');
+                $capabilityId = (string) ($supervisedRecord['capability_id'] ?? '');
+                $connectorId = (string) ($supervisedRecord['connector_id'] ?? '');
+                if ($flowId === '' || $capabilityId === '' || $connectorId === '') {
+                    continue;
+                }
+
+                $runContextId = $id.'.'.substr(MissionCanonicalHash::sha256([
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'context' => 'external_tool_activation_work_order',
+                ]), 0, 24).'.external_tool_activation_work_order.v1';
+                $artifact = $this->externalToolActivationWorkOrderArtifact($company, (array) $supervisedRecord, $runContextId);
+                $qualityGates = [
+                    'supervised_connector_execution_ready' => (bool) ($supervisedRecord['ready'] ?? false)
+                        && strlen((string) ($supervisedRecord['supervised_connector_execution_status_record_hash'] ?? '')) === 64,
+                    'work_order_artifact_bound' => strlen((string) ($artifact['external_tool_activation_work_order_artifact_hash'] ?? '')) === 64,
+                    'credential_scope_requirements_bound' => count((array) data_get($artifact, 'credential_scope_requirements.required_scopes', [])) >= 1
+                        && (bool) data_get($artifact, 'credential_scope_requirements.credential_material_in_packet_allowed', true) === false,
+                    'dry_run_operations_bound' => count((array) data_get($artifact, 'dry_run_operations', [])) >= 7,
+                    'allowed_read_probe_actions_bound' => count((array) data_get($artifact, 'allowed_read_probe_actions', [])) >= 5,
+                    'forbidden_external_effect_actions_bound' => count((array) data_get($artifact, 'forbidden_external_effect_actions', [])) >= 12,
+                    'receipt_chain_bound' => strlen((string) data_get($artifact, 'receipt_chain.activation_work_order_receipt_hash', '')) === 64
+                        && strlen((string) data_get($artifact, 'receipt_chain.credential_scope_receipt_hash', '')) === 64
+                        && strlen((string) data_get($artifact, 'receipt_chain.operator_mandate_receipt_hash', '')) === 64,
+                    'operator_mandate_required' => (bool) data_get($artifact, 'operator_mandate.operator_mandate_required_for_external_effect', false),
+                    'external_effects_blocked' => ! (bool) ($artifact['external_execution_allowed'] ?? true)
+                        && ! (bool) ($artifact['external_side_effects_enabled'] ?? true),
+                ];
+                $summary = [
+                    'company_id' => $id,
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'work_order_id' => (string) ($artifact['work_order_id'] ?? ''),
+                    'activation_mode' => 'operator_scoped_read_only_probe_work_order_no_external_effect',
+                    'quality_gate_count' => count($qualityGates),
+                    'ready_quality_gate_count' => count(array_filter($qualityGates)),
+                    'external_execution_allowed' => false,
+                    'external_side_effects_enabled' => false,
+                ];
+                $normalized = [
+                    'schema' => 'atlas.ai.company.external_tool_activation_work_order_result.v1',
+                    'status' => count(array_filter($qualityGates)) === count($qualityGates) ? 'passed' : 'attention_required',
+                    'summary' => $summary,
+                    'external_tool_activation_work_order_artifact' => $artifact,
+                    'quality_gates' => $qualityGates,
+                    'blocking_failures' => array_values(array_keys(array_filter($qualityGates, static fn (bool $ready): bool => ! $ready))),
+                ];
+                $receiptInput = [
+                    'company_id' => $id,
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'run_context_id' => $runContextId,
+                    'work_order_id' => (string) ($artifact['work_order_id'] ?? ''),
+                    'artifact_hash' => (string) ($artifact['external_tool_activation_work_order_artifact_hash'] ?? ''),
+                ];
+                $metadata = [
+                    'source' => 'enterprise_company_external_tool_activation_work_order_register',
+                    'receipt_schema_version' => 'atlas.company_external_tool_activation_work_order_receipt.v1',
+                    'evidence_receipt_hash' => MissionCanonicalHash::sha256($normalized),
+                    'activation_work_order_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'activation_work_order_receipt']),
+                    'credential_scope_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'credential_scope_receipt']),
+                    'dry_run_operation_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'dry_run_operation_receipt']),
+                    'allowed_read_probe_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'allowed_read_probe_receipt']),
+                    'forbidden_external_effect_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'forbidden_external_effect_receipt']),
+                    'operator_mandate_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'operator_mandate_receipt']),
+                    'audit_trail_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'audit_trail']),
+                    'rollback_plan_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'rollback_plan']),
+                    'external_execution_allowed' => false,
+                    'external_side_effects_enabled' => false,
+                    'operator_signed_scope_required_for_external_effect' => true,
+                    'action_runtime_contract' => [
+                        'schema_version' => 'atlas.company_external_tool_activation_work_order.contract.v1',
+                        'mode' => 'operator_scoped_read_only_probe_work_order_no_external_effect',
+                        'run_context_type' => 'holding_company_external_tool_activation_work_order',
+                        'run_context_id' => $runContextId,
+                        'provider_dispatch_allowed' => false,
+                        'external_write_allowed' => false,
+                        'customer_message_allowed' => false,
+                        'billing_or_capital_action_allowed' => false,
+                        'trade_allowed' => false,
+                        'deploy_allowed' => false,
+                        'security_action_allowed' => false,
+                        'operator_approval_required_for_external_effect' => true,
+                    ],
+                ];
+
+                $run = AtlasToolRun::query()->updateOrCreate(
+                    [
+                        'surface' => 'holding_company_external_tool_activation_work_order',
+                        'run_context_type' => 'holding_company_external_tool_activation_work_order',
+                        'run_context_id' => $runContextId,
+                    ],
+                    [
+                        'tool_slug' => 'atlas_company_external_tool_activation_work_order',
+                        'workspace_hash' => hash('sha256', base_path()),
+                        'workspace' => base_path(),
+                        'status' => $normalized['status'] === 'passed' ? 'passed' : 'failed',
+                        'required' => true,
+                        'failure_policy' => 'fail_closed',
+                        'policy_decision' => 'activation_work_order_registered_blocked',
+                        'command_hash' => MissionCanonicalHash::sha256([
+                            'run_context_id' => $runContextId,
+                            'artifact_hash' => $artifact['external_tool_activation_work_order_artifact_hash'] ?? null,
+                        ]),
+                        'exit_code' => $normalized['status'] === 'passed' ? 0 : 1,
+                        'started_at' => now(),
+                        'finished_at' => now(),
+                        'duration_ms' => 0,
+                        'summary_json' => $summary,
+                        'normalized_result_json' => $normalized,
+                        'policy_decision_json' => [
+                            'external_execution_allowed' => false,
+                            'external_side_effects_enabled' => false,
+                            'blocked_operations' => $this->externalToolActivationWorkOrderPolicy()['blocked_operations'],
+                        ],
+                        'metadata_json' => $metadata,
+                    ],
+                );
+
+                $registeredWorkOrders[] = [
+                    'run_id' => (string) $run->id,
+                    'run_context_id' => $runContextId,
+                    'work_order_id' => (string) ($artifact['work_order_id'] ?? ''),
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'status' => (string) $run->status,
+                    'policy_decision' => (string) $run->policy_decision,
+                    'activation_work_order_receipt_hash' => (string) data_get($run->metadata_json, 'activation_work_order_receipt_hash', ''),
+                    'external_execution_allowed' => false,
+                    'external_side_effects_enabled' => false,
+                ];
+            }
+
+            $row = [
+                'schema' => 'atlas.ai.company.enterprise_external_tool_activation_work_order_register_record.v1',
+                'company_id' => $id,
+                'expected_supervised_connector_execution_run_count' => (int) ($supervisedRow['ready_supervised_connector_execution_run_count'] ?? 0),
+                'registered_external_tool_activation_work_order_count' => count($registeredWorkOrders),
+                'registered_work_orders' => $registeredWorkOrders,
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+            ];
+            $row['company_external_tool_activation_work_order_register_record_hash'] = MissionCanonicalHash::sha256($row);
+            $companies[] = $row;
+        }
+
+        $registeredWorkOrderCount = array_sum(array_map(static fn (array $company): int => (int) ($company['registered_external_tool_activation_work_order_count'] ?? 0), $companies));
+        $expectedWorkOrderCount = array_sum(array_map(static fn (array $company): int => (int) ($company['expected_supervised_connector_execution_run_count'] ?? 0), $companies));
+        $payload = [
+            'ok' => $expectedWorkOrderCount > 0 && $registeredWorkOrderCount >= $expectedWorkOrderCount,
+            'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_WORK_ORDER_REGISTER_SCHEMA,
+            'status' => $expectedWorkOrderCount > 0 && $registeredWorkOrderCount >= $expectedWorkOrderCount
+                ? 'enterprise_company_external_tool_activation_work_orders_registered_external_effects_blocked'
+                : 'enterprise_company_external_tool_activation_work_orders_attention_required',
+            'generated_at' => now()->toJSON(),
+            'summary' => [
+                'company_count' => count($companies),
+                'expected_external_tool_activation_work_order_count' => $expectedWorkOrderCount,
+                'registered_external_tool_activation_work_order_count' => $registeredWorkOrderCount,
+                'external_execution_allowed_count' => 0,
+                'external_side_effects_enabled_count' => 0,
+            ],
+            'source_hashes' => [
+                'enterprise_company_supervised_connector_execution_status_hash' => $supervisedExecution['enterprise_company_supervised_connector_execution_status_hash'] ?? null,
+            ],
+            'companies' => $companies,
+            'policy' => $this->externalToolActivationWorkOrderPolicy(),
+        ];
+        $payload['enterprise_company_external_tool_activation_work_order_register_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function enterpriseCompanyExternalToolActivationWorkOrderStatus(?string $companyId = null): array
+    {
+        $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
+        $cacheKey = 'external_tool_activation_work_order_status:'.($wantedCompany ?? '*');
+        if (isset($this->runtimeStatusCache[$cacheKey])) {
+            return $this->runtimeStatusCache[$cacheKey];
+        }
+
+        $supervisedExecution = $this->enterpriseCompanySupervisedConnectorExecutionStatus($wantedCompany);
+        $supervisedByCompany = $this->companyRowsById($supervisedExecution);
+
+        if (! Schema::hasTable('atlas_tool_runs')) {
+            return [
+                'ok' => false,
+                'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_WORK_ORDER_STATUS_SCHEMA,
+                'status' => 'atlas_tool_runs_table_unavailable',
+                'generated_at' => now()->toJSON(),
+                'summary' => [
+                    'company_count' => 0,
+                    'expected_external_tool_activation_work_order_count' => 0,
+                    'persisted_external_tool_activation_work_order_count' => 0,
+                    'ready_external_tool_activation_work_order_count' => 0,
+                    'external_execution_allowed_count' => 0,
+                    'external_side_effects_enabled_count' => 0,
+                ],
+                'companies' => [],
+                'policy' => $this->externalToolActivationWorkOrderPolicy(),
+            ];
+        }
+
+        $companies = [];
+        foreach ($this->buildoutCompanies($wantedCompany) as $company) {
+            $id = (string) ($company['company_id'] ?? 'unknown');
+            $supervisedRow = (array) ($supervisedByCompany[$id] ?? []);
+            $workOrderRecords = [];
+
+            foreach ((array) ($supervisedRow['runtime_records'] ?? []) as $supervisedRecord) {
+                $flowId = (string) ($supervisedRecord['flow_id'] ?? '');
+                $capabilityId = (string) ($supervisedRecord['capability_id'] ?? '');
+                $connectorId = (string) ($supervisedRecord['connector_id'] ?? '');
+                if ($flowId === '' || $capabilityId === '' || $connectorId === '') {
+                    continue;
+                }
+
+                $runContextId = $id.'.'.substr(MissionCanonicalHash::sha256([
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'context' => 'external_tool_activation_work_order',
+                ]), 0, 24).'.external_tool_activation_work_order.v1';
+                $run = AtlasToolRun::query()
+                    ->where('surface', 'holding_company_external_tool_activation_work_order')
+                    ->where('run_context_type', 'holding_company_external_tool_activation_work_order')
+                    ->where('run_context_id', $runContextId)
+                    ->latest('updated_at')
+                    ->first();
+
+                $recordGates = [
+                    'persisted_external_tool_activation_work_order_exists' => $run instanceof AtlasToolRun,
+                    'status_passed' => $run instanceof AtlasToolRun && $run->status === 'passed',
+                    'policy_activation_work_order_registered' => $run instanceof AtlasToolRun && $run->policy_decision === 'activation_work_order_registered_blocked',
+                    'normalized_result_bound' => $run instanceof AtlasToolRun && data_get($run->normalized_result_json, 'schema') === 'atlas.ai.company.external_tool_activation_work_order_result.v1',
+                    'activation_work_order_artifact_bound' => $run instanceof AtlasToolRun
+                        && data_get($run->normalized_result_json, 'external_tool_activation_work_order_artifact.schema') === 'atlas.ai.company.external_tool_activation_work_order_artifact.v1'
+                        && strlen((string) data_get($run->normalized_result_json, 'external_tool_activation_work_order_artifact.external_tool_activation_work_order_artifact_hash', '')) === 64,
+                    'receipt_metadata_bound' => $run instanceof AtlasToolRun
+                        && strlen((string) data_get($run->metadata_json, 'activation_work_order_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'credential_scope_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'dry_run_operation_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'allowed_read_probe_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'forbidden_external_effect_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'operator_mandate_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'audit_trail_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'rollback_plan_hash', '')) === 64,
+                    'quality_gates_bound' => $run instanceof AtlasToolRun
+                        && count(array_filter((array) data_get($run->normalized_result_json, 'quality_gates', []))) >= 9,
+                    'critical_operations_blocked' => $run instanceof AtlasToolRun
+                        && in_array('credential_material_export', (array) data_get($run->policy_decision_json, 'blocked_operations', []), true)
+                        && in_array('external_write', (array) data_get($run->policy_decision_json, 'blocked_operations', []), true)
+                        && in_array('trade', (array) data_get($run->policy_decision_json, 'blocked_operations', []), true),
+                    'external_effects_blocked' => $run instanceof AtlasToolRun
+                        && ! (bool) data_get($run->metadata_json, 'external_execution_allowed', true)
+                        && ! (bool) data_get($run->metadata_json, 'external_side_effects_enabled', true),
+                ];
+                $readyRecordGateCount = count(array_filter($recordGates));
+                $workOrderRecord = [
+                    'schema' => 'atlas.ai.company.external_tool_activation_work_order_status_record.v1',
+                    'company_id' => $id,
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'run_context_id' => $runContextId,
+                    'work_order_id' => $run instanceof AtlasToolRun ? (string) data_get($run->summary_json, 'work_order_id', '') : '',
+                    'tool_run_id' => $run instanceof AtlasToolRun ? (string) $run->id : null,
+                    'ready' => $readyRecordGateCount === count($recordGates),
+                    'ready_gate_count' => $readyRecordGateCount,
+                    'required_gate_count' => count($recordGates),
+                    'gates' => $recordGates,
+                    'missing_gates' => array_values(array_keys(array_filter($recordGates, static fn (bool $ready): bool => ! $ready))),
+                    'receipt_chain' => $run instanceof AtlasToolRun ? [
+                        'activation_work_order_receipt_hash' => (string) data_get($run->metadata_json, 'activation_work_order_receipt_hash', ''),
+                        'credential_scope_receipt_hash' => (string) data_get($run->metadata_json, 'credential_scope_receipt_hash', ''),
+                        'dry_run_operation_receipt_hash' => (string) data_get($run->metadata_json, 'dry_run_operation_receipt_hash', ''),
+                        'allowed_read_probe_receipt_hash' => (string) data_get($run->metadata_json, 'allowed_read_probe_receipt_hash', ''),
+                        'forbidden_external_effect_receipt_hash' => (string) data_get($run->metadata_json, 'forbidden_external_effect_receipt_hash', ''),
+                        'operator_mandate_receipt_hash' => (string) data_get($run->metadata_json, 'operator_mandate_receipt_hash', ''),
+                        'audit_trail_hash' => (string) data_get($run->metadata_json, 'audit_trail_hash', ''),
+                        'rollback_plan_hash' => (string) data_get($run->metadata_json, 'rollback_plan_hash', ''),
+                    ] : [],
+                    'external_execution_allowed' => false,
+                    'external_side_effects_enabled' => false,
+                ];
+                $workOrderRecord['external_tool_activation_work_order_status_record_hash'] = MissionCanonicalHash::sha256($workOrderRecord);
+                $workOrderRecords[] = $workOrderRecord;
+            }
+
+            $readyWorkOrderCount = count(array_filter($workOrderRecords, static fn (array $record): bool => (bool) ($record['ready'] ?? false)));
+            $expectedWorkOrderCount = (int) ($supervisedRow['ready_supervised_connector_execution_run_count'] ?? 0);
+            $gates = [
+                'supervised_connector_execution_ready' => (bool) ($supervisedRow['supervised_connector_execution_ready'] ?? false),
+                'external_tool_activation_work_orders_cover_supervised_connector_execution' => $expectedWorkOrderCount > 0
+                    && count($workOrderRecords) >= $expectedWorkOrderCount
+                    && $readyWorkOrderCount === count($workOrderRecords),
+                'external_effects_blocked' => count(array_filter($workOrderRecords, static fn (array $record): bool => (bool) ($record['external_execution_allowed'] ?? true)
+                    || (bool) ($record['external_side_effects_enabled'] ?? true))) === 0,
+            ];
+            $readyGateCount = count(array_filter($gates));
+            $row = [
+                'schema' => 'atlas.ai.company.enterprise_external_tool_activation_work_order_company_status.v1',
+                'company_id' => $id,
+                'expected_external_tool_activation_work_order_count' => $expectedWorkOrderCount,
+                'persisted_external_tool_activation_work_order_count' => count($workOrderRecords),
+                'ready_external_tool_activation_work_order_count' => $readyWorkOrderCount,
+                'external_tool_activation_work_orders_ready' => $expectedWorkOrderCount > 0 && $readyGateCount === count($gates),
+                'runtime_grade' => $expectedWorkOrderCount > 0 && $readyGateCount === count($gates)
+                    ? 'target_9_external_tool_activation_work_orders_ready_external_effects_blocked'
+                    : 'external_tool_activation_work_orders_attention_required',
+                'ready_gate_count' => $readyGateCount,
+                'required_gate_count' => count($gates),
+                'gates' => $gates,
+                'missing_gates' => array_values(array_keys(array_filter($gates, static fn (bool $ready): bool => ! $ready))),
+                'work_order_records' => $workOrderRecords,
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+            ];
+            $row['company_external_tool_activation_work_order_status_record_hash'] = MissionCanonicalHash::sha256($row);
+            $companies[] = $row;
+        }
+
+        $readyCompanyCount = count(array_filter($companies, static fn (array $company): bool => (bool) ($company['external_tool_activation_work_orders_ready'] ?? false)));
+        $payload = [
+            'ok' => $companies !== [] && $readyCompanyCount === count($companies),
+            'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_WORK_ORDER_STATUS_SCHEMA,
+            'status' => $companies !== [] && $readyCompanyCount === count($companies)
+                ? 'enterprise_company_external_tool_activation_work_orders_ready_external_effects_blocked'
+                : 'enterprise_company_external_tool_activation_work_orders_attention_required',
+            'generated_at' => now()->toJSON(),
+            'summary' => [
+                'company_count' => count($companies),
+                'external_tool_activation_work_orders_ready_company_count' => $readyCompanyCount,
+                'attention_company_count' => count($companies) - $readyCompanyCount,
+                'expected_external_tool_activation_work_order_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['expected_external_tool_activation_work_order_count'] ?? 0), $companies)),
+                'persisted_external_tool_activation_work_order_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['persisted_external_tool_activation_work_order_count'] ?? 0), $companies)),
+                'ready_external_tool_activation_work_order_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['ready_external_tool_activation_work_order_count'] ?? 0), $companies)),
+                'required_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['required_gate_count'] ?? 0), $companies)),
+                'ready_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['ready_gate_count'] ?? 0), $companies)),
+                'external_execution_allowed_count' => 0,
+                'external_side_effects_enabled_count' => 0,
+            ],
+            'source_hashes' => [
+                'enterprise_company_supervised_connector_execution_status_hash' => $supervisedExecution['enterprise_company_supervised_connector_execution_status_hash'] ?? null,
+            ],
+            'companies' => $companies,
+            'policy' => $this->externalToolActivationWorkOrderPolicy(),
+        ];
+        $payload['enterprise_company_external_tool_activation_work_order_status_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $this->runtimeStatusCache[$cacheKey] = $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function enterpriseCompanyExternalToolActivationPacketRegister(?string $companyId = null): array
+    {
+        $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
+        unset($this->runtimeStatusCache['external_tool_activation_packet_status:'.($wantedCompany ?? '*')]);
+        $workOrders = $this->enterpriseCompanyExternalToolActivationWorkOrderStatus($wantedCompany);
+        $workOrdersByCompany = $this->companyRowsById($workOrders);
+
+        if (! Schema::hasTable('atlas_tool_runs')) {
+            return [
+                'ok' => false,
+                'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_PACKET_REGISTER_SCHEMA,
+                'status' => 'atlas_tool_runs_table_unavailable',
+                'generated_at' => now()->toJSON(),
+                'summary' => [
+                    'company_count' => 0,
+                    'expected_external_tool_activation_packet_count' => 0,
+                    'registered_external_tool_activation_packet_count' => 0,
+                    'external_execution_allowed_count' => 0,
+                    'external_side_effects_enabled_count' => 0,
+                ],
+                'companies' => [],
+                'policy' => $this->externalToolActivationPacketPolicy(),
+            ];
+        }
+
+        $companies = [];
+        foreach ($this->buildoutCompanies($wantedCompany) as $company) {
+            $id = (string) ($company['company_id'] ?? 'unknown');
+            $workOrderRow = (array) ($workOrdersByCompany[$id] ?? []);
+            $registeredPackets = [];
+
+            foreach ((array) ($workOrderRow['work_order_records'] ?? []) as $workOrderRecord) {
+                $flowId = (string) ($workOrderRecord['flow_id'] ?? '');
+                $capabilityId = (string) ($workOrderRecord['capability_id'] ?? '');
+                $connectorId = (string) ($workOrderRecord['connector_id'] ?? '');
+                $workOrderId = (string) ($workOrderRecord['work_order_id'] ?? '');
+                if ($flowId === '' || $capabilityId === '' || $connectorId === '' || $workOrderId === '') {
+                    continue;
+                }
+
+                $runContextId = $id.'.'.substr(MissionCanonicalHash::sha256([
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'work_order_id' => $workOrderId,
+                    'context' => 'external_tool_activation_packet',
+                ]), 0, 24).'.external_tool_activation_packet.v1';
+                $artifact = $this->externalToolActivationPacketArtifact($company, (array) $workOrderRecord, $runContextId);
+                $qualityGates = [
+                    'activation_work_order_ready' => (bool) ($workOrderRecord['ready'] ?? false)
+                        && strlen((string) ($workOrderRecord['external_tool_activation_work_order_status_record_hash'] ?? '')) === 64,
+                    'activation_packet_artifact_bound' => strlen((string) ($artifact['external_tool_activation_packet_artifact_hash'] ?? '')) === 64,
+                    'vault_binding_contract_bound' => strlen((string) data_get($artifact, 'vault_binding_contract.vault_binding_contract_hash', '')) === 64
+                        && (bool) data_get($artifact, 'vault_binding_contract.credential_material_in_packet_allowed', true) === false,
+                    'sandbox_probe_bound' => strlen((string) data_get($artifact, 'sandbox_probe.sandbox_probe_hash', '')) === 64
+                        && count((array) data_get($artifact, 'sandbox_probe.probe_modes', [])) >= 5,
+                    'eval_replay_bound' => strlen((string) data_get($artifact, 'eval_replay.eval_replay_hash', '')) === 64
+                        && count((array) data_get($artifact, 'eval_replay.replay_assertions', [])) >= 6,
+                    'observability_slo_bound' => strlen((string) data_get($artifact, 'observability_slo.observability_slo_hash', '')) === 64
+                        && count((array) data_get($artifact, 'observability_slo.required_metrics', [])) >= 7,
+                    'handoff_runbook_bound' => strlen((string) data_get($artifact, 'operator_handoff_runbook.operator_handoff_runbook_hash', '')) === 64
+                        && (bool) data_get($artifact, 'operator_handoff_runbook.operator_acceptance_required', false),
+                    'receipt_chain_bound' => strlen((string) data_get($artifact, 'receipt_chain.activation_packet_receipt_hash', '')) === 64
+                        && strlen((string) data_get($artifact, 'receipt_chain.sandbox_probe_receipt_hash', '')) === 64
+                        && strlen((string) data_get($artifact, 'receipt_chain.eval_replay_receipt_hash', '')) === 64,
+                    'external_effects_blocked' => ! (bool) ($artifact['external_execution_allowed'] ?? true)
+                        && ! (bool) ($artifact['external_side_effects_enabled'] ?? true),
+                ];
+                $summary = [
+                    'company_id' => $id,
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'work_order_id' => $workOrderId,
+                    'activation_packet_id' => (string) ($artifact['activation_packet_id'] ?? ''),
+                    'activation_mode' => 'vault_bound_sandbox_probe_eval_replay_operator_handoff_no_external_effect',
+                    'quality_gate_count' => count($qualityGates),
+                    'ready_quality_gate_count' => count(array_filter($qualityGates)),
+                    'external_execution_allowed' => false,
+                    'external_side_effects_enabled' => false,
+                ];
+                $normalized = [
+                    'schema' => 'atlas.ai.company.external_tool_activation_packet_result.v1',
+                    'status' => count(array_filter($qualityGates)) === count($qualityGates) ? 'passed' : 'attention_required',
+                    'summary' => $summary,
+                    'external_tool_activation_packet_artifact' => $artifact,
+                    'quality_gates' => $qualityGates,
+                    'blocking_failures' => array_values(array_keys(array_filter($qualityGates, static fn (bool $ready): bool => ! $ready))),
+                ];
+                $receiptInput = [
+                    'company_id' => $id,
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'work_order_id' => $workOrderId,
+                    'run_context_id' => $runContextId,
+                    'activation_packet_id' => (string) ($artifact['activation_packet_id'] ?? ''),
+                    'artifact_hash' => (string) ($artifact['external_tool_activation_packet_artifact_hash'] ?? ''),
+                ];
+                $metadata = [
+                    'source' => 'enterprise_company_external_tool_activation_packet_register',
+                    'receipt_schema_version' => 'atlas.company_external_tool_activation_packet_receipt.v1',
+                    'evidence_receipt_hash' => MissionCanonicalHash::sha256($normalized),
+                    'activation_packet_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'activation_packet_receipt']),
+                    'vault_binding_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'vault_binding_receipt']),
+                    'sandbox_probe_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'sandbox_probe_receipt']),
+                    'eval_replay_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'eval_replay_receipt']),
+                    'observability_slo_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'observability_slo_receipt']),
+                    'operator_handoff_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'operator_handoff_receipt']),
+                    'audit_trail_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'audit_trail']),
+                    'rollback_plan_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'rollback_plan']),
+                    'external_execution_allowed' => false,
+                    'external_side_effects_enabled' => false,
+                    'operator_signed_scope_required_for_external_effect' => true,
+                    'action_runtime_contract' => [
+                        'schema_version' => 'atlas.company_external_tool_activation_packet.contract.v1',
+                        'mode' => 'vault_bound_sandbox_probe_eval_replay_operator_handoff_no_external_effect',
+                        'run_context_type' => 'holding_company_external_tool_activation_packet',
+                        'run_context_id' => $runContextId,
+                        'provider_dispatch_allowed' => false,
+                        'external_write_allowed' => false,
+                        'customer_message_allowed' => false,
+                        'billing_or_capital_action_allowed' => false,
+                        'trade_allowed' => false,
+                        'deploy_allowed' => false,
+                        'security_action_allowed' => false,
+                        'operator_approval_required_for_external_effect' => true,
+                    ],
+                ];
+
+                $run = AtlasToolRun::query()->updateOrCreate(
+                    [
+                        'surface' => 'holding_company_external_tool_activation_packet',
+                        'run_context_type' => 'holding_company_external_tool_activation_packet',
+                        'run_context_id' => $runContextId,
+                    ],
+                    [
+                        'tool_slug' => 'atlas_company_external_tool_activation_packet',
+                        'workspace_hash' => hash('sha256', base_path()),
+                        'workspace' => base_path(),
+                        'status' => $normalized['status'] === 'passed' ? 'passed' : 'failed',
+                        'required' => true,
+                        'failure_policy' => 'fail_closed',
+                        'policy_decision' => 'activation_packet_registered_blocked',
+                        'command_hash' => MissionCanonicalHash::sha256([
+                            'run_context_id' => $runContextId,
+                            'artifact_hash' => $artifact['external_tool_activation_packet_artifact_hash'] ?? null,
+                        ]),
+                        'exit_code' => $normalized['status'] === 'passed' ? 0 : 1,
+                        'started_at' => now(),
+                        'finished_at' => now(),
+                        'duration_ms' => 0,
+                        'summary_json' => $summary,
+                        'normalized_result_json' => $normalized,
+                        'policy_decision_json' => [
+                            'external_execution_allowed' => false,
+                            'external_side_effects_enabled' => false,
+                            'blocked_operations' => $this->externalToolActivationPacketPolicy()['blocked_operations'],
+                        ],
+                        'metadata_json' => $metadata,
+                    ],
+                );
+
+                $registeredPackets[] = [
+                    'run_id' => (string) $run->id,
+                    'run_context_id' => $runContextId,
+                    'activation_packet_id' => (string) ($artifact['activation_packet_id'] ?? ''),
+                    'work_order_id' => $workOrderId,
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'status' => (string) $run->status,
+                    'policy_decision' => (string) $run->policy_decision,
+                    'activation_packet_receipt_hash' => (string) data_get($run->metadata_json, 'activation_packet_receipt_hash', ''),
+                    'external_execution_allowed' => false,
+                    'external_side_effects_enabled' => false,
+                ];
+            }
+
+            $row = [
+                'schema' => 'atlas.ai.company.enterprise_external_tool_activation_packet_register_record.v1',
+                'company_id' => $id,
+                'expected_external_tool_activation_work_order_count' => (int) ($workOrderRow['ready_external_tool_activation_work_order_count'] ?? 0),
+                'registered_external_tool_activation_packet_count' => count($registeredPackets),
+                'registered_packets' => $registeredPackets,
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+            ];
+            $row['company_external_tool_activation_packet_register_record_hash'] = MissionCanonicalHash::sha256($row);
+            $companies[] = $row;
+        }
+
+        $registeredPacketCount = array_sum(array_map(static fn (array $company): int => (int) ($company['registered_external_tool_activation_packet_count'] ?? 0), $companies));
+        $expectedPacketCount = array_sum(array_map(static fn (array $company): int => (int) ($company['expected_external_tool_activation_work_order_count'] ?? 0), $companies));
+        $payload = [
+            'ok' => $expectedPacketCount > 0 && $registeredPacketCount >= $expectedPacketCount,
+            'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_PACKET_REGISTER_SCHEMA,
+            'status' => $expectedPacketCount > 0 && $registeredPacketCount >= $expectedPacketCount
+                ? 'enterprise_company_external_tool_activation_packets_registered_external_effects_blocked'
+                : 'enterprise_company_external_tool_activation_packets_attention_required',
+            'generated_at' => now()->toJSON(),
+            'summary' => [
+                'company_count' => count($companies),
+                'expected_external_tool_activation_packet_count' => $expectedPacketCount,
+                'registered_external_tool_activation_packet_count' => $registeredPacketCount,
+                'external_execution_allowed_count' => 0,
+                'external_side_effects_enabled_count' => 0,
+            ],
+            'source_hashes' => [
+                'enterprise_company_external_tool_activation_work_order_status_hash' => $workOrders['enterprise_company_external_tool_activation_work_order_status_hash'] ?? null,
+            ],
+            'companies' => $companies,
+            'policy' => $this->externalToolActivationPacketPolicy(),
+        ];
+        $payload['enterprise_company_external_tool_activation_packet_register_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function enterpriseCompanyExternalToolActivationPacketStatus(?string $companyId = null): array
+    {
+        $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
+        $cacheKey = 'external_tool_activation_packet_status:'.($wantedCompany ?? '*');
+        if (isset($this->runtimeStatusCache[$cacheKey])) {
+            return $this->runtimeStatusCache[$cacheKey];
+        }
+
+        $workOrders = $this->enterpriseCompanyExternalToolActivationWorkOrderStatus($wantedCompany);
+        $workOrdersByCompany = $this->companyRowsById($workOrders);
+
+        if (! Schema::hasTable('atlas_tool_runs')) {
+            return [
+                'ok' => false,
+                'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_PACKET_STATUS_SCHEMA,
+                'status' => 'atlas_tool_runs_table_unavailable',
+                'generated_at' => now()->toJSON(),
+                'summary' => [
+                    'company_count' => 0,
+                    'expected_external_tool_activation_packet_count' => 0,
+                    'persisted_external_tool_activation_packet_count' => 0,
+                    'ready_external_tool_activation_packet_count' => 0,
+                    'external_execution_allowed_count' => 0,
+                    'external_side_effects_enabled_count' => 0,
+                ],
+                'companies' => [],
+                'policy' => $this->externalToolActivationPacketPolicy(),
+            ];
+        }
+
+        $companies = [];
+        foreach ($this->buildoutCompanies($wantedCompany) as $company) {
+            $id = (string) ($company['company_id'] ?? 'unknown');
+            $workOrderRow = (array) ($workOrdersByCompany[$id] ?? []);
+            $packetRecords = [];
+
+            foreach ((array) ($workOrderRow['work_order_records'] ?? []) as $workOrderRecord) {
+                $flowId = (string) ($workOrderRecord['flow_id'] ?? '');
+                $capabilityId = (string) ($workOrderRecord['capability_id'] ?? '');
+                $connectorId = (string) ($workOrderRecord['connector_id'] ?? '');
+                $workOrderId = (string) ($workOrderRecord['work_order_id'] ?? '');
+                if ($flowId === '' || $capabilityId === '' || $connectorId === '' || $workOrderId === '') {
+                    continue;
+                }
+
+                $runContextId = $id.'.'.substr(MissionCanonicalHash::sha256([
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'work_order_id' => $workOrderId,
+                    'context' => 'external_tool_activation_packet',
+                ]), 0, 24).'.external_tool_activation_packet.v1';
+                $run = AtlasToolRun::query()
+                    ->where('surface', 'holding_company_external_tool_activation_packet')
+                    ->where('run_context_type', 'holding_company_external_tool_activation_packet')
+                    ->where('run_context_id', $runContextId)
+                    ->latest('updated_at')
+                    ->first();
+
+                $recordGates = [
+                    'persisted_external_tool_activation_packet_exists' => $run instanceof AtlasToolRun,
+                    'status_passed' => $run instanceof AtlasToolRun && $run->status === 'passed',
+                    'policy_activation_packet_registered' => $run instanceof AtlasToolRun && $run->policy_decision === 'activation_packet_registered_blocked',
+                    'normalized_result_bound' => $run instanceof AtlasToolRun && data_get($run->normalized_result_json, 'schema') === 'atlas.ai.company.external_tool_activation_packet_result.v1',
+                    'activation_packet_artifact_bound' => $run instanceof AtlasToolRun
+                        && data_get($run->normalized_result_json, 'external_tool_activation_packet_artifact.schema') === 'atlas.ai.company.external_tool_activation_packet_artifact.v1'
+                        && strlen((string) data_get($run->normalized_result_json, 'external_tool_activation_packet_artifact.external_tool_activation_packet_artifact_hash', '')) === 64,
+                    'receipt_metadata_bound' => $run instanceof AtlasToolRun
+                        && strlen((string) data_get($run->metadata_json, 'activation_packet_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'vault_binding_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'sandbox_probe_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'eval_replay_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'observability_slo_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'operator_handoff_receipt_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'audit_trail_hash', '')) === 64
+                        && strlen((string) data_get($run->metadata_json, 'rollback_plan_hash', '')) === 64,
+                    'activation_controls_bound' => $run instanceof AtlasToolRun
+                        && strlen((string) data_get($run->normalized_result_json, 'external_tool_activation_packet_artifact.vault_binding_contract.vault_binding_contract_hash', '')) === 64
+                        && strlen((string) data_get($run->normalized_result_json, 'external_tool_activation_packet_artifact.sandbox_probe.sandbox_probe_hash', '')) === 64
+                        && strlen((string) data_get($run->normalized_result_json, 'external_tool_activation_packet_artifact.eval_replay.eval_replay_hash', '')) === 64,
+                    'critical_operations_blocked' => $run instanceof AtlasToolRun
+                        && in_array('credential_material_export', (array) data_get($run->policy_decision_json, 'blocked_operations', []), true)
+                        && in_array('external_write', (array) data_get($run->policy_decision_json, 'blocked_operations', []), true)
+                        && in_array('trade', (array) data_get($run->policy_decision_json, 'blocked_operations', []), true)
+                        && in_array('deploy', (array) data_get($run->policy_decision_json, 'blocked_operations', []), true),
+                    'external_effects_blocked' => $run instanceof AtlasToolRun
+                        && ! (bool) data_get($run->metadata_json, 'external_execution_allowed', true)
+                        && ! (bool) data_get($run->metadata_json, 'external_side_effects_enabled', true),
+                ];
+                $readyRecordGateCount = count(array_filter($recordGates));
+                $packetRecord = [
+                    'schema' => 'atlas.ai.company.external_tool_activation_packet_status_record.v1',
+                    'company_id' => $id,
+                    'flow_id' => $flowId,
+                    'capability_id' => $capabilityId,
+                    'connector_id' => $connectorId,
+                    'work_order_id' => $workOrderId,
+                    'run_context_id' => $runContextId,
+                    'activation_packet_id' => $run instanceof AtlasToolRun ? (string) data_get($run->summary_json, 'activation_packet_id', '') : '',
+                    'tool_run_id' => $run instanceof AtlasToolRun ? (string) $run->id : null,
+                    'ready' => $readyRecordGateCount === count($recordGates),
+                    'ready_gate_count' => $readyRecordGateCount,
+                    'required_gate_count' => count($recordGates),
+                    'gates' => $recordGates,
+                    'missing_gates' => array_values(array_keys(array_filter($recordGates, static fn (bool $ready): bool => ! $ready))),
+                    'receipt_chain' => $run instanceof AtlasToolRun ? [
+                        'activation_packet_receipt_hash' => (string) data_get($run->metadata_json, 'activation_packet_receipt_hash', ''),
+                        'vault_binding_receipt_hash' => (string) data_get($run->metadata_json, 'vault_binding_receipt_hash', ''),
+                        'sandbox_probe_receipt_hash' => (string) data_get($run->metadata_json, 'sandbox_probe_receipt_hash', ''),
+                        'eval_replay_receipt_hash' => (string) data_get($run->metadata_json, 'eval_replay_receipt_hash', ''),
+                        'observability_slo_receipt_hash' => (string) data_get($run->metadata_json, 'observability_slo_receipt_hash', ''),
+                        'operator_handoff_receipt_hash' => (string) data_get($run->metadata_json, 'operator_handoff_receipt_hash', ''),
+                        'audit_trail_hash' => (string) data_get($run->metadata_json, 'audit_trail_hash', ''),
+                        'rollback_plan_hash' => (string) data_get($run->metadata_json, 'rollback_plan_hash', ''),
+                    ] : [],
+                    'external_execution_allowed' => false,
+                    'external_side_effects_enabled' => false,
+                ];
+                $packetRecord['external_tool_activation_packet_status_record_hash'] = MissionCanonicalHash::sha256($packetRecord);
+                $packetRecords[] = $packetRecord;
+            }
+
+            $readyPacketCount = count(array_filter($packetRecords, static fn (array $record): bool => (bool) ($record['ready'] ?? false)));
+            $expectedPacketCount = (int) ($workOrderRow['ready_external_tool_activation_work_order_count'] ?? 0);
+            $gates = [
+                'external_tool_activation_work_orders_ready' => (bool) ($workOrderRow['external_tool_activation_work_orders_ready'] ?? false),
+                'external_tool_activation_packets_cover_work_orders' => $expectedPacketCount > 0
+                    && count($packetRecords) >= $expectedPacketCount
+                    && $readyPacketCount === count($packetRecords),
+                'external_effects_blocked' => count(array_filter($packetRecords, static fn (array $record): bool => (bool) ($record['external_execution_allowed'] ?? true)
+                    || (bool) ($record['external_side_effects_enabled'] ?? true))) === 0,
+            ];
+            $readyGateCount = count(array_filter($gates));
+            $row = [
+                'schema' => 'atlas.ai.company.enterprise_external_tool_activation_packet_company_status.v1',
+                'company_id' => $id,
+                'expected_external_tool_activation_packet_count' => $expectedPacketCount,
+                'persisted_external_tool_activation_packet_count' => count($packetRecords),
+                'ready_external_tool_activation_packet_count' => $readyPacketCount,
+                'external_tool_activation_packets_ready' => $expectedPacketCount > 0 && $readyGateCount === count($gates),
+                'runtime_grade' => $expectedPacketCount > 0 && $readyGateCount === count($gates)
+                    ? 'target_9_external_tool_activation_packets_ready_external_effects_blocked'
+                    : 'external_tool_activation_packets_attention_required',
+                'ready_gate_count' => $readyGateCount,
+                'required_gate_count' => count($gates),
+                'gates' => $gates,
+                'missing_gates' => array_values(array_keys(array_filter($gates, static fn (bool $ready): bool => ! $ready))),
+                'packet_records' => $packetRecords,
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+            ];
+            $row['company_external_tool_activation_packet_status_record_hash'] = MissionCanonicalHash::sha256($row);
+            $companies[] = $row;
+        }
+
+        $readyCompanyCount = count(array_filter($companies, static fn (array $company): bool => (bool) ($company['external_tool_activation_packets_ready'] ?? false)));
+        $payload = [
+            'ok' => $companies !== [] && $readyCompanyCount === count($companies),
+            'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_PACKET_STATUS_SCHEMA,
+            'status' => $companies !== [] && $readyCompanyCount === count($companies)
+                ? 'enterprise_company_external_tool_activation_packets_ready_external_effects_blocked'
+                : 'enterprise_company_external_tool_activation_packets_attention_required',
+            'generated_at' => now()->toJSON(),
+            'summary' => [
+                'company_count' => count($companies),
+                'external_tool_activation_packets_ready_company_count' => $readyCompanyCount,
+                'attention_company_count' => count($companies) - $readyCompanyCount,
+                'expected_external_tool_activation_packet_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['expected_external_tool_activation_packet_count'] ?? 0), $companies)),
+                'persisted_external_tool_activation_packet_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['persisted_external_tool_activation_packet_count'] ?? 0), $companies)),
+                'ready_external_tool_activation_packet_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['ready_external_tool_activation_packet_count'] ?? 0), $companies)),
+                'required_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['required_gate_count'] ?? 0), $companies)),
+                'ready_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['ready_gate_count'] ?? 0), $companies)),
+                'external_execution_allowed_count' => 0,
+                'external_side_effects_enabled_count' => 0,
+            ],
+            'source_hashes' => [
+                'enterprise_company_external_tool_activation_work_order_status_hash' => $workOrders['enterprise_company_external_tool_activation_work_order_status_hash'] ?? null,
+            ],
+            'companies' => $companies,
+            'policy' => $this->externalToolActivationPacketPolicy(),
+        ];
+        $payload['enterprise_company_external_tool_activation_packet_status_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $this->runtimeStatusCache[$cacheKey] = $payload;
+    }
+
+    /**
      * @param array<string,mixed> $company
      * @param array<string,mixed> $acceptanceRow
      * @return array<string,mixed>
@@ -7799,6 +8696,277 @@ class ExternalActionMandateRegistryService
     }
 
     /**
+     * @param array<string,mixed> $company
+     * @param array<string,mixed> $supervisedRecord
+     * @return array<string,mixed>
+     */
+    private function externalToolActivationWorkOrderArtifact(array $company, array $supervisedRecord, string $runContextId): array
+    {
+        $companyId = (string) ($company['company_id'] ?? 'unknown');
+        $flowId = (string) ($supervisedRecord['flow_id'] ?? '');
+        $capabilityId = (string) ($supervisedRecord['capability_id'] ?? '');
+        $connectorId = (string) ($supervisedRecord['connector_id'] ?? '');
+        $capability = (array) ($this->enterpriseCapabilityRuntimeCatalog()[$capabilityId] ?? []);
+        $sourceRecordHash = (string) ($supervisedRecord['supervised_connector_execution_status_record_hash'] ?? '');
+        $workOrderId = MissionCanonicalHash::sha256([
+            'type' => 'external_tool_activation_work_order',
+            'company_id' => $companyId,
+            'flow_id' => $flowId,
+            'capability_id' => $capabilityId,
+            'connector_id' => $connectorId,
+            'source_supervised_connector_execution_status_record_hash' => $sourceRecordHash,
+        ]);
+        $requiredScopes = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $scope): string => (string) $scope,
+            (array) ($capability['least_privilege_scopes'] ?? ['read_connector_metadata']),
+        ))));
+        if ($requiredScopes === []) {
+            $requiredScopes = ['read_connector_metadata'];
+        }
+        $receiptInput = [
+            'work_order_id' => $workOrderId,
+            'company_id' => $companyId,
+            'flow_id' => $flowId,
+            'capability_id' => $capabilityId,
+            'connector_id' => $connectorId,
+            'source_record_hash' => $sourceRecordHash,
+        ];
+
+        $artifact = [
+            'schema' => 'atlas.ai.company.external_tool_activation_work_order_artifact.v1',
+            'work_order_id' => $workOrderId,
+            'company_id' => $companyId,
+            'flow_id' => $flowId,
+            'capability_id' => $capabilityId,
+            'connector_id' => $connectorId,
+            'run_context_id' => $runContextId,
+            'activation_mode' => 'operator_scoped_read_only_probe_work_order_no_external_effect',
+            'source_lineage' => [
+                'supervised_connector_execution_status_record_hash' => $sourceRecordHash,
+                'source_tool_run_id' => (string) ($supervisedRecord['tool_run_id'] ?? ''),
+                'source_run_context_id' => (string) ($supervisedRecord['run_context_id'] ?? ''),
+                'source_lineage_hash' => MissionCanonicalHash::sha256($receiptInput + ['lineage' => 'external_tool_activation_work_order']),
+            ],
+            'credential_scope_requirements' => [
+                'required_scopes' => $requiredScopes,
+                'credential_reference_required' => true,
+                'credential_material_in_packet_allowed' => false,
+                'vault_scope_receipt_required' => true,
+                'least_privilege_required' => true,
+                'read_only_default' => true,
+                'write_scope_requires_separate_operator_mandate' => true,
+            ],
+            'dry_run_operations' => [
+                'resolve_connector_contract',
+                'validate_vault_reference_placeholder',
+                'verify_least_privilege_scope_map',
+                'build_read_only_probe_request',
+                'replay_fixture_or_schema_probe',
+                'validate_source_lineage_and_freshness',
+                'emit_receipts_without_provider_dispatch',
+                'prepare_operator_handoff_packet',
+            ],
+            'allowed_read_probe_actions' => [
+                'read_connector_metadata',
+                'read_schema_or_capability_descriptor',
+                'read_public_or_internal_approved_source',
+                'read_fixture_replay_dataset',
+                'read_rate_limit_and_health_status',
+                'validate_non_secret_credential_reference',
+            ],
+            'forbidden_external_effect_actions' => [
+                'credential_material_export',
+                'external_write',
+                'customer_message',
+                'invoice',
+                'collect_payment',
+                'trade',
+                'capital_transfer',
+                'paid_campaign',
+                'public_publish',
+                'legal_signature',
+                'deploy',
+                'delete',
+                'offensive_security',
+                'private_data_export',
+            ],
+            'operator_mandate' => [
+                'operator_mandate_required_for_external_effect' => true,
+                'operator_signed_scope_required' => true,
+                'second_reviewer_required_for_money_security_customer_or_deploy_effect' => true,
+                'change_window_required' => true,
+                'kill_switch_required' => true,
+            ],
+            'receipt_chain' => [
+                'activation_work_order_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'activation_work_order_receipt']),
+                'credential_scope_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'credential_scope_receipt']),
+                'dry_run_operation_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'dry_run_operation_receipt']),
+                'allowed_read_probe_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'allowed_read_probe_receipt']),
+                'forbidden_external_effect_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'forbidden_external_effect_receipt']),
+                'operator_mandate_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'operator_mandate_receipt']),
+            ],
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'generated_at' => now()->toJSON(),
+        ];
+        $artifact['external_tool_activation_work_order_artifact_hash'] = MissionCanonicalHash::sha256($artifact);
+
+        return $artifact;
+    }
+
+    /**
+     * @param array<string,mixed> $company
+     * @param array<string,mixed> $workOrderRecord
+     * @return array<string,mixed>
+     */
+    private function externalToolActivationPacketArtifact(array $company, array $workOrderRecord, string $runContextId): array
+    {
+        $companyId = (string) ($company['company_id'] ?? 'unknown');
+        $flowId = (string) ($workOrderRecord['flow_id'] ?? '');
+        $capabilityId = (string) ($workOrderRecord['capability_id'] ?? '');
+        $connectorId = (string) ($workOrderRecord['connector_id'] ?? '');
+        $workOrderId = (string) ($workOrderRecord['work_order_id'] ?? '');
+        $capability = (array) ($this->enterpriseCapabilityRuntimeCatalog()[$capabilityId] ?? []);
+        $sourceRecordHash = (string) ($workOrderRecord['external_tool_activation_work_order_status_record_hash'] ?? '');
+        $activationPacketId = MissionCanonicalHash::sha256([
+            'type' => 'external_tool_activation_packet',
+            'company_id' => $companyId,
+            'flow_id' => $flowId,
+            'capability_id' => $capabilityId,
+            'connector_id' => $connectorId,
+            'work_order_id' => $workOrderId,
+            'source_external_tool_activation_work_order_status_record_hash' => $sourceRecordHash,
+        ]);
+        $receiptInput = [
+            'activation_packet_id' => $activationPacketId,
+            'work_order_id' => $workOrderId,
+            'company_id' => $companyId,
+            'flow_id' => $flowId,
+            'capability_id' => $capabilityId,
+            'connector_id' => $connectorId,
+            'source_record_hash' => $sourceRecordHash,
+        ];
+        $requiredScopes = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $scope): string => (string) $scope,
+            (array) ($capability['least_privilege_scopes'] ?? ['read_connector_metadata']),
+        ))));
+        if ($requiredScopes === []) {
+            $requiredScopes = ['read_connector_metadata'];
+        }
+
+        $vaultBinding = [
+            'schema' => 'atlas.ai.company.external_tool_activation_packet_vault_binding.v1',
+            'credential_reference_required' => true,
+            'credential_reference_id' => $companyId.'.'.$connectorId.'.readonly.vault_ref',
+            'required_scopes' => $requiredScopes,
+            'credential_material_in_packet_allowed' => false,
+            'secret_export_allowed' => false,
+            'rotation_policy_required' => true,
+            'least_privilege_attestation_required' => true,
+        ];
+        $vaultBinding['vault_binding_contract_hash'] = MissionCanonicalHash::sha256($vaultBinding);
+
+        $sandboxProbe = [
+            'schema' => 'atlas.ai.company.external_tool_activation_packet_sandbox_probe.v1',
+            'probe_modes' => [
+                'contract_schema_probe',
+                'auth_boundary_probe',
+                'rate_limit_probe',
+                'fixture_replay_probe',
+                'read_only_live_health_probe',
+                'lineage_freshness_probe',
+            ],
+            'external_mutation_allowed' => false,
+            'credential_material_observed' => false,
+            'sandbox_or_fixture_first' => true,
+            'green_status_required_before_live_read' => true,
+        ];
+        $sandboxProbe['sandbox_probe_hash'] = MissionCanonicalHash::sha256($sandboxProbe + $receiptInput);
+
+        $evalReplay = [
+            'schema' => 'atlas.ai.company.external_tool_activation_packet_eval_replay.v1',
+            'replay_assertions' => [
+                'source_lineage_preserved',
+                'schema_contract_preserved',
+                'read_only_scope_preserved',
+                'unsupported_claim_blocked',
+                'external_effect_blocked',
+                'operator_handoff_emitted',
+                'receipt_chain_complete',
+            ],
+            'minimum_replay_pass_rate' => 1.0,
+            'fixture_replay_required' => true,
+            'regression_case_required' => true,
+        ];
+        $evalReplay['eval_replay_hash'] = MissionCanonicalHash::sha256($evalReplay + $receiptInput);
+
+        $observabilitySlo = [
+            'schema' => 'atlas.ai.company.external_tool_activation_packet_observability_slo.v1',
+            'required_metrics' => [
+                'request_count',
+                'error_count',
+                'latency_ms_p95',
+                'rate_limit_remaining',
+                'credential_scope_mismatch_count',
+                'external_mutation_attempt_block_count',
+                'receipt_emission_count',
+                'operator_handoff_count',
+            ],
+            'alert_routes' => ['operator_console', 'evidence_ledger', 'control_tower'],
+            'fail_closed_on_missing_receipt' => true,
+            'kill_switch_required' => true,
+        ];
+        $observabilitySlo['observability_slo_hash'] = MissionCanonicalHash::sha256($observabilitySlo + $receiptInput);
+
+        $handoffRunbook = [
+            'schema' => 'atlas.ai.company.external_tool_activation_packet_operator_handoff_runbook.v1',
+            'operator_acceptance_required' => true,
+            'second_reviewer_required_for_money_security_customer_or_deploy_effect' => true,
+            'allowed_pre_mandate_actions' => ['read_metadata', 'read_schema', 'sandbox_probe', 'fixture_replay', 'health_check'],
+            'external_effect_requires_new_mandate' => true,
+            'rollback_plan_required' => true,
+        ];
+        $handoffRunbook['operator_handoff_runbook_hash'] = MissionCanonicalHash::sha256($handoffRunbook + $receiptInput);
+
+        $artifact = [
+            'schema' => 'atlas.ai.company.external_tool_activation_packet_artifact.v1',
+            'activation_packet_id' => $activationPacketId,
+            'work_order_id' => $workOrderId,
+            'company_id' => $companyId,
+            'flow_id' => $flowId,
+            'capability_id' => $capabilityId,
+            'connector_id' => $connectorId,
+            'run_context_id' => $runContextId,
+            'activation_mode' => 'vault_bound_sandbox_probe_eval_replay_operator_handoff_no_external_effect',
+            'source_lineage' => [
+                'external_tool_activation_work_order_status_record_hash' => $sourceRecordHash,
+                'source_tool_run_id' => (string) ($workOrderRecord['tool_run_id'] ?? ''),
+                'source_run_context_id' => (string) ($workOrderRecord['run_context_id'] ?? ''),
+                'source_lineage_hash' => MissionCanonicalHash::sha256($receiptInput + ['lineage' => 'external_tool_activation_packet']),
+            ],
+            'vault_binding_contract' => $vaultBinding,
+            'sandbox_probe' => $sandboxProbe,
+            'eval_replay' => $evalReplay,
+            'observability_slo' => $observabilitySlo,
+            'operator_handoff_runbook' => $handoffRunbook,
+            'receipt_chain' => [
+                'activation_packet_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'activation_packet_receipt']),
+                'vault_binding_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'vault_binding_receipt']),
+                'sandbox_probe_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'sandbox_probe_receipt']),
+                'eval_replay_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'eval_replay_receipt']),
+                'observability_slo_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'observability_slo_receipt']),
+                'operator_handoff_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'operator_handoff_receipt']),
+            ],
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'generated_at' => now()->toJSON(),
+        ];
+        $artifact['external_tool_activation_packet_artifact_hash'] = MissionCanonicalHash::sha256($artifact);
+
+        return $artifact;
+    }
+
+    /**
      * @return array<string,array<string,mixed>>
      */
     private function enterpriseCapabilityRuntimeCatalog(): array
@@ -8036,6 +9204,110 @@ class ExternalActionMandateRegistryService
                 'offensive_security',
                 'secret_export',
                 'credential_material_export',
+                'skip_operator_handoff',
+                'skip_receipt_binding',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function externalToolActivationWorkOrderPolicy(): array
+    {
+        return [
+            'external_tool_activation_work_order_is_not_external_execution_authority' => true,
+            'calendar_wait_blocker_enabled' => false,
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'operator_signed_scope_required_for_external_effect' => true,
+            'runtime_mode' => 'operator_scoped_read_only_probe_work_order_no_external_effect',
+            'required_runtime_evidence' => [
+                'atlas_tool_run',
+                'external_tool_activation_work_order_artifact',
+                'credential_scope_requirements',
+                'dry_run_operations',
+                'allowed_read_probe_actions',
+                'forbidden_external_effect_actions',
+                'activation_work_order_receipt',
+                'credential_scope_receipt',
+                'dry_run_operation_receipt',
+                'allowed_read_probe_receipt',
+                'forbidden_external_effect_receipt',
+                'operator_mandate_receipt',
+                'audit_trail',
+                'rollback_plan',
+            ],
+            'blocked_operations' => [
+                'credential_material_export',
+                'external_write',
+                'customer_message',
+                'invoice',
+                'collect_payment',
+                'trade',
+                'capital_transfer',
+                'paid_campaign',
+                'public_publish',
+                'legal_signature',
+                'deploy',
+                'delete',
+                'offensive_security',
+                'private_data_export',
+                'skip_operator_mandate',
+                'skip_receipt_binding',
+                'skip_vault_scope',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function externalToolActivationPacketPolicy(): array
+    {
+        return [
+            'external_tool_activation_packet_is_not_external_execution_authority' => true,
+            'calendar_wait_blocker_enabled' => false,
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'operator_signed_scope_required_for_external_effect' => true,
+            'runtime_mode' => 'vault_bound_sandbox_probe_eval_replay_operator_handoff_no_external_effect',
+            'required_runtime_evidence' => [
+                'atlas_tool_run',
+                'external_tool_activation_packet_artifact',
+                'vault_binding_contract',
+                'sandbox_probe',
+                'eval_replay',
+                'observability_slo',
+                'operator_handoff_runbook',
+                'activation_packet_receipt',
+                'vault_binding_receipt',
+                'sandbox_probe_receipt',
+                'eval_replay_receipt',
+                'observability_slo_receipt',
+                'operator_handoff_receipt',
+                'audit_trail',
+                'rollback_plan',
+            ],
+            'blocked_operations' => [
+                'credential_material_export',
+                'external_write',
+                'customer_message',
+                'invoice',
+                'collect_payment',
+                'trade',
+                'capital_transfer',
+                'paid_campaign',
+                'public_publish',
+                'legal_signature',
+                'deploy',
+                'delete',
+                'offensive_security',
+                'private_data_export',
+                'skip_vault_binding',
+                'skip_sandbox_probe',
+                'skip_eval_replay',
+                'skip_observability_slo',
                 'skip_operator_handoff',
                 'skip_receipt_binding',
             ],
@@ -9381,6 +10653,7 @@ class ExternalActionMandateRegistryService
             $backlogLanes = (array) data_get($company, 'enterprise_operating_system.backlog_system.lanes', []);
             $runbooks = (array) data_get($company, 'enterprise_operating_system.runbooks', []);
             $cadenceScheduler = (array) data_get($company, 'enterprise_control_tower_run_operations_stack.cadence_scheduler', []);
+            $backlogWipLimits = (array) data_get($company, 'enterprise_operating_system.backlog_system.wip_limits', []);
 
             $cycleRow = (array) ($cycleByCompany[$id] ?? []);
             $workforceRow = (array) ($workforceByCompany[$id] ?? []);
@@ -9418,6 +10691,23 @@ class ExternalActionMandateRegistryService
                 $cadenceRecords[] = $record;
             }
 
+            $dailyCadenceCount = count(array_filter($cadenceRecords, static fn (array $record): bool => ($record['horizon'] ?? null) === 'daily'));
+            $weeklyCadenceCount = count(array_filter($cadenceRecords, static fn (array $record): bool => ($record['horizon'] ?? null) === 'weekly'));
+            $eventCadenceCount = count(array_filter($cadenceRecords, static fn (array $record): bool => ($record['horizon'] ?? null) === 'per_run_or_event'));
+            $continuousImprovementSystem = [
+                'daily_control_count' => $dailyCadenceCount,
+                'weekly_board_count' => $weeklyCadenceCount,
+                'per_run_or_event_control_count' => $eventCadenceCount,
+                'monthly_process_improvement_bound' => $okrCount >= 4 && $riskCount >= 4 && count($backlogLanes) >= 7,
+                'incident_or_missed_cadence_postmortem_bound' => count(array_filter(
+                    $cadenceRecords,
+                    static fn (array $record): bool => (bool) ($record['missed_cadence_action_bound'] ?? false)
+                )) >= $expectedCadenceCount,
+                'backlog_wip_limit_count' => count(array_filter($backlogWipLimits, static fn (mixed $limit): bool => (int) $limit > 0)),
+                'risk_remediation_source_count' => $riskCount,
+                'external_commitments_allowed' => false,
+            ];
+
             $gates = [
                 'company_operating_cycle_ready' => (bool) ($cycleRow['operating_cycle_ready'] ?? false),
                 'command_center_runtime_ready' => $this->companyRuntimeCoverageReady($commandCenterRow, 'completed_command_center_control_tower_flow_count', $expectedFlowCount),
@@ -9434,6 +10724,9 @@ class ExternalActionMandateRegistryService
                 'runbooks_ready' => count($runbooks) >= $expectedFlowCount,
                 'cadence_scheduler_ready' => count($cadenceRecords) >= $expectedCadenceCount
                     && count(array_filter($cadenceRecords, static fn (array $record): bool => (bool) ($record['cadence_ready'] ?? false))) === $expectedCadenceCount,
+                'daily_weekly_event_rhythm_bound' => $weeklyCadenceCount > 0 && ($dailyCadenceCount + $eventCadenceCount) >= 2,
+                'monthly_process_improvement_bound' => (bool) $continuousImprovementSystem['monthly_process_improvement_bound'],
+                'incident_or_missed_cadence_postmortem_bound' => (bool) $continuousImprovementSystem['incident_or_missed_cadence_postmortem_bound'],
             ];
 
             $readyGateCount = count(array_filter($gates));
@@ -9446,6 +10739,7 @@ class ExternalActionMandateRegistryService
                 'okr_count' => $okrCount,
                 'risk_count' => $riskCount,
                 'backlog_lane_count' => count($backlogLanes),
+                'backlog_wip_limit_count' => (int) $continuousImprovementSystem['backlog_wip_limit_count'],
                 'runbook_count' => count($runbooks),
                 'ready_gate_count' => $readyGateCount,
                 'required_gate_count' => count($gates),
@@ -9474,7 +10768,14 @@ class ExternalActionMandateRegistryService
                         'outputs' => ['operator_review_packet', 'backlog_update', 'control_tower_exception'],
                         'external_commitments_allowed' => false,
                     ],
+                    'monthly_process_improvement' => [
+                        'bound' => (bool) $continuousImprovementSystem['monthly_process_improvement_bound'],
+                        'inputs' => ['okr_scorecard', 'risk_register', 'backlog_health', 'runbook_postmortems', 'unit_economics_capacity'],
+                        'outputs' => ['process_improvement_backlog', 'risk_remediation_plan', 'automation_candidate_review', 'operator_exception_packet'],
+                        'external_commitments_allowed' => false,
+                    ],
                 ],
+                'continuous_improvement_system' => $continuousImprovementSystem,
                 'cadence_records' => $cadenceRecords,
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -9502,7 +10803,10 @@ class ExternalActionMandateRegistryService
                 'ready_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['ready_gate_count'] ?? 0), $companies)),
                 'okr_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['okr_count'] ?? 0), $companies)),
                 'risk_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['risk_count'] ?? 0), $companies)),
+                'backlog_wip_limit_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['backlog_wip_limit_count'] ?? 0), $companies)),
                 'runbook_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['runbook_count'] ?? 0), $companies)),
+                'monthly_process_improvement_bound_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'continuous_improvement_system.monthly_process_improvement_bound', false))),
+                'incident_postmortem_bound_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'continuous_improvement_system.incident_or_missed_cadence_postmortem_bound', false))),
                 'average_cadence_score' => $companies !== [] ? round(array_sum(array_map(static fn (array $company): float => (float) ($company['cadence_score'] ?? 0.0), $companies)) / count($companies), 4) : 0.0,
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
@@ -9542,6 +10846,7 @@ class ExternalActionMandateRegistryService
         $unitEconomics = $this->flowActionRuntime->unitEconomicsCapacityRuntimeStatus($wantedCompany);
         $customerRevenue = $this->flowActionRuntime->customerAccountRevenueRuntimeStatus($wantedCompany);
         $businessPacket = $this->flowActionRuntime->businessOperatingPacketRuntimeStatus($wantedCompany);
+        $boardReview = $this->flowActionRuntime->companyBoardOperatingReviewStatus($wantedCompany);
 
         $cadenceByCompany = $this->companyRowsById($cadence);
         $holdingByCompany = $this->companyRowsById($holdingScorecard);
@@ -9550,6 +10855,7 @@ class ExternalActionMandateRegistryService
         $unitByCompany = $this->companyRowsById($unitEconomics);
         $customerByCompany = $this->companyRowsById($customerRevenue);
         $businessByCompany = $this->companyRowsById($businessPacket);
+        $boardReviewByCompany = $this->companyRowsById($boardReview);
 
         $companies = [];
         foreach ($this->buildoutCompanies($wantedCompany) as $company) {
@@ -9565,6 +10871,7 @@ class ExternalActionMandateRegistryService
             $unitRow = (array) ($unitByCompany[$id] ?? []);
             $customerRow = (array) ($customerByCompany[$id] ?? []);
             $businessRow = (array) ($businessByCompany[$id] ?? []);
+            $boardReviewRow = (array) ($boardReviewByCompany[$id] ?? []);
 
             $costCenterCount = count((array) data_get($company, 'portfolio_finance_stack.flow_cost_centers', []));
             $pricingLadderCount = count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.work_product_pricing_ladder', []));
@@ -9574,11 +10881,21 @@ class ExternalActionMandateRegistryService
             $capacitySimulationCount = count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.capacity_simulation_model', []));
             $acceptedValueProxyCount = (int) ($holdingRow['measured_kpi_count'] ?? 0);
             $internalScore = (float) ($holdingRow['score'] ?? 0.0);
+            $riskRemediationCount = (int) data_get($boardReviewRow, 'continuous_improvement_backlog.risk_remediation_count', 0);
+            $nextCycleActionCount = (int) data_get($boardReviewRow, 'continuous_improvement_backlog.next_cycle_action_count', 0);
+            $boardDecisionActionCount = (int) ($boardReviewRow['required_operator_decision_count'] ?? 0);
+            $validScorecardSourceHashCount = count(array_filter([
+                $cadenceRow['company_operating_cadence_record_hash'] ?? null,
+                $holdingRow['scorecard_hash'] ?? null,
+                $portfolioRow['decision_packet_hash'] ?? null,
+                $boardReviewRow['board_operating_review_hash'] ?? null,
+            ], static fn (mixed $hash): bool => is_string($hash) && strlen($hash) === 64));
 
             $gates = [
                 'operating_cadence_ready' => (bool) ($cadenceRow['cadence_ready'] ?? false),
                 'holding_outcome_scorecard_ready' => (bool) ($holdingRow['ready'] ?? false) && $internalScore >= 9.0,
                 'portfolio_decision_packet_ready' => (bool) ($portfolioRow['ready'] ?? false),
+                'board_operating_review_ready' => (bool) ($boardReviewRow['ready'] ?? false),
                 'finance_treasury_billing_runtime_ready' => $this->companyRuntimeCoverageReady($financeRow, 'completed_finance_treasury_billing_flow_count', $expectedFlowCount),
                 'unit_economics_capacity_runtime_ready' => $this->companyRuntimeCoverageReady($unitRow, 'completed_unit_economics_capacity_flow_count', $expectedFlowCount),
                 'customer_account_revenue_runtime_ready' => $this->companyRuntimeCoverageReady($customerRow, 'completed_customer_account_revenue_flow_count', $expectedFlowCount),
@@ -9589,6 +10906,11 @@ class ExternalActionMandateRegistryService
                 'pnl_model_ready' => $pnlLineItemCount >= 5,
                 'budget_envelopes_ready' => $budgetEnvelopeCount >= $expectedFlowCount,
                 'capacity_simulation_ready' => $capacitySimulationCount >= $expectedFlowCount,
+                'continuous_improvement_backlog_bound' => $nextCycleActionCount >= $expectedFlowCount
+                    && (bool) data_get($boardReviewRow, 'continuous_improvement_backlog.bound_to_outcome_scorecard', false),
+                'risk_remediation_backlog_bound' => $riskRemediationCount >= $expectedFlowCount,
+                'board_decision_actions_bound' => $boardDecisionActionCount >= 3,
+                'scorecard_source_hash_lineage_bound' => $validScorecardSourceHashCount === 4,
                 'external_financial_actions_blocked' => (int) ($financeRow['external_financial_actions_blocked_count'] ?? 0) >= $expectedFlowCount
                     && (bool) data_get($company, 'portfolio_finance_stack.budget_envelope.external_spend_enabled', true) === false
                     && (bool) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.investment_prioritization_model.real_capital_action_allowed', true) === false,
@@ -9604,6 +10926,7 @@ class ExternalActionMandateRegistryService
                 'measured_kpi_count' => $acceptedValueProxyCount,
                 'portfolio_decision_recommendation' => (string) ($portfolioRow['decision_recommendation'] ?? 'repair_before_scale'),
                 'allocation_class' => (string) ($portfolioRow['allocation_class'] ?? 'hold_and_repair'),
+                'board_operating_review_hash' => (string) ($boardReviewRow['board_operating_review_hash'] ?? ''),
                 'notional_internal_pnl' => [
                     'mode' => 'internal_notional_pnl_until_external_evidence_and_operator_acceptance',
                     'notional_revenue_or_value_proxy_units' => $acceptedValueProxyCount,
@@ -9619,6 +10942,16 @@ class ExternalActionMandateRegistryService
                     'budget_envelope_count' => $budgetEnvelopeCount,
                     'decision_options' => (array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.investment_prioritization_model.decision_options', []),
                     'real_capital_action_allowed' => false,
+                ],
+                'governance_and_improvement' => [
+                    'board_review_ready' => (bool) ($boardReviewRow['ready'] ?? false),
+                    'risk_remediation_count' => $riskRemediationCount,
+                    'next_cycle_action_count' => $nextCycleActionCount,
+                    'board_decision_action_count' => $boardDecisionActionCount,
+                    'scorecard_source_hash_lineage_count' => $validScorecardSourceHashCount,
+                    'monthly_process_improvement_bound' => (bool) data_get($cadenceRow, 'continuous_improvement_system.monthly_process_improvement_bound', false),
+                    'incident_postmortem_bound' => (bool) data_get($cadenceRow, 'continuous_improvement_system.incident_or_missed_cadence_postmortem_bound', false),
+                    'external_commitments_allowed' => false,
                 ],
                 'ready_gate_count' => $readyGateCount,
                 'required_gate_count' => count($gates),
@@ -9652,6 +10985,10 @@ class ExternalActionMandateRegistryService
                 'expected_flow_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['expected_flow_count'] ?? 0), $companies)),
                 'completed_outcome_flow_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['completed_outcome_flow_count'] ?? 0), $companies)),
                 'measured_kpi_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['measured_kpi_count'] ?? 0), $companies)),
+                'board_review_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'governance_and_improvement.board_review_ready', false))),
+                'risk_remediation_count' => array_sum(array_map(static fn (array $company): int => (int) data_get($company, 'governance_and_improvement.risk_remediation_count', 0), $companies)),
+                'next_cycle_action_count' => array_sum(array_map(static fn (array $company): int => (int) data_get($company, 'governance_and_improvement.next_cycle_action_count', 0), $companies)),
+                'board_decision_action_count' => array_sum(array_map(static fn (array $company): int => (int) data_get($company, 'governance_and_improvement.board_decision_action_count', 0), $companies)),
                 'required_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['required_gate_count'] ?? 0), $companies)),
                 'ready_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['ready_gate_count'] ?? 0), $companies)),
                 'average_internal_outcome_score' => $companies !== [] ? round(array_sum(array_map(static fn (array $company): float => (float) ($company['internal_outcome_score'] ?? 0.0), $companies)) / count($companies), 2) : 0.0,
@@ -9669,6 +11006,7 @@ class ExternalActionMandateRegistryService
                 'unit_economics_capacity_runtime_status_hash' => $unitEconomics['unit_economics_capacity_runtime_status_hash'] ?? null,
                 'customer_account_revenue_runtime_status_hash' => $customerRevenue['customer_account_revenue_runtime_status_hash'] ?? null,
                 'business_operating_packet_runtime_status_hash' => $businessPacket['business_operating_packet_runtime_status_hash'] ?? null,
+                'company_board_operating_review_status_hash' => $boardReview['company_board_operating_review_status_hash'] ?? null,
             ],
             'companies' => $companies,
             'policy' => [
@@ -11057,6 +12395,388 @@ class ExternalActionMandateRegistryService
     /**
      * @return array<string,mixed>
      */
+    public function enterpriseCompanyAgentWorkforceRuntimeRegister(?string $companyId = null): array
+    {
+        $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
+        unset($this->runtimeStatusCache['agent_workforce_runtime_status:'.($wantedCompany ?? '*')]);
+        $agentOperations = $this->enterpriseCompanyAgentOperationsPackStatus($wantedCompany);
+        $agentOperationsByCompany = $this->companyRowsById($agentOperations);
+
+        if (! Schema::hasTable('atlas_tool_runs')) {
+            return [
+                'ok' => false,
+                'schema' => self::ENTERPRISE_COMPANY_AGENT_WORKFORCE_RUNTIME_REGISTER_SCHEMA,
+                'status' => 'atlas_tool_runs_table_unavailable',
+                'generated_at' => now()->toJSON(),
+                'summary' => [
+                    'company_count' => 0,
+                    'expected_agent_workforce_runtime_count' => 0,
+                    'registered_agent_workforce_runtime_count' => 0,
+                    'external_execution_allowed_count' => 0,
+                    'external_side_effects_enabled_count' => 0,
+                ],
+                'companies' => [],
+                'policy' => $this->agentWorkforceRuntimePolicy(),
+            ];
+        }
+
+        $companies = [];
+        foreach ($this->buildoutCompanies($wantedCompany) as $company) {
+            $id = (string) ($company['company_id'] ?? 'unknown');
+            $agentOperationsRow = (array) ($agentOperationsByCompany[$id] ?? []);
+            $registeredRuntimes = [];
+
+            foreach ((array) data_get($company, 'enterprise_domain_agent_workforce_stack.flow_agent_crews', []) as $crew) {
+                $flowId = (string) ($crew['flow_id'] ?? '');
+                if ($flowId === '') {
+                    continue;
+                }
+
+                foreach ((array) ($crew['subagents'] ?? []) as $subagentId) {
+                    $subagentId = (string) $subagentId;
+                    if ($subagentId === '') {
+                        continue;
+                    }
+
+                    $runContextId = $id.'.'.substr(MissionCanonicalHash::sha256([
+                        'flow_id' => $flowId,
+                        'subagent_id' => $subagentId,
+                        'context' => 'agent_workforce_runtime',
+                    ]), 0, 24).'.agent_workforce_runtime.v1';
+                    $artifact = $this->agentWorkforceRuntimeArtifact($company, (array) $crew, $subagentId, $runContextId);
+                    $qualityGates = [
+                        'agent_operations_pack_ready' => (bool) ($agentOperationsRow['agent_operations_pack_ready'] ?? false)
+                            && (int) ($agentOperationsRow['ready_flow_agent_operations_pack_count'] ?? 0) >= (int) ($agentOperationsRow['expected_flow_count'] ?? 0),
+                        'runtime_artifact_bound' => strlen((string) ($artifact['agent_workforce_runtime_artifact_hash'] ?? '')) === 64,
+                        'skill_contract_bound' => count((array) data_get($artifact, 'skill_contract.skills', [])) >= 7
+                            && strlen((string) data_get($artifact, 'skill_contract.skill_contract_hash', '')) === 64,
+                        'connector_scope_bound' => count((array) data_get($artifact, 'connector_scope.connector_refs', [])) >= 1
+                            && (bool) data_get($artifact, 'connector_scope.credential_material_export_allowed', true) === false,
+                        'subagent_handoff_bound' => strlen((string) data_get($artifact, 'subagent_handoff.handoff_contract_hash', '')) === 64
+                            && (bool) data_get($artifact, 'subagent_handoff.context_minimization_required', false),
+                        'guardrail_contract_bound' => strlen((string) data_get($artifact, 'guardrail_contract.guardrail_contract_hash', '')) === 64
+                            && count((array) data_get($artifact, 'guardrail_contract.blocked_operations', [])) >= 10,
+                        'observability_contract_bound' => strlen((string) data_get($artifact, 'observability_contract.observability_contract_hash', '')) === 64
+                            && count((array) data_get($artifact, 'observability_contract.required_metrics', [])) >= 7,
+                        'eval_replay_contract_bound' => strlen((string) data_get($artifact, 'eval_replay_contract.eval_replay_contract_hash', '')) === 64
+                            && count((array) data_get($artifact, 'eval_replay_contract.replay_assertions', [])) >= 6,
+                        'receipt_chain_bound' => strlen((string) data_get($artifact, 'receipt_chain.agent_runtime_receipt_hash', '')) === 64
+                            && strlen((string) data_get($artifact, 'receipt_chain.handoff_receipt_hash', '')) === 64
+                            && strlen((string) data_get($artifact, 'receipt_chain.guardrail_receipt_hash', '')) === 64,
+                        'external_effects_blocked' => ! (bool) ($artifact['external_execution_allowed'] ?? true)
+                            && ! (bool) ($artifact['external_side_effects_enabled'] ?? true),
+                    ];
+                    $summary = [
+                        'company_id' => $id,
+                        'flow_id' => $flowId,
+                        'subagent_id' => $subagentId,
+                        'crew_id' => (string) ($crew['crew_id'] ?? ''),
+                        'runtime_mode' => 'skills_connectors_subagent_runtime_external_effects_blocked',
+                        'quality_gate_count' => count($qualityGates),
+                        'ready_quality_gate_count' => count(array_filter($qualityGates)),
+                        'external_execution_allowed' => false,
+                        'external_side_effects_enabled' => false,
+                    ];
+                    $normalized = [
+                        'schema' => 'atlas.ai.company.agent_workforce_runtime_result.v1',
+                        'status' => count(array_filter($qualityGates)) === count($qualityGates) ? 'passed' : 'attention_required',
+                        'summary' => $summary,
+                        'agent_workforce_runtime_artifact' => $artifact,
+                        'quality_gates' => $qualityGates,
+                        'blocking_failures' => array_values(array_keys(array_filter($qualityGates, static fn (bool $ready): bool => ! $ready))),
+                    ];
+                    $receiptInput = [
+                        'company_id' => $id,
+                        'flow_id' => $flowId,
+                        'subagent_id' => $subagentId,
+                        'run_context_id' => $runContextId,
+                        'artifact_hash' => (string) ($artifact['agent_workforce_runtime_artifact_hash'] ?? ''),
+                    ];
+                    $metadata = [
+                        'source' => 'enterprise_company_agent_workforce_runtime_register',
+                        'receipt_schema_version' => 'atlas.company_agent_workforce_runtime_receipt.v1',
+                        'evidence_receipt_hash' => MissionCanonicalHash::sha256($normalized),
+                        'agent_runtime_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'agent_runtime_receipt']),
+                        'skill_contract_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'skill_contract_receipt']),
+                        'connector_scope_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'connector_scope_receipt']),
+                        'handoff_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'handoff_receipt']),
+                        'guardrail_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'guardrail_receipt']),
+                        'observability_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'observability_receipt']),
+                        'eval_replay_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'eval_replay_receipt']),
+                        'audit_trail_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'audit_trail']),
+                        'rollback_plan_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'rollback_plan']),
+                        'external_execution_allowed' => false,
+                        'external_side_effects_enabled' => false,
+                    ];
+
+                    $run = AtlasToolRun::query()->updateOrCreate(
+                        [
+                            'surface' => 'holding_company_agent_workforce_runtime',
+                            'run_context_type' => 'holding_company_agent_workforce_runtime',
+                            'run_context_id' => $runContextId,
+                        ],
+                        [
+                            'tool_slug' => 'atlas_company_agent_workforce_runtime',
+                            'workspace_hash' => hash('sha256', base_path()),
+                            'workspace' => base_path(),
+                            'status' => $normalized['status'] === 'passed' ? 'passed' : 'failed',
+                            'required' => true,
+                            'failure_policy' => 'fail_closed',
+                            'policy_decision' => 'agent_workforce_registered_blocked',
+                            'command_hash' => MissionCanonicalHash::sha256([
+                                'run_context_id' => $runContextId,
+                                'artifact_hash' => $artifact['agent_workforce_runtime_artifact_hash'] ?? null,
+                            ]),
+                            'exit_code' => $normalized['status'] === 'passed' ? 0 : 1,
+                            'started_at' => now(),
+                            'finished_at' => now(),
+                            'duration_ms' => 0,
+                            'summary_json' => $summary,
+                            'normalized_result_json' => $normalized,
+                            'policy_decision_json' => [
+                                'external_execution_allowed' => false,
+                                'external_side_effects_enabled' => false,
+                                'blocked_operations' => $this->agentWorkforceRuntimePolicy()['blocked_operations'],
+                            ],
+                            'metadata_json' => $metadata,
+                        ],
+                    );
+
+                    $registeredRuntimes[] = [
+                        'run_id' => (string) $run->id,
+                        'run_context_id' => $runContextId,
+                        'flow_id' => $flowId,
+                        'subagent_id' => $subagentId,
+                        'status' => (string) $run->status,
+                        'policy_decision' => (string) $run->policy_decision,
+                        'agent_runtime_receipt_hash' => (string) data_get($run->metadata_json, 'agent_runtime_receipt_hash', ''),
+                        'external_execution_allowed' => false,
+                        'external_side_effects_enabled' => false,
+                    ];
+                }
+            }
+
+            $row = [
+                'schema' => 'atlas.ai.company.enterprise_agent_workforce_runtime_register_record.v1',
+                'company_id' => $id,
+                'expected_agent_workforce_runtime_count' => count((array) data_get($company, 'enterprise_domain_agent_workforce_stack.flow_agent_crews', [])) * 5,
+                'registered_agent_workforce_runtime_count' => count($registeredRuntimes),
+                'registered_runtimes' => $registeredRuntimes,
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+            ];
+            $row['company_agent_workforce_runtime_register_record_hash'] = MissionCanonicalHash::sha256($row);
+            $companies[] = $row;
+        }
+
+        $registeredCount = array_sum(array_map(static fn (array $company): int => (int) ($company['registered_agent_workforce_runtime_count'] ?? 0), $companies));
+        $expectedCount = array_sum(array_map(static fn (array $company): int => (int) ($company['expected_agent_workforce_runtime_count'] ?? 0), $companies));
+        $payload = [
+            'ok' => $expectedCount > 0 && $registeredCount >= $expectedCount,
+            'schema' => self::ENTERPRISE_COMPANY_AGENT_WORKFORCE_RUNTIME_REGISTER_SCHEMA,
+            'status' => $expectedCount > 0 && $registeredCount >= $expectedCount
+                ? 'enterprise_company_agent_workforce_runtime_registered_external_effects_blocked'
+                : 'enterprise_company_agent_workforce_runtime_attention_required',
+            'generated_at' => now()->toJSON(),
+            'summary' => [
+                'company_count' => count($companies),
+                'expected_agent_workforce_runtime_count' => $expectedCount,
+                'registered_agent_workforce_runtime_count' => $registeredCount,
+                'external_execution_allowed_count' => 0,
+                'external_side_effects_enabled_count' => 0,
+            ],
+            'source_hashes' => [
+                'enterprise_company_agent_operations_pack_status_hash' => $agentOperations['enterprise_company_agent_operations_pack_status_hash'] ?? null,
+            ],
+            'companies' => $companies,
+            'policy' => $this->agentWorkforceRuntimePolicy(),
+        ];
+        $payload['enterprise_company_agent_workforce_runtime_register_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function enterpriseCompanyAgentWorkforceRuntimeStatus(?string $companyId = null): array
+    {
+        $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
+        $cacheKey = 'agent_workforce_runtime_status:'.($wantedCompany ?? '*');
+        if (isset($this->runtimeStatusCache[$cacheKey])) {
+            return $this->runtimeStatusCache[$cacheKey];
+        }
+
+        $agentOperations = $this->enterpriseCompanyAgentOperationsPackStatus($wantedCompany);
+        $agentOperationsByCompany = $this->companyRowsById($agentOperations);
+
+        if (! Schema::hasTable('atlas_tool_runs')) {
+            return [
+                'ok' => false,
+                'schema' => self::ENTERPRISE_COMPANY_AGENT_WORKFORCE_RUNTIME_STATUS_SCHEMA,
+                'status' => 'atlas_tool_runs_table_unavailable',
+                'generated_at' => now()->toJSON(),
+                'summary' => [
+                    'company_count' => 0,
+                    'expected_agent_workforce_runtime_count' => 0,
+                    'persisted_agent_workforce_runtime_count' => 0,
+                    'ready_agent_workforce_runtime_count' => 0,
+                    'external_execution_allowed_count' => 0,
+                    'external_side_effects_enabled_count' => 0,
+                ],
+                'companies' => [],
+                'policy' => $this->agentWorkforceRuntimePolicy(),
+            ];
+        }
+
+        $companies = [];
+        foreach ($this->buildoutCompanies($wantedCompany) as $company) {
+            $id = (string) ($company['company_id'] ?? 'unknown');
+            $agentOperationsRow = (array) ($agentOperationsByCompany[$id] ?? []);
+            $runtimeRecords = [];
+
+            foreach ((array) data_get($company, 'enterprise_domain_agent_workforce_stack.flow_agent_crews', []) as $crew) {
+                $flowId = (string) ($crew['flow_id'] ?? '');
+                if ($flowId === '') {
+                    continue;
+                }
+
+                foreach ((array) ($crew['subagents'] ?? []) as $subagentId) {
+                    $subagentId = (string) $subagentId;
+                    if ($subagentId === '') {
+                        continue;
+                    }
+
+                    $runContextId = $id.'.'.substr(MissionCanonicalHash::sha256([
+                        'flow_id' => $flowId,
+                        'subagent_id' => $subagentId,
+                        'context' => 'agent_workforce_runtime',
+                    ]), 0, 24).'.agent_workforce_runtime.v1';
+                    $run = AtlasToolRun::query()
+                        ->where('surface', 'holding_company_agent_workforce_runtime')
+                        ->where('run_context_type', 'holding_company_agent_workforce_runtime')
+                        ->where('run_context_id', $runContextId)
+                        ->latest('updated_at')
+                        ->first();
+
+                    $recordGates = [
+                        'persisted_agent_workforce_runtime_exists' => $run instanceof AtlasToolRun,
+                        'status_passed' => $run instanceof AtlasToolRun && $run->status === 'passed',
+                        'policy_registered_blocked' => $run instanceof AtlasToolRun && $run->policy_decision === 'agent_workforce_registered_blocked',
+                        'normalized_result_bound' => $run instanceof AtlasToolRun && data_get($run->normalized_result_json, 'schema') === 'atlas.ai.company.agent_workforce_runtime_result.v1',
+                        'artifact_bound' => $run instanceof AtlasToolRun
+                            && data_get($run->normalized_result_json, 'agent_workforce_runtime_artifact.schema') === 'atlas.ai.company.agent_workforce_runtime_artifact.v1'
+                            && strlen((string) data_get($run->normalized_result_json, 'agent_workforce_runtime_artifact.agent_workforce_runtime_artifact_hash', '')) === 64,
+                        'receipt_metadata_bound' => $run instanceof AtlasToolRun
+                            && strlen((string) data_get($run->metadata_json, 'agent_runtime_receipt_hash', '')) === 64
+                            && strlen((string) data_get($run->metadata_json, 'handoff_receipt_hash', '')) === 64
+                            && strlen((string) data_get($run->metadata_json, 'guardrail_receipt_hash', '')) === 64
+                            && strlen((string) data_get($run->metadata_json, 'observability_receipt_hash', '')) === 64
+                            && strlen((string) data_get($run->metadata_json, 'eval_replay_receipt_hash', '')) === 64
+                            && strlen((string) data_get($run->metadata_json, 'rollback_plan_hash', '')) === 64,
+                        'critical_controls_bound' => $run instanceof AtlasToolRun
+                            && strlen((string) data_get($run->normalized_result_json, 'agent_workforce_runtime_artifact.subagent_handoff.handoff_contract_hash', '')) === 64
+                            && strlen((string) data_get($run->normalized_result_json, 'agent_workforce_runtime_artifact.guardrail_contract.guardrail_contract_hash', '')) === 64
+                            && strlen((string) data_get($run->normalized_result_json, 'agent_workforce_runtime_artifact.observability_contract.observability_contract_hash', '')) === 64,
+                        'external_effects_blocked' => $run instanceof AtlasToolRun
+                            && ! (bool) data_get($run->policy_decision_json, 'external_execution_allowed', true)
+                            && ! (bool) data_get($run->policy_decision_json, 'external_side_effects_enabled', true),
+                    ];
+                    $readyGateCount = count(array_filter($recordGates));
+                    $record = [
+                        'schema' => 'atlas.ai.company.agent_workforce_runtime_status_record.v1',
+                        'company_id' => $id,
+                        'flow_id' => $flowId,
+                        'subagent_id' => $subagentId,
+                        'run_context_id' => $runContextId,
+                        'tool_run_id' => $run instanceof AtlasToolRun ? (string) $run->id : null,
+                        'ready' => $readyGateCount === count($recordGates),
+                        'ready_gate_count' => $readyGateCount,
+                        'required_gate_count' => count($recordGates),
+                        'gates' => $recordGates,
+                        'missing_gates' => array_values(array_keys(array_filter($recordGates, static fn (bool $ready): bool => ! $ready))),
+                        'receipt_chain' => $run instanceof AtlasToolRun ? [
+                            'agent_runtime_receipt_hash' => (string) data_get($run->metadata_json, 'agent_runtime_receipt_hash', ''),
+                            'handoff_receipt_hash' => (string) data_get($run->metadata_json, 'handoff_receipt_hash', ''),
+                            'guardrail_receipt_hash' => (string) data_get($run->metadata_json, 'guardrail_receipt_hash', ''),
+                            'observability_receipt_hash' => (string) data_get($run->metadata_json, 'observability_receipt_hash', ''),
+                            'eval_replay_receipt_hash' => (string) data_get($run->metadata_json, 'eval_replay_receipt_hash', ''),
+                        ] : [],
+                        'external_execution_allowed' => false,
+                        'external_side_effects_enabled' => false,
+                    ];
+                    $record['agent_workforce_runtime_status_record_hash'] = MissionCanonicalHash::sha256($record);
+                    $runtimeRecords[] = $record;
+                }
+            }
+
+            $expectedRuntimeCount = count((array) data_get($company, 'enterprise_domain_agent_workforce_stack.flow_agent_crews', [])) * 5;
+            $readyRuntimeCount = count(array_filter($runtimeRecords, static fn (array $record): bool => (bool) ($record['ready'] ?? false)));
+            $gates = [
+                'agent_operations_pack_ready' => (bool) ($agentOperationsRow['agent_operations_pack_ready'] ?? false),
+                'agent_workforce_runtime_covers_subagents' => $expectedRuntimeCount > 0
+                    && count($runtimeRecords) >= $expectedRuntimeCount
+                    && $readyRuntimeCount === count($runtimeRecords),
+                'external_effects_blocked' => count(array_filter($runtimeRecords, static fn (array $record): bool => (bool) ($record['external_execution_allowed'] ?? true)
+                    || (bool) ($record['external_side_effects_enabled'] ?? true))) === 0,
+            ];
+            $readyGateCount = count(array_filter($gates));
+            $row = [
+                'schema' => 'atlas.ai.company.enterprise_agent_workforce_runtime_company_status.v1',
+                'company_id' => $id,
+                'expected_agent_workforce_runtime_count' => $expectedRuntimeCount,
+                'persisted_agent_workforce_runtime_count' => count($runtimeRecords),
+                'ready_agent_workforce_runtime_count' => $readyRuntimeCount,
+                'agent_workforce_runtime_ready' => $expectedRuntimeCount > 0 && $readyGateCount === count($gates),
+                'runtime_grade' => $expectedRuntimeCount > 0 && $readyGateCount === count($gates)
+                    ? 'target_9_agent_workforce_runtime_ready_external_effects_blocked'
+                    : 'agent_workforce_runtime_attention_required',
+                'ready_gate_count' => $readyGateCount,
+                'required_gate_count' => count($gates),
+                'gates' => $gates,
+                'missing_gates' => array_values(array_keys(array_filter($gates, static fn (bool $ready): bool => ! $ready))),
+                'runtime_records' => $runtimeRecords,
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+            ];
+            $row['company_agent_workforce_runtime_status_record_hash'] = MissionCanonicalHash::sha256($row);
+            $companies[] = $row;
+        }
+
+        $readyCompanyCount = count(array_filter($companies, static fn (array $company): bool => (bool) ($company['agent_workforce_runtime_ready'] ?? false)));
+        $payload = [
+            'ok' => $companies !== [] && $readyCompanyCount === count($companies),
+            'schema' => self::ENTERPRISE_COMPANY_AGENT_WORKFORCE_RUNTIME_STATUS_SCHEMA,
+            'status' => $companies !== [] && $readyCompanyCount === count($companies)
+                ? 'enterprise_company_agent_workforce_runtime_ready_external_effects_blocked'
+                : 'enterprise_company_agent_workforce_runtime_attention_required',
+            'generated_at' => now()->toJSON(),
+            'summary' => [
+                'company_count' => count($companies),
+                'agent_workforce_runtime_ready_company_count' => $readyCompanyCount,
+                'attention_company_count' => count($companies) - $readyCompanyCount,
+                'expected_agent_workforce_runtime_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['expected_agent_workforce_runtime_count'] ?? 0), $companies)),
+                'persisted_agent_workforce_runtime_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['persisted_agent_workforce_runtime_count'] ?? 0), $companies)),
+                'ready_agent_workforce_runtime_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['ready_agent_workforce_runtime_count'] ?? 0), $companies)),
+                'required_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['required_gate_count'] ?? 0), $companies)),
+                'ready_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['ready_gate_count'] ?? 0), $companies)),
+                'external_execution_allowed_count' => 0,
+                'external_side_effects_enabled_count' => 0,
+            ],
+            'source_hashes' => [
+                'enterprise_company_agent_operations_pack_status_hash' => $agentOperations['enterprise_company_agent_operations_pack_status_hash'] ?? null,
+            ],
+            'companies' => $companies,
+            'policy' => $this->agentWorkforceRuntimePolicy(),
+        ];
+        $payload['enterprise_company_agent_workforce_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $this->runtimeStatusCache[$cacheKey] = $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     public function enterpriseCompanyDomainOperatingModelCertificationStatus(?string $companyId = null): array
     {
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
@@ -12404,6 +14124,138 @@ class ExternalActionMandateRegistryService
         ];
     }
 
+    /**
+     * @param array<string,mixed> $company
+     * @param array<string,mixed> $crew
+     * @return array<string,mixed>
+     */
+    private function agentWorkforceRuntimeArtifact(array $company, array $crew, string $subagentId, string $runContextId): array
+    {
+        $companyId = (string) ($company['company_id'] ?? 'unknown');
+        $flowId = (string) ($crew['flow_id'] ?? 'unknown_flow');
+        $receiptInput = [
+            'company_id' => $companyId,
+            'flow_id' => $flowId,
+            'subagent_id' => $subagentId,
+            'run_context_id' => $runContextId,
+        ];
+        $skills = array_values((array) ($crew['skills'] ?? []));
+        $connectorRefs = array_values((array) ($crew['connector_refs'] ?? []));
+        $sourceRefs = array_values((array) ($crew['source_refs'] ?? []));
+
+        $skillContract = [
+            'schema' => 'atlas.ai.company.agent_workforce_skill_contract.v1',
+            'skills' => $skills,
+            'minimum_skill_count' => 7,
+            'methodology_check_required' => in_array('methodology_or_policy_review', $skills, true) || in_array('methodology_check', $skills, true),
+            'source_grounding_required' => in_array('source_linked_retrieval', $skills, true) || in_array('source_grounding', $skills, true),
+            'operator_handoff_required' => in_array('operator_handoff_packaging', $skills, true) || in_array('handoff_packet', $skills, true),
+        ];
+        $skillContract['skill_contract_hash'] = MissionCanonicalHash::sha256($skillContract);
+
+        $connectorScope = [
+            'schema' => 'atlas.ai.company.agent_workforce_connector_scope.v1',
+            'connector_refs' => $connectorRefs,
+            'source_refs' => $sourceRefs,
+            'default_permission' => 'read_only_probe_or_fixture',
+            'credential_binding' => 'vault_reference_only',
+            'credential_material_export_allowed' => false,
+            'write_or_mutation_allowed' => false,
+            'tool_call_receipt_required' => true,
+        ];
+        $connectorScope['connector_scope_hash'] = MissionCanonicalHash::sha256($connectorScope);
+
+        $handoff = [
+            'schema' => 'atlas.ai.company.agent_workforce_subagent_handoff.v1',
+            'primary_agent' => (string) ($crew['primary_agent'] ?? 'primary_agent'),
+            'subagent_id' => $subagentId,
+            'handoff_mode' => 'bounded_specialist_context_packet',
+            'context_minimization_required' => true,
+            'must_return' => ['finding', 'evidence_refs', 'risk_flags', 'confidence', 'next_action'],
+            'may_not_receive' => ['credential_material', 'irrelevant_private_context', 'unscoped_customer_data'],
+            'operator_handoff_required_for_external_effect' => true,
+        ];
+        $handoff['handoff_contract_hash'] = MissionCanonicalHash::sha256($handoff);
+
+        $guardrail = [
+            'schema' => 'atlas.ai.company.agent_workforce_guardrail_contract.v1',
+            'policy_mode' => 'fail_closed',
+            'blocked_operations' => $this->agentWorkforceRuntimePolicy()['blocked_operations'],
+            'tool_guardrails_required' => true,
+            'handoff_guardrails_required' => true,
+            'human_in_loop_before_sensitive_tool' => true,
+            'agent_identity_scope_required' => true,
+            'external_side_effects_enabled' => false,
+        ];
+        $guardrail['guardrail_contract_hash'] = MissionCanonicalHash::sha256($guardrail);
+
+        $observability = [
+            'schema' => 'atlas.ai.company.agent_workforce_observability_contract.v1',
+            'required_metrics' => ['handoff_count', 'tool_call_count', 'source_ref_count', 'guardrail_block_count', 'latency_ms', 'cost_uusd', 'operator_interrupt_count', 'eval_replay_score'],
+            'trace_required' => true,
+            'audit_log_required' => true,
+            'dashboard' => $companyId.'_agent_workforce_runtime',
+        ];
+        $observability['observability_contract_hash'] = MissionCanonicalHash::sha256($observability);
+
+        $evalReplay = [
+            'schema' => 'atlas.ai.company.agent_workforce_eval_replay_contract.v1',
+            'replay_assertions' => ['source_lineage_preserved', 'connector_scope_respected', 'subagent_output_schema_valid', 'guardrails_enforced', 'operator_handoff_present', 'external_effects_blocked', 'rollback_plan_present'],
+            'fixture_mode_required_before_live_scope' => true,
+            'critic_review_required' => true,
+            'deterministic_replay_receipt_required' => true,
+        ];
+        $evalReplay['eval_replay_contract_hash'] = MissionCanonicalHash::sha256($evalReplay);
+
+        $artifact = [
+            'schema' => 'atlas.ai.company.agent_workforce_runtime_artifact.v1',
+            'company_id' => $companyId,
+            'flow_id' => $flowId,
+            'crew_id' => (string) ($crew['crew_id'] ?? ''),
+            'subagent_id' => $subagentId,
+            'run_context_id' => $runContextId,
+            'agent_template_pattern' => (string) ($crew['agent_template_pattern'] ?? 'skills_connectors_subagents_enterprise_pattern'),
+            'skill_contract' => $skillContract,
+            'connector_scope' => $connectorScope,
+            'subagent_handoff' => $handoff,
+            'guardrail_contract' => $guardrail,
+            'observability_contract' => $observability,
+            'eval_replay_contract' => $evalReplay,
+            'receipt_chain' => [
+                'agent_runtime_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'agent_runtime_receipt']),
+                'skill_contract_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'skill_contract_receipt']),
+                'connector_scope_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'connector_scope_receipt']),
+                'handoff_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'handoff_receipt']),
+                'guardrail_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'guardrail_receipt']),
+                'observability_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'observability_receipt']),
+                'eval_replay_receipt_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'eval_replay_receipt']),
+                'rollback_plan_hash' => MissionCanonicalHash::sha256($receiptInput + ['receipt_type' => 'rollback_plan']),
+            ],
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'generated_at' => now()->toJSON(),
+        ];
+        $artifact['agent_workforce_runtime_artifact_hash'] = MissionCanonicalHash::sha256($artifact);
+
+        return $artifact;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function agentWorkforceRuntimePolicy(): array
+    {
+        return [
+            'agent_workforce_runtime_is_not_external_execution_authority' => true,
+            'calendar_wait_blocker_enabled' => false,
+            'external_execution_allowed' => false,
+            'external_side_effects_enabled' => false,
+            'operator_signed_scope_required_for_external_effect' => true,
+            'required_runtime_evidence' => ['atlas_tool_run', 'skill_contract', 'connector_scope', 'subagent_handoff', 'guardrail_contract', 'observability_contract', 'eval_replay_contract', 'agent_runtime_receipt', 'audit_trail', 'rollback_plan'],
+            'blocked_operations' => ['unscoped_subagent_handoff', 'credential_material_export', 'external_write', 'customer_message', 'invoice', 'collect_payment', 'trade', 'capital_transfer', 'paid_campaign', 'public_publish', 'legal_signature', 'deploy', 'delete', 'offensive_security', 'private_data_export', 'skip_guardrails', 'skip_trace', 'skip_operator_handoff'],
+        ];
+    }
+
     private function domainOperatingModelArchetype(string $companyId): string
     {
         return match ($companyId) {
@@ -12443,6 +14295,8 @@ class ExternalActionMandateRegistryService
         $businessRuntimePersistence = $this->enterpriseCompanyBusinessRuntimePersistenceStatus($wantedCompany);
         $capabilityRuntimeMesh = $this->enterpriseCompanyCapabilityRuntimeMeshStatus($wantedCompany);
         $supervisedConnectorExecution = $this->enterpriseCompanySupervisedConnectorExecutionStatus($wantedCompany);
+        $externalToolActivationWorkOrders = $this->enterpriseCompanyExternalToolActivationWorkOrderStatus($wantedCompany);
+        $externalToolActivationPackets = $this->enterpriseCompanyExternalToolActivationPacketStatus($wantedCompany);
         $qualityComplianceLifecycle = $this->enterpriseCompanyQualityComplianceLifecycleStatus($wantedCompany);
         $holdingOutcomeScorecard = $this->flowActionRuntime->holdingOutcomeScorecardStatus($wantedCompany);
         $portfolioDecisionPacket = $this->flowActionRuntime->portfolioDecisionPacketStatus($wantedCompany);
@@ -12479,6 +14333,8 @@ class ExternalActionMandateRegistryService
         $businessRuntimePersistenceByCompany = $this->companyRowsById($businessRuntimePersistence);
         $capabilityRuntimeMeshByCompany = $this->companyRowsById($capabilityRuntimeMesh);
         $supervisedConnectorExecutionByCompany = $this->companyRowsById($supervisedConnectorExecution);
+        $externalToolActivationWorkOrdersByCompany = $this->companyRowsById($externalToolActivationWorkOrders);
+        $externalToolActivationPacketsByCompany = $this->companyRowsById($externalToolActivationPackets);
         $qualityComplianceLifecycleByCompany = $this->companyRowsById($qualityComplianceLifecycle);
         $holdingOutcomeScorecardByCompany = $this->companyRowsById($holdingOutcomeScorecard);
         $portfolioDecisionPacketByCompany = $this->companyRowsById($portfolioDecisionPacket);
@@ -12519,6 +14375,8 @@ class ExternalActionMandateRegistryService
             $businessRuntimePersistenceRow = (array) ($businessRuntimePersistenceByCompany[$id] ?? []);
             $capabilityRuntimeMeshRow = (array) ($capabilityRuntimeMeshByCompany[$id] ?? []);
             $supervisedConnectorExecutionRow = (array) ($supervisedConnectorExecutionByCompany[$id] ?? []);
+            $externalToolActivationWorkOrdersRow = (array) ($externalToolActivationWorkOrdersByCompany[$id] ?? []);
+            $externalToolActivationPacketsRow = (array) ($externalToolActivationPacketsByCompany[$id] ?? []);
             $qualityComplianceLifecycleRow = (array) ($qualityComplianceLifecycleByCompany[$id] ?? []);
             $holdingOutcomeScorecardRow = (array) ($holdingOutcomeScorecardByCompany[$id] ?? []);
             $portfolioDecisionPacketRow = (array) ($portfolioDecisionPacketByCompany[$id] ?? []);
@@ -12631,6 +14489,18 @@ class ExternalActionMandateRegistryService
                     && (int) ($supervisedConnectorExecutionRow['ready_supervised_connector_execution_run_count'] ?? 0) >= $expectedFlowCount
                     && ! (bool) ($supervisedConnectorExecutionRow['external_execution_allowed'] ?? true)
                     && ! (bool) ($supervisedConnectorExecutionRow['external_side_effects_enabled'] ?? true),
+                'external_tool_activation_work_orders_ready' => (bool) ($externalToolActivationWorkOrdersRow['external_tool_activation_work_orders_ready'] ?? false)
+                    && (int) ($externalToolActivationWorkOrdersRow['ready_gate_count'] ?? 0) === (int) ($externalToolActivationWorkOrdersRow['required_gate_count'] ?? -1)
+                    && (int) ($externalToolActivationWorkOrdersRow['ready_external_tool_activation_work_order_count'] ?? 0) === (int) ($externalToolActivationWorkOrdersRow['expected_external_tool_activation_work_order_count'] ?? -1)
+                    && (int) ($externalToolActivationWorkOrdersRow['ready_external_tool_activation_work_order_count'] ?? 0) >= $expectedFlowCount
+                    && ! (bool) ($externalToolActivationWorkOrdersRow['external_execution_allowed'] ?? true)
+                    && ! (bool) ($externalToolActivationWorkOrdersRow['external_side_effects_enabled'] ?? true),
+                'external_tool_activation_packets_ready' => (bool) ($externalToolActivationPacketsRow['external_tool_activation_packets_ready'] ?? false)
+                    && (int) ($externalToolActivationPacketsRow['ready_gate_count'] ?? 0) === (int) ($externalToolActivationPacketsRow['required_gate_count'] ?? -1)
+                    && (int) ($externalToolActivationPacketsRow['ready_external_tool_activation_packet_count'] ?? 0) === (int) ($externalToolActivationPacketsRow['expected_external_tool_activation_packet_count'] ?? -1)
+                    && (int) ($externalToolActivationPacketsRow['ready_external_tool_activation_packet_count'] ?? 0) >= $expectedFlowCount
+                    && ! (bool) ($externalToolActivationPacketsRow['external_execution_allowed'] ?? true)
+                    && ! (bool) ($externalToolActivationPacketsRow['external_side_effects_enabled'] ?? true),
                 'quality_compliance_lifecycle_ready' => (bool) ($qualityComplianceLifecycleRow['quality_compliance_lifecycle_ready'] ?? false)
                     && (int) ($qualityComplianceLifecycleRow['ready_gate_count'] ?? 0) === (int) ($qualityComplianceLifecycleRow['required_gate_count'] ?? -1)
                     && (int) ($qualityComplianceLifecycleRow['ready_flow_quality_count'] ?? 0) >= $expectedFlowCount
@@ -12727,6 +14597,8 @@ class ExternalActionMandateRegistryService
                     'company_business_runtime_persistence_status_record_hash' => $businessRuntimePersistenceRow['company_business_runtime_persistence_status_record_hash'] ?? null,
                     'company_capability_runtime_mesh_status_record_hash' => $capabilityRuntimeMeshRow['company_capability_runtime_mesh_status_record_hash'] ?? null,
                     'company_supervised_connector_execution_status_record_hash' => $supervisedConnectorExecutionRow['company_supervised_connector_execution_status_record_hash'] ?? null,
+                    'company_external_tool_activation_work_order_status_record_hash' => $externalToolActivationWorkOrdersRow['company_external_tool_activation_work_order_status_record_hash'] ?? null,
+                    'company_external_tool_activation_packet_status_record_hash' => $externalToolActivationPacketsRow['company_external_tool_activation_packet_status_record_hash'] ?? null,
                     'company_quality_compliance_lifecycle_record_hash' => $qualityComplianceLifecycleRow['company_quality_compliance_lifecycle_record_hash'] ?? null,
                     'holding_outcome_scorecard_record_hash' => $holdingOutcomeScorecardRow['scorecard_hash'] ?? null,
                     'portfolio_decision_packet_record_hash' => $portfolioDecisionPacketRow['decision_packet_hash'] ?? null,
@@ -12780,6 +14652,8 @@ class ExternalActionMandateRegistryService
                 'business_runtime_persistence_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.business_runtime_persistence_ready', false))),
                 'capability_runtime_mesh_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.capability_runtime_mesh_ready', false))),
                 'supervised_connector_execution_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.supervised_connector_execution_ready', false))),
+                'external_tool_activation_work_orders_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.external_tool_activation_work_orders_ready', false))),
+                'external_tool_activation_packets_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.external_tool_activation_packets_ready', false))),
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
                 'external_launch_allowed_count' => 0,
@@ -12813,6 +14687,8 @@ class ExternalActionMandateRegistryService
                 'enterprise_company_business_runtime_persistence_status_hash' => $businessRuntimePersistence['enterprise_company_business_runtime_persistence_status_hash'] ?? null,
                 'enterprise_company_capability_runtime_mesh_status_hash' => $capabilityRuntimeMesh['enterprise_company_capability_runtime_mesh_status_hash'] ?? null,
                 'enterprise_company_supervised_connector_execution_status_hash' => $supervisedConnectorExecution['enterprise_company_supervised_connector_execution_status_hash'] ?? null,
+                'enterprise_company_external_tool_activation_work_order_status_hash' => $externalToolActivationWorkOrders['enterprise_company_external_tool_activation_work_order_status_hash'] ?? null,
+                'enterprise_company_external_tool_activation_packet_status_hash' => $externalToolActivationPackets['enterprise_company_external_tool_activation_packet_status_hash'] ?? null,
                 'enterprise_company_quality_compliance_lifecycle_status_hash' => $qualityComplianceLifecycle['enterprise_company_quality_compliance_lifecycle_status_hash'] ?? null,
                 'holding_outcome_scorecard_status_hash' => $holdingOutcomeScorecard['holding_outcome_scorecard_status_hash'] ?? null,
                 'portfolio_decision_packet_status_hash' => $portfolioDecisionPacket['portfolio_decision_packet_status_hash'] ?? null,
@@ -12862,7 +14738,12 @@ class ExternalActionMandateRegistryService
         $businessRuntimePersistence = $this->enterpriseCompanyBusinessRuntimePersistenceStatus($wantedCompany);
         $capabilityRuntimeMesh = $this->enterpriseCompanyCapabilityRuntimeMeshStatus($wantedCompany);
         $supervisedConnectorExecution = $this->enterpriseCompanySupervisedConnectorExecutionStatus($wantedCompany);
+        $externalToolActivationWorkOrders = $this->enterpriseCompanyExternalToolActivationWorkOrderStatus($wantedCompany);
+        $externalToolActivationPackets = $this->enterpriseCompanyExternalToolActivationPacketStatus($wantedCompany);
         $qualityComplianceLifecycle = $this->enterpriseCompanyQualityComplianceLifecycleStatus($wantedCompany);
+        $this->flowActionRuntime->clearRuntimeRecordCache($wantedCompany);
+        $operationalOutcome = $this->flowActionRuntime->operationalOutcomeRuntimeStatus($wantedCompany);
+        $holdingOutcomeScorecard = $this->flowActionRuntime->holdingOutcomeScorecardStatus($wantedCompany);
         $completion = $this->enterpriseCompanyCompletionCertificationStatus($wantedCompany);
 
         $productionByCompany = $this->companyRowsById($productionReadiness);
@@ -12881,7 +14762,11 @@ class ExternalActionMandateRegistryService
         $businessRuntimePersistenceByCompany = $this->companyRowsById($businessRuntimePersistence);
         $capabilityRuntimeMeshByCompany = $this->companyRowsById($capabilityRuntimeMesh);
         $supervisedConnectorExecutionByCompany = $this->companyRowsById($supervisedConnectorExecution);
+        $externalToolActivationWorkOrdersByCompany = $this->companyRowsById($externalToolActivationWorkOrders);
+        $externalToolActivationPacketsByCompany = $this->companyRowsById($externalToolActivationPackets);
         $qualityComplianceByCompany = $this->companyRowsById($qualityComplianceLifecycle);
+        $operationalOutcomeByCompany = $this->companyRowsById($operationalOutcome);
+        $holdingOutcomeScorecardByCompany = $this->companyRowsById($holdingOutcomeScorecard);
         $completionByCompany = $this->companyRowsById($completion);
 
         $companies = [];
@@ -12904,7 +14789,11 @@ class ExternalActionMandateRegistryService
             $businessRuntimePersistenceRow = (array) ($businessRuntimePersistenceByCompany[$id] ?? []);
             $capabilityRuntimeMeshRow = (array) ($capabilityRuntimeMeshByCompany[$id] ?? []);
             $supervisedConnectorExecutionRow = (array) ($supervisedConnectorExecutionByCompany[$id] ?? []);
+            $externalToolActivationWorkOrdersRow = (array) ($externalToolActivationWorkOrdersByCompany[$id] ?? []);
+            $externalToolActivationPacketsRow = (array) ($externalToolActivationPacketsByCompany[$id] ?? []);
             $qualityComplianceRow = (array) ($qualityComplianceByCompany[$id] ?? []);
+            $operationalOutcomeRow = (array) ($operationalOutcomeByCompany[$id] ?? []);
+            $holdingOutcomeScorecardRow = (array) ($holdingOutcomeScorecardByCompany[$id] ?? []);
             $completionRow = (array) ($completionByCompany[$id] ?? []);
             $flowCapabilities = array_values((array) ($catalogRow['flow_capabilities'] ?? []));
             $flowIntegrations = array_values((array) ($integrationRow['flow_integrations'] ?? []));
@@ -12928,7 +14817,11 @@ class ExternalActionMandateRegistryService
                 'company_business_runtime_persistence_status_record_hash' => $businessRuntimePersistenceRow['company_business_runtime_persistence_status_record_hash'] ?? null,
                 'company_capability_runtime_mesh_status_record_hash' => $capabilityRuntimeMeshRow['company_capability_runtime_mesh_status_record_hash'] ?? null,
                 'company_supervised_connector_execution_status_record_hash' => $supervisedConnectorExecutionRow['company_supervised_connector_execution_status_record_hash'] ?? null,
+                'company_external_tool_activation_work_order_status_record_hash' => $externalToolActivationWorkOrdersRow['company_external_tool_activation_work_order_status_record_hash'] ?? null,
+                'company_external_tool_activation_packet_status_record_hash' => $externalToolActivationPacketsRow['company_external_tool_activation_packet_status_record_hash'] ?? null,
                 'company_quality_compliance_lifecycle_record_hash' => $qualityComplianceRow['company_quality_compliance_lifecycle_record_hash'] ?? null,
+                'operational_outcome_runtime_record_hash' => $operationalOutcomeRow['operational_outcome_runtime_record_hash'] ?? null,
+                'holding_outcome_scorecard_record_hash' => $holdingOutcomeScorecardRow['scorecard_hash'] ?? null,
                 'completion_certification_record_hash' => $completionRow['completion_certification_record_hash'] ?? null,
                 'company_external_launch_control_hash' => $integrationRow['company_external_launch_control_hash'] ?? null,
                 'company_external_receipt_binding_hash' => $integrationRow['company_external_receipt_binding_hash'] ?? null,
@@ -12998,11 +14891,35 @@ class ExternalActionMandateRegistryService
                     && (int) ($supervisedConnectorExecutionRow['ready_gate_count'] ?? 0) === (int) ($supervisedConnectorExecutionRow['required_gate_count'] ?? -1)
                     && ! (bool) ($supervisedConnectorExecutionRow['external_execution_allowed'] ?? true)
                     && ! (bool) ($supervisedConnectorExecutionRow['external_side_effects_enabled'] ?? true),
+                'external_tool_activation_work_orders_bound' => (bool) ($externalToolActivationWorkOrdersRow['external_tool_activation_work_orders_ready'] ?? false)
+                    && (int) ($externalToolActivationWorkOrdersRow['ready_external_tool_activation_work_order_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($externalToolActivationWorkOrdersRow['ready_gate_count'] ?? 0) === (int) ($externalToolActivationWorkOrdersRow['required_gate_count'] ?? -1)
+                    && ! (bool) ($externalToolActivationWorkOrdersRow['external_execution_allowed'] ?? true)
+                    && ! (bool) ($externalToolActivationWorkOrdersRow['external_side_effects_enabled'] ?? true),
+                'external_tool_activation_packets_bound' => (bool) ($externalToolActivationPacketsRow['external_tool_activation_packets_ready'] ?? false)
+                    && (int) ($externalToolActivationPacketsRow['ready_external_tool_activation_packet_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($externalToolActivationPacketsRow['ready_gate_count'] ?? 0) === (int) ($externalToolActivationPacketsRow['required_gate_count'] ?? -1)
+                    && ! (bool) ($externalToolActivationPacketsRow['external_execution_allowed'] ?? true)
+                    && ! (bool) ($externalToolActivationPacketsRow['external_side_effects_enabled'] ?? true),
                 'quality_compliance_bundle_bound' => (bool) ($qualityComplianceRow['quality_compliance_lifecycle_ready'] ?? false)
                     && (int) ($qualityComplianceRow['ready_flow_quality_count'] ?? 0) >= $expectedFlowCount
                     && (int) ($qualityComplianceRow['replay_matrix_count'] ?? 0) >= $expectedFlowCount
                     && (int) ($qualityComplianceRow['audit_evidence_requirement_count'] ?? 0) >= $expectedFlowCount
                     && ! (bool) ($qualityComplianceRow['external_benchmark_claim_allowed'] ?? true),
+                'operational_outcome_runtime_bound' => $this->runtimeCoverageRowReady($operationalOutcomeRow, 'completed_operational_outcome_flow_count')
+                    && (int) ($operationalOutcomeRow['operational_outcome_ledger_bound_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($operationalOutcomeRow['value_proxy_bound_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($operationalOutcomeRow['acceptance_contract_bound_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($operationalOutcomeRow['risk_scorecard_bound_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($operationalOutcomeRow['next_cycle_bound_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($operationalOutcomeRow['evidence_ref_count'] ?? 0) >= ($expectedFlowCount * 4),
+                'holding_outcome_scorecard_bound' => (bool) ($holdingOutcomeScorecardRow['ready'] ?? false)
+                    && (int) ($holdingOutcomeScorecardRow['completed_outcome_flow_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($holdingOutcomeScorecardRow['acceptance_contract_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($holdingOutcomeScorecardRow['risk_scorecard_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($holdingOutcomeScorecardRow['next_cycle_count'] ?? 0) >= $expectedFlowCount
+                    && ! (bool) ($holdingOutcomeScorecardRow['external_value_claim_allowed'] ?? true)
+                    && ! (bool) ($holdingOutcomeScorecardRow['external_side_effects'] ?? true),
                 'supervised_cutover_evidence_bound' => (bool) ($completionRow['completion_certified'] ?? false)
                     && (bool) ($completionRow['manual_handoff_pack_ready'] ?? false)
                     && (bool) ($completionRow['real_external_execution_dossier_ready'] ?? false)
@@ -13038,7 +14955,11 @@ class ExternalActionMandateRegistryService
                 'business_runtime_persistence',
                 'capability_runtime_mesh',
                 'supervised_connector_execution',
+                'external_tool_activation_work_orders',
+                'external_tool_activation_packets',
                 'quality_compliance',
+                'operational_outcome_runtime',
+                'holding_outcome_scorecard',
                 'supervised_cutover',
                 'launch_control',
                 'receipt_binding',
@@ -13095,6 +15016,10 @@ class ExternalActionMandateRegistryService
                 'agent_operations_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.agent_operations_bundle_bound', false))),
                 'capability_runtime_mesh_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.capability_runtime_mesh_bound', false))),
                 'supervised_connector_execution_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.supervised_connector_execution_bound', false))),
+                'external_tool_activation_work_orders_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.external_tool_activation_work_orders_bound', false))),
+                'external_tool_activation_packets_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.external_tool_activation_packets_bound', false))),
+                'operational_outcome_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.operational_outcome_runtime_bound', false))),
+                'holding_outcome_scorecard_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.holding_outcome_scorecard_bound', false))),
                 'average_bundle_score' => $companies !== [] ? round(array_sum(array_map(static fn (array $company): float => (float) ($company['bundle_score'] ?? 0.0), $companies)) / count($companies), 4) : 0.0,
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
@@ -13117,7 +15042,11 @@ class ExternalActionMandateRegistryService
                 'enterprise_company_business_runtime_persistence_status_hash' => $businessRuntimePersistence['enterprise_company_business_runtime_persistence_status_hash'] ?? null,
                 'enterprise_company_capability_runtime_mesh_status_hash' => $capabilityRuntimeMesh['enterprise_company_capability_runtime_mesh_status_hash'] ?? null,
                 'enterprise_company_supervised_connector_execution_status_hash' => $supervisedConnectorExecution['enterprise_company_supervised_connector_execution_status_hash'] ?? null,
+                'enterprise_company_external_tool_activation_work_order_status_hash' => $externalToolActivationWorkOrders['enterprise_company_external_tool_activation_work_order_status_hash'] ?? null,
+                'enterprise_company_external_tool_activation_packet_status_hash' => $externalToolActivationPackets['enterprise_company_external_tool_activation_packet_status_hash'] ?? null,
                 'enterprise_company_quality_compliance_lifecycle_status_hash' => $qualityComplianceLifecycle['enterprise_company_quality_compliance_lifecycle_status_hash'] ?? null,
+                'operational_outcome_runtime_status_hash' => $operationalOutcome['operational_outcome_runtime_status_hash'] ?? null,
+                'holding_outcome_scorecard_status_hash' => $holdingOutcomeScorecard['holding_outcome_scorecard_status_hash'] ?? null,
                 'enterprise_company_completion_certification_status_hash' => $completion['enterprise_company_completion_certification_status_hash'] ?? null,
             ],
             'companies' => $companies,
@@ -13128,7 +15057,7 @@ class ExternalActionMandateRegistryService
                 'external_side_effects_enabled' => false,
                 'external_launch_allowed' => false,
                 'operator_signed_scope_required_for_external_effect' => true,
-                'required_bundle_sections' => ['production_readiness', 'flow_capability_matrix', 'flow_integration_matrix', 'agent_operations', 'persisted_tool_runtime', 'domain_adapter_execution_envelope', 'acceptance_evidence', 'work_product_runtime', 'operating_blueprint_runtime', 'business_runtime_persistence', 'capability_runtime_mesh', 'supervised_connector_execution', 'quality_compliance', 'cutover_evidence', 'launch_control', 'receipt_binding'],
+                'required_bundle_sections' => ['production_readiness', 'flow_capability_matrix', 'flow_integration_matrix', 'agent_operations', 'persisted_tool_runtime', 'domain_adapter_execution_envelope', 'acceptance_evidence', 'work_product_runtime', 'operating_blueprint_runtime', 'business_runtime_persistence', 'capability_runtime_mesh', 'supervised_connector_execution', 'external_tool_activation_work_orders', 'external_tool_activation_packets', 'quality_compliance', 'operational_outcome_runtime', 'holding_outcome_scorecard', 'cutover_evidence', 'launch_control', 'receipt_binding'],
                 'blocked_operations' => ['auto_launch', 'auto_dispatch', 'external_write', 'external_publish', 'spend', 'trade', 'deploy', 'delete', 'offensive_security', 'skip_operator_acceptance'],
             ],
         ];
@@ -14551,6 +16480,11 @@ class ExternalActionMandateRegistryService
             'queued_count' => count(array_filter($records, static fn (array $record): bool => $record['status'] === 'queued_for_internal_execution')),
             'completed_count' => count(array_filter($records, static fn (array $record): bool => $record['status'] === 'completed_internal_flow_execution')),
             'dlq_count' => count(array_filter($records, static fn (array $record): bool => $record['status'] === 'dlq_blocked_internal_execution')),
+            'queue_receipt_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['queue_receipt_count'] ?? 0), $records)),
+            'execution_receipt_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['execution_receipt_count'] ?? 0), $records)),
+            'last_execution_receipt_bound_count' => count(array_filter($records, static fn (array $record): bool => strlen((string) ($record['last_execution_receipt_hash'] ?? '')) === 64)),
+            'completed_at_bound_count' => count(array_filter($records, static fn (array $record): bool => (string) ($record['completed_at'] ?? '') !== '')),
+            'dlq_reason_bound_count' => count(array_filter($records, static fn (array $record): bool => (string) ($record['dlq_reason'] ?? '') !== '')),
             'connector_activation_count' => array_sum(array_map(static fn (array $record): int => (int) $record['connector_activation_count'], $records)),
             'connector_probe_green_count' => array_sum(array_map(static fn (array $record): int => (int) $record['connector_probe_green_count'], $records)),
             'operating_package_bound_count' => count(array_filter($records, static fn (array $record): bool => (string) ($record['operating_package_hash'] ?? '') !== '')),
@@ -14592,6 +16526,13 @@ class ExternalActionMandateRegistryService
             'incident_route_green_count' => count(array_filter($records, static fn (array $record): bool => (bool) $record['incident_route_green'])),
             'reconciliation_green_count' => count(array_filter($records, static fn (array $record): bool => (bool) $record['reconciliation_green'])),
             'promotion_gate_green_count' => count(array_filter($records, static fn (array $record): bool => (bool) $record['promotion_gate_green'])),
+            'slo_contract_bound_count' => count(array_filter($records, static fn (array $record): bool => strlen((string) data_get($record, 'slo_contract.slo_hash', '')) === 64)),
+            'incident_route_bound_count' => count(array_filter($records, static fn (array $record): bool => strlen((string) data_get($record, 'incident_route.route_hash', '')) === 64)),
+            'reconciliation_contract_bound_count' => count(array_filter($records, static fn (array $record): bool => strlen((string) data_get($record, 'reconciliation_contract.reconciliation_hash', '')) === 64)),
+            'dashboard_binding_bound_count' => count(array_filter($records, static fn (array $record): bool => count((array) ($record['dashboard_bindings'] ?? [])) >= 4)),
+            'drill_receipt_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['drill_receipt_count'] ?? 0), $records)),
+            'last_drill_receipt_bound_count' => count(array_filter($records, static fn (array $record): bool => strlen((string) ($record['last_drill_receipt_hash'] ?? '')) === 64)),
+            'activated_at_bound_count' => count(array_filter($records, static fn (array $record): bool => (string) ($record['activated_at'] ?? '') !== '')),
             'operating_package_bound_count' => count(array_filter($records, static fn (array $record): bool => (string) ($record['operating_package_hash'] ?? '') !== '')),
             'replay_contract_bound_count' => count(array_filter($records, static fn (array $record): bool => (bool) data_get($record, 'replay_contract_bound'))),
             'operating_package_attestation_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['operating_package_attestation_count'] ?? 0), $records)),
@@ -15819,6 +17760,243 @@ class ExternalActionMandateRegistryService
             'external_side_effects_enabled' => false,
         ];
         $row['external_research_adoption_company_hash'] = MissionCanonicalHash::sha256($row);
+
+        return $row;
+    }
+
+    /**
+     * @param array<string,mixed> $company
+     * @param array<string,mixed> $runtimeRow
+     * @return array<string,mixed>
+     */
+    private function flowBenchmarkReplayCompany(array $company, array $runtimeRow): array
+    {
+        $stack = (array) data_get($company, 'enterprise_flow_benchmark_replay_stack', []);
+        $flowCount = count((array) ($company['flows'] ?? []));
+        $offlineDatasets = (array) data_get($stack, 'offline_dataset_contracts', []);
+        $traceRubrics = (array) data_get($stack, 'trace_grading_rubrics', []);
+        $adversarialCases = (array) data_get($stack, 'adversarial_regression_cases', []);
+        $stateAssertions = (array) data_get($stack, 'deterministic_state_assertions', []);
+        $replayMatrix = (array) data_get($stack, 'replay_and_comparison_matrix', []);
+        $observabilityMetrics = (array) data_get($stack, 'benchmark_observability.required_metrics', []);
+
+        $readyOfflineDatasets = count(array_filter($offlineDatasets, static fn (array $dataset): bool => (int) ($dataset['minimum_examples'] ?? 0) >= 10
+            && count((array) ($dataset['example_types'] ?? [])) >= 5
+            && count((array) ($dataset['required_fields'] ?? [])) >= 5
+            && (bool) ($dataset['reference_output_required'] ?? false)
+            && strlen((string) ($dataset['dataset_hash'] ?? '')) === 64));
+        $readyTraceRubrics = count(array_filter($traceRubrics, static fn (array $rubric): bool => count((array) ($rubric['graded_trace_components'] ?? [])) >= 6
+            && count((array) ($rubric['score_keys'] ?? [])) >= 6
+            && count((array) ($rubric['failure_modes'] ?? [])) >= 6
+            && (float) ($rubric['minimum_score'] ?? 0.0) >= 0.86
+            && strlen((string) ($rubric['rubric_hash'] ?? '')) === 64));
+        $readyAdversarialCases = count(array_filter($adversarialCases, static fn (array $case): bool => count((array) ($case['case_types'] ?? [])) >= 6
+            && count((array) ($case['must_not_do'] ?? [])) >= 4
+            && (string) ($case['expected_behavior'] ?? '') === 'fail_closed_emit_review_packet_and_preserve_checkpoint'
+            && strlen((string) ($case['case_hash'] ?? '')) === 64));
+        $readyStateAssertions = count(array_filter($stateAssertions, static fn (array $assertion): bool => count((array) ($assertion['state_objects'] ?? [])) >= 5
+            && count((array) ($assertion['assertions'] ?? [])) >= 4
+            && (string) ($assertion['primary_metric'] ?? '') !== ''
+            && (string) ($assertion['primary_work_product'] ?? '') !== ''
+            && strlen((string) ($assertion['assertion_hash'] ?? '')) === 64));
+        $readyReplayMatrix = count(array_filter($replayMatrix, static fn (array $matrix): bool => count((array) ($matrix['replay_modes'] ?? [])) >= 4
+            && count((array) ($matrix['comparison_dimensions'] ?? [])) >= 7
+            && count((array) ($matrix['required_artifacts'] ?? [])) >= 6
+            && (string) ($matrix['regression_action'] ?? '') === 'block_promotion_open_flow_quality_review_and_attach_replay_diff'
+            && strlen((string) ($matrix['replay_hash'] ?? '')) === 64));
+        $runtimeCompletedFlowCount = (int) ($runtimeRow['completed_benchmark_replay_flow_count'] ?? 0);
+
+        $checks = [
+            'benchmark_stack_schema_green' => (string) ($stack['schema'] ?? '') === 'atlas.ai.company.enterprise_flow_benchmark_replay_stack.v1',
+            'benchmark_stack_hash_green' => strlen((string) ($stack['benchmark_replay_hash'] ?? '')) === 64,
+            'offline_dataset_contracts_cover_flows' => $flowCount > 0 && count($offlineDatasets) >= $flowCount && $readyOfflineDatasets >= $flowCount,
+            'trace_grading_rubrics_cover_flows' => $flowCount > 0 && count($traceRubrics) >= $flowCount && $readyTraceRubrics >= $flowCount,
+            'adversarial_regression_cases_cover_flows' => $flowCount > 0 && count($adversarialCases) >= $flowCount && $readyAdversarialCases >= $flowCount,
+            'deterministic_state_assertions_cover_flows' => $flowCount > 0 && count($stateAssertions) >= $flowCount && $readyStateAssertions >= $flowCount,
+            'replay_comparison_matrix_covers_flows' => $flowCount > 0 && count($replayMatrix) >= $flowCount && $readyReplayMatrix >= $flowCount,
+            'promotion_quality_gates_green' => (float) data_get($stack, 'promotion_quality_gates.minimum_offline_eval_score', 0.0) >= 0.86
+                && (float) data_get($stack, 'promotion_quality_gates.minimum_trace_grade_score', 0.0) >= 0.86
+                && (int) data_get($stack, 'promotion_quality_gates.policy_findings_allowed', 1) === 0
+                && count((array) data_get($stack, 'promotion_quality_gates.required_green_replays', [])) >= 3
+                && (bool) data_get($stack, 'promotion_quality_gates.operator_review_required_before_shadow_mode', false)
+                && (bool) data_get($stack, 'promotion_quality_gates.observed_online_runs_required_before_autonomy_claim', false),
+            'observability_green' => count($observabilityMetrics) >= 6,
+            'runtime_or_structural_coverage_green' => $runtimeCompletedFlowCount >= $flowCount || $readyReplayMatrix >= $flowCount,
+            'synthetic_score_claims_blocked' => (bool) data_get($stack, 'benchmark_policy.synthetic_score_claims_allowed', true) === false,
+            'promotion_without_replay_green_blocked' => (bool) data_get($stack, 'benchmark_policy.promotion_without_replay_green_allowed', true) === false,
+            'external_paid_benchmark_requires_operator_approval' => (bool) data_get($stack, 'benchmark_policy.external_model_or_paid_benchmark_requires_operator_approval', false),
+        ];
+
+        $row = [
+            'schema' => 'atlas.ai.company.flow_benchmark_replay_status.v1',
+            'company_id' => (string) ($company['company_id'] ?? 'unknown'),
+            'ready' => ! in_array(false, $checks, true),
+            'checks' => $checks,
+            'flow_count' => $flowCount,
+            'offline_dataset_contract_count' => count($offlineDatasets),
+            'ready_offline_dataset_contract_count' => $readyOfflineDatasets,
+            'trace_grading_rubric_count' => count($traceRubrics),
+            'ready_trace_grading_rubric_count' => $readyTraceRubrics,
+            'adversarial_regression_case_count' => count($adversarialCases),
+            'ready_adversarial_regression_case_count' => $readyAdversarialCases,
+            'deterministic_state_assertion_count' => count($stateAssertions),
+            'ready_deterministic_state_assertion_count' => $readyStateAssertions,
+            'replay_comparison_matrix_count' => count($replayMatrix),
+            'ready_replay_comparison_matrix_count' => $readyReplayMatrix,
+            'benchmark_observability_metric_count' => count($observabilityMetrics),
+            'runtime_completed_benchmark_flow_count' => $runtimeCompletedFlowCount,
+            'required_benchmark_surfaces' => ['offline_dataset_contract', 'trace_grading_rubric', 'adversarial_regression_case', 'deterministic_state_assertion', 'replay_comparison_matrix', 'benchmark_observability'],
+            'next_actions' => ['run_offline_eval', 'grade_trace', 'run_adversarial_regression', 'assert_deterministic_state', 'compare_replay_matrix', 'block_promotion_on_regression'],
+            'external_benchmark_execution_allowed' => false,
+            'synthetic_score_claims_allowed' => false,
+            'promotion_without_replay_green_allowed' => false,
+            'external_side_effects_enabled' => false,
+        ];
+        $row['flow_benchmark_replay_company_hash'] = MissionCanonicalHash::sha256($row);
+
+        return $row;
+    }
+
+    /**
+     * @param array<string,mixed> $company
+     * @param array<string,mixed> $runtimeRow
+     * @return array<string,mixed>
+     */
+    private function connectorCertificationPreflightCompany(array $company, array $runtimeRow): array
+    {
+        $certification = (array) data_get($company, 'enterprise_connector_certification_stack', []);
+        $preflight = (array) data_get($company, 'enterprise_production_connector_preflight_stack', []);
+        $flowCount = count((array) ($company['flows'] ?? []));
+        $connectorCount = count((array) ($company['connectors'] ?? []));
+        $adapterContracts = (array) data_get($certification, 'adapter_contract_catalog', []);
+        $authBoundaries = (array) data_get($certification, 'auth_and_secret_boundary', []);
+        $sandboxProbes = (array) data_get($certification, 'sandbox_probe_matrix', []);
+        $contractTests = (array) data_get($certification, 'consumer_provider_contract_tests', []);
+        $dataLineage = (array) data_get($certification, 'connector_data_mapping_and_lineage', []);
+        $flowUsage = (array) data_get($certification, 'flow_connector_usage_matrix', []);
+        $replayFixtures = (array) data_get($certification, 'replay_fixture_and_mock_server_plan', []);
+        $sloFailureModes = (array) data_get($certification, 'connector_slo_and_failure_mode_catalog', []);
+        $certificationMetrics = (array) data_get($certification, 'connector_certification_observability.required_metrics', []);
+        $productionContracts = (array) data_get($preflight, 'connector_preflight_contracts', []);
+        $cutoverMatrix = (array) data_get($preflight, 'flow_connector_cutover_matrix', []);
+        $evidenceRegister = (array) data_get($preflight, 'production_readiness_evidence_register', []);
+        $cutoverMetrics = (array) data_get($preflight, 'cutover_observability.required_metrics', []);
+
+        $readyAdapterContracts = count(array_filter($adapterContracts, static fn (array $contract): bool => count((array) ($contract['supported_contract_forms'] ?? [])) >= 4
+            && count((array) ($contract['required_contract_fields'] ?? [])) >= 6
+            && (bool) ($contract['schema_validation_required'] ?? false)
+            && strlen((string) ($contract['contract_hash'] ?? '')) === 64));
+        $readyAuthBoundaries = count(array_filter($authBoundaries, static fn (array $boundary): bool => (string) ($boundary['credential_binding'] ?? '') === 'vault_reference_only'
+            && (string) ($boundary['minimum_scope'] ?? '') === 'read_or_internal_probe'
+            && count((array) ($boundary['token_policy'] ?? [])) >= 4
+            && count((array) ($boundary['blocked_scope_expansions_without_operator'] ?? [])) >= 7
+            && (bool) ($boundary['secret_material_in_packet_allowed'] ?? true) === false
+            && strlen((string) ($boundary['auth_hash'] ?? '')) === 64));
+        $readySandboxProbes = count(array_filter($sandboxProbes, static fn (array $probe): bool => count((array) ($probe['probe_modes'] ?? [])) >= 5
+            && count((array) ($probe['success_criteria'] ?? [])) >= 5
+            && (string) ($probe['failure_action'] ?? '') === 'block_connector_and_open_integration_review'
+            && strlen((string) ($probe['probe_hash'] ?? '')) === 64));
+        $readyContractTests = count(array_filter($contractTests, static fn (array $test): bool => count((array) ($test['consumer_assumptions'] ?? [])) >= 4
+            && count((array) ($test['provider_verification'] ?? [])) >= 4
+            && (string) ($test['deployment_gate'] ?? '') === 'cannot_promote_connector_until_contract_verified'
+            && strlen((string) ($test['test_hash'] ?? '')) === 64));
+        $readyDataLineage = count(array_filter($dataLineage, static fn (array $mapping): bool => count((array) ($mapping['canonical_entities'] ?? [])) >= 5
+            && count((array) ($mapping['lineage_required'] ?? [])) >= 5
+            && (bool) ($mapping['redaction_required_before_provider_payload'] ?? false)
+            && strlen((string) ($mapping['mapping_hash'] ?? '')) === 64));
+        $readyFlowUsage = count(array_filter($flowUsage, static fn (array $usage): bool => count((array) ($usage['connectors'] ?? [])) >= 1
+            && count((array) ($usage['allowed_modes'] ?? [])) >= 3
+            && count((array) ($usage['blocked_modes'] ?? [])) >= 5
+            && count((array) ($usage['pre_run_requirements'] ?? [])) >= 4
+            && strlen((string) ($usage['usage_hash'] ?? '')) === 64));
+        $readyReplayFixtures = count(array_filter($replayFixtures, static fn (array $fixture): bool => count((array) ($fixture['fixture_requirements'] ?? [])) >= 5
+            && count((array) ($fixture['mock_or_stub_modes'] ?? [])) >= 3
+            && (bool) ($fixture['required_for_offline_eval'] ?? false)
+            && strlen((string) ($fixture['fixture_hash'] ?? '')) === 64));
+        $readySloFailureModes = count(array_filter($sloFailureModes, static fn (array $slo): bool => count((array) ($slo['slo'] ?? [])) >= 3
+            && count((array) ($slo['failure_modes'] ?? [])) >= 6
+            && (string) ($slo['fallback'] ?? '') !== ''
+            && strlen((string) ($slo['slo_hash'] ?? '')) === 64));
+        $readyProductionContracts = count(array_filter($productionContracts, static fn (array $contract): bool => (string) ($contract['schema'] ?? '') === 'atlas.ai.company.connector_production_preflight_contract.v1'
+            && (bool) data_get($contract, 'credential_vault_binding.attestation_required', false)
+            && (bool) data_get($contract, 'credential_vault_binding.credential_material_in_packet_allowed', true) === false
+            && (bool) data_get($contract, 'scope_contract.production_scope_requires_operator_and_second_reviewer', false)
+            && count((array) data_get($contract, 'scope_contract.blocked_scope_without_signed_mandate', [])) >= 8
+            && (bool) data_get($contract, 'live_data_readiness.live_mutation_allowed', true) === false
+            && (bool) data_get($contract, 'non_production_dress_rehearsal.required', false)
+            && (bool) data_get($contract, 'cost_and_rate_limit_envelope.spend_without_cap_allowed', true) === false
+            && (bool) data_get($contract, 'rollback_and_fallback.rollback_drill_required_before_external_mutation', false)
+            && strlen((string) ($contract['preflight_hash'] ?? '')) === 64));
+        $readyCutovers = count(array_filter($cutoverMatrix, static fn (array $cutover): bool => count((array) ($cutover['connector_scope'] ?? [])) >= 1
+            && count((array) ($cutover['required_cutover_evidence'] ?? [])) >= 6
+            && (bool) ($cutover['manual_handoff_packet_required'] ?? false)
+            && (bool) ($cutover['auto_execute_allowed'] ?? true) === false
+            && (bool) ($cutover['external_side_effects_enabled'] ?? true) === false
+            && strlen((string) ($cutover['cutover_hash'] ?? '')) === 64));
+        $readyEvidence = count(array_filter($evidenceRegister, static fn (array $evidence): bool => count((array) ($evidence['required_evidence'] ?? [])) >= 8
+            && (string) ($evidence['current_state'] ?? '') === 'preflight_contract_ready_external_execution_blocked'
+            && count((array) ($evidence['missing_before_real_execution'] ?? [])) >= 3
+            && (bool) ($evidence['external_side_effects_enabled'] ?? true) === false
+            && strlen((string) ($evidence['evidence_register_hash'] ?? '')) === 64));
+        $runtimeCompletedFlowCount = (int) ($runtimeRow['completed_connector_certification_preflight_flow_count'] ?? 0);
+
+        $checks = [
+            'connector_certification_schema_green' => (string) ($certification['schema'] ?? '') === 'atlas.ai.company.enterprise_connector_certification_stack.v1',
+            'connector_certification_hash_green' => strlen((string) ($certification['connector_certification_hash'] ?? '')) === 64,
+            'production_preflight_schema_green' => (string) ($preflight['schema'] ?? '') === 'atlas.ai.company.enterprise_production_connector_preflight_stack.v1',
+            'production_preflight_hash_green' => strlen((string) ($preflight['production_connector_preflight_hash'] ?? '')) === 64,
+            'adapter_contracts_cover_connectors' => $connectorCount > 0 && count($adapterContracts) >= $connectorCount && $readyAdapterContracts >= $connectorCount,
+            'auth_boundaries_cover_connectors' => $connectorCount > 0 && count($authBoundaries) >= $connectorCount && $readyAuthBoundaries >= $connectorCount,
+            'sandbox_probes_cover_connectors' => $connectorCount > 0 && count($sandboxProbes) >= $connectorCount && $readySandboxProbes >= $connectorCount,
+            'contract_tests_cover_connectors' => $connectorCount > 0 && count($contractTests) >= $connectorCount && $readyContractTests >= $connectorCount,
+            'data_lineage_covers_connectors' => $connectorCount > 0 && count($dataLineage) >= $connectorCount && $readyDataLineage >= $connectorCount,
+            'flow_usage_covers_flows' => $flowCount > 0 && count($flowUsage) >= $flowCount && $readyFlowUsage >= $flowCount,
+            'replay_fixtures_cover_connectors' => $connectorCount > 0 && count($replayFixtures) >= $connectorCount && $readyReplayFixtures >= $connectorCount,
+            'slo_failure_modes_cover_connectors' => $connectorCount > 0 && count($sloFailureModes) >= $connectorCount && $readySloFailureModes >= $connectorCount,
+            'certification_observability_green' => count($certificationMetrics) >= 6,
+            'production_contracts_cover_connectors' => $connectorCount > 0 && count($productionContracts) >= $connectorCount && $readyProductionContracts >= $connectorCount,
+            'flow_cutover_matrix_covers_flows' => $flowCount > 0 && count($cutoverMatrix) >= $flowCount && $readyCutovers >= $flowCount,
+            'production_evidence_covers_connectors' => $connectorCount > 0 && count($evidenceRegister) >= $connectorCount && $readyEvidence >= $connectorCount,
+            'cutover_observability_green' => count($cutoverMetrics) >= 6,
+            'runtime_or_structural_coverage_green' => $runtimeCompletedFlowCount >= $flowCount || ($readyFlowUsage >= $flowCount && $readyCutovers >= $flowCount),
+            'write_or_paid_mode_blocked_by_default' => (bool) data_get($certification, 'certification_policy.write_or_paid_mode_allowed_by_default', true) === false,
+            'production_promotion_requires_green_probe' => (bool) data_get($certification, 'certification_policy.production_promotion_without_green_probe_allowed', true) === false,
+            'operator_approval_required_for_scope_expansion' => (bool) data_get($certification, 'certification_policy.operator_approval_required_for_write_publish_spend_trade_delete_or_secret_scope_expansion', false),
+            'calendar_wait_removed' => (bool) data_get($preflight, 'preflight_policy.calendar_wait_blocker_enabled', true) === false,
+            'operator_signed_scope_required' => (bool) data_get($preflight, 'preflight_policy.production_cutover_without_operator_signed_scope_allowed', true) === false,
+            'real_credential_material_blocked' => (bool) data_get($preflight, 'preflight_policy.real_credential_material_in_packet_allowed', true) === false,
+            'external_side_effects_blocked' => (bool) data_get($preflight, 'preflight_policy.external_side_effects_default', true) === false,
+            'manual_execution_handoff_only' => (bool) data_get($preflight, 'preflight_policy.manual_execution_handoff_only_after_signed_mandate', false),
+        ];
+
+        $row = [
+            'schema' => 'atlas.ai.company.connector_certification_preflight_status.v1',
+            'company_id' => (string) ($company['company_id'] ?? 'unknown'),
+            'ready' => ! in_array(false, $checks, true),
+            'checks' => $checks,
+            'flow_count' => $flowCount,
+            'connector_count' => $connectorCount,
+            'adapter_contract_count' => count($adapterContracts),
+            'auth_boundary_count' => count($authBoundaries),
+            'sandbox_probe_count' => count($sandboxProbes),
+            'contract_test_count' => count($contractTests),
+            'data_lineage_count' => count($dataLineage),
+            'flow_connector_usage_count' => count($flowUsage),
+            'replay_fixture_count' => count($replayFixtures),
+            'slo_failure_mode_count' => count($sloFailureModes),
+            'certification_metric_count' => count($certificationMetrics),
+            'production_preflight_contract_count' => count($productionContracts),
+            'flow_cutover_matrix_count' => count($cutoverMatrix),
+            'production_evidence_register_count' => count($evidenceRegister),
+            'cutover_metric_count' => count($cutoverMetrics),
+            'runtime_completed_connector_flow_count' => $runtimeCompletedFlowCount,
+            'next_actions' => ['run_contract_tests', 'run_sandbox_probes', 'attest_vault_boundaries', 'verify_lineage_and_replay_fixtures', 'collect_operator_signed_scope_before_cutover'],
+            'external_connector_cutover_allowed' => false,
+            'write_or_paid_mode_allowed_by_default' => false,
+            'real_credential_material_in_packet_allowed' => false,
+            'external_side_effects_enabled' => false,
+        ];
+        $row['connector_certification_preflight_company_hash'] = MissionCanonicalHash::sha256($row);
 
         return $row;
     }
@@ -18304,6 +20482,8 @@ class ExternalActionMandateRegistryService
      */
     private function flowOperationsRunbookPayload(AiHoldingEnterpriseFlowOperationsRunbook $runbook): array
     {
+        $drillReceipts = array_values((array) $runbook->drill_receipts_json);
+
         return [
             'id' => (string) $runbook->id,
             'company_id' => (string) $runbook->company_id,
@@ -18324,7 +20504,8 @@ class ExternalActionMandateRegistryService
             'reconciliation_contract' => (array) $runbook->reconciliation_contract_json,
             'promotion_gates' => array_values((array) $runbook->promotion_gates_json),
             'dashboard_bindings' => array_values((array) $runbook->dashboard_bindings_json),
-            'drill_receipt_count' => count((array) $runbook->drill_receipts_json),
+            'drill_receipt_count' => count($drillReceipts),
+            'last_drill_receipt' => $drillReceipts !== [] ? $drillReceipts[count($drillReceipts) - 1] : null,
             'last_drill_receipt_hash' => $runbook->last_drill_receipt_hash,
             'slo_green' => (bool) $runbook->slo_green,
             'incident_route_green' => (bool) $runbook->incident_route_green,
