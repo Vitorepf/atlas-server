@@ -8,9 +8,11 @@ use App\Models\AiAtlasIntentClassification;
 use App\Models\AiAtlasRouterDecision;
 use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
+use App\Services\Ai\AutonomousWorkExecution\AtlasAutonomousWorkExecutionService;
 use App\Services\Ai\RouterRuntime\AtlasHyperflowEntryService;
 use App\Services\Ai\RouterRuntime\RouterRuntimeCanon;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
+use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 use Illuminate\Support\Str;
 use Mockery\MockInterface;
 use Tests\Concerns\CreatesRouterRuntimeTables;
@@ -104,6 +106,11 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
         $this->assertContains(data_get($envelope, 'runtime_efficiency.path'), ['standard_path', 'deep_path']);
         $this->assertSame('atlas.context_minimum_pack.v1', data_get($envelope, 'runtime_efficiency.context_minimum_pack.schema_version'));
         $this->assertSame(false, data_get($envelope, 'runtime_efficiency.claim_policy.provider_invoked'));
+        $this->assertSame(AtlasAutonomousWorkExecutionService::EXECUTION_SCHEMA, data_get($captured, 'payload.autonomous_work_execution.schema_version'));
+        $this->assertSame(AtlasAutonomousWorkExecutionService::LEVEL_MAX, data_get($captured, 'payload.autonomous_work_execution.maturity_level'));
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::EXECUTION_SCHEMA, data_get($captured, 'payload.autonomous_work_execution.verified_execution.schema_version'));
+        $this->assertSame(AtlasVerifiedExecutionRuntimeService::LEVEL_MAX, data_get($captured, 'payload.autonomous_work_execution.verified_execution.maturity_level'));
+        $this->assertFalse(data_get($captured, 'payload.autonomous_work_execution.claim_policy.provider_invoked_directly'));
         $this->assertArrayNotHasKey('strategic_reality', $envelope, 'programming handoff must not invoke ASRE by default');
 
         // Canonical rows persisted.

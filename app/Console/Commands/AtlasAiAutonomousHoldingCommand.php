@@ -15,7 +15,7 @@ class AtlasAiAutonomousHoldingCommand extends Command
 {
     protected $signature = 'atlas:ai:autonomous-holding
         {positional? : Optional positional action (alternative to --action)}
-        {--action=readiness : readiness, observe-cycle, enterprise-operating-packet-status, enterprise-buildout, enterprise-consolidation-run, enterprise-fixture-suite, enterprise-flow-action-runtime-run, enterprise-flow-action-runtime-status, enterprise-vertical-solution-runtime-status, enterprise-domain-solution-playbook-runtime-status, enterprise-domain-operating-depth-runtime-status, enterprise-domain-agent-workforce-runtime-status, enterprise-operational-dossier-runtime-status, enterprise-autonomy-promotion-runtime-status, enterprise-domain-business-execution-runtime-status, enterprise-company-operating-spine-runtime-status, enterprise-commercial-operations-runtime-status, enterprise-domain-provider-workbench-runtime-status, enterprise-domain-company-execution-suite-runtime-status, enterprise-flow-work-product-delivery-runtime-status, enterprise-domain-data-connector-operating-runtime-status, enterprise-flow-live-read-connector-probe-runtime-status, enterprise-external-research-adoption-runtime-status, enterprise-flow-benchmark-replay-runtime-status, enterprise-connector-certification-preflight-runtime-status, enterprise-command-center-control-tower-runtime-status, enterprise-operational-dress-rehearsal-runtime-status, enterprise-semantic-operating-graph-runtime-status, enterprise-agent-toolchain-runtime-status, enterprise-workforce-capacity-runtime-status, enterprise-cross-company-handoff-runtime-status, enterprise-customer-account-revenue-runtime-status, enterprise-productized-service-runtime-status, enterprise-sales-crm-pipeline-runtime-status, enterprise-customer-support-service-desk-runtime-status, enterprise-marketing-growth-engine-runtime-status, enterprise-finance-treasury-billing-runtime-status, enterprise-governance-risk-operations-runtime-status, enterprise-unit-economics-capacity-runtime-status, enterprise-business-operating-packet-runtime-status, enterprise-delivery-risk-runtime-status, enterprise-operational-outcome-runtime-status, enterprise-holding-outcome-scorecard-status, enterprise-portfolio-decision-packet-status, enterprise-company-board-operating-review-status, enterprise-company-completion-certification-status, enterprise-vertical-operational-depth-status, enterprise-company-operating-cycle-status, enterprise-company-operating-cadence-status, enterprise-company-operating-scorecard-status, enterprise-company-active-operating-system-status, enterprise-company-capability-catalog-status, enterprise-company-integration-readiness-status, enterprise-domain-workload-agent-template-status, enterprise-company-domain-operating-model-certification-status, enterprise-company-domain-tool-execution-readiness-status, enterprise-company-flow-tool-execution-ledger-status, enterprise-company-flow-tool-execution-runtime-register, enterprise-company-flow-tool-execution-runtime-status, enterprise-company-domain-adapter-execution-envelope-register, enterprise-company-domain-adapter-execution-envelope-status, enterprise-company-operational-execution-loop-status, enterprise-company-work-product-acceptance-evidence-status, enterprise-company-commercial-service-catalog-status, enterprise-company-org-operating-model-status, enterprise-company-customer-delivery-lifecycle-status, enterprise-company-quality-compliance-lifecycle-status, enterprise-company-production-readiness-certification-status, enterprise-company-operating-evidence-bundle-status, enterprise-shadow-readiness, enterprise-supervised-activation-plan, enterprise-supervised-runtime, enterprise-connector-certification, enterprise-external-action-mandates, enterprise-external-action-register, enterprise-external-action-preflight, enterprise-external-action-request-approval, enterprise-external-action-approve, enterprise-external-action-reject, enterprise-external-action-approval-status, enterprise-control-tower, enterprise-activation-cockpit, enterprise-premium-activation-status, enterprise-provider-workbench-status, enterprise-agent-repository-adoption-status, enterprise-domain-agent-toolchain-certification-status, enterprise-industry-solution-ecosystem-status, enterprise-business-operating-backbone-status, enterprise-production-connector-preflight-status, enterprise-flow-quality-research-status, enterprise-vertical-solution-suite-status, enterprise-domain-business-execution-mesh-status, enterprise-flow-operating-package-status, enterprise-company-command-center-status, enterprise-operational-dress-rehearsal-status, enterprise-real-external-execution-readiness-dossier, enterprise-real-external-execution-handoff-pack, enterprise-supervised-external-execution-packet-status, enterprise-external-worker-preflight-status, enterprise-external-worker-dispatch-plan-status, enterprise-external-launch-control-status, enterprise-external-receipt-binding-status, enterprise-external-supervised-cutover-dossier-status, enterprise-external-supervised-cutover-work-order-status, enterprise-external-supervised-cutover-work-order-register, enterprise-external-supervised-cutover-work-order-persisted-status, enterprise-external-supervised-cutover-work-item-bind-receipt, enterprise-external-supervised-cutover-promotion-status, enterprise-external-supervised-cutover-final-authority-bind-receipt, enterprise-external-supervised-cutover-runtime-invocation-register, enterprise-external-supervised-cutover-runtime-invocation-status, enterprise-external-supervised-cutover-runtime-rehearsal-execute, enterprise-external-supervised-cutover-rehearsal-promotion-status, enterprise-external-supervised-cutover-manual-handoff-register, enterprise-external-supervised-cutover-manual-handoff-status, enterprise-external-supervised-cutover-manual-closeout-bind-receipt, enterprise-external-supervised-cutover-manual-closeout-status, enterprise-external-supervised-cutover-portfolio-readiness-status, enterprise-external-supervised-cutover-company-evidence-bundle-apply, enterprise-external-supervised-cutover-portfolio-evidence-bundle-apply, enterprise-activation-backlog-register, enterprise-activation-backlog-status, enterprise-activation-backlog-run, enterprise-connector-activation-register, enterprise-connector-activation-probe, enterprise-connector-activation-status, enterprise-live-read-connector-readiness-status, enterprise-flow-run-queue-register, enterprise-flow-run-queue-execute, enterprise-flow-run-queue-replay, enterprise-flow-run-queue-status, enterprise-flow-operations-runbook-register, enterprise-flow-operations-runbook-drill, enterprise-flow-operations-runbook-status}
+        {--action=readiness : readiness, observe-cycle, enterprise-operating-packet-status, enterprise-buildout, enterprise-consolidation-run, enterprise-fixture-suite, enterprise-flow-action-runtime-run, enterprise-flow-action-runtime-status, enterprise-vertical-solution-runtime-status, enterprise-domain-solution-playbook-runtime-status, enterprise-domain-operating-depth-runtime-status, enterprise-domain-agent-workforce-runtime-status, enterprise-operational-dossier-runtime-status, enterprise-autonomy-promotion-runtime-status, enterprise-domain-business-execution-runtime-status, enterprise-company-operating-spine-runtime-status, enterprise-commercial-operations-runtime-status, enterprise-domain-provider-workbench-runtime-status, enterprise-domain-company-execution-suite-runtime-status, enterprise-flow-work-product-delivery-runtime-status, enterprise-domain-data-connector-operating-runtime-status, enterprise-flow-live-read-connector-probe-runtime-status, enterprise-external-research-adoption-runtime-status, enterprise-flow-benchmark-replay-runtime-status, enterprise-connector-certification-preflight-runtime-status, enterprise-command-center-control-tower-runtime-status, enterprise-operational-dress-rehearsal-runtime-status, enterprise-semantic-operating-graph-runtime-status, enterprise-agent-toolchain-runtime-status, enterprise-workforce-capacity-runtime-status, enterprise-cross-company-handoff-runtime-status, enterprise-customer-account-revenue-runtime-status, enterprise-productized-service-runtime-status, enterprise-sales-crm-pipeline-runtime-status, enterprise-customer-support-service-desk-runtime-status, enterprise-marketing-growth-engine-runtime-status, enterprise-finance-treasury-billing-runtime-status, enterprise-governance-risk-operations-runtime-status, enterprise-unit-economics-capacity-runtime-status, enterprise-business-operating-packet-runtime-status, enterprise-delivery-risk-runtime-status, enterprise-operational-outcome-runtime-status, enterprise-holding-outcome-scorecard-status, enterprise-portfolio-decision-packet-status, enterprise-company-board-operating-review-status, enterprise-company-completion-certification-status, enterprise-vertical-operational-depth-status, enterprise-company-operating-cycle-status, enterprise-company-operating-cadence-status, enterprise-company-operating-scorecard-status, enterprise-company-active-operating-system-status, enterprise-company-capability-catalog-status, enterprise-company-integration-readiness-status, enterprise-domain-workload-agent-template-status, enterprise-company-domain-solution-pack-status, enterprise-company-agent-operations-pack-status, enterprise-company-domain-operating-model-certification-status, enterprise-company-domain-tool-execution-readiness-status, enterprise-company-flow-tool-execution-ledger-status, enterprise-company-flow-tool-execution-runtime-register, enterprise-company-flow-tool-execution-runtime-status, enterprise-company-domain-adapter-execution-envelope-register, enterprise-company-domain-adapter-execution-envelope-status, enterprise-company-operational-execution-loop-status, enterprise-company-work-product-acceptance-evidence-status, enterprise-company-work-product-runtime-register, enterprise-company-work-product-runtime-status, enterprise-company-operating-blueprint-runtime-register, enterprise-company-operating-blueprint-runtime-status, enterprise-company-business-runtime-persistence-register, enterprise-company-business-runtime-persistence-status, enterprise-company-commercial-service-catalog-status, enterprise-company-revenue-delivery-operating-mesh-status, enterprise-company-org-operating-model-status, enterprise-company-customer-delivery-lifecycle-status, enterprise-company-quality-compliance-lifecycle-status, enterprise-company-production-readiness-certification-status, enterprise-company-operating-evidence-bundle-status, enterprise-shadow-readiness, enterprise-supervised-activation-plan, enterprise-supervised-runtime, enterprise-connector-certification, enterprise-external-action-mandates, enterprise-external-action-register, enterprise-external-action-preflight, enterprise-external-action-request-approval, enterprise-external-action-approve, enterprise-external-action-reject, enterprise-external-action-approval-status, enterprise-control-tower, enterprise-activation-cockpit, enterprise-premium-activation-status, enterprise-provider-workbench-status, enterprise-agent-repository-adoption-status, enterprise-agent-repository-operating-catalog-status, enterprise-domain-agent-toolchain-certification-status, enterprise-industry-solution-ecosystem-status, enterprise-business-operating-backbone-status, enterprise-production-connector-preflight-status, enterprise-flow-quality-research-status, enterprise-vertical-solution-suite-status, enterprise-domain-business-execution-mesh-status, enterprise-flow-operating-package-status, enterprise-company-command-center-status, enterprise-operational-dress-rehearsal-status, enterprise-real-external-execution-readiness-dossier, enterprise-real-external-execution-handoff-pack, enterprise-supervised-external-execution-packet-status, enterprise-external-worker-preflight-status, enterprise-external-worker-dispatch-plan-status, enterprise-external-launch-control-status, enterprise-external-receipt-binding-status, enterprise-external-supervised-cutover-dossier-status, enterprise-external-supervised-cutover-work-order-status, enterprise-external-supervised-cutover-work-order-register, enterprise-external-supervised-cutover-work-order-persisted-status, enterprise-external-supervised-cutover-work-item-bind-receipt, enterprise-external-supervised-cutover-promotion-status, enterprise-external-supervised-cutover-final-authority-bind-receipt, enterprise-external-supervised-cutover-runtime-invocation-register, enterprise-external-supervised-cutover-runtime-invocation-status, enterprise-external-supervised-cutover-runtime-rehearsal-execute, enterprise-external-supervised-cutover-rehearsal-promotion-status, enterprise-external-supervised-cutover-manual-handoff-register, enterprise-external-supervised-cutover-manual-handoff-status, enterprise-external-supervised-cutover-manual-closeout-bind-receipt, enterprise-external-supervised-cutover-manual-closeout-status, enterprise-external-supervised-cutover-portfolio-readiness-status, enterprise-external-supervised-cutover-company-evidence-bundle-apply, enterprise-external-supervised-cutover-portfolio-evidence-bundle-apply, enterprise-activation-backlog-register, enterprise-activation-backlog-status, enterprise-activation-backlog-run, enterprise-connector-activation-register, enterprise-connector-activation-probe, enterprise-connector-activation-status, enterprise-live-read-connector-readiness-status, enterprise-flow-run-queue-register, enterprise-flow-run-queue-execute, enterprise-flow-run-queue-replay, enterprise-flow-run-queue-status, enterprise-flow-operations-runbook-register, enterprise-flow-operations-runbook-drill, enterprise-flow-operations-runbook-status}
         {--company= : Optional company id for enterprise fixture/shadow actions}
         {--flow= : Optional flow id for mandate registration}
         {--work-package= : Optional activation backlog work package id}
@@ -43,6 +43,10 @@ class AtlasAiAutonomousHoldingCommand extends Command
         ExternalActionMandateRegistryService $mandateRegistry,
     ): int
     {
+        if ((int) ini_get('memory_limit') > 0) {
+            ini_set('memory_limit', '512M');
+        }
+
         $positional = $this->argument('positional');
         $action = is_string($positional) && trim($positional) !== ''
             ? trim($positional)
@@ -109,6 +113,8 @@ class AtlasAiAutonomousHoldingCommand extends Command
                 'enterprise-company-capability-catalog-status' => $this->renderEnterpriseCompanyCapabilityCatalogStatus($mandateRegistry),
                 'enterprise-company-integration-readiness-status' => $this->renderEnterpriseCompanyIntegrationReadinessStatus($mandateRegistry),
                 'enterprise-domain-workload-agent-template-status' => $this->renderEnterpriseDomainWorkloadAgentTemplateStatus($mandateRegistry),
+                'enterprise-company-domain-solution-pack-status' => $this->renderEnterpriseCompanyDomainSolutionPackStatus($mandateRegistry),
+                'enterprise-company-agent-operations-pack-status' => $this->renderEnterpriseCompanyAgentOperationsPackStatus($mandateRegistry),
                 'enterprise-company-domain-operating-model-certification-status' => $this->renderEnterpriseCompanyDomainOperatingModelCertificationStatus($mandateRegistry),
                 'enterprise-company-domain-tool-execution-readiness-status' => $this->renderEnterpriseCompanyDomainToolExecutionReadinessStatus($mandateRegistry),
                 'enterprise-company-flow-tool-execution-ledger-status' => $this->renderEnterpriseCompanyFlowToolExecutionLedgerStatus($mandateRegistry),
@@ -118,7 +124,14 @@ class AtlasAiAutonomousHoldingCommand extends Command
                 'enterprise-company-domain-adapter-execution-envelope-status' => $this->renderEnterpriseCompanyDomainAdapterExecutionEnvelopeStatus($mandateRegistry),
                 'enterprise-company-operational-execution-loop-status' => $this->renderEnterpriseCompanyOperationalExecutionLoopStatus($mandateRegistry),
                 'enterprise-company-work-product-acceptance-evidence-status' => $this->renderEnterpriseCompanyWorkProductAcceptanceEvidenceStatus($mandateRegistry),
+                'enterprise-company-work-product-runtime-register' => $this->renderEnterpriseCompanyWorkProductRuntimeRegister($mandateRegistry),
+                'enterprise-company-work-product-runtime-status' => $this->renderEnterpriseCompanyWorkProductRuntimeStatus($mandateRegistry),
+                'enterprise-company-operating-blueprint-runtime-register' => $this->renderEnterpriseCompanyOperatingBlueprintRuntimeRegister($mandateRegistry),
+                'enterprise-company-operating-blueprint-runtime-status' => $this->renderEnterpriseCompanyOperatingBlueprintRuntimeStatus($mandateRegistry),
+                'enterprise-company-business-runtime-persistence-register' => $this->renderEnterpriseCompanyBusinessRuntimePersistenceRegister($mandateRegistry),
+                'enterprise-company-business-runtime-persistence-status' => $this->renderEnterpriseCompanyBusinessRuntimePersistenceStatus($mandateRegistry),
                 'enterprise-company-commercial-service-catalog-status' => $this->renderEnterpriseCompanyCommercialServiceCatalogStatus($mandateRegistry),
+                'enterprise-company-revenue-delivery-operating-mesh-status' => $this->renderEnterpriseCompanyRevenueDeliveryOperatingMeshStatus($mandateRegistry),
                 'enterprise-company-org-operating-model-status' => $this->renderEnterpriseCompanyOrgOperatingModelStatus($mandateRegistry),
                 'enterprise-company-customer-delivery-lifecycle-status' => $this->renderEnterpriseCompanyCustomerDeliveryLifecycleStatus($mandateRegistry),
                 'enterprise-company-quality-compliance-lifecycle-status' => $this->renderEnterpriseCompanyQualityComplianceLifecycleStatus($mandateRegistry),
@@ -140,6 +153,7 @@ class AtlasAiAutonomousHoldingCommand extends Command
                 'enterprise-premium-activation-status' => $this->renderEnterprisePremiumActivationStatus($mandateRegistry),
                 'enterprise-provider-workbench-status' => $this->renderEnterpriseProviderWorkbenchStatus($mandateRegistry),
                 'enterprise-agent-repository-adoption-status' => $this->renderEnterpriseAgentRepositoryAdoptionStatus($mandateRegistry),
+                'enterprise-agent-repository-operating-catalog-status' => $this->renderEnterpriseAgentRepositoryOperatingCatalogStatus($mandateRegistry),
                 'enterprise-domain-agent-toolchain-certification-status' => $this->renderEnterpriseDomainAgentToolchainCertificationStatus($mandateRegistry),
                 'enterprise-industry-solution-ecosystem-status' => $this->renderEnterpriseIndustrySolutionEcosystemStatus($mandateRegistry),
                 'enterprise-business-operating-backbone-status' => $this->renderEnterpriseBusinessOperatingBackboneStatus($mandateRegistry),
@@ -279,6 +293,7 @@ class AtlasAiAutonomousHoldingCommand extends Command
             'live_read_connector_readiness_status' => $mandateRegistry->liveReadConnectorReadinessStatus($companyId),
             'provider_workbench_status' => $mandateRegistry->providerWorkbenchStatus($companyId),
             'agent_repository_adoption_status' => $mandateRegistry->agentRepositoryAdoptionStatus($companyId),
+            'agent_repository_operating_catalog_status' => $mandateRegistry->agentRepositoryOperatingCatalogStatus($companyId),
             'domain_agent_toolchain_certification_status' => $mandateRegistry->domainAgentToolchainCertificationStatus($companyId),
             'industry_solution_ecosystem_status' => $mandateRegistry->industrySolutionEcosystemStatus($companyId),
             'business_operating_backbone_status' => $mandateRegistry->businessOperatingBackboneStatus($companyId),
@@ -290,6 +305,8 @@ class AtlasAiAutonomousHoldingCommand extends Command
             'company_command_center_status' => $mandateRegistry->companyCommandCenterStatus($companyId),
             'operational_dress_rehearsal_status' => $mandateRegistry->operationalDressRehearsalStatus($companyId),
             'domain_workload_agent_template_status' => $mandateRegistry->enterpriseDomainWorkloadAgentTemplateStatus($companyId),
+            'company_domain_solution_pack_status' => $mandateRegistry->enterpriseCompanyDomainSolutionPackStatus($companyId),
+            'company_agent_operations_pack_status' => $mandateRegistry->enterpriseCompanyAgentOperationsPackStatus($companyId),
             'company_domain_operating_model_certification_status' => $mandateRegistry->enterpriseCompanyDomainOperatingModelCertificationStatus($companyId),
             'flow_run_queue_register' => $mandateRegistry->registerFlowRunQueue($companyId),
             'flow_run_queue_execute' => $mandateRegistry->executeFlowRunQueue($companyId, null),
@@ -373,10 +390,18 @@ class AtlasAiAutonomousHoldingCommand extends Command
         $steps['company_domain_adapter_execution_envelope_status'] = $mandateRegistry->enterpriseCompanyDomainAdapterExecutionEnvelopeStatus($companyId);
         $steps['company_operational_execution_loop_status'] = $mandateRegistry->enterpriseCompanyOperationalExecutionLoopStatus($companyId);
         $steps['company_work_product_acceptance_evidence_status'] = $mandateRegistry->enterpriseCompanyWorkProductAcceptanceEvidenceStatus($companyId);
+        $steps['company_work_product_runtime_register'] = $mandateRegistry->enterpriseCompanyWorkProductRuntimeRegister($companyId);
+        $steps['company_work_product_runtime_status'] = $mandateRegistry->enterpriseCompanyWorkProductRuntimeStatus($companyId);
+        $steps['company_operating_blueprint_runtime_register'] = $mandateRegistry->enterpriseCompanyOperatingBlueprintRuntimeRegister($companyId);
+        $steps['company_operating_blueprint_runtime_status'] = $mandateRegistry->enterpriseCompanyOperatingBlueprintRuntimeStatus($companyId);
+        $steps['company_business_runtime_persistence_register'] = $mandateRegistry->enterpriseCompanyBusinessRuntimePersistenceRegister($companyId);
+        $steps['company_business_runtime_persistence_status'] = $mandateRegistry->enterpriseCompanyBusinessRuntimePersistenceStatus($companyId);
         $steps['company_commercial_service_catalog_status'] = $mandateRegistry->enterpriseCompanyCommercialServiceCatalogStatus($companyId);
+        $steps['company_revenue_delivery_operating_mesh_status'] = $mandateRegistry->enterpriseCompanyRevenueDeliveryOperatingMeshStatus($companyId);
         $steps['company_org_operating_model_status'] = $mandateRegistry->enterpriseCompanyOrgOperatingModelStatus($companyId);
         $steps['company_customer_delivery_lifecycle_status'] = $mandateRegistry->enterpriseCompanyCustomerDeliveryLifecycleStatus($companyId);
         $steps['company_quality_compliance_lifecycle_status'] = $mandateRegistry->enterpriseCompanyQualityComplianceLifecycleStatus($companyId);
+        $steps['company_agent_operations_pack_status'] = $mandateRegistry->enterpriseCompanyAgentOperationsPackStatus($companyId);
         $steps['company_production_readiness_certification_status'] = $mandateRegistry->enterpriseCompanyProductionReadinessCertificationStatus($companyId);
         $steps['company_operating_evidence_bundle_status'] = $mandateRegistry->enterpriseCompanyOperatingEvidenceBundleStatus($companyId);
         $steps['holding_outcome_scorecard_status'] = $flowActionRuntime->holdingOutcomeScorecardStatus($companyId);
@@ -454,6 +479,17 @@ class AtlasAiAutonomousHoldingCommand extends Command
                 'external_supervised_cutover_portfolio_bundle_closeout_count' => (int) data_get($steps, 'external_supervised_cutover_portfolio_evidence_bundle_apply.summary.manual_closeout_receipt_count', 0),
                 'domain_workload_agent_template_ready_count' => (int) data_get($steps, 'domain_workload_agent_template_status.summary.ready_template_count', 0),
                 'domain_workload_agent_subagent_count' => (int) data_get($steps, 'domain_workload_agent_template_status.summary.subagent_count', 0),
+                'domain_solution_pack_ready_company_count' => (int) data_get($steps, 'company_domain_solution_pack_status.summary.domain_solution_pack_ready_company_count', 0),
+                'domain_solution_pack_ready_flow_count' => (int) data_get($steps, 'company_domain_solution_pack_status.summary.ready_flow_solution_pack_count', 0),
+                'domain_solution_pack_source_count' => (int) data_get($steps, 'company_domain_solution_pack_status.summary.domain_source_count', 0),
+                'agent_operations_pack_ready_company_count' => (int) data_get($steps, 'company_agent_operations_pack_status.summary.agent_operations_pack_ready_company_count', 0),
+                'agent_operations_pack_ready_flow_count' => (int) data_get($steps, 'company_agent_operations_pack_status.summary.ready_flow_agent_operations_pack_count', 0),
+                'agent_operations_skill_count' => (int) data_get($steps, 'company_agent_operations_pack_status.summary.skill_count', 0),
+                'agent_operations_subagent_count' => (int) data_get($steps, 'company_agent_operations_pack_status.summary.subagent_count', 0),
+                'agent_repository_operating_catalog_ready_company_count' => (int) data_get($steps, 'agent_repository_operating_catalog_status.summary.ready_company_count', 0),
+                'agent_repository_operating_catalog_framework_profile_count' => (int) data_get($steps, 'agent_repository_operating_catalog_status.summary.framework_profile_count', 0),
+                'agent_repository_operating_catalog_mcp_security_profile_count' => (int) data_get($steps, 'agent_repository_operating_catalog_status.summary.mcp_security_profile_count', 0),
+                'agent_repository_operating_catalog_flow_map_count' => (int) data_get($steps, 'agent_repository_operating_catalog_status.summary.flow_runtime_map_count', 0),
                 'domain_agent_toolchain_certified_company_count' => (int) data_get($steps, 'domain_agent_toolchain_certification_status.summary.ready_company_count', 0),
                 'domain_agent_toolchain_certified_tool_contract_count' => (int) data_get($steps, 'domain_agent_toolchain_certification_status.summary.certified_tool_contract_count', 0),
                 'company_domain_operating_model_certified_count' => (int) data_get($steps, 'company_domain_operating_model_certification_status.summary.certified_company_count', 0),
@@ -461,10 +497,20 @@ class AtlasAiAutonomousHoldingCommand extends Command
                 'domain_adapter_execution_envelope_ready_count' => (int) data_get($steps, 'company_domain_adapter_execution_envelope_status.summary.ready_persisted_envelope_count', 0),
                 'company_operational_execution_loop_ready_count' => (int) data_get($steps, 'company_operational_execution_loop_status.summary.operational_execution_loop_ready_company_count', 0),
                 'company_work_product_acceptance_ready_count' => (int) data_get($steps, 'company_work_product_acceptance_evidence_status.summary.work_product_acceptance_ready_company_count', 0),
+                'company_work_product_runtime_ready_count' => (int) data_get($steps, 'company_work_product_runtime_status.summary.work_product_runtime_ready_company_count', 0),
+                'company_work_product_runtime_run_count' => (int) data_get($steps, 'company_work_product_runtime_status.summary.ready_persisted_work_product_run_count', 0),
+                'company_operating_blueprint_runtime_ready_count' => (int) data_get($steps, 'company_operating_blueprint_runtime_status.summary.operating_blueprint_runtime_ready_company_count', 0),
+                'company_operating_blueprint_runtime_run_count' => (int) data_get($steps, 'company_operating_blueprint_runtime_status.summary.ready_persisted_blueprint_run_count', 0),
+                'company_business_runtime_persistence_ready_count' => (int) data_get($steps, 'company_business_runtime_persistence_status.summary.business_runtime_persistence_ready_company_count', 0),
+                'company_business_runtime_persistence_run_count' => (int) data_get($steps, 'company_business_runtime_persistence_status.summary.ready_persisted_business_runtime_run_count', 0),
                 'commercial_service_catalog_ready_company_count' => (int) data_get($steps, 'company_commercial_service_catalog_status.summary.commercial_service_catalog_ready_company_count', 0),
                 'commercial_service_offer_count' => (int) data_get($steps, 'company_commercial_service_catalog_status.summary.service_offer_count', 0),
                 'commercial_pricing_package_count' => (int) data_get($steps, 'company_commercial_service_catalog_status.summary.pricing_package_count', 0),
                 'commercial_sla_success_contract_count' => (int) data_get($steps, 'company_commercial_service_catalog_status.summary.sla_success_contract_count', 0),
+                'revenue_delivery_mesh_ready_company_count' => (int) data_get($steps, 'company_revenue_delivery_operating_mesh_status.summary.revenue_delivery_operating_mesh_ready_company_count', 0),
+                'revenue_delivery_mesh_ready_flow_count' => (int) data_get($steps, 'company_revenue_delivery_operating_mesh_status.summary.ready_flow_thread_count', 0),
+                'revenue_delivery_mesh_operating_system_count' => (int) data_get($steps, 'company_revenue_delivery_operating_mesh_status.summary.operating_system_count', 0),
+                'revenue_delivery_mesh_connector_map_count' => (int) data_get($steps, 'company_revenue_delivery_operating_mesh_status.summary.connector_map_count', 0),
                 'org_operating_model_ready_company_count' => (int) data_get($steps, 'company_org_operating_model_status.summary.org_operating_model_ready_company_count', 0),
                 'org_flow_staffing_count' => (int) data_get($steps, 'company_org_operating_model_status.summary.flow_staffing_count', 0),
                 'org_vendor_due_diligence_count' => (int) data_get($steps, 'company_org_operating_model_status.summary.vendor_due_diligence_count', 0),
@@ -558,11 +604,18 @@ class AtlasAiAutonomousHoldingCommand extends Command
             'external_supervised_cutover_work_order_status_hash',
             'external_supervised_cutover_portfolio_evidence_bundle_hash',
             'domain_agent_toolchain_certification_status_hash',
+            'agent_repository_operating_catalog_status_hash',
             'enterprise_domain_workload_agent_template_status_hash',
+            'enterprise_company_domain_solution_pack_status_hash',
+            'enterprise_company_agent_operations_pack_status_hash',
             'enterprise_company_domain_operating_model_certification_status_hash',
             'enterprise_company_operational_execution_loop_status_hash',
             'enterprise_company_work_product_acceptance_evidence_status_hash',
+            'enterprise_company_work_product_runtime_status_hash',
+            'enterprise_company_operating_blueprint_runtime_status_hash',
+            'enterprise_company_business_runtime_persistence_status_hash',
             'enterprise_company_commercial_service_catalog_status_hash',
+            'enterprise_company_revenue_delivery_operating_mesh_status_hash',
             'enterprise_company_org_operating_model_status_hash',
             'enterprise_company_customer_delivery_lifecycle_status_hash',
             'enterprise_company_quality_compliance_lifecycle_status_hash',
@@ -1561,6 +1614,109 @@ class AtlasAiAutonomousHoldingCommand extends Command
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
     }
 
+    private function renderEnterpriseCompanyWorkProductRuntimeRegister(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyWorkProductRuntimeRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
+            $this->components->twoColumnDetail('registered_work_product_runs', (string) $payload['summary']['registered_work_product_run_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('external_delivery_allowed', ($payload['policy']['external_delivery_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyWorkProductRuntimeStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyWorkProductRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('runtime_ready_companies', (string) $payload['summary']['work_product_runtime_ready_company_count']);
+            $this->components->twoColumnDetail('ready_work_product_runs', (string) $payload['summary']['ready_persisted_work_product_run_count']);
+            $this->components->twoColumnDetail('persisted_work_product_runs', (string) $payload['summary']['persisted_work_product_run_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('external_delivery_allowed', ($payload['policy']['external_delivery_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyOperatingBlueprintRuntimeRegister(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyOperatingBlueprintRuntimeRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
+            $this->components->twoColumnDetail('registered_blueprint_runs', (string) $payload['summary']['registered_blueprint_run_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyOperatingBlueprintRuntimeStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyOperatingBlueprintRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('runtime_ready_companies', (string) $payload['summary']['operating_blueprint_runtime_ready_company_count']);
+            $this->components->twoColumnDetail('ready_blueprint_runs', (string) $payload['summary']['ready_persisted_blueprint_run_count']);
+            $this->components->twoColumnDetail('persisted_blueprint_runs', (string) $payload['summary']['persisted_blueprint_run_count']);
+            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
+            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyBusinessRuntimePersistenceRegister(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyBusinessRuntimePersistenceRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
+            $this->components->twoColumnDetail('business_runtime_layers', (string) $payload['summary']['business_runtime_layer_count']);
+            $this->components->twoColumnDetail('registered_business_runtime_runs', (string) $payload['summary']['registered_business_runtime_run_count']);
+            $this->components->twoColumnDetail('expected_business_runtime_runs', (string) $payload['summary']['expected_business_runtime_run_count']);
+            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyBusinessRuntimePersistenceStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyBusinessRuntimePersistenceStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('business_runtime_layers', (string) $payload['summary']['business_runtime_layer_count']);
+            $this->components->twoColumnDetail('runtime_ready_companies', (string) $payload['summary']['business_runtime_persistence_ready_company_count']);
+            $this->components->twoColumnDetail('ready_business_runtime_runs', (string) $payload['summary']['ready_persisted_business_runtime_run_count']);
+            $this->components->twoColumnDetail('persisted_business_runtime_runs', (string) $payload['summary']['persisted_business_runtime_run_count']);
+            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
     private function renderEnterpriseCompanyProductionReadinessCertificationStatus(ExternalActionMandateRegistryService $mandateRegistry): int
     {
         $company = $this->option('company');
@@ -1594,6 +1750,24 @@ class AtlasAiAutonomousHoldingCommand extends Command
             $this->components->twoColumnDetail('pricing_packages', (string) $payload['summary']['pricing_package_count']);
             $this->components->twoColumnDetail('sla_contracts', (string) $payload['summary']['sla_success_contract_count']);
             $this->components->twoColumnDetail('external_revenue_claim_allowed', ($payload['policy']['external_revenue_claim_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyRevenueDeliveryOperatingMeshStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyRevenueDeliveryOperatingMeshStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('mesh_ready_companies', (string) $payload['summary']['revenue_delivery_operating_mesh_ready_company_count']);
+            $this->components->twoColumnDetail('ready_flow_threads', (string) $payload['summary']['ready_flow_thread_count']);
+            $this->components->twoColumnDetail('operating_systems', (string) $payload['summary']['operating_system_count']);
+            $this->components->twoColumnDetail('connector_maps', (string) $payload['summary']['connector_map_count']);
+            $this->components->twoColumnDetail('external_billing_allowed', ($payload['policy']['external_billing_allowed'] ?? false) ? 'true' : 'false');
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
@@ -1649,6 +1823,43 @@ class AtlasAiAutonomousHoldingCommand extends Command
             $this->components->twoColumnDetail('replay_matrices', (string) $payload['summary']['replay_matrix_count']);
             $this->components->twoColumnDetail('audit_evidence_requirements', (string) $payload['summary']['audit_evidence_requirement_count']);
             $this->components->twoColumnDetail('external_benchmark_claim_allowed', ($payload['policy']['external_benchmark_claim_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyDomainSolutionPackStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyDomainSolutionPackStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('solution_pack_ready_companies', (string) $payload['summary']['domain_solution_pack_ready_company_count']);
+            $this->components->twoColumnDetail('ready_flow_solution_packs', (string) $payload['summary']['ready_flow_solution_pack_count']);
+            $this->components->twoColumnDetail('domain_sources', (string) $payload['summary']['domain_source_count']);
+            $this->components->twoColumnDetail('solution_modules', (string) $payload['summary']['solution_module_count']);
+            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyAgentOperationsPackStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyAgentOperationsPackStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('agent_ops_ready_companies', (string) $payload['summary']['agent_operations_pack_ready_company_count']);
+            $this->components->twoColumnDetail('ready_flow_agent_ops', (string) $payload['summary']['ready_flow_agent_operations_pack_count']);
+            $this->components->twoColumnDetail('skills', (string) $payload['summary']['skill_count']);
+            $this->components->twoColumnDetail('subagents', (string) $payload['summary']['subagent_count']);
+            $this->components->twoColumnDetail('adapter_envelopes', (string) $payload['summary']['adapter_envelope_count']);
+            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
@@ -2014,6 +2225,24 @@ class AtlasAiAutonomousHoldingCommand extends Command
             $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
             $this->components->twoColumnDetail('repository_intake', (string) $payload['summary']['repository_intake_count']);
             $this->components->twoColumnDetail('flow_epics', (string) $payload['summary']['flow_epic_count']);
+            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseAgentRepositoryOperatingCatalogStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->agentRepositoryOperatingCatalogStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
+            $this->components->twoColumnDetail('framework_profiles', (string) $payload['summary']['framework_profile_count']);
+            $this->components->twoColumnDetail('mcp_security_profiles', (string) $payload['summary']['mcp_security_profile_count']);
+            $this->components->twoColumnDetail('flow_runtime_maps', (string) $payload['summary']['flow_runtime_map_count']);
             $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
         });
 

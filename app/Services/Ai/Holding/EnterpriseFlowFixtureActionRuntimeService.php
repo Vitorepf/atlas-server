@@ -86,6 +86,10 @@ class EnterpriseFlowFixtureActionRuntimeService
                 )),
             ];
             array_push($records, ...$companyRecords);
+            unset($this->runtimeRecordCache[$currentCompanyId]);
+        }
+        if ($companyId === null) {
+            $this->runtimeRecordCache = [];
         }
 
         $payload = [

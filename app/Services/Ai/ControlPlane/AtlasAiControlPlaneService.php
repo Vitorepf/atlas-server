@@ -30,6 +30,10 @@ use App\Models\AtlasAemorOutcome;
 use App\Models\AtlasAgenticWorkcell;
 use App\Models\AtlasAgenticWorkcellOrgPattern;
 use App\Models\AtlasAgenticWorkcellOutcome;
+use App\Models\AtlasAverCertifiedExecution;
+use App\Models\AtlasAverExecution;
+use App\Models\AtlasAweosCertifiedOutcome;
+use App\Models\AtlasAweosExecution;
 use App\Models\AtlasExecutiveBriefing;
 use App\Models\AtlasIntelligenceFactoryCapability;
 use App\Models\AtlasIntelligenceFactoryDecision;
@@ -52,6 +56,7 @@ use App\Services\Ai\SelfConstruction\AgentMergeReviewPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryHandoffProtocolBuilder;
 use App\Services\Ai\SelfConstruction\AgentValidationGateDryRunEvaluator;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -123,6 +128,8 @@ class AtlasAiControlPlaneService
         $strategicReality = $this->strategicReality($since);
         $runtimeEfficiency = $this->runtimeEfficiency($since);
         $agenticWorkcell = $this->agenticWorkcell($since);
+        $autonomousWorkExecution = $this->autonomousWorkExecution($since);
+        $verifiedExecution = $this->verifiedExecution($since);
         $swarmCompany = $this->swarmCompany($since);
         $externalExecution = $this->externalExecution($since);
         $blockers = $this->blockers($since, $tracesSection['ids']);
@@ -185,6 +192,14 @@ class AtlasAiControlPlaneService
             'agentic_workcells_total' => $agenticWorkcell['summary']['workcells_total'] ?? 0,
             'agentic_workcell_blocked' => $agenticWorkcell['summary']['blocked'] ?? 0,
             'agentic_workcell_org_patterns' => $agenticWorkcell['summary']['org_patterns_total'] ?? 0,
+            'aweos_executions_total' => $autonomousWorkExecution['summary']['executions_total'] ?? 0,
+            'aweos_blocked' => $autonomousWorkExecution['summary']['blocked'] ?? 0,
+            'aweos_certified' => $autonomousWorkExecution['summary']['certified'] ?? 0,
+            'aweos_gold_outcomes' => $autonomousWorkExecution['summary']['gold_outcomes'] ?? 0,
+            'verified_execution_total' => $verifiedExecution['summary']['executions_total'] ?? 0,
+            'verified_execution_blocked' => $verifiedExecution['summary']['blocked'] ?? 0,
+            'verified_execution_certified' => $verifiedExecution['summary']['certified'] ?? 0,
+            'verified_execution_gold_certifications' => $verifiedExecution['summary']['gold_certifications'] ?? 0,
             'swarm_company_roles_total' => $swarmCompany['summary']['role_runs_total'] ?? 0,
             'swarm_company_blocked_releases' => $swarmCompany['summary']['blocked_release_packs'] ?? 0,
             'external_execution_mandates_total' => $externalExecution['summary']['mandates_total'] ?? 0,
@@ -222,6 +237,8 @@ class AtlasAiControlPlaneService
             'strategic_reality' => $strategicReality,
             'runtime_efficiency' => $runtimeEfficiency,
             'agentic_workcell' => $agenticWorkcell,
+            'autonomous_work_execution' => $autonomousWorkExecution,
+            'verified_execution' => $verifiedExecution,
             'swarm_company' => $swarmCompany,
             'external_execution' => $externalExecution,
             'blockers' => $blockers,
@@ -1600,6 +1617,136 @@ class AtlasAiControlPlaneService
     }
 
     /**
+     * AWEOS read model. No raw objective, no provider output.
+     *
+     * @return array<string,mixed>
+     */
+    private function autonomousWorkExecution(CarbonImmutable $since): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'summary' => [
+                'executions_total' => 0,
+                'ready' => 0,
+                'watch' => 0,
+                'blocked' => 0,
+                'certified' => 0,
+                'certified_outcomes_total' => 0,
+                'gold_outcomes' => 0,
+                'silver_outcomes' => 0,
+                'bronze_outcomes' => 0,
+            ],
+            'by_flow' => [],
+            'recent_executions' => [],
+        ];
+        if (! Schema::hasTable('atlas_aweos_executions')) {
+            return $empty;
+        }
+
+        try {
+            $executions = AtlasAweosExecution::query()
+                ->where('created_at', '>=', $since)
+                ->latest()
+                ->limit(200)
+                ->get(['id', 'status', 'maturity_level', 'domain', 'flow_id', 'objective_hash', 'execution_hash', 'strategic_next_action', 'created_at']);
+            $outcomes = Schema::hasTable('atlas_aweos_certified_outcomes')
+                ? AtlasAweosCertifiedOutcome::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'certification_level', 'outcome_hash'])
+                : collect();
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        return [
+            'status' => $executions->where('status', 'blocked')->isNotEmpty() ? 'watch' : 'ready',
+            'summary' => [
+                'executions_total' => $executions->count(),
+                'ready' => $executions->where('status', 'ready')->count(),
+                'watch' => $executions->where('status', 'watch')->count(),
+                'blocked' => $executions->where('status', 'blocked')->count(),
+                'certified' => $executions->where('status', 'certified')->count(),
+                'certified_outcomes_total' => $outcomes->count(),
+                'gold_outcomes' => $outcomes->where('certification_level', 'gold')->count(),
+                'silver_outcomes' => $outcomes->where('certification_level', 'silver')->count(),
+                'bronze_outcomes' => $outcomes->where('certification_level', 'bronze')->count(),
+            ],
+            'by_flow' => $executions->groupBy(fn (AtlasAweosExecution $execution): string => (string) ($execution->flow_id ?? 'unknown'))->map(fn ($items): int => $items->count())->sortKeys()->all(),
+            'recent_executions' => $executions->take(self::RECENT_LIMIT)->map(fn (AtlasAweosExecution $execution): array => [
+                'execution_id' => (string) $execution->id,
+                'status' => (string) $execution->status,
+                'maturity_level' => (string) $execution->maturity_level,
+                'domain' => $this->stringOrNull($execution->domain),
+                'flow_id' => $this->stringOrNull($execution->flow_id),
+                'objective_hash' => $this->stringOrNull($execution->objective_hash),
+                'execution_hash' => $this->stringOrNull($execution->execution_hash),
+                'next_action' => $this->stringOrNull(data_get($execution->strategic_next_action, 'next_action')),
+                'created_at' => $execution->created_at?->toJSON(),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * AVER read model. No raw objectives, command text, stdout or stderr.
+     *
+     * @return array<string,mixed>
+     */
+    private function verifiedExecution(CarbonImmutable $since): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'summary' => [
+                'executions_total' => 0,
+                'ready' => 0,
+                'blocked' => 0,
+                'certified' => 0,
+                'certifications_total' => 0,
+                'gold_certifications' => 0,
+            ],
+            'by_flow' => [],
+            'recent_executions' => [],
+        ];
+        if (! Schema::hasTable('atlas_aver_executions')) {
+            return $empty;
+        }
+
+        try {
+            $executions = AtlasAverExecution::query()
+                ->where('created_at', '>=', $since)
+                ->latest()
+                ->limit(200)
+                ->get(['id', 'status', 'maturity_level', 'domain', 'flow_id', 'objective_hash', 'execution_hash', 'aweos_execution_id', 'created_at']);
+            $certifications = Schema::hasTable('atlas_aver_certified_executions')
+                ? AtlasAverCertifiedExecution::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'certification_level', 'certification_hash'])
+                : collect();
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        return [
+            'status' => $executions->where('status', 'blocked')->isNotEmpty() ? 'watch' : 'ready',
+            'summary' => [
+                'executions_total' => $executions->count(),
+                'ready' => $executions->where('status', 'ready')->count(),
+                'blocked' => $executions->where('status', 'blocked')->count(),
+                'certified' => $executions->where('status', 'certified')->count(),
+                'certifications_total' => $certifications->count(),
+                'gold_certifications' => $certifications->where('certification_level', 'gold')->count(),
+            ],
+            'by_flow' => $this->countsBy($executions, 'flow_id'),
+            'recent_executions' => $executions->take(self::RECENT_LIMIT)->map(fn (AtlasAverExecution $execution): array => [
+                'execution_id' => (string) $execution->id,
+                'aweos_execution_id' => $this->stringOrNull($execution->aweos_execution_id),
+                'status' => (string) $execution->status,
+                'maturity_level' => (string) $execution->maturity_level,
+                'domain' => $this->stringOrNull($execution->domain),
+                'flow_id' => $this->stringOrNull($execution->flow_id),
+                'objective_hash' => $this->stringOrNull($execution->objective_hash),
+                'execution_hash' => $this->stringOrNull($execution->execution_hash),
+                'created_at' => $execution->created_at?->toJSON(),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
      * Swarm/Company read model. This does not start agents; it proves whether
      * the Atlas agent/company substrate is visible as an operational runtime:
      * roles, releases, certifications and agent-control services.
@@ -1946,6 +2093,16 @@ class AtlasAiControlPlaneService
                 'schema' => 'atlas.agentic_workcell.certification.v1',
             ],
             [
+                'name' => 'autonomous_work_execution_os',
+                'command' => 'php artisan atlas:aweos:certify --json --strict',
+                'schema' => 'atlas.aweos.certification.v1',
+            ],
+            [
+                'name' => 'verified_execution_runtime',
+                'command' => 'php artisan atlas:aver:certify --json --strict',
+                'schema' => 'atlas.aver.certification.v1',
+            ],
+            [
                 'name' => 'swarm_company_runtime',
                 'service' => 'AtlasRealEngineeringCompanyRuntimeService + AgentControlPlane runtime',
                 'schema' => 'atlas.ai.engineering_company.control_plane.v1',
@@ -2188,6 +2345,19 @@ class AtlasAiControlPlaneService
         }
 
         return $total;
+    }
+
+    /**
+     * @param  Collection<int,object>  $rows
+     * @return array<string,int>
+     */
+    private function countsBy(Collection $rows, string $field): array
+    {
+        return $rows
+            ->groupBy(fn (object $row): string => (string) ($row->{$field} ?? 'unknown'))
+            ->map(fn (Collection $group): int => $group->count())
+            ->sortKeys()
+            ->all();
     }
 
     private function stringOrNull(mixed $value): ?string

@@ -327,8 +327,10 @@ class AutonomousHoldingEnterpriseBuildoutService
             'enterprise_agent_registry' => $this->enterpriseAgentRegistry($domainId, $blueprint, $agentRoles),
             'enterprise_domain_agent_toolkit_stack' => $this->enterpriseDomainAgentToolkitStack($domainId, $blueprint, $agentRoles),
             'enterprise_domain_workload_agent_template_stack' => $this->enterpriseDomainWorkloadAgentTemplateStack($domainId, $blueprint, $agentRoles),
+            'enterprise_company_operating_blueprint_stack' => $this->enterpriseCompanyOperatingBlueprintStack($domainId, $blueprint),
             'enterprise_external_research_adoption_stack' => $this->enterpriseExternalResearchAdoptionStack($domainId, $blueprint),
             'enterprise_agent_repository_adoption_pipeline' => $this->enterpriseAgentRepositoryAdoptionPipeline($domainId, $blueprint),
+            'enterprise_agent_repository_operating_catalog' => $this->enterpriseAgentRepositoryOperatingCatalog($domainId, $blueprint),
             'enterprise_workforce_capacity_stack' => $this->enterpriseWorkforceCapacityStack($domainId, $blueprint),
             'enterprise_portfolio_dependency_stack' => $this->enterprisePortfolioDependencyStack($domainId, $manifest, $blueprint),
             'domain_data_model' => $this->domainDataModel($domainId, $blueprint),
@@ -375,6 +377,8 @@ class AutonomousHoldingEnterpriseBuildoutService
             'enterprise_flow_work_product_delivery_stack' => $this->enterpriseFlowWorkProductDeliveryStack($domainId, $blueprint, $workProducts, $companyMetrics),
             'enterprise_domain_data_connector_operating_stack' => $this->enterpriseDomainDataConnectorOperatingStack($domainId, $blueprint, $workProducts, $companyMetrics),
             'enterprise_flow_live_read_connector_probe_stack' => $this->enterpriseFlowLiveReadConnectorProbeStack($domainId, $blueprint, $companyMetrics),
+            'enterprise_domain_data_fabric_stack' => $this->enterpriseDomainDataFabricStack($domainId, $blueprint, $workProducts, $companyMetrics),
+            'enterprise_company_revenue_delivery_operating_mesh' => $this->enterpriseCompanyRevenueDeliveryOperatingMesh($domainId, $blueprint, $workProducts, $companyMetrics),
             'premium_enterprise_agent_reference_model' => $this->premiumEnterpriseAgentReferenceModel($domainId, $blueprint),
             'enterprise_flow_operating_packages' => $this->enterpriseFlowOperatingPackages($domainId, $blueprint),
             'enterprise_integration_activation_plan' => $this->enterpriseIntegrationActivationPlan($domainId, $blueprint),
@@ -428,10 +432,14 @@ class AutonomousHoldingEnterpriseBuildoutService
             ],
             'stack_hashes' => [
                 'workload_agent_template_stack_hash' => (string) data_get($company, 'enterprise_domain_workload_agent_template_stack.workload_agent_template_stack_hash', ''),
+                'company_operating_blueprint_hash' => (string) data_get($company, 'enterprise_company_operating_blueprint_stack.operating_blueprint_hash', ''),
                 'business_backbone_hash' => (string) data_get($company, 'enterprise_business_operating_backbone_stack.backbone_hash', ''),
                 'command_center_hash' => (string) data_get($company, 'enterprise_company_command_center_stack.command_center_hash', ''),
                 'semantic_graph_hash' => (string) data_get($company, 'enterprise_semantic_operating_graph_stack.semantic_graph_hash', ''),
                 'flow_delivery_hash' => (string) data_get($company, 'enterprise_flow_work_product_delivery_stack.delivery_stack_hash', ''),
+                'domain_data_fabric_hash' => (string) data_get($company, 'enterprise_domain_data_fabric_stack.domain_data_fabric_hash', ''),
+                'revenue_delivery_operating_mesh_hash' => (string) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.revenue_delivery_mesh_hash', ''),
+                'agent_repository_operating_catalog_hash' => (string) data_get($company, 'enterprise_agent_repository_operating_catalog.operating_catalog_hash', ''),
             ],
             'policy' => [
                 'autonomy' => (string) data_get($company, 'policy.autonomy', ''),
@@ -989,6 +997,243 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
+     * @param array<string,mixed> $blueprint
+     * @return array<string,mixed>
+     */
+    private function enterpriseCompanyOperatingBlueprintStack(string $domainId, array $blueprint): array
+    {
+        $flowSpecs = (array) $blueprint['flow_specs'];
+        $flowIds = array_keys($flowSpecs);
+        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $sources = $this->externalResearchSourceBasis($domainId);
+        $sourceIds = array_column($sources, 'source_id');
+        $archetypes = $this->enterpriseWorkloadArchetypes($domainId);
+        $archetypeIds = array_column($archetypes, 'archetype_id');
+
+        return [
+            'schema' => 'atlas.ai.company.enterprise_company_operating_blueprint_stack.v1',
+            'company_id' => $domainId,
+            'reference_model' => [
+                'source_pattern' => 'claude_financial_services_style_skills_connectors_subagents_generalized_to_every_company',
+                'source_urls' => [
+                    'https://www.anthropic.com/news/claude-for-financial-services',
+                    'https://www.anthropic.com/news/finance-agents',
+                ],
+                'adopted_enterprise_capabilities' => [
+                    'task_specific_workload_templates',
+                    'least_privilege_connector_permissions',
+                    'managed_credential_vault_boundary',
+                    'long_running_durable_agent_sessions',
+                    'full_decision_tool_artifact_audit_log',
+                    'human_in_the_loop_before_external_effects',
+                    'source_grounded_artifact_generation',
+                    'trace_replay_eval_and_acceptance_packet',
+                ],
+                'calendar_wait_blocker_enabled' => false,
+            ],
+            'workload_archetype_catalog' => $archetypes,
+            'data_provider_contracts' => $this->enterpriseDataProviderContracts($domainId, $connectors),
+            'connector_permission_profiles' => array_values(array_map(
+                static fn (string $connector): array => [
+                    'schema' => 'atlas.ai.company.enterprise_connector_permission_profile.v1',
+                    'connector_id' => $connector,
+                    'default_mode' => 'read_only_probe_or_fixture',
+                    'live_scope_requires_operator_mandate' => true,
+                    'credential_binding' => 'vault_reference_only_no_secret_material_export',
+                    'source_lineage_required' => true,
+                    'tool_call_receipt_required' => true,
+                    'write_spend_trade_publish_deploy_delete_or_security_action_allowed' => false,
+                    'profile_hash' => hash('sha256', 'connector_permission_profile|'.$connector),
+                ],
+                $connectors,
+            )),
+            'flow_operating_blueprints' => array_values(array_map(
+                fn (string $flowId, array $spec, int $index): array => [
+                    'schema' => 'atlas.ai.company.enterprise_flow_operating_blueprint.v1',
+                    'flow_id' => $flowId,
+                    'owner_agent' => (string) ($spec[0] ?? 'company_manager_agent'),
+                    'primary_archetype' => (string) ($archetypeIds[$index % max(1, count($archetypeIds))] ?? 'enterprise_operator_workload'),
+                    'required_skills' => $this->domainWorkloadSkills($domainId, $flowId),
+                    'required_connectors' => array_values((array) ($spec[1] ?? [])),
+                    'source_refs' => array_values(array_slice($sourceIds, $index % max(1, count($sourceIds)), min(6, count($sourceIds)))),
+                    'subagent_lanes' => [
+                        'source_grounding_lane' => $flowId.'.source_grounding_subagent',
+                        'domain_methodology_lane' => $flowId.'.'.(string) data_get($this->domainWorkloadSubagents($domainId, $flowId), '1.subagent_id', 'domain_reviewer_subagent'),
+                        'risk_policy_lane' => $flowId.'.risk_policy_reviewer_subagent',
+                        'artifact_quality_lane' => $flowId.'.artifact_quality_reviewer_subagent',
+                        'handoff_audit_lane' => $flowId.'.handoff_and_audit_subagent',
+                    ],
+                    'artifact_assembly_contract' => [
+                        'target_artifact' => (string) ($spec[2] ?? 'enterprise_artifact'),
+                        'sections_required' => ['source_snapshot', 'methodology', 'analysis_or_plan', 'risk_register', 'decision_packet', 'operator_handoff'],
+                        'source_link_required_per_claim' => true,
+                        'cross_source_reconciliation_required' => true,
+                        'customer_visible_claims_require_operator_acceptance' => true,
+                        'contract_hash' => hash('sha256', $domainId.'|'.$flowId.'|artifact_assembly_contract'),
+                    ],
+                    'runtime_handoff_contract' => [
+                        'durable_session_required' => true,
+                        'checkpoint_resume_required' => true,
+                        'tool_receipts_required' => true,
+                        'trace_export_required' => true,
+                        'eval_replay_required' => true,
+                        'rollback_or_manual_fallback_required' => true,
+                        'external_effects_allowed' => false,
+                        'handoff_hash' => hash('sha256', $domainId.'|'.$flowId.'|runtime_handoff_contract'),
+                    ],
+                    'quality_and_eval_gates' => [
+                        'domain_correctness_floor' => 0.92,
+                        'source_faithfulness_floor' => 0.97,
+                        'policy_findings_allowed' => 0,
+                        'fixture_replay_cases_required' => 25,
+                        'adversarial_cases_required' => 5,
+                        'second_reviewer_required_for_external_action' => true,
+                    ],
+                    'external_execution_allowed' => false,
+                    'external_side_effects_enabled' => false,
+                    'flow_operating_blueprint_hash' => hash('sha256', $domainId.'|enterprise_flow_operating_blueprint|'.$flowId.'|'.json_encode($spec)),
+                ],
+                $flowIds,
+                $flowSpecs,
+                array_keys($flowIds),
+            )),
+            'artifact_assembly_lines' => array_values(array_map(
+                static fn (string $flowId): array => [
+                    'flow_id' => $flowId,
+                    'pipeline' => ['source_snapshot', 'connector_read', 'analysis_workspace', 'artifact_draft', 'critic_review', 'policy_gate', 'acceptance_packet', 'operator_handoff'],
+                    'all_claims_source_linked' => true,
+                    'receipt_export_required' => true,
+                    'customer_delivery_allowed_without_operator_acceptance' => false,
+                    'assembly_hash' => hash('sha256', 'artifact_assembly_line|'.$flowId),
+                ],
+                $flowIds,
+            )),
+            'control_room_handoffs' => array_values(array_map(
+                fn (string $flowId): array => [
+                    'flow_id' => $flowId,
+                    'review_queue' => (string) $blueprint['review_queue'],
+                    'required_packet' => ['scope', 'sources', 'artifact_hash', 'tool_receipts', 'risk_register', 'rollback_plan', 'decision_options'],
+                    'operator_acceptance_required' => true,
+                    'second_reviewer_required_for_risky_external_effect' => true,
+                    'auto_delivery_or_external_action_allowed' => false,
+                    'handoff_hash' => hash('sha256', 'control_room_handoff|'.$flowId),
+                ],
+                $flowIds,
+            )),
+            'operating_blueprint_observability' => [
+                'required_metrics' => [
+                    'flow_blueprint_coverage',
+                    'archetype_coverage',
+                    'connector_permission_coverage',
+                    'source_lineage_coverage',
+                    'artifact_acceptance_rate',
+                    'tool_receipt_completeness',
+                    'eval_replay_pass_rate',
+                    'operator_handoff_latency',
+                    'external_effect_block_rate',
+                    'policy_finding_zero_rate',
+                ],
+                'dashboard' => $domainId.'_enterprise_company_operating_blueprint_board',
+                'alert_on' => ['missing_flow_blueprint', 'unscoped_connector', 'claim_without_source_link', 'missing_tool_receipt', 'operator_handoff_missing', 'external_effect_requested'],
+            ],
+            'blueprint_policy' => [
+                'calendar_wait_blocker_enabled' => false,
+                'blueprint_is_internal_execution_contract' => true,
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+                'operator_mandate_required_for_external_write_spend_trade_publish_deploy_delete_or_security_action' => true,
+            ],
+            'operating_blueprint_hash' => hash('sha256', $domainId.'|enterprise_company_operating_blueprint|'.implode('|', $flowIds).'|'.implode('|', $connectors).'|'.implode('|', $archetypeIds)),
+        ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function enterpriseWorkloadArchetypes(string $domainId): array
+    {
+        $map = [
+            'finance' => [
+                ['pitch_builder', 'build_source_linked_investment_or_customer_pitch', ['filings', 'market_data', 'company_data_room']],
+                ['meeting_preparer', 'prepare_ic_board_or_customer_finance_meeting', ['crm_context', 'filings', 'notes']],
+                ['earnings_reviewer', 'review_earnings_filings_and_call_materials', ['sec_filings', 'transcripts', 'market_data']],
+                ['model_builder', 'build_and_audit_financial_model', ['financial_statements', 'assumptions', 'scenario_data']],
+                ['market_researcher', 'research_market_and_comparable_companies', ['market_data', 'news', 'filings']],
+                ['valuation_reviewer', 'review_dcf_comps_and_sensitivity', ['model_outputs', 'comps', 'risk_factors']],
+                ['general_ledger_reconciler', 'reconcile_ledger_and_billing_artifacts', ['billing_ledger', 'bank_export_fixture', 'invoice_register']],
+                ['month_end_closer', 'assemble_month_end_close_packet', ['ledger', 'accruals', 'variance_analysis']],
+                ['statement_auditor', 'audit_financial_statement_claims', ['statements', 'source_docs', 'audit_trail']],
+                ['kyc_screener', 'screen_counterparty_kyc_aml_risk', ['counterparty_profile', 'sanctions_fixture', 'risk_register']],
+            ],
+            'marketing' => [
+                ['audience_researcher', 'build_source_linked_segment_and_persona_packet', ['analytics', 'crm', 'research']],
+                ['campaign_strategist', 'design_campaign_strategy_with_budget_guardrails', ['analytics', 'experiment_registry', 'content_repository']],
+                ['creative_brief_builder', 'produce_reviewable_creative_and_copy_brief', ['brand_system', 'content_repository', 'approval_gate']],
+                ['attribution_analyst', 'analyze_channel_and_funnel_performance', ['analytics', 'experiment_registry', 'crm']],
+                ['lifecycle_operator', 'prepare_lifecycle_journey_and_message_plan', ['crm', 'approval_gate', 'customer_segments']],
+                ['brand_compliance_reviewer', 'verify_claims_tone_and_public_evidence', ['content_repository', 'source_registry', 'approval_gate']],
+                ['experiment_allocator', 'rank_growth_tests_and_capacity', ['experiment_registry', 'analytics', 'budget_fixture']],
+                ['voc_synthesizer', 'synthesize_customer_voice_into_positioning', ['crm', 'support_exports', 'research_handoff']],
+            ],
+            'cyber' => [
+                ['posture_reviewer', 'assemble_defensive_security_posture_report', ['sbom', 'vulnerability_feeds', 'repo_state']],
+                ['finding_triager', 'triage_appsec_findings_with_evidence', ['repo_read', 'evidence_chain', 'vulnerability_feeds']],
+                ['control_mapper', 'map_obligations_controls_and_evidence', ['evidence_chain', 'policy_catalog', 'asset_inventory']],
+                ['detection_reviewer', 'draft_detection_rule_proposal_without_deploying', ['threat_intel', 'logs_fixture', 'detection_catalog']],
+                ['remediation_planner', 'prepare_remediation_program_and_ticket_proposals', ['ticketing_proposal_adapter', 'evidence_chain', 'repo_read']],
+                ['incident_readiness_lead', 'rehearse_incident_response_without_external_action', ['runbooks', 'alert_fixture', 'evidence_chain']],
+                ['attack_surface_reviewer', 'review_attack_surface_delta_defensively', ['repo_read', 'sbom', 'asset_fixture']],
+            ],
+        ];
+        $fallback = [
+            ['source_grounded_operator', 'produce_source_grounded_domain_artifact', ['source_registry', 'read_only_connector', 'evidence_ledger']],
+            ['workflow_planner', 'design_durable_flow_execution_plan', ['runbook_repository', 'tool_registry', 'policy_gate']],
+            ['artifact_reviewer', 'review_artifact_quality_risk_and_policy', ['critic_review', 'quality_scorecard', 'receipt_verifier']],
+            ['handoff_coordinator', 'assemble_operator_handoff_packet', ['operator_review_queue', 'receipt_verifier', 'rollback_plan']],
+            ['outcome_analyst', 'measure_internal_outcome_and_feedback', ['metrics_read_adapter', 'evidence_ledger', 'learning_loop']],
+        ];
+
+        return array_values(array_map(
+            static fn (array $item): array => [
+                'schema' => 'atlas.ai.company.enterprise_workload_archetype.v1',
+                'archetype_id' => (string) $item[0],
+                'purpose' => (string) $item[1],
+                'data_inputs' => array_values((array) $item[2]),
+                'required_controls' => ['source_lineage', 'least_privilege_connector_scope', 'tool_receipts', 'critic_review', 'operator_handoff'],
+                'external_effects_allowed' => false,
+                'archetype_hash' => hash('sha256', 'enterprise_workload_archetype|'.(string) $item[0]),
+            ],
+            $map[$domainId] ?? $fallback,
+        ));
+    }
+
+    /**
+     * @param list<string> $connectors
+     * @return list<array<string,mixed>>
+     */
+    private function enterpriseDataProviderContracts(string $domainId, array $connectors): array
+    {
+        return array_values(array_map(
+            static fn (string $connector, int $index): array => [
+                'schema' => 'atlas.ai.company.enterprise_data_provider_contract.v1',
+                'provider_id' => $domainId.'.'.$connector.'.provider_contract.v1',
+                'connector_id' => $connector,
+                'contract_mode' => 'read_only_or_fixture_until_operator_scope',
+                'schema_snapshot_required' => true,
+                'sample_fixture_required' => true,
+                'source_lineage_required' => true,
+                'cross_source_reconciliation_required' => true,
+                'rate_limit_and_cost_guardrail_required' => true,
+                'credential_secret_material_export_allowed' => false,
+                'external_mutation_allowed' => false,
+                'contract_hash' => hash('sha256', $domainId.'|enterprise_data_provider_contract|'.$connector.'|'.$index),
+            ],
+            $connectors,
+            array_keys($connectors),
+        ));
+    }
+
+    /**
      * @return list<array<string,mixed>>
      */
     private function domainWorkloadSubagents(string $domainId, string $flowId): array
@@ -1406,6 +1651,136 @@ class AutonomousHoldingEnterpriseBuildoutService
                 'alert_on' => ['unreviewed_repo_used', 'missing_version_pin', 'security_review_missing', 'maintenance_mode_without_migration', 'runtime_used_before_fixture_green'],
             ],
             'pipeline_hash' => hash('sha256', $domainId.'|agent_repository_adoption_pipeline|'.implode('|', array_column($repositories, 'source_id')).'|'.implode('|', $flowIds)),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $blueprint
+     * @return array<string,mixed>
+     */
+    private function enterpriseAgentRepositoryOperatingCatalog(string $domainId, array $blueprint): array
+    {
+        $repositoryCatalog = $this->externalResearchRepositoryCatalog($domainId);
+        $frameworks = array_values((array) ($repositoryCatalog['official_framework_repositories'] ?? []));
+        $domainRepositories = array_values((array) ($repositoryCatalog['domain_repository_candidates'] ?? []));
+        $flowSpecs = (array) $blueprint['flow_specs'];
+        $flowIds = array_keys($flowSpecs);
+        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $frameworkIds = array_values(array_map(static fn (array $repo): string => (string) ($repo['source_id'] ?? 'unknown_framework'), $frameworks));
+        $domainRepoIds = array_values(array_map(static fn (array $repo): string => (string) ($repo['source_id'] ?? 'unknown_domain_repo'), $domainRepositories));
+        $securityThreats = [
+            'untrusted_mcp_stdio_command_surface',
+            'prompt_injection_through_tool_descriptions_or_remote_content',
+            'credential_scope_expansion',
+            'supply_chain_version_drift',
+            'trace_export_of_sensitive_inputs',
+            'external_side_effect_without_receipt',
+        ];
+
+        return [
+            'schema' => 'atlas.ai.company.enterprise_agent_repository_operating_catalog.v1',
+            'company_id' => $domainId,
+            'source_basis' => [
+                [
+                    'source_id' => 'openai_agents_sdk',
+                    'url' => 'https://platform.openai.com/docs/guides/agents-sdk/',
+                    'adopted_pattern' => 'agents_with_tools_handoffs_guardrails_sessions_and_full_trace_of_work',
+                ],
+                [
+                    'source_id' => 'model_context_protocol_reference_servers',
+                    'url' => 'https://github.com/modelcontextprotocol/servers',
+                    'adopted_pattern' => 'reference_mcp_servers_for_secure_controlled_tool_and_data_access_not_drop_in_production_without_hardening',
+                ],
+                [
+                    'source_id' => 'langgraph_human_in_loop_interrupts',
+                    'url' => 'https://docs.langchain.com/oss/python/langgraph/human-in-the-loop',
+                    'adopted_pattern' => 'checkpointed_interrupt_resume_for_human_approval_and_error_recovery',
+                ],
+                [
+                    'source_id' => 'microsoft_agent_framework',
+                    'url' => 'https://learn.microsoft.com/en-us/agent-framework/',
+                    'adopted_pattern' => 'enterprise_agent_orchestration_with_workflows_observability_and_governance',
+                ],
+            ],
+            'catalog_policy' => [
+                'calendar_wait_blocker_enabled' => false,
+                'current_research_and_fixture_evidence_replaces_fixed_day_wait' => true,
+                'reference_repositories_are_not_runtime_authority' => true,
+                'mcp_reference_servers_require_security_hardening_before_live_use' => true,
+                'runtime_use_requires_version_pin_contract_tests_trace_export_and_receipts' => true,
+                'external_write_spend_trade_publish_deploy_delete_allowed' => false,
+                'operator_signed_scope_required_for_external_effect' => true,
+            ],
+            'framework_operating_profiles' => array_values(array_map(
+                static fn (array $repo): array => [
+                    'framework_id' => (string) ($repo['source_id'] ?? 'unknown_framework'),
+                    'repository_url' => (string) ($repo['repository_url'] ?? ''),
+                    'operating_role' => match ((string) ($repo['source_id'] ?? '')) {
+                        'openai_agents_python' => 'typed_agent_orchestration_tools_handoffs_guardrails_and_tracing',
+                        'model_context_protocol_servers' => 'connector_reference_patterns_and_mcp_adapter_contract_tests',
+                        'langgraph' => 'durable_graph_checkpoint_interrupt_resume_and_human_in_loop',
+                        'microsoft_agent_framework' => 'enterprise_multi_agent_workflow_governance_and_observability_candidate',
+                        'temporal' => 'durable_business_workflow_replay_retry_and_idempotency_backplane',
+                        'opentelemetry_collector' => 'runtime_trace_metric_log_collection_and_audit_export',
+                        default => 'agentic_runtime_or_tooling_reference_candidate',
+                    },
+                    'required_before_runtime' => ['version_pin', 'license_review', 'security_review', 'fixture_eval_green', 'trace_export_contract', 'receipt_export_contract', 'rollback_plan'],
+                    'blocked_without_operator' => ['external_write', 'paid_spend', 'live_trade', 'public_publish', 'deploy', 'delete', 'offensive_security', 'secret_export'],
+                    'profile_hash' => hash('sha256', 'agent_repository_operating_profile|'.(string) ($repo['source_id'] ?? 'unknown_framework')),
+                ],
+                $frameworks,
+            )),
+            'mcp_connector_security_profiles' => array_values(array_map(
+                static fn (string $connector): array => [
+                    'connector_id' => $connector,
+                    'mcp_profile_id' => $connector.'.mcp_security_profile.v1',
+                    'allowed_transports_before_review' => ['fixture', 'manual_import', 'read_only_http_or_sdk_adapter'],
+                    'stdio_process_execution_allowed' => false,
+                    'tool_description_trust_boundary' => 'untrusted_until_schema_signed_and_fixture_replayed',
+                    'required_controls' => ['allowlisted_tool_names', 'argument_schema_validation', 'credential_vault_ref', 'rate_limit', 'audit_log', 'receipt_export', 'disable_switch'],
+                    'threats_modelled' => $securityThreats,
+                    'external_mutation_allowed' => false,
+                    'security_profile_hash' => hash('sha256', 'mcp_connector_security_profile|'.$connector),
+                ],
+                $connectors,
+            )),
+            'flow_runtime_adoption_map' => array_values(array_map(
+                fn (string $flowId, array $spec, int $index): array => [
+                    'schema' => 'atlas.ai.company.flow_runtime_repository_adoption_map.v1',
+                    'flow_id' => $flowId,
+                    'owner_agent' => (string) $spec[0],
+                    'primary_framework' => (string) ($frameworkIds[$index % max(1, count($frameworkIds))] ?? 'openai_agents_python'),
+                    'required_framework_patterns' => ['tool_plan', 'handoff_contract', 'guardrails', 'trace_export', 'durable_resume_or_checkpoint', 'human_interrupt', 'receipt_export'],
+                    'domain_repository_refs' => array_values(array_slice($domainRepoIds, $index % max(1, count($domainRepoIds)), min(3, count($domainRepoIds)))),
+                    'connector_security_profiles' => array_values(array_map(
+                        static fn (string $connector): string => $connector.'.mcp_security_profile.v1',
+                        (array) ($spec[1] ?? []),
+                    )),
+                    'eval_requirements' => ['contract_fixture', 'adversarial_tool_prompt', 'trace_grade', 'state_assertion', 'source_faithfulness', 'policy_boundary'],
+                    'runtime_authority' => 'internal_fixture_or_read_only_shadow_until_operator_signed_scope',
+                    'external_side_effects_enabled' => false,
+                    'map_hash' => hash('sha256', $domainId.'|flow_runtime_repository_adoption_map|'.$flowId.'|'.(string) $spec[0]),
+                ],
+                $flowIds,
+                $flowSpecs,
+                array_keys($flowIds),
+            )),
+            'supply_chain_and_eval_controls' => [
+                'schema' => 'atlas.ai.company.agent_repository_supply_chain_eval_controls.v1',
+                'required_artifacts' => ['pinned_version_or_commit', 'license_record', 'security_review', 'dependency_snapshot', 'fixture_eval_result', 'trace_sample', 'receipt_export_sample', 'rollback_plan'],
+                'minimum_eval_cases_per_flow' => 25,
+                'adversarial_tool_prompt_cases_required' => 5,
+                'state_replay_required' => true,
+                'synthetic_performance_claims_allowed' => false,
+                'auto_upgrade_allowed' => false,
+                'controls_hash' => hash('sha256', $domainId.'|agent_repository_supply_chain_eval_controls'),
+            ],
+            'operating_catalog_observability' => [
+                'required_metrics' => ['framework_profile_coverage', 'mcp_security_profile_coverage', 'flow_runtime_adoption_coverage', 'version_pin_coverage', 'fixture_eval_green_rate', 'trace_export_coverage', 'external_effect_block_rate'],
+                'dashboard' => $domainId.'_agent_repository_operating_catalog_board',
+                'alert_on' => ['unprofiled_framework_used', 'mcp_security_profile_missing', 'flow_without_runtime_map', 'fixture_eval_missing', 'external_effect_requested'],
+            ],
+            'operating_catalog_hash' => hash('sha256', $domainId.'|agent_repository_operating_catalog|'.implode('|', $frameworkIds).'|'.implode('|', $flowIds).'|'.implode('|', $connectors)),
         ];
     }
 
@@ -8062,6 +8437,280 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
+     * @param array<string,mixed> $blueprint
+     * @param list<string> $workProducts
+     * @param list<string> $metrics
+     * @return array<string,mixed>
+     */
+    private function enterpriseDomainDataFabricStack(string $domainId, array $blueprint, array $workProducts, array $metrics): array
+    {
+        $flowSpecs = (array) $blueprint['flow_specs'];
+        $flowIds = array_keys($flowSpecs);
+        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $sources = $this->domainSolutionSourceCatalog($domainId);
+        $sourceIds = array_values(array_column($sources, 'source_id'));
+        $profile = $this->domainOperatingDepthProfile($domainId);
+        $dataProducts = array_values(array_unique(array_merge(
+            array_values((array) $profile['data_products']),
+            $workProducts,
+        )));
+        $systems = array_values((array) $profile['systems']);
+        $fabricCapabilities = [
+            'unified_domain_data_interface',
+            'direct_source_link_verification',
+            'cross_source_claim_check',
+            'internal_private_data_room',
+            'domain_model_and_scenario_workbench',
+            'compliance_policy_obligation_mapping',
+            'portfolio_or_customer_decision_packet_factory',
+            'implementation_partner_enablement_track',
+        ];
+
+        return [
+            'schema' => 'atlas.ai.company.enterprise_domain_data_fabric_stack.v1',
+            'company_id' => $domainId,
+            'reference_basis' => [
+                'anthropic_claude_for_financial_services' => [
+                    'url' => 'https://www.anthropic.com/news/claude-for-financial-services',
+                    'adopted_patterns' => [
+                        'unified_interface_over_market_internal_and_enterprise_platform_data',
+                        'direct_hyperlinks_to_source_materials_for_verification',
+                        'prebuilt_connector_ecosystem_for_critical_data_sources',
+                        'domain_workloads_such_as_due_diligence_modeling_compliance_and_customer_operations',
+                        'expert_implementation_support_for_enterprise_value_realization',
+                    ],
+                ],
+                'generalization_rule' => 'apply_financial_services_grade_data_fabric_to_every_atlas_company_domain',
+            ],
+            'fabric_policy' => [
+                'calendar_wait_blocker_enabled' => false,
+                'maturity_evidence_replaces_fixed_day_wait' => true,
+                'direct_source_link_required_for_every_claim' => true,
+                'cross_source_verification_required' => true,
+                'private_or_regulated_data_requires_redaction' => true,
+                'connector_probe_required_before_live_read' => true,
+                'external_write_spend_trade_publish_deploy_delete_allowed' => false,
+                'real_money_trade_or_offensive_security_allowed' => false,
+                'operator_signed_scope_required_for_external_effect' => true,
+            ],
+            'domain_data_source_catalog' => array_values(array_map(
+                static fn (array $source, int $index): array => [
+                    'source_id' => (string) ($source['source_id'] ?? 'unknown_source'),
+                    'url' => (string) ($source['url'] ?? ''),
+                    'source_class' => $index < 3 ? 'primary_domain_reference' : 'enterprise_connector_or_methodology_reference',
+                    'verification_contract' => [
+                        'direct_link_required' => true,
+                        'freshness_check_required' => true,
+                        'claim_support_mapping_required' => true,
+                        'contradiction_register_required' => true,
+                    ],
+                    'adoption_state' => 'reference_ready_read_only_or_manual_import_until_connector_probe',
+                    'source_hash' => hash('sha256', 'domain_data_fabric_source|'.(string) ($source['source_id'] ?? 'unknown_source')),
+                ],
+                $sources,
+                array_keys($sources),
+            )),
+            'connector_data_provider_matrix' => array_values(array_map(
+                fn (string $connector, int $index): array => [
+                    'connector_id' => $connector,
+                    'provider_class' => (string) ($systems[$index % max(1, count($systems))] ?? 'domain_system'),
+                    'mapped_data_products' => array_values(array_slice($dataProducts, $index % max(1, count($dataProducts)), min(4, count($dataProducts)))),
+                    'interface_modes' => ['manual_import_fixture', 'read_only_probe', 'mcp_or_api_adapter', 'supervised_external_handoff'],
+                    'required_controls' => ['rbac_scope', 'credential_vault_ref', 'schema_snapshot', 'rate_limit', 'audit_log', 'source_lineage_export', 'disable_plan'],
+                    'write_tools_enabled' => false,
+                    'external_mutation_allowed' => false,
+                    'provider_hash' => hash('sha256', $domainId.'|data_fabric_provider|'.$connector),
+                ],
+                $connectors,
+                array_keys($connectors),
+            )),
+            'domain_data_products' => array_values(array_map(
+                static fn (string $dataProduct, int $index): array => [
+                    'data_product_id' => $dataProduct,
+                    'canonical_contract' => $dataProduct.'.domain_data_product.v1',
+                    'source_refs' => array_values(array_slice($sourceIds, $index % max(1, count($sourceIds)), min(5, count($sourceIds)))),
+                    'lineage_fields' => ['source_ref', 'connector_id', 'retrieved_at', 'input_hash', 'normalization_hash', 'artifact_hash', 'critic_review_hash'],
+                    'quality_gates' => ['freshness_disclosed', 'source_faithfulness_score', 'schema_validation', 'policy_boundary_check', 'operator_handoff_readiness'],
+                    'consumer_surfaces' => ['company_command_center', 'flow_artifact_factory', 'portfolio_board_packet', 'operator_review_queue'],
+                    'external_export_allowed_without_operator' => false,
+                    'data_product_hash' => hash('sha256', 'domain_data_fabric_product|'.$dataProduct),
+                ],
+                $dataProducts,
+                array_keys($dataProducts),
+            )),
+            'flow_data_workbenches' => array_values(array_map(
+                fn (string $flowId, array $spec, int $index): array => [
+                    'schema' => 'atlas.ai.company.flow_domain_data_workbench.v1',
+                    'flow_id' => $flowId,
+                    'owner_agent' => (string) $spec[0],
+                    'connector_refs' => array_values((array) ($spec[1] ?? [])),
+                    'source_refs' => array_values(array_slice($sourceIds, $index % max(1, count($sourceIds)), min(5, count($sourceIds)))),
+                    'data_product_refs' => array_values(array_slice($dataProducts, $index % max(1, count($dataProducts)), min(5, count($dataProducts)))),
+                    'workbench_capabilities' => $fabricCapabilities,
+                    'required_artifacts' => [(string) ($spec[2] ?? 'enterprise_artifact'), 'source_pack', 'model_or_analysis_trace', 'risk_and_policy_review', 'operator_handoff_packet'],
+                    'quality_floor' => [
+                        'source_faithfulness' => 0.95,
+                        'domain_correctness' => 0.9,
+                        'trace_completeness' => 0.95,
+                        'policy_findings_allowed' => 0,
+                    ],
+                    'external_side_effects_enabled' => false,
+                    'workbench_hash' => hash('sha256', $domainId.'|flow_data_workbench|'.$flowId.'|'.(string) $spec[0]),
+                ],
+                $flowIds,
+                $flowSpecs,
+                array_keys($flowIds),
+            )),
+            'flow_decision_packet_factories' => array_values(array_map(
+                static fn (string $flowId, array $spec): array => [
+                    'flow_id' => $flowId,
+                    'packet_id' => $flowId.'.decision_packet_factory.v1',
+                    'artifact_type' => (string) ($spec[2] ?? 'enterprise_artifact'),
+                    'sections' => ['objective', 'source_links', 'data_context', 'analysis_or_model', 'options', 'risk_controls', 'recommendation', 'receipts', 'operator_next_step'],
+                    'must_include' => ['direct_source_links', 'assumption_register', 'methodology_notes', 'policy_gate_result', 'handoff_acceptance_contract'],
+                    'customer_visible_or_external_action_requires_operator' => true,
+                    'factory_hash' => hash('sha256', 'flow_decision_packet_factory|'.$flowId),
+                ],
+                $flowIds,
+                $flowSpecs,
+            )),
+            'compliance_and_obligation_automation' => [
+                'schema' => 'atlas.ai.company.domain_data_fabric_compliance.v1',
+                'control_sets' => ['data_provenance', 'privacy_redaction', 'model_risk_or_methodology_review', 'customer_visible_claim_review', 'external_action_authority', 'audit_export'],
+                'obligation_map_required_for_regulated_or_customer_visible_output' => true,
+                'policy_gap_packet_required_before_promotion' => true,
+                'compliance_hash' => hash('sha256', $domainId.'|domain_data_fabric_compliance'),
+            ],
+            'implementation_enablement_tracks' => array_values(array_map(
+                static fn (string $capability): array => [
+                    'capability_id' => $capability,
+                    'enablement_sequence' => ['contract', 'fixture', 'read_only_probe', 'trace_export', 'replay_eval', 'operator_acceptance', 'supervised_cutover_packet'],
+                    'done_evidence' => ['contract_hash', 'fixture_hash', 'probe_receipt_hash', 'eval_hash', 'operator_acceptance_hash'],
+                    'external_cutover_allowed_without_operator' => false,
+                    'track_hash' => hash('sha256', 'domain_data_fabric_enablement|'.$capability),
+                ],
+                $fabricCapabilities,
+            )),
+            'fabric_observability' => [
+                'required_metrics' => array_values(array_unique(array_merge(
+                    ['source_link_coverage', 'cross_source_verification_rate', 'connector_probe_pass_rate', 'data_product_lineage_coverage', 'decision_packet_acceptance_rate', 'policy_gap_count', 'external_effect_block_rate'],
+                    array_slice($metrics, 0, min(6, count($metrics))),
+                ))),
+                'dashboard' => $domainId.'_enterprise_domain_data_fabric_board',
+                'alert_on' => ['missing_source_link', 'stale_source', 'connector_probe_failed', 'unsupported_claim', 'policy_gap', 'external_effect_requested'],
+            ],
+            'domain_data_fabric_hash' => hash('sha256', $domainId.'|enterprise_domain_data_fabric|'.implode('|', $flowIds).'|'.implode('|', $connectors).'|'.implode('|', $sourceIds)),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $blueprint
+     * @param list<string> $workProducts
+     * @param list<string> $metrics
+     * @return array<string,mixed>
+     */
+    private function enterpriseCompanyRevenueDeliveryOperatingMesh(string $domainId, array $blueprint, array $workProducts, array $metrics): array
+    {
+        $flowSpecs = (array) $blueprint['flow_specs'];
+        $flowIds = array_keys($flowSpecs);
+        $connectors = $this->enterpriseConnectorsForBlueprint($blueprint);
+        $commercialStages = ['package', 'qualify', 'scope', 'deliver', 'support', 'bill', 'renew', 'learn'];
+        $operatingSystems = [
+            'product_catalog',
+            'sales_crm',
+            'delivery_lane',
+            'support_desk',
+            'billing_ledger',
+            'risk_register',
+            'evidence_room',
+            'operator_board',
+        ];
+
+        return [
+            'schema' => 'atlas.ai.company.enterprise_revenue_delivery_operating_mesh.v1',
+            'company_id' => $domainId,
+            'mesh_policy' => [
+                'calendar_wait_blocker_enabled' => false,
+                'maturity_evidence_replaces_fixed_day_wait' => true,
+                'customer_commitment_allowed_without_operator' => false,
+                'invoice_payment_or_capital_action_allowed_without_operator' => false,
+                'public_claim_or_campaign_publish_allowed_without_operator' => false,
+                'external_write_spend_trade_publish_deploy_delete_allowed' => false,
+                'operator_signed_scope_required_for_external_effect' => true,
+            ],
+            'operating_systems' => array_values(array_map(
+                static fn (string $system, int $index): array => [
+                    'system_id' => $system,
+                    'system_class' => $index < 4 ? 'front_office_and_delivery' : 'finance_risk_and_governance',
+                    'required_records' => ['source_lineage', 'decision_receipt', 'operator_handoff', 'rollback_plan', 'audit_export'],
+                    'write_mode' => 'internal_packet_only_until_signed_scope',
+                    'system_hash' => hash('sha256', 'revenue_delivery_system|'.$system),
+                ],
+                $operatingSystems,
+                array_keys($operatingSystems),
+            )),
+            'flow_commercial_operating_threads' => array_values(array_map(
+                fn (string $flowId, array $spec, int $index): array => [
+                    'schema' => 'atlas.ai.company.flow_revenue_delivery_thread.v1',
+                    'flow_id' => $flowId,
+                    'owner_agent' => (string) $spec[0],
+                    'artifact_type' => (string) ($spec[2] ?? 'enterprise_artifact'),
+                    'work_product_refs' => array_values(array_slice($workProducts, $index % max(1, count($workProducts)), min(5, count($workProducts)))),
+                    'connector_refs' => array_values((array) ($spec[1] ?? [])),
+                    'commercial_stage_contracts' => array_values(array_map(
+                        static fn (string $stage): array => [
+                            'stage_id' => $stage,
+                            'required_packet' => $stage.'.'.$flowId.'.packet.v1',
+                            'required_evidence' => ['source_links', 'acceptance_criteria', 'risk_review', 'cost_or_capacity_note', 'operator_next_step'],
+                            'external_effect_allowed' => false,
+                            'stage_hash' => hash('sha256', 'flow_revenue_delivery_stage|'.$flowId.'|'.$stage),
+                        ],
+                        $commercialStages,
+                    )),
+                    'handoff_chain' => [
+                        'product_to_sales',
+                        'sales_to_delivery',
+                        'delivery_to_support',
+                        'support_to_success',
+                        'success_to_billing',
+                        'billing_to_board_review',
+                    ],
+                    'thread_hash' => hash('sha256', $domainId.'|revenue_delivery_thread|'.$flowId),
+                ],
+                $flowIds,
+                $flowSpecs,
+                array_keys($flowIds),
+            )),
+            'company_board_value_scorecard' => [
+                'required_metrics' => array_values(array_unique(array_merge(
+                    ['qualified_pipeline_value', 'delivery_sla_hit_rate', 'support_resolution_quality', 'gross_margin_guardrail', 'billing_readiness', 'renewal_expansion_signal', 'evidence_acceptance_rate', 'external_effect_block_rate'],
+                    array_slice($metrics, 0, min(6, count($metrics))),
+                ))),
+                'review_cadence' => 'weekly_operator_board_review_until_external_mandates_exist',
+                'score_floor_for_target_9' => 0.9,
+            ],
+            'connector_to_commercial_system_map' => array_values(array_map(
+                static fn (string $connector, int $index): array => [
+                    'connector_id' => $connector,
+                    'mapped_system' => $operatingSystems[$index % count($operatingSystems)],
+                    'allowed_mode' => 'read_only_probe_or_internal_fixture',
+                    'required_preflight' => ['credential_scope', 'schema_snapshot', 'contract_test', 'rate_limit', 'audit_log', 'disable_plan'],
+                    'external_write_enabled' => false,
+                    'connector_map_hash' => hash('sha256', 'revenue_delivery_connector|'.$connector),
+                ],
+                $connectors,
+                array_keys($connectors),
+            )),
+            'mesh_observability' => [
+                'required_metrics' => ['thread_packet_coverage', 'stage_evidence_coverage', 'handoff_latency', 'sla_risk_count', 'billing_exception_count', 'operator_acceptance_rate', 'source_lineage_coverage', 'external_effect_block_rate'],
+                'dashboard' => $domainId.'_revenue_delivery_operating_mesh',
+                'alert_on' => ['missing_stage_packet', 'stale_customer_context', 'billing_without_scope', 'public_claim_without_evidence', 'external_effect_requested'],
+            ],
+            'revenue_delivery_mesh_hash' => hash('sha256', $domainId.'|revenue_delivery_operating_mesh|'.implode('|', $flowIds).'|'.implode('|', $connectors)),
+        ];
+    }
+
+    /**
      * @return list<array<string,mixed>>
      */
     private function premiumReferenceSourceBasis(string $domainId): array
@@ -8760,6 +9409,17 @@ class AutonomousHoldingEnterpriseBuildoutService
                 && count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.repository_and_agent_watchlist.global_agent_frameworks', [])) >= 8
                 && count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.toolkit_certification_matrix', [])) >= count((array) $company['agent_roles'])
                 && count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.toolkit_observability.required_metrics', [])) >= 6
+                && data_get($company, 'enterprise_company_operating_blueprint_stack.schema') === 'atlas.ai.company.enterprise_company_operating_blueprint_stack.v1'
+                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.workload_archetype_catalog', [])) >= 5
+                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.data_provider_contracts', [])) >= count((array) $company['connectors'])
+                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.connector_permission_profiles', [])) >= count((array) $company['connectors'])
+                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.flow_operating_blueprints', [])) >= count((array) $company['flows'])
+                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.artifact_assembly_lines', [])) >= count((array) $company['flows'])
+                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.control_room_handoffs', [])) >= count((array) $company['flows'])
+                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.operating_blueprint_observability.required_metrics', [])) >= 10
+                && (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.calendar_wait_blocker_enabled', true) === false
+                && (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_execution_allowed', true) === false
+                && (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_side_effects_enabled', true) === false
                 && count((array) data_get($company, 'enterprise_external_research_adoption_stack.source_basis', [])) >= 12
                 && count((array) data_get($company, 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.official_framework_repositories', [])) >= 8
                 && count((array) data_get($company, 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.domain_repository_candidates', [])) >= 3
@@ -8774,6 +9434,15 @@ class AutonomousHoldingEnterpriseBuildoutService
                 && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_observability.required_metrics', [])) >= 8
                 && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.runtime_use_before_local_contract_tests_allowed', true) === false
                 && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.external_side_effects_enabled', true) === false
+                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.source_basis', [])) >= 4
+                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.framework_operating_profiles', [])) >= 8
+                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.mcp_connector_security_profiles', [])) >= count((array) $company['connectors'])
+                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.flow_runtime_adoption_map', [])) >= count((array) $company['flows'])
+                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.supply_chain_and_eval_controls.required_artifacts', [])) >= 8
+                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.operating_catalog_observability.required_metrics', [])) >= 7
+                && (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.calendar_wait_blocker_enabled', true) === false
+                && (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.mcp_reference_servers_require_security_hardening_before_live_use', false)
+                && (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
                 && count((array) data_get($company, 'enterprise_workforce_capacity_stack.agent_capacity_plan', [])) >= 4
                 && count((array) data_get($company, 'enterprise_workforce_capacity_stack.flow_staffing_matrix', [])) >= count((array) $company['flows'])
                 && count((array) data_get($company, 'enterprise_workforce_capacity_stack.training_and_enablement', [])) >= 4
@@ -9054,6 +9723,26 @@ class AutonomousHoldingEnterpriseBuildoutService
                 && (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.calendar_wait_blocker_enabled', true) === false
                 && (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.write_tools_enabled', true) === false
                 && (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.external_mutation_allowed', true) === false
+                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.domain_data_source_catalog', [])) >= 5
+                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.connector_data_provider_matrix', [])) >= count((array) $company['connectors'])
+                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.domain_data_products', [])) >= count((array) $company['work_products'])
+                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.flow_data_workbenches', [])) >= count((array) $company['flows'])
+                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.flow_decision_packet_factories', [])) >= count((array) $company['flows'])
+                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.implementation_enablement_tracks', [])) >= 8
+                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_observability.required_metrics', [])) >= 7
+                && (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.calendar_wait_blocker_enabled', true) === false
+                && (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.direct_source_link_required_for_every_claim', false)
+                && (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.cross_source_verification_required', false)
+                && (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
+                && count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.operating_systems', [])) >= 8
+                && count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.flow_commercial_operating_threads', [])) >= count((array) $company['flows'])
+                && count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.connector_to_commercial_system_map', [])) >= count((array) $company['connectors'])
+                && count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.company_board_value_scorecard.required_metrics', [])) >= 8
+                && count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_observability.required_metrics', [])) >= 8
+                && (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.calendar_wait_blocker_enabled', true) === false
+                && (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.customer_commitment_allowed_without_operator', true) === false
+                && (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.invoice_payment_or_capital_action_allowed_without_operator', true) === false
+                && (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
                 && count((array) data_get($company, 'premium_enterprise_agent_reference_model.reference_source_basis', [])) >= 5
                 && count((array) data_get($company, 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.agent_runtime_patterns', [])) >= 6
                 && count((array) data_get($company, 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.required_runtime_properties', [])) >= 9
@@ -9126,6 +9815,16 @@ class AutonomousHoldingEnterpriseBuildoutService
             'agent_repository_watch_count' => count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.repository_and_agent_watchlist.global_agent_frameworks', [])),
             'agent_toolkit_certification_count' => count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.toolkit_certification_matrix', [])),
             'agent_toolkit_metric_count' => count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.toolkit_observability.required_metrics', [])),
+            'company_operating_blueprint_archetype_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.workload_archetype_catalog', [])),
+            'company_operating_blueprint_data_provider_contract_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.data_provider_contracts', [])),
+            'company_operating_blueprint_connector_permission_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.connector_permission_profiles', [])),
+            'company_operating_blueprint_flow_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.flow_operating_blueprints', [])),
+            'company_operating_blueprint_artifact_assembly_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.artifact_assembly_lines', [])),
+            'company_operating_blueprint_handoff_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.control_room_handoffs', [])),
+            'company_operating_blueprint_metric_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.operating_blueprint_observability.required_metrics', [])),
+            'company_operating_blueprint_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.calendar_wait_blocker_enabled', true),
+            'company_operating_blueprint_external_execution_enabled' => (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_execution_allowed', true),
+            'company_operating_blueprint_external_side_effects_enabled' => (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_side_effects_enabled', true),
             'external_research_source_count' => count((array) data_get($company, 'enterprise_external_research_adoption_stack.source_basis', [])),
             'external_research_framework_repo_count' => count((array) data_get($company, 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.official_framework_repositories', [])),
             'external_research_domain_repo_count' => count((array) data_get($company, 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.domain_repository_candidates', [])),
@@ -9139,6 +9838,15 @@ class AutonomousHoldingEnterpriseBuildoutService
             'agent_repository_version_pin_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.version_pin_and_supply_chain_plan', [])),
             'agent_repository_metric_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_observability.required_metrics', [])),
             'agent_repository_external_side_effects_enabled' => (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.external_side_effects_enabled', true),
+            'agent_repository_operating_source_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.source_basis', [])),
+            'agent_repository_operating_framework_profile_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.framework_operating_profiles', [])),
+            'agent_repository_operating_mcp_security_profile_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.mcp_connector_security_profiles', [])),
+            'agent_repository_operating_flow_map_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.flow_runtime_adoption_map', [])),
+            'agent_repository_operating_supply_chain_artifact_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.supply_chain_and_eval_controls.required_artifacts', [])),
+            'agent_repository_operating_metric_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.operating_catalog_observability.required_metrics', [])),
+            'agent_repository_operating_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.calendar_wait_blocker_enabled', true),
+            'agent_repository_operating_mcp_hardening_required' => (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.mcp_reference_servers_require_security_hardening_before_live_use', false),
+            'agent_repository_operating_external_write_enabled' => (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.external_write_spend_trade_publish_deploy_delete_allowed', true),
             'workforce_agent_capacity_count' => count((array) data_get($company, 'enterprise_workforce_capacity_stack.agent_capacity_plan', [])),
             'workforce_flow_staffing_count' => count((array) data_get($company, 'enterprise_workforce_capacity_stack.flow_staffing_matrix', [])),
             'workforce_training_count' => count((array) data_get($company, 'enterprise_workforce_capacity_stack.training_and_enablement', [])),
@@ -9405,6 +10113,26 @@ class AutonomousHoldingEnterpriseBuildoutService
             'flow_live_read_probe_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.calendar_wait_blocker_enabled', true),
             'flow_live_read_probe_write_tools_enabled' => (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.write_tools_enabled', true),
             'flow_live_read_probe_external_mutation_enabled' => (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.external_mutation_allowed', true),
+            'domain_data_fabric_source_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.domain_data_source_catalog', [])),
+            'domain_data_fabric_provider_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.connector_data_provider_matrix', [])),
+            'domain_data_fabric_product_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.domain_data_products', [])),
+            'domain_data_fabric_workbench_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.flow_data_workbenches', [])),
+            'domain_data_fabric_decision_packet_factory_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.flow_decision_packet_factories', [])),
+            'domain_data_fabric_enablement_track_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.implementation_enablement_tracks', [])),
+            'domain_data_fabric_metric_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_observability.required_metrics', [])),
+            'domain_data_fabric_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.calendar_wait_blocker_enabled', true),
+            'domain_data_fabric_direct_source_link_required' => (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.direct_source_link_required_for_every_claim', false),
+            'domain_data_fabric_cross_source_verification_required' => (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.cross_source_verification_required', false),
+            'domain_data_fabric_external_write_enabled' => (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.external_write_spend_trade_publish_deploy_delete_allowed', true),
+            'revenue_delivery_operating_system_count' => count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.operating_systems', [])),
+            'revenue_delivery_flow_thread_count' => count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.flow_commercial_operating_threads', [])),
+            'revenue_delivery_connector_map_count' => count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.connector_to_commercial_system_map', [])),
+            'revenue_delivery_scorecard_metric_count' => count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.company_board_value_scorecard.required_metrics', [])),
+            'revenue_delivery_observability_metric_count' => count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_observability.required_metrics', [])),
+            'revenue_delivery_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.calendar_wait_blocker_enabled', true),
+            'revenue_delivery_customer_commitment_without_operator_enabled' => (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.customer_commitment_allowed_without_operator', true),
+            'revenue_delivery_billing_without_operator_enabled' => (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.invoice_payment_or_capital_action_allowed_without_operator', true),
+            'revenue_delivery_external_write_enabled' => (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.external_write_spend_trade_publish_deploy_delete_allowed', true),
             'premium_reference_source_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.reference_source_basis', [])),
             'premium_agentic_runtime_pattern_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.agent_runtime_patterns', [])),
             'premium_required_runtime_property_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.required_runtime_properties', [])),

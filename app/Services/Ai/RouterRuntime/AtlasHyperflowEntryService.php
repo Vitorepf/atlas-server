@@ -9,6 +9,7 @@ use App\Models\AiAtlasRouterDecision;
 use App\Models\AiAtlasRuntimeDispatch;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgenticWorkcell\AtlasAgenticWorkcellRuntimeService;
+use App\Services\Ai\AutonomousWorkExecution\AtlasAutonomousWorkExecutionService;
 use App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceService;
 use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\ConversationOps\AtlasConversationOperationsService;
@@ -98,6 +99,7 @@ class AtlasHyperflowEntryService
         private readonly ?AtlasStrategicRealityRuntimeService $strategicReality = null,
         private readonly ?AtlasRuntimeEfficiencyGovernorService $runtimeEfficiency = null,
         private readonly ?AtlasAgenticWorkcellRuntimeService $agenticWorkcell = null,
+        private readonly ?AtlasAutonomousWorkExecutionService $autonomousWorkExecution = null,
     ) {}
 
     /**
@@ -130,6 +132,11 @@ class AtlasHyperflowEntryService
         $agenticWorkcell = $this->buildAgenticWorkcell($data, $payload, $rawInput, $runtimeEfficiencyDecision);
         if ($agenticWorkcell !== null) {
             $payload['agentic_workcell'] = $agenticWorkcell;
+            $data['payload'] = $payload;
+        }
+        $autonomousWorkExecution = $this->buildAutonomousWorkExecution($data, $payload, $rawInput);
+        if ($autonomousWorkExecution !== null) {
+            $payload['autonomous_work_execution'] = $autonomousWorkExecution;
             $data['payload'] = $payload;
         }
         $persistentContext = $this->buildPersistentContext($data, $payload, $rawInput);
@@ -319,6 +326,48 @@ class AtlasHyperflowEntryService
                     'provider_invoked' => false,
                     'agents_spawned' => false,
                     'external_execution_performed' => false,
+                ],
+            ];
+        }
+    }
+
+    /**
+     * AWEOS is the maximum work execution OS loop. It is still orchestration
+     * only: no provider invocation and no external side effects.
+     *
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function buildAutonomousWorkExecution(array $data, array $payload, string $rawInput): ?array
+    {
+        if (is_array($payload['autonomous_work_execution'] ?? null)
+            && ($payload['autonomous_work_execution']['schema_version'] ?? null) === AtlasAutonomousWorkExecutionService::EXECUTION_SCHEMA) {
+            return $payload['autonomous_work_execution'];
+        }
+
+        try {
+            $runtime = $this->autonomousWorkExecution ?? app(AtlasAutonomousWorkExecutionService::class);
+
+            return $runtime->run([
+                'objective' => $rawInput,
+                'surface_id' => $this->stringValue(data_get($payload, 'surface_id')) ?? $this->stringValue(data_get($payload, 'app_surface')),
+                'domain' => $this->stringValue(data_get($payload, 'routing_domain')) ?? $this->stringValue(data_get($payload, 'atlas_mode')),
+                'flow_id' => $this->stringValue(data_get($payload, 'flow_id')) ?? $this->stringValue(data_get($payload, 'routing_task')),
+                'context_refs' => array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string')),
+                'evidence_refs' => array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
+                'source' => 'hyperflow_entry',
+            ]);
+        } catch (Throwable $exception) {
+            return [
+                'schema_version' => AtlasAutonomousWorkExecutionService::EXECUTION_SCHEMA,
+                'status' => 'degraded',
+                'error' => 'aweos_threw',
+                'exception_class' => $exception::class,
+                'claim_policy' => [
+                    'provider_invoked_directly' => false,
+                    'external_execution_performed_directly' => false,
+                    'benchmark_not_run' => true,
                 ],
             ];
         }
