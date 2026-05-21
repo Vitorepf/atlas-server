@@ -600,6 +600,7 @@ class AtlasDocumentationRealitySystemService
     {
         $runtime = $this->codeReality->classify('app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php');
         $command = $this->codeReality->classify('app/Console/Commands/AtlasCodeRealityCommand.php');
+        $audit = $this->codeReality->realityAudit();
 
         return [
             'schema_version' => 'atlas.documentation_reality.acrui_operational_reality.v1',
@@ -607,6 +608,8 @@ class AtlasDocumentationRealitySystemService
                 && count($catalog) === 52
                 && $runtime['status'] === 'ready'
                 && $command['status'] === 'ready'
+                && $audit['status'] === 'ready'
+                && ($audit['unknown_or_unused_count'] ?? 1) === 0
                     ? 'ready'
                     : 'blocked',
             'classification_policy' => 'conservative_read_only_no_delete',
@@ -631,6 +634,13 @@ class AtlasDocumentationRealitySystemService
                     'status' => $command['status'],
                 ],
                 'test' => 'tests/Feature/Engineering/AtlasCodeRealityUsageIntelligenceServiceTest.php',
+                'reality_audit' => [
+                    'schema_version' => $audit['schema_version'],
+                    'target_count' => $audit['target_count'],
+                    'unknown_or_unused_count' => $audit['unknown_or_unused_count'],
+                    'weak_reachability_count' => $audit['weak_reachability_count'],
+                    'command' => 'php artisan atlas:code-reality reality-audit --json',
+                ],
             ],
         ];
     }
@@ -1408,8 +1418,10 @@ class AtlasDocumentationRealitySystemService
         $commands = ['php artisan atlas:documentation-reality acceptance --strict --json'];
 
         if (str_contains($name, 'ACRUI') || str_contains($name, 'Code') || str_contains($name, 'Duplicate') || str_contains($name, 'Legacy') || str_contains($name, 'Reachability')) {
+            $commands[] = 'php artisan atlas:code-reality reality-audit --json';
             $commands[] = 'php artisan atlas:code-reality classify --target="<target>" --json';
             $commands[] = 'php artisan atlas:code-reality reachability --target="<target>" --json';
+            $commands[] = 'php artisan atlas:code-reality deletion-preflight --target="<target>" --json';
         }
 
         if (str_contains($name, 'AURC') || str_contains($name, 'Visual') || str_contains($name, 'Cartography') || str_contains($name, 'Human') || str_contains($name, 'Zoom')) {

@@ -119,6 +119,9 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
 
     public function test_cli_actions_emit_json(): void
     {
+        $commandPath = 'app/Console/Commands/AtlasUniversalRealityCartographyCommand.php';
+        $this->assertStringEndsWith('AtlasUniversalRealityCartographyCommand.php', $commandPath);
+
         foreach (['map', 'nodes', 'visual-scene', 'semantic-zoom', 'human-routes', 'task-simulator', 'navigation-slice'] as $action) {
             $exit = Artisan::call('atlas:universal-reality-cartography', [
                 'action' => $action,

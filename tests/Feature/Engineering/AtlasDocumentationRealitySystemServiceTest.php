@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Services\Engineering\AtlasCodeRealityUsageIntelligenceService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -57,6 +58,9 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         $this->assertSame('active_runtime', $payload['evaluations']['acrui_operational_reality']['runtime_evidence']['service']['classification']);
         $this->assertContains($payload['evaluations']['acrui_operational_reality']['runtime_evidence']['command']['classification'], ['active_runtime', 'active_read_only']);
         $this->assertSame('tests/Feature/Engineering/AtlasCodeRealityUsageIntelligenceServiceTest.php', $payload['evaluations']['acrui_operational_reality']['runtime_evidence']['test']);
+        $this->assertSame(AtlasCodeRealityUsageIntelligenceService::REALITY_AUDIT_SCHEMA_VERSION, $payload['evaluations']['acrui_operational_reality']['runtime_evidence']['reality_audit']['schema_version']);
+        $this->assertSame(0, $payload['evaluations']['acrui_operational_reality']['runtime_evidence']['reality_audit']['unknown_or_unused_count']);
+        $this->assertSame(0, $payload['evaluations']['acrui_operational_reality']['runtime_evidence']['reality_audit']['weak_reachability_count']);
         $this->assertSame('ready', $payload['evaluations']['aurc_visual_reality']['status']);
         $this->assertSame('php artisan atlas:universal-reality-cartography map --strict --json', $payload['evaluations']['aurc_visual_reality']['runtime_evidence']['command']);
         $this->assertSame('tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php', $payload['evaluations']['aurc_visual_reality']['runtime_evidence']['test']);
@@ -156,7 +160,9 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         }
 
         $acrui = collect($matrix['items'])->firstWhere('block_name', 'ACRUI Operational Reality');
+        $this->assertContains('php artisan atlas:code-reality reality-audit --json', $acrui['required_commands']);
         $this->assertContains('php artisan atlas:code-reality classify --target="<target>" --json', $acrui['required_commands']);
+        $this->assertContains('php artisan atlas:code-reality deletion-preflight --target="<target>" --json', $acrui['required_commands']);
         $this->assertContains('tests/Feature/Engineering/AtlasCodeRealityUsageIntelligenceServiceTest.php', $acrui['required_tests']);
 
         $aurc = collect($matrix['items'])->firstWhere('block_name', 'AURC Visual Reality');

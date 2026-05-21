@@ -55,7 +55,9 @@ class AtlasAiGovernanceApiTest extends TestCase
         $this->assertContains('documentation_split_plan', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('documentation_reality_score', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('code_reality_anti_duplicate', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_reality_audit', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reachability', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_deletion_preflight', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('universal_reality_cartography_navigation_slice', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', $response->json('architecture_operations.operation_ids'));
@@ -114,7 +116,9 @@ class AtlasAiGovernanceApiTest extends TestCase
         $this->assertContains('documentation_split_plan', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('documentation_reality_score', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('code_reality_anti_duplicate', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_reality_audit', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reachability', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_deletion_preflight', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('universal_reality_cartography_navigation_slice', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', $response->json('architecture_operations.operation_ids'));

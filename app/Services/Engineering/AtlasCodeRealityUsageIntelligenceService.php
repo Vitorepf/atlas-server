@@ -13,10 +13,26 @@ final class AtlasCodeRealityUsageIntelligenceService
 
     public const REACHABILITY_SCHEMA_VERSION = 'atlas.code_reality.reachability.v1';
 
+    public const DELETION_PREFLIGHT_SCHEMA_VERSION = 'atlas.code_reality.deletion_preflight.v1';
+
+    public const REALITY_AUDIT_SCHEMA_VERSION = 'atlas.code_reality.reality_audit.v1';
+
     /**
      * @var array<int,string>
      */
     private const SEARCH_ROOTS = ['app', 'routes', 'config', 'database', 'tests', 'docs/engineering-knowledge-base'];
+
+    /**
+     * @var array<int,string>
+     */
+    private const ADRS_RUNTIME_TARGETS = [
+        'app/Services/Engineering/AtlasDocumentationRealitySystemService.php',
+        'app/Console/Commands/AtlasDocumentationRealityCommand.php',
+        'app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php',
+        'app/Console/Commands/AtlasCodeRealityCommand.php',
+        'app/Services/Engineering/AtlasUniversalRealityCartographyService.php',
+        'app/Console/Commands/AtlasUniversalRealityCartographyCommand.php',
+    ];
 
     public function __construct(
         private readonly EngineeringDocumentationAuthorityAuditService $authorityAudit,
@@ -171,6 +187,88 @@ final class AtlasCodeRealityUsageIntelligenceService
     /**
      * @return array<string,mixed>
      */
+    public function deletionPreflight(string $target): array
+    {
+        $classification = $this->classify($target);
+        $reachability = data_get($classification, 'evidence.reachability', []);
+        $decision = $this->deletionDecision((string) ($classification['classification'] ?? 'unknown_requires_audit'), (string) ($reachability['status'] ?? 'unproven'));
+
+        return $this->envelope([
+            'schema_version' => self::DELETION_PREFLIGHT_SCHEMA_VERSION,
+            'action' => 'deletion-preflight',
+            'target' => trim($target),
+            'target_path' => $classification['target_path'],
+            'classification' => $classification['classification'],
+            'reachability_status' => data_get($reachability, 'status'),
+            'reachability_confidence' => data_get($reachability, 'confidence'),
+            'decision' => $decision,
+            'allowed_to_delete' => false,
+            'required_before_delete' => [
+                'owner_doc_review',
+                'global_reference_scan',
+                'reachability_scan',
+                'focused_tests',
+                'quarantine_plan',
+                'human_approval',
+                'separate_delete_change',
+            ],
+            'evidence' => [
+                'owner_docs' => data_get($classification, 'evidence.owner_docs', []),
+                'tests' => data_get($classification, 'evidence.tests', []),
+                'entrypoints' => data_get($classification, 'evidence.entrypoints', []),
+                'reachability_edges' => data_get($reachability, 'edges', []),
+            ],
+            'blockers' => [],
+            'claim_policy' => [
+                'read_only' => true,
+                'providers_invoked' => false,
+                'rivals_run' => false,
+                'deletes_files' => false,
+                'dead_code_confirmation_allowed' => false,
+                'delete_authorization_allowed' => false,
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function realityAudit(): array
+    {
+        $targets = array_map(fn (string $target): array => $this->classify($target), self::ADRS_RUNTIME_TARGETS);
+        $unknown = array_values(array_filter($targets, static fn (array $target): bool => ! in_array((string) ($target['classification'] ?? ''), ['active_runtime', 'active_read_only'], true)));
+        $weakReachability = array_values(array_filter($targets, static fn (array $target): bool => ! in_array((string) data_get($target, 'evidence.reachability.confidence'), ['high', 'medium'], true)));
+
+        return $this->envelope([
+            'schema_version' => self::REALITY_AUDIT_SCHEMA_VERSION,
+            'action' => 'reality-audit',
+            'scope' => 'adrs_acrui_aurc_runtime_cluster',
+            'target_count' => count($targets),
+            'active_runtime_count' => count(array_filter($targets, static fn (array $target): bool => ($target['classification'] ?? null) === 'active_runtime')),
+            'active_read_only_count' => count(array_filter($targets, static fn (array $target): bool => ($target['classification'] ?? null) === 'active_read_only')),
+            'unknown_or_unused_count' => count($unknown),
+            'weak_reachability_count' => count($weakReachability),
+            'targets' => array_map(static fn (array $target): array => [
+                'target_path' => $target['target_path'],
+                'classification' => $target['classification'],
+                'reachability_status' => data_get($target, 'evidence.reachability.status'),
+                'reachability_confidence' => data_get($target, 'evidence.reachability.confidence'),
+                'owner_doc_count' => count((array) data_get($target, 'evidence.owner_docs', [])),
+                'test_count' => count((array) data_get($target, 'evidence.tests', [])),
+                'entrypoint_count' => count((array) data_get($target, 'evidence.entrypoints', [])),
+            ], $targets),
+            'risk_register' => [
+                'unknown_targets' => array_map(static fn (array $target): ?string => $target['target_path'], $unknown),
+                'weak_reachability_targets' => array_map(static fn (array $target): ?string => $target['target_path'], $weakReachability),
+                'delete_claim_blocked' => true,
+            ],
+            'blockers' => [],
+        ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     public function contextPack(string $task): array
     {
         $antiDuplicate = $this->antiDuplicate($task);
@@ -192,7 +290,9 @@ final class AtlasCodeRealityUsageIntelligenceService
             ],
             'required_commands' => [
                 'php artisan atlas:ai:place-feature "<feature>" --json',
+                'php artisan atlas:code-reality reality-audit --json',
                 'php artisan atlas:code-reality reachability --target="<target>" --json',
+                'php artisan atlas:code-reality deletion-preflight --target="<target>" --json',
                 'php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json',
                 'php artisan atlas:engineering:knowledge docs-health --json',
                 'php artisan atlas:ai:architecture-validate --json',
@@ -494,6 +594,19 @@ final class AtlasCodeRealityUsageIntelligenceService
         }
 
         return 'unused_candidate';
+    }
+
+    private function deletionDecision(string $classification, string $reachabilityStatus): string
+    {
+        if (in_array($classification, ['active_runtime', 'active_read_only', 'headless_available'], true)) {
+            return 'block_delete_active_or_available_target';
+        }
+
+        if (in_array($reachabilityStatus, ['reachable', 'weakly_referenced'], true)) {
+            return 'block_delete_reachability_present';
+        }
+
+        return 'block_delete_until_quarantine_and_human_approval';
     }
 
     /**

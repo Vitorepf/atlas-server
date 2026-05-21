@@ -64,7 +64,9 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('documentation_split_plan', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_reality_score', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_anti_duplicate', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_reality_audit', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reachability', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_deletion_preflight', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('universal_reality_cartography_navigation_slice', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', data_get($payload, 'architecture_operations.operation_ids'));
@@ -239,7 +241,9 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('documentation_split_plan', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_reality_score', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_anti_duplicate', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_reality_audit', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reachability', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_deletion_preflight', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('universal_reality_cartography_navigation_slice', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', data_get($payload, 'architecture_operations.operation_ids'));

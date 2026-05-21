@@ -175,7 +175,10 @@ Comando alvo:
 ```bash
 php artisan atlas:code-reality classify --target="<path|symbol|feature>" --json
 php artisan atlas:code-reality usage-map --target="<feature>" --json
+php artisan atlas:code-reality reality-audit --json
+php artisan atlas:code-reality reachability --target="<target>" --json
 php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json
+php artisan atlas:code-reality deletion-preflight --target="<target>" --json
 php artisan atlas:code-reality dead-code-candidates --json
 php artisan atlas:code-reality context-pack --task="<task>" --json
 ```
@@ -259,6 +262,10 @@ O grafo separa sinais por `routes`, `commands`, `tests`, `owner_docs`,
 `code_callers`, `config` e `database`, gera edges e declara confidence
 `high|medium|low|review_required|none`. Isso ainda e read-only e nao autoriza
 delete.
+
+`reality-audit` audita o cluster ADRS/ACRUI/AURC. `deletion-preflight` nunca
+autoriza delecao; ele retorna decisao, provas e sequencia obrigatoria de
+quarentena/aprovacao humana.
 ### Bloco 3 - Usage Evidence Correlator
 Cruza alvo com:
 - traces;
