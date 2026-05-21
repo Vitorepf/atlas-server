@@ -22,6 +22,11 @@ use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiRealExecutionForgeHandoff;
 use App\Models\AiTrace;
+use App\Models\AtlasAaelAuditReport;
+use App\Models\AtlasAaelEvolutionExperiment;
+use App\Models\AtlasAaelOpportunity;
+use App\Models\AtlasAaelPortfolioCycle;
+use App\Models\AtlasAaelPromotionDecision;
 use App\Models\AtlasAemorExecutionEpisode;
 use App\Models\AtlasAemorJudgmentReport;
 use App\Models\AtlasAemorLearningSignal;
@@ -130,6 +135,7 @@ class AtlasAiControlPlaneService
         $agenticWorkcell = $this->agenticWorkcell($since);
         $autonomousWorkExecution = $this->autonomousWorkExecution($since);
         $verifiedExecution = $this->verifiedExecution($since);
+        $autonomousEvolution = $this->autonomousEvolution($since);
         $swarmCompany = $this->swarmCompany($since);
         $externalExecution = $this->externalExecution($since);
         $blockers = $this->blockers($since, $tracesSection['ids']);
@@ -200,6 +206,11 @@ class AtlasAiControlPlaneService
             'verified_execution_blocked' => $verifiedExecution['summary']['blocked'] ?? 0,
             'verified_execution_certified' => $verifiedExecution['summary']['certified'] ?? 0,
             'verified_execution_gold_certifications' => $verifiedExecution['summary']['gold_certifications'] ?? 0,
+            'aael_opportunities_total' => $autonomousEvolution['summary']['opportunities_total'] ?? 0,
+            'aael_cycles_total' => $autonomousEvolution['summary']['cycles_total'] ?? 0,
+            'aael_experiments_total' => $autonomousEvolution['summary']['experiments_total'] ?? 0,
+            'aael_operator_review_required' => $autonomousEvolution['summary']['operator_review_required'] ?? 0,
+            'aael_blocked' => $autonomousEvolution['summary']['blocked'] ?? 0,
             'swarm_company_roles_total' => $swarmCompany['summary']['role_runs_total'] ?? 0,
             'swarm_company_blocked_releases' => $swarmCompany['summary']['blocked_release_packs'] ?? 0,
             'external_execution_mandates_total' => $externalExecution['summary']['mandates_total'] ?? 0,
@@ -239,6 +250,7 @@ class AtlasAiControlPlaneService
             'agentic_workcell' => $agenticWorkcell,
             'autonomous_work_execution' => $autonomousWorkExecution,
             'verified_execution' => $verifiedExecution,
+            'autonomous_evolution' => $autonomousEvolution,
             'swarm_company' => $swarmCompany,
             'external_execution' => $externalExecution,
             'blockers' => $blockers,
@@ -1747,6 +1759,84 @@ class AtlasAiControlPlaneService
     }
 
     /**
+     * AAEL read model. Aggregate-only; no raw objectives or operator prompts.
+     *
+     * @return array<string,mixed>
+     */
+    private function autonomousEvolution(CarbonImmutable $since): array
+    {
+        $empty = [
+            'status' => 'missing',
+            'summary' => [
+                'opportunities_total' => 0,
+                'cycles_total' => 0,
+                'experiments_total' => 0,
+                'promotion_decisions_total' => 0,
+                'audit_reports_total' => 0,
+                'operator_review_required' => 0,
+                'blocked' => 0,
+            ],
+            'recent_cycles' => [],
+            'recent_decisions' => [],
+        ];
+        if (! Schema::hasTable('atlas_aael_portfolio_cycles')) {
+            return $empty;
+        }
+
+        try {
+            $opportunities = Schema::hasTable('atlas_aael_opportunities')
+                ? AtlasAaelOpportunity::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'opportunity_type', 'risk_level', 'priority_score', 'opportunity_hash'])
+                : collect();
+            $cycles = AtlasAaelPortfolioCycle::query()
+                ->where('created_at', '>=', $since)
+                ->latest()
+                ->limit(100)
+                ->get(['id', 'status', 'portfolio_snapshot', 'cycle_hash', 'created_at']);
+            $experiments = Schema::hasTable('atlas_aael_evolution_experiments')
+                ? AtlasAaelEvolutionExperiment::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'lane', 'experiment_hash'])
+                : collect();
+            $decisions = Schema::hasTable('atlas_aael_promotion_decisions')
+                ? AtlasAaelPromotionDecision::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'trust_level', 'decision_hash', 'created_at'])
+                : collect();
+            $audits = Schema::hasTable('atlas_aael_audit_reports')
+                ? AtlasAaelAuditReport::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'audit_hash'])
+                : collect();
+        } catch (Throwable) {
+            return ['status' => 'degraded'] + $empty;
+        }
+
+        return [
+            'status' => $decisions->where('status', 'blocked')->isNotEmpty() ? 'watch' : 'ready',
+            'summary' => [
+                'opportunities_total' => $opportunities->count(),
+                'cycles_total' => $cycles->count(),
+                'experiments_total' => $experiments->count(),
+                'promotion_decisions_total' => $decisions->count(),
+                'audit_reports_total' => $audits->count(),
+                'operator_review_required' => $decisions->where('status', 'operator_review_required')->count(),
+                'blocked' => $decisions->where('status', 'blocked')->count(),
+            ],
+            'by_opportunity_type' => $this->countsBy($opportunities, 'opportunity_type'),
+            'by_experiment_lane' => $this->countsBy($experiments, 'lane'),
+            'recent_cycles' => $cycles->take(self::RECENT_LIMIT)->map(fn (AtlasAaelPortfolioCycle $cycle): array => [
+                'cycle_id' => (string) $cycle->id,
+                'status' => (string) $cycle->status,
+                'selected_count' => (int) data_get($cycle->portfolio_snapshot, 'selected_count', 0),
+                'operator_queue_count' => (int) data_get($cycle->portfolio_snapshot, 'operator_queue_count', 0),
+                'cycle_hash' => $this->stringOrNull($cycle->cycle_hash),
+                'created_at' => $cycle->created_at?->toJSON(),
+            ])->values()->all(),
+            'recent_decisions' => $decisions->take(self::RECENT_LIMIT)->map(fn (AtlasAaelPromotionDecision $decision): array => [
+                'decision_id' => (string) $decision->id,
+                'status' => (string) $decision->status,
+                'trust_level' => (string) $decision->trust_level,
+                'decision_hash' => $this->stringOrNull($decision->decision_hash),
+                'created_at' => $decision->created_at?->toJSON(),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
      * Swarm/Company read model. This does not start agents; it proves whether
      * the Atlas agent/company substrate is visible as an operational runtime:
      * roles, releases, certifications and agent-control services.
@@ -2101,6 +2191,11 @@ class AtlasAiControlPlaneService
                 'name' => 'verified_execution_runtime',
                 'command' => 'php artisan atlas:aver:certify --json --strict',
                 'schema' => 'atlas.aver.certification.v1',
+            ],
+            [
+                'name' => 'autonomous_evolution_loop',
+                'command' => 'php artisan atlas:aael:certify --json --strict',
+                'schema' => 'atlas.aael.certification.v1',
             ],
             [
                 'name' => 'swarm_company_runtime',

@@ -2820,6 +2820,10 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(10.0, (float) $payload['summary']['holding_outcome_scorecard_average_score']);
         $this->assertSame(9, $payload['summary']['portfolio_decision_packet_ready_count']);
         $this->assertSame(9, $payload['summary']['company_board_operating_review_ready_count']);
+        $this->assertSame(9, $payload['summary']['company_capability_runtime_mesh_ready_count']);
+        $this->assertGreaterThanOrEqual(708, $payload['summary']['company_capability_runtime_mesh_run_count']);
+        $this->assertSame(9, $payload['summary']['company_supervised_connector_execution_ready_count']);
+        $this->assertGreaterThanOrEqual(708, $payload['summary']['company_supervised_connector_execution_run_count']);
         $this->assertSame(9, $payload['summary']['operating_packet_count']);
         $this->assertGreaterThanOrEqual(9.0, (float) $payload['summary']['readiness_score']);
         $this->assertSame(9, $payload['summary']['target_ready_companies']);
@@ -2831,6 +2835,44 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(45, $payload['summary']['agent_repository_operating_catalog_mcp_security_profile_count']);
         $this->assertSame($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['agent_repository_operating_catalog_flow_map_count']);
         $this->assertFalse((bool) $payload['steps']['agent_repository_operating_catalog_status']['policy']['external_execution_allowed']);
+        $this->assertSame('domain_data_fabric_ready_external_mutation_blocked', $payload['steps']['domain_data_fabric_status']['status']);
+        $this->assertSame(9, $payload['summary']['domain_data_fabric_ready_company_count']);
+        $this->assertGreaterThanOrEqual(45, $payload['summary']['domain_data_fabric_source_count']);
+        $this->assertGreaterThanOrEqual($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['domain_data_fabric_product_count']);
+        $this->assertSame($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['domain_data_fabric_workbench_count']);
+        $this->assertSame($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['domain_data_fabric_decision_packet_factory_count']);
+        $this->assertFalse((bool) $payload['steps']['domain_data_fabric_status']['policy']['external_data_mutation_allowed']);
+        $this->assertSame('domain_data_connector_operating_ready_external_mutation_blocked', $payload['steps']['domain_data_connector_operating_status']['status']);
+        $this->assertSame(9, $payload['summary']['domain_data_connector_operating_ready_company_count']);
+        $this->assertGreaterThanOrEqual(63, $payload['summary']['domain_data_connector_operating_source_data_room_count']);
+        $this->assertGreaterThanOrEqual($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['domain_data_connector_operating_product_count']);
+        $this->assertGreaterThanOrEqual(45, $payload['summary']['domain_data_connector_operating_permission_profile_count']);
+        $this->assertSame($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['domain_data_connector_operating_flow_contract_count']);
+        $this->assertSame($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['domain_data_connector_operating_fixture_eval_count']);
+        $this->assertFalse((bool) $payload['steps']['domain_data_connector_operating_status']['policy']['external_data_mutation_allowed']);
+        $this->assertFalse((bool) $payload['steps']['domain_data_connector_operating_status']['policy']['write_tools_enabled']);
+        $this->assertSame('flow_live_read_connector_probe_ready_external_mutation_blocked', $payload['steps']['flow_live_read_connector_probe_status']['status']);
+        $this->assertSame(9, $payload['summary']['flow_live_read_connector_probe_ready_company_count']);
+        $this->assertGreaterThanOrEqual(45, $payload['summary']['flow_live_read_connector_probe_profile_count']);
+        $this->assertSame($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['flow_live_read_connector_probe_contract_count']);
+        $this->assertSame($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['flow_live_read_connector_probe_evidence_matrix_count']);
+        $this->assertSame(
+            $payload['steps']['flow_action_runtime_run']['summary']['flow_count'],
+            $payload['steps']['flow_live_read_connector_probe_runtime_status']['summary']['completed_flow_live_read_connector_probe_count'],
+        );
+        $this->assertTrue((bool) $payload['steps']['flow_live_read_connector_probe_status']['policy']['live_read_allowed']);
+        $this->assertFalse((bool) $payload['steps']['flow_live_read_connector_probe_status']['policy']['external_mutation_allowed']);
+        $this->assertFalse((bool) $payload['steps']['flow_live_read_connector_probe_status']['policy']['credential_material_in_packet_allowed']);
+        $this->assertSame('external_research_adoption_ready_external_effects_blocked', $payload['steps']['external_research_adoption_status']['status']);
+        $this->assertSame(9, $payload['summary']['external_research_adoption_ready_company_count']);
+        $this->assertGreaterThanOrEqual(108, $payload['summary']['external_research_adoption_source_basis_count']);
+        $this->assertGreaterThanOrEqual(72, $payload['summary']['external_research_adoption_framework_repository_count']);
+        $this->assertGreaterThanOrEqual(27, $payload['summary']['external_research_adoption_domain_repository_count']);
+        $this->assertSame($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['external_research_adoption_flow_matrix_count']);
+        $this->assertGreaterThanOrEqual(108, $payload['summary']['external_research_adoption_capability_map_count']);
+        $this->assertGreaterThanOrEqual(45, $payload['summary']['external_research_adoption_connector_backlog_count']);
+        $this->assertFalse((bool) $payload['steps']['external_research_adoption_status']['policy']['external_execution_allowed']);
+        $this->assertFalse((bool) $payload['steps']['external_research_adoption_status']['policy']['runtime_ingestion_without_source_review_allowed']);
         $this->assertSame('domain_agent_toolchains_certified_external_execution_blocked', $payload['steps']['domain_agent_toolchain_certification_status']['status']);
         $this->assertSame(9, $payload['steps']['domain_agent_toolchain_certification_status']['summary']['ready_company_count']);
         $this->assertSame(9, $payload['summary']['domain_agent_toolchain_certified_company_count']);
@@ -2921,6 +2963,10 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(64, strlen((string) $payload['steps']['company_domain_solution_pack_status']['enterprise_company_domain_solution_pack_status_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['company_agent_operations_pack_status']['enterprise_company_agent_operations_pack_status_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['agent_repository_operating_catalog_status']['agent_repository_operating_catalog_status_hash']));
+        $this->assertSame(64, strlen((string) $payload['steps']['domain_data_fabric_status']['domain_data_fabric_status_hash']));
+        $this->assertSame(64, strlen((string) $payload['steps']['domain_data_connector_operating_status']['domain_data_connector_operating_status_hash']));
+        $this->assertSame(64, strlen((string) $payload['steps']['flow_live_read_connector_probe_status']['flow_live_read_connector_probe_status_hash']));
+        $this->assertSame(64, strlen((string) $payload['steps']['external_research_adoption_status']['external_research_adoption_status_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['company_domain_operating_model_certification_status']['enterprise_company_domain_operating_model_certification_status_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['company_operational_execution_loop_status']['enterprise_company_operational_execution_loop_status_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['company_work_product_acceptance_evidence_status']['enterprise_company_work_product_acceptance_evidence_status_hash']));
@@ -5032,6 +5078,161 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertContains('openai_agents_python', $payload['companies'][0]['framework_ids']);
         $this->assertFalse((bool) $payload['companies'][0]['external_execution_allowed']);
         $this->assertSame(64, strlen((string) $payload['agent_repository_operating_catalog_status_hash']));
+    }
+
+    public function test_enterprise_domain_data_fabric_status_reports_source_grounded_data_fabric_gates(): void
+    {
+        $exit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-domain-data-fabric-status',
+            '--company' => 'finance',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue((bool) $payload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_domain_data_fabric_status.v1', $payload['schema']);
+        $this->assertSame('domain_data_fabric_ready_external_mutation_blocked', $payload['status']);
+        $this->assertSame(1, $payload['summary']['company_count']);
+        $this->assertSame(1, $payload['summary']['ready_company_count']);
+        $this->assertGreaterThanOrEqual(5, $payload['summary']['source_count']);
+        $this->assertGreaterThanOrEqual(3, $payload['summary']['provider_count']);
+        $this->assertGreaterThanOrEqual(5, $payload['summary']['data_product_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['flow_workbench_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['decision_packet_factory_count']);
+        $this->assertGreaterThanOrEqual(8, $payload['summary']['enablement_track_count']);
+        $this->assertFalse((bool) $payload['policy']['calendar_wait_blocker_enabled']);
+        $this->assertTrue((bool) $payload['policy']['direct_source_link_required_for_every_claim']);
+        $this->assertTrue((bool) $payload['policy']['cross_source_verification_required']);
+        $this->assertFalse((bool) $payload['policy']['external_data_mutation_allowed']);
+        $this->assertContains('claim_without_source_link', $payload['policy']['blocked_operations']);
+        $this->assertSame('finance', $payload['companies'][0]['company_id']);
+        $this->assertTrue((bool) $payload['companies'][0]['ready']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['direct_source_links_required']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['cross_source_verification_required']);
+        $this->assertFalse((bool) $payload['companies'][0]['external_data_mutation_allowed']);
+        $this->assertSame(64, strlen((string) $payload['domain_data_fabric_status_hash']));
+    }
+
+    public function test_enterprise_domain_data_connector_operating_status_reports_connector_data_room_gates(): void
+    {
+        $exit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-domain-data-connector-operating-status',
+            '--company' => 'finance',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue((bool) $payload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_domain_data_connector_operating_status.v1', $payload['schema']);
+        $this->assertSame('domain_data_connector_operating_ready_external_mutation_blocked', $payload['status']);
+        $this->assertSame(1, $payload['summary']['company_count']);
+        $this->assertSame(1, $payload['summary']['ready_company_count']);
+        $this->assertGreaterThanOrEqual(7, $payload['summary']['source_data_room_count']);
+        $this->assertGreaterThanOrEqual(5, $payload['summary']['domain_data_product_count']);
+        $this->assertGreaterThanOrEqual(3, $payload['summary']['connector_permission_profile_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['flow_data_connector_contract_count']);
+        $this->assertSame($payload['summary']['flow_data_connector_contract_count'], $payload['summary']['ready_flow_data_connector_contract_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['connector_fixture_eval_suite_count']);
+        $this->assertSame($payload['summary']['connector_fixture_eval_suite_count'], $payload['summary']['ready_connector_fixture_eval_suite_count']);
+        $this->assertFalse((bool) $payload['policy']['calendar_wait_blocker_enabled']);
+        $this->assertTrue((bool) $payload['policy']['read_only_probe_required_before_live_use']);
+        $this->assertFalse((bool) $payload['policy']['write_tools_enabled']);
+        $this->assertFalse((bool) $payload['policy']['external_data_mutation_allowed']);
+        $this->assertTrue((bool) $payload['policy']['operator_mandate_required_for_external_write_spend_trade_publish_deploy_delete_or_security_action']);
+        $this->assertContains('live_connector_without_permission_profile', $payload['policy']['blocked_operations']);
+        $this->assertSame('finance', $payload['companies'][0]['company_id']);
+        $this->assertTrue((bool) $payload['companies'][0]['ready']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['source_data_room_catalog_green']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['connector_permission_profiles_cover_connectors']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['flow_data_connector_contracts_cover_flows']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['connector_fixture_eval_suites_cover_flows']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['read_only_probe_required']);
+        $this->assertFalse((bool) $payload['companies'][0]['external_data_mutation_allowed']);
+        $this->assertFalse((bool) $payload['companies'][0]['write_tools_enabled']);
+        $this->assertSame(64, strlen((string) $payload['domain_data_connector_operating_status_hash']));
+    }
+
+    public function test_enterprise_flow_live_read_connector_probe_status_reports_probe_scope_gates(): void
+    {
+        $exit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-flow-live-read-connector-probe-status',
+            '--company' => 'finance',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue((bool) $payload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_flow_live_read_connector_probe_status.v1', $payload['schema']);
+        $this->assertSame('flow_live_read_connector_probe_ready_external_mutation_blocked', $payload['status']);
+        $this->assertSame(1, $payload['summary']['company_count']);
+        $this->assertSame(1, $payload['summary']['ready_company_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['connector_probe_profile_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['flow_live_read_probe_contract_count']);
+        $this->assertSame($payload['summary']['flow_live_read_probe_contract_count'], $payload['summary']['ready_flow_live_read_probe_contract_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['flow_probe_evidence_matrix_count']);
+        $this->assertSame($payload['summary']['flow_probe_evidence_matrix_count'], $payload['summary']['ready_flow_probe_evidence_matrix_count']);
+        $this->assertGreaterThanOrEqual(0, $payload['summary']['runtime_completed_probe_flow_count']);
+        $this->assertFalse((bool) $payload['policy']['calendar_wait_blocker_enabled']);
+        $this->assertTrue((bool) $payload['policy']['live_read_allowed']);
+        $this->assertFalse((bool) $payload['policy']['write_tools_enabled']);
+        $this->assertFalse((bool) $payload['policy']['external_mutation_allowed']);
+        $this->assertFalse((bool) $payload['policy']['credential_material_in_packet_allowed']);
+        $this->assertTrue((bool) $payload['policy']['operator_scope_required_before_live_connector_probe']);
+        $this->assertContains('live_probe_without_operator_scope', $payload['policy']['blocked_operations']);
+        $this->assertSame('finance', $payload['companies'][0]['company_id']);
+        $this->assertTrue((bool) $payload['companies'][0]['ready']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['connector_probe_profiles_cover_connectors']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['flow_live_read_probe_contracts_cover_flows']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['flow_probe_evidence_matrix_cover_flows']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['operator_scope_required']);
+        $this->assertTrue((bool) $payload['companies'][0]['live_read_allowed']);
+        $this->assertFalse((bool) $payload['companies'][0]['external_mutation_allowed']);
+        $this->assertFalse((bool) $payload['companies'][0]['credential_material_in_packet_allowed']);
+        $this->assertSame(64, strlen((string) $payload['flow_live_read_connector_probe_status_hash']));
+    }
+
+    public function test_enterprise_external_research_adoption_status_reports_research_to_runtime_gates(): void
+    {
+        $exit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-external-research-adoption-status',
+            '--company' => 'finance',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue((bool) $payload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_external_research_adoption_status.v1', $payload['schema']);
+        $this->assertSame('external_research_adoption_ready_external_effects_blocked', $payload['status']);
+        $this->assertSame(1, $payload['summary']['company_count']);
+        $this->assertSame(1, $payload['summary']['ready_company_count']);
+        $this->assertGreaterThanOrEqual(12, $payload['summary']['source_basis_count']);
+        $this->assertGreaterThanOrEqual(8, $payload['summary']['official_framework_repository_count']);
+        $this->assertGreaterThanOrEqual(3, $payload['summary']['domain_repository_candidate_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['flow_adoption_matrix_count']);
+        $this->assertSame($payload['summary']['flow_adoption_matrix_count'], $payload['summary']['ready_flow_adoption_matrix_count']);
+        $this->assertGreaterThanOrEqual(12, $payload['summary']['capability_map_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['connector_backlog_count']);
+        $this->assertGreaterThanOrEqual(5, $payload['summary']['production_gate_group_count']);
+        $this->assertFalse((bool) $payload['policy']['calendar_wait_blocker_enabled']);
+        $this->assertTrue((bool) $payload['policy']['external_research_is_architecture_input_only']);
+        $this->assertFalse((bool) $payload['policy']['runtime_ingestion_without_source_review_allowed']);
+        $this->assertFalse((bool) $payload['policy']['repository_adoption_without_license_security_and_fixture_eval_allowed']);
+        $this->assertFalse((bool) $payload['policy']['external_execution_allowed']);
+        $this->assertContains('unreviewed_repository_adoption', $payload['policy']['blocked_operations']);
+        $this->assertSame('finance', $payload['companies'][0]['company_id']);
+        $this->assertTrue((bool) $payload['companies'][0]['ready']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['source_basis_green']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['repository_catalog_green']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['flow_adoption_matrix_covers_flows']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['operator_mandate_required']);
+        $this->assertTrue((bool) $payload['companies'][0]['external_research_is_architecture_input_only']);
+        $this->assertFalse((bool) $payload['companies'][0]['external_execution_allowed']);
+        $this->assertFalse((bool) $payload['companies'][0]['external_side_effects_enabled']);
+        $this->assertSame(64, strlen((string) $payload['external_research_adoption_status_hash']));
     }
 
     public function test_enterprise_industry_solution_ecosystem_status_reports_solution_ecosystem_gates(): void
@@ -8026,6 +8227,98 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertFalse((bool) $companyBusinessRuntimePersistenceStatus['external_side_effects_enabled']);
         }
 
+        $capabilityRuntimeMeshRegisterExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-company-capability-runtime-mesh-register',
+            '--json' => true,
+        ]);
+        $capabilityRuntimeMeshRegisterPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $capabilityRuntimeMeshRegisterExit, Artisan::output());
+        $this->assertTrue((bool) $capabilityRuntimeMeshRegisterPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_company_capability_runtime_mesh_register.v1', $capabilityRuntimeMeshRegisterPayload['schema']);
+        $this->assertSame('enterprise_company_capability_runtime_mesh_registered_external_effects_blocked', $capabilityRuntimeMeshRegisterPayload['status']);
+        $this->assertSame(12, $capabilityRuntimeMeshRegisterPayload['summary']['capability_count']);
+        $this->assertSame($capabilityRuntimeMeshRegisterPayload['summary']['expected_capability_runtime_run_count'], $capabilityRuntimeMeshRegisterPayload['summary']['registered_capability_runtime_run_count']);
+        $this->assertGreaterThanOrEqual(708, $capabilityRuntimeMeshRegisterPayload['summary']['registered_capability_runtime_run_count']);
+        $this->assertSame(0, $capabilityRuntimeMeshRegisterPayload['summary']['external_execution_allowed_count']);
+        $this->assertSame(0, $capabilityRuntimeMeshRegisterPayload['summary']['external_side_effects_enabled_count']);
+        $this->assertSame($capabilityRuntimeMeshRegisterPayload['summary']['registered_capability_runtime_run_count'], AtlasToolRun::query()->where('surface', 'holding_company_enterprise_capability_runtime')->count());
+        $this->assertContains('capability_runtime_receipt', $capabilityRuntimeMeshRegisterPayload['policy']['required_runtime_evidence']);
+        $this->assertContains('trade', $capabilityRuntimeMeshRegisterPayload['policy']['blocked_operations']);
+        $this->assertSame(64, strlen((string) $capabilityRuntimeMeshRegisterPayload['enterprise_company_capability_runtime_mesh_register_hash']));
+
+        $capabilityRuntimeMeshStatusExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-company-capability-runtime-mesh-status',
+            '--json' => true,
+        ]);
+        $capabilityRuntimeMeshStatusPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $capabilityRuntimeMeshStatusExit, Artisan::output());
+        $this->assertTrue((bool) $capabilityRuntimeMeshStatusPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_company_capability_runtime_mesh_status.v1', $capabilityRuntimeMeshStatusPayload['schema']);
+        $this->assertSame('enterprise_company_capability_runtime_mesh_ready_external_effects_blocked', $capabilityRuntimeMeshStatusPayload['status']);
+        $this->assertSame(9, $capabilityRuntimeMeshStatusPayload['summary']['company_count']);
+        $this->assertSame(12, $capabilityRuntimeMeshStatusPayload['summary']['capability_count']);
+        $this->assertSame(9, $capabilityRuntimeMeshStatusPayload['summary']['capability_runtime_mesh_ready_company_count']);
+        $this->assertSame($capabilityRuntimeMeshStatusPayload['summary']['expected_capability_runtime_run_count'], $capabilityRuntimeMeshStatusPayload['summary']['ready_capability_runtime_run_count']);
+        $this->assertSame($capabilityRuntimeMeshStatusPayload['summary']['required_gate_count'], $capabilityRuntimeMeshStatusPayload['summary']['ready_gate_count']);
+        $this->assertSame(64, strlen((string) $capabilityRuntimeMeshStatusPayload['enterprise_company_capability_runtime_mesh_status_hash']));
+
+        foreach ($capabilityRuntimeMeshStatusPayload['companies'] as $companyCapabilityRuntimeMeshStatus) {
+            $this->assertTrue((bool) $companyCapabilityRuntimeMeshStatus['capability_runtime_mesh_ready'], (string) $companyCapabilityRuntimeMeshStatus['company_id']);
+            $this->assertSame('target_9_enterprise_capability_runtime_mesh_ready_external_effects_blocked', $companyCapabilityRuntimeMeshStatus['runtime_grade'], (string) $companyCapabilityRuntimeMeshStatus['company_id']);
+            $this->assertSame([], $companyCapabilityRuntimeMeshStatus['missing_gates'], (string) $companyCapabilityRuntimeMeshStatus['company_id']);
+            $this->assertTrue((bool) $companyCapabilityRuntimeMeshStatus['gates']['persisted_capability_runtime_runs_cover_all_capabilities_and_flows'], (string) $companyCapabilityRuntimeMeshStatus['company_id']);
+            $this->assertSame(64, strlen((string) data_get($companyCapabilityRuntimeMeshStatus, 'runtime_records.0.receipt_chain.capability_runtime_receipt_hash')));
+            $this->assertFalse((bool) $companyCapabilityRuntimeMeshStatus['external_execution_allowed']);
+            $this->assertFalse((bool) $companyCapabilityRuntimeMeshStatus['external_side_effects_enabled']);
+        }
+
+        $supervisedConnectorExecutionRegisterExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-company-supervised-connector-execution-register',
+            '--json' => true,
+        ]);
+        $supervisedConnectorExecutionRegisterPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $supervisedConnectorExecutionRegisterExit, Artisan::output());
+        $this->assertTrue((bool) $supervisedConnectorExecutionRegisterPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_company_supervised_connector_execution_register.v1', $supervisedConnectorExecutionRegisterPayload['schema']);
+        $this->assertSame('enterprise_company_supervised_connector_execution_registered_external_effects_blocked', $supervisedConnectorExecutionRegisterPayload['status']);
+        $this->assertSame($supervisedConnectorExecutionRegisterPayload['summary']['expected_supervised_connector_execution_run_count'], $supervisedConnectorExecutionRegisterPayload['summary']['registered_supervised_connector_execution_run_count']);
+        $this->assertGreaterThanOrEqual(708, $supervisedConnectorExecutionRegisterPayload['summary']['registered_supervised_connector_execution_run_count']);
+        $this->assertSame(0, $supervisedConnectorExecutionRegisterPayload['summary']['external_execution_allowed_count']);
+        $this->assertSame(0, $supervisedConnectorExecutionRegisterPayload['summary']['external_side_effects_enabled_count']);
+        $this->assertSame($supervisedConnectorExecutionRegisterPayload['summary']['registered_supervised_connector_execution_run_count'], AtlasToolRun::query()->where('surface', 'holding_company_supervised_connector_execution')->count());
+        $this->assertContains('connector_execution_receipt', $supervisedConnectorExecutionRegisterPayload['policy']['required_runtime_evidence']);
+        $this->assertContains('credential_material_export', $supervisedConnectorExecutionRegisterPayload['policy']['blocked_operations']);
+        $this->assertSame(64, strlen((string) $supervisedConnectorExecutionRegisterPayload['enterprise_company_supervised_connector_execution_register_hash']));
+
+        $supervisedConnectorExecutionStatusExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-company-supervised-connector-execution-status',
+            '--json' => true,
+        ]);
+        $supervisedConnectorExecutionStatusPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $supervisedConnectorExecutionStatusExit, Artisan::output());
+        $this->assertTrue((bool) $supervisedConnectorExecutionStatusPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_company_supervised_connector_execution_status.v1', $supervisedConnectorExecutionStatusPayload['schema']);
+        $this->assertSame('enterprise_company_supervised_connector_execution_ready_external_effects_blocked', $supervisedConnectorExecutionStatusPayload['status']);
+        $this->assertSame(9, $supervisedConnectorExecutionStatusPayload['summary']['company_count']);
+        $this->assertSame(9, $supervisedConnectorExecutionStatusPayload['summary']['supervised_connector_execution_ready_company_count']);
+        $this->assertSame($supervisedConnectorExecutionStatusPayload['summary']['expected_supervised_connector_execution_run_count'], $supervisedConnectorExecutionStatusPayload['summary']['ready_supervised_connector_execution_run_count']);
+        $this->assertSame($supervisedConnectorExecutionStatusPayload['summary']['required_gate_count'], $supervisedConnectorExecutionStatusPayload['summary']['ready_gate_count']);
+        $this->assertSame(64, strlen((string) $supervisedConnectorExecutionStatusPayload['enterprise_company_supervised_connector_execution_status_hash']));
+
+        foreach ($supervisedConnectorExecutionStatusPayload['companies'] as $companySupervisedConnectorExecutionStatus) {
+            $this->assertTrue((bool) $companySupervisedConnectorExecutionStatus['supervised_connector_execution_ready'], (string) $companySupervisedConnectorExecutionStatus['company_id']);
+            $this->assertSame('target_9_supervised_connector_execution_ready_external_effects_blocked', $companySupervisedConnectorExecutionStatus['runtime_grade'], (string) $companySupervisedConnectorExecutionStatus['company_id']);
+            $this->assertSame([], $companySupervisedConnectorExecutionStatus['missing_gates'], (string) $companySupervisedConnectorExecutionStatus['company_id']);
+            $this->assertTrue((bool) $companySupervisedConnectorExecutionStatus['gates']['supervised_connector_execution_runs_cover_capability_runtime_mesh'], (string) $companySupervisedConnectorExecutionStatus['company_id']);
+            $this->assertSame(64, strlen((string) data_get($companySupervisedConnectorExecutionStatus, 'runtime_records.0.receipt_chain.connector_execution_receipt_hash')));
+            $this->assertFalse((bool) $companySupervisedConnectorExecutionStatus['external_execution_allowed']);
+            $this->assertFalse((bool) $companySupervisedConnectorExecutionStatus['external_side_effects_enabled']);
+        }
+
         $productionReadinessExit = Artisan::call('atlas:ai:autonomous-holding', [
             '--action' => 'enterprise-company-production-readiness-certification-status',
             '--json' => true,
@@ -8046,6 +8339,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(9, $productionReadinessPayload['summary']['work_product_runtime_ready_company_count']);
         $this->assertSame(9, $productionReadinessPayload['summary']['operating_blueprint_runtime_ready_company_count']);
         $this->assertSame(9, $productionReadinessPayload['summary']['business_runtime_persistence_ready_company_count']);
+        $this->assertSame(9, $productionReadinessPayload['summary']['capability_runtime_mesh_ready_company_count']);
+        $this->assertSame(9, $productionReadinessPayload['summary']['supervised_connector_execution_ready_company_count']);
         $this->assertSame(0, $productionReadinessPayload['summary']['external_execution_allowed_count']);
         $this->assertSame(0, $productionReadinessPayload['summary']['external_side_effects_enabled_count']);
         $this->assertSame(0, $productionReadinessPayload['summary']['external_launch_allowed_count']);
@@ -8087,6 +8382,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertTrue((bool) $companyProductionReadiness['gates']['work_product_runtime_persisted'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['operating_blueprint_runtime_persisted'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['business_runtime_persistence_ready'], (string) $companyProductionReadiness['company_id']);
+            $this->assertTrue((bool) $companyProductionReadiness['gates']['capability_runtime_mesh_ready'], (string) $companyProductionReadiness['company_id']);
+            $this->assertTrue((bool) $companyProductionReadiness['gates']['supervised_connector_execution_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['quality_compliance_lifecycle_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['holding_outcome_scorecard_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['portfolio_decision_packet_ready'], (string) $companyProductionReadiness['company_id']);
@@ -8113,6 +8410,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_work_product_runtime_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_operating_blueprint_runtime_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_business_runtime_persistence_status_record_hash']));
+            $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_capability_runtime_mesh_status_record_hash']));
+            $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_supervised_connector_execution_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_domain_tool_execution_readiness_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_flow_tool_execution_ledger_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_flow_tool_execution_runtime_status_record_hash']));
@@ -8151,6 +8450,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame($operatingEvidencePayload['summary']['required_gate_count'], $operatingEvidencePayload['summary']['ready_gate_count']);
         $this->assertSame(1.0, (float) $operatingEvidencePayload['summary']['average_bundle_score']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['agent_operations_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['capability_runtime_mesh_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['supervised_connector_execution_bundle_ready_company_count']);
         $this->assertGreaterThanOrEqual($operatingEvidencePayload['summary']['expected_flow_count'] * 2, $operatingEvidencePayload['summary']['flow_evidence_record_count']);
         $this->assertFalse((bool) $operatingEvidencePayload['policy']['calendar_wait_blocker_enabled']);
         $this->assertFalse((bool) $operatingEvidencePayload['policy']['external_execution_allowed']);
@@ -8163,6 +8464,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertContains('work_product_runtime', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('operating_blueprint_runtime', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('business_runtime_persistence', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('capability_runtime_mesh', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('supervised_connector_execution', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('quality_compliance', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('skip_operator_acceptance', $operatingEvidencePayload['policy']['blocked_operations']);
         $this->assertSame(64, strlen((string) $operatingEvidencePayload['enterprise_company_operating_evidence_bundle_status_hash']));
@@ -8183,6 +8486,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['work_product_runtime_persisted_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['operating_blueprint_runtime_persisted_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['business_runtime_persistence_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['capability_runtime_mesh_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['supervised_connector_execution_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['quality_compliance_bundle_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['supervised_cutover_evidence_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['source_lineage_hashes_complete'], (string) $companyOperatingEvidence['company_id']);
@@ -8194,6 +8499,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_work_product_runtime_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_operating_blueprint_runtime_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_business_runtime_persistence_status_record_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_capability_runtime_mesh_status_record_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_supervised_connector_execution_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_quality_compliance_lifecycle_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_flow_tool_execution_ledger_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_flow_tool_execution_runtime_status_record_hash']));
