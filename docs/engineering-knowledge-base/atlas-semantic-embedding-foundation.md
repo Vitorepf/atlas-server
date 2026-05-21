@@ -2,9 +2,9 @@
 id: atlas-semantic-embedding-foundation
 type: engineering_knowledge
 title: Atlas Semantic Embedding Foundation
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: ASEF ainda nao possui runtime proprio, migrations/jobs de indexacao final, tests ou certificacao; e o bloco 1 da AUCRI.
+status: building
+implementation_state: building_manifest_readiness_runtime_no_external_embeddings
+blocker: ASEF possui manifest/readiness Laravel para chunks, hashes, privacy e candidate sets; embeddings semanticos reais, vector indexing final e delete cascade persistente continuam bloqueados para runtime python_ai_data governado.
 category: intelligence-runtime
 priority: 99
 summary: Doc filha AUCRI para embeddings semanticos, chunking, versionamento, privacy, delete cascade, provider-safe policy e golden sets. Embeddings sao candidatos de retrieval, nao fonte de verdade.
@@ -23,6 +23,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - config/atlas.php
   - app/Services/Semantic/EmbeddingService.php
+  - app/Services/Ai/Context/AtlasSemanticEmbeddingFoundationService.php
+  - app/Console/Commands/AtlasSemanticEmbeddingFoundationCommand.php
+  - tests/Feature/Ai/Context/SemanticEmbeddingFoundationTest.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
 product_name: Atlas Semantic Embedding Foundation
@@ -35,7 +38,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
-graph_status: planned
+graph_status: building
 graph_source: repo
 owner: atlas-ai
 repo_paths:
@@ -52,14 +55,20 @@ unlocks: [semantic_candidate_retrieval, governed_vector_indexing]
 governs: [embeddings, vector_candidates]
 evidence:
   - docs/engineering-knowledge-base/atlas-semantic-embedding-foundation.md
+  - app/Services/Ai/Context/AtlasSemanticEmbeddingFoundationService.php
+  - app/Console/Commands/AtlasSemanticEmbeddingFoundationCommand.php
+  - tests/Feature/Ai/Context/SemanticEmbeddingFoundationTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:local-rag-readiness --json"
+  - "php artisan atlas:context:semantic-foundation --json"
+  - "php artisan test tests/Feature/Ai/Context/SemanticEmbeddingFoundationTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Criar AUCRI-I2 slice ASEF com inventory de tabelas, providers e policy.
+  - Conectar candidate_set ASEF ao AHRI como input governado.
+  - Criar runtime python_ai_data para embeddings semanticos reais somente com Decision Receipt.
 ---
 
 # Atlas Semantic Embedding Foundation
@@ -67,13 +76,19 @@ next_actions:
 ## Resumo
 
 ASEF e o bloco 1 da AUCRI. Ele transforma documentos, memorias, anexos e
-artefatos em candidatos vetoriais recuperaveis, com privacidade, versionamento
-e delete cascade. Ele nao decide contexto final.
+artefatos em candidatos recuperaveis, com privacidade, versionamento, hashes e
+delete keys. Ele nao decide contexto final.
 
 ## Papel no Atlas
 
-Fornecer candidatos semanticos para retrieval. AHRI coleta esses candidatos,
-ACRS ranqueia, ACFQ valida freshness/qualidade e APCR/ACIE fazem handoff.
+Fornecer candidatos para retrieval. AHRI coleta esses candidatos, ACRS ranqueia,
+ACFQ valida freshness/qualidade e APCR/ACIE fazem handoff.
+
+Estado atual: `AtlasSemanticEmbeddingFoundationService` entrega manifest
+deterministico, chunking, privacy gate, lexical signature provider-safe,
+`delete_cascade_key`, readiness e comando
+`php artisan atlas:context:semantic-foundation --json`. Ele nao gera embedding
+externo nem escreve em vector store.
 
 ## Onde Se Encaixa
 
@@ -88,6 +103,7 @@ sources -> chunking -> embedding -> vector candidate set -> AHRI -> ACRS
 - `atlas.aucri.embedding_candidate_set.v1`
 - `atlas.aucri.embedding_index_receipt.v1`
 - `atlas.aucri.embedding_delete_cascade.v1`
+- `atlas.aucri.semantic_embedding_foundation.v1`
 
 Campos: `source_ref`, `chunk_hash`, `embedding_provider`, `embedding_model`,
 `privacy_class`, `authority_level`, `valid_from`, `delete_policy`,
@@ -112,9 +128,11 @@ Campos: `source_ref`, `chunk_hash`, `embedding_provider`, `embedding_model`,
 
 ## Escopo de Implementacao
 
-Implementar service, index jobs, adapters, schema, tests, readiness e
-certification. Reusar `semantic_notes`, `ai_attachment_index_entries` e stores
-existentes quando possivel.
+Implementar em duas camadas. Camada atual Laravel: manifest, chunking,
+privacidade, hashes, readiness e candidate set sem escrita. Camada futura
+Python: embeddings semanticos, rerank/vector indexing e index receipts
+persistidos atras de Decision Receipt. Reusar `semantic_notes`,
+`ai_attachment_index_entries` e stores existentes quando possivel.
 
 ## Dependencias
 
@@ -122,8 +140,8 @@ AUCRI, Memory Retrieval, privacy policy, Evidence Ledger, Local RAG readiness.
 
 ## Evidencias
 
-Readiness local, index receipts, tests de privacy, benchmark de golden set,
-delete cascade testado.
+Readiness local, candidate set hash, tests de privacy, command JSON, futuros
+index receipts, benchmark de golden set e delete cascade persistente testado.
 
 ## Riscos
 
@@ -136,6 +154,6 @@ retorna candidatos semanticamente relevantes com hashes e fonte.
 
 ## Proximas Acoes
 
-1. Inventariar tabelas e providers existentes.
-2. Definir chunking canonico.
+1. Conectar AHRI ao candidate set ASEF.
+2. Definir AP/Decision Receipt para runtime Python de embeddings.
 3. Criar cert ASEF antes de ativar external embeddings.

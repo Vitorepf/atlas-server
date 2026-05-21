@@ -3,9 +3,9 @@ id: atlas-retrieval-privacy-trust-layer
 type: engineering_knowledge
 doc_schema: atlas_canonical_module_doc.v1
 title: Atlas Retrieval Privacy & Trust Layer
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: ARPTL ainda nao possui classifier, trust receipt, redaction plan, provider-safe gate ou delete cascade tests; e bloco 13 da AUCRI.
+status: active
+implementation_state: runtime_surface_privacy_trust_ready
+blocker: Provider enforcement nos flows finais ainda depende de AKIF/ACCR/ATER; runtime ARPTL read-only ja emite gate, receipts e tests.
 category: context_retrieval_intelligence
 priority: 97
 summary: "Camada de privacidade, trust, redacao, retencao e provider-safe policy para todo retrieval e ingestion do Atlas."
@@ -36,6 +36,9 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-semantic-embedding-foundation.md
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - app/Services/Ai/Context/AtlasRetrievalPrivacyTrustLayerService.php
+  - app/Console/Commands/AtlasRetrievalPrivacyTrustLayerCommand.php
+  - tests/Feature/Ai/Context/RetrievalPrivacyTrustLayerTest.php
 allowed_changes:
   - Criar gates de privacy, trust e retention.
   - Aplicar redacao antes de provider externo.
@@ -54,7 +57,8 @@ evidence:
   - docs/engineering-knowledge-base/atlas-retrieval-privacy-trust-layer.md
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:retrieval:trust readiness --json"
+  - "php artisan atlas:context:privacy-trust --json"
+  - "php artisan test tests/Feature/Ai/Context/RetrievalPrivacyTrustLayerTest.php"
 requires_evidence: true
 risk_level: critical
 line_limit: 520
@@ -108,8 +112,9 @@ Campos minimos: `source_ref`, `classification`, `allowed_actions`,
 
 ## Escopo de Implementacao
 
-Implementar privacy classifier, policy evaluator, redaction plan, provider-safe
-gate, deletion cascade audit e tests com PII/secret fixtures.
+Implementado em `AtlasRetrievalPrivacyTrustLayerService` como runtime read-only:
+classifier de segredo/PII, policy evaluator, redaction receipt, provider-safe
+gate, retention/delete cascade receipt e tests com PII/secret fixtures.
 
 ## Dependencias
 
@@ -118,8 +123,9 @@ antes do retrieval.
 
 ## Evidencias
 
-Evidencia minima: trust receipt por fonte, redaction diff, provider-safe
-decision, retention policy e teste que bloqueia segredo.
+Evidencia atual: `atlas:context:privacy-trust --json`, trust receipt por fonte,
+redaction receipt sem texto cru, provider-safe decision, retention policy e teste
+que bloqueia segredo em provider externo.
 
 ## Riscos
 
@@ -135,7 +141,7 @@ externo se policy nao permitir. O context pack deve receber versao redigida.
 
 ## Proximas Acoes
 
-1. Definir classificacoes canonicas.
-2. Criar trust receipt.
-3. Integrar com AKIF, ASEF e ACOP.
-4. Rodar fixtures de PII, secrets e delete cascade.
+1. Enforcar ARPTL nos blocos AKIF/ACCR/ATER.
+2. Conectar delete refs com embeddings/graph quando houver persistencia real.
+3. Promover gate para mandatory em provider/context compiler.
+4. Manter fixtures de PII, secrets e delete cascade verdes.

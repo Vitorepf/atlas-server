@@ -845,10 +845,26 @@ class AutonomousHoldingEnterpriseBuildoutService
                     'connectors' => [
                         'required' => array_values((array) ($spec[1] ?? [])),
                         'available_company_connectors' => $connectors,
-                        'domain_source_refs' => array_values(array_slice($sourceIds, $index % max(1, count($sourceIds)), min(5, count($sourceIds)))),
+                        'domain_source_refs' => array_values(array_slice($sourceIds, 0, min(5, count($sourceIds)))),
                         'governance' => ['least_privilege_scope', 'read_only_or_fixture_default', 'schema_snapshot_required', 'source_lineage_required', 'receipt_export_required'],
                     ],
                     'subagents' => $this->domainWorkloadSubagents($domainId, $flowId),
+                    'source_pattern_receipts' => [
+                        'schema' => 'atlas.ai.company.domain_workload_source_pattern_receipts.v1',
+                        'reference_pattern' => 'anthropic_financial_services_agents_generalized_to_domain_workloads',
+                        'framework_reference_ids' => [
+                            'anthropic_financial_services_agents_2026',
+                            'openai_agents_sdk',
+                            'model_context_protocol_servers',
+                            'langgraph_durable_agent_execution',
+                            'microsoft_agent_framework',
+                            'autogen_multi_agent_conversation',
+                        ],
+                        'domain_source_refs' => array_values(array_slice($sourceIds, 0, min(5, count($sourceIds)))),
+                        'cross_source_verification_required' => true,
+                        'unsupported_claim_blocker_enabled' => true,
+                        'source_pattern_receipt_hash' => hash('sha256', $domainId.'|'.$flowId.'|source_pattern_receipts|'.implode('|', $sourceIds)),
+                    ],
                     'runtime_contract' => [
                         'session_mode' => 'long_running_supervised_session',
                         'credential_binding' => 'managed_vault_reference_only',
@@ -933,15 +949,43 @@ class AutonomousHoldingEnterpriseBuildoutService
                             'mcp_tool' => 'atlas_holding_'.$domainId.'_'.$flowId.'_readonly_shadow',
                             'desktop_panel' => $domainId.'_company_command_center.'.$flowId,
                             'run_queue_contract' => 'enterprise_flow_run_queue_item.v1',
-                            'operator_review_surface' => (string) $blueprint['review_queue'],
-                            'external_execution_allowed' => false,
-                            'surface_binding_hash' => hash('sha256', $domainId.'|'.$flowId.'|execution_surface_bindings'),
-                        ],
-                        'fixture_smoke_contract' => [
-                            'scenario_id' => $domainId.'.'.$flowId.'.fixture_smoke.v1',
-                            'required_fixture_inputs' => ['company_context', 'flow_contract', 'source_snapshot', 'connector_scope', 'expected_artifact_schema'],
-                            'replay_steps' => ['load_template', 'load_triggered_skills', 'hydrate_fixture_context', 'validate_connector_scope', 'handoff_to_subagents', 'produce_artifact_stub', 'export_receipt'],
-                            'expected_artifacts' => ['tool_plan', 'typed_artifact_stub', 'policy_gate_report', 'handoff_packet'],
+                        'operator_review_surface' => (string) $blueprint['review_queue'],
+                        'external_execution_allowed' => false,
+                        'surface_binding_hash' => hash('sha256', $domainId.'|'.$flowId.'|execution_surface_bindings'),
+                    ],
+                    'operator_handoff_contract' => [
+                        'schema' => 'atlas.ai.company.domain_workload_operator_handoff_contract.v1',
+                        'handoff_id' => $domainId.'.'.$flowId.'.operator_handoff.v1',
+                        'required_sections' => ['decision_context', 'source_links', 'tool_calls', 'artifact_diff', 'risk_register', 'rollback_plan', 'approval_scope'],
+                        'human_review_required' => true,
+                        'second_reviewer_required_for' => ['client_delivery', 'filing', 'payment', 'trade', 'public_publish', 'deploy', 'delete', 'security_action'],
+                        'approval_scope_required_before_external_effect' => true,
+                        'handoff_contract_hash' => hash('sha256', $domainId.'|'.$flowId.'|operator_handoff_contract'),
+                    ],
+                    'guardrail_contract' => [
+                        'schema' => 'atlas.ai.company.domain_workload_guardrail_contract.v1',
+                        'blocked_operations' => ['external_write', 'paid_spend', 'capital_transfer', 'trade', 'public_publish', 'deploy', 'delete', 'offensive_security', 'secret_export', 'unsupported_claim'],
+                        'policy_checks' => ['source_grounding', 'credential_scope', 'tool_permission', 'external_effect_boundary', 'operator_approval', 'receipt_export', 'rollback_bound'],
+                        'calendar_wait_blocker_enabled' => false,
+                        'external_effects_allowed' => false,
+                        'guardrail_contract_hash' => hash('sha256', $domainId.'|'.$flowId.'|guardrail_contract'),
+                    ],
+                    'eval_replay_recipe' => [
+                        'schema' => 'atlas.ai.company.domain_workload_eval_replay_recipe.v1',
+                        'recipe_id' => $domainId.'.'.$flowId.'.eval_replay.v1',
+                        'fixture_suite' => $domainId.'.'.$flowId.'.agent_fixture_suite.v1',
+                        'minimum_fixture_cases' => 12,
+                        'replay_assertions' => ['source_links_present', 'tool_permissions_read_or_fixture', 'subagent_handoff_receipted', 'artifact_schema_valid', 'policy_findings_zero', 'operator_handoff_ready', 'rollback_plan_bound'],
+                        'benchmark_families' => ['domain_claim_grounding', 'connector_scope_control', 'multi_agent_handoff_quality', 'external_effect_boundary', 'artifact_acceptance'],
+                        'promotion_requires_green_replay' => true,
+                        'external_effects_allowed_during_replay' => false,
+                        'eval_replay_recipe_hash' => hash('sha256', $domainId.'|'.$flowId.'|eval_replay_recipe'),
+                    ],
+                    'fixture_smoke_contract' => [
+                        'scenario_id' => $domainId.'.'.$flowId.'.fixture_smoke.v1',
+                        'required_fixture_inputs' => ['company_context', 'flow_contract', 'source_snapshot', 'connector_scope', 'expected_artifact_schema'],
+                        'replay_steps' => ['load_template', 'load_triggered_skills', 'hydrate_fixture_context', 'validate_connector_scope', 'handoff_to_subagents', 'produce_artifact_stub', 'export_receipt'],
+                        'expected_artifacts' => ['tool_plan', 'typed_artifact_stub', 'policy_gate_report', 'handoff_packet'],
                             'pass_criteria' => ['all_required_inputs_present', 'all_tool_permissions_read_or_fixture', 'artifact_schema_valid', 'policy_findings_zero', 'receipt_hash_present'],
                             'policy_boundary_checks' => ['no_external_write', 'no_real_spend', 'no_trade', 'no_public_publish', 'no_deploy_or_delete', 'no_secret_export'],
                             'external_effects_allowed_during_smoke' => false,
@@ -1531,6 +1575,10 @@ class AutonomousHoldingEnterpriseBuildoutService
                 'purpose' => 'turn_agent_framework_and_domain_repository_research_into_versioned_enterprise_adoption_work',
                 'calendar_wait_blocker_enabled' => false,
                 'adoption_requires_license_security_sbo_m_fixture_eval_and_operator_acceptance' => true,
+                'adoption_requires_license_security_sbom_fixture_eval_and_operator_acceptance' => true,
+                'per_flow_repository_adoption_matrix_required' => true,
+                'per_flow_tool_permission_manifest_required' => true,
+                'per_flow_eval_replay_recipe_required' => true,
                 'maintenance_mode_or_deprecation_requires_migration_plan' => true,
                 'runtime_use_before_local_contract_tests_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1546,6 +1594,13 @@ class AutonomousHoldingEnterpriseBuildoutService
                     'intake_status' => 'candidate_requires_review',
                     'required_reviews' => ['license', 'security', 'maintenance_status', 'runtime_boundary', 'data_boundary', 'operator_fit'],
                     'required_artifacts' => ['version_pin', 'sbom_or_dependency_snapshot', 'fixture_eval_result', 'rollback_plan', 'adoption_decision_receipt'],
+                    'review_contract' => [
+                        'license_security_review_required' => true,
+                        'runtime_boundary_review_required' => true,
+                        'secret_and_credential_boundary_review_required' => true,
+                        'mcp_or_tool_permission_review_required' => true,
+                        'operator_acceptance_required_before_runtime_use' => true,
+                    ],
                     'external_side_effects_enabled' => false,
                     'intake_hash' => hash('sha256', $domainId.'|repository_intake|'.(string) ($repo['source_id'] ?? 'repo_'.$index)),
                 ],
@@ -1561,6 +1616,14 @@ class AutonomousHoldingEnterpriseBuildoutService
                     'risk_findings' => (string) ($repo['source_id'] ?? '') === 'microsoft_autogen'
                         ? ['maintenance_mode_detected_use_microsoft_agent_framework_migration_path_before_new_adoption']
                         : [],
+                    'enterprise_pattern_contract' => [
+                        'tool_call_receipts_required' => true,
+                        'handoff_contract_required' => true,
+                        'trace_export_required' => true,
+                        'durable_resume_or_checkpoint_required' => true,
+                        'human_interrupt_required_for_sensitive_tools' => true,
+                        'mcp_or_connector_permission_manifest_required' => true,
+                    ],
                     'minimum_evidence_before_adoption' => ['sample_flow_trace', 'tool_receipt_export', 'fixture_eval_green', 'security_review_green', 'license_review_green'],
                     'adoption_state' => (string) ($repo['source_id'] ?? '') === 'microsoft_autogen'
                         ? 'migration_reference_only'
@@ -1569,6 +1632,47 @@ class AutonomousHoldingEnterpriseBuildoutService
                     'scorecard_hash' => hash('sha256', $domainId.'|framework_scorecard|'.(string) ($repo['source_id'] ?? 'unknown_framework')),
                 ],
                 $frameworks,
+            )),
+            'flow_repository_adoption_matrix' => array_values(array_map(
+                fn (string $flowId, array $spec, int $index): array => [
+                    'schema' => 'atlas.ai.company.flow_repository_adoption_matrix_row.v1',
+                    'flow_id' => $flowId,
+                    'owner_agent' => (string) $spec[0],
+                    'framework_refs' => array_values(array_unique(array_slice(
+                        array_merge(
+                            array_slice(array_column($frameworks, 'source_id'), $index % max(1, count($frameworks)), min(4, count($frameworks))),
+                            ['openai_agents_python', 'langgraph', 'model_context_protocol_servers', 'opentelemetry_collector'],
+                        ),
+                        0,
+                        6,
+                    ))),
+                    'domain_repository_refs' => array_values(array_slice(
+                        array_column($domainRepositories, 'source_id'),
+                        $index % max(1, count($domainRepositories)),
+                        min(3, count($domainRepositories)),
+                    )),
+                    'license_security_review' => [
+                        'license_record_required' => true,
+                        'security_review_required' => true,
+                        'sbom_or_dependency_snapshot_required' => true,
+                        'known_vulnerability_check_required' => true,
+                        'unreviewed_repository_runtime_use_allowed' => false,
+                    ],
+                    'runtime_boundary_review' => [
+                        'laravel_orchestration_contract_required' => true,
+                        'specialized_runtime_adapter_required_before_non_php_execution' => true,
+                        'credential_material_in_packets_allowed' => false,
+                        'external_mutation_allowed_before_operator_mandate' => false,
+                    ],
+                    'tool_permission_manifest_ref' => $domainId.'.'.$flowId.'.repository_tool_permission_manifest.v1',
+                    'eval_replay_recipe_ref' => $domainId.'.'.$flowId.'.repository_eval_replay_recipe.v1',
+                    'operator_acceptance_contract_ref' => $domainId.'.'.$flowId.'.repository_operator_acceptance.v1',
+                    'external_side_effects_enabled' => false,
+                    'matrix_hash' => hash('sha256', $domainId.'|flow_repository_adoption_matrix|'.$flowId.'|'.(string) $spec[0]),
+                ],
+                $flowIds,
+                $flowSpecs,
+                array_keys($flowIds),
             )),
             'flow_repository_implementation_epics' => array_values(array_map(
                 static fn (string $flowId, array $spec, int $index): array => [
@@ -1604,6 +1708,40 @@ class AutonomousHoldingEnterpriseBuildoutService
                 $flowIds,
                 $flowSpecs,
                 array_keys($flowIds),
+            )),
+            'flow_tool_permission_manifests' => array_values(array_map(
+                fn (string $flowId, array $spec): array => [
+                    'schema' => 'atlas.ai.company.flow_repository_tool_permission_manifest.v1',
+                    'manifest_id' => $domainId.'.'.$flowId.'.repository_tool_permission_manifest.v1',
+                    'flow_id' => $flowId,
+                    'owner_agent' => (string) $spec[0],
+                    'allowed_permissions_before_operator_mandate' => ['read_fixture', 'read_manual_import', 'draft_artifact', 'run_fixture_eval', 'export_trace_receipt', 'prepare_operator_handoff'],
+                    'blocked_permissions' => ['external_write', 'paid_spend', 'live_trade', 'public_publish', 'deploy', 'delete', 'admin', 'secret_export', 'offensive_security'],
+                    'credential_policy' => 'vault_reference_only_no_secret_material_in_repository_adoption_packets',
+                    'mcp_security_profile_required' => true,
+                    'human_interrupt_required_for_sensitive_tool' => true,
+                    'external_side_effects_enabled' => false,
+                    'manifest_hash' => hash('sha256', $domainId.'|repository_tool_permission_manifest|'.$flowId),
+                ],
+                $flowIds,
+                $flowSpecs,
+            )),
+            'flow_eval_replay_recipes' => array_values(array_map(
+                fn (string $flowId, array $spec): array => [
+                    'schema' => 'atlas.ai.company.flow_repository_eval_replay_recipe.v1',
+                    'recipe_id' => $domainId.'.'.$flowId.'.repository_eval_replay_recipe.v1',
+                    'flow_id' => $flowId,
+                    'owner_agent' => (string) $spec[0],
+                    'minimum_fixture_cases' => 25,
+                    'adversarial_tool_prompt_cases' => 5,
+                    'required_replay_modes' => ['contract_fixture', 'shadow_read_only', 'state_checkpoint_replay', 'handoff_trace_replay', 'rollback_rehearsal'],
+                    'required_assertions' => ['tool_permission_enforced', 'trace_export_present', 'receipt_export_present', 'source_lineage_present', 'external_side_effects_false'],
+                    'promotion_requires_operator_acceptance' => true,
+                    'external_execution_allowed' => false,
+                    'recipe_hash' => hash('sha256', $domainId.'|repository_eval_replay_recipe|'.$flowId),
+                ],
+                $flowIds,
+                $flowSpecs,
             )),
             'version_pin_and_supply_chain_plan' => array_values(array_map(
                 static fn (array $repo, int $index): array => [
@@ -1683,8 +1821,8 @@ class AutonomousHoldingEnterpriseBuildoutService
             'source_basis' => [
                 [
                     'source_id' => 'openai_agents_sdk',
-                    'url' => 'https://platform.openai.com/docs/guides/agents-sdk/',
-                    'adopted_pattern' => 'agents_with_tools_handoffs_guardrails_sessions_and_full_trace_of_work',
+                    'url' => 'https://github.com/openai/openai-agents-python',
+                    'adopted_pattern' => 'agents_with_tools_handoffs_guardrails_sessions_tracing_and_sandbox_workspace_patterns',
                 ],
                 [
                     'source_id' => 'model_context_protocol_reference_servers',
@@ -1700,6 +1838,16 @@ class AutonomousHoldingEnterpriseBuildoutService
                     'source_id' => 'microsoft_agent_framework',
                     'url' => 'https://learn.microsoft.com/en-us/agent-framework/',
                     'adopted_pattern' => 'enterprise_agent_orchestration_with_workflows_observability_and_governance',
+                ],
+                [
+                    'source_id' => 'microsoft_autogen',
+                    'url' => 'https://github.com/microsoft/autogen',
+                    'adopted_pattern' => 'multi_agent_orchestration_lineage_and_migration_signal_toward_microsoft_agent_framework',
+                ],
+                [
+                    'source_id' => 'model_context_protocol_php_sdk',
+                    'url' => 'https://github.com/modelcontextprotocol/php-sdk',
+                    'adopted_pattern' => 'php_mcp_client_server_contract_reference_for_laravel_boundary_compatible_adapters',
                 ],
             ],
             'catalog_policy' => [
@@ -1725,6 +1873,21 @@ class AutonomousHoldingEnterpriseBuildoutService
                         default => 'agentic_runtime_or_tooling_reference_candidate',
                     },
                     'required_before_runtime' => ['version_pin', 'license_review', 'security_review', 'fixture_eval_green', 'trace_export_contract', 'receipt_export_contract', 'rollback_plan'],
+                    'pattern_bindings' => [
+                        'tools' => true,
+                        'handoffs_or_agent_collaboration' => true,
+                        'guardrails_or_policy_checks' => true,
+                        'tracing_or_telemetry' => true,
+                        'durable_resume_or_checkpoint' => in_array((string) ($repo['source_id'] ?? ''), ['langgraph', 'temporal', 'microsoft_agent_framework'], true),
+                        'human_interrupt_or_checkpoint' => true,
+                        'mcp_or_connector_contract' => in_array((string) ($repo['source_id'] ?? ''), ['model_context_protocol_servers', 'microsoft_agent_framework', 'openai_agents_python'], true),
+                    ],
+                    'runtime_boundary_contract' => [
+                        'adapter_required' => true,
+                        'local_contract_tests_required' => true,
+                        'trace_receipt_export_required' => true,
+                        'external_side_effects_blocked_without_operator_mandate' => true,
+                    ],
                     'blocked_without_operator' => ['external_write', 'paid_spend', 'live_trade', 'public_publish', 'deploy', 'delete', 'offensive_security', 'secret_export'],
                     'profile_hash' => hash('sha256', 'agent_repository_operating_profile|'.(string) ($repo['source_id'] ?? 'unknown_framework')),
                 ],
@@ -9492,9 +9655,15 @@ class AutonomousHoldingEnterpriseBuildoutService
                 && (bool) data_get($company, 'enterprise_external_research_adoption_stack.research_policy.calendar_wait_blocker_enabled', true) === false
                 && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.repository_intake_queue', [])) >= 11
                 && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.framework_adoption_scorecards', [])) >= 8
+                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_repository_adoption_matrix', [])) >= count((array) $company['flows'])
                 && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_repository_implementation_epics', [])) >= count((array) $company['flows'])
+                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_tool_permission_manifests', [])) >= count((array) $company['flows'])
+                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_eval_replay_recipes', [])) >= count((array) $company['flows'])
                 && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.version_pin_and_supply_chain_plan', [])) >= 11
                 && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_observability.required_metrics', [])) >= 8
+                && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_repository_adoption_matrix_required', false)
+                && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_tool_permission_manifest_required', false)
+                && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_eval_replay_recipe_required', false)
                 && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.runtime_use_before_local_contract_tests_allowed', true) === false
                 && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.external_side_effects_enabled', true) === false
                 && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.source_basis', [])) >= 4
@@ -9897,7 +10066,10 @@ class AutonomousHoldingEnterpriseBuildoutService
             'external_research_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_external_research_adoption_stack.research_policy.calendar_wait_blocker_enabled', true),
             'agent_repository_intake_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.repository_intake_queue', [])),
             'agent_repository_framework_scorecard_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.framework_adoption_scorecards', [])),
+            'agent_repository_flow_adoption_matrix_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_repository_adoption_matrix', [])),
             'agent_repository_flow_epic_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_repository_implementation_epics', [])),
+            'agent_repository_tool_permission_manifest_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_tool_permission_manifests', [])),
+            'agent_repository_eval_replay_recipe_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_eval_replay_recipes', [])),
             'agent_repository_version_pin_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.version_pin_and_supply_chain_plan', [])),
             'agent_repository_metric_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_observability.required_metrics', [])),
             'agent_repository_external_side_effects_enabled' => (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.external_side_effects_enabled', true),

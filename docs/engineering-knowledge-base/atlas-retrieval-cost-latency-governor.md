@@ -3,9 +3,9 @@ id: atlas-retrieval-cost-latency-governor
 type: engineering_knowledge
 doc_schema: atlas_canonical_module_doc.v1
 title: Atlas Retrieval Cost & Latency Governor
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: ARCLG ainda nao possui service, budget policy, receipts, cache decisions ou testes; e bloco 11 da AUCRI.
+status: building
+implementation_state: runtime_surface_budget_governor_ready
+blocker: ARCLG possui service, command, budget policy, receipt, cache decision e testes; ainda falta historico longitudinal no ACOP e cache real persistido.
 category: context_retrieval_intelligence
 priority: 94
 summary: "Governador de custo, latencia, cache e degradacao progressiva para retrieval sem perder fontes criticas."
@@ -34,6 +34,9 @@ owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
   - docs/engineering-knowledge-base/atlas-retrieval-evaluation-benchmark-arena.md
+  - app/Services/Ai/Context/AtlasRetrievalCostLatencyGovernorService.php
+  - app/Console/Commands/AtlasRetrievalCostLatencyGovernorCommand.php
+  - tests/Feature/Ai/Context/RetrievalCostLatencyGovernorTest.php
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-runtime-efficiency-governor.md
@@ -51,14 +54,18 @@ unlocks: [retrieval_budget_control, safe_degraded_retrieval]
 governs: [retrieval_cost, retrieval_latency, context_budget]
 evidence:
   - docs/engineering-knowledge-base/atlas-retrieval-cost-latency-governor.md
+  - app/Services/Ai/Context/AtlasRetrievalCostLatencyGovernorService.php
+  - app/Console/Commands/AtlasRetrievalCostLatencyGovernorCommand.php
+  - tests/Feature/Ai/Context/RetrievalCostLatencyGovernorTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:retrieval:budget readiness --json"
+  - "php artisan atlas:context:retrieval-budget --json"
+  - "php artisan test tests/Feature/Ai/Context/RetrievalCostLatencyGovernorTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Definir budget policy inicial por risco, dominio e flow.
+  - Integrar receipts ao ACOP e adicionar cache persistido com freshness.
 ---
 
 # Atlas Retrieval Cost & Latency Governor
@@ -82,10 +89,11 @@ latencia. Integra com AREG quando a sessao precisa controlar budget cognitivo.
 
 ## Contratos
 
-- `atlas.retrieval.budget_policy.v1`
-- `atlas.retrieval.cost_latency_receipt.v1`
-- `atlas.retrieval.cache_decision.v1`
-- `atlas.retrieval.degraded_mode.v1`
+- `atlas.aucri.retrieval_cost_latency_governor.v1`
+- `atlas.aucri.retrieval_budget_policy.v1`
+- `atlas.aucri.retrieval_cost_latency_receipt.v1`
+- `atlas.aucri.retrieval_cache_decision.v1`
+- `atlas.aucri.retrieval_degraded_mode.v1`
 
 Campos minimos: `flow_id`, `risk_level`, `budget_ms`, `budget_cost_units`,
 `required_sources`, `cache_hit`, `degraded_reason`, `quality_floor`,
@@ -109,9 +117,9 @@ Campos minimos: `flow_id`, `risk_level`, `budget_ms`, `budget_cost_units`,
 
 ## Escopo de Implementacao
 
-Implementar policy de budget, cache decision, degraded mode, command de
-readiness, metrics no Control Plane e tests de bloqueio quando budget remove
-fonte obrigatoria.
+Implementado policy de budget, cache decision, degraded mode com receipt,
+command `atlas:context:retrieval-budget --json` e tests que bloqueiam quando
+budget removeria fonte obrigatoria. Metrics no Control Plane entram no ACOP.
 
 ## Dependencias
 
@@ -119,8 +127,8 @@ Depende de AREBA para saber quality floor e de ACFQ para freshness/sufficiency.
 
 ## Evidencias
 
-Evidencia minima: receipt com budget, custo real, latencia, fontes removidas,
-fontes mantidas e motivo de qualquer degradacao.
+Evidencia minima atual: receipt com budget, custo estimado, latencia observada,
+fontes removidas, fontes mantidas, cache decision e motivo de degradacao.
 
 ## Riscos
 
@@ -136,7 +144,7 @@ deve pagar retrieval amplo e bloquear se fonte obrigatoria faltar.
 
 ## Proximas Acoes
 
-1. Definir budgets iniciais por risk level.
-2. Criar receipt deterministico.
-3. Integrar com ACFQ e ACOP.
-4. Adicionar testes de degraded mode seguro.
+1. Integrar receipts no ACOP.
+2. Adicionar historico de latencia/custo por flow.
+3. Criar cache persistido depois de ARPTL.
+4. Usar ATER para conectar token budget ao budget de retrieval.

@@ -16,15 +16,17 @@ final class AucriOptimizationAuditTest extends TestCase
 
         $this->assertSame(AtlasAucriOptimizationAuditService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('ready', $payload['status']);
-        $this->assertSame(10, $payload['summary']['total']);
-        $this->assertSame(10, $payload['summary']['passed']);
+        $this->assertSame(28, $payload['summary']['total']);
+        $this->assertSame(28, $payload['summary']['passed']);
         $this->assertSame(18, $payload['summary']['aucri_blocks']);
         $this->assertSame([], $payload['remaining_blockers']);
         $this->assertFalse($payload['writes']);
         $this->assertFalse($payload['claims']['providers_invoked']);
         $this->assertFalse($payload['claims']['rivals_run']);
         $this->assertFalse($payload['claims']['benchmark_run']);
-        $this->assertSame('documentation_and_contract_audit', $payload['claims']['scope']);
+        $this->assertTrue($payload['claims']['runtime_implemented']);
+        $this->assertTrue($payload['claims']['programming_flow_enforced']);
+        $this->assertSame('documentation_runtime_surface_and_programming_enforcement_audit', $payload['claims']['scope']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payload['audit_hash']);
     }
 

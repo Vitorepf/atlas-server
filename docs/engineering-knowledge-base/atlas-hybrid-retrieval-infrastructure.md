@@ -2,9 +2,9 @@
 id: atlas-hybrid-retrieval-infrastructure
 type: engineering_knowledge
 title: Atlas Hybrid Retrieval Infrastructure
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: AHRI ainda nao possui runtime unificado cross-domain; e o bloco 2 da AUCRI.
+status: building
+implementation_state: building_read_only_retrieval_report_runtime
+blocker: AHRI possui runtime read-only para source plan, candidate normalization, ASEF semantic candidates e report; ainda falta executar adapters profundos reais de docs/code/evidence e alimentar ACRS.
 category: intelligence-runtime
 priority: 99
 summary: Doc filha AUCRI para retrieval hibrido: lexical, vector, memory, docs, evidence, code refs, attachments e source adapters sob um contrato unico.
@@ -21,6 +21,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
   - app/Services/Ai/Context/ContextRetrievalRouter.php
   - app/Services/Ai/AtlasHybridMemoryRetrievalService.php
+  - app/Services/Ai/Context/AtlasHybridRetrievalInfrastructureService.php
+  - app/Console/Commands/AtlasHybridRetrievalInfrastructureCommand.php
+  - tests/Feature/Ai/Context/HybridRetrievalInfrastructureTest.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
 product_name: Atlas Hybrid Retrieval Infrastructure
@@ -33,7 +36,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
-graph_status: planned
+graph_status: building
 graph_source: repo
 owner: atlas-ai
 repo_paths:
@@ -49,13 +52,19 @@ unlocks: [cross_domain_retrieval, unified_source_plan]
 governs: [retrieval_sources, source_adapters]
 evidence:
   - docs/engineering-knowledge-base/atlas-hybrid-retrieval-infrastructure.md
+  - app/Services/Ai/Context/AtlasHybridRetrievalInfrastructureService.php
+  - app/Console/Commands/AtlasHybridRetrievalInfrastructureCommand.php
+  - tests/Feature/Ai/Context/HybridRetrievalInfrastructureTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan atlas:context:hybrid-retrieval --json"
+  - "php artisan test tests/Feature/Ai/Context/HybridRetrievalInfrastructureTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Criar source adapter inventory e contrato `atlas.aucri.retrieval_report.v1`.
+  - Conectar AHRI ao ACRS como entrada de ranking.
+  - Trocar candidatos shallow por adapters profundos de docs/code/evidence sem duplicar stores.
 ---
 
 # Atlas Hybrid Retrieval Infrastructure
@@ -70,6 +79,12 @@ receipts e future graph candidates.
 
 Ser o motor de coleta. Ele alimenta AARF, ACRS e ACIE com candidatos
 normalizados e auditaveis.
+
+Estado atual: `AtlasHybridRetrievalInfrastructureService` emite
+`atlas.aucri.retrieval_report.v1` read-only com source plan do
+`ContextRetrievalRouter`, candidatos ASEF, context refs explicitos, dedupe,
+misses, excluded refs e policy sem provider externo. O comando canonico e
+`php artisan atlas:context:hybrid-retrieval --json`.
 
 ## Onde Se Encaixa
 
@@ -101,8 +116,10 @@ source plan -> adapters -> candidates -> retrieval report -> ACRS
 
 ## Escopo de Implementacao
 
-Service unificado, adapters para memory/docs/code/evidence/vector, tests por
-source e command readiness.
+Service unificado read-only, normalizador de candidatos, adapters shallow para
+source plan/context refs/ASEF, tests por source e command readiness. Proxima
+fase troca adapters shallow por adapters profundos reais de memory/docs/code e
+evidence.
 
 ## Dependencias
 
@@ -110,7 +127,7 @@ ASEF, APCR, ACIE, Memory/Open Brain, Evidence Ledger.
 
 ## Evidencias
 
-Retrieval report com fontes, misses, excluded refs e policy.
+Retrieval report com fontes, candidates, misses, excluded refs, policy e hash.
 
 ## Riscos
 
@@ -122,6 +139,6 @@ Prompt de debug busca arquivos, tests, receipts, known failures e docs.
 
 ## Proximas Acoes
 
-1. Mapear adapters existentes.
-2. Criar normalizador de candidatos.
+1. Conectar report AHRI ao ACRS.
+2. Criar adapters profundos reuse-first para docs/code/evidence.
 3. Cobrir cross-domain sem quebrar Programming RAG.

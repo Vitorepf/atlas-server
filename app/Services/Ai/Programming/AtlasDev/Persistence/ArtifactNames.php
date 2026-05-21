@@ -64,5 +64,7 @@ final class ArtifactNames
 
     public const TEST_SELECTION_RECEIPT = 'test_selection_receipt.json';
 
+    public const AUCRI_RUNTIME_ENFORCEMENT = 'aucri_runtime_enforcement.json';
+
     private function __construct() {}
 }

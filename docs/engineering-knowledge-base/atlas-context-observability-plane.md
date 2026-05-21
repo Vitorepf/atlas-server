@@ -3,9 +3,9 @@ id: atlas-context-observability-plane
 type: engineering_knowledge
 doc_schema: atlas_canonical_module_doc.v1
 title: Atlas Context Observability Plane
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: ACOP ainda nao possui service read-only, command/API, redaction tests ou read model; e bloco 12 da AUCRI.
+status: building
+implementation_state: runtime_surface_read_model_ready
+blocker: ACOP possui service read-only, command JSON, redaction tests e snapshot local; ainda falta API/UI e historico persistido.
 category: context_retrieval_intelligence
 priority: 93
 summary: "Plano de observabilidade para retrieval/contexto: traces, fontes, misses, ruido, qualidade, custo, freshness e blockers."
@@ -34,6 +34,9 @@ owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
   - docs/engineering-knowledge-base/atlas-retrieval-cost-latency-governor.md
+  - app/Services/Ai/Context/AtlasContextObservabilityPlaneService.php
+  - app/Console/Commands/AtlasContextObservabilityPlaneCommand.php
+  - tests/Feature/Ai/Context/ContextObservabilityPlaneTest.php
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 allowed_changes:
@@ -51,6 +54,9 @@ unlocks: [context_audit, source_health_control_plane]
 governs: [context_observability, retrieval_trace]
 evidence:
   - docs/engineering-knowledge-base/atlas-context-observability-plane.md
+  - app/Services/Ai/Context/AtlasContextObservabilityPlaneService.php
+  - app/Console/Commands/AtlasContextObservabilityPlaneCommand.php
+  - tests/Feature/Ai/Context/ContextObservabilityPlaneTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:observability --json"
@@ -58,7 +64,7 @@ requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Criar snapshot read-only com redacao e hash deterministico.
+  - Conectar snapshot ACOP ao Control Plane/API depois de ARPTL.
 ---
 
 # Atlas Context Observability Plane
@@ -81,10 +87,11 @@ Control Plane, readiness, certification e investigacoes de qualidade.
 
 ## Contratos
 
-- `atlas.context.observability_snapshot.v1`
-- `atlas.context.trace.v1`
-- `atlas.context.source_health.v1`
-- `atlas.context.blocker.v1`
+- `atlas.aucri.context_observability_plane.v1`
+- `atlas.aucri.context_observability_snapshot.v1`
+- `atlas.aucri.context_trace.v1`
+- `atlas.aucri.context_source_health.v1`
+- `atlas.aucri.context_blocker.v1`
 
 Campos minimos: `trace_id`, `flow_id`, `source_type`, `source_ref_hash`,
 `retrieval_stage`, `included`, `used`, `missed`, `noise`, `freshness`,
@@ -108,9 +115,9 @@ Campos minimos: `trace_id`, `flow_id`, `source_type`, `source_ref_hash`,
 
 ## Escopo de Implementacao
 
-Implementar service read-only, command `atlas:context:observability --json`,
-hash deterministico, tests de redacao e agregacao, e integracao com Control
-Plane.
+Implementado service read-only, command `atlas:context:observability --json`,
+hash deterministico e tests de redacao/agregacao. Integracao visual/API entra
+depois de ARPTL para herdar redaction/trust policy.
 
 ## Dependencias
 
@@ -119,8 +126,8 @@ segura.
 
 ## Evidencias
 
-Evidencia minima: snapshot JSON, blockers, source health, hash deterministico e
-teste que prova que texto cru nao vaza.
+Evidencia atual: snapshot JSON, blockers, source health, trace refs, hash
+deterministico e teste que prova que texto cru nao vaza.
 
 ## Riscos
 
@@ -136,7 +143,7 @@ stale, perdeu 1 fonte obrigatoria e degradou para warn.
 
 ## Proximas Acoes
 
-1. Mapear receipts existentes.
-2. Criar snapshot read-only.
-3. Garantir redacao via ARPTL.
-4. Expor comando JSON e testes.
+1. Adicionar endpoint/API e bloco no Control Plane.
+2. Persistir historico agregado quando ARPTL estiver ativo.
+3. Integrar redaction policy completa via ARPTL.
+4. Conectar source health a AKIF.

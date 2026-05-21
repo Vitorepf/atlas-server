@@ -2,9 +2,9 @@
 id: atlas-unified-context-retrieval-intelligence
 type: engineering_knowledge
 title: Atlas Unified Context Retrieval Intelligence
-status: planned
-implementation_state: planned_parent_architecture_not_current_runtime
-blocker: AUCRI ainda nao possui service, comandos, migrations, tests ou certification propria; a doc organiza a area e o roadmap antes da implementacao.
+status: active
+implementation_state: runtime_surfaces_18_blocks_plus_programming_enforcement_ready
+blocker: none_for_programming_flows; ampliar enforcement para flows nao-programming em fatias futuras.
 category: intelligence-runtime
 priority: 100
 summary: Documentacao mae da area de contexto, memoria, embeddings, RAG, Graph RAG, ranking, freshness, feedback, Python/data retrieval, cognitive memory, context compiler e token economy.
@@ -232,24 +232,24 @@ implementacao.
 
 | Ordem | Bloco | Leia antes | Crie/estenda | Evidencia minima |
 | --- | --- | --- | --- | --- |
-| 0 | AUCRI core | este doc + handoff RAG | `AtlasUnifiedContextRetrievalIntelligenceService`, certify command, control-plane section | cert `atlas.aucri.certification.v1` |
-| 1 | ASEF | memory/retrieval + local rag readiness | embeddings, chunks, index jobs, privacy/delete policy | golden set embedding + no privacy leak |
-| 2 | AHRI | ACIE/APCR + ContextRetrievalRouter | hybrid retrieval service, source adapters, context refs | retrieval report com lexical/vector/memory/docs |
-| 3 | AARF | programming agentic RAG spec | planner cross-domain, gap critic, source plans | blocked/degraded/pass por required source |
-| 4 | ACRS | reranker atual + WorldModelGraphRanker | ranking unico com authority/freshness/outcome | ranking auditavel com reasons |
-| 5 | ACFQ | TEOS freshness + APCR sufficiency | freshness/quality gate cross-domain | bloqueia stale/contradictorio/missing source |
-| 6 | ARFL | AEMOR + Compounding RAG feedback | feedback de uso, missed refs, noise refs | learning candidate sem auto-promocao |
-| 7 | AGRN | semantic graph + world model | graph retrieval bounded global | AP/privacy/replay/rollback antes de active |
-| 8 | AURG | world model + ASRE/AARS | reality graph entities/edges/sources | graph snapshot com source/freshness/confidence |
-| 9 | APDR | python runtime boundary | runtime Python data/graph analytics | execution receipt sem provider/network/shell livre |
-| 10 | AREBA | ARFL + ACRS | evaluation arena, golden sets, regressions | recall/precision/groundedness/context ROI |
-| 11 | ARCLG | AREBA + AREG | cost/latency governor, cache, degradation | budget receipt + latency SLO |
-| 12 | ACOP | Control Plane + AUCRI | observability read model por source/flow/query | trace sem vazar conteudo cru |
-| 13 | ARPTL | privacy/security docs | privacy, trust, redaction, retention | provider-safe gate + deletion audit |
-| 14 | AKIF | rich input + ingestion jobs | ingestion fabric para docs/repos/videos/dados | normalized source packet com lineage |
-| 15 | ACMF | AUCRI + AREG | cognitive RAM fabric, hot context, delta, spillover | reserva minima 3GB + token reduction |
-| 16 | ACCR | AUCRI + ACMF | context compiler provider-aware | prompt final menor, auditavel e loss-checked |
-| 17 | ATER | ACCR + ARCLG | token economy, local pre-reasoning, reuse | menor token com quality gate |
+| 0 | AUCRI core | este doc + handoff RAG | audit + runtime enforcement antes de Dev/Forge | `atlas:aucri:optimize-audit` + `AtlasAucriRuntimeEnforcementService` |
+| 1 | ASEF | memory/retrieval + local rag readiness | manifest de chunks, hashes, privacy/delete keys; Python futuro para embeddings | command `atlas:context:semantic-foundation` + no privacy leak |
+| 2 | AHRI | ACIE/APCR + ContextRetrievalRouter | hybrid retrieval service, source adapters, context refs | command `atlas:context:hybrid-retrieval` + retrieval report |
+| 3 | AARF | programming agentic RAG spec + AHRI | planner cross-domain, gap critic, source plans | command `atlas:context:agentic-rag` + blocked/degraded/pass |
+| 4 | ACRS | reranker atual + WorldModelGraphRanker | ranking unico com authority/freshness/outcome | command `atlas:context:rank` + ranking auditavel |
+| 5 | ACFQ | TEOS freshness + APCR sufficiency | freshness/quality gate cross-domain | command `atlas:context:freshness-quality` + block stale/contradiction |
+| 6 | ARFL | AEMOR + Compounding RAG feedback | feedback de uso, missed refs, noise refs | command `atlas:context:retrieval-feedback` + candidate review-only |
+| 7 | AGRN | semantic graph + world model | bounded Codebase World Model retrieval | command `atlas:context:graph-retrieval` + traversal receipt |
+| 8 | AURG | world model + ASRE/AARS | reality graph snapshot over ASRE entities | command `atlas:context:reality-graph` + source/freshness/confidence |
+| 9 | APDR | python runtime boundary | governed Python data runtime wrapper | command `atlas:context:python-data` + receipt/fragment |
+| 10 | AREBA | ARFL + ACRS | internal evaluation arena, golden sets, regressions | command `atlas:context:evaluate-retrieval` + recall/groundedness/ROI |
+| 11 | ARCLG | AREBA + AREG | cost/latency governor, cache, degradation | command `atlas:context:retrieval-budget` + budget receipt |
+| 12 | ACOP | Control Plane + AUCRI | observability read model por source/flow/query | command `atlas:context:observability` sem texto cru |
+| 13 | ARPTL | privacy/security docs | privacy, trust, redaction, retention | command `atlas:context:privacy-trust` + provider-safe gate |
+| 14 | AKIF | rich input + ingestion jobs | ingestion fabric para docs/repos/videos/dados | command `atlas:context:knowledge-ingestion` + source packet |
+| 15 | ACMF | AUCRI + AREG | cognitive RAM fabric, hot context, delta, spillover | command `atlas:context:cognitive-memory` + 3GB reserve |
+| 16 | ACCR | AUCRI + ACMF | context compiler provider-aware | command `atlas:context:compile` + loss check |
+| 17 | ATER | ACCR + ARCLG | token economy, local pre-reasoning, reuse | command `atlas:context:token-economy` + quality gate |
 | 18 | ACPFR | ATER + AREBA | Pareto frontier quality/token/cost/latency | melhor tradeoff sem regressao |
 
 Regra de navegacao:
@@ -281,9 +281,10 @@ Cada bloco filho precisa entregar:
 - Acronimo tecnico: ASEF
 - Nome interno/superficie: Atlas Vector Seed
 - Runtime tecnico: `AtlasSemanticEmbeddingFoundationService`
-- Papel: embeddings reais, chunking, versionamento, delete cascade, privacy,
-  local-first e provider-safe policy.
-- Estado atual: local hash + colunas de embedding existem; sem maturidade final.
+- Papel: manifest de chunks, versionamento, delete keys, privacy, local-first
+  e provider-safe policy; embeddings reais ficam no runtime Python governado.
+- Estado atual: service/comando/testes de manifest e readiness existem; sem
+  vector indexing final.
 
 ### 2. AHRI: Atlas Hybrid Retrieval Infrastructure
 
@@ -291,9 +292,10 @@ Cada bloco filho precisa entregar:
 - Acronimo tecnico: AHRI
 - Nome interno/superficie: Atlas Retrieval Core
 - Runtime tecnico: `AtlasHybridRetrievalInfrastructureService`
-- Papel: combinar lexical, vector, memory, docs, evidence e code refs.
-- Estado atual: memory retrieval, local RAG readiness e Programming retrieval
-  existem; falta unificacao cross-domain.
+- Papel: combinar lexical, vector, memory, docs, evidence, code refs e ASEF
+  candidates.
+- Estado atual: service/comando/testes emitem retrieval report read-only
+  cross-domain; falta adapter profundo e ACRS.
 
 ### 3. AARF: Atlas Agentic RAG Framework
 
@@ -303,7 +305,9 @@ Cada bloco filho precisa entregar:
 - Runtime tecnico: `AtlasAgenticRagFrameworkService`
 - Papel: decompor objetivo, iterar busca, criticar lacunas e bloquear contexto
   insuficiente.
-- Estado atual: forte em Programming; precisa virar padrao em dominios.
+- Estado atual: service/comando/testes read-only sobre AHRI existem; passa,
+  degrada ou bloqueia por required sources e risk fail-closed. Ainda falta
+  virar mandatory gate nos flows depois de ACRS/ACFQ.
 
 ### 4. AGRN: Atlas Graph Retrieval Network
 
@@ -313,7 +317,9 @@ Cada bloco filho precisa entregar:
 - Runtime tecnico: `AtlasGraphRetrievalNetworkService`
 - Papel: Graph RAG global governado, usando semantic graph, world model,
   codebase graph e reality graph.
-- Estado atual: bounded Programming Graph RAG existe; global ainda future-governed.
+- Estado atual: service/comando/testes read-only sobre Codebase World Model
+  existem; emite graph query/evidence/traversal receipt e bloqueia risco alto
+  sem grafo. Graph global/external continua future-governed.
 
 ### 5. AURG: Atlas Unified Reality Graph
 
@@ -323,7 +329,9 @@ Cada bloco filho precisa entregar:
 - Runtime tecnico: `AtlasUnifiedRealityGraphService`
 - Papel: grafo vivo de empresas, projetos, decisoes, pessoas, docs, codigo,
   metas, riscos, resultados e oportunidades.
-- Estado atual: World Model/semantic graph parciais; grafo unificado ainda nao.
+- Estado atual: service/comando/testes read-only projetam entidades/edges ASRE
+  existentes em snapshot AUCRI com sources, freshness, confidence e fail-closed
+  por risco. Grafo unificado completo ainda evolui por ingestion/trust.
 
 ### 6. ACRS: Atlas Context Ranking System
 
@@ -333,7 +341,9 @@ Cada bloco filho precisa entregar:
 - Runtime tecnico: `AtlasContextRankingSystemService`
 - Papel: reranking por relevancia, autoridade, freshness, graph distance,
   outcome history, risk, domain e user intent.
-- Estado atual: rerankers existem em Programming; falta unificacao e feedback.
+- Estado atual: service/comando/testes read-only existem; consome AARF/AHRI,
+  reaproveita `ProgrammingProfessionalReranker`, consulta `WorldModelGraphRanker`
+  quando disponivel e emite score components/reasons/excluded refs.
 
 ### 7. ACFQ: Atlas Context Freshness & Quality Gate
 
@@ -343,7 +353,9 @@ Cada bloco filho precisa entregar:
 - Runtime tecnico: `AtlasContextFreshnessQualityGateService`
 - Papel: bloquear contexto velho, contraditorio, sem autoridade ou com fonte
   obrigatoria ausente.
-- Estado atual: freshness existe em TEOS/Long Horizon; precisa cross-domain.
+- Estado atual: service/comando/testes read-only existem; consome ACRS, avalia
+  freshness, autoridade, provider safety, cobertura obrigatoria e contradicoes,
+  e falha fechado em risco alto.
 
 ### 8. ARFL: Atlas Retrieval Feedback Loop
 
@@ -353,7 +365,9 @@ Cada bloco filho precisa entregar:
 - Runtime tecnico: `AtlasRetrievalFeedbackLoopService`
 - Papel: aprender quais refs ajudaram, quais foram ruido, quais faltaram e qual
   contexto reduziu erro.
-- Estado atual: compounding/RAG feedback existem; falta closed-loop global.
+- Estado atual: service/comando/testes AUCRI existem sobre ACFQ e
+  `AtlasRagFeedbackService`; calcula context ROI, misses/noise e gera candidato
+  review-only sem auto-promocao.
 
 ### 9. APDR: Atlas Python Data Retrieval Runtime
 
@@ -363,15 +377,18 @@ Cada bloco filho precisa entregar:
 - Runtime tecnico: `AtlasPythonDataRetrievalRuntimeService`
 - Papel: runtime Python governado para embeddings locais, graph analytics,
   clustering, reranking experimental, evals e dados.
-- Estado atual: `ProgrammingPythonRuntime*` existe com boundary seguro; falta
-  runtime data/retrieval global.
+- Estado atual: wrapper AUCRI sobre `ProgrammingPythonRuntime*` existe; modo
+  padrao manifest-only e execucao exige approval, decision receipt e boundary.
 
 ### 10-18. Enterprise Maturity, Cognitive Memory, Compiler, Token e Pareto
 
-- AREBA/ARCLG/ACOP/ARPTL/AKIF: eval, custo, observabilidade, trust e ingestion.
-- ACMF: RAM como working memory cognitiva com reserva minima de 3GB.
-- ACCR: compila o context pack final por provider, risco, flow e evidence.
-- ATER: reduz token de entrada/saida sem perder must-keep, sufficiency ou evidence.
+- AREBA: arena interna de golden sets e regression gate sem benchmark externo.
+- ARCLG: budget, latencia, cache decision e degraded mode com receipt.
+- ACOP: read model de contexto com traces, source health, blockers e redacao.
+- ARPTL/AKIF: trust e source packets com lineage/privacy receipts.
+- ACMF: RAM como working memory cognitiva com budget, delta e spillover.
+- ACCR: compila context pack por provider com budget e loss check.
+- ATER: reduz tokens com quality gate, reuse e provider selection advisory.
 - ACPFR: escolhe a fronteira otima entre qualidade, token, custo e latencia.
 
 ## Dependencias
@@ -465,7 +482,7 @@ AUCRI final deve recuperar:
 Roadmap de longo prazo:
 
 1. AUCRI-I1: certificacao e inventory real dos 18 blocos.
-2. AUCRI-I2: ASEF + AHRI com embeddings/chunking/versionamento provider-safe.
+2. AUCRI-I2: ASEF + AHRI com candidate sets, chunking e retrieval provider-safe.
 3. AUCRI-I3: AARF cross-domain e mandatory retrieval gate por risco.
 4. AUCRI-I4: ACRS + ARFL com feedback real de uso/outcome.
 5. AUCRI-I5: AGRN bounded global com privacy, AP e rollback.
@@ -481,7 +498,7 @@ Roadmap de longo prazo:
 
 Definition of Done 10/10:
 
-- todos os flows relevantes usam AUCRI por padrao;
+- Atlas Dev e Atlas Forge usam AUCRI por padrao antes de provider/patch/test;
 - os 18 blocos possuem doc filha canonica ou justificativa de bloqueio;
 - cada context pack tem hash, evidence refs, authority, freshness e privacy;
 - ACMF reduz tokens sem baixar RAM disponivel abaixo de 3GB;

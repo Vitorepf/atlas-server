@@ -3,8 +3,8 @@ id: atlas-context-pareto-frontier-runtime
 type: engineering_knowledge
 title: Atlas Context Pareto Frontier Runtime
 status: building
-implementation_state: building_read_only_shadow_report_available
-blocker: ACPFR possui report read-only inicial; ainda falta frontier sobre traces reais, receipts persistidos, safe exploration runtime e promocao governada.
+implementation_state: building_read_only_shadow_report_and_real_trace_metric_shadow_available
+blocker: ACPFR possui report read-only inicial e sombra sobre ai_trace_metric_summaries; ainda falta receipts persistidos, safe exploration runtime e promocao governada.
 category: intelligence-runtime
 priority: 98
 summary: Runtime AUCRI para escolher o melhor tradeoff entre qualidade, tokens, custo, latencia e risco, usando fronteira de Pareto e exploracao segura em shadow mode.
@@ -59,7 +59,7 @@ requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Definir primeira utility function com constraints duras e shadow-only exploration.
+  - Persistir frontier receipts depois de validar shadow em traces reais.
 ---
 
 # Atlas Context Pareto Frontier Runtime
@@ -128,6 +128,16 @@ Tecnicas:
 - Per-domain frontier registry.
 - Promotion/rollback receipt.
 
+Runtime atual:
+
+- `AtlasContextParetoFrontierRuntimeService` emite frontier canary shadow.
+- `atlas:context:pareto-frontier --json` aceita `--hours` e le
+  `ai_trace_metric_summaries` quando disponivel.
+- A secao `real_trace_shadow` estima variantes sobre traces reais sem chamar
+  provider, sem benchmark, sem escrita e sem promocao.
+- Traces com baixa qualidade, remediation ou baixa confianca sao bloqueados;
+  high-risk nao troca must-keep por economia.
+
 ## Dependencias
 
 Depende de ATER para variantes de token, AREBA para metricas, ACOPRO para
@@ -138,6 +148,7 @@ experimentos, ACOP para observabilidade e ARPTL para constraints de trust.
 Evidencia minima:
 
 - frontier report com candidatos dominados;
+- secao `real_trace_shadow` quando metric summaries existem;
 - utility function versionada;
 - shadow receipt antes de promocao;
 - rollback ref;
@@ -162,6 +173,7 @@ pergunta simples, mas bloqueada para Finance ou Forge high-risk.
 ## Proximas Acoes
 
 1. Rodar `php artisan atlas:context:pareto-frontier --json`.
-2. Conectar candidates a traces reais de Atlas Dev e Forge.
+2. Rodar `php artisan atlas:context:pareto-frontier --hours=168 --json`.
 3. Persistir frontier receipts.
 4. Integrar frontier status ao ACOP.
+5. Criar safe exploration policy antes de qualquer promocao.

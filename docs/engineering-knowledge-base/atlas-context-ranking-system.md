@@ -2,9 +2,9 @@
 id: atlas-context-ranking-system
 type: engineering_knowledge
 title: Atlas Context Ranking System
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: ACRS ainda nao possui reranker global unificado; existem rerankers parciais em Programming.
+status: building
+implementation_state: building_read_only_explainable_ranking_runtime
+blocker: ACRS possui runtime read-only sobre AARF/AHRI com scoring explicavel; ainda falta persistir ranking receipts e integrar ACFQ/ARFL.
 category: intelligence-runtime
 priority: 98
 summary: Doc filha AUCRI para ranking de contexto por relevancia, autoridade, freshness, graph distance, outcome history, risco e intencao.
@@ -19,6 +19,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
   - app/Services/Ai/AutonomousEngineering/WorldModel/WorldModelGraphRanker.php
   - app/Services/Ai/Programming/ProgrammingProfessionalReranker.php
+  - app/Services/Ai/Context/AtlasContextRankingSystemService.php
+  - app/Console/Commands/AtlasContextRankingSystemCommand.php
+  - tests/Feature/Ai/Context/ContextRankingSystemTest.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
 product_name: Atlas Context Ranking System
@@ -31,7 +34,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
-graph_status: planned
+graph_status: building
 graph_source: repo
 owner: atlas-ai
 repo_paths:
@@ -46,13 +49,19 @@ unlocks: [low_noise_context_pack, outcome_aware_retrieval]
 governs: [context_ranking, reranking]
 evidence:
   - docs/engineering-knowledge-base/atlas-context-ranking-system.md
+  - app/Services/Ai/Context/AtlasContextRankingSystemService.php
+  - app/Console/Commands/AtlasContextRankingSystemCommand.php
+  - tests/Feature/Ai/Context/ContextRankingSystemTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan test tests/Feature/Ai/Context/ContextRankingSystemTest.php"
+  - "php artisan atlas:context:rank --query='corrigir bug no repo com teste falhando' --task-type=debug --domain=developer --json"
 requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Criar ranking spec com pesos iniciais e replay hash.
+  - Ligar ACRS ao ACFQ para freshness/quality fail-closed.
+  - Persistir ranking receipts quando ACOP/ARFL estiverem ativos.
 ---
 
 # Atlas Context Ranking System
@@ -65,7 +74,8 @@ final e por que.
 ## Papel no Atlas
 
 Reduzir ruido. O Atlas deve recuperar o contexto certo, nao apenas contexto
-parecido.
+parecido. O runtime atual faz ranking deterministico e explicavel sem provider,
+sem writes e sem texto cru.
 
 ## Onde Se Encaixa
 
@@ -95,7 +105,15 @@ AHRI candidates -> ACRS rerank -> ACFQ gate -> context pack
 
 ## Escopo de Implementacao
 
-Reranker global, score explainable, tests com golden sets e integração gradual.
+Runtime atual:
+
+- `AtlasContextRankingSystemService::rank()` consome AARF/AHRI.
+- Reaproveita `ProgrammingProfessionalReranker` como baseline deterministico.
+- Consulta `WorldModelGraphRanker` quando o grafo estiver disponivel.
+- Emite `selected_refs`, `excluded_refs`, score components, reasons e hash.
+- `atlas:context:rank` expoe a surface CLI read-only.
+
+Ainda falta virar ranking obrigatório no context pack final depois de ACFQ/ACCR.
 
 ## Dependencias
 
@@ -103,11 +121,13 @@ AHRI, AARF, AEMOR/ARFL, WorldModelGraphRanker.
 
 ## Evidencias
 
-Ranking com scores, reasons, excluded refs e deterministic hash.
+Ranking com scores, reasons, excluded refs e deterministic hash. Evidencia
+local atual: comando `atlas:context:rank` e `ContextRankingSystemTest`.
 
 ## Riscos
 
-Pesos ruins, feedback enviesado, fonte popular superar fonte correta.
+Pesos ruins, feedback enviesado, fonte popular superar fonte correta, graph
+ranking vazio quando world model ainda nao tem dados suficientes.
 
 ## Exemplos
 
@@ -115,6 +135,6 @@ Doc canonico recente pode ganhar de memoria antiga semanticamente parecida.
 
 ## Proximas Acoes
 
-1. Reusar ProgrammingProfessionalReranker.
-2. Integrar WorldModelGraphRanker.
-3. Criar golden set de ranking.
+1. Integrar ACFQ para bloquear refs stale/contraditorias.
+2. Integrar ARFL/AEMOR para outcome-aware ranking.
+3. Criar golden set de ranking em AREBA.

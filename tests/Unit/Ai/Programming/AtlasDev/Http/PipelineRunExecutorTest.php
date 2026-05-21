@@ -136,6 +136,45 @@ final class PipelineRunExecutorTest extends TestCase
         $this->assertSame(7, $gateway->requests[0]->timeoutSeconds);
     }
 
+    public function test_aucri_runtime_enforcement_blocks_sensitive_prompt_before_provider_call(): void
+    {
+        $runId = 'dev-aucri-block-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+
+        $gateway = new FakeClaudeCliGateway;
+        $gateway->queue($this->gatewayResponse(stdout: 'no_patch_needed: true'));
+        $commandRunner = new FakeCommandRunner;
+        $executor = $this->wireExecutor($storage, $gateway, $commandRunner);
+        $envelope = $this->envelope(intent: 'corrija o teste usando api_key=sk-AUCRISEGREDO1234567890');
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $this->taskContractFixture(),
+            promptProjection: $this->buildSendableProjection(envelope: $envelope),
+            runId: $runId,
+        );
+
+        $this->assertSame('blocked', $result->completionState);
+        $this->assertSame(0, $result->providerCallSummary['provider_calls']);
+        $this->assertSame([], $gateway->requests, 'AUCRI must block before Claude CLI is invoked.');
+        $this->assertContains('privacy:secret_context_requires_local_only', $result->providerCallSummary['error_codes']);
+
+        $enforcement = $storage->read($runId, ArtifactNames::AUCRI_RUNTIME_ENFORCEMENT);
+        $this->assertIsArray($enforcement);
+        $this->assertSame('atlas.aucri.runtime_enforcement.v1', $enforcement['schema_version']);
+        $this->assertSame('blocked', $enforcement['status']);
+        $this->assertSame(true, data_get($enforcement, 'claims.enforced_before_provider_call'));
+        $this->assertSame(true, data_get($enforcement, 'claims.all_18_aucri_blocks_executed'));
+        $this->assertSame(18, data_get($enforcement, 'block_ref_summary.total'));
+        $this->assertSame(18, data_get($enforcement, 'block_ref_summary.executed'));
+        $this->assertSame([
+            'ASEF', 'AHRI', 'AARF', 'ACRS', 'ACFQ', 'ARFL', 'AGRN', 'AURG', 'APDR',
+            'AREBA', 'ARCLG', 'ACOP', 'ARPTL', 'AKIF', 'ACMF', 'ACCR', 'ATER', 'ACPFR',
+        ], data_get($enforcement, 'block_ref_summary.acronyms'));
+        $this->assertStringNotContainsString('sk-AUCRISEGREDO', json_encode($enforcement, JSON_THROW_ON_ERROR));
+    }
+
     public function test_patch_diff_is_applied_to_workspace_before_verification(): void
     {
         $runId = 'dev-apply-'.bin2hex(random_bytes(3));

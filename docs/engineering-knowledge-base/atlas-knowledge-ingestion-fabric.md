@@ -3,9 +3,9 @@ id: atlas-knowledge-ingestion-fabric
 type: engineering_knowledge
 doc_schema: atlas_canonical_module_doc.v1
 title: Atlas Knowledge Ingestion Fabric
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: AKIF ainda nao possui source packet canonico, adapters, ingestion jobs, receipts ou tests por fonte; e bloco 14 da AUCRI.
+status: active
+implementation_state: runtime_surface_source_packet_ready
+blocker: Ingestion persistente/jobs reais ainda dependem de ACMF/ACCR/ATER; runtime AKIF read-only ja normaliza source packet, lineage, privacy gate e receipts.
 category: context_retrieval_intelligence
 priority: 95
 summary: "Fabric de ingestao para transformar documentos, videos, repos, planilhas, imagens e dados externos em fontes normalizadas, versionadas e auditaveis."
@@ -36,6 +36,9 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-retrieval-privacy-trust-layer.md
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - app/Services/Ai/Context/AtlasKnowledgeIngestionFabricService.php
+  - app/Console/Commands/AtlasKnowledgeIngestionFabricCommand.php
+  - tests/Feature/Ai/Context/KnowledgeIngestionFabricTest.php
 allowed_changes:
   - Criar adapters de ingestion por tipo de fonte.
   - Normalizar source packets com lineage, hash e privacy status.
@@ -54,7 +57,8 @@ evidence:
   - docs/engineering-knowledge-base/atlas-knowledge-ingestion-fabric.md
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:knowledge:ingestion readiness --json"
+  - "php artisan atlas:context:knowledge-ingestion --json"
+  - "php artisan test tests/Feature/Ai/Context/KnowledgeIngestionFabricTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
@@ -109,9 +113,9 @@ Campos minimos: `source_type`, `origin_uri`, `source_hash`, `version_hash`,
 
 ## Escopo de Implementacao
 
-Implementar adapters iniciais para text, PDF, image/OCR, YouTube/transcript,
-repo file, spreadsheet e URL; criar queue jobs, receipts, tests e command de
-readiness.
+Implementado em `AtlasKnowledgeIngestionFabricService` como runtime read-only:
+adapters canonicos para text, PDF, image/OCR, YouTube/transcript, repo file,
+spreadsheet e URL; source packet, lineage refs, receipt, privacy gate e command.
 
 ## Dependencias
 
@@ -119,8 +123,9 @@ Depende de ARPTL para trust gate e de ASEF para chunking/index posterior.
 
 ## Evidencias
 
-Evidencia minima: source packet com lineage, normalization receipt, confidence,
-privacy status e teste por tipo de fonte.
+Evidencia atual: `atlas:context:knowledge-ingestion --json`, source packet com
+lineage, normalization receipt, confidence, privacy status e tests de text,
+YouTube, repo/url e segredo bloqueado por ARPTL.
 
 ## Riscos
 
@@ -137,7 +142,7 @@ deve saber se a fonte e transcricao oficial, ASR local ou fallback.
 
 ## Proximas Acoes
 
-1. Mapear ingestion existente em rich input e YouTube.
-2. Definir source packet canonico.
-3. Implementar adapters por prioridade.
-4. Integrar com ARPTL, ASEF e AHRI.
+1. Enforcar AKIF no rich input, YouTube e ingestion jobs reais.
+2. Conectar source packets com ASEF/AHRI/AURG.
+3. Persistir job/receipt quando ACMF/ACCR estiverem prontos.
+4. Manter fixtures de idioma, confidence, lineage e privacy verdes.

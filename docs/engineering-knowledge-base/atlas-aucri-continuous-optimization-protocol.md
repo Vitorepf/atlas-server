@@ -5,11 +5,11 @@ title: Atlas AUCRI Continuous Optimization Protocol
 status: active
 category: intelligence-runtime
 priority: 99
-summary: Protocolo transversal para melhorar continuamente os 17 blocos AUCRI com foco em reducao de tokens, preservacao de qualidade, evidencias e falsificacao de economias aparentes.
+summary: Protocolo transversal para melhorar continuamente os 18 blocos AUCRI com foco em reducao de tokens, preservacao de qualidade, evidencias e falsificacao de economias aparentes.
 tags: [atlas-ai, aucri, optimization, token-economy, quality-gate]
 capabilities: [continuous_optimization, token_quality_audit, context_ablation, prompt_distillation, roi_scoring]
 decisions:
-  - Este protocolo governa melhoria continua dos 17 blocos AUCRI sem criar bloco 18.
+  - Este protocolo governa melhoria continua dos 18 blocos AUCRI, incluindo ACPFR como frontier de tradeoff.
   - Reducao de token so e aceita quando qualidade, evidence, sufficiency e must-keep continuam preservados.
   - Toda otimizacao deve ter baseline, variante, metricas, rollback e receipt.
 maintenance:
@@ -80,14 +80,14 @@ evidencias criticas e rollback claro.
 ## Onde Se Encaixa
 
 ```text
-17 blocos AUCRI
+18 blocos AUCRI
   -> ACOPRO audit/experimento/receipts
   -> AREBA mede
   -> ATER/ACCR/ACMF aplicam
   -> ACOP observa
 ```
 
-ACOPRO nao e bloco novo de runtime. E protocolo transversal dos 17 blocos.
+ACOPRO nao e bloco novo de runtime. E protocolo transversal dos 18 blocos.
 
 ## Contratos
 

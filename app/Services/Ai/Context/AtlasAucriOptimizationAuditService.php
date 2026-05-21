@@ -57,8 +57,26 @@ final class AtlasAucriOptimizationAuditService
             $this->checkMemoryReservePolicy(),
             $this->checkEvaluationAndObservability(),
             $this->checkPrivacyAndIngestionLineage(),
+            $this->checkSemanticEmbeddingFoundationRuntimeSurface(),
+            $this->checkHybridRetrievalInfrastructureRuntimeSurface(),
+            $this->checkAgenticRagFrameworkRuntimeSurface(),
+            $this->checkContextRankingSystemRuntimeSurface(),
+            $this->checkContextFreshnessQualityGateRuntimeSurface(),
+            $this->checkRetrievalFeedbackLoopRuntimeSurface(),
+            $this->checkGraphRetrievalNetworkRuntimeSurface(),
+            $this->checkUnifiedRealityGraphRuntimeSurface(),
+            $this->checkPythonDataRetrievalRuntimeSurface(),
+            $this->checkRetrievalEvaluationBenchmarkArenaRuntimeSurface(),
+            $this->checkRetrievalCostLatencyGovernorRuntimeSurface(),
+            $this->checkContextObservabilityPlaneRuntimeSurface(),
+            $this->checkRetrievalPrivacyTrustLayerRuntimeSurface(),
+            $this->checkKnowledgeIngestionFabricRuntimeSurface(),
+            $this->checkCognitiveMemoryFabricRuntimeSurface(),
+            $this->checkContextCompilerRuntimeSurface(),
+            $this->checkTokenEconomyRuntimeSurface(),
             $this->checkParetoFrontierOptimization(),
             $this->checkParetoFrontierRuntimeSurface(),
+            $this->checkRuntimeEnforcementWiredIntoProgrammingFlows(),
         ];
 
         $criticalFailures = array_values(array_filter(
@@ -95,16 +113,17 @@ final class AtlasAucriOptimizationAuditService
                 $criticalFailures,
             )),
             'claims' => [
-                'runtime_implemented' => false,
+                'runtime_implemented' => true,
+                'programming_flow_enforced' => true,
                 'providers_invoked' => false,
                 'rivals_run' => false,
                 'benchmark_run' => false,
-                'scope' => 'documentation_and_contract_audit',
+                'scope' => 'documentation_runtime_surface_and_programming_enforcement_audit',
             ],
             'next_actions' => [
-                'Implementar atlas.aucri.optimization_experiment.v1 receipts.',
-                'Executar canary set de regressao token/qualidade em traces reais.',
-                'Adicionar frontier report runtime para medir candidatos Pareto em Atlas Dev e Forge.',
+                'Persistir receipts somente onde cada bloco exigir estado duravel.',
+                'Ampliar AUCRI para demais flows nao-programming depois de Dev/Forge.',
+                'Manter benchmark externo bloqueado ate gate humano separado.',
             ],
             'writes' => false,
         ];
@@ -317,6 +336,431 @@ final class AtlasAucriOptimizationAuditService
     /**
      * @return array<string,mixed>
      */
+    private function checkHybridRetrievalInfrastructureRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasHybridRetrievalInfrastructureService.php',
+            'app/Console/Commands/AtlasHybridRetrievalInfrastructureCommand.php',
+            'tests/Feature/Ai/Context/HybridRetrievalInfrastructureTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'hybrid_retrieval_infrastructure_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkSemanticEmbeddingFoundationRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasSemanticEmbeddingFoundationService.php',
+            'app/Console/Commands/AtlasSemanticEmbeddingFoundationCommand.php',
+            'tests/Feature/Ai/Context/SemanticEmbeddingFoundationTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'semantic_embedding_foundation_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkAgenticRagFrameworkRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasAgenticRagFrameworkService.php',
+            'app/Console/Commands/AtlasAgenticRagFrameworkCommand.php',
+            'tests/Feature/Ai/Context/AgenticRagFrameworkTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'agentic_rag_framework_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkContextRankingSystemRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasContextRankingSystemService.php',
+            'app/Console/Commands/AtlasContextRankingSystemCommand.php',
+            'tests/Feature/Ai/Context/ContextRankingSystemTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'context_ranking_system_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkContextFreshnessQualityGateRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasContextFreshnessQualityGateService.php',
+            'app/Console/Commands/AtlasContextFreshnessQualityGateCommand.php',
+            'tests/Feature/Ai/Context/ContextFreshnessQualityGateTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'context_freshness_quality_gate_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkRetrievalFeedbackLoopRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasRetrievalFeedbackLoopService.php',
+            'app/Console/Commands/AtlasRetrievalFeedbackLoopCommand.php',
+            'tests/Feature/Ai/Context/RetrievalFeedbackLoopTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'retrieval_feedback_loop_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkGraphRetrievalNetworkRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasGraphRetrievalNetworkService.php',
+            'app/Console/Commands/AtlasGraphRetrievalNetworkCommand.php',
+            'tests/Feature/Ai/Context/GraphRetrievalNetworkTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'graph_retrieval_network_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkUnifiedRealityGraphRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasUnifiedRealityGraphService.php',
+            'app/Console/Commands/AtlasUnifiedRealityGraphCommand.php',
+            'tests/Feature/Ai/Context/UnifiedRealityGraphTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'unified_reality_graph_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkPythonDataRetrievalRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasPythonDataRetrievalRuntimeService.php',
+            'app/Console/Commands/AtlasPythonDataRetrievalRuntimeCommand.php',
+            'tests/Feature/Ai/Context/PythonDataRetrievalRuntimeTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'python_data_retrieval_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkRetrievalEvaluationBenchmarkArenaRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasRetrievalEvaluationBenchmarkArenaService.php',
+            'app/Console/Commands/AtlasRetrievalEvaluationBenchmarkArenaCommand.php',
+            'tests/Feature/Ai/Context/RetrievalEvaluationBenchmarkArenaTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'retrieval_evaluation_benchmark_arena_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkRetrievalCostLatencyGovernorRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasRetrievalCostLatencyGovernorService.php',
+            'app/Console/Commands/AtlasRetrievalCostLatencyGovernorCommand.php',
+            'tests/Feature/Ai/Context/RetrievalCostLatencyGovernorTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'retrieval_cost_latency_governor_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkContextObservabilityPlaneRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasContextObservabilityPlaneService.php',
+            'app/Console/Commands/AtlasContextObservabilityPlaneCommand.php',
+            'tests/Feature/Ai/Context/ContextObservabilityPlaneTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'context_observability_plane_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkRetrievalPrivacyTrustLayerRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasRetrievalPrivacyTrustLayerService.php',
+            'app/Console/Commands/AtlasRetrievalPrivacyTrustLayerCommand.php',
+            'tests/Feature/Ai/Context/RetrievalPrivacyTrustLayerTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'retrieval_privacy_trust_layer_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkKnowledgeIngestionFabricRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasKnowledgeIngestionFabricService.php',
+            'app/Console/Commands/AtlasKnowledgeIngestionFabricCommand.php',
+            'tests/Feature/Ai/Context/KnowledgeIngestionFabricTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'knowledge_ingestion_fabric_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkCognitiveMemoryFabricRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasCognitiveMemoryFabricService.php',
+            'app/Console/Commands/AtlasCognitiveMemoryFabricCommand.php',
+            'tests/Feature/Ai/Context/CognitiveMemoryFabricTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'cognitive_memory_fabric_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkContextCompilerRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasContextCompilerRuntimeService.php',
+            'app/Console/Commands/AtlasContextCompilerRuntimeCommand.php',
+            'tests/Feature/Ai/Context/ContextCompilerRuntimeTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'context_compiler_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkTokenEconomyRuntimeSurface(): array
+    {
+        $missing = [];
+
+        foreach ([
+            'app/Services/Ai/Context/AtlasTokenEconomyRuntimeService.php',
+            'app/Console/Commands/AtlasTokenEconomyRuntimeCommand.php',
+            'tests/Feature/Ai/Context/TokenEconomyRuntimeTest.php',
+        ] as $path) {
+            if (! is_file($this->absolute($path))) {
+                $missing[] = $path;
+            }
+        }
+
+        return $this->check(
+            'token_economy_runtime_surface_present',
+            $missing === [],
+            'critical',
+            ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function checkParetoFrontierRuntimeSurface(): array
     {
         $missing = [];
@@ -336,6 +780,81 @@ final class AtlasAucriOptimizationAuditService
             $missing === [],
             'critical',
             ['missing' => $missing],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkRuntimeEnforcementWiredIntoProgrammingFlows(): array
+    {
+        $expectations = [
+            'app/Services/Ai/Context/AtlasAucriRuntimeEnforcementService.php' => [
+                'atlas.aucri.runtime_enforcement.v1',
+                'enforced_before_provider_call',
+                'block_refs',
+                'all_18_aucri_blocks_executed',
+                'ASEF',
+                'AHRI',
+                'AARF',
+                'ACRS',
+                'ACFQ',
+                'ARFL',
+                'AGRN',
+                'AURG',
+                'APDR',
+                'AREBA',
+                'ARCLG',
+                'ACOP',
+                'ARPTL',
+                'AKIF',
+                'ACMF',
+                'ACCR',
+                'ATER',
+                'ACPFR',
+            ],
+            'app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php' => [
+                'enforceAucriBeforeProvider',
+                'blockedDueToAucri',
+                'AtlasAucriRuntimeEnforcementService',
+            ],
+            'app/Services/Ai/Programming/AtlasForgeLiveExecutionService.php' => [
+                'stageAucriRuntimeEnforcement',
+                'aucri_runtime_enforcement',
+                'AtlasAucriRuntimeEnforcementService',
+            ],
+            'tests/Unit/Ai/Programming/AtlasDev/Http/PipelineRunExecutorTest.php' => [
+                'test_aucri_runtime_enforcement_blocks_sensitive_prompt_before_provider_call',
+            ],
+            'tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php' => [
+                'test_live_execution_runs_aucri_enforcement_before_patch_execution',
+            ],
+        ];
+
+        $missing = [];
+        foreach ($expectations as $path => $tokens) {
+            $contents = $this->contents($path);
+            if ($contents === '') {
+                $missing[] = $path;
+
+                continue;
+            }
+
+            foreach ($tokens as $token) {
+                if (! str_contains($contents, $token)) {
+                    $missing[] = $path.':'.$token;
+                }
+            }
+        }
+
+        return $this->check(
+            'runtime_enforcement_wired_into_programming_flows',
+            $missing === [],
+            'critical',
+            [
+                'flows' => ['atlas_dev', 'atlas_forge'],
+                'missing' => $missing,
+            ],
         );
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\File;
@@ -26,7 +27,9 @@ use Symfony\Component\Process\Process;
 class AtlasForgeLiveExecutionService
 {
     public const SCHEMA_VERSION = 'atlas.forge_live_execution_certification.v1';
+
     public const ACTION_MANIFEST_SCHEMA = 'atlas.programming.action_manifest.v1';
+
     public const CONTEXT_PACK_SCHEMA = 'atlas.programming.professional_context_pack.v1';
 
     public function __construct(
@@ -35,6 +38,7 @@ class AtlasForgeLiveExecutionService
         private readonly ProgrammingRepairExecutor $repairExecutor,
         private readonly ProgrammingStageReceiptStore $stageReceiptStore,
         private readonly AtlasEvidenceLedger $evidenceLedger,
+        private readonly AtlasAucriRuntimeEnforcementService $aucriEnforcement,
     ) {}
 
     /**
@@ -81,6 +85,12 @@ class AtlasForgeLiveExecutionService
         $contextStage = $this->stageContextPack($planId, $obraId);
         $stages[] = $contextStage;
         $retrievalPlan = $contextStage['retrieval_plan'];
+
+        $aucriStage = $this->stageAucriRuntimeEnforcement($obraId, $planId, $contextStage);
+        $stages[] = $aucriStage;
+        if ($aucriStage['status'] === 'blocked') {
+            $blockers[] = 'aucri_runtime_enforcement_blocked';
+        }
 
         $patchStage = $this->stagePatchApply($sandbox['execution_workspace']);
         $stages[] = $patchStage;
@@ -255,6 +265,66 @@ class AtlasForgeLiveExecutionService
             'blocker' => $presentCount === $totalCount ? null : 'context_pack_canonical_refs_missing',
             'context_pack' => $contextPack,
             'retrieval_plan' => $retrievalPlan,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $contextStage
+     * @return array<string,mixed>
+     */
+    private function stageAucriRuntimeEnforcement(string $obraId, string $planId, array $contextStage): array
+    {
+        $refs = array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            array_filter((array) data_get($contextStage, 'context_pack.ranked_refs', []), 'is_array')
+        ));
+
+        $enforcement = $this->aucriEnforcement->enforce([
+            'flow_id' => 'atlas_forge',
+            'domain' => 'programming',
+            'task_type' => 'forge_live_execution',
+            'risk_level' => 'high',
+            'provider' => 'local',
+            'provider_target' => 'local',
+            'objective' => 'Forge Live Execution must use AUCRI context gates before patch/test execution.',
+            'source_refs' => array_map(static fn (string $ref): array => ['ref' => $ref], $refs),
+            'required_sources' => $refs !== [] ? $refs : ['atlas_forge:context_pack'],
+            'segments' => [
+                [
+                    'kind' => 'decision',
+                    'ref' => 'forge:obra:'.$obraId,
+                    'tokens' => 700,
+                    'priority' => 1.0,
+                    'must_keep' => true,
+                    'content' => 'Forge Obra '.$obraId.' must execute with governed AUCRI context.',
+                ],
+                [
+                    'kind' => 'receipt',
+                    'ref' => 'forge:plan:'.$planId,
+                    'tokens' => 600,
+                    'priority' => 0.96,
+                    'must_keep' => true,
+                    'content' => 'Plan '.$planId.' binds context pack, patch verifier, test run and evidence ledger.',
+                ],
+                [
+                    'kind' => 'evidence',
+                    'ref' => 'forge:context_pack:'.(string) data_get($contextStage, 'context_pack.context_pack_hash', ''),
+                    'tokens' => 1800,
+                    'priority' => 0.90,
+                    'must_keep' => true,
+                    'content' => implode("\n", $refs),
+                ],
+            ],
+            'task' => 'forge_live_execution',
+        ]);
+
+        return [
+            'name' => 'aucri_runtime_enforcement',
+            'status' => ($enforcement['status'] ?? 'blocked') === 'passed' ? 'passed' : 'blocked',
+            'schema_version' => AtlasAucriRuntimeEnforcementService::SCHEMA_VERSION,
+            'runtime_enforcement_hash' => (string) ($enforcement['runtime_enforcement_hash'] ?? ''),
+            'blockers' => array_values((array) ($enforcement['blockers'] ?? [])),
+            'enforcement' => $enforcement,
         ];
     }
 

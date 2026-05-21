@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\AtlasDev\Support;
 
+use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplyResult;
@@ -68,6 +69,18 @@ final class PipelineRunExecutor implements RunExecutor
         // fail closed (CompactSddUnavailableException → 422) instead of
         // wasting a provider call on a run we cannot honestly attest.
         [$taskKind, $riskLevel] = $this->resolveTaskKindAndRiskLevel($runId, $expectedCompactSddHash);
+
+        $aucriEnforcement = $this->enforceAucriBeforeProvider(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $promptProjection,
+            runId: $runId,
+            riskLevel: $riskLevel,
+            taskKind: $taskKind,
+        );
+        if (($aucriEnforcement['status'] ?? 'blocked') !== 'passed') {
+            return $this->blockedDueToAucri($aucriEnforcement);
+        }
 
         $commandRunner = $this->resolve(VerificationCommandRunner::class);
         $deterministicCallResult = $this->deterministicFastPathEnabled()
@@ -542,6 +555,104 @@ final class PipelineRunExecutor implements RunExecutor
                 'tokens_out' => null,
                 'estimated_cost_usd' => null,
                 'error_codes' => $reasons,
+                'raw_response_hash' => null,
+                'stdout_bytes' => 0,
+                'stderr_bytes' => 0,
+            ],
+            diffParseSummary: null,
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function enforceAucriBeforeProvider(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+        string $runId,
+        string $riskLevel,
+        string $taskKind,
+    ): array {
+        $segments = [
+            [
+                'kind' => 'decision',
+                'ref' => 'atlas_dev:task_contract:'.$taskContract->taskContractHash,
+                'tokens' => 700,
+                'priority' => 1.0,
+                'must_keep' => true,
+                'content' => 'Atlas Dev task contract must govern provider execution.',
+            ],
+            [
+                'kind' => 'constraint',
+                'ref' => 'atlas_dev:scope:'.$envelope->workspaceHash,
+                'tokens' => 650,
+                'priority' => 0.98,
+                'must_keep' => true,
+                'content' => implode('|', [
+                    'max_files_changed='.$taskContract->maxFilesChanged,
+                    'allowed_files='.implode(',', $taskContract->allowedFiles),
+                    'blocked_actions='.implode(',', $taskContract->blockedActions),
+                ]),
+            ],
+            [
+                'kind' => 'evidence',
+                'ref' => 'atlas_dev:prompt_projection:'.$promptProjection->promptProjectionHash,
+                'tokens' => max(500, min(6000, (int) ceil(strlen($promptProjection->renderedPromptText) / 4))),
+                'priority' => 0.94,
+                'must_keep' => true,
+                'content' => $promptProjection->renderedPromptText,
+            ],
+        ];
+
+        $enforcement = app(AtlasAucriRuntimeEnforcementService::class)->enforce([
+            'flow_id' => 'atlas_dev',
+            'domain' => 'programming',
+            'task_type' => $taskKind,
+            'risk_level' => $riskLevel,
+            'provider' => 'claude',
+            'provider_target' => 'external',
+            'objective' => $envelope->normalizedIntent,
+            'rendered_prompt_text' => $promptProjection->renderedPromptText,
+            'source_refs' => [
+                ['ref' => 'operation_envelope:'.$envelope->envelopeHash],
+                ['ref' => 'task_contract:'.$taskContract->taskContractHash],
+                ['ref' => 'prompt_projection:'.$promptProjection->promptProjectionHash],
+            ],
+            'required_sources' => [
+                'operation_envelope:'.$envelope->envelopeHash,
+                'task_contract:'.$taskContract->taskContractHash,
+                'prompt_projection:'.$promptProjection->promptProjectionHash,
+            ],
+            'segments' => $segments,
+            'task' => 'execute_provider_patch',
+        ]);
+
+        $this->storage->writeAtomic($runId, ArtifactNames::AUCRI_RUNTIME_ENFORCEMENT, $enforcement);
+
+        return $enforcement;
+    }
+
+    /**
+     * @param  array<string,mixed>  $enforcement
+     */
+    private function blockedDueToAucri(array $enforcement): RunExecutionResult
+    {
+        return new RunExecutionResult(
+            completionState: 'blocked',
+            scopeGuardStatus: 'skipped',
+            verificationStatus: 'skipped',
+            persistedReceiptPaths: [],
+            providerCallSummary: [
+                'provider' => 'claude_cli',
+                'model_family' => 'sonnet',
+                'provider_calls' => 0,
+                'exit_code' => 0,
+                'duration_ms' => 0,
+                'tokens_in' => null,
+                'tokens_out' => null,
+                'estimated_cost_usd' => null,
+                'error_codes' => array_values((array) ($enforcement['blockers'] ?? ['aucri_runtime_enforcement_blocked'])),
                 'raw_response_hash' => null,
                 'stdout_bytes' => 0,
                 'stderr_bytes' => 0,

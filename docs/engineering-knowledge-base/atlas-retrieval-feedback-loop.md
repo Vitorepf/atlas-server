@@ -2,9 +2,9 @@
 id: atlas-retrieval-feedback-loop
 type: engineering_knowledge
 title: Atlas Retrieval Feedback Loop
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: ARFL ainda nao existe como closed-loop global; ha compounding e RAG feedback parciais.
+status: building
+implementation_state: building_aucri_feedback_wrapper
+blocker: ARFL possui runtime AUCRI sobre ACFQ e AtlasRagFeedbackService; ainda falta ACOP/ACRS consumir feedback automaticamente.
 category: intelligence-runtime
 priority: 98
 summary: Doc filha AUCRI para feedback de uso de contexto: refs uteis, ruido, misses, wrong-context, stale-context e outcome-aware retrieval learning.
@@ -17,6 +17,9 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
+  - app/Services/Ai/Context/AtlasRetrievalFeedbackLoopService.php
+  - app/Console/Commands/AtlasRetrievalFeedbackLoopCommand.php
+  - tests/Feature/Ai/Context/RetrievalFeedbackLoopTest.php
   - app/Services/Ai/Compounding/AtlasRagFeedbackService.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
@@ -30,7 +33,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
-graph_status: planned
+graph_status: building
 graph_source: repo
 owner: atlas-ai
 repo_paths:
@@ -45,13 +48,18 @@ unlocks: [outcome_aware_retrieval, context_roi_learning]
 governs: [retrieval_feedback, context_learning]
 evidence:
   - docs/engineering-knowledge-base/atlas-retrieval-feedback-loop.md
+  - app/Services/Ai/Context/AtlasRetrievalFeedbackLoopService.php
+  - app/Console/Commands/AtlasRetrievalFeedbackLoopCommand.php
+  - tests/Feature/Ai/Context/RetrievalFeedbackLoopTest.php
 required_tests:
+  - "php artisan test tests/Feature/Ai/Context/RetrievalFeedbackLoopTest.php"
+  - "php artisan atlas:context:retrieval-feedback --query='debug repo with tests' --task-type=debug --domain=developer --json"
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Mapear ai_rag_feedback_events e AEMOR candidates.
+  - Integrar feedback ARFL ao ranking ACRS depois de ACOP/AREBA.
 ---
 
 # Atlas Retrieval Feedback Loop
@@ -68,7 +76,7 @@ Transformar outcome em melhoria de retrieval sem aprendizado falso.
 ## Onde Se Encaixa
 
 ```text
-execution outcome -> context usage feedback -> learning candidate -> ACRS/ASEF
+ACFQ -> execution outcome -> ARFL -> learning candidate -> ACRS/ASEF
 ```
 
 ## Contratos
@@ -77,14 +85,15 @@ execution outcome -> context usage feedback -> learning candidate -> ACRS/ASEF
 - `atlas.aucri.context_roi.v1`
 - `atlas.aucri.missed_ref_candidate.v1`
 - `atlas.aucri.noise_ref_candidate.v1`
+- `atlas.aucri.retrieval_learning_candidate.v1`
 
 ## Fluxo
 
-1. Registrar refs usadas.
-2. Comparar outcome.
-3. Detectar missing/noise/stale/wrong context.
-4. Criar candidato.
-5. Exigir review/policy.
+1. Rodar ACFQ para capturar contexto aprovado ou bloqueado.
+2. Comparar outcome com refs usadas, noise e misses.
+3. Calcular context ROI.
+4. Persistir `ai_rag_feedback_events` quando `record=true`.
+5. Criar candidato review-only; nunca auto-promover.
 
 ## Regras para IA
 
@@ -94,25 +103,34 @@ execution outcome -> context usage feedback -> learning candidate -> ACRS/ASEF
 
 ## Escopo de Implementacao
 
-Feedback events, integration com AEMOR/Compounding, score updates e tests.
+`AtlasRetrievalFeedbackLoopService` e comando `atlas:context:retrieval-feedback`.
+Ele reusa `AtlasRagFeedbackService`; score updates automaticos ficam proibidos
+ate ACRS/AREBA/ACOP consumirem feedback com review.
 
 ## Dependencias
 
-AEMOR, Compounding, ACRS, Evidence.
+AEMOR, Compounding, ACFQ, ACRS, Evidence.
 
 ## Evidencias
 
-Feedback event com outcome refs e learning candidate.
+Evidencias atuais:
+
+- service: `AtlasRetrievalFeedbackLoopService`;
+- command: `atlas:context:retrieval-feedback`;
+- tests: `RetrievalFeedbackLoopTest`;
+- persistence opcional: `ai_rag_feedback_events`.
 
 ## Riscos
 
-Falso aprendizado, reinforcing bias, ranking piorar por feedback fraco.
+Falso aprendizado, reinforcing bias, ranking piorar por feedback fraco,
+promocao automatica indevida.
 
 ## Exemplos
 
-Se um patch falha por doc ausente, ARFL registra missed_required_doc.
+Se um patch falha por doc ausente, ARFL registra missed_required_doc e gera
+candidato `proposed` com `auto_apply=false`.
 
 ## Proximas Acoes
 
-1. Unificar RAG feedback existente.
-2. Criar context ROI score.
+1. Fazer ACRS ler feedback aprovado.
+2. Ligar ACOP para observabilidade de ROI/misses/noise.

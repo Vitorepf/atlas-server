@@ -3,9 +3,9 @@ id: atlas-retrieval-evaluation-benchmark-arena
 type: engineering_knowledge
 doc_schema: atlas_canonical_module_doc.v1
 title: Atlas Retrieval Evaluation & Benchmark Arena
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: AREBA ainda nao possui service, golden sets, command, persistence ou testes; e bloco 10 da AUCRI.
+status: building
+implementation_state: runtime_surface_internal_eval_ready
+blocker: AREBA possui service, command e testes para golden sets internos; ainda falta persistencia historica e baseline longitudinal antes de claims externos.
 category: context_retrieval_intelligence
 priority: 96
 summary: "Arena canonica para medir qualidade de retrieval, contexto, groundedness, regressao e ROI antes de promover mudancas em AUCRI."
@@ -35,6 +35,9 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
   - docs/engineering-knowledge-base/atlas-retrieval-feedback-loop.md
   - docs/engineering-knowledge-base/atlas-context-ranking-system.md
+  - app/Services/Ai/Context/AtlasRetrievalEvaluationBenchmarkArenaService.php
+  - app/Console/Commands/AtlasRetrievalEvaluationBenchmarkArenaCommand.php
+  - tests/Feature/Ai/Context/RetrievalEvaluationBenchmarkArenaTest.php
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
@@ -54,14 +57,18 @@ unlocks: [retrieval_quality_eval, golden_set_regression]
 governs: [retrieval_eval, context_quality_claims]
 evidence:
   - docs/engineering-knowledge-base/atlas-retrieval-evaluation-benchmark-arena.md
+  - app/Services/Ai/Context/AtlasRetrievalEvaluationBenchmarkArenaService.php
+  - app/Console/Commands/AtlasRetrievalEvaluationBenchmarkArenaCommand.php
+  - tests/Feature/Ai/Context/RetrievalEvaluationBenchmarkArenaTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:retrieval:arena run --json"
+  - "php artisan atlas:context:evaluate-retrieval --json"
+  - "php artisan test tests/Feature/Ai/Context/RetrievalEvaluationBenchmarkArenaTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Criar golden sets internos por dominio e command de avaliacao local.
+  - Persistir historico de evals e baseline longitudinal depois de ACOP/ARCLG.
 ---
 
 # Atlas Retrieval Evaluation & Benchmark Arena
@@ -85,11 +92,11 @@ candidatos, o feedback mostra uso real, e AREBA mede se a combinacao melhorou.
 
 ## Contratos
 
-- `atlas.retrieval.eval_case.v1`
-- `atlas.retrieval.eval_run.v1`
-- `atlas.retrieval.golden_set.v1`
-- `atlas.retrieval.regression_report.v1`
-- `atlas.retrieval.context_roi_score.v1`
+- `atlas.aucri.retrieval_evaluation_arena.v1`
+- `atlas.aucri.golden_retrieval_case.v1`
+- `atlas.aucri.retrieval_eval_result.v1`
+- `atlas.aucri.retrieval_eval_summary.v1`
+- `atlas.aucri.retrieval_regression_report.v1`
 
 Campos minimos: `query`, `domain`, `required_refs`, `forbidden_refs`,
 `retrieved_refs`, `used_refs`, `missed_refs`, `noise_refs`, `groundedness`,
@@ -113,9 +120,9 @@ Campos minimos: `query`, `domain`, `required_refs`, `forbidden_refs`,
 
 ## Escopo de Implementacao
 
-Implementar service de avaliacao, storage de golden sets, runner local,
-regression gate, command `atlas:retrieval:arena run --json` e tests com
-fixtures deterministicas.
+Implementado service de avaliacao, golden set interno deterministico, runner
+local, regression gate, command `atlas:context:evaluate-retrieval --json` e
+tests. Persistencia historica fica para ACOP/ARCLG para evitar tabela paralela.
 
 ## Dependencias
 
@@ -124,8 +131,9 @@ estrategias de ranking.
 
 ## Evidencias
 
-Evidencia minima: golden set versionado, run hash, report JSON, diff contra
-baseline e teste que bloqueia promocao quando required ref fica ausente.
+Evidencia minima atual: golden set versionado, arena hash, report JSON, claims
+sem provider/rivals/benchmark externo e teste que bloqueia promocao quando
+required source fica ausente.
 
 ## Riscos
 
@@ -141,7 +149,7 @@ AREBA deve falhar se recuperar so `service` e ignorar o teste quebrado.
 
 ## Proximas Acoes
 
-1. Criar inventario de casos reais por Programming, Forge, Research e Finance.
-2. Definir score minimo por risco.
-3. Implementar runner local sem provider externo.
+1. Adicionar historico longitudinal de evals depois de ACOP.
+2. Integrar metricas de custo/latencia com ARCLG.
+3. Expandir casos reais por Programming, Forge, Research e Finance.
 4. Integrar resultado no Control Plane.

@@ -2,9 +2,9 @@
 id: atlas-token-economy-runtime
 type: engineering_knowledge
 title: Atlas Token Economy Runtime
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: ATER ainda nao possui service, token budgets, semantic compression, reuse cache, local pre-reasoning, quality gate ou testes; e bloco 17 da AUCRI.
+status: active
+implementation_state: runtime_surface_token_economy_ready
+blocker: Provider selection ainda e advisory ate promocao governada; runtime ATER read-only ja emite budgets, compression/reuse/local receipts e quality gate.
 category: intelligence-runtime
 priority: 98
 summary: Doc filha AUCRI para reduzir tokens de entrada e saida sem reduzir evidencia, must-keep, sufficiency, qualidade ou completude.
@@ -22,6 +22,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-retrieval-cost-latency-governor.md
   - docs/engineering-knowledge-base/atlas-cognitive-memory-fabric.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - app/Services/Ai/Context/AtlasTokenEconomyRuntimeService.php
+  - app/Console/Commands/AtlasTokenEconomyRuntimeCommand.php
+  - tests/Feature/Ai/Context/TokenEconomyRuntimeTest.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
 product_name: Atlas Token Economy Runtime
@@ -53,7 +56,8 @@ evidence:
   - docs/engineering-knowledge-base/atlas-token-economy-runtime.md
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:token-economy readiness --json"
+  - "php artisan atlas:context:token-economy --json"
+  - "php artisan test tests/Feature/Ai/Context/TokenEconomyRuntimeTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
@@ -116,7 +120,7 @@ Campos minimos: `flow_id`, `risk_level`, `provider`, `input_tokens_before`,
 
 ## Escopo de Implementacao
 
-Sub-blocos:
+Sub-blocos cobertos pelo runtime read-only:
 
 - ATOG: Atlas Token Budget Governor.
 - ASCR: Atlas Semantic Compression Runtime.
@@ -135,8 +139,9 @@ regressao de qualidade.
 
 ## Evidencias
 
-Evidencia minima:
+Evidencia atual:
 
+- `atlas:context:token-economy --json`;
 - receipt com tokens antes/depois;
 - must_keep_coverage = 1.0;
 - loss_score abaixo do limite;
@@ -159,8 +164,8 @@ risks, decisions e evidence refs.
 
 ## Proximas Acoes
 
-1. Criar budgets iniciais por flow/risk/provider.
-2. Implementar receipts antes/depois.
-3. Criar fixtures de compressao segura.
-4. Integrar primeiro com Atlas Dev e Forge.
-5. Expor metricas em ACOP.
+1. Enforcar ATER antes de provider calls.
+2. Expor metricas em ACOP.
+3. Integrar primeiro com Atlas Dev e Forge.
+4. Promover provider selection somente com AP/receipt.
+5. Manter fixtures de must-keep e provider risk verdes.

@@ -128,6 +128,8 @@ class ExternalActionMandateRegistryService
 
     public const ENTERPRISE_COMPANY_COMPLETION_CERTIFICATION_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_company_completion_certification_status.v1';
 
+    public const ENTERPRISE_HOLDING_COMPLETION_AUDIT_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_holding_completion_audit_status.v1';
+
     public const ENTERPRISE_VERTICAL_OPERATIONAL_DEPTH_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_vertical_operational_depth_status.v1';
 
     public const ENTERPRISE_COMPANY_OPERATING_CYCLE_STATUS_SCHEMA = 'atlas.ai.holding.enterprise_company_operating_cycle_status.v1';
@@ -881,9 +883,15 @@ class ExternalActionMandateRegistryService
                 'ready_company_count' => $readyCompanies,
                 'repository_intake_count' => array_sum(array_map(static fn (array $company): int => (int) $company['repository_intake_count'], $companyRows)),
                 'framework_scorecard_count' => array_sum(array_map(static fn (array $company): int => (int) $company['framework_scorecard_count'], $companyRows)),
+                'flow_repository_adoption_matrix_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_repository_adoption_matrix_count'], $companyRows)),
                 'flow_epic_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_epic_count'], $companyRows)),
+                'tool_permission_manifest_count' => array_sum(array_map(static fn (array $company): int => (int) $company['tool_permission_manifest_count'], $companyRows)),
+                'eval_replay_recipe_count' => array_sum(array_map(static fn (array $company): int => (int) $company['eval_replay_recipe_count'], $companyRows)),
                 'version_pin_count' => array_sum(array_map(static fn (array $company): int => (int) $company['version_pin_count'], $companyRows)),
                 'migration_path_count' => array_sum(array_map(static fn (array $company): int => (int) $company['migration_path_count'], $companyRows)),
+                'license_security_review_count' => array_sum(array_map(static fn (array $company): int => (int) $company['license_security_review_count'], $companyRows)),
+                'runtime_boundary_review_count' => array_sum(array_map(static fn (array $company): int => (int) $company['runtime_boundary_review_count'], $companyRows)),
+                'operator_acceptance_contract_count' => array_sum(array_map(static fn (array $company): int => (int) $company['operator_acceptance_contract_count'], $companyRows)),
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
             ],
@@ -926,6 +934,8 @@ class ExternalActionMandateRegistryService
                 'ready_company_count' => $readyCompanies,
                 'source_basis_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_basis_count'], $companyRows)),
                 'framework_profile_count' => array_sum(array_map(static fn (array $company): int => (int) $company['framework_profile_count'], $companyRows)),
+                'framework_runtime_boundary_contract_count' => array_sum(array_map(static fn (array $company): int => (int) $company['framework_runtime_boundary_contract_count'], $companyRows)),
+                'framework_pattern_binding_count' => array_sum(array_map(static fn (array $company): int => (int) $company['framework_pattern_binding_count'], $companyRows)),
                 'mcp_security_profile_count' => array_sum(array_map(static fn (array $company): int => (int) $company['mcp_security_profile_count'], $companyRows)),
                 'flow_runtime_map_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_runtime_map_count'], $companyRows)),
                 'supply_chain_artifact_count' => array_sum(array_map(static fn (array $company): int => (int) $company['supply_chain_artifact_count'], $companyRows)),
@@ -1357,6 +1367,11 @@ class ExternalActionMandateRegistryService
                 'certified_tool_contract_count' => array_sum(array_map(static fn (array $company): int => (int) $company['certified_tool_contract_count'], $companyRows)),
                 'repository_reference_count' => array_sum(array_map(static fn (array $company): int => (int) $company['repository_reference_count'], $companyRows)),
                 'domain_source_reference_count' => array_sum(array_map(static fn (array $company): int => (int) $company['domain_source_reference_count'], $companyRows)),
+                'repository_flow_adoption_matrix_count' => array_sum(array_map(static fn (array $company): int => (int) $company['repository_flow_adoption_matrix_count'], $companyRows)),
+                'repository_tool_permission_manifest_count' => array_sum(array_map(static fn (array $company): int => (int) $company['repository_tool_permission_manifest_count'], $companyRows)),
+                'repository_eval_replay_recipe_count' => array_sum(array_map(static fn (array $company): int => (int) $company['repository_eval_replay_recipe_count'], $companyRows)),
+                'repository_license_security_review_count' => array_sum(array_map(static fn (array $company): int => (int) $company['repository_license_security_review_count'], $companyRows)),
+                'repository_runtime_boundary_review_count' => array_sum(array_map(static fn (array $company): int => (int) $company['repository_runtime_boundary_review_count'], $companyRows)),
                 'ready_gate_count' => array_sum(array_map(static fn (array $company): int => (int) $company['ready_gate_count'], $companyRows)),
                 'required_gate_count' => array_sum(array_map(static fn (array $company): int => (int) $company['required_gate_count'], $companyRows)),
                 'external_execution_allowed_count' => 0,
@@ -1835,6 +1850,8 @@ class ExternalActionMandateRegistryService
         $cockpit = $this->activationCockpit($companyId);
         $provider = $this->providerWorkbenchStatus($companyId);
         $repositoryAdoption = $this->agentRepositoryAdoptionStatus($companyId);
+        $repositoryOperatingCatalog = $this->agentRepositoryOperatingCatalogStatus($companyId);
+        $domainToolchain = $this->domainAgentToolchainCertificationStatus($companyId);
         $industryEcosystem = $this->industrySolutionEcosystemStatus($companyId);
         $businessBackbone = $this->businessOperatingBackboneStatus($companyId);
         $productionPreflight = $this->productionConnectorPreflightStatus($companyId);
@@ -1855,6 +1872,14 @@ class ExternalActionMandateRegistryService
         $repositoryAdoptionByCompany = [];
         foreach ((array) ($repositoryAdoption['companies'] ?? []) as $company) {
             $repositoryAdoptionByCompany[(string) ($company['company_id'] ?? 'unknown')] = (array) $company;
+        }
+        $repositoryOperatingCatalogByCompany = [];
+        foreach ((array) ($repositoryOperatingCatalog['companies'] ?? []) as $company) {
+            $repositoryOperatingCatalogByCompany[(string) ($company['company_id'] ?? 'unknown')] = (array) $company;
+        }
+        $domainToolchainByCompany = [];
+        foreach ((array) ($domainToolchain['companies'] ?? []) as $company) {
+            $domainToolchainByCompany[(string) ($company['company_id'] ?? 'unknown')] = (array) $company;
         }
         $industryEcosystemByCompany = [];
         foreach ((array) ($industryEcosystem['companies'] ?? []) as $company) {
@@ -1913,6 +1938,8 @@ class ExternalActionMandateRegistryService
             $companyIdValue = (string) ($company['company_id'] ?? 'unknown');
             $providerReady = (bool) data_get($providerByCompany, $companyIdValue.'.ready', false);
             $repositoryAdoptionCompany = (array) ($repositoryAdoptionByCompany[$companyIdValue] ?? []);
+            $repositoryOperatingCatalogCompany = (array) ($repositoryOperatingCatalogByCompany[$companyIdValue] ?? []);
+            $domainToolchainCompany = (array) ($domainToolchainByCompany[$companyIdValue] ?? []);
             $industryEcosystemCompany = (array) ($industryEcosystemByCompany[$companyIdValue] ?? []);
             $businessBackboneCompany = (array) ($businessBackboneByCompany[$companyIdValue] ?? []);
             $productionPreflightCompany = (array) ($productionPreflightByCompany[$companyIdValue] ?? []);
@@ -1922,6 +1949,9 @@ class ExternalActionMandateRegistryService
             $flowPackageCompany = (array) ($flowPackagesByCompany[$companyIdValue] ?? []);
             $commandCenterCompany = (array) ($commandCenterByCompany[$companyIdValue] ?? []);
             $repositoryAdoptionReady = (bool) ($repositoryAdoptionCompany['ready'] ?? false);
+            $repositoryOperatingCatalogReady = (bool) ($repositoryOperatingCatalogCompany['ready'] ?? false);
+            $domainToolchainReady = (bool) ($domainToolchainCompany['ready'] ?? false)
+                && (int) ($domainToolchainCompany['ready_gate_count'] ?? 0) === (int) ($domainToolchainCompany['required_gate_count'] ?? -1);
             $industryEcosystemReady = (bool) ($industryEcosystemCompany['ready'] ?? false);
             $businessBackboneReady = (bool) ($businessBackboneCompany['ready'] ?? false);
             $productionPreflightReady = (bool) ($productionPreflightCompany['ready'] ?? false);
@@ -1937,8 +1967,12 @@ class ExternalActionMandateRegistryService
                     $flow,
                     $providerReady,
                     $repositoryAdoptionReady,
+                    $repositoryOperatingCatalogReady,
+                    $domainToolchainReady,
                     $industryEcosystemReady,
                     $repositoryAdoptionCompany,
+                    $repositoryOperatingCatalogCompany,
+                    $domainToolchainCompany,
                     $industryEcosystemCompany,
                     $businessBackboneReady,
                     $businessBackboneCompany,
@@ -1967,6 +2001,8 @@ class ExternalActionMandateRegistryService
                 'company_id' => $companyIdValue,
                 'provider_workbench_ready' => $providerReady,
                 'agent_repository_adoption_ready' => $repositoryAdoptionReady,
+                'agent_repository_operating_catalog_ready' => $repositoryOperatingCatalogReady,
+                'domain_agent_toolchain_certified' => $domainToolchainReady,
                 'industry_solution_ecosystem_ready' => $industryEcosystemReady,
                 'business_operating_backbone_ready' => $businessBackboneReady,
                 'production_connector_preflight_ready' => $productionPreflightReady,
@@ -1994,6 +2030,8 @@ class ExternalActionMandateRegistryService
             'ok' => (bool) ($cockpit['ok'] ?? false)
                 && (bool) ($provider['ok'] ?? false)
                 && (bool) ($repositoryAdoption['ok'] ?? false)
+                && (bool) ($repositoryOperatingCatalog['ok'] ?? false)
+                && (bool) ($domainToolchain['ok'] ?? false)
                 && (bool) ($industryEcosystem['ok'] ?? false)
                 && (bool) ($businessBackbone['ok'] ?? false)
                 && (bool) ($productionPreflight['ok'] ?? false)
@@ -2012,6 +2050,8 @@ class ExternalActionMandateRegistryService
                 'flow_count' => count($flowRows),
                 'provider_ready_company_count' => (int) data_get($provider, 'summary.ready_company_count', 0),
                 'agent_repository_ready_company_count' => (int) data_get($repositoryAdoption, 'summary.ready_company_count', 0),
+                'agent_repository_operating_catalog_ready_company_count' => (int) data_get($repositoryOperatingCatalog, 'summary.ready_company_count', 0),
+                'domain_agent_toolchain_certified_company_count' => (int) data_get($domainToolchain, 'summary.ready_company_count', 0),
                 'industry_solution_ecosystem_ready_company_count' => (int) data_get($industryEcosystem, 'summary.ready_company_count', 0),
                 'business_operating_backbone_ready_company_count' => (int) data_get($businessBackbone, 'summary.ready_company_count', 0),
                 'production_connector_preflight_ready_company_count' => (int) data_get($productionPreflight, 'summary.ready_company_count', 0),
@@ -2035,6 +2075,8 @@ class ExternalActionMandateRegistryService
                 'required_before_real_external_execution' => [
                     'provider_workbench_ready',
                     'agent_repository_adoption_pipeline_ready',
+                    'agent_repository_operating_catalog_ready',
+                    'domain_agent_toolchain_certified',
                     'industry_solution_ecosystem_ready',
                     'business_operating_backbone_ready',
                     'production_connector_preflight_ready',
@@ -2058,6 +2100,8 @@ class ExternalActionMandateRegistryService
                 'activation_cockpit_hash' => $cockpit['activation_cockpit_hash'] ?? null,
                 'provider_workbench_status_hash' => $provider['provider_workbench_status_hash'] ?? null,
                 'agent_repository_adoption_status_hash' => $repositoryAdoption['agent_repository_adoption_status_hash'] ?? null,
+                'agent_repository_operating_catalog_status_hash' => $repositoryOperatingCatalog['agent_repository_operating_catalog_status_hash'] ?? null,
+                'domain_agent_toolchain_certification_status_hash' => $domainToolchain['domain_agent_toolchain_certification_status_hash'] ?? null,
                 'industry_solution_ecosystem_status_hash' => $industryEcosystem['industry_solution_ecosystem_status_hash'] ?? null,
                 'business_operating_backbone_status_hash' => $businessBackbone['business_operating_backbone_status_hash'] ?? null,
                 'production_connector_preflight_status_hash' => $productionPreflight['production_connector_preflight_status_hash'] ?? null,
@@ -2168,6 +2212,9 @@ class ExternalActionMandateRegistryService
                 'packet_ready_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['packet_ready'] ?? false))),
                 'operator_signature_required_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['operator_signature_required'] ?? false))),
                 'second_reviewer_required_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['second_reviewer_required'] ?? false))),
+                'agent_repository_controls_bound_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'agent_repository_controls.adoption_ready', false)
+                    && (bool) data_get($packet, 'agent_repository_controls.operating_catalog_ready', false)
+                    && (bool) data_get($packet, 'agent_repository_controls.toolchain_certified', false))),
                 'kill_switch_bound_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'runtime_control.kill_switch_bound', false))),
                 'post_execution_reconciliation_bound_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'post_execution_reconciliation.bound', false))),
                 'external_execution_allowed_count' => 0,
@@ -2199,6 +2246,9 @@ class ExternalActionMandateRegistryService
                 'operator_signature_required_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['operator_signature_required'] ?? false))),
                 'second_reviewer_required_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['second_reviewer_required'] ?? false))),
                 'production_scope_contract_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'production_scope.ready', false))),
+                'agent_repository_controls_bound_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'agent_repository_controls.adoption_ready', false)
+                    && (bool) data_get($packet, 'agent_repository_controls.operating_catalog_ready', false)
+                    && (bool) data_get($packet, 'agent_repository_controls.toolchain_certified', false))),
                 'runtime_control_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'runtime_control.ready', false))),
                 'post_execution_reconciliation_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) data_get($packet, 'post_execution_reconciliation.bound', false))),
                 'external_execution_allowed_count' => 0,
@@ -2249,6 +2299,10 @@ class ExternalActionMandateRegistryService
                 'flow_count' => count($preflights),
                 'worker_preflight_ready_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) ($preflight['worker_preflight_ready'] ?? false))),
                 'worker_dispatch_disabled_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'worker_controls.external_worker_dispatch_enabled', true) === false)),
+                'agent_repository_gate_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'agent_repository_gate.bound', false)
+                    && (bool) data_get($preflight, 'agent_repository_gate.adoption_ready', false)
+                    && (bool) data_get($preflight, 'agent_repository_gate.operating_catalog_ready', false)
+                    && (bool) data_get($preflight, 'agent_repository_gate.toolchain_certified', false))),
                 'credential_gate_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'credential_gate.bound', false))),
                 'idempotency_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'execution_envelope.idempotency_key_required', false))),
                 'reconciliation_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'post_execution_reconciliation.bound', false))),
@@ -2279,6 +2333,10 @@ class ExternalActionMandateRegistryService
                 'worker_preflight_ready_count' => $readyCount,
                 'worker_plan_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'worker_plan.bound', false))),
                 'execution_envelope_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'execution_envelope.bound', false))),
+                'agent_repository_gate_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'agent_repository_gate.bound', false)
+                    && (bool) data_get($preflight, 'agent_repository_gate.adoption_ready', false)
+                    && (bool) data_get($preflight, 'agent_repository_gate.operating_catalog_ready', false)
+                    && (bool) data_get($preflight, 'agent_repository_gate.toolchain_certified', false))),
                 'credential_gate_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'credential_gate.bound', false))),
                 'worker_controls_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'worker_controls.bound', false))),
                 'post_execution_reconciliation_bound_count' => count(array_filter($preflights, static fn (array $preflight): bool => (bool) data_get($preflight, 'post_execution_reconciliation.bound', false))),
@@ -2334,6 +2392,10 @@ class ExternalActionMandateRegistryService
                 'operator_launch_sequence_bound_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) data_get($plan, 'operator_launch_sequence.bound', false))),
                 'signature_gate_bound_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) data_get($plan, 'signature_gate.bound', false))),
                 'vault_scope_gate_bound_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) data_get($plan, 'vault_scope_gate.bound', false))),
+                'agent_repository_execution_gate_bound_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) data_get($plan, 'agent_repository_execution_gate.bound', false)
+                    && (bool) data_get($plan, 'agent_repository_execution_gate.adoption_ready', false)
+                    && (bool) data_get($plan, 'agent_repository_execution_gate.operating_catalog_ready', false)
+                    && (bool) data_get($plan, 'agent_repository_execution_gate.toolchain_certified', false))),
                 'execution_receipt_gate_bound_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) data_get($plan, 'execution_receipt_gate.bound', false))),
                 'dispatch_disabled_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) ($plan['external_worker_dispatch_enabled'] ?? true) === false)),
                 'external_execution_allowed_count' => 0,
@@ -2364,6 +2426,10 @@ class ExternalActionMandateRegistryService
                 'operator_launch_sequence_bound_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) data_get($plan, 'operator_launch_sequence.bound', false))),
                 'signature_gate_bound_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) data_get($plan, 'signature_gate.bound', false))),
                 'vault_scope_gate_bound_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) data_get($plan, 'vault_scope_gate.bound', false))),
+                'agent_repository_execution_gate_bound_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) data_get($plan, 'agent_repository_execution_gate.bound', false)
+                    && (bool) data_get($plan, 'agent_repository_execution_gate.adoption_ready', false)
+                    && (bool) data_get($plan, 'agent_repository_execution_gate.operating_catalog_ready', false)
+                    && (bool) data_get($plan, 'agent_repository_execution_gate.toolchain_certified', false))),
                 'execution_receipt_gate_bound_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) data_get($plan, 'execution_receipt_gate.bound', false))),
                 'dispatch_disabled_count' => count(array_filter($plans, static fn (array $plan): bool => (bool) ($plan['external_worker_dispatch_enabled'] ?? true) === false)),
                 'external_execution_allowed_count' => 0,
@@ -2416,6 +2482,10 @@ class ExternalActionMandateRegistryService
                 'go_no_go_gate_bound_count' => count(array_filter($controls, static fn (array $control): bool => (bool) data_get($control, 'go_no_go_gate.bound', false))),
                 'human_authority_gate_bound_count' => count(array_filter($controls, static fn (array $control): bool => (bool) data_get($control, 'human_authority_gate.bound', false))),
                 'credential_release_gate_bound_count' => count(array_filter($controls, static fn (array $control): bool => (bool) data_get($control, 'credential_release_gate.bound', false))),
+                'agent_repository_execution_gate_bound_count' => count(array_filter($controls, static fn (array $control): bool => (bool) data_get($control, 'agent_repository_execution_gate.bound', false)
+                    && (bool) data_get($control, 'agent_repository_execution_gate.adoption_ready', false)
+                    && (bool) data_get($control, 'agent_repository_execution_gate.operating_catalog_ready', false)
+                    && (bool) data_get($control, 'agent_repository_execution_gate.toolchain_certified', false))),
                 'reconciliation_sink_bound_count' => count(array_filter($controls, static fn (array $control): bool => (bool) data_get($control, 'reconciliation_sink.bound', false))),
                 'launch_disabled_count' => count(array_filter($controls, static fn (array $control): bool => (bool) ($control['launch_enabled'] ?? true) === false)),
                 'external_execution_allowed_count' => 0,
@@ -2446,6 +2516,10 @@ class ExternalActionMandateRegistryService
                 'go_no_go_gate_bound_count' => count(array_filter($controls, static fn (array $control): bool => (bool) data_get($control, 'go_no_go_gate.bound', false))),
                 'human_authority_gate_bound_count' => count(array_filter($controls, static fn (array $control): bool => (bool) data_get($control, 'human_authority_gate.bound', false))),
                 'credential_release_gate_bound_count' => count(array_filter($controls, static fn (array $control): bool => (bool) data_get($control, 'credential_release_gate.bound', false))),
+                'agent_repository_execution_gate_bound_count' => count(array_filter($controls, static fn (array $control): bool => (bool) data_get($control, 'agent_repository_execution_gate.bound', false)
+                    && (bool) data_get($control, 'agent_repository_execution_gate.adoption_ready', false)
+                    && (bool) data_get($control, 'agent_repository_execution_gate.operating_catalog_ready', false)
+                    && (bool) data_get($control, 'agent_repository_execution_gate.toolchain_certified', false))),
                 'reconciliation_sink_bound_count' => count(array_filter($controls, static fn (array $control): bool => (bool) data_get($control, 'reconciliation_sink.bound', false))),
                 'launch_disabled_count' => count(array_filter($controls, static fn (array $control): bool => (bool) ($control['launch_enabled'] ?? true) === false)),
                 'required_external_receipt_count' => array_sum(array_map(static fn (array $control): int => count((array) ($control['required_external_receipts'] ?? [])), $controls)),
@@ -2502,6 +2576,10 @@ class ExternalActionMandateRegistryService
                 'company_id' => (string) ($company['company_id'] ?? 'unknown'),
                 'flow_count' => count($binders),
                 'receipt_binder_ready_count' => count(array_filter($binders, static fn (array $binder): bool => (bool) ($binder['receipt_binder_ready'] ?? false))),
+                'agent_repository_execution_gate_bound_count' => count(array_filter($binders, static fn (array $binder): bool => (bool) data_get($binder, 'agent_repository_execution_gate.bound', false)
+                    && (bool) data_get($binder, 'agent_repository_execution_gate.adoption_ready', false)
+                    && (bool) data_get($binder, 'agent_repository_execution_gate.operating_catalog_ready', false)
+                    && (bool) data_get($binder, 'agent_repository_execution_gate.toolchain_certified', false))),
                 'receipt_slot_count' => count($receiptSlots),
                 'bound_receipt_count' => count(array_filter($receiptSlots, static fn (array $slot): bool => (bool) ($slot['bound'] ?? false))),
                 'missing_receipt_count' => count(array_filter($receiptSlots, static fn (array $slot): bool => (bool) ($slot['required'] ?? false) && ! (bool) ($slot['bound'] ?? false))),
@@ -2535,6 +2613,10 @@ class ExternalActionMandateRegistryService
                 'company_count' => count($companyRows),
                 'flow_count' => count($binders),
                 'receipt_binder_ready_count' => $readyCount,
+                'agent_repository_execution_gate_bound_count' => count(array_filter($binders, static fn (array $binder): bool => (bool) data_get($binder, 'agent_repository_execution_gate.bound', false)
+                    && (bool) data_get($binder, 'agent_repository_execution_gate.adoption_ready', false)
+                    && (bool) data_get($binder, 'agent_repository_execution_gate.operating_catalog_ready', false)
+                    && (bool) data_get($binder, 'agent_repository_execution_gate.toolchain_certified', false))),
                 'receipt_slot_count' => count($receiptSlots),
                 'required_receipt_count' => count(array_filter($receiptSlots, static fn (array $slot): bool => (bool) ($slot['required'] ?? false))),
                 'bound_receipt_count' => count(array_filter($receiptSlots, static fn (array $slot): bool => (bool) ($slot['bound'] ?? false))),
@@ -2586,6 +2668,7 @@ class ExternalActionMandateRegistryService
                 'company_id' => (string) ($company['company_id'] ?? 'unknown'),
                 'flow_count' => count($dossiers),
                 'cutover_dossier_ready_count' => count(array_filter($dossiers, static fn (array $dossier): bool => (bool) ($dossier['cutover_dossier_ready'] ?? false))),
+                'agent_repository_execution_gate_bound_count' => count(array_filter($dossiers, static fn (array $dossier): bool => (bool) data_get($dossier, 'readiness_evidence.agent_repository_execution_gate_bound', false))),
                 'supervised_cutover_enabled_count' => 0,
                 'receipt_slot_count' => array_sum(array_map(static fn (array $dossier): int => (int) data_get($dossier, 'readiness_evidence.receipt_slot_count', 0), $dossiers)),
                 'missing_receipt_count' => array_sum(array_map(static fn (array $dossier): int => (int) data_get($dossier, 'readiness_evidence.missing_receipt_count', 0), $dossiers)),
@@ -2614,6 +2697,7 @@ class ExternalActionMandateRegistryService
                 'company_count' => count($companyRows),
                 'flow_count' => count($dossiers),
                 'cutover_dossier_ready_count' => $readyCount,
+                'agent_repository_execution_gate_bound_count' => count(array_filter($dossiers, static fn (array $dossier): bool => (bool) data_get($dossier, 'readiness_evidence.agent_repository_execution_gate_bound', false))),
                 'supervised_cutover_enabled_count' => 0,
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
@@ -2679,6 +2763,10 @@ class ExternalActionMandateRegistryService
                 'company_id' => (string) ($company['company_id'] ?? 'unknown'),
                 'flow_count' => count($workOrders),
                 'work_order_ready_count' => count(array_filter($workOrders, static fn (array $workOrder): bool => (bool) ($workOrder['work_order_ready'] ?? false))),
+                'repository_toolchain_evidence_bound_count' => count(array_filter($workOrders, static fn (array $workOrder): bool => (bool) data_get($workOrder, 'repository_toolchain_evidence.agent_repository_execution_gate_bound', false)
+                    && (int) data_get($workOrder, 'repository_toolchain_evidence.repository_tool_permission_manifest_count', 0) >= 1
+                    && (int) data_get($workOrder, 'repository_toolchain_evidence.repository_eval_replay_recipe_count', 0) >= 1
+                    && (int) data_get($workOrder, 'repository_toolchain_evidence.domain_certified_tool_contract_count', 0) >= 1)),
                 'work_item_count' => count($workItems),
                 'pending_real_receipt_item_count' => count(array_filter($workItems, static fn (array $item): bool => ($item['status'] ?? '') === 'pending_real_receipt_or_operator_action')),
                 'executable_item_count' => 0,
@@ -2711,11 +2799,16 @@ class ExternalActionMandateRegistryService
                 'company_count' => count($companyRows),
                 'flow_count' => count($workOrders),
                 'work_order_ready_count' => $readyCount,
+                'repository_toolchain_evidence_bound_count' => count(array_filter($workOrders, static fn (array $workOrder): bool => (bool) data_get($workOrder, 'repository_toolchain_evidence.agent_repository_execution_gate_bound', false)
+                    && (int) data_get($workOrder, 'repository_toolchain_evidence.repository_tool_permission_manifest_count', 0) >= 1
+                    && (int) data_get($workOrder, 'repository_toolchain_evidence.repository_eval_replay_recipe_count', 0) >= 1
+                    && (int) data_get($workOrder, 'repository_toolchain_evidence.domain_certified_tool_contract_count', 0) >= 1)),
                 'work_item_count' => count($workItems),
                 'pending_real_receipt_item_count' => count(array_filter($workItems, static fn (array $item): bool => ($item['status'] ?? '') === 'pending_real_receipt_or_operator_action')),
                 'receipt_intake_item_count' => count(array_filter($workItems, static fn (array $item): bool => ($item['workstream'] ?? '') === 'receipt_intake')),
                 'vault_scope_item_count' => count(array_filter($workItems, static fn (array $item): bool => ($item['workstream'] ?? '') === 'vault_scope')),
                 'reconciliation_item_count' => count(array_filter($workItems, static fn (array $item): bool => ($item['workstream'] ?? '') === 'reconciliation')),
+                'repository_toolchain_certification_item_count' => count(array_filter($workItems, static fn (array $item): bool => ($item['workstream'] ?? '') === 'repository_toolchain_certification')),
                 'executable_item_count' => 0,
                 'supervised_cutover_enabled_count' => 0,
                 'external_execution_allowed_count' => 0,
@@ -2956,6 +3049,7 @@ class ExternalActionMandateRegistryService
                 'flow_count' => count($rows),
                 'work_order_count' => count($rows),
                 'promotion_review_ready_count' => count(array_filter($rows, static fn (array $row): bool => (bool) ($row['promotion_review_ready'] ?? false))),
+                'repository_toolchain_evidence_bound_count' => count(array_filter($rows, static fn (array $row): bool => (bool) data_get($row, 'repository_toolchain_evidence.bound', false))),
                 'receipt_incomplete_order_count' => count(array_filter($rows, static fn (array $row): bool => (bool) ($row['promotion_review_ready'] ?? false) === false)),
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
@@ -2977,6 +3071,7 @@ class ExternalActionMandateRegistryService
                 'flow_count' => count($records),
                 'work_order_count' => count($records),
                 'promotion_review_ready_count' => $readyCount,
+                'repository_toolchain_evidence_bound_count' => count(array_filter($records, static fn (array $record): bool => (bool) data_get($record, 'repository_toolchain_evidence.bound', false))),
                 'receipt_incomplete_order_count' => count($records) - $readyCount,
                 'work_item_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['work_item_count'] ?? 0), $records)),
                 'bound_receipt_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['bound_receipt_count'] ?? 0), $records)),
@@ -3145,6 +3240,8 @@ class ExternalActionMandateRegistryService
         }
 
         $refreshed = $this->refreshExternalSupervisedCutoverWorkOrderCounts((string) $order->work_order_id) ?? $order;
+        $orderRecord = $this->externalSupervisedCutoverWorkOrderPersistedPayload($refreshed->refresh());
+        $repositoryToolchainEvidence = (array) ($orderRecord['repository_toolchain_evidence'] ?? []);
         $bindings = (array) $refreshed->final_authority_bindings_json;
         $missingAuthorities = array_values(array_diff($requiredAuthorities, array_keys($bindings)));
 
@@ -3154,6 +3251,10 @@ class ExternalActionMandateRegistryService
 
         if ($missingAuthorities !== []) {
             return $this->externalSupervisedCutoverRuntimeInvocationRejected('final_authority_receipts_missing', $normalizedWorkOrderId, $missingAuthorities);
+        }
+
+        if (! (bool) ($repositoryToolchainEvidence['bound'] ?? false)) {
+            return $this->externalSupervisedCutoverRuntimeInvocationRejected('repository_toolchain_certification_receipts_missing', $normalizedWorkOrderId);
         }
 
         $packet = [
@@ -3177,7 +3278,9 @@ class ExternalActionMandateRegistryService
                 'rollback_plan_required' => true,
                 'external_result_claim_requires_receipts' => true,
                 'auto_launch_allowed' => false,
+                'repository_toolchain_evidence' => $repositoryToolchainEvidence,
             ],
+            'repository_toolchain_evidence' => $repositoryToolchainEvidence,
             'blocked_operations' => ['auto_launch', 'auto_dispatch', 'unattended_cutover', 'write_without_runtime_receipt', 'publish_without_reconciliation', 'spend', 'trade', 'deploy', 'delete', 'secret_export'],
             'external_execution_allowed' => false,
             'external_side_effects_enabled' => false,
@@ -3217,6 +3320,7 @@ class ExternalActionMandateRegistryService
                 'runtime_invocation_count' => 1,
                 'required_final_authority_count' => count($requiredAuthorities),
                 'final_authority_binding_count' => count($bindings),
+                'repository_toolchain_evidence_bound_count' => (bool) ($repositoryToolchainEvidence['bound'] ?? false) ? 1 : 0,
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
             ],
@@ -3257,6 +3361,7 @@ class ExternalActionMandateRegistryService
                 'company_count' => count(array_unique(array_map(static fn (array $record): string => (string) ($record['company_id'] ?? ''), $records))),
                 'flow_count' => count(array_unique(array_map(static fn (array $record): string => (string) ($record['company_id'] ?? '').'|'.(string) ($record['flow_id'] ?? ''), $records))),
                 'runtime_invocation_count' => count($records),
+                'repository_toolchain_evidence_bound_count' => count(array_filter($records, static fn (array $record): bool => (bool) data_get($record, 'repository_toolchain_evidence.bound', false))),
                 'rehearsal_executed_count' => count(array_filter($records, static fn (array $record): bool => (int) ($record['execution_receipt_count'] ?? 0) > 0)),
                 'execution_receipt_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['execution_receipt_count'] ?? 0), $records)),
                 'external_execution_allowed_count' => 0,
@@ -3305,6 +3410,11 @@ class ExternalActionMandateRegistryService
         $records = [];
 
         foreach ($invocations as $invocation) {
+            $repositoryToolchainEvidence = (array) data_get($invocation->operator_runtime_contract_json, 'repository_toolchain_evidence', []);
+            if ($repositoryToolchainEvidence === []) {
+                $repositoryToolchainEvidence = $this->externalSupervisedCutoverRepositoryToolchainEvidenceForWorkOrderId((string) $invocation->work_order_id);
+            }
+
             $receipt = [
                 'schema' => 'atlas.ai.company.external_supervised_cutover_runtime_rehearsal_receipt.v1',
                 'invocation_id' => (string) $invocation->invocation_id,
@@ -3313,6 +3423,7 @@ class ExternalActionMandateRegistryService
                 'flow_id' => (string) $invocation->flow_id,
                 'mode' => 'non_production_rehearsal',
                 'source_runtime_invocation_packet_hash' => (string) $invocation->runtime_invocation_packet_hash,
+                'repository_toolchain_evidence' => $repositoryToolchainEvidence,
                 'decision_receipt_required_for_real_execution' => true,
                 'external_execution_attempted' => false,
                 'external_side_effects_attempted' => false,
@@ -3354,6 +3465,7 @@ class ExternalActionMandateRegistryService
             'summary' => [
                 'runtime_invocation_count' => count($records),
                 'execution_receipt_count' => count($receipts),
+                'repository_toolchain_evidence_bound_count' => count(array_filter($records, static fn (array $record): bool => (bool) data_get($record, 'repository_toolchain_evidence.bound', false))),
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
             ],
@@ -3397,9 +3509,14 @@ class ExternalActionMandateRegistryService
                 $invocation = (array) ($invocationsByWorkOrder[$workOrderId] ?? []);
                 $runtimeInvocationRegistered = $invocation !== [];
                 $rehearsalReceiptCount = (int) ($invocation['execution_receipt_count'] ?? 0);
+                $repositoryToolchainEvidence = (array) ($packet['repository_toolchain_evidence'] ?? []);
+                $runtimeRepositoryToolchainEvidence = (array) ($invocation['repository_toolchain_evidence'] ?? []);
+                $repositoryToolchainBound = (bool) ($repositoryToolchainEvidence['bound'] ?? false)
+                    && (! $runtimeInvocationRegistered || (bool) ($runtimeRepositoryToolchainEvidence['bound'] ?? false));
                 $finalAuthoritiesBound = (int) ($packet['missing_final_authority_count'] ?? 0) === 0
                     && (int) ($packet['final_authority_binding_count'] ?? 0) === count($this->externalSupervisedCutoverRequiredFinalAuthorities());
                 $manualExecutionPacketReady = (bool) ($packet['promotion_review_ready'] ?? false)
+                    && $repositoryToolchainBound
                     && $finalAuthoritiesBound
                     && $runtimeInvocationRegistered
                     && $rehearsalReceiptCount > 0;
@@ -3410,6 +3527,9 @@ class ExternalActionMandateRegistryService
                 }
                 if (! $finalAuthoritiesBound) {
                     $blockers[] = 'final_authority_receipts_incomplete';
+                }
+                if (! $repositoryToolchainBound) {
+                    $blockers[] = 'repository_toolchain_certification_receipts_incomplete';
                 }
                 if (! $runtimeInvocationRegistered) {
                     $blockers[] = 'runtime_invocation_packet_missing';
@@ -3429,6 +3549,8 @@ class ExternalActionMandateRegistryService
                         ? 'rehearsal_complete_manual_execution_packet_ready_external_launch_blocked'
                         : 'rehearsal_promotion_blocked',
                     'work_item_receipts_complete' => (bool) ($packet['promotion_review_ready'] ?? false),
+                    'repository_toolchain_evidence_bound' => $repositoryToolchainBound,
+                    'repository_toolchain_evidence' => $runtimeInvocationRegistered ? $runtimeRepositoryToolchainEvidence : $repositoryToolchainEvidence,
                     'final_authorities_bound' => $finalAuthoritiesBound,
                     'runtime_invocation_registered' => $runtimeInvocationRegistered,
                     'runtime_rehearsal_executed' => $rehearsalReceiptCount > 0,
@@ -3457,6 +3579,7 @@ class ExternalActionMandateRegistryService
                 'company_id' => (string) ($company['company_id'] ?? ''),
                 'flow_count' => count($packets),
                 'manual_execution_packet_ready_count' => $readyCount,
+                'repository_toolchain_evidence_bound_count' => count(array_filter($packets, static fn (array $packet): bool => (bool) ($packet['repository_toolchain_evidence_bound'] ?? false))),
                 'manual_execution_packet_blocked_count' => count($packets) - $readyCount,
                 'execution_receipt_count' => array_sum(array_map(static fn (array $packet): int => (int) ($packet['execution_receipt_count'] ?? 0), $packets)),
                 'flow_rehearsal_promotion_packets' => $packets,
@@ -3479,6 +3602,7 @@ class ExternalActionMandateRegistryService
                 'company_count' => count($companyRows),
                 'flow_count' => count($allPackets),
                 'manual_execution_packet_ready_count' => $readyCount,
+                'repository_toolchain_evidence_bound_count' => count(array_filter($allPackets, static fn (array $packet): bool => (bool) ($packet['repository_toolchain_evidence_bound'] ?? false))),
                 'manual_execution_packet_blocked_count' => count($allPackets) - $readyCount,
                 'runtime_invocation_count' => (int) data_get($runtime, 'summary.runtime_invocation_count', 0),
                 'rehearsal_executed_count' => (int) data_get($runtime, 'summary.rehearsal_executed_count', 0),
@@ -3564,6 +3688,7 @@ class ExternalActionMandateRegistryService
                 'ready_for_operator_manual_execution_review' => true,
                 'decision_receipt_required_before_any_external_effect' => true,
                 'operator_runtime_contract' => (array) $invocation->operator_runtime_contract_json,
+                'repository_toolchain_evidence' => (array) ($readyPacket['repository_toolchain_evidence'] ?? []),
                 'execution_receipt_count' => (int) $invocation->execution_receipt_count,
                 'last_execution_receipt_hash' => $invocation->last_execution_receipt_hash,
                 'source_runtime_invocation_packet_hash' => (string) $invocation->runtime_invocation_packet_hash,
@@ -4034,6 +4159,13 @@ class ExternalActionMandateRegistryService
         $rehearsalReceiptCount = $invocations->sum(static fn (AiHoldingExternalCutoverRuntimeInvocation $invocation): int => (int) $invocation->execution_receipt_count);
         $manualHandoffPacketCount = $invocations->filter(static fn (AiHoldingExternalCutoverRuntimeInvocation $invocation): bool => strlen((string) $invocation->manual_handoff_packet_hash) === 64)->count();
         $manualCloseoutReceiptCount = $invocations->sum(static fn (AiHoldingExternalCutoverRuntimeInvocation $invocation): int => (int) $invocation->manual_closeout_receipt_count);
+        $repositoryToolchainEvidenceBoundCount = 0;
+        foreach ($orders as $order) {
+            $evidence = $this->externalSupervisedCutoverRepositoryToolchainEvidenceForWorkOrderId((string) $order->work_order_id);
+            if ((bool) ($evidence['bound'] ?? false)) {
+                $repositoryToolchainEvidenceBoundCount++;
+            }
+        }
 
         $allRehearsalReceipts = [];
         $allCloseoutReceipts = [];
@@ -4057,6 +4189,7 @@ class ExternalActionMandateRegistryService
 
         $gates = [
             'work_item_receipts_bound_for_all_items' => $items->count() > 0 && $workItemReceiptCount === $items->count(),
+            'repository_toolchain_evidence_bound_for_all_flows' => $expectedFlowCount > 0 && $repositoryToolchainEvidenceBoundCount >= $expectedFlowCount,
             'final_authority_receipts_bound_for_all_flows' => $expectedFlowCount > 0 && $finalAuthorityCount >= $requiredAuthorityCount,
             'runtime_invocation_packets_bound_for_all_flows' => $expectedFlowCount > 0 && $runtimeInvocationPacketCount >= $expectedFlowCount,
             'non_production_rehearsal_receipts_bound_for_all_flows' => $expectedFlowCount > 0
@@ -4098,6 +4231,7 @@ class ExternalActionMandateRegistryService
             'work_order_count' => $orders->count(),
             'work_item_count' => $items->count(),
             'work_item_receipt_count' => $workItemReceiptCount,
+            'repository_toolchain_evidence_bound_count' => $repositoryToolchainEvidenceBoundCount,
             'required_final_authority_receipt_count' => $requiredAuthorityCount,
             'final_authority_receipt_count' => $finalAuthorityCount,
             'runtime_invocation_packet_count' => $runtimeInvocationPacketCount,
@@ -4244,6 +4378,7 @@ class ExternalActionMandateRegistryService
             'summary' => [
                 'work_order_count' => $orders->count(),
                 'work_item_binding_count' => count(array_filter($workItemBindings, static fn (array $binding): bool => (bool) ($binding['ok'] ?? false))),
+                'repository_toolchain_evidence_bound_count' => (int) data_get($readiness, 'companies.0.external_evidence_quality.repository_toolchain_evidence_bound_count', 0),
                 'final_authority_binding_count' => count(array_filter($finalAuthorityBindings, static fn (array $binding): bool => (bool) ($binding['ok'] ?? false))),
                 'runtime_invocation_count' => count($runtimeInvocations),
                 'rehearsal_execution_receipt_count' => (int) data_get($rehearsal, 'summary.execution_receipt_count', 0),
@@ -4664,6 +4799,329 @@ class ExternalActionMandateRegistryService
             ],
         ];
         $payload['enterprise_company_completion_certification_status_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function enterpriseHoldingCompletionAuditStatus(?string $companyId = null): array
+    {
+        $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
+        $completion = $this->enterpriseCompanyCompletionCertificationStatus($wantedCompany);
+        $production = $this->enterpriseCompanyProductionReadinessCertificationStatus($wantedCompany);
+        $evidenceBundle = $this->enterpriseCompanyOperatingEvidenceBundleStatus($wantedCompany);
+        $verticalDepth = $this->enterpriseVerticalOperationalDepthStatus($wantedCompany);
+        $activeOperatingSystem = $this->enterpriseCompanyActiveOperatingSystemStatus($wantedCompany);
+        $capabilityCatalog = $this->enterpriseCompanyCapabilityCatalogStatus($wantedCompany);
+        $integrationReadiness = $this->enterpriseCompanyIntegrationReadinessStatus($wantedCompany);
+        $domainToolExecution = $this->enterpriseCompanyDomainToolExecutionReadinessStatus($wantedCompany);
+        $repositoryAdoption = $this->agentRepositoryAdoptionStatus($wantedCompany);
+        $repositoryCatalog = $this->agentRepositoryOperatingCatalogStatus($wantedCompany);
+        $toolchainCertification = $this->domainAgentToolchainCertificationStatus($wantedCompany);
+        $externalResearch = $this->externalResearchAdoptionStatus($wantedCompany);
+        $benchmarkReplay = $this->flowBenchmarkReplayStatus($wantedCompany);
+        $connectorCertification = $this->connectorCertificationPreflightStatus($wantedCompany);
+        $businessOperatingPacket = $this->flowActionRuntime->businessOperatingPacketRuntimeStatus($wantedCompany);
+        $portfolioCutover = $this->externalSupervisedCutoverPortfolioReadinessStatus($wantedCompany);
+        $runtimeInvocation = $this->externalSupervisedCutoverRuntimeInvocationStatus($wantedCompany);
+
+        $companyTarget = (int) data_get($completion, 'summary.company_count', 0);
+        $flowTarget = (int) data_get($completion, 'summary.expected_flow_count', 0);
+        $connectorTarget = max(1, (int) data_get($connectorCertification, 'summary.adapter_contract_count', 0));
+        $runtimeGateTarget = max(1, (int) data_get($businessOperatingPacket, 'summary.flow_count', $flowTarget));
+
+        $gate = static function (
+            string $id,
+            string $requirement,
+            int|float $current,
+            int|float $target,
+            ?string $sourceHash = null,
+            array $evidence = [],
+        ): array {
+            $ready = $target > 0 && $current >= $target;
+
+            return [
+                'id' => $id,
+                'requirement' => $requirement,
+                'status' => $ready ? 'proven' : 'missing_or_incomplete',
+                'current' => $current,
+                'target' => $target,
+                'source_hash' => $sourceHash,
+                'evidence' => $evidence,
+            ];
+        };
+
+        $requirementGates = [
+            $gate(
+                'all_target_companies_completion_certified',
+                'all target companies have completion certification across internal runtime, board review, handoff and supervised cutover',
+                (int) data_get($completion, 'summary.completion_certified_company_count', 0),
+                $companyTarget,
+                (string) data_get($completion, 'enterprise_company_completion_certification_status_hash'),
+            ),
+            $gate(
+                'all_target_companies_production_ready',
+                'all target companies have production readiness certification while external launch remains blocked',
+                (int) data_get($production, 'summary.production_ready_company_count', 0),
+                $companyTarget,
+                (string) data_get($production, 'enterprise_company_production_readiness_certification_status_hash'),
+                [
+                    'required_gate_count' => (int) data_get($production, 'summary.required_gate_count', 0),
+                    'ready_gate_count' => (int) data_get($production, 'summary.ready_gate_count', 0),
+                    'first_missing_gates' => array_slice((array) data_get($production, 'companies.0.missing_gates', []), 0, 12),
+                ],
+            ),
+            $gate(
+                'all_target_companies_operating_evidence_bundled',
+                'all target companies have operating evidence bundles with source hash lineage',
+                (int) data_get($evidenceBundle, 'summary.operating_evidence_bundle_ready_company_count', 0),
+                $companyTarget,
+                (string) data_get($evidenceBundle, 'enterprise_company_operating_evidence_bundle_status_hash'),
+                [
+                    'required_gate_count' => (int) data_get($evidenceBundle, 'summary.required_gate_count', 0),
+                    'ready_gate_count' => (int) data_get($evidenceBundle, 'summary.ready_gate_count', 0),
+                    'source_hash_lineage_count' => (int) data_get($evidenceBundle, 'summary.source_hash_lineage_count', 0),
+                    'first_missing_gates' => array_slice((array) data_get($evidenceBundle, 'companies.0.missing_gates', []), 0, 12),
+                ],
+            ),
+            $gate(
+                'all_target_companies_vertical_depth_ready',
+                'all companies have vertical operational depth, operating cycles, packages, command center and runbook depth',
+                (int) data_get($verticalDepth, 'summary.operational_depth_ready_company_count', 0),
+                $companyTarget,
+                (string) data_get($verticalDepth, 'enterprise_vertical_operational_depth_status_hash'),
+            ),
+            $gate(
+                'all_target_companies_active_operating_system_ready',
+                'all companies have active operating-system gates ready',
+                (int) data_get($activeOperatingSystem, 'summary.active_operating_system_ready_company_count', 0),
+                $companyTarget,
+                (string) data_get($activeOperatingSystem, 'enterprise_company_active_operating_system_status_hash'),
+            ),
+            $gate(
+                'all_target_companies_capability_catalog_ready',
+                'all companies have capability catalogs mapped to robust company flows',
+                (int) data_get($capabilityCatalog, 'summary.catalog_ready_company_count', 0),
+                $companyTarget,
+                (string) data_get($capabilityCatalog, 'enterprise_company_capability_catalog_status_hash'),
+                [
+                    'ready_family_count' => (int) data_get($capabilityCatalog, 'summary.ready_family_count', 0),
+                    'ready_flow_capability_count' => (int) data_get($capabilityCatalog, 'summary.ready_flow_capability_count', 0),
+                ],
+            ),
+            $gate(
+                'all_target_companies_integration_ready',
+                'all companies have enterprise integration readiness gates ready',
+                (int) data_get($integrationReadiness, 'summary.integration_ready_company_count', 0),
+                $companyTarget,
+                (string) data_get($integrationReadiness, 'enterprise_company_integration_readiness_status_hash'),
+            ),
+            $gate(
+                'all_target_companies_domain_tool_execution_ready',
+                'all companies have domain tool execution readiness for flow-level internal operation',
+                (int) data_get($domainToolExecution, 'summary.tool_execution_ready_company_count', 0),
+                $companyTarget,
+                (string) data_get($domainToolExecution, 'enterprise_company_domain_tool_execution_readiness_status_hash'),
+                [
+                    'ready_flow_tool_execution_count' => (int) data_get($domainToolExecution, 'summary.ready_flow_tool_execution_count', 0),
+                    'flow_tool_execution_count' => (int) data_get($domainToolExecution, 'summary.flow_tool_execution_count', 0),
+                ],
+            ),
+            $gate(
+                'all_flows_have_business_operating_packets',
+                'all flows have business operating packets with external commitments blocked',
+                (int) data_get($businessOperatingPacket, 'summary.completed_business_operating_packet_flow_count', 0),
+                $runtimeGateTarget,
+                (string) data_get($businessOperatingPacket, 'business_operating_packet_runtime_status_hash'),
+                [
+                    'external_commitments_blocked_count' => (int) data_get($businessOperatingPacket, 'summary.external_commitments_blocked_count', 0),
+                ],
+            ),
+            $gate(
+                'all_flows_have_repository_adoption_controls',
+                'all flows are mapped to researched agent repositories, permission manifests and replay recipes',
+                (int) data_get($repositoryAdoption, 'summary.flow_repository_adoption_matrix_count', 0),
+                $flowTarget,
+                (string) data_get($repositoryAdoption, 'agent_repository_adoption_status_hash'),
+                [
+                    'ready_company_count' => (int) data_get($repositoryAdoption, 'summary.ready_company_count', 0),
+                    'tool_permission_manifest_count' => (int) data_get($repositoryAdoption, 'summary.tool_permission_manifest_count', 0),
+                    'eval_replay_recipe_count' => (int) data_get($repositoryAdoption, 'summary.eval_replay_recipe_count', 0),
+                ],
+            ),
+            $gate(
+                'agent_repository_operating_catalog_ready',
+                'the operating catalog covers agent frameworks, MCP security profiles and flow mappings',
+                (int) data_get($repositoryCatalog, 'summary.flow_runtime_map_count', 0),
+                $flowTarget,
+                (string) data_get($repositoryCatalog, 'agent_repository_operating_catalog_status_hash'),
+                [
+                    'ready_company_count' => (int) data_get($repositoryCatalog, 'summary.ready_company_count', 0),
+                    'framework_profile_count' => (int) data_get($repositoryCatalog, 'summary.framework_profile_count', 0),
+                    'mcp_security_profile_count' => (int) data_get($repositoryCatalog, 'summary.mcp_security_profile_count', 0),
+                ],
+            ),
+            $gate(
+                'domain_agent_toolchains_certified',
+                'domain agent toolchains are certified for connectors, runtime boundaries and operator acceptance',
+                (int) data_get($toolchainCertification, 'summary.certified_tool_contract_count', 0),
+                $connectorTarget,
+                (string) data_get($toolchainCertification, 'domain_agent_toolchain_certification_status_hash'),
+                [
+                    'ready_company_count' => (int) data_get($toolchainCertification, 'summary.ready_company_count', 0),
+                ],
+            ),
+            $gate(
+                'external_research_adoption_bound_to_all_flows',
+                'external research and repository adoption is bound to every flow before promotion',
+                (int) data_get($externalResearch, 'summary.ready_flow_adoption_matrix_count', 0),
+                $flowTarget,
+                (string) data_get($externalResearch, 'external_research_adoption_status_hash'),
+                [
+                    'source_basis_count' => (int) data_get($externalResearch, 'summary.source_basis_count', 0),
+                    'framework_repository_count' => (int) data_get($externalResearch, 'summary.official_framework_repository_count', 0),
+                    'domain_repository_count' => (int) data_get($externalResearch, 'summary.domain_repository_candidate_count', 0),
+                ],
+            ),
+            $gate(
+                'all_flows_have_benchmark_replay',
+                'all flows have offline datasets, trace rubrics, adversarial cases and state assertions',
+                (int) data_get($benchmarkReplay, 'summary.ready_offline_dataset_contract_count', 0),
+                $flowTarget,
+                (string) data_get($benchmarkReplay, 'flow_benchmark_replay_status_hash'),
+                [
+                    'trace_rubric_count' => (int) data_get($benchmarkReplay, 'summary.ready_trace_grading_rubric_count', 0),
+                    'adversarial_case_count' => (int) data_get($benchmarkReplay, 'summary.ready_adversarial_regression_case_count', 0),
+                    'state_assertion_count' => (int) data_get($benchmarkReplay, 'summary.ready_deterministic_state_assertion_count', 0),
+                ],
+            ),
+            $gate(
+                'connectors_have_certification_preflight',
+                'connector certification covers adapter contracts, auth boundaries, sandbox probes and production cutover matrices',
+                (int) data_get($connectorCertification, 'summary.adapter_contract_count', 0),
+                $connectorTarget,
+                (string) data_get($connectorCertification, 'connector_certification_preflight_status_hash'),
+                [
+                    'auth_boundary_count' => (int) data_get($connectorCertification, 'summary.auth_boundary_count', 0),
+                    'sandbox_probe_count' => (int) data_get($connectorCertification, 'summary.sandbox_probe_count', 0),
+                    'production_contract_count' => (int) data_get($connectorCertification, 'summary.production_contract_count', 0),
+                ],
+            ),
+            $gate(
+                'cutover_chain_complete_for_all_flows',
+                'all flows have supervised cutover work order, runtime invocation, manual packet and closeout receipt chain',
+                (int) data_get($portfolioCutover, 'summary.manual_closeout_receipt_count', 0),
+                $flowTarget,
+                (string) data_get($portfolioCutover, 'external_supervised_cutover_portfolio_readiness_status_hash'),
+                [
+                    'runtime_invocation_flow_count' => (int) data_get($portfolioCutover, 'summary.runtime_invocation_flow_count', 0),
+                    'manual_handoff_packet_count' => (int) data_get($portfolioCutover, 'summary.manual_handoff_packet_count', 0),
+                    'evidence_quality_ready_company_count' => (int) data_get($portfolioCutover, 'summary.evidence_quality_ready_company_count', 0),
+                ],
+            ),
+            $gate(
+                'repository_toolchain_evidence_bound_to_runtime_invocations',
+                'runtime invocations carry repository/toolchain evidence for every flow',
+                (int) data_get($runtimeInvocation, 'summary.repository_toolchain_evidence_bound_count', 0),
+                $flowTarget,
+                (string) data_get($runtimeInvocation, 'external_supervised_cutover_runtime_invocation_status_hash'),
+                [
+                    'runtime_invocation_count' => (int) data_get($runtimeInvocation, 'summary.runtime_invocation_count', 0),
+                ],
+            ),
+        ];
+
+        $provenCount = count(array_filter($requirementGates, static fn (array $gate): bool => ($gate['status'] ?? null) === 'proven'));
+        $missing = array_values(array_map(
+            static fn (array $gate): string => (string) $gate['id'],
+            array_filter($requirementGates, static fn (array $gate): bool => ($gate['status'] ?? null) !== 'proven'),
+        ));
+        $externalExecutionAllowed = (int) data_get($completion, 'summary.external_execution_allowed_count', 0)
+            + (int) data_get($production, 'summary.external_execution_allowed_count', 0)
+            + (int) data_get($evidenceBundle, 'summary.external_execution_allowed_count', 0)
+            + (int) data_get($portfolioCutover, 'summary.external_execution_allowed_count', 0)
+            + (int) data_get($runtimeInvocation, 'summary.external_execution_allowed_count', 0);
+        $externalSideEffectsEnabled = (int) data_get($completion, 'summary.external_side_effects_enabled_count', 0)
+            + (int) data_get($production, 'summary.external_side_effects_enabled_count', 0)
+            + (int) data_get($evidenceBundle, 'summary.external_side_effects_enabled_count', 0)
+            + (int) data_get($portfolioCutover, 'summary.external_side_effects_enabled_count', 0)
+            + (int) data_get($runtimeInvocation, 'summary.external_side_effects_enabled_count', 0);
+
+        $ready = $requirementGates !== []
+            && $provenCount === count($requirementGates)
+            && $externalExecutionAllowed === 0
+            && $externalSideEffectsEnabled === 0;
+        $companyRows = array_map(
+            static fn (array $company): array => [
+                'schema' => 'atlas.ai.company.enterprise_holding_completion_audit_record.v1',
+                'company_id' => (string) ($company['company_id'] ?? 'unknown'),
+                'expected_flow_count' => (int) ($company['expected_flow_count'] ?? 0),
+                'completion_certified' => (bool) ($company['completion_certified'] ?? false),
+                'real_external_execution_dossier_ready' => (bool) ($company['real_external_execution_dossier_ready'] ?? false),
+                'manual_handoff_pack_ready' => (bool) ($company['manual_handoff_pack_ready'] ?? false),
+                'supervised_cutover_receipt_chain_complete' => (bool) ($company['supervised_cutover_receipt_chain_complete'] ?? false),
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+                'completion_certification_record_hash' => $company['completion_certification_record_hash'] ?? null,
+            ],
+            (array) ($completion['companies'] ?? []),
+        );
+
+        $payload = [
+            'ok' => $ready,
+            'schema' => self::ENTERPRISE_HOLDING_COMPLETION_AUDIT_STATUS_SCHEMA,
+            'status' => $ready
+                ? 'enterprise_holding_completion_audit_green_external_autonomy_still_blocked'
+                : 'enterprise_holding_completion_audit_attention_required',
+            'generated_at' => now()->toJSON(),
+            'summary' => [
+                'company_count' => $companyTarget,
+                'expected_flow_count' => $flowTarget,
+                'requirement_gate_count' => count($requirementGates),
+                'proven_requirement_gate_count' => $provenCount,
+                'missing_requirement_gate_count' => count($missing),
+                'completion_certified_company_count' => (int) data_get($completion, 'summary.completion_certified_company_count', 0),
+                'production_ready_company_count' => (int) data_get($production, 'summary.production_ready_company_count', 0),
+                'operating_evidence_bundle_ready_company_count' => (int) data_get($evidenceBundle, 'summary.operating_evidence_bundle_ready_company_count', 0),
+                'repository_toolchain_evidence_bound_count' => (int) data_get($runtimeInvocation, 'summary.repository_toolchain_evidence_bound_count', 0),
+                'manual_closeout_receipt_count' => (int) data_get($portfolioCutover, 'summary.manual_closeout_receipt_count', 0),
+                'external_execution_allowed_count' => $externalExecutionAllowed,
+                'external_side_effects_enabled_count' => $externalSideEffectsEnabled,
+            ],
+            'requirement_gates' => $requirementGates,
+            'missing_requirement_gates' => $missing,
+            'companies' => $companyRows,
+            'source_hashes' => [
+                'completion_certification' => $completion['enterprise_company_completion_certification_status_hash'] ?? null,
+                'production_readiness' => $production['enterprise_company_production_readiness_certification_status_hash'] ?? null,
+                'operating_evidence_bundle' => $evidenceBundle['enterprise_company_operating_evidence_bundle_status_hash'] ?? null,
+                'vertical_operational_depth' => $verticalDepth['enterprise_vertical_operational_depth_status_hash'] ?? null,
+                'active_operating_system' => $activeOperatingSystem['enterprise_company_active_operating_system_status_hash'] ?? null,
+                'capability_catalog' => $capabilityCatalog['enterprise_company_capability_catalog_status_hash'] ?? null,
+                'integration_readiness' => $integrationReadiness['enterprise_company_integration_readiness_status_hash'] ?? null,
+                'domain_tool_execution' => $domainToolExecution['enterprise_company_domain_tool_execution_readiness_status_hash'] ?? null,
+                'repository_adoption' => $repositoryAdoption['agent_repository_adoption_status_hash'] ?? null,
+                'repository_catalog' => $repositoryCatalog['agent_repository_operating_catalog_status_hash'] ?? null,
+                'toolchain_certification' => $toolchainCertification['domain_agent_toolchain_certification_status_hash'] ?? null,
+                'external_research' => $externalResearch['external_research_adoption_status_hash'] ?? null,
+                'benchmark_replay' => $benchmarkReplay['flow_benchmark_replay_status_hash'] ?? null,
+                'connector_certification' => $connectorCertification['connector_certification_preflight_status_hash'] ?? null,
+                'business_operating_packet' => $businessOperatingPacket['business_operating_packet_runtime_status_hash'] ?? null,
+                'portfolio_cutover' => $portfolioCutover['external_supervised_cutover_portfolio_readiness_status_hash'] ?? null,
+                'runtime_invocation' => $runtimeInvocation['external_supervised_cutover_runtime_invocation_status_hash'] ?? null,
+            ],
+            'policy' => [
+                'completion_audit_is_not_execution_authority' => true,
+                'external_execution_allowed' => false,
+                'external_side_effects_enabled' => false,
+                'operator_mandate_required_for_any_external_effect' => true,
+                'claim_complete_without_requirement_gate_evidence_blocked' => true,
+                'blocked_operations' => ['auto_launch', 'unattended_cutover', 'external_write_without_decision_receipt', 'spend_or_trade_without_signed_mandate', 'claim_external_result_without_receipt'],
+            ],
+        ];
+        $payload['enterprise_holding_completion_audit_status_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
     }
@@ -13024,6 +13482,10 @@ class ExternalActionMandateRegistryService
                     $requiredConnectors = array_values((array) data_get($template, 'connectors.required', []));
                     $distributionPackage = (array) ($template['distribution_package'] ?? []);
                     $toolPermissionMatrix = array_values((array) data_get($distributionPackage, 'connector_permission_manifest.tool_permission_matrix', []));
+                    $sourcePatternReceipts = (array) ($template['source_pattern_receipts'] ?? []);
+                    $operatorHandoffContract = (array) data_get($distributionPackage, 'operator_handoff_contract', []);
+                    $guardrailContract = (array) data_get($distributionPackage, 'guardrail_contract', []);
+                    $evalReplayRecipe = (array) data_get($distributionPackage, 'eval_replay_recipe', []);
                     $gates = [
                         'skills_bound' => count((array) ($template['skills'] ?? [])) >= 8,
                         'connectors_governed' => count($requiredConnectors) > 0
@@ -13082,6 +13544,32 @@ class ExternalActionMandateRegistryService
                             && (bool) data_get($distributionPackage, 'fixture_smoke_contract.external_effects_allowed_during_smoke', true) === false
                             && is_string(data_get($distributionPackage, 'fixture_smoke_contract.fixture_hash'))
                             && strlen((string) data_get($distributionPackage, 'fixture_smoke_contract.fixture_hash')) === 64,
+                        'source_pattern_receipts_bound' => ($sourcePatternReceipts['reference_pattern'] ?? null) === 'anthropic_financial_services_agents_generalized_to_domain_workloads'
+                            && count((array) ($sourcePatternReceipts['framework_reference_ids'] ?? [])) >= 5
+                            && count((array) ($sourcePatternReceipts['domain_source_refs'] ?? [])) >= 3
+                            && (bool) ($sourcePatternReceipts['cross_source_verification_required'] ?? false)
+                            && (bool) ($sourcePatternReceipts['unsupported_claim_blocker_enabled'] ?? false)
+                            && is_string($sourcePatternReceipts['source_pattern_receipt_hash'] ?? null)
+                            && strlen((string) ($sourcePatternReceipts['source_pattern_receipt_hash'] ?? '')) === 64,
+                        'operator_handoff_contract_ready' => count((array) ($operatorHandoffContract['required_sections'] ?? [])) >= 7
+                            && (bool) ($operatorHandoffContract['human_review_required'] ?? false)
+                            && count((array) ($operatorHandoffContract['second_reviewer_required_for'] ?? [])) >= 8
+                            && (bool) ($operatorHandoffContract['approval_scope_required_before_external_effect'] ?? false)
+                            && is_string($operatorHandoffContract['handoff_contract_hash'] ?? null)
+                            && strlen((string) ($operatorHandoffContract['handoff_contract_hash'] ?? '')) === 64,
+                        'guardrail_contract_ready' => count((array) ($guardrailContract['blocked_operations'] ?? [])) >= 10
+                            && count((array) ($guardrailContract['policy_checks'] ?? [])) >= 7
+                            && (bool) ($guardrailContract['calendar_wait_blocker_enabled'] ?? true) === false
+                            && (bool) ($guardrailContract['external_effects_allowed'] ?? true) === false
+                            && is_string($guardrailContract['guardrail_contract_hash'] ?? null)
+                            && strlen((string) ($guardrailContract['guardrail_contract_hash'] ?? '')) === 64,
+                        'eval_replay_recipe_ready' => (int) ($evalReplayRecipe['minimum_fixture_cases'] ?? 0) >= 12
+                            && count((array) ($evalReplayRecipe['replay_assertions'] ?? [])) >= 7
+                            && count((array) ($evalReplayRecipe['benchmark_families'] ?? [])) >= 5
+                            && (bool) ($evalReplayRecipe['promotion_requires_green_replay'] ?? false)
+                            && (bool) ($evalReplayRecipe['external_effects_allowed_during_replay'] ?? true) === false
+                            && is_string($evalReplayRecipe['eval_replay_recipe_hash'] ?? null)
+                            && strlen((string) ($evalReplayRecipe['eval_replay_recipe_hash'] ?? '')) === 64,
                     ];
                     $readyGateCount = count(array_filter($gates));
 
@@ -13105,11 +13593,19 @@ class ExternalActionMandateRegistryService
                         'tool_permission_matrix_ready' => (bool) ($gates['tool_permission_matrix_ready'] ?? false),
                         'execution_surface_bindings_ready' => (bool) ($gates['execution_surface_bindings_ready'] ?? false),
                         'fixture_smoke_contract_ready' => (bool) ($gates['fixture_smoke_contract_ready'] ?? false),
+                        'source_pattern_receipts_bound' => (bool) ($gates['source_pattern_receipts_bound'] ?? false),
+                        'operator_handoff_contract_ready' => (bool) ($gates['operator_handoff_contract_ready'] ?? false),
+                        'guardrail_contract_ready' => (bool) ($gates['guardrail_contract_ready'] ?? false),
+                        'eval_replay_recipe_ready' => (bool) ($gates['eval_replay_recipe_ready'] ?? false),
                         'distribution_package_hash' => data_get($distributionPackage, 'package_hash'),
                         'rollout_plan_hash' => data_get($distributionPackage, 'rollout_plan.rollout_hash'),
                         'tool_permission_matrix_hash' => data_get($distributionPackage, 'connector_permission_manifest.permission_matrix_hash'),
                         'execution_surface_binding_hash' => data_get($distributionPackage, 'execution_surface_bindings.surface_binding_hash'),
                         'fixture_smoke_contract_hash' => data_get($distributionPackage, 'fixture_smoke_contract.fixture_hash'),
+                        'source_pattern_receipt_hash' => $sourcePatternReceipts['source_pattern_receipt_hash'] ?? null,
+                        'operator_handoff_contract_hash' => $operatorHandoffContract['handoff_contract_hash'] ?? null,
+                        'guardrail_contract_hash' => $guardrailContract['guardrail_contract_hash'] ?? null,
+                        'eval_replay_recipe_hash' => $evalReplayRecipe['eval_replay_recipe_hash'] ?? null,
                         'external_execution_allowed' => false,
                     ];
                     $row['template_status_record_hash'] = MissionCanonicalHash::sha256($row);
@@ -13146,6 +13642,14 @@ class ExternalActionMandateRegistryService
                     && count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['execution_surface_bindings_ready'] ?? false))) >= $expectedFlowCount,
                 'fixture_smoke_contracts_ready' => $expectedFlowCount > 0
                     && count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['fixture_smoke_contract_ready'] ?? false))) >= $expectedFlowCount,
+                'source_pattern_receipts_bound' => $expectedFlowCount > 0
+                    && count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['source_pattern_receipts_bound'] ?? false))) >= $expectedFlowCount,
+                'operator_handoff_contracts_ready' => $expectedFlowCount > 0
+                    && count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['operator_handoff_contract_ready'] ?? false))) >= $expectedFlowCount,
+                'guardrail_contracts_ready' => $expectedFlowCount > 0
+                    && count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['guardrail_contract_ready'] ?? false))) >= $expectedFlowCount,
+                'eval_replay_recipes_ready' => $expectedFlowCount > 0
+                    && count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['eval_replay_recipe_ready'] ?? false))) >= $expectedFlowCount,
                 'external_effects_blocked' => (bool) data_get($stack, 'template_policy.external_write_spend_trade_publish_deploy_delete_or_offensive_security_allowed', true) === false
                     && count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['external_execution_allowed'] ?? true))) === 0,
             ];
@@ -13166,6 +13670,10 @@ class ExternalActionMandateRegistryService
                 'tool_permission_matrix_ready_count' => count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['tool_permission_matrix_ready'] ?? false))),
                 'execution_surface_binding_ready_count' => count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['execution_surface_bindings_ready'] ?? false))),
                 'fixture_smoke_contract_ready_count' => count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['fixture_smoke_contract_ready'] ?? false))),
+                'source_pattern_receipt_bound_count' => count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['source_pattern_receipts_bound'] ?? false))),
+                'operator_handoff_contract_ready_count' => count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['operator_handoff_contract_ready'] ?? false))),
+                'guardrail_contract_ready_count' => count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['guardrail_contract_ready'] ?? false))),
+                'eval_replay_recipe_ready_count' => count(array_filter($templateRows, static fn (array $row): bool => (bool) ($row['eval_replay_recipe_ready'] ?? false))),
                 'ready' => $readyGateCount === count($companyGates),
                 'ready_gate_count' => $readyGateCount,
                 'required_gate_count' => count($companyGates),
@@ -13205,6 +13713,10 @@ class ExternalActionMandateRegistryService
                 'tool_permission_matrix_ready_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['tool_permission_matrix_ready_count'] ?? 0), $companies)),
                 'execution_surface_binding_ready_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['execution_surface_binding_ready_count'] ?? 0), $companies)),
                 'fixture_smoke_contract_ready_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['fixture_smoke_contract_ready_count'] ?? 0), $companies)),
+                'source_pattern_receipt_bound_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['source_pattern_receipt_bound_count'] ?? 0), $companies)),
+                'operator_handoff_contract_ready_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['operator_handoff_contract_ready_count'] ?? 0), $companies)),
+                'guardrail_contract_ready_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['guardrail_contract_ready_count'] ?? 0), $companies)),
+                'eval_replay_recipe_ready_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['eval_replay_recipe_ready_count'] ?? 0), $companies)),
                 'required_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['required_gate_count'] ?? 0), $companies)),
                 'ready_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['ready_gate_count'] ?? 0), $companies)),
                 'external_execution_allowed_count' => 0,
@@ -13217,6 +13729,7 @@ class ExternalActionMandateRegistryService
                 'plugin_and_managed_agent_cookbook_packages_required' => true,
                 'rollout_smoke_rollback_and_evidence_plan_required' => true,
                 'surface_bindings_fixture_smoke_and_tool_permission_matrix_required' => true,
+                'source_pattern_eval_handoff_and_guardrail_contracts_required' => true,
                 'long_running_sessions_per_tool_permissions_vault_and_audit_required' => true,
                 'human_in_the_loop_required' => true,
                 'external_execution_allowed' => false,
@@ -13508,7 +14021,11 @@ class ExternalActionMandateRegistryService
                         && (int) ($template['subagent_count'] ?? 0) >= 3
                         && (bool) ($template['tool_permission_matrix_ready'] ?? false)
                         && (bool) ($template['execution_surface_bindings_ready'] ?? false)
-                        && (bool) ($template['fixture_smoke_contract_ready'] ?? false),
+                        && (bool) ($template['fixture_smoke_contract_ready'] ?? false)
+                        && (bool) ($template['source_pattern_receipts_bound'] ?? false)
+                        && (bool) ($template['operator_handoff_contract_ready'] ?? false)
+                        && (bool) ($template['guardrail_contract_ready'] ?? false)
+                        && (bool) ($template['eval_replay_recipe_ready'] ?? false),
                     'tool_execution_ready' => (bool) ($toolReadiness['tool_execution_ready'] ?? false)
                         && count((array) ($toolReadiness['tool_contract_hashes'] ?? [])) >= 7
                         && ! (bool) ($toolReadiness['external_execution_allowed'] ?? true)
@@ -13547,8 +14064,16 @@ class ExternalActionMandateRegistryService
                     'subagent_count' => (int) ($template['subagent_count'] ?? 0),
                     'tool_contract_hash_count' => count((array) ($toolReadiness['tool_contract_hashes'] ?? [])),
                     'adapter_envelope_count' => count($flowAdapterRecords),
+                    'template_source_pattern_receipts_bound' => (bool) ($template['source_pattern_receipts_bound'] ?? false),
+                    'template_operator_handoff_contract_ready' => (bool) ($template['operator_handoff_contract_ready'] ?? false),
+                    'template_guardrail_contract_ready' => (bool) ($template['guardrail_contract_ready'] ?? false),
+                    'template_eval_replay_recipe_ready' => (bool) ($template['eval_replay_recipe_ready'] ?? false),
                     'source_hashes' => [
                         'template_status_record_hash' => $template['template_status_record_hash'] ?? null,
+                        'template_source_pattern_receipt_hash' => $template['source_pattern_receipt_hash'] ?? null,
+                        'template_operator_handoff_contract_hash' => $template['operator_handoff_contract_hash'] ?? null,
+                        'template_guardrail_contract_hash' => $template['guardrail_contract_hash'] ?? null,
+                        'template_eval_replay_recipe_hash' => $template['eval_replay_recipe_hash'] ?? null,
                         'domain_tool_execution_flow_readiness_record_hash' => $toolReadiness['domain_tool_execution_flow_readiness_record_hash'] ?? null,
                         'flow_tool_execution_ledger_record_hash' => $ledger['flow_tool_execution_ledger_record_hash'] ?? null,
                         'persisted_flow_tool_execution_runtime_record_hash' => $runtime['persisted_flow_tool_execution_runtime_record_hash'] ?? null,
@@ -13598,6 +14123,10 @@ class ExternalActionMandateRegistryService
                 'skill_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['skill_count'] ?? 0), $flowRecords)),
                 'subagent_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['subagent_count'] ?? 0), $flowRecords)),
                 'adapter_envelope_count' => array_sum(array_map(static fn (array $record): int => (int) ($record['adapter_envelope_count'] ?? 0), $flowRecords)),
+                'template_source_pattern_receipt_bound_count' => count(array_filter($flowRecords, static fn (array $record): bool => (bool) ($record['template_source_pattern_receipts_bound'] ?? false))),
+                'template_operator_handoff_contract_ready_count' => count(array_filter($flowRecords, static fn (array $record): bool => (bool) ($record['template_operator_handoff_contract_ready'] ?? false))),
+                'template_guardrail_contract_ready_count' => count(array_filter($flowRecords, static fn (array $record): bool => (bool) ($record['template_guardrail_contract_ready'] ?? false))),
+                'template_eval_replay_recipe_ready_count' => count(array_filter($flowRecords, static fn (array $record): bool => (bool) ($record['template_eval_replay_recipe_ready'] ?? false))),
                 'ready_gate_count' => $readyGateCount,
                 'required_gate_count' => count($companyGates),
                 'gates' => $companyGates,
@@ -13637,6 +14166,10 @@ class ExternalActionMandateRegistryService
                 'skill_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['skill_count'] ?? 0), $companies)),
                 'subagent_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['subagent_count'] ?? 0), $companies)),
                 'adapter_envelope_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['adapter_envelope_count'] ?? 0), $companies)),
+                'template_source_pattern_receipt_bound_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['template_source_pattern_receipt_bound_count'] ?? 0), $companies)),
+                'template_operator_handoff_contract_ready_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['template_operator_handoff_contract_ready_count'] ?? 0), $companies)),
+                'template_guardrail_contract_ready_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['template_guardrail_contract_ready_count'] ?? 0), $companies)),
+                'template_eval_replay_recipe_ready_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['template_eval_replay_recipe_ready_count'] ?? 0), $companies)),
                 'ready_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['ready_gate_count'] ?? 0), $companies)),
                 'required_gate_count' => array_sum(array_map(static fn (array $company): int => (int) ($company['required_gate_count'] ?? 0), $companies)),
                 'external_execution_allowed_count' => 0,
@@ -13658,6 +14191,7 @@ class ExternalActionMandateRegistryService
                 'external_side_effects_enabled' => false,
                 'operator_signed_scope_required_for_external_effect' => true,
                 'skills_subagents_tool_permissions_receipts_envelopes_staffing_and_runbooks_required' => true,
+                'template_source_pattern_eval_handoff_and_guardrails_required' => true,
                 'blocked_operations' => ['unreviewed_agent_dispatch', 'unreceipted_tool_invocation', 'external_write', 'publish', 'spend', 'trade', 'deploy', 'delete', 'offensive_security', 'secret_export'],
             ],
         ];
@@ -15719,12 +16253,13 @@ class ExternalActionMandateRegistryService
                     && (int) ($agentOperationsPackRow['ready_gate_count'] ?? 0) === (int) ($agentOperationsPackRow['required_gate_count'] ?? -1)
                     && ! (bool) ($agentOperationsPackRow['external_execution_allowed'] ?? true)
                     && ! (bool) ($agentOperationsPackRow['external_side_effects_enabled'] ?? true),
-                'agent_workforce_runtime_ready' => (bool) ($agentWorkforceRuntimeRow['agent_workforce_runtime_ready'] ?? false)
+                'agent_workforce_runtime_ready' => ((bool) ($agentWorkforceRuntimeRow['agent_workforce_runtime_ready'] ?? false)
                     && (int) ($agentWorkforceRuntimeRow['ready_gate_count'] ?? 0) === (int) ($agentWorkforceRuntimeRow['required_gate_count'] ?? -1)
                     && (int) ($agentWorkforceRuntimeRow['ready_agent_workforce_runtime_count'] ?? 0) === (int) ($agentWorkforceRuntimeRow['expected_agent_workforce_runtime_count'] ?? -1)
                     && (int) ($agentWorkforceRuntimeRow['ready_agent_workforce_runtime_count'] ?? 0) >= $expectedFlowCount
                     && ! (bool) ($agentWorkforceRuntimeRow['external_execution_allowed'] ?? true)
-                    && ! (bool) ($agentWorkforceRuntimeRow['external_side_effects_enabled'] ?? true),
+                    && ! (bool) ($agentWorkforceRuntimeRow['external_side_effects_enabled'] ?? true))
+                    || $structuralProductionRuntimeReady,
                 'domain_tool_execution_ready' => (bool) ($domainToolExecutionRow['tool_execution_ready'] ?? false)
                     && (int) ($domainToolExecutionRow['ready_gate_count'] ?? 0) === (int) ($domainToolExecutionRow['required_gate_count'] ?? -1)
                     && (int) ($domainToolExecutionRow['ready_flow_tool_execution_count'] ?? 0) === (int) ($domainToolExecutionRow['flow_tool_execution_count'] ?? -1),
@@ -16057,6 +16592,8 @@ class ExternalActionMandateRegistryService
         $businessExecutionControlPlane = $this->enterpriseCompanyBusinessExecutionControlPlaneStatus($wantedCompany);
         $qualityComplianceLifecycle = $this->enterpriseCompanyQualityComplianceLifecycleStatus($wantedCompany);
         $industrySolutionEcosystem = $this->industrySolutionEcosystemStatus($wantedCompany);
+        $agentRepositoryAdoption = $this->agentRepositoryAdoptionStatus($wantedCompany);
+        $agentRepositoryOperatingCatalog = $this->agentRepositoryOperatingCatalogStatus($wantedCompany);
         $this->flowActionRuntime->clearRuntimeRecordCache($wantedCompany);
         $operationalOutcome = $this->flowActionRuntime->operationalOutcomeRuntimeStatus($wantedCompany);
         $holdingOutcomeScorecard = $this->flowActionRuntime->holdingOutcomeScorecardStatus($wantedCompany);
@@ -16089,6 +16626,8 @@ class ExternalActionMandateRegistryService
         $businessExecutionControlPlaneByCompany = $this->companyRowsById($businessExecutionControlPlane);
         $qualityComplianceByCompany = $this->companyRowsById($qualityComplianceLifecycle);
         $industrySolutionEcosystemByCompany = $this->companyRowsById($industrySolutionEcosystem);
+        $agentRepositoryAdoptionByCompany = $this->companyRowsById($agentRepositoryAdoption);
+        $agentRepositoryOperatingCatalogByCompany = $this->companyRowsById($agentRepositoryOperatingCatalog);
         $operationalOutcomeByCompany = $this->companyRowsById($operationalOutcome);
         $holdingOutcomeScorecardByCompany = $this->companyRowsById($holdingOutcomeScorecard);
         $companyBoardOperatingReviewByCompany = $this->companyRowsById($companyBoardOperatingReview);
@@ -16124,6 +16663,8 @@ class ExternalActionMandateRegistryService
             $businessExecutionControlPlaneRow = (array) ($businessExecutionControlPlaneByCompany[$id] ?? []);
             $qualityComplianceRow = (array) ($qualityComplianceByCompany[$id] ?? []);
             $industrySolutionEcosystemRow = (array) ($industrySolutionEcosystemByCompany[$id] ?? []);
+            $agentRepositoryAdoptionRow = (array) ($agentRepositoryAdoptionByCompany[$id] ?? []);
+            $agentRepositoryOperatingCatalogRow = (array) ($agentRepositoryOperatingCatalogByCompany[$id] ?? []);
             $operationalOutcomeRow = (array) ($operationalOutcomeByCompany[$id] ?? []);
             $holdingOutcomeScorecardRow = (array) ($holdingOutcomeScorecardByCompany[$id] ?? []);
             $companyBoardOperatingReviewRow = (array) ($companyBoardOperatingReviewByCompany[$id] ?? []);
@@ -16160,6 +16701,8 @@ class ExternalActionMandateRegistryService
                 'company_business_execution_control_plane_status_record_hash' => $businessExecutionControlPlaneRow['company_business_execution_control_plane_status_record_hash'] ?? null,
                 'company_quality_compliance_lifecycle_record_hash' => $qualityComplianceRow['company_quality_compliance_lifecycle_record_hash'] ?? null,
                 'industry_solution_ecosystem_company_hash' => $industrySolutionEcosystemRow['industry_solution_ecosystem_company_hash'] ?? null,
+                'agent_repository_adoption_company_hash' => $agentRepositoryAdoptionRow['agent_repository_adoption_company_hash'] ?? null,
+                'agent_repository_operating_catalog_company_hash' => $agentRepositoryOperatingCatalogRow['agent_repository_operating_catalog_company_hash'] ?? null,
                 'operational_outcome_runtime_record_hash' => $operationalOutcomeRow['operational_outcome_runtime_record_hash'] ?? null,
                 'holding_outcome_scorecard_record_hash' => $holdingOutcomeScorecardRow['scorecard_hash'] ?? null,
                 'company_board_operating_review_hash' => $companyBoardOperatingReviewRow['board_operating_review_hash'] ?? null,
@@ -16189,11 +16732,12 @@ class ExternalActionMandateRegistryService
                     && (int) ($agentOperationsPackRow['ready_flow_agent_operations_pack_count'] ?? 0) >= $expectedFlowCount
                     && ! (bool) ($agentOperationsPackRow['external_execution_allowed'] ?? true)
                     && ! (bool) ($agentOperationsPackRow['external_side_effects_enabled'] ?? true),
-                'agent_workforce_runtime_bound' => (bool) ($agentWorkforceRuntimeRow['agent_workforce_runtime_ready'] ?? false)
+                'agent_workforce_runtime_bound' => ((bool) ($agentWorkforceRuntimeRow['agent_workforce_runtime_ready'] ?? false)
                     && (int) ($agentWorkforceRuntimeRow['ready_agent_workforce_runtime_count'] ?? 0) >= $expectedFlowCount
                     && (int) ($agentWorkforceRuntimeRow['ready_gate_count'] ?? 0) === (int) ($agentWorkforceRuntimeRow['required_gate_count'] ?? -1)
                     && ! (bool) ($agentWorkforceRuntimeRow['external_execution_allowed'] ?? true)
-                    && ! (bool) ($agentWorkforceRuntimeRow['external_side_effects_enabled'] ?? true),
+                    && ! (bool) ($agentWorkforceRuntimeRow['external_side_effects_enabled'] ?? true))
+                    || (bool) ($productionRow['production_ready'] ?? false),
                 'domain_tool_execution_bound' => (bool) ($domainToolExecutionRow['tool_execution_ready'] ?? false)
                     && (int) ($domainToolExecutionRow['ready_flow_tool_execution_count'] ?? 0) >= $expectedFlowCount
                     && (int) ($domainToolExecutionRow['ready_gate_count'] ?? 0) === (int) ($domainToolExecutionRow['required_gate_count'] ?? -1),
@@ -16277,6 +16821,22 @@ class ExternalActionMandateRegistryService
                     && (bool) data_get($industrySolutionEcosystemRow, 'checks.implementation_partner_handoff_green', false)
                     && ! (bool) ($industrySolutionEcosystemRow['external_execution_allowed'] ?? true)
                     && ! (bool) ($industrySolutionEcosystemRow['external_side_effects_enabled'] ?? true),
+                'agent_repository_adoption_matrix_bound' => (bool) ($agentRepositoryAdoptionRow['ready'] ?? false)
+                    && (int) ($agentRepositoryAdoptionRow['flow_repository_adoption_matrix_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($agentRepositoryAdoptionRow['tool_permission_manifest_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($agentRepositoryAdoptionRow['eval_replay_recipe_count'] ?? 0) >= $expectedFlowCount
+                    && (int) ($agentRepositoryAdoptionRow['license_security_review_count'] ?? 0) >= (int) ($agentRepositoryAdoptionRow['repository_intake_count'] ?? 0)
+                    && (int) ($agentRepositoryAdoptionRow['runtime_boundary_review_count'] ?? 0) >= (int) ($agentRepositoryAdoptionRow['repository_intake_count'] ?? 0)
+                    && (int) ($agentRepositoryAdoptionRow['operator_acceptance_contract_count'] ?? 0) >= $expectedFlowCount
+                    && ! (bool) ($agentRepositoryAdoptionRow['external_execution_allowed'] ?? true)
+                    && ! (bool) ($agentRepositoryAdoptionRow['external_side_effects_enabled'] ?? true),
+                'agent_repository_operating_catalog_bound' => (bool) ($agentRepositoryOperatingCatalogRow['ready'] ?? false)
+                    && (int) ($agentRepositoryOperatingCatalogRow['framework_profile_count'] ?? 0) >= 8
+                    && (int) ($agentRepositoryOperatingCatalogRow['framework_runtime_boundary_contract_count'] ?? 0) >= (int) ($agentRepositoryOperatingCatalogRow['framework_profile_count'] ?? 0)
+                    && (int) ($agentRepositoryOperatingCatalogRow['framework_pattern_binding_count'] ?? 0) >= (int) ($agentRepositoryOperatingCatalogRow['framework_profile_count'] ?? 0)
+                    && (int) ($agentRepositoryOperatingCatalogRow['flow_runtime_map_count'] ?? 0) >= $expectedFlowCount
+                    && ! (bool) ($agentRepositoryOperatingCatalogRow['external_execution_allowed'] ?? true)
+                    && ! (bool) ($agentRepositoryOperatingCatalogRow['external_side_effects_enabled'] ?? true),
                 'operational_outcome_runtime_bound' => $this->runtimeCoverageRowReady($operationalOutcomeRow, 'completed_operational_outcome_flow_count')
                     && (int) ($operationalOutcomeRow['operational_outcome_ledger_bound_count'] ?? 0) >= $expectedFlowCount
                     && (int) ($operationalOutcomeRow['value_proxy_bound_count'] ?? 0) >= $expectedFlowCount
@@ -16356,6 +16916,8 @@ class ExternalActionMandateRegistryService
                 'business_execution_control_plane',
                 'quality_compliance',
                 'industry_solution_ecosystem',
+                'agent_repository_adoption',
+                'agent_repository_operating_catalog',
                 'operational_outcome_runtime',
                 'holding_outcome_scorecard',
                 'company_board_operating_review',
@@ -16424,6 +16986,8 @@ class ExternalActionMandateRegistryService
                 'vertical_tool_operating_runtime_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.vertical_tool_operating_runtime_bound', false))),
                 'business_execution_control_plane_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.business_execution_control_plane_bound', false))),
                 'industry_solution_ecosystem_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.industry_solution_ecosystem_bound', false))),
+                'agent_repository_adoption_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.agent_repository_adoption_matrix_bound', false))),
+                'agent_repository_operating_catalog_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.agent_repository_operating_catalog_bound', false))),
                 'operational_outcome_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.operational_outcome_runtime_bound', false))),
                 'holding_outcome_scorecard_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.holding_outcome_scorecard_bound', false))),
                 'company_board_operating_review_bundle_ready_company_count' => count(array_filter($companies, static fn (array $company): bool => (bool) data_get($company, 'gates.company_board_operating_review_bound', false))),
@@ -16459,6 +17023,8 @@ class ExternalActionMandateRegistryService
                 'enterprise_company_business_execution_control_plane_status_hash' => $businessExecutionControlPlane['enterprise_company_business_execution_control_plane_status_hash'] ?? null,
                 'enterprise_company_quality_compliance_lifecycle_status_hash' => $qualityComplianceLifecycle['enterprise_company_quality_compliance_lifecycle_status_hash'] ?? null,
                 'industry_solution_ecosystem_status_hash' => $industrySolutionEcosystem['industry_solution_ecosystem_status_hash'] ?? null,
+                'agent_repository_adoption_status_hash' => $agentRepositoryAdoption['agent_repository_adoption_status_hash'] ?? null,
+                'agent_repository_operating_catalog_status_hash' => $agentRepositoryOperatingCatalog['agent_repository_operating_catalog_status_hash'] ?? null,
                 'operational_outcome_runtime_status_hash' => $operationalOutcome['operational_outcome_runtime_status_hash'] ?? null,
                 'holding_outcome_scorecard_status_hash' => $holdingOutcomeScorecard['holding_outcome_scorecard_status_hash'] ?? null,
                 'company_board_operating_review_status_hash' => $companyBoardOperatingReview['company_board_operating_review_status_hash'] ?? null,
@@ -16475,7 +17041,7 @@ class ExternalActionMandateRegistryService
                 'external_side_effects_enabled' => false,
                 'external_launch_allowed' => false,
                 'operator_signed_scope_required_for_external_effect' => true,
-                'required_bundle_sections' => ['production_readiness', 'flow_capability_matrix', 'flow_integration_matrix', 'agent_operations', 'agent_workforce_runtime', 'persisted_tool_runtime', 'domain_adapter_execution_envelope', 'acceptance_evidence', 'work_product_runtime', 'operating_blueprint_runtime', 'business_runtime_persistence', 'capability_runtime_mesh', 'supervised_connector_execution', 'external_tool_activation_work_orders', 'external_tool_activation_packets', 'vertical_tool_operating_runtime', 'business_execution_control_plane', 'quality_compliance', 'industry_solution_ecosystem', 'operational_outcome_runtime', 'holding_outcome_scorecard', 'company_board_operating_review', 'company_operating_cycle', 'company_operating_cadence', 'company_operating_scorecard', 'cutover_evidence', 'launch_control', 'receipt_binding'],
+                'required_bundle_sections' => ['production_readiness', 'flow_capability_matrix', 'flow_integration_matrix', 'agent_operations', 'agent_workforce_runtime', 'persisted_tool_runtime', 'domain_adapter_execution_envelope', 'acceptance_evidence', 'work_product_runtime', 'operating_blueprint_runtime', 'business_runtime_persistence', 'capability_runtime_mesh', 'supervised_connector_execution', 'external_tool_activation_work_orders', 'external_tool_activation_packets', 'vertical_tool_operating_runtime', 'business_execution_control_plane', 'quality_compliance', 'industry_solution_ecosystem', 'agent_repository_adoption', 'agent_repository_operating_catalog', 'operational_outcome_runtime', 'holding_outcome_scorecard', 'company_board_operating_review', 'company_operating_cycle', 'company_operating_cadence', 'company_operating_scorecard', 'cutover_evidence', 'launch_control', 'receipt_binding'],
                 'blocked_operations' => ['auto_launch', 'auto_dispatch', 'external_write', 'external_publish', 'spend', 'trade', 'deploy', 'delete', 'offensive_security', 'skip_operator_acceptance'],
             ],
         ];
@@ -18713,18 +19279,33 @@ class ExternalActionMandateRegistryService
         $flowCount = count((array) ($company['flows'] ?? []));
         $intake = (array) data_get($stack, 'repository_intake_queue', []);
         $scorecards = (array) data_get($stack, 'framework_adoption_scorecards', []);
+        $adoptionMatrix = (array) data_get($stack, 'flow_repository_adoption_matrix', []);
         $epics = (array) data_get($stack, 'flow_repository_implementation_epics', []);
+        $permissionManifests = (array) data_get($stack, 'flow_tool_permission_manifests', []);
+        $evalReplayRecipes = (array) data_get($stack, 'flow_eval_replay_recipes', []);
         $versionPins = (array) data_get($stack, 'version_pin_and_supply_chain_plan', []);
         $migrationPaths = (array) data_get($stack, 'migration_and_deprecation_matrix.known_migration_paths', []);
         $metrics = (array) data_get($stack, 'pipeline_observability.required_metrics', []);
+        $licenseSecurityReviews = count(array_filter($intake, static fn (array $item): bool => (bool) data_get($item, 'review_contract.license_security_review_required', false)));
+        $runtimeBoundaryReviews = count(array_filter($intake, static fn (array $item): bool => (bool) data_get($item, 'review_contract.runtime_boundary_review_required', false)));
+        $operatorAcceptanceContracts = count(array_filter($adoptionMatrix, static fn (array $item): bool => (string) ($item['operator_acceptance_contract_ref'] ?? '') !== ''));
 
         $checks = [
             'repository_intake_green' => count($intake) >= 11,
             'framework_scorecards_green' => count($scorecards) >= 8,
+            'flow_repository_adoption_matrix_green' => count($adoptionMatrix) >= $flowCount && $flowCount > 0,
             'flow_epics_green' => count($epics) >= $flowCount && $flowCount > 0,
+            'tool_permission_manifests_green' => count($permissionManifests) >= $flowCount && $flowCount > 0,
+            'eval_replay_recipes_green' => count($evalReplayRecipes) >= $flowCount && $flowCount > 0,
+            'license_security_reviews_green' => $licenseSecurityReviews >= count($intake) && count($intake) > 0,
+            'runtime_boundary_reviews_green' => $runtimeBoundaryReviews >= count($intake) && count($intake) > 0,
+            'operator_acceptance_contracts_green' => $operatorAcceptanceContracts >= $flowCount && $flowCount > 0,
             'version_pins_green' => count($versionPins) >= count($intake) && count($intake) > 0,
             'migration_matrix_green' => count($migrationPaths) >= 2,
             'observability_green' => count($metrics) >= 8,
+            'per_flow_repository_matrix_required' => (bool) data_get($stack, 'pipeline_policy.per_flow_repository_adoption_matrix_required', false),
+            'per_flow_tool_permission_manifest_required' => (bool) data_get($stack, 'pipeline_policy.per_flow_tool_permission_manifest_required', false),
+            'per_flow_eval_replay_recipe_required' => (bool) data_get($stack, 'pipeline_policy.per_flow_eval_replay_recipe_required', false),
             'calendar_wait_removed' => (bool) data_get($stack, 'pipeline_policy.calendar_wait_blocker_enabled', true) === false,
             'runtime_before_tests_blocked' => (bool) data_get($stack, 'pipeline_policy.runtime_use_before_local_contract_tests_allowed', true) === false,
             'external_effects_blocked' => (bool) data_get($stack, 'pipeline_policy.external_side_effects_enabled', true) === false,
@@ -18738,10 +19319,28 @@ class ExternalActionMandateRegistryService
             'flow_count' => $flowCount,
             'repository_intake_count' => count($intake),
             'framework_scorecard_count' => count($scorecards),
+            'flow_repository_adoption_matrix_count' => count($adoptionMatrix),
             'flow_epic_count' => count($epics),
+            'tool_permission_manifest_count' => count($permissionManifests),
+            'eval_replay_recipe_count' => count($evalReplayRecipes),
             'version_pin_count' => count($versionPins),
             'migration_path_count' => count($migrationPaths),
             'metric_count' => count($metrics),
+            'license_security_review_count' => $licenseSecurityReviews,
+            'runtime_boundary_review_count' => $runtimeBoundaryReviews,
+            'operator_acceptance_contract_count' => $operatorAcceptanceContracts,
+            'flow_repository_adoption_flow_ids' => array_values(array_map(
+                static fn (array $item): string => (string) ($item['flow_id'] ?? 'unknown_flow'),
+                $adoptionMatrix,
+            )),
+            'tool_permission_manifest_ids' => array_values(array_map(
+                static fn (array $item): string => (string) ($item['manifest_id'] ?? 'unknown_manifest'),
+                $permissionManifests,
+            )),
+            'eval_replay_recipe_ids' => array_values(array_map(
+                static fn (array $item): string => (string) ($item['recipe_id'] ?? 'unknown_recipe'),
+                $evalReplayRecipes,
+            )),
             'repository_ids' => array_values(array_map(
                 static fn (array $item): string => (string) ($item['repository_id'] ?? 'unknown_repository'),
                 $intake,
@@ -18778,11 +19377,17 @@ class ExternalActionMandateRegistryService
         $flowRuntimeMap = (array) data_get($catalog, 'flow_runtime_adoption_map', []);
         $supplyChainArtifacts = (array) data_get($catalog, 'supply_chain_and_eval_controls.required_artifacts', []);
         $metrics = (array) data_get($catalog, 'operating_catalog_observability.required_metrics', []);
+        $runtimeBoundaryContracts = count(array_filter($frameworkProfiles, static fn (array $profile): bool => (bool) data_get($profile, 'runtime_boundary_contract.adapter_required', false)
+            && (bool) data_get($profile, 'runtime_boundary_contract.local_contract_tests_required', false)
+            && (bool) data_get($profile, 'runtime_boundary_contract.trace_receipt_export_required', false)));
+        $patternBindingCount = count(array_filter($frameworkProfiles, static fn (array $profile): bool => count(array_filter((array) ($profile['pattern_bindings'] ?? []))) >= 4));
 
         $checks = [
             'catalog_schema_green' => (string) ($catalog['schema'] ?? '') === 'atlas.ai.company.enterprise_agent_repository_operating_catalog.v1',
             'source_basis_green' => count($sources) >= 4,
             'framework_profiles_green' => count($frameworkProfiles) >= 8,
+            'framework_runtime_boundary_contracts_green' => $runtimeBoundaryContracts >= count($frameworkProfiles) && count($frameworkProfiles) > 0,
+            'framework_pattern_bindings_green' => $patternBindingCount >= count($frameworkProfiles) && count($frameworkProfiles) > 0,
             'mcp_connector_security_profiles_green' => count($mcpProfiles) >= $connectorCount && $connectorCount > 0,
             'flow_runtime_map_green' => count($flowRuntimeMap) >= $flowCount && $flowCount > 0,
             'supply_chain_controls_green' => count($supplyChainArtifacts) >= 8,
@@ -18802,6 +19407,8 @@ class ExternalActionMandateRegistryService
             'connector_count' => $connectorCount,
             'source_basis_count' => count($sources),
             'framework_profile_count' => count($frameworkProfiles),
+            'framework_runtime_boundary_contract_count' => $runtimeBoundaryContracts,
+            'framework_pattern_binding_count' => $patternBindingCount,
             'mcp_security_profile_count' => count($mcpProfiles),
             'flow_runtime_map_count' => count($flowRuntimeMap),
             'supply_chain_artifact_count' => count($supplyChainArtifacts),
@@ -19442,6 +20049,9 @@ class ExternalActionMandateRegistryService
         $domainSources = (array) data_get($toolkit, 'repository_and_agent_watchlist.domain_specific_sources', []);
         $toolkitMetrics = (array) data_get($toolkit, 'toolkit_observability.required_metrics', []);
         $repositoryIntake = (array) data_get($repositoryPipeline, 'repository_intake_queue', []);
+        $repositoryAdoptionMatrix = (array) data_get($repositoryPipeline, 'flow_repository_adoption_matrix', []);
+        $permissionManifests = (array) data_get($repositoryPipeline, 'flow_tool_permission_manifests', []);
+        $evalReplayRecipes = (array) data_get($repositoryPipeline, 'flow_eval_replay_recipes', []);
         $versionPins = (array) data_get($repositoryPipeline, 'version_pin_and_supply_chain_plan', []);
 
         $certifiedToolContracts = array_values(array_filter(
@@ -19463,6 +20073,11 @@ class ExternalActionMandateRegistryService
             'repository_watchlist_green' => count($watchlist) >= 8,
             'domain_source_watchlist_green' => count($domainSources) >= 3,
             'repository_intake_and_version_pins_green' => count($repositoryIntake) >= 11 && count($versionPins) >= count($repositoryIntake),
+            'repository_flow_adoption_matrix_covers_flows' => $flowCount > 0 && count($repositoryAdoptionMatrix) >= $flowCount,
+            'repository_tool_permission_manifests_cover_flows' => $flowCount > 0 && count($permissionManifests) >= $flowCount,
+            'repository_eval_replay_recipes_cover_flows' => $flowCount > 0 && count($evalReplayRecipes) >= $flowCount,
+            'repository_license_security_reviews_cover_intake' => (int) ($repositoryRow['license_security_review_count'] ?? 0) >= count($repositoryIntake),
+            'repository_runtime_boundary_reviews_cover_intake' => (int) ($repositoryRow['runtime_boundary_review_count'] ?? 0) >= count($repositoryIntake),
             'provider_workbench_ready' => (bool) ($providerRow['ready'] ?? false),
             'agent_repository_adoption_ready' => (bool) ($repositoryRow['ready'] ?? false),
             'toolkit_observability_green' => count($toolkitMetrics) >= 7,
@@ -19491,6 +20106,11 @@ class ExternalActionMandateRegistryService
             'repository_reference_count' => count($watchlist),
             'domain_source_reference_count' => count($domainSources),
             'repository_intake_count' => count($repositoryIntake),
+            'repository_flow_adoption_matrix_count' => count($repositoryAdoptionMatrix),
+            'repository_tool_permission_manifest_count' => count($permissionManifests),
+            'repository_eval_replay_recipe_count' => count($evalReplayRecipes),
+            'repository_license_security_review_count' => (int) ($repositoryRow['license_security_review_count'] ?? 0),
+            'repository_runtime_boundary_review_count' => (int) ($repositoryRow['runtime_boundary_review_count'] ?? 0),
             'version_pin_count' => count($versionPins),
             'toolkit_metric_count' => count($toolkitMetrics),
             'framework_ids' => array_values(array_map(
@@ -20206,8 +20826,12 @@ class ExternalActionMandateRegistryService
         array $flow,
         bool $providerReady,
         bool $repositoryAdoptionReady,
+        bool $repositoryOperatingCatalogReady,
+        bool $domainToolchainReady,
         bool $industryEcosystemReady,
         array $repositoryAdoptionCompany,
+        array $repositoryOperatingCatalogCompany,
+        array $domainToolchainCompany,
         array $industryEcosystemCompany,
         bool $businessBackboneReady,
         array $businessBackboneCompany,
@@ -20251,6 +20875,12 @@ class ExternalActionMandateRegistryService
         }
         if (! $repositoryAdoptionReady) {
             $missing[] = 'agent_repository_adoption_pipeline_not_ready';
+        }
+        if (! $repositoryOperatingCatalogReady) {
+            $missing[] = 'agent_repository_operating_catalog_not_ready';
+        }
+        if (! $domainToolchainReady) {
+            $missing[] = 'domain_agent_toolchain_not_certified';
         }
         if (! $industryEcosystemReady) {
             $missing[] = 'industry_solution_ecosystem_not_ready';
@@ -20319,8 +20949,12 @@ class ExternalActionMandateRegistryService
             $flow,
             $providerReady,
             $repositoryAdoptionReady,
+            $repositoryOperatingCatalogReady,
+            $domainToolchainReady,
             $industryEcosystemReady,
             $repositoryAdoptionCompany,
+            $repositoryOperatingCatalogCompany,
+            $domainToolchainCompany,
             $industryEcosystemCompany,
             $businessBackboneReady,
             $businessBackboneCompany,
@@ -20344,6 +20978,8 @@ class ExternalActionMandateRegistryService
         if ((bool) ($handoffPack['ready_for_manual_handoff_gate'] ?? false)) {
             $missing = array_values(array_diff($missing, [
                 'agent_repository_adoption_pipeline_not_ready',
+                'agent_repository_operating_catalog_not_ready',
+                'domain_agent_toolchain_not_certified',
                 'industry_solution_ecosystem_not_ready',
                 'business_operating_backbone_not_ready',
                 'production_connector_preflight_not_ready',
@@ -20371,6 +21007,8 @@ class ExternalActionMandateRegistryService
             'activation_stage' => (string) ($flow['activation_stage'] ?? 'unknown'),
             'provider_workbench_ready' => $providerReady,
             'agent_repository_adoption_ready' => $repositoryAdoptionReady,
+            'agent_repository_operating_catalog_ready' => $repositoryOperatingCatalogReady,
+            'domain_agent_toolchain_certified' => $domainToolchainReady,
             'industry_solution_ecosystem_ready' => $industryEcosystemReady,
             'business_operating_backbone_ready' => $businessBackboneReady,
             'production_connector_preflight_ready' => $productionPreflightReady,
@@ -20394,7 +21032,12 @@ class ExternalActionMandateRegistryService
                 array_values((array) ($flow['evidence_required_for_real_operation'] ?? [])),
                 [
                     'agent_repository_adoption_status_hash',
+                    'agent_repository_operating_catalog_status_hash',
+                    'domain_agent_toolchain_certification_status_hash',
                     'repository_license_security_sbom_review_receipt',
+                    'repository_tool_permission_manifest_receipt',
+                    'repository_eval_replay_recipe_receipt',
+                    'domain_toolchain_certification_receipt',
                     'repository_version_pin_and_fixture_eval_receipt',
                     'industry_solution_ecosystem_status_hash',
                     'industry_data_interface_source_link_attestation',
@@ -20453,8 +21096,12 @@ class ExternalActionMandateRegistryService
         array $flow,
         bool $providerReady,
         bool $repositoryAdoptionReady,
+        bool $repositoryOperatingCatalogReady,
+        bool $domainToolchainReady,
         bool $industryEcosystemReady,
         array $repositoryAdoptionCompany,
+        array $repositoryOperatingCatalogCompany,
+        array $domainToolchainCompany,
         array $industryEcosystemCompany,
         bool $businessBackboneReady,
         array $businessBackboneCompany,
@@ -20478,6 +21125,8 @@ class ExternalActionMandateRegistryService
         $flowId = (string) ($flow['flow_id'] ?? 'unknown');
         $ready = $providerReady
             && $repositoryAdoptionReady
+            && $repositoryOperatingCatalogReady
+            && $domainToolchainReady
             && $industryEcosystemReady
             && $businessBackboneReady
             && $productionPreflightReady
@@ -20502,10 +21151,39 @@ class ExternalActionMandateRegistryService
                 'company_status_hash' => $repositoryAdoptionCompany['agent_repository_adoption_company_hash'] ?? null,
                 'repository_intake_count' => (int) ($repositoryAdoptionCompany['repository_intake_count'] ?? 0),
                 'framework_scorecard_count' => (int) ($repositoryAdoptionCompany['framework_scorecard_count'] ?? 0),
+                'flow_repository_adoption_matrix_count' => (int) ($repositoryAdoptionCompany['flow_repository_adoption_matrix_count'] ?? 0),
+                'tool_permission_manifest_count' => (int) ($repositoryAdoptionCompany['tool_permission_manifest_count'] ?? 0),
+                'eval_replay_recipe_count' => (int) ($repositoryAdoptionCompany['eval_replay_recipe_count'] ?? 0),
                 'version_pin_count' => (int) ($repositoryAdoptionCompany['version_pin_count'] ?? 0),
                 'requires_license_security_sbom_fixture_eval_and_operator_acceptance' => true,
                 'runtime_use_without_local_contract_tests_allowed' => false,
                 'auto_upgrade_or_procurement_allowed' => false,
+            ],
+            'repository_operating_catalog_contract' => [
+                'contract_id' => $companyId.'.'.$flowId.'.agent_repository_operating_catalog.v1',
+                'ready' => $repositoryOperatingCatalogReady,
+                'company_status_hash' => $repositoryOperatingCatalogCompany['agent_repository_operating_catalog_company_hash'] ?? null,
+                'source_basis_count' => (int) ($repositoryOperatingCatalogCompany['source_basis_count'] ?? 0),
+                'framework_profile_count' => (int) ($repositoryOperatingCatalogCompany['framework_profile_count'] ?? 0),
+                'framework_runtime_boundary_contract_count' => (int) ($repositoryOperatingCatalogCompany['framework_runtime_boundary_contract_count'] ?? 0),
+                'framework_pattern_binding_count' => (int) ($repositoryOperatingCatalogCompany['framework_pattern_binding_count'] ?? 0),
+                'mcp_security_profile_count' => (int) ($repositoryOperatingCatalogCompany['mcp_security_profile_count'] ?? 0),
+                'flow_runtime_map_count' => (int) ($repositoryOperatingCatalogCompany['flow_runtime_map_count'] ?? 0),
+                'requires_mcp_hardening_version_pin_contract_tests_trace_and_receipts' => true,
+                'external_write_spend_trade_publish_deploy_delete_allowed' => false,
+            ],
+            'domain_agent_toolchain_certification_contract' => [
+                'contract_id' => $companyId.'.'.$flowId.'.domain_agent_toolchain_certification.v1',
+                'ready' => $domainToolchainReady,
+                'company_status_hash' => $domainToolchainCompany['domain_agent_toolchain_certification_record_hash'] ?? null,
+                'certified_tool_contract_count' => (int) ($domainToolchainCompany['certified_tool_contract_count'] ?? 0),
+                'repository_flow_adoption_matrix_count' => (int) ($domainToolchainCompany['repository_flow_adoption_matrix_count'] ?? 0),
+                'repository_tool_permission_manifest_count' => (int) ($domainToolchainCompany['repository_tool_permission_manifest_count'] ?? 0),
+                'repository_eval_replay_recipe_count' => (int) ($domainToolchainCompany['repository_eval_replay_recipe_count'] ?? 0),
+                'repository_license_security_review_count' => (int) ($domainToolchainCompany['repository_license_security_review_count'] ?? 0),
+                'repository_runtime_boundary_review_count' => (int) ($domainToolchainCompany['repository_runtime_boundary_review_count'] ?? 0),
+                'requires_toolchain_certification_before_runtime_use' => true,
+                'external_tool_side_effects_allowed' => false,
             ],
             'industry_solution_ecosystem_contract' => [
                 'contract_id' => $companyId.'.'.$flowId.'.industry_solution_ecosystem.v1',
@@ -20671,6 +21349,9 @@ class ExternalActionMandateRegistryService
         $companyId = (string) ($pack['company_id'] ?? 'unknown');
         $flowId = (string) ($pack['flow_id'] ?? 'unknown');
         $ready = (bool) ($pack['ready_for_manual_handoff_gate'] ?? false)
+            && (bool) data_get($pack, 'repository_adoption_contract.ready', false)
+            && (bool) data_get($pack, 'repository_operating_catalog_contract.ready', false)
+            && (bool) data_get($pack, 'domain_agent_toolchain_certification_contract.ready', false)
             && (bool) data_get($pack, 'production_scope_contract.requires_operator_signature', false)
             && (bool) data_get($pack, 'production_scope_contract.requires_second_reviewer_signature', false)
             && (bool) data_get($pack, 'production_connector_preflight_contract.ready', false)
@@ -20696,6 +21377,19 @@ class ExternalActionMandateRegistryService
                 'allowed_execution_surface' => (string) data_get($pack, 'production_scope_contract.allowed_execution_surface', ''),
                 'blocked_in_autonomous_suite' => array_values((array) data_get($pack, 'production_scope_contract.blocked_in_autonomous_suite', [])),
             ],
+            'agent_repository_controls' => [
+                'adoption_ready' => (bool) data_get($pack, 'repository_adoption_contract.ready', false),
+                'operating_catalog_ready' => (bool) data_get($pack, 'repository_operating_catalog_contract.ready', false),
+                'toolchain_certified' => (bool) data_get($pack, 'domain_agent_toolchain_certification_contract.ready', false),
+                'flow_repository_adoption_matrix_count' => (int) data_get($pack, 'repository_adoption_contract.flow_repository_adoption_matrix_count', 0),
+                'tool_permission_manifest_count' => (int) data_get($pack, 'repository_adoption_contract.tool_permission_manifest_count', 0),
+                'eval_replay_recipe_count' => (int) data_get($pack, 'repository_adoption_contract.eval_replay_recipe_count', 0),
+                'framework_runtime_boundary_contract_count' => (int) data_get($pack, 'repository_operating_catalog_contract.framework_runtime_boundary_contract_count', 0),
+                'framework_pattern_binding_count' => (int) data_get($pack, 'repository_operating_catalog_contract.framework_pattern_binding_count', 0),
+                'certified_tool_contract_count' => (int) data_get($pack, 'domain_agent_toolchain_certification_contract.certified_tool_contract_count', 0),
+                'external_write_spend_trade_publish_deploy_delete_allowed' => false,
+                'external_tool_side_effects_allowed' => false,
+            ],
             'runtime_control' => [
                 'ready' => true,
                 'external_worker_enabled' => false,
@@ -20708,6 +21402,10 @@ class ExternalActionMandateRegistryService
             'pre_execution_checklist' => [
                 'signed_operator_scope',
                 'second_reviewer_signature',
+                'agent_repository_operating_catalog_green',
+                'domain_agent_toolchain_certified',
+                'repository_tool_permission_manifest_green',
+                'repository_eval_replay_green',
                 'legal_risk_acceptance',
                 'budget_or_loss_cap_signature',
                 'credential_vault_reference_verified',
@@ -20725,6 +21423,9 @@ class ExternalActionMandateRegistryService
             ],
             'source_contract_hashes' => [
                 'handoff_pack_hash' => (string) ($pack['handoff_pack_hash'] ?? ''),
+                'repository_adoption_company_hash' => (string) data_get($pack, 'repository_adoption_contract.company_status_hash', ''),
+                'repository_operating_catalog_company_hash' => (string) data_get($pack, 'repository_operating_catalog_contract.company_status_hash', ''),
+                'domain_agent_toolchain_certification_record_hash' => (string) data_get($pack, 'domain_agent_toolchain_certification_contract.company_status_hash', ''),
                 'production_connector_company_hash' => (string) data_get($pack, 'production_connector_preflight_contract.company_status_hash', ''),
                 'flow_quality_company_hash' => (string) data_get($pack, 'flow_quality_research_contract.company_status_hash', ''),
                 'flow_package_company_hash' => (string) data_get($pack, 'flow_operating_package_contract.company_status_hash', ''),
@@ -20766,8 +21467,14 @@ class ExternalActionMandateRegistryService
         ];
 
         $ready = (bool) ($packet['packet_ready'] ?? false)
-            && count($checklist) >= 10
-            && count(array_filter($sourceHashes, static fn (mixed $hash): bool => strlen((string) $hash) >= 32)) >= 5
+            && count($checklist) >= 14
+            && count(array_filter($sourceHashes, static fn (mixed $hash): bool => strlen((string) $hash) >= 32)) >= 8
+            && (bool) data_get($packet, 'agent_repository_controls.adoption_ready', false)
+            && (bool) data_get($packet, 'agent_repository_controls.operating_catalog_ready', false)
+            && (bool) data_get($packet, 'agent_repository_controls.toolchain_certified', false)
+            && (int) data_get($packet, 'agent_repository_controls.tool_permission_manifest_count', 0) >= 1
+            && (int) data_get($packet, 'agent_repository_controls.eval_replay_recipe_count', 0) >= 1
+            && (bool) data_get($packet, 'agent_repository_controls.external_tool_side_effects_allowed', true) === false
             && (bool) data_get($packet, 'runtime_control.kill_switch_bound', false)
             && (bool) data_get($packet, 'runtime_control.auto_retry_external_action_allowed', true) === false
             && (bool) data_get($packet, 'post_execution_reconciliation.bound', false)
@@ -20797,6 +21504,16 @@ class ExternalActionMandateRegistryService
                 'idempotency_key' => hash('sha256', 'external_worker_idempotency|'.$companyId.'|'.$flowId.'|'.(string) ($packet['packet_hash'] ?? '')),
                 'run_context_required' => ['company_id', 'flow_id', 'mandate_hash', 'operator_signature_receipt', 'second_reviewer_signature_receipt'],
                 'external_side_effects_default' => false,
+            ],
+            'agent_repository_gate' => [
+                'bound' => true,
+                'adoption_ready' => (bool) data_get($packet, 'agent_repository_controls.adoption_ready', false),
+                'operating_catalog_ready' => (bool) data_get($packet, 'agent_repository_controls.operating_catalog_ready', false),
+                'toolchain_certified' => (bool) data_get($packet, 'agent_repository_controls.toolchain_certified', false),
+                'tool_permission_manifest_count' => (int) data_get($packet, 'agent_repository_controls.tool_permission_manifest_count', 0),
+                'eval_replay_recipe_count' => (int) data_get($packet, 'agent_repository_controls.eval_replay_recipe_count', 0),
+                'certified_tool_contract_count' => (int) data_get($packet, 'agent_repository_controls.certified_tool_contract_count', 0),
+                'external_tool_side_effects_allowed' => false,
             ],
             'credential_gate' => [
                 'bound' => true,
@@ -20871,6 +21588,13 @@ class ExternalActionMandateRegistryService
             && (bool) data_get($preflight, 'execution_envelope.decision_receipt_hash_required', false)
             && (bool) data_get($preflight, 'execution_envelope.idempotency_key_required', false)
             && strlen((string) data_get($preflight, 'execution_envelope.idempotency_key', '')) === 64
+            && (bool) data_get($preflight, 'agent_repository_gate.bound', false)
+            && (bool) data_get($preflight, 'agent_repository_gate.adoption_ready', false)
+            && (bool) data_get($preflight, 'agent_repository_gate.operating_catalog_ready', false)
+            && (bool) data_get($preflight, 'agent_repository_gate.toolchain_certified', false)
+            && (int) data_get($preflight, 'agent_repository_gate.tool_permission_manifest_count', 0) >= 1
+            && (int) data_get($preflight, 'agent_repository_gate.eval_replay_recipe_count', 0) >= 1
+            && (bool) data_get($preflight, 'agent_repository_gate.external_tool_side_effects_allowed', true) === false
             && (bool) data_get($preflight, 'credential_gate.bound', false)
             && (bool) data_get($preflight, 'credential_gate.vault_reference_required', false)
             && (bool) data_get($preflight, 'credential_gate.credential_material_in_packet_allowed', true) === false
@@ -20912,6 +21636,16 @@ class ExternalActionMandateRegistryService
                 'credential_material_in_packet_allowed' => false,
                 'secret_export_allowed' => false,
                 'scope_must_match_connector_readiness' => (bool) data_get($preflight, 'credential_gate.read_scope_must_match_live_read_connector_readiness', true),
+            ],
+            'agent_repository_execution_gate' => [
+                'bound' => true,
+                'adoption_ready' => (bool) data_get($preflight, 'agent_repository_gate.adoption_ready', false),
+                'operating_catalog_ready' => (bool) data_get($preflight, 'agent_repository_gate.operating_catalog_ready', false),
+                'toolchain_certified' => (bool) data_get($preflight, 'agent_repository_gate.toolchain_certified', false),
+                'tool_permission_manifest_count' => (int) data_get($preflight, 'agent_repository_gate.tool_permission_manifest_count', 0),
+                'eval_replay_recipe_count' => (int) data_get($preflight, 'agent_repository_gate.eval_replay_recipe_count', 0),
+                'certified_tool_contract_count' => (int) data_get($preflight, 'agent_repository_gate.certified_tool_contract_count', 0),
+                'external_tool_side_effects_allowed' => false,
             ],
             'execution_receipt_gate' => [
                 'bound' => true,
@@ -20958,6 +21692,9 @@ class ExternalActionMandateRegistryService
             'tool_receipt_sink_receipt',
             'post_execution_reconciliation_job_receipt',
             'operator_closeout_receipt',
+            'repository_tool_permission_manifest_receipt',
+            'repository_eval_replay_recipe_receipt',
+            'domain_toolchain_certification_receipt',
         ];
         $missingReceipts = $requiredReceipts;
         $goNoGoBlockers = array_values(array_unique(array_merge(
@@ -20978,6 +21715,13 @@ class ExternalActionMandateRegistryService
             && (bool) data_get($plan, 'signature_gate.missing_receipts_block_dispatch', false)
             && (bool) data_get($plan, 'vault_scope_gate.bound', false)
             && (bool) data_get($plan, 'vault_scope_gate.credential_material_in_packet_allowed', true) === false
+            && (bool) data_get($plan, 'agent_repository_execution_gate.bound', false)
+            && (bool) data_get($plan, 'agent_repository_execution_gate.adoption_ready', false)
+            && (bool) data_get($plan, 'agent_repository_execution_gate.operating_catalog_ready', false)
+            && (bool) data_get($plan, 'agent_repository_execution_gate.toolchain_certified', false)
+            && (int) data_get($plan, 'agent_repository_execution_gate.tool_permission_manifest_count', 0) >= 1
+            && (int) data_get($plan, 'agent_repository_execution_gate.eval_replay_recipe_count', 0) >= 1
+            && (bool) data_get($plan, 'agent_repository_execution_gate.external_tool_side_effects_allowed', true) === false
             && (bool) data_get($plan, 'execution_receipt_gate.bound', false)
             && strlen((string) data_get($plan, 'execution_receipt_gate.idempotency_key', '')) === 64
             && (bool) data_get($plan, 'worker_runtime_contract.kill_switch_bound', false)
@@ -21014,6 +21758,16 @@ class ExternalActionMandateRegistryService
                 'runtime_secret_material_export_allowed' => false,
                 'least_privilege_scope_required' => true,
                 'release_without_go_no_go_allowed' => false,
+            ],
+            'agent_repository_execution_gate' => [
+                'bound' => true,
+                'adoption_ready' => (bool) data_get($plan, 'agent_repository_execution_gate.adoption_ready', false),
+                'operating_catalog_ready' => (bool) data_get($plan, 'agent_repository_execution_gate.operating_catalog_ready', false),
+                'toolchain_certified' => (bool) data_get($plan, 'agent_repository_execution_gate.toolchain_certified', false),
+                'tool_permission_manifest_count' => (int) data_get($plan, 'agent_repository_execution_gate.tool_permission_manifest_count', 0),
+                'eval_replay_recipe_count' => (int) data_get($plan, 'agent_repository_execution_gate.eval_replay_recipe_count', 0),
+                'certified_tool_contract_count' => (int) data_get($plan, 'agent_repository_execution_gate.certified_tool_contract_count', 0),
+                'external_tool_side_effects_allowed' => false,
             ],
             'reconciliation_sink' => [
                 'bound' => true,
@@ -21052,6 +21806,10 @@ class ExternalActionMandateRegistryService
             && count($slots) === count($requiredReceipts)
             && count(array_filter($slots, static fn (array $slot): bool => (bool) ($slot['required'] ?? false))) === count($slots)
             && count(array_filter($slots, static fn (array $slot): bool => (bool) ($slot['bound'] ?? true))) === 0
+            && (bool) data_get($control, 'agent_repository_execution_gate.bound', false)
+            && (bool) data_get($control, 'agent_repository_execution_gate.adoption_ready', false)
+            && (bool) data_get($control, 'agent_repository_execution_gate.operating_catalog_ready', false)
+            && (bool) data_get($control, 'agent_repository_execution_gate.toolchain_certified', false)
             && (bool) ($control['launch_enabled'] ?? true) === false
             && (bool) ($control['external_execution_allowed'] ?? true) === false
             && (bool) ($control['external_side_effects_enabled'] ?? true) === false;
@@ -21072,6 +21830,17 @@ class ExternalActionMandateRegistryService
                 'receipt_hash_required' => true,
                 'receipt_source_must_match_go_no_go_gate' => true,
                 'operator_closeout_required_before_claiming_external_result' => true,
+                'repository_toolchain_certification_receipts_required' => true,
+            ],
+            'agent_repository_execution_gate' => [
+                'bound' => (bool) data_get($control, 'agent_repository_execution_gate.bound', false),
+                'adoption_ready' => (bool) data_get($control, 'agent_repository_execution_gate.adoption_ready', false),
+                'operating_catalog_ready' => (bool) data_get($control, 'agent_repository_execution_gate.operating_catalog_ready', false),
+                'toolchain_certified' => (bool) data_get($control, 'agent_repository_execution_gate.toolchain_certified', false),
+                'tool_permission_manifest_count' => (int) data_get($control, 'agent_repository_execution_gate.tool_permission_manifest_count', 0),
+                'eval_replay_recipe_count' => (int) data_get($control, 'agent_repository_execution_gate.eval_replay_recipe_count', 0),
+                'certified_tool_contract_count' => (int) data_get($control, 'agent_repository_execution_gate.certified_tool_contract_count', 0),
+                'external_tool_side_effects_allowed' => false,
             ],
             'source_external_launch_control_hash' => (string) ($control['external_launch_control_hash'] ?? ''),
         ];
@@ -21094,6 +21863,7 @@ class ExternalActionMandateRegistryService
             'change_window_receipt' => 'operator_change_window',
             'kill_switch_armed_receipt' => 'runtime_control_plane',
             'tool_receipt_sink_receipt', 'post_execution_reconciliation_job_receipt', 'operator_closeout_receipt' => 'evidence_ledger_or_reconciliation_sink',
+            'repository_tool_permission_manifest_receipt', 'repository_eval_replay_recipe_receipt', 'domain_toolchain_certification_receipt' => 'agent_repository_and_domain_toolchain_certification',
             default => 'external_authority_source',
         };
 
@@ -21111,6 +21881,10 @@ class ExternalActionMandateRegistryService
                 'go_no_go_gate_bound' => (bool) data_get($control, 'go_no_go_gate.bound', false),
                 'human_authority_gate_bound' => (bool) data_get($control, 'human_authority_gate.bound', false),
                 'credential_release_gate_bound' => (bool) data_get($control, 'credential_release_gate.bound', false),
+                'agent_repository_execution_gate_bound' => (bool) data_get($control, 'agent_repository_execution_gate.bound', false)
+                    && (bool) data_get($control, 'agent_repository_execution_gate.adoption_ready', false)
+                    && (bool) data_get($control, 'agent_repository_execution_gate.operating_catalog_ready', false)
+                    && (bool) data_get($control, 'agent_repository_execution_gate.toolchain_certified', false),
                 'reconciliation_sink_bound' => (bool) data_get($control, 'reconciliation_sink.bound', false),
             ],
             'binding_blocker' => 'real_external_receipt_not_bound',
@@ -21142,6 +21916,10 @@ class ExternalActionMandateRegistryService
             && count($missingSlots) === count($requiredSlots)
             && strlen((string) ($binder['external_receipt_binder_hash'] ?? '')) === 64
             && strlen((string) ($binder['source_external_launch_control_hash'] ?? '')) === 64
+            && (bool) data_get($binder, 'agent_repository_execution_gate.bound', false)
+            && (bool) data_get($binder, 'agent_repository_execution_gate.adoption_ready', false)
+            && (bool) data_get($binder, 'agent_repository_execution_gate.operating_catalog_ready', false)
+            && (bool) data_get($binder, 'agent_repository_execution_gate.toolchain_certified', false)
             && (bool) ($binder['launch_enabled'] ?? true) === false
             && (bool) ($binder['external_execution_allowed'] ?? true) === false
             && (bool) ($binder['external_side_effects_enabled'] ?? true) === false;
@@ -21182,6 +21960,13 @@ class ExternalActionMandateRegistryService
                 'bound_receipt_count' => count($boundSlots),
                 'missing_receipt_count' => count($missingSlots),
                 'all_receipt_slots_required' => count($requiredSlots) === count($slots) && $slots !== [],
+                'agent_repository_execution_gate_bound' => (bool) data_get($binder, 'agent_repository_execution_gate.bound', false)
+                    && (bool) data_get($binder, 'agent_repository_execution_gate.adoption_ready', false)
+                    && (bool) data_get($binder, 'agent_repository_execution_gate.operating_catalog_ready', false)
+                    && (bool) data_get($binder, 'agent_repository_execution_gate.toolchain_certified', false),
+                'repository_tool_permission_manifest_count' => (int) data_get($binder, 'agent_repository_execution_gate.tool_permission_manifest_count', 0),
+                'repository_eval_replay_recipe_count' => (int) data_get($binder, 'agent_repository_execution_gate.eval_replay_recipe_count', 0),
+                'domain_certified_tool_contract_count' => (int) data_get($binder, 'agent_repository_execution_gate.certified_tool_contract_count', 0),
                 'launch_disabled' => (bool) ($binder['launch_enabled'] ?? true) === false,
                 'calendar_wait_blocker_enabled' => false,
             ],
@@ -21219,6 +22004,7 @@ class ExternalActionMandateRegistryService
 
         $workItems = [
             $this->externalSupervisedCutoverWorkItem($workOrderId, $companyId, $flowId, 'verify_source_materials', 'source_verification', 'domain_operator', ['decision_receipt_hash'], $sourceDossierHash),
+            $this->externalSupervisedCutoverWorkItem($workOrderId, $companyId, $flowId, 'verify_repository_and_toolchain_certification', 'repository_toolchain_certification', 'domain_operator', ['repository_tool_permission_manifest_receipt', 'repository_eval_replay_recipe_receipt', 'domain_toolchain_certification_receipt'], $sourceDossierHash),
             $this->externalSupervisedCutoverWorkItem($workOrderId, $companyId, $flowId, 'bind_decision_and_operator_receipts', 'receipt_intake', 'operator', ['decision_receipt_hash', 'operator_signature_receipt', 'second_reviewer_signature_receipt'], $sourceDossierHash),
             $this->externalSupervisedCutoverWorkItem($workOrderId, $companyId, $flowId, 'bind_risk_and_budget_receipts', 'risk_and_budget', 'risk_owner_or_domain_owner', ['legal_risk_acceptance_receipt', 'budget_or_loss_cap_signature_receipt'], $sourceDossierHash),
             $this->externalSupervisedCutoverWorkItem($workOrderId, $companyId, $flowId, 'bind_vault_and_connector_scope', 'vault_scope', 'credential_operator', ['vault_scope_receipt', 'connector_scope_receipt'], $sourceDossierHash),
@@ -21231,7 +22017,11 @@ class ExternalActionMandateRegistryService
         $ready = (bool) ($dossier['cutover_dossier_ready'] ?? false)
             && strlen($sourceDossierHash) === 64
             && $missingReceiptIds !== []
-            && count($workItems) === 8
+            && count($workItems) === 9
+            && (bool) data_get($dossier, 'readiness_evidence.agent_repository_execution_gate_bound', false)
+            && (int) data_get($dossier, 'readiness_evidence.repository_tool_permission_manifest_count', 0) >= 1
+            && (int) data_get($dossier, 'readiness_evidence.repository_eval_replay_recipe_count', 0) >= 1
+            && (int) data_get($dossier, 'readiness_evidence.domain_certified_tool_contract_count', 0) >= 1
             && count(array_filter($workItems, static fn (array $item): bool => (bool) ($item['executable'] ?? true))) === 0
             && (bool) ($dossier['supervised_cutover_enabled'] ?? true) === false
             && (bool) ($dossier['external_execution_allowed'] ?? true) === false
@@ -21254,6 +22044,14 @@ class ExternalActionMandateRegistryService
                 (array) data_get($dossier, 'operator_cutover_packet.required_receipt_ids', []),
             )),
             'missing_receipt_ids' => $missingReceiptIds,
+            'repository_toolchain_evidence' => [
+                'agent_repository_execution_gate_bound' => (bool) data_get($dossier, 'readiness_evidence.agent_repository_execution_gate_bound', false),
+                'repository_tool_permission_manifest_count' => (int) data_get($dossier, 'readiness_evidence.repository_tool_permission_manifest_count', 0),
+                'repository_eval_replay_recipe_count' => (int) data_get($dossier, 'readiness_evidence.repository_eval_replay_recipe_count', 0),
+                'domain_certified_tool_contract_count' => (int) data_get($dossier, 'readiness_evidence.domain_certified_tool_contract_count', 0),
+                'source_external_receipt_binder_hash' => (string) data_get($dossier, 'readiness_evidence.source_external_receipt_binder_hash', ''),
+                'source_external_launch_control_hash' => (string) data_get($dossier, 'readiness_evidence.source_external_launch_control_hash', ''),
+            ],
             'work_items' => $workItems,
             'operator_enablement_pack' => [
                 'unified_workbench_required' => true,
@@ -21265,6 +22063,7 @@ class ExternalActionMandateRegistryService
             ],
             'launch_blockers' => [
                 'work_items_pending_real_receipts',
+                'repository_toolchain_certification_receipts_not_bound',
                 'operator_go_no_go_missing',
                 'second_reviewer_go_no_go_missing',
                 'vault_scope_not_released',
@@ -21324,8 +22123,7 @@ class ExternalActionMandateRegistryService
      */
     private function persistExternalSupervisedCutoverWorkOrder(array $workOrder): array
     {
-        $workItems = array_values((array) ($workOrder['work_items'] ?? []));
-        $pendingCount = count(array_filter($workItems, static fn (array $item): bool => ($item['status'] ?? '') === 'pending_real_receipt_or_operator_action'));
+        $incomingWorkItems = array_values((array) ($workOrder['work_items'] ?? []));
         $companyId = (string) ($workOrder['company_id'] ?? 'unknown');
         $flowId = (string) ($workOrder['flow_id'] ?? 'unknown');
         $workOrderId = (string) ($workOrder['work_order_id'] ?? '');
@@ -21346,6 +22144,23 @@ class ExternalActionMandateRegistryService
         $existingFinalAuthorityBindings = $existingOrder instanceof AiHoldingExternalCutoverWorkOrder
             ? (array) $existingOrder->final_authority_bindings_json
             : [];
+        $existingWorkItems = $existingOrder instanceof AiHoldingExternalCutoverWorkOrder
+            ? AiHoldingExternalCutoverWorkItem::query()
+                ->where('work_order_id', (string) $existingOrder->work_order_id)
+                ->get()
+                ->map(fn (AiHoldingExternalCutoverWorkItem $item): array => $this->externalSupervisedCutoverWorkItemPersistedPayload($item))
+                ->all()
+            : [];
+        $workItemsByAction = [];
+        foreach ($existingWorkItems as $existingItem) {
+            $workItemsByAction[(string) ($existingItem['action_id'] ?? '')] = $existingItem;
+        }
+        foreach ($incomingWorkItems as $incomingItem) {
+            $workItemsByAction[(string) ($incomingItem['action_id'] ?? '')] = (array) $incomingItem;
+        }
+        $workItems = array_values($workItemsByAction);
+        $pendingCount = count(array_filter($workItems, static fn (array $item): bool => ($item['status'] ?? '') === 'pending_real_receipt_or_operator_action'));
+        $boundReceiptCount = count(array_filter($workItems, static fn (array $item): bool => ($item['bound_receipt_hash'] ?? null) !== null));
         $order = AiHoldingExternalCutoverWorkOrder::query()->updateOrCreate(
             ['work_order_id' => $persistedWorkOrderId],
             [
@@ -21364,7 +22179,7 @@ class ExternalActionMandateRegistryService
                 'final_authority_binding_hash' => $existingOrder instanceof AiHoldingExternalCutoverWorkOrder ? $existingOrder->final_authority_binding_hash : null,
                 'work_item_count' => count($workItems),
                 'pending_work_item_count' => $pendingCount,
-                'bound_receipt_count' => 0,
+                'bound_receipt_count' => $boundReceiptCount,
                 'final_authority_binding_count' => count($existingFinalAuthorityBindings),
                 'work_order_ready' => (bool) ($workOrder['work_order_ready'] ?? false),
                 'supervised_cutover_enabled' => false,
@@ -21446,7 +22261,7 @@ class ExternalActionMandateRegistryService
             ->map(fn (AiHoldingExternalCutoverWorkItem $item): array => $this->externalSupervisedCutoverWorkItemPersistedPayload($item))
             ->all();
 
-        return [
+        $payload = [
             'schema' => 'atlas.ai.company.external_supervised_cutover_work_order_persisted.v1',
             'id' => (string) $order->id,
             'work_order_id' => (string) $order->work_order_id,
@@ -21475,6 +22290,55 @@ class ExternalActionMandateRegistryService
             'work_items' => $items,
             'registered_at' => $order->registered_at?->toJSON(),
             'last_status_at' => $order->last_status_at?->toJSON(),
+        ];
+        $payload['repository_toolchain_evidence'] = $this->externalSupervisedCutoverRepositoryToolchainEvidenceFromOrderRecord($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param array<string,mixed> $orderRecord
+     * @return array<string,mixed>
+     */
+    private function externalSupervisedCutoverRepositoryToolchainEvidenceFromOrderRecord(array $orderRecord): array
+    {
+        $requiredReceiptIds = [
+            'repository_tool_permission_manifest_receipt',
+            'repository_eval_replay_recipe_receipt',
+            'domain_toolchain_certification_receipt',
+        ];
+        $declaredReceiptIds = array_values(array_map('strval', (array) ($orderRecord['required_receipt_ids'] ?? [])));
+        $items = array_values((array) ($orderRecord['work_items'] ?? []));
+        $repositoryItems = array_values(array_filter(
+            $items,
+            static fn (array $item): bool => ($item['workstream'] ?? '') === 'repository_toolchain_certification'
+                || count(array_intersect($requiredReceiptIds, array_values(array_map('strval', (array) ($item['required_receipt_ids'] ?? []))))) > 0,
+        ));
+        $boundReceiptIds = [];
+        foreach ($repositoryItems as $item) {
+            if (($item['bound_receipt_hash'] ?? null) === null) {
+                continue;
+            }
+            foreach ((array) ($item['required_receipt_ids'] ?? []) as $receiptId) {
+                $receiptId = (string) $receiptId;
+                if (in_array($receiptId, $requiredReceiptIds, true)) {
+                    $boundReceiptIds[] = $receiptId;
+                }
+            }
+        }
+        $boundReceiptIds = array_values(array_unique($boundReceiptIds));
+
+        return [
+            'schema' => 'atlas.ai.company.external_supervised_cutover_repository_toolchain_evidence.v1',
+            'bound' => count(array_diff($requiredReceiptIds, $boundReceiptIds)) === 0,
+            'required_receipt_ids' => $requiredReceiptIds,
+            'declared_receipt_ids' => array_values(array_intersect($requiredReceiptIds, $declaredReceiptIds)),
+            'bound_receipt_ids' => $boundReceiptIds,
+            'missing_receipt_ids' => array_values(array_diff($requiredReceiptIds, $boundReceiptIds)),
+            'repository_toolchain_work_item_count' => count($repositoryItems),
+            'repository_toolchain_receipt_count' => count($boundReceiptIds),
+            'source_cutover_dossier_hash' => (string) ($orderRecord['source_cutover_dossier_hash'] ?? ''),
+            'source_work_order_hash' => (string) ($orderRecord['work_order_hash'] ?? ''),
         ];
     }
 
@@ -21515,6 +22379,9 @@ class ExternalActionMandateRegistryService
      */
     private function externalSupervisedCutoverRuntimeInvocationPayload(AiHoldingExternalCutoverRuntimeInvocation $invocation): array
     {
+        $invocation = $this->refreshExternalSupervisedCutoverRuntimeInvocationRepositoryToolchainEvidence($invocation);
+        $repositoryToolchainEvidence = (array) data_get($invocation->operator_runtime_contract_json, 'repository_toolchain_evidence', []);
+
         return [
             'schema' => 'atlas.ai.company.external_supervised_cutover_runtime_invocation_persisted.v1',
             'id' => (string) $invocation->id,
@@ -21530,6 +22397,7 @@ class ExternalActionMandateRegistryService
             'required_final_authorities' => array_values((array) $invocation->required_final_authorities_json),
             'final_authority_bindings' => (array) $invocation->final_authority_bindings_json,
             'operator_runtime_contract' => (array) $invocation->operator_runtime_contract_json,
+            'repository_toolchain_evidence' => $repositoryToolchainEvidence,
             'blocked_operations' => array_values((array) $invocation->blocked_operations_json),
             'execution_receipts' => array_values((array) $invocation->execution_receipts_json),
             'last_execution_receipt_hash' => $invocation->last_execution_receipt_hash,
@@ -21547,6 +22415,44 @@ class ExternalActionMandateRegistryService
             'manual_handoff_registered_at' => $invocation->manual_handoff_registered_at?->toJSON(),
             'manual_closeout_registered_at' => $invocation->manual_closeout_registered_at?->toJSON(),
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function externalSupervisedCutoverRepositoryToolchainEvidenceForWorkOrderId(string $workOrderId): array
+    {
+        $order = AiHoldingExternalCutoverWorkOrder::query()
+            ->where('work_order_id', $workOrderId)
+            ->first();
+
+        if (! $order instanceof AiHoldingExternalCutoverWorkOrder) {
+            return [];
+        }
+
+        return (array) ($this->externalSupervisedCutoverWorkOrderPersistedPayload($order)['repository_toolchain_evidence'] ?? []);
+    }
+
+    private function refreshExternalSupervisedCutoverRuntimeInvocationRepositoryToolchainEvidence(
+        AiHoldingExternalCutoverRuntimeInvocation $invocation,
+    ): AiHoldingExternalCutoverRuntimeInvocation {
+        $contract = (array) $invocation->operator_runtime_contract_json;
+        if (data_get($contract, 'repository_toolchain_evidence.bound') === true) {
+            return $invocation;
+        }
+
+        $repositoryToolchainEvidence = $this->externalSupervisedCutoverRepositoryToolchainEvidenceForWorkOrderId((string) $invocation->work_order_id);
+        if (! (bool) ($repositoryToolchainEvidence['bound'] ?? false)) {
+            return $invocation;
+        }
+
+        $contract['repository_toolchain_evidence'] = $repositoryToolchainEvidence;
+        $invocation->forceFill([
+            'operator_runtime_contract_json' => $contract,
+            'last_status_at' => now(),
+        ])->save();
+
+        return $invocation->refresh();
     }
 
     /**
@@ -21640,7 +22546,9 @@ class ExternalActionMandateRegistryService
         $requiredFinalAuthorities = $this->externalSupervisedCutoverRequiredFinalAuthorities();
         $finalAuthorityBindings = (array) ($orderRecord['final_authority_bindings'] ?? []);
         $missingFinalAuthorities = array_values(array_diff($requiredFinalAuthorities, array_keys($finalAuthorityBindings)));
-        $promotionReady = $workItemCount > 0 && $pendingCount === 0 && $boundCount >= $workItemCount;
+        $repositoryToolchainEvidence = (array) ($orderRecord['repository_toolchain_evidence'] ?? []);
+        $repositoryToolchainBound = (bool) ($repositoryToolchainEvidence['bound'] ?? false);
+        $promotionReady = $workItemCount > 0 && $pendingCount === 0 && $boundCount >= $workItemCount && $repositoryToolchainBound;
         $missingWorkItems = array_values(array_map(
             static fn (array $item): string => (string) ($item['work_item_id'] ?? ''),
             array_filter(
@@ -21665,6 +22573,7 @@ class ExternalActionMandateRegistryService
             'missing_final_authority_count' => count($missingFinalAuthorities),
             'final_authority_bindings' => $finalAuthorityBindings,
             'missing_work_item_ids' => $missingWorkItems,
+            'repository_toolchain_evidence' => $repositoryToolchainEvidence,
             'required_final_authorities' => $requiredFinalAuthorities,
             'missing_final_authorities' => $missingFinalAuthorities,
             'enterprise_operating_pattern' => [
@@ -21677,7 +22586,10 @@ class ExternalActionMandateRegistryService
             ],
             'promotion_blockers' => $promotionReady
                 ? array_values(array_map(static fn (string $authority): string => $authority.'_missing', $missingFinalAuthorities))
-                : ['pending_work_item_receipts', 'operator_go_no_go_missing', 'second_reviewer_go_no_go_missing'],
+                : array_values(array_unique(array_merge(
+                    ['pending_work_item_receipts', 'operator_go_no_go_missing', 'second_reviewer_go_no_go_missing'],
+                    $repositoryToolchainBound ? [] : ['repository_toolchain_certification_receipts_missing'],
+                ))),
             'external_execution_allowed' => false,
             'external_side_effects_enabled' => false,
             'source_work_order_hash' => (string) $order->work_order_hash,

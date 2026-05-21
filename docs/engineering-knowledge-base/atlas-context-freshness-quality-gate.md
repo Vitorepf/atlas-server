@@ -2,9 +2,9 @@
 id: atlas-context-freshness-quality-gate
 type: engineering_knowledge
 title: Atlas Context Freshness Quality Gate
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: ACFQ ainda nao existe como gate global; freshness existe em TEOS/Long Horizon.
+status: building
+implementation_state: building_read_only_gate_runtime
+blocker: ACFQ possui gate read-only sobre ACRS; ainda falta persistir receipts e virar mandatory gate no context pack final.
 category: intelligence-runtime
 priority: 98
 summary: Doc filha AUCRI para gate de freshness e qualidade: bloqueia contexto velho, contraditorio, sem autoridade, sem fonte obrigatoria ou com privacidade inadequada.
@@ -16,6 +16,9 @@ maintenance:
   - Atualizar quando policies de freshness ou autoridade mudarem.
 related_paths:
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
+  - app/Services/Ai/Context/AtlasContextFreshnessQualityGateService.php
+  - app/Console/Commands/AtlasContextFreshnessQualityGateCommand.php
+  - tests/Feature/Ai/Context/ContextFreshnessQualityGateTest.php
   - app/Services/Ai/LongHorizon/Gate/LongHorizonContextFreshnessGate.php
   - app/Services/Ai/LongHorizon/TimeAwareWorldModelService.php
 doc_schema: atlas_canonical_module_doc.v1
@@ -30,7 +33,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
-graph_status: planned
+graph_status: building
 graph_source: repo
 owner: atlas-ai
 repo_paths:
@@ -45,21 +48,26 @@ unlocks: [fresh_context_execution, stale_context_blocking]
 governs: [context_freshness, context_quality_gate]
 evidence:
   - docs/engineering-knowledge-base/atlas-context-freshness-quality-gate.md
+  - app/Services/Ai/Context/AtlasContextFreshnessQualityGateService.php
+  - app/Console/Commands/AtlasContextFreshnessQualityGateCommand.php
+  - tests/Feature/Ai/Context/ContextFreshnessQualityGateTest.php
 required_tests:
+  - "php artisan test tests/Feature/Ai/Context/ContextFreshnessQualityGateTest.php"
+  - "php artisan atlas:context:freshness-quality --query='debug repo with tests' --task-type=debug --domain=developer --json"
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Generalizar LongHorizon freshness para AUCRI.
+  - Persistir freshness quality receipts quando ACCR/ACOP estiverem prontos.
 ---
 
 # Atlas Context Freshness Quality Gate
 
 ## Resumo
 
-ACFQ e o bloco 5 da AUCRI. Ele valida se o contexto e atual, confiavel,
-autorizado e suficiente antes de execucao.
+ACFQ e o bloco 5 da AUCRI. Ele valida se o contexto ranqueado por ACRS e
+atual, confiavel, autorizado e suficiente antes de execucao.
 
 ## Papel no Atlas
 
@@ -69,22 +77,23 @@ sem autoridade.
 ## Onde Se Encaixa
 
 ```text
-ranked context -> freshness/quality gate -> context pack final
+AHRI -> AARF -> ACRS -> ACFQ -> context pack final
 ```
 
 ## Contratos
 
-- `atlas.aucri.freshness_report.v1`
+- `atlas.aucri.context_freshness_quality_gate.v1`
+- `atlas.aucri.freshness_quality_report.v1`
 - `atlas.aucri.context_quality_gate.v1`
 - `atlas.aucri.contradiction_report.v1`
 
 ## Fluxo
 
-1. Verificar data/validade.
-2. Verificar autoridade.
-3. Detectar contradicoes.
-4. Verificar fonte obrigatoria.
-5. Passar, degradar, pedir retrieval ou bloquear.
+1. Executar ACRS e receber refs selecionadas.
+2. Verificar freshness, autoridade, score e provider safety.
+3. Bloquear contradicao explicita ou fonte obrigatoria ausente.
+4. Escalar warning para block em risco alto.
+5. Emitir pass, degraded/refresh ou blocked.
 
 ## Regras para IA
 
@@ -94,7 +103,9 @@ ranked context -> freshness/quality gate -> context pack final
 
 ## Escopo de Implementacao
 
-Gate global, policies por dominio, integration com Time-Aware World Model.
+Runtime read-only `AtlasContextFreshnessQualityGateService` e comando
+`atlas:context:freshness-quality`. Persistencia de receipts, ACOP e context pack
+mandatory ficam para blocos posteriores.
 
 ## Dependencias
 
@@ -102,17 +113,23 @@ ACRS, TEOS, TimeAwareWorldModel, APCR/ACIE.
 
 ## Evidencias
 
-Freshness report com status e action.
+Evidencias atuais:
+
+- service: `AtlasContextFreshnessQualityGateService`;
+- command: `atlas:context:freshness-quality`;
+- tests: `ContextFreshnessQualityGateTest`;
+- schemas: gate, freshness report, quality gate e contradiction report.
 
 ## Riscos
 
-Bloqueio demais, policy frouxa, datas inventadas.
+Bloqueio demais, policy frouxa, datas inventadas, warning tratado como pass.
 
 ## Exemplos
 
-Regra fiscal/financeira velha bloqueia resposta ate nova retrieval.
+Debug com fontes exigidas passa. Ranking com fonte obrigatoria cortada por budget
+bloqueia. Contradicao explicita bloqueia sem vazar texto cru.
 
 ## Proximas Acoes
 
-1. Criar policies por dominio.
+1. Persistir receipt ACFQ quando ACOP/ACCR existirem.
 2. Integrar stale/superseded edges.

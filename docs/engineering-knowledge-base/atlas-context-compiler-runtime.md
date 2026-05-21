@@ -2,9 +2,9 @@
 id: atlas-context-compiler-runtime
 type: engineering_knowledge
 title: Atlas Context Compiler Runtime
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: ACCR ainda nao possui service, compiler contracts, provider profiles, loss checks, tests ou certificacao; e bloco 16 da AUCRI.
+status: active
+implementation_state: runtime_surface_context_compiler_ready
+blocker: Provider-call enforcement final depende de ATER/ACPFR; runtime ACCR read-only ja compila pack provider-aware, loss check e budget receipt.
 category: intelligence-runtime
 priority: 99
 summary: Doc filha AUCRI para compilar o contexto recuperado em input final provider-aware, menor, auditavel, evidence-safe e com perda de informacao medida.
@@ -22,6 +22,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-context-ranking-system.md
   - docs/engineering-knowledge-base/atlas-context-freshness-quality-gate.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - app/Services/Ai/Context/AtlasContextCompilerRuntimeService.php
+  - app/Console/Commands/AtlasContextCompilerRuntimeCommand.php
+  - tests/Feature/Ai/Context/ContextCompilerRuntimeTest.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
 product_name: Atlas Context Compiler Runtime
@@ -53,7 +56,8 @@ evidence:
   - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:context-compiler readiness --json"
+  - "php artisan atlas:context:compile --json"
+  - "php artisan test tests/Feature/Ai/Context/ContextCompilerRuntimeTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
@@ -117,7 +121,7 @@ Campos minimos: `flow_id`, `provider`, `risk_level`, `must_keep_refs`,
 
 ## Escopo de Implementacao
 
-Componentes obrigatorios:
+Componentes obrigatorios cobertos pelo runtime read-only:
 
 - Provider Profile Registry.
 - Context Segmenter.
@@ -136,8 +140,9 @@ delta/working memory, ARPTL para privacy e ACOP para observabilidade.
 
 ## Evidencias
 
-Evidencia minima:
+Evidencia atual:
 
+- `atlas:context:compile --json`;
 - compiled pack com hash deterministico;
 - loss check com must-keep coverage;
 - teste que prova que decision/blocker/DoD nao somem;
@@ -160,8 +165,8 @@ contexto maior, mas com anchors e ordering forte. A decisao fica em receipt.
 
 ## Proximas Acoes
 
-1. Criar provider profiles iniciais.
-2. Definir must-keep coverage = 1.0 para decisions/blockers/DoD/risk.
-3. Implementar compiler read-only em Atlas Dev e Forge.
-4. Adicionar fixtures de prompt bruto vs compilado.
-5. Integrar com AUCRI certification.
+1. Enforcar ACCR antes de provider calls.
+2. Conectar ACCR ao ATER e ACPFR.
+3. Integrar compiler read-only em Atlas Dev e Forge.
+4. Expandir fixtures de prompt bruto vs compilado.
+5. Manter must-keep coverage = 1.0.

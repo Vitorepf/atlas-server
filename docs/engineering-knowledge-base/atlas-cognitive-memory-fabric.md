@@ -2,9 +2,9 @@
 id: atlas-cognitive-memory-fabric
 type: engineering_knowledge
 title: Atlas Cognitive Memory Fabric
-status: planned
-implementation_state: planned_child_architecture_not_current_runtime
-blocker: ACMF ainda nao possui service, memory governor, RAM cache, delta engine, spillover, tests ou certificacao; e bloco 15 da AUCRI.
+status: active
+implementation_state: runtime_surface_cognitive_memory_ready
+blocker: Cache fisico persistente ainda depende de ACCR/ATER; runtime ACMF read-only ja calcula budget, modo, working set, delta e spillover preservando 3GB.
 category: intelligence-runtime
 priority: 98
 summary: Doc filha AUCRI para usar RAM como cognitive working memory: reduzir tokens, melhorar selecao de contexto, sustentar sessoes longas e preservar 3GB minimos livres para o usuario.
@@ -22,6 +22,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
   - docs/engineering-knowledge-base/atlas-context-intelligence-engine.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - app/Services/Ai/Context/AtlasCognitiveMemoryFabricService.php
+  - app/Console/Commands/AtlasCognitiveMemoryFabricCommand.php
+  - tests/Feature/Ai/Context/CognitiveMemoryFabricTest.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
 product_name: Atlas Cognitive Memory Fabric
@@ -53,7 +56,8 @@ evidence:
   - docs/engineering-knowledge-base/atlas-cognitive-memory-fabric.md
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:cognitive-memory readiness --json"
+  - "php artisan atlas:context:cognitive-memory --json"
+  - "php artisan test tests/Feature/Ai/Context/CognitiveMemoryFabricTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
@@ -122,7 +126,7 @@ Campos minimos: `scope_type`, `scope_id`, `mode`, `ram_budget_bytes`,
 
 ## Escopo de Implementacao
 
-Sub-blocos obrigatorios:
+Sub-blocos obrigatorios cobertos pelo runtime read-only:
 
 - ACWM: Atlas Cognitive Working Memory.
 - AMPG: Atlas Memory Pressure Governor.
@@ -151,9 +155,9 @@ persistencia de contexto, ACIE para sufficiency e ARPTL para privacy/trust.
 
 ## Evidencias
 
-Evidencia minima:
+Evidencia atual:
 
-- readiness JSON com modo de RAM atual;
+- `atlas:context:cognitive-memory --json` com modo de RAM atual;
 - teste que bloqueia crescimento abaixo de 3GB livres;
 - teste que remove cache reconstruivel antes de must-keep;
 - delta receipt provando reducao de contexto repetido;
@@ -178,8 +182,8 @@ outcomes quentes. O LLM recebe contexto menor, mas com a cadeia causal correta.
 
 ## Proximas Acoes
 
-1. Implementar `AtlasMemoryPressureGovernorService`.
-2. Criar policy de modos e reserva minima 3GB.
-3. Implementar working set e hot context cache read-only.
-4. Adicionar delta/spillover receipts.
+1. Conectar ACMF ao ACCR/ATER.
+2. Promover budget ACMF para leitura do Control Plane.
+3. Implementar cache fisico somente depois do compiler.
+4. Preservar tests de 3GB, must-keep, delta e spillover.
 5. Integrar primeiro com Atlas Dev e Forge.

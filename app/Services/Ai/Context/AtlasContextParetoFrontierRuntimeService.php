@@ -6,6 +6,8 @@ namespace App\Services\Ai\Context;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 final class AtlasContextParetoFrontierRuntimeService
 {
@@ -18,11 +20,12 @@ final class AtlasContextParetoFrontierRuntimeService
     /**
      * @return array<string,mixed>
      */
-    public function report(): array
+    public function report(int $hours = 24): array
     {
         $candidates = $this->candidatesFromCanaries();
         $frontier = $this->paretoFrontier($candidates);
         $selected = $this->selectCandidates($frontier);
+        $realTraceShadow = $this->realTraceShadow($hours);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -47,6 +50,7 @@ final class AtlasContextParetoFrontierRuntimeService
             'candidates' => $candidates,
             'frontier' => array_values($frontier),
             'selected' => array_values($selected),
+            'real_trace_shadow' => $realTraceShadow,
             'claims' => [
                 'shadow_only' => true,
                 'providers_invoked' => false,
@@ -95,6 +99,158 @@ final class AtlasContextParetoFrontierRuntimeService
         }
 
         return $this->markDominated($candidates);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function realTraceShadow(int $hours): array
+    {
+        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+            return [
+                'status' => 'unavailable',
+                'reason' => 'missing_table:ai_trace_metric_summaries',
+                'window_hours' => max(1, $hours),
+                'summary' => [
+                    'source_traces' => 0,
+                    'total_candidates' => 0,
+                    'frontier_candidates' => 0,
+                    'selected_candidates' => 0,
+                    'blocked_candidates' => 0,
+                    'estimated_token_savings' => 0,
+                ],
+                'candidates' => [],
+                'frontier' => [],
+                'selected' => [],
+            ];
+        }
+
+        $windowHours = max(1, min(168, $hours));
+        $since = Carbon::now()->subHours($windowHours);
+        $rows = DB::table('ai_trace_metric_summaries')
+            ->where('computed_at', '>=', $since)
+            ->orderByDesc('computed_at')
+            ->limit(50)
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return [
+                'status' => 'empty',
+                'reason' => 'no_trace_metric_summaries_in_window',
+                'window_hours' => $windowHours,
+                'summary' => [
+                    'source_traces' => 0,
+                    'total_candidates' => 0,
+                    'frontier_candidates' => 0,
+                    'selected_candidates' => 0,
+                    'blocked_candidates' => 0,
+                    'estimated_token_savings' => 0,
+                ],
+                'candidates' => [],
+                'frontier' => [],
+                'selected' => [],
+            ];
+        }
+
+        $candidates = [];
+        foreach ($rows as $row) {
+            $candidates[] = $this->candidateFromMetricSummary($row, 'observed_current');
+            $candidates[] = $this->candidateFromMetricSummary($row, 'compiled_context_shadow');
+        }
+
+        $candidates = $this->markDominated($candidates);
+        $frontier = $this->paretoFrontier($candidates);
+        $selected = $this->selectCandidates($frontier);
+        $estimatedSavings = array_sum(array_map(
+            static fn (array $candidate): int => (int) ($candidate['estimated_token_savings'] ?? 0),
+            $selected,
+        ));
+
+        return [
+            'status' => 'ready',
+            'reason' => null,
+            'window_hours' => $windowHours,
+            'summary' => [
+                'source_traces' => $rows->count(),
+                'total_candidates' => count($candidates),
+                'frontier_candidates' => count($frontier),
+                'selected_candidates' => count($selected),
+                'blocked_candidates' => count(array_filter($candidates, static fn (array $candidate): bool => $candidate['promotion_status'] === 'blocked')),
+                'estimated_token_savings' => $estimatedSavings,
+            ],
+            'candidates' => $candidates,
+            'frontier' => array_values($frontier),
+            'selected' => array_values($selected),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function candidateFromMetricSummary(object $row, string $strategy): array
+    {
+        $traceId = (string) ($row->trace_id ?? 'unknown');
+        $caseId = 'trace:'.substr($traceId, 0, 12);
+        $baseInputTokens = $this->positiveInt($row->prompt_tokens ?? null)
+            ?? $this->positiveInt($row->context_tokens ?? null)
+            ?? $this->positiveInt($row->estimated_tokens ?? null)
+            ?? $this->positiveInt($row->total_tokens ?? null)
+            ?? 0;
+        $contextTokens = $this->positiveInt($row->context_tokens ?? null) ?? 0;
+        $completionTokens = $this->positiveInt($row->completion_tokens ?? null) ?? 0;
+        $quality = $this->scoreToFloat($row->final_quality_score ?? null)
+            ?? $this->scoreToFloat($row->auto_quality_score ?? null)
+            ?? 0.70;
+        $latency = $this->positiveInt($row->total_latency_ms ?? null)
+            ?? $this->positiveInt($row->provider_latency_ms ?? null)
+            ?? 0;
+        $cost = max(0.01, ((float) ($row->cost_microusd ?? 0)) / 1000.0);
+
+        $firstPass = (bool) ($row->first_pass_success ?? false);
+        $neededRemediation = (bool) ($row->needed_remediation ?? false);
+        $safeObserved = $quality >= 0.80 && ($firstPass || ! $neededRemediation);
+
+        if ($strategy === 'compiled_context_shadow') {
+            $reducibleContext = $contextTokens > 0 ? (int) round($contextTokens * 0.45) : (int) round($baseInputTokens * 0.30);
+            $inputTokens = max(1, $baseInputTokens - $reducibleContext);
+            $quality = max(0.0, $quality - ($safeObserved ? 0.00 : 0.04));
+            $latency = $latency > 0 ? (int) round($latency * 0.90) : 0;
+            $cost = round($cost * 0.82, 4);
+            $mustKeep = $safeObserved ? 1.0 : 0.95;
+            $blockers = $mustKeep < 1.0 ? ['real_trace_quality_or_remediation_requires_review'] : [];
+        } else {
+            $inputTokens = max(1, $baseInputTokens);
+            $mustKeep = $safeObserved ? 1.0 : 0.98;
+            $blockers = $mustKeep < 1.0 ? ['observed_trace_missing_quality_confidence'] : [];
+        }
+
+        $blocked = $mustKeep < 1.0;
+
+        return [
+            'candidate_id' => $caseId.'::'.$strategy,
+            'case_id' => $caseId,
+            'domain' => (string) ($row->runtime ?: $row->task_type ?: $row->surface ?: 'unknown'),
+            'strategy' => $strategy,
+            'risk_level' => $neededRemediation ? 'high' : 'medium',
+            'quality_score' => round($quality, 4),
+            'input_tokens' => $inputTokens,
+            'output_tokens' => $completionTokens,
+            'cost_units' => $cost,
+            'latency_ms' => $latency,
+            'must_keep_coverage' => $mustKeep,
+            'privacy_status' => 'pass',
+            'sufficiency_status' => $blocked ? 'blocked' : 'pass',
+            'pareto_dominated' => false,
+            'promotion_status' => $blocked ? 'blocked' : 'shadow_candidate',
+            'estimated_token_savings' => max(0, $baseInputTokens - $inputTokens),
+            'trace_ref' => [
+                'trace_id' => $traceId,
+                'metric_summary_id' => (string) ($row->id ?? ''),
+                'status' => (string) ($row->status ?? 'unknown'),
+                'computed_at' => (string) ($row->computed_at ?? ''),
+            ],
+            'blockers' => $blockers,
+        ];
     }
 
     /**
@@ -203,5 +359,27 @@ final class AtlasContextParetoFrontierRuntimeService
             - ((int) $candidate['input_tokens'] / 1000)
             - ((float) $candidate['cost_units'] * 5)
             - ((int) $candidate['latency_ms'] / 1000);
+    }
+
+    private function positiveInt(mixed $value): ?int
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $int = (int) $value;
+
+        return $int > 0 ? $int : null;
+    }
+
+    private function scoreToFloat(mixed $value): ?float
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $score = (float) $value;
+
+        return $score > 1.0 ? min(1.0, $score / 100.0) : max(0.0, min(1.0, $score));
     }
 }

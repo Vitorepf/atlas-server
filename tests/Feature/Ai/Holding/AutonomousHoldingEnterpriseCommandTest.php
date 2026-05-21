@@ -2970,6 +2970,22 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $payload['steps']['domain_workload_agent_template_status']['summary']['template_count'],
             $payload['summary']['domain_workload_agent_template_ready_count'],
         );
+        $this->assertSame(
+            $payload['steps']['domain_workload_agent_template_status']['summary']['template_count'],
+            $payload['steps']['domain_workload_agent_template_status']['summary']['source_pattern_receipt_bound_count'],
+        );
+        $this->assertSame(
+            $payload['steps']['domain_workload_agent_template_status']['summary']['template_count'],
+            $payload['steps']['domain_workload_agent_template_status']['summary']['operator_handoff_contract_ready_count'],
+        );
+        $this->assertSame(
+            $payload['steps']['domain_workload_agent_template_status']['summary']['template_count'],
+            $payload['steps']['domain_workload_agent_template_status']['summary']['guardrail_contract_ready_count'],
+        );
+        $this->assertSame(
+            $payload['steps']['domain_workload_agent_template_status']['summary']['template_count'],
+            $payload['steps']['domain_workload_agent_template_status']['summary']['eval_replay_recipe_ready_count'],
+        );
         $this->assertSame('enterprise_company_domain_solution_packs_ready_external_effects_blocked', $payload['steps']['company_domain_solution_pack_status']['status']);
         $this->assertSame(9, $payload['summary']['domain_solution_pack_ready_company_count']);
         $this->assertSame($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['domain_solution_pack_ready_flow_count']);
@@ -2981,6 +2997,23 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertFalse((bool) $payload['steps']['company_domain_solution_pack_status']['policy']['external_execution_allowed']);
         $this->assertSame('enterprise_company_agent_operations_packs_ready_external_effects_blocked', $payload['steps']['company_agent_operations_pack_status']['status']);
         $this->assertFalse((bool) $payload['steps']['company_agent_operations_pack_status']['policy']['external_execution_allowed']);
+        $this->assertTrue((bool) $payload['steps']['company_agent_operations_pack_status']['policy']['template_source_pattern_eval_handoff_and_guardrails_required']);
+        $this->assertSame(
+            $payload['steps']['company_agent_operations_pack_status']['summary']['flow_agent_operations_pack_count'],
+            $payload['steps']['company_agent_operations_pack_status']['summary']['template_source_pattern_receipt_bound_count'],
+        );
+        $this->assertSame(
+            $payload['steps']['company_agent_operations_pack_status']['summary']['flow_agent_operations_pack_count'],
+            $payload['steps']['company_agent_operations_pack_status']['summary']['template_operator_handoff_contract_ready_count'],
+        );
+        $this->assertSame(
+            $payload['steps']['company_agent_operations_pack_status']['summary']['flow_agent_operations_pack_count'],
+            $payload['steps']['company_agent_operations_pack_status']['summary']['template_guardrail_contract_ready_count'],
+        );
+        $this->assertSame(
+            $payload['steps']['company_agent_operations_pack_status']['summary']['flow_agent_operations_pack_count'],
+            $payload['steps']['company_agent_operations_pack_status']['summary']['template_eval_replay_recipe_ready_count'],
+        );
         $this->assertSame('enterprise_company_agent_workforce_runtime_registered_external_effects_blocked', $payload['steps']['company_agent_workforce_runtime_register']['status']);
         $this->assertSame('enterprise_company_agent_workforce_runtime_ready_external_effects_blocked', $payload['steps']['company_agent_workforce_runtime_status']['status']);
         $this->assertSame(9, $payload['summary']['agent_workforce_runtime_ready_company_count']);
@@ -3216,8 +3249,13 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(9, $payload['summary']['company_operating_evidence_outcome_ready_count']);
         $this->assertSame(9, $payload['summary']['company_operating_evidence_scorecard_ready_count']);
         $this->assertSame('enterprise_company_operating_evidence_bundles_ready_external_launch_blocked', $payload['steps']['company_operating_evidence_bundle_status']['status']);
+        $this->assertSame('enterprise_holding_completion_audit_green_external_autonomy_still_blocked', $payload['steps']['holding_completion_audit_status']['status']);
+        $this->assertSame($payload['summary']['holding_completion_audit_requirement_gate_count'], $payload['summary']['holding_completion_audit_proven_requirement_gate_count']);
+        $this->assertSame(0, $payload['summary']['holding_completion_audit_missing_requirement_gate_count']);
+        $this->assertSame($payload['steps']['flow_action_runtime_run']['summary']['flow_count'], $payload['summary']['holding_completion_audit_repository_toolchain_evidence_bound_count']);
         $this->assertSame(64, strlen((string) $payload['steps']['company_production_readiness_certification_status']['enterprise_company_production_readiness_certification_status_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['company_operating_evidence_bundle_status']['enterprise_company_operating_evidence_bundle_status_hash']));
+        $this->assertSame(64, strlen((string) $payload['steps']['holding_completion_audit_status']['enterprise_holding_completion_audit_status_hash']));
         $this->assertSame('target_met', $payload['steps']['readiness']['status']);
         $this->assertFalse((bool) $payload['policy']['external_execution_allowed']);
         $this->assertFalse((bool) $payload['policy']['external_side_effects_enabled']);
@@ -5143,9 +5181,15 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(1, $payload['summary']['ready_company_count']);
         $this->assertGreaterThanOrEqual(11, $payload['summary']['repository_intake_count']);
         $this->assertGreaterThanOrEqual(8, $payload['summary']['framework_scorecard_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['flow_repository_adoption_matrix_count']);
         $this->assertGreaterThanOrEqual(6, $payload['summary']['flow_epic_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['tool_permission_manifest_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['eval_replay_recipe_count']);
         $this->assertGreaterThanOrEqual(9, $payload['summary']['version_pin_count']);
         $this->assertGreaterThanOrEqual(2, $payload['summary']['migration_path_count']);
+        $this->assertGreaterThanOrEqual($payload['summary']['repository_intake_count'], $payload['summary']['license_security_review_count']);
+        $this->assertGreaterThanOrEqual($payload['summary']['repository_intake_count'], $payload['summary']['runtime_boundary_review_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['operator_acceptance_contract_count']);
         $this->assertSame(0, $payload['summary']['external_execution_allowed_count']);
         $this->assertFalse((bool) $payload['policy']['calendar_wait_blocker_enabled']);
         $this->assertFalse((bool) $payload['policy']['external_execution_allowed']);
@@ -5153,7 +5197,15 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertContains('auto_procurement', $payload['policy']['blocked_operations']);
         $this->assertSame('finance', $payload['companies'][0]['company_id']);
         $this->assertTrue((bool) $payload['companies'][0]['ready']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['flow_repository_adoption_matrix_green']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['tool_permission_manifests_green']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['eval_replay_recipes_green']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['license_security_reviews_green']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['runtime_boundary_reviews_green']);
         $this->assertTrue((bool) $payload['companies'][0]['checks']['migration_matrix_green']);
+        $this->assertGreaterThanOrEqual(6, count($payload['companies'][0]['flow_repository_adoption_flow_ids']));
+        $this->assertGreaterThanOrEqual(6, count($payload['companies'][0]['tool_permission_manifest_ids']));
+        $this->assertGreaterThanOrEqual(6, count($payload['companies'][0]['eval_replay_recipe_ids']));
         $this->assertContains('openai_agents_python', $payload['companies'][0]['repository_ids']);
         $autogen = collect($payload['companies'][0]['framework_states'])->firstWhere('framework_id', 'microsoft_autogen');
         $this->assertIsArray($autogen);
@@ -5180,6 +5232,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(1, $payload['summary']['ready_company_count']);
         $this->assertGreaterThanOrEqual(4, $payload['summary']['source_basis_count']);
         $this->assertGreaterThanOrEqual(8, $payload['summary']['framework_profile_count']);
+        $this->assertGreaterThanOrEqual($payload['summary']['framework_profile_count'], $payload['summary']['framework_runtime_boundary_contract_count']);
+        $this->assertGreaterThanOrEqual($payload['summary']['framework_profile_count'], $payload['summary']['framework_pattern_binding_count']);
         $this->assertGreaterThanOrEqual(3, $payload['summary']['mcp_security_profile_count']);
         $this->assertGreaterThanOrEqual(6, $payload['summary']['flow_runtime_map_count']);
         $this->assertGreaterThanOrEqual(8, $payload['summary']['supply_chain_artifact_count']);
@@ -5191,6 +5245,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertTrue((bool) $payload['companies'][0]['ready']);
         $this->assertTrue((bool) $payload['companies'][0]['checks']['mcp_hardening_required']);
         $this->assertTrue((bool) $payload['companies'][0]['checks']['runtime_requires_receipts_and_contract_tests']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['framework_runtime_boundary_contracts_green']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['framework_pattern_bindings_green']);
         $this->assertContains('openai_agents_python', $payload['companies'][0]['framework_ids']);
         $this->assertFalse((bool) $payload['companies'][0]['external_execution_allowed']);
         $this->assertSame(64, strlen((string) $payload['agent_repository_operating_catalog_status_hash']));
@@ -5858,6 +5914,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $payload['summary']['flow_count']);
         $this->assertSame(1, $payload['summary']['provider_ready_company_count']);
         $this->assertSame(1, $payload['summary']['agent_repository_ready_company_count']);
+        $this->assertSame(1, $payload['summary']['agent_repository_operating_catalog_ready_company_count']);
+        $this->assertSame(1, $payload['summary']['domain_agent_toolchain_certified_company_count']);
         $this->assertSame(1, $payload['summary']['industry_solution_ecosystem_ready_company_count']);
         $this->assertSame(1, $payload['summary']['business_operating_backbone_ready_company_count']);
         $this->assertSame(1, $payload['summary']['production_connector_preflight_ready_company_count']);
@@ -5871,6 +5929,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertFalse((bool) $payload['policy']['external_execution_allowed']);
         $this->assertTrue((bool) $payload['policy']['dossier_is_not_execution_authority']);
         $this->assertContains('agent_repository_adoption_pipeline_ready', $payload['policy']['required_before_real_external_execution']);
+        $this->assertContains('agent_repository_operating_catalog_ready', $payload['policy']['required_before_real_external_execution']);
+        $this->assertContains('domain_agent_toolchain_certified', $payload['policy']['required_before_real_external_execution']);
         $this->assertContains('industry_solution_ecosystem_ready', $payload['policy']['required_before_real_external_execution']);
         $this->assertContains('business_operating_backbone_ready', $payload['policy']['required_before_real_external_execution']);
         $this->assertContains('production_connector_preflight_ready', $payload['policy']['required_before_real_external_execution']);
@@ -5882,6 +5942,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertContains('vault_scope_attestation', $payload['policy']['required_before_real_external_execution']);
         $this->assertContains('secret_export', $payload['policy']['blocked_operations']);
         $this->assertSame(64, strlen((string) $payload['source_hashes']['agent_repository_adoption_status_hash']));
+        $this->assertSame(64, strlen((string) $payload['source_hashes']['agent_repository_operating_catalog_status_hash']));
+        $this->assertSame(64, strlen((string) $payload['source_hashes']['domain_agent_toolchain_certification_status_hash']));
         $this->assertSame(64, strlen((string) $payload['source_hashes']['industry_solution_ecosystem_status_hash']));
         $this->assertSame(64, strlen((string) $payload['source_hashes']['business_operating_backbone_status_hash']));
         $this->assertSame(64, strlen((string) $payload['source_hashes']['production_connector_preflight_status_hash']));
@@ -5893,6 +5955,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('finance', $payload['companies'][0]['company_id']);
         $this->assertTrue((bool) $payload['companies'][0]['provider_workbench_ready']);
         $this->assertTrue((bool) $payload['companies'][0]['agent_repository_adoption_ready']);
+        $this->assertTrue((bool) $payload['companies'][0]['agent_repository_operating_catalog_ready']);
+        $this->assertTrue((bool) $payload['companies'][0]['domain_agent_toolchain_certified']);
         $this->assertTrue((bool) $payload['companies'][0]['industry_solution_ecosystem_ready']);
         $this->assertTrue((bool) $payload['companies'][0]['business_operating_backbone_ready']);
         $this->assertTrue((bool) $payload['companies'][0]['production_connector_preflight_ready']);
@@ -5905,6 +5969,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('atlas.ai.company.flow_real_external_execution_readiness_dossier.v1', $flow['schema']);
         $this->assertTrue((bool) $flow['provider_workbench_ready']);
         $this->assertTrue((bool) $flow['agent_repository_adoption_ready']);
+        $this->assertTrue((bool) $flow['agent_repository_operating_catalog_ready']);
+        $this->assertTrue((bool) $flow['domain_agent_toolchain_certified']);
         $this->assertTrue((bool) $flow['industry_solution_ecosystem_ready']);
         $this->assertTrue((bool) $flow['business_operating_backbone_ready']);
         $this->assertTrue((bool) $flow['production_connector_preflight_ready']);
@@ -5923,6 +5989,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertFalse((bool) $flow['manual_handoff_candidate']);
         $this->assertContains('operator_and_second_reviewer_signed_mandate_missing', $flow['missing_before_real_external_execution']);
         $this->assertNotContains('agent_repository_adoption_pipeline_not_ready', $flow['missing_before_real_external_execution']);
+        $this->assertNotContains('agent_repository_operating_catalog_not_ready', $flow['missing_before_real_external_execution']);
+        $this->assertNotContains('domain_agent_toolchain_not_certified', $flow['missing_before_real_external_execution']);
         $this->assertNotContains('industry_solution_ecosystem_not_ready', $flow['missing_before_real_external_execution']);
         $this->assertNotContains('business_operating_backbone_not_ready', $flow['missing_before_real_external_execution']);
         $this->assertNotContains('production_connector_preflight_not_ready', $flow['missing_before_real_external_execution']);
@@ -5944,7 +6012,12 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertNotContains('live_read_connector_readiness_not_green', $flow['missing_before_real_external_execution']);
         $this->assertContains('operator_signature_receipt', $flow['required_evidence']);
         $this->assertContains('agent_repository_adoption_status_hash', $flow['required_evidence']);
+        $this->assertContains('agent_repository_operating_catalog_status_hash', $flow['required_evidence']);
+        $this->assertContains('domain_agent_toolchain_certification_status_hash', $flow['required_evidence']);
         $this->assertContains('repository_version_pin_and_fixture_eval_receipt', $flow['required_evidence']);
+        $this->assertContains('repository_tool_permission_manifest_receipt', $flow['required_evidence']);
+        $this->assertContains('repository_eval_replay_recipe_receipt', $flow['required_evidence']);
+        $this->assertContains('domain_toolchain_certification_receipt', $flow['required_evidence']);
         $this->assertContains('industry_solution_ecosystem_status_hash', $flow['required_evidence']);
         $this->assertContains('industry_solution_audit_and_confidentiality_attestation', $flow['required_evidence']);
         $this->assertContains('business_operating_backbone_status_hash', $flow['required_evidence']);
@@ -5976,6 +6049,12 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertTrue((bool) $flow['real_external_execution_handoff_pack']['ready_for_manual_handoff_gate']);
         $this->assertTrue((bool) $flow['real_external_execution_handoff_pack']['repository_adoption_contract']['ready']);
         $this->assertFalse((bool) $flow['real_external_execution_handoff_pack']['repository_adoption_contract']['runtime_use_without_local_contract_tests_allowed']);
+        $this->assertTrue((bool) $flow['real_external_execution_handoff_pack']['repository_operating_catalog_contract']['ready']);
+        $this->assertGreaterThanOrEqual(8, $flow['real_external_execution_handoff_pack']['repository_operating_catalog_contract']['framework_profile_count']);
+        $this->assertFalse((bool) $flow['real_external_execution_handoff_pack']['repository_operating_catalog_contract']['external_write_spend_trade_publish_deploy_delete_allowed']);
+        $this->assertTrue((bool) $flow['real_external_execution_handoff_pack']['domain_agent_toolchain_certification_contract']['ready']);
+        $this->assertGreaterThanOrEqual(1, $flow['real_external_execution_handoff_pack']['domain_agent_toolchain_certification_contract']['certified_tool_contract_count']);
+        $this->assertFalse((bool) $flow['real_external_execution_handoff_pack']['domain_agent_toolchain_certification_contract']['external_tool_side_effects_allowed']);
         $this->assertTrue((bool) $flow['real_external_execution_handoff_pack']['industry_solution_ecosystem_contract']['ready']);
         $this->assertFalse((bool) $flow['real_external_execution_handoff_pack']['industry_solution_ecosystem_contract']['external_contracting_allowed_by_stack']);
         $this->assertTrue((bool) $flow['real_external_execution_handoff_pack']['business_operating_backbone_contract']['ready']);
@@ -6056,7 +6135,18 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertTrue((bool) $pack['ready_for_manual_handoff_gate']);
         $this->assertTrue((bool) $pack['repository_adoption_contract']['ready']);
         $this->assertGreaterThanOrEqual(11, $pack['repository_adoption_contract']['repository_intake_count']);
+        $this->assertGreaterThanOrEqual(1, $pack['repository_adoption_contract']['flow_repository_adoption_matrix_count']);
+        $this->assertGreaterThanOrEqual(1, $pack['repository_adoption_contract']['tool_permission_manifest_count']);
+        $this->assertGreaterThanOrEqual(1, $pack['repository_adoption_contract']['eval_replay_recipe_count']);
         $this->assertFalse((bool) $pack['repository_adoption_contract']['auto_upgrade_or_procurement_allowed']);
+        $this->assertTrue((bool) $pack['repository_operating_catalog_contract']['ready']);
+        $this->assertGreaterThanOrEqual(8, $pack['repository_operating_catalog_contract']['framework_profile_count']);
+        $this->assertGreaterThanOrEqual(1, $pack['repository_operating_catalog_contract']['flow_runtime_map_count']);
+        $this->assertFalse((bool) $pack['repository_operating_catalog_contract']['external_write_spend_trade_publish_deploy_delete_allowed']);
+        $this->assertTrue((bool) $pack['domain_agent_toolchain_certification_contract']['ready']);
+        $this->assertGreaterThanOrEqual(1, $pack['domain_agent_toolchain_certification_contract']['certified_tool_contract_count']);
+        $this->assertGreaterThanOrEqual(1, $pack['domain_agent_toolchain_certification_contract']['repository_tool_permission_manifest_count']);
+        $this->assertFalse((bool) $pack['domain_agent_toolchain_certification_contract']['external_tool_side_effects_allowed']);
         $this->assertTrue((bool) $pack['industry_solution_ecosystem_contract']['ready']);
         $this->assertGreaterThanOrEqual(5, $pack['industry_solution_ecosystem_contract']['ecosystem_provider_count']);
         $this->assertTrue((bool) $pack['industry_solution_ecosystem_contract']['requires_direct_source_links_audit_trail_and_confidentiality_attestation']);
@@ -6139,6 +6229,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['operator_signature_required_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['second_reviewer_required_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['production_scope_contract_count']);
+        $this->assertSame($payload['summary']['flow_count'], $payload['summary']['agent_repository_controls_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['runtime_control_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['post_execution_reconciliation_count']);
         $this->assertSame(0, $payload['summary']['external_execution_allowed_count']);
@@ -6157,10 +6248,20 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertTrue((bool) $packet['second_reviewer_required']);
         $this->assertSame('manual_operator_execution_only', $packet['production_scope']['scope_mode']);
         $this->assertContains('auto_execute', $packet['production_scope']['blocked_in_autonomous_suite']);
+        $this->assertTrue((bool) $packet['agent_repository_controls']['adoption_ready']);
+        $this->assertTrue((bool) $packet['agent_repository_controls']['operating_catalog_ready']);
+        $this->assertTrue((bool) $packet['agent_repository_controls']['toolchain_certified']);
+        $this->assertGreaterThanOrEqual(1, $packet['agent_repository_controls']['tool_permission_manifest_count']);
+        $this->assertGreaterThanOrEqual(1, $packet['agent_repository_controls']['eval_replay_recipe_count']);
+        $this->assertFalse((bool) $packet['agent_repository_controls']['external_tool_side_effects_allowed']);
         $this->assertTrue((bool) $packet['runtime_control']['kill_switch_bound']);
         $this->assertFalse((bool) $packet['runtime_control']['external_worker_enabled']);
         $this->assertFalse((bool) $packet['runtime_control']['auto_retry_external_action_allowed']);
         $this->assertContains('signed_operator_scope', $packet['pre_execution_checklist']);
+        $this->assertContains('agent_repository_operating_catalog_green', $packet['pre_execution_checklist']);
+        $this->assertContains('domain_agent_toolchain_certified', $packet['pre_execution_checklist']);
+        $this->assertContains('repository_tool_permission_manifest_green', $packet['pre_execution_checklist']);
+        $this->assertContains('repository_eval_replay_green', $packet['pre_execution_checklist']);
         $this->assertContains('rollback_or_compensation_drill_green', $packet['pre_execution_checklist']);
         $this->assertTrue((bool) $packet['post_execution_reconciliation']['bound']);
         $this->assertFalse((bool) $packet['post_execution_reconciliation']['external_result_claim_allowed_without_receipt']);
@@ -6206,6 +6307,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['worker_preflight_ready_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['worker_plan_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['execution_envelope_bound_count']);
+        $this->assertSame($payload['summary']['flow_count'], $payload['summary']['agent_repository_gate_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['credential_gate_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['worker_controls_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['post_execution_reconciliation_bound_count']);
@@ -6225,6 +6327,11 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertTrue((bool) $preflight['execution_envelope']['decision_receipt_hash_required']);
         $this->assertTrue((bool) $preflight['execution_envelope']['idempotency_key_required']);
         $this->assertSame(64, strlen((string) $preflight['execution_envelope']['idempotency_key']));
+        $this->assertTrue((bool) $preflight['agent_repository_gate']['bound']);
+        $this->assertTrue((bool) $preflight['agent_repository_gate']['adoption_ready']);
+        $this->assertTrue((bool) $preflight['agent_repository_gate']['operating_catalog_ready']);
+        $this->assertTrue((bool) $preflight['agent_repository_gate']['toolchain_certified']);
+        $this->assertFalse((bool) $preflight['agent_repository_gate']['external_tool_side_effects_allowed']);
         $this->assertTrue((bool) $preflight['credential_gate']['bound']);
         $this->assertFalse((bool) $preflight['credential_gate']['credential_material_in_packet_allowed']);
         $this->assertFalse((bool) $preflight['worker_controls']['external_worker_dispatch_enabled']);
@@ -6275,6 +6382,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['operator_launch_sequence_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['signature_gate_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['vault_scope_gate_bound_count']);
+        $this->assertSame($payload['summary']['flow_count'], $payload['summary']['agent_repository_execution_gate_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['execution_receipt_gate_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['dispatch_disabled_count']);
         $this->assertSame(0, $payload['summary']['external_execution_allowed_count']);
@@ -6296,6 +6404,11 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertTrue((bool) $plan['signature_gate']['second_reviewer_signature_receipt_required']);
         $this->assertTrue((bool) $plan['vault_scope_gate']['vault_reference_required']);
         $this->assertFalse((bool) $plan['vault_scope_gate']['credential_material_in_packet_allowed']);
+        $this->assertTrue((bool) $plan['agent_repository_execution_gate']['bound']);
+        $this->assertTrue((bool) $plan['agent_repository_execution_gate']['adoption_ready']);
+        $this->assertTrue((bool) $plan['agent_repository_execution_gate']['operating_catalog_ready']);
+        $this->assertTrue((bool) $plan['agent_repository_execution_gate']['toolchain_certified']);
+        $this->assertFalse((bool) $plan['agent_repository_execution_gate']['external_tool_side_effects_allowed']);
         $this->assertTrue((bool) $plan['execution_receipt_gate']['decision_receipt_hash_required']);
         $this->assertSame(64, strlen((string) $plan['execution_receipt_gate']['idempotency_key']));
         $this->assertFalse((bool) $plan['worker_runtime_contract']['auto_retry_external_action_allowed']);
@@ -6343,6 +6456,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['go_no_go_gate_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['human_authority_gate_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['credential_release_gate_bound_count']);
+        $this->assertSame($payload['summary']['flow_count'], $payload['summary']['agent_repository_execution_gate_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['reconciliation_sink_bound_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['launch_disabled_count']);
         $this->assertGreaterThan($payload['summary']['flow_count'], $payload['summary']['missing_external_receipt_count']);
@@ -6364,8 +6478,18 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertFalse((bool) $control['human_authority_gate']['autonomous_override_allowed']);
         $this->assertTrue((bool) $control['credential_release_gate']['vault_reference_required']);
         $this->assertFalse((bool) $control['credential_release_gate']['runtime_secret_material_export_allowed']);
+        $this->assertTrue((bool) $control['agent_repository_execution_gate']['bound']);
+        $this->assertTrue((bool) $control['agent_repository_execution_gate']['adoption_ready']);
+        $this->assertTrue((bool) $control['agent_repository_execution_gate']['operating_catalog_ready']);
+        $this->assertTrue((bool) $control['agent_repository_execution_gate']['toolchain_certified']);
+        $this->assertGreaterThanOrEqual(1, $control['agent_repository_execution_gate']['tool_permission_manifest_count']);
+        $this->assertGreaterThanOrEqual(1, $control['agent_repository_execution_gate']['eval_replay_recipe_count']);
+        $this->assertFalse((bool) $control['agent_repository_execution_gate']['external_tool_side_effects_allowed']);
         $this->assertTrue((bool) $control['reconciliation_sink']['tool_receipts_required']);
         $this->assertFalse((bool) $control['reconciliation_sink']['claim_without_receipt_allowed']);
+        $this->assertContains('repository_tool_permission_manifest_receipt', $control['required_external_receipts']);
+        $this->assertContains('repository_eval_replay_recipe_receipt', $control['required_external_receipts']);
+        $this->assertContains('domain_toolchain_certification_receipt', $control['required_external_receipts']);
         $this->assertContains('operator_closeout_receipt', $control['required_external_receipts']);
         $this->assertContains('operator_closeout_receipt', $control['missing_external_receipts']);
         $this->assertFalse((bool) $control['external_execution_allowed']);
@@ -6408,6 +6532,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(1, $payload['summary']['company_count']);
         $this->assertGreaterThanOrEqual(1, $payload['summary']['flow_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['receipt_binder_ready_count']);
+        $this->assertSame($payload['summary']['flow_count'], $payload['summary']['agent_repository_execution_gate_bound_count']);
         $this->assertGreaterThan($payload['summary']['flow_count'], $payload['summary']['receipt_slot_count']);
         $this->assertSame($payload['summary']['receipt_slot_count'], $payload['summary']['required_receipt_count']);
         $this->assertSame(0, $payload['summary']['bound_receipt_count']);
@@ -6424,6 +6549,9 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertFalse((bool) $binder['launch_enabled']);
         $this->assertTrue((bool) $binder['binding_policy']['real_receipt_source_required']);
         $this->assertFalse((bool) $binder['binding_policy']['synthetic_receipts_allowed_for_external_authority']);
+        $this->assertTrue((bool) $binder['binding_policy']['repository_toolchain_certification_receipts_required']);
+        $this->assertTrue((bool) $binder['agent_repository_execution_gate']['bound']);
+        $this->assertTrue((bool) $binder['agent_repository_execution_gate']['toolchain_certified']);
         $this->assertSame(64, strlen((string) $binder['source_external_launch_control_hash']));
 
         $slot = $binder['receipt_slots'][0];
@@ -6434,6 +6562,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('real_external_receipt_not_bound', $slot['binding_blocker']);
         $this->assertFalse((bool) $slot['fake_or_synthetic_receipt_allowed']);
         $this->assertTrue((bool) $slot['binding_preconditions']['launch_control_hash_present']);
+        $this->assertTrue((bool) $slot['binding_preconditions']['agent_repository_execution_gate_bound']);
         $this->assertSame(64, strlen((string) $slot['receipt_slot_hash']));
         $this->assertSame(64, strlen((string) $binder['external_receipt_binder_hash']));
         $this->assertSame(64, strlen((string) $payload['external_receipt_binding_status_hash']));
@@ -6473,6 +6602,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(1, $payload['summary']['company_count']);
         $this->assertGreaterThanOrEqual(1, $payload['summary']['flow_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['cutover_dossier_ready_count']);
+        $this->assertSame($payload['summary']['flow_count'], $payload['summary']['agent_repository_execution_gate_bound_count']);
         $this->assertSame(0, $payload['summary']['supervised_cutover_enabled_count']);
         $this->assertSame(0, $payload['summary']['external_execution_allowed_count']);
         $this->assertGreaterThan($payload['summary']['flow_count'], $payload['summary']['missing_receipt_count']);
@@ -6501,6 +6631,10 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(0, $dossier['readiness_evidence']['bound_receipt_count']);
         $this->assertGreaterThan(0, $dossier['readiness_evidence']['missing_receipt_count']);
         $this->assertTrue((bool) $dossier['readiness_evidence']['all_receipt_slots_required']);
+        $this->assertTrue((bool) $dossier['readiness_evidence']['agent_repository_execution_gate_bound']);
+        $this->assertGreaterThanOrEqual(1, $dossier['readiness_evidence']['repository_tool_permission_manifest_count']);
+        $this->assertGreaterThanOrEqual(1, $dossier['readiness_evidence']['repository_eval_replay_recipe_count']);
+        $this->assertGreaterThanOrEqual(1, $dossier['readiness_evidence']['domain_certified_tool_contract_count']);
         $this->assertTrue((bool) $dossier['readiness_evidence']['launch_disabled']);
         $this->assertContains('missing_real_external_receipts', $dossier['promotion_blockers']);
         $this->assertTrue((bool) $dossier['cutover_policy']['dossier_is_not_execution_authority']);
@@ -6544,11 +6678,13 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(1, $payload['summary']['company_count']);
         $this->assertGreaterThanOrEqual(1, $payload['summary']['flow_count']);
         $this->assertSame($payload['summary']['flow_count'], $payload['summary']['work_order_ready_count']);
+        $this->assertSame($payload['summary']['flow_count'], $payload['summary']['repository_toolchain_evidence_bound_count']);
         $this->assertGreaterThan($payload['summary']['flow_count'], $payload['summary']['work_item_count']);
         $this->assertSame($payload['summary']['work_item_count'], $payload['summary']['pending_real_receipt_item_count']);
         $this->assertGreaterThan(0, $payload['summary']['receipt_intake_item_count']);
         $this->assertGreaterThan(0, $payload['summary']['vault_scope_item_count']);
         $this->assertGreaterThan(0, $payload['summary']['reconciliation_item_count']);
+        $this->assertGreaterThan(0, $payload['summary']['repository_toolchain_certification_item_count']);
         $this->assertSame(0, $payload['summary']['executable_item_count']);
         $this->assertSame(0, $payload['summary']['supervised_cutover_enabled_count']);
         $this->assertFalse((bool) $payload['policy']['supervised_cutover_enabled']);
@@ -6565,8 +6701,13 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('launch_blocked_until_work_items_have_real_receipts', $workOrder['cutover_decision']);
         $this->assertFalse((bool) $workOrder['supervised_cutover_enabled']);
         $this->assertFalse((bool) $workOrder['external_execution_allowed']);
-        $this->assertCount(8, $workOrder['work_items']);
+        $this->assertCount(9, $workOrder['work_items']);
         $this->assertContains('work_items_pending_real_receipts', $workOrder['launch_blockers']);
+        $this->assertContains('repository_toolchain_certification_receipts_not_bound', $workOrder['launch_blockers']);
+        $this->assertTrue((bool) $workOrder['repository_toolchain_evidence']['agent_repository_execution_gate_bound']);
+        $this->assertGreaterThanOrEqual(1, $workOrder['repository_toolchain_evidence']['repository_tool_permission_manifest_count']);
+        $this->assertGreaterThanOrEqual(1, $workOrder['repository_toolchain_evidence']['repository_eval_replay_recipe_count']);
+        $this->assertGreaterThanOrEqual(1, $workOrder['repository_toolchain_evidence']['domain_certified_tool_contract_count']);
         $this->assertTrue((bool) $workOrder['operator_enablement_pack']['unified_workbench_required']);
         $this->assertTrue((bool) $workOrder['operator_enablement_pack']['audit_trail_required']);
 
@@ -6617,23 +6758,23 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('atlas.ai.holding.enterprise_external_supervised_cutover_work_order_registry.v1', $payload['schema']);
         $this->assertSame('external_supervised_cutover_work_orders_registered_launch_blocked', $payload['status']);
         $this->assertSame(6, $payload['summary']['work_order_count']);
-        $this->assertSame(48, $payload['summary']['work_item_count']);
-        $this->assertSame(48, $payload['summary']['pending_work_item_count']);
+        $this->assertSame(54, $payload['summary']['work_item_count']);
+        $this->assertSame(54, $payload['summary']['pending_work_item_count']);
         $this->assertSame(0, $payload['summary']['executable_item_count']);
         $this->assertSame(0, $payload['summary']['bound_receipt_count']);
         $this->assertFalse((bool) $payload['registry_policy']['external_execution_allowed']);
         $this->assertTrue((bool) $payload['registry_policy']['registry_does_not_enable_launch']);
         $this->assertContains('real_receipt_hash', $payload['registry_policy']['required_before_item_completion']);
         $this->assertSame(6, AiHoldingExternalCutoverWorkOrder::query()->where('company_id', 'finance')->count());
-        $this->assertSame(48, AiHoldingExternalCutoverWorkItem::query()->where('company_id', 'finance')->count());
+        $this->assertSame(54, AiHoldingExternalCutoverWorkItem::query()->where('company_id', 'finance')->count());
 
         $order = AiHoldingExternalCutoverWorkOrder::query()->where('company_id', 'finance')->first();
         $this->assertInstanceOf(AiHoldingExternalCutoverWorkOrder::class, $order);
         $this->assertSame('pending_real_receipts_launch_blocked', $order->status);
         $this->assertFalse((bool) $order->supervised_cutover_enabled);
         $this->assertFalse((bool) $order->external_execution_allowed);
-        $this->assertSame(8, $order->work_item_count);
-        $this->assertSame(8, $order->pending_work_item_count);
+        $this->assertSame(9, $order->work_item_count);
+        $this->assertSame(9, $order->pending_work_item_count);
 
         $statusExit = Artisan::call('atlas:ai:autonomous-holding', [
             '--action' => 'enterprise-external-supervised-cutover-work-order-persisted-status',
@@ -6647,8 +6788,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('atlas.ai.holding.enterprise_external_supervised_cutover_work_order_persisted_status.v1', $statusPayload['schema']);
         $this->assertSame('external_supervised_cutover_work_orders_persisted_launch_blocked', $statusPayload['status']);
         $this->assertSame(6, $statusPayload['summary']['work_order_count']);
-        $this->assertSame(48, $statusPayload['summary']['work_item_count']);
-        $this->assertSame(48, $statusPayload['summary']['pending_work_item_count']);
+        $this->assertSame(54, $statusPayload['summary']['work_item_count']);
+        $this->assertSame(54, $statusPayload['summary']['pending_work_item_count']);
         $this->assertSame(0, $statusPayload['summary']['executable_item_count']);
         $this->assertTrue((bool) $statusPayload['policy']['persisted_status_does_not_enable_launch']);
         $this->assertSame(64, strlen((string) $statusPayload['external_supervised_cutover_work_order_persisted_status_hash']));
@@ -6712,7 +6853,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertFalse((bool) $payload['work_item']['executable']);
         $this->assertFalse((bool) $payload['work_item']['external_execution_allowed']);
         $this->assertSame(1, $payload['work_order']['bound_receipt_count']);
-        $this->assertSame(7, $payload['work_order']['pending_work_item_count']);
+        $this->assertSame(8, $payload['work_order']['pending_work_item_count']);
         $this->assertFalse((bool) $payload['work_order']['external_execution_allowed']);
         $this->assertTrue((bool) $payload['policy']['receipt_binding_is_not_execution_authority']);
 
@@ -6731,7 +6872,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
 
         $this->assertSame(0, $statusExit);
         $this->assertSame(1, $statusPayload['summary']['bound_receipt_count']);
-        $this->assertSame(47, $statusPayload['summary']['pending_work_item_count']);
+        $this->assertSame(53, $statusPayload['summary']['pending_work_item_count']);
         $this->assertSame(0, $statusPayload['summary']['external_execution_allowed_count']);
 
         $rejectedExit = Artisan::call('atlas:ai:autonomous-holding', [
@@ -6787,7 +6928,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             ->where('work_order_id', $order->work_order_id)
             ->orderBy('action_id')
             ->get();
-        $this->assertCount(8, $items);
+        $this->assertCount(9, $items);
 
         foreach ($items as $index => $item) {
             $exit = Artisan::call('atlas:ai:autonomous-holding', [
@@ -6814,10 +6955,11 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('external_supervised_cutover_promotion_waiting_on_receipts', $payload['status']);
         $this->assertSame(6, $payload['summary']['work_order_count']);
         $this->assertSame(1, $payload['summary']['promotion_review_ready_count']);
+        $this->assertSame(1, $payload['summary']['repository_toolchain_evidence_bound_count']);
         $this->assertSame(5, $payload['summary']['receipt_incomplete_order_count']);
-        $this->assertSame(48, $payload['summary']['work_item_count']);
-        $this->assertSame(8, $payload['summary']['bound_receipt_count']);
-        $this->assertSame(40, $payload['summary']['pending_work_item_count']);
+        $this->assertSame(54, $payload['summary']['work_item_count']);
+        $this->assertSame(9, $payload['summary']['bound_receipt_count']);
+        $this->assertSame(45, $payload['summary']['pending_work_item_count']);
         $this->assertSame(0, $payload['summary']['external_execution_allowed_count']);
         $this->assertTrue((bool) $payload['policy']['promotion_status_is_not_execution_authority']);
         $this->assertTrue((bool) $payload['policy']['operator_go_no_go_required']);
@@ -6834,8 +6976,10 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertIsArray($packet);
         $this->assertTrue((bool) $packet['promotion_review_ready']);
         $this->assertSame('all_work_item_receipts_bound_operator_go_no_go_required', $packet['promotion_state']);
-        $this->assertSame(8, $packet['bound_receipt_count']);
+        $this->assertSame(9, $packet['bound_receipt_count']);
         $this->assertSame(0, $packet['pending_work_item_count']);
+        $this->assertTrue((bool) $packet['repository_toolchain_evidence']['bound']);
+        $this->assertSame(3, $packet['repository_toolchain_evidence']['repository_toolchain_receipt_count']);
         $this->assertSame([], $packet['missing_work_item_ids']);
         $this->assertContains('operator_go_no_go_receipt', $packet['required_final_authorities']);
         $this->assertContains('rollback_plan_drill_receipt', $packet['required_final_authorities']);
@@ -6905,7 +7049,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             ->where('work_order_id', $order->work_order_id)
             ->orderBy('action_id')
             ->get();
-        $this->assertCount(8, $items);
+        $this->assertCount(9, $items);
 
         foreach ($items as $index => $item) {
             $exit = Artisan::call('atlas:ai:autonomous-holding', [
@@ -7095,8 +7239,11 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('external_supervised_cutover_runtime_invocation_registered_launch_blocked', $payload['status']);
         $this->assertSame(1, $payload['summary']['runtime_invocation_count']);
         $this->assertSame(8, $payload['summary']['final_authority_binding_count']);
+        $this->assertSame(1, $payload['summary']['repository_toolchain_evidence_bound_count']);
         $this->assertFalse((bool) $payload['record']['external_execution_allowed']);
         $this->assertFalse((bool) $payload['record']['external_side_effects_enabled']);
+        $this->assertTrue((bool) $payload['record']['repository_toolchain_evidence']['bound']);
+        $this->assertTrue((bool) $payload['record']['operator_runtime_contract']['repository_toolchain_evidence']['bound']);
         $this->assertTrue((bool) $payload['record']['operator_runtime_contract']['decision_receipt_required']);
         $this->assertTrue((bool) $payload['record']['operator_runtime_contract']['post_execution_reconciliation_required']);
         $this->assertFalse((bool) $payload['record']['operator_runtime_contract']['auto_launch_allowed']);
@@ -7115,6 +7262,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(0, $statusExit);
         $this->assertSame('atlas.ai.holding.enterprise_external_supervised_cutover_runtime_invocation_status.v1', $statusPayload['schema']);
         $this->assertSame(1, $statusPayload['summary']['runtime_invocation_count']);
+        $this->assertSame(1, $statusPayload['summary']['repository_toolchain_evidence_bound_count']);
         $this->assertSame(0, $statusPayload['summary']['external_execution_allowed_count']);
         $this->assertFalse((bool) $statusPayload['policy']['external_execution_allowed']);
     }
@@ -7275,8 +7423,10 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('atlas.ai.holding.enterprise_external_supervised_cutover_runtime_rehearsal_execution.v1', $payload['schema']);
         $this->assertSame('external_supervised_cutover_runtime_rehearsal_executed_external_execution_blocked', $payload['status']);
         $this->assertSame(1, $payload['summary']['execution_receipt_count']);
+        $this->assertSame(1, $payload['summary']['repository_toolchain_evidence_bound_count']);
         $this->assertSame($invocationId, $payload['receipt']['invocation_id']);
         $this->assertSame('non_production_rehearsal', $payload['receipt']['mode']);
+        $this->assertTrue((bool) $payload['receipt']['repository_toolchain_evidence']['bound']);
         $this->assertSame(64, strlen((string) $payload['receipt']['execution_receipt_hash']));
         $this->assertFalse((bool) $payload['receipt']['external_execution_attempted']);
         $this->assertFalse((bool) $payload['receipt']['external_side_effects_attempted']);
@@ -7356,6 +7506,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('rehearsal_complete_manual_execution_packet_ready_external_launch_blocked', $packet['promotion_state']);
         $this->assertSame($invocationId, $packet['runtime_invocation_id']);
         $this->assertTrue((bool) $packet['work_item_receipts_complete']);
+        $this->assertTrue((bool) $packet['repository_toolchain_evidence_bound']);
+        $this->assertTrue((bool) $packet['repository_toolchain_evidence']['bound']);
         $this->assertTrue((bool) $packet['final_authorities_bound']);
         $this->assertTrue((bool) $packet['runtime_invocation_registered']);
         $this->assertTrue((bool) $packet['runtime_rehearsal_executed']);
@@ -7385,6 +7537,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(64, strlen((string) $handoffPayload['records'][0]['manual_handoff_packet_hash']));
         $this->assertSame($handoffPayload['records'][0]['manual_handoff_packet_hash'], $handoffPayload['records'][0]['manual_handoff_packet']['manual_handoff_packet_hash']);
         $this->assertTrue((bool) $handoffPayload['records'][0]['manual_handoff_packet']['decision_receipt_required_before_any_external_effect']);
+        $this->assertTrue((bool) $handoffPayload['records'][0]['manual_handoff_packet']['repository_toolchain_evidence']['bound']);
         $this->assertFalse((bool) $handoffPayload['records'][0]['manual_handoff_packet']['external_execution_allowed_by_handoff_registry']);
         $this->assertContains('claim_external_result_without_receipt', $handoffPayload['records'][0]['manual_handoff_packet']['blocked_operations']);
 
@@ -7493,6 +7646,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertContains('manual_closeout_receipts_missing', $portfolioReadinessPayload['companies'][0]['missing_capabilities']);
         $this->assertContains('external_evidence_quality_gates_incomplete', $portfolioReadinessPayload['companies'][0]['missing_capabilities']);
         $this->assertFalse((bool) $portfolioReadinessPayload['companies'][0]['external_evidence_quality']['ready']);
+        $this->assertFalse((bool) $portfolioReadinessPayload['companies'][0]['external_evidence_quality']['gates']['repository_toolchain_evidence_bound_for_all_flows']);
         $this->assertFalse((bool) $portfolioReadinessPayload['companies'][0]['external_evidence_quality']['gates']['manual_closeout_receipts_bound_for_all_flows']);
         $this->assertSame(64, strlen((string) $portfolioReadinessPayload['companies'][0]['portfolio_readiness_record_hash']));
         $this->assertSame(64, strlen((string) $portfolioReadinessPayload['companies'][0]['external_evidence_quality']['external_supervised_cutover_evidence_quality_hash']));
@@ -7517,6 +7671,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame('finance', $bundlePayload['company_id']);
         $this->assertSame(6, $bundlePayload['summary']['work_order_count']);
         $this->assertGreaterThanOrEqual(40, $bundlePayload['summary']['work_item_binding_count']);
+        $this->assertSame(6, $bundlePayload['summary']['repository_toolchain_evidence_bound_count']);
         $this->assertGreaterThanOrEqual(40, $bundlePayload['summary']['final_authority_binding_count']);
         $this->assertSame(6, $bundlePayload['summary']['runtime_invocation_count']);
         $this->assertSame(6, $bundlePayload['summary']['rehearsal_execution_receipt_count']);
@@ -7552,6 +7707,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame([], $completePortfolioPayload['companies'][0]['missing_capabilities']);
         $this->assertTrue((bool) $completePortfolioPayload['companies'][0]['cutover_chain_complete']);
         $this->assertTrue((bool) $completePortfolioPayload['companies'][0]['external_evidence_quality']['ready']);
+        $this->assertTrue((bool) $completePortfolioPayload['companies'][0]['external_evidence_quality']['gates']['repository_toolchain_evidence_bound_for_all_flows']);
         $this->assertTrue((bool) $completePortfolioPayload['companies'][0]['external_evidence_quality']['gates']['manual_closeout_receipt_sources_present']);
         $this->assertTrue((bool) $completePortfolioPayload['companies'][0]['external_evidence_quality']['gates']['atlas_external_execution_claims_absent']);
         $this->assertSame('manual_closeout_reconciliation_complete_for_all_flows_external_autonomy_still_blocked', $completePortfolioPayload['companies'][0]['operational_stage']);
@@ -8045,6 +8201,10 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame($workloadAgentTemplatePayload['summary']['template_count'], $workloadAgentTemplatePayload['summary']['tool_permission_matrix_ready_count']);
         $this->assertSame($workloadAgentTemplatePayload['summary']['template_count'], $workloadAgentTemplatePayload['summary']['execution_surface_binding_ready_count']);
         $this->assertSame($workloadAgentTemplatePayload['summary']['template_count'], $workloadAgentTemplatePayload['summary']['fixture_smoke_contract_ready_count']);
+        $this->assertSame($workloadAgentTemplatePayload['summary']['template_count'], $workloadAgentTemplatePayload['summary']['source_pattern_receipt_bound_count']);
+        $this->assertSame($workloadAgentTemplatePayload['summary']['template_count'], $workloadAgentTemplatePayload['summary']['operator_handoff_contract_ready_count']);
+        $this->assertSame($workloadAgentTemplatePayload['summary']['template_count'], $workloadAgentTemplatePayload['summary']['guardrail_contract_ready_count']);
+        $this->assertSame($workloadAgentTemplatePayload['summary']['template_count'], $workloadAgentTemplatePayload['summary']['eval_replay_recipe_ready_count']);
         $this->assertSame($workloadAgentTemplatePayload['summary']['required_gate_count'], $workloadAgentTemplatePayload['summary']['ready_gate_count']);
         $this->assertFalse((bool) $workloadAgentTemplatePayload['policy']['external_execution_allowed']);
         $this->assertFalse((bool) $workloadAgentTemplatePayload['policy']['external_side_effects_enabled']);
@@ -8052,6 +8212,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertTrue((bool) $workloadAgentTemplatePayload['policy']['plugin_and_managed_agent_cookbook_packages_required']);
         $this->assertTrue((bool) $workloadAgentTemplatePayload['policy']['rollout_smoke_rollback_and_evidence_plan_required']);
         $this->assertTrue((bool) $workloadAgentTemplatePayload['policy']['surface_bindings_fixture_smoke_and_tool_permission_matrix_required']);
+        $this->assertTrue((bool) $workloadAgentTemplatePayload['policy']['source_pattern_eval_handoff_and_guardrail_contracts_required']);
         $this->assertTrue((bool) $workloadAgentTemplatePayload['policy']['long_running_sessions_per_tool_permissions_vault_and_audit_required']);
         $this->assertSame(64, strlen((string) $workloadAgentTemplatePayload['enterprise_domain_workload_agent_template_status_hash']));
 
@@ -8064,6 +8225,10 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertSame($companyWorkloadTemplates['template_count'], $companyWorkloadTemplates['tool_permission_matrix_ready_count'], (string) $companyWorkloadTemplates['company_id']);
             $this->assertSame($companyWorkloadTemplates['template_count'], $companyWorkloadTemplates['execution_surface_binding_ready_count'], (string) $companyWorkloadTemplates['company_id']);
             $this->assertSame($companyWorkloadTemplates['template_count'], $companyWorkloadTemplates['fixture_smoke_contract_ready_count'], (string) $companyWorkloadTemplates['company_id']);
+            $this->assertSame($companyWorkloadTemplates['template_count'], $companyWorkloadTemplates['source_pattern_receipt_bound_count'], (string) $companyWorkloadTemplates['company_id']);
+            $this->assertSame($companyWorkloadTemplates['template_count'], $companyWorkloadTemplates['operator_handoff_contract_ready_count'], (string) $companyWorkloadTemplates['company_id']);
+            $this->assertSame($companyWorkloadTemplates['template_count'], $companyWorkloadTemplates['guardrail_contract_ready_count'], (string) $companyWorkloadTemplates['company_id']);
+            $this->assertSame($companyWorkloadTemplates['template_count'], $companyWorkloadTemplates['eval_replay_recipe_ready_count'], (string) $companyWorkloadTemplates['company_id']);
             $this->assertSame($companyWorkloadTemplates['required_gate_count'], $companyWorkloadTemplates['ready_gate_count'], (string) $companyWorkloadTemplates['company_id']);
             $this->assertSame([], $companyWorkloadTemplates['missing_gates'], (string) $companyWorkloadTemplates['company_id']);
             $this->assertTrue((bool) $companyWorkloadTemplates['gates']['reference_architecture_bound'], (string) $companyWorkloadTemplates['company_id']);
@@ -8075,6 +8240,10 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertTrue((bool) $companyWorkloadTemplates['gates']['tool_permission_matrices_ready'], (string) $companyWorkloadTemplates['company_id']);
             $this->assertTrue((bool) $companyWorkloadTemplates['gates']['execution_surface_bindings_ready'], (string) $companyWorkloadTemplates['company_id']);
             $this->assertTrue((bool) $companyWorkloadTemplates['gates']['fixture_smoke_contracts_ready'], (string) $companyWorkloadTemplates['company_id']);
+            $this->assertTrue((bool) $companyWorkloadTemplates['gates']['source_pattern_receipts_bound'], (string) $companyWorkloadTemplates['company_id']);
+            $this->assertTrue((bool) $companyWorkloadTemplates['gates']['operator_handoff_contracts_ready'], (string) $companyWorkloadTemplates['company_id']);
+            $this->assertTrue((bool) $companyWorkloadTemplates['gates']['guardrail_contracts_ready'], (string) $companyWorkloadTemplates['company_id']);
+            $this->assertTrue((bool) $companyWorkloadTemplates['gates']['eval_replay_recipes_ready'], (string) $companyWorkloadTemplates['company_id']);
             $this->assertTrue((bool) $companyWorkloadTemplates['gates']['external_effects_blocked'], (string) $companyWorkloadTemplates['company_id']);
             $this->assertSame(64, strlen((string) $companyWorkloadTemplates['source_hashes']['workload_template_stack_hash']));
             $this->assertSame(64, strlen((string) $companyWorkloadTemplates['company_workload_agent_template_status_hash']));
@@ -8093,16 +8262,28 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
                 $this->assertTrue((bool) $templateRecord['gates']['tool_permission_matrix_ready'], (string) $templateRecord['template_id']);
                 $this->assertTrue((bool) $templateRecord['gates']['execution_surface_bindings_ready'], (string) $templateRecord['template_id']);
                 $this->assertTrue((bool) $templateRecord['gates']['fixture_smoke_contract_ready'], (string) $templateRecord['template_id']);
+                $this->assertTrue((bool) $templateRecord['gates']['source_pattern_receipts_bound'], (string) $templateRecord['template_id']);
+                $this->assertTrue((bool) $templateRecord['gates']['operator_handoff_contract_ready'], (string) $templateRecord['template_id']);
+                $this->assertTrue((bool) $templateRecord['gates']['guardrail_contract_ready'], (string) $templateRecord['template_id']);
+                $this->assertTrue((bool) $templateRecord['gates']['eval_replay_recipe_ready'], (string) $templateRecord['template_id']);
                 $this->assertTrue((bool) $templateRecord['distribution_package_ready'], (string) $templateRecord['template_id']);
                 $this->assertTrue((bool) $templateRecord['rollout_plan_ready'], (string) $templateRecord['template_id']);
                 $this->assertTrue((bool) $templateRecord['tool_permission_matrix_ready'], (string) $templateRecord['template_id']);
                 $this->assertTrue((bool) $templateRecord['execution_surface_bindings_ready'], (string) $templateRecord['template_id']);
                 $this->assertTrue((bool) $templateRecord['fixture_smoke_contract_ready'], (string) $templateRecord['template_id']);
+                $this->assertTrue((bool) $templateRecord['source_pattern_receipts_bound'], (string) $templateRecord['template_id']);
+                $this->assertTrue((bool) $templateRecord['operator_handoff_contract_ready'], (string) $templateRecord['template_id']);
+                $this->assertTrue((bool) $templateRecord['guardrail_contract_ready'], (string) $templateRecord['template_id']);
+                $this->assertTrue((bool) $templateRecord['eval_replay_recipe_ready'], (string) $templateRecord['template_id']);
                 $this->assertSame(64, strlen((string) $templateRecord['distribution_package_hash']));
                 $this->assertSame(64, strlen((string) $templateRecord['rollout_plan_hash']));
                 $this->assertSame(64, strlen((string) $templateRecord['tool_permission_matrix_hash']));
                 $this->assertSame(64, strlen((string) $templateRecord['execution_surface_binding_hash']));
                 $this->assertSame(64, strlen((string) $templateRecord['fixture_smoke_contract_hash']));
+                $this->assertSame(64, strlen((string) $templateRecord['source_pattern_receipt_hash']));
+                $this->assertSame(64, strlen((string) $templateRecord['operator_handoff_contract_hash']));
+                $this->assertSame(64, strlen((string) $templateRecord['guardrail_contract_hash']));
+                $this->assertSame(64, strlen((string) $templateRecord['eval_replay_recipe_hash']));
                 $this->assertFalse((bool) $templateRecord['external_execution_allowed']);
                 $this->assertSame(64, strlen((string) $templateRecord['template_status_record_hash']));
             }
@@ -8959,6 +9140,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(9, $operatingEvidencePayload['summary']['vertical_tool_operating_runtime_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['business_execution_control_plane_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['industry_solution_ecosystem_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['agent_repository_adoption_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['agent_repository_operating_catalog_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['operational_outcome_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['holding_outcome_scorecard_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['company_board_operating_review_bundle_ready_company_count']);
@@ -8986,6 +9169,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertContains('business_execution_control_plane', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('quality_compliance', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('industry_solution_ecosystem', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('agent_repository_adoption', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('agent_repository_operating_catalog', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('operational_outcome_runtime', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('holding_outcome_scorecard', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('company_board_operating_review', $operatingEvidencePayload['policy']['required_bundle_sections']);
@@ -9020,6 +9205,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['business_execution_control_plane_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['quality_compliance_bundle_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['industry_solution_ecosystem_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['agent_repository_adoption_matrix_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['agent_repository_operating_catalog_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['operational_outcome_runtime_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['holding_outcome_scorecard_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['company_board_operating_review_bound'], (string) $companyOperatingEvidence['company_id']);
@@ -9044,6 +9231,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_business_execution_control_plane_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_quality_compliance_lifecycle_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['industry_solution_ecosystem_company_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['agent_repository_adoption_company_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['agent_repository_operating_catalog_company_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_flow_tool_execution_ledger_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_flow_tool_execution_runtime_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_domain_adapter_execution_envelope_status_record_hash']));
@@ -9059,6 +9248,59 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertFalse((bool) $companyOperatingEvidence['external_execution_allowed']);
             $this->assertFalse((bool) $companyOperatingEvidence['external_side_effects_enabled']);
             $this->assertFalse((bool) $companyOperatingEvidence['external_launch_allowed']);
+        }
+
+        $auditExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-holding-completion-audit-status',
+            '--json' => true,
+        ]);
+        $auditPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $auditExit, json_encode([
+            'status' => $auditPayload['status'] ?? null,
+            'summary' => $auditPayload['summary'] ?? null,
+            'missing_requirement_gates' => $auditPayload['missing_requirement_gates'] ?? null,
+            'requirement_gates' => $auditPayload['requirement_gates'] ?? null,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertTrue((bool) $auditPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_holding_completion_audit_status.v1', $auditPayload['schema']);
+        $this->assertSame('enterprise_holding_completion_audit_green_external_autonomy_still_blocked', $auditPayload['status']);
+        $this->assertSame(9, $auditPayload['summary']['company_count']);
+        $this->assertSame($completionPayload['summary']['expected_flow_count'], $auditPayload['summary']['expected_flow_count']);
+        $this->assertSame($auditPayload['summary']['requirement_gate_count'], $auditPayload['summary']['proven_requirement_gate_count']);
+        $this->assertSame(0, $auditPayload['summary']['missing_requirement_gate_count']);
+        $this->assertSame(9, $auditPayload['summary']['completion_certified_company_count']);
+        $this->assertSame(9, $auditPayload['summary']['production_ready_company_count']);
+        $this->assertSame(9, $auditPayload['summary']['operating_evidence_bundle_ready_company_count']);
+        $this->assertSame($auditPayload['summary']['expected_flow_count'], $auditPayload['summary']['repository_toolchain_evidence_bound_count']);
+        $this->assertSame($auditPayload['summary']['expected_flow_count'], $auditPayload['summary']['manual_closeout_receipt_count']);
+        $this->assertSame(0, $auditPayload['summary']['external_execution_allowed_count']);
+        $this->assertSame(0, $auditPayload['summary']['external_side_effects_enabled_count']);
+        $this->assertSame([], $auditPayload['missing_requirement_gates']);
+        $this->assertFalse((bool) $auditPayload['policy']['external_execution_allowed']);
+        $this->assertFalse((bool) $auditPayload['policy']['external_side_effects_enabled']);
+        $this->assertTrue((bool) $auditPayload['policy']['completion_audit_is_not_execution_authority']);
+        $this->assertTrue((bool) $auditPayload['policy']['claim_complete_without_requirement_gate_evidence_blocked']);
+        $this->assertContains('external_write_without_decision_receipt', $auditPayload['policy']['blocked_operations']);
+        $this->assertSame(64, strlen((string) $auditPayload['source_hashes']['completion_certification']));
+        $this->assertSame(64, strlen((string) $auditPayload['source_hashes']['repository_adoption']));
+        $this->assertSame(64, strlen((string) $auditPayload['source_hashes']['runtime_invocation']));
+        $this->assertSame(64, strlen((string) $auditPayload['enterprise_holding_completion_audit_status_hash']));
+
+        foreach ($auditPayload['requirement_gates'] as $gate) {
+            $this->assertSame('proven', $gate['status'], (string) $gate['id']);
+            $this->assertGreaterThanOrEqual((int) $gate['target'], (int) $gate['current'], (string) $gate['id']);
+            $this->assertSame(64, strlen((string) $gate['source_hash']), (string) $gate['id']);
+        }
+
+        foreach ($auditPayload['companies'] as $companyAudit) {
+            $this->assertTrue((bool) $companyAudit['completion_certified'], (string) $companyAudit['company_id']);
+            $this->assertTrue((bool) $companyAudit['real_external_execution_dossier_ready'], (string) $companyAudit['company_id']);
+            $this->assertTrue((bool) $companyAudit['manual_handoff_pack_ready'], (string) $companyAudit['company_id']);
+            $this->assertTrue((bool) $companyAudit['supervised_cutover_receipt_chain_complete'], (string) $companyAudit['company_id']);
+            $this->assertFalse((bool) $companyAudit['external_execution_allowed']);
+            $this->assertFalse((bool) $companyAudit['external_side_effects_enabled']);
+            $this->assertSame(64, strlen((string) $companyAudit['completion_certification_record_hash']));
         }
     }
 

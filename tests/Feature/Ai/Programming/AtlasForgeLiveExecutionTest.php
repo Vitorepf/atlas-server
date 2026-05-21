@@ -87,6 +87,7 @@ class AtlasForgeLiveExecutionTest extends TestCase
             'obra_binding',
             'sandbox_provision',
             'context_pack',
+            'aucri_runtime_enforcement',
             'patch_apply',
             'action_manifest',
             'patch_verifier',
@@ -105,6 +106,36 @@ class AtlasForgeLiveExecutionTest extends TestCase
                 "Stage [{$name}] returned blocked when only passed/degraded/skipped_not_needed expected: ".json_encode($stages[$name]),
             );
         }
+    }
+
+    public function test_live_execution_runs_aucri_enforcement_before_patch_execution(): void
+    {
+        $report = app(AtlasForgeLiveExecutionService::class)->execute([
+            'obra_id' => self::OBRA,
+        ]);
+
+        $stages = collect($report['stages'])->values();
+        $names = $stages->pluck('name')->all();
+        $aucriIndex = array_search('aucri_runtime_enforcement', $names, true);
+        $patchIndex = array_search('patch_apply', $names, true);
+        $this->assertIsInt($aucriIndex);
+        $this->assertIsInt($patchIndex);
+        $this->assertLessThan($patchIndex, $aucriIndex);
+
+        $aucri = $stages[$aucriIndex];
+        $this->assertSame('passed', $aucri['status']);
+        $this->assertSame('atlas.aucri.runtime_enforcement.v1', $aucri['schema_version']);
+        $this->assertNotSame('', $aucri['runtime_enforcement_hash']);
+        $this->assertSame(true, data_get($aucri, 'enforcement.claims.enforced_before_provider_call'));
+        $this->assertSame(false, data_get($aucri, 'enforcement.claims.providers_invoked'));
+        $this->assertSame('atlas_forge', data_get($aucri, 'enforcement.flow_id'));
+        $this->assertSame(true, data_get($aucri, 'enforcement.claims.all_18_aucri_blocks_executed'));
+        $this->assertSame(18, data_get($aucri, 'enforcement.block_ref_summary.total'));
+        $this->assertSame(18, data_get($aucri, 'enforcement.block_ref_summary.executed'));
+        $this->assertSame([
+            'ASEF', 'AHRI', 'AARF', 'ACRS', 'ACFQ', 'ARFL', 'AGRN', 'AURG', 'APDR',
+            'AREBA', 'ARCLG', 'ACOP', 'ARPTL', 'AKIF', 'ACMF', 'ACCR', 'ATER', 'ACPFR',
+        ], data_get($aucri, 'enforcement.block_ref_summary.acronyms'));
     }
 
     public function test_context_pack_has_canonical_minimum_with_non_empty_ranked_refs(): void
