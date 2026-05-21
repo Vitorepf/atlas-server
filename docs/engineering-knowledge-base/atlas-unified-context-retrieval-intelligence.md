@@ -7,28 +7,9 @@ implementation_state: planned_parent_architecture_not_current_runtime
 blocker: AUCRI ainda nao possui service, comandos, migrations, tests ou certification propria; a doc organiza a area e o roadmap antes da implementacao.
 category: intelligence-runtime
 priority: 100
-summary: Documentacao mae da area de contexto, memoria, embeddings, RAG, Agentic RAG, Graph RAG, World/Reality Graph, ranking, freshness, feedback e Python/data retrieval runtime. Define a arquitetura final para transformar recuperacao de contexto em um dos maiores multiplicadores de qualidade do Atlas.
-tags:
-  - atlas-ai
-  - aucri
-  - context
-  - retrieval
-  - rag
-  - embeddings
-  - graph-rag
-  - memory
-  - world-model
-  - python-runtime
-capabilities:
-  - unified_context_retrieval
-  - semantic_embedding_retrieval
-  - agentic_rag
-  - graph_rag
-  - reality_graph_retrieval
-  - context_reranking
-  - context_freshness
-  - retrieval_feedback_learning
-  - python_data_retrieval_runtime
+summary: Documentacao mae da area de contexto, memoria, embeddings, RAG, Graph RAG, ranking, freshness, feedback, Python/data retrieval, cognitive memory, context compiler e token economy.
+tags: [atlas-ai, aucri, context, retrieval, rag, embeddings, graph-rag, memory, world-model, token-economy]
+capabilities: [unified_context_retrieval, semantic_embedding_retrieval, agentic_rag, graph_rag, context_reranking, context_freshness, cognitive_memory_fabric, context_compiler_runtime, token_economy_runtime]
 decisions:
   - AUCRI e a area-mae de contexto e recuperacao do Atlas; ela organiza ACIE, APCR, RAG, embeddings, memoria, grafo e Python/data runtime sem substituir esses sistemas.
   - AUCRI deve virar a camada padrao de contexto de Atlas AI, Atlas Dev, Atlas Forge, Research, Finance, Marketing, Strategy e futuros flows.
@@ -55,6 +36,11 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-context-observability-plane.md
   - docs/engineering-knowledge-base/atlas-retrieval-privacy-trust-layer.md
   - docs/engineering-knowledge-base/atlas-knowledge-ingestion-fabric.md
+  - docs/engineering-knowledge-base/atlas-cognitive-memory-fabric.md
+  - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
+  - docs/engineering-knowledge-base/atlas-token-economy-runtime.md
+  - docs/engineering-knowledge-base/atlas-context-pareto-frontier-runtime.md
+  - docs/engineering-knowledge-base/atlas-aucri-continuous-optimization-protocol.md
   - docs/engineering-knowledge-base/atlas-context-intelligence-engine.md
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
   - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
@@ -235,8 +221,8 @@ intent/domain/flow/risk
 
 ## Escopo de Implementacao
 
-AUCRI deve ser implementada em 14 grandes blocos: 9 blocos de inteligencia
-de contexto e retrieval, mais 5 blocos de maturidade enterprise.
+AUCRI deve ser implementada em 18 grandes blocos: retrieval, graph, quality,
+enterprise maturity, cognitive RAM, compiler, token economy e Pareto frontier.
 
 ### Indice de Implementacao Obrigatorio
 
@@ -261,6 +247,10 @@ implementacao.
 | 12 | ACOP | Control Plane + AUCRI | observability read model por source/flow/query | trace sem vazar conteudo cru |
 | 13 | ARPTL | privacy/security docs | privacy, trust, redaction, retention | provider-safe gate + deletion audit |
 | 14 | AKIF | rich input + ingestion jobs | ingestion fabric para docs/repos/videos/dados | normalized source packet com lineage |
+| 15 | ACMF | AUCRI + AREG | cognitive RAM fabric, hot context, delta, spillover | reserva minima 3GB + token reduction |
+| 16 | ACCR | AUCRI + ACMF | context compiler provider-aware | prompt final menor, auditavel e loss-checked |
+| 17 | ATER | ACCR + ARCLG | token economy, local pre-reasoning, reuse | menor token com quality gate |
+| 18 | ACPFR | ATER + AREBA | Pareto frontier quality/token/cost/latency | melhor tradeoff sem regressao |
 
 Regra de navegacao:
 
@@ -376,23 +366,13 @@ Cada bloco filho precisa entregar:
 - Estado atual: `ProgrammingPythonRuntime*` existe com boundary seguro; falta
   runtime data/retrieval global.
 
-### 10-14. Enterprise Maturity Layer
+### 10-18. Enterprise Maturity, Cognitive Memory, Compiler, Token e Pareto
 
-- AREBA: Atlas Retrieval Evaluation & Benchmark Arena / Atlas Context Arena /
-  `AtlasRetrievalEvaluationBenchmarkArenaService`; mede qualidade real de
-  retrieval com golden sets, regressao, groundedness e context ROI.
-- ARCLG: Atlas Retrieval Cost & Latency Governor / Atlas Retrieval Budget
-  Controller / `AtlasRetrievalCostLatencyGovernorService`; governa custo,
-  latencia, cache e degradacao progressiva sem derrubar qualidade critica.
-- ACOP: Atlas Context Observability Plane / Atlas Context Control Room /
-  `AtlasContextObservabilityPlaneService`; mostra traces, fontes usadas,
-  misses, ruido, blockers e saude de contexto sem vazar dados crus.
-- ARPTL: Atlas Retrieval Privacy & Trust Layer / Atlas Context Trust Gate /
-  `AtlasRetrievalPrivacyTrustLayerService`; impede vazamento de PII, segredo,
-  fonte proibida, retencao indevida e uso inseguro de provider.
-- AKIF: Atlas Knowledge Ingestion Fabric / Atlas Knowledge Intake /
-  `AtlasKnowledgeIngestionFabricService`; normaliza ingestao de docs, PDFs,
-  imagens, YouTube, repos, planilhas e dados externos com lineage.
+- AREBA/ARCLG/ACOP/ARPTL/AKIF: eval, custo, observabilidade, trust e ingestion.
+- ACMF: RAM como working memory cognitiva com reserva minima de 3GB.
+- ACCR: compila o context pack final por provider, risco, flow e evidence.
+- ATER: reduz token de entrada/saida sem perder must-keep, sufficiency ou evidence.
+- ACPFR: escolhe a fronteira otima entre qualidade, token, custo e latencia.
 
 ## Dependencias
 
@@ -484,7 +464,7 @@ AUCRI final deve recuperar:
 
 Roadmap de longo prazo:
 
-1. AUCRI-I1: certificacao e inventory real dos 14 blocos.
+1. AUCRI-I1: certificacao e inventory real dos 18 blocos.
 2. AUCRI-I2: ASEF + AHRI com embeddings/chunking/versionamento provider-safe.
 3. AUCRI-I3: AARF cross-domain e mandatory retrieval gate por risco.
 4. AUCRI-I4: ACRS + ARFL com feedback real de uso/outcome.
@@ -493,13 +473,21 @@ Roadmap de longo prazo:
 7. AUCRI-I7: APDR para graph analytics/evals/reranking local seguro.
 8. AUCRI-I8: AREBA + ARCLG para eval, benchmark interno, custo e latencia.
 9. AUCRI-I9: ACOP + ARPTL + AKIF para observabilidade, trust e ingestion.
-10. AUCRI-I10: certification final 10/10 com golden sets, replay e Control Plane.
+10. AUCRI-I10: ACMF com working memory RAM, delta, heat score e spillover.
+11. AUCRI-I11: ACCR para context compiler provider-aware com loss checks.
+12. AUCRI-I12: ATER para token budget, reuse, output compression e quality check.
+13. AUCRI-I13: ACPFR para Pareto frontier e safe exploration em shadow.
+14. AUCRI-I14: certification final 10/10 com golden sets, replay e Control Plane.
 
 Definition of Done 10/10:
 
 - todos os flows relevantes usam AUCRI por padrao;
-- os 14 blocos possuem doc filha canonica ou justificativa de bloqueio;
+- os 18 blocos possuem doc filha canonica ou justificativa de bloqueio;
 - cada context pack tem hash, evidence refs, authority, freshness e privacy;
+- ACMF reduz tokens sem baixar RAM disponivel abaixo de 3GB;
+- ACCR compila prompt final menor, auditavel e provider-aware;
+- ATER reduz token sem remover must-keep, evidence ou sufficiency;
+- ACPFR otimiza tradeoff sem regressao de qualidade high-risk;
 - embeddings sao fortes e governados;
 - Graph RAG global e ativo somente apos AP/gates;
 - Reality Graph alimenta estrategia, pesquisa, Forge e Dev;

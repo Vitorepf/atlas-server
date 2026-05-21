@@ -2853,6 +2853,10 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(708, $payload['summary']['company_external_tool_activation_work_order_count']);
         $this->assertSame(9, $payload['summary']['company_external_tool_activation_packet_ready_count']);
         $this->assertGreaterThanOrEqual(708, $payload['summary']['company_external_tool_activation_packet_count']);
+        $this->assertSame(9, $payload['summary']['company_vertical_tool_operating_runtime_ready_count']);
+        $this->assertGreaterThanOrEqual(708, $payload['summary']['company_vertical_tool_operating_runtime_count']);
+        $this->assertSame(9, $payload['summary']['company_business_execution_control_plane_ready_count']);
+        $this->assertGreaterThanOrEqual(708, $payload['summary']['company_business_execution_control_plane_count']);
         $this->assertSame(9, $payload['summary']['operating_packet_count']);
         $this->assertGreaterThanOrEqual(9.0, (float) $payload['summary']['readiness_score']);
         $this->assertSame(9, $payload['summary']['target_ready_companies']);
@@ -2983,6 +2987,11 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(295, $payload['summary']['agent_workforce_runtime_ready_count']);
         $this->assertSame($payload['summary']['agent_workforce_runtime_ready_count'], $payload['summary']['agent_workforce_runtime_count']);
         $this->assertFalse((bool) $payload['steps']['company_agent_workforce_runtime_status']['policy']['external_execution_allowed']);
+        $this->assertSame('enterprise_company_vertical_tool_operating_runtime_registered_external_effects_blocked', $payload['steps']['company_vertical_tool_operating_runtime_register']['status']);
+        $this->assertSame('enterprise_company_vertical_tool_operating_runtime_ready_external_effects_blocked', $payload['steps']['company_vertical_tool_operating_runtime_status']['status']);
+        $this->assertSame(9, $payload['summary']['company_vertical_tool_operating_runtime_ready_count']);
+        $this->assertGreaterThanOrEqual(708, $payload['summary']['company_vertical_tool_operating_runtime_count']);
+        $this->assertFalse((bool) $payload['steps']['company_vertical_tool_operating_runtime_status']['policy']['external_execution_allowed']);
         $this->assertSame('enterprise_company_domain_operating_models_certified_external_effects_blocked', $payload['steps']['company_domain_operating_model_certification_status']['status']);
         $this->assertSame(9, $payload['summary']['company_domain_operating_model_certified_count']);
         $this->assertSame('enterprise_company_operational_execution_loops_ready_external_effects_blocked', $payload['steps']['company_operational_execution_loop_status']['status']);
@@ -3024,6 +3033,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(64, strlen((string) $payload['steps']['company_agent_operations_pack_status']['enterprise_company_agent_operations_pack_status_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['company_agent_workforce_runtime_register']['enterprise_company_agent_workforce_runtime_register_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['company_agent_workforce_runtime_status']['enterprise_company_agent_workforce_runtime_status_hash']));
+        $this->assertSame(64, strlen((string) $payload['steps']['company_vertical_tool_operating_runtime_register']['enterprise_company_vertical_tool_operating_runtime_register_hash']));
+        $this->assertSame(64, strlen((string) $payload['steps']['company_vertical_tool_operating_runtime_status']['enterprise_company_vertical_tool_operating_runtime_status_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['agent_repository_operating_catalog_status']['agent_repository_operating_catalog_status_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['domain_data_fabric_status']['domain_data_fabric_status_hash']));
         $this->assertSame(64, strlen((string) $payload['steps']['domain_data_connector_operating_status']['domain_data_connector_operating_status_hash']));
@@ -5461,6 +5472,9 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(5, $payload['summary']['ecosystem_provider_count']);
         $this->assertGreaterThanOrEqual(7, $payload['summary']['implementation_partner_track_count']);
         $this->assertGreaterThanOrEqual(6, $payload['summary']['flow_workload_pack_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['source_verification_matrix_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['compliance_workload_control_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['summary']['partner_handoff_count']);
         $this->assertSame(1, $payload['summary']['data_interface_count']);
         $this->assertGreaterThanOrEqual(6, $payload['summary']['audit_control_count']);
         $this->assertSame(0, $payload['summary']['external_execution_allowed_count']);
@@ -5473,9 +5487,15 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertTrue((bool) $payload['companies'][0]['ready']);
         $this->assertTrue((bool) $payload['companies'][0]['checks']['source_links_required']);
         $this->assertTrue((bool) $payload['companies'][0]['checks']['audit_trail_required']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['flow_source_verification_matrix_green']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['flow_compliance_workload_controls_green']);
+        $this->assertTrue((bool) $payload['companies'][0]['checks']['implementation_partner_handoff_green']);
         $this->assertContains('anthropic_financial_services', $payload['companies'][0]['provider_ids']);
         $this->assertContains('accenture_scale_adoption', $payload['companies'][0]['partner_track_ids']);
         $this->assertContains('market_research_brief', $payload['companies'][0]['workload_flow_ids']);
+        $this->assertContains('market_research_brief', $payload['companies'][0]['source_verification_flow_ids']);
+        $this->assertContains('market_research_brief', $payload['companies'][0]['compliance_control_flow_ids']);
+        $this->assertContains('market_research_brief', $payload['companies'][0]['partner_handoff_flow_ids']);
         $this->assertFalse((bool) $payload['companies'][0]['external_execution_allowed']);
         $this->assertSame(64, strlen((string) $payload['industry_solution_ecosystem_status_hash']));
     }
@@ -8645,6 +8665,146 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertFalse((bool) $companyExternalToolActivationPacketStatus['external_side_effects_enabled']);
         }
 
+        $verticalToolOperatingRuntimeRegisterExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-company-vertical-tool-operating-runtime-register',
+            '--json' => true,
+        ]);
+        $verticalToolOperatingRuntimeRegisterPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $verticalToolOperatingRuntimeRegisterExit, Artisan::output());
+        $this->assertTrue((bool) $verticalToolOperatingRuntimeRegisterPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_company_vertical_tool_operating_runtime_register.v1', $verticalToolOperatingRuntimeRegisterPayload['schema']);
+        $this->assertSame('enterprise_company_vertical_tool_operating_runtime_registered_external_effects_blocked', $verticalToolOperatingRuntimeRegisterPayload['status']);
+        $this->assertSame($verticalToolOperatingRuntimeRegisterPayload['summary']['expected_vertical_tool_runtime_count'], $verticalToolOperatingRuntimeRegisterPayload['summary']['registered_vertical_tool_runtime_count']);
+        $this->assertGreaterThanOrEqual(708, $verticalToolOperatingRuntimeRegisterPayload['summary']['registered_vertical_tool_runtime_count']);
+        $this->assertSame(0, $verticalToolOperatingRuntimeRegisterPayload['summary']['external_execution_allowed_count']);
+        $this->assertSame(0, $verticalToolOperatingRuntimeRegisterPayload['summary']['external_side_effects_enabled_count']);
+        $this->assertContains('tool_catalog', $verticalToolOperatingRuntimeRegisterPayload['policy']['required_runtime_evidence']);
+        $this->assertContains('domain_data_contract', $verticalToolOperatingRuntimeRegisterPayload['policy']['required_runtime_evidence']);
+        $this->assertContains('external_write', $verticalToolOperatingRuntimeRegisterPayload['policy']['blocked_operations']);
+        $this->assertSame(64, strlen((string) $verticalToolOperatingRuntimeRegisterPayload['enterprise_company_vertical_tool_operating_runtime_register_hash']));
+
+        $verticalToolOperatingRuntimeStatusExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-company-vertical-tool-operating-runtime-status',
+            '--json' => true,
+        ]);
+        $verticalToolOperatingRuntimeStatusPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $verticalToolOperatingRuntimeStatusExit, Artisan::output());
+        $this->assertTrue((bool) $verticalToolOperatingRuntimeStatusPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_company_vertical_tool_operating_runtime_status.v1', $verticalToolOperatingRuntimeStatusPayload['schema']);
+        $this->assertSame('enterprise_company_vertical_tool_operating_runtime_ready_external_effects_blocked', $verticalToolOperatingRuntimeStatusPayload['status']);
+        $this->assertSame(9, $verticalToolOperatingRuntimeStatusPayload['summary']['company_count']);
+        $this->assertSame(9, $verticalToolOperatingRuntimeStatusPayload['summary']['vertical_tool_operating_runtime_ready_company_count']);
+        $this->assertSame($verticalToolOperatingRuntimeStatusPayload['summary']['expected_vertical_tool_runtime_count'], $verticalToolOperatingRuntimeStatusPayload['summary']['ready_vertical_tool_runtime_count']);
+        $this->assertSame($verticalToolOperatingRuntimeStatusPayload['summary']['required_gate_count'], $verticalToolOperatingRuntimeStatusPayload['summary']['ready_gate_count']);
+        $this->assertSame(64, strlen((string) $verticalToolOperatingRuntimeStatusPayload['enterprise_company_vertical_tool_operating_runtime_status_hash']));
+
+        foreach ($verticalToolOperatingRuntimeStatusPayload['companies'] as $companyVerticalToolOperatingRuntimeStatus) {
+            $this->assertTrue((bool) $companyVerticalToolOperatingRuntimeStatus['vertical_tool_operating_runtime_ready'], (string) $companyVerticalToolOperatingRuntimeStatus['company_id']);
+            $this->assertSame('target_9_vertical_tool_operating_runtime_ready_external_effects_blocked', $companyVerticalToolOperatingRuntimeStatus['runtime_grade'], (string) $companyVerticalToolOperatingRuntimeStatus['company_id']);
+            $this->assertSame([], $companyVerticalToolOperatingRuntimeStatus['missing_gates'], (string) $companyVerticalToolOperatingRuntimeStatus['company_id']);
+            $this->assertTrue((bool) $companyVerticalToolOperatingRuntimeStatus['gates']['vertical_tool_runtime_covers_activation_packets'], (string) $companyVerticalToolOperatingRuntimeStatus['company_id']);
+            $this->assertSame(64, strlen((string) data_get($companyVerticalToolOperatingRuntimeStatus, 'runtime_records.0.receipt_chain.vertical_tool_runtime_receipt_hash')));
+            $this->assertFalse((bool) $companyVerticalToolOperatingRuntimeStatus['external_execution_allowed']);
+            $this->assertFalse((bool) $companyVerticalToolOperatingRuntimeStatus['external_side_effects_enabled']);
+        }
+
+        $businessExecutionControlPlaneRegisterExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-company-business-execution-control-plane-register',
+            '--json' => true,
+        ]);
+        $businessExecutionControlPlaneRegisterPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $businessExecutionControlPlaneRegisterExit, Artisan::output());
+        $this->assertTrue((bool) $businessExecutionControlPlaneRegisterPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_company_business_execution_control_plane_register.v1', $businessExecutionControlPlaneRegisterPayload['schema']);
+        $this->assertSame('enterprise_company_business_execution_control_plane_registered_external_effects_blocked', $businessExecutionControlPlaneRegisterPayload['status']);
+        $this->assertSame($businessExecutionControlPlaneRegisterPayload['summary']['expected_business_control_plane_count'], $businessExecutionControlPlaneRegisterPayload['summary']['registered_business_control_plane_count']);
+        $this->assertGreaterThanOrEqual(708, $businessExecutionControlPlaneRegisterPayload['summary']['registered_business_control_plane_count']);
+        $this->assertSame(0, $businessExecutionControlPlaneRegisterPayload['summary']['external_execution_allowed_count']);
+        $this->assertSame(0, $businessExecutionControlPlaneRegisterPayload['summary']['real_money_movement_allowed_count']);
+        $this->assertSame(0, $businessExecutionControlPlaneRegisterPayload['summary']['customer_commitment_allowed_count']);
+        $this->assertContains('business_kpi_contract', $businessExecutionControlPlaneRegisterPayload['policy']['required_runtime_evidence']);
+        $this->assertContains('pnl_guardrail_contract', $businessExecutionControlPlaneRegisterPayload['policy']['required_runtime_evidence']);
+        $this->assertContains('risk_compliance_control', $businessExecutionControlPlaneRegisterPayload['policy']['required_runtime_evidence']);
+        $this->assertContains('real_money_movement', $businessExecutionControlPlaneRegisterPayload['policy']['blocked_operations']);
+        $this->assertSame(64, strlen((string) $businessExecutionControlPlaneRegisterPayload['enterprise_company_business_execution_control_plane_register_hash']));
+
+        $businessExecutionControlPlaneStatusExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-company-business-execution-control-plane-status',
+            '--json' => true,
+        ]);
+        $businessExecutionControlPlaneStatusPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $businessExecutionControlPlaneStatusExit, Artisan::output());
+        $this->assertTrue((bool) $businessExecutionControlPlaneStatusPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_company_business_execution_control_plane_status.v1', $businessExecutionControlPlaneStatusPayload['schema']);
+        $this->assertSame('enterprise_company_business_execution_control_plane_ready_external_effects_blocked', $businessExecutionControlPlaneStatusPayload['status']);
+        $this->assertSame(9, $businessExecutionControlPlaneStatusPayload['summary']['company_count']);
+        $this->assertSame(9, $businessExecutionControlPlaneStatusPayload['summary']['business_execution_control_plane_ready_company_count']);
+        $this->assertSame($businessExecutionControlPlaneStatusPayload['summary']['expected_business_control_plane_count'], $businessExecutionControlPlaneStatusPayload['summary']['ready_business_control_plane_count']);
+        $this->assertSame($businessExecutionControlPlaneStatusPayload['summary']['required_gate_count'], $businessExecutionControlPlaneStatusPayload['summary']['ready_gate_count']);
+        $this->assertSame(0, $businessExecutionControlPlaneStatusPayload['summary']['real_money_movement_allowed_count']);
+        $this->assertSame(0, $businessExecutionControlPlaneStatusPayload['summary']['customer_commitment_allowed_count']);
+        $this->assertSame(64, strlen((string) $businessExecutionControlPlaneStatusPayload['enterprise_company_business_execution_control_plane_status_hash']));
+
+        foreach ($businessExecutionControlPlaneStatusPayload['companies'] as $companyBusinessExecutionControlPlaneStatus) {
+            $this->assertTrue((bool) $companyBusinessExecutionControlPlaneStatus['business_execution_control_plane_ready'], (string) $companyBusinessExecutionControlPlaneStatus['company_id']);
+            $this->assertSame('target_9_business_execution_control_plane_ready_external_effects_blocked', $companyBusinessExecutionControlPlaneStatus['runtime_grade'], (string) $companyBusinessExecutionControlPlaneStatus['company_id']);
+            $this->assertSame([], $companyBusinessExecutionControlPlaneStatus['missing_gates'], (string) $companyBusinessExecutionControlPlaneStatus['company_id']);
+            $this->assertTrue((bool) $companyBusinessExecutionControlPlaneStatus['gates']['business_control_plane_covers_vertical_runtime'], (string) $companyBusinessExecutionControlPlaneStatus['company_id']);
+            $this->assertSame(64, strlen((string) data_get($companyBusinessExecutionControlPlaneStatus, 'control_plane_records.0.receipt_chain.business_control_plane_receipt_hash')));
+            $this->assertFalse((bool) $companyBusinessExecutionControlPlaneStatus['external_execution_allowed']);
+            $this->assertFalse((bool) $companyBusinessExecutionControlPlaneStatus['external_side_effects_enabled']);
+            $this->assertFalse((bool) $companyBusinessExecutionControlPlaneStatus['real_money_movement_allowed']);
+            $this->assertFalse((bool) $companyBusinessExecutionControlPlaneStatus['customer_commitment_allowed']);
+        }
+
+        $agentWorkforceRuntimeRegisterExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-company-agent-workforce-runtime-register',
+            '--json' => true,
+        ]);
+        $agentWorkforceRuntimeRegisterPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $agentWorkforceRuntimeRegisterExit, Artisan::output());
+        $this->assertTrue((bool) $agentWorkforceRuntimeRegisterPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_company_agent_workforce_runtime_register.v1', $agentWorkforceRuntimeRegisterPayload['schema']);
+        $this->assertSame('enterprise_company_agent_workforce_runtime_registered_external_effects_blocked', $agentWorkforceRuntimeRegisterPayload['status']);
+        $this->assertSame($agentWorkforceRuntimeRegisterPayload['summary']['expected_agent_workforce_runtime_count'], $agentWorkforceRuntimeRegisterPayload['summary']['registered_agent_workforce_runtime_count']);
+        $this->assertGreaterThanOrEqual(295, $agentWorkforceRuntimeRegisterPayload['summary']['registered_agent_workforce_runtime_count']);
+        $this->assertSame(0, $agentWorkforceRuntimeRegisterPayload['summary']['external_execution_allowed_count']);
+        $this->assertSame(0, $agentWorkforceRuntimeRegisterPayload['summary']['external_side_effects_enabled_count']);
+        $this->assertContains('agent_runtime_receipt', $agentWorkforceRuntimeRegisterPayload['policy']['required_runtime_evidence']);
+        $this->assertContains('external_write', $agentWorkforceRuntimeRegisterPayload['policy']['blocked_operations']);
+        $this->assertSame(64, strlen((string) $agentWorkforceRuntimeRegisterPayload['enterprise_company_agent_workforce_runtime_register_hash']));
+
+        $agentWorkforceRuntimeStatusExit = Artisan::call('atlas:ai:autonomous-holding', [
+            '--action' => 'enterprise-company-agent-workforce-runtime-status',
+            '--json' => true,
+        ]);
+        $agentWorkforceRuntimeStatusPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $agentWorkforceRuntimeStatusExit, Artisan::output());
+        $this->assertTrue((bool) $agentWorkforceRuntimeStatusPayload['ok']);
+        $this->assertSame('atlas.ai.holding.enterprise_company_agent_workforce_runtime_status.v1', $agentWorkforceRuntimeStatusPayload['schema']);
+        $this->assertSame('enterprise_company_agent_workforce_runtime_ready_external_effects_blocked', $agentWorkforceRuntimeStatusPayload['status']);
+        $this->assertSame(9, $agentWorkforceRuntimeStatusPayload['summary']['company_count']);
+        $this->assertSame(9, $agentWorkforceRuntimeStatusPayload['summary']['agent_workforce_runtime_ready_company_count']);
+        $this->assertSame($agentWorkforceRuntimeStatusPayload['summary']['expected_agent_workforce_runtime_count'], $agentWorkforceRuntimeStatusPayload['summary']['ready_agent_workforce_runtime_count']);
+        $this->assertSame($agentWorkforceRuntimeStatusPayload['summary']['required_gate_count'], $agentWorkforceRuntimeStatusPayload['summary']['ready_gate_count']);
+        $this->assertSame(64, strlen((string) $agentWorkforceRuntimeStatusPayload['enterprise_company_agent_workforce_runtime_status_hash']));
+
+        foreach ($agentWorkforceRuntimeStatusPayload['companies'] as $companyAgentWorkforceRuntimeStatus) {
+            $this->assertTrue((bool) $companyAgentWorkforceRuntimeStatus['agent_workforce_runtime_ready'], (string) $companyAgentWorkforceRuntimeStatus['company_id']);
+            $this->assertSame('target_9_agent_workforce_runtime_ready_external_effects_blocked', $companyAgentWorkforceRuntimeStatus['runtime_grade'], (string) $companyAgentWorkforceRuntimeStatus['company_id']);
+            $this->assertSame([], $companyAgentWorkforceRuntimeStatus['missing_gates'], (string) $companyAgentWorkforceRuntimeStatus['company_id']);
+            $this->assertTrue((bool) $companyAgentWorkforceRuntimeStatus['gates']['agent_workforce_runtime_covers_subagents'], (string) $companyAgentWorkforceRuntimeStatus['company_id']);
+            $this->assertSame(64, strlen((string) data_get($companyAgentWorkforceRuntimeStatus, 'runtime_records.0.receipt_chain.agent_runtime_receipt_hash')));
+            $this->assertFalse((bool) $companyAgentWorkforceRuntimeStatus['external_execution_allowed']);
+            $this->assertFalse((bool) $companyAgentWorkforceRuntimeStatus['external_side_effects_enabled']);
+        }
+
         $productionReadinessExit = Artisan::call('atlas:ai:autonomous-holding', [
             '--action' => 'enterprise-company-production-readiness-certification-status',
             '--json' => true,
@@ -8662,6 +8822,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(1.0, (float) $productionReadinessPayload['summary']['average_production_readiness_score']);
         $this->assertSame(9, $productionReadinessPayload['summary']['quality_compliance_lifecycle_ready_company_count']);
         $this->assertSame(9, $productionReadinessPayload['summary']['agent_operations_pack_ready_company_count']);
+        $this->assertSame(9, $productionReadinessPayload['summary']['agent_workforce_runtime_ready_company_count']);
         $this->assertSame(9, $productionReadinessPayload['summary']['work_product_runtime_ready_company_count']);
         $this->assertSame(9, $productionReadinessPayload['summary']['operating_blueprint_runtime_ready_company_count']);
         $this->assertSame(9, $productionReadinessPayload['summary']['business_runtime_persistence_ready_company_count']);
@@ -8669,6 +8830,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame(9, $productionReadinessPayload['summary']['supervised_connector_execution_ready_company_count']);
         $this->assertSame(9, $productionReadinessPayload['summary']['external_tool_activation_work_orders_ready_company_count']);
         $this->assertSame(9, $productionReadinessPayload['summary']['external_tool_activation_packets_ready_company_count']);
+        $this->assertSame(9, $productionReadinessPayload['summary']['vertical_tool_operating_runtime_ready_company_count']);
+        $this->assertSame(9, $productionReadinessPayload['summary']['business_execution_control_plane_ready_company_count']);
         $this->assertSame(0, $productionReadinessPayload['summary']['external_execution_allowed_count']);
         $this->assertSame(0, $productionReadinessPayload['summary']['external_side_effects_enabled_count']);
         $this->assertSame(0, $productionReadinessPayload['summary']['external_launch_allowed_count']);
@@ -8701,6 +8864,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertTrue((bool) $companyProductionReadiness['gates']['integration_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['domain_operating_model_certified'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['agent_operations_pack_ready'], (string) $companyProductionReadiness['company_id']);
+            $this->assertTrue((bool) $companyProductionReadiness['gates']['agent_workforce_runtime_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['domain_tool_execution_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['flow_tool_execution_ledger_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['flow_tool_execution_runtime_persisted'], (string) $companyProductionReadiness['company_id']);
@@ -8714,6 +8878,8 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertTrue((bool) $companyProductionReadiness['gates']['supervised_connector_execution_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['external_tool_activation_work_orders_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['external_tool_activation_packets_ready'], (string) $companyProductionReadiness['company_id']);
+            $this->assertTrue((bool) $companyProductionReadiness['gates']['vertical_tool_operating_runtime_ready'], (string) $companyProductionReadiness['company_id']);
+            $this->assertTrue((bool) $companyProductionReadiness['gates']['business_execution_control_plane_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['quality_compliance_lifecycle_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['holding_outcome_scorecard_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertTrue((bool) $companyProductionReadiness['gates']['portfolio_decision_packet_ready'], (string) $companyProductionReadiness['company_id']);
@@ -8744,11 +8910,14 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_supervised_connector_execution_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_external_tool_activation_work_order_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_external_tool_activation_packet_status_record_hash']));
+            $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_vertical_tool_operating_runtime_status_record_hash']));
+            $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_business_execution_control_plane_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_domain_tool_execution_readiness_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_flow_tool_execution_ledger_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_flow_tool_execution_runtime_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_domain_adapter_execution_envelope_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_agent_operations_pack_record_hash']));
+            $this->assertSame(64, strlen((string) $companyProductionReadiness['source_hashes']['company_agent_workforce_runtime_status_record_hash']));
             $this->assertTrue((bool) $companyProductionReadiness['live_read_connector_probe_readiness']['runtime_coverage_ready']
                 || (bool) $companyProductionReadiness['live_read_connector_probe_readiness']['structural_buildout_ready'], (string) $companyProductionReadiness['company_id']);
             $this->assertGreaterThanOrEqual(
@@ -8782,12 +8951,20 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertSame($operatingEvidencePayload['summary']['required_gate_count'], $operatingEvidencePayload['summary']['ready_gate_count']);
         $this->assertSame(1.0, (float) $operatingEvidencePayload['summary']['average_bundle_score']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['agent_operations_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['agent_workforce_runtime_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['capability_runtime_mesh_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['supervised_connector_execution_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['external_tool_activation_work_orders_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['external_tool_activation_packets_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['vertical_tool_operating_runtime_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['business_execution_control_plane_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['industry_solution_ecosystem_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['operational_outcome_bundle_ready_company_count']);
         $this->assertSame(9, $operatingEvidencePayload['summary']['holding_outcome_scorecard_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['company_board_operating_review_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['company_operating_cycle_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['company_operating_cadence_bundle_ready_company_count']);
+        $this->assertSame(9, $operatingEvidencePayload['summary']['company_operating_scorecard_bundle_ready_company_count']);
         $this->assertGreaterThanOrEqual($operatingEvidencePayload['summary']['expected_flow_count'] * 2, $operatingEvidencePayload['summary']['flow_evidence_record_count']);
         $this->assertFalse((bool) $operatingEvidencePayload['policy']['calendar_wait_blocker_enabled']);
         $this->assertFalse((bool) $operatingEvidencePayload['policy']['external_execution_allowed']);
@@ -8795,6 +8972,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertFalse((bool) $operatingEvidencePayload['policy']['external_launch_allowed']);
         $this->assertContains('flow_capability_matrix', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('agent_operations', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('agent_workforce_runtime', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('persisted_tool_runtime', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('domain_adapter_execution_envelope', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('work_product_runtime', $operatingEvidencePayload['policy']['required_bundle_sections']);
@@ -8804,9 +8982,16 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
         $this->assertContains('supervised_connector_execution', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('external_tool_activation_work_orders', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('external_tool_activation_packets', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('vertical_tool_operating_runtime', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('business_execution_control_plane', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('quality_compliance', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('industry_solution_ecosystem', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('operational_outcome_runtime', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('holding_outcome_scorecard', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('company_board_operating_review', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('company_operating_cycle', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('company_operating_cadence', $operatingEvidencePayload['policy']['required_bundle_sections']);
+        $this->assertContains('company_operating_scorecard', $operatingEvidencePayload['policy']['required_bundle_sections']);
         $this->assertContains('skip_operator_acceptance', $operatingEvidencePayload['policy']['blocked_operations']);
         $this->assertSame(64, strlen((string) $operatingEvidencePayload['enterprise_company_operating_evidence_bundle_status_hash']));
 
@@ -8819,6 +9004,7 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['capability_catalog_flow_records_complete'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['integration_flow_records_complete'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['agent_operations_bundle_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['agent_workforce_runtime_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['flow_tool_execution_ledger_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['flow_tool_execution_runtime_persisted_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['domain_adapter_execution_envelope_bound'], (string) $companyOperatingEvidence['company_id']);
@@ -8830,9 +9016,16 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['supervised_connector_execution_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['external_tool_activation_work_orders_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['external_tool_activation_packets_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['vertical_tool_operating_runtime_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['business_execution_control_plane_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['quality_compliance_bundle_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['industry_solution_ecosystem_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['operational_outcome_runtime_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['holding_outcome_scorecard_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['company_board_operating_review_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['company_operating_cycle_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['company_operating_cadence_bound'], (string) $companyOperatingEvidence['company_id']);
+            $this->assertTrue((bool) $companyOperatingEvidence['gates']['company_operating_scorecard_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['supervised_cutover_evidence_bound'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['source_lineage_hashes_complete'], (string) $companyOperatingEvidence['company_id']);
             $this->assertTrue((bool) $companyOperatingEvidence['gates']['external_effects_blocked'], (string) $companyOperatingEvidence['company_id']);
@@ -8847,13 +9040,21 @@ class AutonomousHoldingEnterpriseCommandTest extends TestCase
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_supervised_connector_execution_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_external_tool_activation_work_order_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_external_tool_activation_packet_status_record_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_vertical_tool_operating_runtime_status_record_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_business_execution_control_plane_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_quality_compliance_lifecycle_record_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['industry_solution_ecosystem_company_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_flow_tool_execution_ledger_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_flow_tool_execution_runtime_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_domain_adapter_execution_envelope_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_agent_operations_pack_record_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_agent_workforce_runtime_status_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['operational_outcome_runtime_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['holding_outcome_scorecard_record_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_board_operating_review_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_operating_cycle_record_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_operating_cadence_record_hash']));
+            $this->assertSame(64, strlen((string) $companyOperatingEvidence['source_hashes']['company_operating_scorecard_record_hash']));
             $this->assertSame(64, strlen((string) $companyOperatingEvidence['company_operating_evidence_bundle_record_hash']));
             $this->assertFalse((bool) $companyOperatingEvidence['external_execution_allowed']);
             $this->assertFalse((bool) $companyOperatingEvidence['external_side_effects_enabled']);

@@ -1002,6 +1002,9 @@ class AutonomousHoldingReadinessService
         $providers = (array) data_get($stack, 'ecosystem_provider_catalog', []);
         $partnerTracks = (array) data_get($stack, 'implementation_partner_tracks', []);
         $workloadPacks = (array) data_get($stack, 'flow_solution_workload_packs', []);
+        $sourceVerificationMatrix = (array) data_get($stack, 'flow_source_verification_matrix', []);
+        $complianceWorkloadControls = (array) data_get($stack, 'flow_compliance_workload_controls', []);
+        $partnerHandoffs = (array) data_get($stack, 'implementation_partner_handoff_matrix', []);
         $metrics = (array) data_get($stack, 'ecosystem_observability.required_metrics', []);
 
         $checks = [
@@ -1011,6 +1014,9 @@ class AutonomousHoldingReadinessService
             'provider_catalog' => count($providers) >= self::MIN_INDUSTRY_SOLUTION_PROVIDER_CONTRACTS_PER_COMPANY,
             'implementation_partner_tracks' => count($partnerTracks) >= self::MIN_INDUSTRY_SOLUTION_PARTNER_TRACKS_PER_COMPANY,
             'flow_solution_workload_packs' => count($workloadPacks) >= $flowCount && $flowCount > 0,
+            'flow_source_verification_matrix' => count($sourceVerificationMatrix) >= $flowCount && $flowCount > 0,
+            'flow_compliance_workload_controls' => count($complianceWorkloadControls) >= $flowCount && $flowCount > 0,
+            'implementation_partner_handoffs' => count($partnerHandoffs) >= $flowCount && $flowCount > 0,
             'observability' => count($metrics) >= self::MIN_INDUSTRY_SOLUTION_METRICS_PER_COMPANY,
             'source_links_required' => (bool) data_get($stack, 'ecosystem_policy.direct_source_hyperlinks_required', false),
             'mcp_or_api_workbench_required' => (bool) data_get($stack, 'ecosystem_policy.mcp_or_api_connector_workbench_required', false),
@@ -1026,6 +1032,9 @@ class AutonomousHoldingReadinessService
             'provider_count' => count($providers),
             'partner_track_count' => count($partnerTracks),
             'workload_pack_count' => count($workloadPacks),
+            'source_verification_matrix_count' => count($sourceVerificationMatrix),
+            'compliance_workload_control_count' => count($complianceWorkloadControls),
+            'partner_handoff_count' => count($partnerHandoffs),
             'metric_count' => count($metrics),
         ];
     }

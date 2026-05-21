@@ -144,6 +144,10 @@ class AtlasAiAutonomousHoldingCommand extends Command
                 'enterprise-company-external-tool-activation-work-order-status' => $this->renderEnterpriseCompanyExternalToolActivationWorkOrderStatus($mandateRegistry),
                 'enterprise-company-external-tool-activation-packet-register' => $this->renderEnterpriseCompanyExternalToolActivationPacketRegister($mandateRegistry),
                 'enterprise-company-external-tool-activation-packet-status' => $this->renderEnterpriseCompanyExternalToolActivationPacketStatus($mandateRegistry),
+                'enterprise-company-vertical-tool-operating-runtime-register' => $this->renderEnterpriseCompanyVerticalToolOperatingRuntimeRegister($mandateRegistry),
+                'enterprise-company-vertical-tool-operating-runtime-status' => $this->renderEnterpriseCompanyVerticalToolOperatingRuntimeStatus($mandateRegistry),
+                'enterprise-company-business-execution-control-plane-register' => $this->renderEnterpriseCompanyBusinessExecutionControlPlaneRegister($mandateRegistry),
+                'enterprise-company-business-execution-control-plane-status' => $this->renderEnterpriseCompanyBusinessExecutionControlPlaneStatus($mandateRegistry),
                 'enterprise-company-commercial-service-catalog-status' => $this->renderEnterpriseCompanyCommercialServiceCatalogStatus($mandateRegistry),
                 'enterprise-company-revenue-delivery-operating-mesh-status' => $this->renderEnterpriseCompanyRevenueDeliveryOperatingMeshStatus($mandateRegistry),
                 'enterprise-company-org-operating-model-status' => $this->renderEnterpriseCompanyOrgOperatingModelStatus($mandateRegistry),
@@ -433,10 +437,18 @@ class AtlasAiAutonomousHoldingCommand extends Command
         $steps['company_external_tool_activation_work_order_status'] = $mandateRegistry->enterpriseCompanyExternalToolActivationWorkOrderStatus($companyId);
         $steps['company_external_tool_activation_packet_register'] = $mandateRegistry->enterpriseCompanyExternalToolActivationPacketRegister($companyId);
         $steps['company_external_tool_activation_packet_status'] = $mandateRegistry->enterpriseCompanyExternalToolActivationPacketStatus($companyId);
+        $steps['company_vertical_tool_operating_runtime_register'] = $mandateRegistry->enterpriseCompanyVerticalToolOperatingRuntimeRegister($companyId);
+        $steps['company_vertical_tool_operating_runtime_status'] = $mandateRegistry->enterpriseCompanyVerticalToolOperatingRuntimeStatus($companyId);
+        $steps['company_business_execution_control_plane_register'] = $mandateRegistry->enterpriseCompanyBusinessExecutionControlPlaneRegister($companyId);
+        $steps['company_business_execution_control_plane_status'] = $mandateRegistry->enterpriseCompanyBusinessExecutionControlPlaneStatus($companyId);
         $steps['company_external_tool_activation_work_order_register'] = $this->compactConsolidationStep($steps['company_external_tool_activation_work_order_register']);
         $steps['company_external_tool_activation_work_order_status'] = $this->compactConsolidationStep($steps['company_external_tool_activation_work_order_status']);
         $steps['company_external_tool_activation_packet_register'] = $this->compactConsolidationStep($steps['company_external_tool_activation_packet_register']);
         $steps['company_external_tool_activation_packet_status'] = $this->compactConsolidationStep($steps['company_external_tool_activation_packet_status']);
+        $steps['company_vertical_tool_operating_runtime_register'] = $this->compactConsolidationStep($steps['company_vertical_tool_operating_runtime_register']);
+        $steps['company_vertical_tool_operating_runtime_status'] = $this->compactConsolidationStep($steps['company_vertical_tool_operating_runtime_status']);
+        $steps['company_business_execution_control_plane_register'] = $this->compactConsolidationStep($steps['company_business_execution_control_plane_register']);
+        $steps['company_business_execution_control_plane_status'] = $this->compactConsolidationStep($steps['company_business_execution_control_plane_status']);
         $steps['company_commercial_service_catalog_status'] = $mandateRegistry->enterpriseCompanyCommercialServiceCatalogStatus($companyId);
         $steps['company_revenue_delivery_operating_mesh_status'] = $mandateRegistry->enterpriseCompanyRevenueDeliveryOperatingMeshStatus($companyId);
         $steps['company_org_operating_model_status'] = $mandateRegistry->enterpriseCompanyOrgOperatingModelStatus($companyId);
@@ -603,6 +615,10 @@ class AtlasAiAutonomousHoldingCommand extends Command
                 'company_external_tool_activation_work_order_count' => (int) data_get($steps, 'company_external_tool_activation_work_order_status.summary.ready_external_tool_activation_work_order_count', 0),
                 'company_external_tool_activation_packet_ready_count' => (int) data_get($steps, 'company_external_tool_activation_packet_status.summary.external_tool_activation_packets_ready_company_count', 0),
                 'company_external_tool_activation_packet_count' => (int) data_get($steps, 'company_external_tool_activation_packet_status.summary.ready_external_tool_activation_packet_count', 0),
+                'company_vertical_tool_operating_runtime_ready_count' => (int) data_get($steps, 'company_vertical_tool_operating_runtime_status.summary.vertical_tool_operating_runtime_ready_company_count', 0),
+                'company_vertical_tool_operating_runtime_count' => (int) data_get($steps, 'company_vertical_tool_operating_runtime_status.summary.ready_vertical_tool_runtime_count', 0),
+                'company_business_execution_control_plane_ready_count' => (int) data_get($steps, 'company_business_execution_control_plane_status.summary.business_execution_control_plane_ready_company_count', 0),
+                'company_business_execution_control_plane_count' => (int) data_get($steps, 'company_business_execution_control_plane_status.summary.ready_business_control_plane_count', 0),
                 'commercial_service_catalog_ready_company_count' => (int) data_get($steps, 'company_commercial_service_catalog_status.summary.commercial_service_catalog_ready_company_count', 0),
                 'commercial_service_offer_count' => (int) data_get($steps, 'company_commercial_service_catalog_status.summary.service_offer_count', 0),
                 'commercial_pricing_package_count' => (int) data_get($steps, 'company_commercial_service_catalog_status.summary.pricing_package_count', 0),
@@ -738,6 +754,10 @@ class AtlasAiAutonomousHoldingCommand extends Command
             'enterprise_company_supervised_connector_execution_status_hash',
             'enterprise_company_external_tool_activation_work_order_status_hash',
             'enterprise_company_external_tool_activation_packet_status_hash',
+            'enterprise_company_vertical_tool_operating_runtime_register_hash',
+            'enterprise_company_vertical_tool_operating_runtime_status_hash',
+            'enterprise_company_business_execution_control_plane_register_hash',
+            'enterprise_company_business_execution_control_plane_status_hash',
             'enterprise_company_commercial_service_catalog_status_hash',
             'enterprise_company_revenue_delivery_operating_mesh_status_hash',
             'enterprise_company_org_operating_model_status_hash',
@@ -1974,6 +1994,72 @@ class AtlasAiAutonomousHoldingCommand extends Command
             $this->components->twoColumnDetail('ready_packets', (string) $payload['summary']['ready_external_tool_activation_packet_count']);
             $this->components->twoColumnDetail('persisted_packets', (string) $payload['summary']['persisted_external_tool_activation_packet_count']);
             $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyVerticalToolOperatingRuntimeRegister(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyVerticalToolOperatingRuntimeRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
+            $this->components->twoColumnDetail('registered_vertical_tool_runtimes', (string) $payload['summary']['registered_vertical_tool_runtime_count']);
+            $this->components->twoColumnDetail('expected_vertical_tool_runtimes', (string) $payload['summary']['expected_vertical_tool_runtime_count']);
+            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyVerticalToolOperatingRuntimeStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyVerticalToolOperatingRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('vertical_tool_runtime_ready_companies', (string) $payload['summary']['vertical_tool_operating_runtime_ready_company_count']);
+            $this->components->twoColumnDetail('ready_vertical_tool_runtimes', (string) $payload['summary']['ready_vertical_tool_runtime_count']);
+            $this->components->twoColumnDetail('persisted_vertical_tool_runtimes', (string) $payload['summary']['persisted_vertical_tool_runtime_count']);
+            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyBusinessExecutionControlPlaneRegister(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyBusinessExecutionControlPlaneRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
+            $this->components->twoColumnDetail('registered_business_control_planes', (string) $payload['summary']['registered_business_control_plane_count']);
+            $this->components->twoColumnDetail('expected_business_control_planes', (string) $payload['summary']['expected_business_control_plane_count']);
+            $this->components->twoColumnDetail('real_money_movement_allowed', ($payload['policy']['real_money_movement_allowed'] ?? false) ? 'true' : 'false');
+        });
+
+        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderEnterpriseCompanyBusinessExecutionControlPlaneStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    {
+        $company = $this->option('company');
+        $payload = $mandateRegistry->enterpriseCompanyBusinessExecutionControlPlaneStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
+        $this->emit($payload, function () use ($payload): void {
+            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
+            $this->components->twoColumnDetail('status', (string) $payload['status']);
+            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
+            $this->components->twoColumnDetail('business_control_plane_ready_companies', (string) $payload['summary']['business_execution_control_plane_ready_company_count']);
+            $this->components->twoColumnDetail('ready_business_control_planes', (string) $payload['summary']['ready_business_control_plane_count']);
+            $this->components->twoColumnDetail('persisted_business_control_planes', (string) $payload['summary']['persisted_business_control_plane_count']);
+            $this->components->twoColumnDetail('customer_commitment_allowed', ($payload['policy']['customer_commitment_allowed'] ?? false) ? 'true' : 'false');
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
