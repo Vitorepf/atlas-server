@@ -37,6 +37,8 @@ maintenance:
   - Manter abaixo de 520 linhas; dividir detalhes de UI, API e layout em specs filhas quando iniciar implementacao.
   - Rodar docs-health depois de alterar.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
+  - docs/engineering-knowledge-base/atlas-universal-reality-cartography.md
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/atlas-semantic-graph.md
   - docs/engineering-knowledge-base/atlas-system-graph.md
@@ -141,6 +143,11 @@ peca, o que ela faz, quem a governa, de onde recebe entrada, para onde envia
 saida, qual fluxo executa e o que falta. A imagem deve carregar essa compreensao.
 
 ## Papel no Atlas
+
+Cartographic Knowledge OS define as regras visuais gerais da Cartografia.
+`atlas-universal-reality-cartography.md` e a doc filha de produto/superficie
+que aplica essas regras ao mapa universal de organizacoes, projetos, sistemas,
+fluxos, componentes e provas.
 
 Cartographic Knowledge OS e a interface humana principal para entender um Atlas
 construido por IAs. Como o humano nao implementa tudo manualmente, a Cartografia

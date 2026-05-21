@@ -37,6 +37,7 @@ maintenance:
   - Atualizar ao mudar fonte de verdade, provider projection, KB sync, bootstrap ou superficie de conhecimento.
   - Rodar docs-health, architecture-validate, sync e index-code apos alteracoes.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/START_HERE.md
   - docs/engineering-knowledge-base/README.md
@@ -52,6 +53,7 @@ related_paths:
   - docs/engineering-knowledge-base/obsidian-atlas-vault.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md
   - docs/engineering-knowledge-base/code-intelligence.md
+  - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
   - docs/engineering-knowledge-base/memory-core-runbook.md
   - app/Services/Engineering/EngineeringKnowledgeBaseService.php
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
@@ -148,6 +150,11 @@ Postgres/Context Pack, e provada por codigo/teste/ledger. Obsidian, chat e
 arquivos de provider podem alimentar o sistema, mas nao governam implementacao
 sem promocao.
 
+`atlas-documentation-reality-system.md` e o doc mae que organiza a dependencia
+entre documentacao canonica, ACRUI e Cartografia/AURC. Ele deve ser lido quando
+a tarefa envolver documentacao real, codigo legado/scaffold, mapa visual humano
+ou consumo de docs de outro projeto.
+
 Proximo patamar canonico: `atlas-next-patamar-operating-systems.md` fixa o
 conjunto soberano/epistemico/cartografico; `atlas-sovereign-operating-system.md`
 decide direcao e limites; `atlas-epistemic-operating-system.md` transforma esta
@@ -208,10 +215,17 @@ Antes de trabalho estrutural, qualquer IA deve:
 8. Ler `START_HERE.md` quando a tarefa tocar memoria, KB ou onboarding.
 9. Ler doc dono do assunto: domain, surface, runtime, AP ou runbook.
 10. Buscar evidencias com `rg` em `docs`, `app`, `config`, `routes`, `database` e `tests`.
-11. Consultar status quando disponivel: `atlas engineering knowledge status` e `code-status`.
-12. Antes de editar, declarar mentalmente owner, layer, status e validacoes.
+11. Rodar `php artisan atlas:ai:docs-authority-audit --json` antes de criar
+    nome, runtime, OS, Engine, Factory, Layer ou doc macro novo.
+12. Consultar `atlas-code-reality-usage-intelligence.md` antes de chamar codigo
+    de morto, legado, duplicado, pronto ou seguro de apagar.
+13. Consultar status quando disponivel: `atlas engineering knowledge status` e `code-status`.
+14. Antes de editar, declarar mentalmente owner, layer, status e validacoes.
 
 Se a IA nao sabe qual doc manda, ela ainda nao deve programar.
+
+Se `docs-authority-audit` retornar `blocked`, a IA deve resolver ou declarar
+supersede/reuse antes de criar qualquer documentacao ou runtime concorrente.
 
 ## Feature Placement Protocol
 

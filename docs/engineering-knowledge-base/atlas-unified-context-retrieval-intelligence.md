@@ -40,6 +40,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
   - docs/engineering-knowledge-base/atlas-token-economy-runtime.md
   - docs/engineering-knowledge-base/atlas-context-pareto-frontier-runtime.md
+  - docs/engineering-knowledge-base/atlas-context-quality-certification-gate.md
   - docs/engineering-knowledge-base/atlas-aucri-continuous-optimization-protocol.md
   - docs/engineering-knowledge-base/atlas-context-intelligence-engine.md
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md

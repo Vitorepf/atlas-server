@@ -18,7 +18,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($payload, 'architecture_operations.section'));
-        $this->assertSame(82, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(88, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $commands = array_column(data_get($payload, 'architecture_operations.commands'), 'command');
@@ -30,6 +30,12 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:session-bootstrap --task="<task>" --json', $commands);
         $this->assertContains('php artisan atlas:ai:place-feature "<feature>" --json', $commands);
         $this->assertContains('php artisan atlas:ai:docs-split-plan --json', $commands);
+        $this->assertContains('php artisan atlas:documentation-reality score --strict --json', $commands);
+        $this->assertContains('php artisan atlas:documentation-reality acceptance --strict --json', $commands);
+        $this->assertContains('php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json', $commands);
+        $this->assertContains('php artisan atlas:code-reality reachability --target="<target>" --json', $commands);
+        $this->assertContains('php artisan atlas:universal-reality-cartography navigation-slice --strict --json', $commands);
+        $this->assertContains('php artisan atlas:universal-reality-cartography visual-scene --mode=implementation --strict --json', $commands);
         $this->assertContains('php artisan atlas:ai:ap-agent-workflow --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection status --target=all --workspace=<workspace> --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection write --target=all --workspace=<workspace> --force --json', $commands);
@@ -133,6 +139,10 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertStringContainsString('php artisan atlas:ai:session-bootstrap --task="<task>" --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:place-feature "<feature>" --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:docs-split-plan --json', $output);
+        $this->assertStringContainsString('php artisan atlas:documentation-reality score --strict --json', $output);
+        $this->assertStringContainsString('php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json', $output);
+        $this->assertStringContainsString('php artisan atlas:code-reality reachability --target="<target>" --json', $output);
+        $this->assertStringContainsString('php artisan atlas:universal-reality-cartography navigation-slice --strict --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:ap-agent-workflow --json', $output);
         $this->assertStringContainsString('php artisan atlas:memory:projection status --target=all --workspace=<workspace> --json', $output);
         $this->assertStringContainsString('php artisan atlas:memory:projection write --target=all --workspace=<workspace> --force --json', $output);
@@ -219,7 +229,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertSame(['section' => 'arquitetura_mae'], data_get($payload, 'architecture_operations.filters'));
-        $this->assertSame(82, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(88, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [

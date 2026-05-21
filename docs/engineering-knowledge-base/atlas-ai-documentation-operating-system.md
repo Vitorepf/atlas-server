@@ -34,11 +34,13 @@ maintenance:
   - Atualizar sempre que mudar limite de tamanho, ownership documental ou processo de promocao.
   - Rodar sync e index-code depois de alterar docs canonicos.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-documentation-creation-gate.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
+  - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
   - docs/engineering-knowledge-base/START_HERE.md
   - docs/engineering-knowledge-base/README.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
@@ -149,6 +151,8 @@ Toda organizacao documental deve permitir responder rapidamente:
 6. Qual documento manda em caso de conflito?
 7. Qual codigo, teste, migration ou comando prova a implementacao?
 8. O que uma nova sessao precisa ler primeiro?
+9. O alvo e ativo, scaffold, headless, legacy adapter, duplicado ou candidato a
+   quarentena?
 
 ## Camadas Documentais
 
@@ -160,6 +164,8 @@ Toda organizacao documental deve permitir responder rapidamente:
 | Creation Gate | condicao obrigatoria para criar, migrar ou promover docs navegaveis | `atlas-documentation-creation-gate.md` |
 | Canonical Module Doc | formato forte para docs tecnicos navegaveis e seguros para IA | `atlas-canonical-module-doc-v1.md` |
 | Knowledge Governance | fonte de verdade entre repo docs, Postgres, Obsidian, provider projections e chat | `atlas-ai-knowledge-governance-system.md` |
+| Documentation Reality | doc mae que organiza documentacao canonica, ACRUI e Cartografia/AURC | `atlas-documentation-reality-system.md` |
+| Code Reality | prova mecanica de uso real, scaffold, legado, duplicacao e quarantine | `atlas-code-reality-usage-intelligence.md` |
 | Kernel | contratos executaveis | `atlas-ai-kernel-architecture.md` e specs fatiadas |
 | Master | produto, planes, dominios e estrategia | `atlas-ai-master-architecture.md` |
 | Domain Specs | comportamento por dominio | `domains/*.md` |
@@ -287,7 +293,9 @@ Antes de afirmar que algo nao existe:
 2. Buscar em `app`, `config`, `database`, `routes` e `tests`.
 3. Consultar `atlas engineering knowledge status`.
 4. Consultar `atlas engineering knowledge code-status`.
-5. Diferenciar `implemented`, `scaffold`, `future` e `archive`.
+5. Rodar `php artisan atlas:ai:docs-authority-audit --json` quando criar nome,
+   runtime, OS, Engine, Factory, Layer ou doc macro novo.
+6. Diferenciar `implemented`, `scaffold`, `future` e `archive`.
 
 O erro "achei que nao tinha, mas tinha" e falha documental e operacional.
 
@@ -304,6 +312,10 @@ Exemplos:
 | provider routing duplicado | mover para Decide + Provider Driver |
 | tool gate duplicado | mover para Super Tool Runtime + Authority Matrix |
 | doc legado contradiz atual | marcar archive/source e apontar doc dono |
+
+Bloqueio operacional: se `atlas:ai:docs-authority-audit --strict --json`
+retornar `blocked`, nenhuma IA deve criar novo runtime ou doc macro ate
+resolver `duplicate_doc_id`, `duplicate_graph_id` ou `duplicate_technical_runtime`.
 
 ## Processo De Promocao
 
@@ -352,6 +364,7 @@ Use:
 ```bash
 php artisan atlas:ai:session-bootstrap --task="<task>" --json
 php artisan atlas:ai:place-feature "<feature>" --json
+php artisan atlas:ai:docs-authority-audit --json
 php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json
 atlas engineering knowledge sync --prune
 atlas engineering knowledge index-code --prune

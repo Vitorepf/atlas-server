@@ -34,6 +34,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
   - docs/engineering-knowledge-base/atlas-constelacao-surface.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-implemented-vs-scaffold-matrix
@@ -136,6 +137,11 @@ engineering, tools, semantic layer e product substrate.
 Ela nao tenta listar cada controller, model, migration, command ou teste. Quando
 um agente precisar de inventario exaustivo por arquivo, deve gerar auditoria
 focada a partir de `rg`, Code Intelligence e `architecture-readiness`.
+
+Para classificar codigo vivo, headless, scaffold, legacy adapter, duplicacao,
+unused candidate ou dead code confirmado, use
+`atlas-code-reality-usage-intelligence.md`. Esta matriz e snapshot macro; ACRUI
+e o contrato de classificacao operacional por alvo.
 
 ## Status Vocabulary
 

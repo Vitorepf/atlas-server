@@ -48,6 +48,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md
+  - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
   - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
   - docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
   - docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md
@@ -139,6 +140,11 @@ Programming e o dominio Atlas AI para trabalho de codigo: implementar,
 reparar, revisar, refatorar, validar, testar, investigar banco, validar UI e
 rodar forge/harness pesado. Ele e implemented/ready e deve ser a entrada unica
 para qualquer fluxo operacional de codigo.
+
+Antes de criar feature, remover codigo ou declarar algo legado/morto, o dominio
+deve obedecer `atlas-code-reality-usage-intelligence.md`. ACRUI e o contrato
+que separa runtime ativo, read-only, headless, scaffold, legacy adapter,
+duplicacao, unused candidate e dead code confirmado.
 
 O dominio nao substitui o Core. Ele especializa criterio, plano, gates,
 evidencia e execucao para engenharia, consumindo as capacidades horizontais do

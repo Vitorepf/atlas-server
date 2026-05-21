@@ -3,6 +3,8 @@
 namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Engineering\AtlasDocumentationRealitySystemService;
+use App\Services\Engineering\AtlasUniversalRealityCartographyService;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 
@@ -16,6 +18,8 @@ class AtlasSessionBootstrapService
         private readonly EngineeringDocumentationHealthService $docs,
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly AtlasProviderProjectionService $projections,
+        private readonly AtlasDocumentationRealitySystemService $documentationReality,
+        private readonly AtlasUniversalRealityCartographyService $cartography,
     ) {}
 
     /**
@@ -32,6 +36,7 @@ class AtlasSessionBootstrapService
             'workspace' => $options['workspace'] ?? base_path(),
         ]);
         $placement = $this->placement->place($task);
+        $documentationReality = $this->documentationRealityGate($task, $placement);
         $splitOwner = $this->splitOwner($placement['placement'] ?? [], $task);
         $splitPlan = $this->splitPlan->plan(['owner' => $splitOwner]);
         $readiness = $this->readiness->snapshot([
@@ -55,6 +60,9 @@ class AtlasSessionBootstrapService
             'gate_status' => $placement['gate_status'] ?? 'unknown',
             'owner_docs' => $placement['owner_docs'],
             'duplicate_candidates' => $placement['duplicate_candidates'],
+            'documentation_reality_gate' => $documentationReality,
+            'code_reality_anti_duplicate' => $placement['code_reality_anti_duplicate'] ?? [],
+            'cartography_navigation_slice' => $documentationReality['aurc_navigation_slice'],
             'docs_split_plan' => [
                 'owner' => $splitOwner,
                 'status' => $splitPlan['status'] ?? 'unknown',
@@ -104,6 +112,12 @@ class AtlasSessionBootstrapService
             'required_validation' => [
                 'git diff --check',
                 'atlas engineering knowledge docs-health',
+                'php artisan atlas:documentation-reality score --strict --json',
+                'php artisan atlas:documentation-reality acceptance --strict --json',
+                'php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json',
+                'php artisan atlas:code-reality reachability --target="<target>" --json',
+                'php artisan atlas:universal-reality-cartography navigation-slice --strict --json',
+                'php artisan atlas:universal-reality-cartography visual-scene --mode=implementation --strict --json',
                 'php artisan atlas:ai:architecture-validate --json',
                 'php artisan atlas:ai:runtime-boundary --json',
                 'atlas memory projection status --target=all',
@@ -122,11 +136,70 @@ class AtlasSessionBootstrapService
                     'review_ap_agent_workflow_registry_when_touching_ap_or_architecture_governance',
                     'review_owner_docs',
                     'confirm_placement_and_business_context',
+                    'review_documentation_reality_gate',
+                    'review_code_reality_anti_duplicate',
+                    'use_cartography_navigation_slice_as_map_not_source_of_truth',
                     'review_duplicate_candidates',
                     'run_runtime_language_boundary_when_touching_python_go_swift_or_rag_ml',
                     'run_required_validation_after_changes',
                 ],
             ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $placement
+     * @return array<string,mixed>
+     */
+    private function documentationRealityGate(string $task, array $placement): array
+    {
+        $adrs = $this->documentationReality->report();
+        $cartography = $this->cartography->map('implementation');
+        $summary = (array) ($adrs['summary'] ?? []);
+        $score = (array) ($adrs['documentation_reality_score'] ?? []);
+        $placementGate = (array) ($placement['documentation_reality_gate'] ?? []);
+        $navigation = (array) ($cartography['ai_navigation_slice'] ?? []);
+
+        return [
+            'schema_version' => 'atlas.session_bootstrap.documentation_reality_gate.v1',
+            'status' => (($adrs['status'] ?? null) === 'ready'
+                && ($placementGate['status'] ?? null) === 'ready'
+                && ($cartography['status'] ?? null) === 'ready')
+                    ? 'ready'
+                    : 'review',
+            'task' => $task,
+            'adrs' => [
+                'schema_version' => $adrs['schema_version'] ?? AtlasDocumentationRealitySystemService::SCHEMA_VERSION,
+                'status' => $adrs['status'] ?? 'unknown',
+                'block_count' => $summary['block_count'] ?? null,
+                'integrated_runtime_block_count' => $summary['integrated_runtime_block_count'] ?? null,
+                'score_status' => $score['status'] ?? 'unknown',
+                'command' => 'php artisan atlas:documentation-reality score --strict --json',
+            ],
+            'acrui_anti_duplicate' => $placement['code_reality_anti_duplicate'] ?? [],
+            'aurc' => [
+                'schema_version' => $cartography['schema_version'] ?? AtlasUniversalRealityCartographyService::SCHEMA_VERSION,
+                'status' => $cartography['status'] ?? 'unknown',
+                'node_count' => data_get($cartography, 'summary.node_count'),
+                'edge_count' => data_get($cartography, 'summary.edge_count'),
+                'command' => 'php artisan atlas:universal-reality-cartography navigation-slice --strict --json',
+            ],
+            'aurc_navigation_slice' => [
+                'schema_version' => $navigation['schema_version'] ?? 'atlas.universal_reality_cartography.ai_navigation_slice.v1',
+                'status' => $navigation['status'] ?? 'unknown',
+                'provider_safe' => (bool) ($navigation['provider_safe'] ?? false),
+                'node_count' => count((array) ($navigation['nodes'] ?? [])),
+                'rule' => $navigation['rule'] ?? 'use_cartography_as_navigation_slice_not_as_primary_truth',
+            ],
+            'claim_policy' => [
+                'read_only' => true,
+                'providers_invoked' => false,
+                'rivals_run' => false,
+                'deletes_files' => false,
+                'cartography_is_source_of_truth' => false,
+                'canonical_docs_remain_authority' => true,
+            ],
+            'writes' => false,
         ];
     }
 
@@ -141,6 +214,12 @@ class AtlasSessionBootstrapService
             'session_bootstrap',
             'feature_placement',
             'documentation_split_plan',
+            'documentation_reality_score',
+            'documentation_reality_acceptance_matrix',
+            'code_reality_anti_duplicate',
+            'code_reality_reachability',
+            'universal_reality_cartography_navigation_slice',
+            'universal_reality_cartography_visual_scene',
             'architecture_operations',
             'architecture_validate',
             'runtime_language_boundary',

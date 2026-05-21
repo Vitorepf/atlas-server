@@ -35,6 +35,14 @@ class AtlasAiGovernanceApiTest extends TestCase
             ->assertJsonPath('architecture_readiness.safe_next_blocks.0.block', 'Voice Realtime product loop')
             ->assertJsonPath('architecture_readiness.command', 'php artisan atlas:ai:architecture-readiness --owner=knowledge_governance --json')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
+            ->assertJsonPath('documentation_reality_gate.schema_version', 'atlas.session_bootstrap.documentation_reality_gate.v1')
+            ->assertJsonPath('documentation_reality_gate.status', 'ready')
+            ->assertJsonPath('documentation_reality_gate.adrs.block_count', 52)
+            ->assertJsonPath('documentation_reality_gate.adrs.integrated_runtime_block_count', 52)
+            ->assertJsonPath('documentation_reality_gate.aurc.status', 'ready')
+            ->assertJsonPath('documentation_reality_gate.claim_policy.providers_invoked', false)
+            ->assertJsonPath('documentation_reality_gate.writes', false)
+            ->assertJsonPath('cartography_navigation_slice.provider_safe', true)
             ->assertJsonStructure(['gate_status', 'session_gate', 'implementation_contract', 'pre_implementation_checklist'])
             ->assertJsonPath('provider_projection.status', 'passed')
             ->assertJsonFragment(['docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md'])
@@ -45,6 +53,10 @@ class AtlasAiGovernanceApiTest extends TestCase
         $this->assertContains('session_bootstrap', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('feature_placement', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('documentation_reality_score', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_anti_duplicate', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_reachability', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('universal_reality_cartography_navigation_slice', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_dependencies', $response->json('architecture_operations.operation_ids'));
@@ -83,6 +95,14 @@ class AtlasAiGovernanceApiTest extends TestCase
             ->assertJsonPath('placement.domain', 'finance')
             ->assertJsonPath('placement.flow', 'provider_evolution.review')
             ->assertJsonPath('architecture_operations.schema_version', 'atlas.architecture_operations.v1')
+            ->assertJsonPath('documentation_reality_gate.schema_version', 'atlas.feature_placement.documentation_reality_gate.v1')
+            ->assertJsonPath('documentation_reality_gate.status', 'ready')
+            ->assertJsonPath('documentation_reality_gate.adrs.block_count', 52)
+            ->assertJsonPath('documentation_reality_gate.adrs.integrated_runtime_block_count', 52)
+            ->assertJsonPath('code_reality_anti_duplicate.schema_version', 'atlas.code_reality_usage_intelligence.v1')
+            ->assertJsonPath('code_reality_anti_duplicate.status', 'ready')
+            ->assertJsonPath('documentation_reality_gate.claim_policy.providers_invoked', false)
+            ->assertJsonPath('documentation_reality_gate.writes', false)
             ->assertJsonPath('implementation_contract.owner_layer', 'provider_evolution')
             ->assertJsonFragment(['run_provider_release_review_before_changing_routing'])
             ->assertJsonFragment(['path' => 'docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md', 'exists' => 'yes']);
@@ -92,6 +112,10 @@ class AtlasAiGovernanceApiTest extends TestCase
         $this->assertContains('feature_placement', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('session_bootstrap', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('documentation_reality_score', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_anti_duplicate', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_reachability', $response->json('architecture_operations.operation_ids'));
+        $this->assertContains('universal_reality_cartography_navigation_slice', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', $response->json('architecture_operations.operation_ids'));
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', $response->json('required_validation'));

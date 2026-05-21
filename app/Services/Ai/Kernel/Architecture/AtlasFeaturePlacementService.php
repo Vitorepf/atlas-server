@@ -3,6 +3,8 @@
 namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Models\AtlasEngineeringKnowledgeItem;
+use App\Services\Engineering\AtlasCodeRealityUsageIntelligenceService;
+use App\Services\Engineering\AtlasDocumentationRealitySystemService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -15,6 +17,8 @@ class AtlasFeaturePlacementService
         private readonly EngineeringKnowledgeBaseService $knowledge,
         private readonly AtlasArchitectureOperationsCatalog $operations,
         private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
+        private readonly AtlasDocumentationRealitySystemService $documentationReality,
+        private readonly AtlasCodeRealityUsageIntelligenceService $codeReality,
     ) {}
 
     /**
@@ -27,6 +31,7 @@ class AtlasFeaturePlacementService
         $placement = $this->placement($text);
         $owners = $this->ownerDocs($placement, $text);
         $duplicates = $this->duplicateCandidates($feature, $owners);
+        $documentationReality = $this->documentationRealityGate($feature);
         $kb = $this->knowledge->summary();
         $risks = $this->risks($placement, $duplicates, $kb);
         $blockedWhen = $this->blockedWhen($placement, $owners, $duplicates, $kb);
@@ -39,6 +44,8 @@ class AtlasFeaturePlacementService
             'gate_status' => $this->gateStatus($blockedWhen, $duplicates, $risks),
             'owner_docs' => $owners,
             'duplicate_candidates' => $duplicates,
+            'documentation_reality_gate' => $documentationReality,
+            'code_reality_anti_duplicate' => $documentationReality['acrui_anti_duplicate'],
             'implementation_contract' => $this->implementationContract($placement),
             'pre_implementation_checklist' => $this->preImplementationChecklist($placement),
             'blocked_when' => $blockedWhen,
@@ -54,6 +61,9 @@ class AtlasFeaturePlacementService
             'required_validation' => [
                 'git diff --check',
                 'atlas engineering knowledge docs-health',
+                'php artisan atlas:documentation-reality score --strict --json',
+                'php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json',
+                'php artisan atlas:code-reality reachability --target="<target>" --json',
                 'php artisan atlas:ai:architecture-validate --json',
                 'php artisan atlas:ai:runtime-boundary --json',
                 'atlas engineering knowledge sync --prune',
@@ -73,6 +83,49 @@ class AtlasFeaturePlacementService
     /**
      * @return array<string,mixed>
      */
+    private function documentationRealityGate(string $feature): array
+    {
+        $adrs = $this->documentationReality->report();
+        $antiDuplicate = $this->codeReality->antiDuplicate($feature);
+        $summary = (array) ($adrs['summary'] ?? []);
+        $score = (array) ($adrs['documentation_reality_score'] ?? []);
+
+        return [
+            'schema_version' => 'atlas.feature_placement.documentation_reality_gate.v1',
+            'status' => (($adrs['status'] ?? null) === 'ready' && ($antiDuplicate['status'] ?? null) === 'ready')
+                ? 'ready'
+                : 'review',
+            'adrs' => [
+                'schema_version' => $adrs['schema_version'] ?? AtlasDocumentationRealitySystemService::SCHEMA_VERSION,
+                'status' => $adrs['status'] ?? 'unknown',
+                'block_count' => $summary['block_count'] ?? null,
+                'integrated_runtime_block_count' => $summary['integrated_runtime_block_count'] ?? null,
+                'score_status' => $score['status'] ?? 'unknown',
+                'command' => 'php artisan atlas:documentation-reality score --strict --json',
+            ],
+            'acrui_anti_duplicate' => [
+                'schema_version' => $antiDuplicate['schema_version'] ?? AtlasCodeRealityUsageIntelligenceService::SCHEMA_VERSION,
+                'status' => $antiDuplicate['status'] ?? 'unknown',
+                'decision' => $antiDuplicate['decision'] ?? 'unknown',
+                'match_count' => $antiDuplicate['match_count'] ?? 0,
+                'required_next_step' => $antiDuplicate['required_next_step'] ?? 'run_feature_placement_and_read_owner_docs_before_implementation',
+                'command' => 'php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json',
+            ],
+            'claim_policy' => [
+                'read_only' => true,
+                'providers_invoked' => false,
+                'rivals_run' => false,
+                'deletes_files' => false,
+                'cartography_is_source_of_truth' => false,
+                'canonical_docs_remain_authority' => true,
+            ],
+            'writes' => false,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function placementOperations(array $placement = []): array
     {
         $summary = $this->operations->summary();
@@ -81,6 +134,12 @@ class AtlasFeaturePlacementService
             'feature_placement',
             'session_bootstrap',
             'documentation_split_plan',
+            'documentation_reality_score',
+            'documentation_reality_acceptance_matrix',
+            'code_reality_anti_duplicate',
+            'code_reality_reachability',
+            'universal_reality_cartography_navigation_slice',
+            'universal_reality_cartography_visual_scene',
             'architecture_validate',
             'runtime_language_boundary',
             'documentation_health',

@@ -92,6 +92,8 @@ decisions:
   - Atlas Next Patamar Operating Systems fixa Sovereign OS, Epistemic OS e Cartographic Knowledge OS como conjunto indivisivel para autoevolucao enterprise por IA.
   - Atlas Sovereign Operating System define o patamar acima do Epistemic OS: proposito, identidade, autonomia, prioridade, risco, tradeoffs, self-modification e soberania do operador.
   - Atlas Epistemic Operating System define verdade, confianca, drift, contradicao, maturidade e permissoes de IA para um Atlas construido por agentes.
+  - Atlas Documentation Reality System organiza a dependencia entre documentacao canonica, ACRUI e Cartografia/AURC: uma unica verdade, duas leituras criticas, IA operacional e humano visual.
+  - Atlas Universal Reality Cartography define AURC, a superficie/produto de Cartografia universal para humanos navegarem universo, organizacoes, projetos, sistemas, fluxos, componentes e provas.
   - Atlas Cartographic Knowledge OS define a Cartografia como sistema operacional visual da verdade, com zoom semantico e navegacao humana/IA.
   - Atlas AI Runtime Language Boundaries separa Laravel Kernel, Python AI/Data Runtime, Go Edge/Concurrency Runtime e Swift Native Mac Runtime.
   - Atlas AI Voice Realtime Surface define Voice como surface canonica mobile-first com Surface Adapter `voice_realtime`, LiveKit Agents SDK (Python), LiveKit/WebRTC, Swift Mac edge futuro, eclipse modes class-3 e Rivals-Voice.
@@ -155,6 +157,8 @@ maintenance:
   - Leia atlas-next-patamar-operating-systems.md antes de planejar Sovereign OS, Epistemic OS, Cartographic Knowledge OS ou autoevolucao enterprise por IA.
   - Leia atlas-sovereign-operating-system.md antes de propor mudanca de proposito, identidade, autonomia, prioridade estrategica, self-modification ou qualquer capacidade que possa alterar a direcao do Atlas.
   - Leia atlas-epistemic-operating-system.md antes de transformar conhecimento, evidence, confidence, drift ou maturidade em permissao de escrita por IA.
+  - Leia atlas-documentation-reality-system.md antes de mexer em documentacao real, ACRUI, Cartografia/AURC, mapas humanos, classificacao de legado/scaffold ou consumo de docs de outro projeto.
+  - Leia atlas-universal-reality-cartography.md antes de mexer em mapa universal, zoom por empresa/projeto, modal humano, coverage visual ou task simulator da Cartografia.
   - Leia atlas-cartographic-knowledge-os.md antes de alterar Cartografia, zoom semantico, visualizacao de grafo, links visuais ou navegacao humana/IA.
   - Leia atlas-ai-runtime-language-boundaries.md, atlas-native-mac-agent.md, atlas-ai-local-performance-memory-strategy.md, atlas-ai-content-intelligence-curation.md e atlas-ai-scenario-simulation-harness.md antes de propor Python, Go, Swift, microservico, worker externo, daemon, RAG local, cache, modelos locais, uso dos 48GB RAM, YouTube ingestion, feeds, scraping, curadoria de fontes, swarm ou simulacao multiagente.
   - Leia atlas-ai-research-self-improvement-runtime.md antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, autoaprimoramento ou qualquer tentativa de acelerar evolucao do Atlas por automacao.

@@ -22,6 +22,16 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains($payload['gate_status'], ['attention_required', 'blocked', 'passed']);
         $this->assertArrayHasKey('implementation_contract', $payload);
         $this->assertArrayHasKey('session_gate', $payload);
+        $this->assertSame('atlas.session_bootstrap.documentation_reality_gate.v1', data_get($payload, 'documentation_reality_gate.schema_version'));
+        $this->assertSame('ready', data_get($payload, 'documentation_reality_gate.status'));
+        $this->assertSame(52, data_get($payload, 'documentation_reality_gate.adrs.block_count'));
+        $this->assertSame(52, data_get($payload, 'documentation_reality_gate.adrs.integrated_runtime_block_count'));
+        $this->assertSame('atlas.universal_reality_cartography.v1', data_get($payload, 'documentation_reality_gate.aurc.schema_version'));
+        $this->assertSame('ready', data_get($payload, 'documentation_reality_gate.aurc.status'));
+        $this->assertSame('atlas.universal_reality_cartography.ai_navigation_slice.v1', data_get($payload, 'cartography_navigation_slice.schema_version'));
+        $this->assertTrue((bool) data_get($payload, 'cartography_navigation_slice.provider_safe'));
+        $this->assertFalse((bool) data_get($payload, 'documentation_reality_gate.claim_policy.providers_invoked'));
+        $this->assertFalse((bool) data_get($payload, 'documentation_reality_gate.writes'));
         $this->assertSame('knowledge_governance', data_get($payload, 'docs_split_plan.owner'));
         $this->assertSame(
             'php artisan atlas:ai:docs-split-plan --owner=knowledge_governance --json',
@@ -52,6 +62,10 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('session_bootstrap', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('feature_placement', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('documentation_reality_score', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_anti_duplicate', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_reachability', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('universal_reality_cartography_navigation_slice', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('provider_projection_status', data_get($payload, 'architecture_operations.operation_ids'));
@@ -74,7 +88,14 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         );
         $this->assertTrue(data_get($payload, 'architecture_operations.owner_layer_operations.runtime.commands.0.pre_implementation_gate'));
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:documentation-reality score --strict --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:code-reality reachability --target="<target>" --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:universal-reality-cartography navigation-slice --strict --json', data_get($payload, 'required_validation'));
         $this->assertContains('review_owner_docs', data_get($payload, 'session_gate.required_before_code'));
+        $this->assertContains('review_documentation_reality_gate', data_get($payload, 'session_gate.required_before_code'));
+        $this->assertContains('review_code_reality_anti_duplicate', data_get($payload, 'session_gate.required_before_code'));
+        $this->assertContains('use_cartography_navigation_slice_as_map_not_source_of_truth', data_get($payload, 'session_gate.required_before_code'));
         $this->assertContains(
             'run_runtime_language_boundary_when_touching_python_go_swift_or_rag_ml',
             data_get($payload, 'session_gate.required_before_code'),
@@ -201,12 +222,25 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertSame('atlas.feature_placement.v1', $payload['schema_version']);
         $this->assertSame('surface', data_get($payload, 'placement.layer'));
         $this->assertSame('voice_realtime', data_get($payload, 'placement.surface'));
+        $this->assertSame('atlas.feature_placement.documentation_reality_gate.v1', data_get($payload, 'documentation_reality_gate.schema_version'));
+        $this->assertSame('ready', data_get($payload, 'documentation_reality_gate.status'));
+        $this->assertSame(52, data_get($payload, 'documentation_reality_gate.adrs.block_count'));
+        $this->assertSame(52, data_get($payload, 'documentation_reality_gate.adrs.integrated_runtime_block_count'));
+        $this->assertSame('atlas.code_reality_usage_intelligence.v1', data_get($payload, 'code_reality_anti_duplicate.schema_version'));
+        $this->assertSame('ready', data_get($payload, 'code_reality_anti_duplicate.status'));
+        $this->assertSame('run_feature_placement_and_read_owner_docs_before_implementation', data_get($payload, 'code_reality_anti_duplicate.required_next_step'));
+        $this->assertFalse((bool) data_get($payload, 'documentation_reality_gate.claim_policy.providers_invoked'));
+        $this->assertFalse((bool) data_get($payload, 'documentation_reality_gate.writes'));
         $this->assertContains(data_get($payload, 'gate_status'), ['attention_required', 'blocked']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertContains('architecture_readiness', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('feature_placement', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('session_bootstrap', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('documentation_reality_score', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_anti_duplicate', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_reachability', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('universal_reality_cartography_navigation_slice', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_dependencies', data_get($payload, 'architecture_operations.operation_ids'));
@@ -217,6 +251,9 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
                 ->firstWhere('id', 'voice_realtime_dependencies')['python_binary_policy']['environment_variable'] ?? null,
         );
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:documentation-reality score --strict --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:code-reality reachability --target="<target>" --json', data_get($payload, 'required_validation'));
         $this->assertContains('app/Services/Ai/Surface', data_get($payload, 'implementation_contract.allowed_write_scopes'));
         $this->assertContains('surface_must_collect_input_and_render_output_only', data_get($payload, 'implementation_contract.forbidden_write_scopes'));
         $this->assertContains('review_duplicate_candidates_and_reuse_existing_capabilities_first', $payload['pre_implementation_checklist']);
