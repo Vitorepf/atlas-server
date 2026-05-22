@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\AtlasEngineeringCodeModule;
+use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringDocLink;
 use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Models\AtlasTask;
@@ -406,7 +408,7 @@ return new class extends Migration
     }
 };
 PHP);
-File::put($workspace.'/tests/Feature/AtlasEngineeringFooTest.php', <<<'PHP'
+        File::put($workspace.'/tests/Feature/AtlasEngineeringFooTest.php', <<<'PHP'
 <?php
 
 namespace Tests\Feature\Ai;
@@ -443,6 +445,7 @@ PHP);
                 'tags_json' => ['engineering', 'code-intelligence'],
                 'related_paths_json' => [
                     'app/Services/Engineering/FooService.php',
+                    'app/Console/Commands/AtlasEngineering',
                     'app/Console/Commands/AtlasEngineeringFooCommand.php',
                     'routes/api.php',
                 ],
@@ -481,11 +484,28 @@ PHP);
             $this->assertTrue($payload['ok']);
             $this->assertIsInt($payload['duration_ms']);
             $this->assertGreaterThanOrEqual(0, $payload['duration_ms']);
+            $this->assertSame('atlas.code_intelligence.performance.v1', data_get($payload, 'performance.schema_version'));
+            $this->assertContains(data_get($payload, 'performance.status'), ['healthy', 'watch', 'slow']);
+            $this->assertIsArray(data_get($payload, 'performance.phase_timings_ms'));
+            $this->assertArrayHasKey('scan_workspace', data_get($payload, 'performance.phase_timings_ms'));
+            $this->assertArrayHasKey('persist_symbols', data_get($payload, 'performance.phase_timings_ms'));
+            $this->assertArrayHasKey('persist_file_snapshots', data_get($payload, 'performance.phase_timings_ms'));
+            $this->assertArrayHasKey('sync_doc_links', data_get($payload, 'performance.phase_timings_ms'));
+            $this->assertSame('atlas.code_intelligence.file_snapshot_cache.v1', data_get($payload, 'performance.cache.schema_version'));
+            $this->assertTrue((bool) data_get($payload, 'performance.cache.enabled'));
+            $this->assertSame('sha256_file_content', data_get($payload, 'performance.cache.quality_guard.key'));
+            $this->assertGreaterThanOrEqual(1, data_get($payload, 'performance.cache.writes_planned'));
+            $this->assertIsFloat(data_get($payload, 'performance.memory_peak_mb'));
+            $this->assertIsNumeric(data_get($payload, 'performance.throughput.symbols_per_second'));
             $this->assertGreaterThanOrEqual(5, data_get($payload, 'summary.module_count'));
             $this->assertGreaterThanOrEqual(10, data_get($payload, 'summary.symbol_count'));
             $this->assertGreaterThanOrEqual(1, data_get($payload, 'summary.doc_link_count'));
             $this->assertDatabaseHas('atlas_engineering_code_modules', [
                 'slug' => 'engineering_harness_services',
+                'status' => 'active',
+            ]);
+            $this->assertDatabaseHas('atlas_engineering_code_file_snapshots', [
+                'file_path' => 'app/Services/Engineering/FooService.php',
                 'status' => 'active',
             ]);
             $this->assertDatabaseHas('atlas_engineering_code_symbols', [
@@ -505,7 +525,7 @@ PHP);
                 'symbol_name' => 'Tests\\Feature\\Ai\\AtlasEngineeringFooTest::test_foo_route_is_indexed',
             ]);
             $longMethodPrefix = 'Tests\\Feature\\Ai\\AtlasEngineeringFooTest::test_command_returns_codex_review_merge_post_execution_action_signed_receipt';
-            $longSymbol = \App\Models\AtlasEngineeringCodeSymbol::query()
+            $longSymbol = AtlasEngineeringCodeSymbol::query()
                 ->where('symbol_type', 'test_method')
                 ->where('symbol_name', 'like', $longMethodPrefix.'%')
                 ->first();
@@ -524,7 +544,16 @@ PHP);
                 'target_path' => 'app/Services/Engineering/FooService.php',
                 'status' => 'current',
             ]);
-            $apiModule = \App\Models\AtlasEngineeringCodeModule::query()
+            $this->assertDatabaseHas('atlas_engineering_doc_links', [
+                'target_path' => 'app/Console/Commands/AtlasEngineering',
+                'link_type' => 'module_path',
+                'status' => 'current',
+            ]);
+            $this->assertDatabaseHas('atlas_engineering_code_modules', [
+                'slug' => 'engineering_harness_cli',
+                'docs_status' => 'documented',
+            ]);
+            $apiModule = AtlasEngineeringCodeModule::query()
                 ->where('slug', 'engineering_harness_api')
                 ->firstOrFail();
             $this->assertSame('symbols_dependencies_tests_docs', data_get($apiModule->metadata, 'code_intelligence_depth'));
@@ -540,7 +569,7 @@ PHP);
                 'php_use_ast',
                 collect(data_get($apiModule->metadata, 'dependency_edges', []))->pluck('kind')->all(),
             );
-            $testModule = \App\Models\AtlasEngineeringCodeModule::query()
+            $testModule = AtlasEngineeringCodeModule::query()
                 ->where('slug', 'engineering_harness_tests')
                 ->firstOrFail();
             $this->assertContains(
@@ -570,6 +599,11 @@ PHP);
                 ->firstOrFail();
             $this->assertSame('index', data_get($indexToolRun->metadata_json, 'operation'));
             $this->assertIsInt(data_get($indexToolRun->metadata_json, 'duration_ms'));
+            $this->assertSame(
+                data_get($payload, 'performance.status'),
+                data_get($indexToolRun->metadata_json, 'performance_status'),
+            );
+            $this->assertIsArray(data_get($indexToolRun->metadata_json, 'phase_timings_ms'));
             $this->assertGreaterThanOrEqual(0, $indexToolRun->duration_ms);
 
             $codeRefs = $service->contextRefs(['contract' => ['tags' => ['engineering']]], 5);
@@ -670,6 +704,17 @@ PHP);
             $freshAudit = $service->audit(['workspace' => $workspace, 'limit' => 10]);
             $this->assertSame('fresh', $freshAudit['status']);
             $this->assertSame(0, data_get($freshAudit, 'summary.drift.total'));
+            $this->assertSame(0, data_get($freshAudit, 'drift.doc_links.counts.missing_targets'));
+            $freshReadiness = $service->readiness(['workspace' => $workspace, 'limit' => 10]);
+            $this->assertSame('atlas.code_intelligence.readiness.v1', data_get($freshReadiness, 'schema_version'));
+            $this->assertSame('ready', data_get($freshReadiness, 'status'));
+            $this->assertSame(0, data_get($freshReadiness, 'summary.critical_failures'));
+            $this->assertFalse((bool) data_get($freshReadiness, 'claim_policy.provider_calls_made'));
+
+            $cachedPayload = $service->index(['workspace' => $workspace, 'prune' => true]);
+            $this->assertTrue($cachedPayload['ok']);
+            $this->assertGreaterThanOrEqual(1, data_get($cachedPayload, 'performance.cache.hits'));
+            $this->assertSame(0, data_get($cachedPayload, 'performance.cache.writes_planned'));
 
             File::put($workspace.'/app/Services/Engineering/FooService.php', <<<'PHP'
 <?php
@@ -697,12 +742,19 @@ PHP);
             $this->assertSame('drift_detected', $driftAudit['status']);
             $this->assertIsInt($driftAudit['duration_ms']);
             $this->assertGreaterThanOrEqual(0, $driftAudit['duration_ms']);
+            $this->assertSame('atlas.code_intelligence.performance.v1', data_get($driftAudit, 'performance.schema_version'));
+            $this->assertArrayHasKey('symbol_drift', data_get($driftAudit, 'performance.phase_timings_ms'));
+            $this->assertArrayHasKey('doc_link_health', data_get($driftAudit, 'performance.phase_timings_ms'));
+            $this->assertGreaterThanOrEqual(1, data_get($driftAudit, 'performance.cache.misses'));
             $this->assertGreaterThan(0, data_get($driftAudit, 'summary.drift.total'));
             $this->assertSame(
                 'engineering_harness_services',
                 data_get($driftAudit, 'drift.modules.changed.0.slug'),
             );
             $this->assertGreaterThanOrEqual(1, data_get($driftAudit, 'summary.drift.symbols.added'));
+            $blockedReadiness = $service->readiness(['workspace' => $workspace, 'limit' => 10]);
+            $this->assertSame('blocked', data_get($blockedReadiness, 'status'));
+            $this->assertContains('audit_not_fresh', data_get($blockedReadiness, 'critical_failures'));
             $auditToolRun = AtlasToolRun::query()
                 ->where('tool_slug', 'atlas_code_intelligence')
                 ->where('run_context_type', 'engineering_run')
@@ -743,6 +795,17 @@ PHP);
                 'run_context_id' => 'code-audit-cli',
                 'status' => 'failed',
             ]);
+
+            $readinessExitCode = Artisan::call('atlas:engineering:knowledge', [
+                'action' => 'code-readiness',
+                '--workspace' => $workspace,
+                '--limit' => 10,
+                '--json' => true,
+            ]);
+            $readinessPayload = json_decode(Artisan::output(), true);
+
+            $this->assertSame(1, $readinessExitCode);
+            $this->assertSame('blocked', data_get($readinessPayload, 'status'));
         } finally {
             File::deleteDirectory($workspace);
         }
@@ -858,6 +921,21 @@ PHP);
             $table->string('target_hash', 64)->nullable()->index();
             $table->string('link_hash', 64)->unique();
             $table->json('metadata')->default('{}');
+            $table->timestamp('indexed_at')->nullable()->index();
+            $table->timestamp('archived_at')->nullable()->index();
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_engineering_code_file_snapshots', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('file_path', 500)->unique();
+            $table->string('module_slug', 160)->index();
+            $table->string('language', 40)->nullable()->index();
+            $table->string('source_hash', 64)->index();
+            $table->unsignedBigInteger('file_size')->default(0);
+            $table->json('symbols_json')->default('[]');
+            $table->json('relations_json')->default('{}');
+            $table->string('status', 32)->default('active')->index();
             $table->timestamp('indexed_at')->nullable()->index();
             $table->timestamp('archived_at')->nullable()->index();
             $table->timestamps();
@@ -990,6 +1068,7 @@ PHP);
         Schema::dropIfExists('atlas_tool_policies');
         Schema::dropIfExists('atlas_tool_installations');
         Schema::dropIfExists('atlas_tool_definitions');
+        Schema::dropIfExists('atlas_engineering_code_file_snapshots');
         Schema::dropIfExists('atlas_engineering_doc_links');
         Schema::dropIfExists('atlas_engineering_code_symbols');
         Schema::dropIfExists('atlas_engineering_code_modules');

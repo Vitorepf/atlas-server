@@ -73,6 +73,11 @@ class EngineeringContextPackService
         $toolEvidenceRefs = $this->toolEvidenceRefs($workspace);
         $selectedFiles = collect((array) ($contract['likely_files'] ?? []))
             ->merge($profile->importantFiles)
+            ->merge([
+                'docs/engineering-knowledge-base/README.md',
+                'docs/engineering-knowledge-base/START_HERE.md',
+                'docs/engineering-knowledge-base/code-intelligence.md',
+            ])
             ->merge(collect($knowledgeRefs)->pluck('canonical_path')->all())
             ->merge(collect($codeRefs)->pluck('root_path')->all())
             ->merge(collect($codeRefs)->flatMap(fn (array $ref): array => (array) ($ref['related_tests'] ?? []))->all())

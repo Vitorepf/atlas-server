@@ -2,9 +2,9 @@
 id: atlas-quality-preserving-efficiency-system
 type: engineering_knowledge
 title: Atlas Quality-Preserving Efficiency System
-status: planned
-implementation_state: v2_technical_limit_spec_ready; child runtimes partly existing under AUCRI/AREG, ACCCR/ALVE not implemented.
-blocker: Implementar ACCCR e ALVE exige AP, receipts, gates e integracao progressiva com Atlas Dev/Forge.
+status: building
+implementation_state: v4_aqpes_acccr_active; AQPES service/command/shadow/resource policy implemented, ACCCR read-only active, AUCRI/AREG/ACCR/ATER/ACMF integrated, ALVE still requires dedicated child runtime.
+blocker: ALVE ainda precisa de service dedicado, receipts persistidos, gates e integracao progressiva com Atlas Dev/Forge.
 category: intelligence-runtime
 priority: 100
 summary: Documentacao mae para reduzir custo de token e usar CPU/RAM local como prova, busca, cache, teste e compressao sem reduzir qualidade, evidencia, must-keep ou seguranca.
@@ -35,15 +35,16 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
+  - docs/engineering-knowledge-base/atlas-context-cache-compiler-runtime.md
   - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
   - docs/engineering-knowledge-base/atlas-token-economy-runtime.md
-  - docs/engineering-knowledge-base/atlas-context-pareto-frontier-runtime.md
-  - docs/engineering-knowledge-base/atlas-aucri-continuous-optimization-protocol.md
   - docs/engineering-knowledge-base/atlas-runtime-efficiency-governor.md
-  - docs/engineering-knowledge-base/atlas-retrieval-evaluation-benchmark-arena.md
-  - docs/engineering-knowledge-base/atlas-context-observability-plane.md
-  - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
-  - docs/engineering-knowledge-base/atlas-software-twin-verified-evolution-runtime.md
+  - app/Services/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemService.php
+  - app/Services/Ai/Context/AtlasContextCacheCompilerRuntimeService.php
+  - app/Console/Commands/AtlasQualityPreservingEfficiencyCommand.php
+  - app/Console/Commands/AtlasContextCacheCompilerCommand.php
+  - tests/Feature/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemServiceTest.php
+  - tests/Feature/Ai/Context/ContextCacheCompilerRuntimeTest.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-quality-preserving-efficiency-system
 graph_title: Atlas Quality Preserving Efficiency System
@@ -92,16 +93,24 @@ governs:
   - atlas.token_savings_quality_receipt.v1
 evidence:
   - docs/engineering-knowledge-base/atlas-quality-preserving-efficiency-system.md
+  - app/Services/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemService.php
+  - app/Services/Ai/Context/AtlasContextCacheCompilerRuntimeService.php
+  - tests/Feature/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemServiceTest.php
+  - tests/Feature/Ai/Context/ContextCacheCompilerRuntimeTest.php
 required_tests:
+  - "php artisan atlas:efficiency certify --json"
+  - "php artisan atlas:efficiency shadow --json"
+  - "php artisan atlas:efficiency resources --json"
+  - "php artisan test tests/Feature/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemServiceTest.php"
+  - "php artisan atlas:context:cache-warm --json"
+  - "php artisan test tests/Feature/Ai/Context/ContextCacheCompilerRuntimeTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:compile --json"
   - "php artisan atlas:context:token-economy --json"
-  - "php artisan atlas:context:pareto-frontier --json"
 requires_evidence: true
 risk_level: critical
 line_limit: 520
 next_actions:
-  - Implementar ACCCR read-only com Merkle Context Cache e prompt cache warmup.
   - Implementar ALVE read-only com CPU/RAM budget e failure capsules.
   - Conectar AQPES ao Atlas Dev/Forge primeiro em shadow mode.
   - Criar certification command e receipts antes de qualquer enforcement.
@@ -145,6 +154,12 @@ Schemas obrigatorios: `atlas.context_cache.compiler.v1`,
 `atlas.failure_capsule.v1`, `atlas.resource_budget.policy.v1`,
 `atlas.token_savings_quality_receipt.v1` e `atlas.efficiency.certification.v1`.
 
+Schemas ativos na primeira fatia runtime:
+
+- `atlas.quality_preserving_efficiency.certification.v1`;
+- `atlas.quality_preserving_efficiency.shadow.v1`;
+- `atlas.quality_preserving_efficiency.resource_policy.v1`.
+
 Campos minimos: `flow_id`, `risk_level`, `provider`, `context_pack_hash`,
 `cache_hit_status`, `input_tokens_before`, `input_tokens_after`,
 `must_keep_coverage`, `quality_gate_status`, `cpu_budget`, `ram_budget`,
@@ -170,20 +185,10 @@ quality_preservation_score =
 
 Promocao exige `quality_preservation_score >= 0.98` e nenhum hard gate falho.
 
-Payload minimo do receipt:
-
-```json
-{
-  "schema_version": "atlas.token_savings_quality_receipt.v1",
-  "flow_id": "atlas_dev|atlas_forge|research",
-  "strategy": "cache|delta|compression|local_verification",
-  "before": {"input_tokens": 0, "latency_ms": 0, "cost_units": 0},
-  "after": {"input_tokens": 0, "latency_ms": 0, "cost_units": 0},
-  "quality": {"must_keep_coverage": 1.0, "evidence_loss": false, "regression": false},
-  "resources": {"cpu_mode": "light|normal|deep", "operator_reserved_ram_gb": 3},
-  "rollback_ref": "receipt-or-config-id"
-}
-```
+Payload minimo do receipt: `schema_version`, `flow_id`, `strategy`, `before`,
+`after`, `quality`, `resources`, `rollback_ref`. Shadow ativo tambem precisa
+de `runtime_refs.{areg,context_compiler,token_economy,cognitive_memory}`,
+`quality_contract` e `resource_policy`.
 
 Schemas minimos implementaveis:
 
@@ -254,7 +259,8 @@ Politica de rollout:
 
 | Bloco | Status | Funcao | Input | Output | Risco | Metrica | Comando | Teste | Owner |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ACCCR | design | cache/delta context | docs, schemas, code map | merkle pack | cache stale | cache hit, token saved | `atlas:context:cache-warm` | cache contract | AQPES |
+| AQPES | building | certificacao/shadow/politica de recursos | flow, risco, recursos, contexto | shadow/cert/resource receipt | falsa economia | qps, floor, savings | `atlas:efficiency` | AQPES service test | AQPES |
+| ACCCR | active | cache/delta context | docs, schemas, code map | merkle pack | cache stale | cache hit, token saved | `atlas:context:cache-warm` | cache contract | AQPES |
 | ALVE | design | prova local | diff, logs, tests | failure capsule | CPU runaway | failed patch avoided | `atlas:local-verification:run` | verification test | AQPES |
 | ATER | planned | token budget | compiled pack | saving receipt | perda contexto | loss score | `atlas:context:token-economy` | token test | AUCRI |
 | ACPFR | building | fronteira Pareto | variantes | promocao segura | custo>qualidade | quality delta | `atlas:context:pareto-frontier` | frontier test | AUCRI |
@@ -458,15 +464,15 @@ Regra: AQPES nunca pode virar motivo para o Forge entregar menos evidencia.
 
 ## Comandos Planejados
 
-- `php artisan atlas:efficiency:certify --json`;
-- `php artisan atlas:efficiency:shadow --flow=dev --json`;
+- `php artisan atlas:efficiency certify --json` (ativo);
+- `php artisan atlas:efficiency shadow --flow-id=atlas_dev --json` (ativo);
+- `php artisan atlas:efficiency resources --json` (ativo);
 - `php artisan atlas:context:cache-warm --workspace=...`;
 - `php artisan atlas:local-verification:run --diff`;
 - `php artisan atlas:efficiency:receipt --last`.
 
 Comandos de diagnostico:
 
-- `php artisan atlas:efficiency:resources --json`;
 - `php artisan atlas:efficiency:cache-audit --json`;
 - `php artisan atlas:local-verification:impact --diff --json`;
 - `php artisan atlas:failure-capsule:make --from-log=... --json`.
@@ -503,16 +509,10 @@ Limite tecnico honesto:
   economia de token de provider externo.
 
 ## Exemplos
-
-Atlas Dev: prefixo fixo de governance, owner docs e tool contracts fica
-cacheavel. A tarefa nova envia so delta, arquivos tocados e failure capsule.
-
-Atlas Forge: ALVE escolhe testes afetados e roda gates locais antes de chamar
-provider caro para repair. O provider recebe o erro essencial, nao 5 mil linhas
-de log.
+Dev/Forge usam shadow primeiro: contexto cacheavel, delta, budget local e
+failure capsule; se qualquer gate falhar, voltam ao baseline sem economia.
 
 ## Proximas Acoes
-
-1. Criar docs filhas ACCCR e ALVE com service, command, tests e receipts.
-2. Implementar Resource Budget Policy com reserva minima de 3 GB para operador.
+1. Criar doc filha ALVE com service, command, tests e receipts.
+2. Persistir receipts AQPES para runs reais, mantendo shadow read-only como default.
 3. Rodar shadow no Atlas Dev/Forge e promover apenas com receipts comparativos.

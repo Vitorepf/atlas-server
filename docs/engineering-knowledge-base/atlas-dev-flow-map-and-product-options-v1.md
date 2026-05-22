@@ -48,6 +48,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-code-long-session-programming-cockpit.md
   - docs/engineering-knowledge-base/atlas-code-scor-1-implementation-contract.md
   - docs/engineering-knowledge-base/spec-operating-system/
+  - app/Console/Commands/AtlasCli
   - app/Console/Commands/AtlasCliDevCommand.php
   - app/Console/Commands/AiChatCommand.php
   - app/Console/Commands/AtlasCliFixCommand.php

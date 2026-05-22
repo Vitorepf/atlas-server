@@ -25,6 +25,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-continuity-session-state.md
+  - docs/engineering-knowledge-base/atlas-skill-evolution-runtime.md
   - resolver-o-que-vale-a-pena/root-md/Atlas_AI_Skill_System_v1.md
 doc_schema: atlas_canonical_module_doc.v1
 
@@ -141,6 +142,18 @@ versionada, provider-neutral, medida contra baseline e melhorada com evidencia.
 | `ready` | Evidencia de ganho contra baseline. | Pode ser ativada por router. |
 | `default` | Revisao humana e safety aprovadas. | Entra por padrao nos flows elegiveis. |
 | `deprecated` | Skill piorou, conflitou ou foi substituida. | Redirect/rollback e trace historico. |
+
+## Skill Evolution Runtime
+
+`AtlasSkillEvolutionRuntimeService` e a ponte operacional entre outcomes reais e
+skills. Ele gera proposta `atlas.skill_evolution.proposal.v1`, plano de
+refatoracao `atlas.skill_evolution.refactor_plan.v1` e certificacao local
+`atlas.skill_evolution.certification.v1`.
+
+Regra: o runtime pode propor ou registrar capability candidate na Intelligence
+Factory; ele nao instala skill ativa, nao promove default e nao chama provider.
+Use `docs/engineering-knowledge-base/atlas-skill-evolution-runtime.md` como owner
+doc antes de alterar esse fluxo.
 
 ## Source Material
 

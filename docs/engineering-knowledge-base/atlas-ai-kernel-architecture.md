@@ -32,6 +32,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
+  - app/Models/Ai
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-kernel-architecture

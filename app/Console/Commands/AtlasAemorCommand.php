@@ -20,6 +20,7 @@ class AtlasAemorCommand extends Command
         {--summary= : Outcome or learning summary}
         {--event-type= : Event type}
         {--evidence=* : Evidence refs}
+        {--skill-candidate : During distill, propose a governed skill candidate from the outcome}
         {--hours=24 : Control-plane window}
         {--json : Emit JSON}';
 
@@ -56,6 +57,7 @@ class AtlasAemorCommand extends Command
                 'outcome_id' => $this->option('outcome'),
                 'claim' => (string) ($this->option('summary') ?: 'AEMOR learning signal.'),
                 'evidence_refs' => (array) $this->option('evidence'),
+                'propose_skill_candidate' => (bool) $this->option('skill-candidate'),
             ]),
             'memory-audit' => $runtime->memoryAudit(),
             'replay' => $runtime->replayManifest((string) ($this->option('episode') ?: '')),

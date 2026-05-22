@@ -8,6 +8,7 @@ use App\Models\AiMemoryDelta;
 use App\Models\AtlasAemorExecutionEpisode;
 use App\Models\AtlasAemorExecutionEvent;
 use App\Models\AtlasAemorMemoryCandidate;
+use App\Models\AtlasIntelligenceFactoryCapability;
 use App\Models\AtlasIntelligenceFactoryEvolutionEvent;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use Tests\Concerns\CreatesAemorTables;
@@ -140,6 +141,45 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
         $this->assertDatabaseCount('atlas_aemor_memory_candidates', 1);
         $this->assertSame('watch', AtlasAemorMemoryCandidate::query()->firstOrFail()->status);
         $this->assertSame('pending', AiMemoryDelta::query()->firstOrFail()->status);
+    }
+
+    public function test_distill_can_propose_governed_skill_candidate_without_auto_installing(): void
+    {
+        $runtime = app(AtlasAemorRuntimeService::class);
+        $episode = $runtime->openEpisode([
+            'objective' => 'test skill distill',
+            'domain' => 'billing_ops',
+            'flow_id' => 'invoice_telemetry',
+            'evidence_refs' => ['episode:e1'],
+        ]);
+        $outcome = $runtime->closeOutcome([
+            'episode_id' => $episode['episode_id'],
+            'status' => 'succeeded',
+            'summary' => 'Rare billing telemetry workflow should become a reusable skill candidate.',
+            'metrics' => ['tests_passed' => true, 'attribution_reviewed' => true],
+            'evidence_refs' => ['test:skill-candidate'],
+        ]);
+
+        $distill = $runtime->distill([
+            'episode_id' => $episode['episode_id'],
+            'outcome_id' => $outcome['outcome_id'],
+            'claim' => 'Rare billing telemetry workflow should become a reusable skill candidate.',
+            'evidence_refs' => ['test:skill-candidate'],
+            'propose_skill_candidate' => true,
+        ]);
+
+        $this->assertSame('candidate', $distill['status']);
+        $this->assertSame('candidate', data_get($distill, 'skill_evolution.status'));
+        $this->assertFalse((bool) data_get($distill, 'skill_evolution.claim_policy.auto_installs_skill'));
+        $this->assertDatabaseHas('atlas_intelligence_factory_capabilities', [
+            'capability_type' => 'skill_candidate',
+            'status' => 'certified',
+        ]);
+
+        $capability = AtlasIntelligenceFactoryCapability::query()
+            ->where('capability_type', 'skill_candidate')
+            ->firstOrFail();
+        $this->assertTrue((bool) data_get($capability->safety_policy, 'operator_review_required'));
     }
 
     public function test_replay_manifest_reconstructs_episode_hashes(): void

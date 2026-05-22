@@ -23,6 +23,8 @@ maintenance:
   - Update after each Memory/Open Brain foundation cycle.
   - Keep this as a compact state map, not a changelog.
 related_paths:
+  - app/Console/Commands/AtlasMemory
+  - app/Models/AtlasMemory
   - app/Models/AtlasMemoryEntry.php
   - app/Services/Ai/AtlasMemoryRegistryService.php
   - app/Services/Ai/AtlasHybridMemoryRetrievalService.php

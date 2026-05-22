@@ -12,6 +12,7 @@ use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasAemorOutcome;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Skills\AtlasSkillEvolutionRuntimeService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -258,6 +259,10 @@ final class AtlasAemorRuntimeService
             $candidateRecord = AtlasAemorMemoryCandidate::query()->create($candidate);
         }
 
+        $skillEvolution = ($gate['status'] === 'pass' && (bool) ($input['propose_skill_candidate'] ?? false))
+            ? $this->proposeSkillCandidateFromOutcome($episode, $outcome, $claim, $evidenceRefs)
+            : null;
+
         return [
             'schema_version' => self::LEARNING_SIGNAL_SCHEMA,
             'status' => $gate['status'] === 'pass' ? 'candidate' : 'blocked',
@@ -267,6 +272,7 @@ final class AtlasAemorRuntimeService
             'memory_candidate_id' => $candidateRecord?->id,
             'memory_delta_id' => $memoryDelta?->id,
             'promotion_gate' => $gate,
+            'skill_evolution' => $skillEvolution,
             'evidence_refs' => $evidenceRefs,
             'claim_policy' => $this->claimPolicy(),
         ];
@@ -485,6 +491,31 @@ final class AtlasAemorRuntimeService
                 'status' => 'skipped',
                 'reason' => 'intelligence_factory_unavailable',
                 'writes' => false,
+            ];
+        }
+    }
+
+    /**
+     * @param  list<string>  $evidenceRefs
+     * @return array<string,mixed>|null
+     */
+    private function proposeSkillCandidateFromOutcome(AtlasAemorExecutionEpisode $episode, AtlasAemorOutcome $outcome, string $claim, array $evidenceRefs): ?array
+    {
+        try {
+            return app(AtlasSkillEvolutionRuntimeService::class)->propose([
+                'workspace' => $episode->workspace ?: base_path(),
+                'objective' => $claim,
+                'summary' => $outcome->summary,
+                'domain' => $episode->domain ?: 'programming',
+                'flow_id' => $episode->flow_id ?: 'atlas_dev',
+                'evidence_refs' => $evidenceRefs,
+            ]);
+        } catch (\Throwable) {
+            return [
+                'schema_version' => AtlasSkillEvolutionRuntimeService::PROPOSAL_SCHEMA,
+                'status' => 'skipped',
+                'reason' => 'skill_evolution_unavailable',
+                'claim_policy' => $this->claimPolicy(),
             ];
         }
     }

@@ -119,7 +119,7 @@ final class AtlasRuntimeEfficiencyGovernorService
         $decisionPayload['decision_hash'] = MissionCanonicalHash::sha256($decisionPayload);
 
         $decision = null;
-        if (Schema::hasTable('atlas_runtime_efficiency_decisions')) {
+        if ((bool) ($input['persist'] ?? true) && Schema::hasTable('atlas_runtime_efficiency_decisions')) {
             $decision = AtlasRuntimeEfficiencyDecision::query()->create($decisionPayload);
         }
 

@@ -34,8 +34,10 @@ related_paths:
   - docs/engineering-knowledge-base/memory/open-brain-mcp.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md
   - docs/engineering-knowledge-base/archive/source-material/memory-core-runbook-full-2026-05-08.md
+  - app/Console/Commands/AtlasMemory
   - app/Console/Commands/AtlasMemoryMaintenanceCommand.php
   - app/Console/Commands/AtlasEngineeringKnowledgeCommand.php
+  - app/Models/AtlasMemory
   - app/Services/Ai/AtlasMemoryMaintenanceService.php
   - app/Services/Engineering/EngineeringKnowledgeBaseService.php
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php

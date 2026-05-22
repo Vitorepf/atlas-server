@@ -37,12 +37,17 @@ related_paths:
   - app/Services/Engineering/EngineeringContextPackService.php
   - app/Services/Engineering/EngineeringBlueprintService.php
   - app/Services/Engineering/EngineeringTaskContractService.php
+  - app/Console/Commands/AtlasEngineering
   - app/Console/Commands/AtlasEngineeringKnowledgeCommand.php
+  - app/Http/Controllers/Engineering
   - app/Http/Controllers/EngineeringKnowledgeController.php
+  - app/Models/AtlasEngineering
   - app/Models/AtlasEngineeringCodeModule.php
   - app/Models/AtlasEngineeringCodeSymbol.php
   - app/Models/AtlasEngineeringDocLink.php
   - database/migrations/2026_05_02_010000_create_atlas_engineering_code_intelligence_tables.php
+  - database/migrations/2026_05_21_210702_add_performance_indexes_to_atlas_engineering_code_intelligence_tables.php
+  - database/migrations/2026_05_21_211200_create_atlas_engineering_code_file_snapshots_table.php
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - routes/api.php
   - tests/Feature/AtlasEngineeringKnowledgeBaseTest.php
@@ -177,6 +182,7 @@ Para auditoria:
 ```bash
 atlas engineering knowledge code-status
 atlas engineering knowledge audit-code --json
+atlas engineering knowledge code-readiness --json
 atlas engineering knowledge modules
 atlas engineering knowledge symbols --symbol-type=cli_command
 atlas engineering knowledge show-module engineering_harness_services
@@ -197,11 +203,12 @@ persistir nada. Como os links docs->codigo dependem do estado persistido, o
 com o indice persistido sem escrever, use `atlas engineering knowledge
 audit-code --json`.
 
-`index-code` e `audit-code` retornam `duration_ms` e gravam a mesma duracao na
-evidencia `atlas_code_intelligence`. Em workspaces grandes ou muito sujos, a
-fase de persistencia/prune pode levar minutos sem emitir linhas intermediarias;
-use `--dry-run --json` para separar custo de scan/parsing de custo de escrita.
-Para gates automatizados ou sessoes longas, prefira `index-code --prune
+`index-code` e `audit-code` retornam `duration_ms`, `performance` e gravam a
+mesma evidencia em `atlas_code_intelligence`. `performance` usa schema
+`atlas.code_intelligence.performance.v1` com `phase_timings_ms`,
+`memory_peak_mb`, throughput e status `healthy|watch|slow`. Em workspaces
+grandes, use `--dry-run --json` para separar scan/parsing de persistencia. Para
+gates automatizados ou sessoes longas, prefira `index-code --prune
 --summary-only --json`: a indexacao persistida e a evidencia sao iguais, mas o
 payload omite previews grandes de modulos/simbolos.
 
@@ -213,14 +220,71 @@ Estados de auditoria:
   link com target ausente/hash divergente;
 - `empty_index`: tabelas existem, mas o indice ainda nao foi populado.
 
-Snapshot operacional validado em 2026-05-02 no `atlas-server`:
+Snapshot operacional validado em 2026-05-21 no `atlas-server`:
 
-- `audit-code` mostrou `fresh` apos a indexacao real final, com `total drift=0`.
-- `code-status --json` mostrou indice persistido `ready`, com 22 modulos,
-  7807 simbolos e 2450 doc links.
+- `index-code --prune --summary-only --json` terminou em aproximadamente 57s
+  com 23 modulos, 70826 simbolos, 516 rotas, 348 comandos, 1202 migrations,
+  13500 testes e 124110 doc links.
+- `audit-code --json` terminou em aproximadamente 13s, mostrou `fresh` e
+  `total drift=0`.
+- `code-status --json` mostrou indice persistido `ready`, com 23 modulos
+  documentados e zero `undocumented`.
 - A tela Engineering consome `GET /engineering/knowledge/code/audit` no painel
   `Code audit` e foi validada por `npm run typecheck` e
   `npm run test:engineering`.
+
+## Performance E Readiness
+
+O contrato operacional minimo para considerar `index-code` saudavel:
+
+- `index-code --prune --summary-only --json` deve concluir sem timeout local;
+- `audit-code --json` deve retornar `status=fresh` depois do index;
+- `code-readiness --json` deve retornar schema
+  `atlas.code_intelligence.readiness.v1` e `status=ready`;
+- `performance.phase_timings_ms` deve mostrar scan, persistencia, doc links e
+  refresh separadamente;
+- `performance.cache.schema_version` deve ser
+  `atlas.code_intelligence.file_snapshot_cache.v1`;
+- `performance.cache.quality_guard.key` deve ser `sha256_file_content`;
+- cache por `mtime` sem hash de conteudo e proibido para este indice;
+- `memory_peak_mb` deve ficar abaixo do budget CLI aplicado pelo runtime;
+- `drift.total=0` apos reindex real;
+- `docs_status.undocumented` deve ser tratado como lacuna de documentacao, nao
+  erro de scan.
+
+Quando `performance.status=slow`, a proxima acao correta e otimizar a fase mais
+cara indicada por `phase_timings_ms`, nao adicionar cache cego.
+
+O cache permitido e checkpoint por arquivo com hash SHA-256 do conteudo. O
+indice pode reutilizar simbolos e relacoes persistidos somente quando o hash
+atual do arquivo for identico ao snapshot. Qualquer mudanca real vira miss e o
+arquivo e reparseado. Esse contrato preserva qualidade: nao existe reuso por
+timestamp, tamanho ou heuristica.
+
+`code-readiness` bloqueia quando tabelas estao ausentes, indice nao esta ready,
+audit nao esta fresh, contagens estruturais estao vazias ou `drift.total > 0`.
+Modulos `undocumented` viram warning, nao falha critica.
+
+Modulos virtuais sao validos. Alguns roots como `app/Models/Ai`,
+`app/Console/Commands/AtlasCli`, `app/Console/Commands/AtlasEngineering`,
+`app/Console/Commands/AtlasMemory`, `app/Models/AtlasEngineering` e
+`app/Models/AtlasMemory` representam prefixos de classificacao, nao diretorios
+fisicos obrigatorios. Links documentais de nivel modulo podem ficar `current`
+mesmo sem alvo fisico; links de simbolo/arquivo continuam exigindo alvo real.
+
+Estado validado em 2026-05-21:
+
+- primeira execucao apos criar snapshot cache: 5.944 misses, 5.944 snapshots
+  persistidos, `duration_ms=61354`;
+- execucao quente de `index-code --prune --summary-only --json`: 23 modulos,
+  70.841 simbolos, 124.211 doc links, 516 rotas, 348 comandos, 1.204
+  migrations, 13.500 testes, `performance.status=healthy`, `duration_ms=47071`,
+  `cache.hits=5944`, `cache.misses=0`, `cache.hit_rate=1`;
+- `audit-code --json`/`code-readiness --json`: `status=fresh`,
+  `drift.total=0`, `audit_duration_ms=10957`, `cache.hit_rate=1`;
+- `code-readiness --json`: `status=ready`, `critical_failures=0`,
+  `warnings=0`, `drift_total=0`;
+- `modules --docs-status=undocumented --summary-only --json`: zero modulos.
 
 ## Como A IA Deve Usar
 
@@ -274,6 +338,14 @@ batch para runtime incremental; depois ASTR cria o gemeo vivo do software; depoi
 AVEOR controla evolucao verificada em cima desse twin. `AVER` permanece o
 executor verificado existente e nao deve ser confundido com AVEOR.
 
+Estado atual: `index-code` esta funcional, auditavel e performatico para uso
+operacional batch. Ja possui readiness dedicado, telemetry de performance,
+drift audit, cobertura documental zerada, suporte correto a modulos virtuais e
+checkpoint persistente por arquivo com hash de conteudo. Ainda nao e o ACIR
+final porque nao tem fila incremental por diff, grafo delta do Software Twin nem
+commit-level selective write; o indice batch atual, porem, ja possui cache
+seguro e readiness bloqueante.
+
 ## External Graph Harness
 
 Ferramentas como Graphify podem acelerar cartografia de codigo, comunidades,
@@ -301,7 +373,15 @@ Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
 
 ## Contratos
 
-Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+Contratos principais:
+
+- `atlas.code_intelligence.performance.v1` para timings/memoria/throughput;
+- `atlas_code_intelligence` como evidencia runtime em `atlas_tool_runs`;
+- tabelas `atlas_engineering_code_modules`, `atlas_engineering_code_symbols` e
+  `atlas_engineering_doc_links` como read model operacional;
+- `audit-code` e a prova de frescor: `status=fresh` e `drift.total=0`.
+- `atlas.code_intelligence.readiness.v1` como envelope de prontidao para Dev,
+  Forge, Cartografia, ACRUI e Software Twin.
 
 ## Fluxo
 
@@ -333,7 +413,8 @@ Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para human
 
 ## Proximas Acoes
 
-1. Evoluir `index-code` para ACIR incremental, checkpointed e freshness-aware.
-2. Alimentar ACRUI com o ACIR persistido para reachability real.
-3. Implementar ASTR read-only antes de qualquer camada mutativa.
-4. Implementar AVEOR somente depois do ASTR, usando AVER como executor verificado.
+1. Criar readiness/certification dedicado para Code Intelligence.
+2. Evoluir `index-code` para ACIR incremental, checkpointed e freshness-aware.
+3. Alimentar ACRUI com o ACIR persistido para reachability real.
+4. Implementar ASTR read-only antes de qualquer camada mutativa.
+5. Implementar AVEOR somente depois do ASTR, usando AVER como executor verificado.

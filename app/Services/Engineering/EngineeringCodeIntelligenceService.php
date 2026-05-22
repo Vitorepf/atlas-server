@@ -28,6 +28,9 @@ class EngineeringCodeIntelligenceService
 {
     private const EXTENSIONS = ['php', 'ts', 'tsx', 'js', 'jsx', 'md'];
 
+    /** @var array<string,string|null> */
+    private array $docLinkTargetHashCache = [];
+
     public function __construct(
         private readonly AtlasToolEvidenceStore $toolEvidence,
         private readonly ?EngineeringContextIntelligenceInput $input = null,
@@ -40,6 +43,7 @@ class EngineeringCodeIntelligenceService
     public function index(array $options = []): array
     {
         $startedAt = microtime(true);
+        $phaseTimings = [];
         $this->ensureIndexMemoryBudget();
         $this->ensureTables();
 
@@ -47,11 +51,14 @@ class EngineeringCodeIntelligenceService
         $dryRun = (bool) ($options['dry_run'] ?? false);
         $prune = (bool) ($options['prune'] ?? false);
         $context = $this->toolRuntimeContext($options);
-        $scan = $this->scanWorkspace($workspace);
+        $phaseStartedAt = microtime(true);
+        $scan = $this->scanWorkspace($workspace, true);
+        $this->recordPhase($phaseTimings, 'scan_workspace', $phaseStartedAt);
         $moduleRows = $scan['modules'];
         $symbolRows = $scan['symbols'];
 
         if ($dryRun) {
+            $durationMs = $this->elapsedMs($startedAt);
             $payload = [
                 'ok' => true,
                 'dry_run' => true,
@@ -59,7 +66,8 @@ class EngineeringCodeIntelligenceService
                 'summary' => $scan['summary'],
                 'modules' => $moduleRows,
                 'symbols_preview' => array_slice($symbolRows, 0, 80),
-                'duration_ms' => $this->elapsedMs($startedAt),
+                'duration_ms' => $durationMs,
+                'performance' => $this->performanceProfile($durationMs, $phaseTimings, $scan['summary'], $scan['cache'] ?? []),
                 'generated_at' => now()->toJSON(),
             ];
             $this->recordToolRuntimeEvidence('index', $workspace, $payload, $context);
@@ -67,12 +75,25 @@ class EngineeringCodeIntelligenceService
             return $payload;
         }
 
+        $phaseStartedAt = microtime(true);
         $moduleIds = $this->persistModules($moduleRows, $prune);
+        $this->recordPhase($phaseTimings, 'persist_modules', $phaseStartedAt);
+        $phaseStartedAt = microtime(true);
         $symbolCount = $this->persistSymbols($symbolRows, $moduleIds, $prune);
+        $this->recordPhase($phaseTimings, 'persist_symbols', $phaseStartedAt);
+        $phaseStartedAt = microtime(true);
+        $this->persistFileSnapshots((array) ($scan['file_snapshots'] ?? []), $prune, (array) ($scan['file_paths'] ?? []));
+        $this->recordPhase($phaseTimings, 'persist_file_snapshots', $phaseStartedAt);
+        $phaseStartedAt = microtime(true);
         $docLinkCount = $this->syncDocLinks($workspace, $prune);
+        $this->recordPhase($phaseTimings, 'sync_doc_links', $phaseStartedAt);
         $summary = $this->scanSummary($moduleRows, $symbolRows, $docLinkCount);
+        $cache = (array) ($scan['cache'] ?? []);
         unset($scan, $moduleRows, $symbolRows, $moduleIds);
+        $phaseStartedAt = microtime(true);
         $this->refreshDocumentationStatus();
+        $this->recordPhase($phaseTimings, 'refresh_documentation_status', $phaseStartedAt);
+        $durationMs = $this->elapsedMs($startedAt);
 
         $payload = [
             'ok' => true,
@@ -81,7 +102,8 @@ class EngineeringCodeIntelligenceService
             'summary' => $summary,
             'modules' => $this->catalog([], 30)['modules'],
             'symbol_count' => $symbolCount,
-            'duration_ms' => $this->elapsedMs($startedAt),
+            'duration_ms' => $durationMs,
+            'performance' => $this->performanceProfile($durationMs, $phaseTimings, $summary, $cache),
             'generated_at' => now()->toJSON(),
         ];
         $this->recordToolRuntimeEvidence('index', $workspace, $payload, $context);
@@ -96,8 +118,8 @@ class EngineeringCodeIntelligenceService
             return;
         }
 
-        if ($this->memoryLimitToBytes($current) < 512 * 1024 * 1024) {
-            ini_set('memory_limit', '512M');
+        if ($this->memoryLimitToBytes($current) < 1024 * 1024 * 1024) {
+            ini_set('memory_limit', '1024M');
         }
     }
 
@@ -126,21 +148,34 @@ class EngineeringCodeIntelligenceService
     public function audit(array $options = []): array
     {
         $startedAt = microtime(true);
+        $phaseTimings = [];
+        $this->ensureIndexMemoryBudget();
         $this->ensureTables();
 
         $workspace = $this->workspace($options['workspace'] ?? base_path());
         $limit = $this->contextInput()->codeLimit($options['limit'] ?? null);
         $context = $this->toolRuntimeContext($options);
-        $scan = $this->scanWorkspace($workspace);
+        $phaseStartedAt = microtime(true);
+        $scan = $this->scanWorkspace($workspace, true);
+        $this->recordPhase($phaseTimings, 'scan_workspace', $phaseStartedAt);
+        $phaseStartedAt = microtime(true);
         $modules = $this->moduleDrift($scan['modules'], $limit);
+        $this->recordPhase($phaseTimings, 'module_drift', $phaseStartedAt);
+        $phaseStartedAt = microtime(true);
         $symbols = $this->symbolDrift($scan['symbols'], $limit);
+        $this->recordPhase($phaseTimings, 'symbol_drift', $phaseStartedAt);
+        $phaseStartedAt = microtime(true);
         $docLinks = $this->docLinkHealth($workspace, $limit);
+        $this->recordPhase($phaseTimings, 'doc_link_health', $phaseStartedAt);
         $moduleDrift = array_sum($modules['counts']);
         $symbolDrift = array_sum($symbols['counts']);
         $docLinkDrift = (int) ($docLinks['counts']['missing_targets'] ?? 0)
             + (int) ($docLinks['counts']['stale_target_hashes'] ?? 0);
         $totalDrift = $moduleDrift + $symbolDrift + $docLinkDrift;
+        $phaseStartedAt = microtime(true);
         $persisted = $this->summary();
+        $this->recordPhase($phaseTimings, 'persisted_summary', $phaseStartedAt);
+        $durationMs = $this->elapsedMs($startedAt);
 
         $payload = [
             'ok' => true,
@@ -165,12 +200,100 @@ class EngineeringCodeIntelligenceService
                 'symbols' => $symbols,
                 'doc_links' => $docLinks,
             ],
-            'duration_ms' => $this->elapsedMs($startedAt),
+            'duration_ms' => $durationMs,
+            'performance' => $this->performanceProfile($durationMs, $phaseTimings, $scan['summary'], $scan['cache'] ?? []),
             'generated_at' => now()->toJSON(),
         ];
         $this->recordToolRuntimeEvidence('audit', $workspace, $payload, $context);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    public function readiness(array $options = []): array
+    {
+        $startedAt = microtime(true);
+        $workspace = $this->workspace($options['workspace'] ?? base_path());
+        $audit = $this->audit($options);
+        $stabilityRechecked = false;
+        if (($audit['status'] ?? null) !== 'fresh') {
+            usleep(100000);
+            $secondAudit = $this->audit($options);
+            $stabilityRechecked = true;
+
+            if ((int) data_get($secondAudit, 'summary.drift.total', PHP_INT_MAX) <= (int) data_get($audit, 'summary.drift.total', PHP_INT_MAX)) {
+                $audit = $secondAudit;
+            }
+        }
+
+        $summary = (array) ($audit['summary']['persisted'] ?? $this->summary());
+        $criticalFailures = [];
+        $warnings = [];
+
+        if (! (bool) ($summary['table_exists'] ?? false)) {
+            $criticalFailures[] = 'tables_missing';
+        }
+
+        if (($summary['status'] ?? null) !== 'ready') {
+            $criticalFailures[] = 'index_not_ready';
+        }
+
+        if (($audit['status'] ?? null) !== 'fresh') {
+            $criticalFailures[] = 'audit_not_fresh';
+        }
+
+        foreach (['module_count', 'symbol_count', 'route_count', 'command_count', 'test_count'] as $field) {
+            if ((int) ($summary[$field] ?? 0) <= 0) {
+                $criticalFailures[] = $field.'_empty';
+            }
+        }
+
+        if ((int) data_get($audit, 'summary.drift.total', 0) !== 0) {
+            $criticalFailures[] = 'drift_detected';
+        }
+
+        if (($audit['performance']['status'] ?? null) === 'slow') {
+            $warnings[] = 'audit_performance_slow';
+        }
+
+        $undocumented = (int) data_get($summary, 'docs_status.undocumented', 0);
+        if ($undocumented > 0) {
+            $warnings[] = 'undocumented_modules_present';
+        }
+
+        $status = $criticalFailures === [] ? 'ready' : 'blocked';
+
+        return [
+            'schema_version' => 'atlas.code_intelligence.readiness.v1',
+            'status' => $status,
+            'workspace' => $workspace,
+            'summary' => [
+                'critical_failures' => count($criticalFailures),
+                'warnings' => count($warnings),
+                'module_count' => (int) ($summary['module_count'] ?? 0),
+                'symbol_count' => (int) ($summary['symbol_count'] ?? 0),
+                'doc_link_count' => (int) ($summary['doc_link_count'] ?? 0),
+                'drift_total' => (int) data_get($audit, 'summary.drift.total', 0),
+                'audit_duration_ms' => (int) ($audit['duration_ms'] ?? 0),
+            ],
+            'critical_failures' => array_values(array_unique($criticalFailures)),
+            'warnings' => array_values(array_unique($warnings)),
+            'audit' => [
+                'status' => $audit['status'] ?? null,
+                'performance' => $audit['performance'] ?? null,
+                'stability_rechecked' => $stabilityRechecked,
+            ],
+            'claim_policy' => [
+                'writes' => false,
+                'provider_calls_made' => false,
+                'external_graph_used' => false,
+            ],
+            'duration_ms' => $this->elapsedMs($startedAt),
+            'generated_at' => now()->toJSON(),
+        ];
     }
 
     /**
@@ -439,6 +562,9 @@ class EngineeringCodeIntelligenceService
                     'test_count' => data_get($summary, 'test_count', data_get($summary, 'scanned.test_count')),
                     'doc_link_count' => data_get($summary, 'doc_link_count', data_get($summary, 'scanned.doc_link_count')),
                     'drift_total' => data_get($drift, 'total'),
+                    'performance_status' => data_get($payload, 'performance.status'),
+                    'memory_peak_mb' => data_get($payload, 'performance.memory_peak_mb'),
+                    'phase_timings_ms' => data_get($payload, 'performance.phase_timings_ms'),
                 ],
                 'findings' => $operation === 'audit' ? $this->toolRuntimeAuditFindings($payload) : [],
                 'recommendations' => $operation === 'audit' && ($payload['status'] ?? null) !== 'fresh'
@@ -455,10 +581,13 @@ class EngineeringCodeIntelligenceService
                     'writes' => (bool) ($payload['writes'] ?? ! (bool) ($payload['dry_run'] ?? false)),
                     'status' => $payload['status'] ?? null,
                     'duration_ms' => (int) ($payload['duration_ms'] ?? 0),
+                    'performance_status' => data_get($payload, 'performance.status'),
+                    'memory_peak_mb' => data_get($payload, 'performance.memory_peak_mb'),
+                    'phase_timings_ms' => data_get($payload, 'performance.phase_timings_ms'),
                     'generated_at' => $payload['generated_at'] ?? null,
                 ],
             ]);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Code intelligence must remain usable even when the generic runtime tables are absent.
         }
     }
@@ -563,14 +692,77 @@ class EngineeringCodeIntelligenceService
     }
 
     /**
-     * @return array{modules:array<int,array<string,mixed>>,symbols:array<int,array<string,mixed>>,summary:array<string,mixed>}
+     * @param  array<string,int>  $phaseTimings
      */
-    private function scanWorkspace(string $workspace): array
+    private function recordPhase(array &$phaseTimings, string $phase, float $startedAt): void
+    {
+        $phaseTimings[$phase] = $this->elapsedMs($startedAt);
+    }
+
+    /**
+     * @param  array<string,int>  $phaseTimings
+     * @param  array<string,mixed>  $summary
+     * @return array<string,mixed>
+     */
+    private function performanceProfile(int $durationMs, array $phaseTimings, array $summary, array $cache = []): array
+    {
+        $fileCount = max(1, (int) ($summary['file_count'] ?? 0));
+        $symbolCount = max(0, (int) ($summary['symbol_count'] ?? 0));
+        $docLinkCount = max(0, (int) ($summary['doc_link_count'] ?? 0));
+        $seconds = max(0.001, $durationMs / 1000);
+
+        return [
+            'schema_version' => 'atlas.code_intelligence.performance.v1',
+            'status' => $this->performanceStatus($durationMs, $summary),
+            'phase_timings_ms' => $phaseTimings,
+            'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
+            'throughput' => [
+                'files_per_second' => round($fileCount / $seconds, 2),
+                'symbols_per_second' => round($symbolCount / $seconds, 2),
+                'doc_links_per_second' => round($docLinkCount / $seconds, 2),
+            ],
+            'cache' => $cache,
+            'budgets' => [
+                'target_index_ms' => 120000,
+                'target_audit_ms' => 30000,
+                'memory_limit' => ini_get('memory_limit') ?: null,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     */
+    private function performanceStatus(int $durationMs, array $summary): string
+    {
+        $symbolCount = (int) ($summary['symbol_count'] ?? 0);
+        $docLinkCount = (int) ($summary['doc_link_count'] ?? 0);
+        $targetMs = $docLinkCount > 0 ? 120000 : 30000;
+
+        if ($durationMs <= $targetMs) {
+            return 'healthy';
+        }
+
+        if ($symbolCount > 50000 && $durationMs <= 180000) {
+            return 'watch';
+        }
+
+        return 'slow';
+    }
+
+    /**
+     * @return array{modules:array<int,array<string,mixed>>,symbols:array<int,array<string,mixed>>,summary:array<string,mixed>,file_snapshots:array<int,array<string,mixed>>,file_paths:array<int,string>,cache:array<string,mixed>}
+     */
+    private function scanWorkspace(string $workspace, bool $useFileSnapshots = false): array
     {
         $files = $this->discoverFiles($workspace);
+        $snapshots = $useFileSnapshots ? $this->loadFileSnapshots() : [];
         $modules = [];
         $symbols = [];
         $fileHashes = [];
+        $fileSnapshots = [];
+        $cacheHits = 0;
+        $cacheMisses = 0;
 
         foreach ($files as $path) {
             $relativePath = $this->relativePath($path, $workspace);
@@ -602,10 +794,22 @@ class EngineeringCodeIntelligenceService
                 ],
             ]);
 
-            foreach ($this->parseFileSymbols($relativePath, $content, $module['slug']) as $symbol) {
+            $cachedHash = $snapshots[$relativePath] ?? null;
+            $cached = $cachedHash === $fileHash ? $this->loadFileSnapshot($relativePath) : null;
+            if (is_array($cached)) {
+                $parsedSymbols = $this->normalizeCachedSymbols((array) ($cached['symbols'] ?? []), $module['slug']);
+                $relations = $this->normalizeCachedRelations((array) ($cached['relations'] ?? []), $module['slug'], $relativePath);
+                $cacheHits++;
+            } else {
+                $parsedSymbols = $this->parseFileSymbols($relativePath, $content, $module['slug']);
+                $relations = $this->parseFileRelations($relativePath, $content, $module['slug']);
+                $fileSnapshots[] = $this->fileSnapshotRow($relativePath, $module['slug'], $language, $fileHash, strlen($content), $parsedSymbols, $relations);
+                $cacheMisses++;
+            }
+
+            foreach ($parsedSymbols as $symbol) {
                 $symbols[] = $symbol;
             }
-            $relations = $this->parseFileRelations($relativePath, $content, $module['slug']);
             $modules[$module['slug']]['dependencies'] = array_merge($modules[$module['slug']]['dependencies'], $relations['dependencies']);
             $modules[$module['slug']]['symbol_references'] = array_merge($modules[$module['slug']]['symbol_references'], $relations['symbol_references']);
             $modules[$module['slug']]['test_targets'] = array_merge($modules[$module['slug']]['test_targets'], $relations['test_targets']);
@@ -645,7 +849,234 @@ class EngineeringCodeIntelligenceService
             'modules' => $moduleRows,
             'symbols' => $symbolRows,
             'summary' => $this->scanSummary($moduleRows, $symbolRows, 0),
+            'file_snapshots' => $fileSnapshots,
+            'file_paths' => array_keys($fileHashes),
+            'cache' => [
+                'schema_version' => 'atlas.code_intelligence.file_snapshot_cache.v1',
+                'enabled' => $useFileSnapshots && $this->fileSnapshotsTableExists(),
+                'strategy' => 'content_hash_file_snapshot',
+                'hits' => $cacheHits,
+                'misses' => $cacheMisses,
+                'writes_planned' => count($fileSnapshots),
+                'hit_rate' => round($cacheHits / max(1, $cacheHits + $cacheMisses), 4),
+                'quality_guard' => [
+                    'key' => 'sha256_file_content',
+                    'mtime_only' => false,
+                    'stale_cache_allowed' => false,
+                ],
+            ],
         ];
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function loadFileSnapshots(): array
+    {
+        if (! $this->fileSnapshotsTableExists()) {
+            return [];
+        }
+
+        return DB::table('atlas_engineering_code_file_snapshots')
+            ->where('status', 'active')
+            ->whereNull('archived_at')
+            ->get([
+                'file_path',
+                'source_hash',
+            ])
+            ->mapWithKeys(fn (object $row): array => [
+                (string) $row->file_path => (string) $row->source_hash,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array{symbols:array<int,array<string,mixed>>,relations:array<string,mixed>}|null
+     */
+    private function loadFileSnapshot(string $relativePath): ?array
+    {
+        if (! $this->fileSnapshotsTableExists()) {
+            return null;
+        }
+
+        $row = DB::table('atlas_engineering_code_file_snapshots')
+            ->where('file_path', $relativePath)
+            ->where('status', 'active')
+            ->whereNull('archived_at')
+            ->first(['symbols_json', 'relations_json']);
+
+        if (! $row) {
+            return null;
+        }
+
+        return [
+            'symbols' => $this->decodedJsonArray($row->symbols_json ?? []),
+            'relations' => $this->decodedJsonArray($row->relations_json ?? []),
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $symbols
+     * @return array<int,array<string,mixed>>
+     */
+    private function normalizeCachedSymbols(array $symbols, string $moduleSlug): array
+    {
+        return collect($symbols)
+            ->filter(fn (mixed $symbol): bool => is_array($symbol))
+            ->map(function (array $symbol) use ($moduleSlug): array {
+                $symbol['module_slug'] = $moduleSlug;
+
+                return $this->symbol($symbol);
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $relations
+     * @return array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}
+     */
+    private function normalizeCachedRelations(array $relations, string $moduleSlug, string $relativePath): array
+    {
+        $normalizeRows = function (mixed $rows) use ($moduleSlug, $relativePath): array {
+            return collect(is_array($rows) ? $rows : [])
+                ->filter(fn (mixed $row): bool => is_array($row))
+                ->map(function (array $row) use ($moduleSlug, $relativePath): array {
+                    if (array_key_exists('from_module', $row)) {
+                        $row['from_module'] = $moduleSlug;
+                    }
+
+                    if (! array_key_exists('file_path', $row) || blank($row['file_path'])) {
+                        $row['file_path'] = $relativePath;
+                    }
+
+                    return $row;
+                })
+                ->values()
+                ->all();
+        };
+
+        return [
+            'dependencies' => $normalizeRows($relations['dependencies'] ?? []),
+            'symbol_references' => $normalizeRows($relations['symbol_references'] ?? []),
+            'test_targets' => $normalizeRows($relations['test_targets'] ?? []),
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $symbols
+     * @param  array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}  $relations
+     * @return array<string,mixed>
+     */
+    private function fileSnapshotRow(string $relativePath, string $moduleSlug, string $language, string $fileHash, int $fileSize, array $symbols, array $relations): array
+    {
+        return [
+            'file_path' => $relativePath,
+            'module_slug' => $moduleSlug,
+            'language' => $language,
+            'source_hash' => $fileHash,
+            'file_size' => $fileSize,
+            'symbols_json' => $symbols,
+            'relations_json' => $relations,
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $rows
+     * @param  array<int,string>  $seenPaths
+     */
+    private function persistFileSnapshots(array $rows, bool $prune, array $seenPaths): void
+    {
+        if (! $this->fileSnapshotsTableExists()) {
+            return;
+        }
+
+        $now = now();
+        $indexedAt = now()->startOfSecond();
+        $batch = [];
+        foreach ($rows as $row) {
+            $batch[] = [
+                'id' => (string) Str::uuid(),
+                'file_path' => (string) $row['file_path'],
+                'module_slug' => (string) $row['module_slug'],
+                'language' => $row['language'] ?? null,
+                'source_hash' => (string) $row['source_hash'],
+                'file_size' => (int) ($row['file_size'] ?? 0),
+                'symbols_json' => $this->json((array) ($row['symbols_json'] ?? [])),
+                'relations_json' => $this->json((array) ($row['relations_json'] ?? [])),
+                'status' => 'active',
+                'indexed_at' => $indexedAt,
+                'archived_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+
+            if (count($batch) >= 500) {
+                $this->upsertFileSnapshotRows($batch);
+                $batch = [];
+            }
+        }
+
+        if ($batch !== []) {
+            $this->upsertFileSnapshotRows($batch);
+        }
+
+        if ($prune && $seenPaths !== []) {
+            DB::table('atlas_engineering_code_file_snapshots')
+                ->where('status', '!=', 'archived')
+                ->whereNotIn('file_path', $seenPaths)
+                ->update([
+                    'status' => 'archived',
+                    'archived_at' => $now,
+                    'updated_at' => $now,
+                ]);
+        }
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $rows
+     */
+    private function upsertFileSnapshotRows(array $rows): void
+    {
+        DB::table('atlas_engineering_code_file_snapshots')->upsert(
+            $rows,
+            ['file_path'],
+            [
+                'module_slug',
+                'language',
+                'source_hash',
+                'file_size',
+                'symbols_json',
+                'relations_json',
+                'status',
+                'indexed_at',
+                'archived_at',
+                'updated_at',
+            ],
+        );
+    }
+
+    private function fileSnapshotsTableExists(): bool
+    {
+        return Schema::hasTable('atlas_engineering_code_file_snapshots');
+    }
+
+    /**
+     * @return array<string|int,mixed>
+     */
+    private function decodedJsonArray(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && $value !== '') {
+            $decoded = json_decode($value, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return [];
     }
 
     /**
@@ -709,24 +1140,35 @@ class EngineeringCodeIntelligenceService
     private function symbolDrift(array $symbolRows, int $limit): array
     {
         $scanned = collect($symbolRows)->keyBy(fn (array $symbol): string => $this->symbolSourceKey($symbol));
-        $persisted = AtlasEngineeringCodeSymbol::query()
-            ->with('module:id,slug')
-            ->active()
+        $persisted = DB::table('atlas_engineering_code_symbols as symbols')
+            ->leftJoin('atlas_engineering_code_modules as modules', 'modules.id', '=', 'symbols.module_id')
+            ->where('symbols.status', 'active')
+            ->whereNull('symbols.archived_at')
             ->get([
-                'id',
-                'module_id',
-                'symbol_type',
-                'symbol_name',
-                'file_path',
-                'line_start',
-                'language',
-                'source_hash',
-                'indexed_at',
+                'symbols.id',
+                'symbols.module_id',
+                'modules.slug as module_slug',
+                'symbols.symbol_type',
+                'symbols.symbol_name',
+                'symbols.file_path',
+                'symbols.line_start',
+                'symbols.language',
+                'symbols.source_hash',
+                'symbols.indexed_at',
             ])
-            ->keyBy(fn (AtlasEngineeringCodeSymbol $symbol): string => $this->symbolSourceKey([
-                'symbol_type' => $symbol->symbol_type,
-                'source_hash' => $symbol->source_hash,
-            ]));
+            ->map(fn (object $symbol): array => [
+                'id' => (string) $symbol->id,
+                'module_id' => $symbol->module_id,
+                'module_slug' => $symbol->module_slug,
+                'symbol_type' => (string) $symbol->symbol_type,
+                'symbol_name' => (string) $symbol->symbol_name,
+                'file_path' => (string) $symbol->file_path,
+                'line_start' => $symbol->line_start,
+                'language' => $symbol->language,
+                'source_hash' => (string) $symbol->source_hash,
+                'indexed_at' => $symbol->indexed_at,
+            ])
+            ->keyBy(fn (array $symbol): string => $this->symbolSourceKey($symbol));
         $addedKeys = $scanned->keys()->diff($persisted->keys())->values();
         $removedKeys = $persisted->keys()->diff($scanned->keys())->values();
 
@@ -757,13 +1199,26 @@ class EngineeringCodeIntelligenceService
      */
     private function docLinkHealth(string $workspace, int $limit): array
     {
-        $links = AtlasEngineeringDocLink::query()
+        $links = DB::table('atlas_engineering_doc_links')
             ->whereNull('archived_at')
-            ->get(['id', 'status', 'canonical_path', 'target_path', 'target_hash', 'link_type', 'indexed_at']);
+            ->select(['id', 'status', 'canonical_path', 'target_path', 'target_hash', 'link_type', 'indexed_at'])
+            ->orderBy('id')
+            ->cursor();
         $missingTargets = [];
         $staleHashes = [];
+        $currentCount = 0;
+        $persistedMissingTargetCount = 0;
+        $targetHashCache = [];
 
         foreach ($links as $link) {
+            if ($link->status === 'current') {
+                $currentCount++;
+            }
+
+            if ($link->status === 'missing_target') {
+                $persistedMissingTargetCount++;
+            }
+
             $targetPath = is_string($link->target_path) && trim($link->target_path) !== ''
                 ? trim($link->target_path)
                 : null;
@@ -773,6 +1228,10 @@ class EngineeringCodeIntelligenceService
 
             $fullPath = $workspace.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $targetPath);
             if (! File::exists($fullPath)) {
+                if (in_array($link->link_type, ['module_path', 'module_capability'], true)) {
+                    continue;
+                }
+
                 if ($link->status !== 'missing_target') {
                     $missingTargets[] = $this->docLinkAuditPayload($link, 'missing_target_detected');
                 }
@@ -780,20 +1239,64 @@ class EngineeringCodeIntelligenceService
                 continue;
             }
 
-            if (File::isFile($fullPath) && $link->target_hash && hash_file('sha256', $fullPath) !== $link->target_hash) {
-                $staleHashes[] = $this->docLinkAuditPayload($link, 'stale_target_hash');
+            if (File::isFile($fullPath) && $link->target_hash) {
+                if (! array_key_exists($fullPath, $targetHashCache)) {
+                    $targetHashCache[$fullPath] = hash_file('sha256', $fullPath) ?: null;
+                }
+
+                if ($targetHashCache[$fullPath] !== $link->target_hash) {
+                    $staleHashes[] = $this->docLinkAuditPayload($link, 'stale_target_hash');
+                }
             }
         }
 
         return [
             'counts' => [
-                'current' => $links->where('status', 'current')->count(),
-                'persisted_missing_target_status' => $links->where('status', 'missing_target')->count(),
+                'current' => $currentCount,
+                'persisted_missing_target_status' => $persistedMissingTargetCount,
                 'missing_targets' => count($missingTargets),
                 'stale_target_hashes' => count($staleHashes),
             ],
             'missing_targets' => array_slice($missingTargets, 0, $limit),
             'stale_target_hashes' => array_slice($staleHashes, 0, $limit),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $symbol
+     * @return array<string,mixed>
+     */
+    private function persistedSymbolAuditPayload(?array $symbol, string $reason): array
+    {
+        return [
+            'reason' => $reason,
+            'module_slug' => $symbol['module_slug'] ?? null,
+            'symbol_type' => (string) ($symbol['symbol_type'] ?? ''),
+            'symbol_name' => (string) ($symbol['symbol_name'] ?? ''),
+            'file_path' => (string) ($symbol['file_path'] ?? ''),
+            'line_start' => $symbol['line_start'] ?? null,
+            'language' => $symbol['language'] ?? null,
+            'source_hash' => (string) ($symbol['source_hash'] ?? ''),
+            'indexed_at' => $symbol['indexed_at'] ?? null,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function docLinkAuditPayload(object $link, string $reason): array
+    {
+        return [
+            'reason' => $reason,
+            'id' => $link->id,
+            'status' => $link->status,
+            'link_type' => $link->link_type,
+            'canonical_path' => $link->canonical_path,
+            'target_path' => $link->target_path,
+            'target_hash' => $link->target_hash,
+            'indexed_at' => is_object($link->indexed_at) && method_exists($link->indexed_at, 'toJSON')
+                ? $link->indexed_at->toJSON()
+                : $link->indexed_at,
         ];
     }
 
@@ -922,41 +1425,6 @@ class EngineeringCodeIntelligenceService
             'line_start' => $symbol['line_start'] ?? null,
             'language' => $symbol['language'] ?? null,
             'source_hash' => (string) ($symbol['source_hash'] ?? ''),
-        ];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function persistedSymbolAuditPayload(?AtlasEngineeringCodeSymbol $symbol, string $reason): array
-    {
-        return [
-            'reason' => $reason,
-            'module_slug' => $symbol?->module?->slug,
-            'symbol_type' => (string) ($symbol?->symbol_type ?? ''),
-            'symbol_name' => (string) ($symbol?->symbol_name ?? ''),
-            'file_path' => (string) ($symbol?->file_path ?? ''),
-            'line_start' => $symbol?->line_start,
-            'language' => $symbol?->language,
-            'source_hash' => (string) ($symbol?->source_hash ?? ''),
-            'indexed_at' => $symbol?->indexed_at?->toJSON(),
-        ];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function docLinkAuditPayload(AtlasEngineeringDocLink $link, string $reason): array
-    {
-        return [
-            'reason' => $reason,
-            'id' => $link->id,
-            'status' => $link->status,
-            'link_type' => $link->link_type,
-            'canonical_path' => $link->canonical_path,
-            'target_path' => $link->target_path,
-            'target_hash' => $link->target_hash,
-            'indexed_at' => $link->indexed_at?->toJSON(),
         ];
     }
 
@@ -1685,7 +2153,6 @@ class EngineeringCodeIntelligenceService
     /**
      * @param  array<int,array<string,mixed>>  $symbolRows
      * @param  array<string,string>  $moduleIds
-     * @return int
      */
     private function persistSymbols(array $symbolRows, array $moduleIds, bool $prune): int
     {
@@ -1745,8 +2212,6 @@ class EngineeringCodeIntelligenceService
                 'parent_symbol',
                 'visibility',
                 'status',
-                'docs_status',
-                'related_doc_ids_json',
                 'metadata',
                 'indexed_at',
                 'archived_at',
@@ -1807,6 +2272,8 @@ class EngineeringCodeIntelligenceService
             ->active()
             ->get(['id', 'slug', 'root_path']);
         $count = 0;
+        $docLinkRows = [];
+        $this->docLinkTargetHashCache = [];
         $pruneStartedAt = now();
 
         foreach ($knowledgeItems as $item) {
@@ -1837,10 +2304,19 @@ class EngineeringCodeIntelligenceService
                     'module_id' => $module->id,
                     'target_path' => $targetPath,
                     'link_type' => $matchedPath ? 'module_path' : 'module_capability',
-                    'metadata' => ['module_slug' => $module->slug, 'capability' => $matchedCapability],
+                    'metadata' => [
+                        'module_slug' => $module->slug,
+                        'module_root_path' => $module->root_path,
+                        'capability' => $matchedCapability,
+                    ],
                 ]);
-                AtlasEngineeringDocLink::query()->updateOrCreate(['link_hash' => $link['link_hash']], $link);
+                $docLinkRows[] = $link;
                 $count++;
+
+                if (count($docLinkRows) >= 1000) {
+                    $this->upsertDocLinkRows($docLinkRows);
+                    $docLinkRows = [];
+                }
             }
 
             DB::table('atlas_engineering_code_symbols')
@@ -1849,7 +2325,7 @@ class EngineeringCodeIntelligenceService
                 ->whereIn('file_path', $paths->all())
                 ->select(['id', 'symbol_name', 'symbol_type', 'file_path'])
                 ->orderBy('id')
-                ->chunkById(200, function (Collection $symbols) use ($workspace, $item, &$count): void {
+                ->chunkById(200, function (Collection $symbols) use ($workspace, $item, &$count, &$docLinkRows): void {
                     foreach ($symbols as $symbol) {
                         $link = $this->docLinkRow($workspace, $item, [
                             'symbol_id' => $symbol->id,
@@ -1857,10 +2333,19 @@ class EngineeringCodeIntelligenceService
                             'link_type' => 'symbol_path',
                             'metadata' => ['symbol_name' => $symbol->symbol_name, 'symbol_type' => $symbol->symbol_type],
                         ]);
-                        AtlasEngineeringDocLink::query()->updateOrCreate(['link_hash' => $link['link_hash']], $link);
+                        $docLinkRows[] = $link;
                         $count++;
+
+                        if (count($docLinkRows) >= 1000) {
+                            $this->upsertDocLinkRows($docLinkRows);
+                            $docLinkRows = [];
+                        }
                     }
                 });
+        }
+
+        if ($docLinkRows !== []) {
+            $this->upsertDocLinkRows($docLinkRows);
         }
 
         if ($prune) {
@@ -1868,6 +2353,43 @@ class EngineeringCodeIntelligenceService
         }
 
         return $count;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $rows
+     */
+    private function upsertDocLinkRows(array $rows): void
+    {
+        $now = now();
+
+        $prepared = array_map(function (array $row) use ($now): array {
+            $row['id'] = (string) Str::uuid();
+            $row['metadata'] = $this->json((array) ($row['metadata'] ?? []));
+            $row['created_at'] = $now;
+            $row['updated_at'] = $now;
+
+            return $row;
+        }, $rows);
+
+        DB::table('atlas_engineering_doc_links')->upsert(
+            $prepared,
+            ['link_hash'],
+            [
+                'knowledge_item_id',
+                'module_id',
+                'symbol_id',
+                'link_type',
+                'status',
+                'canonical_path',
+                'target_path',
+                'doc_hash',
+                'target_hash',
+                'metadata',
+                'indexed_at',
+                'archived_at',
+                'updated_at',
+            ],
+        );
     }
 
     private function archiveStaleDocLinks(Carbon $pruneStartedAt): void
@@ -1892,9 +2414,19 @@ class EngineeringCodeIntelligenceService
     {
         $targetPath = is_string($target['target_path'] ?? null) ? $target['target_path'] : null;
         $targetFullPath = $targetPath ? $workspace.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $targetPath) : null;
+        $isModuleLevelLink = ($target['module_id'] ?? null) !== null
+            && ($target['symbol_id'] ?? null) === null
+            && in_array($target['link_type'] ?? null, ['module_path', 'module_capability'], true);
         $targetExists = $targetFullPath && File::exists($targetFullPath);
-        $targetHash = $targetFullPath && File::isFile($targetFullPath) ? hash_file('sha256', $targetFullPath) : null;
-        $status = $targetPath === null || $targetExists ? 'current' : 'missing_target';
+        $targetHash = null;
+        if ($targetFullPath && File::isFile($targetFullPath)) {
+            if (! array_key_exists($targetFullPath, $this->docLinkTargetHashCache)) {
+                $this->docLinkTargetHashCache[$targetFullPath] = hash_file('sha256', $targetFullPath) ?: null;
+            }
+
+            $targetHash = $this->docLinkTargetHashCache[$targetFullPath];
+        }
+        $status = $targetPath === null || $targetExists || $isModuleLevelLink ? 'current' : 'missing_target';
         $linkHash = hash('sha256', implode('|', [
             $item->id,
             $target['module_id'] ?? '',
@@ -1989,10 +2521,17 @@ class EngineeringCodeIntelligenceService
         $baseQuery = DB::table('atlas_engineering_code_symbols')
             ->where('status', 'active')
             ->whereNull('archived_at');
+        $directDocSymbolIds = fn () => DB::table('atlas_engineering_doc_links')
+            ->select('symbol_id')
+            ->whereNotNull('symbol_id')
+            ->whereNull('archived_at')
+            ->where('status', 'current');
 
         if ($documentedModuleIds !== []) {
             (clone $baseQuery)
                 ->whereIn('module_id', $documentedModuleIds)
+                ->whereNotIn('id', $directDocSymbolIds())
+                ->where('docs_status', '!=', 'module_documented')
                 ->update([
                     'docs_status' => 'module_documented',
                     'related_doc_ids_json' => $this->json([]),
@@ -2005,17 +2544,22 @@ class EngineeringCodeIntelligenceService
                         ->whereNull('module_id')
                         ->orWhereNotIn('module_id', $documentedModuleIds);
                 })
+                ->whereNotIn('id', $directDocSymbolIds())
+                ->where('docs_status', '!=', 'undocumented')
                 ->update([
                     'docs_status' => 'undocumented',
                     'related_doc_ids_json' => $this->json([]),
                     'updated_at' => $now,
                 ]);
         } else {
-            (clone $baseQuery)->update([
-                'docs_status' => 'undocumented',
-                'related_doc_ids_json' => $this->json([]),
-                'updated_at' => $now,
-            ]);
+            (clone $baseQuery)
+                ->whereNotIn('id', $directDocSymbolIds())
+                ->where('docs_status', '!=', 'undocumented')
+                ->update([
+                    'docs_status' => 'undocumented',
+                    'related_doc_ids_json' => $this->json([]),
+                    'updated_at' => $now,
+                ]);
         }
 
         $rows = [];
@@ -2299,7 +2843,21 @@ class EngineeringCodeIntelligenceService
         $root = trim((string) $module->root_path, '/');
         $path = trim($path, '/');
 
-        return $root !== '' && ($path === $root || str_starts_with($path, $root.'/') || str_starts_with($root, $path.'/'));
+        if ($root === '') {
+            return false;
+        }
+
+        if ($path === $root || str_starts_with($path, $root.'/') || str_starts_with($root, $path.'/')) {
+            return true;
+        }
+
+        if (! str_starts_with($path, $root)) {
+            return false;
+        }
+
+        $nextCharacter = substr($path, strlen($root), 1);
+
+        return $nextCharacter === '' || $nextCharacter === '.' || ctype_upper($nextCharacter);
     }
 
     private function languageForPath(string $path): string

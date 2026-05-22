@@ -14,7 +14,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
     private ?EngineeringContextIntelligenceInput $contextInput = null;
 
     protected $signature = 'atlas:engineering:knowledge
-        {action=status : status, sync, list, show, context, docs-health, index-code, audit-code, code-status, modules, symbols or show-module}
+        {action=status : status, sync, list, show, context, docs-health, index-code, audit-code, code-readiness, code-status, modules, symbols or show-module}
         {item? : Knowledge item slug/id or code module slug/id}
         {--category= : Filter by category}
         {--status= : active, draft, archived or deprecated}
@@ -53,6 +53,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             'docs-health' => $this->renderDocsHealth($documentationHealth),
             'index-code' => $this->renderCodeIndex($code),
             'audit-code' => $this->renderCodeAudit($code),
+            'code-readiness' => $this->renderCodeReadiness($code),
             'code-status' => $this->renderCodeStatus($code),
             'modules' => $this->renderModules($code),
             'symbols' => $this->renderSymbols($code),
@@ -311,6 +312,32 @@ class AtlasEngineeringKnowledgeCommand extends Command
         $this->components->twoColumnDetail('stale doc links', (string) data_get($drift, 'doc_links.stale_target_hashes', 0));
 
         return self::SUCCESS;
+    }
+
+    private function renderCodeReadiness(EngineeringCodeIntelligenceService $code): int
+    {
+        $payload = $code->readiness([
+            'workspace' => $this->stringOption('workspace'),
+            'limit' => $this->contextInput()->codeLimit($this->option('limit')),
+            'run_context_type' => $this->stringOption('run-context-type'),
+            'run_context_id' => $this->stringOption('run-context-id'),
+        ]);
+
+        if ($this->json()) {
+            $this->line($this->encode($payload));
+
+            return $payload['status'] === 'blocked' ? self::FAILURE : self::SUCCESS;
+        }
+
+        $summary = $payload['summary'] ?? [];
+        $this->components->twoColumnDetail('status', (string) ($payload['status'] ?? 'unknown'));
+        $this->components->twoColumnDetail('modules', (string) ($summary['module_count'] ?? 0));
+        $this->components->twoColumnDetail('symbols', (string) ($summary['symbol_count'] ?? 0));
+        $this->components->twoColumnDetail('doc links', (string) ($summary['doc_link_count'] ?? 0));
+        $this->components->twoColumnDetail('drift', (string) ($summary['drift_total'] ?? 0));
+        $this->components->twoColumnDetail('warnings', (string) ($summary['warnings'] ?? 0));
+
+        return $payload['status'] === 'blocked' ? self::FAILURE : self::SUCCESS;
     }
 
     private function renderModules(EngineeringCodeIntelligenceService $code): int
