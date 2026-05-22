@@ -562,7 +562,7 @@ return [
     | / `ToolReceiptEmissionException` when the Policy/Evidence bridges are
     | unavailable or throw. Production MUST run strict.
     |
-    | When false (the legacy default kept for local dev / isolated workspaces),
+    | When false (explicit opt-out for isolated local workspaces),
     | bridges still record a structured `Log::warning` AND a
     | `tool_policy_bridge_degraded` / `tool_receipt_bridge_degraded` audit
     | event if the Evidence ledger is reachable — fallbacks are NEVER silent.
@@ -571,7 +571,7 @@ return [
     |        section "Tool Policy/Evidence bridges são tolerantes (silent degrade)"
     */
     'tool_runtime' => [
-        'strict_mode' => (bool) env('ATLAS_AI_TOOL_RUNTIME_STRICT', false),
+        'strict_mode' => (bool) env('ATLAS_AI_TOOL_RUNTIME_STRICT', true),
     ],
 
     /*

@@ -21,9 +21,9 @@ class AtlasProgrammingFinalCertificationServiceTest extends TestCase
             $payload['benchmark_status'],
             'Final certification must never declare benchmark execution.',
         );
-        // local_memory_ingestion is a documented warn at severity P2 — it does
-        // not force a partial/blocked overall, so green is achievable in the
-        // green fixture provided P0/P1 checks all pass.
+        // Local Agent Memory Ingestion is now a runtime check, not a
+        // docs-only warning. Green requires the runtime surface and its safety
+        // contract to be present.
         $this->assertSame(
             AtlasProgrammingFinalCertificationService::STATUS_GREEN,
             $payload['overall_status'],
@@ -166,7 +166,6 @@ class AtlasProgrammingFinalCertificationServiceTest extends TestCase
             'app/Models/AiCodebaseWorldModel.php',
             'app/Services/Ai/Compounding/AtlasCompoundingRuntimeService.php',
             'app/Services/Ai/Compounding/AtlasRagFeedbackService.php',
-            'docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md',
             'app/Services/Ai/Programming/AtlasDev/Repair/RepairTelemetryRecorder.php',
             'app/Services/Ai/Evidence/AuditEventService.php',
             'app/Services/Ai/Evidence/EvidenceControlPlaneService.php',
@@ -179,6 +178,29 @@ class AtlasProgrammingFinalCertificationServiceTest extends TestCase
         $probe->setFile(
             'app/Services/Ai/Programming/ProgrammingRetrievalPlanner.php',
             "<?php\nclass ProgrammingRetrievalPlanner { public const STATUS = 'failed_closed'; }",
+        );
+        foreach ([
+            'docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md',
+            'app/Services/Ai/Memory/LocalAgentIngestion/LocalAgentMemoryIngestionCanon.php',
+            'app/Services/Ai/Memory/LocalAgentIngestion/LocalAgentSourceDiscoveryService.php',
+            'app/Services/Ai/Memory/LocalAgentIngestion/LocalAgentSecretScanner.php',
+            'app/Services/Ai/Memory/LocalAgentIngestion/LocalAgentSourceClassifier.php',
+            'app/Console/Commands/AtlasLocalAgentMemoryIngestCommand.php',
+            'database/migrations/2026_05_19_020000_create_ai_local_agent_ingestion_tables.php',
+            'app/Models/AiLocalAgentIngestionRun.php',
+            'app/Models/AiLocalAgentIngestionSource.php',
+            'app/Models/AiLocalAgentIngestionCandidate.php',
+            'tests/Feature/Ai/Memory/LocalAgentIngestion/LocalAgentMemoryIngestionServiceTest.php',
+        ] as $path) {
+            $probe->setFile($path, $stub);
+        }
+        $probe->setFile(
+            'app/Services/Ai/Memory/LocalAgentIngestion/LocalAgentMemoryIngestionService.php',
+            "<?php\nfinal class LocalAgentMemoryIngestionService { public function run(){ return ['secretScanner'=>true, 'dry_run'=>true, 'receipt_hash'=>'hash', 'quarantined'=>true]; } }",
+        );
+        $probe->setFile(
+            'config/atlas_local_agent_ingestion.php',
+            "<?php\nreturn ['dry_run_default' => true, 'denylist_patterns' => ['.env']];",
         );
 
         return $probe;

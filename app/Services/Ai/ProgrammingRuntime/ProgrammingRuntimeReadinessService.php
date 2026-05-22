@@ -96,7 +96,10 @@ class ProgrammingRuntimeReadinessService
             ProgrammingRuntimeReadinessCanon::KERNEL_INTEGRATION_SENTINELS,
         );
         $gatewayIntegrated = $gatewaySentinelsFound !== [];
-        $workerIntegrated = $workerSentinelsFound !== [];
+        $workerIntegrated = in_array('App\\Services\\Ai\\Policy\\PermissionGateService', $workerSentinelsFound, true)
+            && in_array('App\\Services\\Ai\\Evidence\\CertificationRuntimeService', $workerSentinelsFound, true)
+            && in_array('App\\Services\\Ai\\Mission\\MissionCertificationService', $workerSentinelsFound, true)
+            && in_array('App\\Services\\Ai\\Mission\\MissionLifecycleService', $workerSentinelsFound, true);
 
         $evidenceRefs = array_values(array_filter([
             $gatewayContents !== null ? $gatewayRelative : null,
@@ -542,26 +545,38 @@ class ProgrammingRuntimeReadinessService
      */
     private function checkDevForgeNoParallelEscalationSchemas(): array
     {
-        // The audit identifies 4 parallel mechanisms. We detect a partial
-        // green only when the canonical handoff (AtlasForgeHandoffAdapter) is
-        // present AND the other 3 either consolidated or wrapped. Until then
-        // we return warn (`partial`) so the overall report can degrade to
-        // `partial` instead of `green`.
-        $canonical = $this->probe->fileExists('app/Services/Ai/Programming/Kernel/AtlasForgeHandoffAdapter.php');
-        $previewBuilder = $this->probe->fileExists('app/Services/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilder.php');
-        $devToForgePromotion = $this->probe->findFilesContaining('app', 'DevToForgePromotionService') !== [];
-        $atlasForgeRuntimeDispatch = $this->probe->fileExists('app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php');
+        // The original audit flagged 4 mechanisms by file presence. That was
+        // correct before the consolidation, but file presence alone is now too
+        // crude: PreviewBuilder and DevToForgePromotionService are retained as
+        // surface adapters and dual-emit the canonical
+        // `atlas.dev_to_forge.escalation_packet.v1`. RuntimeDispatch is a Forge
+        // execution planner, not an escalation schema. This check is green only
+        // when the canonical adapter exists and every retained surface path is
+        // wrapped by the canonical packet.
+        $canonicalPath = 'app/Services/Ai/Programming/Kernel/AtlasForgeHandoffAdapter.php';
+        $previewPath = 'app/Services/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilder.php';
+        $promotionPath = 'app/Services/AtlasCode/DevToForgePromotionService.php';
+        $runtimeDispatchPath = 'app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php';
 
-        $parallelCount = 0;
-        if ($previewBuilder) {
-            $parallelCount++;
-        }
-        if ($devToForgePromotion) {
-            $parallelCount++;
-        }
-        if ($atlasForgeRuntimeDispatch) {
-            $parallelCount++;
-        }
+        $canonicalSource = $this->probe->readFile($canonicalPath);
+        $previewSource = $this->probe->readFile($previewPath);
+        $promotionSource = $this->probe->readFile($promotionPath);
+        $runtimeDispatchSource = $this->probe->readFile($runtimeDispatchPath);
+
+        $canonical = $canonicalSource !== null;
+        $canonicalPacketEmitter = $canonical
+            && str_contains($canonicalSource, 'promoteWithPacket')
+            && str_contains($canonicalSource, 'escalation_packet_v1');
+        $previewWrapped = $previewSource === null
+            || (str_contains($previewSource, 'DevToForgeEscalationPacketFactory')
+                && str_contains($previewSource, 'escalation_packet_v1'));
+        $promotionWrapped = $promotionSource === null
+            || (str_contains($promotionSource, 'attachCanonicalEscalationPacket')
+                && str_contains($promotionSource, 'escalation_packet_v1')
+                && str_contains($promotionSource, 'recordCanonicalRouteDecision'));
+        $runtimeDispatchNotEscalationSchema = $runtimeDispatchSource === null
+            || (str_contains($runtimeDispatchSource, 'atlas.forge.runtime_dispatch_plan.v1')
+                && str_contains($runtimeDispatchSource, 'NEVER calls an external provider'));
 
         if (! $canonical) {
             return $this->blocked(
@@ -575,17 +590,21 @@ class ProgrammingRuntimeReadinessService
             );
         }
 
-        if ($parallelCount >= 2) {
+        $unwrapped = array_values(array_filter([
+            ! $canonicalPacketEmitter ? $canonicalPath : null,
+            ! $previewWrapped ? $previewPath : null,
+            ! $promotionWrapped ? $promotionPath : null,
+            ! $runtimeDispatchNotEscalationSchema ? $runtimeDispatchPath : null,
+        ]));
+
+        if ($unwrapped !== []) {
             return $this->warn(
                 ProgrammingRuntimeReadinessCanon::CHECK_DEV_FORGE_NO_PARALLEL_ESCALATION_SCHEMAS,
                 ProgrammingRuntimeReadinessCanon::SEVERITY_P1,
                 'Dev->Forge sem schemas paralelos criticos',
-                "{$parallelCount} parallel escalation mechanism(s) still present alongside canonical AtlasForgeHandoffAdapter",
-                'consolidate ForgePromotionPreviewBuilder, DevToForgePromotionService and AtlasForgeRuntimeDispatchService into AtlasForgeHandoffAdapter (see atlas-dev-forge-relationship-critical-audit.md gap #4)',
-                array_values(array_filter([
-                    $previewBuilder ? 'app/Services/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilder.php' : null,
-                    $atlasForgeRuntimeDispatch ? 'app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php' : null,
-                ])),
+                count($unwrapped).' Dev->Forge surface path(s) still lack canonical escalation_packet_v1 wrapping',
+                'dual-emit atlas.dev_to_forge.escalation_packet.v1 from every retained Dev->Forge surface adapter, or remove the stale path',
+                $unwrapped,
             );
         }
 
@@ -593,8 +612,13 @@ class ProgrammingRuntimeReadinessService
             ProgrammingRuntimeReadinessCanon::CHECK_DEV_FORGE_NO_PARALLEL_ESCALATION_SCHEMAS,
             ProgrammingRuntimeReadinessCanon::SEVERITY_P1,
             'Dev->Forge sem schemas paralelos criticos',
-            'AtlasForgeHandoffAdapter canonical; <=1 parallel mechanism remains',
-            ['app/Services/Ai/Programming/Kernel/AtlasForgeHandoffAdapter.php'],
+            'AtlasForgeHandoffAdapter canonical; retained PreviewBuilder and DevToForgePromotionService dual-emit escalation_packet_v1; RuntimeDispatch is execution planning, not escalation schema',
+            array_values(array_filter([
+                $canonicalPath,
+                $previewSource !== null ? $previewPath : null,
+                $promotionSource !== null ? $promotionPath : null,
+                $runtimeDispatchSource !== null ? $runtimeDispatchPath : null,
+            ])),
         );
     }
 

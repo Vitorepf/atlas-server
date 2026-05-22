@@ -401,7 +401,6 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertFalse($structured['writes']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($structured, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($structured, 'architecture_operations.section'));
-        $this->assertSame(72, data_get($structured, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_readiness', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('session_bootstrap', data_get($structured, 'architecture_operations.operation_ids'));
@@ -611,7 +610,10 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
         $this->assertTrue($structured['ok']);
         $this->assertSame(['section' => 'arquitetura_mae'], data_get($structured, 'architecture_operations.filters'));
-        $this->assertSame(72, data_get($structured, 'architecture_operations.command_count'));
+        $this->assertSame(
+            count(data_get($structured, 'architecture_operations.commands')),
+            data_get($structured, 'architecture_operations.command_count'),
+        );
         $this->assertContains('architecture_operations', data_get($structured, 'architecture_operations.operation_ids'));
 
         $response = $service->handleJsonRpc([

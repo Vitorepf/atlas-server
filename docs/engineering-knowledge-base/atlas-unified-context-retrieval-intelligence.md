@@ -68,14 +68,14 @@ graph_world: atlas
 graph_layer: system
 graph_kind: index
 graph_parent: atlas-autonomous-intelligence-operating-system
-graph_status: planned
+graph_status: active
 graph_source: repo
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
 allowed_changes:
   - Adicionar sub-runtimes, fases, gates e contracts quando a implementacao evoluir.
-  - Promover status planned para building/active somente com services, comandos, testes e certificacao.
+  - Promover blocos filhos de planned/building para active somente com services, comandos, testes e certificacao.
 forbidden_changes:
   - Criar store paralelo de memoria, embeddings, graph ou evidence sem ADR.
   - Declarar Graph RAG global ou external vector RAG como pronto sem gates formais.
@@ -118,15 +118,16 @@ next_actions:
   - Integrar WorldModelGraphRanker ao retrieval/reranking real quando seguro.
 ---
 
-# Atlas Unified Context Retrieval Intelligence
-
 ## Resumo
 
-AUCRI e uma arquitetura planejada, ainda nao o runtime atual. Ela e a
-documentacao mae da area que deve virar um dos maiores
-multiplicadores do Atlas: contexto, memoria, embeddings, RAG, Agentic RAG,
-Graph RAG, World/Reality Graph, reranking, freshness, feedback e Python/data
-runtime.
+AUCRI e a area-mae ativa de memoria, contexto e recuperacao do Atlas. Ela
+organiza APCR, ACIE, Open Brain, RAG, embeddings, grafo, ranking, freshness,
+feedback, context compiler e token economy sem criar stores paralelos.
+
+Estado real: programacao ja possui enforcement/runtime read-only com 18 blocos
+AUCRI executaveis e certificados localmente. Estado alvo: expandir o mesmo
+padrao para flows nao-programming, Graph RAG global e vector retrieval externo
+somente com AP, privacy, golden set, rollback e receipts.
 
 O problema que ela resolve:
 
@@ -135,11 +136,8 @@ Atlas sabe muita coisa, mas precisa recuperar a coisa certa, no momento certo,
 com evidencia, relacao, frescor, privacidade e baixo ruido.
 ```
 
-Estado atual estimado:
-
-- fundacao: 7/10;
-- produto global final: 4.5/10;
-- alvo desta area: 10/10 auditavel.
+Estado atual: programacao tem runtime/enforcement ativo; flows nao-programming
+seguem em expansao governada; alvo final e 10/10 auditavel sem overclaim.
 
 ## Papel no Atlas
 
@@ -227,8 +225,9 @@ intent/domain/flow/risk
 
 ## Escopo de Implementacao
 
-AUCRI deve ser implementada em 18 grandes blocos: retrieval, graph, quality,
-enterprise maturity, cognitive RAM, compiler, token economy e Pareto frontier.
+AUCRI e organizada em um bloco 0 de core/enforcement mais 18 blocos de produto:
+retrieval, graph, quality, enterprise maturity, cognitive RAM, compiler, token
+economy e Pareto frontier.
 
 ### Indice de Implementacao Obrigatorio
 
@@ -415,7 +414,7 @@ Dependencias obrigatorias:
 Evidencias atuais de fundacao:
 
 - `LocalRagReadinessService` retorna readiness local.
-- `ContextRetrievalRouter` seleciona fontes e marca Graph como future-governed.
+- `ContextRetrievalRouter` seleciona fontes e mantem Graph global governado.
 - `ProgrammingRetrievalPlanner` e `ProgrammingRetrievalExecutor` implementam
   Agentic RAG de programacao.
 - `ProgrammingGraphRagRuntime` implementa Graph RAG bounded/local.

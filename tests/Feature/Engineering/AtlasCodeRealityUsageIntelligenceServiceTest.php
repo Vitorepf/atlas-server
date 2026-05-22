@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Services\Engineering\AtlasCodeRealityUsageIntelligenceService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
@@ -100,6 +101,24 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             $this->assertContains($target['reachability_confidence'], ['high', 'medium']);
             $this->assertGreaterThan(0, $target['owner_doc_count']);
             $this->assertGreaterThan(0, $target['test_count']);
+        }
+    }
+
+    public function test_large_text_files_are_streamed_without_loading_full_contents(): void
+    {
+        $targetPath = base_path('tests/Fixtures/AtlasAcruiLargeScanTarget.php');
+        $largeReferencePath = base_path('tests/Fixtures/atlas-acrui-large-reference.md');
+        File::ensureDirectoryExists(dirname($targetPath));
+        File::put($targetPath, "<?php\n\nfinal class AtlasAcruiLargeScanTarget {}\n");
+        File::put($largeReferencePath, str_repeat('padding line without match '.str_repeat('x', 120)."\n", 900)."\nAtlasAcruiLargeScanTarget\n");
+
+        try {
+            $payload = app(AtlasCodeRealityUsageIntelligenceService::class)->classify('AtlasAcruiLargeScanTarget.php');
+
+            $this->assertSame('tests/Fixtures/AtlasAcruiLargeScanTarget.php', $payload['target_path']);
+            $this->assertContains('tests/Fixtures/atlas-acrui-large-reference.md', $payload['evidence']['references']);
+        } finally {
+            File::delete([$targetPath, $largeReferencePath]);
         }
     }
 

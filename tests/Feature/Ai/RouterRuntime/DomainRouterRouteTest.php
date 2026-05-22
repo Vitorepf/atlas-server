@@ -47,6 +47,16 @@ class DomainRouterRouteTest extends TestCase
         $this->assertSame(RouterRuntimeCanon::MODE_DEEP, $decision->routing_mode);
     }
 
+    public function test_portuguese_forge_obra_prompt_uses_forge_routing_mode(): void
+    {
+        $intent = app(IntentKernelService::class)->classify('crie uma obra no Forge para corrigir um bug com testes');
+        $decision = app(DomainRouterService::class)->route($intent);
+
+        $this->assertSame('programming', $decision->primary_domain);
+        $this->assertSame(RouterRuntimeCanon::MODE_FORGE, $decision->routing_mode);
+        $this->assertTrue($decision->tool_plan_required);
+    }
+
     public function test_conversation_intent_uses_lightweight_routing_mode(): void
     {
         $intent = app(IntentKernelService::class)->classify('explique em uma frase o que é o Atlas AI');

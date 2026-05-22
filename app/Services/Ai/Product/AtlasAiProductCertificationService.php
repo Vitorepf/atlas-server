@@ -909,7 +909,9 @@ class AtlasAiProductCertificationService
 
     private function importsRichInputCanon(string $source): bool
     {
-        return str_contains($source, 'atlas-rich-input-canon');
+        return str_contains($source, '@atlas/rich-input-canon')
+            || str_contains($source, 'atlas-rich-input-canon')
+            || str_contains($source, 'rich-input-canon');
     }
 
     private function repoPath(string $relative): string

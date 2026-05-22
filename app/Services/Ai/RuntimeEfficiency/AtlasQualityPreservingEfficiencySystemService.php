@@ -34,6 +34,7 @@ final class AtlasQualityPreservingEfficiencySystemService
         private readonly AtlasContextCompilerRuntimeService $compiler,
         private readonly AtlasTokenEconomyRuntimeService $tokenEconomy,
         private readonly AtlasCognitiveMemoryFabricService $memoryFabric,
+        private readonly AtlasLocalVerificationEngineService $localVerification,
     ) {}
 
     /**
@@ -61,6 +62,10 @@ final class AtlasQualityPreservingEfficiencySystemService
             $this->check('context_compiler_runtime_ready', (string) data_get($shadow, 'runtime_refs.context_compiler.status') === 'ready', [
                 'hash' => data_get($shadow, 'runtime_refs.context_compiler.hash'),
             ]),
+            $this->check('local_verification_runtime_ready', in_array((string) data_get($shadow, 'runtime_refs.local_verification.status'), ['ready', 'watch'], true), [
+                'hash' => data_get($shadow, 'runtime_refs.local_verification.hash'),
+                'value' => data_get($shadow, 'metrics.local_verification_value'),
+            ]),
             $this->check('token_economy_quality_gate_passed', (string) data_get($shadow, 'runtime_refs.token_economy.status') === 'ready'
                 && (string) data_get($shadow, 'quality_contract.quality_gate_status') === 'passed', [
                     'quality_gate_status' => data_get($shadow, 'quality_contract.quality_gate_status'),
@@ -82,12 +87,14 @@ final class AtlasQualityPreservingEfficiencySystemService
             $this->check('aegis_commands_present', File::exists(base_path('app/Console/Commands/AtlasQualityPreservingEfficiencyCommand.php'))
                 && File::exists(base_path('app/Console/Commands/AtlasContextCacheCompilerCommand.php'))
                 && File::exists(base_path('app/Console/Commands/AtlasContextCompilerRuntimeCommand.php'))
+                && File::exists(base_path('app/Console/Commands/AtlasLocalVerificationEngineCommand.php'))
                 && File::exists(base_path('app/Console/Commands/AtlasCognitiveMemoryFabricCommand.php'))
                 && File::exists(base_path('app/Console/Commands/AtlasTokenEconomyRuntimeCommand.php')), [
                     'commands' => [
                         'atlas:efficiency',
                         'atlas:context:cache-warm',
                         'atlas:context:compile',
+                        'atlas:local-verification:run',
                         'atlas:context:cognitive-memory',
                         'atlas:context:token-economy',
                     ],
@@ -95,6 +102,7 @@ final class AtlasQualityPreservingEfficiencySystemService
             $this->check('focused_tests_present', File::exists(base_path('tests/Feature/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemServiceTest.php'))
                 && File::exists(base_path('tests/Feature/Ai/Context/ContextCompilerRuntimeTest.php'))
                 && File::exists(base_path('tests/Feature/Ai/Context/CognitiveMemoryFabricTest.php'))
+                && File::exists(base_path('tests/Feature/Ai/RuntimeEfficiency/AtlasLocalVerificationEngineServiceTest.php'))
                 && File::exists(base_path('tests/Feature/Ai/Context/TokenEconomyRuntimeTest.php')), [
                     'test' => 'tests/Feature/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemServiceTest.php',
                 ]),
@@ -178,8 +186,21 @@ final class AtlasQualityPreservingEfficiencySystemService
             'evidence_refs' => (array) ($input['evidence_refs'] ?? ['shadow:aqpes']),
             'persist' => false,
         ]);
+        $localVerification = $this->localVerification->run([
+            'flow_id' => $flowId,
+            'risk_level' => $risk,
+            'changed_files' => (array) ($input['changed_files'] ?? []),
+            'allowed_files' => (array) ($input['allowed_files'] ?? []),
+            'forbidden_files' => (array) ($input['forbidden_files'] ?? []),
+            'command' => (string) ($input['command'] ?? ''),
+            'exit_code' => $input['exit_code'] ?? null,
+            'stderr' => (string) ($input['stderr'] ?? ''),
+            'stdout' => (string) ($input['stdout'] ?? ''),
+            'failing_test' => (string) ($input['failing_test'] ?? ''),
+            'resource_policy' => $resourcePolicy,
+        ]);
         $qualityContract = $this->qualityContract($compiler, $token, $resourcePolicy);
-        $status = $this->statusFrom($qualityContract, $resourcePolicy, $cache, $compiler, $token, $memory);
+        $status = $this->statusFrom($qualityContract, $resourcePolicy, $cache, $compiler, $token, $memory, $localVerification);
         $payload = [
             'schema_version' => self::SHADOW_SCHEMA,
             'status' => $status,
@@ -212,6 +233,11 @@ final class AtlasQualityPreservingEfficiencySystemService
                     'status' => $token['status'] ?? 'unknown',
                     'hash' => $token['token_economy_hash'] ?? '',
                 ],
+                'local_verification' => [
+                    'schema_version' => AtlasLocalVerificationEngineService::SCHEMA_VERSION,
+                    'status' => $localVerification['status'] ?? 'unknown',
+                    'hash' => $localVerification['local_verification_hash'] ?? '',
+                ],
                 'cognitive_memory' => [
                     'schema_version' => AtlasCognitiveMemoryFabricService::SCHEMA_VERSION,
                     'status' => $memory['status'] ?? 'unknown',
@@ -226,7 +252,7 @@ final class AtlasQualityPreservingEfficiencySystemService
                 'token_savings_estimate' => (int) data_get($token, 'compression_receipt.savings_estimate', 0),
                 'context_loss_score' => (float) data_get($token, 'quality_check.loss_score', 1.0),
                 'cache_hit_rate' => null,
-                'local_verification_value' => null,
+                'local_verification_value' => (float) data_get($localVerification, 'metrics.local_verification_value', 0.0),
                 'cpu_minutes_saved_vs_spent' => null,
             ],
             'claim_policy' => $this->claimPolicy(),
@@ -369,7 +395,7 @@ final class AtlasQualityPreservingEfficiencySystemService
      * @param  array<string,mixed>  $token
      * @param  array<string,mixed>  $memory
      */
-    private function statusFrom(array $quality, array $resource, array $cache, array $compiler, array $token, array $memory): string
+    private function statusFrom(array $quality, array $resource, array $cache, array $compiler, array $token, array $memory, array $localVerification): string
     {
         if ((string) ($quality['quality_gate_status'] ?? 'blocked') === 'blocked') {
             return self::STATUS_BLOCKED;
@@ -383,7 +409,13 @@ final class AtlasQualityPreservingEfficiencySystemService
         if ((string) ($memory['status'] ?? 'ready') === 'blocked') {
             return self::STATUS_BLOCKED;
         }
+        if ((string) ($localVerification['status'] ?? 'ready') === self::STATUS_BLOCKED) {
+            return self::STATUS_BLOCKED;
+        }
         if ((string) ($memory['status'] ?? 'ready') === 'degraded' || in_array((string) ($resource['mode'] ?? ''), ['battery', 'swap_pressure', 'light'], true)) {
+            return self::STATUS_WATCH;
+        }
+        if ((string) ($localVerification['status'] ?? 'ready') === self::STATUS_WATCH) {
             return self::STATUS_WATCH;
         }
 

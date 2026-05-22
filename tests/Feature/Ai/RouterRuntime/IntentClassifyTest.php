@@ -31,6 +31,7 @@ class IntentClassifyTest extends TestCase
     {
         return [
             ['implemente um exporter csv com testes de regressao', RouterRuntimeCanon::INTENT_PROGRAMMING],
+            ['crie uma obra no Forge para corrigir um bug com testes', RouterRuntimeCanon::INTENT_PROGRAMMING],
             ['debug esse stack trace de erro 500', RouterRuntimeCanon::INTENT_DEBUG],
             ['code review desse PR de auth', RouterRuntimeCanon::INTENT_REVIEW],
             ['pesquise as fontes mais confiaveis sobre arquitetura agente', RouterRuntimeCanon::INTENT_RESEARCH],

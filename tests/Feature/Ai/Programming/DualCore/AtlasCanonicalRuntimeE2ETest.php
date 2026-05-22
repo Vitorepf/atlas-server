@@ -44,13 +44,10 @@ use Tests\TestCase;
  * Why this test exists. The Atlas critical judgment report
  * (`atlas-architecture-critical-judgment-report.md`) and the AiWorker→Kernel
  * integration ADR (`atlas-aiworker-kernel-integration-adr.md`, status:
- * active / graph_status: planned) both diagnose that the HTTP path
+ * active / graph_status: active) govern the HTTP path
  * (`AiInteractionController` → `AiGatewayService` → `AiJob` → `AiWorker` →
- * `AiProviderManager`) does NOT yet invoke the canonical Kernel
- * (Mission / Router / Policy / Evidence / Programming Adapter). The ADR
- * is design-only and gated by feature flag
- * `ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED` (default false). That is the
- * declared blocker for a true HTTP→Kernel E2E.
+ * `AiProviderManager`) through the canonical Kernel envelope, PermissionGate,
+ * Mission Evidence and certification/completion signals.
  *
  * This test therefore exercises the highest **canonical seam currently
  * implementable**: the Programming Adapter (Meta 7) wired to Router Runtime
@@ -294,37 +291,25 @@ class AtlasCanonicalRuntimeE2ETest extends TestCase
         $this->assertSame(0, AiMission::query()->count());
     }
 
-    public function test_http_to_kernel_integration_remains_a_documented_blocker(): void
+    public function test_http_to_kernel_integration_is_documented_as_active(): void
     {
-        // This test pins the gap declared in
-        // atlas-aiworker-kernel-integration-adr.md (status=active,
-        // graph_status=planned, default flag=false). The ADR is the source
-        // of truth; this test guards against silently flipping it.
-        //
-        // When the ADR ships its Phase 6 wire-up, this test SHOULD start
-        // failing — that is the signal to extend the canonical E2E above
-        // to start from the HTTP controller.
+        // The ADR is the source of truth for the HTTP→Kernel integration.
+        // It must now describe an active path, not preserve the old planned
+        // blocker after AiGatewayService/AiWorker started emitting the Kernel
+        // envelope, PermissionGate, Mission Evidence and certification state.
         $adrPath = base_path('docs/engineering-knowledge-base/atlas-aiworker-kernel-integration-adr.md');
         $this->assertFileExists($adrPath, 'AiWorker→Kernel ADR must exist as canonical authority');
         $contents = (string) file_get_contents($adrPath);
 
         $this->assertStringContainsString(
-            'graph_status: planned',
+            'graph_status: active',
             $contents,
-            'ADR must still be marked planned until HTTP integration ships. If this fails, refactor the canonical E2E to start from the HTTP path.',
+            'ADR must be active after HTTP path integration ships.',
         );
         $this->assertStringContainsString(
-            'ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED',
+            'kernel_mission_completion',
             $contents,
-            'feature flag name must be the canonical one used in CI / env',
-        );
-
-        // The integration is gated by env flag and explicitly not enabled
-        // in tests; honest assertion: producing no surprise inversion.
-        $this->assertNotSame(
-            '1',
-            (string) env('ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED'),
-            'Test environment must keep HTTP→Kernel integration disabled until the canonical E2E above is extended to cover it.',
+            'ADR must document the AiWorker completion/certification signal.',
         );
     }
 

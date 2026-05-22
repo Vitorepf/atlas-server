@@ -359,21 +359,65 @@ class AtlasProgrammingFinalCertificationService
      */
     private function checkLocalMemoryIngestion(): array
     {
-        // Local Agent Memory Ingestion is canon-documented as a future/blocked
-        // surface (Programming Superiority Architecture, Top 15 gaps #12). We
-        // surface it as a `warn` blocker with explicit remediation rather than
-        // claiming green when no runtime exists yet.
         $specDoc = 'docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md';
+        $runtime = 'app/Services/Ai/Memory/LocalAgentIngestion/LocalAgentMemoryIngestionService.php';
+        $canon = 'app/Services/Ai/Memory/LocalAgentIngestion/LocalAgentMemoryIngestionCanon.php';
+        $discovery = 'app/Services/Ai/Memory/LocalAgentIngestion/LocalAgentSourceDiscoveryService.php';
+        $secretScanner = 'app/Services/Ai/Memory/LocalAgentIngestion/LocalAgentSecretScanner.php';
+        $classifier = 'app/Services/Ai/Memory/LocalAgentIngestion/LocalAgentSourceClassifier.php';
+        $command = 'app/Console/Commands/AtlasLocalAgentMemoryIngestCommand.php';
+        $migration = 'database/migrations/2026_05_19_020000_create_ai_local_agent_ingestion_tables.php';
+        $runModel = 'app/Models/AiLocalAgentIngestionRun.php';
+        $sourceModel = 'app/Models/AiLocalAgentIngestionSource.php';
+        $candidateModel = 'app/Models/AiLocalAgentIngestionCandidate.php';
+        $config = 'config/atlas_local_agent_ingestion.php';
+        $tests = 'tests/Feature/Ai/Memory/LocalAgentIngestion/LocalAgentMemoryIngestionServiceTest.php';
+        $evidenceRefs = [
+            $specDoc,
+            $runtime,
+            $canon,
+            $discovery,
+            $secretScanner,
+            $classifier,
+            $command,
+            $migration,
+            $runModel,
+            $sourceModel,
+            $candidateModel,
+            $config,
+            $tests,
+        ];
 
-        return $this->probe->fileExists($specDoc)
-            ? $this->warn(self::CHECK_LOCAL_MEMORY_INGESTION, self::SEVERITY_P2,
-                'Local Agent Memory Ingestion is spec-only (no runtime); canonical blocker per superiority architecture',
-                'plan AP for local agent memory ingestion runtime; do not flip to green without ingestion service + provenance',
-                [$specDoc])
-            : $this->warn(self::CHECK_LOCAL_MEMORY_INGESTION, self::SEVERITY_P2,
-                'Local Agent Memory Ingestion: neither spec nor runtime present',
-                'declare a canonical spec for local agent memory ingestion before runtime work',
-                [$specDoc]);
+        $hasRuntime = collect($evidenceRefs)->every(fn (string $path): bool => $this->probe->fileExists($path));
+        $serviceSource = $this->probe->readFile($runtime) ?? '';
+        $configSource = $this->probe->readFile($config) ?? '';
+        $hasSafetyContract = str_contains($serviceSource, 'secretScanner')
+            && str_contains($serviceSource, 'dry_run')
+            && str_contains($serviceSource, 'receipt_hash')
+            && str_contains($serviceSource, 'quarantined')
+            && str_contains($configSource, 'dry_run_default')
+            && str_contains($configSource, 'denylist_patterns');
+
+        if ($hasRuntime && $hasSafetyContract) {
+            return $this->pass(
+                self::CHECK_LOCAL_MEMORY_INGESTION,
+                self::SEVERITY_P2,
+                'Local Agent Memory Ingestion runtime present with read-only discovery, dry-run default, quarantine, secret scan and receipts',
+                $evidenceRefs,
+            );
+        }
+
+        if ($this->probe->fileExists($specDoc)) {
+            return $this->warn(self::CHECK_LOCAL_MEMORY_INGESTION, self::SEVERITY_P2,
+                'Local Agent Memory Ingestion runtime or safety contract incomplete',
+                'restore service/command/models/migration/tests and preserve dry-run, denylist, quarantine, secret scan and receipt hash invariants',
+                $evidenceRefs);
+        }
+
+        return $this->warn(self::CHECK_LOCAL_MEMORY_INGESTION, self::SEVERITY_P2,
+            'Local Agent Memory Ingestion: neither spec nor runtime present',
+            'declare a canonical spec and runtime for local agent memory ingestion before relying on provider-history learning',
+            [$specDoc]);
     }
 
     /**

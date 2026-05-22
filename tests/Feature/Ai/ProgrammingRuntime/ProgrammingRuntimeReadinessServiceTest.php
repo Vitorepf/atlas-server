@@ -185,10 +185,10 @@ class ProgrammingRuntimeReadinessServiceTest extends TestCase
     public function test_partial_when_only_non_blocker_warn_present(): void
     {
         $probe = $this->probeWithGreenFixtures();
-        // simulate 3 parallel escalation mechanisms still present alongside canonical adapter -> warn (partial)
-        $probe->setFile('app/Services/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilder.php', '<?php // exists');
-        $probe->setFindFilesResults('app::DevToForgePromotionService', ['app/Services/AtlasCode/DevToForgePromotionService.php']);
-        $probe->setFile('app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php', '<?php // exists');
+        // Simulate a retained surface adapter that has not yet been wrapped by
+        // the canonical escalation_packet_v1. File presence alone is no longer
+        // a warning; missing canonical wrapping is.
+        $probe->setFile('app/Services/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilder.php', '<?php final class ForgePromotionPreviewBuilder {}');
 
         $config = new FakeConfigReader(['atlas_ai.tool_runtime.strict_mode' => true]);
         $report = (new ProgrammingRuntimeReadinessService($probe, $config))->report();
@@ -196,7 +196,7 @@ class ProgrammingRuntimeReadinessServiceTest extends TestCase
         $this->assertSame(ProgrammingRuntimeReadinessCanon::STATUS_PARTIAL, $report['status']);
         $check = $this->checkById($report, ProgrammingRuntimeReadinessCanon::CHECK_DEV_FORGE_NO_PARALLEL_ESCALATION_SCHEMAS);
         $this->assertSame(ProgrammingRuntimeReadinessCanon::CHECK_STATUS_WARN, $check['status']);
-        $this->assertStringContainsString('parallel escalation mechanism', $check['detail']);
+        $this->assertStringContainsString('lack canonical escalation_packet_v1 wrapping', $check['detail']);
     }
 
     public function test_json_shape_is_stable(): void
@@ -258,33 +258,17 @@ class ProgrammingRuntimeReadinessServiceTest extends TestCase
 
     public function test_real_repo_report_is_honest_about_known_gaps(): void
     {
-        // Smoke against the real repository state. We do NOT assert "green";
-        // we assert the service refuses to hide known P0 gaps. As of this
-        // commit at least one P0 (AiWorker→Kernel integration) MUST still
-        // appear as blocked. If/when that changes, this test fails LOUDLY and
-        // the team updates the expected gap set.
+        // Smoke against the real repository state. This test is intentionally
+        // narrow: it asserts previously delivered contracts stay green instead
+        // of preserving stale "known gap" expectations after the gap is closed.
         $service = app(ProgrammingRuntimeReadinessService::class);
         $report = $service->report();
 
-        $this->assertContains(
-            $report['status'],
-            [
-                ProgrammingRuntimeReadinessCanon::STATUS_BLOCKED,
-                ProgrammingRuntimeReadinessCanon::STATUS_PARTIAL,
-            ],
-            'real repo must not declare green while known P0/P1 gaps remain (see atlas-programming-superiority-architecture.md Top 15 gaps)',
-        );
-
         $aiworker = $this->checkById($report, ProgrammingRuntimeReadinessCanon::CHECK_AIWORKER_KERNEL_INTEGRATION);
-        // Post-fix 2026-05-18: Phase 1 gateway bridge is shipped (AiGatewayMissionBridge
-        // injected in AiGatewayService); Phases 4-6 (worker injection) remain
-        // pending per atlas-aiworker-kernel-integration-adr.md. The honest
-        // status is therefore `warn` (partial), not `blocked`. If this assertion
-        // changes again, update the ADR alongside.
         $this->assertSame(
-            ProgrammingRuntimeReadinessCanon::CHECK_STATUS_WARN,
+            ProgrammingRuntimeReadinessCanon::CHECK_STATUS_GREEN,
             $aiworker['status'],
-            'AiWorker→Kernel integration is in Phase 1 (gateway bridge shipped); Phases 4-6 pending. Status must be warn until ADR DoD reached.',
+            'AiWorker must consult Kernel PermissionGate in warn-only mode after the gateway bridge persists payload.kernel.',
         );
 
         // route_decision implemented in prior session
@@ -293,6 +277,13 @@ class ProgrammingRuntimeReadinessServiceTest extends TestCase
             ProgrammingRuntimeReadinessCanon::CHECK_STATUS_GREEN,
             $implemented['status'],
             'DualCoreRouteDecisionService was delivered 2026-05-18; implementation check must be green.',
+        );
+
+        $devForge = $this->checkById($report, ProgrammingRuntimeReadinessCanon::CHECK_DEV_FORGE_NO_PARALLEL_ESCALATION_SCHEMAS);
+        $this->assertSame(
+            ProgrammingRuntimeReadinessCanon::CHECK_STATUS_GREEN,
+            $devForge['status'],
+            'Retained Dev→Forge surface adapters must dual-emit escalation_packet_v1 instead of being flagged by file presence.',
         );
     }
 
@@ -366,10 +357,25 @@ class ProgrammingRuntimeReadinessServiceTest extends TestCase
         $probe->setFindFilesResults('tests/Feature/Ai::POST /ai/interactions', ['tests/Feature/Ai/Kernel/AiWorkerKernelIntegrationE2ETest.php']);
         $probe->setFindFilesResults('tests/Feature/Ai::KernelIntegrationE2E', ['tests/Feature/Ai/Kernel/AiWorkerKernelIntegrationE2ETest.php']);
 
-        // Canonical adapter exists; no parallel mechanisms left (green path)
-        $probe->setFile('app/Services/Ai/Programming/Kernel/AtlasForgeHandoffAdapter.php', '<?php class AtlasForgeHandoffAdapter {}');
+        // Canonical adapter exists; retained surface adapters are wrapped by
+        // escalation_packet_v1, so presence does not imply drift.
+        $probe->setFile(
+            'app/Services/Ai/Programming/Kernel/AtlasForgeHandoffAdapter.php',
+            '<?php class AtlasForgeHandoffAdapter { public function promoteWithPacket() { return ["escalation_packet_v1" => []]; } }',
+        );
+        $probe->setFile(
+            'app/Services/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilder.php',
+            '<?php class ForgePromotionPreviewBuilder { public function build(DevToForgeEscalationPacketFactory $f) { return ["escalation_packet_v1" => []]; } }',
+        );
+        $probe->setFile(
+            'app/Services/AtlasCode/DevToForgePromotionService.php',
+            '<?php class DevToForgePromotionService { public function attachCanonicalEscalationPacket() { return ["escalation_packet_v1" => []]; } public function recordCanonicalRouteDecision() {} }',
+        );
+        $probe->setFile(
+            'app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php',
+            '<?php class AtlasForgeRuntimeDispatchService { public const SCHEMA_VERSION = "atlas.forge.runtime_dispatch_plan.v1"; /* NEVER calls an external provider */ }',
+        );
         $probe->setFindFilesResults('app::DevToForgePromotionService', []);
-        // ForgePromotionPreviewBuilder + AtlasForgeRuntimeDispatchService: deliberately ABSENT in green fixture
 
         return $probe;
     }

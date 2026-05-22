@@ -123,6 +123,10 @@ class DomainRouterService
         if ($surfaceRoutingMode !== null) {
             return $surfaceRoutingMode;
         }
+        $normalized = (string) ($intent->normalized_intent ?? '');
+        if ($primary === 'programming' && (str_contains($normalized, 'forge') || str_contains($normalized, 'obra'))) {
+            return RouterRuntimeCanon::MODE_FORGE;
+        }
         if ($intent->intent_type === RouterRuntimeCanon::INTENT_UNKNOWN) {
             return RouterRuntimeCanon::MODE_STANDARD;
         }

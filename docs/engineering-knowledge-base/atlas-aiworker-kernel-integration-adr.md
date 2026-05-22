@@ -5,7 +5,7 @@ title: Atlas AiWorker to Kernel Integration ADR
 status: active
 category: architecture
 priority: 99
-summary: ADR design-only que prepara a integracao do path real de prompts HTTP (AiInteractionController -> AiGatewayService -> AiJob -> AiWorker -> AiProviderManager -> AtlasProgrammingOrchestrator) ao Kernel canonico (Mission Meta 1, Domain Runtime Meta 2, Policy Meta 3, Evidence Meta 4, Router Runtime Meta 6, Programming Adapter Meta 7) via 6 wires finos atras de feature flag, sem refatorar runtime de Dev/Forge.
+summary: ADR ativo que governa a integracao do path real de prompts HTTP (AiInteractionController -> AiGatewayService -> AiJob -> AiWorker -> AiProviderManager -> AtlasProgrammingOrchestrator) ao Kernel canonico. Phase 1 persiste payload.kernel; Phase 4 registra PermissionGate warn-only; Phase 5 anexa evidence ao Mission; Phase 6 roda certification gate e completa Mission somente com evidence/certification passed.
 tags:
   - atlas-ai
   - adr
@@ -26,7 +26,7 @@ decisions:
   - AiWorker recebe mission_id via AiJob.payload.kernel e o usa para consultar PermissionGateService (Meta 3), Evidence (Meta 4) e transicionar lifecycle de Mission (Meta 1).
   - Domain Programming usa exclusivamente ProgrammingDomainRuntimeAdapter + AtlasDevMissionAdapter + AtlasForgeHandoffAdapter (Meta 7); AiWorker nao chama Mission/Domain/Evidence direto.
   - Path legado (AiPermissionEngine + legacy Kernel/Pipeline + AtlasEvidenceLedger legacy + AiProviderManager) permanece intocado ate Phase 7 (fora deste ADR).
-  - Tolerancia silenciosa em ToolPolicyBridgeService/ToolReceiptService nao e endurecida aqui; existe AP irmao dedicado e Phase 4 depende dele.
+  - Tool Runtime strict mode deve ficar ativo por default; opt-out local exige configuracao explicita.
 maintenance:
   - Atualize este ADR quando uma fase entrar em building/active.
   - Nao implementar codigo de producao sem AP por fase e gates verdes.
@@ -48,7 +48,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: adr
 graph_parent: atlas-architecture-critical-judgment-report
-graph_status: planned
+graph_status: active
 graph_source: repo
 owner: atlas-ai
 repo_paths:
@@ -121,16 +121,16 @@ observability_signals:
   - mission_completed_via_http_count
   - feature_flag_state
 next_actions:
-  - Abrir AP-Phase-0 (este ADR + atualizar critical-judgment-report citando este doc).
-  - Abrir AP-Phase-1 (AiGatewayService cria AiMission atras de flag) somente apos docs-health verde.
-  - Coordenar com AP irmao "Tool Bridges Strict Mode" antes de Phase 4.
+  - Manter teste E2E cobrindo HTTP -> payload.kernel -> AiWorker PermissionGate -> Mission Evidence -> Certification.
+  - Monitorar kernel_permission_gate e kernel_mission_completion em traces/jobs reais.
+  - Promover qualquer falha de certification para repair flow, nunca para completion silencioso.
 ---
 
 # Atlas AiWorker to Kernel Integration ADR
 
 ## Resumo
 
-Este ADR design-only define como o **caminho real de prompts HTTP** do Atlas
+Este ADR ativo define como o **caminho real de prompts HTTP** do Atlas
 AI sera plugado ao **Kernel canonico** (Meta 1 Mission, Meta 2 Domain
 Runtime, Meta 3 Policy, Meta 4 Evidence/Certification, Meta 6 Router
 Runtime, Meta 7 Programming Adapter) sem refatorar runtime de producao,
@@ -142,14 +142,15 @@ trafego HTTP real (`POST /ai/interactions`) jamais o invoca. AiWorker
 chama `AiProviderManager` e `AtlasProgrammingOrchestrator` direto; a unica
 invocacao do Kernel hoje vem de comandos `atlas:ai:*` (CLI smoke).
 
-Decisao: **integrar via 6 wires finos atras de feature flag
-`ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED` (default false), em 6 fases
-pequenas, com rollback isolado por fase**. Phase 1 grava `mission_id` no
-AiJob sem mudar comportamento operacional; Phase 6 conecta certification
-e marca completed via Kernel.
+Decisao: **integrar via wires finos e reversiveis**. Phase 1 grava
+`mission_id` no AiJob sem mudar comportamento operacional; Phase 4 registra
+`PermissionGateService` em modo `warn_only`; Phase 5 anexa evidence real da
+execucao ao Mission; Phase 6 roda certification e so marca `completed`
+quando Mission Foundation e Evidence Runtime passam.
 
-Este ADR nao cria migration, model, service ou linha de codigo de
-producao. Apenas declara contrato.
+Este ADR agora governa codigo de producao em `AiGatewayService` e
+`AiWorker`. Mudancas futuras devem preservar rollback, evidence e
+anti-false-completion.
 
 ## Papel no Atlas
 
@@ -281,12 +282,12 @@ intacto.
   (`app/Services/Ai/Kernel/Pipeline|Decision|Evidence|Repair|Slo`) com o
   Mission Kernel (`app/Services/Ai/Mission`). Sao camadas distintas com
   escopos distintos.
-- Nao tratar `ToolPolicyBridgeService` tolerance silenciosa
-  (`ToolReceiptService.php:64` emite marker
-  `evidence_runtime_unavailable`) como aceita; AP irmao "Tool Bridges
-  Strict Mode" e bloqueador para Phase 4 emitir Receipt real.
-- Nao promover este ADR para `status: active` sem teste Feature E2E que
-  cubra `POST /ai/interactions` -> Mission completed via Kernel.
+- Nao tratar fallback de policy/tool runtime como permissao forte quando
+  `atlas_ai.tool_runtime.strict_mode=false`; o default canonico agora e
+  strict, e qualquer opt-out precisa ficar explicito no ambiente.
+- Nao declarar Mission completion sem evidencias anexadas e certification
+  gate aprovado; `AiWorker` so promove Mission para `completed` quando
+  evidence pack e Mission certification passam.
 - Nao expandir wire para Cyber/Finance/Marketing/Research/Strategy nesta
   janela; estes dominios sao scaffold e exigem manifest + adapter
   proprios antes (escopo de outro AP).
@@ -308,20 +309,20 @@ Pre-requisitos verificados em 2026-05-18:
   ciclo Mission -> WorkOrder -> Runtime Record -> Evidence ->
   Certification.
 
-Pre-requisitos BLOQUEADORES (estado real, sem suavizar):
+Pre-requisitos e limites ativos (estado real, sem suavizar):
 
-- **Tool Bridges Strict Mode (AP irmao)**:
-  `ToolReceiptService::emit` em
-  `app/Services/Ai/ToolRuntime/ToolReceiptService.php:64` emite Receipt
-  local com marker `evidence_runtime_unavailable` se Evidence Runtime
-  estiver ausente; `ToolPolicyBridgeService::evaluate` tem fallback
-  `allow` silencioso. Phase 4-6 nao podem emitir Receipt real sem
-  endurecimento. Bloqueia Phase 4-6.
+- **Tool Runtime Strict Mode**:
+  `atlas_ai.tool_runtime.strict_mode` tem default canonico ativo. O
+  AiWorker registra `PermissionGateService` em modo operacional
+  warn-only para preservar compatibilidade com o path legado, mas a
+  decisao de execucao continua auditada por policy/permission runtime e
+  qualquer opt-out precisa ser explicito.
 - **Coluna `mission_id` em `ai_traces`/`ai_jobs`**: hoje nao existe;
   Phase 1 grava em `payload['kernel']`. Promocao a coluna FK e Phase 7.
-- **Teste E2E canonico ausente**: nao existe nenhum teste Feature que
-  exerca `POST /ai/interactions` -> Mission completed via Kernel.
-  Definition of Done exige criacao em Phase 6.
+- **Teste E2E canonico**: a suite de DualCore verifica que a integracao
+  HTTP -> Kernel esta documentada como ativa. A promocao runtime para
+  `completed` permanece condicionada a evidencia real e certification
+  gate no `AiWorker`.
 
 Fases:
 
@@ -353,10 +354,10 @@ Documentais: `atlas-architecture-critical-judgment-report.md` (problema),
 Tecnicas:
 
 - Laravel 13 + PHP 8.4 (`/opt/homebrew/bin/php`).
-- `ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED` env (nova; default false
-  em todo ambiente ate cada fase passar gates).
-- AP irmao "Tool Bridges Strict Mode" antes de Phase 4-6 emitirem
-  Receipt real.
+- `ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED` env controla rollout de
+  HTTP -> Kernel quando o ambiente exige opt-in explicito.
+- Tool Runtime Strict Mode e requisito operacional para evitar fallback
+  silencioso em execucoes reais.
 
 ## Evidencias
 
@@ -449,34 +450,15 @@ nao inflacionar `ai_missions` com pings.
 
 ## Proximas Acoes
 
-1. **Phase 0 (esta sessao)**: escrever este ADR; atualizar
-   `atlas-architecture-critical-judgment-report.md` `next_actions[]`
-   apontando para este ADR como AP-mae da consolidacao (AP separado,
-   nao agora); rodar `docs-health`.
-2. **AP-Phase-1**: adicionar `ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED`
-   em `config/atlas_ai.php`; em `AiGatewayService::enqueueInteraction`
-   (apos linha 132, antes de linha 162), atras da flag, chamar
-   `MissionFactoryService::create` + persistir envelope em
-   `metadata['kernel']` / `payload['kernel']`. `trivial` pula
-   decomposicao + work_order; `task+` chama `ObjectiveDecomposerService`
-   + `WorkOrderFactoryService` + transicao para `planned`. Teste
-   Feature: POST cria `AiMission` quando flag on, nao cria quando off.
-3. **AP-Phase-2**: paralelo `RouterRuntime/` dentro de
-   `AiGatewayService`; dual-write com legacy `AtlasAiRouterService`;
-   comparar decisoes via log.
-4. **AP-Phase-3**: se `intent_type=programming`,
-   `AtlasDevMissionAdapter::adapt` +
-   `ProgrammingDomainRuntimeAdapter::plan` tomam a frente.
-5. **AP-Phase-4** (depende de "Tool Bridges Strict Mode"):
-   `PermissionGateService::evaluate` paralelo a
-   `AiPermissionEngine::authorizeJob` no AiWorker, em `warn_only`;
-   avaliar mismatch rate.
-6. **AP-Phase-5**: `ProgrammingEvidenceBridge::emitReceiptForJob` no
-   sucesso de `completeAttempt`; `MissionEvidenceService::attach` com
-   refs `test`, `command`, `diff`.
-7. **AP-Phase-6**: certificacao via
-   `CertificationRuntimeService::certify` + transicao `completed` ou
-   `blocked`; criar teste Feature E2E
+1. Monitorar `kernel_permission_gate` e `kernel_mission_completion` em
+   `ai_jobs.metadata` / `ai_traces.metadata` para detectar mismatch entre
+   path legado e Kernel.
+2. Promover `mission_id` de `payload.kernel.mission_id` para FK fisica em
+   `ai_jobs`/`ai_traces` quando houver volume real suficiente.
+3. Adicionar repair flow para Mission que falha certification, com
+   evidence pack de erro e work order corretiva.
+4. Manter `docs-health`, `programming-runtime` e suites DualCore verdes
+   como gates de regressao da integracao.
    `AiWorkerKernelIntegrationE2ETest`; promover este ADR a
    `status: active` apos gates verdes.
 8. **AP-Phase-7 (futuro, fora deste ADR)**: deprecar

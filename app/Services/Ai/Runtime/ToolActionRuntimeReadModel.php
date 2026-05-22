@@ -7,6 +7,7 @@ use App\Models\AtlasToolFinding;
 use App\Models\AtlasToolInstallation;
 use App\Models\AtlasToolRun;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -44,14 +45,13 @@ class ToolActionRuntimeReadModel
         }
 
         $definitions = AtlasToolDefinition::query()->get();
-        $runs = AtlasToolRun::query()
-            ->with('findings')
-            ->whereBetween('created_at', [$since, $until])
-            ->latest()
-            ->get();
+        $runsQuery = AtlasToolRun::query()
+            ->whereBetween('created_at', [$since, $until]);
         $installations = $this->installations($workspaceHash, $tables['atlas_tool_installations']);
-        $findings = $this->openFindings($runs, $tables['atlas_tool_findings']);
-        $summary = $this->summary($definitions, $runs, $installations, $findings, $tables['atlas_tool_installations']);
+        $runStats = $this->runStats($runsQuery);
+        $findings = $this->openFindings($since, $until, $tables['atlas_tool_findings']);
+        $findingStats = $this->findingStats($since, $until, $tables['atlas_tool_findings']);
+        $summary = $this->summary($definitions, $runStats, $installations, $findingStats, $tables['atlas_tool_installations']);
         $reviewSignal = $this->reviewSignal($summary);
 
         return [
@@ -63,7 +63,7 @@ class ToolActionRuntimeReadModel
             'status' => $reviewSignal['status'] === 'ok' ? 'ok' : 'warning',
             ...$summary,
             'review_signal' => $reviewSignal,
-            'recent_runs' => $runs->take(10)->map(fn (AtlasToolRun $run): array => $this->runPayload($run))->values()->all(),
+            'recent_runs' => $this->recentRuns($since, $until)->map(fn (AtlasToolRun $run): array => $this->runPayload($run))->values()->all(),
             'open_findings' => $findings->take(10)->map(fn (AtlasToolFinding $finding): array => $this->findingPayload($finding))->values()->all(),
             'writes' => false,
         ];
@@ -102,64 +102,27 @@ class ToolActionRuntimeReadModel
     }
 
     /**
-     * @param  Collection<int,AtlasToolRun>  $runs
      * @return Collection<int,AtlasToolFinding>
      */
-    private function openFindings(Collection $runs, bool $tableExists): Collection
+    private function openFindings(CarbonInterface $since, CarbonInterface $until, bool $tableExists): Collection
     {
-        if (! $tableExists || $runs->isEmpty()) {
+        if (! $tableExists) {
             return collect();
         }
 
         return AtlasToolFinding::query()
-            ->whereIn('tool_run_id', $runs->pluck('id')->all())
+            ->whereHas('run', fn (Builder $query): Builder => $query->whereBetween('created_at', [$since, $until]))
             ->where('status', 'open')
             ->latest()
+            ->limit(10)
             ->get();
     }
 
     /**
-     * @param  Collection<int,AtlasToolDefinition>  $definitions
-     * @param  Collection<int,AtlasToolRun>  $runs
-     * @param  Collection<int,AtlasToolInstallation>  $installations
-     * @param  Collection<int,AtlasToolFinding>  $findings
      * @return array<string,mixed>
      */
-    private function summary(Collection $definitions, Collection $runs, Collection $installations, Collection $findings, bool $installationTableExists): array
+    private function summary(Collection $definitions, array $runStats, Collection $installations, array $findingStats, bool $installationTableExists): array
     {
-        $latestRuns = $runs
-            ->groupBy('tool_slug')
-            ->map(fn (Collection $toolRuns): ?AtlasToolRun => $toolRuns
-                ->sort(fn (AtlasToolRun $left, AtlasToolRun $right): int => [
-                    $right->created_at?->getTimestamp() ?? 0,
-                    $this->hasActionRuntimeContract($right) ? 1 : 0,
-                    (string) $right->id,
-                ] <=> [
-                    $left->created_at?->getTimestamp() ?? 0,
-                    $this->hasActionRuntimeContract($left) ? 1 : 0,
-                    (string) $left->id,
-                ])
-                ->first())
-            ->filter()
-            ->values();
-        $contractedRuns = $runs->filter(
-            fn (AtlasToolRun $run): bool => $this->hasActionRuntimeContract($run)
-        );
-        $failedStatuses = ['failed', 'timeout', 'requires_approval', 'denied'];
-        $latestFailedRequiredRuns = $latestRuns->filter(
-            fn (AtlasToolRun $run): bool => (bool) $run->required && in_array((string) $run->status, $failedStatuses, true)
-        );
-        $latestContractedRuns = $latestRuns->filter(
-            fn (AtlasToolRun $run): bool => $this->hasActionRuntimeContract($run)
-        );
-        $unsafeContractRuns = $contractedRuns->filter(
-            fn (AtlasToolRun $run): bool => $this->hasUnsafeActionRuntimeContract($run)
-        );
-        $latestUnsafeContractRuns = $latestContractedRuns->filter(
-            fn (AtlasToolRun $run): bool => $this->hasUnsafeActionRuntimeContract($run)
-        );
-        $blockingFindings = $findings->filter(fn (AtlasToolFinding $finding): bool => (bool) $finding->blocks_resolved);
-
         return [
             'definition_count' => $definitions->count(),
             'active_definition_count' => $definitions->where('status', 'active')->count(),
@@ -172,26 +135,182 @@ class ToolActionRuntimeReadModel
             'installation_count' => $installations->count(),
             'ready_installation_count' => $installations->where('status', 'ready')->count(),
             'missing_installation_count' => $installations->where('status', 'missing')->count(),
-            'evidence_run_count' => $runs->count(),
-            'tool_evidence_count' => $runs->pluck('tool_slug')->unique()->count(),
-            'required_evidence_run_count' => $runs->where('required', true)->count(),
-            'failed_run_count' => $runs->whereIn('status', $failedStatuses)->count(),
-            'failed_required_run_count' => $runs->where('required', true)->whereIn('status', $failedStatuses)->count(),
-            'latest_failed_required_run_count' => $latestFailedRequiredRuns->count(),
-            'status_counts' => $runs->pluck('status')->filter()->countBy()->all(),
-            'policy_decision_counts' => $runs->pluck('policy_decision')->filter()->countBy()->all(),
-            'surface_counts' => $runs->pluck('surface')->filter()->countBy()->all(),
-            'action_runtime_contract_count' => $contractedRuns->count(),
-            'missing_action_runtime_contract_count' => $runs->count() - $contractedRuns->count(),
-            'unsafe_action_runtime_contract_count' => $unsafeContractRuns->count(),
-            'latest_evidence_run_count' => $latestRuns->count(),
-            'latest_action_runtime_contract_count' => $latestContractedRuns->count(),
-            'latest_missing_action_runtime_contract_count' => $latestRuns->count() - $latestContractedRuns->count(),
-            'latest_unsafe_action_runtime_contract_count' => $latestUnsafeContractRuns->count(),
-            'open_finding_count' => $findings->count(),
-            'blocking_open_finding_count' => $blockingFindings->count(),
-            'finding_severity_counts' => $findings->pluck('severity')->filter()->countBy()->all(),
+            ...$runStats,
+            ...$findingStats,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runStats(Builder $query): array
+    {
+        $failedStatuses = ['failed', 'timeout', 'requires_approval', 'denied'];
+        $stats = [
+            'evidence_run_count' => 0,
+            'tool_evidence_count' => 0,
+            'required_evidence_run_count' => 0,
+            'failed_run_count' => 0,
+            'failed_required_run_count' => 0,
+            'latest_failed_required_run_count' => 0,
+            'status_counts' => [],
+            'policy_decision_counts' => [],
+            'surface_counts' => [],
+            'action_runtime_contract_count' => 0,
+            'missing_action_runtime_contract_count' => 0,
+            'unsafe_action_runtime_contract_count' => 0,
+            'latest_evidence_run_count' => 0,
+            'latest_action_runtime_contract_count' => 0,
+            'latest_missing_action_runtime_contract_count' => 0,
+            'latest_unsafe_action_runtime_contract_count' => 0,
+        ];
+        $toolSlugs = [];
+        $latestByTool = [];
+
+        (clone $query)
+            ->select(['id', 'tool_slug', 'surface', 'status', 'required', 'policy_decision', 'metadata_json', 'created_at'])
+            ->orderBy('created_at')
+            ->chunk(500, function (Collection $runs) use (&$stats, &$toolSlugs, &$latestByTool, $failedStatuses): void {
+                foreach ($runs as $run) {
+                    /** @var AtlasToolRun $run */
+                    $stats['evidence_run_count']++;
+                    $toolSlug = (string) $run->tool_slug;
+                    if ($toolSlug !== '') {
+                        $toolSlugs[$toolSlug] = true;
+                    }
+
+                    $status = (string) $run->status;
+                    $policyDecision = (string) $run->policy_decision;
+                    $surface = (string) $run->surface;
+                    $this->incrementCount($stats['status_counts'], $status);
+                    $this->incrementCount($stats['policy_decision_counts'], $policyDecision);
+                    $this->incrementCount($stats['surface_counts'], $surface);
+
+                    $required = (bool) $run->required;
+                    $failed = in_array($status, $failedStatuses, true);
+                    $contracted = $this->hasActionRuntimeContract($run);
+                    $unsafe = $contracted && $this->hasUnsafeActionRuntimeContract($run);
+
+                    if ($required) {
+                        $stats['required_evidence_run_count']++;
+                    }
+                    if ($failed) {
+                        $stats['failed_run_count']++;
+                    }
+                    if ($required && $failed) {
+                        $stats['failed_required_run_count']++;
+                    }
+                    if ($contracted) {
+                        $stats['action_runtime_contract_count']++;
+                    } else {
+                        $stats['missing_action_runtime_contract_count']++;
+                    }
+                    if ($unsafe) {
+                        $stats['unsafe_action_runtime_contract_count']++;
+                    }
+                    if ($toolSlug !== '' && $this->runWinsLatest($run, $latestByTool[$toolSlug] ?? null)) {
+                        $latestByTool[$toolSlug] = $run;
+                    }
+                }
+            });
+
+        $stats['tool_evidence_count'] = count($toolSlugs);
+        $stats['latest_evidence_run_count'] = count($latestByTool);
+        foreach ($latestByTool as $run) {
+            $status = (string) $run->status;
+            $required = (bool) $run->required;
+            $failed = in_array($status, $failedStatuses, true);
+            $contracted = $this->hasActionRuntimeContract($run);
+            $unsafe = $contracted && $this->hasUnsafeActionRuntimeContract($run);
+
+            if ($required && $failed) {
+                $stats['latest_failed_required_run_count']++;
+            }
+            if ($contracted) {
+                $stats['latest_action_runtime_contract_count']++;
+            } else {
+                $stats['latest_missing_action_runtime_contract_count']++;
+            }
+            if ($unsafe) {
+                $stats['latest_unsafe_action_runtime_contract_count']++;
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @return Collection<int,AtlasToolRun>
+     */
+    private function recentRuns(CarbonInterface $since, CarbonInterface $until): Collection
+    {
+        return AtlasToolRun::query()
+            ->whereBetween('created_at', [$since, $until])
+            ->latest()
+            ->limit(10)
+            ->get();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function findingStats(CarbonInterface $since, CarbonInterface $until, bool $tableExists): array
+    {
+        if (! $tableExists) {
+            return [
+                'open_finding_count' => 0,
+                'blocking_open_finding_count' => 0,
+                'finding_severity_counts' => [],
+            ];
+        }
+
+        $base = AtlasToolFinding::query()
+            ->whereHas('run', fn (Builder $query): Builder => $query->whereBetween('created_at', [$since, $until]))
+            ->where('status', 'open');
+
+        return [
+            'open_finding_count' => (clone $base)->count(),
+            'blocking_open_finding_count' => (clone $base)->where('blocks_resolved', true)->count(),
+            'finding_severity_counts' => (clone $base)
+                ->selectRaw('severity, count(*) as aggregate')
+                ->whereNotNull('severity')
+                ->groupBy('severity')
+                ->pluck('aggregate', 'severity')
+                ->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string,int>  $counts
+     */
+    private function incrementCount(array &$counts, string $key): void
+    {
+        if ($key === '') {
+            return;
+        }
+
+        $counts[$key] = ($counts[$key] ?? 0) + 1;
+    }
+
+    private function runWinsLatest(AtlasToolRun $candidate, ?AtlasToolRun $current): bool
+    {
+        if (! $current instanceof AtlasToolRun) {
+            return true;
+        }
+
+        $candidateTimestamp = $candidate->created_at?->getTimestamp() ?? 0;
+        $currentTimestamp = $current->created_at?->getTimestamp() ?? 0;
+        if ($candidateTimestamp !== $currentTimestamp) {
+            return $candidateTimestamp > $currentTimestamp;
+        }
+
+        $candidateContracted = $this->hasActionRuntimeContract($candidate);
+        $currentContracted = $this->hasActionRuntimeContract($current);
+        if ($candidateContracted !== $currentContracted) {
+            return $candidateContracted;
+        }
+
+        return (string) $candidate->id > (string) $current->id;
     }
 
     private function hasActionRuntimeContract(AtlasToolRun $run): bool

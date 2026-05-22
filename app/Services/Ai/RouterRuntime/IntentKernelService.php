@@ -19,8 +19,10 @@ class IntentKernelService
         RouterRuntimeCanon::INTENT_PROGRAMMING => [
             'implemente', 'implementar', 'implement',
             'codigo', 'código', 'code', 'codifique',
-            'fix', 'fixe', 'corrija',
+            'fix', 'fixe', 'corrija', 'corrigir', 'correcao', 'correção',
             'refator', 'refactor',
+            'bug', 'testes',
+            'obra', 'forge',
             'adicione metodo', 'crie funcao', 'crie função', 'crie classe',
             'escreva teste', 'crie teste',
         ],
