@@ -3,7 +3,7 @@ id: atlas-quality-preserving-efficiency-system
 type: engineering_knowledge
 title: Atlas Quality-Preserving Efficiency System
 status: building
-implementation_state: v5_aqpes_acccr_alve_active; AQPES service/command/shadow/resource policy implemented, ACCCR and ALVE read-only active, AUCRI/AREG/ACCR/ATER/ACMF integrated.
+implementation_state: v6_avcel_shadow_active; AQPES service/command/shadow/resource policy implemented, ACCCR and ALVE read-only active, AVCEL connects context, token economy, local verification, repair strategy and AEMOR candidate.
 blocker: Dev/Forge ainda precisam de shadow receipts reais, opt-in progressivo, rollback e enforcement parcial antes de AQPES virar default.
 category: intelligence-runtime
 priority: 100
@@ -37,14 +37,17 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
   - docs/engineering-knowledge-base/atlas-context-cache-compiler-runtime.md
   - docs/engineering-knowledge-base/atlas-local-verification-engine.md
+  - docs/engineering-knowledge-base/atlas-verified-context-execution-loop.md
   - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
   - docs/engineering-knowledge-base/atlas-token-economy-runtime.md
   - docs/engineering-knowledge-base/atlas-runtime-efficiency-governor.md
   - app/Services/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemService.php
   - app/Services/Ai/RuntimeEfficiency/AtlasLocalVerificationEngineService.php
+  - app/Services/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopService.php
   - app/Services/Ai/Context/AtlasContextCacheCompilerRuntimeService.php
   - app/Console/Commands/AtlasQualityPreservingEfficiencyCommand.php
   - app/Console/Commands/AtlasContextCacheCompilerCommand.php
+  - app/Console/Commands/AtlasVerifiedContextExecutionLoopCommand.php
   - tests/Feature/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemServiceTest.php
   - tests/Feature/Ai/Context/ContextCacheCompilerRuntimeTest.php
 doc_schema: atlas_canonical_module_doc.v1
@@ -100,6 +103,7 @@ evidence:
   - app/Services/Ai/Context/AtlasContextCacheCompilerRuntimeService.php
   - tests/Feature/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemServiceTest.php
   - tests/Feature/Ai/RuntimeEfficiency/AtlasLocalVerificationEngineServiceTest.php
+  - tests/Feature/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopServiceTest.php
   - tests/Feature/Ai/Context/ContextCacheCompilerRuntimeTest.php
 required_tests:
   - "php artisan atlas:efficiency certify --json"
@@ -110,6 +114,8 @@ required_tests:
   - "php artisan test tests/Feature/Ai/Context/ContextCacheCompilerRuntimeTest.php"
   - "php artisan atlas:local-verification:run --json"
   - "php artisan test tests/Feature/Ai/RuntimeEfficiency/AtlasLocalVerificationEngineServiceTest.php"
+  - "php artisan atlas:verified-context-execution certify --json"
+  - "php artisan test tests/Feature/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:compile --json"
   - "php artisan atlas:context:token-economy --json"
@@ -119,6 +125,7 @@ line_limit: 520
 next_actions:
   - Conectar AQPES ao Atlas Dev/Forge primeiro em shadow mode.
   - Criar certification command e receipts antes de qualquer enforcement.
+  - Integrar AVCEL em Dev/Forge como opt-in antes de enforcement parcial.
 ---
 # Atlas Quality-Preserving Efficiency System
 
@@ -469,9 +476,7 @@ Regra: AQPES nunca pode virar motivo para o Forge entregar menos evidencia.
 
 ## Comandos Planejados
 
-- `php artisan atlas:efficiency certify --json` (ativo);
-- `php artisan atlas:efficiency shadow --flow-id=atlas_dev --json` (ativo);
-- `php artisan atlas:efficiency resources --json` (ativo);
+- `php artisan atlas:efficiency {certify|shadow|resources} --json` (ativo);
 - `php artisan atlas:context:cache-warm --workspace=...`;
 - `php artisan atlas:local-verification:run --diff`;
 - `php artisan atlas:efficiency:receipt --last`.
@@ -484,11 +489,11 @@ AQPES so vira fluxo padrao quando:
 - zero regressao de qualidade em golden set e runs high-risk;
 - economia media comprovada por flow e por provider;
 - cache hit real medido, nao estimado;
-- CPU/RAM sempre dentro do budget e com 3GB reservados ao operador;
+- CPU/RAM dentro do budget e com 3GB reservados ao operador;
 - Atlas Dev e Atlas Forge integrados primeiro em opt-in;
 - receipts persistidos com rollback.
 
-Definicao de done tecnico:
+Done tecnico:
 
 - ACCCR e ALVE possuem docs filhas, service read-only, command e testes;
 - shadow report compara baseline vs variante por flow;
@@ -499,19 +504,16 @@ Definicao de done tecnico:
 
 Limite tecnico honesto:
 
-- com APIs externas, AQPES nao controla MTP, Medusa ou speculative decoding do
-  provider; esses ganhos pertencem ao serving do modelo;
+- com APIs externas, AQPES nao controla MTP, Medusa ou speculative decoding;
 - o ganho limpo do Atlas vem de contexto cacheavel, delta context, selecao de
   testes, CPU proof, RAM working memory, failure capsules e repair loops;
-- se houver runtime local/self-hosted no futuro, tecnicas de speculative
-  decoding podem entrar como camada separada, mas nao podem ser vendidas como
-  economia de token de provider externo.
+- runtime local/self-hosted futuro pode usar speculative decoding, sem vender
+  isso como economia de token de provider externo.
 
 ## Exemplos
 Dev/Forge usam shadow primeiro: contexto cacheavel, delta, budget local e
 failure capsule; se qualquer gate falhar, voltam ao baseline sem economia.
 
 ## Proximas Acoes
-1. Persistir receipts AQPES/ALVE para runs reais, mantendo shadow read-only como default.
-2. Rodar shadow no Atlas Dev/Forge e promover apenas com receipts comparativos.
-3. Criar enforcement parcial somente para hard gates objetivos.
+1. Persistir receipts AQPES/ALVE para runs reais.
+2. Rodar shadow no Dev/Forge antes de enforcement parcial.

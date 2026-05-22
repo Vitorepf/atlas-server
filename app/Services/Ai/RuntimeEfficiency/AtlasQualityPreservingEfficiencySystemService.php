@@ -88,6 +88,7 @@ final class AtlasQualityPreservingEfficiencySystemService
                 && File::exists(base_path('app/Console/Commands/AtlasContextCacheCompilerCommand.php'))
                 && File::exists(base_path('app/Console/Commands/AtlasContextCompilerRuntimeCommand.php'))
                 && File::exists(base_path('app/Console/Commands/AtlasLocalVerificationEngineCommand.php'))
+                && File::exists(base_path('app/Console/Commands/AtlasVerifiedContextExecutionLoopCommand.php'))
                 && File::exists(base_path('app/Console/Commands/AtlasCognitiveMemoryFabricCommand.php'))
                 && File::exists(base_path('app/Console/Commands/AtlasTokenEconomyRuntimeCommand.php')), [
                     'commands' => [
@@ -95,6 +96,7 @@ final class AtlasQualityPreservingEfficiencySystemService
                         'atlas:context:cache-warm',
                         'atlas:context:compile',
                         'atlas:local-verification:run',
+                        'atlas:verified-context-execution',
                         'atlas:context:cognitive-memory',
                         'atlas:context:token-economy',
                     ],
@@ -103,6 +105,7 @@ final class AtlasQualityPreservingEfficiencySystemService
                 && File::exists(base_path('tests/Feature/Ai/Context/ContextCompilerRuntimeTest.php'))
                 && File::exists(base_path('tests/Feature/Ai/Context/CognitiveMemoryFabricTest.php'))
                 && File::exists(base_path('tests/Feature/Ai/RuntimeEfficiency/AtlasLocalVerificationEngineServiceTest.php'))
+                && File::exists(base_path('tests/Feature/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopServiceTest.php'))
                 && File::exists(base_path('tests/Feature/Ai/Context/TokenEconomyRuntimeTest.php')), [
                     'test' => 'tests/Feature/Ai/RuntimeEfficiency/AtlasQualityPreservingEfficiencySystemServiceTest.php',
                 ]),

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Models\AtlasEngineeringKnowledgeItem;
+use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
 use App\Services\Engineering\AtlasCodeRealityUsageIntelligenceService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
@@ -19,6 +20,7 @@ class AtlasFeaturePlacementService
         private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
         private readonly AtlasDocumentationRealitySystemService $documentationReality,
         private readonly AtlasCodeRealityUsageIntelligenceService $codeReality,
+        private readonly AtlasCodeIntelligenceAutomaticGateService $codeIntelligenceGate,
     ) {}
 
     /**
@@ -32,6 +34,12 @@ class AtlasFeaturePlacementService
         $owners = $this->ownerDocs($placement, $text);
         $duplicates = $this->duplicateCandidates($feature, $owners);
         $documentationReality = $this->documentationRealityGate($feature);
+        $codeIntelligenceGate = $this->codeIntelligenceGate->evaluate([
+            'mode' => 'summary',
+            'strict_freshness' => false,
+            'auto_refresh' => false,
+            'run_context_type' => 'feature_placement',
+        ]);
         $kb = $this->knowledge->summary();
         $risks = $this->risks($placement, $duplicates, $kb);
         $blockedWhen = $this->blockedWhen($placement, $owners, $duplicates, $kb);
@@ -45,6 +53,7 @@ class AtlasFeaturePlacementService
             'owner_docs' => $owners,
             'duplicate_candidates' => $duplicates,
             'documentation_reality_gate' => $documentationReality,
+            'code_intelligence_automatic_gate' => $codeIntelligenceGate,
             'code_reality_anti_duplicate' => $documentationReality['acrui_anti_duplicate'],
             'implementation_contract' => $this->implementationContract($placement),
             'pre_implementation_checklist' => $this->preImplementationChecklist($placement),
@@ -62,6 +71,7 @@ class AtlasFeaturePlacementService
                 'git diff --check',
                 'atlas engineering knowledge docs-health',
                 'php artisan atlas:documentation-reality score --strict --json',
+                'php artisan atlas:engineering:knowledge code-gate --auto-refresh --strict --json',
                 'php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json',
                 'php artisan atlas:code-reality reachability --target="<target>" --json',
                 'php artisan atlas:software-twin impact --target="<target>" --json',

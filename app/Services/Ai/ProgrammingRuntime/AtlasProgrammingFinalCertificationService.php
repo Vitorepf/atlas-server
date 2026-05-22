@@ -58,9 +58,13 @@ class AtlasProgrammingFinalCertificationService
 
     public const CHECK_DEV_PATCH_TEST_DEBUG_REVIEW_REPAIR = 'dev_patch_test_debug_review_repair';
 
+    public const CHECK_DEV_RUNTIME_INTELLIGENCE = 'dev_runtime_intelligence';
+
     public const CHECK_FORGE_INTAKE_AND_OBRA_BUILDING_BLOCKS = 'forge_intake_and_obra_building_blocks';
 
     public const CHECK_FORGE_SDD_QA_CERTIFICATION_LOOP = 'forge_sdd_qa_certification_loop';
+
+    public const CHECK_FORGE_WORK_PACKET_NATIVE_CAPABILITIES = 'forge_work_packet_native_capabilities';
 
     public const CHECK_FORGE_LIVE_EXECUTION_PRESENT = 'forge_live_execution_present';
 
@@ -80,13 +84,19 @@ class AtlasProgrammingFinalCertificationService
 
     public const CHECK_E2E_BATTERY_EXISTS = 'e2e_battery_exists';
 
+    public const CHECK_CODE_INTELLIGENCE_AUTOMATIC_GATE = 'code_intelligence_automatic_gate';
+
+    public const CHECK_VERIFIED_CONTEXT_EXECUTION_LOOP = 'verified_context_execution_loop';
+
     public const CHECK_BENCHMARK_READINESS_HARNESS_NOT_RUN = 'benchmark_readiness_harness_not_run';
 
     public const ALL_CHECK_IDS = [
         self::CHECK_DEV_ROUTING,
         self::CHECK_DEV_PATCH_TEST_DEBUG_REVIEW_REPAIR,
+        self::CHECK_DEV_RUNTIME_INTELLIGENCE,
         self::CHECK_FORGE_INTAKE_AND_OBRA_BUILDING_BLOCKS,
         self::CHECK_FORGE_SDD_QA_CERTIFICATION_LOOP,
+        self::CHECK_FORGE_WORK_PACKET_NATIVE_CAPABILITIES,
         self::CHECK_FORGE_LIVE_EXECUTION_PRESENT,
         self::CHECK_DEV_TO_FORGE_ESCALATION,
         self::CHECK_RAG_FAIL_CLOSED_AVAILABLE,
@@ -96,6 +106,8 @@ class AtlasProgrammingFinalCertificationService
         self::CHECK_TELEMETRY_AND_AUDIT,
         self::CHECK_CONTROL_PLANE,
         self::CHECK_E2E_BATTERY_EXISTS,
+        self::CHECK_CODE_INTELLIGENCE_AUTOMATIC_GATE,
+        self::CHECK_VERIFIED_CONTEXT_EXECUTION_LOOP,
         self::CHECK_BENCHMARK_READINESS_HARNESS_NOT_RUN,
     ];
 
@@ -111,8 +123,10 @@ class AtlasProgrammingFinalCertificationService
         $checks = [
             $this->checkDevRouting(),
             $this->checkDevPatchTestDebugReviewRepair(),
+            $this->checkDevRuntimeIntelligence(),
             $this->checkForgeIntakeAndObraBuildingBlocks(),
             $this->checkForgeSddQaCertificationLoop(),
+            $this->checkForgeWorkPacketNativeCapabilities(),
             $this->checkForgeLiveExecution(),
             $this->checkDevToForgeEscalation(),
             $this->checkRagFailClosedAvailable(),
@@ -122,6 +136,8 @@ class AtlasProgrammingFinalCertificationService
             $this->checkTelemetryAndAudit(),
             $this->checkControlPlane(),
             $this->checkE2eBatteryExists(),
+            $this->checkCodeIntelligenceAutomaticGate(),
+            $this->checkVerifiedContextExecutionLoop(),
             $this->checkBenchmarkReadinessHarnessNotRun(),
         ];
 
@@ -209,6 +225,82 @@ class AtlasProgrammingFinalCertificationService
     /**
      * @return array<string,mixed>
      */
+    private function checkDevRuntimeIntelligence(): array
+    {
+        $required = [
+            'task_packet_runtime' => 'app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevTaskPacketRuntimeService.php',
+            'context_gate' => 'app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevContextGateService.php',
+            'failure_capsule' => 'app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevFailureCapsuleRuntimeService.php',
+            'outcome_memory' => 'app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevOutcomeMemoryService.php',
+            'run_certification' => 'app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevRunCertificationService.php',
+            'native_capability_orchestrator' => 'app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevNativeCapabilityOrchestrator.php',
+            'decision_materialization' => 'app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevDecisionMaterializationService.php',
+            'orchestrator' => 'app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevRuntimeIntelligenceService.php',
+            'task_packet_model' => 'app/Models/AtlasDevTaskPacket.php',
+            'context_gate_model' => 'app/Models/AtlasDevContextGate.php',
+            'failure_capsule_model' => 'app/Models/AtlasDevFailureCapsule.php',
+            'outcome_memory_model' => 'app/Models/AtlasDevOutcomeMemory.php',
+            'run_certification_model' => 'app/Models/AtlasDevRunCertification.php',
+            'decision_materialization_model' => 'app/Models/AtlasDevDecisionMaterialization.php',
+            'run_certify_command' => 'app/Console/Commands/AtlasDevRunCertifyCommand.php',
+            'migration' => 'database/migrations/2026_05_22_160000_create_atlas_dev_runtime_intelligence_tables.php',
+            'runtime_wiring' => 'app/Services/Ai/Programming/AtlasDevRuntimeService.php',
+            'test' => 'tests/Feature/Ai/Programming/AtlasDev/AtlasDevRuntimeIntelligenceTest.php',
+            'doc' => 'docs/engineering-knowledge-base/atlas-dev-runtime-intelligence.md',
+        ];
+
+        $missing = [];
+        foreach ($required as $label => $path) {
+            if (! $this->probe->fileExists($path)) {
+                $missing[] = $label.':'.$path;
+            }
+        }
+
+        $runtimeSource = $this->probe->readFile($required['runtime_wiring']) ?? '';
+        $testSource = $this->probe->readFile($required['test']) ?? '';
+        $docSource = $this->probe->readFile($required['doc']) ?? '';
+        $wired = str_contains($runtimeSource, 'atlas_dev_runtime_intelligence')
+            && str_contains($runtimeSource, 'DevRuntimeIntelligenceService');
+        $testsCover = str_contains($testSource, 'DevTaskPacketRuntimeService')
+            && str_contains($testSource, 'DevContextGateService')
+            && str_contains($testSource, 'DevFailureCapsuleRuntimeService')
+            && str_contains($testSource, 'DevOutcomeMemoryService')
+            && str_contains($testSource, 'DevRunCertificationService')
+            && str_contains($testSource, 'DevNativeCapabilityOrchestrator')
+            && str_contains($testSource, 'AtlasDevDecisionMaterialization')
+            && str_contains($testSource, 'atlas:dev:run-certify')
+            && str_contains($testSource, 'AtlasDevRuntimeService');
+        $docCanon = str_contains($docSource, 'runtime_acronym: ADRI')
+            && str_contains($docSource, 'DevTaskPacketRuntime')
+            && str_contains($docSource, 'DevContextGate')
+            && str_contains($docSource, 'DevOutcomeMemory')
+            && str_contains($docSource, 'DevFailureCapsule')
+            && str_contains($docSource, 'DevRunCertification')
+            && str_contains($docSource, 'DevNativeCapabilityOrchestrator')
+            && str_contains($docSource, 'AtlasDevDecisionMaterialization')
+            && str_contains($docSource, 'atlas:dev:run-certify');
+
+        if ($missing === [] && $wired && $testsCover && $docCanon) {
+            return $this->pass(
+                self::CHECK_DEV_RUNTIME_INTELLIGENCE,
+                self::SEVERITY_P0,
+                'Atlas Dev has all 15 native capability blocks materialized, certified and wired into runtime previews',
+                array_values($required),
+            );
+        }
+
+        return $this->fail(
+            self::CHECK_DEV_RUNTIME_INTELLIGENCE,
+            self::SEVERITY_P0,
+            'Atlas Dev runtime intelligence stack missing, unwired or insufficiently tested/documented',
+            'restore all 15 Dev native capability blocks, materialization models, migration, AtlasDevRuntimeService preview wiring, focused tests, command and canonical doc',
+            array_values($required),
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function checkForgeIntakeAndObraBuildingBlocks(): array
     {
         $required = [
@@ -269,6 +361,75 @@ class AtlasProgrammingFinalCertificationService
             ? $this->pass(self::CHECK_FORGE_LIVE_EXECUTION_PRESENT, self::SEVERITY_P1, 'Forge live execution service present', [$path])
             : $this->warn(self::CHECK_FORGE_LIVE_EXECUTION_PRESENT, self::SEVERITY_P1, 'Forge live execution service missing',
                 'implement AtlasForgeLiveExecutionService per atlas-forge-live-execution-e2e-v1.md', [$path]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkForgeWorkPacketNativeCapabilities(): array
+    {
+        $required = [
+            'work_packet_intelligence' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeWorkPacketIntelligenceRuntimeService.php',
+            'context_gate' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeObraContextGateService.php',
+            'test_impact' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeTestImpactRuntimeService.php',
+            'failure_intelligence' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeFailureIntelligenceService.php',
+            'senior_obra_review' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeSeniorObraReviewService.php',
+            'specialist_workcell_router' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeSpecialistWorkcellRouterService.php',
+            'provider_projection' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeProviderProjectionService.php',
+            'scope_guard' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeObraScopeGuardService.php',
+            'obra_simulation' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeObraSimulationService.php',
+            'outcome_memory' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeOutcomeMemoryService.php',
+            'capability_orchestrator' => 'app/Services/Ai/Programming/Forge/Intelligence/ForgeWorkPacketCapabilityOrchestrator.php',
+            'outcome_memory_model' => 'app/Models/AiForgeOutcomeMemory.php',
+            'workcell_route_model' => 'app/Models/AiForgeWorkPacketWorkcellRoute.php',
+            'intelligence_materialization_migration' => 'database/migrations/2026_05_22_150000_create_ai_forge_packet_intelligence_materializations.php',
+            'execution_cycle_wiring' => 'app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php',
+            'test' => 'tests/Feature/Ai/Programming/Forge/ForgeWorkPacketNativeCapabilitiesTest.php',
+        ];
+
+        $missing = [];
+        foreach ($required as $label => $path) {
+            if (! $this->probe->fileExists($path)) {
+                $missing[] = $label.':'.$path;
+            }
+        }
+
+        $cycleSource = $this->probe->readFile($required['execution_cycle_wiring']) ?? '';
+        $testSource = $this->probe->readFile($required['test']) ?? '';
+        $wired = str_contains($cycleSource, 'forge_native_capabilities')
+            && str_contains($cycleSource, 'failure_intelligence')
+            && str_contains($cycleSource, 'outcome_memory')
+            && str_contains($cycleSource, 'materializeWorkcellSchedule')
+            && str_contains($cycleSource, 'persistOutcomeMemory');
+        $testsCover = str_contains($testSource, 'FWPIR')
+            && str_contains($testSource, 'FOCG')
+            && str_contains($testSource, 'FTIR')
+            && str_contains($testSource, 'FFIR')
+            && str_contains($testSource, 'FSORB')
+            && str_contains($testSource, 'FSWR')
+            && str_contains($testSource, 'FPPR')
+            && str_contains($testSource, 'FOSG')
+            && str_contains($testSource, 'FOSR')
+            && str_contains($testSource, 'FOMR')
+            && str_contains($testSource, 'AiForgeOutcomeMemory')
+            && str_contains($testSource, 'AiForgeWorkPacketWorkcellRoute');
+
+        if ($missing === [] && $wired && $testsCover) {
+            return $this->pass(
+                self::CHECK_FORGE_WORK_PACKET_NATIVE_CAPABILITIES,
+                self::SEVERITY_P0,
+                'Forge has native work-packet intelligence, context, tests, failure, review, workcell, provider projection, scope, simulation and outcome memory blocks wired into execution cycles',
+                array_values($required),
+            );
+        }
+
+        return $this->fail(
+            self::CHECK_FORGE_WORK_PACKET_NATIVE_CAPABILITIES,
+            self::SEVERITY_P0,
+            'Forge work-packet native capability stack missing, unwired or insufficiently tested',
+            'restore all 10 Forge-native blocks, wire them into ForgeWorkPacketExecutionCycleService and keep ForgeWorkPacketNativeCapabilitiesTest covering every acronym',
+            array_values($required),
+        );
     }
 
     /**
@@ -418,6 +579,112 @@ class AtlasProgrammingFinalCertificationService
             'Local Agent Memory Ingestion: neither spec nor runtime present',
             'declare a canonical spec and runtime for local agent memory ingestion before relying on provider-history learning',
             [$specDoc]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkVerifiedContextExecutionLoop(): array
+    {
+        $service = 'app/Services/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopService.php';
+        $command = 'app/Console/Commands/AtlasVerifiedContextExecutionLoopCommand.php';
+        $doc = 'docs/engineering-knowledge-base/atlas-verified-context-execution-loop.md';
+        $test = 'tests/Feature/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopServiceTest.php';
+        $source = $this->probe->readFile($service) ?? '';
+        $testSource = $this->probe->readFile($test) ?? '';
+        $docSource = $this->probe->readFile($doc) ?? '';
+        $present = $this->probe->fileExists($service)
+            && $this->probe->fileExists($command)
+            && $this->probe->fileExists($doc)
+            && $this->probe->fileExists($test);
+        $connectsRuntime = str_contains($source, 'AtlasContextCacheCompilerRuntimeService')
+            && str_contains($source, 'AtlasTokenEconomyRuntimeService')
+            && str_contains($source, 'AtlasLocalVerificationEngineService')
+            && str_contains($source, 'AtlasAemorRuntimeService');
+        $readOnly = str_contains($source, "'providers_invoked' => false")
+            && str_contains($source, "'commands_executed' => false")
+            && str_contains($source, "'writes' => false");
+        $testsEightStages = str_contains($testSource, 'test_shadow_builds_eight_stage_read_only_verified_context_execution_loop');
+        $docCanon = str_contains($docSource, 'runtime_acronym: AVCEL');
+
+        if ($present && $connectsRuntime && $readOnly && $testsEightStages && $docCanon) {
+            return $this->pass(
+                self::CHECK_VERIFIED_CONTEXT_EXECUTION_LOOP,
+                self::SEVERITY_P0,
+                'AVCEL shadow loop connects context cache, token economy, ALVE and AEMOR candidate',
+                [$service, $command, $doc, $test],
+            );
+        }
+
+        return $this->fail(
+            self::CHECK_VERIFIED_CONTEXT_EXECUTION_LOOP,
+            self::SEVERITY_P0,
+            'AVCEL missing or incomplete for Dev/Forge verified context execution',
+            'implement AtlasVerifiedContextExecutionLoopService + command + doc + tests with read-only provider-free invariants',
+            [$service, $command, $doc, $test],
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function checkCodeIntelligenceAutomaticGate(): array
+    {
+        $service = 'app/Services/Engineering/AtlasCodeIntelligenceAutomaticGateService.php';
+        $command = 'app/Console/Commands/AtlasEngineeringKnowledgeCommand.php';
+        $programmingGate = 'app/Services/Ai/Programming/Governance/Gates/ProgrammingCodeIntelligenceGate.php';
+        $sessionBootstrap = 'app/Services/Ai/Kernel/Architecture/AtlasSessionBootstrapService.php';
+        $test = 'tests/Feature/Engineering/AtlasCodeIntelligenceAutomaticGateServiceTest.php';
+        $doc = 'docs/engineering-knowledge-base/code-intelligence.md';
+
+        $serviceSource = $this->probe->readFile($service) ?? '';
+        $commandSource = $this->probe->readFile($command) ?? '';
+        $programmingGateSource = $this->probe->readFile($programmingGate) ?? '';
+        $sessionBootstrapSource = $this->probe->readFile($sessionBootstrap) ?? '';
+        $testSource = $this->probe->readFile($test) ?? '';
+        $docSource = $this->probe->readFile($doc) ?? '';
+
+        $present = $this->probe->fileExists($service)
+            && $this->probe->fileExists($command)
+            && $this->probe->fileExists($programmingGate)
+            && $this->probe->fileExists($sessionBootstrap)
+            && $this->probe->fileExists($test)
+            && $this->probe->fileExists($doc);
+        $failClosed = str_contains($serviceSource, 'blocks_dev_forge_when_blocked')
+            && str_contains($serviceSource, 'stale_index_allowed')
+            && str_contains($serviceSource, 'consumer_missing');
+        $consumersCovered = str_contains($serviceSource, "'forge'")
+            && str_contains($serviceSource, "'atlas_dev'")
+            && str_contains($serviceSource, "'acrui'")
+            && str_contains($serviceSource, "'software_twin'")
+            && str_contains($serviceSource, "'avcel'");
+        $commandWired = str_contains($commandSource, "'code-gate'")
+            && str_contains($commandSource, '--auto-refresh')
+            && str_contains($commandSource, '--strict');
+        $devWired = str_contains($programmingGateSource, 'AtlasCodeIntelligenceAutomaticGateService')
+            && str_contains($programmingGateSource, 'code_intelligence_automatic_gate_blocked');
+        $bootstrapWired = str_contains($sessionBootstrapSource, 'code_intelligence_automatic_gate');
+        $testsCover = str_contains($testSource, 'test_stale_index_blocks_when_strict_freshness_is_enabled')
+            && str_contains($testSource, 'consumer_count');
+        $docCovers = str_contains($docSource, 'code-gate --auto-refresh --strict --json')
+            && str_contains($docSource, 'Atlas Dev, Forge, ACRUI, Software Twin e AVCEL');
+
+        if ($present && $failClosed && $consumersCovered && $commandWired && $devWired && $bootstrapWired && $testsCover && $docCovers) {
+            return $this->pass(
+                self::CHECK_CODE_INTELLIGENCE_AUTOMATIC_GATE,
+                self::SEVERITY_P0,
+                'index-code automatic gate is fail-closed and wired into session bootstrap + Atlas Dev governance',
+                [$service, $command, $programmingGate, $sessionBootstrap, $test, $doc],
+            );
+        }
+
+        return $this->fail(
+            self::CHECK_CODE_INTELLIGENCE_AUTOMATIC_GATE,
+            self::SEVERITY_P0,
+            'index-code automatic gate missing consumer coverage or Dev/Forge enforcement',
+            'wire AtlasCodeIntelligenceAutomaticGateService through code-gate, session bootstrap and ProgrammingCodeIntelligenceGate with focused tests',
+            [$service, $command, $programmingGate, $sessionBootstrap, $test, $doc],
+        );
     }
 
     /**

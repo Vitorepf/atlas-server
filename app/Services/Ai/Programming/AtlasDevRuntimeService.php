@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRuntimeIntelligenceService;
 use RuntimeException;
 
 /**
@@ -24,7 +25,9 @@ class AtlasDevRuntimeService
     public const SCHEMA_VERSION = 'atlas.dev_runtime.v1';
 
     public const FLOW_DEV = 'programming.dev';
+
     public const FLOW_REVIEW = 'programming.review';
+
     public const FLOW_REPAIR = 'programming.repair';
 
     private const SUPPORTED_FLOWS = [
@@ -45,6 +48,7 @@ class AtlasDevRuntimeService
     public const EXPECTED_ARTIFACTS = ['plan', 'diff_or_reason', 'tests_or_reason', 'risks'];
 
     public const REQUIRES_WORKSPACE_CODE = 'programming_requires_workspace';
+
     public const REQUIRES_WORKSPACE_MESSAGE = 'Atlas Dev exige um Workspace selecionado para tarefas de Programação.';
 
     private const ATLAS_AI_SURFACES = [
@@ -115,6 +119,32 @@ class AtlasDevRuntimeService
             'workspace_source' => $workspaceSource,
             'open_brain_policy' => 'auto',
         ];
+
+        $runtimeIntelligence = (new DevRuntimeIntelligenceService)->preview([
+            'run_id' => $this->stringValue($payload['run_id'] ?? null)
+                ?? $this->stringValue($payload['trace_id'] ?? null)
+                ?? 'dev-runtime-preview',
+            'task_id' => $this->stringValue($payload['task_id'] ?? null) ?? $flowId,
+            'objective' => $this->stringValue($payload['input_text'] ?? null)
+                ?? $this->stringValue($payload['prompt'] ?? null)
+                ?? 'Atlas Dev programming request',
+            'task_class' => $task === 'debug' ? 'debug' : ($task === 'review' ? 'review' : 'feature'),
+            'risk_band' => $this->stringValue($payload['risk_band'] ?? null) ?? 'medium',
+            'workspace_slug' => $workspace,
+            'allowed_files' => $this->arrayOfStrings(data_get($payload, 'tool_permissions.allowed_files', [])),
+            'forbidden_files' => $this->arrayOfStrings(data_get($payload, 'tool_permissions.forbidden_files', [])),
+            'context_refs' => $this->arrayOfStrings($payload['context_refs'] ?? []),
+            'expected_files' => $this->arrayOfStrings($payload['expected_files'] ?? []),
+            'suggested_tests' => $this->arrayOfStrings($payload['suggested_tests'] ?? []),
+            'acceptance_criteria' => $this->arrayOfStrings($payload['acceptance_criteria'] ?? []),
+            'required_evidence' => self::EXPECTED_ARTIFACTS,
+            'source' => 'AtlasDevRuntimeService',
+        ]);
+        $payload['atlas_dev_runtime_intelligence'] = $runtimeIntelligence;
+        $payload['atlas_dev_runtime']['provider_safe'] = (bool) ($runtimeIntelligence['provider_safe'] ?? false);
+        $payload['atlas_dev_runtime']['provider_execution_allowed'] = (bool) ($runtimeIntelligence['provider_safe'] ?? false);
+        $payload['atlas_dev_runtime']['native_capability_status'] = (string) data_get($runtimeIntelligence, 'native_capabilities.status', 'unknown');
+        $payload['atlas_dev_runtime']['native_capability_blockers'] = data_get($runtimeIntelligence, 'native_capabilities.blockers', []);
 
         $data['payload'] = $payload;
 
@@ -262,5 +292,20 @@ class AtlasDevRuntimeService
         $value = trim((string) $value);
 
         return $value !== '' ? $value : null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function arrayOfStrings(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            fn (mixed $item): ?string => $this->stringValue($item),
+            $value,
+        ))));
     }
 }

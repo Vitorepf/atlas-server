@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
 use App\Services\Engineering\AtlasUniversalRealityCartographyService;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
@@ -20,6 +21,7 @@ class AtlasSessionBootstrapService
         private readonly AtlasProviderProjectionService $projections,
         private readonly AtlasDocumentationRealitySystemService $documentationReality,
         private readonly AtlasUniversalRealityCartographyService $cartography,
+        private readonly AtlasCodeIntelligenceAutomaticGateService $codeIntelligenceGate,
     ) {}
 
     /**
@@ -37,6 +39,13 @@ class AtlasSessionBootstrapService
         ]);
         $placement = $this->placement->place($task);
         $documentationReality = $this->documentationRealityGate($task, $placement);
+        $codeIntelligenceGate = $this->codeIntelligenceGate->evaluate([
+            'workspace' => $options['workspace'] ?? base_path(),
+            'mode' => 'summary',
+            'strict_freshness' => false,
+            'auto_refresh' => false,
+            'run_context_type' => 'session_bootstrap',
+        ]);
         $splitOwner = $this->splitOwner($placement['placement'] ?? [], $task);
         $splitPlan = $this->splitPlan->plan(['owner' => $splitOwner]);
         $readiness = $this->readiness->snapshot([
@@ -61,6 +70,7 @@ class AtlasSessionBootstrapService
             'owner_docs' => $placement['owner_docs'],
             'duplicate_candidates' => $placement['duplicate_candidates'],
             'documentation_reality_gate' => $documentationReality,
+            'code_intelligence_automatic_gate' => $codeIntelligenceGate,
             'code_reality_anti_duplicate' => $placement['code_reality_anti_duplicate'] ?? [],
             'cartography_navigation_slice' => $documentationReality['aurc_navigation_slice'],
             'docs_split_plan' => [
@@ -115,6 +125,7 @@ class AtlasSessionBootstrapService
                 'php artisan atlas:documentation-reality score --strict --json',
                 'php artisan atlas:documentation-reality acceptance --strict --json',
                 'php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json',
+                'php artisan atlas:engineering:knowledge code-gate --auto-refresh --strict --json',
                 'php artisan atlas:code-reality reality-audit --json',
                 'php artisan atlas:code-reality reachability --target="<target>" --json',
                 'php artisan atlas:code-reality deletion-preflight --target="<target>" --json',
@@ -150,6 +161,7 @@ class AtlasSessionBootstrapService
                     'review_owner_docs',
                     'confirm_placement_and_business_context',
                     'review_documentation_reality_gate',
+                    'review_code_intelligence_automatic_gate',
                     'review_code_reality_anti_duplicate',
                     'use_cartography_navigation_slice_as_map_not_source_of_truth',
                     'review_software_twin_impact_for_targeted_changes',

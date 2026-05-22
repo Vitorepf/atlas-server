@@ -183,6 +183,8 @@ Para auditoria:
 atlas engineering knowledge code-status
 atlas engineering knowledge audit-code --json
 atlas engineering knowledge code-readiness --json
+atlas engineering knowledge code-gate --strict --json
+atlas engineering knowledge code-gate --auto-refresh --strict --json
 atlas engineering knowledge modules
 atlas engineering knowledge symbols --symbol-type=cli_command
 atlas engineering knowledge show-module engineering_harness_services
@@ -264,6 +266,55 @@ timestamp, tamanho ou heuristica.
 `code-readiness` bloqueia quando tabelas estao ausentes, indice nao esta ready,
 audit nao esta fresh, contagens estruturais estao vazias ou `drift.total > 0`.
 Modulos `undocumented` viram warning, nao falha critica.
+
+## Gate Automatico
+
+`code-gate` e o bloqueio automatico de runtime em cima do `index-code`.
+Ele existe para impedir que Atlas Dev, Forge, ACRUI, Software Twin e AVCEL
+trabalhem com mapa de codigo vazio, stale ou sem consumidor downstream.
+
+Comandos canonicos:
+
+```bash
+php artisan atlas:engineering:knowledge code-gate --strict --json
+php artisan atlas:engineering:knowledge code-gate --auto-refresh --strict --json
+```
+
+Sem `--auto-refresh`, o gate e read-only: le `summary()`, roda readiness quando
+em modo estrito, avalia drift e devolve `ready|watch|blocked`. Com
+`--auto-refresh`, ele pode executar `index-code --prune --summary-only --json`
+quando a falha e recuperavel (`drift_detected`, `audit_not_fresh`,
+`index_not_ready` ou indice stale). Ele nunca chama provider, nunca roda rivals
+e nunca declara contexto confiavel quando `status=blocked`.
+
+Consumidores obrigatorios cobertos pelo gate:
+
+- contexto correto;
+- cartografia;
+- deteccao de duplicacao;
+- selecao de arquivos;
+- impacto de patch;
+- Forge;
+- Atlas Dev;
+- ACRUI;
+- Software Twin;
+- AVCEL;
+- reducao de erro das IAs.
+
+O gate bloqueia quando:
+
+- as tabelas de Code Intelligence nao existem;
+- `summary.status` nao e `ready`;
+- `module_count`, `symbol_count`, `route_count`, `command_count` ou
+  `test_count` estao vazios;
+- `code-readiness` retorna blocked em modo estrito;
+- `last_indexed_at` esta ausente, invalido ou acima do limite de idade;
+- algum consumidor obrigatorio perdeu evidencia de arquivo/doc;
+- cache por snapshot de arquivo deixou de usar hash de conteudo.
+
+Este gate ja esta no `AtlasSessionBootstrapService`, no
+`AtlasFeaturePlacementService` e no `ProgrammingCodeIntelligenceGate`. Se ele
+bloquear, a IA deve reindexar ou corrigir drift antes de escrever codigo.
 
 Modulos virtuais sao validos. Alguns roots como `app/Models/Ai`,
 `app/Console/Commands/AtlasCli`, `app/Console/Commands/AtlasEngineering`,
@@ -413,7 +464,8 @@ Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para human
 
 ## Proximas Acoes
 
-1. Criar readiness/certification dedicado para Code Intelligence.
+1. Integrar `code-gate` como preflight duro em todos os pontos mutativos de Dev
+   e Forge.
 2. Evoluir `index-code` para ACIR incremental, checkpointed e freshness-aware.
 3. Alimentar ACRUI com o ACIR persistido para reachability real.
 4. Implementar ASTR read-only antes de qualquer camada mutativa.

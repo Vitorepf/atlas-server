@@ -60,6 +60,8 @@ class AtlasDevRuntimeServiceTest extends TestCase
         $this->assertSame(['plan', 'diff_or_reason', 'tests_or_reason', 'risks'], $slice['expected_artifacts']);
         $this->assertFalse($slice['requires_obra']);
         $this->assertSame('payload.workspace', $slice['workspace_source']);
+        $this->assertFalse($slice['provider_execution_allowed']);
+        $this->assertSame('needs_review', $slice['native_capability_status']);
     }
 
     public function test_debug_task_routes_to_repair_flow(): void

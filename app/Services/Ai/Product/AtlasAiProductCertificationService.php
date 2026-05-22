@@ -134,6 +134,28 @@ class AtlasAiProductCertificationService
 
     public const PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_TEST = 'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneClaimLeaseRepositoryTest.php';
 
+    public const PATH_AVCEL_SERVICE = 'app/Services/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopService.php';
+
+    public const PATH_AVCEL_COMMAND = 'app/Console/Commands/AtlasVerifiedContextExecutionLoopCommand.php';
+
+    public const PATH_AVCEL_TEST = 'tests/Feature/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopServiceTest.php';
+
+    public const PATH_AVCEL_DOC = 'docs/engineering-knowledge-base/atlas-verified-context-execution-loop.md';
+
+    public const PATH_CODE_INTELLIGENCE_GATE_SERVICE = 'app/Services/Engineering/AtlasCodeIntelligenceAutomaticGateService.php';
+
+    public const PATH_CODE_INTELLIGENCE_GATE_TEST = 'tests/Feature/Engineering/AtlasCodeIntelligenceAutomaticGateServiceTest.php';
+
+    public const PATH_CODE_INTELLIGENCE_DOC = 'docs/engineering-knowledge-base/code-intelligence.md';
+
+    public const PATH_PROGRAMMING_CODE_INTELLIGENCE_GATE = 'app/Services/Ai/Programming/Governance/Gates/ProgrammingCodeIntelligenceGate.php';
+
+    public const PATH_ASSISTED_EXECUTION_SERVICE = 'app/Services/Ai/Product/AtlasAiAssistedExecutionQualityService.php';
+
+    public const PATH_ASSISTED_EXECUTION_DOC = 'docs/engineering-knowledge-base/atlas-ai-assisted-execution-quality.md';
+
+    public const PATH_ASSISTED_EXECUTION_TEST = 'tests/Feature/Ai/Product/AtlasAiAssistedExecutionQualityServiceTest.php';
+
     /**
      * @return array<string,mixed>
      */
@@ -157,6 +179,9 @@ class AtlasAiProductCertificationService
             $this->governedExternalExecutionCheck(),        // critical
             $this->autonomousCompanyRuntimeCheck(),         // critical
             $this->capabilityEvolutionLoopCheck(),          // critical
+            $this->codeIntelligenceAutomaticGateCheck(),     // critical
+            $this->verifiedContextExecutionLoopCheck(),      // critical
+            $this->assistedExecutionQualityCheck(),          // critical
         ];
 
         $criticalFailed = array_values(array_filter(
@@ -204,6 +229,9 @@ class AtlasAiProductCertificationService
                 'covers_external_execution_governance' => true,
                 'covers_internal_autonomous_company_runtime' => true,
                 'covers_capability_usage_evolution' => true,
+                'covers_code_intelligence_automatic_gate' => true,
+                'covers_verified_context_execution_loop' => true,
+                'covers_assisted_execution_quality' => true,
             ],
             'writes' => false,
         ];
@@ -819,6 +847,152 @@ class AtlasAiProductCertificationService
         ]);
     }
 
+    private function verifiedContextExecutionLoopCheck(): array
+    {
+        $serviceSource = $this->source($this->repoPath(self::PATH_AVCEL_SERVICE));
+        $commandSource = $this->source($this->repoPath(self::PATH_AVCEL_COMMAND));
+        $testSource = $this->source($this->repoPath(self::PATH_AVCEL_TEST));
+        $docSource = $this->source($this->repoPath(self::PATH_AVCEL_DOC));
+
+        $serviceConnectsCoreRuntimes = str_contains($serviceSource, 'AtlasContextCacheCompilerRuntimeService')
+            && str_contains($serviceSource, 'AtlasTokenEconomyRuntimeService')
+            && str_contains($serviceSource, 'AtlasLocalVerificationEngineService')
+            && str_contains($serviceSource, 'AtlasAemorRuntimeService');
+        $serviceDeclaresReadOnlyPolicy = str_contains($serviceSource, "'providers_invoked' => false")
+            && str_contains($serviceSource, "'commands_executed' => false")
+            && str_contains($serviceSource, "'writes' => false");
+        $serviceDefinesEightStages = str_contains($serviceSource, "'context_compile'")
+            && str_contains($serviceSource, "'must_keep_guard'")
+            && str_contains($serviceSource, "'outcome_memory_candidate'");
+        $commandPresent = str_contains($commandSource, 'atlas:verified-context-execution')
+            && str_contains($commandSource, 'certify|shadow');
+        $testCoversCoreInvariants = str_contains($testSource, 'test_shadow_builds_eight_stage_read_only_verified_context_execution_loop')
+            && str_contains($testSource, 'test_shadow_turns_failure_log_into_repair_strategy_without_exposing_secret')
+            && str_contains($testSource, 'test_certification_passes_and_proves_core_invariants');
+        $docPresent = str_contains($docSource, 'runtime_acronym: AVCEL')
+            && str_contains($docSource, 'Atlas Verified Context Execution Loop');
+
+        $passed = $serviceConnectsCoreRuntimes && $serviceDeclaresReadOnlyPolicy
+            && $serviceDefinesEightStages && $commandPresent
+            && $testCoversCoreInvariants && $docPresent;
+
+        return $this->check('verified_context_execution_loop', $passed, 'critical', [
+            'service_connects_context_cache_token_economy_alve_aemor' => $serviceConnectsCoreRuntimes,
+            'service_declares_read_only_policy' => $serviceDeclaresReadOnlyPolicy,
+            'service_defines_eight_stage_loop' => $serviceDefinesEightStages,
+            'command_present' => $commandPresent,
+            'tests_cover_core_invariants' => $testCoversCoreInvariants,
+            'canonical_doc_present' => $docPresent,
+            'service_path' => self::PATH_AVCEL_SERVICE,
+            'command_path' => self::PATH_AVCEL_COMMAND,
+            'test_path' => self::PATH_AVCEL_TEST,
+            'doc_path' => self::PATH_AVCEL_DOC,
+        ]);
+    }
+
+    private function codeIntelligenceAutomaticGateCheck(): array
+    {
+        $serviceSource = $this->source($this->repoPath(self::PATH_CODE_INTELLIGENCE_GATE_SERVICE));
+        $commandSource = $this->source($this->repoPath('app/Console/Commands/AtlasEngineeringKnowledgeCommand.php'));
+        $programmingGateSource = $this->source($this->repoPath(self::PATH_PROGRAMMING_CODE_INTELLIGENCE_GATE));
+        $sessionBootstrapSource = $this->source($this->repoPath('app/Services/Ai/Kernel/Architecture/AtlasSessionBootstrapService.php'));
+        $testSource = $this->source($this->repoPath(self::PATH_CODE_INTELLIGENCE_GATE_TEST));
+        $docSource = $this->source($this->repoPath(self::PATH_CODE_INTELLIGENCE_DOC));
+
+        $serviceFailClosed = str_contains($serviceSource, 'blocks_dev_forge_when_blocked')
+            && str_contains($serviceSource, 'stale_index_allowed')
+            && str_contains($serviceSource, 'context_can_be_trusted_when_blocked');
+        $serviceCoversConsumers = str_contains($serviceSource, "'forge'")
+            && str_contains($serviceSource, "'atlas_dev'")
+            && str_contains($serviceSource, "'acrui'")
+            && str_contains($serviceSource, "'software_twin'")
+            && str_contains($serviceSource, "'avcel'");
+        $commandWired = str_contains($commandSource, "'code-gate'")
+            && str_contains($commandSource, '--auto-refresh')
+            && str_contains($commandSource, '--strict');
+        $devGateWired = str_contains($programmingGateSource, 'AtlasCodeIntelligenceAutomaticGateService')
+            && str_contains($programmingGateSource, 'code_intelligence_automatic_gate_blocked');
+        $bootstrapWired = str_contains($sessionBootstrapSource, 'code_intelligence_automatic_gate');
+        $testsCover = str_contains($testSource, 'test_stale_index_blocks_when_strict_freshness_is_enabled')
+            && str_contains($testSource, 'consumer_count');
+        $docCovers = str_contains($docSource, 'code-gate --auto-refresh --strict --json')
+            && str_contains($docSource, 'Atlas Dev, Forge, ACRUI, Software Twin e AVCEL');
+
+        $passed = $serviceFailClosed && $serviceCoversConsumers && $commandWired
+            && $devGateWired && $bootstrapWired && $testsCover && $docCovers;
+
+        return $this->check('code_intelligence_automatic_gate', $passed, 'critical', [
+            'service_fail_closed' => $serviceFailClosed,
+            'service_covers_required_consumers' => $serviceCoversConsumers,
+            'command_wired' => $commandWired,
+            'atlas_dev_gate_wired' => $devGateWired,
+            'session_bootstrap_wired' => $bootstrapWired,
+            'tests_cover_stale_and_consumers' => $testsCover,
+            'doc_covers_gate' => $docCovers,
+            'service_path' => self::PATH_CODE_INTELLIGENCE_GATE_SERVICE,
+            'test_path' => self::PATH_CODE_INTELLIGENCE_GATE_TEST,
+            'doc_path' => self::PATH_CODE_INTELLIGENCE_DOC,
+        ]);
+    }
+
+    private function assistedExecutionQualityCheck(): array
+    {
+        $serviceSource = $this->source($this->repoPath(self::PATH_ASSISTED_EXECUTION_SERVICE));
+        $controllerSource = $this->source($this->repoPath(self::PATH_AI_INTERACTION_CONTROLLER));
+        $testSource = $this->source($this->repoPath(self::PATH_ASSISTED_EXECUTION_TEST));
+        $docSource = $this->source($this->repoPath(self::PATH_ASSISTED_EXECUTION_DOC));
+
+        $serviceBuildsHumanEnvelope = str_contains($serviceSource, 'atlas.ai.assisted_execution_quality.v1')
+            && str_contains($serviceSource, 'REQUIRED_PIPELINE_STEPS')
+            && str_contains($serviceSource, 'ready_for_assisted_execution')
+            && str_contains($serviceSource, 'needs_context');
+        $serviceRoutesDevAndForge = str_contains($serviceSource, "'atlas_dev'")
+            && str_contains($serviceSource, "'atlas_forge'")
+            && str_contains($serviceSource, "'programming.repair'")
+            && str_contains($serviceSource, "'programming.forge'");
+        $serviceUsesDevRuntimeGate = str_contains($serviceSource, 'DevRuntimeIntelligenceService')
+            && str_contains($serviceSource, 'provider_safe')
+            && str_contains($serviceSource, 'dev_context_not_provider_safe');
+        $serviceProtectsHumanBugPath = str_contains($serviceSource, 'Login|Auth|Session')
+            && str_contains($serviceSource, 'workspace_required')
+            && str_contains($serviceSource, 'failure_capsule_or_success')
+            && str_contains($serviceSource, 'run_certification');
+        $controllerWired = str_contains($controllerSource, 'AtlasAiAssistedExecutionQualityService')
+            && str_contains($controllerSource, 'applyAssistedExecutionQuality')
+            && str_contains($controllerSource, 'atlas_ai_assisted_execution_quality')
+            && $this->callOrderInSource($controllerSource, 'applyAssistedExecutionQuality', '$devRuntime->apply');
+        $controllerEnforcesGate = str_contains($controllerSource, 'rejectUnsafeAssistedExecution')
+            && str_contains($controllerSource, 'assisted_execution_needs_context')
+            && str_contains($controllerSource, 'dev_context_not_provider_safe')
+            && str_contains($controllerSource, 'provider_execution_allowed');
+        $testsCover = str_contains($testSource, 'test_login_bug_human_request_builds_provider_safe_dev_envelope')
+            && str_contains($testSource, 'test_missing_workspace_blocks_before_provider')
+            && str_contains($testSource, 'test_large_obra_request_routes_to_forge_without_dev_preview')
+            && str_contains($testSource, 'test_hash_is_deterministic_for_same_input');
+        $docPresent = str_contains($docSource, 'runtime_acronym: AAEQ')
+            && str_contains($docSource, 'Pedido humano nunca vira provider call bruto')
+            && str_contains($docSource, 'Dev so executa se `provider_safe=true`');
+
+        $passed = $serviceBuildsHumanEnvelope && $serviceRoutesDevAndForge
+            && $serviceUsesDevRuntimeGate && $serviceProtectsHumanBugPath
+            && $controllerWired && $controllerEnforcesGate && $testsCover && $docPresent;
+
+        return $this->check('assisted_execution_quality', $passed, 'critical', [
+            'service_builds_human_execution_envelope' => $serviceBuildsHumanEnvelope,
+            'service_routes_dev_and_forge' => $serviceRoutesDevAndForge,
+            'service_uses_dev_runtime_context_gate' => $serviceUsesDevRuntimeGate,
+            'service_protects_login_bug_human_path' => $serviceProtectsHumanBugPath,
+            'ai_interaction_controller_wired_before_dev_runtime' => $controllerWired,
+            'ai_interaction_controller_enforces_context_gate' => $controllerEnforcesGate,
+            'tests_cover_core_paths' => $testsCover,
+            'canonical_doc_present' => $docPresent,
+            'service_path' => self::PATH_ASSISTED_EXECUTION_SERVICE,
+            'controller_path' => self::PATH_AI_INTERACTION_CONTROLLER,
+            'test_path' => self::PATH_ASSISTED_EXECUTION_TEST,
+            'doc_path' => self::PATH_ASSISTED_EXECUTION_DOC,
+        ]);
+    }
+
     /* ---------------------------------------------------------------- */
     /* Evidence refs · canonical artifacts backing the cert */
     /* ---------------------------------------------------------------- */
@@ -868,6 +1042,16 @@ class AtlasAiProductCertificationService
             'test:'.self::PATH_AEMOR_RUNTIME_TEST,
             'server:'.self::PATH_INTELLIGENCE_FACTORY_RUNTIME_SERVICE,
             'server:'.self::PATH_INTELLIGENCE_FACTORY_CERTIFICATION_SERVICE,
+            'server:'.self::PATH_CODE_INTELLIGENCE_GATE_SERVICE,
+            'test:'.self::PATH_CODE_INTELLIGENCE_GATE_TEST,
+            'server:'.self::PATH_CODE_INTELLIGENCE_DOC,
+            'server:'.self::PATH_AVCEL_SERVICE,
+            'server:'.self::PATH_AVCEL_COMMAND,
+            'test:'.self::PATH_AVCEL_TEST,
+            'server:'.self::PATH_AVCEL_DOC,
+            'server:'.self::PATH_ASSISTED_EXECUTION_SERVICE,
+            'test:'.self::PATH_ASSISTED_EXECUTION_TEST,
+            'server:'.self::PATH_ASSISTED_EXECUTION_DOC,
         ];
 
         return array_values(array_unique($refs));
@@ -916,7 +1100,7 @@ class AtlasAiProductCertificationService
 
     private function repoPath(string $relative): string
     {
-        if (str_starts_with($relative, 'app/') || str_starts_with($relative, 'tests/')) {
+        if (str_starts_with($relative, 'app/') || str_starts_with($relative, 'tests/') || str_starts_with($relative, 'docs/')) {
             return rtrim(base_path(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.ltrim($relative, '/');
         }
 

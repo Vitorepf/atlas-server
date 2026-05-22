@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringContextIntelligenceInput;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
@@ -14,7 +15,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
     private ?EngineeringContextIntelligenceInput $contextInput = null;
 
     protected $signature = 'atlas:engineering:knowledge
-        {action=status : status, sync, list, show, context, docs-health, index-code, audit-code, code-readiness, code-status, modules, symbols or show-module}
+        {action=status : status, sync, list, show, context, docs-health, index-code, code-gate, audit-code, code-readiness, code-status, modules, symbols or show-module}
         {item? : Knowledge item slug/id or code module slug/id}
         {--category= : Filter by category}
         {--status= : active, draft, archived or deprecated}
@@ -31,6 +32,9 @@ class AtlasEngineeringKnowledgeCommand extends Command
         {--dry-run : Preview sync without writing}
         {--prune : Archive canonical records whose markdown no longer exists}
         {--summary-only : For JSON index-code output, omit large module and symbol previews while preserving persisted indexing}
+        {--auto-refresh : For code-gate, refresh index-code automatically when safe and necessary}
+        {--max-age-minutes=1440 : For code-gate, maximum accepted index age}
+        {--strict : For code-gate, return failure unless the gate is ready}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Sync and inspect the Atlas Engineering Knowledge Base.';
@@ -40,6 +44,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         EngineeringCodeIntelligenceService $code,
         EngineeringDocumentationHealthService $documentationHealth,
         EngineeringContextIntelligenceInput $input,
+        AtlasCodeIntelligenceAutomaticGateService $codeGate,
     ): int {
         $this->contextInput = $input;
 
@@ -52,6 +57,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             'context' => $this->renderContext($knowledge),
             'docs-health' => $this->renderDocsHealth($documentationHealth),
             'index-code' => $this->renderCodeIndex($code),
+            'code-gate' => $this->renderCodeGate($codeGate),
             'audit-code' => $this->renderCodeAudit($code),
             'code-readiness' => $this->renderCodeReadiness($code),
             'code-status' => $this->renderCodeStatus($code),
@@ -261,6 +267,37 @@ class AtlasEngineeringKnowledgeCommand extends Command
         $this->components->twoColumnDetail('doc links', (string) ($summary['doc_link_count'] ?? 0));
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function renderCodeGate(AtlasCodeIntelligenceAutomaticGateService $codeGate): int
+    {
+        $payload = $codeGate->evaluate([
+            'workspace' => $this->stringOption('workspace'),
+            'mode' => 'readiness',
+            'strict_freshness' => true,
+            'max_age_minutes' => $this->option('max-age-minutes'),
+            'auto_refresh' => (bool) $this->option('auto-refresh'),
+            'run_context_type' => $this->stringOption('run-context-type') ?: 'engineering_knowledge_code_gate',
+            'run_context_id' => $this->stringOption('run-context-id'),
+        ]);
+
+        if ($this->json()) {
+            $this->line($this->encode($payload));
+
+            return $this->codeGateExitCode($payload);
+        }
+
+        $this->components->twoColumnDetail('status', (string) ($payload['status'] ?? 'unknown'));
+        $this->components->twoColumnDetail('workspace', (string) ($payload['workspace'] ?? '-'));
+        $this->components->twoColumnDetail('modules', (string) data_get($payload, 'summary.module_count', 0));
+        $this->components->twoColumnDetail('symbols', (string) data_get($payload, 'summary.symbol_count', 0));
+        $this->components->twoColumnDetail('drift', (string) data_get($payload, 'metrics.drift_total', 0));
+        $this->components->twoColumnDetail('cache hit rate', (string) data_get($payload, 'metrics.cache_hit_rate', '-'));
+        $this->components->twoColumnDetail('consumers', (string) data_get($payload, 'metrics.consumer_count', 0));
+        $this->components->twoColumnDetail('auto refresh', data_get($payload, 'refresh.attempted') ? 'attempted' : 'not attempted');
+        $this->components->twoColumnDetail('hash', (string) ($payload['gate_hash'] ?? '-'));
+
+        return $this->codeGateExitCode($payload);
     }
 
     private function renderCodeStatus(EngineeringCodeIntelligenceService $code): int
@@ -486,6 +523,16 @@ class AtlasEngineeringKnowledgeCommand extends Command
     private function summaryOnly(): bool
     {
         return (bool) $this->option('summary-only');
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function codeGateExitCode(array $payload): int
+    {
+        return (bool) $this->option('strict') && ($payload['status'] ?? null) !== 'ready'
+            ? self::FAILURE
+            : self::SUCCESS;
     }
 
     /**

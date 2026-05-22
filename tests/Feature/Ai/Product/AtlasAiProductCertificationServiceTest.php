@@ -34,7 +34,7 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertArrayHasKey('claims', $report);
         $this->assertArrayHasKey('certification_hash', $report);
         $this->assertSame(64, strlen((string) $report['certification_hash']));
-        $this->assertSame(17, count($report['checks']));
+        $this->assertSame(20, count($report['checks']));
         $this->assertFalse($report['writes']);
     }
 
@@ -53,6 +53,9 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($report['claims']['covers_external_execution_governance']);
         $this->assertTrue($report['claims']['covers_internal_autonomous_company_runtime']);
         $this->assertTrue($report['claims']['covers_capability_usage_evolution']);
+        $this->assertTrue($report['claims']['covers_code_intelligence_automatic_gate']);
+        $this->assertTrue($report['claims']['covers_verified_context_execution_loop']);
+        $this->assertTrue($report['claims']['covers_assisted_execution_quality']);
     }
 
     public function test_certification_hash_is_deterministic_across_runs(): void
@@ -95,6 +98,9 @@ class AtlasAiProductCertificationServiceTest extends TestCase
             'governed_external_execution_control_plane',
             'internal_autonomous_company_runtime_claim_gate',
             'capability_usage_and_evolution_loop',
+            'code_intelligence_automatic_gate',
+            'verified_context_execution_loop',
+            'assisted_execution_quality',
         ];
 
         foreach ($expected as $id) {
@@ -335,5 +341,24 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($evidence['aemor_test_covers_evolution_candidate']);
         $this->assertTrue($evidence['intelligence_factory_records_usage']);
         $this->assertTrue($evidence['intelligence_factory_certifies_registry_and_evolution_tables']);
+    }
+
+    public function test_evidence_proves_assisted_execution_quality_is_wired(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $byId = [];
+        foreach ($report['checks'] as $check) {
+            $byId[$check['id']] = $check;
+        }
+
+        $evidence = $byId['assisted_execution_quality']['evidence'];
+        $this->assertTrue($evidence['service_builds_human_execution_envelope']);
+        $this->assertTrue($evidence['service_routes_dev_and_forge']);
+        $this->assertTrue($evidence['service_uses_dev_runtime_context_gate']);
+        $this->assertTrue($evidence['service_protects_login_bug_human_path']);
+        $this->assertTrue($evidence['ai_interaction_controller_wired_before_dev_runtime']);
+        $this->assertTrue($evidence['ai_interaction_controller_enforces_context_gate']);
+        $this->assertTrue($evidence['tests_cover_core_paths']);
+        $this->assertTrue($evidence['canonical_doc_present']);
     }
 }

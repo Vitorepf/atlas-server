@@ -36,6 +36,9 @@ decisions:
   - Engineering Harness Runner e o motor executor; ele nao substitui Forge OS, Forge Workspace, Agentic RAG, Tool Runtime ou Governance.
   - Graphs diferentes nao podem ser colapsados em um unico termo chamado graph.
   - Repair loop e parte estrutural do fluxo pesado, nao retry informal.
+  - Work packets Forge executam com 10 blocos Forge-native de inteligencia,
+    contexto, teste, falha, review senior, workcell, provider projection,
+    scope, simulacao e memoria de outcome.
 maintenance:
   - Atualize este doc antes de alterar Forge OS, programming.forge, Engineering Harness, repair loop, Agentic RAG, Semantic Code Graph, tools, Evidence ou cartografia de programacao pesada.
   - Mantenha este doc como pagina-mae; detalhes persistentes ficam nos docs filhos.
@@ -57,6 +60,7 @@ related_paths:
   - docs/engineering-knowledge-base/code-intelligence.md
   - docs/engineering-knowledge-base/atlas-system-graph.md
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
+  - docs/engineering-knowledge-base/atlas-forge-work-packet-native-capabilities.md
   - app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php
   - app/Services/Ai/Programming/ProgrammingGraphRagRuntime.php
   - app/Services/Ai/Programming/ProgrammingSemanticCodeGraphService.php
@@ -140,6 +144,7 @@ quality_gates:
   - programming-governance-contract
   - forge-intake-decision
   - packet-contract-scoped
+  - forge-work-packet-native-capabilities
   - dependency-dag-valid
   - tool-runtime-evidence
   - harness-run-or-blocker
@@ -152,6 +157,8 @@ failure_modes:
   - IA ignora repair loop, tools, graphs, Agentic RAG ou Evidence Ledger.
   - IA mistura System Graph, Semantic Code Graph, Dependency DAG e execution_graph.
   - Doc filho muda sem atualizar esta pagina-mae.
+  - Forge work packet executa sem `forge_native_capabilities`.
+  - Falha Forge nao gera failure capsule nem outcome memory.
 observability_signals:
   - engineering_run id
   - context_pack hash
@@ -205,6 +212,14 @@ Nenhum desses nomes substitui os outros.
 | System Graph / Cartography | Mapa visual/navegavel para humano e IA | Autoridade operacional primaria |
 | Atlas Code | Surface desktop de programacao | Programming Domain |
 | Atlas Code SCOR-1 | Primeira versao/categoria da surface desktop; modo unico Forge | Flow, harness ou Forge OS |
+
+### Forge Work Packet Native Capabilities
+
+Cada work packet Forge deve carregar `forge_native_capabilities` no
+`execution_plan`. A especificacao completa dos 10 blocos vive em
+`atlas-forge-work-packet-native-capabilities.md`. Gate canonico:
+`php artisan atlas:programming:final-certify --json`, check
+`forge_work_packet_native_capabilities`.
 ## Onde Se Encaixa
 ```text
 Atlas AI
@@ -477,27 +492,12 @@ programming.forge
 -> Evidence/Learning/Cartography
 ```
 
-Erro comum:
-
-```text
-"Forge Workspace e o nome do fluxo pesado"
-```
-
-Correto:
-
-```text
-Forge Workspace e o ambiente compartilhado.
-Atlas Programming Forge Flow e o fluxo inteiro.
-Atlas Forge Operating System e a fabrica.
-Engineering Harness Runner e o executor.
-```
-
 ## Certificacao Runtime
 
 Dois niveis de certificacao replayable, sem provider externo. **Obra e obrigatoria nos dois.**
 
-- **Nivel 1** — contratos: `php artisan atlas:forge:runtime-certify --obra=<uuid> --json` (schema `atlas.forge_runtime_certification.v1`).
-- **Nivel 2** — execucao real: `php artisan atlas:forge:live-execute --obra=<uuid> --json --strict` (schema `atlas.forge_live_execution_certification.v1`). Sem `--obra` em strict, o exit code e non-zero e nenhum sandbox e provisionado. Detalhes em `atlas-forge-live-execution-e2e-v1.md`.
+- **Nivel 1** — contratos: `php artisan atlas:forge:runtime-certify --obra=<uuid> --json`.
+- **Nivel 2** — execucao real: `php artisan atlas:forge:live-execute --obra=<uuid> --json --strict`. Sem `--obra` em strict, o exit code e non-zero. Detalhes em `atlas-forge-live-execution-e2e-v1.md`.
 
 `atlas:programming:completion-audit --json` retorna `forge_runtime_certification`, `forge_live_execution_certification`, `atlas_code_enterprise_certification`, `forge_fast_path_certification`, `forge_native_rivals_certification` e `external_rivals_certification` separados. Nivel 2/Fast Path distinguem `available`, `requires_operator_run` e `missing_artifacts` — nunca substituem Rivals nem liberam `completion_allowed`.
 
@@ -507,10 +507,12 @@ Dois niveis de certificacao replayable, sem provider externo. **Obra e obrigator
 
 `php artisan atlas:code:forge-fast-path --obra=<uuid> --mode=execute_async --json --strict` (schema `atlas.code.forge_fast_path.v1`) dispara o run; cada Fast Path emite `fast_path_run_id` ULID com lifecycle: prepared → queued → running → passed → review_required → completed (ou degraded → repair → failed). `GET /atlas-code/works/{obra}/forge/fast-path/{run}/status` (schema `atlas.code.forge_fast_path_run_status.v1`) e `POST .../resume` reconstroem o estado real. Review e completion seguem o gate canonico (`atlas.code.forge_review_packet.v1` + `atlas.code.forge_completion_claim.v1`) via `GET .../review` + `POST .../review/{approve|reject|rollback}` e `atlas:code:forge-review`. Detalhes em `atlas-code-forge-fast-path-v1.md` e `atlas-code-forge-review-completion-gate-v1.md`.
 
-`external_rivals_certification` expoe `blocked_until_invalid_battery_triaged`, `blocked_until_clean_worktree`, `ready_for_operator_paid_rerun` ou `claim_ready` com quarentena, preflight e policy de gasto provider.
-
 Na surface Atlas Code, o operador vincula WorkItem, compila Spec/Plan/Tasks (`POST /atlas-code/works/{obra}/programming/work-items/{wi}/spec`) e roda `POST /atlas-code/works/{obra}/forge/live-executions`. Com task contract real, a execucao inclui `governed_execution`: patch dry-run em workspace sombra, diff artifact, validation command, promotion artifact, hardened receipt e `scope-guard` contra `allowed_files`. Aprovacao humana promove o patch para o workspace vivo somente se hash, scope e completion gate continuarem verdes; rollback restaura backup com drift/hash check, evidence propria, review `rolled_back` e state/history sincronizados.
+
 ## Provider Topology e Governed Fallback
+
 Forge pesado nao escolhe provider por preferencia local: Atlas Decide emite Decision Receipt com a topologia (papeis + provider + modelo + fallback chain) e o runtime segue o contrato. Detalhes em `atlas-forge-provider-topology-and-fallback-v1.md`; sinais locais (capacity + failure memory) em `atlas-forge-provider-capacity-continuity-v1.md`; certificacao em `atlas_forge_continuum_certification` (schema `atlas.forge_continuum_certification.v1`). Fallback nunca silencioso, `provider_capacity_exhausted` e blocker honesto. Para closed-loop self-improvement → Obra Forge ver `atlas-self-improvement-forge-activation-v1.md`.
+
 ## Proximas Acoes
+
 Manter como primeira leitura do Forge pesado e rodar docs-health/certificacoes apos mudancas em runtime/Atlas Code/review/promotion/rollback/checkpoint. Leitura humana canonica do fluxo: [[atlas-code-obra-command-center-v1]] (lifecycle 8 fases, decision inbox, operational health honesto, schema `atlas.code.obra_command_center.v1`; CLI `php artisan atlas:code:obra-command-center --json --strict`).

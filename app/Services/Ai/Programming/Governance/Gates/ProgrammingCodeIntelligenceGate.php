@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Governance\Gates;
 
 use App\Models\AtlasProgrammingWorkItem;
+use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use Throwable;
 
@@ -17,6 +18,7 @@ class ProgrammingCodeIntelligenceGate implements ProgrammingGateContract
 {
     public function __construct(
         private readonly EngineeringCodeIntelligenceService $codeIntelligence,
+        private readonly ?AtlasCodeIntelligenceAutomaticGateService $automaticGate = null,
     ) {}
 
     public function name(): string
@@ -39,13 +41,39 @@ class ProgrammingCodeIntelligenceGate implements ProgrammingGateContract
         // Canonical field is `module_count`; legacy stub callers may emit `totals.modules`.
         $modules = (int) ($summary['module_count']
             ?? data_get($summary, 'totals.modules', data_get($summary, 'modules', 0)));
+        $automaticGate = $this->automaticGate?->evaluate([
+            'workspace' => $workItem->workspace ?: base_path(),
+            'mode' => 'summary',
+            'strict_freshness' => false,
+            'auto_refresh' => in_array($status, ['empty', 'empty_index', 'not_migrated', 'summary_failed'], true) || $modules === 0,
+            'run_context_type' => 'atlas_programming_work_item',
+            'run_context_id' => (string) $workItem->id,
+        ]);
 
         $workItem->forceFill([
             'code_intelligence_json' => [
                 'recorded_at' => now()->toJSON(),
                 'summary' => $summary,
+                'automatic_gate' => $automaticGate,
             ],
         ])->save();
+
+        if (is_array($automaticGate) && ($automaticGate['status'] ?? null) === 'blocked') {
+            return ProgrammingGateOutcome::failed(
+                'code_intelligence_automatic_gate_blocked',
+                [
+                    'summary_status' => $status,
+                    'module_count' => $modules,
+                    'blockers' => $automaticGate['blockers'] ?? [],
+                    'auto_refresh_attempted' => (bool) data_get($automaticGate, 'refresh.attempted'),
+                ],
+            );
+        }
+
+        if (is_array($automaticGate) && data_get($automaticGate, 'refresh.attempted') && ($automaticGate['status'] ?? null) !== 'blocked') {
+            $status = (string) data_get($automaticGate, 'summary.status', $status);
+            $modules = (int) data_get($automaticGate, 'summary.module_count', $modules);
+        }
 
         if (in_array($status, ['empty', 'empty_index', 'not_migrated'], true) || $modules === 0) {
             return ProgrammingGateOutcome::failed(

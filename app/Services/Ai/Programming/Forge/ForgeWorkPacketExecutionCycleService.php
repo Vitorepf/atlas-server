@@ -7,6 +7,10 @@ use App\Models\AiForgeLongHorizonState;
 use App\Models\AiForgeWorkPacket;
 use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Programming\Forge\Intelligence\ForgeFailureIntelligenceService;
+use App\Services\Ai\Programming\Forge\Intelligence\ForgeOutcomeMemoryService;
+use App\Services\Ai\Programming\Forge\Intelligence\ForgeSpecialistWorkcellRouterService;
+use App\Services\Ai\Programming\Forge\Intelligence\ForgeWorkPacketCapabilityOrchestrator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -53,7 +57,14 @@ use Illuminate\Support\Str;
  */
 class ForgeWorkPacketExecutionCycleService
 {
-    public function __construct(private readonly ForgeLongHorizonStateService $longHorizon) {}
+    public function __construct(
+        private readonly ForgeLongHorizonStateService $longHorizon,
+        private readonly ForgeMultiAgentSchedulerService $multiAgentScheduler,
+        private readonly ForgeWorkPacketCapabilityOrchestrator $capabilities,
+        private readonly ForgeSpecialistWorkcellRouterService $workcellRouter,
+        private readonly ForgeFailureIntelligenceService $failureIntelligence,
+        private readonly ForgeOutcomeMemoryService $outcomeMemory,
+    ) {}
 
     /**
      * Pick the next eligible packet. Eligibility rules:
@@ -164,11 +175,15 @@ class ForgeWorkPacketExecutionCycleService
             $evidenceKinds[] = 'simulation_log';
         }
 
+        $intake = $packet->intake;
+        $forgeCapabilities = $this->capabilities->build($packet, $intake);
+
         $plan = [
             'packet_id' => $packet->packet_id,
             'objective' => (string) $packet->objective,
             'scope' => $packet->scope,
             'risk_band' => $packet->risk_band,
+            'forge_native_capabilities' => $forgeCapabilities,
             'allowed_tools' => array_values((array) ($options['allowed_tools'] ?? [])),
             'simulation_note' => $mode === ForgeWorkPacketExecutionCycleCanon::MODE_SAFE_SIMULATION
                 ? (string) ($options['simulation_note'] ?? 'dry_run: provider not invoked, evidence simulated')
@@ -244,6 +259,7 @@ class ForgeWorkPacketExecutionCycleService
         $row['cycle_hash'] = $this->computeCycleHash($row);
 
         $cycle = AiForgeWorkPacketExecutionCycle::query()->create($row);
+        $cycle = $this->materializeWorkcellSchedule($cycle, $packet);
 
         // For mode=blocked, also register a packet-scope blocker into the
         // long-horizon state so the operator sees it.
@@ -317,9 +333,14 @@ class ForgeWorkPacketExecutionCycleService
         $cycle->failure_reason = null;
         $cycle->repair_hook = null;
         $cycle->completed_at = Carbon::now();
-        $cycle->next_action = $this->computeNextActionAfterSuccess($cycle, $state);
+        $outcomeMemory = $this->outcomeMemory->summarize($cycle);
+        $cycle->next_action = array_merge(
+            $this->computeNextActionAfterSuccess($cycle, $state),
+            ['outcome_memory' => $outcomeMemory],
+        );
         $cycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($cycle));
         $cycle->save();
+        $cycle = $this->persistOutcomeMemory($cycle);
 
         AiForgeWorkPacket::query()
             ->where('id', $cycle->work_packet_id)
@@ -365,10 +386,14 @@ class ForgeWorkPacketExecutionCycleService
         $cycle->outcome_status = ForgeWorkPacketExecutionCycleCanon::OUTCOME_FAILED;
         $cycle->status = ForgeWorkPacketExecutionCycleCanon::STATUS_FAILED;
         $cycle->failure_reason = $failureReason;
+        $failureCapsule = $this->failureIntelligence->capsule($cycle, $failureReason, $partialEvidence);
+        $hint = (string) ($failureCapsule['repair_hint'] ?? $hint);
+        $outcomeMemory = $this->outcomeMemory->summarize($cycle, $failureCapsule);
         $cycle->repair_hook = [
             'hint' => $hint,
             'suggested_action' => ForgeWorkPacketExecutionCycleCanon::NEXT_ACTION_REPAIR_AND_RETRY,
             'cycle_position' => (int) $cycle->cycle_position,
+            'failure_intelligence' => $failureCapsule,
         ];
         $cycle->completed_at = Carbon::now();
         $cycle->next_action = [
@@ -376,9 +401,11 @@ class ForgeWorkPacketExecutionCycleService
             'target' => $cycle->work_packet_canonical_id,
             'reason' => 'work_packet_failed:'.$failureReason,
             'repair_hook' => $cycle->repair_hook,
+            'outcome_memory' => $outcomeMemory,
         ];
         $cycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($cycle));
         $cycle->save();
+        $cycle = $this->persistOutcomeMemory($cycle, $failureCapsule);
 
         if ($state !== null) {
             $this->longHorizon->recordCycle($state, [
@@ -411,13 +438,16 @@ class ForgeWorkPacketExecutionCycleService
         $cycle->status = ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED;
         $cycle->failure_reason = $blockerReason;
         $cycle->completed_at = Carbon::now();
+        $outcomeMemory = $this->outcomeMemory->summarize($cycle);
         $cycle->next_action = [
             'kind' => ForgeWorkPacketExecutionCycleCanon::NEXT_ACTION_RESOLVE_BLOCKER,
             'target' => $cycle->work_packet_canonical_id,
             'reason' => $blockerReason,
+            'outcome_memory' => $outcomeMemory,
         ];
         $cycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($cycle));
         $cycle->save();
+        $cycle = $this->persistOutcomeMemory($cycle);
 
         if ($state !== null) {
             $this->longHorizon->recordCycle($state, [
@@ -431,6 +461,70 @@ class ForgeWorkPacketExecutionCycleService
         }
 
         return $cycle;
+    }
+
+    private function materializeWorkcellSchedule(
+        AiForgeWorkPacketExecutionCycle $cycle,
+        AiForgeWorkPacket $packet,
+    ): AiForgeWorkPacketExecutionCycle {
+        $intake = AiForgeIntake::query()->find($cycle->intake_id);
+        if ($intake === null) {
+            return $cycle;
+        }
+
+        $packets = $intake->workPackets()->get()->all();
+        $schedule = $this->multiAgentScheduler->planAndPersist(
+            taskSummary: (string) ($intake->obra_title ?: $packet->objective),
+            workPackets: $packets !== [] ? $packets : [$packet],
+            riskBand: (string) ($intake->risk_band ?: $packet->risk_band ?: ForgeMultiAgentScheduleCanon::RISK_MEDIUM),
+            intake: $intake,
+            options: [
+                'verification_required' => true,
+                'reviewer_required' => in_array((string) $packet->risk_band, ['high', 'critical'], true),
+                'obra_id' => (string) $intake->id,
+            ],
+        );
+
+        $plan = (array) ($cycle->execution_plan ?? []);
+        $capabilities = (array) ($plan['forge_native_capabilities'] ?? []);
+        $blocks = (array) ($capabilities['blocks'] ?? []);
+        $route = (array) ($blocks['FSWR'] ?? $this->workcellRouter->route($packet));
+        $materializedRoute = $this->workcellRouter->persistRoute($packet, $route, $cycle, $schedule);
+
+        $plan['forge_workcell_schedule'] = [
+            'schema_version' => 'atlas.forge.workcell_schedule_binding.v1',
+            'multi_agent_schedule_id' => $schedule->id,
+            'schedule_uuid' => $schedule->uuid,
+            'schedule_hash' => $schedule->schedule_hash,
+            'status' => $schedule->status,
+            'integration_plan' => $schedule->integration_plan,
+            'recommended_agent_count' => (int) $schedule->recommended_agent_count,
+            'route_id' => $materializedRoute->id,
+            'route_uuid' => $materializedRoute->uuid,
+            'route_hash' => $materializedRoute->route_hash,
+        ];
+        $cycle->execution_plan = $plan;
+        $cycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($cycle));
+        $cycle->save();
+
+        return $cycle->refresh();
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $failureCapsule
+     */
+    private function persistOutcomeMemory(
+        AiForgeWorkPacketExecutionCycle $cycle,
+        ?array $failureCapsule = null,
+    ): AiForgeWorkPacketExecutionCycle {
+        $memory = $this->outcomeMemory->persist($cycle, $failureCapsule);
+        $nextAction = (array) ($cycle->next_action ?? []);
+        $nextAction['outcome_memory'] = $memory->toCanonicalArray();
+        $cycle->next_action = $nextAction;
+        $cycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($cycle));
+        $cycle->save();
+
+        return $cycle->refresh();
     }
 
     private function guardNotTerminal(AiForgeWorkPacketExecutionCycle $cycle): void

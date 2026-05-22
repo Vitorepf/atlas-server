@@ -13,6 +13,7 @@ use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\Attachments\AiChunkedUploadService;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
 use App\Services\Ai\Cli\AtlasImageAttachmentService;
+use App\Services\Ai\Product\AtlasAiAssistedExecutionQualityService;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\Router\AtlasAiFlowStatusReadModel;
 use App\Services\Ai\Router\AtlasAiRouterService;
@@ -64,6 +65,7 @@ class AiInteractionController extends Controller
         AtlasAiSpecialistFlowRuntimeService $specialistFlowRuntime,
         AtlasAiSpecialistFlowExecutionService $specialistFlowExecution,
         AtlasDevRuntimeService $devRuntime,
+        AtlasAiAssistedExecutionQualityService $assistedExecutionQuality,
     ): JsonResponse {
         $data = $request->validated();
         $uploadedImages = $this->uploadedImageFiles($request->file('images', []));
@@ -117,6 +119,7 @@ class AiInteractionController extends Controller
         // every interaction. Legacy router still runs after, for back-compat.
         $data = $hyperflowEntry->run($data);
         $data = $this->applyAtlasAiRouterDecision($data, $router);
+        $data = $this->applyAssistedExecutionQuality($data, $assistedExecutionQuality);
 
         try {
             $data = $devRuntime->apply($data);
@@ -125,6 +128,9 @@ class AiInteractionController extends Controller
                 'message' => $exception->getMessage(),
                 'code' => AtlasDevRuntimeService::REQUIRES_WORKSPACE_CODE,
             ], 422);
+        }
+        if ($response = $this->rejectUnsafeAssistedExecution($data)) {
+            return $response;
         }
 
         $data = $specialistFlowRuntime->apply($data);
@@ -163,6 +169,115 @@ class AiInteractionController extends Controller
         $payload['rich_input_payload'] = array_replace_recursive($existing, $richInputPayload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function applyAssistedExecutionQuality(array $data, AtlasAiAssistedExecutionQualityService $quality): array
+    {
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        $flowId = $this->stringValue($payload['flow_id'] ?? null);
+        $mode = $this->stringValue($payload['atlas_mode'] ?? null)
+            ?? $this->stringValue($payload['current_mode'] ?? null);
+
+        if ($mode !== 'programming' && ! in_array($flowId, ['programming.dev', 'programming.review', 'programming.repair', 'programming.forge'], true)) {
+            return $data;
+        }
+
+        $input = [
+            'human_request' => $this->stringValue($data['input_text'] ?? null)
+                ?? $this->stringValue($payload['prompt'] ?? null),
+            'workspace' => $this->stringValue($payload['workspace'] ?? null)
+                ?? $this->stringValue(data_get($payload, 'tool_permissions.workspace')),
+            'surface_id' => $surface = ($this->stringValue($payload['surface_id'] ?? null)
+                ?? $this->stringValue($payload['app_surface'] ?? null)
+                ?? 'atlas_ai'),
+            'context_refs' => $this->arrayOfStrings($payload['context_refs'] ?? []),
+            'expected_files' => $this->arrayOfStrings($payload['expected_files'] ?? []),
+            'allowed_files' => $this->arrayOfStrings(data_get($payload, 'tool_permissions.allowed_files', [])),
+            'forbidden_files' => $this->arrayOfStrings(data_get($payload, 'tool_permissions.forbidden_files', [])),
+            'suggested_tests' => $this->arrayOfStrings($payload['suggested_tests'] ?? []),
+            'acceptance_criteria' => $this->arrayOfStrings($payload['acceptance_criteria'] ?? []),
+            'required_evidence' => $this->arrayOfStrings($payload['required_evidence'] ?? []),
+            'risk_band' => $this->stringValue($payload['risk_band'] ?? null),
+        ];
+
+        if ($flowId === 'programming.forge' || $surface === 'atlas_code') {
+            $input['target'] = 'atlas_forge';
+        }
+
+        $assisted = $quality->buildEnvelope($input);
+        $payload['atlas_ai_assisted_execution_quality'] = $assisted;
+        $payload = $this->mergeAssistedExecutionContractIntoPayload($payload, $assisted);
+        $data['payload'] = $payload;
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $assisted
+     * @return array<string,mixed>
+     */
+    private function mergeAssistedExecutionContractIntoPayload(array $payload, array $assisted): array
+    {
+        if (data_get($assisted, 'route.target') !== 'atlas_dev') {
+            return $payload;
+        }
+
+        $contract = is_array($assisted['execution_contract'] ?? null) ? $assisted['execution_contract'] : [];
+        foreach (['context_refs', 'expected_files', 'suggested_tests', 'acceptance_criteria', 'required_evidence'] as $key) {
+            if ($this->arrayOfStrings($payload[$key] ?? []) === []) {
+                $payload[$key] = $this->arrayOfStrings($contract[$key] ?? []);
+            }
+        }
+
+        if ($this->stringValue($payload['risk_band'] ?? null) === null) {
+            $payload['risk_band'] = $this->stringValue($contract['risk_band'] ?? null) ?? 'medium';
+        }
+
+        $allowedFiles = $this->arrayOfStrings(data_get($payload, 'tool_permissions.allowed_files', []));
+        $contractAllowedFiles = $this->arrayOfStrings($contract['allowed_files'] ?? []);
+        if ($allowedFiles === [] && $contractAllowedFiles !== []) {
+            data_set($payload, 'tool_permissions.allowed_files', $contractAllowedFiles);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     */
+    private function rejectUnsafeAssistedExecution(array $data): ?JsonResponse
+    {
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        $assisted = is_array($payload['atlas_ai_assisted_execution_quality'] ?? null)
+            ? $payload['atlas_ai_assisted_execution_quality']
+            : null;
+        if ($assisted === null || data_get($assisted, 'route.target') !== 'atlas_dev') {
+            return null;
+        }
+
+        if (($assisted['status'] ?? null) !== 'ready_for_assisted_execution') {
+            return response()->json([
+                'message' => 'Atlas AI assisted execution needs more context before provider execution.',
+                'code' => 'assisted_execution_needs_context',
+                'blockers' => $assisted['blockers'] ?? [],
+            ], 422);
+        }
+
+        if (data_get($payload, 'atlas_dev_runtime.provider_execution_allowed') !== true) {
+            return response()->json([
+                'message' => 'Atlas Dev context gate did not approve provider execution.',
+                'code' => 'dev_context_not_provider_safe',
+                'missing' => data_get($payload, 'atlas_dev_runtime_intelligence.context_gate.missing', []),
+                'remediation' => data_get($payload, 'atlas_dev_runtime_intelligence.context_gate.remediation', []),
+            ], 422);
+        }
+
+        return null;
     }
 
     public function show(AiTrace $trace): JsonResponse
@@ -698,6 +813,21 @@ class AiInteractionController extends Controller
         $value = trim((string) $value);
 
         return $value !== '' ? $value : null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function arrayOfStrings(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            fn (mixed $item): ?string => $this->stringValue($item),
+            $value,
+        ))));
     }
 
     /**

@@ -98,6 +98,15 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
         $this->assertNull($slice['provider']);
         $this->assertFalse($slice['requires_obra']);
         $this->assertSame(['plan', 'diff_or_reason', 'tests_or_reason', 'risks'], $slice['expected_artifacts']);
+        $this->assertTrue($slice['provider_execution_allowed']);
+
+        $assisted = data_get($captured, 'payload.atlas_ai_assisted_execution_quality');
+        $this->assertIsArray($assisted);
+        $this->assertSame('atlas.ai.assisted_execution_quality.v1', $assisted['schema_version']);
+        $this->assertSame('ready_for_assisted_execution', $assisted['status']);
+        $this->assertSame('atlas_dev', data_get($assisted, 'route.target'));
+        $this->assertSame('programming.dev', data_get($assisted, 'route.flow_id'));
+        $this->assertTrue((bool) data_get($assisted, 'dev_runtime_preview.provider_safe'));
     }
 
     public function test_programming_debug_routes_to_repair_flow(): void
@@ -133,6 +142,7 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
             ->assertAccepted();
 
         $this->assertSame('programming.repair', data_get($captured, 'payload.atlas_dev_runtime.flow_id'));
+        $this->assertSame('programming.repair', data_get($captured, 'payload.atlas_ai_assisted_execution_quality.route.flow_id'));
     }
 
     public function test_manual_provider_yields_manual_override_in_runtime_slice(): void
@@ -210,6 +220,8 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
 
         $this->assertNull(data_get($captured, 'payload.atlas_dev_runtime'));
         $this->assertTrue((bool) data_get($captured, 'payload.requires_obra'));
+        $this->assertSame('atlas_forge', data_get($captured, 'payload.atlas_ai_assisted_execution_quality.route.target'));
+        $this->assertNull(data_get($captured, 'payload.atlas_ai_assisted_execution_quality.dev_runtime_preview'));
     }
 
     public function test_explain_request_emits_specialist_flow_runtime_slice(): void
@@ -253,6 +265,7 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
         $this->assertSame('atlas_explain_read_only_handler', data_get($captured, 'payload.specialist_flow_execution.handler_id'));
         $this->assertSame(data_get($slice, 'receipt.receipt_id'), data_get($captured, 'payload.specialist_flow_execution.runtime_receipt_id'));
         $this->assertNull(data_get($captured, 'payload.atlas_dev_runtime'));
+        $this->assertNull(data_get($captured, 'payload.atlas_ai_assisted_execution_quality'));
     }
 
     private function stubTrace(string $clientId, string $input): AiTrace
