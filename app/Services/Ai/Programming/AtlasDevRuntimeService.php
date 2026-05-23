@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRuntimeIntelligenceService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use RuntimeException;
 
@@ -61,6 +62,7 @@ class AtlasDevRuntimeService
 
     public function __construct(
         private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
+        private readonly ?AtlasWorkspaceHandoffPackService $workspaceHandoffPack = null,
     ) {}
 
     /**
@@ -124,6 +126,14 @@ class AtlasDevRuntimeService
             'workspace_source' => $workspaceSource,
             'open_brain_policy' => 'auto',
         ];
+        $artifactAgentPacket = $this->artifactAgentPacket($payload);
+        if ($artifactAgentPacket !== null) {
+            $payload['atlas_dev_runtime']['artifact_agent_packet'] = $this->safeArtifactAgentPacket($artifactAgentPacket);
+        }
+        $artifactAgentPacketAllowed = $this->artifactAgentPacketAllowed($artifactAgentPacket, $workspace);
+        if ($artifactAgentPacket !== null && $artifactAgentPacketAllowed !== true) {
+            $payload['atlas_dev_runtime']['artifact_agent_packet_blockers'] = $artifactAgentPacketAllowed;
+        }
 
         $runtimeIntelligence = (new DevRuntimeIntelligenceService)->preview([
             'run_id' => $this->stringValue($payload['run_id'] ?? null)
@@ -136,14 +146,14 @@ class AtlasDevRuntimeService
             'task_class' => $task === 'debug' ? 'debug' : ($task === 'review' ? 'review' : 'feature'),
             'risk_band' => $this->stringValue($payload['risk_band'] ?? null) ?? 'medium',
             'workspace_slug' => $workspace,
-            'allowed_files' => $this->arrayOfStrings(data_get($payload, 'tool_permissions.allowed_files', [])),
-            'forbidden_files' => $this->arrayOfStrings(data_get($payload, 'tool_permissions.forbidden_files', [])),
-            'context_refs' => $this->arrayOfStrings($payload['context_refs'] ?? []),
+            'allowed_files' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'allowed_paths', data_get($payload, 'tool_permissions.allowed_files', []))),
+            'forbidden_files' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'forbidden_paths', data_get($payload, 'tool_permissions.forbidden_files', []))),
+            'context_refs' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'context_refs', $payload['context_refs'] ?? [])),
             'expected_files' => $this->arrayOfStrings($payload['expected_files'] ?? []),
-            'suggested_tests' => $this->arrayOfStrings($payload['suggested_tests'] ?? []),
-            'acceptance_criteria' => $this->arrayOfStrings($payload['acceptance_criteria'] ?? []),
+            'suggested_tests' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'test_plan', $payload['suggested_tests'] ?? [])),
+            'acceptance_criteria' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'done_when', $payload['acceptance_criteria'] ?? [])),
             'required_evidence' => self::EXPECTED_ARTIFACTS,
-            'source' => 'AtlasDevRuntimeService',
+            'source' => $artifactAgentPacket !== null ? 'AtlasDevRuntimeService:artifact_agent_packet' : 'AtlasDevRuntimeService',
         ]);
         $payload['atlas_dev_runtime_intelligence'] = $runtimeIntelligence;
         $workspaceGate = $this->workspaceExecutionGate?->gate(
@@ -156,11 +166,21 @@ class AtlasDevRuntimeService
         if (is_array($workspaceGate)) {
             $payload['atlas_dev_runtime']['workspace_execution_gate'] = $workspaceGate;
         }
+        $handoffPack = ($this->workspaceHandoffPack ?? app(AtlasWorkspaceHandoffPackService::class))->build(
+            workspace: $workspace,
+            task: $this->stringValue($payload['input_text'] ?? null)
+                ?? $this->stringValue($payload['prompt'] ?? null)
+                ?? $flowId,
+            consumer: 'atlas_dev',
+        );
+        $payload['atlas_dev_runtime']['workspace_handoff_pack'] = $handoffPack;
 
         $providerSafe = (bool) ($runtimeIntelligence['provider_safe'] ?? false);
         $workspaceAllowed = ! is_array($workspaceGate) || (bool) ($workspaceGate['allowed'] ?? false);
-        $payload['atlas_dev_runtime']['provider_safe'] = $providerSafe;
-        $payload['atlas_dev_runtime']['provider_execution_allowed'] = $providerSafe && $workspaceAllowed;
+        $handoffAllowed = ($handoffPack['status'] ?? null) === 'ready'
+            && (bool) data_get($handoffPack, 'claim_policy.safe_for_provider_prompt', false);
+        $payload['atlas_dev_runtime']['provider_safe'] = $providerSafe && $handoffAllowed && $artifactAgentPacketAllowed === true;
+        $payload['atlas_dev_runtime']['provider_execution_allowed'] = $providerSafe && $workspaceAllowed && $handoffAllowed && $artifactAgentPacketAllowed === true;
         $payload['atlas_dev_runtime']['native_capability_status'] = (string) data_get($runtimeIntelligence, 'native_capabilities.status', 'unknown');
         $payload['atlas_dev_runtime']['native_capability_blockers'] = data_get($runtimeIntelligence, 'native_capabilities.blockers', []);
 
@@ -299,6 +319,78 @@ class AtlasDevRuntimeService
         }
 
         return 'unknown';
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function artifactAgentPacket(array $payload): ?array
+    {
+        $packet = data_get($payload, 'workspace_artifact_agent_packet');
+        if (! is_array($packet)) {
+            $packet = data_get($payload, 'artifact_agent_packet');
+        }
+
+        if (! is_array($packet)) {
+            return null;
+        }
+
+        return ($packet['schema_version'] ?? null) === 'atlas.workspace_artifact_agent_packet.v1'
+            ? $packet
+            : null;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $packet
+     * @return true|list<string>
+     */
+    private function artifactAgentPacketAllowed(?array $packet, string $workspace): true|array
+    {
+        if ($packet === null) {
+            return true;
+        }
+
+        $blockers = [];
+        if ($this->stringValue($packet['workspace_id'] ?? null) !== $workspace) {
+            $blockers[] = 'artifact_agent_packet_workspace_mismatch';
+        }
+        if (! in_array($this->stringValue($packet['route_target'] ?? null), ['dev', 'repair'], true)) {
+            $blockers[] = 'artifact_agent_packet_route_not_dev';
+        }
+        if ((bool) ($packet['raw_conversation_included'] ?? true) !== false) {
+            $blockers[] = 'artifact_agent_packet_raw_conversation_included';
+        }
+        if ((bool) ($packet['artifact_body_included'] ?? true) !== false) {
+            $blockers[] = 'artifact_agent_packet_body_included';
+        }
+
+        return $blockers === [] ? true : $blockers;
+    }
+
+    /**
+     * @param  array<string,mixed>  $packet
+     * @return array<string,mixed>
+     */
+    private function safeArtifactAgentPacket(array $packet): array
+    {
+        return [
+            'schema_version' => 'atlas.workspace_artifact_agent_packet.v1',
+            'workspace_id' => $this->stringValue($packet['workspace_id'] ?? null),
+            'consumer' => $this->stringValue($packet['consumer'] ?? null),
+            'route_target' => $this->stringValue($packet['route_target'] ?? null),
+            'artifact_type' => $this->stringValue($packet['artifact_type'] ?? null),
+            'artifact_hash' => $this->stringValue($packet['artifact_hash'] ?? null),
+            'allowed_paths' => $this->arrayOfStrings($packet['allowed_paths'] ?? []),
+            'forbidden_paths' => $this->arrayOfStrings($packet['forbidden_paths'] ?? []),
+            'must_keep' => $this->arrayOfStrings($packet['must_keep'] ?? []),
+            'context_refs' => $this->arrayOfStrings($packet['context_refs'] ?? []),
+            'test_plan' => $this->arrayOfStrings($packet['test_plan'] ?? []),
+            'done_when' => $this->arrayOfStrings($packet['done_when'] ?? []),
+            'redaction' => $this->stringValue($packet['redaction'] ?? null) ?? 'provider_safe',
+            'raw_conversation_included' => false,
+            'artifact_body_included' => false,
+        ];
     }
 
     private function stringValue(mixed $value): ?string

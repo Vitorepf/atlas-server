@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactIntelligenceRepository;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactWorkroomService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceRuntimeProjectionRepository;
 use Illuminate\Support\Arr;
 
 final class AtlasUniversalRealityCartographyService
@@ -17,6 +20,9 @@ final class AtlasUniversalRealityCartographyService
         private readonly AtlasDocumentationRealitySystemService $documentationReality,
         private readonly AtlasCodeRealityUsageIntelligenceService $codeReality,
         private readonly AtlasWorkspaceIntelligenceRuntimeService $workspaceIntelligence,
+        private readonly AtlasWorkspaceArtifactIntelligenceRepository $artifactIntelligence,
+        private readonly AtlasWorkspaceArtifactWorkroomService $artifactWorkroom,
+        private readonly AtlasWorkspaceRuntimeProjectionRepository $runtimeProjections,
     ) {}
 
     /**
@@ -27,7 +33,7 @@ final class AtlasUniversalRealityCartographyService
         $adrs = $this->documentationReality->report();
         $acrui = $this->codeReality->classify('app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php');
         $workspaceScope = $this->workspaceScope($workspace);
-        $nodes = $this->nodes($adrs, $acrui);
+        $nodes = $this->nodes($adrs, $acrui, $workspaceScope);
         $edges = $this->edges();
         $coverage = $this->coverage($nodes, $edges);
         $mode = $this->mode($mode);
@@ -81,20 +87,240 @@ final class AtlasUniversalRealityCartographyService
      */
     private function workspaceScope(?string $workspace): array
     {
-        $report = $this->workspaceIntelligence->certify(workspace: $workspace);
+        $report = $this->workspaceIntelligence->certify(workspace: $workspace ?? 'atlas');
+        $workspaceId = data_get($report, 'workspace.workspace_id');
+        $workspaceHash = data_get($report, 'workspace.workspace_hash');
+        $projectionReplay = $this->runtimeProjectionReplayState(
+            is_string($workspaceId) ? $workspaceId : null,
+            is_string($workspaceHash) ? $workspaceHash : null,
+        );
+        $artifactGraphReplay = $this->artifactGraphReplayState(
+            is_string($workspaceId) ? $workspaceId : null,
+            is_string($workspaceHash) ? $workspaceHash : null,
+        );
+        $artifactLakeReplay = $this->artifactLakeReplayState(
+            is_string($workspaceId) ? $workspaceId : null,
+        );
+        $artifactWorkroom = $this->artifactWorkroomState($report);
 
         return [
             'schema_version' => 'atlas.universal_reality_cartography.workspace_scope.v1',
             'status' => (string) data_get($report, 'workspace.readiness_status', 'blocked'),
             'requested_workspace' => $workspace,
-            'active_workspace_id' => data_get($report, 'workspace.workspace_id'),
+            'active_workspace_id' => $workspaceId,
             'active_workspace_name' => data_get($report, 'workspace.workspace_name'),
-            'workspace_hash' => data_get($report, 'workspace.workspace_hash'),
+            'workspace_hash' => $workspaceHash,
             'cartography_scope' => data_get($report, 'workspace.cartography_scope'),
             'source_path' => 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
             'runtime_hash' => data_get($report, 'runtime_hash'),
             'blockers' => data_get($report, 'workspace.blockers', []),
+            'runtime_projection_replay' => $projectionReplay,
+            'artifact_graph_replay' => $artifactGraphReplay,
+            'artifact_lake_replay' => $artifactLakeReplay,
+            'artifact_workroom' => $artifactWorkroom,
             'awis_certified' => ($report['status'] ?? null) === 'ready',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     * @return array<string,mixed>
+     */
+    private function artifactWorkroomState(array $report): array
+    {
+        $workroom = $this->artifactWorkroom->build($report, null, 'task_packet');
+        if (($workroom['status'] ?? null) !== 'ready') {
+            return [
+                'schema_version' => 'atlas.universal_reality_cartography.artifact_workroom.v1',
+                'status' => 'blocked',
+                'reason' => (string) data_get($workroom, 'blockers.0', 'artifact_workroom_unavailable'),
+                'workroom_count' => 0,
+                'source_policy' => (array) ($workroom['source_policy'] ?? []),
+                'claim_policy' => (array) ($workroom['claim_policy'] ?? []),
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.universal_reality_cartography.artifact_workroom.v1',
+            'status' => 'ready',
+            'workroom_count' => 1,
+            'artifact_type' => $workroom['artifact_type'] ?? null,
+            'artifact_hash' => $workroom['artifact_hash'] ?? null,
+            'quality_score' => $workroom['quality_score'] ?? null,
+            'route_target' => data_get($workroom, 'routes.0.target'),
+            'mode_30s' => data_get($workroom, 'human_packet.mode_30s'),
+            'replay_status' => data_get($workroom, 'replay_point.status'),
+            'workroom_hash' => $workroom['workroom_hash'] ?? null,
+            'inspect_endpoint' => '/atlas-code/workspace-intelligence/artifact-workroom?workspace='.data_get($workroom, 'workspace_id').'&artifact={artifact}',
+            'source_policy' => (array) ($workroom['source_policy'] ?? []),
+            'claim_policy' => (array) ($workroom['claim_policy'] ?? []),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runtimeProjectionReplayState(?string $workspaceId, ?string $currentWorkspaceHash): array
+    {
+        $families = ['AWTR', 'AWCO', 'AWEF'];
+        $items = [];
+        $stale = [];
+        $missing = [];
+
+        foreach ($families as $family) {
+            $snapshot = $workspaceId === null ? null : $this->runtimeProjections->latest($workspaceId, $family);
+            if ($snapshot === null) {
+                $missing[] = $family;
+                $items[] = [
+                    'family' => $family,
+                    'status' => 'missing',
+                    'stale' => false,
+                    'reason' => 'projection_not_persisted',
+                ];
+
+                continue;
+            }
+
+            $snapshotWorkspaceHash = data_get($snapshot->payload, 'awis_projection.workspace_hash');
+            $reason = null;
+            if (! is_string($snapshotWorkspaceHash) || $snapshotWorkspaceHash === '') {
+                $reason = 'projection_missing_workspace_hash';
+            } elseif (! is_string($currentWorkspaceHash) || $currentWorkspaceHash === '') {
+                $reason = 'current_workspace_hash_unavailable';
+            } elseif (! hash_equals($snapshotWorkspaceHash, $currentWorkspaceHash)) {
+                $reason = 'workspace_hash_changed';
+            }
+
+            if ($reason !== null) {
+                $stale[] = $family;
+            }
+
+            $items[] = [
+                'family' => $family,
+                'status' => (string) $snapshot->status,
+                'stale' => $reason !== null,
+                'reason' => $reason,
+                'snapshot_id' => (string) $snapshot->id,
+                'runtime_hash' => $snapshot->runtime_hash,
+                'projection_hash' => $snapshot->projection_hash,
+                'captured_at' => $snapshot->captured_at?->toJSON(),
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.universal_reality_cartography.runtime_projection_replay.v1',
+            'status' => $stale === [] ? 'ready' : 'blocked',
+            'stale_count' => count($stale),
+            'missing_count' => count($missing),
+            'stale_families' => $stale,
+            'missing_families' => $missing,
+            'items' => $items,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function artifactGraphReplayState(?string $workspaceId, ?string $currentWorkspaceHash): array
+    {
+        $snapshot = $workspaceId === null ? null : $this->artifactIntelligence->latest($workspaceId);
+        if ($snapshot === null) {
+            return [
+                'schema_version' => 'atlas.universal_reality_cartography.artifact_graph_replay.v1',
+                'status' => 'ready',
+                'stale' => false,
+                'reason' => 'artifact_graph_not_persisted',
+                'snapshot_id' => null,
+            ];
+        }
+
+        $snapshotWorkspaceHash = data_get($snapshot->payload, 'workspace_hash');
+        $reason = null;
+        if (! is_string($snapshotWorkspaceHash) || $snapshotWorkspaceHash === '') {
+            $reason = 'artifact_graph_missing_workspace_hash';
+        } elseif (! is_string($currentWorkspaceHash) || $currentWorkspaceHash === '') {
+            $reason = 'current_workspace_hash_unavailable';
+        } elseif (! hash_equals($snapshotWorkspaceHash, $currentWorkspaceHash)) {
+            $reason = 'workspace_hash_changed';
+        }
+
+        return [
+            'schema_version' => 'atlas.universal_reality_cartography.artifact_graph_replay.v1',
+            'status' => $reason === null ? 'ready' : 'blocked',
+            'stale' => $reason !== null,
+            'reason' => $reason,
+            'snapshot_id' => (string) $snapshot->id,
+            'runtime_hash' => $snapshot->runtime_hash,
+            'artifact_intelligence_hash' => $snapshot->artifact_intelligence_hash,
+            'graph_hash' => $snapshot->graph_hash,
+            'captured_at' => $snapshot->captured_at?->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function artifactLakeReplayState(?string $workspaceId): array
+    {
+        if ($workspaceId === null || $workspaceId === '') {
+            return [
+                'schema_version' => 'atlas.universal_reality_cartography.artifact_lake_replay.v1',
+                'status' => 'ready',
+                'reason' => 'workspace_unavailable',
+                'artifact_count' => 0,
+                'conversation_fusion_pack_count' => 0,
+                'latest_artifacts' => [],
+                'source_policy' => [
+                    'raw_conversation_returned' => false,
+                    'full_message_content_returned' => false,
+                    'workspace_scope_required' => true,
+                    'hashes_are_authoritative' => true,
+                ],
+            ];
+        }
+
+        $index = $this->artifactIntelligence->listProviderSafe($workspaceId, null, 6);
+        $blockers = (array) ($index['blockers'] ?? []);
+        if (($index['status'] ?? null) === 'blocked' && in_array('artifact_lake_table_missing', $blockers, true)) {
+            return [
+                'schema_version' => 'atlas.universal_reality_cartography.artifact_lake_replay.v1',
+                'status' => 'ready',
+                'reason' => 'artifact_lake_table_missing',
+                'artifact_count' => 0,
+                'conversation_fusion_pack_count' => 0,
+                'latest_artifacts' => [],
+                'source_policy' => (array) ($index['source_policy'] ?? []),
+            ];
+        }
+
+        $artifacts = collect((array) ($index['artifacts'] ?? []))
+            ->filter(static fn (mixed $artifact): bool => is_array($artifact))
+            ->map(static fn (array $artifact): array => Arr::only($artifact, [
+                'artifact_id',
+                'artifact_hash',
+                'runtime_hash',
+                'artifact_type',
+                'status',
+                'consumer',
+                'source_hash_count',
+                'quality_score',
+                'captured_at',
+            ]))
+            ->values()
+            ->all();
+
+        return [
+            'schema_version' => 'atlas.universal_reality_cartography.artifact_lake_replay.v1',
+            'status' => ($index['status'] ?? null) === 'ready' ? 'ready' : 'blocked',
+            'reason' => ($index['status'] ?? null) === 'ready' ? null : ($blockers[0] ?? 'artifact_lake_unavailable'),
+            'artifact_count' => count($artifacts),
+            'conversation_fusion_pack_count' => collect($artifacts)
+                ->filter(static fn (array $artifact): bool => ($artifact['artifact_type'] ?? null) === 'conversation_fusion_pack')
+                ->count(),
+            'latest_artifacts' => $artifacts,
+            'inspect_endpoint' => '/atlas-code/workspace-intelligence/artifact-lake/{artifact}?workspace='.$workspaceId,
+            'source_policy' => (array) ($index['source_policy'] ?? []),
+            'claim_policy' => (array) ($index['claim_policy'] ?? []),
         ];
     }
 
@@ -103,8 +329,21 @@ final class AtlasUniversalRealityCartographyService
      * @param  array<string,mixed>  $acrui
      * @return array<int,array<string,mixed>>
      */
-    private function nodes(array $adrs, array $acrui): array
+    private function nodes(array $adrs, array $acrui, array $workspaceScope): array
     {
+        $workspaceProjectionStale = data_get($workspaceScope, 'runtime_projection_replay.stale_count', 0) > 0;
+        $artifactGraphStale = data_get($workspaceScope, 'artifact_graph_replay.stale') === true;
+        $artifactLakeCount = (int) data_get($workspaceScope, 'artifact_lake_replay.artifact_count', 0);
+        $artifactWorkroomReady = data_get($workspaceScope, 'artifact_workroom.status') === 'ready';
+        $workspaceAttention = $workspaceProjectionStale || $artifactGraphStale;
+        $workspaceRuntimeStatus = $workspaceAttention ? 'review' : 'active';
+        $workspaceFlowStatus = $workspaceProjectionStale ? 'review' : 'active';
+        $artifactGraphStatus = $artifactGraphStale ? 'review' : 'active_read_only';
+        $artifactLakeStatus = $artifactLakeCount > 0 ? 'active_read_only' : 'ready';
+        $workspaceStaleSummary = $workspaceAttention
+            ? 'Ha projection AWIS persistida divergente ou artifact graph AWAIR persistido divergente do workspace atual; Cartografia deve orientar refresh antes de confiar em replay.'
+            : 'Area que prende execucao, memoria, contexto e artefatos ao workspace correto antes de Dev/Forge agir.';
+
         return [
             $this->node(
                 'universe',
@@ -147,12 +386,12 @@ final class AtlasUniversalRealityCartographyService
                 'project',
                 'Workspace Intelligence',
                 'project',
-                'active',
+                $workspaceRuntimeStatus,
                 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
                 'workspace-intelligence',
                 ['system'],
-                ['AWIS', 'AWTR', 'AWCO', 'AWEF', 'workspace_intelligence control-plane section'],
-                'Area que prende execucao, memoria, contexto e artefatos ao workspace correto antes de Dev/Forge agir.'
+                ['AWIS', 'AWTR', 'AWCO', 'AWEF', 'AWAF', 'AWAIR', 'workspace_intelligence control-plane section'],
+                $workspaceStaleSummary
             ),
             $this->node(
                 'system.adrs',
@@ -204,7 +443,7 @@ final class AtlasUniversalRealityCartographyService
                 'system',
                 'AWIS',
                 'system',
-                'active',
+                $workspaceRuntimeStatus,
                 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
                 'workspace-intelligence',
                 ['flow'],
@@ -251,6 +490,47 @@ final class AtlasUniversalRealityCartographyService
                 'Aprende padroes entre workspaces sem copiar contexto privado entre projetos.'
             ),
             $this->node(
+                'system.awaf',
+                'system',
+                'AWAF',
+                'system',
+                'active_read_only',
+                'docs/engineering-knowledge-base/atlas-workspace-artifact-fabric.md',
+                'workspace-intelligence',
+                ['flow'],
+                ['atlas_workspace_artifacts', 'artifact_hash', 'workspace_id'],
+                'Gera artefatos operacionais vivos por workspace para reduzir conversa solta e handoff fraco.'
+            ),
+            $this->node(
+                'system.awair',
+                'system',
+                'AWAIR',
+                'system',
+                $artifactGraphStatus,
+                'docs/engineering-knowledge-base/atlas-workspace-artifact-intelligence-runtime.md',
+                'workspace-intelligence',
+                ['flow'],
+                ['atlas:workspace-intelligence artifact-intelligence --workspace=atlas --json --strict', 'artifact_graph_hash'],
+                'Projeta artifact lake, artifact graph, replay, simulation e Cartografia por artefato.'
+            ),
+            $this->node(
+                'system.awaol',
+                'system',
+                'AWAOL',
+                'system',
+                $artifactWorkroomReady ? 'active_read_only' : 'planned',
+                'docs/engineering-knowledge-base/atlas-workspace-artifact-operating-layer.md',
+                'workspace-intelligence',
+                ['flow'],
+                [
+                    'atlas.workspace_artifact_workroom.v1',
+                    '/atlas-code/workspace-intelligence/artifact-workroom',
+                ],
+                $artifactWorkroomReady
+                    ? 'Abre workroom provider-safe por artefato com packet humano, agent packet, rota, timeline e replay point.'
+                    : 'Camada planejada para operar artifact workrooms por workspace.'
+            ),
+            $this->node(
                 'flow.adrs-to-acrui-to-aurc',
                 'flow',
                 'ADRS -> ACRUI -> AURC',
@@ -267,7 +547,7 @@ final class AtlasUniversalRealityCartographyService
                 'flow',
                 'AWIS -> AWTR/AWCO/AWEF',
                 'flow',
-                'active',
+                $workspaceFlowStatus,
                 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
                 'workspace-intelligence',
                 [],
@@ -276,6 +556,53 @@ final class AtlasUniversalRealityCartographyService
                     'AtlasAiControlPlaneService.workspace_intelligence',
                 ],
                 'Fluxo que persiste projections por workspace e mostra status/hash/blockers no Control Plane.'
+            ),
+            $this->node(
+                'flow.workspace-artifact-graph',
+                'flow',
+                'AWAIR Artifact Graph',
+                'flow',
+                $artifactGraphStatus,
+                'docs/engineering-knowledge-base/atlas-workspace-artifact-intelligence-runtime.md',
+                'workspace-intelligence',
+                [],
+                ['atlas.workspace_artifact_graph.v1', 'artifact_dependency_graph', 'artifact_cartography_projection'],
+                'Fluxo visual que mostra artefatos, dependencias, stale state, prova e reuso por workspace.'
+            ),
+            $this->node(
+                'flow.workspace-artifact-lake-replay',
+                'flow',
+                'Artifact Lake Replay',
+                'flow',
+                $artifactLakeStatus,
+                'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+                'workspace-intelligence',
+                [],
+                [
+                    'atlas_workspace_artifact_lake_entries',
+                    '/atlas-code/workspace-intelligence/artifact-lake/{artifact}',
+                ],
+                $artifactLakeCount > 0
+                    ? 'Mostra packs AWIS persistidos por workspace para reabrir contexto sem reler conversa bruta.'
+                    : 'Mostra quando ainda nao ha pack AWIS persistido para este workspace.'
+            ),
+            $this->node(
+                'flow.workspace-artifact-workroom',
+                'flow',
+                'Artifact Workroom',
+                'flow',
+                $artifactWorkroomReady ? 'active_read_only' : 'planned',
+                'docs/engineering-knowledge-base/atlas-workspace-artifact-operating-layer.md',
+                'workspace-intelligence',
+                [],
+                [
+                    'atlas.workspace_artifact_human_packet.v1',
+                    'atlas.workspace_artifact_agent_packet.v1',
+                    'atlas.workspace_artifact_replay_point.v1',
+                ],
+                $artifactWorkroomReady
+                    ? 'Mostra um artifact como espaco operacional: 30s humano, rota, replay point, diff e pacote seguro para IA.'
+                    : 'Cria drilldown operacional de artefatos AWIS.'
             ),
             $this->node(
                 'component.adrs-runtime',
@@ -348,6 +675,9 @@ final class AtlasUniversalRealityCartographyService
             $this->edge('project.atlas.workspace-intelligence', 'system.awtr', 'contains_child'),
             $this->edge('project.atlas.workspace-intelligence', 'system.awco', 'contains_child'),
             $this->edge('project.atlas.workspace-intelligence', 'system.awef', 'contains_child'),
+            $this->edge('project.atlas.workspace-intelligence', 'system.awaf', 'contains_child'),
+            $this->edge('project.atlas.workspace-intelligence', 'system.awair', 'contains_child'),
+            $this->edge('project.atlas.workspace-intelligence', 'system.awaol', 'contains_child'),
             $this->edge('system.adrs', 'flow.adrs-to-acrui-to-aurc', 'defines_flow'),
             $this->edge('flow.adrs-to-acrui-to-aurc', 'system.acrui', 'uses_operational_truth'),
             $this->edge('flow.adrs-to-acrui-to-aurc', 'system.aurc', 'projects_visual_truth'),
@@ -355,6 +685,11 @@ final class AtlasUniversalRealityCartographyService
             $this->edge('flow.workspace-runtime-projections', 'system.awtr', 'projects_twin'),
             $this->edge('flow.workspace-runtime-projections', 'system.awco', 'certifies_contracts'),
             $this->edge('flow.workspace-runtime-projections', 'system.awef', 'feeds_evolution'),
+            $this->edge('system.awaf', 'system.awair', 'evolves_into'),
+            $this->edge('system.awair', 'system.awaol', 'operates_artifacts'),
+            $this->edge('system.awair', 'flow.workspace-artifact-graph', 'projects_artifact_graph'),
+            $this->edge('system.awis', 'flow.workspace-artifact-lake-replay', 'persists_replay_pack'),
+            $this->edge('system.awaol', 'flow.workspace-artifact-workroom', 'opens_artifact_workroom'),
             $this->edge('system.adrs', 'component.adrs-runtime', 'implemented_by'),
             $this->edge('system.acrui', 'component.acrui-runtime', 'implemented_by'),
             $this->edge('system.aurc', 'component.aurc-runtime', 'implemented_by'),
@@ -572,7 +907,25 @@ final class AtlasUniversalRealityCartographyService
 
         $levels = $levelsByMode[$mode] ?? $levelsByMode['universe'];
 
-        return array_values(array_filter($nodes, static fn (array $node): bool => in_array((string) $node['semantic_level'], $levels, true)));
+        $visible = array_values(array_filter($nodes, static fn (array $node): bool => in_array((string) $node['semantic_level'], $levels, true)));
+        if ($mode === 'flow') {
+            $priority = [
+                'system.awis',
+                'system.awair',
+                'system.awaol',
+                'flow.workspace-artifact-graph',
+                'flow.workspace-artifact-lake-replay',
+                'flow.workspace-artifact-workroom',
+            ];
+            usort($visible, static function (array $a, array $b) use ($priority): int {
+                $aIndex = array_search((string) ($a['id'] ?? ''), $priority, true);
+                $bIndex = array_search((string) ($b['id'] ?? ''), $priority, true);
+
+                return ($aIndex === false ? 100 : $aIndex) <=> ($bIndex === false ? 100 : $bIndex);
+            });
+        }
+
+        return array_slice($visible, 0, 12);
     }
 
     /**
@@ -633,7 +986,19 @@ final class AtlasUniversalRealityCartographyService
                 'id' => 'scene.workspace-intelligence',
                 'from_node' => 'project.atlas.workspace-intelligence',
                 'to_level' => 'system',
-                'expected_children' => ['system.awis', 'system.awtr', 'system.awco', 'system.awef'],
+                'expected_children' => ['system.awis', 'system.awtr', 'system.awco', 'system.awef', 'system.awaf', 'system.awair', 'system.awaol'],
+            ],
+            [
+                'id' => 'scene.awair-artifact-graph',
+                'from_node' => 'system.awair',
+                'to_level' => 'flow',
+                'expected_children' => ['flow.workspace-artifact-graph', 'flow.workspace-artifact-lake-replay'],
+            ],
+            [
+                'id' => 'scene.awaol-artifact-workroom',
+                'from_node' => 'system.awaol',
+                'to_level' => 'flow',
+                'expected_children' => ['flow.workspace-artifact-workroom'],
             ],
             [
                 'id' => 'scene.adrs-runtime',
@@ -699,6 +1064,24 @@ final class AtlasUniversalRealityCartographyService
                 'node_path' => ['universe', 'org.atlas', 'project.atlas.workspace-intelligence', 'system.awis', 'flow.workspace-runtime-projections'],
                 'expected_source' => 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
             ],
+            [
+                'id' => 'route.open-artifact-graph',
+                'intent' => 'Quais artefatos vivos explicam este workspace?',
+                'node_path' => ['universe', 'org.atlas', 'project.atlas.workspace-intelligence', 'system.awair', 'flow.workspace-artifact-graph'],
+                'expected_source' => 'docs/engineering-knowledge-base/atlas-workspace-artifact-intelligence-runtime.md',
+            ],
+            [
+                'id' => 'route.open-conversation-fusion-pack',
+                'intent' => 'Qual pack persistido reabre contexto sem conversa bruta?',
+                'node_path' => ['universe', 'org.atlas', 'project.atlas.workspace-intelligence', 'system.awis', 'flow.workspace-artifact-lake-replay'],
+                'expected_source' => 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+            ],
+            [
+                'id' => 'route.open-artifact-workroom',
+                'intent' => 'Como abrir um artefato como workroom humano e packet seguro para IA?',
+                'node_path' => ['universe', 'org.atlas', 'project.atlas.workspace-intelligence', 'system.awaol', 'flow.workspace-artifact-workroom'],
+                'expected_source' => 'docs/engineering-knowledge-base/atlas-workspace-artifact-operating-layer.md',
+            ],
         ];
 
         $invalid = array_values(array_filter($routes, static fn (array $route): bool => collect($route['node_path'])->contains(
@@ -745,6 +1128,21 @@ final class AtlasUniversalRealityCartographyService
                     'question' => 'Qual node mostra workspace ativo e projections AWIS?',
                     'expected_node' => 'system.awis',
                     'expected_source' => 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+                ],
+                [
+                    'question' => 'Qual node mostra grafo de artefatos do workspace?',
+                    'expected_node' => 'system.awair',
+                    'expected_source' => 'docs/engineering-knowledge-base/atlas-workspace-artifact-intelligence-runtime.md',
+                ],
+                [
+                    'question' => 'Qual node mostra packs AWIS persistidos sem conversa bruta?',
+                    'expected_node' => 'flow.workspace-artifact-lake-replay',
+                    'expected_source' => 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+                ],
+                [
+                    'question' => 'Qual node abre um artefato como workroom operacional?',
+                    'expected_node' => 'flow.workspace-artifact-workroom',
+                    'expected_source' => 'docs/engineering-knowledge-base/atlas-workspace-artifact-operating-layer.md',
                 ],
             ],
             'node_ids_available' => array_column($nodes, 'id'),

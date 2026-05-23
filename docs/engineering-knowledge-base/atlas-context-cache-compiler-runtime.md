@@ -31,6 +31,11 @@ product_name: Atlas Context Cache Compiler Runtime
 runtime_acronym: ACCCR
 internal_product_name: Atlas Merkle Context Cache
 technical_runtime: AtlasContextCacheCompilerRuntimeService
+human_name: Atlas Context Cache Compiler Runtime
+canonical_name: Atlas Context Cache Compiler Runtime
+technical_name: AtlasContextCacheCompilerRuntimeService
+cartography_type: runtime
+canonical_source: docs/engineering-knowledge-base/atlas-context-cache-compiler-runtime.md
 graph_id: atlas-context-cache-compiler-runtime
 graph_title: Atlas Context Cache Compiler Runtime
 graph_world: atlas

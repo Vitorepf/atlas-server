@@ -56,6 +56,7 @@ use App\Models\AtlasRiskSignal;
 use App\Models\AtlasRuntimeEfficiencyDecision;
 use App\Models\AtlasRuntimeEfficiencyOutcome;
 use App\Models\AtlasStrategicDecision;
+use App\Models\AtlasWorkspaceArtifactGraphSnapshot;
 use App\Models\AtlasWorkspaceRuntimeProjectionSnapshot;
 use App\Services\Ai\Learning\AtlasAiLearningLoopService;
 use App\Services\Ai\OperatorApproval\OperatorApprovalCanon;
@@ -65,7 +66,10 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AgentMergeReviewPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryHandoffProtocolBuilder;
 use App\Services\Ai\SelfConstruction\AgentValidationGateDryRunEvaluator;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactShadowExecutionService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -194,7 +198,7 @@ class AtlasAiControlPlaneService
             'persistent_context_total' => $persistentContext['total'],
             'persistent_context_blocked' => $persistentContext['blocked'],
             'workspace_intelligence_snapshots_total' => $workspaceIntelligence['summary']['total'] ?? 0,
-            'workspace_intelligence_blocked' => $workspaceIntelligence['summary']['blocked'] ?? 0,
+            'workspace_intelligence_blocked' => ($workspaceIntelligence['summary']['blocked'] ?? 0) + ($workspaceIntelligence['summary']['stale'] ?? 0) + ($workspaceIntelligence['summary']['artifact_graph_blocked'] ?? 0) + ($workspaceIntelligence['summary']['artifact_graph_stale'] ?? 0),
             'workspace_intelligence_workspaces_total' => $workspaceIntelligence['summary']['workspaces_total'] ?? 0,
             'aemor_episodes_total' => $aemor['summary']['episodes_total'] ?? 0,
             'aemor_blocked_outcomes' => $aemor['summary']['blocked'] ?? 0,
@@ -426,12 +430,28 @@ class AtlasAiControlPlaneService
                 'ready' => 0,
                 'limited' => 0,
                 'blocked' => 0,
+                'stale' => 0,
+                'artifact_graph_total' => 0,
+                'artifact_graph_blocked' => 0,
+                'artifact_graph_stale' => 0,
                 'workspaces_total' => 0,
                 'families_total' => 0,
             ],
             'by_family' => [],
             'by_workspace' => [],
             'latest' => [],
+            'artifact_graph' => [
+                'schema_version' => 'atlas.workspace_artifact_graph.control_plane.v1',
+                'status' => 'missing',
+                'summary' => ['total' => 0, 'ready' => 0, 'blocked' => 0, 'stale' => 0],
+                'latest' => [],
+            ],
+            'shadow_execution' => [
+                'schema_version' => 'atlas.workspace_artifact_shadow_execution.control_plane.v1',
+                'status' => 'ready',
+                'summary' => ['total' => 0, 'ready' => 0, 'blocked' => 0],
+                'items' => [],
+            ],
             'blockers' => [],
         ];
 
@@ -444,7 +464,7 @@ class AtlasAiControlPlaneService
                 ->where('captured_at', '>=', $since)
                 ->orderByDesc('captured_at')
                 ->limit(200)
-                ->get(['id', 'workspace_id', 'family', 'schema_version', 'runtime_hash', 'projection_hash', 'status', 'captured_at']);
+                ->get(['id', 'workspace_id', 'family', 'schema_version', 'runtime_hash', 'projection_hash', 'status', 'payload', 'captured_at']);
         } catch (Throwable) {
             $empty['status'] = 'degraded';
 
@@ -459,28 +479,37 @@ class AtlasAiControlPlaneService
         $blockers = [];
         $workspaceIds = [];
         $families = [];
+        $workspaceHashCache = [];
 
         foreach ($snapshots as $snapshot) {
             $family = $this->stringOrNull($snapshot->family) ?? 'unknown';
             $workspaceId = $this->stringOrNull($snapshot->workspace_id) ?? 'unknown';
             $status = $this->stringOrNull($snapshot->status) ?? 'unknown';
+            $staleReason = $this->workspaceProjectionStaleReason($snapshot, $workspaceId, $workspaceHashCache);
             $workspaceIds[$workspaceId] = true;
             $families[$family] = true;
 
             if (isset($summary[$status]) && is_int($summary[$status])) {
                 $summary[$status]++;
             }
+            if ($staleReason !== null) {
+                $summary['stale']++;
+            }
 
             $byFamily[$family] ??= [
                 'family' => $family,
                 'total' => 0,
                 'by_status' => [],
+                'stale_count' => 0,
                 'latest_projection_hash' => null,
                 'latest_runtime_hash' => null,
                 'latest_at' => null,
             ];
             $byFamily[$family]['total']++;
             $byFamily[$family]['by_status'][$status] = ($byFamily[$family]['by_status'][$status] ?? 0) + 1;
+            if ($staleReason !== null) {
+                $byFamily[$family]['stale_count']++;
+            }
 
             $byWorkspace[$workspaceId] ??= [
                 'workspace_id' => $workspaceId,
@@ -510,6 +539,8 @@ class AtlasAiControlPlaneService
                     'schema_version' => $this->stringOrNull($snapshot->schema_version),
                     'runtime_hash' => $this->stringOrNull($snapshot->runtime_hash),
                     'projection_hash' => $this->stringOrNull($snapshot->projection_hash),
+                    'stale' => $staleReason !== null,
+                    'stale_reason' => $staleReason,
                     'captured_at' => $capturedAt,
                 ];
             }
@@ -523,10 +554,41 @@ class AtlasAiControlPlaneService
                     'detail' => 'AWIS runtime projection persisted a blocked status',
                 ];
             }
+            if ($staleReason !== null) {
+                $blockers[] = [
+                    'kind' => 'workspace_intelligence_projection_stale',
+                    'workspace_id' => $workspaceId,
+                    'family' => $family,
+                    'snapshot_id' => (string) $snapshot->id,
+                    'reason' => $staleReason,
+                    'detail' => 'AWIS runtime projection no longer matches current workspace hash',
+                ];
+            }
+        }
+
+        $artifactGraph = $this->workspaceArtifactGraphSection($since, $workspaceHashCache);
+        foreach ((array) ($artifactGraph['workspace_ids'] ?? []) as $workspaceId) {
+            if (is_string($workspaceId) && $workspaceId !== '') {
+                $workspaceIds[$workspaceId] = true;
+            }
+        }
+        foreach ((array) ($artifactGraph['blockers'] ?? []) as $blocker) {
+            if (is_array($blocker)) {
+                $blockers[] = $blocker;
+            }
         }
 
         $summary['workspaces_total'] = count($workspaceIds);
         $summary['families_total'] = count($families);
+        $summary['artifact_graph_total'] = (int) data_get($artifactGraph, 'summary.total', 0);
+        $summary['artifact_graph_blocked'] = (int) data_get($artifactGraph, 'summary.blocked', 0);
+        $summary['artifact_graph_stale'] = (int) data_get($artifactGraph, 'summary.stale', 0);
+        $shadowExecution = $this->workspaceArtifactShadowExecution(array_keys($workspaceIds));
+        foreach ((array) ($shadowExecution['blockers'] ?? []) as $blocker) {
+            if (is_array($blocker)) {
+                $blockers[] = $blocker;
+            }
+        }
         ksort($byFamily);
         ksort($byWorkspace);
 
@@ -542,8 +604,219 @@ class AtlasAiControlPlaneService
                 return $workspace;
             }, array_values($byWorkspace)),
             'latest' => $latest,
+            'artifact_graph' => Arr::except($artifactGraph, ['blockers', 'workspace_ids']),
+            'shadow_execution' => Arr::except($shadowExecution, ['blockers']),
             'blockers' => $blockers,
         ];
+    }
+
+    /**
+     * @param  array<string,string|null>  $workspaceHashCache
+     * @return array<string,mixed>
+     */
+    private function workspaceArtifactGraphSection(CarbonImmutable $since, array &$workspaceHashCache): array
+    {
+        $section = [
+            'schema_version' => 'atlas.workspace_artifact_graph.control_plane.v1',
+            'status' => 'missing',
+            'summary' => ['total' => 0, 'ready' => 0, 'blocked' => 0, 'stale' => 0],
+            'latest' => [],
+            'blockers' => [],
+            'workspace_ids' => [],
+        ];
+        if (! Schema::hasTable('atlas_workspace_artifact_graph_snapshots')) {
+            return $section;
+        }
+
+        try {
+            $snapshots = AtlasWorkspaceArtifactGraphSnapshot::query()
+                ->where('captured_at', '>=', $since)
+                ->orderByDesc('captured_at')
+                ->limit(200)
+                ->get(['id', 'workspace_id', 'runtime_hash', 'artifact_intelligence_hash', 'status', 'graph_hash', 'artifact_count', 'replay_ready', 'simulation_decision', 'payload', 'captured_at']);
+        } catch (Throwable) {
+            $section['status'] = 'degraded';
+
+            return $section;
+        }
+
+        $summary = $section['summary'];
+        $summary['total'] = count($snapshots);
+        foreach ($snapshots as $snapshot) {
+            $workspaceId = $this->stringOrNull($snapshot->workspace_id) ?? 'unknown';
+            $status = $this->stringOrNull($snapshot->status) ?? 'unknown';
+            $staleReason = $this->workspaceArtifactGraphStaleReason(is_array($snapshot->payload) ? $snapshot->payload : [], $workspaceId, $workspaceHashCache);
+            $section['workspace_ids'][] = $workspaceId;
+            if ($status === 'ready') {
+                $summary['ready']++;
+            }
+            if ($status === 'blocked') {
+                $summary['blocked']++;
+                $section['blockers'][] = [
+                    'kind' => 'workspace_artifact_graph_blocked',
+                    'workspace_id' => $workspaceId,
+                    'snapshot_id' => (string) $snapshot->id,
+                    'detail' => 'AWAIR artifact graph persisted a blocked status',
+                ];
+            }
+            if ($staleReason !== null) {
+                $summary['stale']++;
+                $section['blockers'][] = [
+                    'kind' => 'workspace_artifact_graph_stale',
+                    'workspace_id' => $workspaceId,
+                    'snapshot_id' => (string) $snapshot->id,
+                    'reason' => $staleReason,
+                    'detail' => 'AWAIR artifact graph no longer matches current workspace hash',
+                ];
+            }
+            if (count($section['latest']) < self::RECENT_LIMIT) {
+                $section['latest'][] = [
+                    'snapshot_id' => (string) $snapshot->id,
+                    'workspace_id' => $workspaceId,
+                    'status' => $status,
+                    'runtime_hash' => $this->stringOrNull($snapshot->runtime_hash),
+                    'artifact_intelligence_hash' => $this->stringOrNull($snapshot->artifact_intelligence_hash),
+                    'graph_hash' => $this->stringOrNull($snapshot->graph_hash),
+                    'artifact_count' => (int) $snapshot->artifact_count,
+                    'replay_ready' => (bool) $snapshot->replay_ready,
+                    'simulation_decision' => $this->stringOrNull($snapshot->simulation_decision),
+                    'stale' => $staleReason !== null,
+                    'stale_reason' => $staleReason,
+                    'captured_at' => $snapshot->captured_at?->toJSON(),
+                ];
+            }
+        }
+
+        $section['summary'] = $summary;
+        $section['workspace_ids'] = array_values(array_unique($section['workspace_ids']));
+        $section['status'] = $section['blockers'] === [] ? 'ready' : 'blocked';
+
+        return $section;
+    }
+
+    /**
+     * @param  array<int,string>  $workspaceIds
+     * @return array<string,mixed>
+     */
+    private function workspaceArtifactShadowExecution(array $workspaceIds): array
+    {
+        $workspaceIds = array_values(array_unique(array_filter($workspaceIds, static fn (string $id): bool => $id !== '' && $id !== 'unknown')));
+        $items = [];
+        $blockers = [];
+        $shadow = app(AtlasWorkspaceArtifactShadowExecutionService::class);
+        $runtime = app(AtlasWorkspaceIntelligenceRuntimeService::class);
+
+        foreach (array_slice($workspaceIds, 0, self::RECENT_LIMIT) as $workspaceId) {
+            try {
+                $evaluation = $shadow->evaluate($runtime->certify($workspaceId), 'control_plane');
+            } catch (Throwable $exception) {
+                $evaluation = [
+                    'schema_version' => AtlasWorkspaceArtifactShadowExecutionService::SCHEMA_VERSION,
+                    'status' => 'blocked',
+                    'mode' => 'control_plane',
+                    'workspace_id' => $workspaceId,
+                    'blockers' => ['artifact_shadow_execution_unavailable'],
+                    'error_class' => $exception::class,
+                ];
+            }
+
+            $items[] = [
+                'workspace_id' => $workspaceId,
+                'status' => $this->stringOrNull($evaluation['status'] ?? null) ?? 'unknown',
+                'runtime_hash' => $this->stringOrNull($evaluation['runtime_hash'] ?? null),
+                'artifact_intelligence_hash' => $this->stringOrNull($evaluation['artifact_intelligence_hash'] ?? null),
+                'node_count' => (int) ($evaluation['node_count'] ?? 0),
+                'edge_count' => (int) ($evaluation['edge_count'] ?? 0),
+                'replay_ready' => ($evaluation['replay_ready'] ?? null) === true,
+                'simulation_decision' => $this->stringOrNull($evaluation['simulation_decision'] ?? null),
+                'quality_ready' => ($evaluation['quality_ready'] ?? null) === true,
+                'provider_called' => ($evaluation['provider_called'] ?? null) === true,
+                'workspace_mutated' => ($evaluation['workspace_mutated'] ?? null) === true,
+                'blockers' => array_values((array) ($evaluation['blockers'] ?? [])),
+                'shadow_execution_hash' => $this->stringOrNull($evaluation['shadow_execution_hash'] ?? null),
+            ];
+
+            if (($evaluation['status'] ?? null) !== 'ready') {
+                $blockers[] = [
+                    'kind' => 'workspace_artifact_shadow_execution_blocked',
+                    'workspace_id' => $workspaceId,
+                    'detail' => 'AWAIR artifact shadow execution is not ready for provider handoff',
+                    'reasons' => array_values((array) ($evaluation['blockers'] ?? [])),
+                ];
+            }
+        }
+
+        $blocked = count(array_filter($items, static fn (array $item): bool => ($item['status'] ?? null) !== 'ready'));
+
+        return [
+            'schema_version' => 'atlas.workspace_artifact_shadow_execution.control_plane.v1',
+            'status' => $blocked === 0 ? 'ready' : 'blocked',
+            'summary' => [
+                'total' => count($items),
+                'ready' => count($items) - $blocked,
+                'blocked' => $blocked,
+            ],
+            'items' => $items,
+            'blockers' => $blockers,
+        ];
+    }
+
+    /**
+     * @param  array<string,string|null>  $workspaceHashCache
+     */
+    private function workspaceProjectionStaleReason(AtlasWorkspaceRuntimeProjectionSnapshot $snapshot, string $workspaceId, array &$workspaceHashCache): ?string
+    {
+        $payload = is_array($snapshot->payload) ? $snapshot->payload : [];
+        $snapshotWorkspaceHash = data_get($payload, 'awis_projection.workspace_hash');
+        if (! is_string($snapshotWorkspaceHash) || $snapshotWorkspaceHash === '') {
+            return 'projection_missing_workspace_hash';
+        }
+
+        if (! array_key_exists($workspaceId, $workspaceHashCache)) {
+            try {
+                $report = app(AtlasWorkspaceIntelligenceRuntimeService::class)->certify($workspaceId);
+                $hash = data_get($report, 'workspace.workspace_hash');
+                $workspaceHashCache[$workspaceId] = is_string($hash) && $hash !== '' ? $hash : null;
+            } catch (Throwable) {
+                $workspaceHashCache[$workspaceId] = null;
+            }
+        }
+
+        $currentWorkspaceHash = $workspaceHashCache[$workspaceId];
+        if (! is_string($currentWorkspaceHash) || $currentWorkspaceHash === '') {
+            return 'current_workspace_hash_unavailable';
+        }
+
+        return hash_equals($snapshotWorkspaceHash, $currentWorkspaceHash) ? null : 'workspace_hash_changed';
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,string|null>  $workspaceHashCache
+     */
+    private function workspaceArtifactGraphStaleReason(array $payload, string $workspaceId, array &$workspaceHashCache): ?string
+    {
+        $snapshotWorkspaceHash = data_get($payload, 'workspace_hash');
+        if (! is_string($snapshotWorkspaceHash) || $snapshotWorkspaceHash === '') {
+            return 'artifact_graph_missing_workspace_hash';
+        }
+
+        if (! array_key_exists($workspaceId, $workspaceHashCache)) {
+            try {
+                $report = app(AtlasWorkspaceIntelligenceRuntimeService::class)->certify($workspaceId);
+                $hash = data_get($report, 'workspace.workspace_hash');
+                $workspaceHashCache[$workspaceId] = is_string($hash) && $hash !== '' ? $hash : null;
+            } catch (Throwable) {
+                $workspaceHashCache[$workspaceId] = null;
+            }
+        }
+
+        $currentWorkspaceHash = $workspaceHashCache[$workspaceId];
+        if (! is_string($currentWorkspaceHash) || $currentWorkspaceHash === '') {
+            return 'current_workspace_hash_unavailable';
+        }
+
+        return hash_equals($snapshotWorkspaceHash, $currentWorkspaceHash) ? null : 'workspace_hash_changed';
     }
 
     /**

@@ -79,6 +79,11 @@ class AtlasForgeRuntimeDispatchTest extends TestCase
         if ($plan['status'] === 'dispatch_planned') {
             $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($plan, 'workspace_execution_gate.schema_version'));
             $this->assertTrue(data_get($plan, 'workspace_execution_gate.allowed'));
+            $this->assertSame('atlas.workspace_handoff_pack.v1', data_get($plan, 'workspace_handoff_pack.schema_version'));
+            $this->assertSame('ready', data_get($plan, 'workspace_handoff_pack.status'));
+            $this->assertSame('atlas_forge', data_get($plan, 'workspace_handoff_pack.consumer'));
+            $this->assertFalse(data_get($plan, 'workspace_handoff_pack.execution_contract.raw_conversation_included'));
+            $this->assertTrue(data_get($plan, 'workspace_handoff_pack.claim_policy.safe_for_provider_prompt'));
             $this->assertNotNull($plan['decision_receipt_id']);
             $this->assertNotNull($plan['decision_receipt_hash']);
             $this->assertSame('live_atlas_decide', $plan['decision_source']);
@@ -126,10 +131,78 @@ class AtlasForgeRuntimeDispatchTest extends TestCase
 
         $this->assertSame('blocked', $plan['status']);
         $this->assertContains(AtlasForgeRuntimeDispatchService::BLOCKER_AWIS_EXECUTION_GATE_BLOCKED, $plan['blockers']);
+        $this->assertContains('workspace_handoff_pack_blocked', $plan['blockers']);
         $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($plan, 'workspace_execution_gate.schema_version'));
+        $this->assertSame('atlas.workspace_handoff_pack.v1', data_get($plan, 'workspace_handoff_pack.schema_version'));
         $this->assertFalse(data_get($plan, 'workspace_execution_gate.allowed'));
+        $this->assertSame('blocked', data_get($plan, 'workspace_handoff_pack.status'));
         $this->assertFalse($plan['runtime_dispatch_allowed']);
         $this->assertFalse($plan['external_provider_call']);
+    }
+
+    public function test_dispatch_consumes_awaol_agent_packet_without_exposing_artifact_body(): void
+    {
+        $obra = $this->makeObra();
+        $packet = [
+            'schema_version' => 'atlas.workspace_artifact_agent_packet.v1',
+            'workspace_id' => 'atlas',
+            'consumer' => 'atlas_forge',
+            'route_target' => 'forge',
+            'artifact_type' => 'execution_plan',
+            'artifact_hash' => str_repeat('c', 64),
+            'allowed_paths' => ['app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php'],
+            'forbidden_paths' => ['outside_workspace_root', 'raw_conversation_archive'],
+            'must_keep' => ['workspace_id', 'artifact_hash', 'source_hashes'],
+            'context_refs' => ['docs/engineering-knowledge-base/atlas-workspace-artifact-operating-layer.md'],
+            'test_plan' => ['php artisan test tests/Feature/Ai/Programming/AtlasForgeRuntimeDispatchTest.php'],
+            'done_when' => ['artifact packet consumed by Forge dispatch'],
+            'redaction' => 'provider_safe',
+            'raw_conversation_included' => false,
+            'artifact_body_included' => false,
+        ];
+
+        $plan = app(AtlasForgeRuntimeDispatchService::class)->dispatch([
+            'obra_id' => (string) $obra->id,
+            'role' => 'primary_builder',
+            'artifact_agent_packet' => $packet,
+        ]);
+
+        $this->assertSame('atlas.workspace_artifact_agent_packet.v1', data_get($plan, 'artifact_agent_packet.schema_version'));
+        $this->assertSame('forge', data_get($plan, 'artifact_agent_packet.route_target'));
+        $this->assertSame('execution_plan', data_get($plan, 'artifact_agent_packet.artifact_type'));
+        $this->assertFalse(data_get($plan, 'artifact_agent_packet.raw_conversation_included'));
+        $this->assertFalse(data_get($plan, 'artifact_agent_packet.artifact_body_included'));
+        $this->assertSame([], $plan['artifact_agent_packet_blockers']);
+        $this->assertFalse($plan['external_provider_call']);
+
+        $encoded = json_encode($plan['artifact_agent_packet'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $this->assertIsString($encoded);
+        $this->assertStringNotContainsString('"body"', $encoded);
+    }
+
+    public function test_dispatch_blocks_non_forge_awaol_agent_packet_route(): void
+    {
+        $obra = $this->makeObra();
+
+        $plan = app(AtlasForgeRuntimeDispatchService::class)->dispatch([
+            'obra_id' => (string) $obra->id,
+            'role' => 'primary_builder',
+            'artifact_agent_packet' => [
+                'schema_version' => 'atlas.workspace_artifact_agent_packet.v1',
+                'workspace_id' => 'atlas',
+                'consumer' => 'atlas_dev',
+                'route_target' => 'dev',
+                'artifact_type' => 'task_packet',
+                'artifact_hash' => str_repeat('d', 64),
+                'raw_conversation_included' => false,
+                'artifact_body_included' => false,
+            ],
+        ]);
+
+        $this->assertSame('blocked', $plan['status']);
+        $this->assertContains('artifact_agent_packet_route_not_forge', $plan['blockers']);
+        $this->assertContains('artifact_agent_packet_route_not_forge', $plan['artifact_agent_packet_blockers']);
+        $this->assertFalse($plan['runtime_dispatch_allowed']);
     }
 
     public function test_dispatch_blocks_with_invalid_role(): void

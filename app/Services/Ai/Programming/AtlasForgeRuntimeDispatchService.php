@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Str;
 
@@ -74,6 +75,7 @@ class AtlasForgeRuntimeDispatchService
         private readonly AtlasForgeProviderFallbackPolicyService $fallbackPolicy,
         private readonly AtlasDecideService $decide,
         private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
+        private readonly ?AtlasWorkspaceHandoffPackService $workspaceHandoffPack = null,
     ) {}
 
     /**
@@ -99,6 +101,9 @@ class AtlasForgeRuntimeDispatchService
         $fallbackEventId = null;
         $fallbackFailureType = null;
         $workspaceExecutionGate = null;
+        $workspaceHandoffPack = null;
+        $artifactAgentPacket = $this->artifactAgentPacket($options);
+        $artifactAgentPacketBlockers = [];
 
         if ($obraId === null) {
             return $this->finalize(
@@ -146,6 +151,14 @@ class AtlasForgeRuntimeDispatchService
         $workspaceExecutionGate = $this->gateWorkspaceExecution($project, $requestedRole);
         if (($workspaceExecutionGate['allowed'] ?? false) !== true) {
             $blockers[] = self::BLOCKER_AWIS_EXECUTION_GATE_BLOCKED;
+        }
+        $workspaceHandoffPack = $this->workspaceHandoffPack($project, $requestedRole);
+        if (($workspaceHandoffPack['status'] ?? null) !== 'ready') {
+            $blockers[] = 'workspace_handoff_pack_blocked';
+        }
+        $artifactAgentPacketBlockers = $this->artifactAgentPacketBlockers($artifactAgentPacket, $project);
+        foreach ($artifactAgentPacketBlockers as $artifactBlocker) {
+            $blockers[] = $artifactBlocker;
         }
 
         $topology = $this->topology->topology([
@@ -282,6 +295,9 @@ class AtlasForgeRuntimeDispatchService
             childReceiptHash: $childReceiptHash,
             project: $project,
             workspaceExecutionGate: $workspaceExecutionGate,
+            workspaceHandoffPack: $workspaceHandoffPack,
+            artifactAgentPacket: $artifactAgentPacket !== null ? $this->safeArtifactAgentPacket($artifactAgentPacket) : null,
+            artifactAgentPacketBlockers: $artifactAgentPacketBlockers,
         );
     }
 
@@ -420,6 +436,9 @@ class AtlasForgeRuntimeDispatchService
         ?string $childReceiptHash,
         ?AtlasProject $project,
         ?array $workspaceExecutionGate = null,
+        ?array $workspaceHandoffPack = null,
+        ?array $artifactAgentPacket = null,
+        array $artifactAgentPacketBlockers = [],
     ): array {
         $blockers = array_values(array_unique($blockers));
         $decisionReceiptId = $topology !== null ? $this->stringOrNull($topology['decision_receipt_id'] ?? null) : null;
@@ -464,6 +483,9 @@ class AtlasForgeRuntimeDispatchService
             'review_completion_gate_preserved' => true,
             'completion_claim_promoted' => false,
             'workspace_execution_gate' => $workspaceExecutionGate,
+            'workspace_handoff_pack' => $workspaceHandoffPack,
+            'artifact_agent_packet' => $artifactAgentPacket,
+            'artifact_agent_packet_blockers' => $artifactAgentPacketBlockers,
             'evidence_refs' => [
                 'docs/engineering-knowledge-base/atlas-forge-continuum-os.md',
                 'docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md',
@@ -525,6 +547,7 @@ class AtlasForgeRuntimeDispatchService
             'fallback_failure_type' => $plan['fallback_failure_type'] ?? null,
             'runtime_dispatch_allowed' => $plan['runtime_dispatch_allowed'] ?? false,
             'workspace_execution_gate' => $plan['workspace_execution_gate'] ?? null,
+            'artifact_agent_packet' => $plan['artifact_agent_packet'] ?? null,
             'external_provider_call' => false,
             'provider_invocation_planned' => false,
             'blockers' => $plan['blockers'] ?? [],
@@ -557,6 +580,113 @@ class AtlasForgeRuntimeDispatchService
             mode: 'forge',
             task: trim('Forge Runtime Dispatch '.($project->goal ?? '').' role='.$requestedRole),
         );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function workspaceHandoffPack(AtlasProject $project, string $requestedRole): array
+    {
+        $metadata = is_array($project->metadata) ? $project->metadata : [];
+        $workspace = $this->stringOrNull(data_get($metadata, 'workspace_slug'))
+            ?? $this->stringOrNull(data_get($metadata, 'workspace_id'))
+            ?? $this->stringOrNull(data_get($metadata, 'workspace_path'));
+
+        $handoff = $this->workspaceHandoffPack ?? app(AtlasWorkspaceHandoffPackService::class);
+
+        return $handoff->build(
+            workspace: $workspace,
+            task: trim('Forge Runtime Dispatch '.($project->goal ?? '').' role='.$requestedRole),
+            consumer: 'atlas_forge',
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>|null
+     */
+    private function artifactAgentPacket(array $options): ?array
+    {
+        $packet = $options['artifact_agent_packet'] ?? $options['workspace_artifact_agent_packet'] ?? null;
+        if (! is_array($packet)) {
+            return null;
+        }
+
+        return ($packet['schema_version'] ?? null) === 'atlas.workspace_artifact_agent_packet.v1'
+            ? $packet
+            : null;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $packet
+     * @return list<string>
+     */
+    private function artifactAgentPacketBlockers(?array $packet, AtlasProject $project): array
+    {
+        if ($packet === null) {
+            return [];
+        }
+
+        $metadata = is_array($project->metadata) ? $project->metadata : [];
+        $workspace = $this->stringOrNull(data_get($metadata, 'workspace_slug'))
+            ?? $this->stringOrNull(data_get($metadata, 'workspace_id'))
+            ?? $this->stringOrNull(data_get($metadata, 'workspace_path'));
+        $blockers = [];
+
+        if ($this->stringOrNull($packet['workspace_id'] ?? null) !== $workspace) {
+            $blockers[] = 'artifact_agent_packet_workspace_mismatch';
+        }
+        if ($this->stringOrNull($packet['route_target'] ?? null) !== 'forge') {
+            $blockers[] = 'artifact_agent_packet_route_not_forge';
+        }
+        if ((bool) ($packet['raw_conversation_included'] ?? true) !== false) {
+            $blockers[] = 'artifact_agent_packet_raw_conversation_included';
+        }
+        if ((bool) ($packet['artifact_body_included'] ?? true) !== false) {
+            $blockers[] = 'artifact_agent_packet_body_included';
+        }
+
+        return array_values(array_unique($blockers));
+    }
+
+    /**
+     * @param  array<string,mixed>  $packet
+     * @return array<string,mixed>
+     */
+    private function safeArtifactAgentPacket(array $packet): array
+    {
+        return [
+            'schema_version' => 'atlas.workspace_artifact_agent_packet.v1',
+            'workspace_id' => $this->stringOrNull($packet['workspace_id'] ?? null),
+            'consumer' => $this->stringOrNull($packet['consumer'] ?? null),
+            'route_target' => $this->stringOrNull($packet['route_target'] ?? null),
+            'artifact_type' => $this->stringOrNull($packet['artifact_type'] ?? null),
+            'artifact_hash' => $this->stringOrNull($packet['artifact_hash'] ?? null),
+            'allowed_paths' => $this->stringList($packet['allowed_paths'] ?? []),
+            'forbidden_paths' => $this->stringList($packet['forbidden_paths'] ?? []),
+            'must_keep' => $this->stringList($packet['must_keep'] ?? []),
+            'context_refs' => $this->stringList($packet['context_refs'] ?? []),
+            'test_plan' => $this->stringList($packet['test_plan'] ?? []),
+            'done_when' => $this->stringList($packet['done_when'] ?? []),
+            'redaction' => $this->stringOrNull($packet['redaction'] ?? null) ?? 'provider_safe',
+            'raw_conversation_included' => false,
+            'artifact_body_included' => false,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            fn (mixed $item): ?string => $this->stringOrNull($item),
+            $value,
+        ))));
     }
 
     private function stringOrNull(mixed $value): ?string

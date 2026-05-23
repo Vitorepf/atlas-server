@@ -19,6 +19,7 @@ use App\Services\Ai\Product\AtlasProductDeliveryPolicyOptimizerService;
 use App\Services\Ai\Product\AtlasProductDeliveryProviderMemoryFeedService;
 use App\Services\Ai\Product\AtlasProductDeliveryRiskGovernorService;
 use App\Services\Ai\Product\AtlasProductDeliveryRuntimeReceiptService;
+use App\Services\Ai\Product\AtlasProductExecutionPrimitivesService;
 use App\Services\Ai\Product\AtlasProductFalsificationProofRuntimeService;
 use App\Services\Ai\Product\AtlasProductReleaseGateService;
 use App\Services\Ai\Product\AtlasProductTruthCompilerService;
@@ -1275,6 +1276,92 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame('ready_for_delivery', $payload['status']);
     }
 
+    public function test_product_execution_primitives_materialize_all_six_blocks_for_dev_request(): void
+    {
+        $report = app(AtlasProductExecutionPrimitivesService::class)->build([
+            'human_request' => 'estou com bug na tela de login',
+            'workspace' => 'atlas-app',
+            'evidence' => [
+                'tests' => ['focused login regression passed'],
+                'acceptance_mapping' => ['login bug acceptance criteria mapped'],
+                'outcome' => ['outcome candidate recorded'],
+            ],
+        ]);
+
+        $this->assertSame(AtlasProductExecutionPrimitivesService::SCHEMA_VERSION, $report['schema_version']);
+        $this->assertSame('ready', $report['status']);
+        $this->assertSame(6, $report['summary']['primitive_count']);
+        $this->assertSame('atlas_dev', data_get($report, 'request.route'));
+        $this->assertSame(
+            AtlasProductExecutionPrimitivesService::HUMAN_INTENT_MODEL_SCHEMA_VERSION,
+            data_get($report, 'primitives.human_intent_model.schema_version'),
+        );
+        $this->assertSame('bug', data_get($report, 'primitives.human_intent_model.intent.kind'));
+        $this->assertSame('high', data_get($report, 'primitives.human_intent_model.confidence'));
+        $this->assertSame(
+            AtlasProductTwinSimulationService::SCHEMA_VERSION,
+            data_get($report, 'primitives.software_twin_simulation.schema_version'),
+        );
+        $this->assertSame(
+            AtlasProductDeliveryOutcomeMemoryService::SCHEMA_VERSION,
+            data_get($report, 'primitives.outcome_memory.schema_version'),
+        );
+        $this->assertSame(
+            AtlasProductExecutionPrimitivesService::OPERATIONAL_CARTOGRAPHY_SCHEMA_VERSION,
+            data_get($report, 'primitives.operational_cartography.schema_version'),
+        );
+        $this->assertContains(data_get($report, 'primitives.operational_cartography.status'), ['ready', 'review']);
+        $this->assertSame(
+            AtlasProductExecutionPrimitivesService::RUNTIME_GATE_SCHEMA_VERSION,
+            data_get($report, 'primitives.runtime_gate.schema_version'),
+        );
+        $this->assertSame('blocked', data_get($report, 'primitives.runtime_gate.gate_decision'));
+        $this->assertFalse(data_get($report, 'primitives.runtime_gate.provider_execution_allowed'));
+        $this->assertSame(
+            AtlasProductExecutionPrimitivesService::PROVIDER_AGENT_STRATEGY_SCHEMA_VERSION,
+            data_get($report, 'primitives.provider_agent_strategy.schema_version'),
+        );
+        $this->assertSame('dev_with_senior_review_and_operator_gate', data_get($report, 'primitives.provider_agent_strategy.recommended_execution_mode'));
+        $this->assertFalse($report['claim_policy']['provider_invoked']);
+        $this->assertFalse($report['claim_policy']['writes']);
+        $this->assertSame(64, strlen((string) $report['execution_primitives_hash']));
+    }
+
+    public function test_product_execution_primitives_runtime_gate_blocks_high_risk_forge_without_approval(): void
+    {
+        $report = app(AtlasProductExecutionPrimitivesService::class)->build([
+            'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
+            'workspace' => 'atlas-server',
+        ]);
+
+        $this->assertSame('ready', $report['status']);
+        $this->assertSame('atlas_forge', data_get($report, 'request.route'));
+        $this->assertSame('ready', data_get($report, 'primitives.runtime_gate.status'));
+        $this->assertSame('blocked', data_get($report, 'primitives.runtime_gate.gate_decision'));
+        $this->assertFalse(data_get($report, 'primitives.runtime_gate.provider_execution_allowed'));
+        $this->assertContains('operator_delivery_risk_acceptance', data_get($report, 'primitives.runtime_gate.required_approvals'));
+        $this->assertSame(
+            'forge_workcell_with_operator_gate',
+            data_get($report, 'primitives.provider_agent_strategy.recommended_execution_mode'),
+        );
+    }
+
+    public function test_product_execution_primitives_command_outputs_json(): void
+    {
+        $exit = Artisan::call('atlas:product-delivery:primitives', [
+            'request' => 'estou com bug na tela de login',
+            '--workspace' => 'atlas-app',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(AtlasProductExecutionPrimitivesService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('ready', $payload['status']);
+        $this->assertSame(6, data_get($payload, 'summary.primitive_count'));
+    }
+
     public function test_product_proof_challenge_command_blocks_without_demo_evidence_in_strict_mode(): void
     {
         $exit = Artisan::call('atlas:product-proof:challenge', [
@@ -1295,8 +1382,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
 
         $this->assertSame(AtlasProductDeliveryCertificationService::SCHEMA_VERSION, $report['schema_version']);
         $this->assertSame('ready', $report['status']);
-        $this->assertSame(25, $report['summary']['total']);
-        $this->assertSame(25, $report['summary']['passed']);
+        $this->assertSame(26, $report['summary']['total']);
+        $this->assertSame(26, $report['summary']['passed']);
         $this->assertSame([], $report['remaining_blockers']);
         $this->assertFalse($report['claim_policy']['provider_invoked']);
         $this->assertFalse($report['claim_policy']['writes']);

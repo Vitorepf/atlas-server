@@ -60,12 +60,14 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-ai-product-certification.md
   - docs/engineering-knowledge-base/atlas-product-falsification-proof-runtime.md
+  - docs/engineering-knowledge-base/atlas-product-execution-primitives.md
   - docs/engineering-knowledge-base/atlas-execution-doctrine-runtime-matrix.md
   - app/Services/Ai/Product/AtlasAiAssistedExecutionQualityService.php
   - app/Services/Ai/Product/AtlasAiProductCertificationService.php
   - app/Services/Ai/Product/AtlasProductDeliveryRiskGovernorService.php
   - app/Services/Ai/Product/AtlasProductDeliveryControlPlaneService.php
   - app/Services/Ai/Product/AtlasProductReleaseGateService.php
+  - app/Services/Ai/Product/AtlasProductExecutionPrimitivesService.php
   - app/Services/Ai/Product/AtlasProductDeliveryProviderMemoryFeedService.php
   - app/Services/Ai/Product/AtlasProductDeliveryPolicyOptimizerService.php
   - app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevRuntimeIntelligenceService.php
@@ -116,6 +118,7 @@ evidence:
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:product-certify --json"
+  - "php artisan atlas:product-delivery:primitives --json --strict"
 requires_evidence: true
 risk_level: high
 visual_tags:
@@ -129,6 +132,8 @@ ai_usage_notes:
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:product-certify --json"
+  - "php artisan atlas:product-delivery:certify --json --strict"
+  - "php artisan atlas:product-delivery:primitives 'estou com bug na tela de login' --workspace=atlas-app --json --strict"
 failure_modes:
   - Intencao humana crua passa direto para execucao.
   - Chat solto substitui contrato de produto.

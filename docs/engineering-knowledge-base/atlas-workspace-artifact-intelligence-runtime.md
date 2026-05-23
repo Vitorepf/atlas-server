@@ -5,7 +5,7 @@ title: Atlas Workspace Artifact Intelligence Runtime
 status: building
 category: workspace-intelligence
 priority: 95
-implementation_state: read_only_runtime_projection_present
+implementation_state: read_only_runtime_cartography_and_control_plane_shadow_projection_present
 summary: Camada final de inteligencia de artefatos do AWIS/AWAF, tornando cada workspace executavel por pacotes vivos, versionados, simulaveis, reutilizaveis e explicaveis pela Cartografia.
 tags:
   - atlas
@@ -20,6 +20,11 @@ capabilities:
   - artifact_branching
   - artifact_replay
   - artifact_simulation
+  - artifact_operating_graph
+  - artifact_delta_context
+  - artifact_proof_bundle
+  - artifact_skill_capsule
+  - artifact_garbage_collector
   - artifact_context_compiler
   - artifact_quality_governor
   - artifact_cartography_projection
@@ -37,6 +42,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md
   - docs/engineering-knowledge-base/atlas-workspace-artifact-fabric.md
+  - docs/engineering-knowledge-base/atlas-workspace-artifact-operating-layer.md
   - docs/engineering-knowledge-base/atlas-workspace-contract-orchestrator.md
   - docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md
   - docs/engineering-knowledge-base/atlas-continuity-intelligence-os.md
@@ -92,10 +98,14 @@ evidence:
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceArtifactIntelligenceRepository.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceArtifactShadowExecutionService.php
+  - app/Services/Ai/ControlPlane/AtlasAiControlPlaneService.php
+  - app/Services/Engineering/AtlasUniversalRealityCartographyService.php
   - app/Models/AtlasWorkspaceArtifactLakeEntry.php
   - app/Models/AtlasWorkspaceArtifactGraphSnapshot.php
   - database/migrations/2026_05_25_021000_create_atlas_workspace_artifact_intelligence_tables.php
   - tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php
+  - tests/Feature/Ai/ControlPlane/AtlasAiControlPlaneServiceTest.php
+  - tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true
@@ -112,6 +122,7 @@ ai_usage_notes:
 quality_gates:
   - docs-health
   - php artisan atlas:workspace-intelligence artifact-intelligence --workspace=atlas --json --strict
+  - php artisan atlas:workspace-artifacts graph --workspace=atlas --json --strict
 failure_modes:
   - Artifact lake vira lixeira sem qualidade.
   - Replay reconstrui contexto incompleto.
@@ -125,9 +136,7 @@ observability_signals:
   - artifact_reuse_rate
   - artifact_quality_delta
 next_actions:
-  - Projetar Artifact Graph dedicado na Cartografia.
-  - Ligar outcome real do artifact ao AEMOR.
-  - Projetar shadow execution no Control Plane.
+  - Expor outcome AEMOR do artifact no Control Plane.
 ---
 # Atlas Workspace Artifact Intelligence Runtime
 
@@ -207,6 +216,10 @@ Regra operacional: se um artifact nao reduz risco, token, ambiguidade ou tempo d
 handoff, ele nao deve ser criado. Artifact bom substitui conversa longa; artifact
 ruim vira ruido institucional.
 
+O detalhamento operacional desses saltos vive em
+`atlas-workspace-artifact-operating-layer.md`: workroom, timeline, hash diff,
+replay point, artifact route, packet humano e packet seguro para IA.
+
 ## Saltos Avancados Com Artefatos
 
 Estes blocos levam AWIS alem de "workspace com contexto" e transformam o
@@ -229,6 +242,23 @@ Esses blocos existem para reduzir token sem reduzir qualidade. Se a economia
 remove fonte, teste, risco, contrato ou decisao vigente, o artifact deve falhar
 em shadow e nao pode dirigir Dev/Forge.
 
+## Artifact-Native Workspace
+
+O salto maximo nao e guardar artefatos; e fazer o workspace operar por
+artefatos. Nesse patamar, conversa, docs, testes, outcomes e handoffs viram um
+grafo operacional que pode ser consultado, simulado, compactado e reexecutado.
+
+| Capacidade | Funcao | Resultado |
+|---|---|---|
+| Artifact Operating Graph | grafo executavel de task/context/test/risk/outcome | Atlas sabe qual peca usar antes de chamar modelo |
+| Artifact Delta Context | envia ao provider so o delta desde o ultimo artifact certificado | economia de token sem perder must_keep |
+| Artifact Proof Bundle | junta fonte, hash, teste, diff, receipt e outcome | resposta "pronto" vira verificavel |
+| Artifact Skill Capsule | empacota padrao reutilizavel sem dados do cliente | reuso seguro entre workspaces |
+| Artifact Garbage Collector | retira draft/stale/noise do caminho ativo | contexto menor e menos poluido |
+
+Regra: artefato avancado so entra no caminho ativo se melhorar pelo menos um dos
+quatro eixos: menos token, menos risco, melhor handoff ou melhor prova.
+
 ## Fluxo
 
 ```text
@@ -248,6 +278,21 @@ pedido humano ruim
 
 Todo bloco AWAIR deve produzir schema com `workspace_id`, `artifact_hash`,
 `source_hashes`, `status`, `consumer`, `freshness` e `quality_score`.
+
+Entrypoint dedicado:
+
+```bash
+php artisan atlas:workspace-artifacts graph --workspace=atlas --json --strict
+php artisan atlas:workspace-artifacts replay --workspace=atlas --json --strict
+php artisan atlas:workspace-artifacts simulate --workspace=atlas --json --strict
+php artisan atlas:workspace-artifacts shadow --workspace=atlas --json --strict
+```
+
+Esse comando existe para provider/subagente/CI consumir AWAIR sem receber o
+envelope AWIS completo.
+Com `--latest`, graph/replay/simulate so reabrem artefato persistido se
+`workspace_hash` atual bater com o snapshot; hash ausente ou divergente gera
+`atlas.awair.artifact_graph_stale.v1` e bloqueia `--strict`.
 
 ## Artifact Lake
 
@@ -422,7 +467,8 @@ test plan focado, simulation e outcome record antes de aprender padrao.
 
 ## Cartografia Por Artefato
 
-Cartografia deve mostrar:
+Cartografia ja deve mostrar a entrada dedicada `AWAIR Artifact Graph` e deve
+evoluir para mostrar, por workspace:
 
 - workspace;
 - artefatos principais;
@@ -460,13 +506,14 @@ AWAIR esta pronto quando:
 - AWIS Execution Gate exige shadow execution em modo mutativo;
 - Context Compiler economiza token com quality gate;
 - Cartografia mostra artefatos sem texto excessivo;
-- Dev e Forge consomem somente artifact certificado em modo mutativo;
+- Dev e Forge consomem `artifact_agent_packet` provider-safe e bloqueiam rota errada;
+- AWAOL persiste route/outcome timeline e retirement proposal;
 - AEMOR aprende outcome por artifact;
 - AWCO certifica freshness, source hashes e consumer fit.
 
 ## Proximas Acoes
 
 1. Projetar Artifact Graph dedicado na Cartografia.
-2. Ligar outcome real do artifact ao AEMOR.
+2. Expor outcome AEMOR do artifact no Control Plane.
 3. Criar score historico por artifact reutilizado.
 4. Usar shadow execution para explicar bloqueios no Control Plane.

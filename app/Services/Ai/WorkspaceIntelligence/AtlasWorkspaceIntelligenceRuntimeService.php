@@ -56,7 +56,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $evolution = $this->evolution($profile, $twin);
         $executionBoundaries = $this->executionBoundarySummary($this->boundaryAudit->audit());
         $registryEditing = $this->registryEditingSummary();
-        $checks = $this->checks($workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $executionBoundaries, $registryEditing);
+        $surfaceContracts = $this->surfaceContractSummary();
+        $checks = $this->checks($workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $executionBoundaries, $registryEditing, $surfaceContracts);
         $summary = $this->summary($checks);
 
         $payload = [
@@ -74,6 +75,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'awef' => $evolution,
             'execution_boundaries' => $executionBoundaries,
             'registry_editing' => $registryEditing,
+            'surface_contracts' => $surfaceContracts,
             'checks' => $checks,
             'claim_policy' => [
                 'read_only' => true,
@@ -84,6 +86,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'unclassified_workspace_process_boundaries_allowed' => false,
                 'execution_boundary_audit_required' => true,
                 'ui_registry_editing_complete' => data_get($registryEditing, 'status') === 'ready',
+                'desktop_mobile_surface_contracts_complete' => data_get($surfaceContracts, 'status') === 'ready',
             ],
         ];
 
@@ -490,6 +493,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'schema_version' => 'atlas.workspace_artifact_intelligence.v1',
             'status' => $workspaceId === null ? 'blocked' : 'ready',
             'workspace_id' => $workspaceId,
+            'workspace_hash' => $this->artifactWorkspaceHash($profile),
             'artifact_lake' => [
                 'schema_version' => 'atlas.workspace_artifact_lake.v1',
                 'artifact_count' => count($artifacts),
@@ -555,6 +559,18 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $payload['artifact_intelligence_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $profile
+     */
+    private function artifactWorkspaceHash(?array $profile): ?string
+    {
+        if ($profile === null || ! (bool) ($profile['workspace_path_exists'] ?? false)) {
+            return null;
+        }
+
+        return $this->workspaceRootHash((string) ($profile['workspace_path'] ?? ''));
     }
 
     /**
@@ -714,9 +730,88 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $this->check('awis_execution_boundaries_audited', data_get($sections, '7.status') === 'ready'
                 && (int) data_get($sections, '7.process_inventory_unclassified', 1) === 0, 'critical'),
             $this->check('awis_registry_editing_contract_complete', data_get($sections, '8.status') === 'ready', 'critical'),
+            $this->check('awis_desktop_mobile_surface_contracts_complete', data_get($sections, '9.status') === 'ready', 'critical'),
         ];
 
         return $checks;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function surfaceContractSummary(): array
+    {
+        $desktopSurfacePath = base_path('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/AtlasAiSurface.tsx');
+        $desktopPickerPath = base_path('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/components/AtlasAiWorkspacePicker.tsx');
+        $desktopThreadListPath = base_path('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/components/AtlasAiThreadList.tsx');
+        $desktopFusionTestPath = base_path('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/__tests__/conversationFusionContract.test.ts');
+        $desktopSelectorTestPath = base_path('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/__tests__/workspaceSelectorContract.test.ts');
+        $mobileModelPath = base_path('../atlas-app/components/sheets/atlas-ai/AtlasAiWorkspaceModel.ts');
+        $mobileSelectorModelPath = base_path('../atlas-app/components/sheets/atlas-ai/AtlasAiMobileWorkspaceModel.ts');
+        $mobileSelectorSheetPath = base_path('../atlas-app/components/sheets/atlas-ai/AtlasAiWorkspaceSheet.tsx');
+        $mobileSheetPath = base_path('../atlas-app/components/sheets/AtlasAiSheet.tsx');
+        $mobileFooterPath = base_path('../atlas-app/components/sheets/atlas-ai/AtlasAiComposerFooter.tsx');
+        $mobileContextPath = base_path('../atlas-app/components/sheets/atlas-ai/AtlasAiContextSheet.tsx');
+        $mobileTestPath = base_path('../atlas-app/scripts/atlas-ai-workspace-context.test.ts');
+        $mobileSelectorTestPath = base_path('../atlas-app/scripts/atlas-ai-mobile-workspace-selector.test.ts');
+
+        $desktopSurface = File::exists($desktopSurfacePath) ? (string) File::get($desktopSurfacePath) : '';
+        $desktopPicker = File::exists($desktopPickerPath) ? (string) File::get($desktopPickerPath) : '';
+        $desktopThreadList = File::exists($desktopThreadListPath) ? (string) File::get($desktopThreadListPath) : '';
+        $desktopFusionTest = File::exists($desktopFusionTestPath) ? (string) File::get($desktopFusionTestPath) : '';
+        $desktopSelectorTest = File::exists($desktopSelectorTestPath) ? (string) File::get($desktopSelectorTestPath) : '';
+        $mobileModel = File::exists($mobileModelPath) ? (string) File::get($mobileModelPath) : '';
+        $mobileSelectorModel = File::exists($mobileSelectorModelPath) ? (string) File::get($mobileSelectorModelPath) : '';
+        $mobileSelectorSheet = File::exists($mobileSelectorSheetPath) ? (string) File::get($mobileSelectorSheetPath) : '';
+        $mobileSheet = File::exists($mobileSheetPath) ? (string) File::get($mobileSheetPath) : '';
+        $mobileFooter = File::exists($mobileFooterPath) ? (string) File::get($mobileFooterPath) : '';
+        $mobileContext = File::exists($mobileContextPath) ? (string) File::get($mobileContextPath) : '';
+        $mobileTest = File::exists($mobileTestPath) ? (string) File::get($mobileTestPath) : '';
+        $mobileSelectorTest = File::exists($mobileSelectorTestPath) ? (string) File::get($mobileSelectorTestPath) : '';
+
+        $requirements = [
+            'desktop_workspace_picker_present' => str_contains($desktopSurface, '<AtlasAiWorkspacePicker'),
+            'desktop_last_project_selector_tested' => str_contains($desktopSelectorTest, 'last persisted project')
+                && str_contains($desktopSelectorTest, 'persistWorkspaceSlug'),
+            'desktop_workspace_lock_present' => str_contains($desktopSurface, 'workspaceLock') && str_contains($desktopSurface, 'effectiveWorkspaceSlug'),
+            'desktop_picker_search_and_create_present' => str_contains($desktopPicker, 'Pesquisar projetos') && str_contains($desktopPicker, "onOpenWorkspaceProfile?.('create')"),
+            'desktop_drag_merge_room_present' => str_contains($desktopThreadList, 'atlas-ai-conversation-merge-room') && str_contains($desktopThreadList, 'Solte em outra conversa para criar um pack AWIS'),
+            'desktop_drag_fusion_persists_artifact' => str_contains($desktopSurface, 'refreshConversationFusion(threadIds, { persist: true })') && str_contains($desktopFusionTest, 'Drag thread-to-thread fusion'),
+            'mobile_workspace_model_present' => str_contains($mobileModel, 'workspaceContextFromThreadAndTrace'),
+            'mobile_context_sheet_awis_present' => str_contains($mobileContext, 'workspace AWIS') && str_contains($mobileContext, 'fixo nesta conversa'),
+            'mobile_workspace_context_tested' => str_contains($mobileTest, 'Mobile ContextSheet must expose AWIS workspace scope'),
+            'mobile_workspace_selector_present' => str_contains($mobileSheet, 'listAtlasWorkspaceProfiles')
+                && str_contains($mobileFooter, 'workspaceLabel')
+                && str_contains($mobileSheet, '<AtlasAiWorkspaceSheet')
+                && str_contains($mobileSelectorSheet, 'Escolher projeto'),
+            'mobile_workspace_selector_search_present' => str_contains($mobileSelectorSheet, 'TextInput')
+                && str_contains($mobileSelectorSheet, 'workspacePickerOptions'),
+            'mobile_workspace_create_present' => str_contains($mobileSheet, 'createAtlasWorkspaceProfile')
+                && str_contains($mobileSelectorSheet, 'ADICIONAR NOVO PROJETO')
+                && str_contains($mobileSelectorTest, 'Mobile Atlas AI must create workspace profiles from the selector'),
+            'mobile_workspace_lock_payload_present' => str_contains($mobileSheet, 'mobileWorkspacePayload(mobileWorkspaceLock)')
+                && str_contains($mobileSelectorModel, 'atlas.mobile_ai.workspace_scope.v1'),
+            'mobile_workspace_selector_tested' => str_contains($mobileSelectorTest, 'Mobile Atlas AI must fetch workspace profiles from backend')
+                && str_contains($mobileSelectorTest, 'Mobile Atlas AI submit must use locked workspace slug'),
+        ];
+        $missing = array_keys(array_filter($requirements, static fn (bool $ok): bool => ! $ok));
+
+        $payload = [
+            'schema_version' => 'atlas.workspace_intelligence.surface_contracts.v1',
+            'status' => $missing === [] ? 'ready' : 'blocked',
+            'requirements' => $requirements,
+            'missing' => $missing,
+            'surface_policy' => [
+                'desktop_conversation_workspace_mutation_allowed_after_start' => false,
+                'desktop_drag_thread_to_thread_creates_awis_pack' => true,
+                'mobile_context_sheet_must_show_awis_scope' => true,
+                'mobile_conversation_workspace_mutation_allowed_after_start' => false,
+                'mobile_submit_must_emit_awis_workspace_scope' => true,
+            ],
+        ];
+        $payload['surface_contract_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
     }
 
     /**

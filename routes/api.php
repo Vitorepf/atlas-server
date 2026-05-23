@@ -568,6 +568,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::post('/ai/quality/actions/{action}/run', [AiQualityActionController::class, 'run']);
 
     Route::get('/ai/threads', [AiThreadController::class, 'index']);
+    Route::get('/ai/workspaces/{workspace}/conversation-fusion', [AiThreadController::class, 'workspaceConversationFusion']);
     Route::post('/ai/threads', [AiThreadController::class, 'store']);
     Route::get('/ai/threads/{thread}/state', [AiThreadController::class, 'state']);
     Route::post('/ai/threads/{thread}/compact', [AiThreadController::class, 'compact']);
@@ -681,6 +682,15 @@ Route::prefix('atlas-code')->group(function () {
     Route::get('/workspace-intelligence/contracts', [AtlasWorkspaceIntelligenceController::class, 'contracts']);
     Route::get('/workspace-intelligence/evolution', [AtlasWorkspaceIntelligenceController::class, 'evolution']);
     Route::get('/workspace-intelligence/artifact-intelligence', [AtlasWorkspaceIntelligenceController::class, 'artifactIntelligence']);
+    Route::get('/workspace-intelligence/artifact-lake', [AtlasWorkspaceIntelligenceController::class, 'artifactLake']);
+    Route::get('/workspace-intelligence/artifact-lake/{artifact}', [AtlasWorkspaceIntelligenceController::class, 'artifactLakeShow']);
+    Route::get('/workspace-intelligence/artifact-workroom', [AtlasWorkspaceIntelligenceController::class, 'artifactWorkroom']);
+    Route::get('/workspace-intelligence/artifact-timeline', [AtlasWorkspaceIntelligenceController::class, 'artifactTimeline']);
+    Route::post('/workspace-intelligence/artifact-outcome', [AtlasWorkspaceIntelligenceController::class, 'artifactOutcome']);
+    Route::post('/workspace-intelligence/artifact-retirement', [AtlasWorkspaceIntelligenceController::class, 'artifactRetirement']);
+    Route::get('/workspace-intelligence/artifact-retirement-queue', [AtlasWorkspaceIntelligenceController::class, 'artifactRetirementQueue']);
+    Route::post('/workspace-intelligence/artifact-retirement-apply', [AtlasWorkspaceIntelligenceController::class, 'artifactRetirementApply']);
+    Route::get('/workspace-intelligence/handoff-pack', [AtlasWorkspaceIntelligenceController::class, 'handoffPack']);
     Route::get('/workspace-intelligence/gate', [AtlasWorkspaceIntelligenceController::class, 'gate']);
 
     // PROVIDER GOVERNANCE · subscription-only contract

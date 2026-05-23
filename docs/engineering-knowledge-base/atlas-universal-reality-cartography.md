@@ -33,6 +33,7 @@ capabilities:
   - visual_reality_navigation
   - cartography_task_simulation
   - human_clarity_score_9_8
+  - awis_runtime_projection_stale_visualization
 decisions:
   - Nome canonico/produto obrigatorio: Atlas Universal Reality Cartography.
   - Acronimo tecnico obrigatorio: AURC.
@@ -43,6 +44,7 @@ decisions:
   - O humano deve entender 90% do fluxo por imagem, posicao, escala, cor, movimento e relacao; texto denso fica no modal.
   - Meta operacional de clareza humana visual: score minimo 9.8 no contrato `atlas.universal_reality_cartography.human_clarity.v1`.
   - Cada empresa/projeto mantem sua documentacao canonica no proprio repo; AURC consome, indexa e renderiza sem copiar verdade.
+  - Stale AWIS runtime projection deve aparecer visualmente como atencao no workspace, sem substituir Control Plane ou docs canonicos.
 maintenance:
   - Manter abaixo de 520 linhas.
   - Atualizar quando ADRS, Cartographic Knowledge OS, System Graph, Vault Cartography ou Atlas Desktop Cartografia mudarem contrato.
@@ -135,6 +137,9 @@ failure_modes:
   - IA usando layout como prova de implementacao.
 observability_signals:
   - docs-health status ok
+  - workspace_scope.runtime_projection_replay.status
+  - workspace_scope.runtime_projection_replay.stale_families
+  - workspace_scope.artifact_graph_replay.status
   - future: visual coverage percent
   - future: orphan visual nodes count
   - future: human task success rate
@@ -142,7 +147,7 @@ observability_signals:
 next_actions:
   - Conectar `visual_scene` e `human_clarity` a surface visual da Cartografia.
   - Expandir task simulator com perguntas canonicas de navegacao humana reais.
-  - Conectar primeira cena Universe -> Atlas -> Documentation Reality -> AURC na surface visual.
+  - Renderizar stale AWIS runtime projection como badge/alerta visual na UI mobile/desktop.
 ---
 # Atlas Universal Reality Cartography
 
@@ -155,6 +160,13 @@ codigo, evidence, status, fluxos e riscos em mapa visual navegavel.
 AURC existe porque o humano nao deve depender de ler milhares de linhas para
 entender o Atlas ou qualquer empresa/projeto operado pelo Atlas. A leitura deve
 ser excecao. O normal e ver: escala, relacao, fluxo, gargalo, estado e prova.
+
+Quando AWIS tem projection persistida divergente do workspace atual, AURC marca
+Workspace Intelligence/AWIS como atencao visual e inclui
+`workspace_scope.runtime_projection_replay`. Quando AWAIR tem artifact graph
+persistido divergente, AURC marca AWAIR/Artifact Graph como atencao visual e
+inclui `workspace_scope.artifact_graph_replay`. Isso orienta refresh antes de
+confiar em replay, sem transformar Cartografia em fonte primaria.
 
 ## Papel no Atlas
 

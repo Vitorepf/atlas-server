@@ -30,6 +30,11 @@ product_name: Atlas Local Verification Engine
 runtime_acronym: ALVE
 internal_product_name: Atlas CPU Proof Engine
 technical_runtime: AtlasLocalVerificationEngineService
+human_name: Atlas Local Verification Engine
+canonical_name: Atlas Local Verification Engine
+technical_name: AtlasLocalVerificationEngineService
+cartography_type: runtime
+canonical_source: docs/engineering-knowledge-base/atlas-local-verification-engine.md
 graph_id: atlas-local-verification-engine
 graph_title: Atlas Local Verification Engine
 graph_world: atlas

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactIntelligenceRepository;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceConversationFusionService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceExecutionBoundaryAuditService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceSnapshotRepository;
@@ -17,7 +19,7 @@ use InvalidArgumentException;
 final class AtlasWorkspaceIntelligenceCommand extends Command
 {
     protected $signature = 'atlas:workspace-intelligence
-        {action=certify : certify|show|twin|artifacts|contracts|evolution|artifact-intelligence|boundary-audit|gate|register|list}
+        {action=certify : certify|show|twin|artifacts|contracts|evolution|artifact-intelligence|conversation-fusion|handoff-pack|boundary-audit|gate|register|list}
         {--workspace= : Workspace slug, defaults to configured Atlas workspace}
         {--path= : Workspace root path for register action}
         {--name= : Human workspace name for register action}
@@ -30,6 +32,9 @@ final class AtlasWorkspaceIntelligenceCommand extends Command
         {--mode=conversation : Execution mode for gate action: conversation|dev|forge|patch|test|index-code}
         {--task= : Task used to generate task/context artifacts}
         {--conversation=* : Optional long conversation text or excerpt; stored as hash/excerpt only}
+        {--thread=* : Optional AI thread id for conversation-fusion}
+        {--limit=12 : Max AI threads for conversation-fusion}
+        {--consumer=atlas_dev : Handoff consumer: atlas_dev|atlas_forge|subagent_projection|reviewer}
         {--persist : Persist the generated runtime snapshot}
         {--json : Print machine-readable JSON}
         {--strict : Exit non-zero unless status === ready}';
@@ -43,6 +48,8 @@ final class AtlasWorkspaceIntelligenceCommand extends Command
         AtlasWorkspaceArtifactIntelligenceRepository $artifactIntelligence,
         AtlasWorkspaceRuntimeProjectionRepository $projections,
         AtlasWorkspaceExecutionBoundaryAuditService $boundaryAudit,
+        AtlasWorkspaceConversationFusionService $conversationFusion,
+        AtlasWorkspaceHandoffPackService $handoffPack,
         AtlasCodeWorkspaceProfileService $profiles,
     ): int {
         $action = (string) $this->argument('action');
@@ -92,6 +99,18 @@ final class AtlasWorkspaceIntelligenceCommand extends Command
             ),
             'evolution' => $runtime->evolutionFabric($this->stringOption('workspace')),
             'artifact-intelligence' => $report['awair'] ?? [],
+            'conversation-fusion', 'fusion', 'merge-conversations' => $conversationFusion->build(
+                workspace: $this->stringOption('workspace'),
+                limit: (int) ($this->option('limit') ?: 12),
+                threadIds: $this->stringListOption('thread'),
+                persist: (bool) $this->option('persist'),
+            ),
+            'handoff-pack', 'handoff', 'provider-handoff' => $handoffPack->build(
+                workspace: $this->stringOption('workspace'),
+                task: $this->stringOption('task') ?? '',
+                consumer: $this->stringOption('consumer') ?? 'atlas_dev',
+                threadIds: $this->stringListOption('thread'),
+            ),
             'boundary-audit', 'boundaries', 'execution-boundaries' => $boundaryAudit->audit(),
             'gate' => $gate->gate(
                 workspace: $this->stringOption('workspace'),
@@ -103,7 +122,7 @@ final class AtlasWorkspaceIntelligenceCommand extends Command
                 'schema_version' => AtlasWorkspaceIntelligenceRuntimeService::SCHEMA_VERSION,
                 'status' => 'blocked',
                 'error' => 'unknown_action',
-                'allowed_actions' => ['certify', 'show', 'twin', 'artifacts', 'contracts', 'evolution', 'artifact-intelligence', 'boundary-audit', 'gate', 'register', 'list'],
+                'allowed_actions' => ['certify', 'show', 'twin', 'artifacts', 'contracts', 'evolution', 'artifact-intelligence', 'conversation-fusion', 'handoff-pack', 'boundary-audit', 'gate', 'register', 'list'],
             ],
         };
 

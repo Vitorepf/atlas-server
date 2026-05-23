@@ -4,27 +4,38 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\WorkspaceIntelligence;
 
+use App\Models\AtlasAemorExecutionEpisode;
+use App\Models\AtlasAemorMemoryCandidate;
+use App\Models\AtlasAemorOutcome;
 use App\Models\AtlasWorkspaceArtifactGraphSnapshot;
 use App\Models\AtlasWorkspaceArtifactLakeEntry;
+use App\Models\AtlasWorkspaceArtifactRetirementProposal;
+use App\Models\AtlasWorkspaceArtifactTimelineEvent;
 use App\Models\AtlasWorkspaceIntelligenceSnapshot;
 use App\Models\AtlasWorkspaceRuntimeProjectionSnapshot;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceExecutionBoundaryAuditService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\CreatesAemorTables;
 use Tests\TestCase;
 
 final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
 {
+    use CreatesAemorTables;
+
     protected function setUp(): void
     {
         parent::setUp();
 
+        $this->createAemorTables();
         $this->createSnapshotTable();
         $this->createArtifactIntelligenceTables();
+        $this->createArtifactOperatingTables();
         $this->createRuntimeProjectionTable();
     }
 
@@ -57,6 +68,7 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame(64, strlen((string) $report['awtr']['risk_fragility_map']['risk_map_hash']));
         $this->assertSame(false, $report['acios']['task_context_pack_policy']['uses_raw_conversation']);
         $this->assertSame(10, $report['awaf']['artifact_count']);
+        $this->assertSame($report['workspace']['workspace_hash'], $report['awair']['workspace_hash']);
         $artifactTypes = collect($report['awaf']['artifacts'])->pluck('artifact_type')->all();
         $this->assertSame([
             'workspace_brief',
@@ -106,6 +118,74 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertFalse($report['claim_policy']['unclassified_workspace_process_boundaries_allowed']);
         $this->assertTrue($report['claim_policy']['ui_registry_editing_complete']);
         $this->assertSame(64, strlen((string) $report['runtime_hash']));
+    }
+
+    public function test_workspace_handoff_pack_projects_provider_safe_context(): void
+    {
+        $pack = app(AtlasWorkspaceHandoffPackService::class)->build(
+            workspace: 'atlas',
+            task: 'corrigir bug na tela de login',
+            consumer: 'atlas_dev',
+        );
+
+        $this->assertSame(AtlasWorkspaceHandoffPackService::SCHEMA_VERSION, $pack['schema_version']);
+        $this->assertSame('ready', $pack['status']);
+        $this->assertSame('atlas_dev', $pack['consumer']);
+        $this->assertSame('atlas', $pack['workspace']['workspace_id']);
+        $this->assertSame('workspace', $pack['workspace']['memory_scope']);
+        $this->assertTrue($pack['execution_contract']['provider_safe']);
+        $this->assertFalse($pack['execution_contract']['raw_conversation_included']);
+        $this->assertFalse($pack['execution_contract']['cross_workspace_memory_allowed']);
+        $this->assertContains('handoff_packet', $pack['required_artifacts']);
+        $this->assertSame([], $pack['missing_artifacts']);
+        $this->assertNotEmpty($pack['context_units']);
+        $this->assertNotEmpty($pack['scope_guard']['owner_docs']);
+        $this->assertNotEmpty($pack['test_contract']['focused_tests']);
+        $this->assertTrue($pack['claim_policy']['safe_for_provider_prompt']);
+        $this->assertFalse($pack['claim_policy']['raw_conversation_returned']);
+        $this->assertSame(64, strlen((string) $pack['handoff_hash']));
+    }
+
+    public function test_workspace_handoff_pack_blocks_unknown_workspace(): void
+    {
+        $pack = app(AtlasWorkspaceHandoffPackService::class)->build(
+            workspace: 'missing-workspace',
+            task: 'corrigir bug',
+            consumer: 'atlas_forge',
+        );
+
+        $this->assertSame('blocked', $pack['status']);
+        $this->assertContains('workspace_intelligence_not_ready', $pack['blockers']);
+        $this->assertFalse($pack['claim_policy']['safe_for_provider_prompt']);
+        $this->assertFalse($pack['claim_policy']['raw_conversation_returned']);
+    }
+
+    public function test_workspace_handoff_pack_command_and_api_emit_same_contract(): void
+    {
+        Artisan::call('atlas:workspace-intelligence', [
+            'action' => 'handoff-pack',
+            '--workspace' => 'atlas',
+            '--task' => 'corrigir bug login',
+            '--consumer' => 'atlas_forge',
+            '--json' => true,
+        ]);
+
+        $cli = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(AtlasWorkspaceHandoffPackService::SCHEMA_VERSION, $cli['schema_version']);
+        $this->assertSame('atlas_forge', $cli['consumer']);
+        $this->assertContains('execution_plan', $cli['required_artifacts']);
+
+        $response = $this->withHeaders($this->headers())->getJson(
+            '/atlas-code/workspace-intelligence/handoff-pack?workspace=atlas&task=corrigir%20bug%20login&consumer=atlas_forge',
+        );
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', AtlasWorkspaceHandoffPackService::SCHEMA_VERSION)
+            ->assertJsonPath('status', 'ready')
+            ->assertJsonPath('consumer', 'atlas_forge')
+            ->assertJsonPath('execution_contract.raw_conversation_included', false)
+            ->assertJsonPath('claim_policy.invokes_provider', false);
     }
 
     public function test_unknown_workspace_blocks_without_fabricating_context(): void
@@ -366,6 +446,414 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertArrayNotHasKey('workspace', $decoded);
     }
 
+    public function test_dedicated_workspace_artifacts_command_exposes_graph_replay_simulation_and_shadow(): void
+    {
+        foreach ([
+            'graph' => 'atlas.workspace_artifact_graph_projection.v1',
+            'replay' => 'atlas.workspace_artifact_replay_projection.v1',
+            'simulate' => 'atlas.workspace_artifact_simulation_projection.v1',
+            'shadow' => 'atlas.workspace_artifact_shadow_execution.v1',
+        ] as $action => $schema) {
+            $exit = Artisan::call('atlas:workspace-artifacts', [
+                'action' => $action,
+                '--workspace' => 'atlas',
+                '--task' => 'corrigir bug login',
+                '--json' => true,
+                '--strict' => true,
+            ]);
+
+            $this->assertSame(0, $exit, "workspace-artifacts {$action} should pass strict mode");
+            $decoded = json_decode(Artisan::output(), true);
+            $this->assertIsArray($decoded);
+            $this->assertSame($schema, $decoded['schema_version']);
+            $this->assertSame('ready', $decoded['status']);
+            $this->assertSame('atlas', $decoded['workspace_id']);
+            $this->assertArrayNotHasKey('awaf', $decoded);
+            $this->assertArrayNotHasKey('workspace', $decoded);
+        }
+    }
+
+    public function test_dedicated_workspace_artifacts_workroom_returns_provider_safe_artifact_packet(): void
+    {
+        $exit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'workroom',
+            '--workspace' => 'atlas',
+            '--task' => 'corrigir bug login',
+            '--artifact' => 'task_packet',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $decoded = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertIsArray($decoded);
+        $this->assertSame('atlas.workspace_artifact_workroom.v1', $decoded['schema_version']);
+        $this->assertSame('ready', $decoded['status']);
+        $this->assertSame('AWAOL', $decoded['family']);
+        $this->assertSame('atlas', $decoded['workspace_id']);
+        $this->assertSame('task_packet', $decoded['artifact_type']);
+        $this->assertSame('atlas.workspace_artifact_human_packet.v1', $decoded['human_packet']['schema_version']);
+        $this->assertSame('atlas.workspace_artifact_agent_packet.v1', $decoded['agent_packet']['schema_version']);
+        $this->assertFalse($decoded['agent_packet']['raw_conversation_included']);
+        $this->assertFalse($decoded['agent_packet']['artifact_body_included']);
+        $this->assertFalse($decoded['source_policy']['raw_conversation_returned']);
+        $this->assertFalse($decoded['source_policy']['artifact_body_returned']);
+        $this->assertFalse($decoded['claim_policy']['invokes_provider']);
+        $this->assertSame('ready', $decoded['replay_point']['status']);
+        $this->assertNotEmpty($decoded['timeline']);
+        $this->assertNotEmpty($decoded['routes']);
+        $this->assertSame(64, strlen((string) $decoded['workroom_hash']));
+
+        $encoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $this->assertIsString($encoded);
+        $this->assertStringNotContainsString('"body"', $encoded);
+    }
+
+    public function test_dedicated_workspace_artifacts_command_exposes_awaol_route_diff_replay_point_and_retire(): void
+    {
+        foreach ([
+            'route' => 'atlas.workspace_artifact_route_projection.v1',
+            'diff' => 'atlas.workspace_artifact_diff_projection.v1',
+            'replay-point' => 'atlas.workspace_artifact_replay_point_projection.v1',
+        ] as $action => $schema) {
+            $exit = Artisan::call('atlas:workspace-artifacts', [
+                'action' => $action,
+                '--workspace' => 'atlas',
+                '--task' => 'corrigir bug login',
+                '--artifact' => 'task_packet',
+                '--json' => true,
+                '--strict' => true,
+            ]);
+
+            $this->assertSame(0, $exit, "workspace-artifacts {$action} should pass strict mode");
+            $decoded = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertIsArray($decoded);
+            $this->assertSame($schema, $decoded['schema_version']);
+            $this->assertSame('ready', $decoded['status']);
+            $this->assertSame('atlas', $decoded['workspace_id']);
+            $this->assertSame('task_packet', $decoded['artifact_type']);
+            $this->assertFalse($decoded['source_policy']['raw_conversation_returned']);
+            $this->assertFalse($decoded['source_policy']['artifact_body_returned']);
+            $this->assertFalse($decoded['claim_policy']['invokes_provider'] ?? false);
+
+            $encoded = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $this->assertIsString($encoded);
+            $this->assertStringNotContainsString('"body"', $encoded);
+        }
+
+        $retireExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'retire',
+            '--workspace' => 'atlas',
+            '--task' => 'corrigir bug login',
+            '--artifact' => 'task_packet',
+            '--reason' => 'stale_context_pack',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+
+        $this->assertSame(0, $retireExit);
+        $retire = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.workspace_artifact_retirement_proposal.v1', $retire['schema_version']);
+        $this->assertSame('ready', $retire['status']);
+        $this->assertSame('stale_context_pack', $retire['reason']);
+        $this->assertTrue($retire['replacement_required']);
+        $this->assertFalse($retire['claim_policy']['artifact_deleted']);
+        $this->assertNotEmpty($retire['persisted_retirement_proposal_id']);
+        $this->assertSame('proposed', $retire['persisted_status']);
+    }
+
+    public function test_workspace_artifacts_route_outcome_and_retire_are_persisted_without_body_leak(): void
+    {
+        $routeExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'route',
+            '--workspace' => 'atlas',
+            '--task' => 'corrigir bug login',
+            '--artifact' => 'task_packet',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(0, $routeExit);
+        $route = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.workspace_artifact_timeline_event.v1', data_get($route, 'timeline_event.schema_version'));
+        $this->assertSame('route_decision', data_get($route, 'timeline_event.event_type'));
+
+        $outcomeExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'outcome',
+            '--workspace' => 'atlas',
+            '--task' => 'corrigir bug login',
+            '--artifact' => 'task_packet',
+            '--outcome-status' => 'passed',
+            '--summary' => 'Focused tests passed',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(0, $outcomeExit);
+        $outcome = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.workspace_artifact_outcome_projection.v1', $outcome['schema_version']);
+        $this->assertSame('ready', $outcome['status']);
+        $this->assertSame('outcome_recorded', data_get($outcome, 'timeline_event.event_type'));
+        $this->assertSame('passed', data_get($outcome, 'timeline_event.event_status'));
+        $this->assertSame('ready', data_get($outcome, 'aemor_bridge.status'));
+        $this->assertNotEmpty(data_get($outcome, 'aemor_bridge.outcome_hash'));
+        $this->assertNotEmpty(data_get($outcome, 'aemor_bridge.memory_candidate_id'));
+
+        $timelineExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'timeline',
+            '--workspace' => 'atlas',
+            '--artifact' => 'task_packet',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(0, $timelineExit);
+        $timeline = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.workspace_artifact_timeline.v1', $timeline['schema_version']);
+        $this->assertSame(2, $timeline['count']);
+        $eventTypes = collect($timeline['events'])->pluck('event_type')->sort()->values()->all();
+        $this->assertSame(['outcome_recorded', 'route_decision'], $eventTypes);
+
+        $retireExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'retire',
+            '--workspace' => 'atlas',
+            '--artifact' => 'task_packet',
+            '--reason' => 'superseded_by_new_task_packet',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(0, $retireExit);
+        $retire = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertNotEmpty($retire['persisted_retirement_proposal_id']);
+
+        $queueExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'retirement-queue',
+            '--workspace' => 'atlas',
+            '--artifact' => 'task_packet',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(0, $queueExit);
+        $queue = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.workspace_artifact_retirement_queue.v1', $queue['schema_version']);
+        $this->assertSame(1, $queue['count']);
+        $this->assertTrue(data_get($queue, 'proposals.0.replacement_required'));
+
+        $blockedApplyExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'retirement-apply',
+            '--workspace' => 'atlas',
+            '--artifact' => 'task_packet',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(1, $blockedApplyExit);
+        $blockedApply = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertContains('replacement_artifact_required_before_apply', $blockedApply['blockers']);
+
+        $applyExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'retirement-apply',
+            '--workspace' => 'atlas',
+            '--artifact' => 'task_packet',
+            '--replacement-artifact' => 'sha256:replacement-task-packet',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(0, $applyExit);
+        $apply = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.workspace_artifact_retirement_apply.v1', $apply['schema_version']);
+        $this->assertSame('applied', $apply['retirement_status']);
+        $this->assertFalse($apply['claim_policy']['artifact_deleted']);
+
+        $this->assertSame(2, AtlasWorkspaceArtifactTimelineEvent::query()->count());
+        $this->assertSame(1, AtlasWorkspaceArtifactRetirementProposal::query()->count());
+        $this->assertSame('applied', AtlasWorkspaceArtifactRetirementProposal::query()->firstOrFail()->status);
+        $this->assertSame(1, AtlasAemorExecutionEpisode::query()->where('scope_type', 'workspace_artifact')->count());
+        $this->assertSame(1, AtlasAemorOutcome::query()->count());
+        $this->assertSame(1, AtlasAemorMemoryCandidate::query()->count());
+
+        $encoded = json_encode([$route, $outcome, $timeline, $retire, $queue, $blockedApply, $apply], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $this->assertIsString($encoded);
+        $this->assertStringNotContainsString('"body"', $encoded);
+        $this->assertStringNotContainsString('contexto bruto sensivel', $encoded);
+    }
+
+    public function test_dedicated_workspace_artifacts_retire_requires_reason(): void
+    {
+        $exit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'retire',
+            '--workspace' => 'atlas',
+            '--task' => 'corrigir bug login',
+            '--artifact' => 'task_packet',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+
+        $this->assertSame(1, $exit);
+        $decoded = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.workspace_artifact_retirement_proposal.v1', $decoded['schema_version']);
+        $this->assertSame('blocked', $decoded['status']);
+        $this->assertContains('retirement_reason_required', $decoded['blockers']);
+        $this->assertFalse($decoded['claim_policy']['artifact_deleted']);
+    }
+
+    public function test_api_artifact_workroom_returns_human_and_agent_packets_without_body(): void
+    {
+        $response = $this->withHeaders($this->headers())->getJson(
+            '/atlas-code/workspace-intelligence/artifact-workroom?workspace=atlas&task='.urlencode('corrigir bug login').'&artifact=task_packet',
+        );
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.workspace_artifact_workroom.v1')
+            ->assertJsonPath('status', 'ready')
+            ->assertJsonPath('family', 'AWAOL')
+            ->assertJsonPath('artifact_type', 'task_packet')
+            ->assertJsonPath('agent_packet.raw_conversation_included', false)
+            ->assertJsonPath('agent_packet.artifact_body_included', false)
+            ->assertJsonPath('source_policy.raw_conversation_returned', false)
+            ->assertJsonPath('source_policy.artifact_body_returned', false)
+            ->assertJsonMissingPath('body');
+
+        $this->assertSame(64, strlen((string) $response->json('workroom_hash')));
+    }
+
+    public function test_api_artifact_timeline_outcome_and_retirement_are_provider_safe(): void
+    {
+        $outcome = $this->withHeaders($this->headers())->postJson('/atlas-code/workspace-intelligence/artifact-outcome', [
+            'workspace' => 'atlas',
+            'task' => 'corrigir bug login',
+            'artifact' => 'task_packet',
+            'outcome_status' => 'passed',
+            'summary' => 'Focused tests passed',
+        ]);
+
+        $outcome
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.workspace_artifact_outcome_projection.v1')
+            ->assertJsonPath('status', 'ready')
+            ->assertJsonPath('timeline_event.event_type', 'outcome_recorded')
+            ->assertJsonPath('timeline_event.event_status', 'passed')
+            ->assertJsonPath('aemor_bridge.status', 'ready')
+            ->assertJsonPath('aemor_bridge.writes', true)
+            ->assertJsonMissingPath('body');
+
+        $timeline = $this->withHeaders($this->headers())->getJson(
+            '/atlas-code/workspace-intelligence/artifact-timeline?workspace=atlas&artifact=task_packet',
+        );
+
+        $timeline
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.workspace_artifact_timeline.v1')
+            ->assertJsonPath('status', 'ready')
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('events.0.event_type', 'outcome_recorded')
+            ->assertJsonMissingPath('events.0.payload');
+
+        $retirement = $this->withHeaders($this->headers())->postJson('/atlas-code/workspace-intelligence/artifact-retirement', [
+            'workspace' => 'atlas',
+            'artifact' => 'task_packet',
+            'reason' => 'superseded_by_new_task_packet',
+        ]);
+
+        $retirement
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.workspace_artifact_retirement_proposal.v1')
+            ->assertJsonPath('status', 'ready')
+            ->assertJsonPath('persisted_status', 'proposed')
+            ->assertJsonPath('claim_policy.artifact_deleted', false)
+            ->assertJsonMissingPath('body');
+
+        $queue = $this->withHeaders($this->headers())->getJson(
+            '/atlas-code/workspace-intelligence/artifact-retirement-queue?workspace=atlas&artifact=task_packet',
+        );
+        $queue
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.workspace_artifact_retirement_queue.v1')
+            ->assertJsonPath('count', 1)
+            ->assertJsonMissingPath('proposals.0.payload');
+
+        $apply = $this->withHeaders($this->headers())->postJson('/atlas-code/workspace-intelligence/artifact-retirement-apply', [
+            'workspace' => 'atlas',
+            'artifact' => 'task_packet',
+            'replacement_artifact' => 'sha256:replacement-task-packet',
+        ]);
+        $apply
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.workspace_artifact_retirement_apply.v1')
+            ->assertJsonPath('retirement_status', 'applied')
+            ->assertJsonPath('claim_policy.artifact_deleted', false)
+            ->assertJsonMissingPath('body');
+    }
+
+    public function test_dedicated_workspace_artifacts_latest_replays_only_when_workspace_hash_matches(): void
+    {
+        $persistExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'certify',
+            '--workspace' => 'atlas',
+            '--task' => 'persistir grafo de artefatos',
+            '--json' => true,
+            '--persist' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(0, $persistExit);
+        $persisted = json_decode(Artisan::output(), true);
+        $this->assertIsArray($persisted);
+        $this->assertSame('ready', $persisted['status']);
+        $this->assertNotEmpty($persisted['workspace_hash']);
+
+        $latestExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'graph',
+            '--workspace' => 'atlas',
+            '--latest' => true,
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(0, $latestExit);
+        $latest = json_decode(Artisan::output(), true);
+        $this->assertIsArray($latest);
+        $this->assertSame('atlas.workspace_artifact_graph_projection.v1', $latest['schema_version']);
+        $this->assertSame('ready', $latest['status']);
+        $this->assertFalse($latest['stale']);
+        $this->assertSame($persisted['artifact_graph']['graph_hash'], data_get($latest, 'artifact_graph.graph_hash'));
+    }
+
+    public function test_dedicated_workspace_artifacts_latest_blocks_stale_artifact_graph(): void
+    {
+        $persistExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'certify',
+            '--workspace' => 'atlas',
+            '--task' => 'persistir grafo stale',
+            '--json' => true,
+            '--persist' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(0, $persistExit);
+        $persisted = json_decode(Artisan::output(), true);
+        $this->assertIsArray($persisted);
+
+        $snapshot = AtlasWorkspaceArtifactGraphSnapshot::query()
+            ->where('artifact_intelligence_hash', $persisted['artifact_intelligence_hash'])
+            ->firstOrFail();
+        $payload = $snapshot->payload;
+        $payload['workspace_hash'] = str_repeat('2', 64);
+        $snapshot->forceFill(['payload' => $payload])->save();
+
+        $latestExit = Artisan::call('atlas:workspace-artifacts', [
+            'action' => 'graph',
+            '--workspace' => 'atlas',
+            '--latest' => true,
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $this->assertSame(1, $latestExit);
+        $latest = json_decode(Artisan::output(), true);
+        $this->assertIsArray($latest);
+        $this->assertSame('atlas.workspace_artifact_graph_projection.v1', $latest['schema_version']);
+        $this->assertSame('blocked', $latest['status']);
+        $this->assertTrue($latest['stale']);
+        $this->assertSame('workspace_hash_changed', $latest['reason']);
+        $this->assertSame(str_repeat('2', 64), $latest['snapshot_workspace_hash']);
+        $this->assertSame($persisted['workspace_hash'], $latest['current_workspace_hash']);
+        $this->assertSame(['workspace_artifact_graph_stale'], $latest['blockers']);
+    }
+
     public function test_command_persists_snapshot_when_requested(): void
     {
         $exit = Artisan::call('atlas:workspace-intelligence', [
@@ -559,6 +1047,36 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
             ->assertJsonPath('artifact_intelligence_hash', $persisted->json('artifact_intelligence_hash'))
             ->assertJsonPath('artifact_lake.artifact_count', 10)
             ->assertJsonPath('artifact_graph.graph_hash', $persisted->json('artifact_graph.graph_hash'));
+    }
+
+    public function test_api_artifact_intelligence_latest_blocks_stale_dedicated_graph(): void
+    {
+        $persisted = $this->withHeaders($this->headers())->getJson(
+            '/atlas-code/workspace-intelligence/artifact-intelligence?workspace=atlas&task='.urlencode('artifact graph stale replay').'&persist=1',
+        );
+        $persisted->assertOk();
+
+        $snapshot = AtlasWorkspaceArtifactGraphSnapshot::query()
+            ->where('artifact_intelligence_hash', $persisted->json('artifact_intelligence_hash'))
+            ->firstOrFail();
+        $payload = $snapshot->payload;
+        $payload['workspace_hash'] = str_repeat('3', 64);
+        $snapshot->forceFill(['payload' => $payload])->save();
+
+        $latest = $this->withHeaders($this->headers())->getJson(
+            '/atlas-code/workspace-intelligence/artifact-intelligence?workspace=atlas&latest=1',
+        );
+
+        $latest
+            ->assertStatus(409)
+            ->assertJsonPath('schema_version', 'atlas.awair.artifact_graph_stale.v1')
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('family', 'AWAIR')
+            ->assertJsonPath('stale', true)
+            ->assertJsonPath('reason', 'workspace_hash_changed')
+            ->assertJsonPath('snapshot_workspace_hash', str_repeat('3', 64))
+            ->assertJsonPath('current_workspace_hash', $persisted->json('workspace_hash'))
+            ->assertJsonPath('blockers.0', 'workspace_artifact_graph_stale');
     }
 
     public function test_persist_is_idempotent_for_same_runtime_hash(): void
@@ -821,7 +1339,89 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame('dev', $gate['mode']);
         $this->assertTrue($gate['allowed']);
         $this->assertSame('atlas', $gate['workspace_id']);
+        $handoff = data_get($data, 'payload.atlas_dev_runtime.workspace_handoff_pack');
+        $this->assertIsArray($handoff);
+        $this->assertSame(AtlasWorkspaceHandoffPackService::SCHEMA_VERSION, $handoff['schema_version']);
+        $this->assertSame('ready', $handoff['status']);
+        $this->assertSame('atlas_dev', $handoff['consumer']);
+        $this->assertFalse($handoff['execution_contract']['raw_conversation_included']);
+        $this->assertTrue($handoff['claim_policy']['safe_for_provider_prompt']);
         $this->assertTrue(data_get($data, 'payload.atlas_dev_runtime.provider_execution_allowed'));
+    }
+
+    public function test_atlas_dev_runtime_consumes_awaol_agent_packet_as_execution_context(): void
+    {
+        $packet = [
+            'schema_version' => 'atlas.workspace_artifact_agent_packet.v1',
+            'workspace_id' => 'atlas',
+            'consumer' => 'atlas_dev',
+            'route_target' => 'dev',
+            'artifact_type' => 'task_packet',
+            'artifact_hash' => str_repeat('a', 64),
+            'allowed_paths' => ['app/Services/Ai/Programming/AtlasDevRuntimeService.php'],
+            'forbidden_paths' => ['outside_workspace_root', 'raw_conversation_archive'],
+            'must_keep' => ['workspace_id', 'artifact_hash', 'source_hashes'],
+            'context_refs' => ['docs/engineering-knowledge-base/atlas-workspace-artifact-operating-layer.md'],
+            'test_plan' => ['php artisan test tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php'],
+            'done_when' => ['artifact packet consumed by Atlas Dev'],
+            'redaction' => 'provider_safe',
+            'raw_conversation_included' => false,
+            'artifact_body_included' => false,
+        ];
+
+        $data = app(AtlasDevRuntimeService::class)->apply([
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'atlas_mode' => 'programming',
+                'routing_task' => 'dev',
+                'workspace' => 'atlas',
+                'input_text' => 'corrigir bug login',
+                'workspace_artifact_agent_packet' => $packet,
+            ],
+        ]);
+
+        $slice = data_get($data, 'payload.atlas_dev_runtime');
+        $preview = data_get($data, 'payload.atlas_dev_runtime_intelligence');
+
+        $this->assertSame('atlas.workspace_artifact_agent_packet.v1', data_get($slice, 'artifact_agent_packet.schema_version'));
+        $this->assertSame('task_packet', data_get($slice, 'artifact_agent_packet.artifact_type'));
+        $this->assertFalse(data_get($slice, 'artifact_agent_packet.raw_conversation_included'));
+        $this->assertFalse(data_get($slice, 'artifact_agent_packet.artifact_body_included'));
+        $this->assertArrayNotHasKey('artifact_agent_packet_blockers', $slice);
+        $this->assertSame('AtlasDevRuntimeService:artifact_agent_packet', data_get($preview, 'task_packet.source'));
+        $this->assertSame($packet['context_refs'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertSame($packet['test_plan'], data_get($preview, 'task_packet.suggested_tests'));
+        $this->assertTrue($slice['provider_safe']);
+        $this->assertTrue($slice['provider_execution_allowed']);
+    }
+
+    public function test_atlas_dev_runtime_blocks_non_dev_awaol_agent_packet_route(): void
+    {
+        $data = app(AtlasDevRuntimeService::class)->apply([
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'atlas_mode' => 'programming',
+                'routing_task' => 'dev',
+                'workspace' => 'atlas',
+                'input_text' => 'corrigir bug login',
+                'workspace_artifact_agent_packet' => [
+                    'schema_version' => 'atlas.workspace_artifact_agent_packet.v1',
+                    'workspace_id' => 'atlas',
+                    'consumer' => 'atlas_forge',
+                    'route_target' => 'forge',
+                    'artifact_type' => 'execution_plan',
+                    'artifact_hash' => str_repeat('b', 64),
+                    'raw_conversation_included' => false,
+                    'artifact_body_included' => false,
+                ],
+            ],
+        ]);
+
+        $slice = data_get($data, 'payload.atlas_dev_runtime');
+
+        $this->assertFalse($slice['provider_safe']);
+        $this->assertFalse($slice['provider_execution_allowed']);
+        $this->assertContains('artifact_agent_packet_route_not_dev', $slice['artifact_agent_packet_blockers']);
     }
 
     /**
@@ -901,6 +1501,44 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
             $table->json('edges');
             $table->json('payload');
             $table->timestamp('captured_at')->index();
+            $table->timestamps();
+        });
+    }
+
+    private function createArtifactOperatingTables(): void
+    {
+        if (! Schema::hasTable('atlas_workspace_artifact_timeline_events')) {
+            Schema::create('atlas_workspace_artifact_timeline_events', function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+                $table->string('workspace_id', 120)->index();
+                $table->string('artifact_hash', 64)->index();
+                $table->string('artifact_type', 120)->index();
+                $table->string('event_type', 80)->index();
+                $table->string('event_status', 40)->index();
+                $table->string('route_target', 80)->nullable()->index();
+                $table->string('consumer', 120)->nullable()->index();
+                $table->json('payload');
+                $table->string('event_hash', 64)->unique();
+                $table->timestamp('occurred_at')->index();
+                $table->timestamps();
+            });
+        }
+
+        if (Schema::hasTable('atlas_workspace_artifact_retirement_proposals')) {
+            return;
+        }
+
+        Schema::create('atlas_workspace_artifact_retirement_proposals', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('workspace_id', 120)->index();
+            $table->string('artifact_hash', 64)->index();
+            $table->string('artifact_type', 120)->index();
+            $table->string('reason', 200);
+            $table->string('status', 40)->index();
+            $table->boolean('replacement_required')->default(false)->index();
+            $table->json('payload');
+            $table->string('proposal_hash', 64)->unique();
+            $table->timestamp('proposed_at')->index();
             $table->timestamps();
         });
     }

@@ -14,12 +14,14 @@ use App\Services\Ai\AiProviderHandoffService;
 use App\Services\Ai\AiSessionManager;
 use App\Services\Ai\AiSessionStateService;
 use App\Services\Ai\AiThreadDeletionService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceConversationFusionService;
+use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AiThreadController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, AtlasCodeWorkspaceProfileService $workspaces): JsonResponse
     {
         // ROUND 3.5 (atlas-app) · TODO cursor pagination
         // -----------------------------------------------
@@ -47,11 +49,25 @@ class AiThreadController extends Controller
         ]);
 
         $light = $request->boolean('light');
+        $workspaceScope = $this->workspaceScope($data['workspace'] ?? null, $workspaces);
 
         $threads = AiThread::query()
             ->when(($data['status'] ?? null) && $data['status'] !== 'all', fn ($query) => $query->where('status', $data['status']))
             ->when($data['surface'] ?? null, fn ($query, $surface) => $query->where('surface', $surface))
-            ->when($data['workspace'] ?? null, fn ($query, $workspace) => $query->where('workspace', $workspace))
+            ->when($workspaceScope !== null, function ($query) use ($workspaceScope): void {
+                $query->where(function ($workspaceQuery) use ($workspaceScope): void {
+                    foreach ($workspaceScope['aliases'] as $alias) {
+                        $workspaceQuery->orWhere('workspace', $alias);
+                    }
+                    if ($workspaceScope['slug'] !== null) {
+                        $workspaceQuery->orWhere('metadata->workspace_slug', $workspaceScope['slug']);
+                    }
+                    if ($workspaceScope['path'] !== null) {
+                        $workspaceQuery->orWhere('metadata->workspace_path', $workspaceScope['path']);
+                        $workspaceQuery->orWhere('metadata->repo_root', $workspaceScope['path']);
+                    }
+                });
+            })
             ->when($request->boolean('include_messages'), fn ($query) => $query->with(['messages' => fn ($messages) => $messages->latest('position')->limit(30)]))
             ->when(! $light, fn ($query) => $query->with(['activeSession', 'activeState', 'latestCompaction', 'latestProviderHandoff', 'lastTrace']))
             ->orderByRaw('last_message_at DESC NULLS LAST')
@@ -64,7 +80,27 @@ class AiThreadController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function workspaceConversationFusion(
+        Request $request,
+        string $workspace,
+        AtlasWorkspaceConversationFusionService $fusion,
+    ): JsonResponse {
+        $data = $request->validate([
+            'limit' => ['nullable', 'integer', 'between:1,50'],
+            'thread' => ['nullable', 'array'],
+            'thread.*' => ['string', 'uuid'],
+            'persist' => ['nullable', 'boolean'],
+        ]);
+
+        return response()->json($fusion->build(
+            workspace: $workspace,
+            limit: (int) ($data['limit'] ?? 12),
+            threadIds: (array) ($data['thread'] ?? []),
+            persist: (bool) ($data['persist'] ?? false),
+        ));
+    }
+
+    public function store(Request $request, AtlasCodeWorkspaceProfileService $workspaces): JsonResponse
     {
         $data = $request->validate([
             'title' => ['nullable', 'string', 'max:180'],
@@ -75,16 +111,18 @@ class AiThreadController extends Controller
             'source_id' => ['nullable', 'uuid'],
             'metadata' => ['nullable', 'array'],
         ]);
+        $workspaceScope = $this->workspaceScope($data['workspace'] ?? null, $workspaces);
+        $metadata = $this->metadataWithWorkspaceScope($data['metadata'] ?? [], $workspaceScope);
 
         $thread = AiThread::query()->create([
             'title' => trim((string) ($data['title'] ?? 'Nova conversa Atlas')) ?: 'Nova conversa Atlas',
             'summary' => $data['summary'] ?? null,
             'status' => 'active',
             'surface' => $data['surface'] ?? 'app',
-            'workspace' => $data['workspace'] ?? null,
+            'workspace' => $this->workspaceStorageValue($data['workspace'] ?? null, $workspaceScope),
             'source_type' => $data['source_type'] ?? null,
             'source_id' => $data['source_id'] ?? null,
-            'metadata' => $data['metadata'] ?? [],
+            'metadata' => $metadata,
         ]);
 
         return response()->json([
@@ -99,27 +137,112 @@ class AiThreadController extends Controller
         ]);
     }
 
-    public function update(Request $request, AiThread $thread): JsonResponse
+    public function update(Request $request, AiThread $thread, AtlasCodeWorkspaceProfileService $workspaces): JsonResponse
     {
         $data = $request->validate([
             'title' => ['nullable', 'string', 'max:180'],
             'summary' => ['nullable', 'string', 'max:20000'],
             'status' => ['nullable', 'string', 'in:active,archived,closed'],
+            'workspace' => ['nullable', 'string', 'max:500'],
             'metadata' => ['nullable', 'array'],
         ]);
+        $workspaceScope = array_key_exists('workspace', $data)
+            ? $this->workspaceScope($data['workspace'] ?? null, $workspaces)
+            : null;
+        $metadata = array_key_exists('metadata', $data)
+            ? array_merge($thread->metadata ?? [], $data['metadata'] ?? [])
+            : null;
+        if (array_key_exists('workspace', $data)) {
+            $metadata = $this->metadataWithWorkspaceScope($metadata ?? ($thread->metadata ?? []), $workspaceScope);
+        }
 
         $thread->update(array_filter([
             'title' => isset($data['title']) ? trim((string) $data['title']) : null,
             'summary' => $data['summary'] ?? null,
             'status' => $data['status'] ?? null,
-            'metadata' => array_key_exists('metadata', $data)
-                ? array_merge($thread->metadata ?? [], $data['metadata'] ?? [])
+            'workspace' => array_key_exists('workspace', $data)
+                ? $this->workspaceStorageValue($data['workspace'] ?? null, $workspaceScope)
                 : null,
+            'metadata' => $metadata,
         ], fn ($value) => $value !== null));
 
         return response()->json([
             'thread' => (new AiThreadResource($thread->refresh()))->resolve(),
         ]);
+    }
+
+    /**
+     * @return array{slug:?string,path:?string,aliases:list<string>}|null
+     */
+    private function workspaceScope(mixed $workspace, AtlasCodeWorkspaceProfileService $workspaces): ?array
+    {
+        if (! is_scalar($workspace)) {
+            return null;
+        }
+        $raw = trim((string) $workspace);
+        if ($raw === '') {
+            return null;
+        }
+
+        $profile = $workspaces->findBySlug($raw);
+        $slug = is_array($profile) ? (string) ($profile['slug'] ?? $raw) : null;
+        $path = is_array($profile) ? trim((string) ($profile['workspace_path'] ?? '')) : '';
+        if ($path === '' && is_dir($raw)) {
+            $path = realpath($raw) ?: $raw;
+        }
+        $aliases = array_values(array_unique(array_filter([
+            $raw,
+            $slug,
+            $path !== '' ? $path : null,
+        ], fn ($value): bool => is_string($value) && trim($value) !== '')));
+
+        return [
+            'slug' => $slug ?? $raw,
+            'path' => $path !== '' ? $path : null,
+            'aliases' => $aliases,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @param  array{slug:?string,path:?string,aliases:list<string>}|null  $workspaceScope
+     * @return array<string,mixed>
+     */
+    private function metadataWithWorkspaceScope(array $metadata, ?array $workspaceScope): array
+    {
+        if ($workspaceScope === null) {
+            return $metadata;
+        }
+
+        $metadata['workspace_slug'] = $workspaceScope['slug'];
+        if ($workspaceScope['path'] !== null) {
+            $metadata['workspace_path'] = $workspaceScope['path'];
+            $metadata['repo_root'] = $metadata['repo_root'] ?? $workspaceScope['path'];
+        }
+        $metadata['awis_workspace_scope'] = [
+            'schema_version' => 'atlas.ai_thread.workspace_scope.v1',
+            'workspace_slug' => $workspaceScope['slug'],
+            'workspace_path_hash' => $workspaceScope['path'] !== null ? hash('sha256', $workspaceScope['path']) : null,
+            'aliases' => $workspaceScope['aliases'],
+        ];
+
+        return $metadata;
+    }
+
+    /**
+     * @param  array{slug:?string,path:?string,aliases:list<string>}|null  $workspaceScope
+     */
+    private function workspaceStorageValue(mixed $workspace, ?array $workspaceScope): ?string
+    {
+        if ($workspaceScope !== null) {
+            return $workspaceScope['slug'] ?? $workspaceScope['path'];
+        }
+        if (! is_scalar($workspace)) {
+            return null;
+        }
+        $raw = trim((string) $workspace);
+
+        return $raw !== '' ? $raw : null;
     }
 
     public function destroy(AiThread $thread, AiThreadDeletionService $deletion): JsonResponse

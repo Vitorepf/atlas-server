@@ -58,6 +58,11 @@ final class AtlasCartographyContractTest extends TestCase
                 'universe',
                 'views',
                 'semantic_graph',
+                'workspace_scope' => [
+                    'runtime_projection_replay',
+                    'artifact_graph_replay',
+                    'artifact_lake_replay',
+                ],
                 'human_clarity_contract',
             ]);
 
@@ -80,6 +85,23 @@ final class AtlasCartographyContractTest extends TestCase
         $this->assertGreaterThanOrEqual(9.8, data_get($graph, 'human_clarity_contract.human_clarity.score'));
         $this->assertSame('ready', data_get($graph, 'human_clarity_contract.visual_scene.status'));
         $this->assertSame('ready', data_get($graph, 'human_clarity_contract.human_route_map.status'));
+        $this->assertSame(
+            data_get($graph, 'workspace_scope.runtime_projection_replay'),
+            data_get($graph, 'human_clarity_contract.workspace_scope.runtime_projection_replay'),
+            'Cartography graph must expose AWIS runtime projection replay at root for mobile/desktop and inside the human clarity contract.'
+        );
+        $this->assertSame(
+            data_get($graph, 'workspace_scope.artifact_graph_replay'),
+            data_get($graph, 'human_clarity_contract.workspace_scope.artifact_graph_replay'),
+            'Cartography graph must expose AWAIR artifact graph replay at root for mobile/desktop and inside the human clarity contract.'
+        );
+        $this->assertSame(
+            data_get($graph, 'workspace_scope.artifact_lake_replay'),
+            data_get($graph, 'human_clarity_contract.workspace_scope.artifact_lake_replay'),
+            'Cartography graph must expose AWIS artifact lake replay at root for mobile/desktop and inside the human clarity contract.'
+        );
+        $this->assertFalse((bool) data_get($graph, 'workspace_scope.artifact_lake_replay.source_policy.raw_conversation_returned'));
+        $this->assertFalse((bool) data_get($graph, 'workspace_scope.artifact_lake_replay.source_policy.full_message_content_returned'));
     }
 
     public function test_human_clarity_endpoint_exposes_9_8_visual_contract(): void

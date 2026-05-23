@@ -163,6 +163,16 @@ class AtlasProductDeliveryCertificationService
                 'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
                 ['test_provider_cost_flake_memory_feed_aggregates_receipts_and_outcomes', 'test_risk_governor_consumes_provider_memory_feed', 'test_product_delivery_provider_memory_command_outputs_json'],
             )),
+            $this->check('product_execution_primitives', $this->sourceHas(
+                'app/Services/Ai/Product/AtlasProductExecutionPrimitivesService.php',
+                ['atlas.product_execution_primitives.v1', 'human_intent_model', 'software_twin_simulation', 'outcome_memory', 'operational_cartography', 'runtime_gate', 'provider_agent_strategy'],
+            ) && $this->sourceHas(
+                'app/Console/Commands/Ai/Product/AtlasProductExecutionPrimitivesCommand.php',
+                ['atlas:product-delivery:primitives', 'intent, twin, outcome, cartography, gate, and provider strategy'],
+            ) && $this->sourceHas(
+                'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
+                ['test_product_execution_primitives_materialize_all_six_blocks_for_dev_request', 'test_product_execution_primitives_runtime_gate_blocks_high_risk_forge_without_approval', 'test_product_execution_primitives_command_outputs_json'],
+            )),
             $this->check('product_policy_optimizer', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductDeliveryPolicyOptimizerService.php',
                 ['atlas.product_delivery.policy_optimizer.v1', 'requires_aemor_judgment', 'policy_optimizer_hash'],

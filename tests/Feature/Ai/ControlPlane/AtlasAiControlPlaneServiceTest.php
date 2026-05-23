@@ -9,6 +9,7 @@ use App\Services\Ai\ControlPlane\AtlasAiControlPlaneService;
 use App\Services\Ai\OperatorApproval\OperatorApprovalCanon;
 use App\Services\Ai\OperatorApproval\OperatorApprovalGateService;
 use App\Services\Ai\RealitySandbox\AtlasAutonomousRealitySandboxService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -47,6 +48,7 @@ class AtlasAiControlPlaneServiceTest extends TestCase
     {
         $this->dropAarsTables();
         $this->dropExternalExecutionTables();
+        $this->dropWorkspaceArtifactGraphTable();
         $this->dropWorkspaceRuntimeProjectionTable();
         $this->dropOperatorApprovalTable();
         $this->dropPersistentContextTables();
@@ -160,6 +162,7 @@ class AtlasAiControlPlaneServiceTest extends TestCase
     public function test_workspace_intelligence_snapshots_surface_in_runtime_report(): void
     {
         $now = now();
+        $workspaceHash = $this->currentAtlasWorkspaceHash();
         foreach (['AWTR', 'AWCO', 'AWEF'] as $family) {
             DB::table('atlas_workspace_runtime_projection_snapshots')->insert([
                 'id' => Str::uuid()->toString(),
@@ -169,7 +172,7 @@ class AtlasAiControlPlaneServiceTest extends TestCase
                 'runtime_hash' => 'sha256:runtime_'.$family,
                 'projection_hash' => 'sha256:projection_'.$family,
                 'status' => 'ready',
-                'payload' => json_encode(['family' => $family, 'status' => 'ready']),
+                'payload' => json_encode($this->workspaceProjectionPayload($family, 'ready', $workspaceHash)),
                 'captured_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -182,14 +185,24 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertSame(3, $report['summary']['workspace_intelligence_snapshots_total']);
         $this->assertSame(0, $report['summary']['workspace_intelligence_blocked']);
         $this->assertSame(1, $report['summary']['workspace_intelligence_workspaces_total']);
+        $this->assertSame(0, $report['workspace_intelligence']['summary']['stale']);
         $this->assertSame(['AWCO', 'AWEF', 'AWTR'], array_column($report['workspace_intelligence']['by_family'], 'family'));
         $this->assertCount(3, $report['workspace_intelligence']['latest']);
+        $this->assertSame('ready', $report['workspace_intelligence']['shadow_execution']['status']);
+        $this->assertSame(1, $report['workspace_intelligence']['shadow_execution']['summary']['total']);
+        $this->assertSame(1, $report['workspace_intelligence']['shadow_execution']['summary']['ready']);
+        $this->assertSame('atlas.workspace_artifact_shadow_execution.control_plane.v1', $report['workspace_intelligence']['shadow_execution']['schema_version']);
+        $this->assertSame('atlas', $report['workspace_intelligence']['shadow_execution']['items'][0]['workspace_id']);
+        $this->assertSame('ready', $report['workspace_intelligence']['shadow_execution']['items'][0]['status']);
+        $this->assertFalse($report['workspace_intelligence']['shadow_execution']['items'][0]['provider_called']);
+        $this->assertFalse($report['workspace_intelligence']['shadow_execution']['items'][0]['workspace_mutated']);
         $this->assertSame([], $report['workspace_intelligence']['blockers']);
     }
 
     public function test_workspace_intelligence_blocked_projection_blocks_runtime_report(): void
     {
         $now = now();
+        $workspaceHash = $this->currentAtlasWorkspaceHash();
         DB::table('atlas_workspace_runtime_projection_snapshots')->insert([
             'id' => Str::uuid()->toString(),
             'workspace_id' => 'atlas',
@@ -198,7 +211,7 @@ class AtlasAiControlPlaneServiceTest extends TestCase
             'runtime_hash' => 'sha256:runtime_blocked',
             'projection_hash' => 'sha256:projection_blocked',
             'status' => 'blocked',
-            'payload' => json_encode(['status' => 'blocked']),
+            'payload' => json_encode($this->workspaceProjectionPayload('AWCO', 'blocked', $workspaceHash)),
             'captured_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
@@ -210,6 +223,77 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertSame('blocked', $report['status']);
         $this->assertSame(1, $report['summary']['workspace_intelligence_blocked']);
         $this->assertContains('workspace_intelligence_projection_blocked', array_column($report['blockers'], 'kind'));
+    }
+
+    public function test_workspace_intelligence_stale_projection_blocks_runtime_report(): void
+    {
+        $now = now();
+        DB::table('atlas_workspace_runtime_projection_snapshots')->insert([
+            'id' => Str::uuid()->toString(),
+            'workspace_id' => 'atlas',
+            'family' => 'AWTR',
+            'schema_version' => 'atlas.workspace_twin.v1',
+            'runtime_hash' => 'sha256:runtime_stale',
+            'projection_hash' => 'sha256:projection_stale',
+            'status' => 'ready',
+            'payload' => json_encode($this->workspaceProjectionPayload('AWTR', 'ready', str_repeat('0', 64))),
+            'captured_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $report = $this->service()->report(24);
+
+        $this->assertSame('blocked', $report['workspace_intelligence']['status']);
+        $this->assertSame('blocked', $report['status']);
+        $this->assertSame(1, $report['workspace_intelligence']['summary']['stale']);
+        $this->assertSame(1, $report['summary']['workspace_intelligence_blocked']);
+        $this->assertSame('workspace_hash_changed', $report['workspace_intelligence']['latest'][0]['stale_reason']);
+        $this->assertContains('workspace_intelligence_projection_stale', array_column($report['blockers'], 'kind'));
+    }
+
+    public function test_workspace_intelligence_stale_artifact_graph_blocks_runtime_report(): void
+    {
+        $this->createWorkspaceArtifactGraphTable();
+        $now = now();
+        DB::table('atlas_workspace_artifact_graph_snapshots')->insert([
+            'id' => Str::uuid()->toString(),
+            'workspace_id' => 'atlas',
+            'runtime_hash' => 'sha256:runtime_awair_stale',
+            'artifact_intelligence_hash' => 'sha256:artifact_awair_stale',
+            'status' => 'ready',
+            'lake_hash' => 'sha256:lake',
+            'graph_hash' => 'sha256:graph',
+            'artifact_count' => 10,
+            'node_count' => 10,
+            'edge_count' => 9,
+            'replay_ready' => true,
+            'simulation_decision' => 'ready',
+            'nodes' => json_encode([]),
+            'edges' => json_encode([]),
+            'payload' => json_encode([
+                'schema_version' => 'atlas.workspace_artifact_intelligence.v1',
+                'status' => 'ready',
+                'workspace_id' => 'atlas',
+                'workspace_hash' => str_repeat('4', 64),
+                'artifact_intelligence_hash' => 'sha256:artifact_awair_stale',
+                'artifact_graph' => ['graph_hash' => 'sha256:graph'],
+            ]),
+            'captured_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $report = $this->service()->report(24);
+
+        $this->assertSame('blocked', $report['workspace_intelligence']['status']);
+        $this->assertSame('blocked', $report['status']);
+        $this->assertSame(1, $report['workspace_intelligence']['summary']['artifact_graph_total']);
+        $this->assertSame(1, $report['workspace_intelligence']['summary']['artifact_graph_stale']);
+        $this->assertSame(1, $report['summary']['workspace_intelligence_blocked']);
+        $this->assertSame('blocked', $report['workspace_intelligence']['artifact_graph']['status']);
+        $this->assertSame('workspace_hash_changed', $report['workspace_intelligence']['artifact_graph']['latest'][0]['stale_reason']);
+        $this->assertContains('workspace_artifact_graph_stale', array_column($report['blockers'], 'kind'));
     }
 
     public function test_external_execution_pending_approval_is_governed_without_system_blocker(): void
@@ -755,6 +839,33 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         return $this->app->make(AtlasAiControlPlaneService::class);
     }
 
+    private function currentAtlasWorkspaceHash(): string
+    {
+        $report = app(AtlasWorkspaceIntelligenceRuntimeService::class)->certify('atlas');
+
+        return (string) data_get($report, 'workspace.workspace_hash');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function workspaceProjectionPayload(string $family, string $status, string $workspaceHash): array
+    {
+        return [
+            'family' => $family,
+            'status' => $status,
+            'awis_projection' => [
+                'schema_version' => 'atlas.awis.runtime_projection_binding.v1',
+                'workspace_id' => 'atlas',
+                'workspace_hash' => $workspaceHash,
+                'runtime_hash' => 'sha256:runtime_'.$family,
+                'family' => $family,
+                'projection_hash' => 'sha256:projection_'.$family,
+                'stale_policy' => 'block_latest_replay_when_workspace_hash_differs_or_is_missing',
+            ],
+        ];
+    }
+
     private function createExternalExecutionTables(): void
     {
         $this->dropExternalExecutionTables();
@@ -839,6 +950,36 @@ class AtlasAiControlPlaneServiceTest extends TestCase
     private function dropWorkspaceRuntimeProjectionTable(): void
     {
         Schema::dropIfExists('atlas_workspace_runtime_projection_snapshots');
+    }
+
+    private function createWorkspaceArtifactGraphTable(): void
+    {
+        $this->dropWorkspaceArtifactGraphTable();
+
+        Schema::create('atlas_workspace_artifact_graph_snapshots', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('workspace_id', 120)->index();
+            $table->string('runtime_hash', 80)->unique();
+            $table->string('artifact_intelligence_hash', 80)->unique();
+            $table->string('status', 40)->index();
+            $table->string('lake_hash', 80)->nullable()->index();
+            $table->string('graph_hash', 80)->nullable()->index();
+            $table->unsignedInteger('artifact_count')->default(0);
+            $table->unsignedInteger('node_count')->default(0);
+            $table->unsignedInteger('edge_count')->default(0);
+            $table->boolean('replay_ready')->default(false)->index();
+            $table->string('simulation_decision', 40)->index();
+            $table->json('nodes');
+            $table->json('edges');
+            $table->json('payload');
+            $table->timestamp('captured_at')->index();
+            $table->timestamps();
+        });
+    }
+
+    private function dropWorkspaceArtifactGraphTable(): void
+    {
+        Schema::dropIfExists('atlas_workspace_artifact_graph_snapshots');
     }
 
     private function dropExternalExecutionTables(): void

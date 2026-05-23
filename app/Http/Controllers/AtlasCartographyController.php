@@ -49,6 +49,7 @@ final class AtlasCartographyController extends Controller
 
         $workspace = $this->stringQuery($request, 'workspace');
         $clarity = $this->universalRealityCartography->map('flow', $workspace);
+        $graph['workspace_scope'] = $clarity['workspace_scope'];
         $graph['human_clarity_contract'] = [
             'workspace_scope' => $clarity['workspace_scope'],
             'human_clarity' => $clarity['human_clarity'],
@@ -57,6 +58,10 @@ final class AtlasCartographyController extends Controller
             'semantic_zoom_scenes' => $clarity['semantic_zoom_scenes'],
             'writes' => false,
         ];
+        $graph['checksum'] = hash('sha256', json_encode([
+            'base_checksum' => $graph['checksum'] ?? null,
+            'workspace_scope' => $graph['workspace_scope'],
+        ], JSON_THROW_ON_ERROR));
 
         return response()->json($graph);
     }

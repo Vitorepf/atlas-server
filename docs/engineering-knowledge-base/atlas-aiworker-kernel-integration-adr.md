@@ -44,6 +44,11 @@ related_paths:
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-aiworker-kernel-integration-adr
 graph_title: Atlas AiWorker to Kernel Integration ADR
+human_name: Atlas AiWorker to Kernel Integration ADR
+canonical_name: Atlas AiWorker to Kernel Integration ADR
+technical_name: AtlasAiWorkerKernelIntegrationAdr
+cartography_type: adr
+canonical_source: docs/engineering-knowledge-base/atlas-aiworker-kernel-integration-adr.md
 graph_world: atlas
 graph_layer: system
 graph_kind: adr

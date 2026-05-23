@@ -62,6 +62,11 @@ product_name: Atlas Unified Context & Retrieval Intelligence
 runtime_acronym: AUCRI
 internal_product_name: Atlas Memory Graph
 technical_runtime: AtlasUnifiedContextRetrievalIntelligenceService
+human_name: Atlas Unified Context Retrieval Intelligence
+canonical_name: Atlas Unified Context Retrieval Intelligence
+technical_name: AtlasUnifiedContextRetrievalIntelligenceService
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
 graph_id: atlas-unified-context-retrieval-intelligence
 graph_title: Atlas Unified Context Retrieval Intelligence
 graph_world: atlas
@@ -495,11 +500,7 @@ Roadmap de longo prazo:
 7. AUCRI-I7: APDR para graph analytics/evals/reranking local seguro.
 8. AUCRI-I8: AREBA + ARCLG para eval, benchmark interno, custo e latencia.
 9. AUCRI-I9: ACOP + ARPTL + AKIF para observabilidade, trust e ingestion.
-10. AUCRI-I10: ACMF com working memory RAM, delta, heat score e spillover.
-11. AUCRI-I11: ACCR para context compiler provider-aware com loss checks.
-12. AUCRI-I12: ATER para token budget, reuse, output compression e quality check.
-13. AUCRI-I13: ACPFR para Pareto frontier e safe exploration em shadow.
-14. AUCRI-I14: certification final 10/10 com golden sets, replay e Control Plane.
+10. AUCRI-I10-I14: ACMF, ACCR, ATER, ACPFR e certification final com golden sets, replay e Control Plane.
 
 Definition of Done 10/10:
 
@@ -509,7 +510,6 @@ Definition of Done 10/10:
 - ACMF reduz tokens sem baixar RAM disponivel abaixo de 3GB;
 - ACCR compila prompt final menor, auditavel e provider-aware;
 - ATER reduz token sem remover must-keep, evidence ou sufficiency;
-- ACPFR otimiza tradeoff sem regressao de qualidade high-risk;
 - embeddings sao fortes e governados;
 - Graph RAG global e ativo somente apos AP/gates;
 - Reality Graph alimenta estrategia, pesquisa, Forge e Dev;
