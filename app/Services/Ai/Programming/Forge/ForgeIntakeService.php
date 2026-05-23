@@ -7,6 +7,7 @@ use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
@@ -52,6 +53,7 @@ class ForgeIntakeService
         private readonly ForgeWorkPacketComposer $workPackets,
         private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
         private readonly ?AtlasPersistentContextRuntimeService $persistentContext = null,
+        private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
     ) {}
 
     /**
@@ -158,8 +160,9 @@ class ForgeIntakeService
             $this->arrayOrNull($options['context_refs'] ?? null) ?? [],
             $this->deriveRichInputContextRefs($richInputPayload),
         )));
+        $workspaceGate = $this->workspaceExecutionGateForIntake($workspaceSlug, $prompt);
 
-        $blockerReason = $this->detectIntakeBlocker($prompt, $escalationPacket, $options);
+        $blockerReason = $this->detectIntakeBlocker($prompt, $escalationPacket, $options, $workspaceGate);
         $status = $blockerReason === null
             ? ForgeIntakeCanon::STATUS_READY
             : ForgeIntakeCanon::STATUS_BLOCKED;
@@ -214,6 +217,7 @@ class ForgeIntakeService
             'rich_input_schema_version' => $richInputPayload['schema_version'] ?? null,
             'context_operations_hash' => $contextOperations['operations_runtime_hash'] ?? null,
             'persistent_context_hash' => $persistentContext['persistent_context_hash'] ?? null,
+            'workspace_execution_gate' => $workspaceGate,
             'constraints' => $this->arrayOrNull($options['constraints'] ?? null),
             'non_goals' => $this->arrayOrNull($options['non_goals'] ?? null),
             'sdd_spec' => $this->normalizeSddSpec($options['sdd_spec'] ?? null),
@@ -235,6 +239,9 @@ class ForgeIntakeService
             $createPayload['persistent_context'] = $persistentContext;
         } else {
             unset($createPayload['persistent_context_hash']);
+        }
+        if (! Schema::hasColumn('ai_forge_intakes', 'workspace_execution_gate')) {
+            unset($createPayload['workspace_execution_gate']);
         }
 
         return AiForgeIntake::query()->create($createPayload);
@@ -387,11 +394,22 @@ class ForgeIntakeService
     /**
      * @param  array<string,mixed>  $options
      */
-    private function detectIntakeBlocker(string $prompt, ?EscalationPacket $packet, array $options): ?string
+    private function detectIntakeBlocker(string $prompt, ?EscalationPacket $packet, array $options, ?array $workspaceGate): ?string
     {
         // Caller explicit blocker override (e.g. policy gate already failed).
         if (isset($options['blocker_reason']) && is_string($options['blocker_reason']) && trim($options['blocker_reason']) !== '') {
             return trim($options['blocker_reason']);
+        }
+
+        if ($workspaceGate === null) {
+            return 'awis_workspace_required_for_forge_intake';
+        }
+
+        if (($workspaceGate['allowed'] ?? false) !== true) {
+            $reasons = array_values(array_filter((array) ($workspaceGate['blockers'] ?? []), 'is_string'));
+            $suffix = $reasons === [] ? 'unknown' : implode(',', $reasons);
+
+            return 'awis_execution_gate_blocked:'.$suffix;
         }
 
         // Direct intake: minimum prompt signal threshold.
@@ -654,6 +672,22 @@ class ForgeIntakeService
         }
 
         return array_values(array_unique($refs));
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function workspaceExecutionGateForIntake(?string $workspaceSlug, string $prompt): ?array
+    {
+        if ($workspaceSlug === null) {
+            return null;
+        }
+
+        return ($this->workspaceExecutionGate ?? app(AtlasWorkspaceIntelligenceExecutionGateService::class))->gate(
+            workspace: $workspaceSlug,
+            mode: 'forge',
+            task: $prompt,
+        );
     }
 
     private function normalizeIntent(string $prompt): string

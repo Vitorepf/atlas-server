@@ -41,6 +41,7 @@ trait CreatesForgeIntakeTables
             $table->string('context_operations_hash', 64)->nullable()->index();
             $table->json('persistent_context')->nullable();
             $table->string('persistent_context_hash', 64)->nullable()->index();
+            $table->json('workspace_execution_gate')->nullable();
             $table->json('constraints')->nullable();
             $table->json('non_goals')->nullable();
             $table->json('sdd_spec')->nullable();

@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\Programming\AtlasDev\Http;
 use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Models\AtlasDevConfirmationToken;
+use App\Models\AtlasWorkspaceProfile;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Runtime\RunWorkerDispatcher;
@@ -347,6 +348,36 @@ final class RunEndpointTest extends AtlasDevHttpTestCase
             ])
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'TASK_CONTRACT_HASH_MISMATCH');
+    }
+
+    public function test_run_blocks_before_token_consumption_when_awis_workspace_is_not_ready(): void
+    {
+        $plan = $this->plan();
+
+        AtlasWorkspaceProfile::query()->where('slug', 'atlas-dev-http')->delete();
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/run', [
+                'run_id' => $plan['run_id'],
+                'task_contract_hash' => $plan['task_contract_hash'],
+                'confirmation_token' => $plan['confirmation_token'],
+                'operator_confirmed' => true,
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'ATLAS_DEV_AWIS_EXECUTION_BLOCKED')
+            ->assertJsonPath('awis_execution_gate.allowed', false)
+            ->assertJsonPath('awis_execution_gate.mode', 'dev');
+
+        $this->assertCount(0, $this->fakeExecutor->calls);
+        $this->assertNull(
+            AtlasDevConfirmationToken::query()
+                ->where('run_id', $plan['run_id'])
+                ->firstOrFail()
+                ->used_at,
+            'AWIS-blocked run must not consume the operator confirmation token.',
+        );
     }
 
     public function test_run_rejects_when_plan_not_persisted(): void

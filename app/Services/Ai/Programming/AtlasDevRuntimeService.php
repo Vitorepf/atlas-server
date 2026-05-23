@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRuntimeIntelligenceService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use RuntimeException;
 
 /**
@@ -57,6 +58,10 @@ class AtlasDevRuntimeService
         'atlas_api_interaction',
         'atlas_cli_dev',
     ];
+
+    public function __construct(
+        private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
+    ) {}
 
     /**
      * Aplica o runtime ao payload de entrada do AiInteractionController.
@@ -141,8 +146,21 @@ class AtlasDevRuntimeService
             'source' => 'AtlasDevRuntimeService',
         ]);
         $payload['atlas_dev_runtime_intelligence'] = $runtimeIntelligence;
-        $payload['atlas_dev_runtime']['provider_safe'] = (bool) ($runtimeIntelligence['provider_safe'] ?? false);
-        $payload['atlas_dev_runtime']['provider_execution_allowed'] = (bool) ($runtimeIntelligence['provider_safe'] ?? false);
+        $workspaceGate = $this->workspaceExecutionGate?->gate(
+            workspace: $workspace,
+            mode: 'dev',
+            task: $this->stringValue($payload['input_text'] ?? null)
+                ?? $this->stringValue($payload['prompt'] ?? null)
+                ?? $flowId,
+        );
+        if (is_array($workspaceGate)) {
+            $payload['atlas_dev_runtime']['workspace_execution_gate'] = $workspaceGate;
+        }
+
+        $providerSafe = (bool) ($runtimeIntelligence['provider_safe'] ?? false);
+        $workspaceAllowed = ! is_array($workspaceGate) || (bool) ($workspaceGate['allowed'] ?? false);
+        $payload['atlas_dev_runtime']['provider_safe'] = $providerSafe;
+        $payload['atlas_dev_runtime']['provider_execution_allowed'] = $providerSafe && $workspaceAllowed;
         $payload['atlas_dev_runtime']['native_capability_status'] = (string) data_get($runtimeIntelligence, 'native_capabilities.status', 'unknown');
         $payload['atlas_dev_runtime']['native_capability_blockers'] = data_get($runtimeIntelligence, 'native_capabilities.blockers', []);
 

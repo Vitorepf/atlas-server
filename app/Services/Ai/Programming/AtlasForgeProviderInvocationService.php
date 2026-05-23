@@ -34,38 +34,67 @@ use Throwable;
 class AtlasForgeProviderInvocationService
 {
     public const SCHEMA_VERSION = 'atlas.forge.provider_invocation.v1';
+
     public const RECEIPT_SCHEMA_VERSION = 'atlas.forge.provider_invocation_receipt.v1';
 
     public const MODE_DRY_RUN = 'dry_run';
+
     public const MODE_EXECUTE = 'execute';
 
     public const STATUS_BLOCKED = 'blocked';
+
     public const STATUS_PLANNED = 'planned';
+
     public const STATUS_EXECUTED = 'executed';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_TIMED_OUT = 'timed_out';
+
     public const STATUS_CANCELLED = 'cancelled';
 
     public const BLOCKER_OBRA_REQUIRED = 'obra_required';
+
     public const BLOCKER_OBRA_NOT_FOUND = 'obra_not_found';
+
     public const BLOCKER_RUNTIME_DISPATCH_REQUIRED = 'runtime_dispatch_required';
+
     public const BLOCKER_LIVE_DECIDE_DISPATCH_REQUIRED = 'live_decide_dispatch_required';
+
     public const BLOCKER_DECISION_RECEIPT_REQUIRED = 'decision_receipt_required';
+
     public const BLOCKER_RUNTIME_DISPATCH_NOT_ALLOWED = 'runtime_dispatch_not_allowed';
+
     public const BLOCKER_ROLE_INVALID = 'role_invalid';
+
     public const BLOCKER_OPERATOR_APPROVAL_REQUIRED = 'operator_provider_approval_required';
+
     public const BLOCKER_BUDGET_APPROVAL_REQUIRED = 'budget_approval_required';
+
     public const BLOCKER_RUNTIME_DISPATCH_CONFIRMATION_REQUIRED = 'runtime_dispatch_confirmation_required';
+
     public const BLOCKER_PROVIDER_DRIVER_MISSING = 'provider_driver_missing';
+
     public const BLOCKER_PROVIDER_CAPACITY_EXHAUSTED = 'provider_capacity_exhausted';
+
     public const BLOCKER_TIMEOUT_INVALID = 'timeout_invalid';
+
     public const BLOCKER_MODE_INVALID = 'mode_invalid';
 
+    public const BLOCKER_AWIS_EXECUTION_GATE_REQUIRED = 'awis_execution_gate_required';
+
+    public const BLOCKER_AWIS_EXECUTION_GATE_BLOCKED = 'awis_execution_gate_blocked';
+
     public const EVENT_SUBTYPE_PLANNED = 'PROVIDER_INVOCATION_PLANNED';
+
     public const EVENT_SUBTYPE_BLOCKED = 'PROVIDER_INVOCATION_BLOCKED';
+
     public const EVENT_SUBTYPE_STARTED = 'PROVIDER_INVOCATION_STARTED';
+
     public const EVENT_SUBTYPE_COMPLETED = 'PROVIDER_INVOCATION_COMPLETED';
+
     public const EVENT_SUBTYPE_FAILED = 'PROVIDER_INVOCATION_FAILED';
+
     public const EVENT_SUBTYPE_TIMED_OUT = 'PROVIDER_INVOCATION_TIMED_OUT';
 
     public function __construct(
@@ -160,6 +189,9 @@ class AtlasForgeProviderInvocationService
             $decisionReceiptHash = (string) ($dispatchPlan['decision_receipt_hash'] ?? '');
             $runtimeDispatchAllowed = (bool) ($dispatchPlan['runtime_dispatch_allowed'] ?? false);
             $dispatchRole = (string) ($dispatchPlan['role'] ?? '');
+            $workspaceExecutionGate = is_array($dispatchPlan['workspace_execution_gate'] ?? null)
+                ? $dispatchPlan['workspace_execution_gate']
+                : null;
 
             if ($decisionSource !== 'live_atlas_decide') {
                 $blockers[] = self::BLOCKER_LIVE_DECIDE_DISPATCH_REQUIRED;
@@ -172,6 +204,11 @@ class AtlasForgeProviderInvocationService
             }
             if ($dispatchRole !== '' && $dispatchRole !== $role) {
                 $blockers[] = self::BLOCKER_ROLE_INVALID;
+            }
+            if ($workspaceExecutionGate === null) {
+                $blockers[] = self::BLOCKER_AWIS_EXECUTION_GATE_REQUIRED;
+            } elseif (($workspaceExecutionGate['allowed'] ?? false) !== true) {
+                $blockers[] = self::BLOCKER_AWIS_EXECUTION_GATE_BLOCKED;
             }
             if (in_array(AtlasForgeProviderFallbackPolicyService::BLOCKER_CAPACITY_EXHAUSTED, (array) ($dispatchPlan['blockers'] ?? []), true)) {
                 $blockers[] = self::BLOCKER_PROVIDER_CAPACITY_EXHAUSTED;
@@ -578,6 +615,9 @@ class AtlasForgeProviderInvocationService
         $providerTopologyId = $dispatchPlan !== null ? $this->stringOrNull($dispatchPlan['provider_topology_id'] ?? null) : null;
         $dispatchId = $dispatchPlan !== null ? $this->stringOrNull($dispatchPlan['dispatch_id'] ?? null) : null;
         $runtimeDispatchAllowed = $dispatchPlan !== null && (bool) ($dispatchPlan['runtime_dispatch_allowed'] ?? false);
+        $workspaceExecutionGate = $dispatchPlan !== null && is_array($dispatchPlan['workspace_execution_gate'] ?? null)
+            ? $dispatchPlan['workspace_execution_gate']
+            : null;
 
         $qualityGates = is_array(($dispatchPlan['quality_gates'] ?? null))
             ? array_values((array) $dispatchPlan['quality_gates'])
@@ -599,6 +639,7 @@ class AtlasForgeProviderInvocationService
             'decision_receipt_hash' => $decisionReceiptHash,
             'provider_topology_id' => $providerTopologyId,
             'runtime_dispatch_allowed' => $runtimeDispatchAllowed,
+            'workspace_execution_gate' => $workspaceExecutionGate,
             'operator_confirmed_provider_call' => (bool) ($confirmations['operator_confirmed_provider_call'] ?? false),
             'budget_approved' => (bool) ($confirmations['budget_approved'] ?? false),
             'confirm_runtime_dispatch' => (bool) ($confirmations['confirm_runtime_dispatch'] ?? false),
@@ -791,6 +832,8 @@ class AtlasForgeProviderInvocationService
             in_array(self::BLOCKER_LIVE_DECIDE_DISPATCH_REQUIRED, $blockers, true) => 'run_atlas_decide_for_forge_then_dispatch',
             in_array(self::BLOCKER_DECISION_RECEIPT_REQUIRED, $blockers, true) => 'run_atlas_decide_for_forge_then_dispatch',
             in_array(self::BLOCKER_RUNTIME_DISPATCH_NOT_ALLOWED, $blockers, true) => 'repair_runtime_dispatch_plan',
+            in_array(self::BLOCKER_AWIS_EXECUTION_GATE_REQUIRED, $blockers, true) => 'rerun_runtime_dispatch_with_awis_workspace_gate',
+            in_array(self::BLOCKER_AWIS_EXECUTION_GATE_BLOCKED, $blockers, true) => 'bind_certified_awis_workspace_before_provider_invocation',
             in_array(self::BLOCKER_OPERATOR_APPROVAL_REQUIRED, $blockers, true) => 'rerun_with_confirm_provider_call',
             in_array(self::BLOCKER_BUDGET_APPROVAL_REQUIRED, $blockers, true) => 'rerun_with_confirm_budget',
             in_array(self::BLOCKER_RUNTIME_DISPATCH_CONFIRMATION_REQUIRED, $blockers, true) => 'rerun_with_confirm_runtime_dispatch',

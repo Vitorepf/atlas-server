@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Http\JsonResponse;
@@ -68,8 +70,12 @@ class EngineeringKnowledgeController extends Controller
         return response()->json($knowledge->sync($data));
     }
 
-    public function codeIndex(Request $request, EngineeringCodeIntelligenceService $code): JsonResponse
-    {
+    public function codeIndex(
+        Request $request,
+        EngineeringCodeIntelligenceService $code,
+        AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate,
+        AtlasWorkspacePathResolverService $workspacePaths,
+    ): JsonResponse {
         $data = $request->validate([
             'workspace' => ['nullable', 'string', 'max:1000'],
             'dry_run' => ['nullable', 'boolean'],
@@ -78,7 +84,42 @@ class EngineeringKnowledgeController extends Controller
             'run_context_id' => ['nullable', 'string', 'max:120'],
         ]);
 
-        return response()->json($code->index($data));
+        $workspaceResolution = $workspacePaths->resolveForExecution(is_string($data['workspace'] ?? null) ? $data['workspace'] : null);
+        if (($workspaceResolution['status'] ?? null) !== 'ready') {
+            return response()->json([
+                'schema_version' => 'atlas.engineering.code_index.awis_gate.v1',
+                'ok' => false,
+                'status' => 'blocked',
+                'error' => 'workspace_required_for_index_code',
+                'message' => 'index-code exige workspace resolvivel para um Workspace AWIS registrado.',
+                'awis_execution_gate' => $workspaceGate->gate(
+                    workspace: '__missing_index_code_workspace__',
+                    mode: 'index-code',
+                    task: 'engineering knowledge index-code',
+                ),
+            ], 422);
+        }
+
+        $gate = $workspaceGate->gate(
+            workspace: (string) $workspaceResolution['workspace_slug'],
+            mode: 'index-code',
+            task: 'engineering knowledge index-code',
+        );
+        if (($gate['allowed'] ?? false) !== true) {
+            return response()->json([
+                'schema_version' => 'atlas.engineering.code_index.awis_gate.v1',
+                'ok' => false,
+                'status' => 'blocked',
+                'error' => 'awis_execution_gate_blocked',
+                'awis_execution_gate' => $gate,
+            ], 422);
+        }
+
+        $data['workspace'] = (string) $workspaceResolution['workspace_path'];
+        $payload = $code->index($data);
+        $payload['awis_execution_gate'] = $gate;
+
+        return response()->json($payload);
     }
 
     public function codeAudit(Request $request, EngineeringCodeIntelligenceService $code): JsonResponse

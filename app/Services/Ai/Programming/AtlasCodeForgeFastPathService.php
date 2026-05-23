@@ -9,10 +9,12 @@ use App\Http\Controllers\AtlasCodeForgeExecutionController;
 use App\Http\Controllers\AtlasCodeProgrammingWorkItemController;
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Ai\DualCore\ForgeIntakeRouteDecisionRecorder;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use App\Services\Ai\Programming\Governance\ProgrammingSpecCompiler;
 use App\Services\Ai\Programming\Sdd\Compilers\PlanCompiler;
 use App\Services\Ai\Programming\Sdd\Compilers\TaskCompiler;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Throwable;
@@ -49,6 +51,10 @@ class AtlasCodeForgeFastPathService
         'state_projection',
         'operator_next_action',
     ];
+
+    public function __construct(
+        private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $options
@@ -316,7 +322,10 @@ class AtlasCodeForgeFastPathService
     {
         $metadata = is_array($project->metadata) ? $project->metadata : [];
         $domain = (string) ($project->domain ?? '');
+        $workspaceSlug = $this->stringOrNull(data_get($metadata, 'workspace_slug'))
+            ?? $this->stringOrNull(data_get($metadata, 'workspace_id'));
         $workspacePath = $this->stringOrNull(data_get($metadata, 'workspace_path'));
+        $workspaceRequest = $workspaceSlug ?? $workspacePath;
         $allowedDomains = ['', 'atlas', 'programming'];
 
         if (! in_array($domain, $allowedDomains, true)) {
@@ -328,14 +337,34 @@ class AtlasCodeForgeFastPathService
             ];
         }
 
+        $gate = ($this->workspaceExecutionGate ?? app(AtlasWorkspaceIntelligenceExecutionGateService::class))->gate(
+            workspace: $workspaceRequest,
+            mode: 'forge',
+            task: (string) ($project->goal ?: $project->description ?: $project->title ?: 'Forge Fast Path'),
+        );
+
+        if (($gate['allowed'] ?? false) !== true) {
+            return [
+                'name' => 'workspace_binding',
+                'status' => 'blocked',
+                'blocker' => 'awis_execution_gate_blocked',
+                'reason' => 'Forge Fast Path exige Workspace AWIS registrado e pronto antes de preparar ou executar Obra.',
+                'workspace_slug' => $workspaceSlug,
+                'workspace_path' => $workspacePath,
+                'workspace_execution_gate' => $gate,
+            ];
+        }
+
         return [
             'name' => 'workspace_binding',
             'status' => 'passed',
             'workspace_kind' => 'obras_shared_workspace',
             'specialization' => 'forge_workspace',
+            'workspace_slug' => $workspaceSlug ?? data_get($gate, 'workspace_id'),
             'workspace_path' => $workspacePath,
             'obra_id' => (string) $project->getKey(),
             'domain' => $domain !== '' ? $domain : 'atlas',
+            'workspace_execution_gate' => $gate,
         ];
     }
 
@@ -525,7 +554,12 @@ class AtlasCodeForgeFastPathService
         if ($mode === self::MODE_EXECUTE_SYNC) {
             try {
                 $request = Request::create('/_fast-path/forge/live-executions', 'POST', ['simulate_failure' => false]);
-                $response = $controller->store($request, $project, app(AtlasForgeLiveExecutionService::class));
+                $response = $controller->store(
+                    $request,
+                    $project,
+                    app(AtlasForgeLiveExecutionService::class),
+                    app(ForgeIntakeRouteDecisionRecorder::class),
+                );
             } catch (Throwable $e) {
                 return [
                     'name' => 'execution_dispatch',
@@ -560,7 +594,11 @@ class AtlasCodeForgeFastPathService
         // execute_async (default)
         try {
             $request = Request::create('/_fast-path/forge/live-executions/async', 'POST', ['simulate_failure' => false]);
-            $response = $controller->startAsync($request, $project);
+            $response = $controller->startAsync(
+                $request,
+                $project,
+                app(ForgeIntakeRouteDecisionRecorder::class),
+            );
         } catch (Throwable $e) {
             return [
                 'name' => 'execution_dispatch',

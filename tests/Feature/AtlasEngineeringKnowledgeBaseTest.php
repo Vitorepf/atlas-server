@@ -330,6 +330,7 @@ class AtlasEngineeringKnowledgeBaseTest extends TestCase
     public function test_code_intelligence_indexes_modules_symbols_routes_commands_migrations_tests_and_doc_links(): void
     {
         $workspace = storage_path('framework/testing/code-intel-'.Str::uuid());
+        $this->registerTemporaryWorkspaceProfile($workspace);
         File::ensureDirectoryExists($workspace.'/app/Services/Engineering');
         File::ensureDirectoryExists($workspace.'/app/Console/Commands');
         File::ensureDirectoryExists($workspace.'/app/Http/Controllers');
@@ -811,6 +812,33 @@ PHP);
         }
     }
 
+    public function test_index_code_cli_blocks_without_explicit_awis_workspace(): void
+    {
+        $exitCode = Artisan::call('atlas:engineering:knowledge', [
+            'action' => 'index-code',
+            '--dry-run' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('blocked', data_get($payload, 'status'));
+        $this->assertSame('workspace_required_for_index_code', data_get($payload, 'error'));
+        $this->assertFalse((bool) data_get($payload, 'awis_execution_gate.allowed'));
+        $this->assertContains('workspace_not_ready', data_get($payload, 'awis_execution_gate.blockers', []));
+    }
+
+    public function test_index_code_api_blocks_without_explicit_awis_workspace(): void
+    {
+        $this->postJson('/engineering/knowledge/code/index', [
+            'dry_run' => true,
+        ], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('error', 'workspace_required_for_index_code')
+            ->assertJsonPath('awis_execution_gate.allowed', false);
+    }
+
     private function createTables(): void
     {
         $this->dropTables();
@@ -1058,6 +1086,32 @@ PHP);
             $table->json('metadata_json')->default('{}');
             $table->timestamps();
         });
+    }
+
+    private function registerTemporaryWorkspaceProfile(string $workspace): void
+    {
+        config()->set('atlas_projects.profiles', array_merge(
+            (array) config('atlas_projects.profiles', []),
+            [[
+                'id' => 'test-code-intel',
+                'slug' => 'test-code-intel',
+                'name' => 'Test Code Intelligence',
+                'kind' => 'test',
+                'workspace_path' => $workspace,
+                'repo_root' => $workspace,
+                'production_status' => 'development',
+                'stack_summary' => 'PHP fixture workspace',
+                'commands' => [],
+                'test_commands' => ['php artisan test'],
+                'build_commands' => [],
+                'dev_server_command' => null,
+                'critical_areas' => ['app/Services/Engineering'],
+                'docs_status' => 'canonical',
+                'default_risk' => 'low',
+                'deployment_notes' => 'Temporary test workspace.',
+                'surfaces_enabled' => ['code'],
+            ]],
+        ));
     }
 
     private function dropTables(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming\AtlasDev\Http;
 
+use App\Models\AtlasWorkspaceProfile;
 use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
@@ -68,6 +69,7 @@ abstract class AtlasDevHttpTestCase extends TestCase
             $this->tmpWorkspace.'/tests/Unit/Services/Foo/FooServiceTest.php',
             "<?php\nclass FooServiceTest {}\n",
         );
+        $this->bootstrapAwisWorkspaceRegistry();
 
         $this->app->instance(AtlasOpenBrainService::class, new FakeAtlasOpenBrainService);
 
@@ -78,6 +80,7 @@ abstract class AtlasDevHttpTestCase extends TestCase
     {
         Schema::dropIfExists('atlas_dev_run_index');
         Schema::dropIfExists('atlas_dev_confirmation_tokens');
+        Schema::dropIfExists('atlas_workspace_profiles');
 
         $this->rmrf($this->tmpStorage);
         $this->rmrf($this->tmpWorkspace);
@@ -121,6 +124,56 @@ abstract class AtlasDevHttpTestCase extends TestCase
                 $table->timestamps();
             });
         }
+    }
+
+    protected function bootstrapAwisWorkspaceRegistry(): void
+    {
+        if (! Schema::hasTable('atlas_workspace_profiles')) {
+            Schema::create('atlas_workspace_profiles', function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+                $table->string('slug', 120)->unique();
+                $table->string('name', 200);
+                $table->string('kind', 80)->default('product');
+                $table->string('workspace_path', 1000)->nullable();
+                $table->string('repo_root', 1000)->nullable();
+                $table->string('production_status', 80)->default('development');
+                $table->text('stack_summary')->nullable();
+                $table->json('commands')->nullable();
+                $table->json('test_commands')->nullable();
+                $table->json('build_commands')->nullable();
+                $table->string('dev_server_command', 1000)->nullable();
+                $table->json('critical_areas')->nullable();
+                $table->string('docs_status', 80)->default('unknown');
+                $table->string('default_risk', 40)->default('medium');
+                $table->text('deployment_notes')->nullable();
+                $table->json('surfaces_enabled')->nullable();
+                $table->string('source', 80)->default('test');
+                $table->string('status', 40)->default('active');
+                $table->timestamps();
+            });
+        }
+
+        AtlasWorkspaceProfile::query()->updateOrCreate(
+            ['slug' => 'atlas-dev-http'],
+            [
+                'name' => 'Atlas Dev HTTP Test Workspace',
+                'kind' => 'test_workspace',
+                'workspace_path' => $this->tmpWorkspace,
+                'repo_root' => $this->tmpWorkspace,
+                'production_status' => 'development',
+                'stack_summary' => 'Hermetic Atlas Dev HTTP workspace',
+                'commands' => ['test' => 'php artisan test'],
+                'test_commands' => ['php artisan test'],
+                'build_commands' => [],
+                'critical_areas' => ['app/Services/Foo', 'tests/Unit/Services/Foo'],
+                'docs_status' => 'complete',
+                'default_risk' => 'medium',
+                'deployment_notes' => 'Test-only AWIS registry row.',
+                'surfaces_enabled' => ['atlas_ai', 'code'],
+                'source' => 'test',
+                'status' => 'active',
+            ],
+        );
     }
 
     protected function rmrf(string $dir): void

@@ -21,6 +21,7 @@ use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutionReporter;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
@@ -109,6 +110,21 @@ final class RunController extends Controller
                     'code' => 'TASK_CONTRACT_HASH_MISMATCH',
                     'message' => 'task_contract_hash does not reference the persisted plan.',
                 ],
+            ], 422);
+        }
+
+        $awisGate = app(AtlasWorkspaceIntelligenceExecutionGateService::class)->gate(
+            workspace: (string) ($envelopePayload['workspace'] ?? ''),
+            mode: 'dev',
+            task: (string) data_get($taskContractPayload, 'objective', data_get($taskContractPayload, 'intent', 'atlas dev run')),
+        );
+        if (! (bool) ($awisGate['allowed'] ?? false)) {
+            return response()->json([
+                'error' => [
+                    'code' => 'ATLAS_DEV_AWIS_EXECUTION_BLOCKED',
+                    'message' => 'Atlas Dev run requires a ready AWIS workspace before provider execution.',
+                ],
+                'awis_execution_gate' => $awisGate,
             ], 422);
         }
 

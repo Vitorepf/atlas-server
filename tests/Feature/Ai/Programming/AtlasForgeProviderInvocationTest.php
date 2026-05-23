@@ -6,7 +6,6 @@ namespace Tests\Feature\Ai\Programming;
 
 use App\Models\AtlasProject;
 use App\Services\Ai\AtlasDecideService;
-use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
 use App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService;
 use App\Services\Ai\Programming\ProgrammingProfessionalCompletionAuditService;
@@ -83,6 +82,39 @@ class AtlasForgeProviderInvocationTest extends TestCase
         $this->assertFalse($payload['provider_called']);
     }
 
+    public function test_provider_invoke_blocks_runtime_dispatch_without_awis_gate(): void
+    {
+        $obra = $this->makeObra();
+        $obra->forceFill([
+            'metadata' => array_merge((array) $obra->metadata, [
+                'latest_atlas_forge_runtime_dispatch' => [
+                    'schema_version' => AtlasForgeRuntimeDispatchService::SCHEMA_VERSION,
+                    'status' => AtlasForgeRuntimeDispatchService::STATUS_DISPATCH_PLANNED,
+                    'dispatch_id' => 'dispatch_legacy_no_awis_gate',
+                    'decision_source' => 'live_atlas_decide',
+                    'decision_receipt_id' => 'receipt_test',
+                    'decision_receipt_hash' => str_repeat('a', 64),
+                    'runtime_dispatch_allowed' => true,
+                    'role' => 'primary_builder',
+                    'provider' => 'atlas-local',
+                    'model' => 'atlas-runtime',
+                    'blockers' => [],
+                ],
+            ]),
+        ])->save();
+
+        $payload = app(AtlasForgeProviderInvocationService::class)->invoke([
+            'obra_id' => (string) $obra->id,
+            'role' => 'primary_builder',
+            'mode' => 'dry_run',
+        ]);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertContains(AtlasForgeProviderInvocationService::BLOCKER_AWIS_EXECUTION_GATE_REQUIRED, $payload['blockers']);
+        $this->assertNull($payload['workspace_execution_gate']);
+        $this->assertFalse($payload['provider_called']);
+    }
+
     public function test_provider_invoke_dry_run_plans_with_live_dispatch(): void
     {
         $obra = $this->seedLiveDispatch();
@@ -95,6 +127,8 @@ class AtlasForgeProviderInvocationTest extends TestCase
         // Either planned (preferred) or blocked when dispatch wasn't allowed.
         if ($payload['status'] === 'planned') {
             $this->assertSame('dry_run', $payload['mode']);
+            $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($payload, 'workspace_execution_gate.schema_version'));
+            $this->assertTrue(data_get($payload, 'workspace_execution_gate.allowed'));
             $this->assertFalse($payload['provider_called']);
             $this->assertFalse($payload['external_provider_call']);
             $this->assertFalse($payload['completion_claim_promoted']);
@@ -373,8 +407,17 @@ class AtlasForgeProviderInvocationTest extends TestCase
         $this->assertContains('obra_required', $payload['blockers']);
     }
 
-    private function makeObra(): AtlasProject
+    /**
+     * @param  array<string,mixed>  $metadata
+     */
+    private function makeObra(array $metadata = []): AtlasProject
     {
+        $metadata = array_merge([
+            'workspace_slug' => 'atlas',
+            'workspace_path' => base_path('..'),
+            'origin' => 'atlas-code-test',
+        ], $metadata);
+
         return AtlasProject::create([
             'id' => (string) Str::uuid(),
             'title' => 'Provider Invocation test Obra',
@@ -384,7 +427,7 @@ class AtlasForgeProviderInvocationTest extends TestCase
             'goal' => 'Validar governed provider invocation',
             'desired_outcome' => 'Invocation governada sem chamada provider externa',
             'priority' => 'normal',
-            'metadata' => ['workspace_path' => '/tmp/atlas-provider-invocation-test', 'origin' => 'atlas-code-test'],
+            'metadata' => $metadata,
         ]);
     }
 

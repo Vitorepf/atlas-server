@@ -101,10 +101,40 @@ class AtlasCodeForgeFastPathTest extends TestCase
             $this->assertContains($expected, $stageNames, "Missing canonical stage [{$expected}].");
         }
 
+        $workspaceStage = collect($report['stages'])->firstWhere('name', 'workspace_binding');
+        $this->assertSame('passed', $workspaceStage['status']);
+        $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($workspaceStage, 'workspace_execution_gate.schema_version'));
+        $this->assertTrue((bool) data_get($workspaceStage, 'workspace_execution_gate.allowed'));
+
         $dispatchStage = collect($report['stages'])->firstWhere('name', 'execution_dispatch');
         $this->assertSame(AtlasCodeForgeFastPathService::MODE_PREPARE_ONLY, $dispatchStage['mode']);
         $this->assertFalse($dispatchStage['dispatched']);
 
+        Queue::assertNothingPushed();
+    }
+
+    public function test_fast_path_blocks_when_awis_workspace_is_not_registered(): void
+    {
+        $obra = $this->makeObra([
+            'workspace_slug' => 'missing-workspace',
+            'workspace_path' => '/tmp/unregistered-awis-workspace',
+            'origin' => 'atlas-code-fast-path-test',
+        ]);
+
+        $report = app(AtlasCodeForgeFastPathService::class)->run($obra, [
+            'obra_id' => (string) $obra->id,
+            'mode' => AtlasCodeForgeFastPathService::MODE_EXECUTE_ASYNC,
+        ]);
+
+        $this->assertSame('blocked', $report['status']);
+        $this->assertContains('awis_execution_gate_blocked', $report['blockers']);
+        $this->assertNull($report['work_item_id']);
+        $this->assertNull($report['execution_id']);
+
+        $workspaceStage = collect($report['stages'])->firstWhere('name', 'workspace_binding');
+        $this->assertSame('blocked', $workspaceStage['status']);
+        $this->assertSame('awis_execution_gate_blocked', $workspaceStage['blocker']);
+        $this->assertFalse((bool) data_get($workspaceStage, 'workspace_execution_gate.allowed'));
         Queue::assertNothingPushed();
     }
 
@@ -176,7 +206,10 @@ class AtlasCodeForgeFastPathTest extends TestCase
             'status' => 'active',
             'domain' => 'atlas',
             'priority' => 'normal',
-            'metadata' => ['workspace_path' => '/tmp/fp-empty'],
+            'metadata' => [
+                'workspace_slug' => 'atlas',
+                'workspace_path' => base_path('..'),
+            ],
         ]);
 
         $report = app(AtlasCodeForgeFastPathService::class)->run($obra, [
@@ -353,7 +386,10 @@ class AtlasCodeForgeFastPathTest extends TestCase
         $this->assertNull($payload['forge_live_execution']);
     }
 
-    private function makeObra(): AtlasProject
+    /**
+     * @param  array<string,mixed>  $metadata
+     */
+    private function makeObra(array $metadata = []): AtlasProject
     {
         return AtlasProject::create([
             'id' => (string) Str::uuid(),
@@ -364,7 +400,11 @@ class AtlasCodeForgeFastPathTest extends TestCase
             'goal' => 'Validar Atlas Code Forge Fast Path runtime',
             'desired_outcome' => 'Validar Atlas Code Forge Fast Path runtime profissionalmente',
             'priority' => 'normal',
-            'metadata' => ['workspace_path' => '/tmp/atlas-fast-path-test', 'origin' => 'atlas-code-fast-path-test'],
+            'metadata' => array_merge([
+                'workspace_slug' => 'atlas',
+                'workspace_path' => base_path('..'),
+                'origin' => 'atlas-code-fast-path-test',
+            ], $metadata),
         ]);
     }
 

@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\AtlasWorkspaceProfile;
+use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -77,12 +83,160 @@ class AtlasCodeWorkspaceProfileTest extends TestCase
         $response->assertNotFound()->assertJsonPath('error', 'project_workspace_not_found');
     }
 
+    public function test_workspace_profile_can_resolve_by_real_path_for_runtime_gates(): void
+    {
+        $profile = app(AtlasCodeWorkspaceProfileService::class)->findByPath(base_path('..'));
+
+        $this->assertIsArray($profile);
+        $this->assertSame('atlas', $profile['slug']);
+    }
+
+    public function test_workspace_registry_includes_persisted_profiles(): void
+    {
+        $this->createWorkspaceProfilesTable();
+
+        AtlasWorkspaceProfile::query()->create([
+            'slug' => 'client-x',
+            'name' => 'Client X',
+            'kind' => 'client_product',
+            'workspace_path' => base_path(),
+            'repo_root' => base_path(),
+            'production_status' => 'development',
+            'stack_summary' => 'Persisted Laravel workspace',
+            'commands' => ['docs-health' => 'php artisan atlas:engineering:knowledge docs-health --json'],
+            'test_commands' => ['php artisan test'],
+            'build_commands' => [],
+            'critical_areas' => ['routes', 'app/Services'],
+            'docs_status' => 'complete',
+            'default_risk' => 'medium',
+            'deployment_notes' => 'Persisted overlay used by AWIS.',
+            'surfaces_enabled' => ['atlas_ai', 'code', 'cartografia'],
+            'source' => 'operator',
+            'status' => 'active',
+        ]);
+
+        $response = $this->withHeaders($this->headers())->getJson('/atlas-code/projects/workspaces/client-x');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('workspace.slug', 'client-x')
+            ->assertJsonPath('workspace.name', 'Client X')
+            ->assertJsonPath('workspace.stack_summary', 'Persisted Laravel workspace')
+            ->assertJsonPath('workspace.workspace_path_exists', true);
+    }
+
+    public function test_workspace_registry_api_can_update_persisted_profile(): void
+    {
+        $this->createWorkspaceProfilesTable();
+
+        $created = $this->withHeaders($this->headers())->postJson('/atlas-code/projects/workspaces', [
+            'slug' => 'client-z',
+            'name' => 'Client Z',
+            'workspace_path' => '/missing/client-z',
+            'docs_status' => 'incomplete',
+        ]);
+        $created->assertOk()->assertJsonPath('workspace.workspace_path_exists', false);
+
+        $updated = $this->withHeaders($this->headers())->patchJson('/atlas-code/projects/workspaces/client-z', [
+            'name' => 'Client Z Verified',
+            'workspace_path' => base_path(),
+            'repo_root' => base_path(),
+            'test_commands' => ['php artisan test'],
+            'critical_areas' => ['app/Services'],
+            'docs_status' => 'complete',
+        ]);
+
+        $updated
+            ->assertOk()
+            ->assertJsonPath('workspace.name', 'Client Z Verified')
+            ->assertJsonPath('workspace.workspace_path_exists', true)
+            ->assertJsonPath('workspace.test_commands.0', 'php artisan test')
+            ->assertJsonPath('meta.execution_allowed', true);
+    }
+
+    public function test_workspace_registry_api_rejects_invalid_slug(): void
+    {
+        $this->createWorkspaceProfilesTable();
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/projects/workspaces', [
+            'slug' => '../bad slug',
+            'name' => 'Bad',
+        ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath('error', 'invalid_workspace_slug');
+    }
+
+    public function test_persisted_workspace_profile_overrides_config_profile_by_slug(): void
+    {
+        $this->createWorkspaceProfilesTable();
+
+        AtlasWorkspaceProfile::query()->create([
+            'slug' => 'blackink',
+            'name' => 'Blackink Persisted',
+            'kind' => 'client_product',
+            'workspace_path' => base_path(),
+            'repo_root' => base_path(),
+            'production_status' => 'development',
+            'stack_summary' => 'Operator-reviewed persisted Blackink profile',
+            'commands' => [],
+            'test_commands' => ['npm test'],
+            'build_commands' => ['npm run build'],
+            'critical_areas' => ['checkout'],
+            'docs_status' => 'complete',
+            'default_risk' => 'medium',
+            'deployment_notes' => 'DB profile wins over config projection.',
+            'surfaces_enabled' => ['atlas_ai'],
+            'source' => 'operator',
+            'status' => 'active',
+        ]);
+
+        $profile = app(AtlasCodeWorkspaceProfileService::class)->findBySlug('blackink');
+
+        $this->assertIsArray($profile);
+        $this->assertSame('Blackink Persisted', $profile['name']);
+        $this->assertSame('development', $profile['production_status']);
+        $this->assertSame('complete', $profile['docs_status']);
+        $this->assertTrue($profile['safety']['execution_allowed']);
+    }
+
+    public function test_persisted_workspace_profile_can_resolve_by_path(): void
+    {
+        $this->createWorkspaceProfilesTable();
+
+        AtlasWorkspaceProfile::query()->create([
+            'slug' => 'atlas-server-local',
+            'name' => 'Atlas Server Local',
+            'kind' => 'service_repo',
+            'workspace_path' => base_path(),
+            'repo_root' => base_path(),
+            'production_status' => 'development',
+            'stack_summary' => 'Current atlas-server repo',
+            'commands' => [],
+            'test_commands' => ['php artisan test'],
+            'build_commands' => [],
+            'critical_areas' => ['app', 'tests'],
+            'docs_status' => 'complete',
+            'default_risk' => 'medium',
+            'deployment_notes' => '',
+            'surfaces_enabled' => ['atlas_ai', 'code'],
+            'source' => 'operator',
+            'status' => 'active',
+        ]);
+
+        $profile = app(AtlasCodeWorkspaceProfileService::class)->findByPath(base_path());
+
+        $this->assertIsArray($profile);
+        $this->assertSame('atlas-server-local', $profile['slug']);
+    }
+
     public function test_works_store_binds_obra_to_workspace_slug_in_metadata(): void
     {
         // Schema bootstrap mirrors AtlasCodeContractTest minimally — only the
         // atlas_projects table is required for store/index.
-        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_projects')) {
-            \Illuminate\Support\Facades\Schema::create('atlas_projects', function (\Illuminate\Database\Schema\Blueprint $t) {
+        if (! Schema::hasTable('atlas_projects')) {
+            Schema::create('atlas_projects', function (Blueprint $t) {
                 $t->uuid('id')->primary();
                 $t->string('title')->nullable();
                 $t->text('description')->nullable();
@@ -131,8 +285,8 @@ class AtlasCodeWorkspaceProfileTest extends TestCase
     public function test_works_index_filters_by_workspace_slug(): void
     {
         // Same minimal schema bootstrap.
-        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_projects')) {
-            \Illuminate\Support\Facades\Schema::create('atlas_projects', function (\Illuminate\Database\Schema\Blueprint $t) {
+        if (! Schema::hasTable('atlas_projects')) {
+            Schema::create('atlas_projects', function (Blueprint $t) {
                 $t->uuid('id')->primary();
                 $t->string('title')->nullable();
                 $t->text('description')->nullable();
@@ -164,9 +318,9 @@ class AtlasCodeWorkspaceProfileTest extends TestCase
         }
 
         // Two Obras: one in atlas, one in blackink.
-        $atlasId = (string) \Illuminate\Support\Str::uuid();
-        $blackinkId = (string) \Illuminate\Support\Str::uuid();
-        \Illuminate\Support\Facades\DB::table('atlas_projects')->insert([
+        $atlasId = (string) Str::uuid();
+        $blackinkId = (string) Str::uuid();
+        DB::table('atlas_projects')->insert([
             [
                 'id' => $atlasId,
                 'title' => 'Obra Atlas A',
@@ -239,5 +393,35 @@ class AtlasCodeWorkspaceProfileTest extends TestCase
                 ],
             ])
             ->assertJsonPath('workspace.slug', 'atlas');
+    }
+
+    private function createWorkspaceProfilesTable(): void
+    {
+        if (Schema::hasTable('atlas_workspace_profiles')) {
+            return;
+        }
+
+        Schema::create('atlas_workspace_profiles', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('slug', 120)->unique();
+            $table->string('name', 200);
+            $table->string('kind', 80)->default('product');
+            $table->string('workspace_path', 1000)->nullable();
+            $table->string('repo_root', 1000)->nullable();
+            $table->string('production_status', 80)->default('development');
+            $table->text('stack_summary')->nullable();
+            $table->json('commands')->nullable();
+            $table->json('test_commands')->nullable();
+            $table->json('build_commands')->nullable();
+            $table->string('dev_server_command', 1000)->nullable();
+            $table->json('critical_areas')->nullable();
+            $table->string('docs_status', 80)->default('unknown');
+            $table->string('default_risk', 40)->default('medium');
+            $table->text('deployment_notes')->nullable();
+            $table->json('surfaces_enabled')->nullable();
+            $table->string('source', 80)->default('operator');
+            $table->string('status', 40)->default('active');
+            $table->timestamps();
+        });
     }
 }

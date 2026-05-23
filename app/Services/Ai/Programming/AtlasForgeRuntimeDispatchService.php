@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Str;
 
 /**
@@ -35,28 +36,44 @@ use Illuminate\Support\Str;
 class AtlasForgeRuntimeDispatchService
 {
     public const SCHEMA_VERSION = 'atlas.forge.runtime_dispatch_plan.v1';
+
     public const PROJECTION_SCHEMA_VERSION = 'atlas.forge.runtime_dispatch_projection.v1';
 
     public const STATUS_DISPATCH_PLANNED = 'dispatch_planned';
+
     public const STATUS_BLOCKED = 'blocked';
+
     public const STATUS_FALLBACK_CHILD_RECEIPT_REQUIRED = 'fallback_child_receipt_required';
+
     public const STATUS_CAPACITY_EXHAUSTED = 'provider_capacity_exhausted';
 
     public const BLOCKER_OBRA_REQUIRED = 'obra_required';
+
     public const BLOCKER_OBRA_NOT_FOUND = 'obra_not_found';
+
     public const BLOCKER_TOPOLOGY_MISSING = 'provider_topology_missing';
+
     public const BLOCKER_LIVE_DECIDE_REQUIRED = 'live_decide_receipt_required';
+
     public const BLOCKER_DECISION_RECEIPT_REQUIRED = 'decision_receipt_required';
+
     public const BLOCKER_RUNTIME_DISPATCH_NOT_ALLOWED = 'runtime_dispatch_not_allowed';
+
     public const BLOCKER_ROLE_INVALID = 'role_invalid';
+
     public const BLOCKER_ROLE_MISSING_PROVIDER = 'role_missing_provider_or_model';
+
     public const BLOCKER_FALLBACK_CHILD_RECEIPT_REQUIRED = 'fallback_child_receipt_required';
+
     public const BLOCKER_CAPACITY_EXHAUSTED = 'provider_capacity_exhausted';
+
+    public const BLOCKER_AWIS_EXECUTION_GATE_BLOCKED = 'awis_execution_gate_blocked';
 
     public function __construct(
         private readonly AtlasForgeProviderTopologyService $topology,
         private readonly AtlasForgeProviderFallbackPolicyService $fallbackPolicy,
         private readonly AtlasDecideService $decide,
+        private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
     ) {}
 
     /**
@@ -81,6 +98,7 @@ class AtlasForgeRuntimeDispatchService
         $childReceiptHash = null;
         $fallbackEventId = null;
         $fallbackFailureType = null;
+        $workspaceExecutionGate = null;
 
         if ($obraId === null) {
             return $this->finalize(
@@ -123,6 +141,11 @@ class AtlasForgeRuntimeDispatchService
                 childReceiptHash: null,
                 project: null,
             );
+        }
+
+        $workspaceExecutionGate = $this->gateWorkspaceExecution($project, $requestedRole);
+        if (($workspaceExecutionGate['allowed'] ?? false) !== true) {
+            $blockers[] = self::BLOCKER_AWIS_EXECUTION_GATE_BLOCKED;
         }
 
         $topology = $this->topology->topology([
@@ -258,6 +281,7 @@ class AtlasForgeRuntimeDispatchService
             childReceiptId: $childReceiptId,
             childReceiptHash: $childReceiptHash,
             project: $project,
+            workspaceExecutionGate: $workspaceExecutionGate,
         );
     }
 
@@ -395,6 +419,7 @@ class AtlasForgeRuntimeDispatchService
         ?string $childReceiptId,
         ?string $childReceiptHash,
         ?AtlasProject $project,
+        ?array $workspaceExecutionGate = null,
     ): array {
         $blockers = array_values(array_unique($blockers));
         $decisionReceiptId = $topology !== null ? $this->stringOrNull($topology['decision_receipt_id'] ?? null) : null;
@@ -438,6 +463,7 @@ class AtlasForgeRuntimeDispatchService
             'quality_gates' => $qualityGates,
             'review_completion_gate_preserved' => true,
             'completion_claim_promoted' => false,
+            'workspace_execution_gate' => $workspaceExecutionGate,
             'evidence_refs' => [
                 'docs/engineering-knowledge-base/atlas-forge-continuum-os.md',
                 'docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md',
@@ -469,6 +495,7 @@ class AtlasForgeRuntimeDispatchService
             in_array(self::BLOCKER_LIVE_DECIDE_REQUIRED, $blockers, true) => 'run_atlas_decide_for_forge_to_generate_live_decision_receipt',
             in_array(self::BLOCKER_DECISION_RECEIPT_REQUIRED, $blockers, true) => 'run_atlas_decide_for_forge_to_generate_live_decision_receipt',
             in_array(self::BLOCKER_RUNTIME_DISPATCH_NOT_ALLOWED, $blockers, true) => 'repair_decision_receipt_or_quality_gates_before_dispatch',
+            in_array(self::BLOCKER_AWIS_EXECUTION_GATE_BLOCKED, $blockers, true) => 'bind_certified_awis_workspace_before_forge_runtime_dispatch',
             in_array(self::BLOCKER_ROLE_INVALID, $blockers, true) => 'request_dispatch_for_canonical_role',
             in_array(self::BLOCKER_ROLE_MISSING_PROVIDER, $blockers, true) => 'wait_for_atlas_decide_to_populate_role',
             in_array(AtlasForgeProviderFallbackPolicyService::BLOCKER_CAPACITY_EXHAUSTED, $blockers, true) => 'wait_for_provider_capacity_or_change_strategy',
@@ -497,6 +524,7 @@ class AtlasForgeRuntimeDispatchService
             'fallback_event_id' => $plan['fallback_event_id'] ?? null,
             'fallback_failure_type' => $plan['fallback_failure_type'] ?? null,
             'runtime_dispatch_allowed' => $plan['runtime_dispatch_allowed'] ?? false,
+            'workspace_execution_gate' => $plan['workspace_execution_gate'] ?? null,
             'external_provider_call' => false,
             'provider_invocation_planned' => false,
             'blockers' => $plan['blockers'] ?? [],
@@ -510,6 +538,25 @@ class AtlasForgeRuntimeDispatchService
         $metadata['atlas_forge_runtime_dispatch_history'] = array_slice($history, 0, 25);
 
         $project->forceFill(['metadata' => $metadata])->save();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function gateWorkspaceExecution(AtlasProject $project, string $requestedRole): array
+    {
+        $metadata = is_array($project->metadata) ? $project->metadata : [];
+        $workspace = $this->stringOrNull(data_get($metadata, 'workspace_slug'))
+            ?? $this->stringOrNull(data_get($metadata, 'workspace_id'))
+            ?? $this->stringOrNull(data_get($metadata, 'workspace_path'));
+
+        $gate = $this->workspaceExecutionGate ?? app(AtlasWorkspaceIntelligenceExecutionGateService::class);
+
+        return $gate->gate(
+            workspace: $workspace,
+            mode: 'forge',
+            task: trim('Forge Runtime Dispatch '.($project->goal ?? '').' role='.$requestedRole),
+        );
     }
 
     private function stringOrNull(mixed $value): ?string

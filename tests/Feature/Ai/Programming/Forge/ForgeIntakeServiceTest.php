@@ -36,7 +36,7 @@ class ForgeIntakeServiceTest extends TestCase
         $intake = $service->intakeFromPrompt(
             'Implementar refactor do provider router em multi-modulo com sdd; depois migrar billing engine; por fim adicionar suite de tests de regressao.',
             [
-                'workspace_slug' => 'atlas-server',
+                'workspace_slug' => 'atlas',
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
                 'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_SDD_INTAKE,
             ],
@@ -46,7 +46,7 @@ class ForgeIntakeServiceTest extends TestCase
         $this->assertSame(ForgeIntakeCanon::STATUS_READY, $intake->status);
         $this->assertSame(EscalationPacket::RECOMMENDED_FORGE_MODE_SDD_INTAKE, $intake->recommended_forge_mode);
         $this->assertSame(ForgeIntakeCanon::RISK_BAND_HIGH, $intake->risk_band);
-        $this->assertSame('atlas-server', $intake->workspace_slug);
+        $this->assertSame('atlas', $intake->workspace_slug);
         $this->assertSame(64, strlen($intake->intake_hash));
         $this->assertNull($intake->blocker_reason);
         $this->assertSame('atlas.context_intelligence.operations_runtime.v1', data_get($intake->context_operations, 'schema_version'));
@@ -101,7 +101,7 @@ class ForgeIntakeServiceTest extends TestCase
         );
 
         $intake = app(ForgeIntakeService::class)->intakeFromEscalationPacket($packet, [
-            'workspace_slug' => 'atlas-server',
+            'workspace_slug' => 'atlas',
             'mission_id' => $this->fakeUuid(),
         ]);
 
@@ -126,6 +126,38 @@ class ForgeIntakeServiceTest extends TestCase
             ForgeIntakeCanon::CANONICAL_MILESTONES,
             $intake->milestones()->orderBy('position')->pluck('milestone_id')->all(),
         );
+    }
+
+    public function test_forge_intake_persists_awis_execution_gate_for_workspace_bound_obra(): void
+    {
+        $intake = app(ForgeIntakeService::class)->intakeFromPrompt(
+            'Criar ecommerce com milestones, testes e plano de rollback',
+            [
+                'workspace_slug' => 'atlas',
+                'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
+            ],
+        );
+
+        $this->assertIsArray($intake->workspace_execution_gate);
+        $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($intake->workspace_execution_gate, 'schema_version'));
+        $this->assertSame('forge', data_get($intake->workspace_execution_gate, 'mode'));
+        $this->assertTrue((bool) data_get($intake->workspace_execution_gate, 'allowed'));
+        $this->assertSame('atlas', data_get($intake->workspace_execution_gate, 'workspace_id'));
+        $this->assertTrue((bool) data_get($intake->workspace_execution_gate, 'required_contracts.awco_execution_readiness'));
+    }
+
+    public function test_forge_intake_blocks_without_awis_workspace(): void
+    {
+        $intake = app(ForgeIntakeService::class)->intakeFromPrompt(
+            'Criar ecommerce com milestones, testes e plano de rollback',
+            ['risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH],
+        );
+
+        $this->assertSame(ForgeIntakeCanon::STATUS_BLOCKED, $intake->status);
+        $this->assertSame('awis_workspace_required_for_forge_intake', $intake->blocker_reason);
+        $this->assertNull($intake->workspace_execution_gate);
+        $this->assertSame(0, $intake->workPackets()->count(), 'AWIS-blocked intake must not produce executable work packets.');
+        $this->assertCount(5, $intake->milestones()->get(), 'Blocked intake still keeps milestone audit visibility.');
     }
 
     public function test_direct_intake_persists_canonical_rich_input_payload_without_raw_text(): void
@@ -211,7 +243,10 @@ class ForgeIntakeServiceTest extends TestCase
     public function test_insufficient_prompt_creates_blocked_intake_with_explicit_reason_and_no_packets(): void
     {
         // No action verb, no object marker, > 12 chars (passes length but not signal).
-        $intake = app(ForgeIntakeService::class)->intakeFromPrompt('aleatorio palavra random nonsense');
+        $intake = app(ForgeIntakeService::class)->intakeFromPrompt(
+            'aleatorio palavra random nonsense',
+            ['workspace_slug' => 'atlas'],
+        );
 
         $this->assertSame(ForgeIntakeCanon::STATUS_BLOCKED, $intake->status);
         $this->assertNotNull($intake->blocker_reason);
@@ -224,7 +259,9 @@ class ForgeIntakeServiceTest extends TestCase
 
     public function test_too_short_prompt_creates_blocked_intake(): void
     {
-        $intake = app(ForgeIntakeService::class)->intakeFromPrompt('curto');
+        $intake = app(ForgeIntakeService::class)->intakeFromPrompt('curto', [
+            'workspace_slug' => 'atlas',
+        ]);
 
         $this->assertSame(ForgeIntakeCanon::STATUS_BLOCKED, $intake->status);
         $this->assertStringContainsString('prompt_too_short', (string) $intake->blocker_reason);
@@ -260,11 +297,11 @@ class ForgeIntakeServiceTest extends TestCase
 
         $intake1 = $service->intakeFromPrompt(
             'Implementar nova feature de auth com testes',
-            ['obra_title' => 'auth-feature', 'workspace_slug' => 'atlas-server'],
+            ['obra_title' => 'auth-feature', 'workspace_slug' => 'atlas'],
         );
         $intake2 = $service->intakeFromPrompt(
             'Implementar nova feature de auth com testes',
-            ['obra_title' => 'auth-feature', 'workspace_slug' => 'atlas-server'],
+            ['obra_title' => 'auth-feature', 'workspace_slug' => 'atlas'],
         );
 
         // Hashes differ because uuid is part of the payload (intake_hash is
@@ -281,7 +318,7 @@ class ForgeIntakeServiceTest extends TestCase
     {
         $intake = app(ForgeIntakeService::class)->intakeFromPrompt(
             'Implementar refactor multi-modulo do provider router',
-            ['workspace_slug' => 'atlas-server'],
+            ['workspace_slug' => 'atlas'],
         );
         /** @var AiForgeIntake $intake */
         $packets = $intake->workPackets()->orderBy('packet_position')->get();
@@ -429,6 +466,7 @@ class ForgeIntakeServiceTest extends TestCase
             'rich_input_schema_version' => $intake->rich_input_schema_version,
             'context_operations_hash' => $intake->context_operations_hash,
             'persistent_context_hash' => $intake->persistent_context_hash,
+            'workspace_execution_gate' => $intake->workspace_execution_gate,
             'constraints' => $intake->constraints,
             'non_goals' => $intake->non_goals,
             'sdd_spec' => $intake->sdd_spec,

@@ -77,6 +77,8 @@ class AtlasForgeRuntimeDispatchTest extends TestCase
         ]);
 
         if ($plan['status'] === 'dispatch_planned') {
+            $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($plan, 'workspace_execution_gate.schema_version'));
+            $this->assertTrue(data_get($plan, 'workspace_execution_gate.allowed'));
             $this->assertNotNull($plan['decision_receipt_id']);
             $this->assertNotNull($plan['decision_receipt_hash']);
             $this->assertSame('live_atlas_decide', $plan['decision_source']);
@@ -96,6 +98,38 @@ class AtlasForgeRuntimeDispatchTest extends TestCase
             $this->assertContains($plan['status'], ['blocked', 'fallback_child_receipt_required']);
             $this->assertContains(AtlasForgeRuntimeDispatchService::BLOCKER_RUNTIME_DISPATCH_NOT_ALLOWED, $plan['blockers']);
         }
+    }
+
+    public function test_dispatch_blocks_when_awis_workspace_is_not_registered(): void
+    {
+        $obra = $this->makeObra([
+            'workspace_slug' => 'workspace-nao-registrado',
+            'workspace_path' => '/tmp/atlas-runtime-dispatch-unregistered',
+            'origin' => 'atlas-code-test',
+        ]);
+
+        app(AtlasDecideService::class)->operationalDecision([
+            'source_type' => 'app',
+            'input_text' => 'Forge.',
+            'payload' => [
+                'surface_id' => 'atlas_code',
+                'routing_domain' => 'programming',
+                'programming_flow' => 'programming.forge',
+                'obra_id' => (string) $obra->id,
+            ],
+        ], 'codex_cli', 'gpt-5.5');
+
+        $plan = app(AtlasForgeRuntimeDispatchService::class)->dispatch([
+            'obra_id' => (string) $obra->id,
+            'role' => 'primary_builder',
+        ]);
+
+        $this->assertSame('blocked', $plan['status']);
+        $this->assertContains(AtlasForgeRuntimeDispatchService::BLOCKER_AWIS_EXECUTION_GATE_BLOCKED, $plan['blockers']);
+        $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($plan, 'workspace_execution_gate.schema_version'));
+        $this->assertFalse(data_get($plan, 'workspace_execution_gate.allowed'));
+        $this->assertFalse($plan['runtime_dispatch_allowed']);
+        $this->assertFalse($plan['external_provider_call']);
     }
 
     public function test_dispatch_blocks_with_invalid_role(): void
@@ -246,12 +280,14 @@ class AtlasForgeRuntimeDispatchTest extends TestCase
         $this->assertIsArray($latest);
         $this->assertSame($plan['dispatch_id'], $latest['dispatch_id']);
         $this->assertSame($plan['status'], $latest['status']);
+        $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($latest, 'workspace_execution_gate.schema_version'));
 
         $history = data_get($obra->metadata, 'atlas_forge_runtime_dispatch_history');
         $this->assertIsArray($history);
         $this->assertNotEmpty($history);
         $this->assertSame($plan['dispatch_id'], data_get($history, '0.dispatch_id'));
         $this->assertSame(AtlasForgeRuntimeDispatchService::PROJECTION_SCHEMA_VERSION, data_get($history, '0.schema_version'));
+        $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($history, '0.workspace_execution_gate.schema_version'));
     }
 
     public function test_state_projection_exposes_forge_runtime_dispatch(): void
@@ -319,8 +355,17 @@ class AtlasForgeRuntimeDispatchTest extends TestCase
         $this->assertContains('obra_required', $payload['blockers']);
     }
 
-    private function makeObra(): AtlasProject
+    /**
+     * @param  array<string,mixed>  $metadata
+     */
+    private function makeObra(array $metadata = []): AtlasProject
     {
+        $metadata = array_merge([
+            'workspace_slug' => 'atlas',
+            'workspace_path' => base_path('..'),
+            'origin' => 'atlas-code-test',
+        ], $metadata);
+
         return AtlasProject::create([
             'id' => (string) Str::uuid(),
             'title' => 'Runtime Dispatch test Obra',
@@ -330,7 +375,7 @@ class AtlasForgeRuntimeDispatchTest extends TestCase
             'goal' => 'Validar runtime dispatcher governado',
             'desired_outcome' => 'Dispatcher emite plano canonico sem chamar provider externo',
             'priority' => 'normal',
-            'metadata' => ['workspace_path' => '/tmp/atlas-runtime-dispatch-test', 'origin' => 'atlas-code-test'],
+            'metadata' => $metadata,
         ]);
     }
 

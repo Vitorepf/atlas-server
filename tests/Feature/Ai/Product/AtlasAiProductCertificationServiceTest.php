@@ -34,7 +34,7 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertArrayHasKey('claims', $report);
         $this->assertArrayHasKey('certification_hash', $report);
         $this->assertSame(64, strlen((string) $report['certification_hash']));
-        $this->assertSame(20, count($report['checks']));
+        $this->assertSame(21, count($report['checks']));
         $this->assertFalse($report['writes']);
     }
 
@@ -56,6 +56,7 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($report['claims']['covers_code_intelligence_automatic_gate']);
         $this->assertTrue($report['claims']['covers_verified_context_execution_loop']);
         $this->assertTrue($report['claims']['covers_assisted_execution_quality']);
+        $this->assertTrue($report['claims']['covers_execution_doctrine_product_delivery_system']);
     }
 
     public function test_certification_hash_is_deterministic_across_runs(): void
@@ -101,6 +102,7 @@ class AtlasAiProductCertificationServiceTest extends TestCase
             'code_intelligence_automatic_gate',
             'verified_context_execution_loop',
             'assisted_execution_quality',
+            'execution_doctrine_product_delivery_system',
         ];
 
         foreach ($expected as $id) {
@@ -360,5 +362,35 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($evidence['ai_interaction_controller_enforces_context_gate']);
         $this->assertTrue($evidence['tests_cover_core_paths']);
         $this->assertTrue($evidence['canonical_doc_present']);
+    }
+
+    public function test_evidence_proves_execution_doctrine_product_delivery_system_is_certified(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $byId = [];
+        foreach ($report['checks'] as $check) {
+            $byId[$check['id']] = $check;
+        }
+
+        $evidence = $byId['execution_doctrine_product_delivery_system']['evidence'];
+        $this->assertTrue($evidence['product_truth_compiler_present']);
+        $this->assertTrue($evidence['delivery_runtime_present']);
+        $this->assertTrue($evidence['falsification_proof_runtime_present']);
+        $this->assertTrue($evidence['product_delivery_enforcement_present']);
+        $this->assertTrue($evidence['product_delivery_outcome_memory_present']);
+        $this->assertTrue($evidence['product_twin_simulation_present']);
+        $this->assertTrue($evidence['product_delivery_risk_governor_present']);
+        $this->assertTrue($evidence['product_delivery_control_plane_present']);
+        $this->assertTrue($evidence['product_release_gate_present']);
+        $this->assertTrue($evidence['provider_cost_flake_memory_feed_present']);
+        $this->assertTrue($evidence['product_policy_optimizer_present']);
+        $this->assertTrue($evidence['product_delivery_multi_step_repair_planner_present']);
+        $this->assertTrue($evidence['product_delivery_evidence_replay_lab_present']);
+        $this->assertTrue($evidence['product_delivery_doctrine_fitness_loop_present']);
+        $this->assertTrue($evidence['product_delivery_aemor_bridge_present']);
+        $this->assertTrue($evidence['product_delivery_repair_bridge_present']);
+        $this->assertTrue($evidence['ai_interactions_wires_delivery_runtime_before_assisted_execution']);
+        $this->assertTrue($evidence['canonical_docs_present']);
+        $this->assertTrue($evidence['tests_cover_core_paths']);
     }
 }

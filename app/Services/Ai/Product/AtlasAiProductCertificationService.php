@@ -156,6 +156,80 @@ class AtlasAiProductCertificationService
 
     public const PATH_ASSISTED_EXECUTION_TEST = 'tests/Feature/Ai/Product/AtlasAiAssistedExecutionQualityServiceTest.php';
 
+    public const PATH_PRODUCT_TRUTH_COMPILER_SERVICE = 'app/Services/Ai/Product/AtlasProductTruthCompilerService.php';
+
+    public const PATH_PRODUCT_DELIVERY_RUNTIME_SERVICE = 'app/Services/Ai/Product/AtlasAutonomousProductDeliveryRuntimeService.php';
+
+    public const PATH_PRODUCT_FALSIFICATION_SERVICE = 'app/Services/Ai/Product/AtlasProductFalsificationProofRuntimeService.php';
+
+    public const PATH_PRODUCT_DELIVERY_ENFORCEMENT_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryEnforcementService.php';
+
+    public const PATH_PRODUCT_DELIVERY_OUTCOME_MEMORY_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryOutcomeMemoryService.php';
+
+    public const PATH_PRODUCT_DELIVERY_RUNTIME_RECEIPT_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryRuntimeReceiptService.php';
+
+    public const PATH_PRODUCT_TWIN_SIMULATION_SERVICE = 'app/Services/Ai/Product/AtlasProductTwinSimulationService.php';
+
+    public const PATH_PRODUCT_TWIN_SIMULATE_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductTwinSimulateCommand.php';
+
+    public const PATH_PRODUCT_DELIVERY_RISK_GOVERNOR_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryRiskGovernorService.php';
+
+    public const PATH_PRODUCT_DELIVERY_RISK_GOVERNOR_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductDeliveryRiskGovernorCommand.php';
+
+    public const PATH_PRODUCT_DELIVERY_CONTROL_PLANE_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryControlPlaneService.php';
+
+    public const PATH_PRODUCT_DELIVERY_CONTROL_PLANE_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductDeliveryControlPlaneCommand.php';
+
+    public const PATH_PRODUCT_RELEASE_GATE_SERVICE = 'app/Services/Ai/Product/AtlasProductReleaseGateService.php';
+
+    public const PATH_PRODUCT_RELEASE_GATE_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductReleaseGateCommand.php';
+
+    public const PATH_PRODUCT_PROVIDER_MEMORY_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryProviderMemoryFeedService.php';
+
+    public const PATH_PRODUCT_PROVIDER_MEMORY_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductDeliveryProviderMemoryCommand.php';
+
+    public const PATH_PRODUCT_POLICY_OPTIMIZER_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryPolicyOptimizerService.php';
+
+    public const PATH_PRODUCT_POLICY_OPTIMIZER_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductDeliveryPolicyOptimizerCommand.php';
+
+    public const PATH_PRODUCT_DELIVERY_MULTI_STEP_REPAIR_PLANNER_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryMultiStepRepairPlannerService.php';
+
+    public const PATH_PRODUCT_DELIVERY_REPAIR_PLAN_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductDeliveryRepairPlanCommand.php';
+
+    public const PATH_PRODUCT_DELIVERY_EVIDENCE_REPLAY_LAB_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryEvidenceReplayLabService.php';
+
+    public const PATH_PRODUCT_DELIVERY_REPLAY_LAB_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductDeliveryReplayLabCommand.php';
+
+    public const PATH_PRODUCT_DELIVERY_DOCTRINE_FITNESS_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryDoctrineFitnessService.php';
+
+    public const PATH_PRODUCT_DELIVERY_DOCTRINE_FITNESS_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductDeliveryDoctrineFitnessCommand.php';
+
+    public const PATH_PRODUCT_DELIVERY_REPAIR_BRIDGE_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryRepairBridgeService.php';
+
+    public const PATH_PRODUCT_DELIVERY_MUTATIVE_REPAIR_EXECUTOR_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryMutativeRepairExecutorService.php';
+
+    public const PATH_PRODUCT_DELIVERY_PATCH_REQUEST_CONTRACT_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryPatchRequestContractService.php';
+
+    public const PATH_PRODUCT_DELIVERY_PATCH_REQUEST_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductDeliveryPatchRequestCommand.php';
+
+    public const PATH_PRODUCT_DELIVERY_PATCH_PROPOSAL_GATE_SERVICE = 'app/Services/Ai/Product/AtlasProductDeliveryPatchProposalGateService.php';
+
+    public const PATH_PRODUCT_DELIVERY_REPAIR_EXECUTE_COMMAND = 'app/Console/Commands/Ai/Product/AtlasProductDeliveryRepairExecuteCommand.php';
+
+    public const PATH_PRODUCT_DELIVERY_OUTCOME_MEMORY_MODEL = 'app/Models/AtlasProductDeliveryOutcomeMemory.php';
+
+    public const PATH_PRODUCT_DELIVERY_RUNTIME_RECEIPT_MODEL = 'app/Models/AtlasProductDeliveryRuntimeReceipt.php';
+
+    public const PATH_PRODUCT_DELIVERY_OUTCOME_MEMORY_MIGRATION = 'database/migrations/2026_05_22_171000_create_atlas_product_delivery_outcome_memories.php';
+
+    public const PATH_PRODUCT_DELIVERY_RUNTIME_RECEIPT_MIGRATION = 'database/migrations/2026_05_22_172000_create_atlas_product_delivery_runtime_receipts.php';
+
+    public const PATH_AEDPDS_DOC = 'docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md';
+
+    public const PATH_APFPR_DOC = 'docs/engineering-knowledge-base/atlas-product-falsification-proof-runtime.md';
+
+    public const PATH_AEDPDS_TEST = 'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php';
+
     /**
      * @return array<string,mixed>
      */
@@ -182,6 +256,7 @@ class AtlasAiProductCertificationService
             $this->codeIntelligenceAutomaticGateCheck(),     // critical
             $this->verifiedContextExecutionLoopCheck(),      // critical
             $this->assistedExecutionQualityCheck(),          // critical
+            $this->executionDoctrineProductDeliverySystemCheck(), // critical
         ];
 
         $criticalFailed = array_values(array_filter(
@@ -232,6 +307,7 @@ class AtlasAiProductCertificationService
                 'covers_code_intelligence_automatic_gate' => true,
                 'covers_verified_context_execution_loop' => true,
                 'covers_assisted_execution_quality' => true,
+                'covers_execution_doctrine_product_delivery_system' => true,
             ],
             'writes' => false,
         ];
@@ -993,6 +1069,275 @@ class AtlasAiProductCertificationService
         ]);
     }
 
+    private function executionDoctrineProductDeliverySystemCheck(): array
+    {
+        $truthSource = $this->source($this->repoPath(self::PATH_PRODUCT_TRUTH_COMPILER_SERVICE));
+        $deliverySource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_RUNTIME_SERVICE));
+        $proofSource = $this->source($this->repoPath(self::PATH_PRODUCT_FALSIFICATION_SERVICE));
+        $enforcementSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_ENFORCEMENT_SERVICE));
+        $outcomeSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_OUTCOME_MEMORY_SERVICE));
+        $runtimeReceiptSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_RUNTIME_RECEIPT_SERVICE));
+        $productTwinSource = $this->source($this->repoPath(self::PATH_PRODUCT_TWIN_SIMULATION_SERVICE));
+        $productTwinCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_TWIN_SIMULATE_COMMAND));
+        $riskGovernorSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_RISK_GOVERNOR_SERVICE));
+        $riskGovernorCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_RISK_GOVERNOR_COMMAND));
+        $productControlPlaneSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_CONTROL_PLANE_SERVICE));
+        $productControlPlaneCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_CONTROL_PLANE_COMMAND));
+        $releaseGateSource = $this->source($this->repoPath(self::PATH_PRODUCT_RELEASE_GATE_SERVICE));
+        $releaseGateCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_RELEASE_GATE_COMMAND));
+        $providerMemorySource = $this->source($this->repoPath(self::PATH_PRODUCT_PROVIDER_MEMORY_SERVICE));
+        $providerMemoryCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_PROVIDER_MEMORY_COMMAND));
+        $policyOptimizerSource = $this->source($this->repoPath(self::PATH_PRODUCT_POLICY_OPTIMIZER_SERVICE));
+        $policyOptimizerCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_POLICY_OPTIMIZER_COMMAND));
+        $repairPlannerSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_MULTI_STEP_REPAIR_PLANNER_SERVICE));
+        $repairPlanCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_REPAIR_PLAN_COMMAND));
+        $evidenceReplayLabSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_EVIDENCE_REPLAY_LAB_SERVICE));
+        $replayLabCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_REPLAY_LAB_COMMAND));
+        $doctrineFitnessSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_DOCTRINE_FITNESS_SERVICE));
+        $doctrineFitnessCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_DOCTRINE_FITNESS_COMMAND));
+        $repairBridgeSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_REPAIR_BRIDGE_SERVICE));
+        $mutativeRepairSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_MUTATIVE_REPAIR_EXECUTOR_SERVICE));
+        $patchRequestSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_PATCH_REQUEST_CONTRACT_SERVICE));
+        $patchRequestCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_PATCH_REQUEST_COMMAND));
+        $patchGateSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_PATCH_PROPOSAL_GATE_SERVICE));
+        $mutativeRepairCommandSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_REPAIR_EXECUTE_COMMAND));
+        $outcomeModelSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_OUTCOME_MEMORY_MODEL));
+        $runtimeReceiptModelSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_RUNTIME_RECEIPT_MODEL));
+        $outcomeMigrationSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_OUTCOME_MEMORY_MIGRATION));
+        $runtimeReceiptMigrationSource = $this->source($this->repoPath(self::PATH_PRODUCT_DELIVERY_RUNTIME_RECEIPT_MIGRATION));
+        $controllerSource = $this->source($this->repoPath(self::PATH_AI_INTERACTION_CONTROLLER));
+        $aedpdsDocSource = $this->source($this->repoPath(self::PATH_AEDPDS_DOC));
+        $apfprDocSource = $this->source($this->repoPath(self::PATH_APFPR_DOC));
+        $testSource = $this->source($this->repoPath(self::PATH_AEDPDS_TEST));
+        $interactionTestSource = $this->source($this->repoPath('tests/Feature/Ai/AtlasDevRuntimeInteractionApiTest.php'));
+
+        $truthCompilerPresent = str_contains($truthSource, 'atlas.product_truth_contract.v1')
+            && str_contains($truthSource, 'execution_lenses')
+            && str_contains($truthSource, 'blocked_if_missing')
+            && str_contains($truthSource, 'truth_hash');
+        $deliveryRuntimePresent = str_contains($deliverySource, 'atlas.autonomous_product_delivery_runtime.v1')
+            && str_contains($deliverySource, 'AtlasProductTruthCompilerService')
+            && str_contains($deliverySource, 'AtlasAiAssistedExecutionQualityService')
+            && str_contains($deliverySource, 'proof_preview')
+            && str_contains($deliverySource, 'repair_bridge')
+            && str_contains($deliverySource, 'ready_for_delivery');
+        $proofRuntimePresent = str_contains($proofSource, 'atlas.product_proof_challenge.v1')
+            && str_contains($proofSource, 'missing_test_evidence')
+            && str_contains($proofSource, 'missing_security_evidence')
+            && str_contains($proofSource, 'acceptanceBlockers')
+            && str_contains($proofSource, 'proof_hash');
+        $enforcementPresent = str_contains($enforcementSource, 'atlas.product_delivery.enforcement.v1')
+            && str_contains($enforcementSource, 'post_execution')
+            && str_contains($enforcementSource, 'apfpr_not_ready_for_high_risk_delivery');
+        $outcomeMemoryPresent = str_contains($outcomeSource, 'atlas.product_delivery.outcome_memory.v1')
+            && str_contains($outcomeSource, 'AtlasProductDeliveryOutcomeMemory')
+            && str_contains($outcomeSource, 'should_promote_to_aemor')
+            && str_contains($outcomeModelSource, 'atlas_product_delivery_outcome_memories')
+            && str_contains($outcomeMigrationSource, 'outcome_memory_hash');
+        $runtimeReceiptsPresent = str_contains($runtimeReceiptSource, 'atlas.product_delivery.runtime_receipt.v1')
+            && str_contains($runtimeReceiptSource, 'repair_execution')
+            && str_contains($runtimeReceiptModelSource, 'append-only')
+            && str_contains($runtimeReceiptMigrationSource, 'atlas_product_delivery_runtime_receipts')
+            && str_contains($runtimeReceiptMigrationSource, 'receipt_hash');
+        $productTwinPresent = str_contains($productTwinSource, 'atlas.product_twin_simulation.v1')
+            && str_contains($productTwinSource, 'predicted_impact')
+            && str_contains($productTwinSource, 'risk_forecast')
+            && str_contains($productTwinSource, 'simulation_hash')
+            && str_contains($productTwinCommandSource, 'atlas:product-twin:simulate')
+            && str_contains($deliverySource, 'product_twin_simulation')
+            && str_contains($deliverySource, 'product_twin_simulation_required');
+        $riskGovernorPresent = str_contains($riskGovernorSource, 'atlas.product_delivery.risk_governor.v1')
+            && str_contains($riskGovernorSource, 'autonomy_budget')
+            && str_contains($riskGovernorSource, 'runtime_signals')
+            && str_contains($riskGovernorSource, 'governor_decision')
+            && str_contains($riskGovernorSource, 'risk_governor_hash')
+            && str_contains($riskGovernorCommandSource, 'atlas:product-delivery:risk-govern')
+            && str_contains($deliverySource, 'risk_governor')
+            && str_contains($deliverySource, 'risk_governor_required');
+        $productControlPlanePresent = str_contains($productControlPlaneSource, 'atlas.product_delivery.control_plane.v1')
+            && str_contains($productControlPlaneSource, 'risk_governor')
+            && str_contains($productControlPlaneSource, 'doctrine_fitness')
+            && str_contains($productControlPlaneSource, 'control_plane_hash')
+            && str_contains($productControlPlaneCommandSource, 'atlas:product-delivery:control-plane');
+        $releaseGatePresent = str_contains($releaseGateSource, 'atlas.product_delivery.release_gate.v1')
+            && str_contains($releaseGateSource, 'release_candidate_allowed')
+            && str_contains($releaseGateSource, 'required_green_signals')
+            && str_contains($releaseGateSource, 'release_gate_hash')
+            && str_contains($releaseGateCommandSource, 'atlas:product-delivery:release-gate');
+        $providerMemoryPresent = str_contains($providerMemorySource, 'atlas.product_delivery.provider_cost_flake_memory.v1')
+            && str_contains($providerMemorySource, 'provider_failure_count')
+            && str_contains($providerMemorySource, 'cost_pressure')
+            && str_contains($providerMemorySource, 'provider_memory_hash')
+            && str_contains($providerMemoryCommandSource, 'atlas:product-delivery:provider-memory')
+            && str_contains($riskGovernorSource, 'provider_memory_feed')
+            && str_contains($productControlPlaneSource, 'provider_memory');
+        $policyOptimizerPresent = str_contains($policyOptimizerSource, 'atlas.product_delivery.policy_optimizer.v1')
+            && str_contains($policyOptimizerSource, 'requires_aemor_judgment')
+            && str_contains($policyOptimizerSource, 'requires_human_review')
+            && str_contains($policyOptimizerSource, 'policy_optimizer_hash')
+            && str_contains($policyOptimizerCommandSource, 'atlas:product-delivery:policy-optimizer');
+        $multiStepRepairPlannerPresent = str_contains($repairPlannerSource, 'atlas.product_delivery.multi_step_repair_plan.v1')
+            && str_contains($repairPlannerSource, 'rollback_policy')
+            && str_contains($repairPlannerSource, 'stop_conditions')
+            && str_contains($repairPlannerSource, 'repair_plan_hash')
+            && str_contains($repairPlanCommandSource, 'atlas:product-delivery:repair-plan')
+            && str_contains($deliverySource, 'multi_step_repair_plan');
+        $evidenceReplayLabPresent = str_contains($evidenceReplayLabSource, 'atlas.product_delivery.evidence_replay_lab.v1')
+            && str_contains($evidenceReplayLabSource, 'scenario_replay_failed')
+            && str_contains($evidenceReplayLabSource, 'unsafe_write_receipts_detected')
+            && str_contains($evidenceReplayLabSource, 'replay_hash')
+            && str_contains($replayLabCommandSource, 'atlas:product-delivery:replay-lab');
+        $doctrineFitnessPresent = str_contains($doctrineFitnessSource, 'atlas.product_delivery.doctrine_fitness.v1')
+            && str_contains($doctrineFitnessSource, 'route_fitness')
+            && str_contains($doctrineFitnessSource, 'false_learning_guard')
+            && str_contains($doctrineFitnessSource, 'fitness_hash')
+            && str_contains($doctrineFitnessCommandSource, 'atlas:product-delivery:doctrine-fitness');
+        $aemorBridgePresent = str_contains($outcomeSource, 'atlas.product_delivery.aemor_bridge.v1')
+            && str_contains($outcomeSource, 'bridgeToAemor')
+            && str_contains($outcomeSource, 'AtlasAemorJudgmentService');
+        $repairBridgePresent = str_contains($repairBridgeSource, 'atlas.product_delivery.repair_bridge.v1')
+            && str_contains($repairBridgeSource, 'DevRepairLoopService')
+            && str_contains($repairBridgeSource, 'atlas.forge.apfpr_repair_packet.v1');
+        $mutativeRepairExecutorPresent = str_contains($mutativeRepairSource, 'atlas.product_delivery.mutative_repair_executor.v1')
+            && str_contains($mutativeRepairSource, 'rollback_snapshot')
+            && str_contains($mutativeRepairSource, 'proof_after_repair')
+            && str_contains($mutativeRepairCommandSource, 'atlas:product-delivery:repair-execute');
+        $patchRequestContractPresent = str_contains($patchRequestSource, 'atlas.product_delivery.patch_request_contract.v1')
+            && str_contains($patchRequestSource, 'atlas.product_delivery.patch_manifest.v1')
+            && str_contains($patchRequestSource, 'patch_prompt_projection.v1')
+            && str_contains($patchRequestCommandSource, 'atlas:product-delivery:patch-request');
+        $patchProposalGatePresent = str_contains($patchGateSource, 'atlas.product_delivery.patch_proposal_gate.v1')
+            && str_contains($patchGateSource, 'patch_operator_decision.v1')
+            && str_contains($patchGateSource, 'auto_apply_provider_patch')
+            && str_contains($mutativeRepairCommandSource, 'AtlasProductDeliveryPatchProposalGateService')
+            && str_contains($mutativeRepairCommandSource, '--approval=');
+        $controllerWired = str_contains($controllerSource, 'AtlasAutonomousProductDeliveryRuntimeService')
+            && str_contains($controllerSource, 'applyProductDeliveryRuntime')
+            && str_contains($controllerSource, 'atlas_product_delivery_runtime')
+            && $this->callOrderInSource($controllerSource, 'applyProductDeliveryRuntime', 'applyAssistedExecutionQuality');
+        $docsPresent = str_contains($aedpdsDocSource, 'APTC compila a verdade do produto')
+            && str_contains($aedpdsDocSource, 'APDR e o motor que executa a regra')
+            && str_contains($aedpdsDocSource, 'APFPR tenta provar que a entrega esta errada')
+            && str_contains($apfprDocSource, 'Atlas Product Falsification & Proof Runtime')
+            && str_contains($apfprDocSource, 'Proof Challenge Report');
+        $testsCover = str_contains($testSource, 'test_ecommerce_request_compiles_product_truth_with_enterprise_lenses')
+            && str_contains($testSource, 'test_apdr_plans_delivery_with_truth_assisted_execution_and_proof_preview')
+            && str_contains($testSource, 'test_apfpr_blocks_complex_delivery_without_evidence')
+            && str_contains($testSource, 'test_apfpr_accepts_delivery_with_sufficient_evidence')
+            && str_contains($testSource, 'test_post_execution_enforcement_blocks_high_risk_without_ready_proof_and_outcome_memory')
+            && str_contains($testSource, 'test_product_delivery_outcome_memory_persists_idempotently')
+            && str_contains($testSource, 'test_product_delivery_outcome_memory_bridges_to_aemor_learning_candidate')
+            && str_contains($testSource, 'test_product_twin_simulates_contract_test_and_risk_before_execution')
+            && str_contains($testSource, 'test_product_twin_command_outputs_simulation_json')
+            && str_contains($testSource, 'test_product_delivery_risk_governor_blocks_high_risk_without_operator_approval')
+            && str_contains($testSource, 'test_product_delivery_risk_governor_blocks_unsafe_runtime_receipt_history')
+            && str_contains($testSource, 'test_product_delivery_risk_governor_reduces_autonomy_from_doctrine_fitness_pressure')
+            && str_contains($testSource, 'test_product_delivery_risk_governor_command_outputs_json')
+            && str_contains($testSource, 'test_product_delivery_control_plane_aggregates_delivery_risk_replay_fitness_and_certification')
+            && str_contains($testSource, 'test_product_delivery_control_plane_blocks_when_replay_or_receipts_are_unsafe')
+            && str_contains($testSource, 'test_product_delivery_control_plane_command_outputs_json')
+            && str_contains($testSource, 'test_product_release_gate_allows_candidate_only_when_control_plane_is_green')
+            && str_contains($testSource, 'test_product_release_gate_blocks_unsafe_replay_and_receipts')
+            && str_contains($testSource, 'test_product_release_gate_command_outputs_json')
+            && str_contains($testSource, 'test_provider_cost_flake_memory_feed_aggregates_receipts_and_outcomes')
+            && str_contains($testSource, 'test_risk_governor_consumes_provider_memory_feed')
+            && str_contains($testSource, 'test_product_delivery_provider_memory_command_outputs_json')
+            && str_contains($testSource, 'test_product_policy_optimizer_proposes_guarded_changes_from_replay_fitness_and_provider_memory')
+            && str_contains($testSource, 'test_product_delivery_policy_optimizer_command_outputs_json')
+            && str_contains($testSource, 'test_multi_step_repair_planner_orders_evidence_patch_and_proof_steps')
+            && str_contains($testSource, 'test_product_delivery_repair_plan_command_outputs_multistep_plan')
+            && str_contains($testSource, 'test_evidence_replay_lab_replays_canonical_scenarios_without_writes')
+            && str_contains($testSource, 'test_product_delivery_replay_lab_command_outputs_replay_json')
+            && str_contains($testSource, 'test_doctrine_fitness_loop_scores_routes_evidence_and_repairs_from_outcomes')
+            && str_contains($testSource, 'test_product_delivery_doctrine_fitness_command_outputs_json')
+            && str_contains($testSource, 'test_product_delivery_runtime_receipts_persist_patch_request_append_only')
+            && str_contains($testSource, 'test_repair_execute_command_can_persist_gate_and_execution_receipts')
+            && str_contains($testSource, 'atlas.programming.dev_repair_receipt.v1')
+            && str_contains($testSource, 'atlas.forge.apfpr_repair_packet.v1')
+            && str_contains($testSource, 'test_mutative_repair_executor_applies_explicit_patch_and_reruns_proof')
+            && str_contains($testSource, 'test_product_delivery_repair_execute_command_runs_dry_run_from_patch_manifest')
+            && str_contains($testSource, 'test_patch_request_contract_projects_provider_safe_patch_schema')
+            && str_contains($testSource, 'test_product_delivery_patch_request_command_outputs_contract')
+            && str_contains($testSource, 'test_patch_proposal_gate_blocks_provider_apply_without_human_approval')
+            && str_contains($testSource, 'test_repair_execute_command_applies_provider_patch_with_operator_approval')
+            && str_contains($testSource, 'atlas:product-truth:compile')
+            && str_contains($testSource, 'atlas:product-delivery:plan')
+            && str_contains($testSource, 'atlas:product-twin:simulate')
+            && str_contains($testSource, 'atlas:product-delivery:risk-govern')
+            && str_contains($testSource, 'atlas:product-delivery:control-plane')
+            && str_contains($testSource, 'atlas:product-delivery:release-gate')
+            && str_contains($testSource, 'atlas:product-delivery:provider-memory')
+            && str_contains($testSource, 'atlas:product-delivery:policy-optimizer')
+            && str_contains($testSource, 'atlas:product-delivery:repair-plan')
+            && str_contains($testSource, 'atlas:product-delivery:replay-lab')
+            && str_contains($testSource, 'atlas:product-delivery:doctrine-fitness')
+            && str_contains($testSource, 'atlas:product-proof:challenge')
+            && str_contains($testSource, 'atlas:product-delivery:outcome')
+            && str_contains($interactionTestSource, 'test_product_request_without_programming_mode_still_gets_delivery_runtime');
+
+        $passed = $truthCompilerPresent && $deliveryRuntimePresent && $proofRuntimePresent
+            && $enforcementPresent && $outcomeMemoryPresent && $runtimeReceiptsPresent && $productTwinPresent && $riskGovernorPresent && $productControlPlanePresent && $releaseGatePresent && $providerMemoryPresent && $policyOptimizerPresent && $multiStepRepairPlannerPresent && $evidenceReplayLabPresent && $doctrineFitnessPresent && $aemorBridgePresent && $repairBridgePresent
+            && $mutativeRepairExecutorPresent && $patchRequestContractPresent && $patchProposalGatePresent
+            && $controllerWired && $docsPresent && $testsCover;
+
+        return $this->check('execution_doctrine_product_delivery_system', $passed, 'critical', [
+            'product_truth_compiler_present' => $truthCompilerPresent,
+            'delivery_runtime_present' => $deliveryRuntimePresent,
+            'falsification_proof_runtime_present' => $proofRuntimePresent,
+            'product_delivery_enforcement_present' => $enforcementPresent,
+            'product_delivery_outcome_memory_present' => $outcomeMemoryPresent,
+            'product_delivery_runtime_receipts_present' => $runtimeReceiptsPresent,
+            'product_twin_simulation_present' => $productTwinPresent,
+            'product_delivery_risk_governor_present' => $riskGovernorPresent,
+            'product_delivery_control_plane_present' => $productControlPlanePresent,
+            'product_release_gate_present' => $releaseGatePresent,
+            'provider_cost_flake_memory_feed_present' => $providerMemoryPresent,
+            'product_policy_optimizer_present' => $policyOptimizerPresent,
+            'product_delivery_multi_step_repair_planner_present' => $multiStepRepairPlannerPresent,
+            'product_delivery_evidence_replay_lab_present' => $evidenceReplayLabPresent,
+            'product_delivery_doctrine_fitness_loop_present' => $doctrineFitnessPresent,
+            'product_delivery_aemor_bridge_present' => $aemorBridgePresent,
+            'product_delivery_repair_bridge_present' => $repairBridgePresent,
+            'product_delivery_mutative_repair_executor_present' => $mutativeRepairExecutorPresent,
+            'product_delivery_patch_request_contract_present' => $patchRequestContractPresent,
+            'product_delivery_patch_proposal_gate_present' => $patchProposalGatePresent,
+            'ai_interactions_wires_delivery_runtime_before_assisted_execution' => $controllerWired,
+            'canonical_docs_present' => $docsPresent,
+            'tests_cover_core_paths' => $testsCover,
+            'truth_service_path' => self::PATH_PRODUCT_TRUTH_COMPILER_SERVICE,
+            'delivery_service_path' => self::PATH_PRODUCT_DELIVERY_RUNTIME_SERVICE,
+            'proof_service_path' => self::PATH_PRODUCT_FALSIFICATION_SERVICE,
+            'enforcement_service_path' => self::PATH_PRODUCT_DELIVERY_ENFORCEMENT_SERVICE,
+            'outcome_memory_service_path' => self::PATH_PRODUCT_DELIVERY_OUTCOME_MEMORY_SERVICE,
+            'runtime_receipt_service_path' => self::PATH_PRODUCT_DELIVERY_RUNTIME_RECEIPT_SERVICE,
+            'product_twin_service_path' => self::PATH_PRODUCT_TWIN_SIMULATION_SERVICE,
+            'product_twin_command_path' => self::PATH_PRODUCT_TWIN_SIMULATE_COMMAND,
+            'risk_governor_service_path' => self::PATH_PRODUCT_DELIVERY_RISK_GOVERNOR_SERVICE,
+            'risk_governor_command_path' => self::PATH_PRODUCT_DELIVERY_RISK_GOVERNOR_COMMAND,
+            'product_control_plane_service_path' => self::PATH_PRODUCT_DELIVERY_CONTROL_PLANE_SERVICE,
+            'product_control_plane_command_path' => self::PATH_PRODUCT_DELIVERY_CONTROL_PLANE_COMMAND,
+            'product_release_gate_service_path' => self::PATH_PRODUCT_RELEASE_GATE_SERVICE,
+            'product_release_gate_command_path' => self::PATH_PRODUCT_RELEASE_GATE_COMMAND,
+            'provider_memory_service_path' => self::PATH_PRODUCT_PROVIDER_MEMORY_SERVICE,
+            'provider_memory_command_path' => self::PATH_PRODUCT_PROVIDER_MEMORY_COMMAND,
+            'product_policy_optimizer_service_path' => self::PATH_PRODUCT_POLICY_OPTIMIZER_SERVICE,
+            'product_policy_optimizer_command_path' => self::PATH_PRODUCT_POLICY_OPTIMIZER_COMMAND,
+            'multi_step_repair_planner_service_path' => self::PATH_PRODUCT_DELIVERY_MULTI_STEP_REPAIR_PLANNER_SERVICE,
+            'repair_plan_command_path' => self::PATH_PRODUCT_DELIVERY_REPAIR_PLAN_COMMAND,
+            'evidence_replay_lab_service_path' => self::PATH_PRODUCT_DELIVERY_EVIDENCE_REPLAY_LAB_SERVICE,
+            'replay_lab_command_path' => self::PATH_PRODUCT_DELIVERY_REPLAY_LAB_COMMAND,
+            'doctrine_fitness_service_path' => self::PATH_PRODUCT_DELIVERY_DOCTRINE_FITNESS_SERVICE,
+            'doctrine_fitness_command_path' => self::PATH_PRODUCT_DELIVERY_DOCTRINE_FITNESS_COMMAND,
+            'repair_bridge_service_path' => self::PATH_PRODUCT_DELIVERY_REPAIR_BRIDGE_SERVICE,
+            'mutative_repair_executor_service_path' => self::PATH_PRODUCT_DELIVERY_MUTATIVE_REPAIR_EXECUTOR_SERVICE,
+            'patch_request_contract_service_path' => self::PATH_PRODUCT_DELIVERY_PATCH_REQUEST_CONTRACT_SERVICE,
+            'patch_proposal_gate_service_path' => self::PATH_PRODUCT_DELIVERY_PATCH_PROPOSAL_GATE_SERVICE,
+            'controller_path' => self::PATH_AI_INTERACTION_CONTROLLER,
+            'test_path' => self::PATH_AEDPDS_TEST,
+            'doc_path' => self::PATH_AEDPDS_DOC,
+        ]);
+    }
+
     /* ---------------------------------------------------------------- */
     /* Evidence refs · canonical artifacts backing the cert */
     /* ---------------------------------------------------------------- */
@@ -1052,6 +1397,43 @@ class AtlasAiProductCertificationService
             'server:'.self::PATH_ASSISTED_EXECUTION_SERVICE,
             'test:'.self::PATH_ASSISTED_EXECUTION_TEST,
             'server:'.self::PATH_ASSISTED_EXECUTION_DOC,
+            'server:'.self::PATH_PRODUCT_TRUTH_COMPILER_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_RUNTIME_SERVICE,
+            'server:'.self::PATH_PRODUCT_FALSIFICATION_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_ENFORCEMENT_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_OUTCOME_MEMORY_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_RUNTIME_RECEIPT_SERVICE,
+            'server:'.self::PATH_PRODUCT_TWIN_SIMULATION_SERVICE,
+            'server:'.self::PATH_PRODUCT_TWIN_SIMULATE_COMMAND,
+            'server:'.self::PATH_PRODUCT_DELIVERY_RISK_GOVERNOR_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_RISK_GOVERNOR_COMMAND,
+            'server:'.self::PATH_PRODUCT_DELIVERY_CONTROL_PLANE_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_CONTROL_PLANE_COMMAND,
+            'server:'.self::PATH_PRODUCT_RELEASE_GATE_SERVICE,
+            'server:'.self::PATH_PRODUCT_RELEASE_GATE_COMMAND,
+            'server:'.self::PATH_PRODUCT_PROVIDER_MEMORY_SERVICE,
+            'server:'.self::PATH_PRODUCT_PROVIDER_MEMORY_COMMAND,
+            'server:'.self::PATH_PRODUCT_POLICY_OPTIMIZER_SERVICE,
+            'server:'.self::PATH_PRODUCT_POLICY_OPTIMIZER_COMMAND,
+            'server:'.self::PATH_PRODUCT_DELIVERY_MULTI_STEP_REPAIR_PLANNER_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_REPAIR_PLAN_COMMAND,
+            'server:'.self::PATH_PRODUCT_DELIVERY_EVIDENCE_REPLAY_LAB_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_REPLAY_LAB_COMMAND,
+            'server:'.self::PATH_PRODUCT_DELIVERY_DOCTRINE_FITNESS_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_DOCTRINE_FITNESS_COMMAND,
+            'server:'.self::PATH_PRODUCT_DELIVERY_REPAIR_BRIDGE_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_MUTATIVE_REPAIR_EXECUTOR_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_PATCH_REQUEST_CONTRACT_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_PATCH_REQUEST_COMMAND,
+            'server:'.self::PATH_PRODUCT_DELIVERY_PATCH_PROPOSAL_GATE_SERVICE,
+            'server:'.self::PATH_PRODUCT_DELIVERY_REPAIR_EXECUTE_COMMAND,
+            'server:'.self::PATH_PRODUCT_DELIVERY_OUTCOME_MEMORY_MODEL,
+            'server:'.self::PATH_PRODUCT_DELIVERY_RUNTIME_RECEIPT_MODEL,
+            'server:'.self::PATH_PRODUCT_DELIVERY_OUTCOME_MEMORY_MIGRATION,
+            'server:'.self::PATH_PRODUCT_DELIVERY_RUNTIME_RECEIPT_MIGRATION,
+            'test:'.self::PATH_AEDPDS_TEST,
+            'server:'.self::PATH_AEDPDS_DOC,
+            'server:'.self::PATH_APFPR_DOC,
         ];
 
         return array_values(array_unique($refs));
@@ -1100,7 +1482,11 @@ class AtlasAiProductCertificationService
 
     private function repoPath(string $relative): string
     {
-        if (str_starts_with($relative, 'app/') || str_starts_with($relative, 'tests/') || str_starts_with($relative, 'docs/')) {
+        if (str_starts_with($relative, 'app/')
+            || str_starts_with($relative, 'database/')
+            || str_starts_with($relative, 'tests/')
+            || str_starts_with($relative, 'docs/')
+        ) {
             return rtrim(base_path(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.ltrim($relative, '/');
         }
 

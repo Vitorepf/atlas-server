@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
@@ -39,6 +40,7 @@ class AtlasForgeLiveExecutionService
         private readonly ProgrammingStageReceiptStore $stageReceiptStore,
         private readonly AtlasEvidenceLedger $evidenceLedger,
         private readonly AtlasAucriRuntimeEnforcementService $aucriEnforcement,
+        private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
     ) {}
 
     /**
@@ -48,6 +50,7 @@ class AtlasForgeLiveExecutionService
     public function execute(array $options = []): array
     {
         $obraId = $this->normalizeObraId($options['obra_id'] ?? null);
+        $workspace = $this->stringOrNull($options['workspace'] ?? null);
         $simulateTestFailure = (bool) ($options['simulate_test_failure'] ?? false);
         $planId = (string) Str::ulid();
         $envelopeId = (string) Str::ulid();
@@ -72,6 +75,14 @@ class AtlasForgeLiveExecutionService
 
         $obraStage = $this->stageObraBinding($obraId, $planId);
         $stages[] = $obraStage;
+
+        $workspaceStage = $this->stageWorkspaceExecutionGate($workspace, $obraId);
+        $stages[] = $workspaceStage;
+        if ($workspaceStage['status'] === 'blocked') {
+            $blockers[] = 'awis_execution_gate_blocked';
+
+            return $this->finalize($obraId, $planId, $envelopeId, $traceId, $stages, $blockers, $evidenceRefs, $ledgerEvents, []);
+        }
 
         $sandboxStage = $this->stageSandboxProvision();
         $stages[] = $sandboxStage;
@@ -168,6 +179,28 @@ class AtlasForgeLiveExecutionService
                 'obra_id' => $obraId,
                 'source' => 'atlas_code',
             ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function stageWorkspaceExecutionGate(?string $workspace, string $obraId): array
+    {
+        $gate = ($this->workspaceExecutionGate ?? app(AtlasWorkspaceIntelligenceExecutionGateService::class))
+            ->gate(
+                workspace: $workspace,
+                mode: 'forge',
+                task: 'Forge Live Execution obra='.$obraId,
+            );
+
+        return [
+            'name' => 'workspace_execution_gate',
+            'status' => ($gate['allowed'] ?? false) === true ? 'passed' : 'blocked',
+            'schema_version' => AtlasWorkspaceIntelligenceExecutionGateService::SCHEMA_VERSION,
+            'workspace_execution_gate' => $gate,
+            'workspace_id' => $gate['workspace_id'] ?? null,
+            'blocker' => ($gate['allowed'] ?? false) === true ? null : 'awis_execution_gate_blocked',
         ];
     }
 
@@ -766,6 +799,11 @@ class AtlasForgeLiveExecutionService
     }
 
     private function normalizeObraId(mixed $value): ?string
+    {
+        return $this->stringOrNull($value);
+    }
+
+    private function stringOrNull(mixed $value): ?string
     {
         if (! is_string($value)) {
             return null;

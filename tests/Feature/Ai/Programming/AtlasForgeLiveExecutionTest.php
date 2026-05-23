@@ -75,6 +75,24 @@ class AtlasForgeLiveExecutionTest extends TestCase
         $this->assertSame([], $report['remaining_blockers']);
     }
 
+    public function test_live_execution_blocks_before_sandbox_when_awis_workspace_is_invalid(): void
+    {
+        $report = app(AtlasForgeLiveExecutionService::class)->execute([
+            'obra_id' => self::OBRA,
+            'workspace' => 'workspace-nao-registrado',
+        ]);
+
+        $this->assertSame('blocked', $report['forge_live_execution_status']);
+        $this->assertContains('awis_execution_gate_blocked', $report['remaining_blockers']);
+
+        $stages = collect($report['stages'])->keyBy('name');
+        $this->assertSame('blocked', $stages['workspace_execution_gate']['status']);
+        $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($stages, 'workspace_execution_gate.schema_version'));
+        $this->assertFalse(data_get($stages, 'workspace_execution_gate.workspace_execution_gate.allowed'));
+        $this->assertFalse($stages->has('sandbox_provision'), 'Sandbox must NOT be provisioned when AWIS gate blocks.');
+        $this->assertFalse($stages->has('patch_apply'), 'Patch must NOT be applied when AWIS gate blocks.');
+    }
+
     public function test_live_execution_exposes_all_canonical_stages(): void
     {
         $report = app(AtlasForgeLiveExecutionService::class)->execute([
@@ -85,6 +103,7 @@ class AtlasForgeLiveExecutionTest extends TestCase
 
         $expected = [
             'obra_binding',
+            'workspace_execution_gate',
             'sandbox_provision',
             'context_pack',
             'aucri_runtime_enforcement',
@@ -106,6 +125,9 @@ class AtlasForgeLiveExecutionTest extends TestCase
                 "Stage [{$name}] returned blocked when only passed/degraded/skipped_not_needed expected: ".json_encode($stages[$name]),
             );
         }
+
+        $this->assertSame('atlas.workspace_intelligence.execution_gate.v1', data_get($stages, 'workspace_execution_gate.schema_version'));
+        $this->assertTrue(data_get($stages, 'workspace_execution_gate.workspace_execution_gate.allowed'));
     }
 
     public function test_live_execution_runs_aucri_enforcement_before_patch_execution(): void

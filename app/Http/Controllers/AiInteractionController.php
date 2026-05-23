@@ -14,6 +14,7 @@ use App\Services\Ai\Attachments\AiChunkedUploadService;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
 use App\Services\Ai\Cli\AtlasImageAttachmentService;
 use App\Services\Ai\Product\AtlasAiAssistedExecutionQualityService;
+use App\Services\Ai\Product\AtlasAutonomousProductDeliveryRuntimeService;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\Router\AtlasAiFlowStatusReadModel;
 use App\Services\Ai\Router\AtlasAiRouterService;
@@ -66,6 +67,7 @@ class AiInteractionController extends Controller
         AtlasAiSpecialistFlowExecutionService $specialistFlowExecution,
         AtlasDevRuntimeService $devRuntime,
         AtlasAiAssistedExecutionQualityService $assistedExecutionQuality,
+        AtlasAutonomousProductDeliveryRuntimeService $productDeliveryRuntime,
     ): JsonResponse {
         $data = $request->validated();
         $uploadedImages = $this->uploadedImageFiles($request->file('images', []));
@@ -119,6 +121,7 @@ class AiInteractionController extends Controller
         // every interaction. Legacy router still runs after, for back-compat.
         $data = $hyperflowEntry->run($data);
         $data = $this->applyAtlasAiRouterDecision($data, $router);
+        $data = $this->applyProductDeliveryRuntime($data, $productDeliveryRuntime);
         $data = $this->applyAssistedExecutionQuality($data, $assistedExecutionQuality);
 
         try {
@@ -169,6 +172,90 @@ class AiInteractionController extends Controller
         $payload['rich_input_payload'] = array_replace_recursive($existing, $richInputPayload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function applyProductDeliveryRuntime(array $data, AtlasAutonomousProductDeliveryRuntimeService $runtime): array
+    {
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        if (! $this->shouldApplyProductDeliveryRuntime($data, $payload)) {
+            return $data;
+        }
+
+        $delivery = $runtime->plan([
+            'human_request' => $this->stringValue($data['input_text'] ?? null)
+                ?? $this->stringValue($payload['prompt'] ?? null),
+            'workspace' => $this->stringValue($payload['workspace'] ?? null)
+                ?? $this->stringValue(data_get($payload, 'tool_permissions.workspace')),
+            'surface_id' => $this->stringValue($payload['surface_id'] ?? null)
+                ?? $this->stringValue($payload['app_surface'] ?? null)
+                ?? 'atlas_ai',
+            'context_refs' => $this->arrayOfStrings($payload['context_refs'] ?? []),
+            'expected_files' => $this->arrayOfStrings($payload['expected_files'] ?? []),
+            'allowed_files' => $this->arrayOfStrings(data_get($payload, 'tool_permissions.allowed_files', [])),
+            'forbidden_files' => $this->arrayOfStrings(data_get($payload, 'tool_permissions.forbidden_files', [])),
+            'suggested_tests' => $this->arrayOfStrings($payload['suggested_tests'] ?? []),
+            'acceptance_criteria' => $this->arrayOfStrings($payload['acceptance_criteria'] ?? []),
+            'required_evidence' => $this->arrayOfStrings($payload['required_evidence'] ?? []),
+            'risk_band' => $this->stringValue($payload['risk_band'] ?? null),
+            'evidence' => is_array($payload['evidence'] ?? null) ? $payload['evidence'] : [],
+            'target' => $this->productDeliveryTarget($payload),
+        ]);
+
+        $payload['atlas_product_delivery_runtime'] = $delivery;
+        $data['payload'] = $payload;
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function productDeliveryTarget(array $payload): ?string
+    {
+        $surface = $this->stringValue($payload['surface_id'] ?? null)
+            ?? $this->stringValue($payload['app_surface'] ?? null);
+        $flowId = $this->stringValue($payload['flow_id'] ?? null);
+
+        if ($surface === 'atlas_code'
+            || $flowId === 'programming.forge'
+            || $this->stringValue($payload['obra_id'] ?? null) !== null
+        ) {
+            return 'atlas_forge';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $payload
+     */
+    private function shouldApplyProductDeliveryRuntime(array $data, array $payload): bool
+    {
+        $flowId = $this->stringValue($payload['flow_id'] ?? null);
+        $mode = $this->stringValue($payload['atlas_mode'] ?? null)
+            ?? $this->stringValue($payload['current_mode'] ?? null);
+        $routingTask = $this->stringValue($payload['routing_task'] ?? null);
+        $commandIntent = $this->stringValue($payload['command_intent'] ?? null);
+
+        if ($mode === 'programming'
+            || in_array($flowId, ['programming.dev', 'programming.review', 'programming.repair', 'programming.forge'], true)
+            || in_array($routingTask, ['dev', 'debug', 'review', 'repair', 'forge', 'plan'], true)
+            || in_array($commandIntent, ['dev', 'debug', 'review', 'repair', 'plan'], true)
+        ) {
+            return true;
+        }
+
+        $text = mb_strtolower((string) ($data['input_text'] ?? '').' '.(string) ($payload['prompt'] ?? ''));
+
+        $deliveryIntent = preg_match('/\b(cria|criar|crie|construir|desenvolver|implementar|lan[çc]ar|corrigir|consertar|debug|bug|erro|falha)\b/u', $text) === 1;
+        $productObject = preg_match('/\b(ecommerce|e-commerce|saas|app|aplicativo|sistema|software|empresa|produto|checkout|pagamento|payment|webhook|login|auth|api|dashboard|landing|site)\b/u', $text) === 1;
+
+        return $deliveryIntent && $productObject;
     }
 
     /**

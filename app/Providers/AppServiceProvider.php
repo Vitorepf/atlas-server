@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Vox\Audit\VoxV3HardeningAuditService;
 use App\Services\Ai\Vox\Confirmation\VoxConfirmationService;
@@ -16,6 +17,7 @@ use App\Services\Ai\Vox\Gate\VoxV3PromotionGateService;
 use App\Services\Ai\Vox\Metrics\VoxMetricsService;
 use App\Services\Ai\Vox\Readiness\VoxReadinessService;
 use App\Services\Ai\Vox\VoxActionOutcomeService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Cache;
@@ -52,6 +54,15 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(VoxMetricsService::class),
                 $app->make(VoxV3PromotionGateService::class),
                 $app->make(VoxV3HardeningAuditService::class),
+            );
+        });
+
+        // Atlas Dev runtime keeps a nullable constructor for isolated unit
+        // tests, but the production/container-resolved runtime must carry
+        // AWIS enforcement so mutative Dev execution is workspace-gated.
+        $this->app->singleton(AtlasDevRuntimeService::class, function ($app) {
+            return new AtlasDevRuntimeService(
+                $app->make(AtlasWorkspaceIntelligenceExecutionGateService::class),
             );
         });
 

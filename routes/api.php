@@ -117,6 +117,7 @@ use App\Http\Controllers\AtlasSddMcpResourceController;
 use App\Http\Controllers\AtlasTaskController;
 use App\Http\Controllers\AtlasToolRuntimeController;
 use App\Http\Controllers\AtlasVaultController;
+use App\Http\Controllers\AtlasWorkspaceIntelligenceController;
 use App\Http\Controllers\AuditEventController;
 use App\Http\Controllers\AuditSuggestionController;
 use App\Http\Controllers\BehaviorController;
@@ -670,7 +671,12 @@ Route::prefix('atlas-code')->group(function () {
     // PROJECT / WORKSPACE · multi-project read-model
     // canon: docs/engineering-knowledge-base/atlas-code-multi-project-workspace-os.md
     Route::get('/projects/workspaces', [AtlasCodeWorkspaceController::class, 'index']);
+    Route::post('/projects/workspaces', [AtlasCodeWorkspaceController::class, 'store']);
     Route::get('/projects/workspaces/{slug}', [AtlasCodeWorkspaceController::class, 'show']);
+    Route::patch('/projects/workspaces/{slug}', [AtlasCodeWorkspaceController::class, 'update']);
+    Route::get('/workspace-intelligence', [AtlasWorkspaceIntelligenceController::class, 'show']);
+    Route::get('/workspace-intelligence/artifacts', [AtlasWorkspaceIntelligenceController::class, 'artifacts']);
+    Route::get('/workspace-intelligence/gate', [AtlasWorkspaceIntelligenceController::class, 'gate']);
 
     // PROVIDER GOVERNANCE · subscription-only contract
     // canon: docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md

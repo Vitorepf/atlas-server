@@ -6,6 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use InvalidArgumentException;
 
 /**
  * Atlas Code · Project/Workspace endpoints.
@@ -14,15 +16,15 @@ use Illuminate\Http\JsonResponse;
  *
  *   GET /api/atlas-code/projects/workspaces           · list profiles
  *   GET /api/atlas-code/projects/workspaces/{slug}    · single profile
+ *   POST /api/atlas-code/projects/workspaces          · upsert persisted profile
+ *   PATCH /api/atlas-code/projects/workspaces/{slug}  · update persisted profile
  *
  * Profiles são read-model. UI usa o `slug` ativo para escopar listas de
  * Obras, labels (Atlas · Code / Blackink · Code) e safety gates.
  */
 final class AtlasCodeWorkspaceController extends Controller
 {
-    public function __construct(private readonly AtlasCodeWorkspaceProfileService $profiles)
-    {
-    }
+    public function __construct(private readonly AtlasCodeWorkspaceProfileService $profiles) {}
 
     public function index(): JsonResponse
     {
@@ -50,6 +52,62 @@ final class AtlasCodeWorkspaceController extends Controller
 
         return response()->json([
             'workspace' => $profile,
+        ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        return $this->upsert($request);
+    }
+
+    public function update(Request $request, string $slug): JsonResponse
+    {
+        return $this->upsert($request, $slug);
+    }
+
+    private function upsert(Request $request, ?string $slug = null): JsonResponse
+    {
+        $payload = $request->validate([
+            'slug' => ['sometimes', 'string', 'max:120'],
+            'name' => ['sometimes', 'string', 'max:200'],
+            'kind' => ['sometimes', 'string', 'max:80'],
+            'workspace_path' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'repo_root' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'production_status' => ['sometimes', 'string', 'max:80'],
+            'stack_summary' => ['sometimes', 'nullable', 'string'],
+            'commands' => ['sometimes', 'array'],
+            'test_commands' => ['sometimes', 'array'],
+            'build_commands' => ['sometimes', 'array'],
+            'dev_server_command' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'critical_areas' => ['sometimes', 'array'],
+            'docs_status' => ['sometimes', 'string', 'max:80'],
+            'default_risk' => ['sometimes', 'string', 'max:40'],
+            'deployment_notes' => ['sometimes', 'nullable', 'string'],
+            'surfaces_enabled' => ['sometimes', 'array'],
+            'source' => ['sometimes', 'string', 'max:80'],
+            'status' => ['sometimes', 'string', 'max:40'],
+        ]);
+
+        if ($slug !== null) {
+            $payload['slug'] = $slug;
+        }
+
+        try {
+            $profile = $this->profiles->upsertPersistedProfile($payload);
+        } catch (InvalidArgumentException $exception) {
+            return response()->json([
+                'error' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'schema_version' => AtlasCodeWorkspaceProfileService::SCHEMA_VERSION,
+            'workspace' => $profile,
+            'meta' => [
+                'persisted' => true,
+                'execution_allowed' => (bool) data_get($profile, 'safety.execution_allowed', false),
+                'execution_blocked_reason' => data_get($profile, 'safety.execution_blocked_reason'),
+            ],
         ]);
     }
 }

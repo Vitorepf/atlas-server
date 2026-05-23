@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringContextIntelligenceInput;
@@ -45,6 +47,8 @@ class AtlasEngineeringKnowledgeCommand extends Command
         EngineeringDocumentationHealthService $documentationHealth,
         EngineeringContextIntelligenceInput $input,
         AtlasCodeIntelligenceAutomaticGateService $codeGate,
+        AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate,
+        AtlasWorkspacePathResolverService $workspacePaths,
     ): int {
         $this->contextInput = $input;
 
@@ -56,7 +60,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             'show' => $this->renderShow($knowledge),
             'context' => $this->renderContext($knowledge),
             'docs-health' => $this->renderDocsHealth($documentationHealth),
-            'index-code' => $this->renderCodeIndex($code),
+            'index-code' => $this->renderCodeIndex($code, $workspaceGate, $workspacePaths),
             'code-gate' => $this->renderCodeGate($codeGate),
             'audit-code' => $this->renderCodeAudit($code),
             'code-readiness' => $this->renderCodeReadiness($code),
@@ -240,15 +244,70 @@ class AtlasEngineeringKnowledgeCommand extends Command
         return $payload['status'] === 'ok' ? self::SUCCESS : self::FAILURE;
     }
 
-    private function renderCodeIndex(EngineeringCodeIntelligenceService $code): int
-    {
+    private function renderCodeIndex(
+        EngineeringCodeIntelligenceService $code,
+        AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate,
+        AtlasWorkspacePathResolverService $workspacePaths,
+    ): int {
+        $workspaceResolution = $workspacePaths->resolveForExecution($this->stringOption('workspace'));
+        if (($workspaceResolution['status'] ?? null) !== 'ready') {
+            $payload = [
+                'schema_version' => 'atlas.engineering.code_index.awis_gate.v1',
+                'ok' => false,
+                'status' => 'blocked',
+                'error' => 'workspace_required_for_index_code',
+                'message' => 'index-code exige --workspace resolvivel para um Workspace AWIS registrado.',
+                'awis_execution_gate' => $workspaceGate->gate(
+                    workspace: '__missing_index_code_workspace__',
+                    mode: 'index-code',
+                    task: 'engineering knowledge index-code',
+                ),
+            ];
+
+            if ($this->json()) {
+                $this->line($this->encode($payload));
+
+                return self::FAILURE;
+            }
+
+            $this->error((string) $payload['message']);
+
+            return self::FAILURE;
+        }
+
+        $gate = $workspaceGate->gate(
+            workspace: (string) $workspaceResolution['workspace_slug'],
+            mode: 'index-code',
+            task: 'engineering knowledge index-code',
+        );
+        if (($gate['allowed'] ?? false) !== true) {
+            $payload = [
+                'schema_version' => 'atlas.engineering.code_index.awis_gate.v1',
+                'ok' => false,
+                'status' => 'blocked',
+                'error' => 'awis_execution_gate_blocked',
+                'awis_execution_gate' => $gate,
+            ];
+
+            if ($this->json()) {
+                $this->line($this->encode($payload));
+
+                return self::FAILURE;
+            }
+
+            $this->error('AWIS bloqueou index-code: workspace nao esta pronto para execucao mutativa.');
+
+            return self::FAILURE;
+        }
+
         $payload = $code->index([
-            'workspace' => $this->stringOption('workspace'),
+            'workspace' => (string) $workspaceResolution['workspace_path'],
             'dry_run' => (bool) $this->option('dry-run'),
             'prune' => (bool) $this->option('prune'),
             'run_context_type' => $this->stringOption('run-context-type'),
             'run_context_id' => $this->stringOption('run-context-id'),
         ]);
+        $payload['awis_execution_gate'] = $gate;
 
         if ($this->json()) {
             $this->line($this->encode($this->summaryOnly() ? $this->compactCodeIndexPayload($payload) : $payload));

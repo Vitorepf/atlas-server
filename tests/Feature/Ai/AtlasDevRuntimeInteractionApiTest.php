@@ -100,6 +100,14 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
         $this->assertSame(['plan', 'diff_or_reason', 'tests_or_reason', 'risks'], $slice['expected_artifacts']);
         $this->assertTrue($slice['provider_execution_allowed']);
 
+        $delivery = data_get($captured, 'payload.atlas_product_delivery_runtime');
+        $this->assertIsArray($delivery);
+        $this->assertSame('atlas.autonomous_product_delivery_runtime.v1', $delivery['schema_version']);
+        $this->assertSame('atlas_dev', $delivery['route']);
+        $this->assertSame('ready_for_delivery', $delivery['status']);
+        $this->assertSame('atlas.product_truth_contract.v1', data_get($delivery, 'product_truth.schema_version'));
+        $this->assertSame('atlas.product_proof_challenge.v1', data_get($delivery, 'proof_preview.schema_version'));
+
         $assisted = data_get($captured, 'payload.atlas_ai_assisted_execution_quality');
         $this->assertIsArray($assisted);
         $this->assertSame('atlas.ai.assisted_execution_quality.v1', $assisted['schema_version']);
@@ -221,7 +229,48 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
         $this->assertNull(data_get($captured, 'payload.atlas_dev_runtime'));
         $this->assertTrue((bool) data_get($captured, 'payload.requires_obra'));
         $this->assertSame('atlas_forge', data_get($captured, 'payload.atlas_ai_assisted_execution_quality.route.target'));
+        $this->assertSame('atlas_forge', data_get($captured, 'payload.atlas_product_delivery_runtime.route'));
+        $this->assertSame('forge_obra', data_get($captured, 'payload.atlas_product_delivery_runtime.delivery_plan.execution_unit'));
         $this->assertNull(data_get($captured, 'payload.atlas_ai_assisted_execution_quality.dev_runtime_preview'));
+    }
+
+    public function test_product_request_without_programming_mode_still_gets_delivery_runtime(): void
+    {
+        $clientId = (string) Str::uuid();
+        $captured = null;
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($clientId, &$captured): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->andReturnUsing(function (string $_input, array $options) use ($clientId, &$captured): AiTrace {
+                    $captured = $options;
+
+                    return $this->stubTrace($clientId, 'cria um ecommerce');
+                });
+        });
+
+        $this
+            ->withHeaders($this->headers)
+            ->postJson('/ai/interactions', [
+                'input_text' => 'cria um ecommerce completo com pagamentos e webhooks',
+                'client_id' => $clientId,
+                'new_thread' => true,
+                'source_type' => 'app',
+                'payload' => [
+                    'surface_id' => 'atlas_desktop_ai',
+                    'workspace' => '/repos/shop',
+                ],
+            ])
+            ->assertAccepted();
+
+        $delivery = data_get($captured, 'payload.atlas_product_delivery_runtime');
+        $this->assertIsArray($delivery);
+        $this->assertSame('atlas.autonomous_product_delivery_runtime.v1', $delivery['schema_version']);
+        $this->assertSame('atlas_forge', $delivery['route']);
+        $this->assertSame('forge_obra', data_get($delivery, 'delivery_plan.execution_unit'));
+        $this->assertTrue((bool) data_get($delivery, 'proof_requirements.apfpr_required'));
+        $this->assertNull(data_get($captured, 'payload.atlas_dev_runtime'));
     }
 
     public function test_explain_request_emits_specialist_flow_runtime_slice(): void
