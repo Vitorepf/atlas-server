@@ -167,6 +167,47 @@ class AtlasDecideService
 
     /**
      * @param  array<string,mixed>  $options
+     */
+    private function hasImageAttachments(array $options): bool
+    {
+        foreach ([
+            'payload.attachments.images',
+            'payload.image_attachments',
+            'payload.images',
+        ] as $path) {
+            $images = data_get($options, $path, []);
+            if (is_array($images) && count($images) > 0) {
+                return true;
+            }
+        }
+
+        $uploadedImageIds = data_get($options, 'payload.rich_input_payload.uploaded_image_ids', []);
+        if (is_array($uploadedImageIds) && count($uploadedImageIds) > 0) {
+            return true;
+        }
+
+        $sourceManifest = data_get($options, 'payload.rich_input_payload.source_manifest', []);
+        if (is_array($sourceManifest)) {
+            foreach ($sourceManifest as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+
+                $kind = strtolower((string) ($entry['kind'] ?? ''));
+                $mimeType = strtolower((string) ($entry['mime_type'] ?? ''));
+                if ($kind === 'image' || str_starts_with($mimeType, 'image/')) {
+                    return true;
+                }
+            }
+        }
+
+        $count = data_get($options, 'payload.visual_input.image_count', 0);
+
+        return is_numeric($count) && (int) $count > 0;
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
      * @return array<string,mixed>
      */
     private function modelResolutionContext(array $options): array

@@ -35,7 +35,7 @@ class AtlasForgeRealProviderDriversTest extends TestCase
         $status = $router->driverStatus();
 
         $providers = array_map(fn (array $d): string => (string) $d['provider'], $status['drivers']);
-        foreach (['atlas-local', 'claude_cli', 'codex_cli', 'gemini_cli', 'antigravity_sdk'] as $expected) {
+        foreach (['atlas-local', 'claude_cli', 'codex_cli', 'gemini_cli', 'antigravity_sdk', 'cursor_sdk'] as $expected) {
             $this->assertContains($expected, $providers, "router must register {$expected}");
         }
     }

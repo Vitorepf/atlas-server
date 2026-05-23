@@ -131,6 +131,37 @@ class AtlasAiPolicyServiceTest extends TestCase
         $this->assertSame('programming.dev', data_get($decision, 'policy_profile_id'));
     }
 
+    public function test_auto_candidate_provider_handles_image_rich_input_without_500(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'claude_cli',
+            'atlas.ai.providers.gemini_cli.allow_auto' => true,
+        ]);
+
+        $options = app(AtlasDecideService::class)->normalizeOptions([
+            'source_type' => 'manual',
+            'input_text' => 'analise esta imagem',
+            'payload' => [
+                'app_surface' => 'atlas_desktop_ai',
+                'decision_mode' => 'atlas_decide',
+                'operator_requested_provider' => 'auto',
+                'rich_input_payload' => [
+                    'schema_version' => 'atlas.rich_input.payload.v1',
+                    'uploaded_image_ids' => ['img_123'],
+                    'source_manifest' => [[
+                        'kind' => 'image',
+                        'mime_type' => 'image/png',
+                        'uploaded_id' => 'img_123',
+                    ]],
+                ],
+            ],
+        ]);
+
+        $candidate = app(AtlasDecideService::class)->candidateProvider($options, 'claude_cli', 'auto');
+
+        $this->assertSame('gemini_cli', $candidate);
+    }
+
     public function test_session_policy_override_locks_provider_model_without_overriding_executor(): void
     {
         $profile = app(AtlasAiPolicyService::class)->effectiveProfile([
