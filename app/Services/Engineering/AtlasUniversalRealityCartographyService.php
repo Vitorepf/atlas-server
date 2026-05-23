@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use Illuminate\Support\Arr;
 
 final class AtlasUniversalRealityCartographyService
@@ -15,20 +16,22 @@ final class AtlasUniversalRealityCartographyService
     public function __construct(
         private readonly AtlasDocumentationRealitySystemService $documentationReality,
         private readonly AtlasCodeRealityUsageIntelligenceService $codeReality,
+        private readonly AtlasWorkspaceIntelligenceRuntimeService $workspaceIntelligence,
     ) {}
 
     /**
      * @return array<string,mixed>
      */
-    public function map(string $mode = 'universe'): array
+    public function map(string $mode = 'universe', ?string $workspace = null): array
     {
         $adrs = $this->documentationReality->report();
         $acrui = $this->codeReality->classify('app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php');
+        $workspaceScope = $this->workspaceScope($workspace);
         $nodes = $this->nodes($adrs, $acrui);
         $edges = $this->edges();
         $coverage = $this->coverage($nodes, $edges);
         $mode = $this->mode($mode);
-        $visualScene = $this->visualScene($nodes, $edges, $mode);
+        $visualScene = $this->visualScene($nodes, $edges, $mode, $workspaceScope);
         $semanticZoomScenes = $this->semanticZoomScenes($nodes);
         $humanRouteMap = $this->humanRouteMap($nodes);
         $taskSimulator = $this->taskSimulator($nodes);
@@ -39,6 +42,7 @@ final class AtlasUniversalRealityCartographyService
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $coverage['missing_source_count'] === 0 && $coverage['missing_modal_count'] === 0 ? 'ready' : 'review',
             'mode' => $mode,
+            'workspace_scope' => $workspaceScope,
             'summary' => [
                 'node_count' => count($nodes),
                 'edge_count' => count($edges),
@@ -62,6 +66,7 @@ final class AtlasUniversalRealityCartographyService
                 'rivals_run' => false,
                 'writes' => false,
                 'external_project_docs_copied' => false,
+                'workspace_scope_is_projection_not_source_of_truth' => true,
             ],
             'writes' => false,
         ];
@@ -69,6 +74,28 @@ final class AtlasUniversalRealityCartographyService
         $payload['cartography_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function workspaceScope(?string $workspace): array
+    {
+        $report = $this->workspaceIntelligence->certify(workspace: $workspace);
+
+        return [
+            'schema_version' => 'atlas.universal_reality_cartography.workspace_scope.v1',
+            'status' => (string) data_get($report, 'workspace.readiness_status', 'blocked'),
+            'requested_workspace' => $workspace,
+            'active_workspace_id' => data_get($report, 'workspace.workspace_id'),
+            'active_workspace_name' => data_get($report, 'workspace.workspace_name'),
+            'workspace_hash' => data_get($report, 'workspace.workspace_hash'),
+            'cartography_scope' => data_get($report, 'workspace.cartography_scope'),
+            'source_path' => 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+            'runtime_hash' => data_get($report, 'runtime_hash'),
+            'blockers' => data_get($report, 'workspace.blockers', []),
+            'awis_certified' => ($report['status'] ?? null) === 'ready',
+        ];
     }
 
     /**
@@ -116,6 +143,18 @@ final class AtlasUniversalRealityCartographyService
                 'Area mais critica de organizacao: docs canonicos, realidade operacional e Cartografia humana.'
             ),
             $this->node(
+                'project.atlas.workspace-intelligence',
+                'project',
+                'Workspace Intelligence',
+                'project',
+                'active',
+                'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+                'workspace-intelligence',
+                ['system'],
+                ['AWIS', 'AWTR', 'AWCO', 'AWEF', 'workspace_intelligence control-plane section'],
+                'Area que prende execucao, memoria, contexto e artefatos ao workspace correto antes de Dev/Forge agir.'
+            ),
+            $this->node(
                 'system.adrs',
                 'system',
                 'ADRS',
@@ -161,6 +200,57 @@ final class AtlasUniversalRealityCartographyService
                 'Filha visual do ADRS que projeta a verdade em mapa navegavel por humano e IA.'
             ),
             $this->node(
+                'system.awis',
+                'system',
+                'AWIS',
+                'system',
+                'active',
+                'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+                'workspace-intelligence',
+                ['flow'],
+                [
+                    'php artisan atlas:workspace-intelligence --workspace=atlas --json --strict',
+                    'tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php',
+                ],
+                'Garante que toda execucao de IA nasce dentro do workspace certo, com memoria e contexto escopados.'
+            ),
+            $this->node(
+                'system.awtr',
+                'system',
+                'AWTR',
+                'system',
+                'active',
+                'docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md',
+                'workspace-intelligence',
+                ['flow'],
+                ['atlas:workspace-intelligence twin', 'atlas_workspace_runtime_projection_snapshots'],
+                'Gemeo operacional do workspace: stack, comandos, riscos, testes e mapas vivos por projeto.'
+            ),
+            $this->node(
+                'system.awco',
+                'system',
+                'AWCO',
+                'system',
+                'active',
+                'docs/engineering-knowledge-base/atlas-workspace-contract-orchestrator.md',
+                'workspace-intelligence',
+                ['flow'],
+                ['atlas:workspace-intelligence contracts', 'workspace_intelligence control-plane blockers'],
+                'Certifica artefatos antes de provider, subagente, Dev ou Forge consumir.'
+            ),
+            $this->node(
+                'system.awef',
+                'system',
+                'AWEF',
+                'system',
+                'active',
+                'docs/engineering-knowledge-base/atlas-workspace-evolution-fabric.md',
+                'workspace-intelligence',
+                ['flow'],
+                ['atlas:workspace-intelligence evolution', 'privacy_transfer_gate'],
+                'Aprende padroes entre workspaces sem copiar contexto privado entre projetos.'
+            ),
+            $this->node(
                 'flow.adrs-to-acrui-to-aurc',
                 'flow',
                 'ADRS -> ACRUI -> AURC',
@@ -171,6 +261,21 @@ final class AtlasUniversalRealityCartographyService
                 ['component', 'evidence'],
                 ['ADRS authority', 'ACRUI operational classification', 'AURC visual projection'],
                 'Fluxo central: ADRS decide autoridade, ACRUI prova realidade, AURC mostra para humano.'
+            ),
+            $this->node(
+                'flow.workspace-runtime-projections',
+                'flow',
+                'AWIS -> AWTR/AWCO/AWEF',
+                'flow',
+                'active',
+                'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+                'workspace-intelligence',
+                [],
+                [
+                    'atlas_workspace_runtime_projection_snapshots',
+                    'AtlasAiControlPlaneService.workspace_intelligence',
+                ],
+                'Fluxo que persiste projections por workspace e mostra status/hash/blockers no Control Plane.'
             ),
             $this->node(
                 'component.adrs-runtime',
@@ -235,12 +340,21 @@ final class AtlasUniversalRealityCartographyService
         return [
             $this->edge('universe', 'org.atlas', 'contains'),
             $this->edge('org.atlas', 'project.atlas.documentation-reality', 'owns'),
+            $this->edge('org.atlas', 'project.atlas.workspace-intelligence', 'owns'),
             $this->edge('project.atlas.documentation-reality', 'system.adrs', 'governs'),
             $this->edge('project.atlas.documentation-reality', 'system.acrui', 'contains_child'),
             $this->edge('project.atlas.documentation-reality', 'system.aurc', 'contains_child'),
+            $this->edge('project.atlas.workspace-intelligence', 'system.awis', 'governs'),
+            $this->edge('project.atlas.workspace-intelligence', 'system.awtr', 'contains_child'),
+            $this->edge('project.atlas.workspace-intelligence', 'system.awco', 'contains_child'),
+            $this->edge('project.atlas.workspace-intelligence', 'system.awef', 'contains_child'),
             $this->edge('system.adrs', 'flow.adrs-to-acrui-to-aurc', 'defines_flow'),
             $this->edge('flow.adrs-to-acrui-to-aurc', 'system.acrui', 'uses_operational_truth'),
             $this->edge('flow.adrs-to-acrui-to-aurc', 'system.aurc', 'projects_visual_truth'),
+            $this->edge('system.awis', 'flow.workspace-runtime-projections', 'defines_flow'),
+            $this->edge('flow.workspace-runtime-projections', 'system.awtr', 'projects_twin'),
+            $this->edge('flow.workspace-runtime-projections', 'system.awco', 'certifies_contracts'),
+            $this->edge('flow.workspace-runtime-projections', 'system.awef', 'feeds_evolution'),
             $this->edge('system.adrs', 'component.adrs-runtime', 'implemented_by'),
             $this->edge('system.acrui', 'component.acrui-runtime', 'implemented_by'),
             $this->edge('system.aurc', 'component.aurc-runtime', 'implemented_by'),
@@ -342,7 +456,7 @@ final class AtlasUniversalRealityCartographyService
      * @param  array<int,array<string,mixed>>  $edges
      * @return array<string,mixed>
      */
-    private function visualScene(array $nodes, array $edges, string $mode): array
+    private function visualScene(array $nodes, array $edges, string $mode, array $workspaceScope): array
     {
         $visibleNodes = $this->visibleNodesForMode($nodes, $mode);
         $visibleIds = array_column($visibleNodes, 'id');
@@ -355,6 +469,7 @@ final class AtlasUniversalRealityCartographyService
             'schema_version' => 'atlas.universal_reality_cartography.visual_scene.v1',
             'status' => count($visibleNodes) <= 12 ? 'ready' : 'review',
             'mode' => $mode,
+            'workspace_scope' => $workspaceScope,
             'cognitive_budget' => [
                 'max_visible_nodes' => 12,
                 'max_visible_edges' => 16,
@@ -452,7 +567,7 @@ final class AtlasUniversalRealityCartographyService
             'flow' => ['system', 'flow', 'component'],
             'evidence' => ['component', 'evidence'],
             'risk' => ['project', 'system', 'component', 'evidence'],
-            'implementation' => ['system', 'flow', 'component', 'evidence'],
+            'implementation' => ['system', 'flow', 'component'],
         ];
 
         $levels = $levelsByMode[$mode] ?? $levelsByMode['universe'];
@@ -515,6 +630,12 @@ final class AtlasUniversalRealityCartographyService
                 'expected_children' => ['system.adrs', 'system.acrui', 'system.aurc'],
             ],
             [
+                'id' => 'scene.workspace-intelligence',
+                'from_node' => 'project.atlas.workspace-intelligence',
+                'to_level' => 'system',
+                'expected_children' => ['system.awis', 'system.awtr', 'system.awco', 'system.awef'],
+            ],
+            [
                 'id' => 'scene.adrs-runtime',
                 'from_node' => 'system.adrs',
                 'to_level' => 'component',
@@ -572,6 +693,12 @@ final class AtlasUniversalRealityCartographyService
                 'node_path' => ['system.adrs', 'component.adrs-runtime', 'evidence.adrs-gates'],
                 'expected_source' => 'tests/Feature/Engineering/AtlasDocumentationRealitySystemServiceTest.php',
             ],
+            [
+                'id' => 'route.check-workspace-intelligence',
+                'intent' => 'Qual workspace esta governando Dev ou Forge?',
+                'node_path' => ['universe', 'org.atlas', 'project.atlas.workspace-intelligence', 'system.awis', 'flow.workspace-runtime-projections'],
+                'expected_source' => 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+            ],
         ];
 
         $invalid = array_values(array_filter($routes, static fn (array $route): bool => collect($route['node_path'])->contains(
@@ -613,6 +740,11 @@ final class AtlasUniversalRealityCartographyService
                     'question' => 'Qual node mostra a superficie visual humana?',
                     'expected_node' => 'system.aurc',
                     'expected_source' => 'docs/engineering-knowledge-base/atlas-universal-reality-cartography.md',
+                ],
+                [
+                    'question' => 'Qual node mostra workspace ativo e projections AWIS?',
+                    'expected_node' => 'system.awis',
+                    'expected_source' => 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
                 ],
             ],
             'node_ids_available' => array_column($nodes, 'id'),

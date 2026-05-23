@@ -154,6 +154,48 @@ class AtlasCodeWorkspaceProfileTest extends TestCase
             ->assertJsonPath('meta.execution_allowed', true);
     }
 
+    public function test_workspace_registry_api_archives_persisted_profile_without_hard_delete(): void
+    {
+        $this->createWorkspaceProfilesTable();
+
+        AtlasWorkspaceProfile::query()->create([
+            'slug' => 'client-archive',
+            'name' => 'Client Archive',
+            'kind' => 'client_product',
+            'workspace_path' => base_path(),
+            'repo_root' => base_path(),
+            'production_status' => 'development',
+            'stack_summary' => 'Temporary workspace',
+            'commands' => [],
+            'test_commands' => ['php artisan test'],
+            'build_commands' => [],
+            'critical_areas' => ['app/Services'],
+            'docs_status' => 'complete',
+            'default_risk' => 'medium',
+            'deployment_notes' => '',
+            'surfaces_enabled' => ['atlas_ai', 'code'],
+            'source' => 'operator',
+            'status' => 'active',
+        ]);
+
+        $archived = $this->withHeaders($this->headers())->deleteJson('/atlas-code/projects/workspaces/client-archive');
+
+        $archived
+            ->assertOk()
+            ->assertJsonPath('workspace.slug', 'client-archive')
+            ->assertJsonPath('workspace.status', 'archived')
+            ->assertJsonPath('meta.archived', true)
+            ->assertJsonPath('meta.execution_allowed', false);
+
+        $this->assertDatabaseHas('atlas_workspace_profiles', [
+            'slug' => 'client-archive',
+            'status' => 'archived',
+        ]);
+
+        $hidden = $this->withHeaders($this->headers())->getJson('/atlas-code/projects/workspaces/client-archive');
+        $hidden->assertNotFound();
+    }
+
     public function test_workspace_registry_api_rejects_invalid_slug(): void
     {
         $this->createWorkspaceProfilesTable();

@@ -8,6 +8,7 @@ use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
@@ -33,6 +34,7 @@ class AtlasForgeGovernedExecutionService
         private readonly ProgrammingStageReceiptStore $stageReceiptStore,
         private readonly ProgrammingEvidenceLedger $evidenceLedger,
         private readonly ProgrammingGovernanceService $governance,
+        private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
     ) {}
 
     /**
@@ -59,7 +61,15 @@ class AtlasForgeGovernedExecutionService
         if ($task === null) {
             $blockers[] = 'task_contract_required';
 
-            return $this->finalize($executionId, $project, $workItem, null, $stages, $blockers, [], [], [], null, null, null, []);
+            return $this->finalize($executionId, $project, $workItem, null, $stages, $blockers, [], [], [], [], null, null, []);
+        }
+
+        $workspaceGateStage = $this->stageWorkspaceExecutionGate($project, $workItem, $task);
+        $stages[] = $workspaceGateStage;
+        if (($workspaceGateStage['status'] ?? null) !== 'passed') {
+            $blockers[] = (string) ($workspaceGateStage['blocker'] ?? 'awis_execution_gate_blocked');
+
+            return $this->finalize($executionId, $project, $workItem, $task, $stages, $blockers, [], [], [], [], null, null, []);
         }
 
         $workspaceStage = $this->stageWorkspace($project, $workItem);
@@ -68,7 +78,7 @@ class AtlasForgeGovernedExecutionService
         if (($workspaceStage['status'] ?? null) !== 'passed') {
             $blockers[] = (string) ($workspaceStage['blocker'] ?? 'workspace_required');
 
-            return $this->finalize($executionId, $project, $workItem, $task, $stages, $blockers, [], [], [], null, null, null, []);
+            return $this->finalize($executionId, $project, $workItem, $task, $stages, $blockers, [], [], [], [], null, null, []);
         }
 
         $targetFile = $this->firstExistingAllowedFile($workspace, $task);
@@ -82,7 +92,7 @@ class AtlasForgeGovernedExecutionService
             ];
             $blockers[] = 'no_existing_allowed_file_in_workspace';
 
-            return $this->finalize($executionId, $project, $workItem, $task, $stages, $blockers, [], [], [], null, null, null, []);
+            return $this->finalize($executionId, $project, $workItem, $task, $stages, $blockers, [], [], [], [], null, null, []);
         }
 
         $sandboxStage = $this->stageSandboxShadow($workspace, $targetFile);
@@ -234,6 +244,31 @@ class AtlasForgeGovernedExecutionService
             'workspace_path' => $workspace,
             'workspace_hash' => hash('sha256', $workspace),
             'is_git' => is_dir($workspace.'/.git'),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $task
+     * @return array<string,mixed>
+     */
+    private function stageWorkspaceExecutionGate(AtlasProject $project, AtlasProgrammingWorkItem $workItem, array $task): array
+    {
+        $workspace = $this->workspaceGateInput($project, $workItem);
+        $gate = ($this->workspaceExecutionGate ?? app(AtlasWorkspaceIntelligenceExecutionGateService::class))
+            ->gate(
+                workspace: $workspace,
+                mode: 'forge',
+                task: trim('Forge Governed Execution '.(string) ($task['task_id'] ?? $task['id'] ?? '').' '.(string) $workItem->intent_text),
+            );
+
+        return [
+            'name' => 'workspace_execution_gate',
+            'status' => ($gate['allowed'] ?? false) === true ? 'passed' : 'blocked',
+            'schema_version' => AtlasWorkspaceIntelligenceExecutionGateService::SCHEMA_VERSION,
+            'workspace_input' => $workspace,
+            'workspace_execution_gate' => $gate,
+            'workspace_id' => $gate['workspace_id'] ?? null,
+            'blocker' => ($gate['allowed'] ?? false) === true ? null : 'awis_execution_gate_blocked',
         ];
     }
 
@@ -748,6 +783,22 @@ class AtlasForgeGovernedExecutionService
         return null;
     }
 
+    private function workspaceGateInput(AtlasProject $project, AtlasProgrammingWorkItem $workItem): ?string
+    {
+        foreach ([
+            data_get($project->metadata, 'workspace_slug'),
+            data_get($project->metadata, 'workspace_id'),
+            $workItem->workspace,
+            data_get($project->metadata, 'workspace_path'),
+        ] as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @param  list<string>  $commands
      * @return array{display:string,argv:list<string>}|null
@@ -794,7 +845,6 @@ class AtlasForgeGovernedExecutionService
     }
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function strings(mixed $value): array

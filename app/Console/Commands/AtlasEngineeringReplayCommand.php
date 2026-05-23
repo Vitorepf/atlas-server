@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use App\Services\Engineering\EngineeringHarnessRunnerService;
 use Illuminate\Console\Command;
 use RuntimeException;
@@ -37,12 +39,26 @@ class AtlasEngineeringReplayCommand extends Command
 
     protected $description = 'Replay an existing Atlas Engineering Harness run with a controlled, auditable strategy.';
 
-    public function handle(EngineeringHarnessRunnerService $runner): int
-    {
+    public function handle(
+        EngineeringHarnessRunnerService $runner,
+        AtlasWorkspacePathResolverService $workspacePaths,
+        AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate,
+    ): int {
         $runId = trim((string) $this->argument('run'));
         $sourceRun = AtlasEngineeringRun::query()->with(['task', 'testRuns'])->find($runId);
         if (! $sourceRun) {
             $this->error("Engineering run nao encontrado: {$runId}");
+
+            return self::FAILURE;
+        }
+
+        $awisBlock = $this->awisReplayMutationBlock($workspacePaths, $workspaceGate);
+        if ($awisBlock !== null) {
+            if ((bool) $this->option('json')) {
+                $this->line(json_encode($awisBlock, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            } else {
+                $this->error((string) ($awisBlock['message'] ?? 'AWIS bloqueou replay mutativo.'));
+            }
 
             return self::FAILURE;
         }
@@ -145,6 +161,47 @@ class AtlasEngineeringReplayCommand extends Command
         $resolved = realpath($workspace);
 
         return $resolved && is_dir($resolved) ? $resolved : $workspace;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function awisReplayMutationBlock(
+        AtlasWorkspacePathResolverService $workspacePaths,
+        AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate,
+    ): ?array {
+        if (! (bool) $this->option('apply-isolated-patch')) {
+            return null;
+        }
+
+        $resolution = $workspacePaths->resolveForExecution($this->workspace());
+        if (($resolution['status'] ?? null) !== 'ready') {
+            return [
+                'schema_version' => 'atlas.engineering_replay.awis_gate.v1',
+                'status' => 'blocked',
+                'error' => 'awis_workspace_required_for_replay_patch',
+                'message' => 'Replay com --apply-isolated-patch exige Workspace AWIS registrado e certificado.',
+                'workspace_resolution' => $resolution,
+            ];
+        }
+
+        $gate = $workspaceGate->gate(
+            workspace: (string) $resolution['workspace_slug'],
+            mode: 'patch',
+            task: 'Atlas Engineering Replay apply isolated patch',
+        );
+        if ((bool) ($gate['allowed'] ?? false)) {
+            return null;
+        }
+
+        return [
+            'schema_version' => 'atlas.engineering_replay.awis_gate.v1',
+            'status' => 'blocked',
+            'error' => 'awis_execution_gate_blocked',
+            'message' => 'AWIS bloqueou replay mutativo: workspace nao esta pronto para aplicar patch isolado.',
+            'workspace_resolution' => $resolution,
+            'awis_execution_gate' => $gate,
+        ];
     }
 
     private function sourceAttempt(AtlasEngineeringRun $sourceRun): ?AtlasEngineeringRunAttempt

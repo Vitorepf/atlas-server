@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\File;
  * - AWTR: workspace twin projection.
  * - ACIOS: long-conversation continuity without raw prompt stuffing.
  * - AWAF: operational artifacts.
+ * - AWAIR: artifact intelligence, replay, simulation and visual projection.
  * - AWCO: artifact certification/readiness.
  * - AWEF: cross-workspace pattern hints without private transfer.
  */
@@ -29,12 +30,14 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         'AWTR' => 'Atlas Workspace Twin Runtime',
         'ACIOS' => 'Atlas Continuity Intelligence OS',
         'AWAF' => 'Atlas Workspace Artifact Fabric',
+        'AWAIR' => 'Atlas Workspace Artifact Intelligence Runtime',
         'AWCO' => 'Atlas Workspace Contract Orchestrator',
         'AWEF' => 'Atlas Workspace Evolution Fabric',
     ];
 
     public function __construct(
         private readonly AtlasCodeWorkspaceProfileService $profiles,
+        private readonly AtlasWorkspaceExecutionBoundaryAuditService $boundaryAudit,
     ) {}
 
     /**
@@ -48,9 +51,12 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $twin = $this->workspaceTwin($profile);
         $continuity = $this->continuity($profile, $conversationTexts);
         $artifacts = $this->artifacts($profile, $task, $twin, $continuity);
+        $artifactIntelligence = $this->artifactIntelligence($profile, $task, $artifacts, $twin, $continuity);
         $contracts = $this->contracts($workspaceReport, $artifacts);
         $evolution = $this->evolution($profile, $twin);
-        $checks = $this->checks($workspaceReport, $twin, $continuity, $artifacts, $contracts, $evolution);
+        $executionBoundaries = $this->executionBoundarySummary($this->boundaryAudit->audit());
+        $registryEditing = $this->registryEditingSummary();
+        $checks = $this->checks($workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $executionBoundaries, $registryEditing);
         $summary = $this->summary($checks);
 
         $payload = [
@@ -63,21 +69,59 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'awtr' => $twin,
             'acios' => $continuity,
             'awaf' => $artifacts,
+            'awair' => $artifactIntelligence,
             'awco' => $contracts,
             'awef' => $evolution,
+            'execution_boundaries' => $executionBoundaries,
+            'registry_editing' => $registryEditing,
             'checks' => $checks,
             'claim_policy' => [
                 'read_only' => true,
                 'invokes_provider' => false,
                 'transfers_raw_cross_workspace' => false,
                 'raw_conversation_used_as_prompt' => false,
-                'planned_runtime_not_full_enforcement' => true,
+                'known_execution_boundaries_audited' => data_get($executionBoundaries, 'status') === 'ready',
+                'unclassified_workspace_process_boundaries_allowed' => false,
+                'execution_boundary_audit_required' => true,
+                'ui_registry_editing_complete' => data_get($registryEditing, 'status') === 'ready',
             ],
         ];
 
         $payload['runtime_hash'] = $this->hashWithoutGeneratedAt($payload);
 
         return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function twin(?string $workspace = null): array
+    {
+        return $this->workspaceTwin($this->resolveProfile($workspace));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function contractOrchestration(?string $workspace = null, string $task = ''): array
+    {
+        $profile = $this->resolveProfile($workspace);
+        $workspaceReport = $this->workspaceReport($profile);
+        $twin = $this->workspaceTwin($profile);
+        $continuity = $this->continuity($profile, []);
+        $artifacts = $this->artifacts($profile, $task, $twin, $continuity);
+
+        return $this->contracts($workspaceReport, $artifacts);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function evolutionFabric(?string $workspace = null): array
+    {
+        $profile = $this->resolveProfile($workspace);
+
+        return $this->evolution($profile, $this->workspaceTwin($profile));
     }
 
     /**
@@ -162,27 +206,70 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             (array) ($profile['build_commands'] ?? []),
         ), 'is_string'));
 
+        $genome = [
+            'schema_version' => 'atlas.workspace_genome.v1',
+            'workspace_id' => (string) $profile['slug'],
+            'stack' => $stack,
+            'docs_status' => (string) ($profile['docs_status'] ?? 'unknown'),
+            'production_status' => (string) ($profile['production_status'] ?? 'unknown'),
+            'risk_floor' => (string) data_get($profile, 'safety.risk_floor', $profile['default_risk'] ?? 'medium'),
+            'owner_docs' => $docs,
+            'test_families' => array_values((array) ($profile['test_commands'] ?? [])),
+            'risk_zones' => array_values((array) ($profile['critical_areas'] ?? [])),
+        ];
+        $genome['genome_hash'] = MissionCanonicalHash::sha256($genome);
+
+        $livingCodeMap = [
+            'schema_version' => 'atlas.workspace_living_code_map.v1',
+            'root_exists' => $exists,
+            'owner_docs' => $docs,
+            'critical_areas' => array_values((array) ($profile['critical_areas'] ?? [])),
+            'source_policy' => 'repo_docs_code_tests_and_receipts_only',
+        ];
+        $livingCodeMap['code_map_hash'] = MissionCanonicalHash::sha256($livingCodeMap);
+
+        $commandRegistry = [
+            'schema_version' => 'atlas.workspace_command_registry.v1',
+            'commands' => $commands,
+            'command_count' => count($commands),
+            'has_test_entrypoint' => (array) ($profile['test_commands'] ?? []) !== [],
+        ];
+        $commandRegistry['command_registry_hash'] = MissionCanonicalHash::sha256($commandRegistry);
+
+        $riskMap = $this->riskMap($profile);
+        $riskMap['risk_map_hash'] = MissionCanonicalHash::sha256($riskMap);
+
         $payload = [
             'schema_version' => 'atlas.workspace_twin.v1',
             'status' => $exists ? 'ready' : 'limited',
             'workspace_id' => (string) $profile['slug'],
-            'genome' => [
-                'stack' => $stack,
-                'docs_status' => (string) ($profile['docs_status'] ?? 'unknown'),
-                'production_status' => (string) ($profile['production_status'] ?? 'unknown'),
-                'risk_floor' => (string) data_get($profile, 'safety.risk_floor', $profile['default_risk'] ?? 'medium'),
-            ],
-            'living_code_map' => [
-                'root_exists' => $exists,
-                'owner_docs' => $docs,
-                'critical_areas' => array_values((array) ($profile['critical_areas'] ?? [])),
+            'genome' => $genome,
+            'living_code_map' => $livingCodeMap,
+            'context_autopilot' => [
+                'schema_version' => 'atlas.workspace_context_autopilot.v1',
+                'strategy' => 'owner_docs_plus_task_artifacts_plus_focused_tests',
+                'required_context_units' => ['workspace_brief', 'task_packet', 'context_pack', 'test_plan', 'risk_sheet'],
+                'raw_conversation_policy' => 'hash_and_excerpt_only',
+                'stale_policy' => 'block_mutative_execution_when_workspace_or_twin_not_ready',
             ],
             'test_command_intelligence' => [
+                'schema_version' => 'atlas.workspace_test_command_intelligence.v1',
                 'commands' => array_values((array) ($profile['test_commands'] ?? [])),
                 'has_focused_entrypoint' => (array) ($profile['test_commands'] ?? []) !== [],
+                'fallback_policy' => 'block_or_request_operator_test_command_when_missing',
             ],
-            'command_registry' => $commands,
-            'risk_fragility_map' => $this->riskMap($profile),
+            'command_registry' => $commandRegistry,
+            'risk_fragility_map' => $riskMap,
+            'provider_skill_memory' => [
+                'schema_version' => 'atlas.workspace_provider_skill_memory.v1',
+                'status' => 'shadow',
+                'decision_policy' => 'never_route_provider_from_unverified_preference',
+            ],
+            'workspace_learning_loop' => [
+                'schema_version' => 'atlas.workspace_learning_loop.v1',
+                'status' => 'ready_for_outcome_bridge',
+                'feeds' => ['AEMOR', 'AWEF', 'workspace_runbook'],
+            ],
             'stale' => false,
         ];
         $payload['twin_hash'] = MissionCanonicalHash::sha256($payload);
@@ -331,6 +418,146 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     }
 
     /**
+     * @param  array<string,mixed>|null  $profile
+     * @param  array<string,mixed>  $artifactFabric
+     * @param  array<string,mixed>  $twin
+     * @param  array<string,mixed>  $continuity
+     * @return array<string,mixed>
+     */
+    private function artifactIntelligence(?array $profile, string $task, array $artifactFabric, array $twin, array $continuity): array
+    {
+        $artifacts = array_values(array_filter(
+            (array) ($artifactFabric['artifacts'] ?? []),
+            'is_array',
+        ));
+        $workspaceId = $profile['slug'] ?? null;
+        $nodes = array_map(
+            static fn (array $artifact): array => [
+                'id' => (string) ($artifact['artifact_hash'] ?? ''),
+                'type' => (string) ($artifact['artifact_type'] ?? 'unknown'),
+                'status' => (string) ($artifact['status'] ?? 'unknown'),
+                'consumer' => match ((string) ($artifact['artifact_type'] ?? '')) {
+                    'task_packet', 'context_pack', 'test_plan', 'risk_sheet' => 'atlas_dev',
+                    'workspace_brief', 'execution_plan', 'handoff_packet', 'outcome_record' => 'atlas_forge',
+                    'failure_capsule' => 'repair_loop',
+                    'workspace_runbook' => 'cartography_and_human',
+                    default => 'unknown',
+                },
+            ],
+            $artifacts,
+        );
+
+        $edges = [];
+        $byType = collect($artifacts)->keyBy('artifact_type');
+        foreach ([
+            ['workspace_brief', 'task_packet', 'informs'],
+            ['task_packet', 'context_pack', 'requires'],
+            ['task_packet', 'test_plan', 'requires'],
+            ['task_packet', 'risk_sheet', 'requires'],
+            ['context_pack', 'handoff_packet', 'projects'],
+            ['test_plan', 'execution_plan', 'validates'],
+            ['risk_sheet', 'execution_plan', 'guards'],
+            ['failure_capsule', 'outcome_record', 'feeds'],
+            ['outcome_record', 'workspace_runbook', 'updates'],
+        ] as [$from, $to, $relation]) {
+            $fromArtifact = $byType->get($from);
+            $toArtifact = $byType->get($to);
+            if (is_array($fromArtifact) && is_array($toArtifact)) {
+                $edges[] = [
+                    'from' => (string) ($fromArtifact['artifact_hash'] ?? ''),
+                    'to' => (string) ($toArtifact['artifact_hash'] ?? ''),
+                    'relation' => $relation,
+                ];
+            }
+        }
+
+        $quality = array_map(function (array $artifact): array {
+            $hasWorkspace = ($artifact['workspace_id'] ?? null) !== null;
+            $hasSources = (array) ($artifact['source_hashes'] ?? []) !== [];
+
+            return [
+                'artifact_type' => (string) ($artifact['artifact_type'] ?? 'unknown'),
+                'artifact_hash' => (string) ($artifact['artifact_hash'] ?? ''),
+                'coverage' => $hasWorkspace && $hasSources ? 1.0 : 0.0,
+                'freshness' => $hasWorkspace ? 'ready' : 'blocked',
+                'source_integrity' => $hasSources ? 'ready' : 'blocked',
+                'consumer_fit' => ($artifact['status'] ?? null) === 'blocked' ? 'blocked' : 'ready',
+                'quality_score' => $hasWorkspace && $hasSources ? 0.98 : 0.0,
+            ];
+        }, $artifacts);
+
+        $payload = [
+            'schema_version' => 'atlas.workspace_artifact_intelligence.v1',
+            'status' => $workspaceId === null ? 'blocked' : 'ready',
+            'workspace_id' => $workspaceId,
+            'artifact_lake' => [
+                'schema_version' => 'atlas.workspace_artifact_lake.v1',
+                'artifact_count' => count($artifacts),
+                'certifiable_artifacts' => count(array_filter($artifacts, static fn (array $artifact): bool => ($artifact['workspace_id'] ?? null) !== null)),
+                'lake_hash' => MissionCanonicalHash::sha256($artifacts),
+            ],
+            'artifact_graph' => [
+                'schema_version' => 'atlas.workspace_artifact_graph.v1',
+                'nodes' => $nodes,
+                'edges' => $edges,
+                'graph_hash' => MissionCanonicalHash::sha256([$nodes, $edges]),
+            ],
+            'artifact_branching' => [
+                'schema_version' => 'atlas.workspace_artifact_branching.v1',
+                'branches' => [
+                    ['id' => 'minimal_patch', 'risk' => data_get($twin, 'genome.risk_floor', 'medium')],
+                    ['id' => 'forge_escalation', 'risk' => 'controlled_high'],
+                ],
+            ],
+            'artifact_replay' => [
+                'schema_version' => 'atlas.workspace_artifact_replay.v1',
+                'replay_ready' => $workspaceId !== null && count($artifacts) >= 10,
+                'required_inputs' => ['workspace_id', 'artifact_hash', 'source_hashes', 'task_packet', 'context_pack', 'test_plan'],
+                'raw_conversation_required' => false,
+            ],
+            'artifact_simulation' => [
+                'schema_version' => 'atlas.workspace_artifact_simulation.v1',
+                'decision' => $workspaceId === null ? 'blocked' : 'ready',
+                'blockers' => $workspaceId === null ? ['workspace_not_registered'] : [],
+                'likely_areas' => data_get($twin, 'risk_fragility_map.sensitive_areas', []),
+                'escalate_to_forge_when' => ['multi_domain', 'high_uncertainty', 'repeated_failure'],
+            ],
+            'artifact_context_compiler' => [
+                'schema_version' => 'atlas.workspace_artifact_context_compiler.v1',
+                'task' => trim($task) !== '' ? trim($task) : 'workspace readiness and context preparation',
+                'context_units' => ['workspace_brief', 'task_packet', 'context_pack', 'test_plan', 'risk_sheet'],
+                'raw_conversation_included' => false,
+                'current_truth_pack_hash' => MissionCanonicalHash::sha256(data_get($continuity, 'current_truth_pack', [])),
+            ],
+            'artifact_quality_governor' => [
+                'schema_version' => 'atlas.workspace_artifact_quality_governor.v1',
+                'quality' => $quality,
+                'minimum_executable_score' => 0.95,
+                'all_executable_artifacts_ready' => collect($quality)->every(fn (array $item): bool => (float) $item['quality_score'] >= 0.95),
+            ],
+            'artifact_cartography_projection' => [
+                'schema_version' => 'atlas.workspace_artifact_cartography_projection.v1',
+                'visual_layers' => ['workspace', 'artifact_graph', 'stale_nodes', 'blockers', 'provider_handoff'],
+                'text_policy' => 'modal_only_for_details',
+                'human_scan_mode' => 'graph_first',
+            ],
+            'artifact_marketplace' => [
+                'schema_version' => 'atlas.workspace_artifact_marketplace.v1',
+                'privacy_policy' => 'patterns_only_no_raw_cross_workspace',
+                'reusable_templates' => ['login_test_plan', 'auth_risk_sheet', 'provider_handoff_packet'],
+            ],
+            'artifact_outcome_learning' => [
+                'schema_version' => 'atlas.workspace_artifact_outcome_learning.v1',
+                'feeds' => ['AEMOR', 'AWEF', 'workspace_runbook'],
+                'requires_real_outcome' => true,
+            ],
+        ];
+        $payload['artifact_intelligence_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
      * @param  array<string,mixed>  $workspaceReport
      * @param  array<string,mixed>  $artifactFabric
      * @return array<string,mixed>
@@ -367,14 +594,39 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             static fn (array $cert): bool => ($cert['status'] ?? null) !== 'certified',
         ));
 
-        return [
+        $payload = [
             'schema_version' => 'atlas.workspace_contract_orchestrator.v1',
             'status' => $blocked === [] ? 'ready' : 'blocked',
+            'certification_envelope' => [
+                'schema_version' => 'atlas.workspace_contract_certification_envelope.v1',
+                'artifact_count' => count($certifications),
+                'certified_count' => count($certifications) - count($blocked),
+                'blocked_count' => count($blocked),
+                'quality_policy' => 'all_artifacts_must_have_workspace_and_source_hashes',
+            ],
             'certifications' => $certifications,
+            'blocked_artifacts' => $blocked,
             'blocked_count' => count($blocked),
             'execution_readiness_status' => $blocked === [] ? 'ready' : 'blocked',
-            'contract_hash' => MissionCanonicalHash::sha256($certifications),
+            'versioning_policy' => [
+                'schema_version' => 'atlas.workspace_contract_versioning_policy.v1',
+                'version_source' => 'artifact_hash_plus_workspace_hash',
+                'reissue_required_when' => ['workspace_hash_changes', 'artifact_hash_changes', 'source_hashes_change'],
+            ],
+            'invalidation_rules' => [
+                'schema_version' => 'atlas.workspace_contract_invalidation_rules.v1',
+                'block_when' => ['missing_workspace_id', 'missing_source_hashes', 'workspace_not_active', 'artifact_stale'],
+                'never_autocertify_from' => ['raw_conversation', 'provider_freeform_text', 'cartography_visual_only'],
+            ],
+            'orchestration_plan' => [
+                'schema_version' => 'atlas.workspace_contract_orchestration_plan.v1',
+                'mutative_consumers' => ['atlas_dev', 'atlas_forge', 'provider_invocation', 'subagent_handoff'],
+                'required_before_provider' => ['workspace_binding', 'artifact_certification', 'shadow_execution'],
+            ],
         ];
+        $payload['contract_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
     }
 
     /**
@@ -402,21 +654,47 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             ];
         }
 
-        return [
-            'schema_version' => 'atlas.workspace_evolution_fabric.v1',
-            'status' => $profile === null ? 'blocked' : 'ready',
-            'workspace_id' => $profile['slug'] ?? null,
-            'privacy_preserving_transfer' => true,
+        $patternLibrary = [
+            'schema_version' => 'atlas.workspace_pattern_library.v1',
             'patterns' => $patterns,
-            'failure_signature_bank' => [
+            'pattern_count' => count($patterns),
+            'privacy_level' => 'abstracted_only',
+        ];
+        $failureSignatureBank = [
+            'schema_version' => 'atlas.workspace_failure_signature_bank.v1',
+            'signatures' => [
                 [
                     'signature_id' => 'stale_workspace_context',
                     'avoidance_policy' => ['refresh_awis', 'rebuild_twin', 'regenerate_artifacts'],
                     'confidence' => 0.8,
+                    'evidence_refs' => ['awis.execution_gate'],
                 ],
             ],
-            'evolution_hash' => MissionCanonicalHash::sha256($patterns),
         ];
+
+        $payload = [
+            'schema_version' => 'atlas.workspace_evolution_fabric.v1',
+            'status' => $profile === null ? 'blocked' : 'ready',
+            'workspace_id' => $profile['slug'] ?? null,
+            'privacy_preserving_transfer' => true,
+            'pattern_library' => $patternLibrary,
+            'failure_signature_bank' => $failureSignatureBank,
+            'privacy_transfer_gate' => [
+                'schema_version' => 'atlas.workspace_privacy_transfer_gate.v1',
+                'allows_raw_cross_workspace' => false,
+                'allowed_transfer_units' => ['abstract_pattern', 'failure_signature', 'test_strategy', 'runbook_shape'],
+                'block_when' => ['raw_context_present', 'workspace_specific_secret', 'customer_data_present'],
+            ],
+            'workspace_benchmark' => [
+                'schema_version' => 'atlas.workspace_benchmark_shadow.v1',
+                'mode' => 'read_only_shadow',
+                'signals' => ['has_tests', 'has_owner_docs', 'has_awis_gate', 'has_artifact_graph'],
+                'score_basis' => 'structural_evidence_only',
+            ],
+        ];
+        $payload['evolution_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
     }
 
     /**
@@ -430,11 +708,88 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $this->check('awtr_workspace_twin', data_get($sections, '1.twin_hash') !== null, 'critical'),
             $this->check('acios_no_raw_conversation_prompt', data_get($sections, '2.task_context_pack_policy.uses_raw_conversation') === false, 'critical'),
             $this->check('awaf_artifacts_generated', (int) data_get($sections, '3.artifact_count', 0) >= 10, 'critical'),
-            $this->check('awco_artifacts_certified', data_get($sections, '4.execution_readiness_status') === 'ready', 'critical'),
-            $this->check('awef_privacy_preserving_transfer', data_get($sections, '5.privacy_preserving_transfer') === true, 'critical'),
+            $this->check('awair_artifact_intelligence_ready', data_get($sections, '4.artifact_replay.replay_ready') === true, 'critical'),
+            $this->check('awco_artifacts_certified', data_get($sections, '5.execution_readiness_status') === 'ready', 'critical'),
+            $this->check('awef_privacy_preserving_transfer', data_get($sections, '6.privacy_preserving_transfer') === true, 'critical'),
+            $this->check('awis_execution_boundaries_audited', data_get($sections, '7.status') === 'ready'
+                && (int) data_get($sections, '7.process_inventory_unclassified', 1) === 0, 'critical'),
+            $this->check('awis_registry_editing_contract_complete', data_get($sections, '8.status') === 'ready', 'critical'),
         ];
 
         return $checks;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function registryEditingSummary(): array
+    {
+        $routePath = base_path('routes/api.php');
+        $controllerPath = app_path('Http/Controllers/AtlasCodeWorkspaceController.php');
+        $servicePath = app_path('Services/AtlasCode/AtlasCodeWorkspaceProfileService.php');
+        $modelPath = app_path('Models/AtlasWorkspaceProfile.php');
+        $migrationPath = database_path('migrations/2026_05_25_022000_create_atlas_workspace_profiles.php');
+        $commandPath = app_path('Console/Commands/AtlasWorkspaceIntelligenceCommand.php');
+
+        $routeSource = File::exists($routePath) ? (string) File::get($routePath) : '';
+        $controllerSource = File::exists($controllerPath) ? (string) File::get($controllerPath) : '';
+        $serviceSource = File::exists($servicePath) ? (string) File::get($servicePath) : '';
+        $commandSource = File::exists($commandPath) ? (string) File::get($commandPath) : '';
+
+        $requirements = [
+            'migration_present' => File::exists($migrationPath),
+            'model_present' => File::exists($modelPath),
+            'api_list_route' => str_contains($routeSource, "Route::get('/projects/workspaces'"),
+            'api_create_route' => str_contains($routeSource, "Route::post('/projects/workspaces'"),
+            'api_show_route' => str_contains($routeSource, "Route::get('/projects/workspaces/{slug}'"),
+            'api_update_route' => str_contains($routeSource, "Route::patch('/projects/workspaces/{slug}'"),
+            'api_archive_route' => str_contains($routeSource, "Route::delete('/projects/workspaces/{slug}'"),
+            'controller_index' => str_contains($controllerSource, 'function index('),
+            'controller_show' => str_contains($controllerSource, 'function show('),
+            'controller_store' => str_contains($controllerSource, 'function store('),
+            'controller_update' => str_contains($controllerSource, 'function update('),
+            'controller_destroy' => str_contains($controllerSource, 'function destroy('),
+            'service_upsert' => str_contains($serviceSource, 'function upsertPersistedProfile('),
+            'service_archive' => str_contains($serviceSource, 'function archivePersistedProfile('),
+            'cli_register' => str_contains($commandSource, 'registerWorkspace('),
+            'cli_list' => str_contains($commandSource, "'list'"),
+        ];
+        $missing = array_keys(array_filter($requirements, static fn (bool $ok): bool => ! $ok));
+
+        $payload = [
+            'schema_version' => 'atlas.workspace_intelligence.registry_editing.v1',
+            'status' => $missing === [] ? 'ready' : 'blocked',
+            'requirements' => $requirements,
+            'missing' => $missing,
+            'api_actions' => ['list', 'show', 'create', 'update', 'archive'],
+            'cli_actions' => ['list', 'register'],
+            'storage' => [
+                'table' => 'atlas_workspace_profiles',
+                'archive_policy' => 'status_archived_no_hard_delete',
+            ],
+        ];
+        $payload['registry_editing_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $audit
+     * @return array<string,mixed>
+     */
+    private function executionBoundarySummary(array $audit): array
+    {
+        return [
+            'schema_version' => 'atlas.workspace_intelligence.execution_boundary_summary.v1',
+            'status' => (string) ($audit['status'] ?? 'blocked'),
+            'guarded_boundaries_total' => (int) data_get($audit, 'summary.total', 0),
+            'guarded_boundaries_failed' => (int) data_get($audit, 'summary.failed', 0),
+            'process_inventory_total' => (int) data_get($audit, 'process_inventory.total', 0),
+            'process_inventory_failed' => (int) data_get($audit, 'process_inventory.failed', 0),
+            'process_inventory_unclassified' => (int) data_get($audit, 'process_inventory.unclassified', 0),
+            'process_inventory_by_classification' => (array) data_get($audit, 'process_inventory.by_classification', []),
+            'audit_hash' => (string) ($audit['audit_hash'] ?? ''),
+        ];
     }
 
     /**
@@ -563,13 +918,45 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     private function workspaceRootHash(string $path): string
     {
         $real = realpath($path) ?: $path;
-        $head = null;
+        $gitHead = null;
         $headPath = rtrim($real, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'.git'.DIRECTORY_SEPARATOR.'HEAD';
         if (is_file($headPath)) {
             $head = trim((string) @file_get_contents($headPath));
+            $gitHead = $head;
+            if (str_starts_with($head, 'ref: ')) {
+                $refPath = rtrim($real, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'.git'.DIRECTORY_SEPARATOR.trim(mb_substr($head, 5));
+                if (is_file($refPath)) {
+                    $gitHead .= '|'.trim((string) @file_get_contents($refPath));
+                }
+            }
         }
 
-        return hash('sha256', $real.'|'.$head);
+        $structuralFiles = [
+            'composer.json',
+            'composer.lock',
+            'package.json',
+            'package-lock.json',
+            'pnpm-lock.yaml',
+            'yarn.lock',
+            'tsconfig.json',
+            'atlas-server/docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+            'atlas-server/docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md',
+            'atlas-server/docs/engineering-knowledge-base/atlas-workspace-contract-orchestrator.md',
+            'atlas-server/docs/engineering-knowledge-base/atlas-workspace-evolution-fabric.md',
+        ];
+        $structuralHashes = [];
+        foreach ($structuralFiles as $file) {
+            $filePath = rtrim($real, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$file;
+            if (is_file($filePath)) {
+                $structuralHashes[$file] = hash_file('sha256', $filePath) ?: null;
+            }
+        }
+
+        return MissionCanonicalHash::sha256([
+            'realpath' => $real,
+            'git_head' => $gitHead,
+            'structural_hashes' => $structuralHashes,
+        ]);
     }
 
     /**

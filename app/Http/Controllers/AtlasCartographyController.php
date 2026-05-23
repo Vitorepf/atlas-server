@@ -9,6 +9,7 @@ use App\Services\Vault\GraphAssembler;
 use App\Services\Vault\ObsidianVaultReader;
 use App\Services\Vault\RepoVaultReader;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -28,7 +29,7 @@ final class AtlasCartographyController extends Controller
         private readonly AtlasUniversalRealityCartographyService $universalRealityCartography,
     ) {}
 
-    public function graph(): JsonResponse
+    public function graph(Request $request): JsonResponse
     {
         // Cold-walk on a large Obsidian vault (5k+ notes in iCloud) can exceed
         // PHP's default 30s `max_execution_time`. Bump the cap for this request
@@ -46,8 +47,10 @@ final class AtlasCartographyController extends Controller
             ? Cache::remember('atlas-cartography:graph', $ttl, fn () => $this->assembler->assemble())
             : $this->assembler->assemble();
 
-        $clarity = $this->universalRealityCartography->map('flow');
+        $workspace = $this->stringQuery($request, 'workspace');
+        $clarity = $this->universalRealityCartography->map('flow', $workspace);
         $graph['human_clarity_contract'] = [
+            'workspace_scope' => $clarity['workspace_scope'],
             'human_clarity' => $clarity['human_clarity'],
             'visual_scene' => $clarity['visual_scene'],
             'human_route_map' => $clarity['human_route_map'],
@@ -58,13 +61,14 @@ final class AtlasCartographyController extends Controller
         return response()->json($graph);
     }
 
-    public function humanClarity(): JsonResponse
+    public function humanClarity(Request $request): JsonResponse
     {
-        $payload = $this->universalRealityCartography->map('flow');
+        $payload = $this->universalRealityCartography->map('flow', $this->stringQuery($request, 'workspace'));
 
         return response()->json([
             'schema_version' => $payload['schema_version'],
             'status' => data_get($payload, 'human_clarity.status') === 'ready' ? $payload['status'] : 'review',
+            'workspace_scope' => $payload['workspace_scope'],
             'human_clarity' => $payload['human_clarity'],
             'visual_scene' => $payload['visual_scene'],
             'human_route_map' => $payload['human_route_map'],
@@ -194,6 +198,17 @@ final class AtlasCartographyController extends Controller
         echo 'data: '.json_encode($data)."\n\n";
         @ob_flush();
         @flush();
+    }
+
+    private function stringQuery(Request $request, string $key): ?string
+    {
+        $value = $request->query($key);
+        if (! is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     public function recentChanges(): JsonResponse

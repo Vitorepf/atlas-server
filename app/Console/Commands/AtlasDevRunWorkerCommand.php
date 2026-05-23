@@ -14,6 +14,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutionReporter;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Throwable;
@@ -32,6 +33,7 @@ final class AtlasDevRunWorkerCommand extends Command
         private readonly ReceiptStorage $storage,
         private readonly AtlasDevRunIndexRepository $runIndex,
         private readonly SeniorEngineerLoopExecutionReporter $seniorLoopReporter,
+        private readonly AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate,
     ) {
         parent::__construct();
     }
@@ -88,6 +90,25 @@ final class AtlasDevRunWorkerCommand extends Command
             $envelope = OperationEnvelope::fromArray($envelopePayload);
             $taskContract = LightTaskContract::fromArray($taskContractPayload);
             $promptProjection = ProviderPromptProjection::fromArray($promptPayload);
+
+            $awisGate = $this->workspaceExecutionGate->gate(
+                workspace: $envelope->workspace,
+                mode: 'dev',
+                task: $envelope->normalizedIntent !== '' ? $envelope->normalizedIntent : $taskContract->taskId,
+            );
+
+            if (! (bool) ($awisGate['allowed'] ?? false)) {
+                $this->recordRunState($runId, 'blocked', [
+                    'error_code' => 'ATLAS_DEV_AWIS_EXECUTION_BLOCKED',
+                    'task_contract_hash' => $providedHash,
+                    'worker' => 'artisan',
+                    'awis_execution_gate' => $awisGate,
+                ]);
+                $this->runIndex->updateCompletion($runId, 'blocked');
+                $this->error('Atlas Dev run worker requires a ready AWIS workspace before provider execution.');
+
+                return self::FAILURE;
+            }
 
             $result = $this->executor->execute(
                 envelope: $envelope,

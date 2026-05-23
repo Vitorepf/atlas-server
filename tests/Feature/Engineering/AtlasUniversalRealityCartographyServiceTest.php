@@ -16,6 +16,10 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
         $this->assertSame(AtlasUniversalRealityCartographyService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('ready', $payload['status']);
         $this->assertSame('universe', $payload['mode']);
+        $this->assertSame('atlas.universal_reality_cartography.workspace_scope.v1', $payload['workspace_scope']['schema_version']);
+        $this->assertSame('ready', $payload['workspace_scope']['status']);
+        $this->assertSame('atlas', $payload['workspace_scope']['active_workspace_id']);
+        $this->assertTrue($payload['workspace_scope']['awis_certified']);
         $this->assertFalse($payload['writes']);
         $this->assertFalse($payload['claim_policy']['cartography_is_source_of_truth']);
         $this->assertTrue($payload['claim_policy']['canonical_docs_remain_authority']);
@@ -47,8 +51,13 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
         $this->assertSame('docs/engineering-knowledge-base/atlas-documentation-reality-system.md', $nodes->get('system.adrs')['source_path']);
         $this->assertSame('docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md', $nodes->get('system.acrui')['source_path']);
         $this->assertSame('docs/engineering-knowledge-base/atlas-universal-reality-cartography.md', $nodes->get('system.aurc')['source_path']);
+        $this->assertSame('docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md', $nodes->get('system.awis')['source_path']);
+        $this->assertSame('docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md', $nodes->get('system.awtr')['source_path']);
+        $this->assertSame('docs/engineering-knowledge-base/atlas-workspace-contract-orchestrator.md', $nodes->get('system.awco')['source_path']);
+        $this->assertSame('docs/engineering-knowledge-base/atlas-workspace-evolution-fabric.md', $nodes->get('system.awef')['source_path']);
         $this->assertSame('app/Services/Engineering/AtlasUniversalRealityCartographyService.php', $nodes->get('component.aurc-runtime')['source_path']);
         $this->assertSame('zoom_to_children', $nodes->get('system.aurc')['semantic_zoom']['tap_action']);
+        $this->assertSame('zoom_to_children', $nodes->get('system.awis')['semantic_zoom']['tap_action']);
         $this->assertSame('open_source_and_tests', $nodes->get('component.aurc-runtime')['human_modal']['next_action']);
     }
 
@@ -60,6 +69,8 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
 
         $this->assertSame('implementation', $scene['mode']);
         $this->assertSame('ready', $scene['status']);
+        $this->assertSame('atlas', $scene['workspace_scope']['active_workspace_id']);
+        $this->assertSame('workspace', $scene['workspace_scope']['cartography_scope']);
         $this->assertSame('labels_only_on_map_dense_text_in_human_modal', $scene['cognitive_budget']['text_policy']);
         $this->assertSame('semantic_lanes_left_to_right', $scene['viewport']['layout']);
         $this->assertSame('ready', $scene['breadcrumb']['status']);
@@ -100,6 +111,18 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
         $this->assertTrue($clarity['invariants']['visual_truth_never_overrides_canonical_docs']);
         $this->assertTrue($clarity['invariants']['all_routes_have_sources']);
         $this->assertContains('start_at_universe', $clarity['recommended_operator_use']);
+    }
+
+    public function test_cartography_accepts_workspace_scope_without_becoming_source_of_truth(): void
+    {
+        $payload = app(AtlasUniversalRealityCartographyService::class)->map('flow', 'atlas');
+
+        $this->assertSame('atlas', $payload['workspace_scope']['requested_workspace']);
+        $this->assertSame('atlas', $payload['workspace_scope']['active_workspace_id']);
+        $this->assertSame('ready', $payload['workspace_scope']['status']);
+        $this->assertSame($payload['workspace_scope'], $payload['visual_scene']['workspace_scope']);
+        $this->assertTrue($payload['claim_policy']['workspace_scope_is_projection_not_source_of_truth']);
+        $this->assertFalse($payload['claim_policy']['cartography_is_source_of_truth']);
     }
 
     public function test_semantic_zoom_and_human_routes_are_validated_against_node_graph(): void
@@ -144,6 +167,7 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
         $this->assertSame('ready', $payload['ai_navigation_slice']['status']);
         $this->assertTrue($payload['ai_navigation_slice']['provider_safe']);
         $this->assertContains('system.adrs', $payload['task_simulator']['node_ids_available']);
+        $this->assertContains('system.awis', $payload['task_simulator']['node_ids_available']);
         $this->assertSame('use_cartography_as_navigation_slice_not_as_primary_truth', $payload['ai_navigation_slice']['rule']);
 
         foreach ($payload['ai_navigation_slice']['nodes'] as $node) {

@@ -8,6 +8,7 @@ use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -29,6 +30,7 @@ class AtlasForgeGovernedPromotionService
     public function __construct(
         private readonly ProgrammingEvidenceLedger $evidenceLedger,
         private readonly ProgrammingGovernanceService $governance,
+        private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
     ) {}
 
     /**
@@ -58,6 +60,13 @@ class AtlasForgeGovernedPromotionService
         $workspace = $this->workspace($project, $workItem);
         if ($workspace === null) {
             return $this->blocked($promotionId, $project, ['workspace_required_for_promotion']);
+        }
+
+        $workspaceGate = $this->workspaceGate($workspace, 'forge workspace promotion');
+        if (($workspaceGate['allowed'] ?? false) !== true) {
+            return $this->blocked($promotionId, $project, ['awis_execution_gate_blocked'], [
+                'workspace_execution_gate' => $workspaceGate,
+            ]);
         }
 
         try {
@@ -158,6 +167,13 @@ class AtlasForgeGovernedPromotionService
             return $this->rollbackBlocked($rollbackId, $project, ['workspace_required_for_rollback']);
         }
 
+        $workspaceGate = $this->workspaceGate($workspace, 'forge workspace rollback');
+        if (($workspaceGate['allowed'] ?? false) !== true) {
+            return $this->rollbackBlocked($rollbackId, $project, ['awis_execution_gate_blocked'], [
+                'workspace_execution_gate' => $workspaceGate,
+            ]);
+        }
+
         $targetFile = (string) data_get($promotion, 'changed_files.0', '');
         if (! $this->relativePathIsSafe($targetFile)) {
             return $this->rollbackBlocked($rollbackId, $project, ['rollback_target_file_invalid']);
@@ -239,6 +255,20 @@ class AtlasForgeGovernedPromotionService
         }
 
         return null;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function workspaceGate(string $workspace, string $task): array
+    {
+        $gate = $this->workspaceExecutionGate ?? app(AtlasWorkspaceIntelligenceExecutionGateService::class);
+
+        return $gate->gate(
+            workspace: $workspace,
+            mode: 'forge',
+            task: $task,
+        );
     }
 
     /**

@@ -30,6 +30,7 @@ capabilities:
   - artifact_fusion
   - artifact_simulation
   - artifact_marketplace
+  - artifact_intelligence_runtime
 decisions:
   - AWAF produz artefatos; AWCO certifica e orquestra contratos.
   - Artefato operacional substitui prompt solto e conversa bruta.
@@ -42,6 +43,7 @@ maintenance:
   - Rodar docs-health apos alterar.
 related_paths:
   - docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md
+  - docs/engineering-knowledge-base/atlas-workspace-artifact-intelligence-runtime.md
   - docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md
   - docs/engineering-knowledge-base/atlas-continuity-intelligence-os.md
   - docs/engineering-knowledge-base/atlas-workspace-contract-orchestrator.md
@@ -123,6 +125,7 @@ observability_signals:
   - artifact_quality_score
 next_actions:
   - Criar schemas de Workspace Brief, Task Packet, Context Pack e Handoff Packet.
+  - Evoluir a camada AWAIR para lake, graph, replay, simulation e Cartografia por artifact.
   - Criar builders shadow read-only.
   - Integrar com AWCO para certificacao.
 ---
@@ -243,6 +246,10 @@ Artefatos principais:
 ## Camada Avancada de Artefatos
 
 AWAF final deve incluir seis capacidades acima dos artefatos basicos:
+O estado maximo desta camada fica detalhado em
+`atlas-workspace-artifact-intelligence-runtime.md` (AWAIR). Este doc governa os
+artefatos base; AWAIR governa lake, graph, branching, replay, simulation,
+context compiler, quality governor, Cartografia por artifact e marketplace.
 
 | Capacidade | Funcao | Ganho |
 |---|---|---|

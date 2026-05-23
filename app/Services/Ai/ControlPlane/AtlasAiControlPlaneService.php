@@ -56,6 +56,7 @@ use App\Models\AtlasRiskSignal;
 use App\Models\AtlasRuntimeEfficiencyDecision;
 use App\Models\AtlasRuntimeEfficiencyOutcome;
 use App\Models\AtlasStrategicDecision;
+use App\Models\AtlasWorkspaceRuntimeProjectionSnapshot;
 use App\Services\Ai\Learning\AtlasAiLearningLoopService;
 use App\Services\Ai\OperatorApproval\OperatorApprovalCanon;
 use App\Services\Ai\RouterRuntime\RouterRuntimeCanon;
@@ -132,6 +133,7 @@ class AtlasAiControlPlaneService
         $providerDecisions = $this->providerDecisions($since);
         $contextOperations = $this->contextOperations($tracesSection['ids']);
         $persistentContext = $this->persistentContext($since);
+        $workspaceIntelligence = $this->workspaceIntelligence($since);
         $aemor = $this->aemor($since);
         $intelligenceFactory = $this->intelligenceFactory($since);
         $strategicReality = $this->strategicReality($since);
@@ -153,6 +155,14 @@ class AtlasAiControlPlaneService
             }
         }
         foreach ((array) ($persistentContext['blockers'] ?? []) as $blocker) {
+            if (count($blockers) >= self::BLOCKER_LIMIT) {
+                break;
+            }
+            if (is_array($blocker)) {
+                $blockers[] = $blocker;
+            }
+        }
+        foreach ((array) ($workspaceIntelligence['blockers'] ?? []) as $blocker) {
             if (count($blockers) >= self::BLOCKER_LIMIT) {
                 break;
             }
@@ -183,6 +193,9 @@ class AtlasAiControlPlaneService
             'verified_compactions_count' => $contextOperations['verified_compaction']['total'],
             'persistent_context_total' => $persistentContext['total'],
             'persistent_context_blocked' => $persistentContext['blocked'],
+            'workspace_intelligence_snapshots_total' => $workspaceIntelligence['summary']['total'] ?? 0,
+            'workspace_intelligence_blocked' => $workspaceIntelligence['summary']['blocked'] ?? 0,
+            'workspace_intelligence_workspaces_total' => $workspaceIntelligence['summary']['workspaces_total'] ?? 0,
             'aemor_episodes_total' => $aemor['summary']['episodes_total'] ?? 0,
             'aemor_blocked_outcomes' => $aemor['summary']['blocked'] ?? 0,
             'aemor_failed_outcomes' => $aemor['summary']['failed'] ?? 0,
@@ -252,6 +265,7 @@ class AtlasAiControlPlaneService
             'provider_decisions' => $providerDecisions,
             'context_operations' => $contextOperations,
             'persistent_context' => $persistentContext,
+            'workspace_intelligence' => $workspaceIntelligence,
             'aemor' => $aemor,
             'intelligence_factory' => $intelligenceFactory,
             'strategic_reality' => $strategicReality,
@@ -397,6 +411,139 @@ class AtlasAiControlPlaneService
         ksort($section['by_scope_type']);
 
         return $section;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function workspaceIntelligence(CarbonImmutable $since): array
+    {
+        $empty = [
+            'schema_version' => 'atlas.workspace_intelligence.control_plane.v1',
+            'status' => 'missing',
+            'summary' => [
+                'total' => 0,
+                'ready' => 0,
+                'limited' => 0,
+                'blocked' => 0,
+                'workspaces_total' => 0,
+                'families_total' => 0,
+            ],
+            'by_family' => [],
+            'by_workspace' => [],
+            'latest' => [],
+            'blockers' => [],
+        ];
+
+        if (! Schema::hasTable('atlas_workspace_runtime_projection_snapshots')) {
+            return $empty;
+        }
+
+        try {
+            $snapshots = AtlasWorkspaceRuntimeProjectionSnapshot::query()
+                ->where('captured_at', '>=', $since)
+                ->orderByDesc('captured_at')
+                ->limit(200)
+                ->get(['id', 'workspace_id', 'family', 'schema_version', 'runtime_hash', 'projection_hash', 'status', 'captured_at']);
+        } catch (Throwable) {
+            $empty['status'] = 'degraded';
+
+            return $empty;
+        }
+
+        $summary = $empty['summary'];
+        $summary['total'] = count($snapshots);
+        $byFamily = [];
+        $byWorkspace = [];
+        $latest = [];
+        $blockers = [];
+        $workspaceIds = [];
+        $families = [];
+
+        foreach ($snapshots as $snapshot) {
+            $family = $this->stringOrNull($snapshot->family) ?? 'unknown';
+            $workspaceId = $this->stringOrNull($snapshot->workspace_id) ?? 'unknown';
+            $status = $this->stringOrNull($snapshot->status) ?? 'unknown';
+            $workspaceIds[$workspaceId] = true;
+            $families[$family] = true;
+
+            if (isset($summary[$status]) && is_int($summary[$status])) {
+                $summary[$status]++;
+            }
+
+            $byFamily[$family] ??= [
+                'family' => $family,
+                'total' => 0,
+                'by_status' => [],
+                'latest_projection_hash' => null,
+                'latest_runtime_hash' => null,
+                'latest_at' => null,
+            ];
+            $byFamily[$family]['total']++;
+            $byFamily[$family]['by_status'][$status] = ($byFamily[$family]['by_status'][$status] ?? 0) + 1;
+
+            $byWorkspace[$workspaceId] ??= [
+                'workspace_id' => $workspaceId,
+                'total' => 0,
+                'families' => [],
+                'latest_at' => null,
+            ];
+            $byWorkspace[$workspaceId]['total']++;
+            $byWorkspace[$workspaceId]['families'][$family] = true;
+
+            $capturedAt = $snapshot->captured_at?->toJSON();
+            if ($byFamily[$family]['latest_at'] === null || ($capturedAt !== null && $capturedAt > $byFamily[$family]['latest_at'])) {
+                $byFamily[$family]['latest_projection_hash'] = $this->stringOrNull($snapshot->projection_hash);
+                $byFamily[$family]['latest_runtime_hash'] = $this->stringOrNull($snapshot->runtime_hash);
+                $byFamily[$family]['latest_at'] = $capturedAt;
+            }
+            if ($byWorkspace[$workspaceId]['latest_at'] === null || ($capturedAt !== null && $capturedAt > $byWorkspace[$workspaceId]['latest_at'])) {
+                $byWorkspace[$workspaceId]['latest_at'] = $capturedAt;
+            }
+
+            if (count($latest) < self::RECENT_LIMIT) {
+                $latest[] = [
+                    'snapshot_id' => (string) $snapshot->id,
+                    'workspace_id' => $workspaceId,
+                    'family' => $family,
+                    'status' => $status,
+                    'schema_version' => $this->stringOrNull($snapshot->schema_version),
+                    'runtime_hash' => $this->stringOrNull($snapshot->runtime_hash),
+                    'projection_hash' => $this->stringOrNull($snapshot->projection_hash),
+                    'captured_at' => $capturedAt,
+                ];
+            }
+
+            if ($status === 'blocked') {
+                $blockers[] = [
+                    'kind' => 'workspace_intelligence_projection_blocked',
+                    'workspace_id' => $workspaceId,
+                    'family' => $family,
+                    'snapshot_id' => (string) $snapshot->id,
+                    'detail' => 'AWIS runtime projection persisted a blocked status',
+                ];
+            }
+        }
+
+        $summary['workspaces_total'] = count($workspaceIds);
+        $summary['families_total'] = count($families);
+        ksort($byFamily);
+        ksort($byWorkspace);
+
+        return [
+            'schema_version' => 'atlas.workspace_intelligence.control_plane.v1',
+            'status' => $blockers === [] ? 'ready' : 'blocked',
+            'summary' => $summary,
+            'by_family' => array_values($byFamily),
+            'by_workspace' => array_map(static function (array $workspace): array {
+                $workspace['families'] = array_keys($workspace['families']);
+                sort($workspace['families']);
+
+                return $workspace;
+            }, array_values($byWorkspace)),
+            'latest' => $latest,
+            'blockers' => $blockers,
+        ];
     }
 
     /**

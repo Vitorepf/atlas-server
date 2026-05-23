@@ -12,6 +12,8 @@ use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use App\Services\Tools\AtlasToolGateService;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
@@ -43,6 +45,8 @@ class EngineeringHarnessRunnerService
         private readonly AtlasMemoryRegistryService $memoryRegistry,
         private readonly AtlasToolGateService $toolGate,
         private readonly AtlasEvidenceLedger $ledger,
+        private readonly ?AtlasWorkspacePathResolverService $workspacePaths = null,
+        private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate = null,
         private readonly ?EngineeringHarnessRunnerInput $input = null,
     ) {}
 
@@ -88,6 +92,18 @@ class EngineeringHarnessRunnerService
             $requestedModelPolicy,
             $fairModeOptions,
         );
+
+        $awisBlock = $this->awisMutationBlock(
+            workspace: $workspace,
+            task: $task,
+            dryRun: $dryRun,
+            noProvider: $noProvider,
+            requestedSandbox: $requestedSandbox,
+            applyIsolatedPatch: $applyIsolatedPatch,
+        );
+        if ($awisBlock !== null) {
+            return $awisBlock;
+        }
 
         $task->loadMissing(['project', 'projectStep']);
         $contract = $this->contracts->forTask($task);
@@ -1597,6 +1613,80 @@ class EngineeringHarnessRunnerService
                 'blocking_reasons' => $scoring['blocking_reasons'] ?? [],
             ],
         ], 'atlas:engineering:runner');
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function awisMutationBlock(
+        string $workspace,
+        AtlasTask $task,
+        bool $dryRun,
+        bool $noProvider,
+        string $requestedSandbox,
+        bool $applyIsolatedPatch,
+    ): ?array {
+        $mutative = ! $dryRun && (! $noProvider || ($applyIsolatedPatch && in_array($requestedSandbox, ['worktree', 'docker'], true)));
+        if (! $mutative) {
+            return null;
+        }
+
+        $resolver = $this->workspacePaths ?? app(AtlasWorkspacePathResolverService::class);
+        $gateService = $this->workspaceGate ?? app(AtlasWorkspaceIntelligenceExecutionGateService::class);
+        $resolution = $resolver->resolveForExecution($workspace);
+
+        if (($resolution['status'] ?? null) !== 'ready') {
+            return $this->awisBlockedPayload($task, [
+                'schema_version' => 'atlas.engineering_runner.awis_gate.v1',
+                'status' => 'blocked',
+                'error' => 'awis_workspace_required_for_engineering_run',
+                'workspace_resolution' => $resolution,
+            ]);
+        }
+
+        $gate = $gateService->gate(
+            workspace: (string) $resolution['workspace_slug'],
+            mode: 'dev',
+            task: trim((string) ($task->title ?? $task->body ?? $task->id)),
+        );
+        if ((bool) ($gate['allowed'] ?? false)) {
+            return null;
+        }
+
+        return $this->awisBlockedPayload($task, [
+            'schema_version' => 'atlas.engineering_runner.awis_gate.v1',
+            'status' => 'blocked',
+            'error' => 'awis_execution_gate_blocked',
+            'workspace_resolution' => $resolution,
+            'awis_execution_gate' => $gate,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $awis
+     * @return array<string,mixed>
+     */
+    private function awisBlockedPayload(AtlasTask $task, array $awis): array
+    {
+        return [
+            'run' => [
+                'id' => null,
+                'task_id' => $task->id,
+                'status' => 'blocked',
+                'decision' => 'blocked',
+                'score' => 0,
+                'blocking_reasons' => [$awis['error'] ?? 'awis_execution_gate_blocked'],
+                'awis_execution_gate' => $awis,
+            ],
+            'score' => [
+                'decision' => 'blocked',
+                'score' => 0,
+                'blocking_reasons' => [$awis['error'] ?? 'awis_execution_gate_blocked'],
+            ],
+            'awis_execution_gate' => $awis,
+            'harnessability' => ['status' => 'skipped', 'reason' => 'awis_blocked_before_harness'],
+            'test_run_count' => 0,
+        ];
     }
 
     /**

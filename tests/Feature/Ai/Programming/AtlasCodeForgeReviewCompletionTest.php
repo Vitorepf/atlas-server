@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming;
 
+use App\Http\Controllers\AtlasCodeWorkController;
+use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasCodeForgeFastPathService;
 use App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService;
+use App\Services\Ai\Programming\AtlasForgeGovernedPromotionService;
+use App\Services\Ai\Programming\ProgrammingProfessionalCompletionAuditService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
@@ -173,7 +177,7 @@ class AtlasCodeForgeReviewCompletionTest extends TestCase
 
         // O helper privado e exercido via reflection para garantir que o state projection
         // entrega forge_review_packet/forge_completion_claim com fast_path_run_id correto.
-        $controller = new \App\Http\Controllers\AtlasCodeWorkController();
+        $controller = new AtlasCodeWorkController;
         $reflection = new \ReflectionClass($controller);
 
         $packetMethod = $reflection->getMethod('forgeReviewPacketForWork');
@@ -191,7 +195,7 @@ class AtlasCodeForgeReviewCompletionTest extends TestCase
 
     public function test_completion_audit_block_lists_review_completion_artifacts(): void
     {
-        $payload = (array) app(\App\Services\Ai\Programming\ProgrammingProfessionalCompletionAuditService::class)
+        $payload = (array) app(ProgrammingProfessionalCompletionAuditService::class)
             ->report(base_path(), false);
 
         $this->assertArrayHasKey('forge_review_completion_certification', $payload);
@@ -227,6 +231,64 @@ class AtlasCodeForgeReviewCompletionTest extends TestCase
         $this->assertTrue($result['completion_claim']['human_approved']);
         $this->assertSame('tester', $result['completion_claim']['approved_by']);
         $this->assertTrue($result['completion_claim']['final_completion_allowed']);
+    }
+
+    public function test_governed_promotion_blocks_without_certified_awis_workspace(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-forge-promotion-awis-'.Str::lower(Str::random(8));
+        mkdir($workspace, 0o755, true);
+        file_put_contents($workspace.'/target.php', "<?php\n");
+
+        try {
+            $obra = AtlasProject::create([
+                'id' => (string) Str::uuid(),
+                'title' => 'Forge Promotion AWIS test',
+                'description' => 'Promotion must block without AWIS workspace.',
+                'status' => 'active',
+                'domain' => 'atlas',
+                'goal' => 'Validate AWIS promotion gate',
+                'desired_outcome' => 'Promotion blocked before workspace mutation',
+                'priority' => 'normal',
+                'metadata' => ['workspace_path' => $workspace],
+            ]);
+
+            $workItem = AtlasProgrammingWorkItem::create([
+                'id' => (string) Str::uuid(),
+                'code' => 'PROMO-AWIS-'.Str::upper(Str::random(6)),
+                'intent_text' => 'Promote governed patch only with AWIS workspace.',
+                'intent_type' => 'forge',
+                'scope_mode' => 'bounded',
+                'risk_level' => 'high',
+                'workspace' => $workspace,
+                'status' => 'ready',
+                'current_stage' => 'review',
+            ]);
+
+            $result = app(AtlasForgeGovernedPromotionService::class)->promote(
+                $obra,
+                ['history_id' => 'history-awis'],
+                [
+                    'governed_execution' => [
+                        'work_item_id' => (string) $workItem->id,
+                        'promotion_artifact' => ['path' => $workspace.'/not-read.json'],
+                    ],
+                    'diff_scope' => [
+                        'files' => [['path' => 'target.php', 'status' => 'in_scope']],
+                        'completion_gate' => ['completion_claim_allowed' => true],
+                    ],
+                ],
+                ['review_id' => 'review-awis'],
+            );
+
+            $this->assertSame('blocked', $result['status']);
+            $this->assertContains('awis_execution_gate_blocked', $result['remaining_blockers']);
+            $this->assertFalse((bool) data_get($result, 'workspace_execution_gate.allowed'));
+            $this->assertSame('forge', data_get($result, 'workspace_execution_gate.mode'));
+            $this->assertSame("<?php\n", file_get_contents($workspace.'/target.php'));
+        } finally {
+            @unlink($workspace.'/target.php');
+            @rmdir($workspace);
+        }
     }
 
     public function test_rollback_seed_promoted_review_can_succeed(): void

@@ -2,6 +2,7 @@
 
 namespace App\Services\Engineering;
 
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use App\Services\Tools\AtlasToolResultNormalizer;
 use App\Support\AtlasPhpBinary;
@@ -19,6 +20,7 @@ class EngineeringQualityScanService
     public function __construct(
         private readonly AtlasToolEvidenceStore $toolEvidence,
         private readonly AtlasToolResultNormalizer $toolNormalizer,
+        private readonly AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate,
     ) {}
 
     /**
@@ -34,6 +36,39 @@ class EngineeringQualityScanService
         $startedAt = hrtime(true);
         $runContextType = $this->nullableString($options['run_context_type'] ?? null);
         $runContextId = $this->nullableString($options['run_context_id'] ?? null);
+        $awisExecutionGate = $this->workspaceGate->gate(
+            workspace: $workspace,
+            mode: 'tool',
+            task: 'engineering quality scan '.$profile,
+        );
+
+        if (($awisExecutionGate['allowed'] ?? false) !== true) {
+            return [
+                'status' => 'blocked',
+                'profile' => $profile,
+                'workspace_hash' => hash('sha256', $workspace),
+                'changed_only' => $changedOnly,
+                'summary' => [
+                    'tool_count' => 0,
+                    'passed_count' => 0,
+                    'failed_count' => 0,
+                    'skipped_count' => 0,
+                    'timeout_count' => 0,
+                    'finding_count' => 0,
+                    'blocking_finding_count' => 0,
+                    'recommendation_count' => 0,
+                ],
+                'tools' => [],
+                'findings' => [],
+                'recommendations' => [],
+                'cost_posture' => 'not_started',
+                'paid_tool_required' => false,
+                'awis_workspace_required_for_quality_scan' => true,
+                'awis_execution_gate' => $awisExecutionGate,
+                'blockers' => ['awis_workspace_required_for_quality_scan'],
+                'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
+            ];
+        }
         $artifactRoot = storage_path('app/engineering-quality-scans/'.now()->format('Ymd-His').'-'.substr(hash('sha256', $workspace.random_int(1, PHP_INT_MAX)), 0, 10));
         File::ensureDirectoryExists($artifactRoot);
 
@@ -87,6 +122,8 @@ class EngineeringQualityScanService
             'cost_posture' => 'free_local_or_project_local',
             'paid_tool_required' => false,
             'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
+            'awis_workspace_required_for_quality_scan' => true,
+            'awis_execution_gate' => $awisExecutionGate,
         ];
 
         $this->writeScanManifest($artifactRoot, $payload);

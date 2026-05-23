@@ -165,6 +165,50 @@ final class AtlasCodeWorkspaceProfileService
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function archivePersistedProfile(string $slug): array
+    {
+        if (! Schema::hasTable('atlas_workspace_profiles')) {
+            throw new InvalidArgumentException('atlas_workspace_profiles_table_missing');
+        }
+
+        $needle = trim(strtolower($slug));
+        if ($needle === '') {
+            throw new InvalidArgumentException('invalid_workspace_slug');
+        }
+
+        $profile = AtlasWorkspaceProfile::query()->where('slug', $needle)->first();
+        if (! $profile instanceof AtlasWorkspaceProfile) {
+            throw new InvalidArgumentException('workspace_profile_not_persisted');
+        }
+
+        $profile->forceFill(['status' => 'archived'])->save();
+
+        return $this->shape([
+            'id' => (string) $profile->id,
+            'slug' => (string) $profile->slug,
+            'name' => (string) $profile->name,
+            'kind' => (string) $profile->kind,
+            'workspace_path' => (string) ($profile->workspace_path ?? ''),
+            'repo_root' => (string) ($profile->repo_root ?? $profile->workspace_path ?? ''),
+            'production_status' => (string) $profile->production_status,
+            'stack_summary' => (string) ($profile->stack_summary ?? ''),
+            'commands' => $profile->commands ?? [],
+            'test_commands' => $profile->test_commands ?? [],
+            'build_commands' => $profile->build_commands ?? [],
+            'dev_server_command' => $profile->dev_server_command,
+            'critical_areas' => $profile->critical_areas ?? [],
+            'docs_status' => (string) $profile->docs_status,
+            'default_risk' => (string) $profile->default_risk,
+            'deployment_notes' => (string) ($profile->deployment_notes ?? ''),
+            'surfaces_enabled' => $profile->surfaces_enabled ?? ['atlas_ai', 'cartografia', 'code', 'atencao'],
+            'source' => (string) $profile->source,
+            'status' => 'archived',
+        ]);
+    }
+
+    /**
      * @param  array<string, mixed>  $raw
      * @return array<string, mixed>
      */
@@ -200,6 +244,8 @@ final class AtlasCodeWorkspaceProfileService
             // Surfaces habilitadas para este Projeto. Default = todas, para
             // preservar retro-compatibilidade quando o profile não declara.
             'surfaces_enabled' => $this->stringList($raw['surfaces_enabled'] ?? ['atlas_ai', 'cartografia', 'code', 'atencao']),
+            'source' => (string) ($raw['source'] ?? 'config'),
+            'status' => (string) ($raw['status'] ?? 'active'),
             'safety' => [
                 'execution_allowed' => $workspacePath !== '' && @is_dir($workspacePath),
                 'execution_blocked_reason' => ($workspacePath !== '' && @is_dir($workspacePath))

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactIntelligenceRepository;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceSnapshotRepository;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceRuntimeProjectionRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,10 +18,30 @@ final class AtlasWorkspaceIntelligenceController extends Controller
         Request $request,
         AtlasWorkspaceIntelligenceRuntimeService $runtime,
         AtlasWorkspaceIntelligenceSnapshotRepository $snapshots,
+        AtlasWorkspaceArtifactIntelligenceRepository $artifactIntelligence,
+        AtlasWorkspaceRuntimeProjectionRepository $projections,
     ): JsonResponse {
         if ($request->boolean('latest')) {
             $latest = $snapshots->latest($this->stringQuery($request, 'workspace') ?? 'atlas');
             if ($latest !== null) {
+                $currentWorkspaceHash = $this->currentWorkspaceHash($runtime, $request);
+                $snapshotWorkspaceHash = is_string($latest->workspace_hash) && $latest->workspace_hash !== ''
+                    ? $latest->workspace_hash
+                    : null;
+                if ($snapshotWorkspaceHash === null || $currentWorkspaceHash === null || ! hash_equals($snapshotWorkspaceHash, $currentWorkspaceHash)) {
+                    return response()->json([
+                        'schema_version' => 'atlas.awis.runtime_snapshot_stale.v1',
+                        'status' => 'blocked',
+                        'stale' => true,
+                        'reason' => $snapshotWorkspaceHash === null ? 'snapshot_missing_workspace_hash' : 'workspace_hash_changed',
+                        'workspace_id' => $latest->workspace_id,
+                        'snapshot_workspace_hash' => $snapshotWorkspaceHash,
+                        'current_workspace_hash' => $currentWorkspaceHash,
+                        'runtime_hash' => $latest->runtime_hash,
+                        'blockers' => ['workspace_intelligence_snapshot_stale'],
+                    ], 409);
+                }
+
                 return response()->json($latest->payload);
             }
         }
@@ -31,7 +53,11 @@ final class AtlasWorkspaceIntelligenceController extends Controller
         );
         if ($request->boolean('persist')) {
             $snapshot = $snapshots->persist($report);
+            $artifactGraph = $artifactIntelligence->persist($report);
+            $projectionIds = $projections->persist($report);
             $report['persisted_snapshot_id'] = $snapshot?->id;
+            $report['persisted_artifact_graph_id'] = $artifactGraph?->id;
+            $report['persisted_projection_ids'] = $projectionIds;
         }
 
         return response()->json($report, $report['status'] === 'blocked' ? 422 : 200);
@@ -58,6 +84,123 @@ final class AtlasWorkspaceIntelligenceController extends Controller
         return response()->json($report['awaf'] ?? [], $report['status'] === 'blocked' ? 422 : 200);
     }
 
+    public function twin(
+        Request $request,
+        AtlasWorkspaceIntelligenceRuntimeService $runtime,
+        AtlasWorkspaceIntelligenceSnapshotRepository $snapshots,
+        AtlasWorkspaceRuntimeProjectionRepository $projections,
+    ): JsonResponse {
+        if ($request->boolean('latest')) {
+            $latestProjection = $projections->latest($this->stringQuery($request, 'workspace') ?? 'atlas', 'AWTR');
+            if ($latestProjection !== null) {
+                $stale = $this->staleProjectionResponse($latestProjection->payload, 'AWTR', $this->currentWorkspaceHash($runtime, $request));
+                if ($stale !== null) {
+                    return $stale;
+                }
+
+                return response()->json($latestProjection->payload);
+            }
+
+            $latest = $snapshots->latest($this->stringQuery($request, 'workspace') ?? 'atlas');
+            if ($latest !== null) {
+                return response()->json(data_get($latest->payload, 'awtr', []));
+            }
+        }
+
+        $payload = $runtime->twin($this->stringQuery($request, 'workspace'));
+
+        return response()->json($payload, $payload['status'] === 'blocked' ? 422 : 200);
+    }
+
+    public function artifactIntelligence(
+        Request $request,
+        AtlasWorkspaceIntelligenceRuntimeService $runtime,
+        AtlasWorkspaceIntelligenceSnapshotRepository $snapshots,
+        AtlasWorkspaceArtifactIntelligenceRepository $artifactIntelligence,
+    ): JsonResponse {
+        if ($request->boolean('latest')) {
+            $latestArtifactGraph = $artifactIntelligence->latest($this->stringQuery($request, 'workspace') ?? 'atlas');
+            if ($latestArtifactGraph !== null) {
+                return response()->json($latestArtifactGraph->payload);
+            }
+
+            $latest = $snapshots->latest($this->stringQuery($request, 'workspace') ?? 'atlas');
+            if ($latest !== null) {
+                return response()->json(data_get($latest->payload, 'awair', []));
+            }
+        }
+
+        $report = $runtime->certify(
+            workspace: $this->stringQuery($request, 'workspace'),
+            task: $this->stringQuery($request, 'task') ?? '',
+            conversationTexts: [],
+        );
+        if ($request->boolean('persist')) {
+            $artifactIntelligence->persist($report);
+        }
+
+        return response()->json($report['awair'] ?? [], $report['status'] === 'blocked' ? 422 : 200);
+    }
+
+    public function contracts(
+        Request $request,
+        AtlasWorkspaceIntelligenceRuntimeService $runtime,
+        AtlasWorkspaceIntelligenceSnapshotRepository $snapshots,
+        AtlasWorkspaceRuntimeProjectionRepository $projections,
+    ): JsonResponse {
+        if ($request->boolean('latest')) {
+            $latestProjection = $projections->latest($this->stringQuery($request, 'workspace') ?? 'atlas', 'AWCO');
+            if ($latestProjection !== null) {
+                $stale = $this->staleProjectionResponse($latestProjection->payload, 'AWCO', $this->currentWorkspaceHash($runtime, $request));
+                if ($stale !== null) {
+                    return $stale;
+                }
+
+                return response()->json($latestProjection->payload);
+            }
+
+            $latest = $snapshots->latest($this->stringQuery($request, 'workspace') ?? 'atlas');
+            if ($latest !== null) {
+                return response()->json(data_get($latest->payload, 'awco', []));
+            }
+        }
+
+        $payload = $runtime->contractOrchestration(
+            workspace: $this->stringQuery($request, 'workspace'),
+            task: $this->stringQuery($request, 'task') ?? '',
+        );
+
+        return response()->json($payload, $payload['status'] === 'blocked' ? 422 : 200);
+    }
+
+    public function evolution(
+        Request $request,
+        AtlasWorkspaceIntelligenceRuntimeService $runtime,
+        AtlasWorkspaceIntelligenceSnapshotRepository $snapshots,
+        AtlasWorkspaceRuntimeProjectionRepository $projections,
+    ): JsonResponse {
+        if ($request->boolean('latest')) {
+            $latestProjection = $projections->latest($this->stringQuery($request, 'workspace') ?? 'atlas', 'AWEF');
+            if ($latestProjection !== null) {
+                $stale = $this->staleProjectionResponse($latestProjection->payload, 'AWEF', $this->currentWorkspaceHash($runtime, $request));
+                if ($stale !== null) {
+                    return $stale;
+                }
+
+                return response()->json($latestProjection->payload);
+            }
+
+            $latest = $snapshots->latest($this->stringQuery($request, 'workspace') ?? 'atlas');
+            if ($latest !== null) {
+                return response()->json(data_get($latest->payload, 'awef', []));
+            }
+        }
+
+        $payload = $runtime->evolutionFabric($this->stringQuery($request, 'workspace'));
+
+        return response()->json($payload, $payload['status'] === 'blocked' ? 422 : 200);
+    }
+
     public function gate(
         Request $request,
         AtlasWorkspaceIntelligenceExecutionGateService $gate,
@@ -81,5 +224,57 @@ final class AtlasWorkspaceIntelligenceController extends Controller
         $value = trim($value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function currentWorkspaceHash(AtlasWorkspaceIntelligenceRuntimeService $runtime, Request $request): ?string
+    {
+        $report = $runtime->certify(
+            workspace: $this->stringQuery($request, 'workspace'),
+            task: $this->stringQuery($request, 'task') ?? '',
+            conversationTexts: [],
+        );
+        $hash = data_get($report, 'workspace.workspace_hash');
+
+        return is_string($hash) && $hash !== '' ? $hash : null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function staleProjectionResponse(array $payload, string $family, ?string $currentWorkspaceHash): ?JsonResponse
+    {
+        $snapshotWorkspaceHash = data_get($payload, 'awis_projection.workspace_hash');
+        if (! is_string($snapshotWorkspaceHash) || $snapshotWorkspaceHash === '') {
+            return response()->json($this->staleProjectionPayload($payload, $family, $currentWorkspaceHash, 'snapshot_missing_workspace_hash'), 409);
+        }
+        if ($currentWorkspaceHash === null) {
+            return response()->json($this->staleProjectionPayload($payload, $family, null, 'current_workspace_hash_unavailable'), 409);
+        }
+        if (! hash_equals($snapshotWorkspaceHash, $currentWorkspaceHash)) {
+            return response()->json($this->staleProjectionPayload($payload, $family, $currentWorkspaceHash, 'workspace_hash_changed'), 409);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function staleProjectionPayload(array $payload, string $family, ?string $currentWorkspaceHash, string $reason): array
+    {
+        return [
+            'schema_version' => 'atlas.awis.runtime_projection_stale.v1',
+            'status' => 'blocked',
+            'family' => $family,
+            'stale' => true,
+            'reason' => $reason,
+            'workspace_id' => data_get($payload, 'awis_projection.workspace_id'),
+            'snapshot_workspace_hash' => data_get($payload, 'awis_projection.workspace_hash'),
+            'current_workspace_hash' => $currentWorkspaceHash,
+            'runtime_hash' => data_get($payload, 'awis_projection.runtime_hash'),
+            'projection_hash' => data_get($payload, 'awis_projection.projection_hash'),
+            'blockers' => ['workspace_runtime_projection_stale'],
+        ];
     }
 }

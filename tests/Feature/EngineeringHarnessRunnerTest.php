@@ -148,6 +148,25 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertContains(LedgerEventType::OperationCompleted->value, $events);
     }
 
+    public function test_runner_blocks_provider_execution_without_registered_awis_workspace(): void
+    {
+        $task = $this->task();
+
+        $payload = app(EngineeringHarnessRunnerService::class)->run($task, [
+            'workspace' => $this->workspace,
+            'no_provider' => false,
+            'dry_run' => false,
+            'sandbox' => 'workspace',
+            'max_attempts' => 1,
+        ]);
+
+        $this->assertSame('blocked', data_get($payload, 'run.status'));
+        $this->assertSame('blocked', data_get($payload, 'run.decision'));
+        $this->assertSame('awis_workspace_required_for_engineering_run', data_get($payload, 'awis_execution_gate.error'));
+        $this->assertSame('workspace_not_registered', data_get($payload, 'awis_execution_gate.workspace_resolution.reason'));
+        $this->assertDatabaseCount('atlas_engineering_runs', 0);
+    }
+
     public function test_strict_changed_files_scope_blocks_resolved_when_diff_escapes_allowlist(): void
     {
         $task = $this->task([
@@ -1360,6 +1379,34 @@ class EngineeringHarnessRunnerTest extends TestCase
         $this->assertSame(0, $exitCode);
         $this->assertSame('attempt', data_get($payload, 'run.replay.scope'));
         $this->assertSame(1, data_get($payload, 'run.replay.source_attempt_number'));
+    }
+
+    public function test_engineering_replay_apply_isolated_patch_requires_registered_awis_workspace(): void
+    {
+        $task = $this->task();
+        File::put($this->workspace.'/src/example.txt', "after\n");
+
+        $source = app(EngineeringHarnessRunnerService::class)->run($task, [
+            'workspace' => $this->workspace,
+            'no_provider' => true,
+            'auto_test' => true,
+            'test_command' => $this->passingPhpCommand(),
+            'sandbox' => 'workspace',
+        ]);
+        $sourceRunId = (string) data_get($source, 'run.id');
+
+        $exitCode = Artisan::call('atlas:engineering:replay', [
+            'run' => $sourceRunId,
+            '--workspace' => $this->workspace,
+            '--apply-isolated-patch' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertSame('blocked', data_get($payload, 'status'));
+        $this->assertSame('awis_workspace_required_for_replay_patch', data_get($payload, 'error'));
+        $this->assertSame('workspace_not_registered', data_get($payload, 'workspace_resolution.reason'));
     }
 
     public function test_operator_actions_transition_runs_and_remain_auditable(): void

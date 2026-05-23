@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai\Programming\AtlasDev\Http;
 use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Models\AtlasDevRunIndex;
+use App\Models\AtlasWorkspaceProfile;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
@@ -87,6 +88,34 @@ final class AtlasDevRunWorkerCommandTest extends AtlasDevHttpTestCase
         $show->assertJsonPath('data.state', 'complete');
         $show->assertJsonPath('data.completion_state', 'failed');
         $show->assertJsonPath('data.run_execution.status', 'failed');
+    }
+
+    public function test_worker_command_blocks_before_executor_when_awis_workspace_is_not_ready(): void
+    {
+        $plan = $this->postPlan($this->defaultRepairPayload());
+        AtlasWorkspaceProfile::query()->where('slug', 'atlas-dev-http')->delete();
+
+        $fake = FakeRunExecutor::passing();
+        $this->app->instance(RunExecutor::class, $fake);
+
+        $this->artisan('atlas:dev:run-worker', [
+            'run_id' => $plan['run_id'],
+            '--task-contract-hash' => $plan['hashes']['task_contract'],
+        ])->assertExitCode(1);
+
+        $this->assertCount(0, $fake->calls);
+
+        $storage = $this->app->make(ReceiptStorage::class);
+        $latestState = $storage->readLatestVersion($plan['run_id'], ArtifactNames::RUN_EXECUTION_STATE_BASE);
+        $this->assertIsArray($latestState);
+        $this->assertSame('blocked', $latestState['status']);
+        $this->assertSame('ATLAS_DEV_AWIS_EXECUTION_BLOCKED', $latestState['error_code']);
+        $this->assertSame('dev', data_get($latestState, 'awis_execution_gate.mode'));
+        $this->assertFalse((bool) data_get($latestState, 'awis_execution_gate.allowed'));
+
+        $index = AtlasDevRunIndex::query()->find($plan['run_id']);
+        $this->assertNotNull($index);
+        $this->assertSame('blocked', $index->completion_state);
     }
 
     public function test_worker_command_installs_sigterm_handler_for_operator_cancellation(): void

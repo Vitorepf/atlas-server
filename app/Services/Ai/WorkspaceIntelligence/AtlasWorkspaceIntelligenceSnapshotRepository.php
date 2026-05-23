@@ -56,6 +56,7 @@ final class AtlasWorkspaceIntelligenceSnapshotRepository
             'AWTR' => (string) data_get($report, 'awtr.status', 'unknown'),
             'ACIOS' => (string) data_get($report, 'acios.status', 'unknown'),
             'AWAF' => (string) data_get($report, 'awaf.status', 'unknown'),
+            'AWAIR' => (string) data_get($report, 'awair.status', 'unknown'),
             'AWCO' => (string) data_get($report, 'awco.status', 'unknown'),
             'AWEF' => (string) data_get($report, 'awef.status', 'unknown'),
         ];

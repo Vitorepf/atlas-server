@@ -16,6 +16,7 @@ final class AtlasWorkspaceIntelligenceExecutionGateService
         'forge',
         'patch',
         'test',
+        'tool',
         'index-code',
         'provider-patch',
         'memory-write',
@@ -23,6 +24,7 @@ final class AtlasWorkspaceIntelligenceExecutionGateService
 
     public function __construct(
         private readonly AtlasWorkspaceIntelligenceRuntimeService $runtime,
+        private readonly AtlasWorkspaceArtifactShadowExecutionService $artifactShadowExecution,
     ) {}
 
     /**
@@ -43,6 +45,7 @@ final class AtlasWorkspaceIntelligenceExecutionGateService
         );
 
         $mutative = in_array($normalizedMode, self::MUTATIVE_MODES, true);
+        $artifactShadow = $this->artifactShadowExecution->evaluate($report, $normalizedMode);
         $blockers = [];
         $warnings = [];
 
@@ -55,6 +58,9 @@ final class AtlasWorkspaceIntelligenceExecutionGateService
             }
             if ((int) data_get($report, 'awaf.artifact_count', 0) < 10) {
                 $blockers[] = 'workspace_artifacts_incomplete';
+            }
+            if (($artifactShadow['status'] ?? null) !== 'ready') {
+                $blockers[] = 'artifact_shadow_execution_blocked';
             }
         } elseif (($report['status'] ?? null) !== 'ready') {
             $warnings[] = 'workspace_not_ready_conversation_only';
@@ -75,8 +81,10 @@ final class AtlasWorkspaceIntelligenceExecutionGateService
                 'awis_workspace_binding' => data_get($report, 'workspace.status') === 'ready',
                 'awaf_artifacts_generated' => (int) data_get($report, 'awaf.artifact_count', 0) >= 10,
                 'awco_execution_readiness' => data_get($report, 'awco.execution_readiness_status') === 'ready',
+                'awair_shadow_execution' => ($artifactShadow['status'] ?? null) === 'ready',
                 'raw_conversation_excluded' => data_get($report, 'claim_policy.raw_conversation_used_as_prompt') === false,
             ],
+            'artifact_shadow_execution' => $artifactShadow,
             'blockers' => array_values(array_unique($blockers)),
             'warnings' => array_values(array_unique($warnings)),
             'claim_policy' => [

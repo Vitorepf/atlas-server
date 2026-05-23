@@ -2,10 +2,10 @@
 id: atlas-workspace-evolution-fabric
 type: engineering_knowledge
 title: Atlas Workspace Evolution Fabric
-status: building
+status: active
 category: workspace-intelligence
 priority: 97
-implementation_state: read_only_pattern_projection_present
+implementation_state: dedicated_read_only_evolution_projection_present
 summary: Camada planejada que permite ao Atlas aprender padroes entre workspaces sem vazar contexto privado, criando biblioteca de capacidades, falhas, templates e melhorias reutilizaveis.
 tags:
   - atlas
@@ -43,7 +43,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: system
 graph_parent: atlas-workspace-intelligence-system
-graph_status: planned
+graph_status: active
 graph_source: repo
 product_name: Atlas Workspace Evolution Fabric
 runtime_acronym: AWEF
@@ -82,6 +82,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-workspace-evolution-fabric.md
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php
+  - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceRuntimeProjectionRepository.php
+  - app/Console/Commands/AtlasWorkspaceIntelligenceCommand.php
+  - app/Http/Controllers/AtlasWorkspaceIntelligenceController.php
+  - app/Models/AtlasWorkspaceRuntimeProjectionSnapshot.php
+  - database/migrations/2026_05_25_021500_create_atlas_workspace_runtime_projection_snapshots.php
   - tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
@@ -98,7 +103,7 @@ ai_usage_notes:
   - Reutilize padroes abstratos, nunca dados privados ou contexto bruto.
 quality_gates:
   - docs-health
-  - future: atlas:workspace-evolution:certify --json --strict
+  - php artisan atlas:workspace-intelligence evolution --workspace=atlas --json --strict
 failure_modes:
   - Vazamento cross-workspace.
   - Padrao errado aplicado em stack diferente.
@@ -109,9 +114,9 @@ observability_signals:
   - transfer_policy_hash
   - workspace_benchmark_hash
 next_actions:
-  - Criar schemas de pattern e failure signature.
-  - Criar policy de transferencia privada.
-  - Criar benchmark read-only por workspace.
+  - Persistir pattern library por evidence real.
+  - Conectar recomendacoes ao Forge como proposta.
+  - Criar benchmark historico por workspace.
 ---
 # Atlas Workspace Evolution Fabric
 
@@ -242,16 +247,27 @@ Blocos:
 
 ## Evidencias
 
-Evidencia atual: esta especificacao e primeira projecao AWEF read-only no
-runtime AWIS. Ainda falta pattern library persistida e transfer gate dedicado.
+Evidencia atual: AWEF possui projection dedicada via
+`atlas:workspace-intelligence evolution` e endpoint
+`/atlas-code/workspace-intelligence/evolution`. O payload inclui pattern
+library, failure signature bank, privacy transfer gate, workspace benchmark
+shadow e evolution hash deterministico. Com `--persist`/`persist=1`, AWEF e
+salvo em `atlas_workspace_runtime_projection_snapshots` e pode ser reaberto por
+`latest=1`. O Atlas AI Control Plane agrega AWEF dentro de
+`workspace_intelligence`, com contagem por familia/workspace, projection hashes
+recentes e blockers quando uma projection persistida estiver bloqueada.
+Replays `latest=1` falham com `409` quando o `workspace_hash` atual diverge do
+hash persistido ou quando a projection nao possui binding verificavel. O binding
+`awis_projection` sela `workspace_id`, `workspace_hash`, `runtime_hash`,
+`family`, `projection_hash` e a politica fail-closed. Isso evita que patterns,
+benchmarks ou failure signatures stale sejam reaproveitados como recomendacao
+atual.
 
 Comandos planejados:
 
 ```bash
-php artisan atlas:workspace-evolution:extract --workspace=atlas --json
-php artisan atlas:workspace-evolution:patterns --json
-php artisan atlas:workspace-evolution:recommend --workspace=blackink --json
-php artisan atlas:workspace-evolution:certify --json --strict
+php artisan atlas:workspace-intelligence evolution --workspace=atlas --json --strict
+curl /atlas-code/workspace-intelligence/evolution?workspace=atlas
 ```
 
 ## Riscos
@@ -299,14 +315,12 @@ AWEF esta pronto quando:
 - failure signature bank tem evidence refs;
 - privacy transfer gate bloqueia raw data;
 - workspace benchmark e read-only e deterministico;
-- recommendations declaram compatibilidade e risco;
+- recommendations futuras declaram compatibilidade e risco;
 - Dev/Forge consomem recomendacoes como hint, nao como verdade absoluta;
-- `atlas:workspace-evolution:certify --json --strict` fica verde.
+- `atlas:workspace-intelligence evolution --workspace=atlas --json --strict` fica verde.
 
 ## Proximas Acoes
 
-1. Implementar schema read-only de pattern.
-2. Implementar failure signature bank em shadow.
-3. Criar privacy transfer gate.
-4. Criar benchmark minimo por workspace.
-5. Conectar recomendacoes ao Forge como proposta, nao execucao automatica.
+1. Criar benchmark historico por workspace.
+2. Conectar recomendacoes ao Forge como proposta, nao execucao automatica.
+3. Refinar Cartografia para abrir AWEF com pattern library e privacy transfer gate por workspace.

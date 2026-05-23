@@ -2,10 +2,10 @@
 id: atlas-workspace-contract-orchestrator
 type: engineering_knowledge
 title: Atlas Workspace Contract Orchestrator
-status: building
+status: active
 category: workspace-intelligence
 priority: 95
-implementation_state: read_only_artifact_certification_and_snapshot_persistence_present
+implementation_state: dedicated_read_only_contract_projection_present
 summary: Camada planejada que certifica, versiona, invalida e orquestra artefatos AWAF antes de execucao mutativa por Dev, Forge, provider ou subagente.
 tags:
   - atlas
@@ -42,7 +42,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: system
 graph_parent: atlas-workspace-intelligence-system
-graph_status: planned
+graph_status: active
 graph_source: repo
 product_name: Atlas Workspace Contract Orchestrator
 runtime_acronym: AWCO
@@ -80,6 +80,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-workspace-contract-orchestrator.md
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php
+  - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceRuntimeProjectionRepository.php
+  - app/Console/Commands/AtlasWorkspaceIntelligenceCommand.php
+  - app/Http/Controllers/AtlasWorkspaceIntelligenceController.php
+  - app/Models/AtlasWorkspaceRuntimeProjectionSnapshot.php
+  - database/migrations/2026_05_25_021500_create_atlas_workspace_runtime_projection_snapshots.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceSnapshotRepository.php
   - tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php
 required_tests:
@@ -97,7 +102,7 @@ ai_usage_notes:
   - Se o artifact nao e certificado, trate como draft.
 quality_gates:
   - docs-health
-  - future: atlas:workspace-contracts:certify --json --strict
+  - php artisan atlas:workspace-intelligence contracts --workspace=atlas --json --strict
 failure_modes:
   - Artifact ruim receber selo.
   - Certificacao antiga sobreviver a mudanca de repo.
@@ -108,9 +113,9 @@ observability_signals:
   - invalidation_reason
   - execution_readiness_status
 next_actions:
-  - Criar certification envelope v1.
-  - Criar stale/invalidation rules.
-  - Criar readiness gate para artifacts mutativos.
+  - Persistir contratos dedicados por runtime hash.
+  - Criar stale invalidation por git/docs/testes.
+  - Integrar projection no Control Plane e Cartografia.
 ---
 # Atlas Workspace Contract Orchestrator
 
@@ -213,17 +218,29 @@ Blocos:
 
 ## Evidencias
 
-Evidencia atual: esta especificacao, certificacao read-only dos artifacts AWAF e
-snapshot persistido opcional. Ainda faltam enforcement mutativo e invalidacao
-persistida por git/docs/testes.
+Evidencia atual: AWCO possui projection dedicada via
+`atlas:workspace-intelligence contracts` e endpoint
+`/atlas-code/workspace-intelligence/contracts`. O payload inclui certification
+envelope, artifact certifications, blocked artifacts, versioning policy,
+invalidation rules, orchestration plan e contract hash deterministico. Com
+`--persist`/`persist=1`, AWCO e salvo em
+`atlas_workspace_runtime_projection_snapshots` e pode ser reaberto por
+`latest=1`. O Atlas AI Control Plane agrega AWCO dentro de
+`workspace_intelligence`; se uma projection AWCO persistida estiver `blocked`,
+o runtime report tambem fica `blocked` com blocker
+`workspace_intelligence_projection_blocked`. Replays `latest=1` agora sao
+bloqueados quando o `workspace_hash` atual diverge do hash persistido; snapshots
+sem hash verificavel tambem falham fechados. O binding salvo em cada projection
+usa `awis_projection.schema_version =
+atlas.awis.runtime_projection_binding.v1`, com `workspace_id`,
+`workspace_hash`, `runtime_hash`, `family`, `projection_hash` e politica
+fail-closed para impedir contrato stale de liberar execucao.
 
 Comandos planejados:
 
 ```bash
-php artisan atlas:workspace-contracts:validate --artifact=... --json
-php artisan atlas:workspace-contracts:certify --artifact=... --json
-php artisan atlas:workspace-contracts:readiness --workspace=atlas --json
-php artisan atlas:workspace-contracts:certify-all --workspace=atlas --json --strict
+php artisan atlas:workspace-intelligence contracts --workspace=atlas --json --strict
+curl /atlas-code/workspace-intelligence/contracts?workspace=atlas
 ```
 
 ## Riscos
@@ -259,16 +276,13 @@ AWCO esta pronto quando:
 
 - valida schemas dos artifacts AWAF;
 - bloqueia artifact sem workspace_id;
-- invalida artifact stale;
+- declara regras de invalidacao para artifact stale;
 - certifica Task Packet, Context Pack, Test Plan e Handoff Packet;
 - Dev/Forge respeitam readiness;
 - provider/subagente nunca recebe artifact blocked;
-- `atlas:workspace-contracts:certify-all --json --strict` fica verde.
+- `atlas:workspace-intelligence contracts --workspace=atlas --json --strict` fica verde.
 
 ## Proximas Acoes
 
-1. Criar certification envelope v1.
-2. Criar validators para artifacts AWAF.
-3. Criar stale invalidation por git/docs/testes.
-4. Integrar readiness com Atlas Dev.
-5. Integrar certification gate com Forge.
+1. Refinar Cartografia para abrir AWCO com blocked artifacts/versioning policy por workspace.
+2. Evoluir invalidation para fingerprints por artifact individual.

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactIntelligenceRepository;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceExecutionBoundaryAuditService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceSnapshotRepository;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceRuntimeProjectionRepository;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
@@ -14,7 +17,7 @@ use InvalidArgumentException;
 final class AtlasWorkspaceIntelligenceCommand extends Command
 {
     protected $signature = 'atlas:workspace-intelligence
-        {action=certify : certify|show|artifacts|gate|register|list}
+        {action=certify : certify|show|twin|artifacts|contracts|evolution|artifact-intelligence|boundary-audit|gate|register|list}
         {--workspace= : Workspace slug, defaults to configured Atlas workspace}
         {--path= : Workspace root path for register action}
         {--name= : Human workspace name for register action}
@@ -31,12 +34,15 @@ final class AtlasWorkspaceIntelligenceCommand extends Command
         {--json : Print machine-readable JSON}
         {--strict : Exit non-zero unless status === ready}';
 
-    protected $description = 'Builds and certifies the AWIS family runtime envelope (AWIS/AWTR/ACIOS/AWAF/AWCO/AWEF).';
+    protected $description = 'Builds and certifies the AWIS family runtime envelope (AWIS/AWTR/ACIOS/AWAF/AWAIR/AWCO/AWEF).';
 
     public function handle(
         AtlasWorkspaceIntelligenceRuntimeService $runtime,
         AtlasWorkspaceIntelligenceExecutionGateService $gate,
         AtlasWorkspaceIntelligenceSnapshotRepository $snapshots,
+        AtlasWorkspaceArtifactIntelligenceRepository $artifactIntelligence,
+        AtlasWorkspaceRuntimeProjectionRepository $projections,
+        AtlasWorkspaceExecutionBoundaryAuditService $boundaryAudit,
         AtlasCodeWorkspaceProfileService $profiles,
     ): int {
         $action = (string) $this->argument('action');
@@ -69,12 +75,24 @@ final class AtlasWorkspaceIntelligenceCommand extends Command
         $snapshot = null;
         if ((bool) $this->option('persist')) {
             $snapshot = $snapshots->persist($report);
+            $artifactGraph = $artifactIntelligence->persist($report);
+            $projectionIds = $projections->persist($report);
             $report['persisted_snapshot_id'] = $snapshot?->id;
+            $report['persisted_artifact_graph_id'] = $artifactGraph?->id;
+            $report['persisted_projection_ids'] = $projectionIds;
         }
 
         $payload = match ($action) {
             'show', 'certify' => $report,
+            'twin' => $runtime->twin($this->stringOption('workspace')),
             'artifacts' => $report['awaf'] ?? [],
+            'contracts' => $runtime->contractOrchestration(
+                workspace: $this->stringOption('workspace'),
+                task: $this->stringOption('task') ?? '',
+            ),
+            'evolution' => $runtime->evolutionFabric($this->stringOption('workspace')),
+            'artifact-intelligence' => $report['awair'] ?? [],
+            'boundary-audit', 'boundaries', 'execution-boundaries' => $boundaryAudit->audit(),
             'gate' => $gate->gate(
                 workspace: $this->stringOption('workspace'),
                 mode: $this->stringOption('mode') ?? 'conversation',
@@ -85,7 +103,7 @@ final class AtlasWorkspaceIntelligenceCommand extends Command
                 'schema_version' => AtlasWorkspaceIntelligenceRuntimeService::SCHEMA_VERSION,
                 'status' => 'blocked',
                 'error' => 'unknown_action',
-                'allowed_actions' => ['certify', 'show', 'artifacts', 'gate', 'register', 'list'],
+                'allowed_actions' => ['certify', 'show', 'twin', 'artifacts', 'contracts', 'evolution', 'artifact-intelligence', 'boundary-audit', 'gate', 'register', 'list'],
             ],
         };
 

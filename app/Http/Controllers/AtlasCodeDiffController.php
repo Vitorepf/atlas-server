@@ -6,6 +6,8 @@ use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasProject;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,16 +36,43 @@ use Illuminate\Support\Str;
  */
 class AtlasCodeDiffController extends Controller
 {
-    public function apply(Request $request, string $patch): JsonResponse
-    {
+    public function apply(
+        Request $request,
+        string $patch,
+        AtlasWorkspacePathResolverService $workspacePaths,
+        AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate,
+    ): JsonResponse {
         $payload = $request->validate([
             'confirm' => ['required', 'boolean', 'accepted'],
             'runGates' => ['nullable', 'array'],
             'runGates.*' => ['string', 'max:80'],
             'projectId' => ['nullable', 'string', 'max:120'],
+            'workspace' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $gates = array_values((array) ($payload['runGates'] ?? ['contract', 'tests', 'security_scan']));
+        $workspaceResolution = $workspacePaths->resolveForExecution(is_string($payload['workspace'] ?? null) ? $payload['workspace'] : null);
+        if (($workspaceResolution['status'] ?? null) !== 'ready') {
+            return response()->json([
+                'error' => 'awis_workspace_required_for_diff_apply',
+                'message' => 'Atlas Code diff apply requires a registered AWIS workspace.',
+                'workspace_resolution' => $workspaceResolution,
+            ], 422);
+        }
+
+        $awisGate = $workspaceGate->gate(
+            workspace: (string) ($workspaceResolution['workspace_slug'] ?? $payload['workspace']),
+            mode: 'patch',
+            task: 'Atlas Code diff apply '.$patch,
+        );
+        if (! (bool) ($awisGate['allowed'] ?? false)) {
+            return response()->json([
+                'error' => 'awis_execution_gate_blocked',
+                'message' => 'Atlas Code diff apply requires a certified AWIS workspace before queueing patch execution.',
+                'workspace_resolution' => $workspaceResolution,
+                'awis_execution_gate' => $awisGate,
+            ], 422);
+        }
 
         // Resolve patch artifact (real persistence) so we never pretend the
         // patch exists. If table is absent (older schema), we still record
@@ -105,6 +134,9 @@ class AtlasCodeDiffController extends Controller
                         'patch_id' => $patch,
                         'patch_known' => $patchKnown,
                         'gates_requested' => $gates,
+                        'workspace_slug' => $workspaceResolution['workspace_slug'] ?? null,
+                        'workspace_path_hash' => hash('sha256', (string) ($workspaceResolution['workspace_path'] ?? '')),
+                        'awis_execution_gate_hash' => $awisGate['gate_hash'] ?? null,
                     ],
                 ]);
             } catch (\Throwable $e) {
@@ -139,6 +171,8 @@ class AtlasCodeDiffController extends Controller
                 'project_id' => $project?->getKey(),
                 'gates_requested' => $gates,
                 'confirmed' => true,
+                'workspace_slug' => $workspaceResolution['workspace_slug'] ?? null,
+                'awis_execution_gate_hash' => $awisGate['gate_hash'] ?? null,
             ],
             'payload_hash' => hash('sha256', json_encode([
                 $patch,
@@ -153,7 +187,10 @@ class AtlasCodeDiffController extends Controller
             'engineeringRunId' => $runId,
             'patchId' => $patch,
             'patchKnown' => $patchKnown,
-            'diffApplied' => $patchKnown, // honest: only true if we found the patch row
+            'diffApplied' => false,
+            'applyQueued' => $patchKnown,
+            'workspaceSlug' => $workspaceResolution['workspace_slug'] ?? null,
+            'awisExecutionGateHash' => $awisGate['gate_hash'] ?? null,
             'gatesRunning' => $gates,
             'streamUrl' => "/api/engineering/runs/{$runId}",
         ], $patchKnown ? 202 : 200);

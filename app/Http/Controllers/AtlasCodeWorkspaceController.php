@@ -18,6 +18,7 @@ use InvalidArgumentException;
  *   GET /api/atlas-code/projects/workspaces/{slug}    · single profile
  *   POST /api/atlas-code/projects/workspaces          · upsert persisted profile
  *   PATCH /api/atlas-code/projects/workspaces/{slug}  · update persisted profile
+ *   DELETE /api/atlas-code/projects/workspaces/{slug} · archive persisted profile
  *
  * Profiles são read-model. UI usa o `slug` ativo para escopar listas de
  * Obras, labels (Atlas · Code / Blackink · Code) e safety gates.
@@ -63,6 +64,28 @@ final class AtlasCodeWorkspaceController extends Controller
     public function update(Request $request, string $slug): JsonResponse
     {
         return $this->upsert($request, $slug);
+    }
+
+    public function destroy(string $slug): JsonResponse
+    {
+        try {
+            $profile = $this->profiles->archivePersistedProfile($slug);
+        } catch (InvalidArgumentException $exception) {
+            return response()->json([
+                'error' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'schema_version' => AtlasCodeWorkspaceProfileService::SCHEMA_VERSION,
+            'workspace' => $profile,
+            'meta' => [
+                'persisted' => true,
+                'archived' => true,
+                'execution_allowed' => false,
+                'execution_blocked_reason' => 'workspace_profile_archived',
+            ],
+        ]);
     }
 
     private function upsert(Request $request, ?string $slug = null): JsonResponse

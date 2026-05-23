@@ -3,6 +3,7 @@
 namespace App\Services\Tools;
 
 use App\Models\AtlasToolRun;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -13,6 +14,7 @@ class AtlasToolExecutor
         private readonly AtlasToolRegistryService $registry,
         private readonly AtlasToolPolicyEngine $policy,
         private readonly AtlasToolEvidenceStore $evidence,
+        private readonly AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate,
     ) {}
 
     /**
@@ -99,6 +101,46 @@ class AtlasToolExecutor
             ]) ?? throw new \RuntimeException('Tool runtime tables are not migrated.');
         }
 
+        $awisExecutionGate = $this->workspaceGate->gate(
+            workspace: $workspace,
+            mode: 'tool',
+            task: implode(' ', $command),
+        );
+
+        if (($awisExecutionGate['allowed'] ?? false) !== true) {
+            return $this->evidence->recordExternalToolResult($toolSlug, $workspace, [
+                'status' => 'blocked',
+                'required' => (bool) ($options['required'] ?? false),
+                'failure_policy' => $decision['failure_policy'],
+                'policy_decision' => 'blocked_awis_workspace',
+                'policy_decision_json' => [
+                    ...$decision,
+                    'decision' => 'blocked_awis_workspace',
+                    'reason' => 'awis_workspace_required_for_tool_execution',
+                    'awis_execution_gate' => $awisExecutionGate,
+                ],
+                'command' => $command,
+                'duration_ms' => 0,
+                'findings' => [],
+            ], [
+                'surface' => $options['surface'] ?? 'cli',
+                'source' => 'atlas_tool_executor_awis_gate',
+                'metadata' => [
+                    'awis_workspace_required_for_tool_execution' => true,
+                    'awis_execution_gate' => $awisExecutionGate,
+                    'dry_run' => false,
+                    'recipe' => $options['recipe'] ?? null,
+                    'recipe_category' => $options['recipe_category'] ?? null,
+                    'recipe_recommended_surface' => $options['recipe_recommended_surface'] ?? null,
+                    'recipe_creates_evidence' => $options['recipe_creates_evidence'] ?? null,
+                    'recipe_blocking_capable' => $options['recipe_blocking_capable'] ?? null,
+                    'execution_origin' => $options['execution_origin'] ?? null,
+                    'env_keys' => array_keys($safeEnv),
+                    'output_limit' => $outputLimit,
+                ],
+            ]) ?? throw new \RuntimeException('Tool runtime tables are not migrated.');
+        }
+
         $started = now();
         $startedNs = hrtime(true);
         $process = new Process($command, $workspace, AtlasSecurity::processEnv([
@@ -141,6 +183,8 @@ class AtlasToolExecutor
             'started_at' => $started,
             'finished_at' => now(),
             'metadata' => [
+                'awis_workspace_required_for_tool_execution' => true,
+                'awis_execution_gate' => $awisExecutionGate,
                 'env_keys' => array_keys($safeEnv),
                 'output_limit' => $outputLimit,
                 'recipe' => $options['recipe'] ?? null,

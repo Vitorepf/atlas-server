@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\AiTrace;
 use App\Http\Controllers\AtlasCodeForgeExecutionController;
 use App\Jobs\AtlasCodeForgeLiveExecutionJob;
+use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\Programming\AtlasForgeLiveExecutionService;
 use Illuminate\Database\Schema\Blueprint;
@@ -310,6 +310,21 @@ class AtlasCodeContractTest extends TestCase
                 $t->timestamps();
             });
         }
+    }
+
+    public function test_diff_apply_requires_awis_workspace_before_queueing_run(): void
+    {
+        $response = $this->postJson('/atlas-code/diffs/patch-missing/apply', [
+            'confirm' => true,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('error', 'awis_workspace_required_for_diff_apply')
+            ->assertJsonPath('workspace_resolution.status', 'blocked')
+            ->assertJsonPath('workspace_resolution.reason', 'missing_workspace');
+
+        $this->assertDatabaseCount('atlas_engineering_runs', 0);
+        $this->assertDatabaseCount('atlas_ledger_events', 0);
     }
 
     public function test_boot_endpoint_returns_canonical_shape(): void

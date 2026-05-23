@@ -7,6 +7,8 @@ use App\Services\Ai\Runtime\AiToolPermissionEngine;
 use App\Services\Ai\Runtime\AiToolRuntime;
 use App\Services\Ai\Runtime\ToolInvocation;
 use App\Services\Ai\Runtime\ToolResult;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -41,8 +43,12 @@ class AtlasRuntimeCommand extends Command
 
     protected $description = 'Run Atlas native tool runtime with permissions, checkpoints, diffs and workspace profiling.';
 
-    public function handle(AiToolRuntime $runtime, AiToolPermissionEngine $permissions): int
-    {
+    public function handle(
+        AiToolRuntime $runtime,
+        AiToolPermissionEngine $permissions,
+        AtlasWorkspacePathResolverService $workspacePaths,
+        AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate,
+    ): int {
         $tool = $this->normalizeTool((string) $this->argument('tool'));
         $workspace = $this->workspace();
         $arguments = $this->toolArguments($tool);
@@ -62,6 +68,15 @@ class AtlasRuntimeCommand extends Command
                 'thread_id' => is_string($this->option('thread')) ? $this->option('thread') : null,
             ],
         ]);
+
+        $awisBlock = $this->awisMutationBlock($tool, $workspace, $arguments, $workspacePaths, $workspaceGate);
+        if ($awisBlock !== null) {
+            $this->printResult(ToolResult::failure($invocation, (string) $awisBlock['error'], 'AWIS bloqueou ferramenta mutativa sem workspace certificado.', [
+                'awis_execution_gate' => $awisBlock,
+            ]));
+
+            return self::FAILURE;
+        }
 
         $decision = $permissions->authorize($invocation);
         if ($decision->requiresApproval && ! (bool) $this->option('yes')) {
@@ -233,6 +248,58 @@ class AtlasRuntimeCommand extends Command
         $requested = Str::of($requested)->lower()->trim()->value();
 
         return in_array($requested, ['read', 'write', 'danger'], true) ? $requested : $required;
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>|null
+     */
+    private function awisMutationBlock(
+        string $tool,
+        string $workspace,
+        array $arguments,
+        AtlasWorkspacePathResolverService $workspacePaths,
+        AtlasWorkspaceIntelligenceExecutionGateService $workspaceGate,
+    ): ?array {
+        if ((bool) $this->option('dry-run')) {
+            return null;
+        }
+
+        if (! in_array($tool, ['file.write', 'file.patch', 'git.apply_patch', 'checkpoint.restore'], true)) {
+            return null;
+        }
+
+        $resolution = $workspacePaths->resolveForExecution($workspace);
+        if (($resolution['status'] ?? null) !== 'ready') {
+            return [
+                'schema_version' => 'atlas.runtime.awis_execution_gate.v1',
+                'status' => 'blocked',
+                'error' => 'awis_workspace_required_for_runtime_tool',
+                'tool' => $tool,
+                'workspace_resolution' => $resolution,
+                'target_path' => is_string($arguments['path'] ?? null) ? $arguments['path'] : null,
+            ];
+        }
+
+        $gate = $workspaceGate->gate(
+            workspace: (string) ($resolution['workspace_slug'] ?? $workspace),
+            mode: $tool === 'git.apply_patch' ? 'patch' : 'dev',
+            task: 'Atlas runtime tool '.$tool,
+        );
+
+        if (($gate['allowed'] ?? false) === true) {
+            return null;
+        }
+
+        return [
+            'schema_version' => 'atlas.runtime.awis_execution_gate.v1',
+            'status' => 'blocked',
+            'error' => 'awis_execution_gate_blocked',
+            'tool' => $tool,
+            'workspace_resolution' => $resolution,
+            'awis_execution_gate' => $gate,
+            'target_path' => is_string($arguments['path'] ?? null) ? $arguments['path'] : null,
+        ];
     }
 
     private function rememberApprovalIfRequested(ToolInvocation $invocation): void

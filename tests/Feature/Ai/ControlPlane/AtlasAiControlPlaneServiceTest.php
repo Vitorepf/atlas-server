@@ -40,12 +40,14 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->createAiSurfaceTables();
         $this->createOperatorApprovalTable();
         $this->createAarsTables();
+        $this->createWorkspaceRuntimeProjectionTable();
     }
 
     protected function tearDown(): void
     {
         $this->dropAarsTables();
         $this->dropExternalExecutionTables();
+        $this->dropWorkspaceRuntimeProjectionTable();
         $this->dropOperatorApprovalTable();
         $this->dropPersistentContextTables();
         $this->dropAiSurfaceTables();
@@ -140,6 +142,9 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertArrayHasKey('status', $report['swarm_company']);
         $this->assertArrayHasKey('status', $report['external_execution']);
         $this->assertSame(0, $report['summary']['persistent_context_total']);
+        $this->assertSame(0, $report['summary']['workspace_intelligence_snapshots_total']);
+        $this->assertSame('ready', $report['workspace_intelligence']['status']);
+        $this->assertSame(0, $report['workspace_intelligence']['summary']['total']);
         $this->assertSame(0, $report['summary']['swarm_company_roles_total']);
         $this->assertSame(0, $report['summary']['external_execution_mandates_total']);
         $this->assertSame(0, $report['summary']['intelligence_factory_evolution_events']);
@@ -150,6 +155,61 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertNotEmpty($report['readiness_refs']);
         $this->assertFalse($report['claim_policy']['allows_external_superiority_claim']);
         $this->assertStringStartsWith('sha256:', $report['hash']);
+    }
+
+    public function test_workspace_intelligence_snapshots_surface_in_runtime_report(): void
+    {
+        $now = now();
+        foreach (['AWTR', 'AWCO', 'AWEF'] as $family) {
+            DB::table('atlas_workspace_runtime_projection_snapshots')->insert([
+                'id' => Str::uuid()->toString(),
+                'workspace_id' => 'atlas',
+                'family' => $family,
+                'schema_version' => 'atlas.test.'.$family.'.v1',
+                'runtime_hash' => 'sha256:runtime_'.$family,
+                'projection_hash' => 'sha256:projection_'.$family,
+                'status' => 'ready',
+                'payload' => json_encode(['family' => $family, 'status' => 'ready']),
+                'captured_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $report = $this->service()->report(24);
+
+        $this->assertSame('ready', $report['workspace_intelligence']['status']);
+        $this->assertSame(3, $report['summary']['workspace_intelligence_snapshots_total']);
+        $this->assertSame(0, $report['summary']['workspace_intelligence_blocked']);
+        $this->assertSame(1, $report['summary']['workspace_intelligence_workspaces_total']);
+        $this->assertSame(['AWCO', 'AWEF', 'AWTR'], array_column($report['workspace_intelligence']['by_family'], 'family'));
+        $this->assertCount(3, $report['workspace_intelligence']['latest']);
+        $this->assertSame([], $report['workspace_intelligence']['blockers']);
+    }
+
+    public function test_workspace_intelligence_blocked_projection_blocks_runtime_report(): void
+    {
+        $now = now();
+        DB::table('atlas_workspace_runtime_projection_snapshots')->insert([
+            'id' => Str::uuid()->toString(),
+            'workspace_id' => 'atlas',
+            'family' => 'AWCO',
+            'schema_version' => 'atlas.workspace_contract_orchestrator.v1',
+            'runtime_hash' => 'sha256:runtime_blocked',
+            'projection_hash' => 'sha256:projection_blocked',
+            'status' => 'blocked',
+            'payload' => json_encode(['status' => 'blocked']),
+            'captured_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $report = $this->service()->report(24);
+
+        $this->assertSame('blocked', $report['workspace_intelligence']['status']);
+        $this->assertSame('blocked', $report['status']);
+        $this->assertSame(1, $report['summary']['workspace_intelligence_blocked']);
+        $this->assertContains('workspace_intelligence_projection_blocked', array_column($report['blockers'], 'kind'));
     }
 
     public function test_external_execution_pending_approval_is_governed_without_system_blocker(): void
@@ -755,6 +815,30 @@ class AtlasAiControlPlaneServiceTest extends TestCase
             $table->boolean('external_side_effects_enabled')->default(false);
             $table->timestamps();
         });
+    }
+
+    private function createWorkspaceRuntimeProjectionTable(): void
+    {
+        $this->dropWorkspaceRuntimeProjectionTable();
+
+        Schema::create('atlas_workspace_runtime_projection_snapshots', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('workspace_id', 120)->index();
+            $table->string('family', 20)->index();
+            $table->string('schema_version', 120)->index();
+            $table->string('runtime_hash', 80)->index();
+            $table->string('projection_hash', 80)->index();
+            $table->string('status', 40)->index();
+            $table->json('payload');
+            $table->timestamp('captured_at')->index();
+            $table->timestamps();
+            $table->unique(['runtime_hash', 'family'], 'aw_runtime_projection_unique');
+        });
+    }
+
+    private function dropWorkspaceRuntimeProjectionTable(): void
+    {
+        Schema::dropIfExists('atlas_workspace_runtime_projection_snapshots');
     }
 
     private function dropExternalExecutionTables(): void

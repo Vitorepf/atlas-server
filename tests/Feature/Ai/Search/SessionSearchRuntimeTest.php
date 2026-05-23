@@ -76,6 +76,21 @@ class SessionSearchRuntimeTest extends TestCase
         ])->assertExitCode(0);
     }
 
+    public function test_atlas_runtime_command_blocks_mutative_tool_without_awis_workspace(): void
+    {
+        $this->artisan('atlas:runtime', [
+            'tool' => 'file.write',
+            'arguments' => ['notes.txt'],
+            '--workspace' => $this->workspace,
+            '--content' => 'nao deve escrever',
+            '--permission' => 'write',
+            '--yes' => true,
+            '--json' => true,
+        ])->assertExitCode(1);
+
+        $this->assertFalse(File::exists($this->workspace.'/notes.txt'));
+    }
+
     /**
      * @param  array<int,string>  $messages
      */

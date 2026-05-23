@@ -33,6 +33,7 @@ class AtlasToolRuntimeCoreTest extends TestCase
         $this->binDir = sys_get_temp_dir().'/atlas-tool-runtime-bin-'.bin2hex(random_bytes(4));
         File::ensureDirectoryExists($this->workspace);
         File::ensureDirectoryExists($this->binDir);
+        $this->registerAwisWorkspaceProfile();
         $this->originalPath = getenv('PATH');
         putenv('PATH='.$this->binDir.':'.($this->originalPath !== false ? $this->originalPath : ''));
         $this->createTables();
@@ -964,6 +965,55 @@ BASH);
             'tool_run_id' => $runId,
             'type' => 'stdout',
         ]);
+        $this->assertSame('ready', data_get($payload, 'run.metadata_json.awis_execution_gate.status'));
+        $this->assertTrue((bool) data_get($payload, 'run.metadata_json.awis_workspace_required_for_tool_execution'));
+    }
+
+    public function test_executor_blocks_real_tool_execution_without_registered_awis_workspace(): void
+    {
+        $this->installFakeBinary('rg', 'echo "should not execute"');
+        $unregistered = sys_get_temp_dir().'/atlas-tool-runtime-unregistered-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($unregistered);
+
+        try {
+            Artisan::call('atlas:tools', [
+                'action' => 'run',
+                'tool' => 'ripgrep',
+                '--workspace' => $unregistered,
+                '--command' => ['rg', '--version'],
+                '--json' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true);
+
+            $this->assertSame('blocked', data_get($payload, 'run.status'));
+            $this->assertSame('blocked_awis_workspace', data_get($payload, 'run.policy_decision'));
+            $this->assertSame('blocked', data_get($payload, 'run.metadata_json.awis_execution_gate.status'));
+            $this->assertContains('workspace_not_ready', data_get($payload, 'run.metadata_json.awis_execution_gate.blockers', []));
+            $this->assertSame('atlas_tool_executor_awis_gate', data_get($payload, 'run.metadata_json.source'));
+        } finally {
+            File::deleteDirectory($unregistered);
+        }
+    }
+
+    public function test_api_blocks_real_tool_execution_without_registered_awis_workspace(): void
+    {
+        $this->installFakeBinary('rg', 'echo "should not execute api"');
+        $unregistered = sys_get_temp_dir().'/atlas-tool-runtime-api-unregistered-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($unregistered);
+
+        try {
+            $this->postJson('/tools/ripgrep/run', [
+                'workspace' => $unregistered,
+                'command' => ['rg', '--version'],
+            ], $this->headers)
+                ->assertCreated()
+                ->assertJsonPath('data.status', 'blocked')
+                ->assertJsonPath('data.policy_decision', 'blocked_awis_workspace')
+                ->assertJsonPath('data.metadata_json.awis_execution_gate.status', 'blocked')
+                ->assertJsonPath('data.metadata_json.source', 'atlas_tool_executor_awis_gate');
+        } finally {
+            File::deleteDirectory($unregistered);
+        }
     }
 
     public function test_executor_applies_safe_env_and_audits_output_truncation(): void
@@ -2017,6 +2067,32 @@ BASH);
         File::ensureDirectoryExists(dirname($path));
         File::put($path, "#!/usr/bin/env bash\n{$scriptBody}\n");
         chmod($path, 0755);
+    }
+
+    private function registerAwisWorkspaceProfile(): void
+    {
+        config()->set('atlas_projects.profiles', array_merge(
+            (array) config('atlas_projects.profiles', []),
+            [[
+                'id' => 'tool-runtime-test',
+                'slug' => 'tool-runtime-test',
+                'name' => 'Tool Runtime Test Workspace',
+                'kind' => 'test',
+                'workspace_path' => $this->workspace,
+                'repo_root' => $this->workspace,
+                'production_status' => 'development',
+                'stack_summary' => 'Hermetic tool runtime fixture',
+                'commands' => ['test' => 'php artisan test'],
+                'test_commands' => ['php artisan test'],
+                'build_commands' => [],
+                'dev_server_command' => null,
+                'critical_areas' => ['tools'],
+                'docs_status' => 'canonical',
+                'default_risk' => 'medium',
+                'deployment_notes' => 'Test-only AWIS profile.',
+                'surfaces_enabled' => ['code', 'atlas_ai'],
+            ]],
+        ));
     }
 
     private function createTables(): void

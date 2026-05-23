@@ -27,6 +27,7 @@ class AtlasEngineeringQualityScanCommandTest extends TestCase
         $this->binDir = sys_get_temp_dir().'/atlas-quality-scan-bin-'.bin2hex(random_bytes(4));
         File::ensureDirectoryExists($this->workspace);
         File::ensureDirectoryExists($this->binDir);
+        $this->registerAwisWorkspaceProfile();
         putenv('PATH='.$this->binDir.':'.($this->originalPath !== false ? $this->originalPath : ''));
     }
 
@@ -61,6 +62,31 @@ class AtlasEngineeringQualityScanCommandTest extends TestCase
         $this->assertSame('eslint', data_get($payload, 'recommendations.0.tool'));
         $this->assertFalse((bool) data_get($payload, 'recommendations.0.paid_tool_required'));
         $this->assertFileExists($payload['artifact_root'].'/scan.json');
+        $this->assertSame('ready', data_get($payload, 'awis_execution_gate.status'));
+        $this->assertTrue((bool) data_get($payload, 'awis_workspace_required_for_quality_scan'));
+    }
+
+    public function test_quality_scan_blocks_without_registered_awis_workspace(): void
+    {
+        $unregistered = sys_get_temp_dir().'/atlas-quality-scan-unregistered-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($unregistered);
+
+        try {
+            $exit = Artisan::call('atlas:engineering:quality-scan', [
+                '--workspace' => $unregistered,
+                '--profile' => 'fast',
+                '--json' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true);
+
+            $this->assertSame(1, $exit, Artisan::output());
+            $this->assertSame('blocked', $payload['status'] ?? null);
+            $this->assertSame('blocked', data_get($payload, 'awis_execution_gate.status'));
+            $this->assertContains('workspace_not_ready', data_get($payload, 'awis_execution_gate.blockers', []));
+            $this->assertSame(0, data_get($payload, 'summary.tool_count'));
+        } finally {
+            File::deleteDirectory($unregistered);
+        }
     }
 
     public function test_quality_scan_runs_pint_with_large_memory_limit(): void
@@ -391,5 +417,31 @@ PHP);
 {$body}
 PHP);
         chmod($this->binDir.'/'.$name, 0755);
+    }
+
+    private function registerAwisWorkspaceProfile(): void
+    {
+        config()->set('atlas_projects.profiles', array_merge(
+            (array) config('atlas_projects.profiles', []),
+            [[
+                'id' => 'quality-scan-test',
+                'slug' => 'quality-scan-test',
+                'name' => 'Quality Scan Test Workspace',
+                'kind' => 'test',
+                'workspace_path' => $this->workspace,
+                'repo_root' => $this->workspace,
+                'production_status' => 'development',
+                'stack_summary' => 'Hermetic quality scan fixture',
+                'commands' => ['test' => 'php artisan test'],
+                'test_commands' => ['php artisan test'],
+                'build_commands' => [],
+                'dev_server_command' => null,
+                'critical_areas' => ['quality'],
+                'docs_status' => 'canonical',
+                'default_risk' => 'medium',
+                'deployment_notes' => 'Test-only AWIS profile.',
+                'surfaces_enabled' => ['code', 'atlas_ai'],
+            ]],
+        ));
     }
 }

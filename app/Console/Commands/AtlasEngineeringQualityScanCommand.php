@@ -31,12 +31,12 @@ class AtlasEngineeringQualityScanCommand extends Command
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-            return $payload['status'] === 'failed' ? self::FAILURE : self::SUCCESS;
+            return in_array($payload['status'] ?? null, ['failed', 'blocked'], true) ? self::FAILURE : self::SUCCESS;
         }
 
         $this->render($payload);
 
-        return $payload['status'] === 'failed' ? self::FAILURE : self::SUCCESS;
+        return in_array($payload['status'] ?? null, ['failed', 'blocked'], true) ? self::FAILURE : self::SUCCESS;
     }
 
     /**

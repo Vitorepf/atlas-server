@@ -2,10 +2,10 @@
 id: atlas-workspace-twin-runtime
 type: engineering_knowledge
 title: Atlas Workspace Twin Runtime
-status: building
+status: active
 category: workspace-intelligence
 priority: 98
-implementation_state: read_only_runtime_projection_present
+implementation_state: dedicated_read_only_projection_present
 summary: Runtime planejado que cria um gemeo operacional vivo de cada workspace para guiar contexto, testes, riscos, comandos, memoria e execucao por IA.
 tags:
   - atlas
@@ -45,7 +45,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: system
 graph_parent: atlas-workspace-intelligence-system
-graph_status: planned
+graph_status: active
 graph_source: repo
 product_name: Atlas Workspace Twin Runtime
 runtime_acronym: AWTR
@@ -84,6 +84,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php
+  - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceRuntimeProjectionRepository.php
+  - app/Console/Commands/AtlasWorkspaceIntelligenceCommand.php
+  - app/Http/Controllers/AtlasWorkspaceIntelligenceController.php
+  - app/Models/AtlasWorkspaceRuntimeProjectionSnapshot.php
+  - database/migrations/2026_05_25_021500_create_atlas_workspace_runtime_projection_snapshots.php
   - tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
@@ -100,7 +105,7 @@ ai_usage_notes:
   - Se o twin estiver stale, gere refresh ou bloqueie execucao.
 quality_gates:
   - docs-health
-  - future: atlas:workspace-twin:certify --json --strict
+  - php artisan atlas:workspace-intelligence twin --workspace=atlas --json --strict
 failure_modes:
   - Twin velho guiar patch errado.
   - Heuristica virar verdade canonica.
@@ -112,9 +117,9 @@ observability_signals:
   - command_registry_hash
   - risk_map_hash
 next_actions:
-  - Criar schemas de genome, code map, command intelligence e risk map.
-  - Criar comandos shadow de twin.
-  - Integrar com AWIS readiness.
+  - Persistir twin dedicado quando houver refresh daemon.
+  - Conectar Context Autopilot ao Atlas Dev.
+  - Conectar Test Command Intelligence ao Forge.
 ---
 # Atlas Workspace Twin Runtime
 
@@ -246,16 +251,28 @@ Blocos:
 
 ## Evidencias
 
-Evidencia atual: esta especificacao e a primeira projecao AWTR no runtime AWIS.
-Ainda faltam persistence propria, refresh daemon e enforcement mutativo.
+Evidencia atual: AWTR possui projecao dedicada via
+`atlas:workspace-intelligence twin` e endpoint
+`/atlas-code/workspace-intelligence/twin`. O payload inclui Workspace Genome,
+Living Code Map, Context Autopilot, Test Command Intelligence, Command Registry,
+Risk Fragility Map, Provider Skill Memory e Workspace Learning Loop com hashes
+deterministicos. Com `--persist`/`persist=1`, AWTR e salvo em
+`atlas_workspace_runtime_projection_snapshots` e pode ser reaberto por
+`latest=1`. O Atlas AI Control Plane agora agrega snapshots AWTR/AWCO/AWEF em
+`workspace_intelligence`, incluindo status por familia, hashes recentes e
+blockers quando alguma projection persistida estiver `blocked`.
+Replays `latest=1` de AWTR/AWCO/AWEF falham com `409` quando o
+`workspace_hash` atual diverge do snapshot persistido ou quando o snapshot nao
+tem hash verificavel. O `workspace_hash` inclui path real, HEAD resolvido
+incluindo o conteudo da ref atual quando existir, e hashes de arquivos
+estruturais do workspace/docs AWIS. Isso impede twin stale depois de mudanca em
+git, lockfile, package, tsconfig ou docs criticas de workspace.
 
 Comandos planejados:
 
 ```bash
-php artisan atlas:workspace-twin:build --workspace=atlas --json
-php artisan atlas:workspace-twin:show --workspace=atlas --json
-php artisan atlas:workspace-twin:task-pack --workspace=atlas --task="bug login" --json
-php artisan atlas:workspace-twin:certify --workspace=atlas --json --strict
+php artisan atlas:workspace-intelligence twin --workspace=atlas --json --strict
+curl /atlas-code/workspace-intelligence/twin?workspace=atlas
 ```
 
 ## Riscos
@@ -291,17 +308,15 @@ AWTR esta pronto quando:
 
 - genome e code map sao gerados por workspace;
 - command registry impede comando inventado;
-- task context pack e produzido por pedido;
-- focused tests sao emitidos com motivo;
+- context autopilot declara unidades obrigatorias;
+- test command intelligence emite comandos e fallback policy;
 - risk map bloqueia areas sensiveis;
-- twin stale limita Dev/Forge;
+- twin stale limita Dev/Forge via AWIS gate;
 - Cartografia mostra o twin;
-- `atlas:workspace-twin:certify --json --strict` fica verde.
+- `atlas:workspace-intelligence twin --workspace=atlas --json --strict` fica verde.
 
 ## Proximas Acoes
 
-1. Implementar schema read-only de Workspace Genome.
-2. Criar builder shadow do Workspace Twin.
-3. Integrar com AWIS readiness.
-4. Conectar Context Autopilot ao Atlas Dev.
-5. Conectar Test Command Intelligence ao Forge.
+1. Conectar Context Autopilot ao Atlas Dev.
+2. Conectar Test Command Intelligence ao Forge.
+3. Refinar Cartografia para mostrar estado runtime real por workspace quando houver snapshots persistidos.
