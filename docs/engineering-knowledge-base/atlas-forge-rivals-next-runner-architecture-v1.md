@@ -385,17 +385,40 @@ Cursor e Composer exigem contrato adicional de evidence quando saem do dry-run:
   realmente separaram runners, capacidades empatadas/human-review e capacidades
   ainda subamostradas. Empate passa a ser diagnostico operacional:
   `tie_is_diagnostic_not_claim=true`; o signal nunca converte empate em claim,
-  mas mostra quais eixos precisam de `extreme-differentiator`,
-  `meta-provider-stress` ou `statistical-repeat` para responder "quem e bom em
-  que".
+  mas mostra quais eixos precisam de `ceiling-360`,
+  `extreme-differentiator`, `meta-provider-stress` ou `statistical-repeat`
+  para responder "quem e bom em que".
 - `provider_performance_signal.difficulty_pressure`
   (`atlas.forge.rivals.difficulty_pressure.v1`) detecta quando a matriz de 40
   casos ou L5 ainda esta facil demais: sem amostra valida emite
   `needs_valid_difficulty_sample`; L5 valido empatado emite
   `l5_tied_needs_extreme_pressure`. Ambos preservam advisory-only invariants,
   `requires_harder_followup=true`, `difficulty_ceiling_reached=false` e
-  recomendam `extreme-differentiator`, `meta-provider-stress` e
-  `statistical-repeat`.
+  recomendam `ceiling-360`, `extreme-differentiator`,
+  `meta-provider-stress` e `statistical-repeat`.
+- `ceiling-360` e o preset de teto pratico para runners de proxima geracao:
+  120 casos L5, todos com risco `critical`, ambiguidade alta, contexto longo,
+  planejamento dominante (`planning_weight >= 0.70`) e cobertura explicita das
+  capacidades obrigatorias de 360 (`long_context_retention`,
+  `multi_step_reasoning`, `rollback_safety`, `scope_boundary_discipline`,
+  `replayable_evidence_quality`, `honest_blocker_behavior` e
+  `ambiguous_human_prompt_handling`). Um empate em `ceiling-360` nunca vira
+  claim real sozinho; ele exige separacao estatistica, replay e revisao humana.
+- Quando `capability_floor_not_met` ou empate L5 aparecer, o Report v3 deve
+  emitir matriz 360 de Provider Arena com dry-runs e templates reais
+  confirmados para, no minimo: `atlas_forge` vs `claude_code`,
+  `atlas_dev` vs `atlas_forge`, `composer_2_5` vs `codex_cli`,
+  `cursor_cli` vs `claude_code`, `claude_code` vs `codex_cli`,
+  `codex_cli` vs `gemini_cli`, `claude_code sonnet` vs `claude_code opus` e
+  `atlas_forge full_power` vs baseline. Todos os dry-runs declaram
+  `external_provider_call=false`, `provider_tokens_spent=false` e
+  `routing_effect=none`; templates reais exigem as tres confirmacoes.
+- `arena-readiness --json` deve expor a mesma matriz como readiness operacional,
+  sem depender de um report anterior: `case_set=ceiling-360`, `case_count=120`,
+  `ceiling_360_matrix=true`, `pair_count=8`, `dry_run_command` por par e
+  `next_command` real apenas com confirmacoes explicitas. Readiness nunca
+  executa provider; ela pode apontar `real_run_ready_after_confirmations`,
+  `plan_ready_driver_missing` ou `plan_ready_evidence_disk_blocked`.
 - `provider_performance_signal` expoe
   `complexity_profile_coverage` (`atlas.forge.rivals.complexity_profile_coverage.v1`)
   com cobertura de perfis, tokens de contexto estimados, profundidade de

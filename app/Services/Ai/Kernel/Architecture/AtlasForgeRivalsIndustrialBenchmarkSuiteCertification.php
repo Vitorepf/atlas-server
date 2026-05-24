@@ -184,6 +184,8 @@ final class AtlasForgeRivalsIndustrialBenchmarkSuiteCertification
             AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_PRODUCT_SECURITY_MIGRATIONS,
             AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
             AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
         ];
 
         return array_diff($required, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS) === [];

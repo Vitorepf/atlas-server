@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Arms\AtlasForgeRivalsArmContractService;
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use Symfony\Component\Process\Process;
 
 /**
@@ -24,6 +25,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
         private readonly AtlasForgeRivalsArmCommandBuilderService $commands,
         private readonly AtlasForgeRivalsProviderEvidenceDiskGuardService $evidenceDiskGuard,
         private readonly AtlasForgeRivalsRunPathResolver $paths,
+        private readonly AtlasForgeRivalsProviderArenaCorpusService $corpus,
     ) {}
 
     /**
@@ -32,23 +34,42 @@ final class AtlasForgeRivalsProviderArenaReadinessService
      */
     public function snapshot(array $input = []): array
     {
+        $caseSet = trim((string) ($input['case_set'] ?? AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360));
+        if ($caseSet === '') {
+            $caseSet = AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360;
+        }
+        try {
+            $cases = $this->corpus->casesForCaseSet($caseSet);
+            $caseCount = count($cases);
+            $caseSetBlockers = [];
+        } catch (\Throwable $e) {
+            $cases = [];
+            $caseCount = 0;
+            $caseSetBlockers = [$e->getMessage() !== '' ? $e->getMessage() : 'unknown_case_set:'.$caseSet];
+        }
+
         $evidenceDisk = $this->evidenceDiskGuard->check($this->paths->rootDirectory().'/readiness-probe');
         $pairs = array_map(
-            fn (array $pair): array => $this->pairReadiness($pair, $evidenceDisk),
+            fn (array $pair): array => $this->pairReadiness($pair, $evidenceDisk, $caseSet, $caseSetBlockers),
             $this->canonicalPairs(),
         );
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => 'ok',
+            'case_set' => $caseSet,
+            'case_count' => $caseCount,
+            'ceiling_360_matrix' => $caseSet === AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
             'pair_count' => count($pairs),
             'dry_run_ready_count' => count(array_filter($pairs, static fn (array $pair): bool => (bool) $pair['dry_run_ready'])),
             'real_run_ready_count' => count(array_filter($pairs, static fn (array $pair): bool => (bool) $pair['real_run_ready'])),
             'blocked_count' => count(array_filter($pairs, static fn (array $pair): bool => $pair['status'] === 'blocked')),
             'driver_missing_count' => count(array_filter($pairs, static fn (array $pair): bool => $pair['status'] === 'plan_ready_driver_missing')),
             'evidence_disk_blocked_count' => count(array_filter($pairs, static fn (array $pair): bool => $pair['status'] === 'plan_ready_evidence_disk_blocked')),
+            'case_set_blockers' => $caseSetBlockers,
             'evidence_disk_status' => $this->projectEvidenceDiskStatus($evidenceDisk),
             'pairs' => $pairs,
+            'execution_ladder' => $this->executionLadder($caseSet, $cases, $pairs),
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
             'required_confirmations_for_real_run' => ['runbook_reviewed', 'provider_cost', 'real_provider_call'],
@@ -63,11 +84,86 @@ final class AtlasForgeRivalsProviderArenaReadinessService
     }
 
     /**
+     * @param  list<array<string,mixed>>  $cases
+     * @param  list<array<string,mixed>>  $pairs
+     * @return array<string,mixed>
+     */
+    private function executionLadder(string $caseSet, array $cases, array $pairs): array
+    {
+        $stages = [];
+        foreach ([
+            'canary_8' => ['count' => 8, 'purpose' => 'first real high-difficulty smoke across every 360 battle pair'],
+            'floor_24' => ['count' => 24, 'purpose' => 'minimum practical separation floor before interpreting capability deltas'],
+            'full_120' => ['count' => 120, 'purpose' => 'complete ceiling sweep for release-trusted 360 analysis'],
+        ] as $stageId => $stage) {
+            $selected = array_slice($cases, 0, min((int) $stage['count'], count($cases)));
+            $caseIds = array_values(array_map(
+                static fn (array $case): string => (string) ($case['case_id'] ?? ''),
+                $selected,
+            ));
+            $caseIds = array_values(array_filter($caseIds, static fn (string $caseId): bool => $caseId !== ''));
+            $firstCaseId = $caseIds[0] ?? null;
+            $readyPairs = array_values(array_filter($pairs, static fn (array $pair): bool => (bool) ($pair['dry_run_ready'] ?? false)));
+
+            $stages[] = [
+                'stage' => $stageId,
+                'purpose' => $stage['purpose'],
+                'case_set' => $caseSet,
+                'case_count' => count($caseIds),
+                'pair_count' => count($readyPairs),
+                'estimated_real_runs' => count($caseIds) * count($readyPairs),
+                'estimated_provider_invocations' => count($caseIds) * count($readyPairs) * 2,
+                'case_ids' => $caseIds,
+                'first_case_id' => $firstCaseId,
+                'first_case_dry_run_commands' => $firstCaseId === null
+                    ? []
+                    : array_values(array_map(
+                        fn (array $pair): string => $this->caseDryRunCommand($pair, $firstCaseId),
+                        $readyPairs,
+                    )),
+                'first_case_real_commands' => $firstCaseId === null
+                    ? []
+                    : array_values(array_map(
+                        fn (array $pair): string => $this->caseRealCommand($pair, $firstCaseId),
+                        $readyPairs,
+                    )),
+                'requires_confirmations_for_real_run' => ['runbook_reviewed', 'provider_cost', 'real_provider_call'],
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+                'advisory_only' => true,
+                'routing_effect' => 'none',
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.ceiling_360_execution_ladder.v1',
+            'status' => $cases === [] ? 'blocked' : 'ready',
+            'case_set' => $caseSet,
+            'stages' => $stages,
+            'note' => 'Dry-run commands are safe; real commands require confirmations and spend provider tokens.',
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'routing_effect' => 'none',
+        ];
+    }
+
+    /**
      * @return list<array<string,string>>
      */
     private function canonicalPairs(): array
     {
         return [
+            [
+                'pair_id' => 'atlas_forge_vs_claude_sonnet',
+                'arm_a' => 'atlas_forge',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'sonnet',
+                'mode' => 'provider_arena',
+                'task_category' => 'refactor',
+                'purpose' => 'Atlas Forge system against provider-pure Claude Code Sonnet baseline.',
+            ],
             [
                 'pair_id' => 'atlas_dev_vs_atlas_forge',
                 'arm_a' => 'atlas_dev',
@@ -145,7 +241,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
      * @param  array<string,string>  $pair
      * @return array<string,mixed>
      */
-    private function pairReadiness(array $pair, array $evidenceDisk): array
+    private function pairReadiness(array $pair, array $evidenceDisk, string $caseSet, array $caseSetBlockers): array
     {
         $contractA = $this->contract('arm_a', $pair);
         $contractB = $this->contract('arm_b', $pair);
@@ -177,12 +273,14 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             $this->driverBlockers('arm_b', $contractB),
         );
         $allBlockers = array_values(array_unique(array_merge($blockers, $driverBlockers)));
+        $allBlockers = array_values(array_unique(array_merge($allBlockers, $caseSetBlockers)));
         $contractBlocked = $blockers !== [];
+        $caseSetBlocked = $caseSetBlockers !== [];
         $driverBlocked = $driverBlockers !== [];
         $evidenceDiskBlocked = ($evidenceDisk['status'] ?? null) !== 'ok';
 
         $status = match (true) {
-            $contractBlocked => 'blocked',
+            $contractBlocked || $caseSetBlocked => 'blocked',
             $driverBlocked => 'plan_ready_driver_missing',
             $evidenceDiskBlocked => 'plan_ready_evidence_disk_blocked',
             default => 'real_run_ready_after_confirmations',
@@ -195,15 +293,21 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             'status' => $status,
             'mode' => $pair['mode'],
             'task_category' => $pair['task_category'],
-            'dry_run_ready' => ! $contractBlocked,
-            'real_run_ready' => ! $contractBlocked && ! $driverBlocked && ! $evidenceDiskBlocked,
+            'case_set' => $caseSet,
+            'dry_run_ready' => ! $contractBlocked && ! $caseSetBlocked,
+            'real_run_ready' => ! $contractBlocked && ! $caseSetBlocked && ! $driverBlocked && ! $evidenceDiskBlocked,
             'blockers' => array_values(array_unique(array_merge($allBlockers, $realRunBlockers))),
             'evidence_disk_status' => $this->projectEvidenceDiskStatus($evidenceDisk),
             'required_confirmations_for_real_run' => ['runbook_reviewed', 'provider_cost', 'real_provider_call'],
             'arm_a' => $this->armSummary($contractA),
             'arm_b' => $this->armSummary($contractB),
             'command_plan' => $commandPlan,
-            'next_command' => $this->nextCommand($pair),
+            'dry_run_command' => $this->dryRunCommand($pair, $caseSet),
+            'next_command' => $this->nextCommand($pair, $caseSet),
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'routing_effect' => 'none',
         ];
     }
 
@@ -380,7 +484,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
     /**
      * @param  array<string,string>  $pair
      */
-    private function nextCommand(array $pair): string
+    private function dryRunCommand(array $pair, string $caseSet): string
     {
         return 'php artisan atlas:forge:rivals run-arena'
             .' --arm-a='.$pair['arm_a']
@@ -389,6 +493,58 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             .' --arm-b-model='.$pair['arm_b_model']
             .' --task-category='.$pair['task_category']
             .' --mode='.$pair['mode']
+            .' --case-set='.$caseSet
+            .' --prompt-mode=enterprise-change'
+            .' --dry-run --json';
+    }
+
+    /**
+     * @param  array<string,string|mixed>  $pair
+     */
+    private function caseDryRunCommand(array $pair, string $caseId): string
+    {
+        return $this->baseCaseCommand($pair, $caseId).' --dry-run --json';
+    }
+
+    /**
+     * @param  array<string,string|mixed>  $pair
+     */
+    private function caseRealCommand(array $pair, string $caseId): string
+    {
+        return $this->baseCaseCommand($pair, $caseId)
+            .' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json';
+    }
+
+    /**
+     * @param  array<string,string|mixed>  $pair
+     */
+    private function baseCaseCommand(array $pair, string $caseId): string
+    {
+        return 'php artisan atlas:forge:rivals run-arena'
+            .' --arm-a='.(string) $pair['arm_a']['arm_id']
+            .' --arm-a-model='.(string) $pair['arm_a']['model_alias']
+            .' --arm-b='.(string) $pair['arm_b']['arm_id']
+            .' --arm-b-model='.(string) $pair['arm_b']['model_alias']
+            .' --task-category='.(string) $pair['task_category']
+            .' --mode='.(string) $pair['mode']
+            .' --case='.$caseId
+            .' --prompt-mode=enterprise-change';
+    }
+
+    /**
+     * @param  array<string,string>  $pair
+     */
+    private function nextCommand(array $pair, string $caseSet): string
+    {
+        return 'php artisan atlas:forge:rivals run-arena'
+            .' --arm-a='.$pair['arm_a']
+            .' --arm-a-model='.$pair['arm_a_model']
+            .' --arm-b='.$pair['arm_b']
+            .' --arm-b-model='.$pair['arm_b_model']
+            .' --task-category='.$pair['task_category']
+            .' --mode='.$pair['mode']
+            .' --case-set='.$caseSet
+            .' --prompt-mode=enterprise-change'
             .' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json';
     }
 }

@@ -265,6 +265,7 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
             'statistical-repeat' => 60,
             'meta-provider-stress' => 50,
             'extreme-differentiator' => 80,
+            'ceiling-360' => 120,
         ];
 
         foreach ($expected as $caseSet => $count) {
@@ -431,6 +432,7 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
         $this->assertSame(60, $snap['case_set_counts']['statistical-repeat']);
         $this->assertSame(50, $snap['case_set_counts']['meta-provider-stress']);
         $this->assertSame(80, $snap['case_set_counts']['extreme-differentiator']);
+        $this->assertSame(120, $snap['case_set_counts']['ceiling-360']);
         foreach (AtlasForgeRivalsProviderArenaCorpusService::TASK_CATEGORIES as $cat) {
             $this->assertArrayHasKey($cat, $snap['by_task_category']);
             $this->assertSame(5, $snap['by_task_category'][$cat], "Categoria {$cat} deve ter 5 cases (matriz 8x5)");
@@ -502,6 +504,38 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
                 $capabilityCounts[$capability] ?? 0,
                 "Extreme set precisa medir {$capability} pelo menos 12 vezes.",
             );
+        }
+    }
+
+    public function test_ceiling_360_case_set_targets_maximum_runner_ceiling_mapping(): void
+    {
+        $cases = $this->corpus->casesForCaseSet('ceiling-360');
+        $required = [
+            'long_context_retention',
+            'multi_step_reasoning',
+            'rollback_safety',
+            'scope_boundary_discipline',
+            'replayable_evidence_quality',
+            'honest_blocker_behavior',
+            'ambiguous_human_prompt_handling',
+        ];
+
+        $this->assertCount(120, $cases);
+        foreach ($cases as $case) {
+            $this->assertSame('ceiling-360', $case['industrial_case_set']);
+            $this->assertSame('L5', $case['difficulty_level']);
+            $this->assertSame('critical', $case['risk_level']);
+            $this->assertSame('high', $case['ambiguity_level']);
+            $this->assertContains('ceiling_360', (array) $case['measurement_tags']);
+            $this->assertContains('runner_ceiling_probe', (array) $case['measurement_tags']);
+            $this->assertSame('atlas.forge.rivals.ceiling_360.v1', $case['ceiling_360']['schema_version'] ?? null);
+            $this->assertSame(120, $case['ceiling_360']['required_signal']['min_cases'] ?? null);
+            $this->assertTrue((bool) ($case['ceiling_360']['required_signal']['requires_all_360_capabilities'] ?? false));
+            $this->assertFalse((bool) ($case['ceiling_360']['claim_policy']['external_claim_allowed'] ?? true));
+            foreach ($required as $capability) {
+                $this->assertContains($capability, (array) $case['measured_capabilities']);
+            }
+            $this->assertSame([], $this->corpus->validateManifest($case), "Ceiling-360 case inválido: {$case['case_id']}");
         }
     }
 

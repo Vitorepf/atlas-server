@@ -1,0 +1,23 @@
+# ceiling-360-038-industrial-190-test_design
+
+Industrial execution fixture for local_fake harness validation.
+
+## Objective
+Projetar testes 190 que capturem regressao, edge cases e comportamento esperado.
+
+## Acceptance Criteria
+- Entrega resolve o caso sem tocar arquivos proibidos.
+- Patch inclui evidencia local suficiente para auditoria e replay.
+- Resposta explicita incertezas, tradeoffs e limites quando o prompt for ambiguo.
+- Scorecard por caso pode ser reconstruido a partir do evidence pack.
+
+## Invalid If
+- synthetic_score_admitted
+- touched_forbidden_files
+- external_rivals_unlock_attempted
+- missing_case_scorecard
+- missing_replay
+- missing_evidence_pack
+- oracle_metadata_ignored
+
+No provider is called by this fixture.

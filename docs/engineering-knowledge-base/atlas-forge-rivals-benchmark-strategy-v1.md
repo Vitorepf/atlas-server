@@ -152,6 +152,7 @@ consome apenas o sinal consultivo derivado.
 | `incident-response` | 50 | Incidentes, rollback e postmortem. | Claim forte bloqueado sem evidence completo. |
 | `product-security-migrations` | 50 | Produto, seguranca e migrations. | Claim forte bloqueado sem safety gates. |
 | `statistical-repeat` | 50 | Variancia e flakiness. | Claim forte bloqueado sem repeticao estatistica. |
+| `ceiling-360` | 120 | Teto pratico L5 por capacidade 360 obrigatoria. | Claim forte bloqueado sem evidence/replay/matrix/confidence e repeticoes. |
 | `deep` | 25+ | Ranking confiavel e tendencia por dominio. | Pode alimentar ranking com confianca alta. |
 | `frontend` | 5+ | Medir UI, acessibilidade, estados e polish. | Vencedor por frontend. |
 | `backend` | 5+ | Medir logica, integracao, estado, policy e dados. | Vencedor por backend. |

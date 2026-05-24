@@ -78,6 +78,7 @@ evidence:
   - tests/Feature/Ai/Programming/AtlasForgeRivalsIndustrialExecutionSuiteTest.php
   - "php artisan atlas:forge:rivals industrial-execution --case-set=industrial-50 --json"
   - "php artisan atlas:forge:rivals industrial-execution --case-set=extreme-differentiator --json"
+  - "php artisan atlas:forge:rivals industrial-execution --case-set=ceiling-360 --json"
   - "php artisan atlas:forge:rivals industrial-execution --case-set=meta-provider-stress --json"
   - "php artisan atlas:forge:rivals run-battery --preset=industrial-50 --mode=local_fake --json"
 required_tests:
@@ -97,13 +98,13 @@ Canonical phrase: “Rivals emits measured evidence; Atlas Decide decides model 
 
 ## Purpose
 
-`atlas-forge-rivals-industrial-execution-suite-v1` turns the industrial benchmark specs into an executable local harness for `industrial-50`, broader industrial presets and the high-difficulty `meta-provider-stress` / `extreme-differentiator` batteries.
+`atlas-forge-rivals-industrial-execution-suite-v1` turns the industrial benchmark specs into an executable local harness for `industrial-50`, broader industrial presets and the high-difficulty `meta-provider-stress` / `extreme-differentiator` / `ceiling-360` batteries.
 
 It is not a provider run. It does not spend tokens. It does not unlock `external_rivals_certification`. It proves that fixtures, evidence paths, replay gates and matrix/report prerequisites can execute locally before an operator authorizes any real provider benchmark.
 
 ## Resumo
 
-Execution Suite v1 torna case-sets industriais executaveis localmente com fixtures reais, readiness JSON e caminho `local_fake` completo. Isso inclui `industrial-50`, `industrial-100`, `industrial-200`, presets tematicos industriais, `meta-provider-stress` e `extreme-differentiator`.
+Execution Suite v1 torna case-sets industriais executaveis localmente com fixtures reais, readiness JSON e caminho `local_fake` completo. Isso inclui `industrial-50`, `industrial-100`, `industrial-200`, presets tematicos industriais, `meta-provider-stress`, `extreme-differentiator` e `ceiling-360`.
 
 ## Papel no Atlas
 
@@ -115,7 +116,7 @@ Fica entre o corpus industrial e o executor Rivals: materializa fixtures, valida
 
 ## Contratos
 
-Readiness deve retornar o minimo canonico de casos executaveis para o case-set solicitado, sem seeds vazios, com testes, expected changed files, oracle metadata e evidence requirements. Exemplos: `industrial-50=50`, `meta-provider-stress=50`, `extreme-differentiator=80`.
+Readiness deve retornar o minimo canonico de casos executaveis para o case-set solicitado, sem seeds vazios, com testes, expected changed files, oracle metadata e evidence requirements. Exemplos: `industrial-50=50`, `meta-provider-stress=50`, `extreme-differentiator=80`, `ceiling-360=120`.
 
 ## Fluxo
 
@@ -168,6 +169,7 @@ Implemented scope:
 - `industrial-50` readiness with exactly 50 executable cases.
 - `meta-provider-stress` readiness with at least 50 executable cases.
 - `extreme-differentiator` readiness with at least 80 executable cases.
+- `ceiling-360` readiness with at least 120 executable L5 cases covering every required 360 capability.
 - Broader industrial case-set readiness uses each case-set minimum from the canonical corpus registry.
 - Deterministic local fixtures under `storage/forge-rivals-corpus/<case_id>/seed`.
 - Fixture payloads stage into `storage/forge-rivals-industrial/<case_id>/...` inside isolated worktrees.
@@ -201,6 +203,7 @@ Readiness:
 php artisan atlas:forge:rivals industrial-execution --case-set=industrial-50 --json
 php artisan atlas:forge:rivals industrial-execution --case-set=meta-provider-stress --json
 php artisan atlas:forge:rivals industrial-execution --case-set=extreme-differentiator --json
+php artisan atlas:forge:rivals industrial-execution --case-set=ceiling-360 --json
 php artisan atlas:forge:rivals arena-readiness --json
 ```
 
@@ -220,6 +223,7 @@ Case listing:
 
 ```bash
 php artisan atlas:forge:rivals cases --case-set=extreme-differentiator --json
+php artisan atlas:forge:rivals cases --case-set=ceiling-360 --json
 ```
 
 ## Readiness Contract
@@ -307,6 +311,7 @@ A 40-case tie is a valid diagnostic, not a conclusion. Battery reports must emit
 - category slices for the eight canonical categories;
 - capability slices for long context, multi-step reasoning, rollback safety, scope discipline, replay evidence, honest blockers, and ambiguous human prompts;
 - `extreme-differentiator` restricted to L5 cases only, with 80 generated variants and no L4 escape hatch;
+- `ceiling-360` restricted to 120 L5 generated variants, all critical/high-ambiguity and all explicitly covering the 7 required 360 capabilities;
 - extreme cases hardened for differentiation, not throughput: every case is L5, high ambiguity and at least high risk, so ties are less likely to hide capability gaps;
 - per-case `measured_capabilities` axes, including rollback safety, security fail-closed, performance tradeoff quality, data safety, flake isolation, observability, scope-boundary probing, and assumption quality;
 - explicit single industrial cases materialized through industrial execution readiness with `required_cases=1`, while full case-set claims still require the case-set floor;

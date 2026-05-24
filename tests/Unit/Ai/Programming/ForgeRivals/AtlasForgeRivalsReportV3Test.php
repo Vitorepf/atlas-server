@@ -428,6 +428,16 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         $this->assertSame('none', $commands[0]['routing_effect']);
         $this->assertFalse($commands[0]['external_provider_call']);
         $this->assertFalse($commands[0]['provider_tokens_spent']);
+        $commandIds = array_column($commands, 'id');
+        $this->assertContains('dry_run_atlas_forge_vs_claude_sonnet', $commandIds);
+        $this->assertContains('dry_run_composer_2_5_vs_codex_gpt_5_5', $commandIds);
+        $this->assertContains('dry_run_cursor_default_vs_claude_sonnet', $commandIds);
+        $composerDryRun = collect($commands)->firstWhere('id', 'dry_run_composer_2_5_vs_codex_gpt_5_5');
+        $this->assertIsArray($composerDryRun);
+        $this->assertSame('provider_arena', $composerDryRun['mode']);
+        $this->assertSame('composer_2_5', $composerDryRun['arm_a']);
+        $this->assertStringContainsString('--case-set=ceiling-360', $composerDryRun['command']);
+        $this->assertFalse($composerDryRun['external_provider_call']);
         $realCommands = array_values(array_filter(
             $commands,
             static fn (array $command): bool => (bool) ($command['external_provider_call'] ?? false),
@@ -435,6 +445,10 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         $this->assertNotEmpty($realCommands);
         $this->assertTrue($realCommands[0]['requires_confirmations']);
         $this->assertStringContainsString('--confirm-real-provider-call', $realCommands[0]['command']);
+        $composerRealRun = collect($realCommands)->firstWhere('id', 'real_confirmed_composer_2_5_vs_codex_gpt_5_5');
+        $this->assertIsArray($composerRealRun);
+        $this->assertTrue($composerRealRun['requires_confirmations']);
+        $this->assertStringContainsString('--confirm-provider-cost', $composerRealRun['command']);
         $this->assertSame($commands, $report['provider_performance_signal']['next_measurement_commands']);
         $this->assertStringContainsString('Capacidade Medida (360)', $body);
         $this->assertStringContainsString('capability_floor_met = **false**', $body);

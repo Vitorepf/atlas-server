@@ -814,9 +814,11 @@ final class AtlasForgeRivalsArenaRunService
             );
         }
 
+        $usesMinimalCheckout = false;
         if ($caseId !== '') {
             $industrialReadiness = $this->explicitIndustrialCaseReadiness($caseId);
             if ($industrialReadiness !== null) {
+                $usesMinimalCheckout = true;
                 $phases[] = $this->phase('industrial-execution-readiness', $industrialReadiness);
                 if (($industrialReadiness['status'] ?? '') !== 'ok') {
                     return $this->arenaPipelineBlocked(
@@ -856,6 +858,7 @@ final class AtlasForgeRivalsArenaRunService
         $setup = $this->setup->provision([
             'run_id' => $runId,
             'source_ref' => $sourceRef,
+            'checkout_strategy' => $usesMinimalCheckout ? 'minimal_no_checkout' : 'full',
         ]);
         $phases[] = $this->phase('setup', $setup);
         if (($setup['status'] ?? '') !== 'ok') {

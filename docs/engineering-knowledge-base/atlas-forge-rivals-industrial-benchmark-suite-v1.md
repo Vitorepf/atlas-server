@@ -170,6 +170,7 @@ Presets industriais canônicos:
 - `incident-response`: 50 casos com domínio `incident_rollback`.
 - `product-security-migrations`: 50 casos cruzando `product`, `security` e `migration`.
 - `statistical-repeat`: 60 execuções planejadas, 20 grupos x 3 repetições.
+- `ceiling-360`: 120 casos L5 de teto pratico, todos com ambiguidade alta, risco critical e cobertura explicita das 7 capacidades 360 obrigatorias.
 
 Os presets são expostos por:
 
@@ -214,6 +215,26 @@ Nenhum claim forte é permitido sem:
 - aprovação humana para qualquer claim externo.
 
 `external_rivals_certification` continua bloqueado por design.
+
+## Ceiling 360
+
+`ceiling-360` e o preset de maior pressao do Rivals para quando `release`,
+`industrial-50` ou `extreme-differentiator` ainda empatam. Ele nao existe para
+produzir claim externo automatico; existe para mapear o teto pratico dos
+runners por capacidade.
+
+Contrato:
+
+- 120 casos;
+- todos `difficulty_level=L5`;
+- todos `ambiguity_level=high`;
+- todos `risk_level=critical`;
+- `planning_weight >= 0.70`;
+- cada caso mede `long_context_retention`, `multi_step_reasoning`,
+  `rollback_safety`, `scope_boundary_discipline`,
+  `replayable_evidence_quality`, `honest_blocker_behavior` e
+  `ambiguous_human_prompt_handling`;
+- toda saida permanece advisory-only para Atlas Decide.
 
 ## Execução
 

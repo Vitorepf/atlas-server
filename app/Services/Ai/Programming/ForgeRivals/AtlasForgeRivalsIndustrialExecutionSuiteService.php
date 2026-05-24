@@ -38,6 +38,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
         AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_PRODUCT_SECURITY_MIGRATIONS,
         AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
         AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+        AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
     ];
 
     public function __construct(

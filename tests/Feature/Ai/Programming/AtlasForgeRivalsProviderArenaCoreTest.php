@@ -213,8 +213,11 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 
         $this->assertSame('arena-readiness', $response['action']);
         $this->assertSame('atlas.forge.rivals.provider_arena_readiness.v1', $response['schema_version']);
-        $this->assertSame(7, $response['pair_count']);
-        $this->assertSame(7, $response['dry_run_ready_count']);
+        $this->assertSame('ceiling-360', $response['case_set']);
+        $this->assertSame(120, $response['case_count']);
+        $this->assertTrue($response['ceiling_360_matrix']);
+        $this->assertSame(8, $response['pair_count']);
+        $this->assertSame(8, $response['dry_run_ready_count']);
         $this->assertFalse($response['external_provider_call']);
         $this->assertFalse($response['provider_tokens_spent']);
         $this->assertTrue($response['advisory_only']);
@@ -223,6 +226,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertSame('none', $response['routing_effect']);
 
         $pairIds = array_column($response['pairs'], 'pair_id');
+        $this->assertContains('atlas_forge_vs_claude_sonnet', $pairIds);
         $this->assertContains('atlas_dev_vs_atlas_forge', $pairIds);
         $this->assertContains('claude_opus_vs_codex_gpt55', $pairIds);
         $this->assertContains('codex_gpt55_vs_gemini_pro', $pairIds);
@@ -230,6 +234,14 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertContains('composer_2_5_vs_codex_gpt55', $pairIds);
         $this->assertContains('claude_sonnet_vs_claude_opus', $pairIds);
         $this->assertContains('atlas_forge_full_power_vs_claude_opus', $pairIds);
+        foreach ($response['pairs'] as $pair) {
+            $this->assertSame('ceiling-360', $pair['case_set']);
+            $this->assertStringContainsString('--case-set=ceiling-360', $pair['dry_run_command']);
+            $this->assertStringContainsString('--dry-run', $pair['dry_run_command']);
+            $this->assertFalse($pair['external_provider_call']);
+            $this->assertFalse($pair['provider_tokens_spent']);
+            $this->assertSame('none', $pair['routing_effect']);
+        }
     }
 
     public function test_arena_readiness_marks_stubbed_binaries_ready_after_confirmations(): void
@@ -263,7 +275,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 
             $response = $dispatcher->dispatch('arena-readiness', []);
 
-            $this->assertSame(7, $response['real_run_ready_count']);
+            $this->assertSame(8, $response['real_run_ready_count']);
             $this->assertSame(0, $response['driver_missing_count']);
             foreach ($response['pairs'] as $pair) {
                 $this->assertSame('real_run_ready_after_confirmations', $pair['status']);
@@ -273,6 +285,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
                 $this->assertStringContainsString('--confirm-runbook-reviewed', $pair['next_command']);
                 $this->assertStringContainsString('--confirm-provider-cost', $pair['next_command']);
                 $this->assertStringContainsString('--confirm-real-provider-call', $pair['next_command']);
+                $this->assertStringContainsString('--case-set=ceiling-360', $pair['next_command']);
             }
 
             $codexVsGemini = collect($response['pairs'])->firstWhere('pair_id', 'codex_gpt55_vs_gemini_pro');
@@ -338,9 +351,9 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
             $response = $dispatcher->dispatch('arena-readiness', []);
 
             $this->assertSame('ok', $response['status']);
-            $this->assertSame(7, $response['dry_run_ready_count']);
+            $this->assertSame(8, $response['dry_run_ready_count']);
             $this->assertSame(0, $response['real_run_ready_count']);
-            $this->assertSame(7, $response['evidence_disk_blocked_count']);
+            $this->assertSame(8, $response['evidence_disk_blocked_count']);
             $this->assertSame('blocked', $response['evidence_disk_status']['status']);
             $this->assertFalse($response['external_provider_call']);
             $this->assertFalse($response['provider_tokens_spent']);
@@ -759,6 +772,63 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
             $this->assertFalse($response['should_update_provider_topology']);
             $this->assertTrue($response['never_changes_atlas_decide_topology']);
             $this->assertSame('atlas_decide', $response['owner_of_model_routing']);
+            $this->assertSame('none', $response['routing_effect']);
+        } finally {
+            config([
+                'atlas.ai.providers.claude_cli.binary' => $oldClaudeBinary,
+                'atlas_rivals.min_free_bytes_before_worktree_add' => $oldFullFloor,
+                'atlas_rivals.min_free_bytes_before_minimal_worktree_add' => $oldMinimalFloor,
+                'atlas_rivals.min_free_bytes_before_provider_evidence' => $oldEvidenceFloor,
+            ]);
+        }
+    }
+
+    public function test_run_arena_explicit_industrial_case_uses_minimal_checkout_floor(): void
+    {
+        $fakeProvider = $this->fakeProviderBinary();
+        $oldClaudeBinary = config('atlas.ai.providers.claude_cli.binary');
+        $oldFullFloor = config('atlas_rivals.min_free_bytes_before_worktree_add');
+        $oldMinimalFloor = config('atlas_rivals.min_free_bytes_before_minimal_worktree_add');
+        $oldEvidenceFloor = config('atlas_rivals.min_free_bytes_before_provider_evidence');
+
+        try {
+            config([
+                'atlas.ai.providers.claude_cli.binary' => $fakeProvider,
+                'atlas_rivals.min_free_bytes_before_worktree_add' => PHP_INT_MAX,
+                'atlas_rivals.min_free_bytes_before_minimal_worktree_add' => 0,
+                'atlas_rivals.min_free_bytes_before_provider_evidence' => 0,
+            ]);
+
+            $response = app(AtlasForgeRivalsActionDispatcher::class)->dispatch('run-arena', [
+                'arm_a' => 'atlas_forge',
+                'arm_b' => 'claude_code',
+                'arm_a_model' => 'sonnet',
+                'arm_b_model' => 'sonnet',
+                'task_category' => 'refactor',
+                'mode' => 'provider_arena',
+                'case' => 'ceiling-360-001-industrial-005-incident_rollback',
+                'prompt_mode' => 'enterprise-change',
+                'run_id' => 'arena-minimal-explicit-case-'.Str::lower(Str::random(8)),
+                'confirmations' => ['runbook_reviewed' => true, 'provider_cost' => true, 'real_provider_call' => true],
+            ]);
+
+            $setup = collect($response['phases'] ?? [])->firstWhere('phase', 'setup');
+
+            $this->assertIsArray($setup, json_encode($response, JSON_PRETTY_PRINT));
+            $this->assertSame('ok', $setup['status'], json_encode($response, JSON_PRETTY_PRINT));
+            $this->assertFalse(
+                collect($response['blockers'] ?? [])->contains(
+                    static fn (string $blocker): bool => str_starts_with($blocker, 'worktree_disk_space_insufficient:'),
+                ),
+                json_encode($response, JSON_PRETTY_PRINT),
+            );
+            $this->assertTrue(
+                collect($response['phases'] ?? [])->contains(
+                    static fn (array $phase): bool => ($phase['phase'] ?? '') === 'run-real' && ($phase['status'] ?? '') === 'ok',
+                ),
+                json_encode($response, JSON_PRETTY_PRINT),
+            );
+            $this->assertTrue($response['advisory_only']);
             $this->assertSame('none', $response['routing_effect']);
         } finally {
             config([

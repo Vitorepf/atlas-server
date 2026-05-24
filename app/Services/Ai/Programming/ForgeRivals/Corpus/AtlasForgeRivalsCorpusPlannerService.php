@@ -145,6 +145,7 @@ final class AtlasForgeRivalsCorpusPlannerService
                 'human_prompt_probe' => $c['human_prompt_probe'] ?? null,
                 'meta_provider_stress' => $c['meta_provider_stress'] ?? null,
                 'extreme_differentiator' => $c['extreme_differentiator'] ?? null,
+                'ceiling_360' => $c['ceiling_360'] ?? null,
                 'extreme_hardening' => $c['extreme_hardening'] ?? null,
                 'measured_capabilities' => array_values(array_map(
                     static fn ($v): string => (string) $v,
@@ -153,6 +154,8 @@ final class AtlasForgeRivalsCorpusPlannerService
                 'difficulty_level' => (string) ($c['difficulty_level'] ?? ''),
                 'difficulty_score' => isset($c['difficulty_score']) ? (float) $c['difficulty_score'] : null,
                 'difficulty_reason' => (string) ($c['difficulty_reason'] ?? ''),
+                'planning_weight' => isset($c['planning_weight']) ? (float) $c['planning_weight'] : null,
+                'execution_weight' => isset($c['execution_weight']) ? (float) $c['execution_weight'] : null,
                 'ambiguity_level' => (string) ($c['ambiguity_level'] ?? ''),
                 'risk_level' => (string) ($c['risk_level'] ?? ''),
                 'objective' => (string) ($c['objective'] ?? ''),

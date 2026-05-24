@@ -2442,6 +2442,7 @@ final class AtlasForgeRivalsReportService
             'difficulty_ceiling_reached' => $l5Differentiated,
             'requires_harder_followup' => ! $l5Differentiated,
             'recommended_case_sets' => [
+                'ceiling-360',
                 'extreme-differentiator',
                 'meta-provider-stress',
                 'statistical-repeat',
@@ -2558,6 +2559,7 @@ final class AtlasForgeRivalsReportService
             'separation' => $separation,
             'next_measurement_plan' => $nextMeasurementPlan,
             'recommended_case_sets' => [
+                'ceiling-360',
                 'extreme-differentiator',
                 'meta-provider-stress',
                 'statistical-repeat',
@@ -2682,7 +2684,7 @@ final class AtlasForgeRivalsReportService
 
         $caseSets = $this->stringList($capabilityCoverage['recommended_case_sets'] ?? []);
         if ($caseSets === []) {
-            $caseSets = ['extreme-differentiator', 'meta-provider-stress', 'statistical-repeat'];
+            $caseSets = ['ceiling-360', 'extreme-differentiator', 'meta-provider-stress', 'statistical-repeat'];
         }
 
         $atlasModel = $this->commandModel((string) ($arms[0]['model'] ?? 'sonnet'), 'sonnet');
@@ -2717,6 +2719,28 @@ final class AtlasForgeRivalsReportService
         }
 
         $primaryCaseSet = $caseSets[0] ?? 'extreme-differentiator';
+        $battleMatrix = $this->providerArena360BattleMatrix($primaryCaseSet);
+        foreach ($battleMatrix as $battle) {
+            $commands[] = [
+                'id' => 'dry_run_'.$battle['battle_id'],
+                'purpose' => 'plan_provider_arena_360_battle_without_provider_call',
+                'case_set' => $primaryCaseSet,
+                'battle_id' => $battle['battle_id'],
+                'mode' => $battle['mode'],
+                'arm_a' => $battle['arm_a'],
+                'arm_a_model' => $battle['arm_a_model'],
+                'arm_b' => $battle['arm_b'],
+                'arm_b_model' => $battle['arm_b_model'],
+                'command' => $battle['dry_run_command'],
+                'dry_run' => true,
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+                'requires_confirmations' => false,
+                'advisory_only' => true,
+                'routing_effect' => 'none',
+            ];
+        }
+
         $commands[] = [
             'id' => 'real_confirmed_'.$this->commandSlug($primaryCaseSet),
             'purpose' => 'run_confirmed_real_provider_battery_for_360_floor',
@@ -2734,8 +2758,131 @@ final class AtlasForgeRivalsReportService
             'advisory_only' => true,
             'routing_effect' => 'none',
         ];
+        foreach ($battleMatrix as $battle) {
+            $commands[] = [
+                'id' => 'real_confirmed_'.$battle['battle_id'],
+                'purpose' => 'run_confirmed_provider_arena_360_battle',
+                'case_set' => $primaryCaseSet,
+                'battle_id' => $battle['battle_id'],
+                'mode' => $battle['mode'],
+                'arm_a' => $battle['arm_a'],
+                'arm_a_model' => $battle['arm_a_model'],
+                'arm_b' => $battle['arm_b'],
+                'arm_b_model' => $battle['arm_b_model'],
+                'command' => str_replace(' --dry-run --json', ' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json', $battle['dry_run_command']),
+                'dry_run' => false,
+                'external_provider_call' => true,
+                'provider_tokens_spent' => true,
+                'requires_confirmations' => true,
+                'required_confirmations' => [
+                    'confirm-runbook-reviewed',
+                    'confirm-provider-cost',
+                    'confirm-real-provider-call',
+                ],
+                'advisory_only' => true,
+                'routing_effect' => 'none',
+            ];
+        }
 
         return $commands;
+    }
+
+    /**
+     * @return list<array<string,string>>
+     */
+    private function providerArena360BattleMatrix(string $caseSet): array
+    {
+        return array_map(
+            fn (array $battle): array => [
+                'battle_id' => $battle['id'],
+                'mode' => $battle['mode'],
+                'arm_a' => $battle['arm_a'],
+                'arm_a_model' => $battle['arm_a_model'],
+                'arm_b' => $battle['arm_b'],
+                'arm_b_model' => $battle['arm_b_model'],
+                'dry_run_command' => 'php artisan atlas:forge:rivals run-arena'
+                    .' --arm-a='.$battle['arm_a'].' --arm-a-model='.$battle['arm_a_model']
+                    .' --arm-b='.$battle['arm_b'].' --arm-b-model='.$battle['arm_b_model']
+                    .' --mode='.$battle['mode']
+                    .' --case-set='.$caseSet
+                    .' --prompt-mode=enterprise-change'
+                    .' --dry-run --json',
+            ],
+            $this->canonicalProviderArena360Battles(),
+        );
+    }
+
+    /**
+     * @return list<array{id:string,mode:string,arm_a:string,arm_a_model:string,arm_b:string,arm_b_model:string}>
+     */
+    private function canonicalProviderArena360Battles(): array
+    {
+        return [
+            [
+                'id' => 'atlas_forge_vs_claude_sonnet',
+                'mode' => 'provider_arena',
+                'arm_a' => 'atlas_forge',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'sonnet',
+            ],
+            [
+                'id' => 'atlas_dev_vs_atlas_forge',
+                'mode' => 'provider_arena',
+                'arm_a' => 'atlas_dev',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'atlas_forge',
+                'arm_b_model' => 'sonnet',
+            ],
+            [
+                'id' => 'composer_2_5_vs_codex_gpt_5_5',
+                'mode' => 'provider_arena',
+                'arm_a' => 'composer_2_5',
+                'arm_a_model' => 'default',
+                'arm_b' => 'codex_cli',
+                'arm_b_model' => 'gpt-5.5',
+            ],
+            [
+                'id' => 'cursor_default_vs_claude_sonnet',
+                'mode' => 'provider_arena',
+                'arm_a' => 'cursor_cli',
+                'arm_a_model' => 'default',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'sonnet',
+            ],
+            [
+                'id' => 'claude_sonnet_vs_codex_gpt_5_5',
+                'mode' => 'provider_arena',
+                'arm_a' => 'claude_code',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'codex_cli',
+                'arm_b_model' => 'gpt-5.5',
+            ],
+            [
+                'id' => 'codex_gpt_5_5_vs_gemini_pro',
+                'mode' => 'provider_arena',
+                'arm_a' => 'codex_cli',
+                'arm_a_model' => 'gpt-5.5',
+                'arm_b' => 'gemini_cli',
+                'arm_b_model' => 'gemini-pro',
+            ],
+            [
+                'id' => 'claude_sonnet_vs_claude_opus',
+                'mode' => 'provider_arena',
+                'arm_a' => 'claude_code',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'opus',
+            ],
+            [
+                'id' => 'atlas_forge_full_power_vs_claude_opus',
+                'mode' => 'full_power',
+                'arm_a' => 'atlas_forge',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'opus',
+            ],
+        ];
     }
 
     private function commandModel(string $model, string $fallback): string
@@ -2777,11 +2924,11 @@ final class AtlasForgeRivalsReportService
             'rollback_safety',
             'scope_boundary_discipline',
             'honest_blocker_behavior',
-            'replayable_evidence_quality' => ['extreme-differentiator', 'meta-provider-stress'],
+            'replayable_evidence_quality' => ['ceiling-360', 'extreme-differentiator', 'meta-provider-stress'],
             'long_context_retention',
             'multi_step_reasoning',
-            'ambiguous_human_prompt_handling' => ['meta-provider-stress', 'extreme-differentiator', 'statistical-repeat'],
-            default => ['extreme-differentiator', 'meta-provider-stress', 'statistical-repeat'],
+            'ambiguous_human_prompt_handling' => ['ceiling-360', 'meta-provider-stress', 'extreme-differentiator', 'statistical-repeat'],
+            default => ['ceiling-360', 'extreme-differentiator', 'meta-provider-stress', 'statistical-repeat'],
         };
     }
 
@@ -3116,7 +3263,7 @@ final class AtlasForgeRivalsReportService
             }
             $reasons[] = [
                 'condition' => 'capability_floor_not_met',
-                'detail' => ($detailBits === [] ? 'capability floor incomplete' : implode('; ', $detailBits)).' — use extreme-differentiator/meta-provider-stress/statistical-repeat before 360 claims',
+                'detail' => ($detailBits === [] ? 'capability floor incomplete' : implode('; ', $detailBits)).' — use ceiling-360/extreme-differentiator/meta-provider-stress/statistical-repeat before 360 claims',
             ];
         }
 

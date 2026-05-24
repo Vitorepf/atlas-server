@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+final class Ceiling360098Industrial090PerformanceV3Fixture
+{
+    public const CASE_ID = 'ceiling-360-098-industrial-090-performance-v3';
+    public const TASK_TYPE = 'performance';
+    public const DIFFICULTY_LEVEL = 'L5';
+
+    public function baseline(): array
+    {
+        return [
+            'case_id' => self::CASE_ID,
+            'scope' => 'Reduzir custo/latencia 090 sem mudar payload publico nem esconder tradeoffs.',
+            'requires_evidence' => true,
+            'external_provider_call' => false,
+        ];
+    }
+}

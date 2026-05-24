@@ -50,7 +50,7 @@ class AtlasForgeRivalsCommand extends Command
         {--model= : Back-compat Atlas model lock: sonnet|opus}
         {--baseline-model= : Back-compat baseline model lock: sonnet|opus}
         {--case=* : Provider Arena Corpus case id (e.g. backend-pagination-off-by-one). Repeated for batch.}
-        {--case-set= : Provider Arena Corpus case set (quick|release|frontend|backend|bugfix|architecture|industrial-50|industrial-100|industrial-200|ambiguous-bugs|multi-day-refactors|incident-response|product-security-migrations|statistical-repeat)}
+        {--case-set= : Provider Arena Corpus case set (quick|release|frontend|backend|bugfix|architecture|industrial-50|industrial-100|industrial-200|ambiguous-bugs|multi-day-refactors|incident-response|product-security-migrations|meta-provider-stress|extreme-differentiator|ceiling-360|statistical-repeat)}
         {--mode= : fair|full_power|power|provider_arena|provider_pure|diagnostic|replay_only|local_fake (power is alias for full_power)}
         {--atlas-model= : sonnet|opus|claude_sonnet|claude_opus|codex|auto}
         {--rival= : claude_sonnet|claude_opus|codex|auto}
@@ -66,7 +66,7 @@ class AtlasForgeRivalsCommand extends Command
         {--role= : Operator role tested by the entry (builder|reviewer|repair_agent|context_scout|test_generator|architect|docs)}
         {--framework= : Optional framework/language label captured in the ledger entry (e.g. react, laravel)}
         {--provider= : Filter the ledger snapshot by provider id}
-        {--preset=smoke : smoke|quick|release|full|industrial-50|industrial-100|industrial-200|ambiguous-bugs|multi-day-refactors|incident-response|product-security-migrations|statistical-repeat}
+        {--preset=smoke : smoke|quick|release|full|industrial-50|industrial-100|industrial-200|ambiguous-bugs|multi-day-refactors|incident-response|product-security-migrations|meta-provider-stress|extreme-differentiator|ceiling-360|statistical-repeat}
         {--source-ref= : Git ref/SHA used to provision isolated worktrees (Slice 1+)}
         {--run-id= : Run id for status/collect-evidence/replay/adjudicate/report/run-battery/run-arena}
         {--run-ids= : Comma-separated run_ids for battery-evidence/battery-verify-evidence (alt to repeated --run-id)}

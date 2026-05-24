@@ -155,6 +155,8 @@ final class AtlasForgeRivalsPlanRealService
                 'full' => $paidCalls ? '180-360' : '<5',
                 'industrial-50', 'ambiguous-bugs', 'multi-day-refactors', 'incident-response',
                 'product-security-migrations', 'statistical-repeat' => $paidCalls ? '180-480' : '<5',
+                'extreme-differentiator' => $paidCalls ? '240-720' : '<8',
+                'ceiling-360' => $paidCalls ? '720-1440' : '<15',
                 'industrial-100' => $paidCalls ? '360-960' : '<10',
                 'industrial-200' => $paidCalls ? '720-1920' : '<20',
                 default => 'unknown',
