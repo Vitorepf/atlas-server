@@ -15,6 +15,10 @@ class AtlasProductExecutionPrimitivesCommand extends Command
         {--route= : Optional route override}
         {--operator-approved : Mark operator approval as present for runtime gate simulation}
         {--provider-patch : Simulate provider patch capability request}
+        {--context=* : Context refs to pass into APDR/AEDPDS}
+        {--doc=* : Canonical docs to pass into APDR/AEDPDS}
+        {--evidence=* : Evidence refs to pass into APDR/AEDPDS}
+        {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Print JSON}
         {--strict : Exit non-zero unless primitive envelope is ready}';
 
@@ -28,6 +32,10 @@ class AtlasProductExecutionPrimitivesCommand extends Command
             'route' => $this->option('route'),
             'operator_approved' => (bool) $this->option('operator-approved'),
             'provider_patch' => (bool) $this->option('provider-patch'),
+            'context_refs' => $this->strings($this->option('context')),
+            'canonical_docs' => $this->strings($this->option('doc')),
+            'evidence_refs' => $this->strings($this->option('evidence')),
+            'ux_expectations' => $this->strings($this->option('ux')),
         ]);
 
         if ((bool) $this->option('json')) {
@@ -47,5 +55,16 @@ class AtlasProductExecutionPrimitivesCommand extends Command
         return (bool) $this->option('strict') && ($report['status'] ?? null) !== 'ready'
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        return is_array($value) ? array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== '')) : [];
     }
 }

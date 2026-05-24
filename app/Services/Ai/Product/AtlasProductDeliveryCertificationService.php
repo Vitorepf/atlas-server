@@ -79,13 +79,13 @@ class AtlasProductDeliveryCertificationService
             )),
             $this->check('product_delivery_patch_request_contract', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductDeliveryPatchRequestContractService.php',
-                ['atlas.product_delivery.patch_request_contract.v1', 'atlas.product_delivery.patch_manifest.v1', 'patch_prompt_projection.v1'],
+                ['atlas.product_delivery.patch_request_contract.v1', 'atlas.product_delivery.patch_manifest.v1', 'patch_prompt_projection.v1', 'delivery_contract_not_ready'],
             ) && $this->sourceHas(
                 'app/Console/Commands/Ai/Product/AtlasProductDeliveryPatchRequestCommand.php',
                 ['atlas:product-delivery:patch-request', 'provider-safe AEDPDS patch request', '--operator-approved', '--ux=*'],
             ) && $this->sourceHas(
                 'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
-                ['test_patch_request_contract_projects_provider_safe_patch_schema', 'test_product_delivery_patch_request_command_outputs_contract'],
+                ['test_patch_request_contract_projects_provider_safe_patch_schema', 'test_patch_request_and_repair_plan_block_when_delivery_contract_is_not_ready', 'test_product_delivery_patch_request_command_outputs_contract'],
             )),
             $this->check('product_delivery_patch_proposal_gate', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductDeliveryPatchProposalGateService.php',
@@ -174,10 +174,10 @@ class AtlasProductDeliveryCertificationService
                 ['atlas.product_execution_primitives.v1', 'human_intent_model', 'software_twin_simulation', 'outcome_memory', 'operational_cartography', 'runtime_gate', 'provider_agent_strategy'],
             ) && $this->sourceHas(
                 'app/Console/Commands/Ai/Product/AtlasProductExecutionPrimitivesCommand.php',
-                ['atlas:product-delivery:primitives', 'intent, twin, outcome, cartography, gate, and provider strategy'],
+                ['atlas:product-delivery:primitives', 'intent, twin, outcome, cartography, gate, and provider strategy', '--operator-approved', '--ux=*'],
             ) && $this->sourceHas(
                 'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
-                ['test_product_execution_primitives_materialize_all_six_blocks_for_dev_request', 'test_product_execution_primitives_runtime_gate_blocks_high_risk_forge_without_approval', 'test_product_execution_primitives_command_outputs_json'],
+                ['test_product_execution_primitives_materialize_all_six_blocks_for_dev_request', 'test_product_execution_primitives_runtime_gate_blocks_high_risk_forge_without_approval', 'test_product_execution_primitives_command_strict_blocks_when_runtime_gate_blocks', 'test_product_execution_primitives_command_outputs_json'],
             )),
             $this->check('product_policy_optimizer', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductDeliveryPolicyOptimizerService.php',
@@ -191,7 +191,7 @@ class AtlasProductDeliveryCertificationService
             )),
             $this->check('product_delivery_multi_step_repair_planner', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductDeliveryMultiStepRepairPlannerService.php',
-                ['atlas.product_delivery.multi_step_repair_plan.v1', 'rollback_policy', 'stop_conditions', 'repair_plan_hash'],
+                ['atlas.product_delivery.multi_step_repair_plan.v1', 'rollback_policy', 'stop_conditions', 'repair_plan_hash', 'delivery_contract_not_ready'],
             ) && $this->sourceHas(
                 'app/Services/Ai/Product/AtlasAutonomousProductDeliveryRuntimeService.php',
                 ['multi_step_repair_plan', 'AtlasProductDeliveryMultiStepRepairPlannerService'],

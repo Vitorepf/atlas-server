@@ -179,6 +179,14 @@ final class AtlasForgeRivalsMatrixReportService
         $differentiation = $this->buildDifferentiationDiagnosis($overall, $capabilityRanking);
         $ceiling360ContractMatrix = $this->buildCeiling360ContractMatrix($comparableScored);
         $battleCoverage = $this->buildBattleCoverage($comparableScored);
+        $tiePressure = $this->buildTiePressureDiagnosis($comparableScored, $differentiation);
+        $ceiling360CompletionGap = $this->buildCeiling360CompletionGap(
+            capabilityRanking: $capabilityRanking,
+            ceiling360ContractMatrix: $ceiling360ContractMatrix,
+            battleCoverage: $battleCoverage,
+            tiePressure: $tiePressure,
+            comparableCaseCount: count($comparableScored),
+        );
         $betterMap = $this->buildBetterMap($categoryRanking, $difficultyRanking);
         $atlasDecide = $insufficient
             ? $this->insufficientAtlasDecide()
@@ -203,6 +211,8 @@ final class AtlasForgeRivalsMatrixReportService
             'differentiation' => $differentiation,
             'ceiling_360_contract_matrix' => $ceiling360ContractMatrix,
             'battle_coverage' => $battleCoverage,
+            'tie_pressure_diagnosis' => $tiePressure,
+            'ceiling_360_completion_gap' => $ceiling360CompletionGap,
             'atlas_better_in' => $betterMap['atlas_better_in'],
             'rival_better_in' => $betterMap['rival_better_in'],
             'invalid_cases' => array_map(
@@ -1155,16 +1165,18 @@ final class AtlasForgeRivalsMatrixReportService
             if (isset($observed[$battleId])) {
                 continue;
             }
+            $dryRunCommand = $this->arenaDryRunCommand(
+                armA: $battle['arm_a'],
+                armAModel: $battle['arm_a_model'],
+                armB: $battle['arm_b'],
+                armBModel: $battle['arm_b_model'],
+                mode: $battle['mode'],
+                taskCategory: $battle['task_category'],
+                caseId: $battle['case_id'],
+            );
             $missing[] = array_merge($battle, [
-                'dry_run_command' => $this->arenaDryRunCommand(
-                    armA: $battle['arm_a'],
-                    armAModel: $battle['arm_a_model'],
-                    armB: $battle['arm_b'],
-                    armBModel: $battle['arm_b_model'],
-                    mode: $battle['mode'],
-                    taskCategory: 'architecture',
-                    caseId: 'ceiling-360-003-industrial-015-incomplete_requirements',
-                ),
+                'dry_run_command' => $dryRunCommand,
+                'real_run_command_when_ready' => $this->arenaRealRunCommand($dryRunCommand),
                 'provider_call' => false,
                 'tokens_spent' => false,
                 'routing_effect' => 'none',
@@ -1175,18 +1187,21 @@ final class AtlasForgeRivalsMatrixReportService
         usort($observedRows, static fn (array $a, array $b): int => strcmp((string) $a['battle_id'], (string) $b['battle_id']));
 
         $floorMet = $missing === [] && $observedRows !== [];
+        $observedCanonicalBattleCount = count(array_filter($observedRows, static fn (array $row): bool => (bool) ($row['canonical'] ?? false)));
         $evidenceDisk = ($this->evidenceDiskGuard ?? new AtlasForgeRivalsProviderEvidenceDiskGuardService)
             ->check($this->paths->rootDirectory().'/battle-coverage-next-probe');
         $evidenceDiskStatus = $this->projectEvidenceDiskStatus($evidenceDisk);
         $realRunReady = $missing !== [] && ($evidenceDiskStatus['status'] ?? null) === 'ok';
+        $nextMissingBattle = $missing[0] ?? null;
 
         return [
             'schema_version' => 'atlas.forge.rivals.matrix_battle_coverage.v1',
             'status' => $floorMet ? 'battle_floor_met' : 'needs_more_battle_diversity',
             'canonical_battle_count' => count($canonical),
-            'observed_battle_count' => count(array_filter($observedRows, static fn (array $row): bool => (bool) ($row['canonical'] ?? false))),
+            'observed_battle_count' => $observedCanonicalBattleCount,
             'observed_non_canonical_battle_count' => count(array_filter($observedRows, static fn (array $row): bool => ! (bool) ($row['canonical'] ?? false))),
             'missing_battle_count' => count($missing),
+            'coverage_ratio' => count($canonical) > 0 ? round($observedCanonicalBattleCount / count($canonical), 4) : 0.0,
             'floor_met' => $floorMet,
             'observed_battles' => $observedRows,
             'missing_canonical_battles' => $missing,
@@ -1194,6 +1209,16 @@ final class AtlasForgeRivalsMatrixReportService
                 'schema_version' => 'atlas.forge.rivals.battle_coverage_next_measurement_plan.v1',
                 'status' => $missing === [] ? 'complete' : 'needs_missing_canonical_battles',
                 'requirements' => $missing,
+                'next_missing_battle' => $nextMissingBattle,
+                'required_real_runs_remaining' => count($missing),
+                'dry_run_commands' => array_values(array_map(
+                    static fn (array $battle): string => (string) ($battle['dry_run_command'] ?? ''),
+                    $missing,
+                )),
+                'real_run_commands_when_ready' => array_values(array_map(
+                    static fn (array $battle): string => (string) ($battle['real_run_command_when_ready'] ?? ''),
+                    $missing,
+                )),
                 'dry_run_ready' => true,
                 'real_run_ready' => $realRunReady,
                 'real_run_blockers' => $realRunReady ? [] : $this->stringList($evidenceDiskStatus['blockers'] ?? []),
@@ -1208,6 +1233,192 @@ final class AtlasForgeRivalsMatrixReportService
                 'routing_effect' => 'none',
             ],
             'tie_is_diagnostic_not_claim' => true,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $cases
+     * @param  array<string,mixed>  $differentiation
+     * @return array<string,mixed>
+     */
+    private function buildTiePressureDiagnosis(array $cases, array $differentiation): array
+    {
+        $total = count($cases);
+        $ties = 0;
+        $l5Cases = 0;
+        $l5Ties = 0;
+        $marginSum = 0.0;
+        $maxMargin = 0.0;
+        $tiedCaseIds = [];
+
+        foreach ($cases as $case) {
+            $winner = (string) ($case['winner'] ?? '');
+            $margin = abs((float) ($case['margin'] ?? ((float) ($case['atlas_score'] ?? 0) - (float) ($case['rival_score'] ?? 0))));
+            $marginSum += $margin;
+            $maxMargin = max($maxMargin, $margin);
+
+            $isTie = ! in_array($winner, [self::WINNER_ATLAS, self::WINNER_RIVAL], true);
+            if ($isTie) {
+                $ties++;
+                $tiedCaseIds[] = (string) ($case['case_id'] ?? 'unknown-case');
+            }
+
+            if ((string) ($case['difficulty_level'] ?? '') === 'L5') {
+                $l5Cases++;
+                if ($isTie) {
+                    $l5Ties++;
+                }
+            }
+        }
+
+        $tieRate = $total > 0 ? round($ties / $total, 4) : 0.0;
+        $l5TieRate = $l5Cases > 0 ? round($l5Ties / $l5Cases, 4) : 0.0;
+        $avgMargin = $total > 0 ? round($marginSum / $total, 2) : 0.0;
+        $targetCapabilities = array_values(array_unique(array_merge(
+            $this->stringList($differentiation['required_tied_capabilities'] ?? []),
+            $this->stringList($differentiation['required_insufficient_capabilities'] ?? []),
+        )));
+        if ($targetCapabilities === []) {
+            $targetCapabilities = AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES;
+        }
+
+        $followupCommands = [];
+        $candidateCases = [];
+        foreach (array_slice($targetCapabilities, 0, 3) as $capability) {
+            foreach ($this->candidateCasesForCapability($capability, $tiedCaseIds, 1) as $candidate) {
+                $candidateCases[(string) ($candidate['case_id'] ?? '')] = $candidate;
+                $followupCommands[] = $this->recommendedDryRunCommand($candidate);
+            }
+        }
+        $followupCommands = array_values(array_unique(array_filter($followupCommands)));
+
+        $requiresHarderFollowup = $total > 0
+            && ($tieRate >= 0.6 || ($l5Cases > 0 && $l5TieRate >= 0.6));
+        $status = match (true) {
+            $total === 0 => 'no_comparable_cases',
+            $requiresHarderFollowup && $l5Cases > 0 => 'l5_tie_pressure_unresolved',
+            $requiresHarderFollowup => 'high_tie_rate_needs_extreme_pressure',
+            default => 'differentiating_enough_for_current_sample',
+        };
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.tie_pressure_diagnosis.v1',
+            'purpose' => 'detect_easy_or_underpressured_batteries_where_global_ties_hide_runner_differences',
+            'status' => $status,
+            'case_count' => $total,
+            'tie_count' => $ties,
+            'tie_rate' => $tieRate,
+            'l5_case_count' => $l5Cases,
+            'l5_tie_count' => $l5Ties,
+            'l5_tie_rate' => $l5TieRate,
+            'average_abs_margin' => $avgMargin,
+            'max_abs_margin' => round($maxMargin, 2),
+            'high_tie_rate_threshold' => 0.6,
+            'requires_harder_followup' => $requiresHarderFollowup,
+            'target_capabilities' => $targetCapabilities,
+            'candidate_cases' => array_values(array_filter($candidateCases)),
+            'recommended_case_sets' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
+            ],
+            'recommended_dry_run_commands' => array_slice($followupCommands, 0, 6),
+            'tie_is_diagnostic_not_claim' => true,
+            'provider_call' => false,
+            'tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $capabilityRanking
+     * @param  array<string,mixed>  $ceiling360ContractMatrix
+     * @param  array<string,mixed>  $battleCoverage
+     * @param  array<string,mixed>  $tiePressure
+     * @return array<string,mixed>
+     */
+    private function buildCeiling360CompletionGap(
+        array $capabilityRanking,
+        array $ceiling360ContractMatrix,
+        array $battleCoverage,
+        array $tiePressure,
+        int $comparableCaseCount,
+    ): array {
+        $battlePlan = (array) ($battleCoverage['next_measurement_plan'] ?? []);
+        $evidenceDiskStatus = (array) ($battlePlan['evidence_disk_status'] ?? []);
+        $capabilityFloorMet = (bool) ($capabilityRanking['floor_met'] ?? false);
+        $contractFloorMet = in_array((string) ($ceiling360ContractMatrix['status'] ?? ''), [
+            'differentiated',
+            'tied_at_contract_floor',
+        ], true);
+        $battleFloorMet = (bool) ($battleCoverage['floor_met'] ?? false);
+        $evidenceDiskReady = ($evidenceDiskStatus['status'] ?? null) === 'ok';
+        $realRunCommands = (array) ($battlePlan['real_run_commands_when_ready'] ?? []);
+
+        $blockers = [];
+        if ($comparableCaseCount <= 0) {
+            $blockers[] = 'no_comparable_scored_cases';
+        }
+        if (! $capabilityFloorMet) {
+            $blockers[] = 'capability_floor_not_met';
+        }
+        if (! $contractFloorMet) {
+            $blockers[] = 'ceiling_360_contract_floor_not_met';
+        }
+        if (! $battleFloorMet) {
+            $blockers[] = 'canonical_battle_floor_not_met';
+        }
+        if ((bool) ($tiePressure['requires_harder_followup'] ?? false)) {
+            $blockers[] = 'tie_pressure_requires_harder_followup';
+        }
+        if (! $evidenceDiskReady) {
+            $blockers = array_merge(
+                $blockers,
+                $this->stringList($evidenceDiskStatus['blockers'] ?? ['provider_evidence_disk_space_insufficient']),
+            );
+        }
+
+        $status = match (true) {
+            $blockers === [] => 'ceiling_360_practical_limit_measured',
+            ! $evidenceDiskReady => 'blocked_by_evidence_disk',
+            (bool) ($tiePressure['requires_harder_followup'] ?? false) => 'needs_extreme_tie_breaker_pressure',
+            ! $battleFloorMet => 'needs_canonical_battle_runs',
+            ! $contractFloorMet => 'needs_contract_floor_pressure',
+            ! $capabilityFloorMet => 'needs_capability_floor_pressure',
+            default => 'needs_more_360_evidence',
+        };
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.ceiling_360_completion_gap.v1',
+            'status' => $status,
+            'ready_for_360_claim' => $blockers === [],
+            'comparable_case_count' => $comparableCaseCount,
+            'capability_floor_met' => $capabilityFloorMet,
+            'contract_floor_met' => $contractFloorMet,
+            'battle_floor_met' => $battleFloorMet,
+            'tie_pressure_resolved' => ! (bool) ($tiePressure['requires_harder_followup'] ?? false),
+            'evidence_disk_ready' => $evidenceDiskReady,
+            'observed_battle_count' => (int) ($battleCoverage['observed_battle_count'] ?? 0),
+            'canonical_battle_count' => (int) ($battleCoverage['canonical_battle_count'] ?? 0),
+            'battle_coverage_ratio' => (float) ($battleCoverage['coverage_ratio'] ?? 0.0),
+            'required_real_runs_remaining' => (int) ($battlePlan['required_real_runs_remaining'] ?? 0),
+            'next_missing_battle' => $battlePlan['next_missing_battle'] ?? null,
+            'next_real_run_command_when_ready' => $realRunCommands[0] ?? null,
+            'blockers' => array_values(array_unique($blockers)),
+            'provider_call' => false,
+            'tokens_spent' => false,
             'advisory_only' => true,
             'should_update_provider_topology' => false,
             'never_changes_atlas_decide_topology' => true,
@@ -1551,7 +1762,7 @@ final class AtlasForgeRivalsMatrixReportService
     }
 
     /**
-     * @return list<array{id:string,mode:string,arm_a:string,arm_a_model:string,arm_b:string,arm_b_model:string}>
+     * @return list<array{id:string,mode:string,arm_a:string,arm_a_model:string,arm_b:string,arm_b_model:string,task_category:string,case_id:string}>
      */
     private function canonicalCapabilityBattles(): array
     {
@@ -1563,6 +1774,8 @@ final class AtlasForgeRivalsMatrixReportService
                 'arm_a_model' => 'sonnet',
                 'arm_b' => 'claude_code',
                 'arm_b_model' => 'sonnet',
+                'task_category' => 'architecture',
+                'case_id' => 'ceiling-360-003-industrial-015-incomplete_requirements',
             ],
             [
                 'id' => 'atlas_dev_vs_atlas_forge',
@@ -1571,6 +1784,8 @@ final class AtlasForgeRivalsMatrixReportService
                 'arm_a_model' => 'sonnet',
                 'arm_b' => 'atlas_forge',
                 'arm_b_model' => 'sonnet',
+                'task_category' => 'refactor',
+                'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
             ],
             [
                 'id' => 'composer_2_5_vs_codex_gpt_5_5',
@@ -1579,6 +1794,8 @@ final class AtlasForgeRivalsMatrixReportService
                 'arm_a_model' => 'default',
                 'arm_b' => 'codex_cli',
                 'arm_b_model' => 'gpt-5.5',
+                'task_category' => 'refactor',
+                'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
             ],
             [
                 'id' => 'cursor_default_vs_claude_sonnet',
@@ -1587,6 +1804,8 @@ final class AtlasForgeRivalsMatrixReportService
                 'arm_a_model' => 'default',
                 'arm_b' => 'claude_code',
                 'arm_b_model' => 'sonnet',
+                'task_category' => 'refactor',
+                'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
             ],
             [
                 'id' => 'claude_sonnet_vs_codex_gpt_5_5',
@@ -1595,6 +1814,8 @@ final class AtlasForgeRivalsMatrixReportService
                 'arm_a_model' => 'sonnet',
                 'arm_b' => 'codex_cli',
                 'arm_b_model' => 'gpt-5.5',
+                'task_category' => 'security',
+                'case_id' => 'ceiling-360-007-industrial-035-security',
             ],
             [
                 'id' => 'codex_gpt_5_5_vs_gemini_pro',
@@ -1603,6 +1824,8 @@ final class AtlasForgeRivalsMatrixReportService
                 'arm_a_model' => 'gpt-5.5',
                 'arm_b' => 'gemini_cli',
                 'arm_b_model' => 'gemini-pro',
+                'task_category' => 'performance',
+                'case_id' => 'ceiling-360-005-industrial-025-performance',
             ],
             [
                 'id' => 'claude_sonnet_vs_claude_opus',
@@ -1611,6 +1834,8 @@ final class AtlasForgeRivalsMatrixReportService
                 'arm_a_model' => 'sonnet',
                 'arm_b' => 'claude_code',
                 'arm_b_model' => 'opus',
+                'task_category' => 'architecture',
+                'case_id' => 'ceiling-360-003-industrial-015-incomplete_requirements',
             ],
             [
                 'id' => 'atlas_forge_full_power_vs_claude_opus',
@@ -1619,6 +1844,8 @@ final class AtlasForgeRivalsMatrixReportService
                 'arm_a_model' => 'sonnet',
                 'arm_b' => 'claude_code',
                 'arm_b_model' => 'opus',
+                'task_category' => 'architecture',
+                'case_id' => 'ceiling-360-003-industrial-015-incomplete_requirements',
             ],
         ];
     }
@@ -1685,6 +1912,15 @@ final class AtlasForgeRivalsMatrixReportService
             .' --case='.$caseId
             .' --prompt-mode=enterprise-change'
             .' --dry-run --json';
+    }
+
+    private function arenaRealRunCommand(string $dryRunCommand): string
+    {
+        return str_replace(
+            ' --dry-run --json',
+            ' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json',
+            $dryRunCommand,
+        );
     }
 
     /**
@@ -2242,6 +2478,21 @@ final class AtlasForgeRivalsMatrixReportService
                 $lines[] = '| `'.$battle['id'].'` | `'.$battle['dry_run_command'].'` |';
             }
         }
+        $lines[] = '- Rivals emits measured evidence; Atlas Decide decides model routing.';
+        $lines[] = '';
+
+        $completionGap = (array) ($matrix['ceiling_360_completion_gap'] ?? []);
+        $lines[] = '### Gap para 360 prático';
+        $lines[] = '';
+        $lines[] = '- **Status:** `'.($completionGap['status'] ?? 'needs_more_360_evidence').'`';
+        $lines[] = '- **Ready for 360 claim:** `'.((bool) ($completionGap['ready_for_360_claim'] ?? false) ? 'true' : 'false').'`';
+        $lines[] = '- **Capability / contract / battle / disk:** `'.((bool) ($completionGap['capability_floor_met'] ?? false) ? 'true' : 'false').'` / `'.((bool) ($completionGap['contract_floor_met'] ?? false) ? 'true' : 'false').'` / `'.((bool) ($completionGap['battle_floor_met'] ?? false) ? 'true' : 'false').'` / `'.((bool) ($completionGap['evidence_disk_ready'] ?? false) ? 'true' : 'false').'`';
+        $lines[] = '- **Battle coverage:** `'.($completionGap['observed_battle_count'] ?? 0).'` / `'.($completionGap['canonical_battle_count'] ?? 0).'` · **Remaining real runs:** `'.($completionGap['required_real_runs_remaining'] ?? 0).'`';
+        $nextBattle = (array) ($completionGap['next_missing_battle'] ?? []);
+        if ($nextBattle !== []) {
+            $lines[] = '- **Next missing battle:** `'.($nextBattle['id'] ?? 'unknown').'`';
+        }
+        $lines[] = '- **Blockers:** '.$this->joinOrDash(array_map('strval', (array) ($completionGap['blockers'] ?? [])));
         $lines[] = '- Rivals emits measured evidence; Atlas Decide decides model routing.';
         $lines[] = '';
 

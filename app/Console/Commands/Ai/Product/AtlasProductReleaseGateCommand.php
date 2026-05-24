@@ -16,6 +16,9 @@ class AtlasProductReleaseGateCommand extends Command
         {--provider-patch : Treat as provider/subagent patch candidate}
         {--operator-approved : Simulate explicit operator approval for risk gate}
         {--evidence-ready : Include standard ready evidence for release-gate smoke checks}
+        {--context=* : Context refs to pass into APDR/AEDPDS}
+        {--doc=* : Canonical docs to pass into APDR/AEDPDS}
+        {--evidence=* : Evidence refs to pass into APDR/AEDPDS}
         {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Emit JSON}
         {--strict : Exit non-zero unless release candidate is allowed}';
@@ -30,6 +33,9 @@ class AtlasProductReleaseGateCommand extends Command
             'route' => $this->option('route'),
             'provider_patch' => (bool) $this->option('provider-patch'),
             'operator_approved' => (bool) $this->option('operator-approved'),
+            'context_refs' => $this->strings($this->option('context')),
+            'canonical_docs' => $this->strings($this->option('doc')),
+            'evidence_refs' => $this->strings($this->option('evidence')),
             'ux_expectations' => $this->strings($this->option('ux')) ?: (
                 $this->option('evidence-ready') ? ['checkout journey expectation'] : []
             ),

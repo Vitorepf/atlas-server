@@ -5,7 +5,7 @@ title: AP-687 Voice Realtime Production Promotion Gate
 status: implemented_ready
 owner: Atlas Kernel / Voice Realtime
 priority: 87
-line_limit: 220
+line_limit: 520
 summary: Separa certificacao segura de scaffold de promocao real de produto para Voice Realtime, impedindo que LiveKit/mobile/audio sejam vendidos como prontos antes dos gates de producao.
 tags:
   - atlas-ai

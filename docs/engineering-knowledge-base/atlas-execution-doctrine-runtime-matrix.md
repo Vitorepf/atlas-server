@@ -236,10 +236,10 @@ AEDPDS mae -> runtime matrix -> service/comando/teste -> certification
 | APDR | Product Truth, contexto, evidencia | `atlas.autonomous_product_delivery_runtime.v1` | rota errada ou falso readiness com gate bloqueado | `atlas:product-delivery:plan --operator-approved --ux="..." --json --strict` |
 | APFPR | delivery, truth, evidencia | `atlas.product_proof_challenge.v1` | falso pronto ou prova sobre APDR bloqueado | `atlas:product-proof:challenge --operator-approved --ux="..." --with-demo-evidence --json --strict` |
 | Enforcement | delivery, proof, fase | allow/block | bloqueio fraco | Product tests |
-| Repair Bridge | delivery, proof bloqueado | Dev repair receipt ou Forge repair packet | repair sem patch real | Product tests |
+| Repair Bridge | delivery, proof bloqueado | Dev repair receipt ou Forge repair packet | repair sem patch real ou reparo sobre APDR bloqueado | Product tests |
 | Outcome Memory | delivery, proof, evidencia | `atlas.product_delivery.outcome_memory.v1` | memoria falsa | `atlas:product-delivery:outcome --persist --json` |
 | AEMOR Bridge | outcome memory | episode, outcome, judgment, learning signal | false learning | AEMOR tables/tests |
-| Patch Request Contract | delivery, proof, repair bridge, target | provider-safe prompt projection + required manifest schema | prompt frouxo para provider | `atlas:product-delivery:patch-request --json` |
+| Patch Request Contract | delivery, proof, repair bridge, target | provider-safe prompt projection + required manifest schema | prompt frouxo para provider ou patch sobre APDR bloqueado | `atlas:product-delivery:patch-request --operator-approved --ux="..." --json` |
 | Patch Proposal Gate | delivery, patch manifest, source, approval | approved/blocked + sanitized manifest | provider patch sem operador | `atlas:product-delivery:repair-execute --source=provider --approval=...` |
 | Mutative Repair Executor | delivery, proof, repair bridge, approved patch manifest | execution receipt + rollback snapshot + proof rerun | patch inseguro | `atlas:product-delivery:repair-execute --patch=<json>` |
 | Runtime Receipt Ledger | runtime envelope | append-only receipt | perda de auditoria | `--persist` nos comandos AEDPDS |

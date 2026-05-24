@@ -18,6 +18,9 @@ class AtlasProductDeliveryRiskGovernorCommand extends Command
         {--route= : Optional route override}
         {--provider-patch : Treat as provider/subagent patch candidate}
         {--operator-approved : Simulate explicit operator approval}
+        {--context=* : Context refs to pass into APDR/AEDPDS}
+        {--doc=* : Canonical docs to pass into APDR/AEDPDS}
+        {--evidence=* : Evidence refs to pass into APDR/AEDPDS}
         {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Print JSON}
         {--strict : Exit non-zero unless risk governance allows the current phase}';
@@ -35,6 +38,9 @@ class AtlasProductDeliveryRiskGovernorCommand extends Command
             'workspace' => $this->option('workspace'),
             'route' => $this->option('route'),
             'operator_approved' => (bool) $this->option('operator-approved'),
+            'context_refs' => $this->strings($this->option('context')),
+            'canonical_docs' => $this->strings($this->option('doc')),
+            'evidence_refs' => $this->strings($this->option('evidence')),
             'ux_expectations' => $this->strings($this->option('ux')),
         ]);
         $replay = $replayLab->replay([

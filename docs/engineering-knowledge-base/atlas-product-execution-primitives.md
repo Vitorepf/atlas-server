@@ -36,7 +36,7 @@ capabilities:
   - provider_agent_strategy
 decisions:
   - APEP e read-only e nao invoca provider.
-  - Runtime Gate pode bloquear execucao mesmo quando o envelope esta ready.
+  - Runtime Gate bloqueado torna o envelope `status=blocked`; materializar primitivas nao e autorizacao para executar.
   - Provider/Agent Strategy recomenda modo de trabalho, nao declara provider vencedor.
 maintenance:
   - Atualizar junto com `AtlasProductExecutionPrimitivesService`.
@@ -78,7 +78,7 @@ evidence:
   - tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php
 required_tests:
   - "php artisan test tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php --filter=product_execution_primitives"
-  - "php artisan atlas:product-delivery:primitives \"estou com bug na tela de login\" --workspace=atlas-app --json --strict"
+  - "php artisan atlas:product-delivery:primitives \"estou com bug na tela de login\" --workspace=atlas-app --operator-approved --ux=\"login visual regression expectation\" --json --strict"
 requires_evidence: true
 risk_level: high
 next_actions:
@@ -126,8 +126,8 @@ APEP reusa contratos existentes. Product Truth vira Human Intent Model. Product 
 
 - Nao criar primitivas paralelas.
 - Nao executar provider a partir do envelope.
-- Tratar `status=ready` como envelope pronto, nao como autorizacao mutativa.
-- Tratar `runtime_gate.gate_decision=blocked` como bloqueio real.
+- Tratar `status=ready` como envelope pronto e gate operacional liberado, nao como autorizacao mutativa.
+- Tratar `runtime_gate.gate_decision=blocked` como bloqueio real; nesse caso `status` precisa ser `blocked` e `--strict` deve falhar.
 
 ## Escopo de Implementacao
 
@@ -153,6 +153,12 @@ Implementado em `AtlasProductExecutionPrimitivesService` e exposto por `atlas:pr
 - Usar provider strategy como ranking absoluto de modelo.
 
 ## Exemplos
+
+```bash
+php artisan atlas:product-delivery:primitives "estou com bug na tela de login" --workspace=atlas-app --operator-approved --ux="login visual regression expectation" --json --strict
+```
+
+Exemplo que deve bloquear em modo strict:
 
 ```bash
 php artisan atlas:product-delivery:primitives "estou com bug na tela de login" --workspace=atlas-app --json --strict

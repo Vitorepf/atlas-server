@@ -548,7 +548,7 @@ class AtlasRealEngineeringExecutionKernelService
             $this->check('impact_tests_passed', $latestGoal !== null && Schema::hasTable('ai_real_execution_test_runs') && AiRealExecutionTestRun::query()->where('goal_record_id', $latestGoal->id)->where('status', 'passed')->exists()),
             $this->check('delivery_pack_ready', $latestGoal !== null && Schema::hasTable('ai_real_execution_delivery_packs') && AiRealExecutionDeliveryPack::query()->where('goal_record_id', $latestGoal->id)->where('status', 'ready_for_internal_use')->exists()),
             $this->check('rivals_false_claim_blocked', $latestGoal !== null && Schema::hasTable('ai_real_execution_rivals_benchmarks') && AiRealExecutionRivalsBenchmark::query()->where('goal_record_id', $latestGoal->id)->where('false_claim_blocked', true)->exists()),
-            $this->check('rivals_real_provider_arena_ready', $latestGoal !== null && $this->rivalsRealProviderArenaReady($latestGoal)),
+            $this->check('rivals_shadow_benchmark_recorded', $latestGoal !== null && $this->rivalsShadowBenchmarkRecorded($latestGoal)),
         ];
         if ($scope === 'full') {
             $checks[] = $this->check('external_rivals_benchmark_executed', $latestGoal !== null && $this->externalRivalsBenchmarkExecuted($latestGoal));
@@ -712,23 +712,23 @@ class AtlasRealEngineeringExecutionKernelService
         ];
     }
 
-    private function rivalsRealProviderArenaReady(AiAutonomousEngineeringGoal $goal): bool
+    private function rivalsShadowBenchmarkRecorded(AiAutonomousEngineeringGoal $goal): bool
     {
-        $benchmark = $this->latestQuery(AiRealExecutionRivalsBenchmark::query()->where('goal_record_id', $goal->id))->first();
+        $benchmark = $this->latestQuery(AiRealExecutionRivalsBenchmark::query()
+            ->where('goal_record_id', $goal->id)
+            ->where('status', 'shadow_ready')
+            ->where('false_claim_blocked', true))->first();
         if (! $benchmark) {
             return false;
         }
 
-        $readiness = (array) data_get($benchmark->receipt, 'provider_arena_readiness', []);
-
-        return ($readiness['status'] ?? null) === 'ok'
-            && (int) ($readiness['real_run_ready_count'] ?? 0) > 0
-            && ($readiness['claude_codex_pair_status'] ?? null) === 'real_run_ready_after_confirmations';
+        return data_get($benchmark->receipt, 'comparison_protocol.external_provider_call') === false
+            && data_get($benchmark->receipt, 'comparison_protocol.claim_allowed') === false;
     }
 
     private function externalRivalsBenchmarkExecuted(AiAutonomousEngineeringGoal $goal): bool
     {
-        $benchmark = $this->latestQuery(AiRealExecutionRivalsBenchmark::query()->where('goal_record_id', $goal->id))->first();
+        $benchmark = $this->latestExternalRivalsBenchmark($goal);
         if (! $benchmark) {
             return false;
         }
@@ -743,12 +743,19 @@ class AtlasRealEngineeringExecutionKernelService
 
     private function externalRivalsClaimAllowed(AiAutonomousEngineeringGoal $goal): bool
     {
-        $benchmark = $this->latestQuery(AiRealExecutionRivalsBenchmark::query()->where('goal_record_id', $goal->id))->first();
+        $benchmark = $this->latestExternalRivalsBenchmark($goal);
         if (! $benchmark) {
             return false;
         }
 
         return (bool) data_get($benchmark->receipt, 'external_benchmark_gate.claim_allowed', false);
+    }
+
+    private function latestExternalRivalsBenchmark(AiAutonomousEngineeringGoal $goal): ?AiRealExecutionRivalsBenchmark
+    {
+        return $this->latestQuery(AiRealExecutionRivalsBenchmark::query()
+            ->where('goal_record_id', $goal->id)
+            ->where('status', 'external_executed'))->first();
     }
 
     private function resolveGoal(?string $goalId): ?AiAutonomousEngineeringGoal

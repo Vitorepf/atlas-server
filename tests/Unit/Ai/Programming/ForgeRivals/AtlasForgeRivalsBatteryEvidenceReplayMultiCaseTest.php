@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\ForgeRivals;
 
+use App\Console\Commands\AtlasForgeRivalsCommand;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsBatteryEvidenceService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsBatteryReplayVerifierService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCollectEvidenceService;
@@ -45,12 +46,19 @@ final class AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest extends TestCase
 
     private AtlasForgeRivalsBatteryReplayVerifierService $batteryVerifier;
 
+    private mixed $oldEvidenceFloor;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->oldEvidenceFloor = config('atlas_rivals.min_free_bytes_before_provider_evidence');
+        config(['atlas_rivals.min_free_bytes_before_provider_evidence' => 0]);
         $this->tmpRoot = sys_get_temp_dir().DIRECTORY_SEPARATOR.'fr-battery-mc-'.bin2hex(random_bytes(6));
         @mkdir($this->tmpRoot, 0o755, true);
-        config(['atlas_rivals.runs_root' => $this->tmpRoot]);
+        config([
+            'atlas_rivals.runs_root' => $this->tmpRoot,
+            'atlas_rivals.min_free_bytes_before_provider_evidence' => 0,
+        ]);
 
         $this->paths = new AtlasForgeRivalsRunPathResolver;
         $events = new AtlasForgeRivalsEventStream($this->paths);
@@ -67,6 +75,7 @@ final class AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest extends TestCase
 
     protected function tearDown(): void
     {
+        config(['atlas_rivals.min_free_bytes_before_provider_evidence' => $this->oldEvidenceFloor]);
         $this->purge($this->tmpRoot);
         parent::tearDown();
     }
@@ -80,7 +89,7 @@ final class AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest extends TestCase
         ]);
 
         $pack = $result['battery_evidence_pack'];
-        $this->assertSame('ok', $result['status']);
+        $this->assertSame('ok', $result['status'], implode('|', $result['blockers'] ?? []));
         $this->assertCount(2, $pack['cases']);
         $this->assertSame(
             ['backend_logic' => 1, 'frontend_ui' => 1],
@@ -280,8 +289,8 @@ final class AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest extends TestCase
 
     public function test_battery_evidence_actions_are_registered_in_cli(): void
     {
-        $this->assertContains('battery-evidence', \App\Console\Commands\AtlasForgeRivalsCommand::ACTIONS);
-        $this->assertContains('battery-verify-evidence', \App\Console\Commands\AtlasForgeRivalsCommand::ACTIONS);
+        $this->assertContains('battery-evidence', AtlasForgeRivalsCommand::ACTIONS);
+        $this->assertContains('battery-verify-evidence', AtlasForgeRivalsCommand::ACTIONS);
     }
 
     // --- helpers ---

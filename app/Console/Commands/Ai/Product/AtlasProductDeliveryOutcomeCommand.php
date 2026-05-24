@@ -14,6 +14,8 @@ class AtlasProductDeliveryOutcomeCommand extends Command
         {--workspace= : Workspace slug/path}
         {--status=ready : ready|blocked|needs_repair|needs_review}
         {--evidence=* : Evidence kind to attach}
+        {--context=* : Context refs to pass into APDR/AEDPDS}
+        {--doc=* : Canonical docs to pass into APDR/AEDPDS}
         {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--persist : Persist into atlas_product_delivery_outcome_memories}
         {--json : Emit JSON}';
@@ -30,6 +32,9 @@ class AtlasProductDeliveryOutcomeCommand extends Command
             'human_request' => (string) $this->argument('request'),
             'workspace' => (string) ($this->option('workspace') ?: ''),
             'evidence' => $evidence,
+            'context_refs' => $this->strings($this->option('context')),
+            'canonical_docs' => $this->strings($this->option('doc')),
+            'evidence_refs' => $this->strings($this->option('evidence')),
             'operator_approved' => true,
             'ux_expectations' => $this->strings($this->option('ux')) ?: ['checkout journey expectation'],
         ]);

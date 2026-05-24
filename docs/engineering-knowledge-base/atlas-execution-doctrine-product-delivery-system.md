@@ -118,7 +118,7 @@ evidence:
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:product-certify --json"
-  - "php artisan atlas:product-delivery:primitives --json --strict"
+  - "php artisan atlas:product-delivery:primitives 'estou com bug na tela de login' --workspace=atlas-app --operator-approved --ux='login visual regression expectation' --json --strict"
 requires_evidence: true
 risk_level: high
 visual_tags:
@@ -133,7 +133,7 @@ quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:product-certify --json"
   - "php artisan atlas:product-delivery:certify --json --strict"
-  - "php artisan atlas:product-delivery:primitives 'estou com bug na tela de login' --workspace=atlas-app --json --strict"
+  - "php artisan atlas:product-delivery:primitives 'estou com bug na tela de login' --workspace=atlas-app --operator-approved --ux='login visual regression expectation' --json --strict"
 failure_modes:
   - Intencao humana crua passa direto para execucao.
   - Chat solto substitui contrato de produto.
@@ -615,6 +615,9 @@ Gates especificos:
 - APFPR deve bloquear `delivery_contract_not_ready` quando o APDR nao estiver
   `ready_for_delivery`; prova nao pode certificar envelope bloqueado pelo
   AEDPDS.
+- Patch Request e Multi-Step Repair Plan tambem devem bloquear
+  `delivery_contract_not_ready`; provider/subagente nao pode receber projecao
+  de patch nem plano de reparo sobre APDR bloqueado por gate.
 
 Regra de claim: docs nao bastam para declarar pronto. `atlas:aedpds:certify
 --json --strict` so pode retornar `ready` quando doc, selector deterministico,

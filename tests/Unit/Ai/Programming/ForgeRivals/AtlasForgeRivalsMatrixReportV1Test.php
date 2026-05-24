@@ -417,6 +417,7 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
 
         $report = $this->matrix->render(['run_ids' => [$runId]])['matrix_report'];
         $coverage = $report['battle_coverage'];
+        $completionGap = $report['ceiling_360_completion_gap'];
 
         $this->assertSame('atlas.forge.rivals.matrix_battle_coverage.v1', $coverage['schema_version']);
         $this->assertSame('needs_more_battle_diversity', $coverage['status']);
@@ -424,12 +425,16 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertSame(8, $coverage['canonical_battle_count']);
         $this->assertSame(1, $coverage['observed_battle_count']);
         $this->assertSame(7, $coverage['missing_battle_count']);
+        $this->assertSame(0.125, $coverage['coverage_ratio']);
         $this->assertSame('atlas_forge_vs_claude_sonnet', $coverage['observed_battles'][0]['battle_id']);
         $this->assertSame(3, $coverage['observed_battles'][0]['cases']);
         $this->assertSame('needs_missing_canonical_battles', $coverage['next_measurement_plan']['status']);
+        $this->assertSame(7, $coverage['next_measurement_plan']['required_real_runs_remaining']);
         $this->assertTrue($coverage['next_measurement_plan']['dry_run_ready']);
         $this->assertContains($coverage['next_measurement_plan']['real_run_ready'], [true, false], 'real readiness depends on local disk guard');
         $this->assertArrayHasKey('evidence_disk_status', $coverage['next_measurement_plan']);
+        $this->assertNotEmpty($coverage['next_measurement_plan']['dry_run_commands']);
+        $this->assertNotEmpty($coverage['next_measurement_plan']['real_run_commands_when_ready']);
         $this->assertSame(['runbook_reviewed', 'provider_cost', 'real_provider_call'], $coverage['next_measurement_plan']['required_confirmations_for_real_run']);
         $this->assertFalse($coverage['next_measurement_plan']['provider_call']);
         $this->assertFalse($coverage['next_measurement_plan']['tokens_spent']);
@@ -442,6 +447,35 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertContains('atlas_dev_vs_atlas_forge', $missingIds);
         $this->assertContains('composer_2_5_vs_codex_gpt_5_5', $missingIds);
         $this->assertStringContainsString('--dry-run --json', $coverage['missing_canonical_battles'][0]['dry_run_command']);
+
+        $this->assertSame('atlas.forge.rivals.ceiling_360_completion_gap.v1', $completionGap['schema_version']);
+        $this->assertFalse($completionGap['ready_for_360_claim']);
+        $this->assertSame(0.125, $completionGap['battle_coverage_ratio']);
+        $this->assertSame(7, $completionGap['required_real_runs_remaining']);
+        $this->assertSame('atlas_dev_vs_atlas_forge', $completionGap['next_missing_battle']['id']);
+        $this->assertStringContainsString('--confirm-runbook-reviewed', $completionGap['next_real_run_command_when_ready']);
+        $this->assertContains('canonical_battle_floor_not_met', $completionGap['blockers']);
+        $this->assertFalse($completionGap['provider_call']);
+        $this->assertFalse($completionGap['tokens_spent']);
+        $this->assertTrue($completionGap['advisory_only']);
+        $this->assertFalse($completionGap['should_update_provider_topology']);
+        $this->assertTrue($completionGap['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $completionGap['owner_of_model_routing']);
+        $this->assertSame('none', $completionGap['routing_effect']);
+
+        $missingById = [];
+        foreach ($coverage['missing_canonical_battles'] as $battle) {
+            $missingById[$battle['id']] = $battle;
+        }
+
+        $this->assertSame('refactor', $missingById['atlas_dev_vs_atlas_forge']['task_category']);
+        $this->assertSame('ceiling-360-001-industrial-005-incident_rollback', $missingById['atlas_dev_vs_atlas_forge']['case_id']);
+        $this->assertStringContainsString('--task-category=refactor', $missingById['atlas_dev_vs_atlas_forge']['dry_run_command']);
+        $this->assertStringContainsString('--case=ceiling-360-001-industrial-005-incident_rollback', $missingById['atlas_dev_vs_atlas_forge']['dry_run_command']);
+        $this->assertStringNotContainsString('--task-category=architecture', $missingById['atlas_dev_vs_atlas_forge']['dry_run_command']);
+        $this->assertStringContainsString('--confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json', $missingById['atlas_dev_vs_atlas_forge']['real_run_command_when_ready']);
+        $this->assertStringNotContainsString('--dry-run', $missingById['atlas_dev_vs_atlas_forge']['real_run_command_when_ready']);
+        $this->assertSame($missingById['atlas_dev_vs_atlas_forge'], $coverage['next_measurement_plan']['next_missing_battle']);
 
         $paths = $this->paths->paths($runId);
         $md = (string) file_get_contents($paths['evidence'].'/'.AtlasForgeRivalsMatrixReportService::MATRIX_REPORT_MD_FILE);

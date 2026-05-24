@@ -22,7 +22,11 @@ final class AtlasApStatusTaxonomyAudit
         'implemented-dedicated-curator-flow',
         'implemented-direct-surfaces',
         'implemented-filter-surface',
+        'implemented_partial',
+        'implemented_ready',
         'implemented-self-improvement-review',
+        'proposed',
+        'active',
     ];
 
     /**

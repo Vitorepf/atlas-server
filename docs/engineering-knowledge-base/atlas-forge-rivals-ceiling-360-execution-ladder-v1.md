@@ -263,6 +263,26 @@ Quando faltam pares, a matriz emite `needs_more_battle_diversity`, lista
 para real run, mantendo `provider_call=false` e `tokens_spent=false` na fase de
 planejamento.
 
+Cada batalha canonica deve declarar seu proprio `task_category` e `case_id`
+L5+ compativel com os arms envolvidos. O plano nao pode aplicar um default
+global de `architecture`, porque `atlas_dev` bloqueia essa categoria por
+contrato e deve medir teto pratico em casos compatíveis como `refactor`,
+`bugfix`, `backend`, `frontend`, `tests` ou `docs`.
+
+Para operacao 360, `battle_coverage` tambem deve expor `coverage_ratio`,
+`required_real_runs_remaining`, `next_missing_battle`, `dry_run_commands` e
+`real_run_commands_when_ready`. Esses comandos reais sao somente plano: quando
+`evidence_disk_status=blocked`, a matriz continua com `real_run_ready=false` e
+nao autoriza token spend.
+
+`matrix_report.ceiling_360_completion_gap`
+(`atlas.forge.rivals.ceiling_360_completion_gap.v1`) agrega em um unico bloco
+se o Rivals ja chegou ao limite pratico 360. Ele cruza piso de capacidades,
+contrato L5+, diversidade de batalhas canonicas e readiness de disco. Enquanto
+qualquer piso estiver faltando, `ready_for_360_claim=false`, `provider_call=false`
+e `tokens_spent=false`, com `blockers` e `next_real_run_command_when_ready`
+explicitos para o operador.
+
 ## Separacao de Capacidades
 
 `capability_coverage.separation`

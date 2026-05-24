@@ -21,6 +21,8 @@ class AtlasProductDeliveryRepairExecuteCommand extends Command
         {--apply : Apply patch; default is dry-run}
         {--persist : Persist append-only AEDPDS runtime receipts}
         {--evidence=* : Evidence kind for proof rerun}
+        {--context=* : Context refs to pass into APDR/AEDPDS}
+        {--doc=* : Canonical docs to pass into APDR/AEDPDS}
         {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Emit JSON}
         {--strict : Exit non-zero unless dry_run_ready or applied_and_verified}';
@@ -42,6 +44,9 @@ class AtlasProductDeliveryRepairExecuteCommand extends Command
             'human_request' => (string) $this->argument('request'),
             'workspace' => (string) ($this->option('workspace') ?: ''),
             'operator_approved' => is_scalar($this->option('approval')) && trim((string) $this->option('approval')) !== '',
+            'context_refs' => $this->strings($this->option('context')),
+            'canonical_docs' => $this->strings($this->option('doc')),
+            'evidence_refs' => $this->strings($this->option('evidence')),
             'ux_expectations' => $this->strings($this->option('ux')),
         ]);
 

@@ -16,6 +16,8 @@ class AtlasProductDeliveryControlPlaneCommand extends Command
         {--provider-patch : Treat as provider/subagent patch candidate}
         {--operator-approved : Simulate explicit operator approval}
         {--evidence=* : Evidence kind supplied to APFPR}
+        {--context=* : Context refs to pass into APDR/AEDPDS}
+        {--doc=* : Canonical docs to pass into APDR/AEDPDS}
         {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Emit JSON}
         {--strict : Exit non-zero unless status === healthy}';
@@ -31,6 +33,9 @@ class AtlasProductDeliveryControlPlaneCommand extends Command
             'provider_patch' => (bool) $this->option('provider-patch'),
             'operator_approved' => (bool) $this->option('operator-approved'),
             'evidence' => (array) $this->option('evidence'),
+            'context_refs' => $this->strings($this->option('context')),
+            'canonical_docs' => $this->strings($this->option('doc')),
+            'evidence_refs' => $this->strings($this->option('evidence')),
             'ux_expectations' => $this->strings($this->option('ux')),
         ]);
 

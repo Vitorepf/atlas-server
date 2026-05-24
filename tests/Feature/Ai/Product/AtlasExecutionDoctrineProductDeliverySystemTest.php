@@ -322,6 +322,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
 
         $repairPlan = app(AtlasProductDeliveryMultiStepRepairPlannerService::class)->plan(
@@ -380,6 +382,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
         $proof = app(AtlasProductFalsificationProofRuntimeService::class)->challenge([
             'product_truth' => $plan['product_truth'],
@@ -649,6 +653,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
 
         $request = app(AtlasProductDeliveryPatchRequestContractService::class)->build(
@@ -671,6 +677,32 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertContains('do_not_expand_scope', data_get($request, 'prompt_projection.non_goals'));
         $this->assertTrue(data_get($request, 'approval_policy.patch_proposal_gate_required'));
         $this->assertSame(64, strlen((string) $request['patch_request_hash']));
+    }
+
+    public function test_patch_request_and_repair_plan_block_when_delivery_contract_is_not_ready(): void
+    {
+        $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
+            'human_request' => 'estou com bug na tela de login',
+            'workspace' => 'atlas-app',
+        ]);
+
+        $request = app(AtlasProductDeliveryPatchRequestContractService::class)->build(
+            delivery: $plan,
+            proof: $plan['proof_preview'],
+            repairBridge: $plan['repair_bridge'],
+            options: ['target' => 'provider'],
+        );
+        $repairPlan = app(AtlasProductDeliveryMultiStepRepairPlannerService::class)->plan(
+            $plan,
+            $plan['proof_preview'],
+            $plan['repair_bridge'],
+        );
+
+        $this->assertSame('blocked_by_aedpds_gate', $plan['status']);
+        $this->assertSame('blocked', $request['status']);
+        $this->assertContains('delivery_contract_not_ready', data_get($request, 'failure_summary.critical_blockers'));
+        $this->assertSame('blocked', $repairPlan['status']);
+        $this->assertContains('delivery_contract_not_ready', array_column($repairPlan['blockers'], 'id'));
     }
 
     public function test_product_delivery_patch_request_command_outputs_contract(): void
@@ -1124,6 +1156,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
         $patchRequest = app(AtlasProductDeliveryPatchRequestContractService::class)->build(
             delivery: $plan,
@@ -1320,8 +1354,9 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         ]);
 
         $this->assertSame(AtlasProductExecutionPrimitivesService::SCHEMA_VERSION, $report['schema_version']);
-        $this->assertSame('ready', $report['status']);
+        $this->assertSame('blocked', $report['status']);
         $this->assertSame(6, $report['summary']['primitive_count']);
+        $this->assertSame(['runtime_gate'], $report['summary']['blocked_primitives']);
         $this->assertSame('atlas_dev', data_get($report, 'request.route'));
         $this->assertSame(
             AtlasProductExecutionPrimitivesService::HUMAN_INTENT_MODEL_SCHEMA_VERSION,
@@ -1346,6 +1381,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             AtlasProductExecutionPrimitivesService::RUNTIME_GATE_SCHEMA_VERSION,
             data_get($report, 'primitives.runtime_gate.schema_version'),
         );
+        $this->assertSame('blocked', data_get($report, 'primitives.runtime_gate.status'));
         $this->assertSame('blocked', data_get($report, 'primitives.runtime_gate.gate_decision'));
         $this->assertFalse(data_get($report, 'primitives.runtime_gate.provider_execution_allowed'));
         $this->assertSame(
@@ -1365,9 +1401,9 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'workspace' => 'atlas-server',
         ]);
 
-        $this->assertSame('ready', $report['status']);
+        $this->assertSame('blocked', $report['status']);
         $this->assertSame('atlas_forge', data_get($report, 'request.route'));
-        $this->assertSame('ready', data_get($report, 'primitives.runtime_gate.status'));
+        $this->assertSame('blocked', data_get($report, 'primitives.runtime_gate.status'));
         $this->assertSame('blocked', data_get($report, 'primitives.runtime_gate.gate_decision'));
         $this->assertFalse(data_get($report, 'primitives.runtime_gate.provider_execution_allowed'));
         $this->assertContains('operator_delivery_risk_acceptance', data_get($report, 'primitives.runtime_gate.required_approvals'));
@@ -1382,6 +1418,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $exit = Artisan::call('atlas:product-delivery:primitives', [
             'request' => 'estou com bug na tela de login',
             '--workspace' => 'atlas-app',
+            '--operator-approved' => true,
+            '--ux' => ['login visual regression expectation'],
             '--json' => true,
             '--strict' => true,
         ]);
@@ -1391,6 +1429,22 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame(AtlasProductExecutionPrimitivesService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('ready', $payload['status']);
         $this->assertSame(6, data_get($payload, 'summary.primitive_count'));
+    }
+
+    public function test_product_execution_primitives_command_strict_blocks_when_runtime_gate_blocks(): void
+    {
+        $exit = Artisan::call('atlas:product-delivery:primitives', [
+            'request' => 'estou com bug na tela de login',
+            '--workspace' => 'atlas-app',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+
+        $this->assertSame(1, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('blocked', data_get($payload, 'primitives.runtime_gate.status'));
+        $this->assertSame(['runtime_gate'], data_get($payload, 'summary.blocked_primitives'));
     }
 
     public function test_product_proof_challenge_command_blocks_without_demo_evidence_in_strict_mode(): void

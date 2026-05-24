@@ -34,6 +34,9 @@ class AtlasProductDeliveryControlPlaneService
             'provider_patch' => (bool) ($options['provider_patch'] ?? false),
             'operator_approved' => (bool) ($options['operator_approved'] ?? false),
             'evidence' => $this->map($options['evidence'] ?? []),
+            'context_refs' => $this->list($options['context_refs'] ?? []),
+            'canonical_docs' => $this->list($options['canonical_docs'] ?? []),
+            'evidence_refs' => $this->list($options['evidence_refs'] ?? data_get($options, 'evidence.tests', [])),
             'ux_expectations' => $this->list($options['ux_expectations'] ?? []),
         ]);
         $replay = $this->replayLab->replay([

@@ -242,6 +242,7 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
                 'ambiguity_score' => $i === 0 ? 5 : 3,
                 'risk_score' => $i === 1 ? 5 : 2,
                 'requires_rollback_plan' => $i < 8,
+                'measured_dimensions' => AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES,
             ]);
             $this->writeSubCase(
                 $paths['base'].'/cases/case-'.($i + 1),
@@ -261,11 +262,12 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
         $conditions = array_column($signal['do_not_use_when'], 'condition');
 
         $this->assertTrue($coverage['meta_provider_claim_floor_met']);
+        $this->assertTrue($signal['capability_coverage']['floor_met']);
         $this->assertTrue($signal['can_feed_ledger']);
         $this->assertSame([], $signal['ledger_blockers']);
         $this->assertTrue($report['claim_status']['can_feed_ledger']);
         $this->assertSame(8, $coverage['domain_count']);
-        $this->assertSame(1, $coverage['high_ambiguity_cases']);
+        $this->assertSame(16, $coverage['high_ambiguity_cases']);
         $this->assertSame(1, $coverage['critical_or_high_risk_cases']);
         $this->assertSame(8, $coverage['rollback_plan_required_cases']);
         $this->assertNotContains('meta_provider_stress_floor_not_met', $conditions);

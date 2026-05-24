@@ -43,6 +43,10 @@ class AtlasProductExecutionPrimitivesService
             'operator_approved' => (bool) ($options['operator_approved'] ?? false),
             'provider_patch' => (bool) ($options['provider_patch'] ?? false),
             'evidence' => $evidence,
+            'context_refs' => $this->strings($options['context_refs'] ?? []),
+            'canonical_docs' => $this->strings($options['canonical_docs'] ?? []),
+            'evidence_refs' => $this->strings($options['evidence_refs'] ?? data_get($evidence, 'tests', [])),
+            'ux_expectations' => $this->strings($options['ux_expectations'] ?? []),
         ]);
 
         $proof = (array) ($delivery['proof_preview'] ?? []);
@@ -63,7 +67,7 @@ class AtlasProductExecutionPrimitivesService
         $blocked = $this->blockedPrimitiveIds($primitives);
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $blocked === [] ? 'ready' : 'review',
+            'status' => $blocked === [] ? 'ready' : 'blocked',
             'mode' => 'provider_free_read_only',
             'request' => [
                 'workspace' => $workspace,
@@ -73,7 +77,7 @@ class AtlasProductExecutionPrimitivesService
             'summary' => [
                 'primitive_count' => count($primitives),
                 'ready_count' => count($primitives) - count($blocked),
-                'review_count' => count($blocked),
+                'blocked_count' => count($blocked),
                 'blocked_primitives' => $blocked,
             ],
             'primitives' => $primitives,
@@ -190,7 +194,7 @@ class AtlasProductExecutionPrimitivesService
 
         return [
             'schema_version' => self::RUNTIME_GATE_SCHEMA_VERSION,
-            'status' => 'ready',
+            'status' => $riskAllowed && $providerAllowed ? 'ready' : 'blocked',
             'gate_decision' => $riskAllowed && $providerAllowed ? 'allowed' : 'blocked',
             'source_schemas' => [
                 'risk_governor' => $risk['schema_version'] ?? null,
@@ -316,5 +320,16 @@ class AtlasProductExecutionPrimitivesService
     private function string(mixed $value): ?string
     {
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        return is_array($value) ? array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== '')) : [];
     }
 }
