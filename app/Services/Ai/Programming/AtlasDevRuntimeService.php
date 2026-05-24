@@ -180,7 +180,7 @@ class AtlasDevRuntimeService
         $handoffAllowed = ($handoffPack['status'] ?? null) === 'ready'
             && (bool) data_get($handoffPack, 'claim_policy.safe_for_provider_prompt', false);
         $payload['atlas_dev_runtime']['provider_safe'] = $providerSafe && $handoffAllowed && $artifactAgentPacketAllowed === true;
-        $payload['atlas_dev_runtime']['provider_execution_allowed'] = $providerSafe && $workspaceAllowed && $handoffAllowed && $artifactAgentPacketAllowed === true;
+        $payload['atlas_dev_runtime']['provider_execution_allowed'] = $providerSafe && $workspaceAllowed && $artifactAgentPacketAllowed === true;
         $payload['atlas_dev_runtime']['native_capability_status'] = (string) data_get($runtimeIntelligence, 'native_capabilities.status', 'unknown');
         $payload['atlas_dev_runtime']['native_capability_blockers'] = data_get($runtimeIntelligence, 'native_capabilities.blockers', []);
 

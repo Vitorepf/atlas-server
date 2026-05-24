@@ -367,8 +367,29 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
     {
         return app(ForgeIntakeService::class)->intakeFromPrompt(
             'Implementar refactor multi-modulo do provider router; depois migrar billing engine; por fim adicionar suite de tests de regressao.',
-            ['workspace_slug' => 'atlas-server'],
+            [
+                'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
+            ],
         );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function allowedWorkspaceExecutionGate(): array
+    {
+        return [
+            'schema_version' => 'atlas.workspace_intelligence.execution_gate.v1',
+            'mode' => 'forge',
+            'workspace_id' => 'atlas-server',
+            'allowed' => true,
+            'status' => 'passed',
+            'blockers' => [],
+            'required_contracts' => [
+                'awco_execution_readiness' => true,
+            ],
+        ];
     }
 
     /**

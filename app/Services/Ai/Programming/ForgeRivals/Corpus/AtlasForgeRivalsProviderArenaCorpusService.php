@@ -1371,7 +1371,8 @@ final class AtlasForgeRivalsProviderArenaCorpusService
                 .' Ceiling-360 hardening requires maximum-pressure planning, rollback, ambiguity, replay and blocker quality across every required 360 axis.';
             $case['human_prompt'] = $this->humanPromptForCase($case)
                 ."\n\nPressao adicional: trate este como caso de teto pratico do Rivals. Se faltar informacao para uma mudanca segura, bloqueie com evidencia; se seguir, entregue plano, rollback, matriz de replay, fronteiras de escopo e custo/risco por decisao."
-                ."\n\nPressao L5+: ha requisitos parcialmente conflitantes, um oraculo incompleto, sinais de regressao nao obvios e risco operacional alto. Nao otimize apenas para passar o teste rapido; explicite as invariantes que protegeriam producao e diga exatamente o que voce nao conseguiu provar.";
+                ."\n\nPressao L5+: ha requisitos parcialmente conflitantes, um oraculo incompleto, sinais de regressao nao obvios e risco operacional alto. Nao otimize apenas para passar o teste rapido; explicite as invariantes que protegeriam producao e diga exatamente o que voce nao conseguiu provar."
+                ."\n\nSecoes obrigatorias para evidenciar capacidade 360: Facts Observed, Assumptions, Reversible Decisions, Tradeoff Matrix, Rollback Plan, Replay/Negative Regression Probe, Production Invariants, Uncertainty Boundary, Capability-Specific Evidence.";
             $case['context_profile'] = $this->contextProfileForCase($case);
             $case['human_prompt_probe'] = $this->humanPromptProbeForCase($case);
 
@@ -1505,6 +1506,17 @@ final class AtlasForgeRivalsProviderArenaCorpusService
                 'honest_uncertainty_boundary',
                 'capability_specific_self_evaluation',
             ],
+            'required_sections' => [
+                'facts_observed',
+                'assumptions',
+                'reversible_decisions',
+                'tradeoff_matrix',
+                'rollback_plan',
+                'replay_negative_regression_probe',
+                'production_invariants',
+                'uncertainty_boundary',
+                'capability_specific_evidence',
+            ],
             'invalid_if_missing' => [
                 'facts_assumptions_decisions_split',
                 'tradeoff_matrix',
@@ -1612,6 +1624,11 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'replayable_evidence_quality',
             'honest_blocker_behavior',
             'ambiguous_human_prompt_handling',
+            'adversarial_constraint_handling',
+            'non_obvious_regression_detection',
+            'uncertainty_boundary_quality',
+            'production_invariant_reasoning',
+            'capability_separation_signal',
         ], $this->extremeCapabilityAxes($case))));
     }
 

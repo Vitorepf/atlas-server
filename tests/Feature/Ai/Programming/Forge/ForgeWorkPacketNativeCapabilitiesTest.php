@@ -54,12 +54,15 @@ class ForgeWorkPacketNativeCapabilitiesTest extends TestCase
         $this->assertSame('ready', $capabilities['status']);
         $this->assertSame(64, strlen((string) $capabilities['capability_hash']));
 
-        foreach (['FWPIR', 'FOCG', 'FTIR', 'FSWR', 'FSORB', 'FOSG', 'FPPR', 'FOSR'] as $block) {
+        foreach (['FWPIR', 'FOCG', 'FTIR', 'FSWR', 'FSORB', 'FOSG', 'FPPR', 'FOSR', 'AEDPDS'] as $block) {
             $this->assertArrayHasKey($block, $capabilities['blocks']);
             $this->assertIsArray($capabilities['blocks'][$block]);
         }
 
         $this->assertSame('passed', $capabilities['blocks']['FOCG']['status']);
+        $this->assertSame('atlas.forge.work_packet_aedpds_projection.v1', $capabilities['blocks']['AEDPDS']['schema_version']);
+        $this->assertContains('atdd', $capabilities['blocks']['AEDPDS']['selected_drivers']);
+        $this->assertContains('tdd', $capabilities['blocks']['AEDPDS']['selected_drivers']);
         $this->assertNotEmpty($capabilities['blocks']['FTIR']['commands']);
         $this->assertTrue($capabilities['blocks']['FPPR']['provider_safe']);
         $this->assertFalse($capabilities['claim_policy']['provider_calls_made']);
@@ -162,6 +165,10 @@ class ForgeWorkPacketNativeCapabilitiesTest extends TestCase
         $this->assertSame('atlas.forge.outcome_memory.v1', $memory['schema_version']);
         $this->assertSame('success', $memory['outcome_status']);
         $this->assertContains('work_packet_receipts', $memory['evidence_kinds']);
+        $this->assertContains('atdd', $memory['aedpds_drivers']);
+        $this->assertSame('passed', $memory['aedpds_gate_status']);
+        $this->assertTrue(data_get($memory, 'aedpds_effectiveness.effective'));
+        $this->assertContains('aedpds_driver:atdd:effective', $memory['learning_candidates']);
         $this->assertTrue($memory['should_promote_to_aemor']);
         $this->assertSame((string) $packet->packet_id, $memory['packet_id']);
 
@@ -173,6 +180,8 @@ class ForgeWorkPacketNativeCapabilitiesTest extends TestCase
         $this->assertNotNull($persisted);
         $this->assertSame($persisted->id, $memory['memory_id']);
         $this->assertSame('success', $persisted->outcome_status);
+        $this->assertContains('tdd', $persisted->aedpds_drivers);
+        $this->assertSame('reuse_driver_mix_with_same_gates', data_get($persisted->aedpds_effectiveness, 'next_time_policy'));
         $this->assertSame(64, strlen((string) $persisted->outcome_memory_hash));
     }
 
@@ -201,6 +210,12 @@ class ForgeWorkPacketNativeCapabilitiesTest extends TestCase
             'Implementar pacote Forge com testes e documentacao para provider router.',
             [
                 'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => [
+                    'schema_version' => 'atlas.workspace_intelligence.execution_gate.v1',
+                    'allowed' => true,
+                    'status' => 'passed',
+                    'blockers' => [],
+                ],
                 'context_refs' => [
                     'docs/engineering-knowledge-base/atlas-programming-forge-flow.md',
                     'app/Services/Ai/Programming/Forge',

@@ -16,6 +16,7 @@ class AtlasProductDeliveryControlPlaneCommand extends Command
         {--provider-patch : Treat as provider/subagent patch candidate}
         {--operator-approved : Simulate explicit operator approval}
         {--evidence=* : Evidence kind supplied to APFPR}
+        {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Emit JSON}
         {--strict : Exit non-zero unless status === healthy}';
 
@@ -30,6 +31,7 @@ class AtlasProductDeliveryControlPlaneCommand extends Command
             'provider_patch' => (bool) $this->option('provider-patch'),
             'operator_approved' => (bool) $this->option('operator-approved'),
             'evidence' => (array) $this->option('evidence'),
+            'ux_expectations' => $this->strings($this->option('ux')),
         ]);
 
         if ((bool) $this->option('json')) {
@@ -45,5 +47,20 @@ class AtlasProductDeliveryControlPlaneCommand extends Command
         return (bool) $this->option('strict') && ($payload['status'] ?? null) !== 'healthy'
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 }

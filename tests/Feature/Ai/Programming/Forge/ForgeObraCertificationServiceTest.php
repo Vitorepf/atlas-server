@@ -34,6 +34,7 @@ class ForgeObraCertificationServiceTest extends TestCase
             'Implementar refator multi-modulo do provider router com sdd e fallback governado',
             [
                 'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
                 'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_SDD_INTAKE,
             ],
@@ -62,6 +63,7 @@ class ForgeObraCertificationServiceTest extends TestCase
             'Migrar billing engine multi-tenant com governance multi-stage',
             [
                 'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_CRITICAL,
                 'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_OBRA_INTAKE,
                 'sdd_spec' => [
@@ -95,6 +97,7 @@ class ForgeObraCertificationServiceTest extends TestCase
             'Implementar refator multi-modulo do provider router com sdd; criar suite tests; atualizar docs canonical.',
             [
                 'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
                 'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_SDD_INTAKE,
                 'sdd_spec' => $this->canonicalSpec(),
@@ -130,6 +133,7 @@ class ForgeObraCertificationServiceTest extends TestCase
             'Implementar Obra critica de migracao com gates completos',
             [
                 'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
                 'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_SDD_INTAKE,
                 'sdd_spec' => $spec,
@@ -169,6 +173,7 @@ class ForgeObraCertificationServiceTest extends TestCase
             'Refatorar pipeline de deploy com sdd-intake e governance',
             [
                 'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
                 'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_SDD_INTAKE,
             ],
@@ -199,6 +204,7 @@ class ForgeObraCertificationServiceTest extends TestCase
             'Implementar refator multi-modulo com sdd e fallback governado',
             [
                 'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
                 'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_SDD_INTAKE,
                 'sdd_spec' => $this->canonicalSpec(),
@@ -236,6 +242,7 @@ class ForgeObraCertificationServiceTest extends TestCase
             'Implementar nova feature de auth com testes e governance',
             [
                 'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
                 'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_SDD_INTAKE,
                 'sdd_spec' => $this->canonicalSpec(),
@@ -272,6 +279,7 @@ class ForgeObraCertificationServiceTest extends TestCase
             'Adicionar pequeno helper utility para formatacao de datas em report.',
             [
                 'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_LOW,
                 'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_OBRA_INTAKE,
             ],
@@ -319,6 +327,24 @@ class ForgeObraCertificationServiceTest extends TestCase
     private function intakeService(): ForgeIntakeService
     {
         return app(ForgeIntakeService::class);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function allowedWorkspaceExecutionGate(): array
+    {
+        return [
+            'schema_version' => 'atlas.workspace_intelligence.execution_gate.v1',
+            'mode' => 'forge',
+            'workspace_id' => 'atlas-server',
+            'allowed' => true,
+            'status' => 'passed',
+            'blockers' => [],
+            'required_contracts' => [
+                'awco_execution_readiness' => true,
+            ],
+        ];
     }
 
     /**

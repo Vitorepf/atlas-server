@@ -124,6 +124,11 @@ trait CreatesForgeLongHorizonStateTable
             $table->string('outcome_status', 40)->index();
             $table->string('execution_mode', 40)->index();
             $table->json('evidence_kinds');
+            $table->json('aedpds_drivers')->nullable();
+            $table->string('aedpds_gate_status', 40)->nullable()->index();
+            $table->string('aedpds_doctrine_hash', 64)->nullable()->index();
+            $table->string('aedpds_gate_hash', 64)->nullable()->index();
+            $table->json('aedpds_effectiveness')->nullable();
             $table->json('learning_candidates');
             $table->json('failure_capsule')->nullable();
             $table->boolean('should_promote_to_aemor')->default(true)->index();

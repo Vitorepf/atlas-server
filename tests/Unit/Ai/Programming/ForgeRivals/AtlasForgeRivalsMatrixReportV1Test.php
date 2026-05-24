@@ -9,6 +9,7 @@ use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsBatteryEvidenceServi
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCollectEvidenceService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEvidencePolicy;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsMatrixReportService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsReportService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use Tests\TestCase;
@@ -42,12 +43,16 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
 
     private AtlasForgeRivalsMatrixReportService $matrix;
 
+    private mixed $oldEvidenceFloor;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->tmpRoot = sys_get_temp_dir().DIRECTORY_SEPARATOR.'fr-matrix-'.bin2hex(random_bytes(6));
         @mkdir($this->tmpRoot, 0o755, true);
+        $this->oldEvidenceFloor = config('atlas_rivals.min_free_bytes_before_provider_evidence');
         config(['atlas_rivals.runs_root' => $this->tmpRoot]);
+        config(['atlas_rivals.min_free_bytes_before_provider_evidence' => 0]);
 
         $this->paths = new AtlasForgeRivalsRunPathResolver;
         $this->collect = new AtlasForgeRivalsCollectEvidenceService($this->paths);
@@ -57,6 +62,7 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
 
     protected function tearDown(): void
     {
+        config(['atlas_rivals.min_free_bytes_before_provider_evidence' => $this->oldEvidenceFloor]);
         $this->purge($this->tmpRoot);
         parent::tearDown();
     }
@@ -248,15 +254,7 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
 
     public function test_matrix_report_marks_full_floor_ties_as_low_differentiation_not_strength_claim(): void
     {
-        $required = [
-            'long_context_retention',
-            'multi_step_reasoning',
-            'rollback_safety',
-            'scope_boundary_discipline',
-            'replayable_evidence_quality',
-            'honest_blocker_behavior',
-            'ambiguous_human_prompt_handling',
-        ];
+        $required = AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES;
         $runId = $this->seedBattery([
             $this->case('tie-l5-1', 'architecture', 'hard', 'comparable', atlas: 88, rival: 87, capabilities: $required),
             $this->case('tie-l5-2', 'refactor', 'hard', 'comparable', atlas: 86, rival: 86, capabilities: $required),
@@ -285,15 +283,7 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
 
     public function test_matrix_report_marks_repeated_l5_capability_wins_as_differentiated_signal(): void
     {
-        $required = [
-            'long_context_retention',
-            'multi_step_reasoning',
-            'rollback_safety',
-            'scope_boundary_discipline',
-            'replayable_evidence_quality',
-            'honest_blocker_behavior',
-            'ambiguous_human_prompt_handling',
-        ];
+        $required = AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES;
         $runId = $this->seedBattery([
             $this->case('atlas-l5-1', 'architecture', 'hard', 'comparable', atlas: 96, rival: 80, capabilities: $required),
             $this->case('atlas-l5-2', 'refactor', 'hard', 'comparable', atlas: 94, rival: 81, capabilities: $required),
@@ -308,6 +298,221 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertSame([], $report['differentiation']['required_tied_capabilities']);
         $this->assertSame(1.0, $report['differentiation']['separation_ratio']);
         $this->assertSame('continue_repetition_for_confidence_and_cost_receipts', $report['differentiation']['next_action']);
+    }
+
+    public function test_matrix_report_aggregates_ceiling_360_contract_signal_across_l5_cases(): void
+    {
+        $runId = $this->seedBattery([
+            $this->case('ceiling-atlas-ahead', 'refactor', 'hard', 'comparable', atlas: 86, rival: 84, ceilingContract: [
+                'atlas' => 100.0,
+                'rival' => 85.714,
+                'markers' => [
+                    'required' => true,
+                    'atlas' => [
+                        'facts_assumptions_decisions_split' => true,
+                        'rollback_plan' => true,
+                        'production_invariant_reasoning' => true,
+                    ],
+                    'rival' => [
+                        'facts_assumptions_decisions_split' => false,
+                        'rollback_plan' => true,
+                        'production_invariant_reasoning' => true,
+                    ],
+                ],
+            ]),
+            $this->case('ceiling-shared-gap', 'security', 'hard', 'comparable', atlas: 83, rival: 83, ceilingContract: [
+                'atlas' => 57.143,
+                'rival' => 57.143,
+                'markers' => [
+                    'required' => true,
+                    'atlas' => [
+                        'facts_assumptions_decisions_split' => false,
+                        'rollback_plan' => false,
+                        'production_invariant_reasoning' => false,
+                    ],
+                    'rival' => [
+                        'facts_assumptions_decisions_split' => false,
+                        'rollback_plan' => false,
+                        'production_invariant_reasoning' => false,
+                    ],
+                ],
+            ]),
+        ]);
+
+        $report = $this->matrix->render(['run_ids' => [$runId]])['matrix_report'];
+        $matrix = $report['ceiling_360_contract_matrix'];
+
+        $this->assertSame(AtlasForgeRivalsMatrixReportService::CEILING_360_CONTRACT_MATRIX_SCHEMA_VERSION, $matrix['schema_version']);
+        $this->assertSame('differentiated_with_contract_floor_gap', $matrix['status']);
+        $this->assertSame(2, $matrix['observed_cases']);
+        $this->assertSame(0, $matrix['missing_contract_cases']);
+        $this->assertSame(1, $matrix['differentiated_cases']);
+        $this->assertSame(1, $matrix['atlas_ahead_cases']);
+        $this->assertSame(0, $matrix['rival_ahead_cases']);
+        $this->assertSame(1, $matrix['tie_cases']);
+        $this->assertSame(2, $matrix['below_contract_floor_cases']);
+        $this->assertSame(100.0, $matrix['contract_floor_score']);
+        $this->assertSame(0.5, $matrix['separation_ratio']);
+        $this->assertSame(1, $matrix['shared_missing_markers']['rollback_plan']);
+        $this->assertSame(2, $matrix['any_missing_markers']['facts_assumptions_decisions_split']);
+        $plan = $matrix['next_measurement_plan'];
+        $this->assertSame('atlas.forge.rivals.ceiling_360_marker_next_measurement_plan.v1', $plan['schema_version']);
+        $this->assertSame('needs_more_marker_pressure', $plan['status']);
+        $this->assertTrue($plan['dry_run_ready']);
+        $this->assertContains($plan['real_run_ready'], [true, false], 'real readiness depends on local disk guard');
+        $this->assertArrayHasKey('evidence_disk_status', $plan);
+        $this->assertSame(['runbook_reviewed', 'provider_cost', 'real_provider_call'], $plan['required_confirmations_for_real_run']);
+        $this->assertFalse($plan['provider_call']);
+        $this->assertFalse($plan['tokens_spent']);
+        $this->assertTrue($plan['advisory_only']);
+        $this->assertFalse($plan['should_update_provider_topology']);
+        $this->assertTrue($plan['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $plan['owner_of_model_routing']);
+        $this->assertSame('none', $plan['routing_effect']);
+        $requirementsByMarker = [];
+        foreach ($plan['requirements'] as $requirement) {
+            $requirementsByMarker[$requirement['marker']] = $requirement;
+        }
+        $this->assertArrayHasKey('facts_assumptions_decisions_split', $requirementsByMarker);
+        $this->assertArrayHasKey('rollback_plan', $requirementsByMarker);
+        $this->assertContains('ambiguous_human_prompt_handling', $requirementsByMarker['facts_assumptions_decisions_split']['target_capabilities']);
+        $this->assertContains('rollback_safety', $requirementsByMarker['rollback_plan']['target_capabilities']);
+        $this->assertNotEmpty($requirementsByMarker['facts_assumptions_decisions_split']['candidate_cases']);
+        $this->assertStringContainsString('--dry-run --json', $requirementsByMarker['facts_assumptions_decisions_split']['recommended_dry_run_commands'][0]);
+        $this->assertStringContainsString('--case=', $requirementsByMarker['facts_assumptions_decisions_split']['recommended_dry_run_commands'][0]);
+        $this->assertSame('facts_assumptions_decisions_split', $requirementsByMarker['facts_assumptions_decisions_split']['battle_matrix'][0]['marker']);
+        $this->assertFalse($requirementsByMarker['facts_assumptions_decisions_split']['battle_matrix'][0]['provider_call']);
+        $this->assertFalse($requirementsByMarker['facts_assumptions_decisions_split']['battle_matrix'][0]['tokens_spent']);
+        $this->assertSame('none', $requirementsByMarker['facts_assumptions_decisions_split']['battle_matrix'][0]['routing_effect']);
+        $this->assertTrue($matrix['advisory_only']);
+        $this->assertFalse($matrix['should_update_provider_topology']);
+        $this->assertTrue($matrix['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $matrix['owner_of_model_routing']);
+        $this->assertSame('none', $matrix['routing_effect']);
+
+        $byCase = [];
+        foreach ($matrix['cases'] as $case) {
+            $byCase[$case['case_id']] = $case;
+        }
+        $this->assertSame('atlas', $byCase['ceiling-atlas-ahead']['leader']);
+        $this->assertFalse($byCase['ceiling-atlas-ahead']['floor_met']);
+        $this->assertTrue($byCase['ceiling-atlas-ahead']['marker_delta']['facts_assumptions_decisions_split']['atlas']);
+        $this->assertFalse($byCase['ceiling-atlas-ahead']['marker_delta']['facts_assumptions_decisions_split']['rival']);
+        $this->assertSame('tie', $byCase['ceiling-shared-gap']['leader']);
+
+        $paths = $this->paths->paths($runId);
+        $md = (string) file_get_contents($paths['evidence'].'/'.AtlasForgeRivalsMatrixReportService::MATRIX_REPORT_MD_FILE);
+        $this->assertStringContainsString('Matriz ceiling_360_contract', $md);
+        $this->assertStringContainsString('differentiated_with_contract_floor_gap', $md);
+        $this->assertStringContainsString('Marker next measurement', $md);
+    }
+
+    public function test_matrix_report_requires_battle_diversity_before_claiming_360_model_coverage(): void
+    {
+        $runId = $this->seedBattery([
+            $this->case('same-battle-1', 'architecture', 'hard', 'comparable', atlas: 88, rival: 87, capabilities: AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES),
+            $this->case('same-battle-2', 'security', 'hard', 'comparable', atlas: 86, rival: 86, capabilities: AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES),
+            $this->case('same-battle-3', 'frontend_ui', 'hard', 'comparable', atlas: 89, rival: 88, capabilities: AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES),
+        ]);
+
+        $report = $this->matrix->render(['run_ids' => [$runId]])['matrix_report'];
+        $coverage = $report['battle_coverage'];
+
+        $this->assertSame('atlas.forge.rivals.matrix_battle_coverage.v1', $coverage['schema_version']);
+        $this->assertSame('needs_more_battle_diversity', $coverage['status']);
+        $this->assertFalse($coverage['floor_met']);
+        $this->assertSame(8, $coverage['canonical_battle_count']);
+        $this->assertSame(1, $coverage['observed_battle_count']);
+        $this->assertSame(7, $coverage['missing_battle_count']);
+        $this->assertSame('atlas_forge_vs_claude_sonnet', $coverage['observed_battles'][0]['battle_id']);
+        $this->assertSame(3, $coverage['observed_battles'][0]['cases']);
+        $this->assertSame('needs_missing_canonical_battles', $coverage['next_measurement_plan']['status']);
+        $this->assertTrue($coverage['next_measurement_plan']['dry_run_ready']);
+        $this->assertContains($coverage['next_measurement_plan']['real_run_ready'], [true, false], 'real readiness depends on local disk guard');
+        $this->assertArrayHasKey('evidence_disk_status', $coverage['next_measurement_plan']);
+        $this->assertSame(['runbook_reviewed', 'provider_cost', 'real_provider_call'], $coverage['next_measurement_plan']['required_confirmations_for_real_run']);
+        $this->assertFalse($coverage['next_measurement_plan']['provider_call']);
+        $this->assertFalse($coverage['next_measurement_plan']['tokens_spent']);
+        $this->assertTrue($coverage['next_measurement_plan']['advisory_only']);
+        $this->assertFalse($coverage['next_measurement_plan']['should_update_provider_topology']);
+        $this->assertTrue($coverage['next_measurement_plan']['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $coverage['next_measurement_plan']['owner_of_model_routing']);
+        $this->assertSame('none', $coverage['next_measurement_plan']['routing_effect']);
+        $missingIds = array_column($coverage['missing_canonical_battles'], 'id');
+        $this->assertContains('atlas_dev_vs_atlas_forge', $missingIds);
+        $this->assertContains('composer_2_5_vs_codex_gpt_5_5', $missingIds);
+        $this->assertStringContainsString('--dry-run --json', $coverage['missing_canonical_battles'][0]['dry_run_command']);
+
+        $paths = $this->paths->paths($runId);
+        $md = (string) file_get_contents($paths['evidence'].'/'.AtlasForgeRivalsMatrixReportService::MATRIX_REPORT_MD_FILE);
+        $this->assertStringContainsString('Cobertura de batalhas 360', $md);
+        $this->assertStringContainsString('needs_more_battle_diversity', $md);
+    }
+
+    public function test_matrix_report_battle_plan_blocks_real_run_when_evidence_disk_floor_is_not_met(): void
+    {
+        config(['atlas_rivals.min_free_bytes_before_provider_evidence' => PHP_INT_MAX]);
+
+        $runId = $this->seedBattery([
+            $this->case('same-battle-disk-blocked', 'architecture', 'hard', 'comparable', atlas: 88, rival: 87, capabilities: AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES),
+        ]);
+
+        $plan = $this->matrix->render(['run_ids' => [$runId]])['matrix_report']['battle_coverage']['next_measurement_plan'];
+
+        $this->assertSame('needs_missing_canonical_battles', $plan['status']);
+        $this->assertTrue($plan['dry_run_ready']);
+        $this->assertFalse($plan['real_run_ready']);
+        $this->assertSame('blocked', $plan['evidence_disk_status']['status']);
+        $this->assertNotEmpty(array_filter(
+            $plan['real_run_blockers'],
+            static fn (string $blocker): bool => str_starts_with($blocker, 'provider_evidence_disk_space_insufficient:'),
+        ));
+        $this->assertFalse($plan['provider_call']);
+        $this->assertFalse($plan['tokens_spent']);
+        $this->assertSame('none', $plan['routing_effect']);
+    }
+
+    public function test_matrix_report_marker_plan_blocks_real_run_when_evidence_disk_floor_is_not_met(): void
+    {
+        $oldEvidenceFloor = config('atlas_rivals.min_free_bytes_before_provider_evidence');
+
+        try {
+            config(['atlas_rivals.min_free_bytes_before_provider_evidence' => PHP_INT_MAX]);
+
+            $runId = $this->seedBattery([
+                $this->case('ceiling-disk-blocked', 'architecture', 'hard', 'comparable', atlas: 84, rival: 84, ceilingContract: [
+                    'atlas' => 57.143,
+                    'rival' => 57.143,
+                    'markers' => [
+                        'required' => true,
+                        'atlas' => [
+                            'facts_assumptions_decisions_split' => false,
+                            'production_invariant_reasoning' => false,
+                        ],
+                        'rival' => [
+                            'facts_assumptions_decisions_split' => false,
+                            'production_invariant_reasoning' => false,
+                        ],
+                    ],
+                ]),
+            ]);
+
+            $plan = $this->matrix->render(['run_ids' => [$runId]])['matrix_report']['ceiling_360_contract_matrix']['next_measurement_plan'];
+
+            $this->assertSame('needs_more_marker_pressure', $plan['status']);
+            $this->assertTrue($plan['dry_run_ready']);
+            $this->assertFalse($plan['real_run_ready']);
+            $this->assertSame('blocked', $plan['evidence_disk_status']['status']);
+            $this->assertNotEmpty(array_filter(
+                $plan['real_run_blockers'],
+                static fn (string $blocker): bool => str_starts_with($blocker, 'provider_evidence_disk_space_insufficient:'),
+            ));
+            $this->assertFalse($plan['provider_call']);
+            $this->assertFalse($plan['tokens_spent']);
+            $this->assertSame('none', $plan['routing_effect']);
+        } finally {
+            config(['atlas_rivals.min_free_bytes_before_provider_evidence' => $oldEvidenceFloor]);
+        }
     }
 
     public function test_matrix_report_separates_invalid_and_suspicious_cases(): void
@@ -536,9 +741,30 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $manifest = [
             'schema_version' => 'atlas.forge.rivals.run_real.v1',
             'run_id' => $paths['run_id'],
-            'mode' => 'fair',
+            'mode' => 'provider_arena',
             'atlas_model' => 'claude_sonnet',
             'rival_model' => 'claude_sonnet',
+            'arena_contracts' => [
+                'arm_a' => [
+                    'arm_id' => 'atlas_forge',
+                    'provider' => 'claude',
+                    'model_alias' => 'sonnet',
+                    'requested_model' => 'sonnet',
+                    'resolved_model_id' => 'claude-sonnet-4-6',
+                ],
+                'arm_b' => [
+                    'arm_id' => 'claude_code',
+                    'provider' => 'claude',
+                    'model_alias' => 'sonnet',
+                    'requested_model' => 'sonnet',
+                    'resolved_model_id' => 'claude-sonnet-4-6',
+                ],
+                'advisory_only' => true,
+                'should_update_provider_topology' => false,
+                'never_changes_atlas_decide_topology' => true,
+                'owner_of_model_routing' => 'atlas_decide',
+                'routing_effect' => 'none',
+            ],
             'preset' => 'quick',
             'case_id' => 'multi_case_aggregate',
             'case_source' => 'provider_arena_corpus',
@@ -674,6 +900,12 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         foreach (AtlasForgeRivalsMatrixReportService::EXECUTION_DIMENSIONS as $key) {
             $dims[$key] = ['atlas' => $executionAtlas, 'rival' => $executionRival, 'explanation' => 'synthetic'];
         }
+        if (is_array($spec['ceiling_contract'] ?? null)) {
+            $dims['ceiling_360_contract'] = array_merge(
+                ['explanation' => 'synthetic ceiling contract'],
+                $spec['ceiling_contract'],
+            );
+        }
 
         return $dims;
     }
@@ -708,6 +940,7 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         ?int $executionRivalOverride = null,
         array $hardFailures = [],
         array $capabilities = [],
+        ?array $ceilingContract = null,
     ): array {
         return [
             'case_id' => $caseId,
@@ -722,6 +955,7 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
             'execution_rival' => $executionRivalOverride,
             'hard_failures' => $hardFailures,
             'capabilities' => $capabilities,
+            'ceiling_contract' => $ceilingContract,
             'measurement_tags' => $capabilities,
             'extreme_differentiator' => $capabilities === [] ? null : [
                 'capability_axes' => $capabilities,

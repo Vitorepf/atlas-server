@@ -14,6 +14,10 @@ class AtlasProductDeliveryPatchRequestCommand extends Command
         {--workspace= : Workspace slug/path}
         {--target=provider : Patch proposal target: provider, subagent, human, forge_workcell}
         {--evidence=* : Existing proof evidence}
+        {--operator-approved : Attach operator/senior review approval for APDR/AEDPDS}
+        {--context=* : Context refs to pass into APDR/AEDPDS}
+        {--doc=* : Canonical docs to pass into APDR/AEDPDS}
+        {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--persist : Persist an append-only AEDPDS runtime receipt}
         {--json : Emit JSON}
         {--strict : Exit non-zero unless patch proposal is required or proof is ready}';
@@ -29,6 +33,11 @@ class AtlasProductDeliveryPatchRequestCommand extends Command
             'human_request' => (string) $this->argument('request'),
             'workspace' => (string) ($this->option('workspace') ?: ''),
             'evidence' => $this->evidenceFromOptions((array) $this->option('evidence')),
+            'evidence_refs' => $this->strings($this->option('evidence')),
+            'operator_approved' => (bool) $this->option('operator-approved'),
+            'context_refs' => $this->strings($this->option('context')),
+            'canonical_docs' => $this->strings($this->option('doc')),
+            'ux_expectations' => $this->strings($this->option('ux')),
         ]);
         $payload = $patchRequest->build(
             delivery: $delivery,
@@ -81,5 +90,16 @@ class AtlasProductDeliveryPatchRequestCommand extends Command
         }
 
         return $evidence;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        return is_array($value) ? array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== '')) : [];
     }
 }

@@ -37,6 +37,8 @@ class AtlasExecutionDoctrineGateService
         $warnings = [];
         $next = [];
         $drivers = $this->list($doctrine['selected_primary_drivers'] ?? []);
+        $secondaryDrivers = $this->list($doctrine['selected_secondary_drivers'] ?? []);
+        $allDrivers = array_values(array_unique(array_merge($drivers, $secondaryDrivers)));
 
         if ($provided['review'] !== []) {
             $blockers = array_values(array_diff($blockers, ['sensitive_change_requires_senior_review']));
@@ -70,6 +72,18 @@ class AtlasExecutionDoctrineGateService
             $blockers[] = 'missing_owner_doc_or_docs_health';
             $next[] = 'attach_canonical_doc_or_docs_health_result';
         }
+        if (in_array('readme_driven', $allDrivers, true) && $provided['docs'] === []) {
+            $blockers[] = 'missing_readme_or_usage_contract';
+            $next[] = 'attach_readme_or_usage_contract';
+        }
+        if (in_array('model_driven', $drivers, true) && ($provided['contracts'] === [] || $provided['context'] === [])) {
+            $blockers[] = 'missing_model_or_state_machine_contract';
+            $next[] = 'attach_model_or_state_machine_contract';
+        }
+        if (in_array('reliability_observability_driven', $drivers, true) && $provided['evidence'] === []) {
+            $blockers[] = 'missing_observability_readiness_evidence';
+            $next[] = 'attach_logs_traces_receipts_or_readiness_signal';
+        }
         if (in_array((string) ($doctrine['risk_level'] ?? 'medium'), ['high', 'critical'], true) && $provided['review'] === []) {
             $warnings[] = 'risk_review_not_attached';
             $next[] = 'attach_risk_or_senior_review_before_sensitive_execution';
@@ -89,6 +103,10 @@ class AtlasExecutionDoctrineGateService
         $blockers = array_values(array_unique($blockers));
         $warnings = array_values(array_unique($warnings));
         $status = $blockers !== [] ? 'blocked' : ($warnings !== [] ? 'warning' : 'passed');
+        $effectiveDoctrine = $doctrine;
+        $effectiveDoctrine['blockers'] = $blockers;
+        $effectiveDoctrine['warnings'] = $warnings;
+        $effectiveDoctrine['allowed_to_execute'] = $status !== 'blocked';
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -100,7 +118,7 @@ class AtlasExecutionDoctrineGateService
             'blockers' => $blockers,
             'warnings' => $warnings,
             'required_next_actions' => array_values(array_unique($next)),
-            'doctrine' => $doctrine,
+            'doctrine' => $effectiveDoctrine,
             'provided' => $provided,
             'claim_policy' => [
                 'provider_invoked' => false,

@@ -14,6 +14,7 @@ class AtlasProductDeliveryOutcomeCommand extends Command
         {--workspace= : Workspace slug/path}
         {--status=ready : ready|blocked|needs_repair|needs_review}
         {--evidence=* : Evidence kind to attach}
+        {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--persist : Persist into atlas_product_delivery_outcome_memories}
         {--json : Emit JSON}';
 
@@ -29,6 +30,8 @@ class AtlasProductDeliveryOutcomeCommand extends Command
             'human_request' => (string) $this->argument('request'),
             'workspace' => (string) ($this->option('workspace') ?: ''),
             'evidence' => $evidence,
+            'operator_approved' => true,
+            'ux_expectations' => $this->strings($this->option('ux')) ?: ['checkout journey expectation'],
         ]);
         $proof = is_array($delivery['proof_preview'] ?? null) ? $delivery['proof_preview'] : [];
         $memory = $outcomes->build($delivery, [
@@ -76,6 +79,21 @@ class AtlasProductDeliveryOutcomeCommand extends Command
         $this->components->twoColumnDetail('Hash', (string) $payload['outcome_memory_hash']);
 
         return 0;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 
     /**

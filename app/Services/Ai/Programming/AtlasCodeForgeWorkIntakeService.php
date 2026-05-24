@@ -161,10 +161,14 @@ class AtlasCodeForgeWorkIntakeService
             'doctrine' => $doctrine,
             'acceptance_criteria' => $this->stringList($intake['acceptance_criteria'] ?? []),
             'context_refs' => $this->stringList($intake['canonical_docs'] ?? []),
-            'tests' => $this->stringList($intake['expected_outputs'] ?? []),
+            'tests' => $this->stringList($intake['expected_outputs'] ?? []) !== []
+                ? $this->stringList($intake['expected_outputs'] ?? [])
+                : ($this->stringList($intake['acceptance_criteria'] ?? []) === [] ? [] : ['forge_packet_acceptance_verification']),
             'docs' => $this->stringList($intake['canonical_docs'] ?? []),
             'review' => in_array((string) ($intake['risk_level'] ?? 'medium'), ['high', 'critical'], true) ? [] : ['risk_review_not_required_for_current_band'],
-            'evidence' => $this->stringList($intake['expected_outputs'] ?? []),
+            'evidence' => $this->stringList($intake['expected_outputs'] ?? []) !== []
+                ? $this->stringList($intake['expected_outputs'] ?? [])
+                : ($this->stringList($intake['acceptance_criteria'] ?? []) === [] ? [] : ['forge_packet_evidence_required']),
         ]);
 
         return [
@@ -293,7 +297,6 @@ class AtlasCodeForgeWorkIntakeService
     }
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function stringList(mixed $value): array

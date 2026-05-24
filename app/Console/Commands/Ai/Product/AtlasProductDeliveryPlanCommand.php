@@ -13,6 +13,11 @@ class AtlasProductDeliveryPlanCommand extends Command
         {request? : Human request to plan}
         {--workspace= : Workspace slug}
         {--route= : Optional route override}
+        {--operator-approved : Attach operator/senior review approval for sensitive work}
+        {--context=* : Context refs to pass into APDR/AEDPDS}
+        {--doc=* : Canonical docs to pass into APDR/AEDPDS}
+        {--evidence=* : Evidence refs to pass into APDR/AEDPDS}
+        {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Print JSON}
         {--strict : Exit non-zero unless ready_for_delivery}';
 
@@ -24,6 +29,11 @@ class AtlasProductDeliveryPlanCommand extends Command
             'human_request' => (string) ($this->argument('request') ?: 'Atlas product delivery request'),
             'workspace' => $this->option('workspace'),
             'route' => $this->option('route'),
+            'operator_approved' => (bool) $this->option('operator-approved'),
+            'context_refs' => $this->strings($this->option('context')),
+            'canonical_docs' => $this->strings($this->option('doc')),
+            'evidence_refs' => $this->strings($this->option('evidence')),
+            'ux_expectations' => $this->strings($this->option('ux')),
         ]);
 
         if ((bool) $this->option('json')) {
@@ -38,5 +48,16 @@ class AtlasProductDeliveryPlanCommand extends Command
         return (bool) $this->option('strict') && ($report['status'] ?? null) !== 'ready_for_delivery'
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        return is_array($value) ? array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== '')) : [];
     }
 }

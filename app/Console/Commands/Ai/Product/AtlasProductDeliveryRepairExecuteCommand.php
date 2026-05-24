@@ -21,6 +21,7 @@ class AtlasProductDeliveryRepairExecuteCommand extends Command
         {--apply : Apply patch; default is dry-run}
         {--persist : Persist append-only AEDPDS runtime receipts}
         {--evidence=* : Evidence kind for proof rerun}
+        {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Emit JSON}
         {--strict : Exit non-zero unless dry_run_ready or applied_and_verified}';
 
@@ -40,6 +41,8 @@ class AtlasProductDeliveryRepairExecuteCommand extends Command
         $delivery = $deliveryRuntime->plan([
             'human_request' => (string) $this->argument('request'),
             'workspace' => (string) ($this->option('workspace') ?: ''),
+            'operator_approved' => is_scalar($this->option('approval')) && trim((string) $this->option('approval')) !== '',
+            'ux_expectations' => $this->strings($this->option('ux')),
         ]);
 
         $gate = $patchGate->evaluate($delivery, $patch, [
@@ -176,5 +179,20 @@ class AtlasProductDeliveryRepairExecuteCommand extends Command
         }
 
         return $evidence;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 }

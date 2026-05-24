@@ -114,10 +114,13 @@ class AtlasExecutionDoctrineRuntimeService
             $requiredDocs[] = 'readme_usage_contract';
         }
         if ($signals['model']) {
-            $secondary[] = 'model_driven';
+            $primary[] = 'model_driven';
+            $requiredContext[] = 'model_or_state_machine_spec';
+            $requiredContracts[] = 'formal_or_semiformal_model_contract';
+            $requiredEvidence[] = 'model_validation_or_generation_trace';
         }
         if ($signals['observability']) {
-            $secondary[] = 'reliability_observability_driven';
+            $primary[] = 'reliability_observability_driven';
             $requiredEvidence[] = 'logs_traces_receipts_or_readiness_signal';
         }
 
@@ -186,7 +189,7 @@ class AtlasExecutionDoctrineRuntimeService
 
         return [
             'bug' => $taskType === 'bug',
-            'feature' => in_array($taskType, ['feature', 'product'], true),
+            'feature' => in_array($taskType, ['feature', 'product', 'api', 'migration', 'refactor'], true),
             'code' => $this->bool($input['code_changes_requested'] ?? false) || $this->hasAny($lower, ['codigo', 'código', 'implementar', 'fix', 'patch', 'refactor', 'endpoint', 'migration', 'schema', 'api']),
             'ui' => $this->bool($input['ui_involved'] ?? false) || $this->hasAny($lower, ['ui', 'ux', 'tela', 'design', 'frontend', 'mobile', 'desktop', 'layout', 'visual']),
             'api' => $this->bool($input['api_involved'] ?? false) || $this->hasAny($lower, ['api', 'endpoint', 'payload', 'schema', 'webhook', 'contract', 'integra']),
@@ -304,6 +307,12 @@ class AtlasExecutionDoctrineRuntimeService
         if ($signals['database']) {
             $artifacts[] = 'rollback_plan';
         }
+        if ($signals['model']) {
+            $artifacts[] = 'model_contract';
+        }
+        if ($signals['observability']) {
+            $artifacts[] = 'observability_readiness_evidence';
+        }
 
         return $this->unique($artifacts);
     }
@@ -323,6 +332,12 @@ class AtlasExecutionDoctrineRuntimeService
         }
         if ($signals['ui']) {
             $gates[] = 'ux_gate';
+        }
+        if ($signals['model']) {
+            $gates[] = 'model_contract_gate';
+        }
+        if ($signals['observability']) {
+            $gates[] = 'observability_readiness_gate';
         }
         if (in_array($risk, ['high', 'critical'], true)) {
             $gates[] = 'risk_review_gate';
@@ -355,6 +370,9 @@ class AtlasExecutionDoctrineRuntimeService
     private function surface(mixed $value): string
     {
         $surface = $this->string($value) ?? 'atlas_ai';
+        if (in_array($surface, ['atlas_dev', 'atlas_forge'], true)) {
+            return $surface;
+        }
 
         return in_array($surface, ['atlas_ai', 'atlas_dev', 'atlas_forge', 'dev', 'forge', 'cartografia', 'control_plane'], true)
             ? str_replace(['dev', 'forge'], ['atlas_dev', 'atlas_forge'], $surface)
@@ -364,6 +382,20 @@ class AtlasExecutionDoctrineRuntimeService
     private function hasAny(string $lower, array $needles): bool
     {
         foreach ($needles as $needle) {
+            if (in_array($needle, ['ui', 'ux'], true)) {
+                if (preg_match('/(^|[^a-z0-9])'.preg_quote($needle, '/').'([^a-z0-9]|$)/u', $lower) === 1) {
+                    return true;
+                }
+
+                continue;
+            }
+            if ($needle === 'log') {
+                if (preg_match('/(^|[^a-z0-9])logs?([^a-z0-9]|$)/u', $lower) === 1) {
+                    return true;
+                }
+
+                continue;
+            }
             if (str_contains($lower, $needle)) {
                 return true;
             }

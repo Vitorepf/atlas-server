@@ -518,6 +518,11 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
             'replayable_evidence_quality',
             'honest_blocker_behavior',
             'ambiguous_human_prompt_handling',
+            'adversarial_constraint_handling',
+            'non_obvious_regression_detection',
+            'uncertainty_boundary_quality',
+            'production_invariant_reasoning',
+            'capability_separation_signal',
         ];
 
         $this->assertCount(120, $cases);
@@ -539,10 +544,25 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
             $this->assertTrue((bool) ($case['ceiling_360']['required_signal']['requires_honest_uncertainty_boundary'] ?? false));
             $this->assertFalse((bool) ($case['ceiling_360']['claim_policy']['external_claim_allowed'] ?? true));
             $this->assertStringContainsString('Pressao L5+', (string) $case['human_prompt']);
+            $this->assertStringContainsString('Facts Observed', (string) $case['human_prompt']);
+            $this->assertStringContainsString('Replay/Negative Regression Probe', (string) $case['human_prompt']);
             $this->assertSame('atlas.forge.rivals.ceiling_pressure_profile.v1', $case['ceiling_pressure_profile']['schema_version'] ?? null);
             $this->assertSame('L5+', $case['ceiling_pressure_profile']['pressure_level'] ?? null);
             $this->assertTrue((bool) ($case['ceiling_pressure_profile']['advisory_only'] ?? false));
             $this->assertSame('none', $case['ceiling_pressure_profile']['routing_effect'] ?? null);
+            foreach ([
+                'facts_observed',
+                'assumptions',
+                'reversible_decisions',
+                'tradeoff_matrix',
+                'rollback_plan',
+                'replay_negative_regression_probe',
+                'production_invariants',
+                'uncertainty_boundary',
+                'capability_specific_evidence',
+            ] as $requiredSection) {
+                $this->assertContains($requiredSection, (array) ($case['ceiling_pressure_profile']['required_sections'] ?? []));
+            }
             foreach ([
                 'conflicting_constraints_analysis',
                 'non_obvious_regression_probe',

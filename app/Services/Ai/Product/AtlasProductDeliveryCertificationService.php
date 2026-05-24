@@ -18,12 +18,18 @@ class AtlasProductDeliveryCertificationService
         $sample = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
             'evidence' => [
                 'tests' => ['focused_tests passed', 'contract tests passed', 'security regression tests passed'],
                 'security' => ['abuse cases reviewed'],
                 'acceptance_mapping' => ['tests mapped to acceptance'],
                 'outcome' => ['outcome memory candidate recorded'],
             ],
+        ]);
+        $blockedGateSample = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
+            'human_request' => 'estou com bug na tela de login',
+            'workspace' => 'atlas-app',
         ]);
 
         $checks = [
@@ -33,11 +39,11 @@ class AtlasProductDeliveryCertificationService
             )),
             $this->check('autonomous_product_delivery_runtime', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasAutonomousProductDeliveryRuntimeService.php',
-                ['atlas.autonomous_product_delivery_runtime.v1', 'proof_preview', 'enforcement', 'repair_bridge', 'ready_for_delivery'],
+                ['atlas.autonomous_product_delivery_runtime.v1', 'proof_preview', 'enforcement', 'repair_bridge', 'ready_for_delivery', 'blocked_by_aedpds_gate'],
             )),
             $this->check('product_falsification_proof_runtime', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductFalsificationProofRuntimeService.php',
-                ['atlas.product_proof_challenge.v1', 'critical_blockers', 'counterexamples', 'proof_hash'],
+                ['atlas.product_proof_challenge.v1', 'critical_blockers', 'counterexamples', 'proof_hash', 'delivery_contract_not_ready'],
             )),
             $this->check('product_delivery_enforcement', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductDeliveryEnforcementService.php',
@@ -76,7 +82,7 @@ class AtlasProductDeliveryCertificationService
                 ['atlas.product_delivery.patch_request_contract.v1', 'atlas.product_delivery.patch_manifest.v1', 'patch_prompt_projection.v1'],
             ) && $this->sourceHas(
                 'app/Console/Commands/Ai/Product/AtlasProductDeliveryPatchRequestCommand.php',
-                ['atlas:product-delivery:patch-request', 'provider-safe AEDPDS patch request'],
+                ['atlas:product-delivery:patch-request', 'provider-safe AEDPDS patch request', '--operator-approved', '--ux=*'],
             ) && $this->sourceHas(
                 'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
                 ['test_patch_request_contract_projects_provider_safe_patch_schema', 'test_product_delivery_patch_request_command_outputs_contract'],
@@ -191,7 +197,7 @@ class AtlasProductDeliveryCertificationService
                 ['multi_step_repair_plan', 'AtlasProductDeliveryMultiStepRepairPlannerService'],
             ) && $this->sourceHas(
                 'app/Console/Commands/Ai/Product/AtlasProductDeliveryRepairPlanCommand.php',
-                ['atlas:product-delivery:repair-plan', 'multi-step repair plan'],
+                ['atlas:product-delivery:repair-plan', 'multi-step repair plan', '--operator-approved', '--ux=*'],
             ) && $this->sourceHas(
                 'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
                 ['test_multi_step_repair_planner_orders_evidence_patch_and_proof_steps', 'test_product_delivery_repair_plan_command_outputs_multistep_plan'],
@@ -231,6 +237,10 @@ class AtlasProductDeliveryCertificationService
             $this->check('sample_ecommerce_requires_apfpr', data_get($sample, 'proof_requirements.apfpr_required') === true),
             $this->check('sample_pre_provider_enforcement_allows_delivery', data_get($sample, 'enforcement.status') === 'allowed'
                 && data_get($sample, 'enforcement.provider_execution_allowed') === true),
+            $this->check('sample_apdr_blocks_when_aedpds_gate_blocks', ($blockedGateSample['status'] ?? null) === 'blocked_by_aedpds_gate'
+                && data_get($blockedGateSample, 'aedpds.gate.status') === 'blocked'
+                && data_get($blockedGateSample, 'enforcement.status') === 'blocked'
+                && collect(data_get($blockedGateSample, 'proof_preview.critical_blockers', []))->pluck('id')->contains('delivery_contract_not_ready')),
         ];
 
         $failed = array_values(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) !== 'passed'));

@@ -18,6 +18,7 @@ class AtlasProductDeliveryRiskGovernorCommand extends Command
         {--route= : Optional route override}
         {--provider-patch : Treat as provider/subagent patch candidate}
         {--operator-approved : Simulate explicit operator approval}
+        {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Print JSON}
         {--strict : Exit non-zero unless risk governance allows the current phase}';
 
@@ -33,6 +34,8 @@ class AtlasProductDeliveryRiskGovernorCommand extends Command
             'human_request' => (string) ($this->argument('request') ?: 'Atlas product delivery request'),
             'workspace' => $this->option('workspace'),
             'route' => $this->option('route'),
+            'operator_approved' => (bool) $this->option('operator-approved'),
+            'ux_expectations' => $this->strings($this->option('ux')),
         ]);
         $replay = $replayLab->replay([
             'workspace' => $this->option('workspace') ?: 'atlas-server',
@@ -64,5 +67,20 @@ class AtlasProductDeliveryRiskGovernorCommand extends Command
         return (bool) $this->option('strict') && ($report['status'] ?? null) !== 'allowed'
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 }

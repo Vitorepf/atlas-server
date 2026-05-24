@@ -162,7 +162,7 @@ AEDPDS mae -> runtime matrix -> service/comando/teste -> certification
 | Ordem | Bloco | Funcao | Estado | Prova |
 |---:|---|---|---|---|
 | 1 | Product Truth Compiler | Compila pedido humano em verdade de produto executavel. | implemented | `AtlasProductTruthCompilerService` |
-| 2 | Execution Lens Selector | Escolhe DDD, ATDD, CDD, ADD, Risk, Security, UX e Performance. | implemented | Product tests |
+| 2 | Execution Doctrine Selector | Escolhe drivers canonicos AEDPDS por tarefa: TDD, ATDD, CDD/API-first, DbDD, UX, Risk, Architecture, Security, Performance, Docs, DDD, MDD, Observability e Evidence. | implemented | `AtlasExecutionDoctrineRuntimeService` + `atlas:aedpds:select` |
 | 3 | Human Intent Normalization | Traduz pedido ruim em objetivo verificavel. | implemented | Product Truth tests |
 | 4 | Ambiguity Resolver | Pergunta so o minimo necessario antes de executar. | implemented_shadow | `needs_context` |
 | 5 | Product Brief Runtime | Cria problema, publico, resultado e limites. | implemented | Product Truth payload |
@@ -175,30 +175,31 @@ AEDPDS mae -> runtime matrix -> service/comando/teste -> certification
 | 12 | Delivery Decomposition Engine | Decide Dev, Forge, pesquisa, prototipo ou bloqueio. | implemented | APDR route |
 | 13 | Proof Plan Compiler | Define testes, gates e evidencias antes da execucao. | implemented | `proof_plan` |
 | 14 | Product Simulation Runtime | Simula fluxo, risco e impacto antes de codar. | implemented_shadow | APDR delivery plan |
-| 15 | APDR Delivery Runtime | Monta contrato de execucao provider-free. | implemented | `AtlasAutonomousProductDeliveryRuntimeService` |
-| 16 | Dev Delivery Bridge | Usa AAEQ/ADRI para tarefas curtas. | implemented | `/ai/interactions` wiring |
-| 17 | Forge Delivery Bridge | Encaminha Obra longa para Forge semantics. | implemented_shadow | route `atlas_forge` |
-| 18 | APFPR Proof Runtime | Tenta reprovar requisito, aceite, contrato, seguranca, teste e evidencia. | implemented | `AtlasProductFalsificationProofRuntimeService` |
-| 19 | Enforcement Runtime | Bloqueia provider/completion quando falta prova. | implemented | `AtlasProductDeliveryEnforcementService` |
-| 20 | Repair Bridge | Converte blocker APFPR em Dev repair receipt ou Forge repair packet. | implemented_non_mutative | `AtlasProductDeliveryRepairBridgeService` |
-| 21 | Delivery Certification Runtime | Certifica AEDPDS e bloqueia falso pronto. | implemented | `atlas:product-delivery:certify` |
-| 22 | Outcome Memory Runtime | Persiste resultado, evidencia e reparos. | implemented | `atlas_product_delivery_outcome_memories` |
-| 23 | AEMOR Judgment Bridge | Passa outcome pelo Judgment Guard antes de learning. | implemented_guarded | `AtlasAemorJudgmentService` |
-| 24 | Product Control Plane | Agrega delivery, risk, replay, fitness, receipts, certification, blockers e proximas acoes. | implemented_shadow | `AtlasProductDeliveryControlPlaneService` + `atlas:product-delivery:control-plane` |
-| 25 | Patch Request Contract | Projeta pedido seguro para humano/provider/subagente propor patch no schema correto. | implemented_controlled | `AtlasProductDeliveryPatchRequestContractService` + `atlas:product-delivery:patch-request` |
-| 26 | Patch Proposal Gate | Valida patch humano/provider/subagente antes do executor, exige approval quando aplica risco alto. | implemented_controlled | `AtlasProductDeliveryPatchProposalGateService` |
-| 27 | Mutative Repair Executor | Aplica patch explicito aprovado apos proof failure com allowlist, rollback snapshot e proof rerun. | implemented_controlled | `AtlasProductDeliveryMutativeRepairExecutorService` + `atlas:product-delivery:repair-execute` |
-| 28 | Runtime Receipt Ledger | Persiste patch request, gate e repair execution em receipts append-only. | implemented_guarded | `AtlasProductDeliveryRuntimeReceiptService` |
-| 29 | Self-Improving Delivery | Ajusta rotas/testes por outcomes aprovados. | partial_guarded | AEMOR learning gated |
-| 30 | Assisted Patch Generator | Gera patch candidato a partir do Patch Request Contract, sem aplicar direto. | planned_guarded | Depende de Proposal Gate |
-| 31 | Multi-Step Repair Planner | Quebra reparo em passos com budget, rollback, testes e stop conditions. | implemented_shadow | `AtlasProductDeliveryMultiStepRepairPlannerService` |
-| 32 | Product Twin Simulation | Simula impacto em dominio, contrato, arquivo, teste, UI e operacao antes da execucao. | implemented_shadow | `AtlasProductTwinSimulationService` |
-| 33 | Doctrine Fitness Loop | Mede qual lente de entrega gerou melhor outcome real. | implemented_shadow | `AtlasProductDeliveryDoctrineFitnessService` + `atlas:product-delivery:doctrine-fitness` |
-| 34 | Delivery Risk Governor | Ajusta autonomia por risco, approval, replay, fitness, receipts, patch de provider, proof e Product Twin. | implemented_shadow | `AtlasProductDeliveryRiskGovernorService` + `atlas:product-delivery:risk-govern` |
-| 35 | Evidence Replay Lab | Reexecuta cenarios antigos e receipts para provar que mudanca de doutrina nao regrediu qualidade. | implemented_shadow | `AtlasProductDeliveryEvidenceReplayLabService` + `atlas:product-delivery:replay-lab` |
-| 36 | Autonomous Product Release Gate | Decide se uma entrega pode sair de Dev/Forge para release candidate com prova completa. | implemented_shadow | `AtlasProductReleaseGateService` + `atlas:product-delivery:release-gate` |
-| 37 | Provider/Cost/Flake Memory Feed | Alimenta Risk Governor com falha de provider, custo real e flakiness de teste. | implemented_shadow | `AtlasProductDeliveryProviderMemoryFeedService` + `atlas:product-delivery:provider-memory` |
-| 38 | Product Policy Optimizer | Propoe ajuste de doutrina quando Replay, Fitness e Outcome convergem. | implemented_shadow | AEMOR Judgment required |
+| 15 | AEDPDS Execution Gate | Bloqueia ou alerta quando drivers exigem aceite, contexto, teste, contrato, UX, modelo formal/semi-formal, observabilidade/readiness, review ou evidencia ausente. | implemented | `AtlasExecutionDoctrineGateService` + `atlas:aedpds:gate` |
+| 16 | APDR Delivery Runtime | Monta contrato de execucao provider-free, embute `aedpds.doctrine` + `aedpds.gate` e bloqueia `ready_for_delivery` quando o gate AEDPDS bloqueia. | implemented | `AtlasAutonomousProductDeliveryRuntimeService` |
+| 17 | Dev Delivery Bridge | Usa AEDPDS/AAEQ/ADRI para tarefas curtas. | implemented | `DevTaskPacketRuntimeService`, `DevContextGateService`, `DevRunCertificationService` |
+| 18 | Forge Delivery Bridge | Encaminha Obra longa para Forge semantics com projecao AEDPDS no Work Intake. | implemented | `AtlasCodeForgeWorkIntakeService` |
+| 19 | APFPR Proof Runtime | Tenta reprovar requisito, aceite, contrato, seguranca, teste e evidencia. | implemented | `AtlasProductFalsificationProofRuntimeService` |
+| 20 | Enforcement Runtime | Bloqueia provider/completion quando falta prova. | implemented | `AtlasProductDeliveryEnforcementService` |
+| 21 | Repair Bridge | Converte blocker APFPR em Dev repair receipt ou Forge repair packet. | implemented_non_mutative | `AtlasProductDeliveryRepairBridgeService` |
+| 22 | Delivery Certification Runtime | Certifica AEDPDS e bloqueia falso pronto. | implemented | `atlas:aedpds:certify` + `atlas:product-delivery:certify` |
+| 23 | Outcome Memory Runtime | Persiste resultado, evidencia e reparos. | implemented | `atlas_product_delivery_outcome_memories` |
+| 24 | AEMOR Judgment Bridge | Passa outcome pelo Judgment Guard antes de learning. | implemented_guarded | `AtlasAemorJudgmentService` |
+| 25 | Product Control Plane | Agrega delivery, risk, replay, fitness, receipts, certification, blockers e proximas acoes. | implemented_shadow | `AtlasProductDeliveryControlPlaneService` + `atlas:product-delivery:control-plane` |
+| 26 | Patch Request Contract | Projeta pedido seguro para humano/provider/subagente propor patch no schema correto. | implemented_controlled | `AtlasProductDeliveryPatchRequestContractService` + `atlas:product-delivery:patch-request` |
+| 27 | Patch Proposal Gate | Valida patch humano/provider/subagente antes do executor, exige approval quando aplica risco alto. | implemented_controlled | `AtlasProductDeliveryPatchProposalGateService` |
+| 28 | Mutative Repair Executor | Aplica patch explicito aprovado apos proof failure com allowlist, rollback snapshot e proof rerun. | implemented_controlled | `AtlasProductDeliveryMutativeRepairExecutorService` + `atlas:product-delivery:repair-execute` |
+| 29 | Runtime Receipt Ledger | Persiste patch request, gate e repair execution em receipts append-only. | implemented_guarded | `AtlasProductDeliveryRuntimeReceiptService` |
+| 30 | Self-Improving Delivery | Ajusta rotas/testes por outcomes aprovados. | partial_guarded | AEMOR learning gated |
+| 31 | Assisted Patch Generator | Gera patch candidato a partir do Patch Request Contract, sem aplicar direto. | planned_guarded | Depende de Proposal Gate |
+| 32 | Multi-Step Repair Planner | Quebra reparo em passos com budget, rollback, testes e stop conditions. | implemented_shadow | `AtlasProductDeliveryMultiStepRepairPlannerService` |
+| 33 | Product Twin Simulation | Simula impacto em dominio, contrato, arquivo, teste, UI e operacao antes da execucao. | implemented_shadow | `AtlasProductTwinSimulationService` |
+| 34 | Doctrine Fitness Loop | Mede qual lente de entrega gerou melhor outcome real. | implemented_shadow | `AtlasProductDeliveryDoctrineFitnessService` + `atlas:product-delivery:doctrine-fitness` |
+| 35 | Delivery Risk Governor | Ajusta autonomia por risco, approval, replay, fitness, receipts, patch de provider, proof e Product Twin. | implemented_shadow | `AtlasProductDeliveryRiskGovernorService` + `atlas:product-delivery:risk-govern` |
+| 36 | Evidence Replay Lab | Reexecuta cenarios antigos e receipts para provar que mudanca de doutrina nao regrediu qualidade. | implemented_shadow | `AtlasProductDeliveryEvidenceReplayLabService` + `atlas:product-delivery:replay-lab` |
+| 37 | Autonomous Product Release Gate | Decide se uma entrega pode sair de Dev/Forge para release candidate com prova completa. | implemented_shadow | `AtlasProductReleaseGateService` + `atlas:product-delivery:release-gate` |
+| 38 | Provider/Cost/Flake Memory Feed | Alimenta Risk Governor com falha de provider, custo real e flakiness de teste. | implemented_shadow | `AtlasProductDeliveryProviderMemoryFeedService` + `atlas:product-delivery:provider-memory` |
+| 39 | Product Policy Optimizer | Propoe ajuste de doutrina quando Replay, Fitness e Outcome convergem. | implemented_shadow | AEMOR Judgment required |
 
 ## Loops Apex
 
@@ -230,8 +231,10 @@ AEDPDS mae -> runtime matrix -> service/comando/teste -> certification
 | Runtime | Input | Output | Risco | Comando/Teste |
 |---|---|---|---|---|
 | APTC | pedido humano, contexto, rota desejada | `atlas.product_truth_contract.v1` | verdade incompleta | `atlas:product-truth:compile --json` |
-| APDR | Product Truth, contexto, evidencia | `atlas.autonomous_product_delivery_runtime.v1` | rota errada | `atlas:product-delivery:plan --json` |
-| APFPR | delivery, truth, evidencia | `atlas.product_proof_challenge.v1` | falso pronto | `atlas:product-proof:challenge --json` |
+| AEDPDS Selector | pedido, surface, workspace, hints, risco, arquivos | `atlas.aedpds.execution_doctrine.v1` | driver errado ou excesso de burocracia | `atlas:aedpds:select --task="..." --json` |
+| AEDPDS Gate | selector, aceite, contexto, testes, contratos, docs, review, evidencia | `atlas.aedpds.execution_gate.v1` | execucao sem criterio real | `atlas:aedpds:gate --task="..." --acceptance="..." --context="..." --test="..." --contract="..." --review="..." --evidence="..." --json --strict` |
+| APDR | Product Truth, contexto, evidencia | `atlas.autonomous_product_delivery_runtime.v1` | rota errada ou falso readiness com gate bloqueado | `atlas:product-delivery:plan --operator-approved --ux="..." --json --strict` |
+| APFPR | delivery, truth, evidencia | `atlas.product_proof_challenge.v1` | falso pronto ou prova sobre APDR bloqueado | `atlas:product-proof:challenge --operator-approved --ux="..." --with-demo-evidence --json --strict` |
 | Enforcement | delivery, proof, fase | allow/block | bloqueio fraco | Product tests |
 | Repair Bridge | delivery, proof bloqueado | Dev repair receipt ou Forge repair packet | repair sem patch real | Product tests |
 | Outcome Memory | delivery, proof, evidencia | `atlas.product_delivery.outcome_memory.v1` | memoria falsa | `atlas:product-delivery:outcome --persist --json` |
@@ -250,7 +253,7 @@ AEDPDS mae -> runtime matrix -> service/comando/teste -> certification
 | Autonomous Product Release Gate | proof, outcome, receipts | release candidate decision | release prematuro | `atlas:product-delivery:release-gate --json --strict` |
 | Provider/Cost/Flake Memory Feed | outcomes, test logs, provider receipts | risk signal | custo/flake mal atribuido | `atlas:product-delivery:provider-memory --json --strict` |
 | Product Policy Optimizer | replay, fitness, AEMOR judgment | policy proposal | auto-policy perigosa | `atlas:product-delivery:policy-optimizer --json --strict` |
-| Certification | arquivos, testes, comandos | readiness 25/25 | claim inflado | `atlas:product-delivery:certify --json --strict` |
+| Certification | arquivos, testes, comandos | readiness granular AEDPDS/APDR | claim inflado | `atlas:aedpds:certify --json --strict` + `atlas:product-delivery:certify --json --strict` |
 
 ## Estados
 

@@ -96,6 +96,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'estou com bug na tela de login',
             'workspace' => 'atlas-app',
+            'operator_approved' => true,
+            'ux_expectations' => ['login visual regression expectation'],
         ]);
 
         $this->assertSame(AtlasAutonomousProductDeliveryRuntimeService::SCHEMA_VERSION, $plan['schema_version']);
@@ -129,6 +131,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
 
         $simulation = app(AtlasProductTwinSimulationService::class)->simulate([
@@ -204,6 +208,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'workspace' => 'atlas-server',
             'operator_approved' => true,
             'provider_patch' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
 
         $risk = app(AtlasProductDeliveryRiskGovernorService::class)->evaluate(
@@ -257,6 +262,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $delivery = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
         app(AtlasProductDeliveryOutcomeMemoryService::class)->persist(
             delivery: $delivery,
@@ -287,6 +294,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
 
         $this->assertSame('repair_required', $plan['repair_bridge']['status']);
@@ -342,6 +351,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
 
         $proof = app(AtlasProductFalsificationProofRuntimeService::class)->challenge([
@@ -401,6 +412,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'evidence' => $evidence,
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
         $proof = app(AtlasProductFalsificationProofRuntimeService::class)->challenge([
             'product_truth' => $plan['product_truth'],
@@ -433,6 +446,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'evidence' => $evidence,
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
         $proof = app(AtlasProductFalsificationProofRuntimeService::class)->challenge([
             'product_truth' => $plan['product_truth'],
@@ -535,6 +550,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
 
         $receipt = app(AtlasProductDeliveryMutativeRepairExecutorService::class)->execute(
@@ -662,6 +679,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'request' => 'cria um ecommerce completo com pagamentos e webhooks',
             '--workspace' => 'atlas-server',
             '--target' => 'provider',
+            '--operator-approved' => true,
+            '--ux' => ['checkout journey expectation'],
             '--json' => true,
             '--strict' => true,
         ]);
@@ -697,6 +716,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--workspace' => 'atlas-server',
             '--provider-patch' => true,
             '--operator-approved' => true,
+            '--ux' => ['checkout journey expectation'],
             '--json' => true,
             '--strict' => true,
         ]);
@@ -715,6 +735,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'workspace' => 'atlas-server',
             'provider_patch' => true,
             'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
         ]);
 
         $this->assertSame(AtlasProductDeliveryControlPlaneService::SCHEMA_VERSION, $payload['schema_version']);
@@ -757,6 +778,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--workspace' => 'atlas-server',
             '--provider-patch' => true,
             '--operator-approved' => true,
+            '--ux' => ['checkout journey expectation'],
             '--json' => true,
             '--strict' => true,
         ]);
@@ -931,6 +953,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'workspace' => 'atlas-server',
             'provider_patch' => true,
             'operator_approved' => true,
+            'ux_expectations' => ['checkout journey expectation'],
             'evidence' => [
                 'tests' => ['focused tests passed', 'contract tests passed', 'security regression tests passed'],
                 'security' => ['abuse cases reviewed'],
@@ -996,6 +1019,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $exit = Artisan::call('atlas:product-delivery:repair-plan', [
             'request' => 'cria um ecommerce completo com pagamentos e webhooks',
             '--workspace' => 'atlas-server',
+            '--operator-approved' => true,
+            '--ux' => ['checkout journey expectation'],
             '--json' => true,
             '--strict' => true,
         ]);
@@ -1124,6 +1149,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'request' => 'cria um ecommerce completo com pagamentos e webhooks',
             '--workspace' => 'atlas-server',
             '--target' => 'provider',
+            '--operator-approved' => true,
+            '--ux' => ['checkout journey expectation'],
             '--persist' => true,
             '--json' => true,
         ]);
@@ -1192,6 +1219,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--approval' => 'operator approved provider patch after review',
             '--apply' => true,
             '--evidence' => ['tests', 'security', 'acceptance_mapping', 'outcome'],
+            '--ux' => ['checkout journey expectation'],
             '--json' => true,
             '--strict' => true,
         ]);
@@ -1233,6 +1261,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--apply' => true,
             '--persist' => true,
             '--evidence' => ['tests', 'security', 'acceptance_mapping', 'outcome'],
+            '--ux' => ['checkout journey expectation'],
             '--json' => true,
             '--strict' => true,
         ]);
@@ -1267,6 +1296,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $exit = Artisan::call('atlas:product-delivery:plan', [
             'request' => 'estou com bug na tela de login',
             '--workspace' => 'atlas-app',
+            '--operator-approved' => true,
+            '--ux' => ['login visual regression expectation'],
             '--json' => true,
             '--strict' => true,
         ]);
@@ -1376,14 +1407,32 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame('blocked', $payload['status']);
     }
 
+    public function test_product_proof_challenge_command_can_pass_when_apdr_gate_and_evidence_are_ready(): void
+    {
+        $exit = Artisan::call('atlas:product-proof:challenge', [
+            'request' => 'cria um ecommerce completo com pagamentos e webhooks',
+            '--workspace' => 'atlas-server',
+            '--operator-approved' => true,
+            '--ux' => ['checkout journey expectation'],
+            '--with-demo-evidence' => true,
+            '--json' => true,
+            '--strict' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('ready', $payload['status']);
+    }
+
     public function test_product_delivery_certification_is_ready_and_command_is_strict_green(): void
     {
         $report = app(AtlasProductDeliveryCertificationService::class)->certify();
 
         $this->assertSame(AtlasProductDeliveryCertificationService::SCHEMA_VERSION, $report['schema_version']);
         $this->assertSame('ready', $report['status']);
-        $this->assertSame(26, $report['summary']['total']);
-        $this->assertSame(26, $report['summary']['passed']);
+        $this->assertSame(27, $report['summary']['total']);
+        $this->assertSame(27, $report['summary']['passed']);
+        $this->assertSame('passed', collect($report['checks'])->firstWhere('id', 'sample_apdr_blocks_when_aedpds_gate_blocks')['status']);
         $this->assertSame([], $report['remaining_blockers']);
         $this->assertFalse($report['claim_policy']['provider_invoked']);
         $this->assertFalse($report['claim_policy']['writes']);

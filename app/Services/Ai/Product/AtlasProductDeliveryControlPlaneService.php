@@ -34,6 +34,7 @@ class AtlasProductDeliveryControlPlaneService
             'provider_patch' => (bool) ($options['provider_patch'] ?? false),
             'operator_approved' => (bool) ($options['operator_approved'] ?? false),
             'evidence' => $this->map($options['evidence'] ?? []),
+            'ux_expectations' => $this->list($options['ux_expectations'] ?? []),
         ]);
         $replay = $this->replayLab->replay([
             'workspace' => $this->string($options['workspace'] ?? null) ?? 'atlas-server',

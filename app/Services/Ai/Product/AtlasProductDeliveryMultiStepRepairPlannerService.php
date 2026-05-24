@@ -159,6 +159,9 @@ class AtlasProductDeliveryMultiStepRepairPlannerService
         if (($delivery['schema_version'] ?? null) !== AtlasAutonomousProductDeliveryRuntimeService::SCHEMA_VERSION) {
             $blockers[] = ['id' => 'invalid_delivery_contract'];
         }
+        if (($delivery['status'] ?? null) !== 'ready_for_delivery') {
+            $blockers[] = ['id' => 'delivery_contract_not_ready'];
+        }
         if (($proof['schema_version'] ?? null) !== AtlasProductFalsificationProofRuntimeService::SCHEMA_VERSION) {
             $blockers[] = ['id' => 'invalid_proof_challenge'];
         }

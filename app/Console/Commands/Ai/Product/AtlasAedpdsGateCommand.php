@@ -11,6 +11,15 @@ class AtlasAedpdsGateCommand extends Command
         {--task= : Task text}
         {--surface=atlas_ai : Surface}
         {--workspace= : Workspace/project}
+        {--acceptance=* : Acceptance criteria}
+        {--context=* : Context refs or owner docs}
+        {--test=* : Required/focused tests}
+        {--contract=* : API/schema/contracts}
+        {--doc=* : Required docs}
+        {--review=* : Review evidence}
+        {--evidence=* : Evidence refs}
+        {--ux=* : UX expectation or prototype refs}
+        {--no-code : Treat as non-code work}
         {--json : Print JSON}
         {--strict : Exit non-zero when blocked}';
 
@@ -19,25 +28,39 @@ class AtlasAedpdsGateCommand extends Command
     public function handle(AtlasExecutionDoctrineGateService $service): int
     {
         $task = (string) ($this->option('task') ?: 'Atlas AEDPDS task');
-        $lower = mb_strtolower($task);
         $payload = $service->evaluate([
             'task' => $task,
             'surface' => (string) $this->option('surface'),
             'workspace' => $this->option('workspace'),
-            'code_changes_requested' => true,
-            'acceptance_criteria' => ['expected behavior is specified'],
-            'context_refs' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
-            'tests' => ['focused verification command'],
-            'contracts' => str_contains($lower, 'api') || str_contains($lower, 'endpoint') ? ['api contract'] : [],
-            'docs' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
-            'review' => ['risk review placeholder for CLI gate'],
-            'evidence' => ['aedpds gate output'],
-            'ux_expectations' => str_contains($lower, 'tela') || str_contains($lower, 'ui') ? ['ux expectation'] : [],
+            'code_changes_requested' => ! (bool) $this->option('no-code'),
+            'acceptance_criteria' => $this->stringList($this->option('acceptance')),
+            'context_refs' => $this->stringList($this->option('context')),
+            'tests' => $this->stringList($this->option('test')),
+            'contracts' => $this->stringList($this->option('contract')),
+            'docs' => $this->stringList($this->option('doc')),
+            'review' => $this->stringList($this->option('review')),
+            'evidence' => $this->stringList($this->option('evidence')),
+            'ux_expectations' => $this->stringList($this->option('ux')),
         ]);
         $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return (bool) $this->option('strict') && ($payload['status'] ?? null) === 'blocked'
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map(static fn (mixed $item): string => is_scalar($item) ? trim((string) $item) : '', $value),
+            static fn (string $item): bool => $item !== '',
+        ));
     }
 }

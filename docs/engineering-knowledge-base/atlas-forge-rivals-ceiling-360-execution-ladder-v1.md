@@ -154,6 +154,11 @@ de 360:
 - `replayable_evidence_quality`
 - `honest_blocker_behavior`
 - `ambiguous_human_prompt_handling`
+- `adversarial_constraint_handling`
+- `non_obvious_regression_detection`
+- `uncertainty_boundary_quality`
+- `production_invariant_reasoning`
+- `capability_separation_signal`
 
 Um empate em `ceiling-360` nunca vira claim real sozinho. Ele exige separacao
 estatistica, replay e revisao humana.
@@ -176,6 +181,87 @@ grande ainda seja facil. O floor minimo e:
 Esse perfil aumenta a dificuldade do prompt/corpus sem alterar o limite de
 seguranca: dry-run continua sem provider, local_fake nao vira claim e real-run
 segue bloqueado por disk/driver/confirmacoes quando necessario.
+
+## Adjudication L5+
+
+O adjudicator local tambem mede `ceiling_360_contract` em casos `ceiling-360`.
+Essa dimensao le o patch/evidencia produzidos e pontua marcadores semanticos
+deterministicos do contrato L5+:
+
+- separacao entre fatos, premissas e decisoes reversiveis;
+- matriz de tradeoffs;
+- plano de rollback;
+- replay ou probe negativo de regressao;
+- fronteira honesta de incerteza;
+- invariantes de producao;
+- evidencia especifica por capacidade.
+
+Essa medicao nao usa LLM juiz, nao chama provider e nao altera routing. Ela
+existe para expor diferenca entre respostas que passam o mesmo teste rapido mas
+nao provam a mesma maturidade operacional.
+
+`provider_performance_signal.ceiling_360_contract_signal`
+(`atlas.forge.rivals.ceiling_360_contract_signal.v1`) separa tres estados que
+o winner global pode esconder:
+
+- `differentiated`: um arm cobriu mais marcadores L5+.
+- `contract_floor_gap`: ambos ficaram abaixo do piso semantico.
+- `differentiated_with_contract_floor_gap`: existe lideranca relativa, mas ao
+  menos um arm ainda nao atingiu todos os marcadores.
+
+O piso canonico e `contract_floor_score=100` porque casos L5+ devem evidenciar
+todos os marcadores declarados. O signal tambem lista `shared_missing_markers`
+e `any_missing_markers` para guiar a proxima bateria sem promover claim.
+
+`matrix_report.ceiling_360_contract_matrix`
+(`atlas.forge.rivals.matrix_ceiling_360_contract.v1`) agrega o mesmo contrato
+em multiplos runs/cases. Ele existe porque o winner geral pode empatar enquanto
+o contrato L5+ separa capacidade real, ou pode empatar porque ambos deixaram
+marcadores obrigatorios sem evidencia. A matriz deve emitir:
+
+- `observed_cases` e `missing_contract_cases`;
+- `differentiated_cases`, `atlas_ahead_cases`, `rival_ahead_cases` e
+  `tie_cases`;
+- `below_contract_floor_cases` com piso `contract_floor_score=100`;
+- `shared_missing_markers`, `any_missing_markers` e `separation_ratio`;
+- `next_measurement_plan` por marcador faltante, com capacidades alvo,
+  candidatos L5+ e comandos dry-run sem provider call;
+- `next_measurement_plan.evidence_disk_status`, `dry_run_ready`,
+  `real_run_ready` e `real_run_blockers`, para impedir gasto real de tokens
+  quando o disco nao consegue preservar evidence/replay;
+- invariantes advisory-only para Atlas Decide.
+
+Estados canonicos:
+
+- `not_observed`: nenhum scorecard carregou contrato L5+.
+- `differentiated`: ha separacao por contrato e todos atingiram o piso.
+- `contract_floor_gap`: casos observados ficaram abaixo do piso sem lideranca
+  relativa.
+- `differentiated_with_contract_floor_gap`: ha lideranca relativa, mas pelo
+  menos um arm ainda falhou no piso.
+- `tied_at_contract_floor`: ambos atingiram todos os marcadores e empataram.
+
+`matrix_report.battle_coverage`
+(`atlas.forge.rivals.matrix_battle_coverage.v1`) mede diversidade de batalhas.
+Ele impede que o Rivals trate tres casos L5+ no mesmo par como compreensao 360
+dos modelos/runners. O floor de batalha exige evidencia comparavel nos pares
+canonicos:
+
+- `atlas_forge_vs_claude_sonnet`;
+- `atlas_dev_vs_atlas_forge`;
+- `composer_2_5_vs_codex_gpt_5_5`;
+- `cursor_default_vs_claude_sonnet`;
+- `claude_sonnet_vs_codex_gpt_5_5`;
+- `codex_gpt_5_5_vs_gemini_pro`;
+- `claude_sonnet_vs_claude_opus`;
+- `atlas_forge_full_power_vs_claude_opus`.
+
+Quando faltam pares, a matriz emite `needs_more_battle_diversity`, lista
+`missing_canonical_battles` e fornece comandos dry-run sem provider call. O
+`next_measurement_plan` tambem deve expor `dry_run_ready`, `real_run_ready`,
+`real_run_blockers`, `evidence_disk_status` e as tres confirmacoes requeridas
+para real run, mantendo `provider_call=false` e `tokens_spent=false` na fase de
+planejamento.
 
 ## Separacao de Capacidades
 

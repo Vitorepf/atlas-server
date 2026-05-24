@@ -174,6 +174,9 @@ class AtlasProductFalsificationProofRuntimeService
         if ($delivery === []) {
             $blockers[] = $this->blocker('missing_delivery_contract', 'critical', 'APFPR requires a delivery contract.');
         }
+        if ($delivery !== [] && ($delivery['status'] ?? null) !== 'ready_for_delivery') {
+            $blockers[] = $this->blocker('delivery_contract_not_ready', 'critical', 'APFPR cannot certify a delivery contract that is not ready.');
+        }
         if ($truth === []) {
             $blockers[] = $this->blocker('missing_product_truth', 'critical', 'APFPR requires a Product Truth Contract.');
         }

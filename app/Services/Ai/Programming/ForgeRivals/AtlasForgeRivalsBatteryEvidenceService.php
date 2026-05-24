@@ -117,12 +117,24 @@ final class AtlasForgeRivalsBatteryEvidenceService
             }
 
             // Ensure the per-run pack is current, then load it.
-            $packResult = $this->collect->collect([
-                'run_id' => $paths['run_id'],
-                'evidence_stage' => $stage,
-            ]);
-            $pack = is_array($packResult['evidence_pack'] ?? null) ? $packResult['evidence_pack'] : [];
             $packPath = $paths['evidence'].'/evidence_pack.json';
+            $packWriteStatus = $this->diskWriteStatus($packPath);
+            if (($packWriteStatus['status'] ?? null) !== 'ok' && is_file($packPath)) {
+                $pack = $this->readJson($packPath);
+            } elseif (($packWriteStatus['status'] ?? null) !== 'ok') {
+                $pack = [];
+                $missingArtifacts[] = 'evidence_pack_write_blocked_and_missing:'.$paths['run_id'];
+                $missingArtifacts = array_values(array_merge(
+                    $missingArtifacts,
+                    $this->prefixBlockers('evidence_pack_write_blocked:', $this->stringList($packWriteStatus['blockers'] ?? [])),
+                ));
+            } else {
+                $packResult = $this->collect->collect([
+                    'run_id' => $paths['run_id'],
+                    'evidence_stage' => $stage,
+                ]);
+                $pack = is_array($packResult['evidence_pack'] ?? null) ? $packResult['evidence_pack'] : [];
+            }
             $packHash = is_file($packPath) ? (hash_file('sha256', $packPath) ?: null) : null;
             $manifest = is_file($paths['manifest_json']) ? $this->readJson($paths['manifest_json']) : [];
             $modeForEvidence = (string) ($pack['mode_for_evidence'] ?? '');
@@ -243,11 +255,24 @@ final class AtlasForgeRivalsBatteryEvidenceService
             }
         }
         if ($outputPath !== null) {
-            @mkdir(dirname($outputPath), 0o755, true);
-            file_put_contents($outputPath, $this->jsonEncode($pack));
-            $pack['battery_pack_path'] = $outputPath;
-            $pack['battery_pack_sha256'] = hash_file('sha256', $outputPath) ?: null;
+            $outputWriteStatus = $this->diskWriteStatus($outputPath);
+            if (($outputWriteStatus['status'] ?? null) === 'ok') {
+                @mkdir(dirname($outputPath), 0o755, true);
+                file_put_contents($outputPath, $this->jsonEncode($pack));
+                $pack['battery_pack_path'] = $outputPath;
+                $pack['battery_pack_sha256'] = hash_file('sha256', $outputPath) ?: null;
+            } else {
+                $blockers = array_values(array_unique(array_merge(
+                    $blockers,
+                    $this->prefixBlockers('battery_evidence_pack_write_blocked:', $this->stringList($outputWriteStatus['blockers'] ?? [])),
+                )));
+                $pack['blockers'] = $blockers;
+                $pack['battery_pack_path'] = null;
+                $pack['battery_pack_sha256'] = null;
+                $pack['battery_pack_write_status'] = $outputWriteStatus;
+            }
         }
+        $status = $blockers === [] ? 'passed' : 'invalid_missing_evidence';
 
         return [
             'status' => $status === 'passed' ? 'ok' : $status,
@@ -720,6 +745,28 @@ final class AtlasForgeRivalsBatteryEvidenceService
         }
 
         return array_values(array_map(static fn ($v): string => (string) $v, $value));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function diskWriteStatus(string $path): array
+    {
+        $guard = new AtlasForgeRivalsProviderEvidenceDiskGuardService;
+
+        return $guard->check($path);
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     * @return list<string>
+     */
+    private function prefixBlockers(string $prefix, array $blockers): array
+    {
+        return array_values(array_map(
+            static fn (string $blocker): string => $prefix.$blocker,
+            $blockers,
+        ));
     }
 
     private function jsonEncode(mixed $value): string

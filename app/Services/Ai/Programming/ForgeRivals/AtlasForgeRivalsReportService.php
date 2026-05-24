@@ -120,6 +120,11 @@ final class AtlasForgeRivalsReportService
         'replayable_evidence_quality',
         'honest_blocker_behavior',
         'ambiguous_human_prompt_handling',
+        'adversarial_constraint_handling',
+        'non_obvious_regression_detection',
+        'uncertainty_boundary_quality',
+        'production_invariant_reasoning',
+        'capability_separation_signal',
     ];
 
     /** Validity statuses emitted on every ranking surface. */
@@ -1105,6 +1110,9 @@ final class AtlasForgeRivalsReportService
                 'atlas_score' => $atlasScore,
                 'rival_score' => $rivalScore,
                 'score_source' => $scoreSource,
+                'quality_dimensions' => is_array($scorecard['quality_dimensions'] ?? null)
+                    ? (array) $scorecard['quality_dimensions']
+                    : null,
                 'raw_score' => [
                     'atlas' => is_numeric($atlasScore) ? (float) $atlasScore : null,
                     'rival' => is_numeric($rivalScore) ? (float) $rivalScore : null,
@@ -2298,6 +2306,7 @@ final class AtlasForgeRivalsReportService
                 'human_prompt_contract' => $case['human_prompt_contract'] ?? null,
                 'complexity_profile' => $case['complexity_profile'] ?? null,
                 'measurement_tags' => $case['measurement_tags'] ?? [],
+                'quality_dimensions' => $case['quality_dimensions'] ?? null,
                 'atlas_score' => $case['atlas_score'],
                 'rival_score' => $case['rival_score'],
                 'winner' => $case['winner'],
@@ -2313,6 +2322,7 @@ final class AtlasForgeRivalsReportService
         $humanPromptCoverage = $this->buildHumanPromptCoverage($caseResults);
         $complexityCoverage = $this->buildComplexityProfileCoverage($caseResults);
         $capabilityCoverage = $this->buildCapabilityCoverage($capabilityResults);
+        $ceilingContractSignal = $this->buildCeiling360ContractSignal($caseResults);
         $nextMeasurementCommands = $this->buildNextMeasurementCommands($capabilityCoverage, $arms);
         if (is_array($capabilityCoverage['next_measurement_plan'] ?? null)) {
             $capabilityCoverage['next_measurement_plan']['recommended_commands'] = $nextMeasurementCommands;
@@ -2354,6 +2364,7 @@ final class AtlasForgeRivalsReportService
             'human_prompt_contract_coverage' => $humanPromptCoverage,
             'complexity_profile_coverage' => $complexityCoverage,
             'capability_coverage' => $capabilityCoverage,
+            'ceiling_360_contract_signal' => $ceilingContractSignal,
             'next_measurement_commands' => $nextMeasurementCommands,
             'do_not_use_when' => $doNotUseWhen,
             'fallback_hint' => $fallbackHint,
@@ -2570,6 +2581,123 @@ final class AtlasForgeRivalsReportService
             'floor_met' => $missing === [] && $underSampled === [],
             'advisory_only' => true,
             'routing_effect' => 'none',
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $caseResults
+     * @return array<string,mixed>
+     */
+    private function buildCeiling360ContractSignal(array $caseResults): array
+    {
+        $cases = [];
+        $differentiated = 0;
+        $atlasAhead = 0;
+        $rivalAhead = 0;
+        $ties = 0;
+        $missing = 0;
+        $floorScore = 100.0;
+        $belowFloor = 0;
+        $sharedMissingMarkers = [];
+        $anyMissingMarkers = [];
+
+        foreach ($caseResults as $case) {
+            $dimension = data_get($case, 'quality_dimensions.ceiling_360_contract');
+            if (! is_array($dimension) || ($dimension['markers']['required'] ?? false) !== true) {
+                $missing++;
+
+                continue;
+            }
+
+            $atlasMarkers = is_array($dimension['markers']['atlas'] ?? null) ? (array) $dimension['markers']['atlas'] : [];
+            $rivalMarkers = is_array($dimension['markers']['rival'] ?? null) ? (array) $dimension['markers']['rival'] : [];
+            $atlasScore = is_numeric($dimension['atlas'] ?? null) ? (float) $dimension['atlas'] : null;
+            $rivalScore = is_numeric($dimension['rival'] ?? null) ? (float) $dimension['rival'] : null;
+            $markerDelta = [];
+            foreach (array_unique(array_merge(array_keys($atlasMarkers), array_keys($rivalMarkers))) as $marker) {
+                $atlasHas = (bool) ($atlasMarkers[$marker] ?? false);
+                $rivalHas = (bool) ($rivalMarkers[$marker] ?? false);
+                if (! $atlasHas || ! $rivalHas) {
+                    $anyMissingMarkers[$marker] = ($anyMissingMarkers[$marker] ?? 0) + 1;
+                }
+                if (! $atlasHas && ! $rivalHas) {
+                    $sharedMissingMarkers[$marker] = ($sharedMissingMarkers[$marker] ?? 0) + 1;
+                }
+                if ($atlasHas !== $rivalHas) {
+                    $markerDelta[$marker] = [
+                        'atlas' => $atlasHas,
+                        'rival' => $rivalHas,
+                    ];
+                }
+            }
+
+            $leader = null;
+            if ($atlasScore !== null && $rivalScore !== null) {
+                if ($atlasScore < $floorScore || $rivalScore < $floorScore) {
+                    $belowFloor++;
+                }
+                if ($atlasScore > $rivalScore) {
+                    $leader = 'atlas';
+                    $atlasAhead++;
+                    $differentiated++;
+                } elseif ($rivalScore > $atlasScore) {
+                    $leader = 'rival';
+                    $rivalAhead++;
+                    $differentiated++;
+                } else {
+                    $leader = 'tie';
+                    $ties++;
+                }
+            }
+
+            $cases[] = [
+                'case_id' => (string) ($case['case_id'] ?? 'unknown-case'),
+                'atlas_score' => $atlasScore,
+                'rival_score' => $rivalScore,
+                'leader' => $leader,
+                'floor_met' => $atlasScore !== null && $rivalScore !== null
+                    && $atlasScore >= $floorScore
+                    && $rivalScore >= $floorScore,
+                'marker_delta' => $markerDelta,
+                'global_winner' => $case['winner'] ?? null,
+                'routing_effect' => 'none',
+            ];
+        }
+
+        $observed = count($cases);
+        ksort($sharedMissingMarkers);
+        ksort($anyMissingMarkers);
+        $status = match (true) {
+            $observed === 0 => 'not_observed',
+            $belowFloor > 0 && $differentiated > 0 => 'differentiated_with_contract_floor_gap',
+            $belowFloor > 0 => 'contract_floor_gap',
+            $differentiated > 0 => 'differentiated',
+            default => 'tied_at_contract_floor',
+        };
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.ceiling_360_contract_signal.v1',
+            'purpose' => 'surface_l5_plus_contract_differences_even_when_global_score_ties',
+            'status' => $status,
+            'observed_cases' => $observed,
+            'missing_contract_cases' => $missing,
+            'differentiated_cases' => $differentiated,
+            'atlas_ahead_cases' => $atlasAhead,
+            'rival_ahead_cases' => $rivalAhead,
+            'tie_cases' => $ties,
+            'contract_floor_score' => $floorScore,
+            'below_contract_floor_cases' => $belowFloor,
+            'shared_missing_markers' => $sharedMissingMarkers,
+            'any_missing_markers' => $anyMissingMarkers,
+            'separation_ratio' => $observed > 0 ? round($differentiated / $observed, 4) : 0.0,
+            'tie_is_diagnostic_not_claim' => true,
+            'advisory_only' => true,
+            'never_changes_atlas_decide_topology' => true,
+            'should_update_provider_topology' => false,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+            'cases' => $cases,
         ];
     }
 
@@ -2953,6 +3081,10 @@ final class AtlasForgeRivalsReportService
         $criticalOrHighRisk = 0;
         $multiStepPlan = 0;
         $rollbackPlan = 0;
+        $l5PlusPressure = 0;
+        $adversarialConstraints = 0;
+        $nonObviousRegression = 0;
+        $honestUncertaintyBoundary = 0;
         $scopeSurfaces = [];
 
         foreach ($caseResults as $case) {
@@ -2976,6 +3108,18 @@ final class AtlasForgeRivalsReportService
             if (($profile['requires_rollback_plan'] ?? false) === true) {
                 $rollbackPlan++;
             }
+            if ((string) ($profile['pressure_level'] ?? '') === 'L5+') {
+                $l5PlusPressure++;
+            }
+            if (($profile['requires_adversarial_constraints'] ?? false) === true) {
+                $adversarialConstraints++;
+            }
+            if (($profile['requires_non_obvious_regression_probe'] ?? false) === true) {
+                $nonObviousRegression++;
+            }
+            if (($profile['requires_honest_uncertainty_boundary'] ?? false) === true) {
+                $honestUncertaintyBoundary++;
+            }
 
             $category = trim((string) ($case['task_category'] ?? ''));
             if ($category !== '') {
@@ -2998,7 +3142,7 @@ final class AtlasForgeRivalsReportService
             if ($ambiguity > 0) {
                 $key = 'score_'.$ambiguity;
                 $ambiguityScoreDistribution[$key] = ($ambiguityScoreDistribution[$key] ?? 0) + 1;
-                if ($ambiguity >= 4) {
+                if ($ambiguity >= 3) {
                     $highAmbiguity++;
                 }
             }
@@ -3049,6 +3193,10 @@ final class AtlasForgeRivalsReportService
             'evidence_matrix_required_cases' => $evidenceMatrix,
             'multi_step_plan_required_cases' => $multiStepPlan,
             'rollback_plan_required_cases' => $rollbackPlan,
+            'l5_plus_pressure_cases' => $l5PlusPressure,
+            'adversarial_constraint_cases' => $adversarialConstraints,
+            'non_obvious_regression_probe_cases' => $nonObviousRegression,
+            'honest_uncertainty_boundary_cases' => $honestUncertaintyBoundary,
             'min_estimated_context_tokens' => $contextTokens !== [] ? min($contextTokens) : 0,
             'avg_estimated_context_tokens' => $contextTokens !== [] ? round(array_sum($contextTokens) / count($contextTokens), 2) : 0.0,
             'max_estimated_context_tokens' => $contextTokens !== [] ? max($contextTokens) : 0,

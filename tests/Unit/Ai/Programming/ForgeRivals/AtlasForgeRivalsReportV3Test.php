@@ -333,12 +333,16 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
             'difficulty_score' => 5,
             'estimated_context_tokens' => 6400,
             'reasoning_depth' => 5,
-            'ambiguity_score' => 4,
+            'ambiguity_score' => 3,
             'risk_score' => 4,
+            'pressure_level' => 'L5+',
             'long_context_required' => true,
             'requires_multi_step_plan' => true,
             'requires_rollback_plan' => true,
             'requires_evidence_matrix' => true,
+            'requires_adversarial_constraints' => true,
+            'requires_non_obvious_regression_probe' => true,
+            'requires_honest_uncertainty_boundary' => true,
             'measured_dimensions' => [
                 'long_context_retention',
                 'rollback_safety',
@@ -393,7 +397,25 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
             'tie_threshold' => AtlasForgeRivalsAdjudicatorService::DEFAULT_TIE_THRESHOLD,
             'winner_reason' => ['atlas_better_on_l5_capability_probe'],
             'hard_gates' => $this->okGates(),
-            'quality_dimensions' => ['objective_alignment' => ['atlas' => 91.0, 'rival' => 84.0, 'explanation' => 'capability probe']],
+            'quality_dimensions' => [
+                'objective_alignment' => ['atlas' => 91.0, 'rival' => 84.0, 'explanation' => 'capability probe'],
+                'ceiling_360_contract' => [
+                    'atlas' => 100.0,
+                    'rival' => 85.714,
+                    'explanation' => 'ceiling markers',
+                    'markers' => [
+                        'required' => true,
+                        'atlas' => [
+                            'facts_assumptions_decisions_split' => true,
+                            'tradeoff_matrix' => true,
+                        ],
+                        'rival' => [
+                            'facts_assumptions_decisions_split' => false,
+                            'tradeoff_matrix' => true,
+                        ],
+                    ],
+                ],
+            ],
         ]);
         $this->runCollectFinal($runId);
 
@@ -408,6 +430,12 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         $this->assertContains('multi_step_reasoning', $capabilities);
         $this->assertContains('replayable_evidence_quality', $capabilities);
         $this->assertContains('long_context_retention', $signalCapabilities);
+        $complexityCoverage = $report['provider_performance_signal']['complexity_profile_coverage'];
+        $this->assertSame(1, $complexityCoverage['high_ambiguity_cases']);
+        $this->assertSame(1, $complexityCoverage['l5_plus_pressure_cases']);
+        $this->assertSame(1, $complexityCoverage['adversarial_constraint_cases']);
+        $this->assertSame(1, $complexityCoverage['non_obvious_regression_probe_cases']);
+        $this->assertSame(1, $complexityCoverage['honest_uncertainty_boundary_cases']);
         $this->assertFalse($report['provider_performance_signal']['capability_coverage']['floor_met']);
         $this->assertContains('capability_floor_not_met', $report['provider_performance_signal']['ledger_blockers']);
         $this->assertContains('capability_floor_not_met', $report['claim_status']['ledger_blockers']);
@@ -418,6 +446,21 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         $this->assertSame('insufficient_sample', $separation['capabilities']['long_context_retention']['state']);
         $this->assertSame('none', $separation['capabilities']['long_context_retention']['routing_effect']);
         $plan = $report['provider_performance_signal']['capability_coverage']['next_measurement_plan'];
+        $ceilingSignal = $report['provider_performance_signal']['ceiling_360_contract_signal'];
+        $this->assertSame('atlas.forge.rivals.ceiling_360_contract_signal.v1', $ceilingSignal['schema_version']);
+        $this->assertSame('differentiated_with_contract_floor_gap', $ceilingSignal['status']);
+        $this->assertSame(1, $ceilingSignal['observed_cases']);
+        $this->assertSame(1, $ceilingSignal['differentiated_cases']);
+        $this->assertSame(1, $ceilingSignal['atlas_ahead_cases']);
+        $this->assertSame(100.0, $ceilingSignal['contract_floor_score']);
+        $this->assertSame(1, $ceilingSignal['below_contract_floor_cases']);
+        $this->assertSame(1, $ceilingSignal['any_missing_markers']['facts_assumptions_decisions_split']);
+        $this->assertSame(1.0, $ceilingSignal['separation_ratio']);
+        $this->assertTrue($ceilingSignal['tie_is_diagnostic_not_claim']);
+        $this->assertSame('none', $ceilingSignal['routing_effect']);
+        $this->assertFalse($ceilingSignal['cases'][0]['floor_met']);
+        $this->assertTrue($ceilingSignal['cases'][0]['marker_delta']['facts_assumptions_decisions_split']['atlas']);
+        $this->assertFalse($ceilingSignal['cases'][0]['marker_delta']['facts_assumptions_decisions_split']['rival']);
         $this->assertSame('needs_more_cases', $plan['status']);
         $this->assertNotEmpty($plan['requirements']);
         $firstRequirement = $plan['requirements'][0];

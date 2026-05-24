@@ -93,7 +93,7 @@ class AtlasAutonomousProductDeliveryRuntimeService
 
         $delivery = [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $this->status($truth, $assisted),
+            'status' => $this->status($truth, $assisted, $doctrineGate),
             'mode' => 'shadow_provider_free',
             'route' => $route,
             'product_truth' => $truth,
@@ -180,13 +180,16 @@ class AtlasAutonomousProductDeliveryRuntimeService
      * @param  array<string,mixed>  $truth
      * @param  array<string,mixed>  $assisted
      */
-    private function status(array $truth, array $assisted): string
+    private function status(array $truth, array $assisted, array $doctrineGate): string
     {
         if (($truth['status'] ?? null) !== 'ready') {
             return 'needs_product_truth';
         }
         if (($assisted['status'] ?? null) !== 'ready_for_assisted_execution') {
             return 'needs_context';
+        }
+        if (($doctrineGate['status'] ?? null) === 'blocked') {
+            return 'blocked_by_aedpds_gate';
         }
 
         return 'ready_for_delivery';

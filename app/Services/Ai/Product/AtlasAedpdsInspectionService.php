@@ -27,16 +27,21 @@ class AtlasAedpdsInspectionService
             'outcome_memory' => $this->item('app/Services/Ai/Product/AtlasProductDeliveryOutcomeMemoryService.php', ['outcome_memory', 'should_promote_to_aemor'], 'implemented_runtime'),
             'dev_task_packet' => $this->item('app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevTaskPacketRuntimeService.php', ['AtlasExecutionDoctrineRuntimeService', 'aedpds_context'], 'implemented_runtime'),
             'dev_context_gate' => $this->item('app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevContextGateService.php', ['aedpds_context:', 'owner_docs_or_context_refs'], 'implemented_runtime'),
-            'dev_run_certification' => $this->item('app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevRunCertificationService.php', ['aedpds_gate_status', 'aedpds_selected_drivers'], 'implemented_runtime'),
+            'dev_run_certification' => $this->item('app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevRunCertificationService.php', ['aedpds_gate_status', 'aedpds_selected_drivers', 'certificationBlockers', 'aedpds_fail'], 'implemented_runtime'),
             'forge_intake' => $this->item('app/Services/Ai/Programming/AtlasCodeForgeWorkIntakeService.php', ['atlas.forge.aedpds_projection.v1', 'blocked_aedpds_'], 'implemented_runtime'),
-            'forge_outcome_memory' => $this->item('app/Services/Ai/Programming/Forge/Intelligence/ForgeOutcomeMemoryService.php', ['AiForgeOutcomeMemory', 'persist'], 'implemented_partial'),
+            'forge_work_packet_capabilities' => $this->item('app/Services/Ai/Programming/Forge/Intelligence/ForgeWorkPacketCapabilityOrchestrator.php', ['atlas.forge.work_packet_aedpds_projection.v1', 'AEDPDS', 'AtlasExecutionDoctrineRuntimeService'], 'implemented_runtime'),
+            'forge_outcome_memory' => $this->multiItem([
+                'app/Services/Ai/Programming/Forge/Intelligence/ForgeOutcomeMemoryService.php' => ['aedpds_effectiveness', 'aedpds_driver'],
+                'app/Models/AiForgeOutcomeMemory.php' => ['aedpds_drivers', 'aedpds_effectiveness'],
+                'database/migrations/2026_05_24_180000_add_aedpds_to_ai_forge_outcome_memories.php' => ['aedpds_drivers', 'aedpds_effectiveness'],
+            ], 'implemented_runtime'),
             'commands' => $this->multiItem([
                 'app/Console/Commands/Ai/Product/AtlasAedpdsInspectCommand.php' => ['atlas:aedpds:inspect'],
                 'app/Console/Commands/Ai/Product/AtlasAedpdsSelectCommand.php' => ['atlas:aedpds:select'],
-                'app/Console/Commands/Ai/Product/AtlasAedpdsGateCommand.php' => ['atlas:aedpds:gate'],
+                'app/Console/Commands/Ai/Product/AtlasAedpdsGateCommand.php' => ['atlas:aedpds:gate', '--contract=*', '--review=*', '--strict'],
                 'app/Console/Commands/Ai/Product/AtlasAedpdsCertifyCommand.php' => ['atlas:aedpds:certify'],
             ], 'implemented_runtime'),
-            'tests' => $this->item('tests/Feature/Ai/Product/AtlasAedpdsRuntimeTest.php', ['test_ui_bug_selects_ux_atdd_tdd_and_risk', 'test_certify_returns_ready'], 'implemented_runtime'),
+            'tests' => $this->item('tests/Feature/Ai/Product/AtlasAedpdsRuntimeTest.php', ['test_ui_bug_selects_ux_atdd_tdd_and_risk', 'test_forge_integration_and_certification_are_visible'], 'implemented_runtime'),
         ];
 
         $payload = [
@@ -77,6 +82,32 @@ class AtlasAedpdsInspectionService
             'review' => ['senior review'],
             'evidence' => ['test output'],
         ]);
+        $blockedGate = app(AtlasExecutionDoctrineGateService::class)->evaluate([
+            'task' => 'criar endpoint API com auth e payload versionado',
+            'surface' => 'atlas_dev',
+            'code_changes_requested' => true,
+        ]);
+        $readmeGate = app(AtlasExecutionDoctrineGateService::class)->evaluate([
+            'task' => 'publicar package SDK com README de uso',
+            'surface' => 'atlas_dev',
+            'code_changes_requested' => true,
+            'acceptance_criteria' => ['usage documented'],
+            'tests' => ['focused package tests'],
+        ]);
+        $modelGate = app(AtlasExecutionDoctrineGateService::class)->evaluate([
+            'task' => 'implementar state machine model-driven para workflow',
+            'surface' => 'atlas_dev',
+            'code_changes_requested' => true,
+            'acceptance_criteria' => ['workflow transitions are specified'],
+            'tests' => ['state machine tests'],
+        ]);
+        $observabilityGate = app(AtlasExecutionDoctrineGateService::class)->evaluate([
+            'task' => 'adicionar observability readiness com logs traces e receipts',
+            'surface' => 'atlas_dev',
+            'code_changes_requested' => true,
+            'acceptance_criteria' => ['readiness signal emitted'],
+            'tests' => ['observability test'],
+        ]);
 
         $checks = [
             'doctrine_doc_present' => $this->passed('doctrine_doc', $inspect),
@@ -84,17 +115,28 @@ class AtlasAedpdsInspectionService
             'selector_service_present' => $this->passed('selector_service', $inspect),
             'gate_service_present' => $this->passed('gate_service', $inspect),
             'dev_integration_present' => $this->passed('dev_task_packet', $inspect) && $this->passed('dev_run_certification', $inspect),
-            'forge_integration_present' => $this->passed('forge_intake', $inspect),
+            'forge_integration_present' => $this->passed('forge_intake', $inspect) && $this->passed('forge_work_packet_capabilities', $inspect) && $this->passed('forge_outcome_memory', $inspect),
+            'forge_work_packet_capability_present' => $this->passed('forge_work_packet_capabilities', $inspect),
+            'forge_outcome_memory_aedpds_present' => $this->passed('forge_outcome_memory', $inspect),
             'test_mapping_present' => in_array('tdd', $sample['selected_primary_drivers'], true) && $sample['required_tests'] !== [],
             'risk_security_mapping_present' => in_array('security_driven', $sample['selected_primary_drivers'], true),
             'ux_mapping_present' => in_array('ux_driven', app(AtlasExecutionDoctrineRuntimeService::class)->select(['task' => 'bug visual na tela mobile', 'code_changes_requested' => true])['selected_primary_drivers'], true),
             'api_contract_mapping_present' => in_array('api_first', $sample['selected_primary_drivers'], true) && $sample['required_contracts'] !== [],
             'db_mapping_present' => in_array('database_driven', $sample['selected_primary_drivers'], true),
+            'readme_gate_mapping_present' => ($readmeGate['status'] ?? null) === 'blocked'
+                && in_array('missing_readme_or_usage_contract', (array) ($readmeGate['blockers'] ?? []), true),
+            'model_gate_mapping_present' => ($modelGate['status'] ?? null) === 'blocked'
+                && in_array('missing_model_or_state_machine_contract', (array) ($modelGate['blockers'] ?? []), true),
+            'observability_gate_mapping_present' => ($observabilityGate['status'] ?? null) === 'blocked'
+                && in_array('missing_observability_readiness_evidence', (array) ($observabilityGate['blockers'] ?? []), true),
             'evidence_receipt_present' => $this->passed('receipt_model', $inspect) && $this->passed('receipt_migration', $inspect),
             'outcome_memory_present' => $this->passed('outcome_memory', $inspect),
             'command_surface_present' => $this->passed('commands', $inspect),
             'no_documentation_only_claims' => $this->passed('selector_service', $inspect) && $this->passed('gate_service', $inspect),
             'sample_gate_passes' => ($gate['status'] ?? null) === 'passed' || ($gate['status'] ?? null) === 'warning',
+            'sample_gate_blocks_missing_artifacts' => ($blockedGate['status'] ?? null) === 'blocked'
+                && in_array('missing_contract_or_schema', (array) ($blockedGate['blockers'] ?? []), true)
+                && in_array('missing_senior_review_for_sensitive_change', (array) ($blockedGate['blockers'] ?? []), true),
         ];
 
         $failed = array_keys(array_filter($checks, static fn (bool $passed): bool => ! $passed));

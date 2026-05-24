@@ -37,6 +37,7 @@ class ForgeIntakeServiceTest extends TestCase
             'Implementar refactor do provider router em multi-modulo com sdd; depois migrar billing engine; por fim adicionar suite de tests de regressao.',
             [
                 'workspace_slug' => 'atlas',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
                 'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_SDD_INTAKE,
             ],
@@ -102,6 +103,7 @@ class ForgeIntakeServiceTest extends TestCase
 
         $intake = app(ForgeIntakeService::class)->intakeFromEscalationPacket($packet, [
             'workspace_slug' => 'atlas',
+            'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
             'mission_id' => $this->fakeUuid(),
         ]);
 
@@ -134,6 +136,7 @@ class ForgeIntakeServiceTest extends TestCase
             'Criar ecommerce com milestones, testes e plano de rollback',
             [
                 'workspace_slug' => 'atlas',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
             ],
         );
@@ -245,7 +248,7 @@ class ForgeIntakeServiceTest extends TestCase
         // No action verb, no object marker, > 12 chars (passes length but not signal).
         $intake = app(ForgeIntakeService::class)->intakeFromPrompt(
             'aleatorio palavra random nonsense',
-            ['workspace_slug' => 'atlas'],
+            ['workspace_slug' => 'atlas', 'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate()],
         );
 
         $this->assertSame(ForgeIntakeCanon::STATUS_BLOCKED, $intake->status);
@@ -261,6 +264,7 @@ class ForgeIntakeServiceTest extends TestCase
     {
         $intake = app(ForgeIntakeService::class)->intakeFromPrompt('curto', [
             'workspace_slug' => 'atlas',
+            'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
         ]);
 
         $this->assertSame(ForgeIntakeCanon::STATUS_BLOCKED, $intake->status);
@@ -297,11 +301,11 @@ class ForgeIntakeServiceTest extends TestCase
 
         $intake1 = $service->intakeFromPrompt(
             'Implementar nova feature de auth com testes',
-            ['obra_title' => 'auth-feature', 'workspace_slug' => 'atlas'],
+            ['obra_title' => 'auth-feature', 'workspace_slug' => 'atlas', 'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate()],
         );
         $intake2 = $service->intakeFromPrompt(
             'Implementar nova feature de auth com testes',
-            ['obra_title' => 'auth-feature', 'workspace_slug' => 'atlas'],
+            ['obra_title' => 'auth-feature', 'workspace_slug' => 'atlas', 'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate()],
         );
 
         // Hashes differ because uuid is part of the payload (intake_hash is
@@ -318,7 +322,7 @@ class ForgeIntakeServiceTest extends TestCase
     {
         $intake = app(ForgeIntakeService::class)->intakeFromPrompt(
             'Implementar refactor multi-modulo do provider router',
-            ['workspace_slug' => 'atlas'],
+            ['workspace_slug' => 'atlas', 'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate()],
         );
         /** @var AiForgeIntake $intake */
         $packets = $intake->workPackets()->orderBy('packet_position')->get();
@@ -430,6 +434,24 @@ class ForgeIntakeServiceTest extends TestCase
             random_int(0, 0x3FFF) | 0x8000,
             random_int(0, 0xFFFF), random_int(0, 0xFFFF), random_int(0, 0xFFFF),
         );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function allowedWorkspaceExecutionGate(): array
+    {
+        return [
+            'schema_version' => 'atlas.workspace_intelligence.execution_gate.v1',
+            'mode' => 'forge',
+            'workspace_id' => 'atlas',
+            'allowed' => true,
+            'status' => 'passed',
+            'blockers' => [],
+            'required_contracts' => [
+                'awco_execution_readiness' => true,
+            ],
+        ];
     }
 
     /**

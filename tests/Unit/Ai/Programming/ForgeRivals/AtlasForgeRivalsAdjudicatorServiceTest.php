@@ -287,6 +287,56 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
         $this->assertSame($paths['scorecard_json'], $result['scorecard_path']);
     }
 
+    public function test_ceiling_360_contract_dimension_separates_semantic_evidence_under_l5_pressure(): void
+    {
+        $runId = $this->newRunId('ceiling-contract');
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        $atlasPatch = $paths['evidence'].'/atlas_patch.diff';
+        $rivalPatch = $paths['evidence'].'/rival_patch.diff';
+        file_put_contents($atlasPatch, implode("\n", [
+            '## Facts Observed',
+            '## Assumptions',
+            '## Reversible Decisions',
+            '| Decision | Alternative | Reason chosen |',
+            'Rollback plan uses rollout undo and restore traffic ramp.',
+            'Replay matrix includes negative test and reconstruct scorecard.',
+            'Uncertainties: telemetry not available; root cause unconfirmed.',
+            'Production invariant: prevent data loss, replica lag > 5s, circuit breaker, p99 guard.',
+            'Evidence pack includes scorecard, workspace hashes, audit trail and postmortem.',
+        ]));
+        file_put_contents($rivalPatch, implode("\n", [
+            'Rollback plan.',
+            'Replay smoke test passes.',
+            'Postmortem draft.',
+        ]));
+
+        $this->seedComparableRun(
+            $paths,
+            atlasOverrides: ['patch_diff_path' => $atlasPatch, 'patch_diff_bytes' => 3_000],
+            rivalOverrides: ['patch_diff_path' => $rivalPatch, 'patch_diff_bytes' => 3_000],
+            manifestOverrides: [
+                'case_set' => 'ceiling-360',
+                'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
+                'ceiling_pressure_profile' => [
+                    'schema_version' => 'atlas.forge.rivals.ceiling_pressure_profile.v1',
+                    'pressure_level' => 'L5+',
+                ],
+            ],
+        );
+
+        $scorecard = $this->adjudicator->adjudicate(['run_id' => $runId])['scorecard'];
+
+        $this->assertSame(AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS, $scorecard['winner']);
+        $this->assertArrayHasKey('ceiling_360_contract', $scorecard['quality_dimensions']);
+        $dimension = $scorecard['quality_dimensions']['ceiling_360_contract'];
+        $this->assertSame(100.0, $dimension['atlas']);
+        $this->assertLessThan(50.0, $dimension['rival']);
+        $this->assertTrue($dimension['markers']['required']);
+        $this->assertTrue($dimension['markers']['atlas']['uncertainty_boundary']);
+        $this->assertFalse($dimension['markers']['rival']['uncertainty_boundary']);
+    }
+
     public function test_weights_explicit_and_sum_to_one(): void
     {
         $total = 0.0;

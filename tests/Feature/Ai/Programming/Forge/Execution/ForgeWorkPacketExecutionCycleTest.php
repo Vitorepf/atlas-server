@@ -315,7 +315,10 @@ class ForgeWorkPacketExecutionCycleTest extends TestCase
     {
         $intake = app(ForgeIntakeService::class)->intakeFromPrompt(
             'Implementar refactor multi-modulo do provider router com sdd e multi-agent fallback.',
-            ['workspace_slug' => 'atlas-server'],
+            [
+                'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
+            ],
         );
 
         $state = $this->longHorizon->initializeForIntake($intake);
@@ -391,5 +394,18 @@ class ForgeWorkPacketExecutionCycleTest extends TestCase
             'risk_band' => ForgeIntakeCanon::RISK_BAND_LOW,
             'packet_hash' => hash('sha256', $intake->id.'#wp-forced'),
         ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function allowedWorkspaceExecutionGate(): array
+    {
+        return [
+            'schema_version' => 'atlas.workspace_intelligence.execution_gate.v1',
+            'allowed' => true,
+            'status' => 'passed',
+            'blockers' => [],
+        ];
     }
 }

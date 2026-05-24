@@ -2078,6 +2078,35 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
                     $this->assertNotContains('<prompt>', data_get($payload, 'command_plan.arm_a.command'));
                 },
             ],
+            'run-arena-ceiling-l5-plus-dry-run' => [
+                'args' => [
+                    'action' => 'run-arena',
+                    '--arm-a' => 'atlas_forge',
+                    '--arm-a-model' => 'sonnet',
+                    '--arm-b' => 'claude_code',
+                    '--arm-b-model' => 'sonnet',
+                    '--mode' => 'provider_arena',
+                    '--task-category' => 'refactor',
+                    '--case' => ['ceiling-360-001-industrial-005-incident_rollback'],
+                    '--prompt-mode' => 'enterprise-change',
+                    '--dry-run' => true,
+                    '--json' => true,
+                ],
+                'assert' => function (array $payload): void {
+                    $this->assertSame('ok', $payload['status']);
+                    $this->assertSame('arena_plan_ready', $payload['verdict']);
+                    $case = $payload['cases'][0] ?? [];
+                    $this->assertSame('ceiling-360-001-industrial-005-incident_rollback', $case['case_id'] ?? null);
+                    $this->assertSame('L5+', data_get($case, 'ceiling_pressure_profile.pressure_level'));
+                    $this->assertSame('atlas.forge.rivals.ceiling_pressure_profile.v1', data_get($case, 'ceiling_pressure_profile.schema_version'));
+                    $this->assertSame(12000, data_get($case, 'context_profile.estimated_context_tokens'));
+                    $this->assertSame(6, data_get($case, 'context_profile.reasoning_depth'));
+                    $this->assertTrue(data_get($case, 'ceiling_360.required_signal.requires_adversarial_constraints'));
+                    $this->assertContains('non_obvious_regression_probe', data_get($case, 'ceiling_pressure_profile.requires'));
+                    $this->assertContains('facts_observed', data_get($case, 'ceiling_pressure_profile.required_sections'));
+                    $this->assertContains('replay_negative_regression_probe', data_get($case, 'ceiling_pressure_profile.required_sections'));
+                },
+            ],
         ];
 
         foreach ($commands as $name => $command) {

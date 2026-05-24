@@ -222,6 +222,12 @@ um pedido como `cria um ecommerce` pode parecer simples demais e gerar codigo
 cedo demais; com APTC, o Atlas primeiro cria dominio, aceite, contratos,
 arquitetura, prova e rota.
 
+O selector AEDPDS roda antes e junto do APDR. APTC ainda compila Product Truth;
+AEDPDS escolhe os drivers operacionais obrigatorios; APDR carrega essa selecao
+no envelope `aedpds.doctrine` e o resultado do gate em `aedpds.gate`. APDR nao
+pode declarar `ready_for_delivery` quando `aedpds.gate.status` estiver
+`blocked`; nesse caso o status canonico e `blocked_by_aedpds_gate`.
+
 ## Versao Maxima
 
 AEDPDS em estado final nao e uma metodologia unica. Ele e um sistema de
@@ -488,12 +494,132 @@ Services: AAEQ, Atlas Dev Runtime, Forge Work Packet Cycle, Forge Capability Orc
 
 ## Evidencias
 
-Evidencia atual: APTC, APDR, APFPR, enforcement, repair bridge, outcome memory,
-AEMOR bridge, mutative repair, patch request/gate, receipts, Product Twin,
-repair planner, replay lab, fitness, risk, control plane, release gate, provider memory e policy optimizer.
+Evidencia atual: selector AEDPDS, gate AEDPDS, APTC, APDR, APFPR, enforcement,
+repair bridge, outcome memory, AEMOR bridge, mutative repair, patch request/gate,
+receipts, Product Twin, repair planner, replay lab, fitness, risk, control
+plane, release gate, provider memory e policy optimizer.
 Comandos canonicos: `product-truth:compile`, `product-proof:challenge`, `product-twin:simulate`, `patch-request`, `repair-execute` e `product-delivery:*`.
+Comandos AEDPDS canonicos: `atlas:aedpds:inspect`, `atlas:aedpds:select`,
+`atlas:aedpds:gate` e `atlas:aedpds:certify`.
 `patch-request` e `repair-execute` aceitam `--persist` para ledger append-only.
-O wiring roda em Atlas AI antes de Dev/Forge; docs-health e product-certify devem permanecer verdes.
+O wiring roda em Atlas AI/APDR antes de Dev/Forge; Atlas Dev recebe drivers no
+Task Packet, projeta contexto/testes/evidencia e inclui AEDPDS na run
+certification; Forge recebe a projecao AEDPDS no Work Intake para Work Packets,
+risco, revisao e escalacao. Forge Work Packet Capability Orchestrator tambem
+materializa bloco `AEDPDS`, e Forge Outcome Memory persiste drivers, gate hash,
+doctrine hash e efetividade por driver para aprendizado posterior. Docs-health,
+`atlas:aedpds:certify` e product-certify devem permanecer verdes.
+
+## AEDPDS Runtime Gate Canonico
+
+Nome canonico / produto: Atlas Execution Doctrine & Product Delivery System.
+Acronimo tecnico: AEDPDS.
+
+AEDPDS nao e uma lista de metodologias. AEDPDS e o seletor operacional de
+doutrina de entrega do Atlas. Ele escolhe os drivers corretos por tipo de
+trabalho e nenhum driver pode ser declarado cumprido sem evidencia.
+
+Runtime tecnico:
+
+- `AtlasExecutionDoctrineRuntimeService`
+- schema `atlas.aedpds.execution_doctrine.v1`
+- comando `php artisan atlas:aedpds:select --task="..." --surface=dev --json`
+
+Gate tecnico:
+
+- `AtlasExecutionDoctrineGateService`
+- schema `atlas.aedpds.execution_gate.v1`
+- comando `php artisan atlas:aedpds:gate --task="..." --surface=dev --json`
+- status `passed | warning | blocked`
+- valida aceite, contexto, testes, contratos, docs, UX/prototipo, modelo
+  formal/semi-formal, observabilidade/readiness, risk review, senior review e
+  evidencia esperada antes de execucao relevante.
+- o comando nao injeta artefatos falsos. Para passar o gate via CLI, forneca
+  explicitamente `--acceptance`, `--context`, `--test`, `--contract`, `--doc`,
+  `--review`, `--evidence` e `--ux` conforme os drivers selecionados. Em
+  `--strict`, ausencia de artefato obrigatorio deve sair com codigo diferente
+  de zero.
+
+Certificacao tecnica:
+
+- `AtlasAedpdsInspectionService`
+- schema `atlas.aedpds.certification.v1`
+- comandos `atlas:aedpds:inspect` e `atlas:aedpds:certify`
+
+Contrato canonico do selector:
+
+- request_id / trace_id quando disponivel;
+- surface: `atlas_ai`, `atlas_dev`, `atlas_forge`, `cartografia`, `control_plane`;
+- workspace/project;
+- task_type;
+- user_intent_summary;
+- ambiguity_level;
+- risk_level;
+- selected_primary_drivers;
+- selected_secondary_drivers;
+- required_artifacts;
+- required_context;
+- required_tests;
+- required_contracts;
+- required_docs;
+- required_review;
+- required_evidence;
+- blockers;
+- warnings;
+- allowed_to_execute;
+- reason;
+- certification_hash.
+
+Drivers canonicos:
+
+- `tdd`
+- `bdd`
+- `atdd`
+- `fdd`
+- `sdd`
+- `cdd`
+- `api_first`
+- `documentation_driven`
+- `readme_driven`
+- `domain_driven_design`
+- `model_driven`
+- `database_driven`
+- `prototype_driven`
+- `ux_driven`
+- `risk_driven`
+- `architecture_driven`
+- `security_driven`
+- `performance_driven`
+- `reliability_observability_driven`
+- `data_evidence_driven`
+
+Relacoes operacionais:
+
+- APDR executa produto; AEDPDS define a doutrina de entrega que APDR deve carregar no envelope.
+- Atlas Dev usa AEDPDS no `DevTaskPacketRuntimeService`, entrega `required_context` para `DevContextGate`, projeta `required_tests` em test impact, grava evidencia esperada e inclui bloco AEDPDS em `DevRunCertification`.
+- Atlas Forge usa AEDPDS em Work Intake/Work Packets para drivers, gates, contexto, testes, evidencia, senior review e escalacao; Forge Outcome Memory registra efetividade da doutrina por driver.
+- AEMOR aprende se a doutrina funcionou por outcome memory e sinais de efetividade.
+- ACRUI impede duplicacao, scaffold falso e claim contra realidade antes de criar runtime paralelo.
+- AUCRI/context deve fornecer contexto minimo proporcional aos drivers escolhidos.
+- Control Plane e certificacao devem expor AEDPDS como readiness/audit, nao como texto promocional.
+
+Gates especificos:
+
+- `model_driven` exige especificacao de modelo ou state machine e contrato
+  formal/semi-formal antes de execucao.
+- `reliability_observability_driven` exige logs, traces, receipts ou readiness
+  signal quando observabilidade/readiness for driver primario.
+- APDR deve propagar bloqueio AEDPDS para o status do envelope e para
+  enforcement pre-provider; carregar o gate no envelope sem bloquear e falso
+  readiness.
+- APFPR deve bloquear `delivery_contract_not_ready` quando o APDR nao estiver
+  `ready_for_delivery`; prova nao pode certificar envelope bloqueado pelo
+  AEDPDS.
+
+Regra de claim: docs nao bastam para declarar pronto. `atlas:aedpds:certify
+--json --strict` so pode retornar `ready` quando doc, selector deterministico,
+gate explicito, Dev, Forge, tests, receipts/outcome e comandos estiverem
+presentes com checks granulares.
 
 ## Riscos
 

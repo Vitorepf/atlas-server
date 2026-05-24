@@ -160,7 +160,7 @@ class ForgeIntakeService
             $this->arrayOrNull($options['context_refs'] ?? null) ?? [],
             $this->deriveRichInputContextRefs($richInputPayload),
         )));
-        $workspaceGate = $this->workspaceExecutionGateForIntake($workspaceSlug, $prompt);
+        $workspaceGate = $this->workspaceExecutionGateForIntake($workspaceSlug, $prompt, $options);
 
         $blockerReason = $this->detectIntakeBlocker($prompt, $escalationPacket, $options, $workspaceGate);
         $status = $blockerReason === null
@@ -677,8 +677,17 @@ class ForgeIntakeService
     /**
      * @return array<string,mixed>|null
      */
-    private function workspaceExecutionGateForIntake(?string $workspaceSlug, string $prompt): ?array
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>|null
+     */
+    private function workspaceExecutionGateForIntake(?string $workspaceSlug, string $prompt, array $options): ?array
     {
+        $override = $options['workspace_execution_gate'] ?? null;
+        if (is_array($override)) {
+            return $override;
+        }
+
         if ($workspaceSlug === null) {
             return null;
         }

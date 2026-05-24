@@ -21,10 +21,15 @@ class AtlasProductDeliveryPatchRequestContractService
         $allowedFiles = $this->stringList(data_get($delivery, 'delivery_plan.scope_guard.allowed_files', []));
         $forbiddenFiles = $this->stringList(data_get($delivery, 'delivery_plan.scope_guard.forbidden_files', []));
         $blockers = $this->blockerIds($proof);
+        if (($delivery['status'] ?? null) !== 'ready_for_delivery') {
+            $blockers[] = 'delivery_contract_not_ready';
+        }
         $requiredRepairs = $this->stringList($proof['required_repairs'] ?? []);
         $requiredEvidence = $this->requiredEvidence($delivery, $proof, $repairBridge);
         $risk = $this->risk($delivery);
-        $status = ($proof['status'] ?? null) === 'ready' ? 'not_required' : 'ready_for_patch_proposal';
+        $status = in_array('delivery_contract_not_ready', $blockers, true)
+            ? 'blocked'
+            : (($proof['status'] ?? null) === 'ready' ? 'not_required' : 'ready_for_patch_proposal');
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,

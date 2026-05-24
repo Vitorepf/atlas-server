@@ -152,15 +152,16 @@ final class AtlasForgeRivalsAdjudicatorService
 
     /** @var array<string,float> */
     public const WEIGHTS = [
-        'objective_alignment' => 0.15,
-        'patch_focus' => 0.12,
-        'implementation_complexity' => 0.08,
+        'objective_alignment' => 0.13,
+        'patch_focus' => 0.10,
+        'implementation_complexity' => 0.07,
         'test_quality' => 0.12,
-        'maintainability' => 0.10,
-        'risk_surface' => 0.10,
-        'scope_discipline' => 0.15,
+        'maintainability' => 0.08,
+        'risk_surface' => 0.08,
+        'scope_discipline' => 0.14,
         'evidence_quality' => 0.10,
-        'cost_time_efficiency' => 0.08,
+        'cost_time_efficiency' => 0.06,
+        'ceiling_360_contract' => 0.12,
     ];
 
     private readonly AtlasForgeRivalsAdjudicatorV2Service $v2;
@@ -733,6 +734,7 @@ final class AtlasForgeRivalsAdjudicatorService
         $dimensions['scope_discipline'] = $this->dimensionScopeDiscipline($atlasReceipt, $rivalReceipt);
         $dimensions['evidence_quality'] = $this->dimensionEvidenceQuality($evidencePack);
         $dimensions['cost_time_efficiency'] = $this->dimensionCostTime($atlasReceipt, $rivalReceipt);
+        $dimensions['ceiling_360_contract'] = $this->dimensionCeiling360Contract($manifest, $atlasReceipt, $rivalReceipt);
 
         $atlasTotal = 0.0;
         $rivalTotal = 0.0;
@@ -1051,6 +1053,133 @@ final class AtlasForgeRivalsAdjudicatorService
             'atlas' => $score($atlasReceipt),
             'rival' => $score($rivalReceipt),
             'explanation' => 'Wall time + provider stdout volume proxies. Larger output / longer time ⇒ lower score.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @param  array<string,mixed>  $atlasReceipt
+     * @param  array<string,mixed>  $rivalReceipt
+     * @return array<string,mixed>
+     */
+    private function dimensionCeiling360Contract(array $manifest, array $atlasReceipt, array $rivalReceipt): array
+    {
+        if (! $this->isCeiling360PressureRun($manifest)) {
+            return [
+                'atlas' => 100.0,
+                'rival' => 100.0,
+                'explanation' => 'Ceiling-360 pressure contract not required for this run.',
+                'markers' => ['required' => false, 'routing_effect' => 'none'],
+            ];
+        }
+
+        $markerGroups = $this->ceiling360MarkerGroups();
+        $atlas = $this->scoreCeiling360Patch($this->patchText($atlasReceipt), $markerGroups);
+        $rival = $this->scoreCeiling360Patch($this->patchText($rivalReceipt), $markerGroups);
+
+        return [
+            'atlas' => $atlas['score'],
+            'rival' => $rival['score'],
+            'explanation' => 'L5+/ceiling-360 marker coverage: facts/assumptions/decisions split, tradeoffs, rollback, replay/negative probes, uncertainty boundary, production invariants and capability-specific evidence.',
+            'markers' => [
+                'required' => true,
+                'atlas' => $atlas['markers'],
+                'rival' => $rival['markers'],
+                'routing_effect' => 'none',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     */
+    private function isCeiling360PressureRun(array $manifest): bool
+    {
+        if ((string) ($manifest['case_set'] ?? '') === 'ceiling-360') {
+            return true;
+        }
+        if (str_starts_with((string) ($manifest['case_id'] ?? ''), 'ceiling-360-')) {
+            return true;
+        }
+
+        foreach ([
+            $manifest['ceiling_pressure_profile'] ?? null,
+            $manifest['case']['ceiling_pressure_profile'] ?? null,
+            $manifest['case_manifest']['ceiling_pressure_profile'] ?? null,
+            $manifest['complexity_profile'] ?? null,
+            $manifest['case']['complexity_profile'] ?? null,
+        ] as $profile) {
+            if (is_array($profile) && (string) ($profile['pressure_level'] ?? '') === 'L5+') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<string,list<string>>
+     */
+    private function ceiling360MarkerGroups(): array
+    {
+        return [
+            'facts_assumptions_decisions_split' => ['facts observed', 'facts', 'assumptions', 'reversible decisions', 'decisions', 'fatos', 'premissas', 'decisoes'],
+            'tradeoff_matrix' => ['tradeoff', 'trade-off', 'decision | alternative', 'alternative | reason', 'risk accepted', 'risco aceito'],
+            'rollback_plan' => ['rollback', 'rollout undo', 'revert', 'restore traffic', 'restore'],
+            'negative_test_or_replay_probe' => ['replay', 'negative test', 'regression', 'verify state hash', 'reconstruct scorecard', 'auto-halt'],
+            'uncertainty_boundary' => ['uncertainty', 'uncertainties', 'cannot be quantified', 'not available', 'unconfirmed', 'incerteza'],
+            'production_invariant_reasoning' => ['invariant', 'data loss', 'replica lag', 'circuit breaker', 'health checks', 'p99'],
+            'capability_specific_evidence' => ['evidence pack', 'scorecard', 'workspace hashes', 'audit trail', 'postmortem', 'matriz'],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
+    private function patchText(array $receipt): string
+    {
+        $path = (string) ($receipt['patch_diff_path'] ?? '');
+        if ($path !== '' && is_file($path)) {
+            $text = file_get_contents($path);
+
+            return is_string($text) ? strtolower($text) : '';
+        }
+
+        return strtolower((string) ($receipt['patch_diff_tail'] ?? $receipt['stdout_tail'] ?? ''));
+    }
+
+    /**
+     * @param  array<string,list<string>>  $markerGroups
+     * @return array{score:float,markers:array<string,bool>}
+     */
+    private function scoreCeiling360Patch(string $patchText, array $markerGroups): array
+    {
+        if ($patchText === '') {
+            return [
+                'score' => 0.0,
+                'markers' => array_fill_keys(array_keys($markerGroups), false),
+            ];
+        }
+
+        $markers = [];
+        $hits = 0;
+        foreach ($markerGroups as $group => $needles) {
+            $matched = false;
+            foreach ($needles as $needle) {
+                if ($needle !== '' && str_contains($patchText, strtolower($needle))) {
+                    $matched = true;
+                    break;
+                }
+            }
+            $markers[$group] = $matched;
+            if ($matched) {
+                $hits++;
+            }
+        }
+
+        return [
+            'score' => round(($hits / max(1, count($markerGroups))) * 100.0, 3),
+            'markers' => $markers,
         ];
     }
 

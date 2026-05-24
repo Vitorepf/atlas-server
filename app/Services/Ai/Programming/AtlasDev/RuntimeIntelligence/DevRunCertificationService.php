@@ -53,9 +53,11 @@ class DevRunCertificationService
             'tests' => $this->realList($taskPacket->suggested_tests, 'aedpds_test:'),
             'evidence' => $this->realList($taskPacket->required_evidence, 'aedpds_evidence:'),
         ]);
-        $checks = [
+        $aedpdsChecks = [
             $this->check('aedpds_doctrine_selected', $doctrine['selected_primary_drivers'] !== [], 'AEDPDS selected delivery drivers'),
             $this->check('aedpds_gate_not_blocked', ($aedpdsGate['status'] ?? null) !== 'blocked', 'AEDPDS gate passed or warned before Dev run certification'),
+        ];
+        $checks = [
             $this->check('task_packet_present', true, 'Dev task packet persisted'),
             $this->check('context_gate_passed', $contextGate->status === DevContextGateService::STATUS_PASSED, 'Context gate passed before provider-safe execution'),
             $this->check('scope_declared', $this->hasAny($taskPacket->allowed_files) || $this->hasAny($taskPacket->expected_files), 'Allowed/expected files declared'),
@@ -80,7 +82,9 @@ class DevRunCertificationService
         ];
 
         $blockers = array_values(array_filter($checks, static fn (array $check): bool => $check['status'] === 'fail'));
-        $status = $blockers === []
+        $aedpdsBlockers = array_values(array_filter($aedpdsChecks, static fn (array $check): bool => $check['status'] === 'fail'));
+        $certificationBlockers = array_values(array_merge($blockers, $aedpdsBlockers));
+        $status = $certificationBlockers === []
             ? self::STATUS_READY
             : ($contextGate->status === DevContextGateService::STATUS_BLOCKED ? self::STATUS_BLOCKED : self::STATUS_NEEDS_REVIEW);
 
@@ -93,13 +97,15 @@ class DevRunCertificationService
                 'total' => count($checks),
                 'pass' => count(array_filter($checks, static fn (array $check): bool => $check['status'] === 'pass')),
                 'fail' => count($blockers),
+                'aedpds_fail' => count($aedpdsBlockers),
                 'provider_safe' => $status === self::STATUS_READY,
                 'outcome_status' => $outcomeMemory->outcome_status,
                 'aedpds_gate_status' => $aedpdsGate['status'],
                 'aedpds_selected_drivers' => $doctrine['selected_primary_drivers'],
+                'aedpds_checks' => $aedpdsChecks,
             ],
             'checks' => $checks,
-            'blockers' => $blockers,
+            'blockers' => $certificationBlockers,
             'artifact_refs' => [
                 'task_packet_hash' => $taskPacket->task_packet_hash,
                 'context_gate_hash' => $contextGate->context_gate_hash,
@@ -112,6 +118,7 @@ class DevRunCertificationService
                 'required_gates' => $doctrine['required_gates'],
                 'gate_status' => $aedpdsGate['status'],
                 'gate_hash' => $aedpdsGate['hash'],
+                'checks' => $aedpdsChecks,
                 'blockers' => $aedpdsGate['blockers'],
                 'warnings' => $aedpdsGate['warnings'],
                 'outcome' => $outcomeMemory->outcome_status,

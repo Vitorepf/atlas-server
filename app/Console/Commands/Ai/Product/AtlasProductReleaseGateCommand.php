@@ -16,6 +16,7 @@ class AtlasProductReleaseGateCommand extends Command
         {--provider-patch : Treat as provider/subagent patch candidate}
         {--operator-approved : Simulate explicit operator approval for risk gate}
         {--evidence-ready : Include standard ready evidence for release-gate smoke checks}
+        {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Emit JSON}
         {--strict : Exit non-zero unless release candidate is allowed}';
 
@@ -29,6 +30,9 @@ class AtlasProductReleaseGateCommand extends Command
             'route' => $this->option('route'),
             'provider_patch' => (bool) $this->option('provider-patch'),
             'operator_approved' => (bool) $this->option('operator-approved'),
+            'ux_expectations' => $this->strings($this->option('ux')) ?: (
+                $this->option('evidence-ready') ? ['checkout journey expectation'] : []
+            ),
             'evidence' => $this->option('evidence-ready') ? [
                 'tests' => ['focused tests passed', 'contract tests passed', 'security regression tests passed'],
                 'security' => ['abuse cases reviewed'],
@@ -50,5 +54,20 @@ class AtlasProductReleaseGateCommand extends Command
         return (bool) $this->option('strict') && ($payload['release_candidate_allowed'] ?? false) !== true
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 }

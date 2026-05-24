@@ -60,6 +60,8 @@ class AtlasProductDeliveryEvidenceReplayLabService
                 'id' => 'ecommerce_routes_to_forge_and_plans_repair_without_proof',
                 'request' => 'cria um ecommerce completo com pagamentos e webhooks',
                 'workspace' => $workspace,
+                'operator_approved' => true,
+                'ux_expectations' => ['checkout journey expectation'],
                 'evidence' => [],
                 'expect' => [
                     'route' => 'atlas_forge',
@@ -76,6 +78,8 @@ class AtlasProductDeliveryEvidenceReplayLabService
                 'id' => 'ecommerce_with_evidence_is_ready_for_delivery',
                 'request' => 'cria um ecommerce completo com pagamentos e webhooks',
                 'workspace' => $workspace,
+                'operator_approved' => true,
+                'ux_expectations' => ['checkout journey expectation'],
                 'evidence' => [
                     'tests' => ['focused_tests passed', 'contract tests passed', 'security regression tests passed'],
                     'security' => ['abuse cases reviewed'],
@@ -97,6 +101,8 @@ class AtlasProductDeliveryEvidenceReplayLabService
                 'id' => 'login_bug_routes_to_dev_with_repair_plan',
                 'request' => 'estou com um bug na tela de login',
                 'workspace' => $workspace,
+                'operator_approved' => true,
+                'ux_expectations' => ['login visual regression expectation'],
                 'evidence' => [],
                 'expect' => [
                     'route' => 'atlas_dev',
@@ -123,6 +129,8 @@ class AtlasProductDeliveryEvidenceReplayLabService
         $delivery = $this->deliveryRuntime->plan([
             'human_request' => $scenario['request'] ?? '',
             'workspace' => $scenario['workspace'] ?? 'atlas-server',
+            'operator_approved' => (bool) ($scenario['operator_approved'] ?? false),
+            'ux_expectations' => $scenario['ux_expectations'] ?? [],
             'evidence' => $scenario['evidence'] ?? [],
         ]);
         $actual = [

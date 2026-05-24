@@ -5,6 +5,7 @@ namespace App\Services\Ai\Product;
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class AtlasProductDeliveryRiskGovernorService
 {
@@ -314,7 +315,15 @@ class AtlasProductDeliveryRiskGovernorService
      */
     private function receiptHealth(int $limit): array
     {
-        if (! Schema::hasTable('atlas_product_delivery_runtime_receipts')) {
+        try {
+            if (! Schema::hasTable('atlas_product_delivery_runtime_receipts')) {
+                return [
+                    'receipt_sample_size' => 0,
+                    'unsafe_write_receipt_count' => 0,
+                    'approval_required_receipt_count' => 0,
+                ];
+            }
+        } catch (Throwable) {
             return [
                 'receipt_sample_size' => 0,
                 'unsafe_write_receipt_count' => 0,
