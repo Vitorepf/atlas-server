@@ -91,6 +91,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
     private function executionLadder(string $caseSet, array $cases, array $pairs): array
     {
         $stages = [];
+        $observedRuns = $this->observedRunsByPairAndCase();
         foreach ([
             'canary_8' => ['count' => 8, 'purpose' => 'first real high-difficulty smoke across every 360 battle pair'],
             'floor_24' => ['count' => 24, 'purpose' => 'minimum practical separation floor before interpreting capability deltas'],
@@ -104,6 +105,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             $caseIds = array_values(array_filter($caseIds, static fn (string $caseId): bool => $caseId !== ''));
             $firstCaseId = $caseIds[0] ?? null;
             $readyPairs = array_values(array_filter($pairs, static fn (array $pair): bool => (bool) ($pair['dry_run_ready'] ?? false)));
+            $coverage = $this->stageCoverage($caseIds, $readyPairs, $observedRuns);
 
             $stages[] = [
                 'stage' => $stageId,
@@ -113,6 +115,13 @@ final class AtlasForgeRivalsProviderArenaReadinessService
                 'pair_count' => count($readyPairs),
                 'estimated_real_runs' => count($caseIds) * count($readyPairs),
                 'estimated_provider_invocations' => count($caseIds) * count($readyPairs) * 2,
+                'observed_real_runs' => $coverage['observed_real_runs'],
+                'replay_verified_runs' => $coverage['replay_verified_runs'],
+                'missing_real_runs' => $coverage['missing_real_runs'],
+                'completion_ratio' => $coverage['completion_ratio'],
+                'coverage_status' => $coverage['coverage_status'],
+                'observed_runs' => $coverage['observed_runs'],
+                'missing_first_case_commands' => $coverage['missing_first_case_commands'],
                 'case_ids' => $caseIds,
                 'first_case_id' => $firstCaseId,
                 'first_case_dry_run_commands' => $firstCaseId === null
@@ -146,6 +155,177 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             'advisory_only' => true,
             'routing_effect' => 'none',
         ];
+    }
+
+    /**
+     * @param  list<string>  $caseIds
+     * @param  list<array<string,mixed>>  $readyPairs
+     * @param  array<string,list<array<string,mixed>>>  $observedRuns
+     * @return array<string,mixed>
+     */
+    private function stageCoverage(array $caseIds, array $readyPairs, array $observedRuns): array
+    {
+        $required = count($caseIds) * count($readyPairs);
+        $observed = [];
+        $missingFirstCaseCommands = [];
+        $replayVerified = 0;
+
+        foreach ($caseIds as $caseId) {
+            foreach ($readyPairs as $pair) {
+                $pairId = (string) ($pair['pair_id'] ?? '');
+                if ($pairId === '') {
+                    continue;
+                }
+                $key = $pairId.'|'.$caseId;
+                $runs = $observedRuns[$key] ?? [];
+                if ($runs !== []) {
+                    $first = $runs[0];
+                    $observed[] = $first;
+                    if ((bool) ($first['replay_passes'] ?? false)) {
+                        $replayVerified++;
+                    }
+
+                    continue;
+                }
+
+                if ($caseId === ($caseIds[0] ?? null)) {
+                    $missingFirstCaseCommands[] = $this->caseRealCommand($pair, $caseId);
+                }
+            }
+        }
+
+        $observedCount = count($observed);
+        $completionRatio = $required > 0 ? round($observedCount / $required, 4) : 0.0;
+
+        return [
+            'observed_real_runs' => $observedCount,
+            'replay_verified_runs' => $replayVerified,
+            'missing_real_runs' => max(0, $required - $observedCount),
+            'completion_ratio' => $completionRatio,
+            'coverage_status' => match (true) {
+                $required <= 0 => 'blocked_no_required_runs',
+                $observedCount <= 0 => 'no_real_evidence_yet',
+                $observedCount >= $required && $replayVerified >= $required => 'complete_replay_verified',
+                $observedCount >= $required => 'complete_needs_replay_review',
+                default => 'partial',
+            },
+            'observed_runs' => array_slice($observed, 0, 20),
+            'missing_first_case_commands' => array_slice($missingFirstCaseCommands, 0, 20),
+        ];
+    }
+
+    /**
+     * @return array<string,list<array<string,mixed>>>
+     */
+    private function observedRunsByPairAndCase(): array
+    {
+        $root = $this->paths->rootDirectory();
+        $manifestPaths = glob($root.'/*/evidence/manifest.json') ?: [];
+        $observed = [];
+
+        foreach ($manifestPaths as $manifestPath) {
+            if (! is_string($manifestPath) || ! is_file($manifestPath)) {
+                continue;
+            }
+
+            $manifest = json_decode((string) @file_get_contents($manifestPath), true);
+            if (! is_array($manifest)) {
+                continue;
+            }
+
+            $caseId = (string) ($manifest['case_id'] ?? '');
+            if ($caseId === '' || ! str_starts_with($caseId, 'ceiling-360-')) {
+                continue;
+            }
+
+            $pairId = $this->pairIdForManifest($manifest);
+            if ($pairId === null) {
+                continue;
+            }
+
+            $scorecardPath = dirname($manifestPath).'/scorecard.json';
+            $scorecard = is_file($scorecardPath)
+                ? json_decode((string) @file_get_contents($scorecardPath), true)
+                : [];
+            $scorecard = is_array($scorecard) ? $scorecard : [];
+
+            $providerTokensSpent = (bool) ($manifest['provider_tokens_spent'] ?? false);
+            $externalProviderCall = (bool) ($manifest['external_provider_call'] ?? false);
+            if (! $externalProviderCall || ! $providerTokensSpent) {
+                continue;
+            }
+            $hardFailures = (array) ($scorecard['hard_failures'] ?? []);
+            $validEvidence = (string) ($manifest['verdict'] ?? '') === 'comparable'
+                && (bool) ($scorecard['replay_passes'] ?? false)
+                && $hardFailures === [];
+            if (! $validEvidence) {
+                continue;
+            }
+
+            $key = $pairId.'|'.$caseId;
+            $observed[$key][] = [
+                'run_id' => (string) ($manifest['run_id'] ?? basename(dirname(dirname($manifestPath)))),
+                'pair_id' => $pairId,
+                'case_id' => $caseId,
+                'mode' => (string) ($manifest['mode'] ?? ''),
+                'verdict' => (string) ($manifest['verdict'] ?? ''),
+                'winner' => $scorecard['winner'] ?? null,
+                'atlas_score' => $scorecard['atlas_score'] ?? null,
+                'rival_score' => $scorecard['rival_score'] ?? null,
+                'replay_passes' => (bool) ($scorecard['replay_passes'] ?? false),
+                'hard_failures' => $hardFailures,
+                'valid_evidence' => true,
+                'claim_ready' => (bool) ($scorecard['claim_ready'] ?? false),
+                'external_provider_call' => true,
+                'provider_tokens_spent' => true,
+            ];
+        }
+
+        foreach ($observed as &$runs) {
+            usort($runs, static fn (array $a, array $b): int => strcmp((string) ($b['run_id'] ?? ''), (string) ($a['run_id'] ?? '')));
+        }
+        unset($runs);
+
+        return $observed;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     */
+    private function pairIdForManifest(array $manifest): ?string
+    {
+        $armA = (array) data_get($manifest, 'arena_contracts.arm_a', []);
+        $armB = (array) data_get($manifest, 'arena_contracts.arm_b', []);
+        $actual = [
+            'arm_a' => (string) ($armA['arm_id'] ?? ''),
+            'arm_a_model' => (string) ($armA['model_alias'] ?? $armA['requested_model'] ?? ''),
+            'arm_b' => (string) ($armB['arm_id'] ?? ''),
+            'arm_b_model' => (string) ($armB['model_alias'] ?? $armB['requested_model'] ?? ''),
+            'mode' => (string) ($manifest['mode'] ?? ''),
+        ];
+
+        foreach ($this->canonicalPairs() as $pair) {
+            if ($actual['arm_a'] === $pair['arm_a']
+                && $this->modelAliasMatches($actual['arm_a_model'], $pair['arm_a_model'])
+                && $actual['arm_b'] === $pair['arm_b']
+                && $this->modelAliasMatches($actual['arm_b_model'], $pair['arm_b_model'])
+                && $actual['mode'] === $pair['mode']) {
+                return $pair['pair_id'];
+            }
+        }
+
+        return null;
+    }
+
+    private function modelAliasMatches(string $actual, string $expected): bool
+    {
+        $actual = strtolower(trim($actual));
+        $expected = strtolower(trim($expected));
+
+        return $actual === $expected
+            || $actual === str_replace('-', '_', $expected)
+            || $actual === 'claude_'.$expected
+            || $expected === 'claude_'.$actual;
     }
 
     /**

@@ -9,6 +9,8 @@ use App\Models\AtlasDevOutcomeMemory;
 use App\Models\AtlasDevRunCertification;
 use App\Models\AtlasDevTaskPacket;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
+use App\Services\Ai\Product\AtlasExecutionDoctrineRuntimeService;
 
 class DevRunCertificationService
 {
@@ -20,6 +22,11 @@ class DevRunCertificationService
 
     public const STATUS_NEEDS_REVIEW = 'needs_review';
 
+    public function __construct(
+        private readonly AtlasExecutionDoctrineRuntimeService $aedpds = new AtlasExecutionDoctrineRuntimeService,
+        private readonly AtlasExecutionDoctrineGateService $aedpdsGate = new AtlasExecutionDoctrineGateService,
+    ) {}
+
     public function certify(
         AtlasDevTaskPacket $taskPacket,
         AtlasDevContextGate $contextGate,
@@ -28,7 +35,27 @@ class DevRunCertificationService
         array $decisionMaterializations = [],
     ): array {
         $decisionKinds = $this->decisionKinds($decisionMaterializations);
+        $doctrine = $this->aedpds->select([
+            'task' => $taskPacket->objective,
+            'surface' => 'atlas_dev',
+            'workspace' => $taskPacket->workspace_slug,
+            'task_type' => $taskPacket->task_class,
+            'risk_level' => $taskPacket->risk_band,
+            'code_changes_requested' => ! in_array($taskPacket->task_class, ['trivial', 'read_only', 'review'], true),
+            'missing_context' => ! $this->hasAny($this->realList($taskPacket->context_refs, 'aedpds_context:'))
+                && ! $this->hasAny($taskPacket->expected_files)
+                && ! $this->hasAny($taskPacket->allowed_files),
+        ]);
+        $aedpdsGate = $this->aedpdsGate->evaluate([
+            'doctrine' => $doctrine,
+            'acceptance_criteria' => $this->realList($taskPacket->acceptance_criteria, 'aedpds_'),
+            'context_refs' => $this->realList($taskPacket->context_refs, 'aedpds_context:'),
+            'tests' => $this->realList($taskPacket->suggested_tests, 'aedpds_test:'),
+            'evidence' => $this->realList($taskPacket->required_evidence, 'aedpds_evidence:'),
+        ]);
         $checks = [
+            $this->check('aedpds_doctrine_selected', $doctrine['selected_primary_drivers'] !== [], 'AEDPDS selected delivery drivers'),
+            $this->check('aedpds_gate_not_blocked', ($aedpdsGate['status'] ?? null) !== 'blocked', 'AEDPDS gate passed or warned before Dev run certification'),
             $this->check('task_packet_present', true, 'Dev task packet persisted'),
             $this->check('context_gate_passed', $contextGate->status === DevContextGateService::STATUS_PASSED, 'Context gate passed before provider-safe execution'),
             $this->check('scope_declared', $this->hasAny($taskPacket->allowed_files) || $this->hasAny($taskPacket->expected_files), 'Allowed/expected files declared'),
@@ -68,6 +95,8 @@ class DevRunCertificationService
                 'fail' => count($blockers),
                 'provider_safe' => $status === self::STATUS_READY,
                 'outcome_status' => $outcomeMemory->outcome_status,
+                'aedpds_gate_status' => $aedpdsGate['status'],
+                'aedpds_selected_drivers' => $doctrine['selected_primary_drivers'],
             ],
             'checks' => $checks,
             'blockers' => $blockers,
@@ -77,6 +106,15 @@ class DevRunCertificationService
                 'failure_hash' => $failureCapsule?->failure_hash,
                 'outcome_memory_hash' => $outcomeMemory->outcome_memory_hash,
                 'decision_hashes' => $this->decisionHashes($decisionMaterializations),
+            ],
+            'aedpds' => [
+                'selected_drivers' => $doctrine['selected_primary_drivers'],
+                'required_gates' => $doctrine['required_gates'],
+                'gate_status' => $aedpdsGate['status'],
+                'gate_hash' => $aedpdsGate['hash'],
+                'blockers' => $aedpdsGate['blockers'],
+                'warnings' => $aedpdsGate['warnings'],
+                'outcome' => $outcomeMemory->outcome_status,
             ],
         ];
         $payload['certification_hash'] = MissionCanonicalHash::sha256($payload);
@@ -127,6 +165,21 @@ class DevRunCertificationService
     private function hasAny(mixed $value): bool
     {
         return is_array($value) && array_values($value) !== [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function realList(mixed $value, string $generatedPrefix): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $value,
+            static fn (mixed $item): bool => is_string($item) && $item !== '' && ! str_starts_with($item, $generatedPrefix),
+        ));
     }
 
     /**

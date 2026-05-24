@@ -30,6 +30,10 @@ class DevContextGateService
 
         $objective = trim((string) ($packet['objective'] ?? ''));
         $contextRefs = $this->list($packet['context_refs'] ?? []);
+        $realContextRefs = array_values(array_filter(
+            $contextRefs,
+            static fn (string $ref): bool => ! str_starts_with($ref, 'aedpds_context:'),
+        ));
         $expectedFiles = $this->list($packet['expected_files'] ?? []);
         $allowedFiles = $this->list($packet['allowed_files'] ?? []);
         $suggestedTests = $this->list($packet['suggested_tests'] ?? []);
@@ -42,7 +46,7 @@ class DevContextGateService
         }
 
         if (! in_array($taskClass, ['trivial', 'read_only'], true)) {
-            if ($contextRefs === [] && $expectedFiles === [] && $allowedFiles === []) {
+            if ($realContextRefs === [] && $expectedFiles === [] && $allowedFiles === []) {
                 $missing[] = 'context_or_scope';
                 $remediation[] = 'attach owner docs, expected files or allowed file scope';
             }
@@ -54,7 +58,7 @@ class DevContextGateService
         }
 
         if (in_array($risk, ['high', 'critical'], true)) {
-            if ($contextRefs === []) {
+            if ($realContextRefs === []) {
                 $missing[] = 'owner_docs_or_context_refs';
                 $remediation[] = 'high risk Dev work requires canonical docs/context refs';
             }

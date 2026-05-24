@@ -530,8 +530,46 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
             $this->assertContains('runner_ceiling_probe', (array) $case['measurement_tags']);
             $this->assertSame('atlas.forge.rivals.ceiling_360.v1', $case['ceiling_360']['schema_version'] ?? null);
             $this->assertSame(120, $case['ceiling_360']['required_signal']['min_cases'] ?? null);
+            $this->assertSame('L5+', $case['ceiling_360']['required_signal']['pressure_level'] ?? null);
+            $this->assertGreaterThanOrEqual(12000, (int) ($case['ceiling_360']['required_signal']['min_estimated_context_tokens'] ?? 0));
+            $this->assertGreaterThanOrEqual(6, (int) ($case['ceiling_360']['required_signal']['min_reasoning_depth'] ?? 0));
             $this->assertTrue((bool) ($case['ceiling_360']['required_signal']['requires_all_360_capabilities'] ?? false));
+            $this->assertTrue((bool) ($case['ceiling_360']['required_signal']['requires_adversarial_constraints'] ?? false));
+            $this->assertTrue((bool) ($case['ceiling_360']['required_signal']['requires_non_obvious_regression_probe'] ?? false));
+            $this->assertTrue((bool) ($case['ceiling_360']['required_signal']['requires_honest_uncertainty_boundary'] ?? false));
             $this->assertFalse((bool) ($case['ceiling_360']['claim_policy']['external_claim_allowed'] ?? true));
+            $this->assertStringContainsString('Pressao L5+', (string) $case['human_prompt']);
+            $this->assertSame('atlas.forge.rivals.ceiling_pressure_profile.v1', $case['ceiling_pressure_profile']['schema_version'] ?? null);
+            $this->assertSame('L5+', $case['ceiling_pressure_profile']['pressure_level'] ?? null);
+            $this->assertTrue((bool) ($case['ceiling_pressure_profile']['advisory_only'] ?? false));
+            $this->assertSame('none', $case['ceiling_pressure_profile']['routing_effect'] ?? null);
+            foreach ([
+                'conflicting_constraints_analysis',
+                'non_obvious_regression_probe',
+                'production_invariant_reasoning',
+                'rollback_and_replay_matrix',
+                'honest_uncertainty_boundary',
+                'capability_specific_self_evaluation',
+            ] as $pressureRequirement) {
+                $this->assertContains($pressureRequirement, (array) ($case['ceiling_pressure_profile']['requires'] ?? []));
+            }
+            foreach ([
+                'adversarial_constraint_handling',
+                'non_obvious_regression_detection',
+                'uncertainty_boundary_quality',
+                'production_invariant_reasoning',
+                'capability_separation_signal',
+            ] as $pressureDimension) {
+                $this->assertContains($pressureDimension, (array) ($case['context_profile']['complexity_profile']['measured_dimensions'] ?? []));
+            }
+            $this->assertGreaterThanOrEqual(12000, (int) ($case['context_profile']['estimated_context_tokens'] ?? 0));
+            $this->assertGreaterThanOrEqual(6, (int) ($case['context_profile']['reasoning_depth'] ?? 0));
+            $this->assertSame(
+                $case['context_profile']['complexity_profile']['scope_surface_count'] ?? null,
+                $case['context_profile']['scope_surface_count'] ?? null,
+            );
+            $this->assertGreaterThanOrEqual(12000, (int) ($case['human_prompt_probe']['min_context_tokens'] ?? 0));
+            $this->assertGreaterThanOrEqual(6, (int) ($case['human_prompt_probe']['min_reasoning_depth'] ?? 0));
             foreach ($required as $capability) {
                 $this->assertContains($capability, (array) $case['measured_capabilities']);
             }

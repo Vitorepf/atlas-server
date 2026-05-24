@@ -6,6 +6,8 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
+use App\Services\Ai\Product\AtlasExecutionDoctrineRuntimeService;
 use Illuminate\Support\Str;
 
 /**
@@ -20,6 +22,11 @@ use Illuminate\Support\Str;
 class AtlasCodeForgeWorkIntakeService
 {
     public const SCHEMA_VERSION = 'atlas.code.forge_work_intake.v1';
+
+    public function __construct(
+        private readonly AtlasExecutionDoctrineRuntimeService $aedpds = new AtlasExecutionDoctrineRuntimeService,
+        private readonly AtlasExecutionDoctrineGateService $aedpdsGate = new AtlasExecutionDoctrineGateService,
+    ) {}
 
     /**
      * @return array<string,mixed>
@@ -78,6 +85,7 @@ class AtlasCodeForgeWorkIntakeService
             'updated_at' => now()->toIso8601String(),
             'external_provider_call' => false,
         ];
+        $intake['aedpds'] = $this->aedpdsEnvelope($intake);
 
         $intake = $this->withReadiness($intake);
 
@@ -128,8 +136,51 @@ class AtlasCodeForgeWorkIntakeService
             'updated_at' => null,
             'external_provider_call' => false,
         ], $partial);
+        $intake['aedpds'] = $this->aedpdsEnvelope($intake);
 
         return $this->withReadiness($intake);
+    }
+
+    /**
+     * @param  array<string,mixed>  $intake
+     * @return array<string,mixed>
+     */
+    private function aedpdsEnvelope(array $intake): array
+    {
+        $doctrine = $this->aedpds->select([
+            'task' => (string) ($intake['objective'] ?? 'Forge work packet'),
+            'surface' => 'atlas_forge',
+            'workspace' => (string) ($intake['obra_id'] ?? ''),
+            'risk_level' => (string) ($intake['risk_level'] ?? 'medium'),
+            'code_changes_requested' => true,
+            'forge_involved' => true,
+            'complex_product' => true,
+            'missing_context' => $this->stringList($intake['canonical_docs'] ?? []) === [],
+        ]);
+        $gate = $this->aedpdsGate->evaluate([
+            'doctrine' => $doctrine,
+            'acceptance_criteria' => $this->stringList($intake['acceptance_criteria'] ?? []),
+            'context_refs' => $this->stringList($intake['canonical_docs'] ?? []),
+            'tests' => $this->stringList($intake['expected_outputs'] ?? []),
+            'docs' => $this->stringList($intake['canonical_docs'] ?? []),
+            'review' => in_array((string) ($intake['risk_level'] ?? 'medium'), ['high', 'critical'], true) ? [] : ['risk_review_not_required_for_current_band'],
+            'evidence' => $this->stringList($intake['expected_outputs'] ?? []),
+        ]);
+
+        return [
+            'schema_version' => 'atlas.forge.aedpds_projection.v1',
+            'selected_drivers' => $doctrine['selected_primary_drivers'],
+            'required_context' => $doctrine['required_context'],
+            'required_tests' => $doctrine['required_tests'],
+            'required_evidence' => $doctrine['required_evidence'],
+            'required_review' => $doctrine['required_review'],
+            'recommended_escalation' => $doctrine['recommended_escalation'],
+            'gate_status' => $gate['status'],
+            'blockers' => $gate['blockers'],
+            'warnings' => $gate['warnings'],
+            'doctrine_hash' => $doctrine['certification_hash'],
+            'gate_hash' => $gate['hash'],
+        ];
     }
 
     /**
@@ -154,6 +205,11 @@ class AtlasCodeForgeWorkIntakeService
         }
         if ($this->stringList($intake['canonical_docs'] ?? []) === []) {
             $blockers[] = 'blocked_missing_canonical_docs';
+        }
+        if (data_get($intake, 'aedpds.gate_status') === 'blocked') {
+            foreach ($this->stringList(data_get($intake, 'aedpds.blockers', [])) as $blocker) {
+                $blockers[] = 'blocked_aedpds_'.$blocker;
+            }
         }
 
         $readiness = $blockers === [] ? 'ready' : 'blocked';

@@ -146,6 +146,7 @@ final class AtlasForgeRivalsCorpusPlannerService
                 'meta_provider_stress' => $c['meta_provider_stress'] ?? null,
                 'extreme_differentiator' => $c['extreme_differentiator'] ?? null,
                 'ceiling_360' => $c['ceiling_360'] ?? null,
+                'ceiling_pressure_profile' => $c['ceiling_pressure_profile'] ?? null,
                 'extreme_hardening' => $c['extreme_hardening'] ?? null,
                 'measured_capabilities' => array_values(array_map(
                     static fn ($v): string => (string) $v,

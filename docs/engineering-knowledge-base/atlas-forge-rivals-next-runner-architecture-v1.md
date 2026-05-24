@@ -65,6 +65,7 @@ related_paths:
   - app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmContractService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderModelRegistryService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArmCommandBuilderService.php
+  - docs/engineering-knowledge-base/atlas-forge-rivals-ceiling-360-execution-ladder-v1.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-next-runner-architecture-v1
@@ -396,63 +397,12 @@ Cursor e Composer exigem contrato adicional de evidence quando saem do dry-run:
   `requires_harder_followup=true`, `difficulty_ceiling_reached=false` e
   recomendam `ceiling-360`, `extreme-differentiator`,
   `meta-provider-stress` e `statistical-repeat`.
-- `ceiling-360` e o preset de teto pratico para runners de proxima geracao:
-  120 casos L5, todos com risco `critical`, ambiguidade alta, contexto longo,
-  planejamento dominante (`planning_weight >= 0.70`) e cobertura explicita das
-  capacidades obrigatorias de 360 (`long_context_retention`,
-  `multi_step_reasoning`, `rollback_safety`, `scope_boundary_discipline`,
-  `replayable_evidence_quality`, `honest_blocker_behavior` e
-  `ambiguous_human_prompt_handling`). Um empate em `ceiling-360` nunca vira
-  claim real sozinho; ele exige separacao estatistica, replay e revisao humana.
-- Quando `capability_floor_not_met` ou empate L5 aparecer, o Report v3 deve
-  emitir matriz 360 de Provider Arena com dry-runs e templates reais
-  confirmados para, no minimo: `atlas_forge` vs `claude_code`,
-  `atlas_dev` vs `atlas_forge`, `composer_2_5` vs `codex_cli`,
-  `cursor_cli` vs `claude_code`, `claude_code` vs `codex_cli`,
-  `codex_cli` vs `gemini_cli`, `claude_code sonnet` vs `claude_code opus` e
-  `atlas_forge full_power` vs baseline. Todos os dry-runs declaram
-  `external_provider_call=false`, `provider_tokens_spent=false` e
-  `routing_effect=none`; templates reais exigem as tres confirmacoes.
-- `arena-readiness --json` deve expor a mesma matriz como readiness operacional,
-  sem depender de um report anterior: `case_set=ceiling-360`, `case_count=120`,
-  `ceiling_360_matrix=true`, `pair_count=8`, `dry_run_command` por par e
-  `next_command` real apenas com confirmacoes explicitas. Readiness nunca
-  executa provider; ela pode apontar `real_run_ready_after_confirmations`,
-  `plan_ready_driver_missing` ou `plan_ready_evidence_disk_blocked`.
-- `provider_performance_signal` expoe
-  `complexity_profile_coverage` (`atlas.forge.rivals.complexity_profile_coverage.v1`)
-  com cobertura de perfis, tokens de contexto estimados, profundidade de
-  raciocinio, diversidade de dominios, distribuicao de risco/ambiguidade,
-  rollback/multi-step, casos que exigem contexto longo e casos que exigem
-  evidence matrix. O summary expoe contadores explicitos
-  `multi_step_plan_cases`, `evidence_matrix_cases` e a faixa
-  `min/max_estimated_context_tokens`. Esse bloco e advisory-only e nao altera provider topology.
-  Quando a cobertura e incompleta, ou quando a amostra filtrada nao mede
-  contexto longo/evidence matrix, `do_not_use_when` emite condicoes como
-  `complexity_profile_coverage_incomplete`, `long_context_not_measured` e
-  `evidence_matrix_not_measured`. Se nenhum caso exige planejamento multi-step,
-  tambem emite `multi_step_plan_not_measured`.
-- O mesmo bloco expoe `meta_provider_claim_floor_met`. Para ser verdadeiro, a
-  bateria precisa ter pelo menos 16 casos, cobertura completa de
-  `complexity_profile`, pelo menos 8 dominios, contexto longo/evidence
-  matrix/multi-step em todos os casos e pelo menos um caso de alta ambiguidade
-  e um de risco alto/critico. Quando esse floor falha em uma amostra grande,
-  `do_not_use_when` adiciona `meta_provider_stress_floor_not_met`. Isso impede
-  que uma bateria facil seja lida como prova de capacidade em programacao
-  pesada ou meta-provider de contexto longo.
-- `provider_performance_signal.can_feed_ledger` so pode ser verdadeiro quando a
-  confianca do run permite ledger e `do_not_use_when` esta vazio. Quando ha
-  bloqueios de medicao, `ledger_blockers` lista as condicoes advisory que
-  impedem alimentar o ledger sem promover claim nem alterar Atlas Decide.
-- O schema de report rejeita contradicoes: `can_feed_ledger=true` com
-  `ledger_blockers` nao vazios, `do_not_use_when` nao vazio, ou
-  `claim_status.can_feed_ledger=true` enquanto o provider signal bloqueia o
-  ledger. Assim, uma bateria com medicao incompleta nao pode alimentar ledger
-  por acidente.
-- O schema tambem exige `human_prompt_contract_coverage` e
-  `complexity_profile_coverage` dentro de `provider_performance_signal`, ambos
-  advisory-only e com `routing_effect=none`. Report sem esses blocos nao e
-  machine-readable valido para medir Cursor/Composer ou runners futuros.
+- `ceiling-360`, perfil `L5+`, `execution_ladder`, cobertura observada,
+  complexity coverage e meta-provider claim floor sao detalhados em
+  `atlas-forge-rivals-ceiling-360-execution-ladder-v1.md`. A arquitetura aqui
+  apenas fixa o limite: empates L5 sao diagnosticos, dry-run/local_fake nao
+  contam como evidencia real, e somente manifests reais com replay verde,
+  `verdict=comparable` e `hard_failures=[]` entram na cobertura.
 
 `human_prompt_probe` e o checklist replayavel para medir prompt humano ambiguo.
 Ele exige secoes como fatos observados, suposicoes, decisoes reversiveis,

@@ -22,6 +22,8 @@ class AtlasAutonomousProductDeliveryRuntimeService
         private readonly AtlasProductDeliveryEnforcementService $enforcement = new AtlasProductDeliveryEnforcementService,
         private readonly AtlasProductTwinSimulationService $productTwin = new AtlasProductTwinSimulationService,
         private readonly AtlasProductDeliveryRiskGovernorService $riskGovernor = new AtlasProductDeliveryRiskGovernorService,
+        private readonly AtlasExecutionDoctrineRuntimeService $executionDoctrine = new AtlasExecutionDoctrineRuntimeService,
+        private readonly AtlasExecutionDoctrineGateService $executionDoctrineGate = new AtlasExecutionDoctrineGateService,
         private readonly AtlasProductDeliveryMultiStepRepairPlannerService $repairPlanner = new AtlasProductDeliveryMultiStepRepairPlannerService,
         private readonly AtlasProductDeliveryRepairBridgeService $repairBridge = new AtlasProductDeliveryRepairBridgeService(
             new DevRepairLoopService(
@@ -51,6 +53,32 @@ class AtlasAutonomousProductDeliveryRuntimeService
             : (string) data_get($truth, 'execution_decomposition.route', 'atlas_dev');
         data_set($truth, 'execution_decomposition.route', $route);
         $workspace = $this->string($input['workspace'] ?? $input['workspace_slug'] ?? null);
+        $doctrine = $this->executionDoctrine->select([
+            'task' => $request,
+            'surface' => $route,
+            'workspace' => $workspace,
+            'task_type' => data_get($truth, 'product_intent.kind'),
+            'risk_level' => $this->riskBand($truth),
+            'code_changes_requested' => true,
+            'missing_context' => ($truth['status'] ?? null) !== 'ready',
+            'senior_review_present' => (bool) ($input['operator_approved'] ?? false),
+            'context_refs' => $this->list($input['context_refs'] ?? []),
+        ]);
+        $doctrineGate = $this->executionDoctrineGate->evaluate([
+            'doctrine' => $doctrine,
+            'acceptance_criteria' => $this->list(data_get($truth, 'acceptance_universe.must_work', [])),
+            'context_refs' => $this->list($input['context_refs'] ?? ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md']),
+            'tests' => $this->testsFromTruth($truth),
+            'contracts' => array_merge(
+                $this->list(data_get($truth, 'contract_map.apis', [])),
+                $this->list(data_get($truth, 'contract_map.events', [])),
+                $this->list(data_get($truth, 'contract_map.data_shapes', [])),
+            ),
+            'docs' => $this->list($input['canonical_docs'] ?? ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md']),
+            'review' => (bool) ($input['operator_approved'] ?? false) ? ['operator_or_senior_review'] : [],
+            'evidence' => $this->list($input['evidence_refs'] ?? data_get($input, 'evidence.tests', [])),
+            'ux_expectations' => $this->list($input['ux_expectations'] ?? []),
+        ]);
 
         $assisted = $this->assistedExecution->buildEnvelope([
             'human_request' => $request,
@@ -69,6 +97,10 @@ class AtlasAutonomousProductDeliveryRuntimeService
             'mode' => 'shadow_provider_free',
             'route' => $route,
             'product_truth' => $truth,
+            'aedpds' => [
+                'doctrine' => $doctrine,
+                'gate' => $doctrineGate,
+            ],
             'assisted_execution' => $assisted,
             'delivery_plan' => $this->deliveryPlan($truth, $assisted),
             'proof_requirements' => [

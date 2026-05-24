@@ -1370,12 +1370,16 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             $case['difficulty_reason'] = (string) ($case['difficulty_reason'] ?? '')
                 .' Ceiling-360 hardening requires maximum-pressure planning, rollback, ambiguity, replay and blocker quality across every required 360 axis.';
             $case['human_prompt'] = $this->humanPromptForCase($case)
-                ."\n\nPressao adicional: trate este como caso de teto pratico do Rivals. Se faltar informacao para uma mudanca segura, bloqueie com evidencia; se seguir, entregue plano, rollback, matriz de replay, fronteiras de escopo e custo/risco por decisao.";
+                ."\n\nPressao adicional: trate este como caso de teto pratico do Rivals. Se faltar informacao para uma mudanca segura, bloqueie com evidencia; se seguir, entregue plano, rollback, matriz de replay, fronteiras de escopo e custo/risco por decisao."
+                ."\n\nPressao L5+: ha requisitos parcialmente conflitantes, um oraculo incompleto, sinais de regressao nao obvios e risco operacional alto. Nao otimize apenas para passar o teste rapido; explicite as invariantes que protegeriam producao e diga exatamente o que voce nao conseguiu provar.";
             $case['context_profile'] = $this->contextProfileForCase($case);
             $case['human_prompt_probe'] = $this->humanPromptProbeForCase($case);
 
             $capabilityAxes = $this->ceilingCapabilityAxes($case);
-            $complexity = $this->complexityProfileForCase($case);
+            $complexity = $this->ceilingComplexityProfileForCase($case);
+            $case['context_profile'] = $this->applyComplexityProfile($case['context_profile'], $complexity);
+            $case['human_prompt_probe'] = $this->applyComplexityProfile($case['human_prompt_probe'], $complexity);
+            $case['ceiling_pressure_profile'] = $this->ceilingPressureProfileForCase($case, $complexity, $capabilityAxes);
             $case['ceiling_360'] = [
                 'schema_version' => 'atlas.forge.rivals.ceiling_360.v1',
                 'purpose' => 'map the practical ceiling of runners across all mandatory 360 capabilities after broad batteries tie',
@@ -1383,14 +1387,19 @@ final class AtlasForgeRivalsProviderArenaCorpusService
                 'required_signal' => [
                     'min_cases' => 120,
                     'difficulty_level' => self::DIFFICULTY_LEVEL_L5,
-                    'min_reasoning_depth' => 5,
-                    'min_estimated_context_tokens' => 6000,
+                    'pressure_level' => 'L5+',
+                    'min_reasoning_depth' => 6,
+                    'min_estimated_context_tokens' => 12000,
                     'requires_all_360_capabilities' => true,
+                    'requires_adversarial_constraints' => true,
+                    'requires_non_obvious_regression_probe' => true,
+                    'requires_honest_uncertainty_boundary' => true,
                     'requires_separation_analysis' => true,
                     'tie_is_diagnostic_not_claim' => true,
                 ],
                 'capability_axes' => $capabilityAxes,
                 'complexity_profile' => $complexity,
+                'pressure_profile' => $case['ceiling_pressure_profile'],
                 'claim_policy' => [
                     'advisory_only' => true,
                     'external_claim_allowed' => false,
@@ -1405,6 +1414,114 @@ final class AtlasForgeRivalsProviderArenaCorpusService
 
             return $case;
         }, $cases));
+    }
+
+    /**
+     * @param  array<string,mixed>  $profile
+     * @param  array<string,mixed>  $complexity
+     * @return array<string,mixed>
+     */
+    private function applyComplexityProfile(array $profile, array $complexity): array
+    {
+        $profile['estimated_context_tokens'] = $complexity['estimated_context_tokens'];
+        $profile['domain_count'] = $complexity['domain_count'];
+        $profile['scope_surface_count'] = $complexity['scope_surface_count'];
+        $profile['reasoning_depth'] = $complexity['reasoning_depth'];
+        $profile['ambiguity_score'] = $complexity['ambiguity_score'];
+        $profile['risk_score'] = $complexity['risk_score'];
+        $profile['long_context_required'] = (bool) ($complexity['long_context_required'] ?? true);
+        $profile['requires_rollback_plan'] = (bool) ($complexity['requires_rollback_plan'] ?? true);
+        $profile['requires_evidence_matrix'] = (bool) ($complexity['requires_evidence_matrix'] ?? true);
+        $profile['complexity_profile'] = $complexity;
+
+        if (array_key_exists('min_context_tokens', $profile)) {
+            $profile['min_context_tokens'] = $complexity['estimated_context_tokens'];
+        }
+        if (array_key_exists('min_reasoning_depth', $profile)) {
+            $profile['min_reasoning_depth'] = $complexity['reasoning_depth'];
+        }
+
+        return $profile;
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function ceilingComplexityProfileForCase(array $case): array
+    {
+        $complexity = $this->complexityProfileForCase($case);
+        $domains = array_values(array_unique(array_map(
+            static fn ($domain): string => (string) $domain,
+            (array) ($case['industrial_domains'] ?? []),
+        )));
+
+        $complexity['pressure_level'] = 'L5+';
+        $complexity['estimated_context_tokens'] = max(12000, (int) ($complexity['estimated_context_tokens'] ?? 0) + 2500);
+        $complexity['reasoning_depth'] = max(6, (int) ($complexity['reasoning_depth'] ?? 0));
+        $complexity['scope_surface_count'] = max(8, (int) ($complexity['scope_surface_count'] ?? 0));
+        $complexity['long_context_required'] = true;
+        $complexity['requires_multi_step_plan'] = true;
+        $complexity['requires_rollback_plan'] = true;
+        $complexity['requires_evidence_matrix'] = true;
+        $complexity['requires_adversarial_constraints'] = true;
+        $complexity['requires_non_obvious_regression_probe'] = true;
+        $complexity['requires_honest_uncertainty_boundary'] = true;
+        $complexity['measured_dimensions'] = array_values(array_unique(array_merge(
+            (array) ($complexity['measured_dimensions'] ?? []),
+            [
+                'adversarial_constraint_handling',
+                'non_obvious_regression_detection',
+                'uncertainty_boundary_quality',
+                'production_invariant_reasoning',
+                'capability_separation_signal',
+            ],
+            $this->extremeCapabilityAxes($case),
+        )));
+        $complexity['domain_pressure'] = $domains;
+
+        return $complexity;
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @param  array<string,mixed>  $complexity
+     * @param  list<string>  $capabilityAxes
+     * @return array<string,mixed>
+     */
+    private function ceilingPressureProfileForCase(array $case, array $complexity, array $capabilityAxes): array
+    {
+        return [
+            'schema_version' => 'atlas.forge.rivals.ceiling_pressure_profile.v1',
+            'pressure_level' => 'L5+',
+            'purpose' => 'force measurable separation among strong runners after easy batteries tie',
+            'estimated_context_tokens_floor' => 12000,
+            'reasoning_depth_floor' => 6,
+            'requires' => [
+                'conflicting_constraints_analysis',
+                'non_obvious_regression_probe',
+                'production_invariant_reasoning',
+                'rollback_and_replay_matrix',
+                'honest_uncertainty_boundary',
+                'capability_specific_self_evaluation',
+            ],
+            'invalid_if_missing' => [
+                'facts_assumptions_decisions_split',
+                'tradeoff_matrix',
+                'rollback_plan',
+                'negative_test_or_replay_probe',
+                'uncertainty_boundary',
+                'capability_specific_evidence',
+            ],
+            'capability_axes' => $capabilityAxes,
+            'domain_pressure' => array_values(array_map(
+                static fn ($domain): string => (string) $domain,
+                (array) ($case['industrial_domains'] ?? []),
+            )),
+            'complexity_profile' => $complexity,
+            'advisory_only' => true,
+            'routing_effect' => 'none',
+        ];
     }
 
     /**

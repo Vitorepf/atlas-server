@@ -218,6 +218,20 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertTrue($response['ceiling_360_matrix']);
         $this->assertSame(8, $response['pair_count']);
         $this->assertSame(8, $response['dry_run_ready_count']);
+        $this->assertSame('atlas.forge.rivals.ceiling_360_execution_ladder.v1', data_get($response, 'execution_ladder.schema_version'));
+        $this->assertSame('ready', data_get($response, 'execution_ladder.status'));
+        $stages = collect(data_get($response, 'execution_ladder.stages'));
+        $this->assertSame(['canary_8', 'floor_24', 'full_120'], $stages->pluck('stage')->all());
+        $canary = $stages->firstWhere('stage', 'canary_8');
+        $this->assertSame(8, $canary['case_count']);
+        $this->assertSame(8, $canary['pair_count']);
+        $this->assertSame(64, $canary['estimated_real_runs']);
+        $this->assertSame(128, $canary['estimated_provider_invocations']);
+        $this->assertCount(8, $canary['first_case_dry_run_commands']);
+        $this->assertCount(8, $canary['first_case_real_commands']);
+        $this->assertStringContainsString('--case=ceiling-360-001-industrial-005-incident_rollback', $canary['first_case_dry_run_commands'][0]);
+        $this->assertStringContainsString('--dry-run', $canary['first_case_dry_run_commands'][0]);
+        $this->assertStringContainsString('--confirm-real-provider-call', $canary['first_case_real_commands'][0]);
         $this->assertFalse($response['external_provider_call']);
         $this->assertFalse($response['provider_tokens_spent']);
         $this->assertTrue($response['advisory_only']);
@@ -322,6 +336,45 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
                 'atlas.ai.providers.cursor_cli.enabled' => $oldCursorEnabled,
                 'atlas_rivals.min_free_bytes_before_provider_evidence' => $oldEvidenceFloor,
             ]);
+        }
+    }
+
+    public function test_arena_readiness_ladder_counts_only_valid_replay_verified_real_evidence(): void
+    {
+        $oldRunsRoot = config('atlas_rivals.runs_root');
+        $runsRoot = sys_get_temp_dir().'/atlas-rivals-readiness-coverage-'.Str::lower(Str::random(8));
+
+        try {
+            config(['atlas_rivals.runs_root' => $runsRoot]);
+
+            $this->writeReadinessCoverageRun(
+                $runsRoot,
+                'arena-z-invalid',
+                verdict: 'invalid_scope_violation',
+                hardFailures: ['verdict_comparable'],
+            );
+            $this->writeReadinessCoverageRun(
+                $runsRoot,
+                'arena-a-valid',
+                verdict: 'comparable',
+                hardFailures: [],
+            );
+
+            $response = app(AtlasForgeRivalsActionDispatcher::class)->dispatch('arena-readiness', []);
+            $canary = collect(data_get($response, 'execution_ladder.stages'))->firstWhere('stage', 'canary_8');
+
+            $this->assertSame(1, $canary['observed_real_runs']);
+            $this->assertSame(1, $canary['replay_verified_runs']);
+            $this->assertSame(63, $canary['missing_real_runs']);
+            $this->assertSame('partial', $canary['coverage_status']);
+            $this->assertSame('arena-a-valid', $canary['observed_runs'][0]['run_id']);
+            $this->assertTrue($canary['observed_runs'][0]['valid_evidence']);
+            $this->assertSame([], $canary['observed_runs'][0]['hard_failures']);
+            $this->assertFalse($response['external_provider_call']);
+            $this->assertFalse($response['provider_tokens_spent']);
+            $this->assertSame('none', $response['routing_effect']);
+        } finally {
+            config(['atlas_rivals.runs_root' => $oldRunsRoot]);
         }
     }
 
@@ -2042,6 +2095,46 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 
             $command['assert']($payload);
         }
+    }
+
+    /**
+     * @param  list<string>  $hardFailures
+     */
+    private function writeReadinessCoverageRun(string $runsRoot, string $runId, string $verdict, array $hardFailures): void
+    {
+        $evidence = $runsRoot.'/'.$runId.'/evidence';
+        @mkdir($evidence, 0o755, true);
+
+        file_put_contents($evidence.'/manifest.json', json_encode([
+            'run_id' => $runId,
+            'mode' => 'provider_arena',
+            'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
+            'verdict' => $verdict,
+            'external_provider_call' => true,
+            'provider_tokens_spent' => true,
+            'arena_contracts' => [
+                'arm_a' => [
+                    'arm_id' => 'atlas_forge',
+                    'model_alias' => 'sonnet',
+                    'requested_model' => 'sonnet',
+                ],
+                'arm_b' => [
+                    'arm_id' => 'claude_code',
+                    'model_alias' => 'sonnet',
+                    'requested_model' => 'sonnet',
+                ],
+            ],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        file_put_contents($evidence.'/scorecard.json', json_encode([
+            'run_id' => $runId,
+            'winner' => $hardFailures === [] ? 'human_review_required_tie' : null,
+            'atlas_score' => $hardFailures === [] ? 80.0 : null,
+            'rival_score' => $hardFailures === [] ? 80.0 : null,
+            'replay_passes' => true,
+            'hard_failures' => $hardFailures,
+            'claim_ready' => false,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     private function whichBinary(string $binary): string
