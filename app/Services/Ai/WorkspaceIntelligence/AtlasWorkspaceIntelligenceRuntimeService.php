@@ -936,33 +936,33 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function surfaceContractSummary(): array
     {
-        $desktopSurfacePath = base_path('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/AtlasAiSurface.tsx');
-        $desktopPickerPath = base_path('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/components/AtlasAiWorkspacePicker.tsx');
-        $desktopThreadListPath = base_path('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/components/AtlasAiThreadList.tsx');
-        $desktopFusionTestPath = base_path('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/__tests__/conversationFusionContract.test.ts');
-        $desktopSelectorTestPath = base_path('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/__tests__/workspaceSelectorContract.test.ts');
-        $mobileModelPath = base_path('../atlas-app/components/sheets/atlas-ai/AtlasAiWorkspaceModel.ts');
-        $mobileSelectorModelPath = base_path('../atlas-app/components/sheets/atlas-ai/AtlasAiMobileWorkspaceModel.ts');
-        $mobileSelectorSheetPath = base_path('../atlas-app/components/sheets/atlas-ai/AtlasAiWorkspaceSheet.tsx');
-        $mobileSheetPath = base_path('../atlas-app/components/sheets/AtlasAiSheet.tsx');
-        $mobileFooterPath = base_path('../atlas-app/components/sheets/atlas-ai/AtlasAiComposerFooter.tsx');
-        $mobileContextPath = base_path('../atlas-app/components/sheets/atlas-ai/AtlasAiContextSheet.tsx');
-        $mobileTestPath = base_path('../atlas-app/scripts/atlas-ai-workspace-context.test.ts');
-        $mobileSelectorTestPath = base_path('../atlas-app/scripts/atlas-ai-mobile-workspace-selector.test.ts');
+        $desktopSurfacePath = $this->basePath('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/AtlasAiSurface.tsx');
+        $desktopPickerPath = $this->basePath('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/components/AtlasAiWorkspacePicker.tsx');
+        $desktopThreadListPath = $this->basePath('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/components/AtlasAiThreadList.tsx');
+        $desktopFusionTestPath = $this->basePath('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/__tests__/conversationFusionContract.test.ts');
+        $desktopSelectorTestPath = $this->basePath('../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/__tests__/workspaceSelectorContract.test.ts');
+        $mobileModelPath = $this->basePath('../atlas-app/components/sheets/atlas-ai/AtlasAiWorkspaceModel.ts');
+        $mobileSelectorModelPath = $this->basePath('../atlas-app/components/sheets/atlas-ai/AtlasAiMobileWorkspaceModel.ts');
+        $mobileSelectorSheetPath = $this->basePath('../atlas-app/components/sheets/atlas-ai/AtlasAiWorkspaceSheet.tsx');
+        $mobileSheetPath = $this->basePath('../atlas-app/components/sheets/AtlasAiSheet.tsx');
+        $mobileFooterPath = $this->basePath('../atlas-app/components/sheets/atlas-ai/AtlasAiComposerFooter.tsx');
+        $mobileContextPath = $this->basePath('../atlas-app/components/sheets/atlas-ai/AtlasAiContextSheet.tsx');
+        $mobileTestPath = $this->basePath('../atlas-app/scripts/atlas-ai-workspace-context.test.ts');
+        $mobileSelectorTestPath = $this->basePath('../atlas-app/scripts/atlas-ai-mobile-workspace-selector.test.ts');
 
-        $desktopSurface = File::exists($desktopSurfacePath) ? (string) File::get($desktopSurfacePath) : '';
-        $desktopPicker = File::exists($desktopPickerPath) ? (string) File::get($desktopPickerPath) : '';
-        $desktopThreadList = File::exists($desktopThreadListPath) ? (string) File::get($desktopThreadListPath) : '';
-        $desktopFusionTest = File::exists($desktopFusionTestPath) ? (string) File::get($desktopFusionTestPath) : '';
-        $desktopSelectorTest = File::exists($desktopSelectorTestPath) ? (string) File::get($desktopSelectorTestPath) : '';
-        $mobileModel = File::exists($mobileModelPath) ? (string) File::get($mobileModelPath) : '';
-        $mobileSelectorModel = File::exists($mobileSelectorModelPath) ? (string) File::get($mobileSelectorModelPath) : '';
-        $mobileSelectorSheet = File::exists($mobileSelectorSheetPath) ? (string) File::get($mobileSelectorSheetPath) : '';
-        $mobileSheet = File::exists($mobileSheetPath) ? (string) File::get($mobileSheetPath) : '';
-        $mobileFooter = File::exists($mobileFooterPath) ? (string) File::get($mobileFooterPath) : '';
-        $mobileContext = File::exists($mobileContextPath) ? (string) File::get($mobileContextPath) : '';
-        $mobileTest = File::exists($mobileTestPath) ? (string) File::get($mobileTestPath) : '';
-        $mobileSelectorTest = File::exists($mobileSelectorTestPath) ? (string) File::get($mobileSelectorTestPath) : '';
+        $desktopSurface = $this->fileGet($desktopSurfacePath);
+        $desktopPicker = $this->fileGet($desktopPickerPath);
+        $desktopThreadList = $this->fileGet($desktopThreadListPath);
+        $desktopFusionTest = $this->fileGet($desktopFusionTestPath);
+        $desktopSelectorTest = $this->fileGet($desktopSelectorTestPath);
+        $mobileModel = $this->fileGet($mobileModelPath);
+        $mobileSelectorModel = $this->fileGet($mobileSelectorModelPath);
+        $mobileSelectorSheet = $this->fileGet($mobileSelectorSheetPath);
+        $mobileSheet = $this->fileGet($mobileSheetPath);
+        $mobileFooter = $this->fileGet($mobileFooterPath);
+        $mobileContext = $this->fileGet($mobileContextPath);
+        $mobileTest = $this->fileGet($mobileTestPath);
+        $mobileSelectorTest = $this->fileGet($mobileSelectorTestPath);
 
         $requirements = [
             'desktop_workspace_picker_present' => str_contains($desktopSurface, '<AtlasAiWorkspacePicker'),
@@ -1022,21 +1022,21 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function registryEditingSummary(): array
     {
-        $routePath = base_path('routes/api.php');
-        $controllerPath = app_path('Http/Controllers/AtlasCodeWorkspaceController.php');
-        $servicePath = app_path('Services/AtlasCode/AtlasCodeWorkspaceProfileService.php');
-        $modelPath = app_path('Models/AtlasWorkspaceProfile.php');
-        $migrationPath = database_path('migrations/2026_05_25_022000_create_atlas_workspace_profiles.php');
-        $commandPath = app_path('Console/Commands/AtlasWorkspaceIntelligenceCommand.php');
+        $routePath = $this->basePath('routes/api.php');
+        $controllerPath = $this->appPath('Http/Controllers/AtlasCodeWorkspaceController.php');
+        $servicePath = $this->appPath('Services/AtlasCode/AtlasCodeWorkspaceProfileService.php');
+        $modelPath = $this->appPath('Models/AtlasWorkspaceProfile.php');
+        $migrationPath = $this->databasePath('migrations/2026_05_25_022000_create_atlas_workspace_profiles.php');
+        $commandPath = $this->appPath('Console/Commands/AtlasWorkspaceIntelligenceCommand.php');
 
-        $routeSource = File::exists($routePath) ? (string) File::get($routePath) : '';
-        $controllerSource = File::exists($controllerPath) ? (string) File::get($controllerPath) : '';
-        $serviceSource = File::exists($servicePath) ? (string) File::get($servicePath) : '';
-        $commandSource = File::exists($commandPath) ? (string) File::get($commandPath) : '';
+        $routeSource = $this->fileGet($routePath);
+        $controllerSource = $this->fileGet($controllerPath);
+        $serviceSource = $this->fileGet($servicePath);
+        $commandSource = $this->fileGet($commandPath);
 
         $requirements = [
-            'migration_present' => File::exists($migrationPath),
-            'model_present' => File::exists($modelPath),
+            'migration_present' => $this->fileExists($migrationPath),
+            'model_present' => $this->fileExists($modelPath),
             'api_list_route' => str_contains($routeSource, "Route::get('/projects/workspaces'"),
             'api_create_route' => str_contains($routeSource, "Route::post('/projects/workspaces'"),
             'api_show_route' => str_contains($routeSource, "Route::get('/projects/workspaces/{slug}'"),
@@ -1165,7 +1165,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'atlas-desktop/apps/desktop/src-tauri/tauri.conf.json' => 'tauri',
         ];
         foreach ($files as $file => $tag) {
-            if ($path !== '' && File::exists(rtrim($path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$file)) {
+            if ($path !== '' && $this->fileExists(rtrim($path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$file)) {
                 $stack[] = $tag;
             }
         }
@@ -1187,7 +1187,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
 
         return array_values(array_filter(
             $docs,
-            fn (string $doc): bool => $path === '' || File::exists(rtrim($path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'atlas-server'.DIRECTORY_SEPARATOR.$doc) || File::exists(base_path($doc)),
+            fn (string $doc): bool => $path === ''
+                || $this->fileExists(rtrim($path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'atlas-server'.DIRECTORY_SEPARATOR.$doc)
+                || $this->fileExists($this->basePath($doc)),
         ));
     }
 
@@ -1265,5 +1267,42 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         unset($payload['generated_at'], $payload['runtime_hash']);
 
         return MissionCanonicalHash::sha256($payload);
+    }
+
+    private function basePath(string $path = ''): string
+    {
+        try {
+            if (function_exists('app') && method_exists(app(), 'basePath')) {
+                return base_path($path);
+            }
+        } catch (\Throwable) {
+            // Pure PHPUnit tests can instantiate this service without Laravel's Application.
+        }
+
+        return dirname(__DIR__, 4).($path !== '' ? '/'.ltrim($path, '/') : '');
+    }
+
+    private function appPath(string $path = ''): string
+    {
+        return $this->basePath('app'.($path !== '' ? '/'.ltrim($path, '/') : ''));
+    }
+
+    private function databasePath(string $path = ''): string
+    {
+        return $this->basePath('database'.($path !== '' ? '/'.ltrim($path, '/') : ''));
+    }
+
+    private function fileExists(string $path): bool
+    {
+        return file_exists($path);
+    }
+
+    private function fileGet(string $path): string
+    {
+        if (! is_file($path)) {
+            return '';
+        }
+
+        return (string) (@file_get_contents($path) ?: '');
     }
 }

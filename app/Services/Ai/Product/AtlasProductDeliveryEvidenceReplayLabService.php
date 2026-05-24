@@ -5,6 +5,7 @@ namespace App\Services\Ai\Product;
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class AtlasProductDeliveryEvidenceReplayLabService
 {
@@ -176,7 +177,19 @@ class AtlasProductDeliveryEvidenceReplayLabService
      */
     private function receiptReplay(int $limit): array
     {
-        if (! Schema::hasTable('atlas_product_delivery_runtime_receipts')) {
+        try {
+            $receiptsTableExists = Schema::hasTable('atlas_product_delivery_runtime_receipts');
+        } catch (Throwable $exception) {
+            return [
+                'status' => 'not_available',
+                'reason' => 'runtime_receipts_database_unavailable',
+                'items' => [],
+                'unsafe_write_receipt_count' => 0,
+                'error_class' => $exception::class,
+            ];
+        }
+
+        if (! $receiptsTableExists) {
             return [
                 'status' => 'not_available',
                 'reason' => 'runtime_receipts_table_missing',
@@ -185,10 +198,20 @@ class AtlasProductDeliveryEvidenceReplayLabService
             ];
         }
 
-        $records = AtlasProductDeliveryRuntimeReceipt::query()
-            ->latest('created_at')
-            ->limit(max(1, min($limit, 100)))
-            ->get();
+        try {
+            $records = AtlasProductDeliveryRuntimeReceipt::query()
+                ->latest('created_at')
+                ->limit(max(1, min($limit, 100)))
+                ->get();
+        } catch (Throwable $exception) {
+            return [
+                'status' => 'not_available',
+                'reason' => 'runtime_receipts_query_failed',
+                'items' => [],
+                'unsafe_write_receipt_count' => 0,
+                'error_class' => $exception::class,
+            ];
+        }
         $items = $records->map(fn (AtlasProductDeliveryRuntimeReceipt $record): array => [
             'receipt_hash' => (string) $record->receipt_hash,
             'receipt_type' => (string) $record->receipt_type,

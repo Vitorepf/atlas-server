@@ -7,6 +7,7 @@ namespace App\Services\AtlasCode;
 use App\Models\AtlasWorkspaceProfile;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Atlas Code · Project/Workspace Profile read-model.
@@ -37,7 +38,7 @@ final class AtlasCodeWorkspaceProfileService
      */
     public function listProfiles(): array
     {
-        $profiles = (array) config('atlas_projects.profiles', []);
+        $profiles = (array) $this->configValue('atlas_projects.profiles', []);
         $shapedBySlug = [];
         foreach ($profiles as $raw) {
             if (! is_array($raw)) {
@@ -98,7 +99,7 @@ final class AtlasCodeWorkspaceProfileService
 
     public function defaultSlug(): string
     {
-        $configured = (string) config('atlas_projects.default_slug', 'atlas');
+        $configured = (string) $this->configValue('atlas_projects.default_slug', 'atlas');
         $configured = trim(strtolower($configured));
         if ($configured === '') {
             return 'atlas';
@@ -130,7 +131,7 @@ final class AtlasCodeWorkspaceProfileService
      */
     public function upsertPersistedProfile(array $attributes): array
     {
-        if (! Schema::hasTable('atlas_workspace_profiles')) {
+        if (! $this->schemaHasTable('atlas_workspace_profiles')) {
             throw new InvalidArgumentException('atlas_workspace_profiles_table_missing');
         }
 
@@ -169,7 +170,7 @@ final class AtlasCodeWorkspaceProfileService
      */
     public function archivePersistedProfile(string $slug): array
     {
-        if (! Schema::hasTable('atlas_workspace_profiles')) {
+        if (! $this->schemaHasTable('atlas_workspace_profiles')) {
             throw new InvalidArgumentException('atlas_workspace_profiles_table_missing');
         }
 
@@ -262,7 +263,7 @@ final class AtlasCodeWorkspaceProfileService
      */
     private function persistedProfiles(): array
     {
-        if (! Schema::hasTable('atlas_workspace_profiles')) {
+        if (! $this->schemaHasTable('atlas_workspace_profiles')) {
             return [];
         }
 
@@ -291,6 +292,28 @@ final class AtlasCodeWorkspaceProfileService
                 'source' => (string) $profile->source,
             ])
             ->all();
+    }
+
+    private function configValue(string $key, mixed $default): mixed
+    {
+        try {
+            if (function_exists('app') && app()->bound('config')) {
+                return config($key, $default);
+            }
+        } catch (Throwable) {
+            return $default;
+        }
+
+        return $default;
+    }
+
+    private function schemaHasTable(string $table): bool
+    {
+        try {
+            return Schema::hasTable($table);
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**

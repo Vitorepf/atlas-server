@@ -605,6 +605,10 @@ Relacoes operacionais:
 
 Gates especificos:
 
+- Todo envelope com `required_context` precisa carregar ao menos um contexto
+  real (`--context`, owner doc, context pack, arquivo provavel ou evidencia de
+  contexto). Sem isso o gate bloqueia com `missing_minimum_context_ref`; aceitar
+  teste/evidencia sem contexto e falso readiness.
 - `model_driven` exige especificacao de modelo ou state machine e contrato
   formal/semi-formal antes de execucao.
 - `reliability_observability_driven` exige logs, traces, receipts ou readiness

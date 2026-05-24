@@ -283,6 +283,14 @@ qualquer piso estiver faltando, `ready_for_360_claim=false`, `provider_call=fals
 e `tokens_spent=false`, com `blockers` e `next_real_run_command_when_ready`
 explicitos para o operador.
 
+`matrix_report.tie_pressure_diagnosis`
+(`atlas.forge.rivals.tie_pressure_diagnosis.v1`) torna empate um sinal
+diagnostico, nao conclusivo. Quando `tie_rate` ou `l5_tie_rate` passa o limiar
+de pressao, o bloco marca `requires_harder_followup=true`, conserva todos os
+invariantes advisory-only e recomenda `ceiling-360`, `extreme-differentiator`,
+`meta-provider-stress` e `statistical-repeat` para descobrir onde cada runner
+realmente separa.
+
 ## Separacao de Capacidades
 
 `capability_coverage.separation`

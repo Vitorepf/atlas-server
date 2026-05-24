@@ -52,6 +52,10 @@ class AtlasExecutionDoctrineGateService
             $blockers[] = 'missing_selected_driver';
             $next[] = 'run_aedpds_selector';
         }
+        if ($this->list($doctrine['required_context'] ?? []) !== [] && $provided['context'] === []) {
+            $blockers[] = 'missing_minimum_context_ref';
+            $next[] = 'attach_owner_doc_or_relevant_context_ref';
+        }
         if (in_array('atdd', $drivers, true) && $provided['acceptance'] === []) {
             $blockers[] = 'missing_acceptance_criteria';
             $next[] = 'define_acceptance_criteria';

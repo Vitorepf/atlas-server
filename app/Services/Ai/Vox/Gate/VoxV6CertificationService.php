@@ -1323,20 +1323,26 @@ final class VoxV6CertificationService
                 'details' => [],
             ];
         }
+        $helper = $this->extractBetween(
+            $reply,
+            'pub async fn vox_speak_short',
+            'pub async fn atlas_voice_speak',
+        ) ?? $reply;
+
         $issues = [];
         // Helper NÃO grava áudio.
-        if (preg_match('/\b(audio_record|raw_pcm|wav_record|record_audio)\b/i', $reply) === 1) {
+        if (preg_match('/\b(audio_record|raw_pcm|wav_record|record_audio)\b/i', $helper) === 1) {
             $issues[] = 'reply helper menciona gravação de áudio';
         }
         // Helper NÃO chama provider (codex/claude/openai/anthropic).
-        if (preg_match('/\b(codex|claude_cli|anthropic|openai)\b/i', $reply) === 1) {
+        if (preg_match('/\b(codex|claude_cli|anthropic|openai|elevenlabs)\b/i', $helper) === 1) {
             $issues[] = 'reply helper invoca provider';
         }
-        // Helper invoca apenas /usr/bin/say + whitelist.
-        $usesSay = str_contains($reply, '/usr/bin/say');
-        $usesWhitelist = str_contains($reply, 'VoxShortPhrase::from_key');
-        if (! $usesSay || ! $usesWhitelist) {
-            $issues[] = 'reply helper não usa /usr/bin/say + whitelist canônica';
+        // Helper curto é whitelist-only; fala premium fica em outro comando.
+        $usesWhitelist = str_contains($helper, 'VoxShortPhrase::from_key');
+        $usesPremiumGate = str_contains($helper, 'premium_tts_required');
+        if (! $usesWhitelist || ! $usesPremiumGate) {
+            $issues[] = 'reply helper não usa whitelist canônica + gate premium_tts_required';
         }
         if ($issues !== []) {
             return [
@@ -1348,7 +1354,7 @@ final class VoxV6CertificationService
 
         return [
             'status' => self::STATUS_PASS,
-            'message' => 'Reply helper só usa /usr/bin/say + whitelist (sem áudio, sem provider).',
+            'message' => 'Reply helper curto usa whitelist + gate premium_tts_required (sem áudio bruto, sem provider).',
             'details' => [],
         ];
     }
@@ -1729,6 +1735,21 @@ final class VoxV6CertificationService
         $content = @file_get_contents($path);
 
         return $content === false ? null : $content;
+    }
+
+    private function extractBetween(string $source, string $startNeedle, string $endNeedle): ?string
+    {
+        $start = strpos($source, $startNeedle);
+        if ($start === false) {
+            return null;
+        }
+
+        $end = strpos($source, $endNeedle, $start + strlen($startNeedle));
+        if ($end === false) {
+            return substr($source, $start);
+        }
+
+        return substr($source, $start, $end - $start);
     }
 
     /**

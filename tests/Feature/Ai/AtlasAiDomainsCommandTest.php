@@ -109,7 +109,7 @@ class AtlasAiDomainsCommandTest extends TestCase
 
         $this->assertSame('ready', data_get($learning, 'onboarding.status'));
         $this->assertSame('implemented', data_get($learning, 'orchestrator_maturity'));
-        $this->assertSame(4, data_get($learning, 'flow_count'));
+        $this->assertSame(8, data_get($learning, 'flow_count'));
         $this->assertSame([], data_get($learning, 'onboarding.missing_phases'));
 
         $qa = collect($payload['domains'])->firstWhere('id', 'qa');

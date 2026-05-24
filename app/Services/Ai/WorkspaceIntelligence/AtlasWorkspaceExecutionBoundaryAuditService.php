@@ -488,7 +488,7 @@ final class AtlasWorkspaceExecutionBoundaryAuditService
     private function inspect(array $boundary): array
     {
         $path = (string) $boundary['path'];
-        $absolute = base_path($path);
+        $absolute = $this->basePath($path);
         $markers = array_values(array_filter(
             (array) ($boundary['required_markers'] ?? []),
             'is_string',
@@ -518,6 +518,19 @@ final class AtlasWorkspaceExecutionBoundaryAuditService
             'required_markers_count' => count($markers),
             'file_hash' => hash('sha256', $contents),
         ];
+    }
+
+    private function basePath(string $path): string
+    {
+        try {
+            if (function_exists('app') && method_exists(app(), 'basePath')) {
+                return base_path($path);
+            }
+        } catch (\Throwable) {
+            // Fall back to repo root for pure PHPUnit tests without Laravel app bootstrap.
+        }
+
+        return dirname(__DIR__, 4).'/'.ltrim($path, '/');
     }
 
     /**

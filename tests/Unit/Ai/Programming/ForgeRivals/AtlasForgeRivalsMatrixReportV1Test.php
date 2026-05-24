@@ -274,10 +274,26 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertFalse($report['differentiation']['should_update_provider_topology']);
         $this->assertSame('none', $report['differentiation']['routing_effect']);
         $this->assertSame('run_extreme_differentiator_cases_targeting_required_tied_or_insufficient_capabilities', $report['differentiation']['next_action']);
+        $this->assertSame('atlas.forge.rivals.tie_pressure_diagnosis.v1', $report['tie_pressure_diagnosis']['schema_version']);
+        $this->assertSame('l5_tie_pressure_unresolved', $report['tie_pressure_diagnosis']['status']);
+        $this->assertSame(1.0, $report['tie_pressure_diagnosis']['tie_rate']);
+        $this->assertSame(1.0, $report['tie_pressure_diagnosis']['l5_tie_rate']);
+        $this->assertTrue($report['tie_pressure_diagnosis']['requires_harder_followup']);
+        $this->assertSame($required, $report['tie_pressure_diagnosis']['target_capabilities']);
+        $this->assertFalse($report['tie_pressure_diagnosis']['provider_call']);
+        $this->assertFalse($report['tie_pressure_diagnosis']['tokens_spent']);
+        $this->assertTrue($report['tie_pressure_diagnosis']['advisory_only']);
+        $this->assertFalse($report['tie_pressure_diagnosis']['should_update_provider_topology']);
+        $this->assertTrue($report['tie_pressure_diagnosis']['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $report['tie_pressure_diagnosis']['owner_of_model_routing']);
+        $this->assertSame('none', $report['tie_pressure_diagnosis']['routing_effect']);
+        $this->assertContains('tie_pressure_requires_harder_followup', $report['ceiling_360_completion_gap']['blockers']);
+        $this->assertFalse($report['ceiling_360_completion_gap']['tie_pressure_resolved']);
 
         $paths = $this->paths->paths($runId);
         $md = (string) file_get_contents($paths['evidence'].'/'.AtlasForgeRivalsMatrixReportService::MATRIX_REPORT_MD_FILE);
         $this->assertStringContainsString('Diagnóstico de diferenciação', $md);
+        $this->assertStringContainsString('Pressao de empate', $md);
         $this->assertStringContainsString('low_differentiation', $md);
     }
 
@@ -298,6 +314,8 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertSame([], $report['differentiation']['required_tied_capabilities']);
         $this->assertSame(1.0, $report['differentiation']['separation_ratio']);
         $this->assertSame('continue_repetition_for_confidence_and_cost_receipts', $report['differentiation']['next_action']);
+        $this->assertSame('differentiating_enough_for_current_sample', $report['tie_pressure_diagnosis']['status']);
+        $this->assertFalse($report['tie_pressure_diagnosis']['requires_harder_followup']);
     }
 
     public function test_matrix_report_aggregates_ceiling_360_contract_signal_across_l5_cases(): void

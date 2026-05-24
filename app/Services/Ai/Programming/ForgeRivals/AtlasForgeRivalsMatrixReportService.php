@@ -2413,6 +2413,16 @@ final class AtlasForgeRivalsMatrixReportService
         $lines[] = '- **Tie is diagnostic:** `'.((bool) ($differentiation['tie_is_diagnostic_not_claim'] ?? true) ? 'true' : 'false').'`';
         $lines[] = '';
 
+        $tiePressure = (array) ($matrix['tie_pressure_diagnosis'] ?? []);
+        $lines[] = '### Pressao de empate';
+        $lines[] = '';
+        $lines[] = '- **Status:** `'.($tiePressure['status'] ?? 'no_comparable_cases').'`';
+        $lines[] = '- **Tie rate / L5 tie rate:** `'.($tiePressure['tie_rate'] ?? 0).'` / `'.($tiePressure['l5_tie_rate'] ?? 0).'`';
+        $lines[] = '- **Requires harder followup:** `'.((bool) ($tiePressure['requires_harder_followup'] ?? false) ? 'true' : 'false').'`';
+        $lines[] = '- **Target capabilities:** '.$this->joinOrDash(array_map('strval', (array) ($tiePressure['target_capabilities'] ?? [])));
+        $lines[] = '- Rivals emits measured evidence; Atlas Decide decides model routing.';
+        $lines[] = '';
+
         $ceilingMatrix = (array) ($matrix['ceiling_360_contract_matrix'] ?? []);
         $lines[] = '### Matriz ceiling_360_contract';
         $lines[] = '';

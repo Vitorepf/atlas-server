@@ -20,7 +20,7 @@ class AtlasAedpdsInspectionService
             'doctrine_doc' => $this->item('docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md', ['AEDPDS', 'Atlas Execution Doctrine & Product Delivery System'], 'documented_only'),
             'runtime_matrix_doc' => $this->item('docs/engineering-knowledge-base/atlas-execution-doctrine-runtime-matrix.md', ['AEDPDS', 'Runtime Matrix'], 'documented_only'),
             'selector_service' => $this->item('app/Services/Ai/Product/AtlasExecutionDoctrineRuntimeService.php', [AtlasExecutionDoctrineRuntimeService::SCHEMA_VERSION, 'selected_primary_drivers'], 'implemented_runtime'),
-            'gate_service' => $this->item('app/Services/Ai/Product/AtlasExecutionDoctrineGateService.php', [AtlasExecutionDoctrineGateService::SCHEMA_VERSION, 'missing_acceptance_criteria'], 'implemented_runtime'),
+            'gate_service' => $this->item('app/Services/Ai/Product/AtlasExecutionDoctrineGateService.php', [AtlasExecutionDoctrineGateService::SCHEMA_VERSION, 'missing_acceptance_criteria', 'missing_minimum_context_ref'], 'implemented_runtime'),
             'apdr_service' => $this->item('app/Services/Ai/Product/AtlasAutonomousProductDeliveryRuntimeService.php', ['aedpds', 'AtlasExecutionDoctrineRuntimeService'], 'implemented_runtime'),
             'receipt_model' => $this->item('app/Models/AtlasProductDeliveryRuntimeReceipt.php', ['atlas_product_delivery_runtime_receipts'], 'implemented_runtime'),
             'receipt_migration' => $this->item('database/migrations/2026_05_22_172000_create_atlas_product_delivery_runtime_receipts.php', ['atlas_product_delivery_runtime_receipts', 'receipt_hash'], 'implemented_runtime'),
@@ -108,6 +108,14 @@ class AtlasAedpdsInspectionService
             'acceptance_criteria' => ['readiness signal emitted'],
             'tests' => ['observability test'],
         ]);
+        $missingContextGate = app(AtlasExecutionDoctrineGateService::class)->evaluate([
+            'task' => 'corrigir bug pequeno em cálculo local',
+            'surface' => 'atlas_dev',
+            'code_changes_requested' => true,
+            'acceptance_criteria' => ['reported bug no longer reproduces'],
+            'tests' => ['focused bug regression test'],
+            'evidence' => ['test output'],
+        ]);
 
         $checks = [
             'doctrine_doc_present' => $this->passed('doctrine_doc', $inspect),
@@ -129,6 +137,8 @@ class AtlasAedpdsInspectionService
                 && in_array('missing_model_or_state_machine_contract', (array) ($modelGate['blockers'] ?? []), true),
             'observability_gate_mapping_present' => ($observabilityGate['status'] ?? null) === 'blocked'
                 && in_array('missing_observability_readiness_evidence', (array) ($observabilityGate['blockers'] ?? []), true),
+            'minimum_context_gate_mapping_present' => ($missingContextGate['status'] ?? null) === 'blocked'
+                && in_array('missing_minimum_context_ref', (array) ($missingContextGate['blockers'] ?? []), true),
             'evidence_receipt_present' => $this->passed('receipt_model', $inspect) && $this->passed('receipt_migration', $inspect),
             'outcome_memory_present' => $this->passed('outcome_memory', $inspect),
             'command_surface_present' => $this->passed('commands', $inspect),

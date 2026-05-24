@@ -117,6 +117,7 @@ class AtlasAedpdsRuntimeTest extends TestCase
         $apiBlocked = $gate->evaluate(['task' => 'criar api endpoint com auth', 'code_changes_requested' => true]);
         $apiBlockedAgain = $gate->evaluate(['task' => 'criar api endpoint com auth', 'code_changes_requested' => true]);
         $this->assertSame('blocked', $apiBlocked['status']);
+        $this->assertContains('missing_minimum_context_ref', $apiBlocked['blockers']);
         $this->assertContains('missing_contract_or_schema', $apiBlocked['blockers']);
         $this->assertContains('missing_senior_review_for_sensitive_change', $apiBlocked['blockers']);
         $this->assertSame($apiBlocked['hash'], $apiBlockedAgain['hash']);
@@ -125,6 +126,7 @@ class AtlasAedpdsRuntimeTest extends TestCase
             'task' => 'corrigir bug visual na tela mobile',
             'code_changes_requested' => true,
             'acceptance_criteria' => ['visual bug no longer reproduces'],
+            'context_refs' => ['owner doc'],
             'tests' => ['visual regression check'],
         ]);
         $this->assertContains('missing_ux_expectation_or_prototype', $uiBlocked['blockers']);
@@ -133,6 +135,7 @@ class AtlasAedpdsRuntimeTest extends TestCase
             'task' => 'publicar package SDK com README de uso',
             'code_changes_requested' => true,
             'acceptance_criteria' => ['usage documented'],
+            'context_refs' => ['owner doc'],
             'tests' => ['php artisan test --filter=Sdk'],
         ]);
         $this->assertContains('readme_driven', $readmeBlocked['selected_drivers']);
@@ -142,6 +145,7 @@ class AtlasAedpdsRuntimeTest extends TestCase
             'task' => 'implementar state machine model-driven para workflow',
             'code_changes_requested' => true,
             'acceptance_criteria' => ['workflow transitions are specified'],
+            'context_refs' => ['owner doc'],
             'tests' => ['state machine tests'],
         ]);
         $this->assertContains('model_driven', $modelBlocked['selected_drivers']);
@@ -151,6 +155,7 @@ class AtlasAedpdsRuntimeTest extends TestCase
             'task' => 'adicionar observability readiness com logs traces e receipts',
             'code_changes_requested' => true,
             'acceptance_criteria' => ['readiness signal emitted'],
+            'context_refs' => ['owner doc'],
             'tests' => ['observability test'],
         ]);
         $this->assertContains('reliability_observability_driven', $observabilityBlocked['selected_drivers']);
@@ -295,6 +300,7 @@ class AtlasAedpdsRuntimeTest extends TestCase
         $this->assertSame('passed', collect($certification['checks'])->firstWhere('id', 'readme_gate_mapping_present')['status']);
         $this->assertSame('passed', collect($certification['checks'])->firstWhere('id', 'model_gate_mapping_present')['status']);
         $this->assertSame('passed', collect($certification['checks'])->firstWhere('id', 'observability_gate_mapping_present')['status']);
+        $this->assertSame('passed', collect($certification['checks'])->firstWhere('id', 'minimum_context_gate_mapping_present')['status']);
         $this->assertSame('passed', collect($certification['checks'])->firstWhere('id', 'no_documentation_only_claims')['status']);
     }
 
