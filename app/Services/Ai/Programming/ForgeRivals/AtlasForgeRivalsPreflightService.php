@@ -42,6 +42,7 @@ final class AtlasForgeRivalsPreflightService
         $rivalModel = $this->normalizeModel((string) ($input['rival'] ?? $input['baseline_model'] ?? $atlasModel));
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
         $caseSet = trim((string) ($input['case_set'] ?? ''));
+        $explicitCase = trim((string) ($input['case'] ?? ''));
         $arenaContracts = is_array($input['arena_contracts'] ?? null) ? (array) $input['arena_contracts'] : [];
         $usingArenaContracts = is_array($arenaContracts['arm_a'] ?? null) && is_array($arenaContracts['arm_b'] ?? null);
         [$workspace, $baselineWorkspace] = $this->resolveWorktrees($input);
@@ -69,11 +70,31 @@ final class AtlasForgeRivalsPreflightService
         // Cases / preset
         $cases = [];
         $presetCaseSet = $caseSet !== '' ? $caseSet : $this->presetCaseSet($preset);
+        $isIndustrialCaseSet = is_string($presetCaseSet)
+            && in_array($presetCaseSet, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true);
         if ($presetCaseSet !== null) {
             try {
                 $cases = $this->corpus->casesForCaseSet($presetCaseSet);
             } catch (\Throwable $e) {
                 $blockers[] = $e->getMessage() !== '' ? $e->getMessage() : 'unknown_case_set:'.$presetCaseSet;
+            }
+        } elseif ($explicitCase !== '') {
+            try {
+                $corpusCase = $this->corpus->case($explicitCase);
+                $cases = [$this->normalizeCorpusCaseForProtocol($corpusCase)];
+                $caseIndustrialSet = trim((string) ($corpusCase['industrial_case_set'] ?? ''));
+                if (in_array($caseIndustrialSet, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)) {
+                    $presetCaseSet = $caseIndustrialSet;
+                    $isIndustrialCaseSet = true;
+                }
+            } catch (\Throwable) {
+                try {
+                    $cases = $this->cases->casesForPreset($preset);
+                } catch (EmptyPresetIsFatalHarnessBug $e) {
+                    $blockers[] = 'zero_case_preset_fatal_harness_bug:'.$preset;
+                } catch (\Throwable $e) {
+                    $blockers[] = 'preset_unknown:'.$preset;
+                }
             }
         } else {
             try {
@@ -106,23 +127,26 @@ final class AtlasForgeRivalsPreflightService
         // Atlas arm must be Forge — non-negotiable
         $forgeOnly = ['atlas_arm_runtime' => 'atlas_forge'];
 
-        // Delegate the protocol/canon checks (read-only, no provider)
-        $protocolReport = $this->protocolPreflight->preflight([
-            'workspace' => $workspace,
-            'baseline_workspace' => $baselineWorkspace,
-            'suite_id' => AtlasForgeNativeRivalsProtocolService::DEFAULT_SUITE_ID,
-            'case_id' => $cases[0]['id'] ?? null,
-            'case_ids' => array_values(array_filter(array_map(
-                static fn (array $case): ?string => is_string($case['id'] ?? null) ? $case['id'] : null,
-                $cases,
-            ))),
-            'preset' => $preset,
-            'atlas_model' => $this->legacyModelName($atlasModel),
-            'baseline_model' => $this->legacyModelName($rivalModel),
-            'intends_provider_battery' => $modeDef !== null && $modeDef['requires_provider'],
-            'provider_cost_approved' => (bool) data_get($input, 'confirmations.provider_cost', false),
-            'runbook_reviewed' => (bool) data_get($input, 'confirmations.runbook_reviewed', false),
-        ]);
+        // Industrial case sets use the industrial execution/readiness contract
+        // instead of the legacy forge-native single-case protocol manifest.
+        $protocolReport = $isIndustrialCaseSet
+            ? $this->industrialProtocolBypass((string) $presetCaseSet, $cases, $workspace, $baselineWorkspace, $modeDef)
+            : $this->protocolPreflight->preflight([
+                'workspace' => $workspace,
+                'baseline_workspace' => $baselineWorkspace,
+                'suite_id' => AtlasForgeNativeRivalsProtocolService::DEFAULT_SUITE_ID,
+                'case_id' => $cases[0]['id'] ?? null,
+                'case_ids' => array_values(array_filter(array_map(
+                    static fn (array $case): ?string => is_string($case['id'] ?? null) ? $case['id'] : null,
+                    $cases,
+                ))),
+                'preset' => $preset,
+                'atlas_model' => $this->legacyModelName($atlasModel),
+                'baseline_model' => $this->legacyModelName($rivalModel),
+                'intends_provider_battery' => $modeDef !== null && $modeDef['requires_provider'],
+                'provider_cost_approved' => (bool) data_get($input, 'confirmations.provider_cost', false),
+                'runbook_reviewed' => (bool) data_get($input, 'confirmations.runbook_reviewed', false),
+            ]);
         $protocolStatus = (string) ($protocolReport['status'] ?? 'unknown');
         $protocolReady = in_array($protocolStatus, ['ready_for_dry_run', 'ready_for_provider_battery'], true);
         if (! $protocolReady) {
@@ -149,6 +173,7 @@ final class AtlasForgeRivalsPreflightService
             'mode_definition' => $modeDef,
             'blockers' => $blockers,
             'protocol_report' => $protocolReport,
+            'industrial_protocol_bypass' => $isIndustrialCaseSet,
             'next_command' => $status === 'ok'
                 ? sprintf(
                     'php artisan atlas:forge:rivals dry-run --mode=%s --atlas-model=%s --rival=%s --preset=%s%s%s --json',
@@ -160,6 +185,50 @@ final class AtlasForgeRivalsPreflightService
                     is_string($baselineWorkspace) ? ' --baseline-worktree='.$baselineWorkspace : '',
                 )
                 : 'fix blockers and re-run preflight',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function normalizeCorpusCaseForProtocol(array $case): array
+    {
+        $case['id'] = (string) ($case['id'] ?? $case['case_id'] ?? '');
+
+        return $case;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $cases
+     * @param  array<string,mixed>|null  $modeDef
+     * @return array<string,mixed>
+     */
+    private function industrialProtocolBypass(
+        string $caseSet,
+        array $cases,
+        ?string $workspace,
+        ?string $baselineWorkspace,
+        ?array $modeDef,
+    ): array {
+        return [
+            'status' => 'ready_for_provider_battery',
+            'suite_id' => AtlasForgeRivalsIndustrialExecutionSuiteService::SUITE_ID,
+            'case_set' => $caseSet,
+            'case_count' => count($cases),
+            'workspace' => $workspace,
+            'baseline_workspace' => $baselineWorkspace,
+            'blocking_reasons' => [],
+            'legacy_protocol_bypassed' => true,
+            'bypass_reason' => 'industrial_case_sets_are_governed_by_industrial_execution_readiness_and_corpus_pre_validation',
+            'intends_provider_battery' => (bool) ($modeDef['requires_provider'] ?? false),
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
         ];
     }
 

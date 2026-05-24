@@ -23,8 +23,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['runtime_hash', 'family']);
-            $table->index(['workspace_id', 'family', 'captured_at']);
-            $table->index(['workspace_id', 'family', 'status']);
+            $table->index(['workspace_id', 'family', 'captured_at'], 'awrps_workspace_family_captured_idx');
+            $table->index(['workspace_id', 'family', 'status'], 'awrps_workspace_family_status_idx');
         });
     }
 

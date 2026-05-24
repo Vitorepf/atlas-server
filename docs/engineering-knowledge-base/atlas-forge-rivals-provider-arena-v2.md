@@ -40,6 +40,7 @@ related_paths:
   - app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmContractService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-benchmark-strategy-v1.md
+  - docs/engineering-knowledge-base/atlas-forge-rivals-next-runner-architecture-v1.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
@@ -185,6 +186,12 @@ Runs reais com Claude Code tambem passam por
 Se a policy estiver `interactive_only`, `blocked` ou `allow_rivals_programmatic=false`,
 a Arena emite blocker antes de qualquer provider call.
 
+Antes de criar worktrees, Provider Arena deve resolver blockers semanticos de
+driver/policy. Quando setup for a proxima etapa, ele checa capacidade livre do
+volume e emite `worktree_disk_space_insufficient` se o checkout isolado puder
+falhar por falta de espaco. Esse blocker tambem preserva `external_provider_call=false`,
+`provider_tokens_spent=false` e todos os invariantes advisory-only.
+
 Toda saida para Decide preserva `advisory_only=true`,
 `should_update_provider_topology=false`,
 `never_changes_atlas_decide_topology=true`,
@@ -198,6 +205,8 @@ Toda saida para Decide preserva `advisory_only=true`,
 - Nao permitir `fair` para Claude vs Codex ou Codex vs Gemini.
 - Nao chamar dry-run de resultado medido.
 - Nao esconder blocker de driver pendente.
+- Nao deixar erro de disco mascarar blocker de driver/policy; esses blockers
+  aparecem antes de setup.
 - Nao invocar Claude programmatic se a provider governance bloquear
   `rivals_baseline`.
 
@@ -222,6 +231,21 @@ Entregue no v2:
   no provider pair e no `provider_performance_signal`;
 - `atlas_dev` e `gemini_cli` declarados como executaveis quando o driver/policy
   estiverem configurados, com blocker claro quando binario/policy faltar.
+- `cursor_cli` e `composer_2_5` declarados como runners oficiais por
+  `atlas-forge-rivals-next-runner-architecture-v1`, usando
+  `ProviderModelRegistry` para `default`, `auto` e Composer 2.5 sem espalhar
+  model ids em RunReal/ArenaRun/report.
+- Cursor/Composer sao meta-provider surfaces: planos e reports devem preservar
+  `provider_kind`, `meta_provider`, owner interno, billing/quota config keys e
+  `tool_event_stream`, sem permitir que Rivals altere Atlas Decide.
+- O preset `meta-provider-stress` fornece 50 casos industriais com
+  `human_prompt`, `context_profile`, `human_prompt_probe` e
+  `meta_provider_stress` para medir contexto longo, prompt humano ambiguo e
+  evidencia stream-json em dry-run/replay.
+- Evidence pack v2 inclui `meta_provider_evidence_contract`; em run real,
+  Cursor/Composer bloqueiam score se faltar receipt com `model`, hashes de
+  comando/prompt/stdout, exit code, `human_prompt_hash`, context profile ou
+  probe de prompt humano do caso.
 
 Fora do v2 inicial:
 
@@ -253,6 +277,10 @@ php artisan atlas:forge:rivals run-arena \
   --arm-a=codex_cli --arm-a-model=gpt-5.5 \
   --arm-b=gemini_cli --arm-b-model=gemini-pro \
   --task-category=architecture --mode=provider_arena --dry-run --json
+php artisan atlas:forge:rivals run-arena \
+  --arm-a=cursor_cli --arm-a-model=default \
+  --arm-b=composer_2_5 --arm-b-model=default \
+  --case-set=meta-provider-stress --mode=provider_arena --dry-run --json
 ```
 
 ## Riscos

@@ -1,0 +1,40 @@
+{
+    "schema_version": "atlas.forge.rivals.industrial_execution_suite.v1",
+    "suite_id": "atlas-forge-rivals-industrial-execution-suite-v1",
+    "case_id": "extreme-differentiator-034-industrial-038-performance",
+    "case_set": "extreme-differentiator",
+    "category": "test_design",
+    "task_type": "performance",
+    "difficulty_level": "L3",
+    "acceptance_criteria": [
+        "Entrega resolve o caso sem tocar arquivos proibidos.",
+        "Patch inclui evidencia local suficiente para auditoria e replay.",
+        "Resposta explicita incertezas, tradeoffs e limites quando o prompt for ambiguo.",
+        "Scorecard por caso pode ser reconstruido a partir do evidence pack."
+    ],
+    "evidence_requirements": [
+        "patch_diff",
+        "provider_receipt",
+        "test_log",
+        "scorecard_per_case",
+        "workspace_hashes",
+        "oracle_adjudication_notes"
+    ],
+    "invalid_if": [
+        "synthetic_score_admitted",
+        "touched_forbidden_files",
+        "external_rivals_unlock_attempted",
+        "missing_case_scorecard",
+        "missing_replay",
+        "missing_evidence_pack",
+        "oracle_metadata_ignored"
+    ],
+    "expected_changed_files": [
+        "storage/forge-rivals-industrial/extreme-differentiator-034-industrial-038-performance/src/extreme-differentiator-034-industrial-038-performance.php",
+        "storage/forge-rivals-industrial/extreme-differentiator-034-industrial-038-performance/tests/extreme-differentiator-034-industrial-038-performanceTest.php",
+        "storage/forge-rivals-industrial/extreme-differentiator-034-industrial-038-performance/docs/extreme-differentiator-034-industrial-038-performance-runbook.md"
+    ],
+    "oracle_hash": "65c8a2fb8cad213e5439f7b3e16c2d47ac07fed8c26c979b1f8652c333ce1650",
+    "external_provider_call": false,
+    "provider_tokens_spent": false
+}

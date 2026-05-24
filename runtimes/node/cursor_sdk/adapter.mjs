@@ -83,6 +83,44 @@ function blocked(manifest, blockers, note, providerCalled = false) {
   }, 2);
 }
 
+function classifyRuntimeError(message) {
+  const text = String(message).toLowerCase();
+  if (text.includes('plan_required')
+    || text.includes('free users')
+    || text.includes('upgrade to pro')
+    || text.includes('subscription required')
+    || text.includes('usage limit')
+    || text.includes('quota')
+    || text.includes('billing')) {
+    return 'quota_exhausted';
+  }
+  if (text.includes('unauthorized')
+    || text.includes('unauthenticated')
+    || text.includes('api key')
+    || text.includes('forbidden')
+    || text.includes('permission denied')) {
+    return 'auth_failed';
+  }
+  if (text.includes('invalid_model')
+    || text.includes('unknown model')
+    || text.includes('model unavailable')
+    || text.includes('not available or invalid')) {
+    return 'model_unavailable';
+  }
+  if (text.includes('busy')
+    || text.includes('rate limit')
+    || text.includes('too many requests')
+    || text.includes('429')
+    || text.includes('throttle')) {
+    return 'rate_limit';
+  }
+  if (text.includes('timed out') || text.includes('timeout')) {
+    return 'timeout';
+  }
+
+  return 'cursor_sdk_runtime_error';
+}
+
 function workspacePath(manifest) {
   const raw = manifest.workspace?.path ?? manifest.workspace_path ?? manifest.cwd;
   if (typeof raw !== 'string' || raw.trim() === '') return null;
@@ -341,8 +379,7 @@ async function run() {
     emit(payload, finalBlockers.length === 0 ? 0 : 2);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const failure = message.includes('busy') ? 'cursor_sdk_agent_busy' : 'cursor_sdk_runtime_error';
-    blocked(manifest, [failure], message, providerCalled);
+    blocked(manifest, [classifyRuntimeError(message)], message, providerCalled);
   } finally {
     if (agent && typeof agent.close === 'function') {
       try {

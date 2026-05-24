@@ -54,10 +54,11 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $artifactIntelligence = $this->artifactIntelligence($profile, $task, $artifacts, $twin, $continuity);
         $contracts = $this->contracts($workspaceReport, $artifacts);
         $evolution = $this->evolution($profile, $twin);
+        $learningLoop = $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution);
         $executionBoundaries = $this->executionBoundarySummary($this->boundaryAudit->audit());
         $registryEditing = $this->registryEditingSummary();
         $surfaceContracts = $this->surfaceContractSummary();
-        $checks = $this->checks($workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $executionBoundaries, $registryEditing, $surfaceContracts);
+        $checks = $this->checks($workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $executionBoundaries, $registryEditing, $surfaceContracts, $learningLoop);
         $summary = $this->summary($checks);
 
         $payload = [
@@ -73,6 +74,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'awair' => $artifactIntelligence,
             'awco' => $contracts,
             'awef' => $evolution,
+            'awis_learning_loop' => $learningLoop,
             'execution_boundaries' => $executionBoundaries,
             'registry_editing' => $registryEditing,
             'surface_contracts' => $surfaceContracts,
@@ -87,6 +89,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'execution_boundary_audit_required' => true,
                 'ui_registry_editing_complete' => data_get($registryEditing, 'status') === 'ready',
                 'desktop_mobile_surface_contracts_complete' => data_get($surfaceContracts, 'status') === 'ready',
+                'workspace_learning_loop_closed' => data_get($learningLoop, 'closed_loop.loop_closed') === true,
             ],
         ];
 
@@ -125,6 +128,24 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $profile = $this->resolveProfile($workspace);
 
         return $this->evolution($profile, $this->workspaceTwin($profile));
+    }
+
+    /**
+     * @param  array<int,string>  $conversationTexts
+     * @return array<string,mixed>
+     */
+    public function learningLoop(?string $workspace = null, string $task = '', array $conversationTexts = []): array
+    {
+        $profile = $this->resolveProfile($workspace);
+        $workspaceReport = $this->workspaceReport($profile);
+        $twin = $this->workspaceTwin($profile);
+        $continuity = $this->continuity($profile, $conversationTexts);
+        $artifacts = $this->artifacts($profile, $task, $twin, $continuity);
+        $artifactIntelligence = $this->artifactIntelligence($profile, $task, $artifacts, $twin, $continuity);
+        $contracts = $this->contracts($workspaceReport, $artifacts);
+        $evolution = $this->evolution($profile, $twin);
+
+        return $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution);
     }
 
     /**
@@ -271,7 +292,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'workspace_learning_loop' => [
                 'schema_version' => 'atlas.workspace_learning_loop.v1',
                 'status' => 'ready_for_outcome_bridge',
-                'feeds' => ['AEMOR', 'AWEF', 'workspace_runbook'],
+                'feeds' => ['AEMOR', 'AWEF', 'workspace_runbook', 'awis_learning_loop'],
+                'default_loop' => 'event_understanding_memory_context_action_evidence_learning',
             ],
             'stale' => false,
         ];
@@ -377,6 +399,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $this->artifact('context_pack', $workspaceId, [
                 'sources' => data_get($continuity, 'current_truth_pack.canonical_sources', []),
                 'raw_conversation_included' => false,
+                'learning_loop_required' => true,
             ]),
             $this->artifact('execution_plan', $workspaceId, [
                 'steps' => ['inspect', 'patch_or_plan', 'run_focused_tests', 'record_outcome'],
@@ -552,13 +575,184 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             ],
             'artifact_outcome_learning' => [
                 'schema_version' => 'atlas.workspace_artifact_outcome_learning.v1',
-                'feeds' => ['AEMOR', 'AWEF', 'workspace_runbook'],
+                'feeds' => ['AEMOR', 'AWEF', 'workspace_runbook', 'awis_learning_loop'],
                 'requires_real_outcome' => true,
             ],
         ];
         $payload['artifact_intelligence_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $profile
+     * @param  array<string,mixed>  $continuity
+     * @param  array<string,mixed>  $artifactFabric
+     * @param  array<string,mixed>  $artifactIntelligence
+     * @param  array<string,mixed>  $contracts
+     * @param  array<string,mixed>  $evolution
+     * @return array<string,mixed>
+     */
+    private function workspaceLearningLoop(
+        ?array $profile,
+        string $task,
+        array $continuity,
+        array $artifactFabric,
+        array $artifactIntelligence,
+        array $contracts,
+        array $evolution,
+    ): array {
+        $workspaceId = $profile['slug'] ?? null;
+        $artifacts = array_values(array_filter((array) ($artifactFabric['artifacts'] ?? []), 'is_array'));
+        $artifactHashes = array_values(array_filter(array_map(
+            static fn (array $artifact): string => (string) ($artifact['artifact_hash'] ?? ''),
+            $artifacts,
+        )));
+        $decisions = array_values((array) data_get($continuity, 'current_truth_pack.active_decisions', []));
+        $blockers = array_values((array) data_get($continuity, 'current_truth_pack.open_blockers', []));
+        $riskZones = array_values((array) ($profile['critical_areas'] ?? []));
+
+        $events = array_values(array_filter([
+            [
+                'event_type' => 'workspace_bound',
+                'event_status' => $workspaceId === null ? 'blocked' : 'observed',
+                'source_ref' => $workspaceId === null ? 'workspace:missing' : 'workspace:'.$workspaceId,
+            ],
+            trim($task) !== '' ? [
+                'event_type' => 'task_received',
+                'event_status' => 'observed',
+                'source_ref' => 'task:'.hash('sha256', trim($task)),
+            ] : null,
+            count((array) data_get($continuity, 'segmentation_map', [])) > 0 ? [
+                'event_type' => 'conversation_segmented',
+                'event_status' => 'observed',
+                'source_ref' => 'archive:'.(string) data_get($continuity, 'raw_archive.archive_hash', ''),
+            ] : null,
+            count($artifactHashes) > 0 ? [
+                'event_type' => 'artifacts_compiled',
+                'event_status' => 'observed',
+                'source_ref' => 'artifact_fabric:'.(string) ($artifactFabric['artifact_fabric_hash'] ?? ''),
+            ] : null,
+        ]));
+
+        $nextAction = $this->workspaceLearningNextAction($contracts, $artifactIntelligence);
+        $loopClosed = $workspaceId !== null
+            && data_get($contracts, 'execution_readiness_status') === 'ready'
+            && data_get($artifactIntelligence, 'artifact_replay.replay_ready') === true
+            && $nextAction['status'] !== 'blocked';
+
+        $payload = [
+            'schema_version' => 'atlas.awis.workspace_intelligence_loop.v1',
+            'status' => $loopClosed ? 'ready' : 'blocked',
+            'workspace_id' => $workspaceId,
+            'event_intake' => [
+                'schema_version' => 'atlas.awis.event_intake.v1',
+                'events' => $events,
+                'event_count' => count($events),
+                'raw_conversation_stored' => false,
+            ],
+            'understanding' => [
+                'schema_version' => 'atlas.awis.event_understanding.v1',
+                'decisions' => $decisions,
+                'blockers' => $blockers,
+                'risk_zones' => $riskZones,
+                'summary_hash' => MissionCanonicalHash::sha256([$decisions, $blockers, $riskZones]),
+            ],
+            'operational_memory' => [
+                'schema_version' => 'atlas.awis.operational_memory_update.v1',
+                'memory_scope' => 'workspace',
+                'promotion_policy' => 'candidate_only_until_evidence_review',
+                'canonical_doc_rewrite_allowed' => false,
+                'candidate_units' => [
+                    'current_truth_pack',
+                    'workspace_runbook_delta',
+                    'failure_signature_candidate',
+                    'pattern_library_signal',
+                ],
+                'memory_candidate_hash' => MissionCanonicalHash::sha256([
+                    'workspace_id' => $workspaceId,
+                    'decisions' => $decisions,
+                    'blockers' => $blockers,
+                    'patterns' => data_get($evolution, 'pattern_library.patterns', []),
+                ]),
+            ],
+            'context_application' => [
+                'schema_version' => 'atlas.awis.context_application.v1',
+                'default_context_units' => ['workspace_brief', 'task_packet', 'context_pack', 'test_plan', 'risk_sheet'],
+                'context_pack_hash' => (string) data_get($artifactIntelligence, 'artifact_context_compiler.current_truth_pack_hash', ''),
+                'artifact_hashes' => $artifactHashes,
+                'raw_conversation_included' => false,
+                'provider_prompt_allowed' => data_get($contracts, 'execution_readiness_status') === 'ready',
+                'stale_policy' => 'regenerate_awis_before_mutative_execution',
+            ],
+            'next_action' => $nextAction,
+            'evidence_learning' => [
+                'schema_version' => 'atlas.awis.evidence_learning.v1',
+                'evidence_refs' => array_values(array_filter(array_merge(
+                    array_map(static fn (string $hash): string => 'awis_artifact:'.$hash, array_slice($artifactHashes, 0, 5)),
+                    [
+                        ($artifactFabric['artifact_fabric_hash'] ?? null) !== null ? 'awis_artifact_fabric:'.$artifactFabric['artifact_fabric_hash'] : null,
+                        data_get($artifactIntelligence, 'artifact_graph.graph_hash') !== null ? 'awis_artifact_graph:'.data_get($artifactIntelligence, 'artifact_graph.graph_hash') : null,
+                        ($contracts['contract_hash'] ?? null) !== null ? 'awis_contract:'.$contracts['contract_hash'] : null,
+                        ($evolution['evolution_hash'] ?? null) !== null ? 'awef:'.$evolution['evolution_hash'] : null,
+                    ],
+                ))),
+                'missing_evidence' => $loopClosed ? [] : ['ready_workspace_contract_or_replay_required'],
+                'feedback_targets' => ['AEMOR', 'AWEF', 'workspace_runbook', 'context_autopilot'],
+                'learning_score' => $loopClosed ? 0.98 : 0.0,
+            ],
+            'closed_loop' => [
+                'event_to_understanding' => count($events) > 0,
+                'understanding_to_memory' => true,
+                'memory_to_context' => count($artifactHashes) > 0,
+                'context_to_next_action' => $nextAction['status'] !== 'blocked',
+                'next_action_to_evidence' => true,
+                'evidence_to_learning' => true,
+                'loop_closed' => $loopClosed,
+            ],
+            'claim_policy' => [
+                'read_only' => true,
+                'provider_calls_made' => false,
+                'spends_tokens' => false,
+                'raw_conversation_returned' => false,
+                'auto_promotes_memory' => false,
+                'cross_workspace_learning_allowed' => false,
+            ],
+        ];
+        $payload['loop_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $contracts
+     * @param  array<string,mixed>  $artifactIntelligence
+     * @return array<string,mixed>
+     */
+    private function workspaceLearningNextAction(array $contracts, array $artifactIntelligence): array
+    {
+        if (data_get($contracts, 'execution_readiness_status') !== 'ready') {
+            return [
+                'schema_version' => 'atlas.awis.next_action.v1',
+                'status' => 'blocked',
+                'action' => 'regenerate_or_certify_workspace_artifacts',
+                'target' => 'AWCO',
+                'reasons' => ['workspace_contract_not_ready'],
+            ];
+        }
+
+        $simulationDecision = (string) data_get($artifactIntelligence, 'artifact_simulation.decision', 'blocked');
+        $target = in_array('multi_domain', (array) data_get($artifactIntelligence, 'artifact_simulation.escalate_to_forge_when', []), true)
+            ? 'atlas_dev_or_forge'
+            : 'atlas_dev';
+
+        return [
+            'schema_version' => 'atlas.awis.next_action.v1',
+            'status' => $simulationDecision === 'blocked' ? 'blocked' : 'ready',
+            'action' => 'prepare_provider_safe_handoff',
+            'target' => $target,
+            'reasons' => ['workspace_bound', 'artifacts_certified', 'raw_conversation_excluded'],
+        ];
     }
 
     /**
@@ -731,6 +925,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 && (int) data_get($sections, '7.process_inventory_unclassified', 1) === 0, 'critical'),
             $this->check('awis_registry_editing_contract_complete', data_get($sections, '8.status') === 'ready', 'critical'),
             $this->check('awis_desktop_mobile_surface_contracts_complete', data_get($sections, '9.status') === 'ready', 'critical'),
+            $this->check('awis_workspace_intelligence_loop_closed', data_get($sections, '10.closed_loop.loop_closed') === true, 'critical'),
         ];
 
         return $checks;
@@ -775,7 +970,15 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 && str_contains($desktopSelectorTest, 'persistWorkspaceSlug'),
             'desktop_workspace_lock_present' => str_contains($desktopSurface, 'workspaceLock') && str_contains($desktopSurface, 'effectiveWorkspaceSlug'),
             'desktop_picker_search_and_create_present' => str_contains($desktopPicker, 'Pesquisar projetos') && str_contains($desktopPicker, "onOpenWorkspaceProfile?.('create')"),
-            'desktop_drag_merge_room_present' => str_contains($desktopThreadList, 'atlas-ai-conversation-merge-room') && str_contains($desktopThreadList, 'Solte em outra conversa para criar um pack AWIS'),
+            'desktop_drag_merge_room_present' => (
+                str_contains($desktopThreadList, 'atlas-ai-conversation-merge-room')
+                || str_contains($desktopThreadList, 'ProjectSpacesPanel')
+                || str_contains($desktopThreadList, 'pointerFusionSpaceTargetId')
+            )
+                && (
+                    str_contains($desktopThreadList, 'Solte em outra conversa para criar um pack AWIS')
+                    || str_contains($desktopThreadList, 'Solte em outra conversa para criar um Space')
+                ),
             'desktop_drag_fusion_persists_artifact' => str_contains($desktopSurface, 'refreshConversationFusion(threadIds, { persist: true })') && str_contains($desktopFusionTest, 'Drag thread-to-thread fusion'),
             'mobile_workspace_model_present' => str_contains($mobileModel, 'workspaceContextFromThreadAndTrace'),
             'mobile_context_sheet_awis_present' => str_contains($mobileContext, 'workspace AWIS') && str_contains($mobileContext, 'fixo nesta conversa'),

@@ -1,0 +1,40 @@
+{
+    "schema_version": "atlas.forge.rivals.industrial_execution_suite.v1",
+    "suite_id": "atlas-forge-rivals-industrial-execution-suite-v1",
+    "case_id": "extreme-differentiator-080-industrial-200-incident_rollback",
+    "case_set": "extreme-differentiator",
+    "category": "integration_performance",
+    "task_type": "incident_rollback",
+    "difficulty_level": "L5",
+    "acceptance_criteria": [
+        "Entrega resolve o caso sem tocar arquivos proibidos.",
+        "Patch inclui evidencia local suficiente para auditoria e replay.",
+        "Resposta explicita incertezas, tradeoffs e limites quando o prompt for ambiguo.",
+        "Scorecard por caso pode ser reconstruido a partir do evidence pack."
+    ],
+    "evidence_requirements": [
+        "patch_diff",
+        "provider_receipt",
+        "test_log",
+        "scorecard_per_case",
+        "workspace_hashes",
+        "oracle_adjudication_notes"
+    ],
+    "invalid_if": [
+        "synthetic_score_admitted",
+        "touched_forbidden_files",
+        "external_rivals_unlock_attempted",
+        "missing_case_scorecard",
+        "missing_replay",
+        "missing_evidence_pack",
+        "oracle_metadata_ignored"
+    ],
+    "expected_changed_files": [
+        "storage/forge-rivals-industrial/extreme-differentiator-080-industrial-200-incident_rollback/src/extreme-differentiator-080-industrial-200-incident_rollback.php",
+        "storage/forge-rivals-industrial/extreme-differentiator-080-industrial-200-incident_rollback/tests/extreme-differentiator-080-industrial-200-incident_rollbackTest.php",
+        "storage/forge-rivals-industrial/extreme-differentiator-080-industrial-200-incident_rollback/docs/extreme-differentiator-080-industrial-200-incident_rollback-runbook.md"
+    ],
+    "oracle_hash": "a918f73a1bace8ddb31f613c6a8a40caf3ec04c82521bf7930bacd77125e8b1e",
+    "external_provider_call": false,
+    "provider_tokens_spent": false
+}

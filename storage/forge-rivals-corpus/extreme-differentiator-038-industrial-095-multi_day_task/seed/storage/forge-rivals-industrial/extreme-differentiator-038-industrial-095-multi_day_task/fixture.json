@@ -1,0 +1,40 @@
+{
+    "schema_version": "atlas.forge.rivals.industrial_execution_suite.v1",
+    "suite_id": "atlas-forge-rivals-industrial-execution-suite-v1",
+    "case_id": "extreme-differentiator-038-industrial-095-multi_day_task",
+    "case_set": "extreme-differentiator",
+    "category": "architecture",
+    "task_type": "multi_day_task",
+    "difficulty_level": "L5",
+    "acceptance_criteria": [
+        "Entrega resolve o caso sem tocar arquivos proibidos.",
+        "Patch inclui evidencia local suficiente para auditoria e replay.",
+        "Resposta explicita incertezas, tradeoffs e limites quando o prompt for ambiguo.",
+        "Scorecard por caso pode ser reconstruido a partir do evidence pack."
+    ],
+    "evidence_requirements": [
+        "patch_diff",
+        "provider_receipt",
+        "test_log",
+        "scorecard_per_case",
+        "workspace_hashes",
+        "oracle_adjudication_notes"
+    ],
+    "invalid_if": [
+        "synthetic_score_admitted",
+        "touched_forbidden_files",
+        "external_rivals_unlock_attempted",
+        "missing_case_scorecard",
+        "missing_replay",
+        "missing_evidence_pack",
+        "oracle_metadata_ignored"
+    ],
+    "expected_changed_files": [
+        "storage/forge-rivals-industrial/extreme-differentiator-038-industrial-095-multi_day_task/src/extreme-differentiator-038-industrial-095-multi_day_task.php",
+        "storage/forge-rivals-industrial/extreme-differentiator-038-industrial-095-multi_day_task/tests/extreme-differentiator-038-industrial-095-multi_day_taskTest.php",
+        "storage/forge-rivals-industrial/extreme-differentiator-038-industrial-095-multi_day_task/docs/extreme-differentiator-038-industrial-095-multi_day_task-runbook.md"
+    ],
+    "oracle_hash": "c032f5ab489ae9f9865f3ddd925e8f26acdf2240ddf6a6a1e72c2dd88a29bb9e",
+    "external_provider_call": false,
+    "provider_tokens_spent": false
+}

@@ -232,6 +232,11 @@ final class AtlasForgeRivalsEvidencePackVerifierService
         $invalidReasons = array_merge($invalidReasons, $modeReport['invalid_reasons']);
         $missingEvidence = array_merge($missingEvidence, $modeReport['missing_evidence']);
 
+        $metaProviderReport = $this->applyMetaProviderEvidenceRules($mode, $pack);
+        $blockers = array_merge($blockers, $metaProviderReport['blockers']);
+        $invalidReasons = array_merge($invalidReasons, $metaProviderReport['invalid_reasons']);
+        $missingEvidence = array_merge($missingEvidence, $metaProviderReport['missing_evidence']);
+
         $blockers = array_values(array_unique($blockers));
         $invalidReasons = array_values(array_unique($invalidReasons));
         $missingEvidence = array_values(array_unique($missingEvidence));
@@ -403,6 +408,214 @@ final class AtlasForgeRivalsEvidencePackVerifierService
     }
 
     /**
+     * @param  array<string,mixed>  $pack
+     * @return array{blockers:list<string>,invalid_reasons:list<string>,missing_evidence:list<string>}
+     */
+    private function applyMetaProviderEvidenceRules(string $mode, array $pack): array
+    {
+        $contract = is_array($pack['meta_provider_evidence_contract'] ?? null)
+            ? (array) $pack['meta_provider_evidence_contract']
+            : [];
+        if (($contract['applies'] ?? false) !== true) {
+            return ['blockers' => [], 'invalid_reasons' => [], 'missing_evidence' => []];
+        }
+
+        $blockers = [];
+        $reasons = [];
+        $missing = [];
+        $providerReceipts = is_array($pack['provider_receipts'] ?? null) ? (array) $pack['provider_receipts'] : [];
+        foreach ((array) ($contract['arms'] ?? []) as $armKey => $armContract) {
+            if (! is_array($armContract)) {
+                continue;
+            }
+            $receipt = is_array($providerReceipts[$armKey] ?? null) ? (array) $providerReceipts[$armKey] : [];
+            if (($receipt['present'] ?? false) !== true) {
+                if ($mode !== self::MODE_DRY_RUN) {
+                    $blockers[] = 'meta_provider_receipt_missing:'.$armKey;
+                    $missing[] = 'meta_provider_receipt:'.$armKey;
+                    $reasons[] = 'meta_provider_receipt_missing_'.$armKey;
+                }
+
+                continue;
+            }
+            foreach ((array) ($armContract['required_receipt_fields'] ?? []) as $field) {
+                $field = (string) $field;
+                $value = $receipt[$field] ?? null;
+                if ($value === null || (is_string($value) && trim($value) === '')) {
+                    $blockers[] = 'meta_provider_receipt_field_missing:'.$armKey.':'.$field;
+                    $missing[] = 'meta_provider_receipt.'.$armKey.'.'.$field;
+                    $reasons[] = 'meta_provider_receipt_field_missing_'.$armKey.'_'.$field;
+                }
+            }
+            if (($armContract['tool_event_stream'] ?? null) === 'stream-json' && $mode !== self::MODE_DRY_RUN) {
+                if (($receipt['prompt_transport'] ?? null) !== 'stdin') {
+                    $blockers[] = 'meta_provider_receipt_prompt_transport_not_stdin:'.$armKey;
+                    $missing[] = 'meta_provider_receipt.'.$armKey.'.prompt_transport_stdin';
+                    $reasons[] = 'meta_provider_receipt_prompt_transport_not_stdin_'.$armKey;
+                }
+                $stdinPromptHash = $receipt['stdin_prompt_hash'] ?? null;
+                if (! is_string($stdinPromptHash) || preg_match('/^[a-f0-9]{64}$/', $stdinPromptHash) !== 1) {
+                    $blockers[] = 'meta_provider_receipt_stdin_prompt_hash_invalid:'.$armKey;
+                    $missing[] = 'meta_provider_receipt.'.$armKey.'.stdin_prompt_hash';
+                    $reasons[] = 'meta_provider_receipt_stdin_prompt_hash_invalid_'.$armKey;
+                }
+                $shape = is_array($receipt['command_shape_summary'] ?? null) ? (array) $receipt['command_shape_summary'] : [];
+                if (($shape['governed_cursor_cli_shape'] ?? false) !== true) {
+                    $blockers[] = 'meta_provider_receipt_cursor_command_shape_invalid:'.$armKey;
+                    $missing[] = 'meta_provider_receipt.'.$armKey.'.command_shape.governed_cursor_cli_shape';
+                    $reasons[] = 'meta_provider_receipt_cursor_command_shape_invalid_'.$armKey;
+                }
+                foreach ([
+                    'print_mode',
+                    'output_format_stream_json',
+                    'model_arg_present',
+                    'force_absent',
+                    'resume_absent',
+                    'prompt_arg_absent',
+                ] as $signal) {
+                    if (($shape[$signal] ?? false) !== true) {
+                        $blockers[] = 'meta_provider_receipt_cursor_command_shape_'.$signal.'_missing:'.$armKey;
+                        $missing[] = 'meta_provider_receipt.'.$armKey.'.command_shape.'.$signal;
+                        $reasons[] = 'meta_provider_receipt_cursor_command_shape_'.$signal.'_missing_'.$armKey;
+                    }
+                }
+                $streamReport = $this->validateStreamJsonReceipt($armKey, $receipt);
+                $blockers = array_merge($blockers, $streamReport['blockers']);
+                $missing = array_merge($missing, $streamReport['missing_evidence']);
+                $reasons = array_merge($reasons, $streamReport['invalid_reasons']);
+            }
+        }
+
+        foreach ((array) ($pack['cases'] ?? []) as $index => $case) {
+            if (! is_array($case)) {
+                continue;
+            }
+            $caseId = (string) ($case['case_id'] ?? 'case_'.$index);
+            $isStressCase = (string) ($case['case_set'] ?? '') === 'meta-provider-stress'
+                || in_array('meta_provider_stress', $this->stringList($case['measurement_tags'] ?? []), true)
+                || is_array($case['meta_provider_stress'] ?? null);
+            if (! $isStressCase) {
+                continue;
+            }
+
+            $promptHash = (string) ($case['human_prompt_hash'] ?? '');
+            if (! preg_match('/^[a-f0-9]{64}$/', $promptHash)) {
+                $blockers[] = 'meta_provider_case_human_prompt_hash_missing:'.$caseId;
+                $missing[] = 'case.'.$caseId.'.human_prompt_hash';
+                $reasons[] = 'meta_provider_case_human_prompt_hash_missing_'.$caseId;
+            }
+            $context = is_array($case['context_profile'] ?? null) ? (array) $case['context_profile'] : [];
+            if (($context['schema_version'] ?? null) !== 'atlas.forge.rivals.context_profile.v1') {
+                $blockers[] = 'meta_provider_case_context_profile_missing:'.$caseId;
+                $missing[] = 'case.'.$caseId.'.context_profile';
+                $reasons[] = 'meta_provider_case_context_profile_missing_'.$caseId;
+            }
+            if (($context['requires_assumption_log'] ?? false) !== true) {
+                $blockers[] = 'meta_provider_case_assumption_log_not_required:'.$caseId;
+                $reasons[] = 'meta_provider_case_assumption_log_not_required_'.$caseId;
+            }
+            $contextComplexity = is_array($context['complexity_profile'] ?? null) ? (array) $context['complexity_profile'] : [];
+            if (($contextComplexity['schema_version'] ?? null) !== 'atlas.forge.rivals.case_complexity_profile.v1') {
+                $blockers[] = 'meta_provider_case_context_complexity_profile_missing:'.$caseId;
+                $missing[] = 'case.'.$caseId.'.context_profile.complexity_profile';
+                $reasons[] = 'meta_provider_case_context_complexity_profile_missing_'.$caseId;
+            }
+            $probe = is_array($case['human_prompt_probe'] ?? null) ? (array) $case['human_prompt_probe'] : [];
+            if (($probe['schema_version'] ?? null) !== 'atlas.forge.rivals.human_prompt_probe.v1') {
+                $blockers[] = 'meta_provider_case_human_prompt_probe_missing:'.$caseId;
+                $missing[] = 'case.'.$caseId.'.human_prompt_probe';
+                $reasons[] = 'meta_provider_case_human_prompt_probe_missing_'.$caseId;
+            }
+            foreach (['facts_observed', 'assumptions', 'reversible_decisions', 'scope_boundaries', 'evidence_plan', 'replay_matrix', 'tradeoffs', 'honest_blockers'] as $section) {
+                if (! in_array($section, (array) ($probe['requires_sections'] ?? []), true)) {
+                    $blockers[] = 'meta_provider_case_human_prompt_probe_section_missing:'.$caseId.':'.$section;
+                    $missing[] = 'case.'.$caseId.'.human_prompt_probe.'.$section;
+                    $reasons[] = 'meta_provider_case_human_prompt_probe_section_missing_'.$caseId.'_'.$section;
+                }
+            }
+            $probeComplexity = is_array($probe['complexity_profile'] ?? null) ? (array) $probe['complexity_profile'] : [];
+            if (($probeComplexity['schema_version'] ?? null) !== 'atlas.forge.rivals.case_complexity_profile.v1') {
+                $blockers[] = 'meta_provider_case_human_prompt_probe_complexity_profile_missing:'.$caseId;
+                $missing[] = 'case.'.$caseId.'.human_prompt_probe.complexity_profile';
+                $reasons[] = 'meta_provider_case_human_prompt_probe_complexity_profile_missing_'.$caseId;
+            }
+        }
+
+        return [
+            'blockers' => array_values(array_unique($blockers)),
+            'invalid_reasons' => array_values(array_unique($reasons)),
+            'missing_evidence' => array_values(array_unique($missing)),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @return array{blockers:list<string>,invalid_reasons:list<string>,missing_evidence:list<string>}
+     */
+    private function validateStreamJsonReceipt(string $armKey, array $receipt): array
+    {
+        $blockers = [];
+        $missing = [];
+        $reasons = [];
+
+        if ((string) ($receipt['output_format'] ?? '') !== 'stream-json') {
+            $blockers[] = 'meta_provider_receipt_stream_json_output_format_missing:'.$armKey;
+            $missing[] = 'meta_provider_receipt.'.$armKey.'.output_format_stream_json';
+            $reasons[] = 'meta_provider_receipt_stream_json_output_format_missing_'.$armKey;
+        }
+
+        $summary = is_array($receipt['stream_json_summary'] ?? null) ? (array) $receipt['stream_json_summary'] : [];
+        if (($summary['system_init_event'] ?? false) !== true) {
+            $blockers[] = 'meta_provider_receipt_stream_json_system_init_missing:'.$armKey;
+            $missing[] = 'meta_provider_receipt.'.$armKey.'.stream_json.system_init_event';
+            $reasons[] = 'meta_provider_receipt_stream_json_system_init_missing_'.$armKey;
+        }
+        foreach ([
+            'system_init_api_key_source_present',
+            'system_init_cwd_absolute',
+            'system_init_model_present',
+            'system_init_permission_mode_present',
+            'user_message_event',
+        ] as $signal) {
+            if (($summary[$signal] ?? false) !== true) {
+                $blockers[] = 'meta_provider_receipt_stream_json_'.$signal.'_missing:'.$armKey;
+                $missing[] = 'meta_provider_receipt.'.$armKey.'.stream_json.'.$signal;
+                $reasons[] = 'meta_provider_receipt_stream_json_'.$signal.'_missing_'.$armKey;
+            }
+        }
+        if (($summary['terminal_result_event'] ?? false) !== true) {
+            $blockers[] = 'meta_provider_receipt_stream_json_terminal_result_missing:'.$armKey;
+            $missing[] = 'meta_provider_receipt.'.$armKey.'.stream_json.terminal_result_event';
+            $reasons[] = 'meta_provider_receipt_stream_json_terminal_result_missing_'.$armKey;
+        }
+        if (($summary['terminal_result_success'] ?? false) !== true) {
+            $blockers[] = 'meta_provider_receipt_stream_json_terminal_result_success_missing:'.$armKey;
+            $missing[] = 'meta_provider_receipt.'.$armKey.'.stream_json.terminal_result_success';
+            $reasons[] = 'meta_provider_receipt_stream_json_terminal_result_success_missing_'.$armKey;
+        }
+        if ((int) ($summary['tool_event_count'] ?? 0) <= 0 && ($summary['tool_event_observed'] ?? false) !== true) {
+            $blockers[] = 'meta_provider_receipt_stream_json_tool_event_missing:'.$armKey;
+            $missing[] = 'meta_provider_receipt.'.$armKey.'.stream_json.tool_event_observed';
+            $reasons[] = 'meta_provider_receipt_stream_json_tool_event_missing_'.$armKey;
+        }
+        if (($summary['session_id_consistent'] ?? false) !== true) {
+            $blockers[] = 'meta_provider_receipt_stream_json_session_inconsistent:'.$armKey;
+            $missing[] = 'meta_provider_receipt.'.$armKey.'.stream_json.session_id_consistent';
+            $reasons[] = 'meta_provider_receipt_stream_json_session_inconsistent_'.$armKey;
+        }
+        if ($this->stringList($summary['parse_errors'] ?? []) !== []) {
+            $blockers[] = 'meta_provider_receipt_stream_json_parse_errors:'.$armKey;
+            $reasons[] = 'meta_provider_receipt_stream_json_parse_errors_'.$armKey;
+        }
+
+        return [
+            'blockers' => array_values(array_unique($blockers)),
+            'invalid_reasons' => array_values(array_unique($reasons)),
+            'missing_evidence' => array_values(array_unique($missing)),
+        ];
+    }
+
+    /**
      * Build the canonical response envelope. Always `claim_ready=false`. Status
      * is `passed` only when no blockers; otherwise `invalid_missing_evidence`
      * when there is a missing artifact, `invalid_hash_mismatch` when there is
@@ -476,7 +689,6 @@ final class AtlasForgeRivalsEvidencePackVerifierService
     }
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function stringList(mixed $value): array

@@ -27,6 +27,8 @@ final class AtlasForgeRivalsIndustrialBenchmarkSuiteTest extends TestCase
             'incident-response',
             'product-security-migrations',
             'statistical-repeat',
+            'extreme-differentiator',
+            'ceiling-360',
         ] as $preset) {
             $this->assertGreaterThanOrEqual(50, $payload['presets'][$preset]['count']);
             $this->assertTrue($payload['presets'][$preset]['ok']);
@@ -141,6 +143,52 @@ final class AtlasForgeRivalsIndustrialBenchmarkSuiteTest extends TestCase
         }
     }
 
+    public function test_extreme_differentiator_declares_runner_strength_probe_metadata(): void
+    {
+        $payload = $this->invoke('cases', ['--case-set' => 'extreme-differentiator']);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(80, $payload['count']);
+        foreach ($payload['cases'] as $case) {
+            $this->assertSame('extreme-differentiator', $case['industrial_case_set']);
+            $this->assertContains('runner_strength_probe', $case['measurement_tags']);
+            $this->assertSame(
+                'atlas.forge.rivals.extreme_differentiator.v1',
+                $case['extreme_differentiator']['schema_version'],
+            );
+            $this->assertArrayHasKey('extreme_hardening', $case);
+            $this->assertNotEmpty($case['measured_capabilities']);
+            $this->assertContains($case['difficulty_level'], ['L4', 'L5']);
+            $this->assertContains(
+                $case['difficulty_level'],
+                $case['extreme_differentiator']['required_signal']['allowed_difficulty_levels'],
+            );
+            $this->assertTrue($case['extreme_differentiator']['required_signal']['requires_separation_analysis']);
+            $this->assertFalse($payload['external_provider_call']);
+            $this->assertFalse($payload['provider_tokens_spent']);
+        }
+    }
+
+    public function test_ceiling_360_declares_maximum_pressure_360_metadata(): void
+    {
+        $payload = $this->invoke('cases', ['--case-set' => 'ceiling-360']);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(120, $payload['count']);
+        foreach ($payload['cases'] as $case) {
+            $this->assertSame('ceiling-360', $case['industrial_case_set']);
+            $this->assertContains('runner_ceiling_probe', $case['measurement_tags']);
+            $this->assertSame('atlas.forge.rivals.ceiling_360.v1', $case['ceiling_360']['schema_version']);
+            $this->assertTrue($case['ceiling_360']['required_signal']['requires_all_360_capabilities']);
+            $this->assertSame('L5', $case['difficulty_level']);
+            $this->assertSame('critical', $case['risk_level']);
+            $this->assertSame('high', $case['ambiguity_level']);
+            $this->assertFalse($case['ceiling_360']['claim_policy']['external_claim_allowed']);
+            $this->assertFalse($payload['external_provider_call']);
+            $this->assertFalse($payload['provider_tokens_spent']);
+        }
+    }
+
     public function test_run_battery_dry_run_accepts_industrial_preset_without_provider_call(): void
     {
         $payload = $this->invoke('run-battery', [
@@ -155,6 +203,24 @@ final class AtlasForgeRivalsIndustrialBenchmarkSuiteTest extends TestCase
         $this->assertSame('industrial-50', $payload['case_set']);
         $this->assertFalse($payload['external_provider_call']);
         $this->assertFalse($payload['provider_tokens_spent']);
+    }
+
+    public function test_run_battery_dry_run_accepts_extreme_differentiator_spec_without_executable_fixtures(): void
+    {
+        $payload = $this->invoke('run-battery', [
+            '--preset' => 'extreme-differentiator',
+            '--mode' => 'local_fake',
+            '--dry-run' => true,
+        ]);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertTrue($payload['dry_run']);
+        $this->assertSame('extreme-differentiator', $payload['case_set']);
+        $this->assertSame(80, $payload['cases_count']);
+        $this->assertSame('industrial_dry_run_planned', $payload['verdict']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertFalse($payload['claim_ready']);
     }
 
     public function test_industrial_certification_is_in_audit_and_keeps_external_certification_blocked(): void

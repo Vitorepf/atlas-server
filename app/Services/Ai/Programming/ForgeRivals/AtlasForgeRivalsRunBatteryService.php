@@ -54,9 +54,11 @@ final class AtlasForgeRivalsRunBatteryService
         private readonly AtlasForgeRivalsReportService $report,
         private readonly AtlasForgeRivalsRunPathResolver $paths,
         private readonly AtlasForgeRivalsModeRegistry $modes,
+        private readonly AtlasForgeRivalsModelMatrix $matrix,
         private readonly AtlasForgeRivalsCorpusPreValidationService $corpusPreValidation,
         private readonly AtlasForgeRivalsProviderArenaCorpusService $corpus,
         private readonly AtlasForgeRivalsIndustrialExecutionSuiteService $industrialExecution,
+        private readonly AtlasForgeRivalsProviderEvidenceDiskGuardService $evidenceDiskGuard,
     ) {}
 
     /**
@@ -171,6 +173,24 @@ final class AtlasForgeRivalsRunBatteryService
             'real_provider_call' => $dryRunOnly || (bool) ($confirmations['real_provider_call'] ?? ! $requiresProvider),
         ];
 
+        $semanticBlockers = $this->semanticBlockersBeforeDriverOrWorktree(
+            mode: $mode,
+            atlasModel: $atlasModel,
+            rivalModel: $rivalModel,
+            preset: $preset,
+            caseSet: $caseSet,
+            usingArenaContracts: $usingArenaContracts,
+        );
+        if ($semanticBlockers !== []) {
+            return $this->terminal(
+                runId: $runId,
+                mode: $mode,
+                phases: $phases,
+                blockers: $semanticBlockers,
+                hint: 'fix semantic run-battery blockers before checking provider drivers or creating worktrees',
+            );
+        }
+
         // Phase 1 — doctor (honest codex driver check happens here for rival=codex)
         $doctor = $this->doctor->check();
         $phases[] = $this->phase('doctor', $doctor);
@@ -219,23 +239,13 @@ final class AtlasForgeRivalsRunBatteryService
             }
         }
 
-        // Phase 2 — setup worktrees
-        $setup = $this->setup->provision([
-            'run_id' => $runId,
-            'source_ref' => $sourceRef,
-        ]);
-        $phases[] = $this->phase('setup', $setup);
-        if (($setup['status'] ?? '') !== 'ok') {
-            return $this->terminal($runId, $mode, $phases, (array) ($setup['blockers'] ?? []), 'fix setup blockers');
-        }
-        $runId = (string) ($setup['run_id'] ?? $runId);
-        $runPaths = $this->paths->paths($runId);
-
+        $explicitIndustrialCase = $this->industrialCaseForExplicitCase($case);
         $isIndustrialCaseSet = in_array($caseSet, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true);
-        if ($isIndustrialCaseSet) {
+        $usesMinimalCheckout = $this->shouldUseMinimalCheckout($preset, $caseSet, $case);
+        if ($isIndustrialCaseSet && ! $dryRunOnly) {
             $industrialExecution = $this->industrialExecution->readiness([
                 'case_set' => $caseSet,
-                'ensure_fixtures' => $caseSet === AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50,
+                'ensure_fixtures' => $caseSet !== AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
             ]);
             $phases[] = $this->phase('industrial-execution-readiness', $industrialExecution);
             if (($industrialExecution['status'] ?? '') !== 'ok') {
@@ -248,27 +258,21 @@ final class AtlasForgeRivalsRunBatteryService
                 );
             }
         }
-
-        if ($resumeRequested) {
-            $activeRunnerBlockers = $this->resumeActiveRunnerBlockers($runPaths);
-            if ($activeRunnerBlockers !== []) {
+        if ($explicitIndustrialCase !== null && ! $dryRunOnly) {
+            $industrialExecution = $this->industrialExecution->readiness([
+                'case_set' => (string) ($explicitIndustrialCase['industrial_case_set'] ?? AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50),
+                'cases_override' => [$explicitIndustrialCase],
+                'required_cases_override' => 1,
+                'ensure_fixtures' => true,
+            ]);
+            $phases[] = $this->phase('industrial-execution-readiness', $industrialExecution);
+            if (($industrialExecution['status'] ?? '') !== 'ok') {
                 return $this->terminal(
                     $runId,
                     $mode,
                     $phases,
-                    $activeRunnerBlockers,
-                    'wait for the active battery runner to finish or become stalled before resuming',
-                );
-            }
-
-            $resumeCleanup = $this->prepareResumeWorktrees($runPaths);
-            if (($resumeCleanup['blockers'] ?? []) !== []) {
-                return $this->terminal(
-                    $runId,
-                    $mode,
-                    $phases,
-                    (array) $resumeCleanup['blockers'],
-                    'fix resume worktree cleanup blockers before continuing the battery',
+                    (array) ($industrialExecution['blockers'] ?? []),
+                    'fix industrial execution readiness blockers before running explicit industrial case',
                 );
             }
         }
@@ -279,6 +283,8 @@ final class AtlasForgeRivalsRunBatteryService
                 'status' => 'ok',
                 'case_set' => $caseSet,
                 'cases_count' => count($industrialCases),
+                'execution_readiness_required' => false,
+                'execution_readiness_reason' => 'dry_run_plans_spec_only_without_materializing_or_executing_fixtures',
                 'external_provider_call' => false,
                 'provider_tokens_spent' => false,
             ];
@@ -311,6 +317,44 @@ final class AtlasForgeRivalsRunBatteryService
                 'next_command' => 'php artisan atlas:forge:rivals cases --case-set='.$caseSet.' --json',
                 'note' => 'Industrial dry-run planned from canonical case specs. No provider invoked. No score, no winner; strong claim remains blocked until evidence/replay/scorecard/matrix/confidence gates pass.',
             ];
+        }
+
+        // Phase 2 — setup worktrees. Industrial dry-run has already returned:
+        // planning should not require disk-heavy isolated worktrees.
+        $setup = $this->setup->provision([
+            'run_id' => $runId,
+            'source_ref' => $sourceRef,
+            'checkout_strategy' => $usesMinimalCheckout ? 'minimal_no_checkout' : 'full',
+        ]);
+        $phases[] = $this->phase('setup', $setup);
+        if (($setup['status'] ?? '') !== 'ok') {
+            return $this->terminal($runId, $mode, $phases, (array) ($setup['blockers'] ?? []), 'fix setup blockers');
+        }
+        $runId = (string) ($setup['run_id'] ?? $runId);
+        $runPaths = $this->paths->paths($runId);
+
+        if ($resumeRequested) {
+            $activeRunnerBlockers = $this->resumeActiveRunnerBlockers($runPaths);
+            if ($activeRunnerBlockers !== []) {
+                return $this->terminal(
+                    $runId,
+                    $mode,
+                    $phases,
+                    $activeRunnerBlockers,
+                    'wait for the active battery runner to finish or become stalled before resuming',
+                );
+            }
+
+            $resumeCleanup = $this->prepareResumeWorktrees($runPaths);
+            if (($resumeCleanup['blockers'] ?? []) !== []) {
+                return $this->terminal(
+                    $runId,
+                    $mode,
+                    $phases,
+                    (array) $resumeCleanup['blockers'],
+                    'fix resume worktree cleanup blockers before continuing the battery',
+                );
+            }
         }
 
         if ($isIndustrialCaseSet && $mode === AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE) {
@@ -448,6 +492,20 @@ final class AtlasForgeRivalsRunBatteryService
                 'next_command' => 'php artisan atlas:forge:rivals run-battery --mode='.$mode.' --atlas-model='.$atlasModel.' --rival='.$rivalModel.' --preset='.$preset.' --prompt-mode='.$promptMode.' --confirm-runbook-reviewed --confirm-provider-cost --confirm-real-provider-call --json',
                 'note' => 'Dry-run completed (preflight + dry-run + plan-real). No provider invoked. No score, no winner. Re-run without --dry-run to execute the battery.',
             ];
+        }
+
+        if ($mode !== AtlasForgeRivalsModeRegistry::MODE_LOCAL_FAKE) {
+            $evidenceDiskGuard = $this->evidenceDiskGuard->check($runPaths['base']);
+            $phases[] = $this->phase('evidence-disk-guard', $evidenceDiskGuard);
+            if (($evidenceDiskGuard['status'] ?? '') !== 'ok') {
+                return $this->terminal(
+                    $runId,
+                    $mode,
+                    $phases,
+                    (array) ($evidenceDiskGuard['blockers'] ?? []),
+                    'free disk space before invoking real providers',
+                );
+            }
         }
 
         // Phase 6 — run-real (real provider gated; or local_fake)
@@ -784,6 +842,51 @@ final class AtlasForgeRivalsRunBatteryService
     }
 
     /**
+     * @return list<string>
+     */
+    private function semanticBlockersBeforeDriverOrWorktree(
+        string $mode,
+        string $atlasModel,
+        string $rivalModel,
+        string $preset,
+        string $caseSet,
+        bool $usingArenaContracts,
+    ): array {
+        $blockers = [];
+
+        if (! $usingArenaContracts) {
+            $matrix = $this->matrix->validate($mode, $atlasModel, $rivalModel);
+            foreach ((array) ($matrix['blockers'] ?? []) as $blocker) {
+                $blockers[] = (string) $blocker;
+            }
+        }
+
+        $presetCaseSet = $caseSet !== '' ? $caseSet : $this->presetCaseSet($preset);
+        if ($presetCaseSet !== null) {
+            try {
+                $this->corpus->casesForCaseSet($presetCaseSet);
+            } catch (\Throwable $e) {
+                $blockers[] = $e->getMessage() !== '' ? $e->getMessage() : 'unknown_case_set:'.$presetCaseSet;
+            }
+        }
+
+        return array_values(array_unique($blockers));
+    }
+
+    private function presetCaseSet(string $preset): ?string
+    {
+        $preset = strtolower(trim($preset));
+        if ($preset === AtlasForgeRivalsCasesRegistry::PRESET_RELEASE) {
+            return AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE;
+        }
+        if (in_array($preset, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)) {
+            return $preset;
+        }
+
+        return null;
+    }
+
+    /**
      * Classify the verdict for a blocked battery so the operator can read it
      * at a glance instead of grepping blockers. Honest verdicts only —
      * "invalid_harness_blocked" is the catch-all; specific signals override.
@@ -858,13 +961,74 @@ final class AtlasForgeRivalsRunBatteryService
             return true;
         }
 
-        // Explicit single case: apply only when it looks like a corpus case.
-        // Corpus cases live under storage/forge-rivals-corpus/<case_id>/.
-        if (trim($case) !== '' && is_dir(base_path('storage/forge-rivals-corpus/'.trim($case)))) {
+        // Explicit single case: apply when the canonical corpus registry knows
+        // the case, even before its executable fixture has been materialized.
+        if ($this->isProviderArenaCorpusCase(trim($case))) {
             return true;
         }
 
         return false;
+    }
+
+    private function shouldUseMinimalCheckout(string $preset, string $caseSet, string $case): bool
+    {
+        $presetKey = strtolower(trim($preset));
+        $caseSetKey = strtolower(trim($caseSet));
+        $caseId = trim($case);
+
+        if (in_array($caseSetKey, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)) {
+            return true;
+        }
+        if (in_array($presetKey, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)) {
+            return true;
+        }
+        if ($this->isProviderArenaCorpusCase($caseId)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function isProviderArenaCorpusCase(string $caseId): bool
+    {
+        if ($caseId === '') {
+            return false;
+        }
+        if (is_dir(base_path('storage/forge-rivals-corpus/'.$caseId.'/seed'))) {
+            return true;
+        }
+
+        try {
+            $this->corpus->case($caseId);
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function industrialCaseForExplicitCase(string $caseId): ?array
+    {
+        $caseId = trim($caseId);
+        if ($caseId === '') {
+            return null;
+        }
+
+        try {
+            $case = $this->corpus->case($caseId);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $caseSet = strtolower(trim((string) ($case['industrial_case_set'] ?? '')));
+        if ($caseSet !== '' && in_array($caseSet, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true)) {
+            return $case;
+        }
+
+        return null;
     }
 
     /**

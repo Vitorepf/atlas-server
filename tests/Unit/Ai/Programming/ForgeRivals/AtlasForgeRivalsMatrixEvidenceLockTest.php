@@ -244,6 +244,45 @@ final class AtlasForgeRivalsMatrixEvidenceLockTest extends TestCase
         }
     }
 
+    public function test_matrix_lock_blocks_declared_human_prompt_contract_gap(): void
+    {
+        $runId = $this->newRunId('human-prompt-gap');
+        $this->seedBattery($runId, $this->fortyCaseBlueprint(invalidateBy: ['human_prompt_contract' => [6]]));
+
+        $report = $this->report->render(['run_id' => $runId]);
+        $lock = $report['matrix_evidence_lock'];
+        $promptLock = $lock['human_prompt_contract_lock'];
+
+        $this->assertSame('atlas.forge.rivals.matrix_human_prompt_contract_lock.v1', $promptLock['schema_version']);
+        $this->assertSame(1, $promptLock['required_cases']);
+        $this->assertSame(0, $promptLock['complete_cases']);
+        $this->assertSame(1, $promptLock['incomplete_cases_count']);
+        $this->assertSame('case-6-frontend', $promptLock['incomplete_cases'][0]['case_id']);
+        $this->assertContains('honest_blockers', $promptLock['incomplete_cases'][0]['missing_sections']);
+        $this->assertTrue($promptLock['matrix_blocks_when_required_contract_incomplete']);
+        $this->assertTrue($promptLock['advisory_only']);
+        $this->assertSame('none', $promptLock['routing_effect']);
+
+        $this->assertFalse($lock['matrix_ok']);
+        $this->assertTrue($lock['blocks_claim_final']);
+        $this->assertContains('incomplete_human_prompt_contract', $lock['invalid_cases'][0]['reasons']);
+    }
+
+    public function test_matrix_lock_keeps_legacy_cases_without_prompt_contract_advisory(): void
+    {
+        $runId = $this->newRunId('human-prompt-legacy');
+        $this->seedBattery($runId, $this->fortyCaseBlueprint(invalidateBy: []));
+
+        $report = $this->report->render(['run_id' => $runId]);
+        $promptLock = $report['matrix_evidence_lock']['human_prompt_contract_lock'];
+
+        $this->assertSame(0, $promptLock['required_cases']);
+        $this->assertSame(0, $promptLock['complete_cases']);
+        $this->assertSame(0, $promptLock['incomplete_cases_count']);
+        $this->assertSame([], $promptLock['incomplete_cases']);
+        $this->assertTrue($report['matrix_evidence_lock']['matrix_ok']);
+    }
+
     public function test_matrix_blocks_can_feed_ledger_when_invalid_present(): void
     {
         $runId = $this->newRunId('block-ledger');
@@ -376,15 +415,40 @@ final class AtlasForgeRivalsMatrixEvidenceLockTest extends TestCase
             $cat = (string) $entry['category'];
             $skip = (array) $entry['skip'];
             $diff = $entry['difficulty_override'] ?? (string) $entry['difficulty'];
+            $caseManifestOverrides = [];
+            if (in_array('human_prompt_contract', $skip, true)) {
+                $caseManifestOverrides = [
+                    'measurement_tags' => ['human_prompt', 'assumption_probe'],
+                    'context_profile' => [
+                        'schema_version' => 'atlas.forge.rivals.context_profile.v1',
+                        'prompt_style' => 'human_ambiguous_operator_ticket',
+                        'long_context_required' => true,
+                        'requires_assumption_log' => true,
+                        'requires_scope_boundary_reasoning' => true,
+                        'requires_replayable_evidence' => true,
+                    ],
+                    'human_prompt_probe' => [
+                        'schema_version' => 'atlas.forge.rivals.human_prompt_probe.v1',
+                        'requires_sections' => [
+                            'facts_observed',
+                            'assumptions',
+                            'reversible_decisions',
+                            'scope_boundaries',
+                            'evidence_plan',
+                            'tradeoffs',
+                        ],
+                    ],
+                ];
+            }
 
             // Manifest declares the difficulty (canon L1-L5).
-            $cmf = $this->baseManifest('case-'.$entry['idx'].'-'.$cat, [
+            $cmf = $this->baseManifest('case-'.$entry['idx'].'-'.$cat, array_merge([
                 'case_id' => 'case-'.$entry['idx'].'-'.$cat,
                 'task_category' => $cat,
                 'difficulty_band' => $diff,
                 'preset' => 'release',
                 'mode' => 'fair',
-            ]);
+            ], $caseManifestOverrides));
             if (! in_array('manifest', $skip, true)) {
                 file_put_contents($caseBase.'/evidence/manifest.json', $this->jsonEncode($cmf));
             }

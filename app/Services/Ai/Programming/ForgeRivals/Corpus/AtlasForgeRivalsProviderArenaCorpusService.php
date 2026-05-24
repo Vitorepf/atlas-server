@@ -54,6 +54,9 @@ use InvalidArgumentException;
  *   - ambiguous-bugs / multi-day-refactors / incident-response /
  *     product-security-migrations: domain-specific industrial batteries.
  *   - statistical-repeat: repeated industrial subset for variance analysis.
+ *   - extreme-differentiator: high ambiguity/risk/depth cases that should
+ *     separate runner strengths instead of producing comfortable ties.
+ *   - ceiling-360: maximum-pressure L5 360 cases for runner ceiling mapping.
  *
  * Safety rules (never relaxed):
  *   - No case dispatches a provider in its declared commands.
@@ -98,6 +101,12 @@ final class AtlasForgeRivalsProviderArenaCorpusService
 
     public const CASE_SET_STATISTICAL_REPEAT = 'statistical-repeat';
 
+    public const CASE_SET_META_PROVIDER_STRESS = 'meta-provider-stress';
+
+    public const CASE_SET_EXTREME_DIFFERENTIATOR = 'extreme-differentiator';
+
+    public const CASE_SET_CEILING_360 = 'ceiling-360';
+
     /** @var list<string> */
     public const CASE_SETS = [
         self::CASE_SET_QUICK,
@@ -114,6 +123,9 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         self::CASE_SET_INCIDENT_RESPONSE,
         self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS,
         self::CASE_SET_STATISTICAL_REPEAT,
+        self::CASE_SET_META_PROVIDER_STRESS,
+        self::CASE_SET_EXTREME_DIFFERENTIATOR,
+        self::CASE_SET_CEILING_360,
     ];
 
     /** @var list<string> */
@@ -126,6 +138,9 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         self::CASE_SET_INCIDENT_RESPONSE,
         self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS,
         self::CASE_SET_STATISTICAL_REPEAT,
+        self::CASE_SET_META_PROVIDER_STRESS,
+        self::CASE_SET_EXTREME_DIFFERENTIATOR,
+        self::CASE_SET_CEILING_360,
     ];
 
     /** @var array<string,int> */
@@ -138,6 +153,9 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         self::CASE_SET_INCIDENT_RESPONSE => 50,
         self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS => 50,
         self::CASE_SET_STATISTICAL_REPEAT => 50,
+        self::CASE_SET_META_PROVIDER_STRESS => 50,
+        self::CASE_SET_EXTREME_DIFFERENTIATOR => 80,
+        self::CASE_SET_CEILING_360 => 120,
     ];
 
     /** @var list<string> */
@@ -185,6 +203,12 @@ final class AtlasForgeRivalsProviderArenaCorpusService
      * planner/validator translita para o canon novo antes de comparar.
      */
     public const LEGACY_CATEGORY_ALIAS = [
+        'docs' => 'planning',
+        'planning_clarity' => 'planning',
+        'frontend' => 'frontend_ui',
+        'backend' => 'backend_logic',
+        'bugfix' => 'realistic_bugfix',
+        'tests' => 'test_design',
         'integration' => 'integration_performance',
         'performance_edge_case' => 'integration_performance',
         'performance' => 'integration_performance',
@@ -464,6 +488,9 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             self::CASE_SET_INCIDENT_RESPONSE => $this->industrialCasesForDomain(self::CASE_SET_INCIDENT_RESPONSE, 'incident_rollback', 50),
             self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS => $this->industrialCasesForDomains(self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS, ['product', 'security', 'migration'], 50),
             self::CASE_SET_STATISTICAL_REPEAT => $this->statisticalRepeatCases(),
+            self::CASE_SET_META_PROVIDER_STRESS => $this->metaProviderStressCases(),
+            self::CASE_SET_EXTREME_DIFFERENTIATOR => $this->extremeDifferentiatorCases(),
+            self::CASE_SET_CEILING_360 => $this->ceiling360Cases(),
             self::CASE_SET_QUICK => array_values(array_filter(
                 $all,
                 static fn (array $c): bool => in_array((string) $c['case_id'], self::QUICK_CASE_IDS, true),
@@ -732,6 +759,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'industrial_case_sets' => self::INDUSTRIAL_CASE_SETS,
             'industrial_min_valid_cases' => self::INDUSTRIAL_CASE_SET_MIN_VALID_CASES,
             'industrial_domains' => self::INDUSTRIAL_DOMAINS,
+            'meta_provider_stress_coverage' => $this->metaProviderStressCoverageSummary(),
             'task_categories' => self::TASK_CATEGORIES,
             'by_task_category' => $byCategory,
             'quick_case_ids' => self::QUICK_CASE_IDS,
@@ -739,6 +767,126 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'separated_from_external_rivals_certification' => true,
             'claim_level' => self::CLAIM_LEVEL_CASE_RESULT_ONLY,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function metaProviderStressCoverageSummary(): array
+    {
+        $cases = $this->metaProviderStressCases();
+        $domains = [];
+        $riskLevels = [];
+        $ambiguityLevels = [];
+        $reasoningDepth = [];
+        $criticalOrHighRisk = 0;
+        $highAmbiguity = 0;
+        $longContext = 0;
+        $rollbackPlan = 0;
+        $multiStepPlan = 0;
+        $evidenceMatrix = 0;
+        $minEstimatedContextTokens = null;
+        $maxEstimatedContextTokens = null;
+
+        foreach ($cases as $case) {
+            foreach ($this->stringList($case['industrial_domains'] ?? []) as $domain) {
+                $domains[$domain] = ($domains[$domain] ?? 0) + 1;
+            }
+
+            $risk = (string) ($case['risk_level'] ?? 'unknown');
+            $riskLevels[$risk] = ($riskLevels[$risk] ?? 0) + 1;
+            if (in_array($risk, ['critical', 'high'], true)) {
+                $criticalOrHighRisk++;
+            }
+
+            $ambiguity = (string) ($case['ambiguity_level'] ?? 'unknown');
+            $ambiguityLevels[$ambiguity] = ($ambiguityLevels[$ambiguity] ?? 0) + 1;
+            if ($ambiguity === 'high') {
+                $highAmbiguity++;
+            }
+
+            $profile = is_array($case['context_profile']['complexity_profile'] ?? null)
+                ? (array) $case['context_profile']['complexity_profile']
+                : [];
+            $depth = (int) ($profile['reasoning_depth'] ?? 0);
+            if ($depth > 0) {
+                $reasoningDepth['depth_'.$depth] = ($reasoningDepth['depth_'.$depth] ?? 0) + 1;
+            }
+            $estimatedTokens = (int) ($profile['estimated_context_tokens'] ?? 0);
+            if ($estimatedTokens > 0) {
+                $minEstimatedContextTokens = $minEstimatedContextTokens === null
+                    ? $estimatedTokens
+                    : min($minEstimatedContextTokens, $estimatedTokens);
+                $maxEstimatedContextTokens = $maxEstimatedContextTokens === null
+                    ? $estimatedTokens
+                    : max($maxEstimatedContextTokens, $estimatedTokens);
+            }
+            if (($profile['long_context_required'] ?? false) === true) {
+                $longContext++;
+            }
+            if (($profile['requires_rollback_plan'] ?? false) === true) {
+                $rollbackPlan++;
+            }
+            if (($profile['requires_multi_step_plan'] ?? false) === true) {
+                $multiStepPlan++;
+            }
+            if (($profile['requires_evidence_matrix'] ?? false) === true) {
+                $evidenceMatrix++;
+            }
+        }
+
+        ksort($domains);
+        ksort($riskLevels);
+        ksort($ambiguityLevels);
+        ksort($reasoningDepth);
+
+        $caseCount = count($cases);
+        $domainCount = count($domains);
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.meta_provider_stress_coverage.v1',
+            'case_count' => $caseCount,
+            'target_case_count' => self::INDUSTRIAL_CASE_SET_MIN_VALID_CASES[self::CASE_SET_META_PROVIDER_STRESS],
+            'domain_count' => $domainCount,
+            'min_domain_count' => 8,
+            'domains' => $domains,
+            'risk_levels' => $riskLevels,
+            'ambiguity_levels' => $ambiguityLevels,
+            'reasoning_depth_distribution' => $reasoningDepth,
+            'critical_or_high_risk_cases' => $criticalOrHighRisk,
+            'high_ambiguity_cases' => $highAmbiguity,
+            'long_context_cases' => $longContext,
+            'rollback_plan_cases' => $rollbackPlan,
+            'multi_step_plan_cases' => $multiStepPlan,
+            'evidence_matrix_cases' => $evidenceMatrix,
+            'min_estimated_context_tokens' => $minEstimatedContextTokens ?? 0,
+            'max_estimated_context_tokens' => $maxEstimatedContextTokens ?? 0,
+            'coverage_floor_met' => $caseCount >= self::INDUSTRIAL_CASE_SET_MIN_VALID_CASES[self::CASE_SET_META_PROVIDER_STRESS]
+                && $domainCount >= 8
+                && $criticalOrHighRisk >= 10
+                && $highAmbiguity >= 8
+                && $longContext === $caseCount
+                && $rollbackPlan >= 8
+                && $multiStepPlan === $caseCount
+                && $evidenceMatrix === $caseCount,
+            'advisory_only' => true,
+            'routing_effect' => 'none',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): string => trim((string) $item),
+            $value,
+        ), static fn (string $item): bool => $item !== ''));
     }
 
     /**
@@ -810,10 +958,187 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             ?? $case['full_test_command']
             ?? ''
         );
+        $adapted['human_prompt'] = (string) ($case['human_prompt'] ?? $this->humanPromptForCase($case));
+        $adapted['context_profile'] = is_array($case['context_profile'] ?? null)
+            ? (array) $case['context_profile']
+            : $this->contextProfileForCase($case);
+        $adapted['measurement_tags'] = array_values(array_unique(array_merge(
+            (array) ($case['measurement_tags'] ?? []),
+            ['human_prompt', 'long_context', 'ambiguity_handling', 'assumption_probe', 'scope_boundary_probe'],
+        )));
+        $adapted['human_prompt_probe'] = is_array($case['human_prompt_probe'] ?? null)
+            ? (array) $case['human_prompt_probe']
+            : $this->humanPromptProbeForCase($adapted);
         $adapted['expected_evidence'] = array_values(array_map(static fn ($v): string => (string) $v, $evidence));
         $adapted['expected_signal'] = (string) ($acceptance[0] ?? '');
 
         return $adapted;
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     */
+    private function humanPromptForCase(array $case): string
+    {
+        $title = (string) ($case['title'] ?? $case['case_id'] ?? 'caso sem titulo');
+        $objective = (string) ($case['objective'] ?? '');
+        $businessRule = (string) ($case['business_rule'] ?? '');
+        $risk = (string) ($case['risk_level'] ?? 'medium');
+        $ambiguity = (string) ($case['ambiguity_level'] ?? 'medium');
+        $allowed = implode(', ', array_map(static fn ($v): string => (string) $v, (array) ($case['allowed_files_scope'] ?? [])));
+        $forbidden = implode(', ', array_map(static fn ($v): string => (string) $v, (array) ($case['forbidden_files_scope'] ?? [])));
+
+        return "Oi, preciso que voce pegue esse caso como se fosse um ticket real de engenharia, com contexto incompleto e pressao de entrega.\n"
+            ."Titulo: {$title}\n"
+            ."O que eu acho que precisa acontecer: {$objective}\n"
+            ."Contexto de negocio que talvez esteja incompleto: {$businessRule}\n"
+            ."Ambiguidade percebida: {$ambiguity}; risco: {$risk}.\n"
+            ."Antes de editar, separe fatos, suposicoes e decisoes reversiveis. Se algo estiver inseguro, bloqueie honestamente em vez de inventar.\n"
+            ."Pode mexer somente em: {$allowed}.\n"
+            ."Nao toque em: {$forbidden}.\n"
+            .'No final, deixe evidencia auditavel, testes locais e uma explicacao curta dos tradeoffs.';
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function contextProfileForCase(array $case): array
+    {
+        $complexity = $this->complexityProfileForCase($case);
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.context_profile.v1',
+            'prompt_style' => 'human_ambiguous_operator_ticket',
+            'long_context_required' => (bool) $complexity['long_context_required'],
+            'estimated_context_tokens' => $complexity['estimated_context_tokens'],
+            'domain_count' => $complexity['domain_count'],
+            'scope_surface_count' => $complexity['scope_surface_count'],
+            'reasoning_depth' => $complexity['reasoning_depth'],
+            'ambiguity_score' => $complexity['ambiguity_score'],
+            'risk_score' => $complexity['risk_score'],
+            'requires_assumption_log' => true,
+            'requires_tradeoff_notes' => true,
+            'requires_scope_boundary_reasoning' => true,
+            'requires_replayable_evidence' => true,
+            'requires_rollback_plan' => (bool) $complexity['requires_rollback_plan'],
+            'requires_evidence_matrix' => true,
+            'complexity_profile' => $complexity,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function humanPromptProbeForCase(array $case): array
+    {
+        $domains = array_values(array_map(
+            static fn ($domain): string => (string) $domain,
+            (array) ($case['industrial_domains'] ?? []),
+        ));
+        $risk = (string) ($case['risk_level'] ?? 'medium');
+        $ambiguity = (string) ($case['ambiguity_level'] ?? 'medium');
+        $complexity = $this->complexityProfileForCase($case);
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.human_prompt_probe.v1',
+            'purpose' => 'score ambiguous human prompt handling without using synthetic claims',
+            'min_prompt_chars' => 520,
+            'min_reasoning_depth' => $complexity['reasoning_depth'],
+            'min_context_tokens' => $complexity['estimated_context_tokens'],
+            'requires_sections' => [
+                'facts_observed',
+                'assumptions',
+                'reversible_decisions',
+                'scope_boundaries',
+                'evidence_plan',
+                'replay_matrix',
+                'tradeoffs',
+                'honest_blockers',
+            ],
+            'must_reference' => [
+                'allowed_files_scope',
+                'forbidden_files_scope',
+                'local_tests',
+                'replayable_evidence',
+            ],
+            'domain_pressure' => $domains,
+            'risk_level' => $risk,
+            'ambiguity_level' => $ambiguity,
+            'complexity_profile' => $complexity,
+            'invalid_if_missing' => [
+                'assumption_log',
+                'scope_boundary_reasoning',
+                'evidence_plan',
+                'replay_matrix',
+                'honest_blocker_when_uncertain',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function complexityProfileForCase(array $case): array
+    {
+        $level = (string) ($case['difficulty_level'] ?? self::DIFFICULTY_LEVEL_L3);
+        $levelScore = self::DIFFICULTY_LEVEL_SCORE[$level] ?? self::DIFFICULTY_LEVEL_SCORE[self::DIFFICULTY_LEVEL_L3];
+        $domains = array_values(array_unique(array_map(
+            static fn ($domain): string => (string) $domain,
+            (array) ($case['industrial_domains'] ?? []),
+        )));
+        $domainCount = max(1, count($domains));
+        $allowedCount = max(1, count((array) ($case['allowed_files_scope'] ?? [])));
+        $expectedChangedCount = max(1, count((array) ($case['expected_changed_files'] ?? [])));
+        $scopeSurfaceCount = $allowedCount + $expectedChangedCount;
+        $ambiguity = (string) ($case['ambiguity_level'] ?? 'medium');
+        $risk = (string) ($case['risk_level'] ?? 'medium');
+        $ambiguityScore = match ($ambiguity) {
+            'high' => 3,
+            'low' => 1,
+            default => 2,
+        };
+        $riskScore = match ($risk) {
+            'critical' => 4,
+            'high' => 3,
+            'low' => 1,
+            default => 2,
+        };
+        $requiresRollbackPlan = in_array($risk, ['critical', 'high'], true)
+            || array_intersect($domains, ['incident_rollback', 'migration', 'security']) !== [];
+        $reasoningDepth = min(5, max(3, (int) ceil($levelScore + ($domainCount > 1 ? 1 : 0) + ($requiresRollbackPlan ? 1 : 0))));
+        $estimatedContextTokens = 1800
+            + ($domainCount * 650)
+            + ($scopeSurfaceCount * 220)
+            + ($reasoningDepth * 300)
+            + ($ambiguityScore * 250)
+            + ($riskScore * 180);
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.case_complexity_profile.v1',
+            'difficulty_level' => $level,
+            'difficulty_score' => $levelScore,
+            'domain_count' => $domainCount,
+            'scope_surface_count' => $scopeSurfaceCount,
+            'estimated_context_tokens' => $estimatedContextTokens,
+            'reasoning_depth' => $reasoningDepth,
+            'ambiguity_score' => $ambiguityScore,
+            'risk_score' => $riskScore,
+            'long_context_required' => $estimatedContextTokens >= 4200 || $reasoningDepth >= 4,
+            'requires_multi_step_plan' => true,
+            'requires_rollback_plan' => $requiresRollbackPlan,
+            'requires_evidence_matrix' => true,
+            'measured_dimensions' => [
+                'long_context_retention',
+                'ambiguous_human_prompt_handling',
+                'multi_step_reasoning',
+                'scope_boundary_discipline',
+                'replayable_evidence_quality',
+                'honest_blocker_behavior',
+            ],
+        ];
     }
 
     /**
@@ -905,6 +1230,62 @@ final class AtlasForgeRivalsProviderArenaCorpusService
     /**
      * @return list<array<string,mixed>>
      */
+    private function metaProviderStressCases(): array
+    {
+        $domains = [
+            'ambiguous_bug',
+            'incomplete_requirements',
+            'multi_day_task',
+            'incident_rollback',
+            'security',
+            'product',
+            'integration',
+            'performance',
+        ];
+
+        $cases = $this->industrialCasesForDomains(self::CASE_SET_META_PROVIDER_STRESS, $domains, 50);
+
+        return array_values(array_map(function (array $case): array {
+            $complexity = $this->complexityProfileForCase($case);
+            $case['meta_provider_stress'] = [
+                'schema_version' => 'atlas.forge.rivals.meta_provider_stress.v1',
+                'targets' => ['cursor_cli', 'composer_2_5', 'claude_code', 'codex_cli', 'gemini_cli'],
+                'complexity_profile' => $complexity,
+                'measurement_floor' => [
+                    'min_case_count' => 50,
+                    'min_context_tokens' => $complexity['estimated_context_tokens'],
+                    'min_reasoning_depth' => $complexity['reasoning_depth'],
+                    'requires_replay_matrix' => true,
+                    'requires_honest_blocker_path' => true,
+                    'synthetic_claim_allowed' => false,
+                ],
+                'measures' => [
+                    'long_context_retention',
+                    'ambiguous_human_prompt_handling',
+                    'multi_step_reasoning',
+                    'scope_boundary_discipline',
+                    'replayable_evidence_quality',
+                    'tool_event_evidence_quality',
+                    'no_synthetic_claim_under_uncertainty',
+                ],
+                'cursor_meta_provider_expected_receipts' => [
+                    'stream_json_system_init',
+                    'stream_json_tool_events',
+                    'terminal_result_or_honest_blocker',
+                ],
+            ];
+            $case['measurement_tags'] = array_values(array_unique(array_merge(
+                (array) ($case['measurement_tags'] ?? []),
+                ['meta_provider_stress', 'cursor_meta_provider', 'composer_2_5_surface'],
+            )));
+
+            return $case;
+        }, $cases));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
     private function allGeneratedIndustrialCases(): array
     {
         return array_values(array_merge(
@@ -914,7 +1295,207 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             $this->industrialCasesForDomain(self::CASE_SET_INCIDENT_RESPONSE, 'incident_rollback', 50),
             $this->industrialCasesForDomains(self::CASE_SET_PRODUCT_SECURITY_MIGRATIONS, ['product', 'security', 'migration'], 50),
             $this->statisticalRepeatCases(),
+            $this->metaProviderStressCases(),
+            $this->extremeDifferentiatorCases(),
+            $this->ceiling360Cases(),
         ));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function extremeDifferentiatorCases(): array
+    {
+        $pool = array_values(array_filter(
+            $this->industrialCases(),
+            static fn (array $case): bool => in_array(
+                (string) ($case['difficulty_level'] ?? ''),
+                [self::DIFFICULTY_LEVEL_L4, self::DIFFICULTY_LEVEL_L5],
+                true,
+            ),
+        ));
+
+        $cases = $this->expandIndustrialSelection(self::CASE_SET_EXTREME_DIFFERENTIATOR, $pool, 80);
+
+        return array_values(array_map(function (array $case): array {
+            $case = $this->hardenExtremeDifferentiatorCase($case);
+            $complexity = $this->complexityProfileForCase($case);
+            $capabilityAxes = $this->extremeCapabilityAxes($case);
+            $case['extreme_differentiator'] = [
+                'schema_version' => 'atlas.forge.rivals.extreme_differentiator.v1',
+                'purpose' => 'separate runner strengths when broad release batteries produce ties',
+                'targets' => ['codex_cli', 'composer_2_5', 'claude_code', 'atlas_forge', 'atlas_dev'],
+                'required_signal' => [
+                    'min_cases' => 80,
+                    'min_reasoning_depth' => 5,
+                    'min_estimated_context_tokens' => 4200,
+                    'allowed_difficulty_levels' => [self::DIFFICULTY_LEVEL_L5],
+                    'requires_category_breakdown' => true,
+                    'requires_difficulty_breakdown' => true,
+                    'requires_separation_analysis' => true,
+                    'tie_is_diagnostic_not_claim' => true,
+                ],
+                'measures' => $capabilityAxes,
+                'capability_axes' => $capabilityAxes,
+                'complexity_profile' => $complexity,
+            ];
+            $case['measured_capabilities'] = $capabilityAxes;
+            $case['measurement_tags'] = array_values(array_unique(array_merge(
+                (array) ($case['measurement_tags'] ?? []),
+                ['extreme_differentiator', 'tie_breaker', 'runner_strength_probe'],
+            )));
+
+            return $case;
+        }, $cases));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function ceiling360Cases(): array
+    {
+        $pool = array_values(array_filter(
+            $this->industrialCases(),
+            static fn (array $case): bool => (string) ($case['difficulty_level'] ?? '') === self::DIFFICULTY_LEVEL_L5,
+        ));
+
+        $cases = $this->expandIndustrialSelection(self::CASE_SET_CEILING_360, $pool, 120);
+
+        return array_values(array_map(function (array $case): array {
+            $case = $this->hardenExtremeDifferentiatorCase($case);
+            $case['risk_level'] = 'critical';
+            $case['ambiguity_level'] = 'high';
+            $case['planning_weight'] = max(0.70, (float) ($case['planning_weight'] ?? 0.0));
+            $case['execution_weight'] = round(1.0 - (float) $case['planning_weight'], 2);
+            $case['difficulty_reason'] = (string) ($case['difficulty_reason'] ?? '')
+                .' Ceiling-360 hardening requires maximum-pressure planning, rollback, ambiguity, replay and blocker quality across every required 360 axis.';
+            $case['human_prompt'] = $this->humanPromptForCase($case)
+                ."\n\nPressao adicional: trate este como caso de teto pratico do Rivals. Se faltar informacao para uma mudanca segura, bloqueie com evidencia; se seguir, entregue plano, rollback, matriz de replay, fronteiras de escopo e custo/risco por decisao.";
+            $case['context_profile'] = $this->contextProfileForCase($case);
+            $case['human_prompt_probe'] = $this->humanPromptProbeForCase($case);
+
+            $capabilityAxes = $this->ceilingCapabilityAxes($case);
+            $complexity = $this->complexityProfileForCase($case);
+            $case['ceiling_360'] = [
+                'schema_version' => 'atlas.forge.rivals.ceiling_360.v1',
+                'purpose' => 'map the practical ceiling of runners across all mandatory 360 capabilities after broad batteries tie',
+                'targets' => ['atlas_forge', 'atlas_dev', 'claude_code', 'codex_cli', 'gemini_cli', 'cursor_cli', 'composer_2_5'],
+                'required_signal' => [
+                    'min_cases' => 120,
+                    'difficulty_level' => self::DIFFICULTY_LEVEL_L5,
+                    'min_reasoning_depth' => 5,
+                    'min_estimated_context_tokens' => 6000,
+                    'requires_all_360_capabilities' => true,
+                    'requires_separation_analysis' => true,
+                    'tie_is_diagnostic_not_claim' => true,
+                ],
+                'capability_axes' => $capabilityAxes,
+                'complexity_profile' => $complexity,
+                'claim_policy' => [
+                    'advisory_only' => true,
+                    'external_claim_allowed' => false,
+                    'routing_effect' => 'none',
+                ],
+            ];
+            $case['measured_capabilities'] = $capabilityAxes;
+            $case['measurement_tags'] = array_values(array_unique(array_merge(
+                (array) ($case['measurement_tags'] ?? []),
+                ['ceiling_360', 'runner_ceiling_probe', 'all_required_360_capabilities'],
+            )));
+
+            return $case;
+        }, $cases));
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function hardenExtremeDifferentiatorCase(array $case): array
+    {
+        $originalAmbiguity = (string) ($case['ambiguity_level'] ?? 'medium');
+        $originalRisk = (string) ($case['risk_level'] ?? 'medium');
+        $originalLevel = (string) ($case['difficulty_level'] ?? self::DIFFICULTY_LEVEL_L3);
+        $level = self::DIFFICULTY_LEVEL_L5;
+
+        $case['difficulty'] = self::DIFFICULTY_HARD;
+        $case['difficulty_level'] = self::DIFFICULTY_LEVEL_L5;
+        $case['difficulty_score'] = self::DIFFICULTY_LEVEL_SCORE[self::DIFFICULTY_LEVEL_L5];
+        $case['difficulty_weight'] = self::difficultyLevelWeight(self::DIFFICULTY_LEVEL_L5);
+        $case['difficulty_reason'] = trim((string) ($case['difficulty_reason'] ?? '')) !== ''
+            ? (string) $case['difficulty_reason'].' Extreme differentiator hardening upgrades this case to L5 so broad batteries cannot hide runner weaknesses behind easy ties.'
+            : 'Extreme differentiator hardening upgrades this case to L5 so broad batteries cannot hide runner weaknesses behind easy ties.';
+        $case['ambiguity_level'] = 'high';
+
+        if (! in_array($originalRisk, ['critical', 'high'], true)) {
+            $case['risk_level'] = 'high';
+        }
+
+        $case['human_prompt'] = $this->humanPromptForCase($case);
+        $case['context_profile'] = $this->contextProfileForCase($case);
+        $case['human_prompt_probe'] = $this->humanPromptProbeForCase($case);
+        $case['extreme_hardening'] = [
+            'schema_version' => 'atlas.forge.rivals.extreme_hardening.v1',
+            'original_difficulty_level' => $originalLevel,
+            'original_ambiguity_level' => $originalAmbiguity,
+            'original_risk_level' => $originalRisk,
+            'hardened_difficulty_level' => $level,
+            'hardened_ambiguity_level' => (string) ($case['ambiguity_level'] ?? $originalAmbiguity),
+            'hardened_risk_level' => (string) ($case['risk_level'] ?? $originalRisk),
+            'reason' => 'Extreme differentiators measure decision quality under ambiguity/risk, not only implementation throughput.',
+        ];
+
+        return $case;
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return list<string>
+     */
+    private function extremeCapabilityAxes(array $case): array
+    {
+        $domains = (array) ($case['industrial_domains'] ?? []);
+        $axes = [
+            'ambiguity_resolution',
+            'long_context_retention',
+            'multi_step_execution',
+            'evidence_replay_completeness',
+            'honest_blocker_behavior',
+        ];
+
+        foreach ($domains as $domain) {
+            $axes = array_merge($axes, match ((string) $domain) {
+                'incident_rollback' => ['rollback_safety', 'mitigation_speed', 'postmortem_quality'],
+                'security' => ['security_fail_closed', 'threat_model_quality'],
+                'performance' => ['performance_tradeoff_quality', 'behavior_preservation'],
+                'migration' => ['compatibility_planning', 'data_safety'],
+                'integration' => ['contract_safety', 'observability'],
+                'flakiness_repeat' => ['statistical_reproducibility', 'flake_isolation'],
+                'ambiguous_bug', 'incomplete_requirements' => ['assumption_quality', 'scope_boundary_probe'],
+                'large_refactor', 'multi_day_task' => ['decomposition_quality', 'rollback_safety'],
+                'product' => ['ux_tradeoff_quality', 'business_fit'],
+                default => [],
+            });
+        }
+
+        return array_values(array_unique($axes));
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return list<string>
+     */
+    private function ceilingCapabilityAxes(array $case): array
+    {
+        return array_values(array_unique(array_merge([
+            'long_context_retention',
+            'multi_step_reasoning',
+            'rollback_safety',
+            'scope_boundary_discipline',
+            'replayable_evidence_quality',
+            'honest_blocker_behavior',
+            'ambiguous_human_prompt_handling',
+        ], $this->extremeCapabilityAxes($case))));
     }
 
     /**
@@ -966,6 +1547,10 @@ final class AtlasForgeRivalsProviderArenaCorpusService
     {
         $scopeRoot = 'storage/forge-rivals-industrial/'.$caseId;
         $case['fixture_seed_path'] = 'storage/forge-rivals-corpus/'.$caseId.'/seed';
+        $case['setup_fixture'] = array_merge(
+            is_array($case['setup_fixture'] ?? null) ? $case['setup_fixture'] : [],
+            ['seed_dir' => $case['fixture_seed_path']],
+        );
         $case['allowed_files_scope'] = [
             $scopeRoot.'/src/**',
             $scopeRoot.'/tests/**',
@@ -974,9 +1559,11 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         $case['expected_changed_files'] = [
             $scopeRoot.'/src/'.$caseId.'.php',
             $scopeRoot.'/tests/'.$caseId.'Test.php',
+            $scopeRoot.'/docs/'.$caseId.'-runbook.md',
         ];
         $case['quick_test_command'] = 'php storage/forge-rivals-industrial/'.$caseId.'/tests/'.$caseId.'Test.php';
         $case['full_test_command'] = $case['quick_test_command'];
+        $case['test_command'] = $case['quick_test_command'];
 
         return $case;
     }

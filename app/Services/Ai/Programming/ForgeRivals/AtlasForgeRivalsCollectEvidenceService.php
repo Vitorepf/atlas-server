@@ -191,6 +191,8 @@ final class AtlasForgeRivalsCollectEvidenceService
                 'case_id' => $manifest['case_id'] ?? null,
                 'dirty_after_run' => $manifest['dirty_after_run'] ?? null,
             ],
+            'arena_contracts' => is_array($manifest['arena_contracts'] ?? null) ? $manifest['arena_contracts'] : null,
+            'meta_provider_evidence_contract' => $this->metaProviderEvidenceContract($manifest),
             'is_comparable_real_run' => $plan['is_comparable_real_run'],
             'workspace_hash_before' => $manifest['workspace_hash_before'] ?? ($workspaceHashes['before'] ?? null),
             'workspace_hash_after' => $manifest['workspace_hash_after'] ?? ($workspaceHashes['after'] ?? null),
@@ -264,10 +266,42 @@ final class AtlasForgeRivalsCollectEvidenceService
         if (! is_file($path)) {
             return [];
         }
+        $this->ensureJsonReadMemoryBudget((int) (@filesize($path) ?: 0));
         $blob = (string) @file_get_contents($path);
         $row = json_decode($blob, true);
 
         return is_array($row) ? $row : [];
+    }
+
+    private function ensureJsonReadMemoryBudget(int $bytes): void
+    {
+        if ($bytes < 8 * 1024 * 1024) {
+            return;
+        }
+
+        $current = $this->memoryLimitBytes((string) ini_get('memory_limit'));
+        $target = 1024 * 1024 * 1024;
+        if ($current > 0 && $current < $target) {
+            @ini_set('memory_limit', (string) $target);
+        }
+    }
+
+    private function memoryLimitBytes(string $value): int
+    {
+        $value = trim($value);
+        if ($value === '' || $value === '-1') {
+            return -1;
+        }
+
+        $unit = strtolower(substr($value, -1));
+        $number = (float) $value;
+
+        return match ($unit) {
+            'g' => (int) ($number * 1024 * 1024 * 1024),
+            'm' => (int) ($number * 1024 * 1024),
+            'k' => (int) ($number * 1024),
+            default => (int) $number,
+        };
     }
 
     /**
@@ -343,11 +377,42 @@ final class AtlasForgeRivalsCollectEvidenceService
                 'stderr_hash' => null,
                 'command_hash' => null,
                 'prompt_hash' => null,
+                'prompt_transport' => null,
+                'stdin_prompt_hash' => null,
+                'stdin_prompt_bytes' => null,
+                'command_shape_summary' => [
+                    'schema_version' => 'atlas.forge.rivals.cursor_command_shape_summary.v1',
+                    'print_mode' => false,
+                    'output_format_stream_json' => false,
+                    'model_arg_present' => false,
+                    'force_absent' => false,
+                    'resume_absent' => false,
+                    'prompt_arg_absent' => false,
+                    'governed_cursor_cli_shape' => false,
+                ],
                 'test_log_hash' => null,
                 'patch_diff_hash' => null,
+                'output_format' => null,
+                'stream_json_summary' => [
+                    'schema_version' => 'atlas.forge.rivals.cursor_stream_json_receipt_summary.v1',
+                    'parsed' => false,
+                    'system_init_event' => false,
+                    'system_init_api_key_source_present' => false,
+                    'system_init_cwd_absolute' => false,
+                    'system_init_model_present' => false,
+                    'system_init_permission_mode_present' => false,
+                    'user_message_event' => false,
+                    'terminal_result_event' => false,
+                    'terminal_result_success' => false,
+                    'tool_event_count' => 0,
+                    'tool_event_observed' => false,
+                    'session_id_consistent' => false,
+                    'parse_errors' => ['provider_receipt_not_supplied'],
+                ],
             ];
         }
         $isFake = (bool) ($receipt['fake'] ?? false) || strtolower((string) ($receipt['mode'] ?? $mode)) === 'local_fake';
+        $outputFormat = $this->resolveReceiptOutputFormat($receipt);
 
         return [
             'present' => true,
@@ -365,9 +430,170 @@ final class AtlasForgeRivalsCollectEvidenceService
             'stderr_hash' => $receipt['stderr_hash'] ?? null,
             'command_hash' => $receipt['command_hash'] ?? null,
             'prompt_hash' => $receipt['prompt_hash'] ?? null,
+            'prompt_transport' => $receipt['prompt_transport'] ?? null,
+            'stdin_prompt_hash' => $receipt['stdin_prompt_hash'] ?? null,
+            'stdin_prompt_bytes' => $receipt['stdin_prompt_bytes'] ?? null,
+            'command_shape_summary' => $this->summarizeCommandShape($receipt, $outputFormat),
             'test_log_hash' => $receipt['test_log_hash'] ?? null,
             'patch_diff_hash' => $receipt['patch_diff_hash'] ?? null,
+            'output_format' => $outputFormat,
+            'stream_json_summary' => $this->receiptStreamJsonSummary($receipt),
             'source' => $isFake ? 'local_fake_in_process_provider' : 'provider_process_runner',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @return array<string,mixed>
+     */
+    private function summarizeCommandShape(array $receipt, ?string $outputFormat): array
+    {
+        $command = is_array($receipt['command'] ?? null)
+            ? array_values(array_map(static fn (mixed $part): string => (string) $part, (array) $receipt['command']))
+            : [];
+        $modelIndex = array_search('--model', $command, true);
+        $modelArgPresent = is_int($modelIndex)
+            && isset($command[$modelIndex + 1])
+            && trim((string) $command[$modelIndex + 1]) !== '';
+        $promptTransport = (string) ($receipt['prompt_transport'] ?? '');
+        $promptArgAbsent = $promptTransport === 'stdin'
+            && $modelArgPresent
+            && $modelIndex + 1 === array_key_last($command);
+        $printMode = in_array('--print', $command, true) || in_array('-p', $command, true);
+        $forceAbsent = ! in_array('--force', $command, true) && ! in_array('-f', $command, true);
+        $resumeAbsent = ! in_array('--resume', $command, true);
+        $outputFormatStreamJson = $outputFormat === 'stream-json';
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.cursor_command_shape_summary.v1',
+            'print_mode' => $printMode,
+            'output_format_stream_json' => $outputFormatStreamJson,
+            'model_arg_present' => $modelArgPresent,
+            'force_absent' => $forceAbsent,
+            'resume_absent' => $resumeAbsent,
+            'prompt_arg_absent' => $promptArgAbsent,
+            'governed_cursor_cli_shape' => $printMode
+                && $outputFormatStreamJson
+                && $modelArgPresent
+                && $forceAbsent
+                && $resumeAbsent
+                && $promptArgAbsent,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
+    private function resolveReceiptOutputFormat(array $receipt): ?string
+    {
+        $explicit = strtolower(trim((string) ($receipt['output_format'] ?? '')));
+        if ($explicit !== '') {
+            return $explicit;
+        }
+
+        $command = is_array($receipt['command'] ?? null) ? array_values((array) $receipt['command']) : [];
+        foreach ($command as $index => $part) {
+            if ((string) $part === '--output-format') {
+                $next = $command[$index + 1] ?? null;
+
+                return is_string($next) && trim($next) !== '' ? strtolower(trim($next)) : null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @return array<string,mixed>
+     */
+    private function receiptStreamJsonSummary(array $receipt): array
+    {
+        if (is_array($receipt['stream_json_summary'] ?? null)) {
+            return (array) $receipt['stream_json_summary'];
+        }
+
+        $stdoutPath = (string) ($receipt['stdout_path'] ?? '');
+        $payload = $stdoutPath !== '' && is_file($stdoutPath)
+            ? (string) file_get_contents($stdoutPath)
+            : (string) ($receipt['stdout_tail'] ?? '');
+
+        return $this->summarizeStreamJsonPayload($payload);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function summarizeStreamJsonPayload(string $payload): array
+    {
+        $systemInit = false;
+        $systemInitApiKeySourcePresent = false;
+        $systemInitCwdAbsolute = false;
+        $systemInitModelPresent = false;
+        $systemInitPermissionModePresent = false;
+        $userMessage = false;
+        $terminalResult = false;
+        $terminalResultSuccess = false;
+        $toolEvents = 0;
+        $sessionIds = [];
+        $parseErrors = [];
+
+        foreach (preg_split('/\R/', trim($payload)) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $event = json_decode($line, true);
+            if (! is_array($event)) {
+                $parseErrors[] = 'invalid_json_line';
+
+                continue;
+            }
+
+            $type = (string) ($event['type'] ?? '');
+            $subtype = (string) ($event['subtype'] ?? '');
+            if (isset($event['session_id']) && is_string($event['session_id']) && trim($event['session_id']) !== '') {
+                $sessionIds[] = trim($event['session_id']);
+            }
+            if ($type === 'system' && $subtype === 'init') {
+                $systemInit = true;
+                $systemInitApiKeySourcePresent = is_string($event['apiKeySource'] ?? null) && trim((string) $event['apiKeySource']) !== '';
+                $cwd = (string) ($event['cwd'] ?? '');
+                $systemInitCwdAbsolute = str_starts_with($cwd, '/') || preg_match('/^[A-Za-z]:[\\\\\\/]/', $cwd) === 1;
+                $systemInitModelPresent = is_string($event['model'] ?? null) && trim((string) $event['model']) !== '';
+                $systemInitPermissionModePresent = is_string($event['permissionMode'] ?? null) && trim((string) $event['permissionMode']) !== '';
+            }
+            if ($type === 'user') {
+                $userMessage = true;
+            }
+            if ($type === 'result') {
+                $terminalResult = true;
+                $terminalResultSuccess = $subtype === 'success' && ($event['is_error'] ?? false) === false;
+            }
+            if (in_array($type, ['tool_call', 'tool_result'], true) || str_starts_with($type, 'tool_')) {
+                $toolEvents++;
+            }
+        }
+
+        $uniqueSessionIds = array_values(array_unique($sessionIds));
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.cursor_stream_json_receipt_summary.v1',
+            'parsed' => $payload !== '' && $parseErrors === [],
+            'system_init_event' => $systemInit,
+            'system_init_api_key_source_present' => $systemInitApiKeySourcePresent,
+            'system_init_cwd_absolute' => $systemInitCwdAbsolute,
+            'system_init_model_present' => $systemInitModelPresent,
+            'system_init_permission_mode_present' => $systemInitPermissionModePresent,
+            'user_message_event' => $userMessage,
+            'terminal_result_event' => $terminalResult,
+            'terminal_result_success' => $terminalResultSuccess,
+            'tool_event_count' => $toolEvents,
+            'tool_event_observed' => $toolEvents > 0,
+            'session_id_consistent' => count($uniqueSessionIds) === 1,
+            'session_id_hash' => count($uniqueSessionIds) === 1 ? hash('sha256', $uniqueSessionIds[0]) : null,
+            'parse_errors' => array_values(array_unique($parseErrors)),
         ];
     }
 
@@ -437,6 +663,60 @@ final class AtlasForgeRivalsCollectEvidenceService
     }
 
     /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function metaProviderEvidenceContract(array $manifest): array
+    {
+        $contracts = is_array($manifest['arena_contracts'] ?? null) ? (array) $manifest['arena_contracts'] : [];
+        $arms = [];
+        foreach (['arm_a' => 'atlas', 'arm_b' => 'rival'] as $role => $legacyArm) {
+            $contract = is_array($contracts[$role] ?? null) ? (array) $contracts[$role] : [];
+            if ((bool) ($contract['meta_provider'] ?? false) !== true) {
+                continue;
+            }
+            $providerMetadata = is_array($contract['provider_metadata'] ?? null) ? (array) $contract['provider_metadata'] : [];
+            $arms[$legacyArm] = [
+                'role' => $role,
+                'arm_id' => $contract['arm_id'] ?? null,
+                'provider' => $contract['provider'] ?? null,
+                'provider_kind' => $contract['provider_kind'] ?? null,
+                'meta_provider_parent' => $contract['meta_provider_parent'] ?? null,
+                'tool_event_stream' => $providerMetadata['tool_event_stream'] ?? null,
+                'required_receipt_fields' => ['model', 'command_hash', 'prompt_hash', 'prompt_transport', 'stdin_prompt_hash', 'stdout_hash', 'exit_code'],
+                'required_stream_json_signals' => [
+                    'output_format_stream_json',
+                    'system_init_event',
+                    'system_init_api_key_source_present',
+                    'system_init_cwd_absolute',
+                    'system_init_model_present',
+                    'system_init_permission_mode_present',
+                    'user_message_event',
+                    'terminal_result_event',
+                    'terminal_result_success',
+                    'tool_event_observed',
+                    'governed_cursor_cli_command_shape',
+                    'session_id_consistent',
+                ],
+                'requires_human_prompt_hash' => true,
+                'requires_context_profile' => true,
+                'requires_human_prompt_probe' => true,
+                'requires_complexity_profile' => true,
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.meta_provider_evidence_contract.v1',
+            'applies' => $arms !== [],
+            'arms' => $arms,
+            'required_case_fields' => ['human_prompt_hash', 'context_profile', 'measurement_tags', 'human_prompt_probe', 'complexity_profile'],
+            'claim_effect' => 'blocks_score_without_receipts_and_prompt_context',
+            'advisory_only' => true,
+            'routing_effect' => 'none',
+        ];
+    }
+
+    /**
      * Translate the run's operator mode into a stable evidence-mode string
      * the verifier consumes. `fair` and `full_power` both produce real_run
      * evidence; `local_fake` produces fake_run; absence means dry_run.
@@ -498,7 +778,6 @@ final class AtlasForgeRivalsCollectEvidenceService
     }
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function stringList(mixed $value): array
@@ -601,6 +880,13 @@ final class AtlasForgeRivalsCollectEvidenceService
                 'task_category' => $taskCategory !== '' ? $taskCategory : null,
                 'case_source' => (string) ($entry['case_source'] ?? 'legacy'),
                 'case_set' => $entry['case_set'] ?? null,
+                'human_prompt_hash' => $entry['human_prompt_hash'] ?? null,
+                'context_profile' => $entry['context_profile'] ?? null,
+                'measurement_tags' => $entry['measurement_tags'] ?? [],
+                'human_prompt_probe' => $entry['human_prompt_probe'] ?? null,
+                'meta_provider_stress' => $entry['meta_provider_stress'] ?? null,
+                'extreme_differentiator' => $entry['extreme_differentiator'] ?? null,
+                'measured_capabilities' => $this->stringList($entry['measured_capabilities'] ?? []),
                 'difficulty' => $legacyDifficulty !== '' ? $legacyDifficulty : null,
                 'difficulty_level' => $level,
                 'difficulty_level_origin' => $origin,

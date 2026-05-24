@@ -30,6 +30,7 @@ capabilities:
   - workspace_artifact_fabric
   - artifact_intelligence_runtime
   - artifact_operating_layer
+  - workspace_intelligence_loop
 decisions:
   - Sem workspace ativo, Atlas pode conversar, mas nao pode executar Dev, Forge, patch, teste, index-code, provider patch ou memoria operacional.
   - Workspace e a unidade de realidade operacional; Obra, conversa, run, memoria e Cartografia precisam apontar para um workspace.
@@ -38,6 +39,7 @@ decisions:
   - Conversa longa e materia-prima bruta; nunca deve ser enviada inteira como contexto principal para provider.
   - A verdade atual do workspace vence historico de conversa, resumo antigo, projection e memoria derivada.
   - AWIS e camada macro; a implementacao deve ser incremental e fail-closed.
+  - Workspace vivo exige loop fechado: evento, entendimento, memoria operacional, contexto aplicado, proxima acao, evidencia e aprendizado.
 maintenance:
   - Atualizar antes de mudar seletor de projeto, Atlas Dev, Forge, Cartografia, index-code, memoria operacional ou workspace registry.
   - Manter abaixo de 520 linhas e dividir specs filhas quando iniciar implementacao.
@@ -130,6 +132,7 @@ evidence:
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceArtifactWorkroomService.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceConversationFusionService.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceHandoffPackService.php
+  - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php#learningLoop
   - database/migrations/2026_05_25_020000_create_atlas_workspace_intelligence_snapshots.php
   - database/migrations/2026_05_25_021000_create_atlas_workspace_artifact_intelligence_tables.php
   - database/migrations/2026_05_25_022000_create_atlas_workspace_profiles.php
@@ -169,7 +172,7 @@ failure_modes:
   - Memoria de um cliente influenciar outro projeto.
   - Cartografia mostrar mundo errado para o projeto ativo.
   - Workspace fixado virar apenas preferencia visual.
-observability_signals: [active_workspace_id, workspace_root_hash, workspace_readiness_status, execution_boundary_audit_hash, workspace_intelligence.by_family, workspace_intelligence.latest.projection_hash, current_truth_pack_hash, conversation_archive_hash]
+observability_signals: [active_workspace_id, workspace_root_hash, workspace_readiness_status, execution_boundary_audit_hash, workspace_intelligence.by_family, workspace_intelligence.latest.projection_hash, current_truth_pack_hash, conversation_archive_hash, awis_learning_loop_hash]
 next_actions: [UI detalhada de inspecao do conversation_fusion_pack persistido]
 ---
 # Atlas Workspace Intelligence System
@@ -182,6 +185,17 @@ next_actions: [UI detalhada de inspecao do conversation_fusion_pack persistido]
 AWIS ja possui runtime read-only/certificacao inicial. Ele transforma "escolher
 uma pasta" em contrato operacional: projeto ativo, regras, memoria, comandos e
 contexto antes de qualquer execucao por IA.
+
+O estado vivo do workspace agora e um contrato explicito:
+
+```text
+evento -> entendimento -> memoria operacional -> contexto aplicado
+-> proxima acao -> evidencia -> aprendizado
+```
+
+Esse ciclo e exposto por `awis_learning_loop` no runtime completo, pelo comando
+`php artisan atlas:workspace-intelligence learning-loop --workspace=<slug>
+--json` e pela rota `/atlas-code/workspace-intelligence/learning-loop`.
 
 Esta e a documentacao mae do espaco de trabalho do Atlas. Ela governa
 workspace obrigatorio, memoria/contexto por projeto, fusao de conversas longas,
@@ -200,15 +214,11 @@ de outro projeto nunca entra em pack AWIS.
 
 ## Papel no Atlas
 
-Ferramentas como Cursor, Windsurf, Codex e Claude Code geralmente exigem uma
-pasta aberta porque isso reduz ambiguidade. No Atlas isso e ainda mais critico:
-o sistema possui memoria, Cartografia, Forge, Dev, evidence, index-code,
-providers e subagentes. Sem workspace explicito, todos esses recursos podem
-trabalhar sobre contexto errado.
-
-AWIS elimina erro de repo, memoria cruzada, patch com doc errada, Obra sem raiz,
-index-code fora do escopo, Cartografia do projeto errado e prompt frouxo para
-provider/subagente.
+Cursor, Windsurf, Codex e Claude Code pedem uma pasta para reduzir ambiguidade.
+No Atlas isso e contrato operacional: memoria, Cartografia, Forge, Dev,
+evidence, index-code, providers e subagentes nao podem trabalhar sem workspace
+explicito, porque isso causaria repo errado, memoria cruzada, patch fora de
+escopo, Obra sem raiz e prompt frouxo.
 
 ## Onde Se Encaixa
 
@@ -229,12 +239,11 @@ AWIS fica acima de Atlas Dev, Atlas Forge, Cartografia, memoria operacional e
 Code Intelligence. `atlas-code-multi-project-workspace-os.md` define o conceito
 multi-projeto; AWIS define o runtime/gate que torna esse conceito obrigatorio.
 
-Subcamadas planejadas: AWIS define onde o trabalho vive; AWTR entende o
-workspace; AWEF aprende padroes sem vazar contexto; AWAF/AWAIR geram artefatos,
-lake, graph, replay, simulation e Cartografia por artifact; AWAOL governa
-artefatos como workrooms, diffs, replay points e pacotes humanos; AWCO certifica
-artefatos; ACFW funde conversas; ACIOS mantem continuidade; Current Truth Pack
-representa a verdade atual; Raw Archive preserva bruto para auditoria.
+Subcamadas: AWTR entende o workspace; AWEF aprende padroes abstratos; AWAF/AWAIR
+geram artefatos, lake, graph, replay, simulation e Cartografia; AWAOL governa
+workrooms, diffs, replay points e pacotes; AWCO certifica artefatos; ACFW funde
+conversas; ACIOS mantem continuidade; Current Truth Pack guarda a verdade atual;
+Raw Archive preserva bruto para auditoria.
 
 Regra de artefatos:
 
@@ -244,6 +253,19 @@ conversa/docs/runs -> artefatos curados -> contratos -> provider/subagente
 
 AWIS nao deve passar conversa bruta para IA quando pode passar artefato. O
 artefato e menor, auditavel, cacheavel e tem dono.
+
+## Workspace Intelligence Loop
+
+O Workspace Intelligence Loop torna AWIS vivo sem transformar historico bruto em
+prompt nem promover memoria sem evidencia. O contrato
+`atlas.awis.workspace_intelligence_loop.v1` fecha:
+`event_intake -> understanding -> operational_memory -> context_application ->
+next_action -> evidence_learning -> closed_loop`.
+
+Regras: `raw_conversation_included=false`; `canonical_doc_rewrite_allowed=false`;
+`cross_workspace_learning_allowed=false`; AWEF so transfere padroes abstratos;
+mutacao Dev/Forge exige contexto AWIS fresco; `closed_loop.loop_closed=true` e
+gate critico para status ready do runtime.
 
 ## Contratos
 
@@ -274,8 +296,8 @@ Contratos adicionais:
 - todo context pack carrega `workspace_context_pack_hash`;
 - todo provider/subagente recebe Workspace Handoff Pack;
 - toda memoria operacional declara `memory_scope=workspace`.
-- toda conversa fundida declara `source_conversation_ids`, `workspace_id` e `truth_status`.
-- todo Current Truth Pack declara hash, fontes, conflitos resolvidos e stale checks.
+- conversa fundida declara `source_conversation_ids`, `workspace_id` e `truth_status`.
+- Current Truth Pack declara hash, fontes, conflitos resolvidos e stale checks.
 
 ## Fluxo
 
@@ -313,14 +335,11 @@ Index-code:
 
 Conversas longas:
 
-- conversas de dias ou semanas entram como `raw_conversation_archive`;
-- AWIS segmenta por meta, decisao, entrega, arquivo, blocker e mudanca de direcao;
-- ACFW deduplica, remove repeticao e identifica conflitos;
-- ACIOS promove somente verdade atual para `current_truth_pack`;
-- provider recebe pacote minimo, nao conversa inteira.
-- fusion manual de conversas no Desktop pode persistir `conversation_fusion_pack`
-  no Artifact Lake; se algum ID explicito estiver fora do workspace, o pack
-  retorna `blocked` com `thread_outside_workspace_or_missing`.
+Conversas grandes entram como `raw_conversation_archive`; AWIS segmenta por meta,
+decisao, entrega, arquivo, blocker e mudanca de direcao; ACFW deduplica e acha
+conflitos; ACIOS promove a verdade atual; provider recebe pacote minimo. Fusion
+manual no Desktop persiste `conversation_fusion_pack`; ID fora do workspace
+bloqueia o pack com `thread_outside_workspace_or_missing`.
 
 Fluxo ideal:
 
@@ -360,45 +379,23 @@ Blocos do AWIS:
 | Current Truth Pack | compila verdade atual minima | `current_truth_pack_hash` |
 | Raw Conversation Archive | guarda bruto para auditoria | arquivo/ledger consultavel |
 
-Fases:
-
-- Fase 1: registry persistido, active binding e bloqueio sem workspace.
-- Fase 2: fingerprint, readiness e command registry.
-- Fase 3: context pack e memory isolation.
-- Fase 4: Cartografia por workspace.
-- Fase 5: AWAF/ACFW para artefatos e fusao manual de conversas.
-- Fase 6: ACIOS para continuidade automatica.
-- Fase 7: certification, observability e replay.
+Fases: registry/binding, fingerprint/readiness, context/memory isolation,
+Cartografia, AWAF/ACFW, ACIOS, certification, observability e replay.
 
 ## Continuidade de Conversas Longas
 
-AWIS governa conversas enormes por meio da doc filha
-`atlas-continuity-intelligence-os.md`. A regra operacional fica aqui:
-
-```text
-raw_conversation_archive
--> segmentation_map
--> decision_ledger
--> conflict_report
--> current_truth_pack
--> task_context_pack
-```
-
-O bruto fica preservado para auditoria. Provider/subagente recebe apenas
-`task_context_pack`, com verdade atual, fontes e conflitos relevantes.
+AWIS governa conversas enormes pela doc filha
+`atlas-continuity-intelligence-os.md`: `raw_conversation_archive ->
+segmentation_map -> decision_ledger -> conflict_report -> current_truth_pack ->
+task_context_pack`. O bruto fica preservado para auditoria; provider/subagente
+recebe apenas verdade atual, fontes e conflitos relevantes.
 
 ## Fixar Projeto
 
-Fixar projeto nao e detalhe visual. Um workspace fixado:
-
-- aparece no topo;
-- pode virar default de abertura;
-- pre-aquece context pack;
-- prioriza index-code;
-- preserva comandos recentes;
-- mantem memoria e Cartografia prontas.
-
-Fixar nunca pode permitir execucao se readiness estiver bloqueada.
+Fixar projeto nao e detalhe visual: aparece no topo, pode virar default,
+pre-aquece context pack, prioriza index-code, preserva comandos recentes e
+mantem memoria/Cartografia prontas. Fixar nunca libera execucao se readiness
+estiver bloqueada.
 
 ## Estados
 
@@ -425,6 +422,7 @@ discovered -> registered -> indexed -> active -> pinned
 php artisan atlas:workspace-intelligence register --workspace=cliente --path=/repo --test-command="npm test" --json
 php artisan atlas:workspace-intelligence list --json
 php artisan atlas:workspace-intelligence certify --workspace=atlas --persist --json
+php artisan atlas:workspace-intelligence learning-loop --workspace=atlas --json
 php artisan atlas:workspace-intelligence artifact-intelligence --workspace=atlas --json
 php artisan atlas:workspace-intelligence conversation-fusion --workspace=atlas --json
 php artisan atlas:workspace-intelligence handoff-pack --workspace=atlas --consumer=atlas_dev --json
@@ -473,22 +471,22 @@ workspace real, com memoria, contexto, risco, comandos e evidencias isolados.
 ## Evidencias
 
 Evidencia atual: registry persistido com API/CLI, runtime read-only, execution gate, path resolver, snapshot/replay, conversation-fusion, boundary audit e consumo em Dev/Forge. Registry editing cobre list/show/create/update/archive por API, list/register por CLI e usa archive por status, sem hard delete.
-Atlas AI thread, Atlas Dev Run/Worker, Engineering Runner, Super Tool Runtime (`awis_workspace_required_for_tool_execution`), Engineering Quality Scan (`awis_workspace_required_for_quality_scan`), Atlas Code diff apply (`awis_workspace_required_for_diff_apply`), `atlas:runtime` mutativo, replay patch, `index-code` e Forge Intake/Fast Path/Dispatch/Provider/Live/Governed Execution/Promotion ja bloqueiam sem workspace certificado. `atlas:workspace-intelligence certify --json --strict` inclui `execution_boundaries`; `boundary-audit --json --strict` prova 17 boundaries mutativos e inventaria 21 subprocessos como guardados, read-only, caller-gated ou externos; unclassified=0.
+Atlas AI thread, Dev, Forge, Engineering Runner, Super Tool Runtime, Quality
+Scan, diff apply, `atlas:runtime`, replay patch e `index-code` ja bloqueiam sem
+workspace certificado. `certify --strict` inclui `execution_boundaries`;
+`boundary-audit --strict` prova boundaries mutativos e subprocessos guardados.
 
-Snapshots AWIS, projections AWTR/AWCO/AWEF e AWAIR artifact graph persistidos por `--persist` ou `persist=1` so reabrem por `latest=1` se o `workspace_hash` atual bater com o hash salvo. Divergencia ou hash ausente gera `409`/strict fail-closed. O hash inclui path real, HEAD resolvido e arquivos estruturais/docs AWIS. Control Plane cria blockers `workspace_intelligence_projection_stale` e `workspace_artifact_graph_stale`; Cartografia expoe `workspace_scope.runtime_projection_replay`, `workspace_scope.artifact_graph_replay` e marca AWIS/flow como atencao visual.
+Snapshots AWIS, projections AWTR/AWCO/AWEF e AWAIR artifact graph so reabrem por
+`latest=1` quando o `workspace_hash` salvo bate com o atual; divergencia gera
+`409`/strict fail-closed. Control Plane e Cartografia mostram stale projections.
 
-Conversation Fusion e workspace-scoped ate com `thread[]` explicito: ID fora do workspace bloqueia o pack inteiro sem conteudo bruto. Desktop oferece `fundir`, `salvar pack` e drag thread->thread com `persist=1`, abre ultimo projeto, permite busca/adicao antes da primeira mensagem, congela workspace quando a conversa comeca e mostra `merge room` ao criar pack AWIS. Cartografia expoe `workspace_scope.artifact_lake_replay` com indice provider-safe (`artifact_id`, `artifact_hash`, `runtime_hash`, tipo, status, consumer, score, data); corpo do artefato, conversa bruta e tail nunca entram no payload cartografico. Mobile seleciona ultimo/default workspace por sheet com busca/adicao antes da conversa, persiste a escolha, congela quando a conversa comeca e envia `atlas.mobile_ai.workspace_scope.v1`; tambem mostra `AWIS PACK` na Cartografia e `workspace AWIS` no ContextSheet com handoff/fusion hash, raw policy e artefatos provider-safe. Auditoria profunda usa `/atlas-code/workspace-intelligence/artifact-lake/{artifact}`.
-AWAOL expoe `artifact-workroom` read-only: `atlas:workspace-artifacts workroom
---workspace=atlas --json --strict` e
-`/atlas-code/workspace-intelligence/artifact-workroom` retornam human packet,
-agent packet, rota, timeline, diff baseline e replay point sem artifact body ou
-conversa bruta. Cartografia inclui `workspace_scope.artifact_workroom` e nodes
-`system.awaol`/`flow.workspace-artifact-workroom`; Dev e Forge aceitam
-`artifact_agent_packet` provider-safe e bloqueiam rota/workspace divergente.
-Route/outcome/retire de artifact gravam timeline/proposta persistida por CLI/API,
-sem body ou conversa bruta, para a proxima IA nao depender de chat.
-Workspace Handoff Pack projeta contexto provider-safe para Dev, Forge e
-subagentes com artefatos, escopo, testes e risco, sem conversa bruta.
+Conversation Fusion e workspace-scoped ate com `thread[]`; ID fora do workspace
+bloqueia o pack. Desktop oferece Spaces, `fundir`, `salvar pack`, drag
+thread->thread com `persist=1`, ultimo projeto, busca/adicao antes da primeira
+mensagem e workspace congelado apos inicio. Mobile envia
+`atlas.mobile_ai.workspace_scope.v1` e mostra handoff/fusion hash, raw policy e
+artefatos provider-safe. AWAOL expoe workroom, route/outcome/retire, agent packet
+e replay point sem artifact body ou conversa bruta.
 
 ## Riscos
 
@@ -505,7 +503,13 @@ subagentes com artefatos, escopo, testes e risco, sem conversa bruta.
 `bug login`, `cria ecommerce` e `indexa codigo` exigem workspace ativo; sem isso, AWIS pede selecao ou bloqueia execucao.
 
 ## Definition Of Done
-AWIS so esta pronto quando Dev/Forge carregam `workspace_id`, provider/subagente recebe handoff scoped, index-code exige workspace, memoria/outcome sao workspace-scoped, registry editing API/CLI cobre create/update/archive sem hard delete, Cartografia filtra por workspace, projeta AWAIR artifact graph e mostra stale projection, Control Plane mostra shadow execution de artefatos, readiness bloqueia execucao insegura, projeto fixado persiste, execution boundaries entram no certify e `atlas:workspace-intelligence certify --json --strict` fica verde.
+AWIS so esta pronto quando Dev/Forge carregam `workspace_id`, provider/subagente
+recebe handoff scoped, index-code exige workspace, memoria/outcome sao
+workspace-scoped, registry editing cobre create/update/archive, Cartografia
+filtra por workspace e artefatos, readiness bloqueia execucao insegura, projeto
+fixado persiste, execution boundaries entram no certify, o Workspace
+Intelligence Loop fecha e `atlas:workspace-intelligence certify --json --strict`
+fica verde.
 
 ## Proximas Acoes
 Proxima melhoria: criar UI de selecao individual de artifact e expor outcome

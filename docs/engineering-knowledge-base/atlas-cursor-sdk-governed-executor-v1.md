@@ -21,7 +21,8 @@ capabilities:
   - cursor_account_usage_bucket_tracking
 decisions:
   - Cursor SDK e provider-harness, nao modelo bruto, dominio, surface ou substituto do Atlas.
-  - A integracao canonica e SDK-first; CLI Cursor fica como fallback futuro observado.
+  - A integracao SDK continua oficial para API/Cloud Agent, mas nao e o caminho operacional atual enquanto a politica ativa for nao pagar API/on-demand.
+  - `cursor_cli` cobre o caminho por login local/conta Cursor e deve ser preferido no presente porque usa a conta de forma mais eficiente para o subsidio.
   - A implementacao inicial e fail-closed: disabled por config, exige Node, @cursor/sdk, CURSOR_API_KEY, adapter local, Decision Receipt, model, workspace e allowed_files.
   - Cursor SDK nao pode escolher provider/model, escopo, arquivos, sucesso, memory write, policy ou completion claim.
   - O driver registra billing/quota como bucket de conta Cursor, mas nao declara uso gratis nem ilimitado.
@@ -31,6 +32,7 @@ maintenance:
   - Atualizar antes de alterar driver, runtime executor, adapter Node, config, router ou tests Cursor SDK.
 related_paths:
   - docs/engineering-knowledge-base/atlas-cursor-antigravity-meta-provider-dossier-v1.md
+  - docs/engineering-knowledge-base/atlas-cursor-cli-governed-executor-v1.md
   - docs/engineering-knowledge-base/atlas-forge-governed-provider-invocation-v1.md
   - docs/engineering-knowledge-base/atlas-forge-real-provider-drivers-v1.md
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md
@@ -144,6 +146,8 @@ next_actions:
 
 Implementa `cursor_sdk` como provider-harness governado e experimental no Atlas Forge. O driver usa Node para chamar `@cursor/sdk` por um adapter Atlas-owned, mas fica desabilitado por padrao e bloqueia honestamente quando runtime, auth, model, scope ou receipt faltam.
 
+Postura operacional atual: `cursor_sdk` fica reservado para um futuro em que o operador decidir usar API/Cloud Agent. Enquanto a decisao for assinar Cursor e evitar API/on-demand, `cursor_cli` e o trilho preferencial porque entrega praticamente o mesmo papel de executor agentico usando login local/conta Cursor.
+
 ## Papel no Atlas
 
 Cursor SDK executa trabalho agentico como subordinado. Atlas Decide, Memory, SDD, gates, Evidence Ledger, budget e completion review continuam no Atlas. O Cursor nao decide autoridade; ele apenas roda um work packet ja autorizado.
@@ -187,6 +191,7 @@ Atlas Decide
 - Nunca permitir run sem `decision_receipt_id`, `decision_receipt_hash`, `model`, `workspace` e `allowed_files`.
 - Nunca aceitar arquivos alterados fora de `allowed_files` como sucesso.
 - Nunca promover completion claim a partir do output Cursor.
+- Nunca usar `cursor_sdk` para tarefas normais enquanto a politica ativa for assinatura Cursor por conta; usar `cursor_cli`.
 
 ## Escopo de Implementacao
 

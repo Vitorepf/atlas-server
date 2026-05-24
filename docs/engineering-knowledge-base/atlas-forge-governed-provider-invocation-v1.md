@@ -33,12 +33,14 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md
   - docs/engineering-knowledge-base/atlas-antigravity-cli-governed-terminal-executor-v1.md
   - docs/engineering-knowledge-base/atlas-antigravity-sdk-governed-executor-v1.md
+  - docs/engineering-knowledge-base/atlas-cursor-cli-governed-executor-v1.md
   - docs/engineering-knowledge-base/atlas-cursor-sdk-governed-executor-v1.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/system-graph/atlas-decide.md
   - docs/engineering-knowledge-base/domains/programming-professional-completion-audit.md
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationService.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php
+  - app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php
   - app/Services/Ai/Programming/AtlasForgeCursorSdkInvocationDriver.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationPromptBuilder.php
   - app/Console/Commands/AtlasForgeProviderInvokeCommand.php
@@ -137,7 +139,7 @@ observability_signals:
   - stderr_hash
   - ledger_event_ids
 next_actions:
-  - Configurar runtime drivers governados para claude_cli/codex_cli/gemini_cli quando custo e aprovacao operador estiverem prontos.
+  - Manter drivers externos governados em smoke/Rivals antes de qualquer promocao automatica.
   - Adicionar telemetry de duration por role no cockpit.
 ---
 # Atlas Forge Governed Provider Invocation v1
@@ -151,7 +153,7 @@ Em modo `dry_run` (padrao), prepara plan + prompt + receipt sem chamar provider 
 - `confirm_provider_call=true`;
 - `confirm_runtime_dispatch=true`;
 - `confirm_budget=true` (apenas quando o driver chama provider externo; `atlas-local` nao exige);
-- driver runtime configurado (hoje apenas `atlas-local`);
+- driver runtime configurado (`atlas-local` seguro ou drivers externos governados como claude/codex/gemini/antigravity/cursor quando habilitados);
 - decision receipt id + hash presentes;
 - runtime_dispatch_allowed=true;
 - role canonica;
@@ -185,7 +187,7 @@ Programming Domain
       ├─ Atlas Decide → Provider Topology v1
       ├─ Runtime Dispatch v1 (dispatch plan + child receipt)
       ├─ Governed Provider Invocation v1 (este modulo)
-      │  ├─ Driver Router (atlas-local + provider_driver_missing para externos)
+      │  ├─ Driver Router (atlas-local + drivers externos governados fail-closed)
       │  ├─ Prompt Builder (atlas.forge.provider_invocation_prompt.v1)
       │  ├─ Invocation Service (13 gates)
       │  ├─ Invocation Receipt (sha256 receipt_hash)
@@ -238,7 +240,7 @@ real.
 Backend:
 
 - `AtlasForgeProviderInvocationService` (schema `atlas.forge.provider_invocation.v1`)
-- `AtlasForgeProviderInvocationDriverRouter` (atlas-local seguro; outros providers retornam `provider_driver_missing`)
+- `AtlasForgeProviderInvocationDriverRouter` (atlas-local seguro + drivers externos governados fail-closed)
 - `AtlasForgeProviderInvocationPromptBuilder` (schema `atlas.forge.provider_invocation_prompt.v1`)
 - `AtlasForgeProviderInvokeCommand` (`atlas:forge:provider-invoke`)
 - `AtlasCodeForgeProviderInvocationController` (`POST /forge/provider-invocations`, `GET /forge/provider-invocations/latest`)
@@ -314,10 +316,10 @@ Testes (19):
 ### Exemplo 4 — Execute provider externo sem driver configurado
 
 `atlas:forge:provider-invoke --obra=<uuid> --role=primary_builder --mode=execute --confirm-provider-call --confirm-budget --confirm-runtime-dispatch --json --strict`
-→ status `blocked`, blocker `provider_driver_missing`, `provider_called=false`. Honesto: o driver ainda nao foi configurado.
+→ status `blocked`, blocker de driver/configuracao, `provider_called=false`. Honesto: o driver nao existe ou nao esta autenticado/configurado.
 
 ## Proximas Acoes
 
-- Configurar driver runtime governado para claude_cli/codex_cli/gemini_cli (apenas com aprovacao operador + budget gate + UI confirmacao).
+- Manter drivers externos governados (`claude_cli`, `codex_cli`, `gemini_cli`, `antigravity_sdk`, `cursor_sdk`, `cursor_cli`) em smoke/Rivals antes de qualquer promocao automatica.
 - Adicionar persistencia explicita de prompts hash em tabela dedicada quando volume justificar.
 - Conectar `evidence_pack_hash` a um Evidence Pack real quando bateria provider rodar.

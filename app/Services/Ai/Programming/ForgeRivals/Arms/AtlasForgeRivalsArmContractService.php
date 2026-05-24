@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals\Arms;
 
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderModelRegistryService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsModeRegistry;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderModelRegistryService;
 
 /**
  * Atlas Forge Rivals · Arm Contract.
@@ -108,9 +108,14 @@ final class AtlasForgeRivalsArmContractService
             'arm_role' => $armRole,
             'arm' => $arm,
             'provider' => $arm['provider'] ?? null,
+            'provider_kind' => $resolved['provider_kind'] ?? null,
+            'meta_provider' => $resolved['meta_provider'] ?? false,
+            'meta_provider_parent' => $resolved['meta_provider_parent'] ?? null,
+            'provider_metadata' => $resolved['provider_metadata'] ?? [],
             'requested_model' => $model,
             'resolved_model' => $resolved['canonical_model'],
             'resolved_model_id' => $resolved['model_id'],
+            'resolved_model_id_config_key' => $resolved['model_id_config_key'] ?? null,
             'resolved_model_label' => $resolved['model_label'],
             'task_category' => $taskCategory,
             'blockers' => array_values(array_unique($blockers)),
@@ -126,13 +131,23 @@ final class AtlasForgeRivalsArmContractService
     /**
      * @param  array<string,mixed>  $arm
      * @param  list<string>  $blockers
-     * @return array{canonical_model:?string,model_id:?string,model_label:?string,legacy_model_id:?string}
+     * @return array{canonical_model:?string,model_id:?string,model_id_config_key:?string,model_label:?string,legacy_model_id:?string,provider_kind:?string,meta_provider:bool,meta_provider_parent:mixed,provider_metadata:array<string,mixed>}
      */
     private function resolveModel(array $arm, string $model, array &$blockers): array
     {
         $provider = (string) ($arm['provider'] ?? '');
         if ($provider === '') {
-            return ['canonical_model' => null, 'model_id' => null, 'model_label' => null, 'legacy_model_id' => null];
+            return [
+                'canonical_model' => null,
+                'model_id' => null,
+                'model_id_config_key' => null,
+                'model_label' => null,
+                'legacy_model_id' => null,
+                'provider_kind' => null,
+                'meta_provider' => false,
+                'meta_provider_parent' => null,
+                'provider_metadata' => [],
+            ];
         }
 
         $resolved = $this->models->resolve($provider, $model);
@@ -144,8 +159,13 @@ final class AtlasForgeRivalsArmContractService
         return [
             'canonical_model' => $resolved['canonical_model'],
             'model_id' => $resolved['model_id'],
+            'model_id_config_key' => $resolved['model_id_config_key'] ?? null,
             'model_label' => $resolved['model_label'],
             'legacy_model_id' => $resolved['legacy_model_id'],
+            'provider_kind' => $resolved['provider_kind'] ?? null,
+            'meta_provider' => (bool) ($resolved['meta_provider'] ?? false),
+            'meta_provider_parent' => $resolved['meta_provider_parent'] ?? null,
+            'provider_metadata' => (array) ($resolved['provider_metadata'] ?? []),
         ];
     }
 }

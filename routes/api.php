@@ -681,6 +681,7 @@ Route::prefix('atlas-code')->group(function () {
     Route::get('/workspace-intelligence/artifacts', [AtlasWorkspaceIntelligenceController::class, 'artifacts']);
     Route::get('/workspace-intelligence/contracts', [AtlasWorkspaceIntelligenceController::class, 'contracts']);
     Route::get('/workspace-intelligence/evolution', [AtlasWorkspaceIntelligenceController::class, 'evolution']);
+    Route::get('/workspace-intelligence/learning-loop', [AtlasWorkspaceIntelligenceController::class, 'learningLoop']);
     Route::get('/workspace-intelligence/artifact-intelligence', [AtlasWorkspaceIntelligenceController::class, 'artifactIntelligence']);
     Route::get('/workspace-intelligence/artifact-lake', [AtlasWorkspaceIntelligenceController::class, 'artifactLake']);
     Route::get('/workspace-intelligence/artifact-lake/{artifact}', [AtlasWorkspaceIntelligenceController::class, 'artifactLakeShow']);

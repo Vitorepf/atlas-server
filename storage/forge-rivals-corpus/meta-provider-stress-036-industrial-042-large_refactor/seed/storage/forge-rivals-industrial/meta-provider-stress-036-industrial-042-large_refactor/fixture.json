@@ -1,0 +1,39 @@
+{
+    "schema_version": "atlas.forge.rivals.industrial_execution_suite.v1",
+    "suite_id": "atlas-forge-rivals-industrial-execution-suite-v1",
+    "case_id": "meta-provider-stress-036-industrial-042-large_refactor",
+    "case_set": "meta-provider-stress",
+    "category": "frontend_ui",
+    "task_type": "large_refactor",
+    "difficulty_level": "L2",
+    "acceptance_criteria": [
+        "Entrega resolve o caso sem tocar arquivos proibidos.",
+        "Patch inclui evidencia local suficiente para auditoria e replay.",
+        "Resposta explicita incertezas, tradeoffs e limites quando o prompt for ambiguo.",
+        "Scorecard por caso pode ser reconstruido a partir do evidence pack."
+    ],
+    "evidence_requirements": [
+        "patch_diff",
+        "provider_receipt",
+        "test_log",
+        "scorecard_per_case",
+        "workspace_hashes",
+        "oracle_adjudication_notes"
+    ],
+    "invalid_if": [
+        "synthetic_score_admitted",
+        "touched_forbidden_files",
+        "external_rivals_unlock_attempted",
+        "missing_case_scorecard",
+        "missing_replay",
+        "missing_evidence_pack",
+        "oracle_metadata_ignored"
+    ],
+    "expected_changed_files": [
+        "storage/forge-rivals-industrial/meta-provider-stress-036-industrial-042-large_refactor/src/meta-provider-stress-036-industrial-042-large_refactor.php",
+        "storage/forge-rivals-industrial/meta-provider-stress-036-industrial-042-large_refactor/tests/meta-provider-stress-036-industrial-042-large_refactorTest.php"
+    ],
+    "oracle_hash": "f54d0f77d0da36251032056b324cf17ac2ea9dd3debcaaebde90ba7b505d8cd7",
+    "external_provider_call": false,
+    "provider_tokens_spent": false
+}

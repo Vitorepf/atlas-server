@@ -123,7 +123,7 @@ Acima de `atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md`. Consome sco
 | `planning_vs_execution_results[]` | list | split por `work_kind` (planning vs execution) |
 | `provider_results[]` | list | por par `atlas_model_vs_rival_model` |
 | `mode_results[]` | list | por modo (`fair` vs `full_power` vs `local_fake`) |
-| `case_results[]` | list | por caso: winner, scores, evidence_status, replay_status, short_reason, **difficulty_band**, **work_kind**, **mode**, **atlas_model**, **rival_model** |
+| `case_results[]` | list | por caso: winner, scores, evidence_status, replay_status, short_reason, **difficulty_band**, **work_kind**, **mode**, **atlas_model**, **rival_model**, **human_prompt_contract** |
 | `filters_applied` | object | filtros recebidos da CLI: `{category, difficulty, provider, mode}` |
 | `confidence` | object | `{level, reason, is_trusted}` |
 | `validity` | object | replay/adjudication/hard_failures clean? |
@@ -200,6 +200,15 @@ O report preserva o canon de dificuldade do corpus em todo case, score, evidence
 
 Schema dedicado: `atlas.forge.rivals.provider_performance_signal.v1`. Sempre `advisory_only=true`, `should_update_provider_topology=false`, `never_changes_atlas_decide_topology=true` e `owner_of_model_routing=atlas_decide`. Rivals emits measured evidence; Atlas Decide decides model routing.
 
+### Differentiation Diagnosis v1
+
+`matrix_report.differentiation` evita transformar empate em conclusao. A matriz
+marca `low_differentiation` quando a bateria cobre o piso 360, mas os eixos
+obrigatorios continuam empatados ou subamostrados. So marca `differentiated`
+quando evidencia L5 repetida separa pelo menos o piso minimo de capacidades
+obrigatorias e o overall winner nao e empate. Esse bloco continua advisory-only
+e nunca altera topology do Atlas Decide.
+
 | Campo | Descrição |
 | --- | --- |
 | `provider_measurement[]` | por arm (`atlas`, `rival`): `{model, wins, losses, ties, cases, measured_tier: measured_ahead_strong/measured_competitive/measured_behind/measured_weak_in_this_battery/directional_only, routing_effect:none, win_rate}` |
@@ -209,6 +218,8 @@ Schema dedicado: `atlas.forge.rivals.provider_performance_signal.v1`. Sempre `ad
 | `mode_fit[]` | mesmo shape para `fair` vs `full_power` |
 | `provider_pair_fit[]` | mesmo shape para `atlas_model_vs_rival_model` |
 | `do_not_use_when[]` | `[{condition, detail}]` — bloqueadores explícitos (suspicious, evidence ausente, rival underperformou) |
+| `can_feed_ledger` | true somente quando confidence permite ledger e `do_not_use_when=[]` |
+| `ledger_blockers[]` | condicoes advisory que impedem alimentar Ledger sem alterar Atlas Decide |
 | `fallback_hint` | string canônica (`rivals_signal_unusable_until_replay_passes`, `rivals_signal_safe_to_consume_as_advisory_input_for_atlas_decide`, etc.) |
 | `confidence` | `{level, reason, is_trusted}` (espelha o confidence ladder) |
 | `rows[]` | linha por caso com `case_id`, `task_category`, `difficulty_band`, `work_kind`, `mode`, `atlas_model`, `rival_model`, scores, winner, suspicious, replay_passes |
@@ -222,6 +233,19 @@ O report pode dizer: "nesta bateria, neste corpus, Atlas/Rival ficou medido à f
 ### Filtros CLI
 
 Filtros aplicam ao `case_results[]` antes da agregação, então todos os rankings derivados refletem o subset filtrado. Quatro dimensões:
+
+Cada `case_results[]` também projeta `human_prompt_contract` quando a origem
+traz `human_prompt_probe`/`context_profile`. Esse bloco resume se o caso exigiu
+contexto longo, assumption log, raciocínio de escopo e evidência replayable, e
+lista seções faltantes do probe canônico (`facts_observed`, `assumptions`,
+`reversible_decisions`, `scope_boundaries`, `evidence_plan`, `tradeoffs`,
+`honest_blockers`). O report não pontua por texto livre; ele expõe a medição
+para auditoria e mantém claim/advisory gates separados.
+
+`provider_performance_signal.human_prompt_contract_coverage` agrega a cobertura
+desse contrato: casos com probe, casos completos, ratio de completude, contagem
+de contexto longo/assumption/scope reasoning e seções faltantes. O bloco é
+`advisory_only` e `routing_effect=none`; ele nunca autoriza topology update.
 
 | Flag | Valor |
 | --- | --- |
@@ -242,6 +266,16 @@ php artisan atlas:forge:rivals report --run-id=<id> \
 ### Matrix Evidence & Replay Lock
 
 Quando o run é multi-case (`runs/<id>/cases/<case_id>/`), o report v3 emite `matrix_evidence_lock` (schema `atlas.forge.rivals.matrix_evidence_lock.v1`). É o gate que decide se a bateria pode promover `battery_result_valid=true`.
+
+Para casos marcados com `measurement_tags` de prompt humano (`human_prompt`,
+`assumption_probe` ou `meta_provider_stress`), o lock inclui
+`human_prompt_contract_lock` (schema
+`atlas.forge.rivals.matrix_human_prompt_contract_lock.v1`). Um caso que declara
+esse contrato precisa trazer `human_prompt_probe` e `context_profile` completos;
+se faltar seção como `honest_blockers`, o case fica inválido com
+`incomplete_human_prompt_contract` e a matrix bloqueia claim final. Casos
+legados sem essas tags permanecem advisory e não passam a exigir probe
+retroativamente.
 
 **Evidence obrigatória por case** (declarada em `required_artifacts_per_case`):
 
@@ -269,7 +303,7 @@ Quando o run é multi-case (`runs/<id>/cases/<case_id>/`), o report v3 emite `ma
 7. Confidence `trusted_battery` + zero suspicious.
 8. Mesmo com tudo verde, `external_rivals_certification` continua `blocked_requires_operator_approval`.
 
-**Falha em qualquer regra acima** ⇒ `claim_status.claim_ready=false`, `can_feed_ledger=false`, `can_feed_decide_signal=false`, `matrix_blocks_claim_final=true`. Hard floor é `MATRIX_INVALID_HARD_FLOOR=1` e ratio é `MATRIX_INVALID_RATIO_BLOCK=0.10`.
+**Falha em qualquer regra acima** ⇒ `claim_status.claim_ready=false`, `can_feed_ledger=false`, `can_feed_decide_signal=false`, `matrix_blocks_claim_final=true`. Hard floor é `MATRIX_INVALID_HARD_FLOOR=1` e ratio é `MATRIX_INVALID_RATIO_BLOCK=0.10`. Mesmo quando a bateria passa essas regras, `can_feed_ledger` tambem exige `provider_performance_signal.do_not_use_when=[]`; bloqueios de medicao como `meta_provider_stress_floor_not_met` aparecem em `ledger_blockers[]`.
 
 **Replay walks every case.** O verifier `battery-verify-evidence` (schema `atlas.forge.rivals.battery_replay_verification.v1`) re-hashes patch + test log por arm em cada case, valida `difficulty_level ∈ L1-L5`, bloqueia em hash drift, dirty workspace, receipts ausentes, bytecode tracked. Single-case `replay` continua walking `evidence_pack.json` do run.
 
@@ -291,8 +325,11 @@ Suspicious → `confidence=inconclusive`, `claim_ready=false`, `human_review_req
 | `claim_ready` | trusted_battery + winner + zero suspicious + replay verde |
 | `external_rivals_certification_status` | sempre `blocked_requires_operator_approval` |
 | `human_review_required` | tie/suspicious/hard failure / evidence ausente |
-| `can_feed_ledger` | battery_valid + zero suspicious |
+| `can_feed_ledger` | battery_valid + zero suspicious + nenhum blocker de medicao |
 | `can_feed_decide_signal` | can_feed_ledger + trusted_battery |
+| `ledger_blockers[]` | bloqueios advisory herdados do `provider_performance_signal` |
+
+`next_actions[]` so emite `feed_ledger` quando `claim_status.can_feed_ledger=true`. Quando a run esta valida mas bloqueada por medicao, a acao canonica e `resolve_ledger_blockers`, apontando para `claim_status.ledger_blockers[]`; isso impede que `meta_provider_stress_floor_not_met` ou outros blockers virem sugestao operacional de Ledger.
 
 **Mesmo `claim_ready=true` NÃO destrava `external_rivals_certification`.** Esse claim externo permanece gated por aprovação de operador, sempre.
 

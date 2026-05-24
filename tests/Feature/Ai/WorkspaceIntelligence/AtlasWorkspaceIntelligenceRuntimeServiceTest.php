@@ -105,6 +105,20 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertFalse($report['awef']['privacy_transfer_gate']['allows_raw_cross_workspace']);
         $this->assertSame('read_only_shadow', $report['awef']['workspace_benchmark']['mode']);
         $this->assertSame(64, strlen((string) $report['awef']['evolution_hash']));
+        $this->assertSame('atlas.awis.workspace_intelligence_loop.v1', $report['awis_learning_loop']['schema_version']);
+        $this->assertSame('ready', $report['awis_learning_loop']['status']);
+        $this->assertSame('atlas', $report['awis_learning_loop']['workspace_id']);
+        $this->assertSame('workspace', $report['awis_learning_loop']['operational_memory']['memory_scope']);
+        $this->assertSame('candidate_only_until_evidence_review', $report['awis_learning_loop']['operational_memory']['promotion_policy']);
+        $this->assertFalse($report['awis_learning_loop']['operational_memory']['canonical_doc_rewrite_allowed']);
+        $this->assertFalse($report['awis_learning_loop']['context_application']['raw_conversation_included']);
+        $this->assertTrue($report['awis_learning_loop']['context_application']['provider_prompt_allowed']);
+        $this->assertSame('prepare_provider_safe_handoff', $report['awis_learning_loop']['next_action']['action']);
+        $this->assertSame(['AEMOR', 'AWEF', 'workspace_runbook', 'context_autopilot'], $report['awis_learning_loop']['evidence_learning']['feedback_targets']);
+        $this->assertTrue($report['awis_learning_loop']['closed_loop']['loop_closed']);
+        $this->assertFalse($report['awis_learning_loop']['claim_policy']['auto_promotes_memory']);
+        $this->assertFalse($report['awis_learning_loop']['claim_policy']['cross_workspace_learning_allowed']);
+        $this->assertSame(64, strlen((string) $report['awis_learning_loop']['loop_hash']));
         $this->assertSame('ready', $report['execution_boundaries']['status']);
         $this->assertGreaterThanOrEqual(17, $report['execution_boundaries']['guarded_boundaries_total']);
         $this->assertGreaterThanOrEqual(20, $report['execution_boundaries']['process_inventory_total']);
@@ -117,6 +131,7 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertTrue($report['claim_policy']['known_execution_boundaries_audited']);
         $this->assertFalse($report['claim_policy']['unclassified_workspace_process_boundaries_allowed']);
         $this->assertTrue($report['claim_policy']['ui_registry_editing_complete']);
+        $this->assertTrue($report['claim_policy']['workspace_learning_loop_closed']);
         $this->assertSame(64, strlen((string) $report['runtime_hash']));
     }
 
@@ -404,6 +419,64 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertContains('raw_context_present', $decoded['privacy_transfer_gate']['block_when']);
         $this->assertArrayNotHasKey('awaf', $decoded);
         $this->assertArrayNotHasKey('workspace', $decoded);
+    }
+
+    public function test_workspace_learning_loop_closes_event_memory_context_action_cycle(): void
+    {
+        $loop = app(AtlasWorkspaceIntelligenceRuntimeService::class)->learningLoop(
+            workspace: 'atlas',
+            task: 'corrigir bug login',
+            conversationTexts: ['decisao: manter AWIS como fonte de contexto; feito: teste verde'],
+        );
+
+        $this->assertSame('atlas.awis.workspace_intelligence_loop.v1', $loop['schema_version']);
+        $this->assertSame('ready', $loop['status']);
+        $this->assertSame('atlas', $loop['workspace_id']);
+        $this->assertGreaterThanOrEqual(4, $loop['event_intake']['event_count']);
+        $this->assertContains('current_truth_pack', $loop['operational_memory']['candidate_units']);
+        $this->assertContains('workspace_runbook_delta', $loop['operational_memory']['candidate_units']);
+        $this->assertSame('regenerate_awis_before_mutative_execution', $loop['context_application']['stale_policy']);
+        $this->assertSame('prepare_provider_safe_handoff', $loop['next_action']['action']);
+        $this->assertSame([], $loop['evidence_learning']['missing_evidence']);
+        $this->assertTrue($loop['closed_loop']['event_to_understanding']);
+        $this->assertTrue($loop['closed_loop']['understanding_to_memory']);
+        $this->assertTrue($loop['closed_loop']['memory_to_context']);
+        $this->assertTrue($loop['closed_loop']['context_to_next_action']);
+        $this->assertTrue($loop['closed_loop']['evidence_to_learning']);
+        $this->assertTrue($loop['closed_loop']['loop_closed']);
+        $this->assertSame(64, strlen((string) $loop['loop_hash']));
+    }
+
+    public function test_workspace_learning_loop_command_and_api_emit_same_contract(): void
+    {
+        $exit = Artisan::call('atlas:workspace-intelligence', [
+            'action' => 'learning-loop',
+            '--workspace' => 'atlas',
+            '--task' => 'corrigir bug login',
+            '--conversation' => ['decisao: usar contexto AWIS minimo'],
+            '--json' => true,
+            '--strict' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $cli = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.awis.workspace_intelligence_loop.v1', $cli['schema_version']);
+        $this->assertSame('ready', $cli['status']);
+        $this->assertTrue($cli['closed_loop']['loop_closed']);
+        $this->assertFalse($cli['claim_policy']['provider_calls_made']);
+
+        $response = $this->withHeaders($this->headers())->getJson(
+            '/atlas-code/workspace-intelligence/learning-loop?workspace=atlas&task='.urlencode('corrigir bug login'),
+        );
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.awis.workspace_intelligence_loop.v1')
+            ->assertJsonPath('status', 'ready')
+            ->assertJsonPath('workspace_id', 'atlas')
+            ->assertJsonPath('context_application.raw_conversation_included', false)
+            ->assertJsonPath('closed_loop.loop_closed', true)
+            ->assertJsonPath('claim_policy.auto_promotes_memory', false);
     }
 
     public function test_api_artifact_intelligence_endpoint_returns_awair_projection_only(): void
@@ -869,10 +942,11 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertIsArray($decoded);
         $this->assertNotEmpty($decoded['persisted_snapshot_id']);
         $this->assertNotEmpty($decoded['persisted_artifact_graph_id']);
-        $this->assertCount(3, $decoded['persisted_projection_ids']);
+        $this->assertCount(4, $decoded['persisted_projection_ids']);
         $this->assertArrayHasKey('AWTR', $decoded['persisted_projection_ids']);
         $this->assertArrayHasKey('AWCO', $decoded['persisted_projection_ids']);
         $this->assertArrayHasKey('AWEF', $decoded['persisted_projection_ids']);
+        $this->assertArrayHasKey('AWIL', $decoded['persisted_projection_ids']);
 
         $this->assertDatabaseHas('atlas_workspace_intelligence_snapshots', [
             'workspace_id' => 'atlas',
@@ -892,7 +966,7 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame(10, AtlasWorkspaceArtifactLakeEntry::query()
             ->where('runtime_hash', $decoded['runtime_hash'])
             ->count());
-        $this->assertSame(3, AtlasWorkspaceRuntimeProjectionSnapshot::query()
+        $this->assertSame(4, AtlasWorkspaceRuntimeProjectionSnapshot::query()
             ->where('runtime_hash', $decoded['runtime_hash'])
             ->count());
 
@@ -916,6 +990,13 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame('atlas.awis.runtime_projection_binding.v1', data_get($twin->payload, 'awis_projection.schema_version'));
         $this->assertSame($decoded['workspace']['workspace_hash'], data_get($twin->payload, 'awis_projection.workspace_hash'));
         $this->assertSame('block_latest_replay_when_workspace_hash_differs_or_is_missing', data_get($twin->payload, 'awis_projection.stale_policy'));
+
+        $loop = AtlasWorkspaceRuntimeProjectionSnapshot::query()
+            ->where('runtime_hash', $decoded['runtime_hash'])
+            ->where('family', 'AWIL')
+            ->firstOrFail();
+        $this->assertSame($decoded['awis_learning_loop']['loop_hash'], data_get($loop->payload, 'loop_hash'));
+        $this->assertTrue((bool) data_get($loop->payload, 'closed_loop.loop_closed'));
     }
 
     public function test_api_latest_replays_persisted_snapshot(): void
@@ -968,6 +1049,15 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
             ->assertOk()
             ->assertJsonPath('schema_version', 'atlas.workspace_evolution_fabric.v1')
             ->assertJsonPath('evolution_hash', $persisted->json('awef.evolution_hash'));
+
+        $latestLoop = $this->withHeaders($this->headers())->getJson(
+            '/atlas-code/workspace-intelligence/learning-loop?workspace=atlas&latest=1',
+        );
+        $latestLoop
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.awis.workspace_intelligence_loop.v1')
+            ->assertJsonPath('loop_hash', $persisted->json('awis_learning_loop.loop_hash'))
+            ->assertJsonPath('closed_loop.loop_closed', true);
     }
 
     public function test_api_latest_blocks_stale_runtime_projection_when_workspace_hash_changes(): void
@@ -1103,7 +1193,7 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertDatabaseCount('atlas_workspace_intelligence_snapshots', 1);
         $this->assertDatabaseCount('atlas_workspace_artifact_graph_snapshots', 1);
         $this->assertDatabaseCount('atlas_workspace_artifact_lake_entries', 10);
-        $this->assertDatabaseCount('atlas_workspace_runtime_projection_snapshots', 3);
+        $this->assertDatabaseCount('atlas_workspace_runtime_projection_snapshots', 4);
     }
 
     public function test_execution_gate_allows_conversation_without_ready_workspace(): void

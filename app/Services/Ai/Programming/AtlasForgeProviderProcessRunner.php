@@ -34,15 +34,18 @@ class AtlasForgeProviderProcessRunner
     public const SCHEMA_VERSION = 'atlas.forge.provider_process_result.v1';
 
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_TIMED_OUT = 'timed_out';
+
     public const STATUS_BLOCKED = 'blocked';
 
     /** @var callable|null */
     private $processFactory;
 
     /**
-     * @param  array{argv:array<int,string>, cwd?:?string, stdin?:?string, timeout_seconds?:int, max_output_chars?:int, env?:array<string,string>}  $request
+     * @param  array{argv:array<int,string>, cwd?:?string, stdin?:?string, timeout_seconds?:int, max_output_chars?:int, env?:array<string,string|false>}  $request
      * @return array<string,mixed>
      */
     public function run(array $request): array
@@ -53,7 +56,7 @@ class AtlasForgeProviderProcessRunner
         $timeout = max(1, min(3600, (int) ($request['timeout_seconds'] ?? 120)));
         $maxOutputChars = max(200, min(200000, (int) ($request['max_output_chars'] ?? 12000)));
         $env = $request['env'] ?? null;
-        $env = is_array($env) ? array_filter($env, 'is_string') : null;
+        $env = is_array($env) ? array_filter($env, static fn (mixed $value): bool => is_string($value) || $value === false) : null;
 
         if ($argv === []) {
             return $this->blockedResult($argv, $cwd, $timeout, 'argv_empty');
@@ -131,7 +134,7 @@ class AtlasForgeProviderProcessRunner
 
     /**
      * @param  array<int,string>  $argv
-     * @param  array<string,string>|null  $env
+     * @param  array<string,string|false>|null  $env
      */
     private function makeProcess(array $argv, ?string $cwd, ?array $env, int $timeout): Process
     {

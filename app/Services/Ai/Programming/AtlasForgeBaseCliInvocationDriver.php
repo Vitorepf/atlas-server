@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
+
 /**
  * Base implementation shared by the governed CLI provider drivers
  * (claude_cli, codex_cli, gemini_cli). Concrete drivers only declare:
@@ -144,6 +146,7 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
         $prompt = $this->encodePrompt($request['prompt'] ?? null);
         $timeout = (int) ($request['timeout_seconds'] ?? 120);
         $maxOutputChars = (int) ($request['max_output_chars'] ?? 12000);
+        $env = $this->processEnv($request);
 
         $result = $this->runner->run([
             'argv' => $argv,
@@ -151,6 +154,7 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             'stdin' => $prompt,
             'timeout_seconds' => $timeout,
             'max_output_chars' => $maxOutputChars,
+            'env' => $env,
         ]);
 
         $providerCalled = (bool) ($result['provider_called'] ?? false);
@@ -211,7 +215,7 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             $argv[] = '--model';
             $argv[] = $model;
         }
-        $effort = app(\App\Services\Ai\Kernel\Decision\ComputeEffortPolicy::class)->contract(
+        $effort = app(ComputeEffortPolicy::class)->contract(
             requested: $request['compute_effort'] ?? data_get($request, 'compute_effort_contract.atlas_level'),
             provider: $this->provider(),
             context: [
@@ -294,6 +298,15 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             return (string) json_encode($prompt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
 
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $request
+     * @return array<string,string|false>|null
+     */
+    protected function processEnv(array $request): ?array
+    {
         return null;
     }
 

@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Programming;
 
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsActionDispatcher;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsBatteryStateService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCasesRegistry;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCorpusPreValidationService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsModelMatrix;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunBatteryService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunRealService;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -279,6 +282,81 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
         );
     }
 
+    public function test_run_real_release_preserves_l5_complexity_metadata_for_360_reports(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'resolveCaseContext');
+        $reflection->setAccessible(true);
+
+        $context = $reflection->invoke(
+            $runReal,
+            ['case' => 'bugfix-l5-cascade-failure-fanout'],
+            AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
+        );
+        $case = $context['cases'][0];
+
+        $this->assertSame('provider_arena_corpus', $context['source']);
+        $this->assertSame('bugfix-l5-cascade-failure-fanout', $case['id']);
+        $this->assertSame('L5', $case['difficulty_level']);
+        $this->assertSame(5.0, $case['difficulty_score']);
+        $this->assertIsArray($case['context_profile']);
+        $this->assertSame('atlas.forge.rivals.context_profile.v1', $case['context_profile']['schema_version']);
+        $this->assertIsArray($case['human_prompt_probe']);
+        $this->assertSame('atlas.forge.rivals.human_prompt_probe.v1', $case['human_prompt_probe']['schema_version']);
+        $this->assertContains('long_context', $case['measurement_tags']);
+        $this->assertNotNull($case['human_prompt_hash']);
+    }
+
+    public function test_provider_usage_receipt_parses_stream_json_without_requiring_provider_call(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'providerUsageFromJsonLog');
+        $reflection->setAccessible(true);
+
+        $path = sys_get_temp_dir().'/atlas-rivals-usage-'.bin2hex(random_bytes(6)).'.jsonl';
+        file_put_contents($path, implode("\n", [
+            json_encode(['type' => 'system', 'model' => 'claude-sonnet-4-6']),
+            json_encode(['type' => 'result', 'costUSD' => 0.10344075, 'usage' => [
+                'input_tokens' => 1000,
+                'output_tokens' => 250,
+                'cache_creation_input_tokens' => 50,
+                'cache_read_input_tokens' => 25,
+            ]]),
+            '',
+        ]));
+
+        try {
+            $usage = $reflection->invoke($runReal, $path);
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame(0.10344075, $usage['token_cost']);
+        $this->assertSame(1325, $usage['tokens_used']);
+        $this->assertTrue($usage['provider_usage']['complete']);
+        $this->assertContains('claude-sonnet-4-6', $usage['provider_usage']['models_observed']);
+    }
+
+    public function test_single_case_battery_is_not_claim_ready_even_when_completed(): void
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $reflection = new \ReflectionMethod($runReal, 'computeBatteryClaimReady');
+        $reflection->setAccessible(true);
+        $runId = 'single-case-claim-'.bin2hex(random_bytes(4));
+
+        $battery = app(AtlasForgeRivalsBatteryStateService::class);
+        $battery->initialize($runId, [
+            'mode' => 'fair',
+        ], [[
+            'id' => 'bugfix-l5-cascade-failure-fanout',
+            'task_category' => 'bugfix',
+            'difficulty_level' => 'L5',
+        ]]);
+        $battery->markCaseFinished($runId, 'bugfix-l5-cascade-failure-fanout', 'comparable');
+
+        $this->assertFalse($reflection->invoke($runReal, $runId, 'fair'));
+    }
+
     public function test_human_normal_prompt_mode_is_a_real_runner_prompt_style(): void
     {
         $runReal = app(AtlasForgeRivalsRunRealService::class);
@@ -309,9 +387,34 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
         $this->assertStringNotContainsString("Objetivo:\n", $prompt);
     }
 
+    public function test_messy_real_prompt_mode_measures_ambiguity_without_opening_scope(): void
+    {
+        $prompt = $this->runnerPromptForPromptMode('messy-real');
+
+        $this->assertStringContainsString('Pedido do operador, do jeito que chegou:', $prompt);
+        $this->assertStringContainsString('Tem algo errado ou incompleto nesta área', $prompt);
+        $this->assertStringContainsString('Se houver ambiguidade, faça a menor suposição compatível', $prompt);
+        $this->assertStringContainsString('Não invente arquivos fora do escopo', $prompt);
+        $this->assertStringContainsString("php artisan test --filter='AcceptanceChecklistTest'", $prompt);
+        $this->assertStringNotContainsString("Objetivo:\n", $prompt);
+    }
+
+    public function test_enterprise_change_prompt_mode_requires_evidence_risk_and_rollback_reasoning(): void
+    {
+        $prompt = $this->runnerPromptForPromptMode('enterprise-change');
+
+        $this->assertStringContainsString('Mudança enterprise solicitada:', $prompt);
+        $this->assertStringContainsString('Motivo de negócio:', $prompt);
+        $this->assertStringContainsString('Controles obrigatórios:', $prompt);
+        $this->assertStringContainsString('compatibilidade, evidência e rollback mental', $prompt);
+        $this->assertStringContainsString('risco residual', $prompt);
+        $this->assertStringContainsString("php artisan test --filter='AcceptanceChecklistTest'", $prompt);
+        $this->assertStringNotContainsString("Objetivo:\n", $prompt);
+    }
+
     public function test_resume_cleanup_restores_dirty_isolated_arms_before_preflight(): void
     {
-        $service = app(\App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunBatteryService::class);
+        $service = app(AtlasForgeRivalsRunBatteryService::class);
         $root = sys_get_temp_dir().'/atlas-rivals-resume-cleanup-'.bin2hex(random_bytes(6));
 
         try {
@@ -361,7 +464,7 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
 
     public function test_resume_refuses_to_run_while_same_battery_has_fresh_events(): void
     {
-        $service = app(\App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunBatteryService::class);
+        $service = app(AtlasForgeRivalsRunBatteryService::class);
         $root = sys_get_temp_dir().'/atlas-rivals-active-resume-'.bin2hex(random_bytes(6));
         @mkdir($root, 0o755, true);
         file_put_contents($root.'/battery.json', json_encode([
@@ -553,7 +656,7 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
 
     public function test_artisan_command_for_release_battery_emits_json_envelope_with_blocked_status_without_confirmations(): void
     {
-        \Illuminate\Support\Facades\Artisan::call('atlas:forge:rivals', [
+        Artisan::call('atlas:forge:rivals', [
             'action' => 'run-battery',
             '--mode' => 'fair',
             '--atlas-model' => 'sonnet',
@@ -562,7 +665,7 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
             '--json' => true,
         ]);
 
-        $payload = json_decode(\Illuminate\Support\Facades\Artisan::output(), true);
+        $payload = json_decode(Artisan::output(), true);
         $this->assertIsArray($payload);
         $this->assertSame('run-battery', $payload['action']);
         $this->assertSame('atlas.forge.rivals.action_response.v1', $payload['schema_version']);
@@ -699,17 +802,16 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
 
     private function firstEmptySeedCaseId(): ?string
     {
-        $root = base_path('storage/forge-rivals-corpus');
-        if (! is_dir($root)) {
-            return null;
-        }
-        $dirs = scandir($root) ?: [];
-        sort($dirs);
-        foreach ($dirs as $name) {
-            if ($name === '.' || $name === '..' || ! is_dir($root.'/'.$name)) {
+        $cases = app(AtlasForgeRivalsProviderArenaCorpusService::class)
+            ->casesForCaseSet(AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE);
+
+        foreach ($cases as $case) {
+            $name = (string) ($case['case_id'] ?? '');
+            $seedDir = (string) data_get($case, 'setup_fixture.seed_dir', '');
+            if ($name === '' || $seedDir === '') {
                 continue;
             }
-            $seed = $root.'/'.$name.'/seed';
+            $seed = base_path($seedDir);
             if (! is_dir($seed)) {
                 continue;
             }
@@ -958,6 +1060,32 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
         }
 
         return trim((string) $proc->getOutput());
+    }
+
+    private function runnerPromptForPromptMode(string $promptMode): string
+    {
+        $runReal = app(AtlasForgeRivalsRunRealService::class);
+        $resolve = new \ReflectionMethod($runReal, 'resolveCaseContext');
+        $resolve->setAccessible(true);
+        $command = new \ReflectionMethod($runReal, 'resolveProviderCommand');
+        $command->setAccessible(true);
+
+        $context = $resolve->invoke(
+            $runReal,
+            ['case' => 'planning-l1-acceptance-checklist'],
+            AtlasForgeRivalsCasesRegistry::PRESET_RELEASE,
+        );
+        $case = array_replace($context['cases'][0], ['prompt_mode' => $promptMode]);
+
+        $argv = $command->invoke(
+            $runReal,
+            'atlas',
+            AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_SONNET,
+            $case,
+            base_path(),
+        );
+
+        return implode("\n", array_map(static fn (mixed $part): string => (string) $part, $argv));
     }
 
     private function removeDirectory(string $path): void

@@ -22,7 +22,9 @@ class AtlasForgeProviderInvocationFailureClassifier
     public const SCHEMA_VERSION = 'atlas.forge.provider_invocation_failure_classification.v1';
 
     public const CONFIDENCE_HIGH = 'high';
+
     public const CONFIDENCE_MEDIUM = 'medium';
+
     public const CONFIDENCE_LOW = 'low';
 
     /**
@@ -60,6 +62,7 @@ class AtlasForgeProviderInvocationFailureClassifier
             ],
             AtlasForgeProviderFallbackPolicyService::FAILURE_QUOTA_EXHAUSTED => [
                 'quota', 'credit', 'billing', 'usage limit', 'plan limit', 'subscription required',
+                'plan_required', 'free users', 'upgrade to pro',
             ],
             AtlasForgeProviderFallbackPolicyService::FAILURE_AUTH_FAILED => [
                 'unauthorized', '401', 'auth', 'api key', 'login required', 'permission denied', 'invalid token',

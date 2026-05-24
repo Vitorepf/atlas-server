@@ -168,6 +168,14 @@ skip this chain for production behavior.
 | Failure Domain | closed taxonomy with handlers |
 | SLO Targets | latency, quality, cost and reliability contract |
 
+Provider identity projection must be fail-fast. `architecture-validate` and
+driver compliance may use `atlas_ai_master_prompt_fallback` by default so local
+or iCloud Vault availability cannot block provider-driver gates. Enabling
+`atlas.ai.provider_identity.use_vault_master_prompt=true` may project the live
+Vault master prompt, but a fallback identity is still canonical and must keep
+the invariant: provider is an execution engine; Atlas AI owns identity, policy,
+memory and decision authority.
+
 AP-73 runtime budget window contract centralizes budget windows in settings and
 adds `atlas.runtime_budget.governance_contract.v1`: `autonomy_escalation_allowed=false`,
 no auto budget raise, human review + Decision Receipt for limit changes, and

@@ -11,7 +11,6 @@ use App\Services\Ai\Programming\AtlasForgeGeminiCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeProviderCommandAllowlistService;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationFailureClassifier;
-use App\Services\Ai\Programming\AtlasForgeProviderInvocationPromptBuilder;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
 use App\Services\Ai\Programming\AtlasForgeProviderProcessRunner;
 use App\Services\Ai\Programming\ProgrammingProfessionalCompletionAuditService;
@@ -35,7 +34,7 @@ class AtlasForgeRealProviderDriversTest extends TestCase
         $status = $router->driverStatus();
 
         $providers = array_map(fn (array $d): string => (string) $d['provider'], $status['drivers']);
-        foreach (['atlas-local', 'claude_cli', 'codex_cli', 'gemini_cli', 'antigravity_sdk', 'cursor_sdk'] as $expected) {
+        foreach (['atlas-local', 'claude_cli', 'codex_cli', 'gemini_cli', 'antigravity_sdk', 'cursor_sdk', 'cursor_cli'] as $expected) {
             $this->assertContains($expected, $providers, "router must register {$expected}");
         }
     }
@@ -78,7 +77,7 @@ class AtlasForgeRealProviderDriversTest extends TestCase
 
     public function test_safe_process_runner_times_out(): void
     {
-        $runner = new AtlasForgeProviderProcessRunner();
+        $runner = new AtlasForgeProviderProcessRunner;
         $runner->setProcessFactory(function (array $argv, ?string $cwd, ?array $env, int $timeout): Process {
             $process = new Process(['sleep', '5'], $cwd, $env, null, 1.0);
             $process->setTimeout(1.0);
@@ -96,7 +95,7 @@ class AtlasForgeRealProviderDriversTest extends TestCase
 
     public function test_safe_process_runner_hashes_output(): void
     {
-        $runner = new AtlasForgeProviderProcessRunner();
+        $runner = new AtlasForgeProviderProcessRunner;
         $runner->setProcessFactory(function (array $argv, ?string $cwd, ?array $env, int $timeout): Process {
             // Use a Process that already has output set (via fromShellCommandline would shell-parse;
             // we go the safe route: spawn echo). echo is on the forbidden list above, so we use a

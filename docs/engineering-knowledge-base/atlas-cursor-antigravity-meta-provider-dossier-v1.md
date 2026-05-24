@@ -5,7 +5,7 @@ title: Atlas Cursor and Antigravity Meta Provider Dossier v1
 status: active
 category: programming-forge
 priority: 97
-implementation_state: cursor_sdk_and_antigravity_sdk_experimental_drivers_fail_closed
+implementation_state: cursor_sdk_cursor_cli_and_antigravity_sdk_experimental_drivers_fail_closed
 summary: Dossie canonico para dissecar Cursor SDK/Agent CLI e Antigravity SDK/CLI como provider-harnesses programaveis no Atlas, preservando Atlas Decide, Memory, SDD, gates, evidence, custo por conta e soberania de runtime.
 tags:
   - atlas
@@ -24,11 +24,12 @@ capabilities:
   - governed_agentic_runtime_absorption
 decisions:
   - Cursor SDK e Antigravity SDK devem ser tratados como provider-harnesses, nao como modelos brutos e nao como substitutos do Atlas.
-  - Cursor SDK possui implementacao experimental fail-closed de primeira classe, nao apenas CLI observavel.
+  - Cursor SDK possui implementacao experimental fail-closed de primeira classe para API/Cloud Agent, mas fica reservado para um futuro em que API/on-demand seja uma decisao explicita.
+  - Cursor CLI possui implementacao experimental fail-closed separada para login local/conta Cursor e pools de uso por assinatura; e o caminho atual preferencial do Atlas.
   - Antigravity SDK ja possui executor experimental fail-closed no Atlas; esta doc nao promove maturidade nem libera auto-routing.
   - O Atlas deve maximizar subsidio por conta/plano dentro dos termos de cada provider antes de usar API direta, mas deve registrar quando um SDK muda para billing por API key/tokens.
   - Nenhum provider-harness pode decidir provider/model final, escopo, arquivos, policy critica, sucesso, maturidade, memory write ou completion claim sem Decision Receipt e review humano.
-  - Cursor SDK e Antigravity SDK so podem virar drivers promovidos/automaticos depois de smoke real, evidence ledger, metricas AP-99 e comparacao em Rivals.
+  - Cursor SDK, Cursor CLI e Antigravity SDK so podem virar drivers promovidos/automaticos depois de smoke real, evidence ledger, metricas AP-99 e comparacao em Rivals.
 maintenance:
   - Atualizar quando Cursor SDK, Cursor Agent CLI, Cursor models/pricing, Antigravity SDK, Antigravity CLI, modelos ou planos mudarem.
   - Revalidar fontes oficiais antes de alterar driver, routing, provider policy, UI, budget policy ou fallback.
@@ -36,6 +37,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-cursor-sdk-governed-executor-v1.md
+  - docs/engineering-knowledge-base/atlas-cursor-cli-governed-executor-v1.md
   - docs/engineering-knowledge-base/atlas-antigravity-sdk-governed-executor-v1.md
   - docs/engineering-knowledge-base/atlas-antigravity-cli-governed-terminal-executor-v1.md
   - docs/engineering-knowledge-base/atlas-forge-governed-provider-invocation-v1.md
@@ -50,6 +52,7 @@ related_paths:
   - app/Services/Ai/Programming/AtlasForgeCursorSdkInvocationDriver.php
   - app/Services/Ai/Programming/AtlasCursorSdkRuntimeExecutor.php
   - runtimes/node/cursor_sdk/adapter.mjs
+  - app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php
 external_references:
   - https://cursor.com/changelog/sdk-release
   - https://cursor.com/blog/typescript-sdk
@@ -101,8 +104,8 @@ flows_to:
   - atlas-forge-provider-capacity-continuity-v1
   - atlas-code-provider-arena-ui-v1
 unlocks:
-  - cursor-sdk-experimental-driver-candidate
-  - cursor-cli-observed-driver-candidate
+  - cursor-sdk-experimental-driver
+  - cursor-cli-experimental-driver
   - antigravity-sdk-revalidation-smoke
 governs:
   - cursor-sdk-provider-harness-assessment
@@ -116,6 +119,9 @@ evidence:
   - app/Services/Ai/Programming/AtlasForgeAntigravitySdkInvocationDriver.php
   - app/Services/Ai/Programming/AtlasAntigravitySdkRuntimeExecutor.php
   - runtimes/python/antigravity_sdk/adapter.py
+  - docs/engineering-knowledge-base/atlas-cursor-cli-governed-executor-v1.md
+  - app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php
+  - tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php
   - https://cursor.com/changelog/sdk-release
   - https://cursor.com/docs/sdk/typescript
   - https://docs.cursor.com/en/cli/reference/output-format
@@ -128,8 +134,8 @@ required_tests:
 requires_evidence: true
 risk_level: high
 next_actions:
-  - Criar spike plan-only para cursor_sdk sem escrita real.
-  - Criar smoke cursor_cli_observed com stream-json em repo fixture.
+  - Rodar smoke real controlado de cursor_sdk quando plano/API permitirem Cloud Agent.
+  - Rodar smoke real controlado de cursor_cli com stream-json em repo fixture apos instalar/autenticar cursor-agent.
   - Revalidar antigravity_sdk existente com auth/custo/modelo observado.
 visual_tags:
   - provider-harness
@@ -176,7 +182,12 @@ Antigravity ja existe no Atlas como driver experimental fail-closed:
 - `runtimes/python/antigravity_sdk/adapter.py`
 - teste feature dedicado
 
-Cursor agora possui driver runtime experimental fail-closed no Atlas: `AtlasForgeCursorSdkInvocationDriver`, `AtlasCursorSdkRuntimeExecutor` e `runtimes/node/cursor_sdk/adapter.mjs`. Ele usa o SDK oficial `@cursor/sdk`, mas continua sem auto-routing, sem completion claim e sem promocao antes de smoke real/Rivals.
+Cursor agora possui dois drivers runtime experimentais fail-closed no Atlas:
+
+- `cursor_sdk`: `AtlasForgeCursorSdkInvocationDriver`, `AtlasCursorSdkRuntimeExecutor` e `runtimes/node/cursor_sdk/adapter.mjs`. E o caminho oficial/API/Cloud Agent via `@cursor/sdk`.
+- `cursor_cli`: `AtlasForgeCursorCliInvocationDriver`. E o caminho alinhado a login local/conta Cursor, usando `cursor-agent --print --output-format stream-json --model <model>` quando o binario estiver instalado e autenticado.
+
+Ambos continuam sem auto-routing, sem completion claim e sem promocao antes de smoke real/Rivals.
 
 ## Onde Se Encaixa
 
@@ -187,8 +198,8 @@ Atlas Decide
 └─ Governed Provider Invocation
    ├─ existing CLI drivers: claude_cli, codex_cli, gemini_cli
    ├─ existing experimental SDK driver: antigravity_sdk
-   ├─ candidate SDK driver: cursor_sdk
-   ├─ candidate observed CLI driver: cursor_cli_observed
+   ├─ experimental SDK driver: cursor_sdk
+   ├─ experimental CLI driver: cursor_cli
    └─ Rivals / AP-99 evidence before promotion
 ```
 
@@ -289,11 +300,11 @@ Plans oficiais: Individual US$0 com agent model access, tab completions e comman
 | Artifacts | Cloud only | Indireto via files/events | Structured output, artifacts dependem runtime | Artifacts na plataforma |
 | Local sandbox | `local.sandboxOptions` | permission/force flags | policies/capabilities | terminal sandbox |
 | Cloud | Cursor Cloud VM, PRs | background mode | roadmap remote harness | local platform/Google Cloud org |
-| Best Atlas fit | First SDK driver candidate | Simple observed CLI fallback | Existing fail-closed driver revalidation | Subsidy-first/manual harness candidate |
+| Best Atlas fit | Official/API/Cloud Agent driver | Subscription/login local driver | Existing fail-closed driver revalidation | Subsidy-first/manual harness candidate |
 
 ## Atlas Interpretation
 
-Cursor SDK deve ser avaliado como o candidato mais direto para `cursor_sdk` driver experimental:
+Cursor SDK deve continuar como o driver mais direto para controle programatico/API/Cloud Agent (`cursor_sdk`):
 
 - API surface clara
 - eventos estruturados
@@ -302,12 +313,12 @@ Cursor SDK deve ser avaliado como o candidato mais direto para `cursor_sdk` driv
 - local/cloud split explicito
 - TypeScript combina com runtimes Node do Atlas Desktop/Forge sidecars
 
-Cursor CLI deve ser fallback mais simples para `cursor_cli_observed`:
+Cursor CLI deve ser o driver mais alinhado para uso por assinatura/login local (`cursor_cli`):
 
 - facil de instalar e testar
 - `stream-json` parseavel
 - funciona com login/API key
-- menos controle fino que SDK, mas excelente para smoke rapido
+- menos controle fino que SDK, mas melhor para a estrategia subsidy-first quando API/on-demand nao deve ser gasto
 
 Antigravity SDK deve continuar como `antigravity_sdk` experimental fail-closed:
 
@@ -340,7 +351,8 @@ Regra do Atlas: maximizar plano/conta/subsidio dentro dos termos antes de API di
 Aplicacao pratica:
 
 - Cursor Pro/Ultra pode virar pool de capacidade por conta, com `billing_mode=account_subscription` e `usage_bucket=cursor_included_usage`.
-- Cursor SDK usa `CURSOR_API_KEY`; mesmo com plano, o consumo deve ser tratado como bucket medido, nao gratis.
+- Cursor SDK usa `CURSOR_API_KEY`; mesmo com plano, o consumo deve ser tratado como bucket medido, nao gratis, e por isso nao deve ser usado no momento salvo decisao explicita de API.
+- Cursor CLI deve ser preferido quando a politica local for "assinatura primeiro, sem on-demand/API extra", desde que use `auth_mode=local_login`, remova `CURSOR_API_KEY` do processo filho e o smoke com dashboard confirme consumo no bucket esperado.
 - Antigravity 2.0/CLI parece melhor alinhado a subsidio por conta Google AI.
 - Antigravity SDK precisa ser marcado como `billing_mode=api_key_or_unknown` ate smoke confirmar se usa quota de conta, AI credits ou Gemini API key.
 - Overage e API direta so entram como fallback controlado, com approval e budget receipt.
@@ -418,7 +430,7 @@ Nao permitido nesta fase:
 Evidencias locais:
 
 - Antigravity SDK driver e executor ja existem em `app/Services/Ai/Programming`.
-- Cursor SDK driver ainda nao existe.
+- Cursor SDK e Cursor CLI drivers ja existem como experimentais fail-closed em `app/Services/Ai/Programming`.
 - `@cursor/sdk` 1.0.13 foi inspecionado por `npm view`/`npm pack` fora do repo.
 - `docs-health` deve ficar verde para este doc antes de merge.
 
@@ -445,11 +457,25 @@ Envelope minimo de evidence esperado:
 
 ```yaml
 provider_harness: cursor_sdk
-billing_mode: account_subscription
-quota_bucket: cursor_ultra_included_usage
+billing_mode: cursor_account_api_or_cloud_pool
+quota_bucket: cursor_plan_agent_usage_bucket
 model_requested: composer-latest
 model_observed: composer-2.5
 runtime_mode: local
+decision_receipt_id: receipt-redacted
+work_packet_hash: sha256-redacted
+sandbox_enabled: true
+completion_claim_allowed: false
+```
+
+Envelope minimo para o caminho por assinatura/login local:
+
+```yaml
+provider_harness: cursor_cli
+billing_mode: cursor_account_cli_pool
+quota_bucket: cursor_account_composer_pool
+model_requested: composer-latest
+runtime_mode: cli
 decision_receipt_id: receipt-redacted
 work_packet_hash: sha256-redacted
 sandbox_enabled: true
@@ -477,10 +503,10 @@ Comparar Cursor SDK, Cursor CLI, Antigravity SDK e Antigravity CLI por:
 
 Sequencia tecnica:
 
-1. Criar spike plan-only para `cursor_sdk` sem escrita real.
-2. Criar smoke `cursor_cli_observed` usando `--print --output-format stream-json` em repo fixture.
+1. Rodar smoke real controlado de `cursor_sdk` apenas quando plano/API permitirem Cloud Agent sem surpresa de custo.
+2. Rodar smoke real controlado de `cursor_cli` usando `--print --output-format stream-json` em repo fixture depois de instalar e logar o `cursor-agent`.
 3. Revalidar `antigravity_sdk` existente com docs atuais, mas manter fail-closed.
 4. Manter Antigravity CLI como referencia/subsidy-first manual ate existir output estruturado suficiente ou SDK account-auth confirmado.
 5. Rodar Rivals AP com tarefas pequenas e repetiveis antes de qualquer preferencia automatica.
 
-Conclusao atual: Cursor SDK e o melhor primeiro alvo novo para integracao programatica governada. Antigravity SDK e mais profundo em runtime/policies/hooks, mas seu caminho de custo/autenticacao precisa ser provado. Antigravity CLI e Cursor CLI sao importantes como surfaces de subsidio e observacao, mas nao devem substituir SDKs quando o objetivo for controle Atlas-grade.
+Conclusao atual: para controle programatico/API/Cloud Agent futuro, Cursor SDK continua limpo e util. Para a estrategia presente do operador, assinar conta Cursor e evitar on-demand/API extra, `cursor_cli` e o caminho prioritario e provavelmente cumpre a mesma funcao pratica com melhor eficiencia de uso da conta. Antigravity SDK e mais profundo em runtime/policies/hooks, mas seu caminho de custo/autenticacao precisa ser provado. Antigravity CLI e Cursor CLI sao importantes como surfaces de subsidio e devem entrar na arena Rivals antes de qualquer promocao automatica.

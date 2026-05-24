@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming;
 
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -134,6 +135,9 @@ final class AtlasForgeRivalsProviderArenaCorpusTest extends TestCase
             'incident-response' => 50,
             'product-security-migrations' => 50,
             'statistical-repeat' => 60,
+            'meta-provider-stress' => 50,
+            'extreme-differentiator' => 80,
+            'ceiling-360' => 120,
         ];
 
         foreach ($expected as $caseSet => $count) {
@@ -146,6 +150,132 @@ final class AtlasForgeRivalsProviderArenaCorpusTest extends TestCase
                 'atlas-forge-rivals-industrial-benchmark-suite-v1',
                 $payload['cases'][0]['industrial_suite'],
             );
+        }
+    }
+
+    public function test_meta_provider_stress_cases_expose_human_prompts_without_provider_call(): void
+    {
+        $payload = $this->runCases(['--case-set' => 'meta-provider-stress']);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(50, $payload['count']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertSame(
+            'atlas.forge.rivals.meta_provider_stress_coverage.v1',
+            $payload['snapshot']['meta_provider_stress_coverage']['schema_version'],
+        );
+        $this->assertTrue($payload['snapshot']['meta_provider_stress_coverage']['coverage_floor_met']);
+        $this->assertGreaterThanOrEqual(8, $payload['snapshot']['meta_provider_stress_coverage']['domain_count']);
+        $this->assertSame('meta-provider-stress', $payload['cases'][0]['industrial_case_set']);
+        $this->assertStringContainsString('ticket real de engenharia', $payload['cases'][0]['human_prompt']);
+        $this->assertSame('atlas.forge.rivals.meta_provider_stress.v1', $payload['cases'][0]['meta_provider_stress']['schema_version']);
+        $this->assertContains('cursor_cli', $payload['cases'][0]['meta_provider_stress']['targets']);
+        $this->assertContains('composer_2_5', $payload['cases'][0]['meta_provider_stress']['targets']);
+        $this->assertSame(
+            'atlas.forge.rivals.case_complexity_profile.v1',
+            $payload['cases'][0]['meta_provider_stress']['complexity_profile']['schema_version'],
+        );
+        $this->assertGreaterThanOrEqual(
+            4200,
+            $payload['cases'][0]['meta_provider_stress']['measurement_floor']['min_context_tokens'],
+        );
+        $this->assertTrue($payload['cases'][0]['meta_provider_stress']['measurement_floor']['requires_replay_matrix']);
+        $this->assertFalse($payload['cases'][0]['meta_provider_stress']['measurement_floor']['synthetic_claim_allowed']);
+        $this->assertSame('atlas.forge.rivals.human_prompt_probe.v1', $payload['cases'][0]['human_prompt_probe']['schema_version']);
+        $this->assertContains('honest_blockers', $payload['cases'][0]['human_prompt_probe']['requires_sections']);
+        $this->assertContains('replay_matrix', $payload['cases'][0]['human_prompt_probe']['requires_sections']);
+    }
+
+    public function test_extreme_differentiator_cases_expose_tie_breaker_contract_without_provider_call(): void
+    {
+        $payload = $this->runCases(['--case-set' => 'extreme-differentiator']);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(80, $payload['count']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertSame('extreme-differentiator', $payload['cases'][0]['industrial_case_set']);
+        $case = app(AtlasForgeRivalsProviderArenaCorpusService::class)
+            ->casesForCaseSet('extreme-differentiator')[0];
+        $this->assertSame(
+            $case['fixture_seed_path'],
+            $case['setup_fixture']['seed_dir'],
+        );
+        $this->assertSame(
+            'php storage/forge-rivals-industrial/'.$case['case_id'].'/tests/'.$case['case_id'].'Test.php',
+            $case['test_command'],
+        );
+        $this->assertStringNotContainsString(
+            'storage/forge-rivals-industrial/'.$case['industrial_variant']['source_case_id'],
+            $case['test_command'],
+        );
+        $this->assertContains(
+            'storage/forge-rivals-industrial/'.$case['case_id'].'/docs/'.$case['case_id'].'-runbook.md',
+            $case['expected_changed_files'],
+        );
+        $this->assertSame(
+            'atlas.forge.rivals.extreme_differentiator.v1',
+            $payload['cases'][0]['extreme_differentiator']['schema_version'],
+        );
+        foreach ($payload['cases'] as $caseRow) {
+            $this->assertSame('L5', $caseRow['difficulty_level']);
+            $this->assertSame(5.0, (float) $caseRow['difficulty_score']);
+            $this->assertSame('high', $caseRow['ambiguity_level']);
+            $this->assertContains($caseRow['risk_level'], ['high', 'critical']);
+            $this->assertStringContainsString('Ambiguidade percebida: high', (string) $caseRow['human_prompt']);
+            $this->assertContains(
+                $caseRow['difficulty_level'],
+                $caseRow['extreme_differentiator']['required_signal']['allowed_difficulty_levels'],
+            );
+            $this->assertSame(
+                'L5',
+                $caseRow['context_profile']['complexity_profile']['difficulty_level'],
+            );
+            $this->assertSame(
+                'high',
+                $caseRow['human_prompt_probe']['ambiguity_level'],
+            );
+        }
+        $this->assertContains('runner_strength_probe', $payload['cases'][0]['measurement_tags']);
+        $this->assertTrue($payload['cases'][0]['extreme_differentiator']['required_signal']['requires_separation_analysis']);
+        $this->assertTrue($payload['cases'][0]['extreme_differentiator']['required_signal']['tie_is_diagnostic_not_claim']);
+    }
+
+    public function test_ceiling_360_cases_push_all_required_capabilities_without_provider_call(): void
+    {
+        $payload = $this->runCases(['--case-set' => 'ceiling-360']);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(120, $payload['count']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $required = [
+            'long_context_retention',
+            'multi_step_reasoning',
+            'rollback_safety',
+            'scope_boundary_discipline',
+            'replayable_evidence_quality',
+            'honest_blocker_behavior',
+            'ambiguous_human_prompt_handling',
+        ];
+
+        foreach ($payload['cases'] as $caseRow) {
+            $this->assertSame('ceiling-360', $caseRow['industrial_case_set']);
+            $this->assertSame('L5', $caseRow['difficulty_level']);
+            $this->assertSame('critical', $caseRow['risk_level']);
+            $this->assertSame('high', $caseRow['ambiguity_level']);
+            $this->assertGreaterThanOrEqual(0.70, (float) $caseRow['planning_weight']);
+            $this->assertGreaterThanOrEqual(
+                6000,
+                (int) $caseRow['ceiling_360']['required_signal']['min_estimated_context_tokens'],
+            );
+            $this->assertTrue($caseRow['ceiling_360']['required_signal']['requires_all_360_capabilities']);
+            $this->assertFalse($caseRow['ceiling_360']['claim_policy']['external_claim_allowed']);
+            foreach ($required as $capability) {
+                $this->assertContains($capability, $caseRow['measured_capabilities']);
+            }
+            $this->assertContains('ceiling_360', $caseRow['measurement_tags']);
         }
     }
 

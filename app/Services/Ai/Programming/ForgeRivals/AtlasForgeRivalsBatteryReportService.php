@@ -166,6 +166,19 @@ final class AtlasForgeRivalsBatteryReportService
         $counters = $this->countCases($perCaseResults);
         $stateClaimReady = $this->isClaimReady($cases, (string) ($battery['mode'] ?? ''));
         $globalAverages = $this->computeGlobalAverages($perCaseResults);
+        $separationAnalysis = $this->computeSeparationAnalysis(
+            perCase: $perCaseResults,
+            categories: $categories,
+            difficultyBands: $difficultyBands,
+            globalAverages: $globalAverages,
+        );
+        $extremeMeasurementPlan = $this->buildExtremeMeasurementPlan(
+            perCase: $perCaseResults,
+            categories: $categories,
+            difficultyBands: $difficultyBands,
+            separationAnalysis: $separationAnalysis,
+            globalAverages: $globalAverages,
+        );
         $confidence = $this->resolveConfidence(
             counters: $counters,
             categories: $categories,
@@ -232,6 +245,8 @@ final class AtlasForgeRivalsBatteryReportService
             confidence: $confidence,
             winnerDecision: $winnerDecision,
             globalAverages: $globalAverages,
+            separationAnalysis: $separationAnalysis,
+            extremeMeasurementPlan: $extremeMeasurementPlan,
             resultValidForRanking: $resultValidForRanking,
             whyScoreCounts: $whyScoreCounts,
             whyScoreDoesNotCount: $whyScoreDoesNotCount,
@@ -280,6 +295,8 @@ final class AtlasForgeRivalsBatteryReportService
             'winner' => $winnerDecision['winner'],
             'winner_reason' => $winnerDecision['reasons'],
             'confidence' => $confidence,
+            'separation_analysis' => $separationAnalysis,
+            'extreme_measurement_plan' => $extremeMeasurementPlan,
             'cases_total' => $counters['cases_total'],
             'cases_valid' => $counters['cases_valid'],
             'cases_invalid' => $counters['cases_invalid'],
@@ -914,6 +931,365 @@ final class AtlasForgeRivalsBatteryReportService
             'rival_avg' => $rivalAvg,
             'delta' => round($atlasAvg - $rivalAvg, 2),
         ];
+    }
+
+    /**
+     * Diagnose whether a battery can actually separate runners. A tie can be
+     * a true result, but a high tie rate plus tiny deltas usually means the
+     * benchmark is too easy, the scoring is too coarse, or both arms are being
+     * evaluated on tasks that do not expose their specialities.
+     *
+     * @param  list<array<string,mixed>>  $perCase
+     * @param  list<array<string,mixed>>  $categories
+     * @param  list<array<string,mixed>>  $difficultyBands
+     * @param  array{atlas_avg:?float,rival_avg:?float,delta:?float}  $globalAverages
+     * @return array<string,mixed>
+     */
+    private function computeSeparationAnalysis(
+        array $perCase,
+        array $categories,
+        array $difficultyBands,
+        array $globalAverages,
+    ): array {
+        $valid = array_values(array_filter(
+            $perCase,
+            static fn (array $row): bool => (bool) ($row['valid_for_ranking'] ?? false),
+        ));
+        $validCount = count($valid);
+        $tieCount = 0;
+        $deltas = [];
+        foreach ($valid as $row) {
+            $winner = (string) ($row['winner'] ?? '');
+            if ($winner === AtlasForgeRivalsAdjudicatorService::WINNER_TIE) {
+                $tieCount++;
+            }
+            if (($row['atlas_score'] ?? null) !== null && ($row['rival_score'] ?? null) !== null) {
+                $deltas[] = abs(round((float) $row['atlas_score'] - (float) $row['rival_score'], 2));
+            }
+        }
+
+        sort($deltas);
+        $averageAbsDelta = $deltas === [] ? null : round(array_sum($deltas) / count($deltas), 2);
+        $maxAbsDelta = $deltas === [] ? null : round(max($deltas), 2);
+        $medianAbsDelta = null;
+        if ($deltas !== []) {
+            $middle = intdiv(count($deltas), 2);
+            $medianAbsDelta = count($deltas) % 2 === 1
+                ? $deltas[$middle]
+                : round(($deltas[$middle - 1] + $deltas[$middle]) / 2, 2);
+        }
+
+        $tieRate = $validCount > 0 ? round($tieCount / $validCount, 4) : null;
+        $lowSeparationThreshold = self::TIE_THRESHOLD;
+        $suspiciousTieRateThreshold = 0.60;
+        $reasons = [];
+        if ($validCount === 0) {
+            $reasons[] = 'no_valid_cases';
+        }
+        if ($tieRate !== null && $tieRate >= $suspiciousTieRateThreshold) {
+            $reasons[] = 'high_tie_rate:'.number_format($tieRate, 2, '.', '');
+        }
+        if ($averageAbsDelta !== null && $averageAbsDelta < $lowSeparationThreshold) {
+            $reasons[] = 'average_abs_delta_below_tie_threshold:'.$averageAbsDelta;
+        }
+        if ($maxAbsDelta !== null && $maxAbsDelta < ($lowSeparationThreshold * 2)) {
+            $reasons[] = 'no_large_delta_cases:max_abs_delta='.$maxAbsDelta;
+        }
+
+        $categoryWinners = array_values(array_unique(array_filter(array_map(
+            static fn (array $row): string => (string) ($row['winner'] ?? ''),
+            $categories,
+        ), static fn (string $winner): bool => $winner !== '')));
+        if (count($categoryWinners) <= 1 && $validCount >= 8) {
+            $reasons[] = 'category_winners_do_not_vary';
+        }
+
+        $difficultyDeltas = array_values(array_filter(array_map(
+            static fn (array $row): mixed => $row['delta'] ?? null,
+            $difficultyBands,
+        ), static fn (mixed $delta): bool => $delta !== null));
+        if (count($difficultyDeltas) >= 2 && max($difficultyDeltas) === min($difficultyDeltas)) {
+            $reasons[] = 'difficulty_deltas_flat';
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.separation_analysis.v1',
+            'valid_cases' => $validCount,
+            'tie_count' => $tieCount,
+            'tie_rate' => $tieRate,
+            'average_abs_delta' => $averageAbsDelta,
+            'median_abs_delta' => $medianAbsDelta,
+            'max_abs_delta' => $maxAbsDelta,
+            'global_delta' => $globalAverages['delta'],
+            'low_separation_threshold' => $lowSeparationThreshold,
+            'suspicious_tie_rate_threshold' => $suspiciousTieRateThreshold,
+            'low_discrimination' => $reasons !== [],
+            'reasons' => array_values(array_unique($reasons)),
+            'recommended_case_sets' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
+            ],
+            'advisory_only' => true,
+            'routing_effect' => 'none',
+        ];
+    }
+
+    /**
+     * Build the next-runner difficulty plan used when a 40-case battery ties
+     * or otherwise fails to separate strong runners. This is deliberately a
+     * read model: it emits commands and slices to measure next, never a claim.
+     *
+     * @param  list<array<string,mixed>>  $perCase
+     * @param  list<array<string,mixed>>  $categories
+     * @param  list<array<string,mixed>>  $difficultyBands
+     * @param  array<string,mixed>  $separationAnalysis
+     * @param  array{atlas_avg:?float,rival_avg:?float,delta:?float}  $globalAverages
+     * @return array<string,mixed>
+     */
+    private function buildExtremeMeasurementPlan(
+        array $perCase,
+        array $categories,
+        array $difficultyBands,
+        array $separationAnalysis,
+        array $globalAverages,
+    ): array {
+        $lowDiscrimination = (bool) ($separationAnalysis['low_discrimination'] ?? false);
+        $tieRate = $separationAnalysis['tie_rate'] ?? null;
+        $globalDelta = $globalAverages['delta'];
+        $nearGlobalTie = $globalDelta === null || abs((float) $globalDelta) < self::TIE_THRESHOLD;
+        $l5 = $this->findDifficultyBand($difficultyBands, 'L5');
+        $l5Tied = $l5 !== null
+            && (int) ($l5['valid_cases'] ?? 0) > 0
+            && ($l5['winner'] ?? null) === AtlasForgeRivalsAdjudicatorService::WINNER_TIE;
+        $needsFollowup = $lowDiscrimination || $nearGlobalTie || $l5Tied;
+
+        $categoryRows = [];
+        foreach ($categories as $category) {
+            $categoryId = (string) ($category['category_id'] ?? $category['category'] ?? 'unknown');
+            $categoryRows[] = [
+                'category' => $categoryId,
+                'current_valid_cases' => (int) ($category['valid_cases'] ?? 0),
+                'current_winner' => $category['winner'] ?? null,
+                'current_delta' => $category['delta'] ?? null,
+                'next_case_set' => $this->nextCaseSetForCategory($categoryId),
+                'target_capabilities' => $this->capabilitiesForCategory($categoryId),
+                'minimum_repetitions' => 3,
+                'routing_effect' => 'none',
+            ];
+        }
+
+        $capabilityRows = [];
+        foreach ($this->extremeCapabilityMap() as $capability => $caseSets) {
+            $observed = $this->observedCapabilityCases($perCase, $capability);
+            $capabilityRows[] = [
+                'capability' => $capability,
+                'observed_cases' => $observed,
+                'minimum_cases_for_signal' => 3,
+                'additional_cases_needed' => max(0, 3 - $observed),
+                'recommended_case_sets' => $caseSets,
+                'routing_effect' => 'none',
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.extreme_measurement_plan.v1',
+            'status' => $needsFollowup ? 'needs_extreme_followup' : 'separation_observed_continue_sampling',
+            'purpose' => 'separate_real_runner_strengths_after_easy_battery_ties',
+            'tie_is_diagnostic_not_claim' => true,
+            'requires_harder_followup' => $needsFollowup,
+            'reasons' => array_values(array_unique(array_merge(
+                (array) ($separationAnalysis['reasons'] ?? []),
+                $nearGlobalTie ? ['global_delta_inside_tie_threshold'] : [],
+                $l5Tied ? ['l5_tie_requires_harder_cases'] : [],
+            ))),
+            'current_signal' => [
+                'valid_cases' => (int) ($separationAnalysis['valid_cases'] ?? 0),
+                'tie_rate' => $tieRate,
+                'average_abs_delta' => $separationAnalysis['average_abs_delta'] ?? null,
+                'max_abs_delta' => $separationAnalysis['max_abs_delta'] ?? null,
+                'global_delta' => $globalDelta,
+                'l5_winner' => $l5['winner'] ?? null,
+                'routing_effect' => 'none',
+            ],
+            'category_slices' => $categoryRows,
+            'capability_slices' => $capabilityRows,
+            'required_matchups' => $this->extremeRequiredMatchups(),
+            'recommended_commands' => $this->extremeRecommendedCommands(),
+            'real_runs_require_explicit_confirmation' => true,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'never_changes_atlas_decide_topology' => true,
+            'should_update_provider_topology' => false,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $difficultyBands
+     * @return array<string,mixed>|null
+     */
+    private function findDifficultyBand(array $difficultyBands, string $level): ?array
+    {
+        foreach ($difficultyBands as $band) {
+            if ((string) ($band['level'] ?? '') === $level) {
+                return $band;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function capabilitiesForCategory(string $category): array
+    {
+        return match ($category) {
+            'planning', 'architecture' => ['long_context_retention', 'multi_step_reasoning', 'ambiguous_human_prompt_handling'],
+            'realistic_bugfix' => ['honest_blocker_behavior', 'scope_boundary_discipline', 'replayable_evidence_quality'],
+            'refactor' => ['long_context_retention', 'scope_boundary_discipline', 'rollback_safety'],
+            'test_design' => ['replayable_evidence_quality', 'honest_blocker_behavior'],
+            'integration_performance' => ['multi_step_reasoning', 'rollback_safety', 'replayable_evidence_quality'],
+            'backend_logic' => ['multi_step_reasoning', 'scope_boundary_discipline'],
+            'frontend_ui' => ['ambiguous_human_prompt_handling', 'scope_boundary_discipline'],
+            default => ['multi_step_reasoning', 'replayable_evidence_quality'],
+        };
+    }
+
+    private function nextCaseSetForCategory(string $category): string
+    {
+        return match ($category) {
+            'planning', 'architecture' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+            'realistic_bugfix' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_AMBIGUOUS_BUGS,
+            'refactor' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_MULTI_DAY_REFACTORS,
+            'test_design' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
+            'integration_performance' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INCIDENT_RESPONSE,
+            default => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+        };
+    }
+
+    /**
+     * @return array<string,list<string>>
+     */
+    private function extremeCapabilityMap(): array
+    {
+        return [
+            'long_context_retention' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_MULTI_DAY_REFACTORS,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+            ],
+            'multi_step_reasoning' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_PRODUCT_SECURITY_MIGRATIONS,
+            ],
+            'rollback_safety' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INCIDENT_RESPONSE,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_PRODUCT_SECURITY_MIGRATIONS,
+            ],
+            'scope_boundary_discipline' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_MULTI_DAY_REFACTORS,
+            ],
+            'replayable_evidence_quality' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+            ],
+            'honest_blocker_behavior' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_AMBIGUOUS_BUGS,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+            ],
+            'ambiguous_human_prompt_handling' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_AMBIGUOUS_BUGS,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $perCase
+     */
+    private function observedCapabilityCases(array $perCase, string $capability): int
+    {
+        $count = 0;
+        foreach ($perCase as $case) {
+            $tags = array_merge(
+                (array) ($case['measurement_tags'] ?? []),
+                (array) data_get($case, 'complexity_profile.measured_dimensions', []),
+            );
+            if (in_array($capability, $tags, true)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function extremeRequiredMatchups(): array
+    {
+        return [
+            ['id' => 'atlas_forge_vs_claude_sonnet', 'mode' => 'fair', 'arm_a' => 'atlas_forge', 'arm_a_model' => 'sonnet', 'arm_b' => 'claude_code', 'arm_b_model' => 'sonnet'],
+            ['id' => 'claude_sonnet_vs_codex_gpt_5_5', 'mode' => 'provider_arena', 'arm_a' => 'claude_code', 'arm_a_model' => 'sonnet', 'arm_b' => 'codex_cli', 'arm_b_model' => 'gpt-5.5'],
+            ['id' => 'composer_2_5_vs_codex_gpt_5_5', 'mode' => 'provider_arena', 'arm_a' => 'composer_2_5', 'arm_a_model' => 'default', 'arm_b' => 'codex_cli', 'arm_b_model' => 'gpt-5.5'],
+            ['id' => 'cursor_default_vs_claude_sonnet', 'mode' => 'provider_arena', 'arm_a' => 'cursor_cli', 'arm_a_model' => 'default', 'arm_b' => 'claude_code', 'arm_b_model' => 'sonnet'],
+            ['id' => 'atlas_dev_vs_atlas_forge', 'mode' => 'provider_arena', 'arm_a' => 'atlas_dev', 'arm_a_model' => 'sonnet', 'arm_b' => 'atlas_forge', 'arm_b_model' => 'sonnet'],
+            ['id' => 'codex_vs_gemini', 'mode' => 'provider_arena', 'arm_a' => 'codex_cli', 'arm_a_model' => 'gpt-5.5', 'arm_b' => 'gemini_cli', 'arm_b_model' => 'gemini-pro'],
+        ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function extremeRecommendedCommands(): array
+    {
+        $commands = [];
+        foreach ($this->extremeRequiredMatchups() as $matchup) {
+            $commands[] = [
+                'id' => 'dry_run_'.$matchup['id'],
+                'purpose' => 'plan_extreme_matchup_without_provider_call',
+                'command' => 'php artisan atlas:forge:rivals run-arena'
+                    .' --arm-a='.$matchup['arm_a']
+                    .' --arm-a-model='.$matchup['arm_a_model']
+                    .' --arm-b='.$matchup['arm_b']
+                    .' --arm-b-model='.$matchup['arm_b_model']
+                    .' --mode='.$matchup['mode']
+                    .' --task-category=bugfix --dry-run --json',
+                'dry_run' => true,
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+                'requires_confirmations' => false,
+                'advisory_only' => true,
+                'routing_effect' => 'none',
+            ];
+        }
+
+        foreach ([
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
+        ] as $caseSet) {
+            $commands[] = [
+                'id' => 'inspect_'.$caseSet,
+                'purpose' => 'inspect_harder_case_set_without_provider_call',
+                'case_set' => $caseSet,
+                'command' => 'php artisan atlas:forge:rivals cases --case-set='.$caseSet.' --json',
+                'dry_run' => true,
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+                'requires_confirmations' => false,
+                'advisory_only' => true,
+                'routing_effect' => 'none',
+            ];
+        }
+
+        return $commands;
     }
 
     /**
@@ -1785,6 +2161,8 @@ final class AtlasForgeRivalsBatteryReportService
      * @param  array{level:string,reason:string,reasons:list<string>,is_trusted:bool}  $confidence
      * @param  array{winner:?string,reasons:list<string>}  $winnerDecision
      * @param  array{atlas_avg:?float,rival_avg:?float,delta:?float}  $globalAverages
+     * @param  array<string,mixed>  $separationAnalysis
+     * @param  array<string,mixed>  $extremeMeasurementPlan
      * @param  list<string>  $whyScoreCounts
      * @param  list<string>  $whyScoreDoesNotCount
      */
@@ -1807,6 +2185,8 @@ final class AtlasForgeRivalsBatteryReportService
         array $confidence,
         array $winnerDecision,
         array $globalAverages,
+        array $separationAnalysis,
+        array $extremeMeasurementPlan,
         bool $resultValidForRanking,
         array $whyScoreCounts,
         array $whyScoreDoesNotCount,
@@ -1870,7 +2250,7 @@ final class AtlasForgeRivalsBatteryReportService
         $lines[] = '| battery_status | `'.$batteryStatus.'` |';
         $lines[] = '| aggregate_verdict | `'.$aggregateVerdict.'` |';
         $lines[] = '| started_at | '.$startedAt.' |';
-        $lines[] = '| finished_at | '.($finishedAt !== '' ? $finishedAt : 'em curso') .' |';
+        $lines[] = '| finished_at | '.($finishedAt !== '' ? $finishedAt : 'em curso').' |';
         $lines[] = '| resume_count | '.$resumeCount.' |';
         $lines[] = '| atlas_avg | '.$this->fmtScore($globalAverages['atlas_avg']).' |';
         $lines[] = '| rival_avg | '.$this->fmtScore($globalAverages['rival_avg']).' |';
@@ -1880,6 +2260,7 @@ final class AtlasForgeRivalsBatteryReportService
         $lines[] = '| result_valid_for_ranking | '.($resultValidForRanking ? 'true' : '**false**').' |';
         $lines[] = '| contaminated_game | '.($contamination['contaminated_game'] ? '**true**' : 'false').' |';
         $lines[] = '| hard_failures | '.count($hardFailures).' |';
+        $lines[] = '| low_discrimination | '.(($separationAnalysis['low_discrimination'] ?? false) ? '**true**' : 'false').' |';
         $lines[] = '| weighted_score (difficulty ladder) | '.number_format($score, 2).'% |';
         if (! empty($planningScore)) {
             $lines[] = '| planning_score (matrix planning_weight) | '.number_format((float) ($planningScore['score_percent'] ?? 0), 2).'% |';
@@ -1893,6 +2274,65 @@ final class AtlasForgeRivalsBatteryReportService
         $lines[] = '| claim_ready | '.($claimReady ? '**true**' : '**false**').' |';
         $lines[] = '| external_provider_call | '.(($battery['external_provider_call'] ?? false) ? 'true' : 'false').' |';
         $lines[] = '| separated_from_external_rivals_certification | **always true** |';
+        $lines[] = '';
+
+        // Separação / Empate.
+        $lines[] = '## Separação dos Runners';
+        $lines[] = '';
+        $lines[] = '| Métrica | Valor |';
+        $lines[] = '| --- | --- |';
+        $lines[] = '| valid_cases | '.(int) ($separationAnalysis['valid_cases'] ?? 0).' |';
+        $lines[] = '| tie_count | '.(int) ($separationAnalysis['tie_count'] ?? 0).' |';
+        $lines[] = '| tie_rate | '.($separationAnalysis['tie_rate'] === null ? '—' : number_format((float) $separationAnalysis['tie_rate'], 2)).' |';
+        $lines[] = '| average_abs_delta | '.$this->fmtScore($separationAnalysis['average_abs_delta'] ?? null).' |';
+        $lines[] = '| median_abs_delta | '.$this->fmtScore($separationAnalysis['median_abs_delta'] ?? null).' |';
+        $lines[] = '| max_abs_delta | '.$this->fmtScore($separationAnalysis['max_abs_delta'] ?? null).' |';
+        $lines[] = '| low_discrimination | '.(($separationAnalysis['low_discrimination'] ?? false) ? '**true**' : 'false').' |';
+        if (($separationAnalysis['reasons'] ?? []) !== []) {
+            $lines[] = '';
+            $lines[] = 'Sinais de baixa separação:';
+            foreach ((array) ($separationAnalysis['reasons'] ?? []) as $reason) {
+                $lines[] = '- `'.$reason.'`';
+            }
+            $lines[] = '';
+            $lines[] = 'Próximos presets recomendados: `'.implode('`, `', (array) ($separationAnalysis['recommended_case_sets'] ?? [])).'`.';
+        } else {
+            $lines[] = '';
+            $lines[] = '_A bateria apresentou separação suficiente para análise por categoria/dificuldade._';
+        }
+        $lines[] = '';
+
+        // Plano extremo / 360.
+        $lines[] = '## Plano Extremo 360';
+        $lines[] = '';
+        $lines[] = '| Campo | Valor |';
+        $lines[] = '| --- | --- |';
+        $lines[] = '| status | `'.(string) ($extremeMeasurementPlan['status'] ?? 'unknown').'` |';
+        $lines[] = '| requires_harder_followup | '.((bool) ($extremeMeasurementPlan['requires_harder_followup'] ?? true) ? '**true**' : 'false').' |';
+        $lines[] = '| tie_is_diagnostic_not_claim | **'.((bool) ($extremeMeasurementPlan['tie_is_diagnostic_not_claim'] ?? true) ? 'true' : 'false').'** |';
+        $lines[] = '| required_matchups | '.count((array) ($extremeMeasurementPlan['required_matchups'] ?? [])).' |';
+        $lines[] = '| recommended_commands | '.count((array) ($extremeMeasurementPlan['recommended_commands'] ?? [])).' |';
+        $lines[] = '| advisory_only | **true** |';
+        $lines[] = '';
+        if ((array) ($extremeMeasurementPlan['reasons'] ?? []) !== []) {
+            $lines[] = 'Razões para subir dificuldade:';
+            foreach ((array) ($extremeMeasurementPlan['reasons'] ?? []) as $reason) {
+                $lines[] = '- `'.(string) $reason.'`';
+            }
+            $lines[] = '';
+        }
+        $lines[] = 'Confrontos que precisam existir para 360 prático:';
+        foreach ((array) ($extremeMeasurementPlan['required_matchups'] ?? []) as $matchup) {
+            if (! is_array($matchup)) {
+                continue;
+            }
+            $lines[] = '- `'.(string) ($matchup['id'] ?? 'matchup').'`: `'
+                .(string) ($matchup['arm_a'] ?? 'arm_a').' '
+                .(string) ($matchup['arm_a_model'] ?? 'default').'` vs `'
+                .(string) ($matchup['arm_b'] ?? 'arm_b').' '
+                .(string) ($matchup['arm_b_model'] ?? 'default').'` em `'
+                .(string) ($matchup['mode'] ?? 'provider_arena').'`';
+        }
         $lines[] = '';
 
         // Resultado por Categoria (v2).

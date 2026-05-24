@@ -73,11 +73,12 @@ final class AtlasForgeRivalsCorpusPlannerService
         }
 
         if ($taskCategory !== '' && $caseId === '' && $caseSet !== '') {
+            $canonicalTaskCategory = AtlasForgeRivalsProviderArenaCorpusService::LEGACY_CATEGORY_ALIAS[$taskCategory] ?? $taskCategory;
             $resolved = array_values(array_filter(
                 $resolved,
-                static fn (array $c): bool => (string) ($c['category'] ?? '') === $taskCategory,
+                static fn (array $c): bool => (string) ($c['category'] ?? '') === $canonicalTaskCategory,
             ));
-            $appliedFilters[] = 'task_category='.$taskCategory;
+            $appliedFilters[] = 'task_category='.$canonicalTaskCategory;
         }
 
         if ($blockers === [] && $resolved === []) {
@@ -130,11 +131,28 @@ final class AtlasForgeRivalsCorpusPlannerService
                 'role_focus' => (string) ($c['role_focus'] ?? ''),
                 'task_type' => (string) ($c['task_type'] ?? ''),
                 'industrial_suite' => (string) ($c['industrial_suite'] ?? ''),
+                'industrial_case_set' => (string) ($c['industrial_case_set'] ?? ''),
                 'industrial_domains' => array_values(array_map(
                     static fn ($v): string => (string) $v,
                     (array) ($c['industrial_domains'] ?? []),
                 )),
+                'human_prompt' => (string) ($c['human_prompt'] ?? ''),
+                'context_profile' => $c['context_profile'] ?? null,
+                'measurement_tags' => array_values(array_map(
+                    static fn ($v): string => (string) $v,
+                    (array) ($c['measurement_tags'] ?? []),
+                )),
+                'human_prompt_probe' => $c['human_prompt_probe'] ?? null,
+                'meta_provider_stress' => $c['meta_provider_stress'] ?? null,
+                'extreme_differentiator' => $c['extreme_differentiator'] ?? null,
+                'extreme_hardening' => $c['extreme_hardening'] ?? null,
+                'measured_capabilities' => array_values(array_map(
+                    static fn ($v): string => (string) $v,
+                    (array) ($c['measured_capabilities'] ?? []),
+                )),
                 'difficulty_level' => (string) ($c['difficulty_level'] ?? ''),
+                'difficulty_score' => isset($c['difficulty_score']) ? (float) $c['difficulty_score'] : null,
+                'difficulty_reason' => (string) ($c['difficulty_reason'] ?? ''),
                 'ambiguity_level' => (string) ($c['ambiguity_level'] ?? ''),
                 'risk_level' => (string) ($c['risk_level'] ?? ''),
                 'objective' => (string) ($c['objective'] ?? ''),

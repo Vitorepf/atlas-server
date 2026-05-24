@@ -132,12 +132,21 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
         );
         $this->assertTrue($signal['advisory_only']);
         $this->assertTrue($signal['never_changes_atlas_decide_topology']);
-        foreach (['provider_measurement', 'provider_recommendation', 'category_fit', 'difficulty_fit', 'mode_fit', 'provider_pair_fit', 'do_not_use_when', 'fallback_hint', 'confidence', 'rows'] as $key) {
+        foreach (['provider_measurement', 'provider_recommendation', 'category_fit', 'difficulty_fit', 'mode_fit', 'provider_pair_fit', 'human_prompt_contract_coverage', 'complexity_profile_coverage', 'do_not_use_when', 'fallback_hint', 'confidence', 'rows'] as $key) {
             $this->assertArrayHasKey($key, $signal, "signal missing key {$key}");
         }
         $this->assertFalse($signal['should_update_provider_topology']);
         $this->assertSame('atlas_decide', $signal['owner_of_model_routing']);
         $this->assertSame('none', $signal['routing_effect']);
+        $this->assertSame('atlas.forge.rivals.human_prompt_contract_coverage.v1', $signal['human_prompt_contract_coverage']['schema_version']);
+        $this->assertTrue($signal['human_prompt_contract_coverage']['advisory_only']);
+        $this->assertSame('none', $signal['human_prompt_contract_coverage']['routing_effect']);
+        $this->assertSame('atlas.forge.rivals.complexity_profile_coverage.v1', $signal['complexity_profile_coverage']['schema_version']);
+        $this->assertTrue($signal['complexity_profile_coverage']['advisory_only']);
+        $this->assertSame('none', $signal['complexity_profile_coverage']['routing_effect']);
+        $this->assertArrayHasKey('meta_provider_claim_floor_met', $signal['complexity_profile_coverage']);
+        $this->assertArrayHasKey('critical_or_high_risk_cases', $signal['complexity_profile_coverage']);
+        $this->assertArrayHasKey('high_ambiguity_cases', $signal['complexity_profile_coverage']);
     }
 
     public function test_signal_provider_measurement_has_both_arms(): void
@@ -145,7 +154,8 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
         $runId = $this->newRunId('signal-arms');
         $this->seedMultiCaseBattery($runId);
 
-        $signal = $this->report->render(['run_id' => $runId])['provider_performance_signal'];
+        $report = $this->report->render(['run_id' => $runId]);
+        $signal = $report['provider_performance_signal'];
         $arms = array_column($signal['provider_measurement'], 'arm');
         $this->assertContains('atlas', $arms);
         $this->assertContains('rival', $arms);
@@ -156,9 +166,111 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
         $runId = $this->newRunId('signal-do-not-use');
         $this->seedSuspiciousBattery($runId);
 
-        $signal = $this->report->render(['run_id' => $runId])['provider_performance_signal'];
+        $report = $this->report->render(['run_id' => $runId]);
+        $signal = $report['provider_performance_signal'];
         $conditions = array_column($signal['do_not_use_when'], 'condition');
         $this->assertContains('suspicious_results_present', $conditions);
+    }
+
+    public function test_signal_do_not_use_when_blocks_missing_complexity_measurement(): void
+    {
+        $runId = $this->newRunId('signal-missing-complexity');
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['base'].'/cases', 0o755, true);
+        @mkdir($paths['evidence'], 0o755, true);
+        file_put_contents($paths['manifest_json'], $this->jsonEncode($this->baseManifest($paths['run_id'], ['preset' => 'release', 'case_id' => 'multi'])));
+        file_put_contents($paths['events_jsonl'], json_encode(['kind' => 'battery_started']).PHP_EOL);
+        file_put_contents($paths['base'].'/intent.json', json_encode(['kind' => 'battery']));
+        $this->writeSubCase(
+            $paths['base'].'/cases/case-1',
+            cat: 'backend',
+            data: ['atlas' => 88.0, 'rival' => 75.0, 'winner' => 'atlas'],
+            difficulty: 'L3',
+            manifestOverrides: [
+                'context_profile' => [
+                    'schema_version' => 'atlas.forge.rivals.context_profile.v1',
+                    'prompt_style' => 'human_ambiguous_operator_ticket',
+                    'long_context_required' => false,
+                    'requires_assumption_log' => true,
+                    'requires_tradeoff_notes' => true,
+                    'requires_scope_boundary_reasoning' => true,
+                    'requires_replayable_evidence' => true,
+                ],
+                'human_prompt_probe' => [
+                    'schema_version' => 'atlas.forge.rivals.human_prompt_probe.v1',
+                    'requires_sections' => [
+                        'facts_observed',
+                        'assumptions',
+                        'reversible_decisions',
+                        'scope_boundaries',
+                        'evidence_plan',
+                        'tradeoffs',
+                        'honest_blockers',
+                    ],
+                ],
+            ],
+        );
+        $this->seedTopScorecard($runId, winner: 'atlas');
+        $this->writeReceipts($paths['evidence']);
+        $this->runCollectFinal($runId);
+
+        $signal = $this->report->render(['run_id' => $runId])['provider_performance_signal'];
+        $conditions = array_column($signal['do_not_use_when'], 'condition');
+
+        $this->assertSame(0, $signal['complexity_profile_coverage']['cases_with_complexity_profile']);
+        $this->assertContains('complexity_profile_coverage_incomplete', $conditions);
+        $this->assertContains('long_context_not_measured', $conditions);
+        $this->assertContains('evidence_matrix_not_measured', $conditions);
+        $this->assertContains('multi_step_plan_not_measured', $conditions);
+        $this->assertFalse($signal['should_update_provider_topology']);
+        $this->assertSame('none', $signal['routing_effect']);
+    }
+
+    public function test_signal_meta_provider_claim_floor_passes_only_with_diverse_risky_ambiguous_cases(): void
+    {
+        $runId = $this->newRunId('signal-meta-provider-floor');
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['base'].'/cases', 0o755, true);
+        @mkdir($paths['evidence'], 0o755, true);
+        file_put_contents($paths['manifest_json'], $this->jsonEncode($this->baseManifest($paths['run_id'], ['preset' => 'release', 'case_id' => 'multi'])));
+        file_put_contents($paths['events_jsonl'], json_encode(['kind' => 'battery_started']).PHP_EOL);
+        file_put_contents($paths['base'].'/intent.json', json_encode(['kind' => 'battery']));
+
+        $categories = ['backend', 'frontend', 'bugfix', 'tests', 'refactor', 'architecture', 'docs', 'performance'];
+        for ($i = 0; $i < 16; $i++) {
+            $profile = $this->complexityProfile([
+                'ambiguity_score' => $i === 0 ? 5 : 3,
+                'risk_score' => $i === 1 ? 5 : 2,
+                'requires_rollback_plan' => $i < 8,
+            ]);
+            $this->writeSubCase(
+                $paths['base'].'/cases/case-'.($i + 1),
+                cat: $categories[$i % count($categories)],
+                data: ['atlas' => 88.0, 'rival' => 75.0, 'winner' => 'atlas'],
+                difficulty: 'L4',
+                manifestOverrides: $this->humanComplexityManifestOverrides($profile),
+            );
+        }
+        $this->seedTopScorecard($runId, winner: 'atlas');
+        $this->writeReceipts($paths['evidence']);
+        $this->runCollectFinal($runId);
+
+        $report = $this->report->render(['run_id' => $runId]);
+        $signal = $report['provider_performance_signal'];
+        $coverage = $signal['complexity_profile_coverage'];
+        $conditions = array_column($signal['do_not_use_when'], 'condition');
+
+        $this->assertTrue($coverage['meta_provider_claim_floor_met']);
+        $this->assertTrue($signal['can_feed_ledger']);
+        $this->assertSame([], $signal['ledger_blockers']);
+        $this->assertTrue($report['claim_status']['can_feed_ledger']);
+        $this->assertSame(8, $coverage['domain_count']);
+        $this->assertSame(1, $coverage['high_ambiguity_cases']);
+        $this->assertSame(1, $coverage['critical_or_high_risk_cases']);
+        $this->assertSame(8, $coverage['rollback_plan_required_cases']);
+        $this->assertNotContains('meta_provider_stress_floor_not_met', $conditions);
+        $this->assertFalse($signal['should_update_provider_topology']);
+        $this->assertSame('none', $signal['routing_effect']);
     }
 
     public function test_signal_fallback_hint_when_replay_fails(): void
@@ -219,6 +331,95 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
         foreach ($report['case_results'] as $case) {
             $this->assertSame('fair', $case['mode']);
         }
+    }
+
+    public function test_case_results_expose_human_prompt_probe_contract(): void
+    {
+        $runId = $this->newRunId('human-prompt-probe-report');
+        $this->seedMultiCaseBattery($runId);
+
+        $report = $this->report->render(['run_id' => $runId]);
+        $first = $report['case_results'][0];
+
+        $this->assertSame('atlas.forge.rivals.report_human_prompt_contract.v1', $first['human_prompt_contract']['schema_version']);
+        $this->assertTrue($first['human_prompt_contract']['complete']);
+        $this->assertSame([], $first['human_prompt_contract']['missing_sections']);
+        $this->assertTrue($first['human_prompt_contract']['requires_assumption_log']);
+        $this->assertTrue($first['human_prompt_contract']['requires_scope_boundary_reasoning']);
+        $this->assertTrue($first['human_prompt_contract']['has_complexity_profile']);
+        $this->assertGreaterThanOrEqual(4200, $first['human_prompt_contract']['estimated_context_tokens']);
+        $this->assertGreaterThanOrEqual(3, $first['human_prompt_contract']['reasoning_depth']);
+        $this->assertContains('assumption_probe', $first['measurement_tags']);
+        $this->assertContains('replay_matrix', $first['human_prompt_contract']['required_sections']);
+        $this->assertContains('honest_blockers', $first['human_prompt_contract']['required_sections']);
+
+        $coverage = $report['provider_performance_signal']['human_prompt_contract_coverage'];
+        $this->assertSame(16, $coverage['case_count']);
+        $this->assertSame(16, $coverage['cases_with_contract']);
+        $this->assertSame(16, $coverage['complete_contract_cases']);
+        $this->assertSame(1.0, $coverage['coverage_ratio']);
+        $this->assertSame(1.0, $coverage['complete_ratio']);
+
+        $complexityCoverage = $report['provider_performance_signal']['complexity_profile_coverage'];
+        $this->assertSame(16, $complexityCoverage['case_count']);
+        $this->assertSame(16, $complexityCoverage['cases_with_complexity_profile']);
+        $this->assertSame(1.0, $complexityCoverage['coverage_ratio']);
+        $this->assertSame(16, $complexityCoverage['long_context_required_cases']);
+        $this->assertSame(16, $complexityCoverage['evidence_matrix_required_cases']);
+        $this->assertSame(16, $complexityCoverage['multi_step_plan_required_cases']);
+        $this->assertSame(8, $complexityCoverage['domain_count']);
+        $this->assertFalse($complexityCoverage['meta_provider_claim_floor_met']);
+        $this->assertGreaterThanOrEqual(4200, $complexityCoverage['min_estimated_context_tokens']);
+        $this->assertGreaterThanOrEqual(3, $complexityCoverage['max_reasoning_depth']);
+        $this->assertArrayHasKey('replayable_evidence_quality', $complexityCoverage['measured_dimensions']);
+
+        $conditions = array_column($report['provider_performance_signal']['do_not_use_when'], 'condition');
+        $this->assertContains('meta_provider_stress_floor_not_met', $conditions);
+        $this->assertFalse($report['provider_performance_signal']['can_feed_ledger']);
+        $this->assertContains('meta_provider_stress_floor_not_met', $report['provider_performance_signal']['ledger_blockers']);
+        $this->assertFalse($report['claim_status']['can_feed_ledger']);
+        $this->assertContains('meta_provider_stress_floor_not_met', $report['claim_status']['ledger_blockers']);
+
+        $nextActionKinds = array_column($report['next_actions'], 'kind');
+        $this->assertNotContains('feed_ledger', $nextActionKinds);
+        $this->assertContains('resolve_ledger_blockers', $nextActionKinds);
+    }
+
+    public function test_case_results_flag_incomplete_human_prompt_probe_contract(): void
+    {
+        $runId = $this->newRunId('human-prompt-probe-incomplete-report');
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['base'].'/cases', 0o755, true);
+        @mkdir($paths['evidence'], 0o755, true);
+        file_put_contents($paths['manifest_json'], $this->jsonEncode($this->baseManifest($paths['run_id'], ['preset' => 'release', 'case_id' => 'multi'])));
+        file_put_contents($paths['events_jsonl'], json_encode(['kind' => 'battery_started']).PHP_EOL);
+        file_put_contents($paths['base'].'/intent.json', json_encode(['kind' => 'battery']));
+        $this->writeSubCase(
+            $paths['base'].'/cases/case-1',
+            cat: 'backend',
+            data: ['atlas' => 88.0, 'rival' => 75.0, 'winner' => 'atlas'],
+            difficulty: 'L3',
+            manifestOverrides: [
+                'human_prompt_probe' => [
+                    'schema_version' => 'atlas.forge.rivals.human_prompt_probe.v1',
+                    'requires_sections' => ['facts_observed'],
+                ],
+            ],
+        );
+        $this->seedTopScorecard($runId, winner: 'atlas');
+        $this->writeReceipts($paths['evidence']);
+        $this->runCollectFinal($runId);
+
+        $report = $this->report->render(['run_id' => $runId]);
+        $contract = $report['case_results'][0]['human_prompt_contract'];
+
+        $this->assertFalse($contract['complete']);
+        $this->assertContains('honest_blockers', $contract['missing_sections']);
+        $this->assertContains('replay_matrix', $contract['missing_sections']);
+        $coverage = $report['provider_performance_signal']['human_prompt_contract_coverage'];
+        $this->assertSame(1, $coverage['incomplete_contract_cases']);
+        $this->assertSame(0.0, $coverage['complete_ratio']);
+        $this->assertSame(1, $coverage['missing_sections']['honest_blockers']);
     }
 
     public function test_validity_bucket_status_marks_insufficient_for_small_samples(): void
@@ -385,10 +586,11 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
         string $mode = 'fair',
         string $atlasModel = 'claude_sonnet',
         string $rivalModel = 'claude_sonnet',
+        array $manifestOverrides = [],
     ): string {
         @mkdir($caseBase.'/evidence', 0o755, true);
         $caseId = 'release-'.$cat.'-'.bin2hex(random_bytes(2));
-        $manifest = $this->baseManifest($caseId, [
+        $manifest = $this->baseManifest($caseId, array_merge([
             'verdict' => 'comparable',
             'mode' => $mode,
             'preset' => 'release',
@@ -397,7 +599,7 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
             'difficulty_band' => $difficulty,
             'atlas_model' => $atlasModel,
             'rival_model' => $rivalModel,
-        ]);
+        ], $manifestOverrides));
         file_put_contents($caseBase.'/evidence/manifest.json', $this->jsonEncode($manifest));
         $score = [
             'schema_version' => AtlasForgeRivalsAdjudicatorService::SCHEMA_VERSION,
@@ -471,6 +673,7 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
     {
         $atlasReceipt = $this->receipt('atlas');
         $rivalReceipt = $this->receipt('rival');
+        $complexityProfile = $this->complexityProfile();
 
         return array_merge([
             'schema_version' => 'atlas.forge.rivals.run_real.v1',
@@ -494,7 +697,98 @@ final class AtlasForgeRivalsReportV3RankingTest extends TestCase
             'provider_tokens_spent' => false,
             'separated_from_external_rivals_certification' => true,
             'confirmations' => ['runbook_reviewed' => true, 'provider_cost' => true, 'real_provider_call' => true],
+            'context_profile' => [
+                'schema_version' => 'atlas.forge.rivals.context_profile.v1',
+                'prompt_style' => 'human_ambiguous_operator_ticket',
+                'long_context_required' => true,
+                'requires_assumption_log' => true,
+                'requires_tradeoff_notes' => true,
+                'requires_scope_boundary_reasoning' => true,
+                'requires_replayable_evidence' => true,
+                'requires_evidence_matrix' => true,
+                'complexity_profile' => $complexityProfile,
+            ],
+            'measurement_tags' => ['human_prompt', 'long_context', 'ambiguity_handling', 'assumption_probe', 'scope_boundary_probe'],
+            'human_prompt_probe' => [
+                'schema_version' => 'atlas.forge.rivals.human_prompt_probe.v1',
+                'requires_sections' => [
+                    'facts_observed',
+                    'assumptions',
+                    'reversible_decisions',
+                    'scope_boundaries',
+                    'evidence_plan',
+                    'replay_matrix',
+                    'tradeoffs',
+                    'honest_blockers',
+                ],
+                'complexity_profile' => $complexityProfile,
+            ],
         ], $overrides);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function complexityProfile(array $overrides = []): array
+    {
+        return array_merge([
+            'schema_version' => 'atlas.forge.rivals.case_complexity_profile.v1',
+            'difficulty_level' => 'L3',
+            'difficulty_score' => 3,
+            'domain_count' => 2,
+            'scope_surface_count' => 5,
+            'estimated_context_tokens' => 5400,
+            'reasoning_depth' => 4,
+            'ambiguity_score' => 3,
+            'risk_score' => 2,
+            'long_context_required' => true,
+            'requires_multi_step_plan' => true,
+            'requires_rollback_plan' => false,
+            'requires_evidence_matrix' => true,
+            'measured_dimensions' => [
+                'long_context_retention',
+                'ambiguous_human_prompt_handling',
+                'multi_step_reasoning',
+                'scope_boundary_discipline',
+                'replayable_evidence_quality',
+                'honest_blocker_behavior',
+            ],
+        ], $overrides);
+    }
+
+    /**
+     * @param  array<string,mixed>  $complexityProfile
+     * @return array<string,mixed>
+     */
+    private function humanComplexityManifestOverrides(array $complexityProfile): array
+    {
+        return [
+            'context_profile' => [
+                'schema_version' => 'atlas.forge.rivals.context_profile.v1',
+                'prompt_style' => 'human_ambiguous_operator_ticket',
+                'long_context_required' => true,
+                'requires_assumption_log' => true,
+                'requires_tradeoff_notes' => true,
+                'requires_scope_boundary_reasoning' => true,
+                'requires_replayable_evidence' => true,
+                'requires_evidence_matrix' => true,
+                'complexity_profile' => $complexityProfile,
+            ],
+            'human_prompt_probe' => [
+                'schema_version' => 'atlas.forge.rivals.human_prompt_probe.v1',
+                'requires_sections' => [
+                    'facts_observed',
+                    'assumptions',
+                    'reversible_decisions',
+                    'scope_boundaries',
+                    'evidence_plan',
+                    'replay_matrix',
+                    'tradeoffs',
+                    'honest_blockers',
+                ],
+                'complexity_profile' => $complexityProfile,
+            ],
+        ];
     }
 
     /**

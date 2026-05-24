@@ -147,7 +147,11 @@ final class AtlasForgeRivalsCorpusPreValidationService
     {
         $caseId = (string) ($case['case_id'] ?? '');
         $fixture = is_array($case['setup_fixture'] ?? null) ? $case['setup_fixture'] : [];
-        $seedDir = trim((string) ($fixture['seed_dir'] ?? ''));
+        $seedCandidates = array_values(array_unique(array_filter([
+            trim((string) ($fixture['seed_dir'] ?? '')),
+            trim((string) ($case['fixture_seed_path'] ?? '')),
+        ], static fn (string $path): bool => $path !== '')));
+        $seedDir = $seedCandidates[0] ?? '';
         $expectedChangedFiles = array_values(array_map(
             static fn ($v): string => trim((string) $v),
             (array) ($case['expected_changed_files'] ?? []),
@@ -164,7 +168,14 @@ final class AtlasForgeRivalsCorpusPreValidationService
         if ($seedDir === '') {
             $blockers[] = 'fixture_seed_dir_missing:'.$caseId;
         } else {
-            $seedRoot = $this->resolveSeedRoot($seedDir);
+            $seedRoot = null;
+            foreach ($seedCandidates as $candidate) {
+                $seedRoot = $this->resolveSeedRoot($candidate);
+                if ($seedRoot !== null) {
+                    $seedDir = $candidate;
+                    break;
+                }
+            }
             if ($seedRoot === null) {
                 $blockers[] = 'fixture_seed_dir_not_found:'.$caseId;
             } else {

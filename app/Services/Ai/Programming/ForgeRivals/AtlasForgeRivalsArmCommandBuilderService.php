@@ -29,6 +29,8 @@ final class AtlasForgeRivalsArmCommandBuilderService
      *   model:?string,
      *   model_id:?string,
      *   command_family:?string,
+     *   prompt_transport?:string,
+     *   stdin_prompt_hash?:string,
      *   blockers:list<string>
      * }
      */
@@ -47,6 +49,8 @@ final class AtlasForgeRivalsArmCommandBuilderService
             'claude' => $this->claudeCommand($prompt, $model, $modelId),
             'codex' => $this->codexCommand($prompt, $model, $modelId, $worktree),
             'gemini' => $this->geminiCommand($prompt, $model, $modelId),
+            'cursor' => $this->cursorCommand($prompt, $model, $modelId, 'cursor_cli'),
+            'composer' => $this->cursorCommand($prompt, $model, $modelId, 'composer_2_5'),
             default => $this->blocked($provider, $model, $modelId, ['provider_command_builder_missing:'.$provider]),
         };
     }
@@ -124,12 +128,56 @@ final class AtlasForgeRivalsArmCommandBuilderService
     }
 
     /**
-     * @param  list<string>  $command
      * @return array<string,mixed>
      */
-    private function ok(string $provider, string $model, string $modelId, string $family, array $command): array
+    private function cursorCommand(string $prompt, string $model, string $modelId, string $family): array
     {
-        return [
+        $provider = $family === 'composer_2_5' ? 'composer' : 'cursor';
+        $outputFormat = strtolower(trim((string) (config('atlas.ai.providers.cursor_cli.output_format') ?: 'stream-json')));
+        if ($outputFormat !== 'stream-json') {
+            return $this->blocked($provider, $model, $modelId, ['cursor_cli_output_format_must_be_stream_json']);
+        }
+        if ((bool) config('atlas.ai.providers.cursor_cli.force', false) === true) {
+            return $this->blocked($provider, $model, $modelId, ['cursor_cli_force_mode_forbidden']);
+        }
+
+        $binary = $this->providerBinary($provider);
+        if (! (bool) ($binary['ok'] ?? false)) {
+            return $this->blocked($provider, $model, $modelId, (array) ($binary['blockers'] ?? []));
+        }
+
+        return $this->ok($provider, $model, $modelId, $family, [
+            (string) $binary['binary'],
+            '--print',
+            '--output-format',
+            $outputFormat,
+            '--model',
+            $modelId,
+        ], [
+            'prompt_transport' => 'stdin',
+            'stdin_prompt_hash' => hash('sha256', $prompt),
+            'stdin_prompt_bytes' => strlen($prompt),
+            'command_shape_summary' => [
+                'schema_version' => 'atlas.forge.rivals.cursor_command_shape_summary.v1',
+                'print_mode' => true,
+                'output_format_stream_json' => true,
+                'model_arg_present' => true,
+                'force_absent' => true,
+                'resume_absent' => true,
+                'prompt_arg_absent' => true,
+                'governed_cursor_cli_shape' => true,
+            ],
+        ]);
+    }
+
+    /**
+     * @param  list<string>  $command
+     * @param  array<string,mixed>  $extra
+     * @return array<string,mixed>
+     */
+    private function ok(string $provider, string $model, string $modelId, string $family, array $command, array $extra = []): array
+    {
+        return array_merge([
             'ok' => true,
             'command' => $command,
             'provider' => $provider,
@@ -137,7 +185,7 @@ final class AtlasForgeRivalsArmCommandBuilderService
             'model_id' => $modelId,
             'command_family' => $family,
             'blockers' => [],
-        ];
+        ], $extra);
     }
 
     /**

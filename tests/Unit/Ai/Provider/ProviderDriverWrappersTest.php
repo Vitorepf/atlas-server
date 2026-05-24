@@ -75,6 +75,19 @@ class ProviderDriverWrappersTest extends TestCase
         $this->assertSame($first->contentHash, $first->toArray()['content_hash']);
     }
 
+    public function test_identity_fragment_uses_local_fallback_by_default_for_architecture_validate_stability(): void
+    {
+        config(['atlas.ai.provider_identity.use_vault_master_prompt' => false]);
+
+        $identity = app(ClaudeCliProviderDriver::class)->identityFragment();
+
+        $this->assertSame('atlas_ai_master_prompt_fallback', data_get($identity->metadata, 'source'));
+        $this->assertTrue((bool) data_get($identity->metadata, 'fallback'));
+        $this->assertSame('vault_master_prompt_projection_disabled', data_get($identity->metadata, 'fallback_reason'));
+        $this->assertStringContainsString('provider is an execution engine', $identity->text);
+        $this->assertStringContainsString('Atlas AI Agent Behavior Contract v1', $identity->text);
+    }
+
     /**
      * @param  class-string<ProviderDriver>  $driverClass
      */

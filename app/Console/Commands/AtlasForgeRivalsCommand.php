@@ -42,7 +42,7 @@ use Illuminate\Console\Command;
 class AtlasForgeRivalsCommand extends Command
 {
     protected $signature = 'atlas:forge:rivals
-        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|evidence|replay|verify-evidence|battery-evidence|battery-verify-evidence|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|models|arena-readiness|industrial-suite|industrial-execution|cases|ledger|ledger-record|decide-signal|next|resume|battery-report|matrix-report|audit}
+        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|evidence|replay|verify-evidence|battery-evidence|battery-verify-evidence|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|runners|models|arena-readiness|industrial-suite|industrial-execution|cases|ledger|ledger-record|decide-signal|next|resume|battery-report|matrix-report|audit}
         {--worktree-root= : Back-compat base path for isolated test worktrees}
         {--repo-root= : Back-compat source repo root used when provisioning worktrees}
         {--atlas-worktree= : Back-compat isolated Atlas Forge worktree}
@@ -54,7 +54,7 @@ class AtlasForgeRivalsCommand extends Command
         {--mode= : fair|full_power|power|provider_arena|provider_pure|diagnostic|replay_only|local_fake (power is alias for full_power)}
         {--atlas-model= : sonnet|opus|claude_sonnet|claude_opus|codex|auto}
         {--rival= : claude_sonnet|claude_opus|codex|auto}
-        {--arm-a= : Provider Arena arm A id (atlas_forge|atlas_dev|claude_code|codex_cli|gemini_cli|scripted_runner|manual_runner|future_runner)}
+        {--arm-a= : Provider Arena arm A id (atlas_forge|atlas_dev|claude_code|codex_cli|gemini_cli|cursor_cli|composer_2_5|scripted_runner|manual_runner|future_runner)}
         {--arm-b= : Provider Arena arm B id (same set as --arm-a)}
         {--arm-a-model= : Arena arm A model shorthand (e.g. sonnet, opus, codex, gpt-5.5)}
         {--arm-b-model= : Arena arm B model shorthand (e.g. sonnet, opus, codex, gpt-5.5)}

@@ -173,6 +173,8 @@ Schema: `atlas.forge.rivals.evidence_pack.v2`. The pack written to
 | `verdict`                                        | string              | Copied from run manifest.                                      |
 | `claim_ready`                                    | bool                | **Always `false`** when any `missing_required` is non-empty.   |
 | `manifest_summary`                               | object              | Compact snapshot of run manifest (mode/preset/models/case_id). |
+| `arena_contracts`                                 | object              | Per-arm Provider Arena contract copied from the run manifest, including resolved arm/provider/model/builder/capabilities. |
+| `meta_provider_evidence_contract`                 | object              | Additive fail-closed contract for Cursor/Composer meta-provider runs. |
 | `is_comparable_real_run`                         | bool                | Policy-computed.                                               |
 | `workspace_hash_before` / `workspace_hash_after` | object              | Per-arm sha256 of `git status --porcelain -uall` output.        |
 | `after_clean_check`                              | object              | `{ran, clean, dirty_after_run, workspace_blockers, arm_blocking_changes, changed_files, head_changed, source, reason_not_run}`. |
@@ -200,6 +202,40 @@ Whenever an artifact has `present=false`, the descriptor MUST carry
 
 If the verifier finds a `present=false` descriptor lacking `reason_missing`,
 it emits `absent_without_reason_missing:<key>` and marks the pack invalid.
+
+### Meta-provider evidence contract
+
+When `arena_contracts` shows an arm with `meta_provider=true`, the collector
+adds `meta_provider_evidence_contract`:
+
+- schema `atlas.forge.rivals.meta_provider_evidence_contract.v1`;
+- `applies=true` only for runs with Cursor/Composer-style meta-provider arms;
+- required receipt fields: `model`, `command_hash`, `prompt_hash`,
+  `prompt_transport`, `stdin_prompt_hash`, `stdout_hash` and `exit_code`;
+- when `tool_event_stream=stream-json`, required stream receipt signals:
+  `output_format=stream-json`, parseable NDJSON, system init event with
+  `apiKeySource`, absolute `cwd`, `model` and `permissionMode`, user message
+  event, terminal successful result event and consistent `session_id`;
+- required case fields for meta-provider stress cases: `human_prompt_hash`,
+  `context_profile`, `measurement_tags` and `human_prompt_probe`;
+- `claim_effect=blocks_score_without_receipts_and_prompt_context`.
+
+Verifier behavior remains mode-aware. `dry_run` can plan without receipts and
+without provider calls. `real_run` blocks if a meta-provider receipt is missing,
+if any required receipt field is absent, if a Cursor/Composer stream-json
+receipt lacks stdin prompt transport/hash, init/result/session consistency,
+governed command shape (`--print`, `--output-format stream-json`, `--model`,
+no `--force`, no `--resume`, no positional prompt arg), official init metadata,
+user message evidence, successful terminal result, or if a meta-provider stress
+case lacks the human prompt hash/context profile/probe needed for replayable
+interpretation. The Cursor stream contract follows the official Cursor Agent CLI
+`--print --output-format stream-json` shape: NDJSON starts with a system init
+event and ends with a successful terminal result event. The evidence pack stores
+boolean signals and a session hash only; it does not store API keys or raw
+credentials. The probe schema is
+`atlas.forge.rivals.human_prompt_probe.v1` and requires adjudicable sections for
+facts, assumptions, reversible decisions, scope boundaries, evidence plan,
+tradeoffs and honest blockers.
 
 ---
 

@@ -361,6 +361,38 @@ final class AtlasWorkspaceIntelligenceController extends Controller
         return response()->json($payload, $payload['status'] === 'blocked' ? 422 : 200);
     }
 
+    public function learningLoop(
+        Request $request,
+        AtlasWorkspaceIntelligenceRuntimeService $runtime,
+        AtlasWorkspaceIntelligenceSnapshotRepository $snapshots,
+        AtlasWorkspaceRuntimeProjectionRepository $projections,
+    ): JsonResponse {
+        if ($request->boolean('latest')) {
+            $latestProjection = $projections->latest($this->stringQuery($request, 'workspace') ?? 'atlas', 'AWIL');
+            if ($latestProjection !== null) {
+                $stale = $this->staleProjectionResponse($latestProjection->payload, 'AWIL', $this->currentWorkspaceHash($runtime, $request));
+                if ($stale !== null) {
+                    return $stale;
+                }
+
+                return response()->json($latestProjection->payload);
+            }
+
+            $latest = $snapshots->latest($this->stringQuery($request, 'workspace') ?? 'atlas');
+            if ($latest !== null) {
+                return response()->json(data_get($latest->payload, 'awis_learning_loop', []));
+            }
+        }
+
+        $payload = $runtime->learningLoop(
+            workspace: $this->stringQuery($request, 'workspace'),
+            task: $this->stringQuery($request, 'task') ?? '',
+            conversationTexts: [],
+        );
+
+        return response()->json($payload, $payload['status'] === 'blocked' ? 422 : 200);
+    }
+
     public function gate(
         Request $request,
         AtlasWorkspaceIntelligenceExecutionGateService $gate,

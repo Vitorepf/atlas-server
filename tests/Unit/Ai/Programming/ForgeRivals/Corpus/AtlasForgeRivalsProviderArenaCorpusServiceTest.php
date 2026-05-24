@@ -263,6 +263,8 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
             'incident-response' => 50,
             'product-security-migrations' => 50,
             'statistical-repeat' => 60,
+            'meta-provider-stress' => 50,
+            'extreme-differentiator' => 80,
         ];
 
         foreach ($expected as $caseSet => $count) {
@@ -297,6 +299,80 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
                 ['product', 'security', 'migration'],
                 (array) $case['industrial_domains'],
             ));
+        }
+    }
+
+    public function test_every_case_exposes_human_ambiguous_prompt_and_context_profile(): void
+    {
+        foreach (array_merge(
+            $this->corpus->casesForCaseSet('release'),
+            $this->corpus->casesForCaseSet('meta-provider-stress'),
+        ) as $case) {
+            $this->assertArrayHasKey('human_prompt', $case);
+            $this->assertStringContainsString('ticket real de engenharia', (string) $case['human_prompt']);
+            $this->assertStringContainsString('contexto incompleto', (string) $case['human_prompt']);
+            $this->assertStringContainsString('Nao toque em:', (string) $case['human_prompt']);
+            $contextProfile = (array) ($case['context_profile'] ?? []);
+            $this->assertSame('atlas.forge.rivals.context_profile.v1', $contextProfile['schema_version'] ?? null);
+            $this->assertTrue((bool) ($contextProfile['requires_assumption_log'] ?? false));
+            $this->assertGreaterThanOrEqual(3000, (int) ($contextProfile['estimated_context_tokens'] ?? 0));
+            $this->assertGreaterThanOrEqual(2, (int) ($contextProfile['reasoning_depth'] ?? 0));
+            $this->assertSame(
+                'atlas.forge.rivals.case_complexity_profile.v1',
+                $contextProfile['complexity_profile']['schema_version'] ?? null,
+            );
+            $this->assertContains('replayable_evidence_quality', (array) ($contextProfile['complexity_profile']['measured_dimensions'] ?? []));
+            $this->assertContains('long_context', (array) $case['measurement_tags']);
+            $this->assertContains('assumption_probe', (array) $case['measurement_tags']);
+            $probe = (array) ($case['human_prompt_probe'] ?? []);
+            $this->assertSame('atlas.forge.rivals.human_prompt_probe.v1', $probe['schema_version'] ?? null);
+            $this->assertGreaterThanOrEqual(520, (int) ($probe['min_prompt_chars'] ?? 0));
+            $this->assertGreaterThanOrEqual(3000, (int) ($probe['min_context_tokens'] ?? 0));
+            foreach (['facts_observed', 'assumptions', 'reversible_decisions', 'scope_boundaries', 'evidence_plan', 'replay_matrix', 'tradeoffs', 'honest_blockers'] as $section) {
+                $this->assertContains($section, (array) ($probe['requires_sections'] ?? []));
+            }
+        }
+    }
+
+    public function test_meta_provider_stress_case_set_targets_cursor_and_composer_surfaces(): void
+    {
+        $cases = $this->corpus->casesForCaseSet('meta-provider-stress');
+        $coverage = $this->corpus->metaProviderStressCoverageSummary();
+
+        $this->assertCount(50, $cases);
+        $this->assertSame('atlas.forge.rivals.meta_provider_stress_coverage.v1', $coverage['schema_version']);
+        $this->assertSame(50, $coverage['case_count']);
+        $this->assertTrue($coverage['coverage_floor_met']);
+        $this->assertGreaterThanOrEqual(8, $coverage['domain_count']);
+        $this->assertGreaterThanOrEqual(10, $coverage['critical_or_high_risk_cases']);
+        $this->assertGreaterThanOrEqual(8, $coverage['high_ambiguity_cases']);
+        $this->assertSame(50, $coverage['long_context_cases']);
+        $this->assertGreaterThanOrEqual(8, $coverage['rollback_plan_cases']);
+        $this->assertSame(50, $coverage['multi_step_plan_cases']);
+        $this->assertSame(50, $coverage['evidence_matrix_cases']);
+        $this->assertGreaterThanOrEqual(4200, $coverage['min_estimated_context_tokens']);
+        $this->assertGreaterThanOrEqual($coverage['min_estimated_context_tokens'], $coverage['max_estimated_context_tokens']);
+        foreach (['ambiguous_bug', 'incomplete_requirements', 'multi_day_task', 'incident_rollback', 'security', 'product', 'integration', 'performance'] as $domain) {
+            $this->assertArrayHasKey($domain, $coverage['domains']);
+        }
+        foreach ($cases as $case) {
+            $this->assertSame('meta-provider-stress', $case['industrial_case_set']);
+            $stress = (array) ($case['meta_provider_stress'] ?? []);
+            $this->assertSame('atlas.forge.rivals.meta_provider_stress.v1', $stress['schema_version'] ?? null);
+            $this->assertContains('cursor_cli', (array) ($stress['targets'] ?? []));
+            $this->assertContains('composer_2_5', (array) ($stress['targets'] ?? []));
+            $this->assertSame(
+                'atlas.forge.rivals.case_complexity_profile.v1',
+                $stress['complexity_profile']['schema_version'] ?? null,
+            );
+            $this->assertGreaterThanOrEqual(4200, (int) ($stress['measurement_floor']['min_context_tokens'] ?? 0));
+            $this->assertGreaterThanOrEqual(3, (int) ($stress['measurement_floor']['min_reasoning_depth'] ?? 0));
+            $this->assertTrue((bool) ($stress['measurement_floor']['requires_replay_matrix'] ?? false));
+            $this->assertFalse((bool) ($stress['measurement_floor']['synthetic_claim_allowed'] ?? true));
+            $this->assertContains('multi_step_reasoning', (array) ($stress['measures'] ?? []));
+            $this->assertContains('stream_json_tool_events', (array) ($stress['cursor_meta_provider_expected_receipts'] ?? []));
+            $this->assertContains('cursor_meta_provider', (array) $case['measurement_tags']);
+            $this->assertSame([], $this->corpus->validateManifest($case), "Meta-provider stress case inválido: {$case['case_id']}");
         }
     }
 
@@ -353,9 +429,79 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
         $this->assertSame(50, $snap['case_set_counts']['incident-response']);
         $this->assertSame(50, $snap['case_set_counts']['product-security-migrations']);
         $this->assertSame(60, $snap['case_set_counts']['statistical-repeat']);
+        $this->assertSame(50, $snap['case_set_counts']['meta-provider-stress']);
+        $this->assertSame(80, $snap['case_set_counts']['extreme-differentiator']);
         foreach (AtlasForgeRivalsProviderArenaCorpusService::TASK_CATEGORIES as $cat) {
             $this->assertArrayHasKey($cat, $snap['by_task_category']);
             $this->assertSame(5, $snap['by_task_category'][$cat], "Categoria {$cat} deve ter 5 cases (matriz 8x5)");
+        }
+    }
+
+    public function test_extreme_differentiator_case_set_targets_hard_runner_separation(): void
+    {
+        $cases = $this->corpus->casesForCaseSet('extreme-differentiator');
+        $highAmbiguityCases = 0;
+        $capabilityCounts = [];
+        $riskCounts = [];
+
+        $this->assertCount(80, $cases);
+        foreach ($cases as $case) {
+            $this->assertSame('extreme-differentiator', $case['industrial_case_set']);
+            $this->assertContains('extreme_differentiator', (array) $case['measurement_tags']);
+            $this->assertContains('runner_strength_probe', (array) $case['measurement_tags']);
+            $this->assertArrayHasKey('extreme_hardening', $case);
+            $this->assertNotEmpty($case['measured_capabilities']);
+            $this->assertSame('L5', $case['difficulty_level']);
+            $this->assertSame(5.0, (float) $case['difficulty_score']);
+            $this->assertSame('high', $case['ambiguity_level']);
+            $this->assertContains($case['risk_level'], ['high', 'critical']);
+            $this->assertStringContainsString('Ambiguidade percebida: high', (string) $case['human_prompt']);
+            $this->assertStringContainsString('risco: '.(string) $case['risk_level'], (string) $case['human_prompt']);
+            $this->assertSame('L5', $case['context_profile']['complexity_profile']['difficulty_level'] ?? null);
+            $this->assertSame('high', $case['human_prompt_probe']['ambiguity_level'] ?? null);
+            $this->assertSame('L5', $case['extreme_hardening']['hardened_difficulty_level'] ?? null);
+            $riskCounts[(string) $case['risk_level']] = ($riskCounts[(string) $case['risk_level']] ?? 0) + 1;
+            foreach ((array) $case['measured_capabilities'] as $capability) {
+                $capabilityCounts[(string) $capability] = ($capabilityCounts[(string) $capability] ?? 0) + 1;
+            }
+            if (($case['ambiguity_level'] ?? null) === 'high') {
+                $highAmbiguityCases++;
+            }
+
+            $profile = (array) ($case['extreme_differentiator'] ?? []);
+            $this->assertSame('atlas.forge.rivals.extreme_differentiator.v1', $profile['schema_version'] ?? null);
+            $this->assertSame('separate runner strengths when broad release batteries produce ties', $profile['purpose'] ?? null);
+            $this->assertContains('codex_cli', (array) ($profile['targets'] ?? []));
+            $this->assertContains('composer_2_5', (array) ($profile['targets'] ?? []));
+            $this->assertContains('claude_code', (array) ($profile['targets'] ?? []));
+            $this->assertTrue((bool) ($profile['required_signal']['requires_separation_analysis'] ?? false));
+            $this->assertTrue((bool) ($profile['required_signal']['tie_is_diagnostic_not_claim'] ?? false));
+            $this->assertSame(['L5'], (array) ($profile['required_signal']['allowed_difficulty_levels'] ?? []));
+            $this->assertContains($case['difficulty_level'], (array) ($profile['required_signal']['allowed_difficulty_levels'] ?? []));
+            $this->assertGreaterThanOrEqual(5, (int) ($profile['required_signal']['min_reasoning_depth'] ?? 0));
+            $this->assertContains('honest_blocker_behavior', (array) ($profile['measures'] ?? []));
+            $this->assertSame([], $this->corpus->validateManifest($case), "Extreme differentiator case inválido: {$case['case_id']}");
+        }
+
+        $this->assertSame(80, $highAmbiguityCases);
+        $this->assertGreaterThanOrEqual(49, ($riskCounts['high'] ?? 0) + ($riskCounts['critical'] ?? 0));
+        foreach ([
+            'ambiguity_resolution',
+            'long_context_retention',
+            'multi_step_execution',
+            'evidence_replay_completeness',
+            'honest_blocker_behavior',
+            'scope_boundary_probe',
+            'rollback_safety',
+            'security_fail_closed',
+            'performance_tradeoff_quality',
+            'ux_tradeoff_quality',
+        ] as $capability) {
+            $this->assertGreaterThanOrEqual(
+                12,
+                $capabilityCounts[$capability] ?? 0,
+                "Extreme set precisa medir {$capability} pelo menos 12 vezes.",
+            );
         }
     }
 

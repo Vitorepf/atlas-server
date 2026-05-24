@@ -118,7 +118,7 @@ final class AtlasForgeRivalsIndustrialBenchmarkSuiteCertification
         $checks = [
             'canonical_doc_exists' => is_file($repoRoot.'/docs/engineering-knowledge-base/atlas-forge-rivals-industrial-benchmark-suite-v1.md'),
             'industrial_suite_action_wired' => in_array('industrial-suite', AtlasForgeRivalsCommand::ACTIONS, true),
-            'industrial_presets_declared' => count(AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS) === 8,
+            'industrial_presets_declared' => $this->industrialPresetsDeclared(),
             'industrial_50_count_is_50' => (int) data_get($presets, 'industrial-50.count', 0) === 50,
             'industrial_100_count_is_100' => (int) data_get($presets, 'industrial-100.count', 0) === 100,
             'industrial_200_count_is_200' => (int) data_get($presets, 'industrial-200.count', 0) === 200,
@@ -170,6 +170,23 @@ final class AtlasForgeRivalsIndustrialBenchmarkSuiteCertification
         }
 
         return true;
+    }
+
+    private function industrialPresetsDeclared(): bool
+    {
+        $required = [
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_100,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_200,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_AMBIGUOUS_BUGS,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_MULTI_DAY_REFACTORS,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INCIDENT_RESPONSE,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_PRODUCT_SECURITY_MIGRATIONS,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+        ];
+
+        return array_diff($required, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS) === [];
     }
 
     /**

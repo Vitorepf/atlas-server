@@ -174,6 +174,11 @@ final class AtlasForgeRivalsResponseBuilder
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
             'separated_from_external_rivals_certification' => true,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
         ];
 
         foreach ($extra as $k => $v) {

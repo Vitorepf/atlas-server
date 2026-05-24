@@ -443,6 +443,12 @@ final class AtlasForgeRivalsBatteryEvidenceService
             'difficulty_level' => $case['difficulty_level'] ?? null,
             'difficulty_level_origin' => $case['difficulty_level_origin'] ?? 'missing',
             'difficulty_weight' => $case['difficulty_weight'] ?? null,
+            'context_profile' => $case['context_profile'] ?? null,
+            'measurement_tags' => $case['measurement_tags'] ?? [],
+            'human_prompt_probe' => $case['human_prompt_probe'] ?? null,
+            'meta_provider_stress' => $case['meta_provider_stress'] ?? null,
+            'extreme_differentiator' => $case['extreme_differentiator'] ?? null,
+            'measured_capabilities' => $this->stringList($case['measured_capabilities'] ?? []),
             'verdict' => $case['verdict'] ?? null,
             'evidence_subdir' => $case['evidence_subdir'] ?? null,
             'evidence_path' => $case['evidence_path'] ?? null,
@@ -513,6 +519,12 @@ final class AtlasForgeRivalsBatteryEvidenceService
             'difficulty_level' => null,
             'difficulty_level_origin' => 'missing',
             'difficulty_weight' => null,
+            'context_profile' => $manifest['context_profile'] ?? null,
+            'measurement_tags' => $this->stringList($manifest['measurement_tags'] ?? []),
+            'human_prompt_probe' => $manifest['human_prompt_probe'] ?? null,
+            'meta_provider_stress' => $manifest['meta_provider_stress'] ?? null,
+            'extreme_differentiator' => $manifest['extreme_differentiator'] ?? null,
+            'measured_capabilities' => $this->stringList($manifest['measured_capabilities'] ?? []),
             'verdict' => $pack['verdict'] ?? $manifest['verdict'] ?? 'unknown',
             'evidence_subdir' => null,
             'evidence_path' => $paths['evidence'],
@@ -699,7 +711,6 @@ final class AtlasForgeRivalsBatteryEvidenceService
     }
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function stringList(mixed $value): array

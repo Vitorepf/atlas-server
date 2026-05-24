@@ -128,6 +128,10 @@ final class AtlasForgeRivalsSchemaContractService
         'risk_level',
         'objective',
         'business_rule',
+        'human_prompt',
+        'context_profile',
+        'measurement_tags',
+        'human_prompt_probe',
         'acceptance_criteria',
         'allowed_files_scope',
         'forbidden_files_scope',
@@ -149,7 +153,7 @@ final class AtlasForgeRivalsSchemaContractService
 
     /**
      * @param  array<string,mixed>  $case
-     * @return list<string>  violations
+     * @return list<string> violations
      */
     public function validateCorpusCase(array $case): array
     {
@@ -167,6 +171,38 @@ final class AtlasForgeRivalsSchemaContractService
 
         if (array_key_exists('claim_level', $case) && (string) $case['claim_level'] !== 'case_result_only') {
             $violations[] = 'corpus_case.claim_level_must_be_case_result_only:'.(string) $case['claim_level'];
+        }
+        if (array_key_exists('human_prompt', $case) && trim((string) $case['human_prompt']) === '') {
+            $violations[] = 'corpus_case.human_prompt_must_be_non_empty';
+        }
+        if (array_key_exists('context_profile', $case)) {
+            $context = is_array($case['context_profile']) ? $case['context_profile'] : [];
+            if (($context['schema_version'] ?? null) !== 'atlas.forge.rivals.context_profile.v1') {
+                $violations[] = 'corpus_case.context_profile_schema_version_invalid';
+            }
+            if (($context['requires_assumption_log'] ?? false) !== true) {
+                $violations[] = 'corpus_case.context_profile_requires_assumption_log_missing';
+            }
+            if (($context['complexity_profile']['schema_version'] ?? null) !== 'atlas.forge.rivals.case_complexity_profile.v1') {
+                $violations[] = 'corpus_case.context_profile_complexity_profile_missing';
+            }
+        }
+        if (array_key_exists('measurement_tags', $case) && ! in_array('human_prompt', (array) $case['measurement_tags'], true)) {
+            $violations[] = 'corpus_case.measurement_tags_missing_human_prompt';
+        }
+        if (array_key_exists('human_prompt_probe', $case)) {
+            $probe = is_array($case['human_prompt_probe']) ? $case['human_prompt_probe'] : [];
+            if (($probe['schema_version'] ?? null) !== 'atlas.forge.rivals.human_prompt_probe.v1') {
+                $violations[] = 'corpus_case.human_prompt_probe_schema_version_invalid';
+            }
+            foreach (['facts_observed', 'assumptions', 'reversible_decisions', 'scope_boundaries', 'evidence_plan', 'replay_matrix', 'tradeoffs', 'honest_blockers'] as $section) {
+                if (! in_array($section, (array) ($probe['requires_sections'] ?? []), true)) {
+                    $violations[] = 'corpus_case.human_prompt_probe_missing_section:'.$section;
+                }
+            }
+            if (($probe['complexity_profile']['schema_version'] ?? null) !== 'atlas.forge.rivals.case_complexity_profile.v1') {
+                $violations[] = 'corpus_case.human_prompt_probe_complexity_profile_missing';
+            }
         }
 
         return $violations;
@@ -294,6 +330,7 @@ final class AtlasForgeRivalsSchemaContractService
         'rival_score',
         'case_results',
         'claim_status',
+        'provider_performance_signal',
     ];
 
     /** @var list<string> */
@@ -305,6 +342,54 @@ final class AtlasForgeRivalsSchemaContractService
         'raw_score',
         'difficulty_multiplier',
         'difficulty_weighted_score',
+    ];
+
+    /** @var list<string> */
+    public const REQUIRED_FIELDS_REPORT_CLAIM_STATUS = [
+        'can_feed_ledger',
+        'can_feed_decide_signal',
+        'ledger_blockers',
+    ];
+
+    /** @var list<string> */
+    public const REQUIRED_FIELDS_REPORT_PROVIDER_SIGNAL = [
+        'schema_version',
+        'advisory_only',
+        'should_update_provider_topology',
+        'never_changes_atlas_decide_topology',
+        'owner_of_model_routing',
+        'routing_effect',
+        'can_feed_ledger',
+        'ledger_blockers',
+        'do_not_use_when',
+        'human_prompt_contract_coverage',
+        'complexity_profile_coverage',
+    ];
+
+    /** @var list<string> */
+    public const REQUIRED_FIELDS_REPORT_HUMAN_PROMPT_COVERAGE = [
+        'schema_version',
+        'advisory_only',
+        'routing_effect',
+        'case_count',
+        'cases_with_contract',
+        'complete_contract_cases',
+        'coverage_ratio',
+        'complete_ratio',
+    ];
+
+    /** @var list<string> */
+    public const REQUIRED_FIELDS_REPORT_COMPLEXITY_COVERAGE = [
+        'schema_version',
+        'advisory_only',
+        'routing_effect',
+        'case_count',
+        'cases_with_complexity_profile',
+        'coverage_ratio',
+        'long_context_required_cases',
+        'evidence_matrix_required_cases',
+        'multi_step_plan_required_cases',
+        'meta_provider_claim_floor_met',
     ];
 
     /**
@@ -336,6 +421,136 @@ final class AtlasForgeRivalsSchemaContractService
                     }
                 }
             }
+        }
+        if (array_key_exists('claim_status', $payload)) {
+            if (! is_array($payload['claim_status'])) {
+                $violations[] = 'report.claim_status.not_an_object';
+            } else {
+                foreach (self::REQUIRED_FIELDS_REPORT_CLAIM_STATUS as $field) {
+                    if (! array_key_exists($field, $payload['claim_status'])) {
+                        $violations[] = "report.claim_status.missing_field:{$field}";
+                    }
+                }
+                if (array_key_exists('ledger_blockers', $payload['claim_status']) && ! is_array($payload['claim_status']['ledger_blockers'])) {
+                    $violations[] = 'report.claim_status.ledger_blockers.not_an_array';
+                }
+                if (($payload['claim_status']['can_feed_ledger'] ?? null) === true
+                    && is_array($payload['claim_status']['ledger_blockers'] ?? null)
+                    && $payload['claim_status']['ledger_blockers'] !== []) {
+                    $violations[] = 'report.claim_status.can_feed_ledger_true_with_ledger_blockers';
+                }
+            }
+        }
+        if (array_key_exists('provider_performance_signal', $payload)) {
+            if (! is_array($payload['provider_performance_signal'])) {
+                $violations[] = 'report.provider_performance_signal.not_an_object';
+            } else {
+                foreach (self::REQUIRED_FIELDS_REPORT_PROVIDER_SIGNAL as $field) {
+                    if (! array_key_exists($field, $payload['provider_performance_signal'])) {
+                        $violations[] = "report.provider_performance_signal.missing_field:{$field}";
+                    }
+                }
+                if (($payload['provider_performance_signal']['advisory_only'] ?? null) !== true) {
+                    $violations[] = 'report.provider_performance_signal.advisory_only_must_be_true';
+                }
+                if (($payload['provider_performance_signal']['should_update_provider_topology'] ?? null) !== false) {
+                    $violations[] = 'report.provider_performance_signal.should_update_provider_topology_must_be_false';
+                }
+                if (($payload['provider_performance_signal']['never_changes_atlas_decide_topology'] ?? null) !== true) {
+                    $violations[] = 'report.provider_performance_signal.never_changes_atlas_decide_topology_must_be_true';
+                }
+                if (($payload['provider_performance_signal']['owner_of_model_routing'] ?? null) !== 'atlas_decide') {
+                    $violations[] = 'report.provider_performance_signal.owner_of_model_routing_must_be_atlas_decide';
+                }
+                if (($payload['provider_performance_signal']['routing_effect'] ?? null) !== 'none') {
+                    $violations[] = 'report.provider_performance_signal.routing_effect_must_be_none';
+                }
+                if (array_key_exists('ledger_blockers', $payload['provider_performance_signal']) && ! is_array($payload['provider_performance_signal']['ledger_blockers'])) {
+                    $violations[] = 'report.provider_performance_signal.ledger_blockers.not_an_array';
+                }
+                if (array_key_exists('do_not_use_when', $payload['provider_performance_signal']) && ! is_array($payload['provider_performance_signal']['do_not_use_when'])) {
+                    $violations[] = 'report.provider_performance_signal.do_not_use_when.not_an_array';
+                }
+                if (($payload['provider_performance_signal']['can_feed_ledger'] ?? null) === true
+                    && is_array($payload['provider_performance_signal']['ledger_blockers'] ?? null)
+                    && $payload['provider_performance_signal']['ledger_blockers'] !== []) {
+                    $violations[] = 'report.provider_performance_signal.can_feed_ledger_true_with_ledger_blockers';
+                }
+                if (($payload['provider_performance_signal']['can_feed_ledger'] ?? null) === true
+                    && is_array($payload['provider_performance_signal']['do_not_use_when'] ?? null)
+                    && $payload['provider_performance_signal']['do_not_use_when'] !== []) {
+                    $violations[] = 'report.provider_performance_signal.can_feed_ledger_true_with_do_not_use_when';
+                }
+                if (($payload['claim_status']['can_feed_ledger'] ?? null) === true
+                    && ($payload['provider_performance_signal']['can_feed_ledger'] ?? null) === false) {
+                    $violations[] = 'report.claim_status.can_feed_ledger_true_while_provider_signal_blocks_ledger';
+                }
+                $violations = array_merge(
+                    $violations,
+                    $this->validateReportHumanPromptCoverage(
+                        $payload['provider_performance_signal']['human_prompt_contract_coverage'] ?? null,
+                    ),
+                    $this->validateReportComplexityCoverage(
+                        $payload['provider_performance_signal']['complexity_profile_coverage'] ?? null,
+                    ),
+                );
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function validateReportHumanPromptCoverage(mixed $coverage): array
+    {
+        if (! is_array($coverage)) {
+            return ['report.provider_performance_signal.human_prompt_contract_coverage.not_an_object'];
+        }
+
+        $violations = [];
+        foreach (self::REQUIRED_FIELDS_REPORT_HUMAN_PROMPT_COVERAGE as $field) {
+            if (! array_key_exists($field, $coverage)) {
+                $violations[] = "report.provider_performance_signal.human_prompt_contract_coverage.missing_field:{$field}";
+            }
+        }
+        if (($coverage['schema_version'] ?? null) !== 'atlas.forge.rivals.human_prompt_contract_coverage.v1') {
+            $violations[] = 'report.provider_performance_signal.human_prompt_contract_coverage.schema_version_invalid';
+        }
+        if (($coverage['advisory_only'] ?? null) !== true) {
+            $violations[] = 'report.provider_performance_signal.human_prompt_contract_coverage.advisory_only_must_be_true';
+        }
+        if (($coverage['routing_effect'] ?? null) !== 'none') {
+            $violations[] = 'report.provider_performance_signal.human_prompt_contract_coverage.routing_effect_must_be_none';
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function validateReportComplexityCoverage(mixed $coverage): array
+    {
+        if (! is_array($coverage)) {
+            return ['report.provider_performance_signal.complexity_profile_coverage.not_an_object'];
+        }
+
+        $violations = [];
+        foreach (self::REQUIRED_FIELDS_REPORT_COMPLEXITY_COVERAGE as $field) {
+            if (! array_key_exists($field, $coverage)) {
+                $violations[] = "report.provider_performance_signal.complexity_profile_coverage.missing_field:{$field}";
+            }
+        }
+        if (($coverage['schema_version'] ?? null) !== 'atlas.forge.rivals.complexity_profile_coverage.v1') {
+            $violations[] = 'report.provider_performance_signal.complexity_profile_coverage.schema_version_invalid';
+        }
+        if (($coverage['advisory_only'] ?? null) !== true) {
+            $violations[] = 'report.provider_performance_signal.complexity_profile_coverage.advisory_only_must_be_true';
+        }
+        if (($coverage['routing_effect'] ?? null) !== 'none') {
+            $violations[] = 'report.provider_performance_signal.complexity_profile_coverage.routing_effect_must_be_none';
         }
 
         return $violations;

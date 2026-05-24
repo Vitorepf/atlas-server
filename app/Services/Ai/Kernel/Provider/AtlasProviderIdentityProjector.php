@@ -17,6 +17,10 @@ class AtlasProviderIdentityProjector
         $providerId = trim($providerId) !== '' ? trim($providerId) : 'unknown_provider';
 
         try {
+            if (! (bool) config('atlas.ai.provider_identity.use_vault_master_prompt', false)) {
+                return $this->fallbackIdentity($providerId, 'vault_master_prompt_projection_disabled');
+            }
+
             $master = $this->skills->masterPrompt();
             $text = $this->providerProjectionText($providerId, $master->body);
 
@@ -34,18 +38,7 @@ class AtlasProviderIdentityProjector
                 ],
             );
         } catch (Throwable $exception) {
-            return IdentityFragment::fromText(
-                identityId: $this->identityId($providerId),
-                text: $this->providerProjectionText($providerId, $this->fallbackMasterIdentity()),
-                metadata: [
-                    'source' => 'atlas_ai_master_prompt_fallback',
-                    'provider_id' => $providerId,
-                    'integration_stage' => 'canonical_identity_projection',
-                    'agent_behavior_contract' => $this->agentBehavior->toArray(),
-                    'fallback' => true,
-                    'fallback_reason' => $exception::class,
-                ],
-            );
+            return $this->fallbackIdentity($providerId, $exception::class);
         }
     }
 
@@ -65,6 +58,22 @@ class AtlasProviderIdentityProjector
             'Behavior contract:',
             $this->agentBehavior->text(),
         ]));
+    }
+
+    private function fallbackIdentity(string $providerId, string $reason): IdentityFragment
+    {
+        return IdentityFragment::fromText(
+            identityId: $this->identityId($providerId),
+            text: $this->providerProjectionText($providerId, $this->fallbackMasterIdentity()),
+            metadata: [
+                'source' => 'atlas_ai_master_prompt_fallback',
+                'provider_id' => $providerId,
+                'integration_stage' => 'canonical_identity_projection',
+                'agent_behavior_contract' => $this->agentBehavior->toArray(),
+                'fallback' => true,
+                'fallback_reason' => $reason,
+            ],
+        );
     }
 
     private function fallbackMasterIdentity(): string

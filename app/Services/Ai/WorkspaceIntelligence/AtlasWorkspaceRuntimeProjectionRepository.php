@@ -32,6 +32,7 @@ final class AtlasWorkspaceRuntimeProjectionRepository
             'AWTR' => 'awtr',
             'AWCO' => 'awco',
             'AWEF' => 'awef',
+            'AWIL' => 'awis_learning_loop',
         ] as $family => $key) {
             $payload = (array) ($report[$key] ?? []);
             if ($payload === []) {

@@ -67,10 +67,17 @@ final class AtlasForgeRivalsMatrixReportService
 
     public const WINNER_NONE = null;
 
+    private const MIN_DIFFERENTIATED_CAPABILITIES_FOR_STRONG_SIGNAL = 3;
+
+    private readonly AtlasForgeRivalsProviderArenaCorpusService $corpus;
+
     public function __construct(
         private readonly AtlasForgeRivalsRunPathResolver $paths,
         private readonly AtlasForgeRivalsBatteryEvidenceService $battery,
-    ) {}
+        ?AtlasForgeRivalsProviderArenaCorpusService $corpus = null,
+    ) {
+        $this->corpus = $corpus ?? new AtlasForgeRivalsProviderArenaCorpusService;
+    }
 
     /**
      * @param  array<string,mixed>  $input
@@ -129,6 +136,8 @@ final class AtlasForgeRivalsMatrixReportService
         $difficultyRanking = $this->buildDifficultyRanking($comparableScored);
         $heatmap = $this->buildHeatmap($comparableScored);
         $planningExecution = $this->buildPlanningExecutionSplit($comparableScored);
+        $capabilityRanking = $this->buildCapabilityRanking($comparableScored);
+        $differentiation = $this->buildDifferentiationDiagnosis($overall, $capabilityRanking);
         $betterMap = $this->buildBetterMap($categoryRanking, $difficultyRanking);
         $atlasDecide = $insufficient
             ? $this->insufficientAtlasDecide()
@@ -149,6 +158,8 @@ final class AtlasForgeRivalsMatrixReportService
             'difficulty_ranking' => $difficultyRanking,
             'heatmap' => $heatmap,
             'planning_vs_execution' => $planningExecution,
+            'capability_ranking' => $capabilityRanking,
+            'differentiation' => $differentiation,
             'atlas_better_in' => $betterMap['atlas_better_in'],
             'rival_better_in' => $betterMap['rival_better_in'],
             'invalid_cases' => array_map(
@@ -310,6 +321,7 @@ final class AtlasForgeRivalsMatrixReportService
             'reason' => $reason,
             'planning' => $planningExecution['planning'],
             'execution' => $planningExecution['execution'],
+            'measured_capabilities' => $this->capabilityKeysFromCase($case),
         ];
     }
 
@@ -642,6 +654,613 @@ final class AtlasForgeRivalsMatrixReportService
     }
 
     /**
+     * Aggregate the 360 capability axes that a case exercised. A global tie can
+     * still be useful when the matrix says exactly which capabilities tied and
+     * which still need harder samples.
+     *
+     * @param  list<array<string,mixed>>  $cases
+     * @return array<string,mixed>
+     */
+    private function buildCapabilityRanking(array $cases): array
+    {
+        $buckets = [];
+        foreach ($cases as $case) {
+            foreach ((array) ($case['measured_capabilities'] ?? []) as $capability) {
+                $key = trim((string) $capability);
+                if ($key === '') {
+                    continue;
+                }
+                $buckets[$key] ??= [
+                    'capability' => $key,
+                    'cases' => 0,
+                    'atlas_wins' => 0,
+                    'rival_wins' => 0,
+                    'ties' => 0,
+                    'atlas_score_sum' => 0.0,
+                    'rival_score_sum' => 0.0,
+                    'case_ids' => [],
+                ];
+                $buckets[$key]['cases']++;
+                $buckets[$key]['atlas_score_sum'] += (float) ($case['atlas_score'] ?? 0);
+                $buckets[$key]['rival_score_sum'] += (float) ($case['rival_score'] ?? 0);
+                $buckets[$key]['case_ids'][] = (string) ($case['case_id'] ?? '');
+
+                $winner = $case['winner'] ?? null;
+                if ($winner === self::WINNER_ATLAS) {
+                    $buckets[$key]['atlas_wins']++;
+                } elseif ($winner === self::WINNER_RIVAL) {
+                    $buckets[$key]['rival_wins']++;
+                } else {
+                    $buckets[$key]['ties']++;
+                }
+            }
+        }
+
+        $rows = [];
+        $required = AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES;
+        foreach ($buckets as $key => $bucket) {
+            $casesCount = (int) $bucket['cases'];
+            $leader = $this->bucketLeader([
+                'atlas' => (int) $bucket['atlas_wins'],
+                'rival' => (int) $bucket['rival_wins'],
+                'tie' => (int) $bucket['ties'],
+                'total' => $casesCount,
+            ]);
+            $validity = $casesCount >= AtlasForgeRivalsReportService::MIN_CASES_PER_CAPABILITY_SIGNAL
+                ? 'valid'
+                : 'insufficient';
+            $rows[] = [
+                'capability' => $key,
+                'cases' => $casesCount,
+                'atlas_wins' => (int) $bucket['atlas_wins'],
+                'rival_wins' => (int) $bucket['rival_wins'],
+                'ties' => (int) $bucket['ties'],
+                'tie_rate' => round((int) $bucket['ties'] / max(1, $casesCount), 4),
+                'leader' => $leader,
+                'atlas_avg_score' => round((float) $bucket['atlas_score_sum'] / max(1, $casesCount), 2),
+                'rival_avg_score' => round((float) $bucket['rival_score_sum'] / max(1, $casesCount), 2),
+                'validity' => $validity,
+                'validity_reason' => $validity === 'valid' ? 'sample_size_and_evidence_ok' : 'small_sample_less_than_three',
+                'separation_state' => $this->capabilitySeparationState($leader, $validity),
+                'routing_effect' => 'none',
+                'case_ids' => array_values(array_unique(array_filter($bucket['case_ids']))),
+            ];
+        }
+        usort($rows, static function (array $a, array $b): int {
+            return ((int) $b['cases'] <=> (int) $a['cases'])
+                ?: strcmp((string) $a['capability'], (string) $b['capability']);
+        });
+
+        $observed = array_column($rows, 'cases', 'capability');
+        $missing = array_values(array_filter(
+            $required,
+            static fn (string $capability): bool => ! array_key_exists($capability, $observed),
+        ));
+        $underSampled = [];
+        foreach ($required as $capability) {
+            $count = (int) ($observed[$capability] ?? 0);
+            if ($count > 0 && $count < AtlasForgeRivalsReportService::MIN_CASES_PER_CAPABILITY_SIGNAL) {
+                $underSampled[$capability] = $count;
+            }
+        }
+        $nextMeasurementPlan = $this->buildCapabilityNextMeasurementPlan($rows, $missing, $underSampled);
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.matrix_capability_ranking.v1',
+            'status' => $rows === [] ? 'insufficient_evidence' : 'advisory',
+            'rows' => $rows,
+            'required_360_capabilities' => $required,
+            'observed_capability_count' => count($rows),
+            'min_cases_per_capability_signal' => AtlasForgeRivalsReportService::MIN_CASES_PER_CAPABILITY_SIGNAL,
+            'missing_required_capabilities' => $missing,
+            'under_sampled_required_capabilities' => $underSampled,
+            'floor_met' => $missing === [] && $underSampled === [],
+            'next_measurement_plan' => $nextMeasurementPlan,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $overall
+     * @param  array<string,mixed>  $capabilityRanking
+     * @return array<string,mixed>
+     */
+    private function buildDifferentiationDiagnosis(array $overall, array $capabilityRanking): array
+    {
+        $rows = is_array($capabilityRanking['rows'] ?? null) ? (array) $capabilityRanking['rows'] : [];
+        if ($rows === []) {
+            return [
+                'schema_version' => 'atlas.forge.rivals.differentiation_diagnosis.v1',
+                'status' => 'insufficient_evidence',
+                'differentiated_capability_count' => 0,
+                'tied_capability_count' => 0,
+                'insufficient_capability_count' => 0,
+                'separation_ratio' => 0.0,
+                'tie_is_diagnostic_not_claim' => true,
+                'next_action' => 'run_extreme_differentiator_cases_before_claiming_runner_strength',
+                'advisory_only' => true,
+                'should_update_provider_topology' => false,
+                'never_changes_atlas_decide_topology' => true,
+                'owner_of_model_routing' => 'atlas_decide',
+                'routing_effect' => 'none',
+                'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+            ];
+        }
+
+        $differentiated = [];
+        $tied = [];
+        $insufficient = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $capability = (string) ($row['capability'] ?? '');
+            if ($capability === '') {
+                continue;
+            }
+            $state = (string) ($row['separation_state'] ?? $this->capabilitySeparationState(
+                (string) ($row['leader'] ?? ''),
+                (string) ($row['validity'] ?? 'insufficient'),
+            ));
+
+            if ($state === 'differentiated') {
+                $differentiated[] = $capability;
+            } elseif ($state === 'tied') {
+                $tied[] = $capability;
+            } else {
+                $insufficient[] = $capability;
+            }
+        }
+
+        $required = AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES;
+        $requiredDifferentiated = array_values(array_intersect($required, $differentiated));
+        $requiredTied = array_values(array_intersect($required, $tied));
+        $requiredInsufficient = array_values(array_intersect(
+            $required,
+            array_merge(
+                $insufficient,
+                (array) ($capabilityRanking['missing_required_capabilities'] ?? []),
+                array_keys((array) ($capabilityRanking['under_sampled_required_capabilities'] ?? [])),
+            ),
+        ));
+        $ratio = count($required) > 0 ? round(count($requiredDifferentiated) / count($required), 4) : 0.0;
+        $overallWinner = $overall['winner'] ?? null;
+        $strongSignal = count($requiredDifferentiated) >= self::MIN_DIFFERENTIATED_CAPABILITIES_FOR_STRONG_SIGNAL
+            && in_array($overallWinner, [self::WINNER_ATLAS, self::WINNER_RIVAL], true);
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.differentiation_diagnosis.v1',
+            'status' => $strongSignal ? 'differentiated' : 'low_differentiation',
+            'min_differentiated_required_capabilities_for_strong_signal' => self::MIN_DIFFERENTIATED_CAPABILITIES_FOR_STRONG_SIGNAL,
+            'differentiated_capability_count' => count($differentiated),
+            'tied_capability_count' => count($tied),
+            'insufficient_capability_count' => count($insufficient),
+            'required_differentiated_capabilities' => $requiredDifferentiated,
+            'required_tied_capabilities' => $requiredTied,
+            'required_insufficient_capabilities' => $requiredInsufficient,
+            'separation_ratio' => $ratio,
+            'overall_winner' => $overallWinner,
+            'tie_is_diagnostic_not_claim' => true,
+            'next_action' => $strongSignal
+                ? 'continue_repetition_for_confidence_and_cost_receipts'
+                : 'run_extreme_differentiator_cases_targeting_required_tied_or_insufficient_capabilities',
+            'recommended_case_sets' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
+            ],
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    private function capabilitySeparationState(string $leader, string $validity): string
+    {
+        if ($validity !== 'valid') {
+            return 'insufficient_sample';
+        }
+        if (in_array($leader, [self::WINNER_ATLAS, self::WINNER_RIVAL], true)) {
+            return 'differentiated';
+        }
+
+        return 'tied';
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $rows
+     * @param  list<string>  $missing
+     * @param  array<string,int>  $underSampled
+     * @return array<string,mixed>
+     */
+    private function buildCapabilityNextMeasurementPlan(array $rows, array $missing, array $underSampled): array
+    {
+        $observedCasesByCapability = [];
+        foreach ($rows as $row) {
+            $capability = (string) ($row['capability'] ?? '');
+            if ($capability === '') {
+                continue;
+            }
+            $observedCasesByCapability[$capability] = $this->stringList($row['case_ids'] ?? []);
+        }
+
+        $requirements = [];
+        foreach (AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES as $capability) {
+            $current = 0;
+            foreach ($rows as $row) {
+                if (($row['capability'] ?? null) === $capability) {
+                    $current = (int) ($row['cases'] ?? 0);
+                    break;
+                }
+            }
+            if (! in_array($capability, $missing, true) && ! array_key_exists($capability, $underSampled)) {
+                continue;
+            }
+
+            $additional = max(1, AtlasForgeRivalsReportService::MIN_CASES_PER_CAPABILITY_SIGNAL - $current);
+            $candidates = $this->candidateCasesForCapability(
+                capability: $capability,
+                excludeCaseIds: $observedCasesByCapability[$capability] ?? [],
+                limit: max(3, $additional),
+            );
+
+            $requirements[] = [
+                'capability' => $capability,
+                'current_cases' => $current,
+                'required_additional_cases' => $additional,
+                'recommended_case_sets' => $this->caseSetsForCapability($capability),
+                'candidate_cases' => $candidates,
+                'recommended_dry_run_commands' => array_values(array_map(
+                    fn (array $case): string => $this->recommendedDryRunCommand($case),
+                    $candidates,
+                )),
+                'battle_matrix' => $this->battleMatrixForCapability($capability, $candidates),
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.capability_next_measurement_plan.v1',
+            'status' => $requirements === [] ? 'complete' : 'needs_more_measurement',
+            'min_cases_per_capability_signal' => AtlasForgeRivalsReportService::MIN_CASES_PER_CAPABILITY_SIGNAL,
+            'requirements' => $requirements,
+            'provider_call' => false,
+            'tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Dry-run commands only; real provider calls still require explicit confirmations and disk guard.',
+        ];
+    }
+
+    /**
+     * @param  list<string>  $excludeCaseIds
+     * @return list<array<string,mixed>>
+     */
+    private function candidateCasesForCapability(string $capability, array $excludeCaseIds, int $limit): array
+    {
+        $pool = [];
+        foreach ($this->caseSetsForCapability($capability) as $caseSet) {
+            try {
+                $pool = array_merge($pool, $this->corpus->casesForCaseSet($caseSet));
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        $candidates = [];
+        foreach ($pool as $case) {
+            if (! is_array($case)) {
+                continue;
+            }
+            $caseId = (string) ($case['case_id'] ?? '');
+            if ($caseId === '' || in_array($caseId, $excludeCaseIds, true)) {
+                continue;
+            }
+            if (! in_array($capability, $this->capabilityKeysFromCase($case), true)) {
+                continue;
+            }
+
+            $candidates[$caseId] = [
+                'case_id' => $caseId,
+                'case_set' => $case['industrial_case_set'] ?? $case['case_set'] ?? AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+                'task_category' => $case['task_category'] ?? null,
+                'difficulty_level' => $case['difficulty_level'] ?? null,
+                'ambiguity_level' => $case['ambiguity_level'] ?? null,
+                'risk_level' => $case['risk_level'] ?? null,
+                'measured_capabilities' => $this->capabilityKeysFromCase($case),
+            ];
+        }
+
+        $candidates = array_values($candidates);
+        usort($candidates, static function (array $a, array $b): int {
+            $levelScore = ['L5' => 5, 'L4' => 4, 'L3' => 3, 'L2' => 2, 'L1' => 1];
+            $riskScore = ['critical' => 4, 'high' => 3, 'medium' => 2, 'low' => 1];
+            $ambiguityScore = ['high' => 3, 'medium' => 2, 'low' => 1];
+
+            return (($levelScore[(string) ($b['difficulty_level'] ?? '')] ?? 0) <=> ($levelScore[(string) ($a['difficulty_level'] ?? '')] ?? 0))
+                ?: (($riskScore[(string) ($b['risk_level'] ?? '')] ?? 0) <=> ($riskScore[(string) ($a['risk_level'] ?? '')] ?? 0))
+                ?: (($ambiguityScore[(string) ($b['ambiguity_level'] ?? '')] ?? 0) <=> ($ambiguityScore[(string) ($a['ambiguity_level'] ?? '')] ?? 0))
+                ?: strcmp((string) ($a['case_id'] ?? ''), (string) ($b['case_id'] ?? ''));
+        });
+
+        return array_slice($candidates, 0, $limit);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $candidateCases
+     * @return list<array<string,mixed>>
+     */
+    private function battleMatrixForCapability(string $capability, array $candidateCases): array
+    {
+        if ($candidateCases === []) {
+            return [];
+        }
+
+        $first = $candidateCases[0];
+        $taskCategory = (string) ($first['task_category'] ?? 'bugfix');
+        $caseId = (string) ($first['case_id'] ?? '');
+        if ($caseId === '') {
+            return [];
+        }
+
+        return array_values(array_map(
+            fn (array $battle): array => [
+                'battle_id' => $battle['id'],
+                'capability' => $capability,
+                'case_id' => $caseId,
+                'mode' => $battle['mode'],
+                'arm_a' => $battle['arm_a'],
+                'arm_a_model' => $battle['arm_a_model'],
+                'arm_b' => $battle['arm_b'],
+                'arm_b_model' => $battle['arm_b_model'],
+                'dry_run_command' => $this->arenaDryRunCommand(
+                    armA: $battle['arm_a'],
+                    armAModel: $battle['arm_a_model'],
+                    armB: $battle['arm_b'],
+                    armBModel: $battle['arm_b_model'],
+                    mode: $battle['mode'],
+                    taskCategory: $taskCategory,
+                    caseId: $caseId,
+                ),
+                'real_run_requires_confirmations' => ['runbook_reviewed', 'provider_cost', 'real_provider_call'],
+                'provider_call' => false,
+                'tokens_spent' => false,
+                'routing_effect' => 'none',
+            ],
+            $this->canonicalCapabilityBattles(),
+        ));
+    }
+
+    /**
+     * @return list<array{id:string,mode:string,arm_a:string,arm_a_model:string,arm_b:string,arm_b_model:string}>
+     */
+    private function canonicalCapabilityBattles(): array
+    {
+        return [
+            [
+                'id' => 'atlas_forge_vs_claude_sonnet',
+                'mode' => 'provider_arena',
+                'arm_a' => 'atlas_forge',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'sonnet',
+            ],
+            [
+                'id' => 'atlas_dev_vs_atlas_forge',
+                'mode' => 'provider_arena',
+                'arm_a' => 'atlas_dev',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'atlas_forge',
+                'arm_b_model' => 'sonnet',
+            ],
+            [
+                'id' => 'composer_2_5_vs_codex_gpt_5_5',
+                'mode' => 'provider_arena',
+                'arm_a' => 'composer_2_5',
+                'arm_a_model' => 'default',
+                'arm_b' => 'codex_cli',
+                'arm_b_model' => 'gpt-5.5',
+            ],
+            [
+                'id' => 'cursor_default_vs_claude_sonnet',
+                'mode' => 'provider_arena',
+                'arm_a' => 'cursor_cli',
+                'arm_a_model' => 'default',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'sonnet',
+            ],
+            [
+                'id' => 'claude_sonnet_vs_codex_gpt_5_5',
+                'mode' => 'provider_arena',
+                'arm_a' => 'claude_code',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'codex_cli',
+                'arm_b_model' => 'gpt-5.5',
+            ],
+            [
+                'id' => 'codex_gpt_5_5_vs_gemini_pro',
+                'mode' => 'provider_arena',
+                'arm_a' => 'codex_cli',
+                'arm_a_model' => 'gpt-5.5',
+                'arm_b' => 'gemini_cli',
+                'arm_b_model' => 'gemini-pro',
+            ],
+            [
+                'id' => 'claude_sonnet_vs_claude_opus',
+                'mode' => 'provider_arena',
+                'arm_a' => 'claude_code',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'opus',
+            ],
+            [
+                'id' => 'atlas_forge_full_power_vs_claude_opus',
+                'mode' => 'full_power',
+                'arm_a' => 'atlas_forge',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'opus',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     */
+    private function recommendedDryRunCommand(array $case): string
+    {
+        return $this->arenaDryRunCommand(
+            armA: 'atlas_forge',
+            armAModel: 'sonnet',
+            armB: 'claude_code',
+            armBModel: 'sonnet',
+            mode: 'provider_arena',
+            taskCategory: (string) ($case['task_category'] ?? 'bugfix'),
+            caseId: (string) ($case['case_id'] ?? ''),
+        );
+    }
+
+    private function arenaDryRunCommand(
+        string $armA,
+        string $armAModel,
+        string $armB,
+        string $armBModel,
+        string $mode,
+        string $taskCategory,
+        string $caseId,
+    ): string {
+        return 'php artisan atlas:forge:rivals run-arena'
+            .' --arm-a='.$armA.' --arm-a-model='.$armAModel
+            .' --arm-b='.$armB.' --arm-b-model='.$armBModel
+            .' --mode='.$mode
+            .' --task-category='.$taskCategory
+            .' --case='.$caseId
+            .' --prompt-mode=enterprise-change'
+            .' --dry-run --json';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function caseSetsForCapability(string $capability): array
+    {
+        return match ($capability) {
+            'rollback_safety',
+            'scope_boundary_discipline',
+            'honest_blocker_behavior',
+            'replayable_evidence_quality' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+            ],
+            'long_context_retention',
+            'multi_step_reasoning',
+            'ambiguous_human_prompt_handling' => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
+            ],
+            default => [
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+                AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
+            ],
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return list<string>
+     */
+    private function capabilityKeysFromCase(array $case): array
+    {
+        $profile = is_array($case['context_profile'] ?? null) ? (array) $case['context_profile'] : [];
+        $extreme = is_array($case['extreme_differentiator'] ?? null) ? (array) $case['extreme_differentiator'] : [];
+        $humanPrompt = is_array($case['human_prompt_probe'] ?? null) ? (array) $case['human_prompt_probe'] : [];
+
+        $keys = array_merge(
+            $this->stringList($case['measured_capabilities'] ?? []),
+            $this->stringList($case['measurement_tags'] ?? []),
+            $this->stringList($profile['measured_dimensions'] ?? []),
+            $this->stringList($extreme['capability_axes'] ?? []),
+            $this->stringList($extreme['measures'] ?? []),
+        );
+
+        if (($profile['requires_rollback_plan'] ?? false) === true) {
+            $keys[] = 'rollback_safety';
+        }
+        if (($profile['requires_multi_step_plan'] ?? false) === true) {
+            $keys[] = 'multi_step_reasoning';
+        }
+        if (($profile['requires_evidence_matrix'] ?? false) === true) {
+            $keys[] = 'replayable_evidence_quality';
+        }
+        if (($profile['long_context_required'] ?? false) === true) {
+            $keys[] = 'long_context_retention';
+        }
+        if (($humanPrompt['ambiguity_level'] ?? null) === 'high' || ($case['ambiguity_level'] ?? null) === 'high') {
+            $keys[] = 'ambiguous_human_prompt_handling';
+        }
+
+        return $this->normaliseCapabilityKeys($keys);
+    }
+
+    /**
+     * @param  list<string>  $capabilities
+     * @return list<string>
+     */
+    private function normaliseCapabilityKeys(array $capabilities): array
+    {
+        $out = [];
+        foreach ($capabilities as $capability) {
+            $key = trim((string) $capability);
+            if ($key === '') {
+                continue;
+            }
+            $out[] = match ($key) {
+                'multi_step_execution' => 'multi_step_reasoning',
+                'evidence_replay_completeness' => 'replayable_evidence_quality',
+                'ambiguity_resolution',
+                'ambiguity_handling',
+                'assumption_quality' => 'ambiguous_human_prompt_handling',
+                'scope_boundary_probe' => 'scope_boundary_discipline',
+                'contract_safety' => 'scope_boundary_discipline',
+                default => $key,
+            };
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): string => trim((string) $item),
+            $value,
+        ), static fn (string $item): bool => $item !== ''));
+    }
+
+    /**
      * @param  list<array<string,mixed>>  $categoryRanking
      * @param  list<array<string,mixed>>  $difficultyRanking
      * @return array{atlas_better_in:array<string,mixed>,rival_better_in:array<string,mixed>}
@@ -969,6 +1588,69 @@ final class AtlasForgeRivalsMatrixReportService
         $lines[] = '| execution | '.($execution['atlas'] ?? '—').' | '.($execution['rival'] ?? '—').' | **'.$this->humanWinner($execution['leader'] ?? null).'** | '.((int) ($execution['sample_size'] ?? 0)).' | '.implode(', ', (array) ($execution['dimensions'] ?? [])).' |';
         $lines[] = '';
 
+        $capabilityRanking = (array) ($matrix['capability_ranking'] ?? []);
+        $capabilityRows = (array) ($capabilityRanking['rows'] ?? []);
+        $lines[] = '## Ranking por capacidade (360)';
+        $lines[] = '';
+        $lines[] = '- **Status:** `'.($capabilityRanking['status'] ?? 'insufficient_evidence').'`';
+        $lines[] = '- **Capability floor met:** `'.((bool) ($capabilityRanking['floor_met'] ?? false) ? 'true' : 'false').'`';
+        $lines[] = '- **Observed capabilities:** `'.((int) ($capabilityRanking['observed_capability_count'] ?? 0)).'`';
+        if ($capabilityRows === []) {
+            $lines[] = '_Nenhuma capacidade medida nos cases comparable+scored._';
+        } else {
+            $lines[] = '| Capacidade | Cases | Atlas | Rival | Empate | Leader | Validade |';
+            $lines[] = '|---|---:|---:|---:|---:|---|---|';
+            foreach ($capabilityRows as $row) {
+                $lines[] = '| `'.$row['capability'].'` | '.$row['cases'].' | '.$row['atlas_wins'].' | '.$row['rival_wins'].' | '.$row['ties'].' | **'.$this->humanWinner($row['leader']).'** | `'.$row['validity'].'` |';
+            }
+        }
+        $missingCapabilities = (array) ($capabilityRanking['missing_required_capabilities'] ?? []);
+        $underSampledCapabilities = array_keys((array) ($capabilityRanking['under_sampled_required_capabilities'] ?? []));
+        $lines[] = '- **Missing required:** '.$this->joinOrDash(array_map('strval', $missingCapabilities));
+        $lines[] = '- **Under-sampled required:** '.$this->joinOrDash(array_map('strval', $underSampledCapabilities));
+        $lines[] = '- Rivals emits measured evidence; Atlas Decide decides model routing.';
+        $lines[] = '';
+
+        $differentiation = (array) ($matrix['differentiation'] ?? []);
+        $lines[] = '### Diagnóstico de diferenciação';
+        $lines[] = '';
+        $lines[] = '- **Status:** `'.($differentiation['status'] ?? 'insufficient_evidence').'`';
+        $lines[] = '- **Required differentiated:** '.$this->joinOrDash(array_map('strval', (array) ($differentiation['required_differentiated_capabilities'] ?? [])));
+        $lines[] = '- **Required tied:** '.$this->joinOrDash(array_map('strval', (array) ($differentiation['required_tied_capabilities'] ?? [])));
+        $lines[] = '- **Required insufficient:** '.$this->joinOrDash(array_map('strval', (array) ($differentiation['required_insufficient_capabilities'] ?? [])));
+        $lines[] = '- **Separation ratio:** `'.($differentiation['separation_ratio'] ?? 0.0).'`';
+        $lines[] = '- **Next action:** `'.($differentiation['next_action'] ?? 'run_extreme_differentiator_cases_before_claiming_runner_strength').'`';
+        $lines[] = '- **Tie is diagnostic:** `'.((bool) ($differentiation['tie_is_diagnostic_not_claim'] ?? true) ? 'true' : 'false').'`';
+        $lines[] = '';
+
+        $nextPlan = (array) ($capabilityRanking['next_measurement_plan'] ?? []);
+        $requirements = (array) ($nextPlan['requirements'] ?? []);
+        if ($requirements !== []) {
+            $lines[] = '### Próximas medições recomendadas';
+            $lines[] = '';
+            $lines[] = '| Capacidade | Atual | Faltam | Casos sugeridos |';
+            $lines[] = '|---|---:|---:|---|';
+            foreach ($requirements as $requirement) {
+                $candidateCases = array_values(array_map(
+                    static fn (array $case): string => (string) ($case['case_id'] ?? ''),
+                    array_slice((array) ($requirement['candidate_cases'] ?? []), 0, 3),
+                ));
+                $lines[] = '| `'.$requirement['capability'].'` | '.$requirement['current_cases'].' | '.$requirement['required_additional_cases'].' | '.$this->joinOrDash($candidateCases).' |';
+            }
+            $lines[] = '';
+            $firstBattleMatrix = (array) ($requirements[0]['battle_matrix'] ?? []);
+            if ($firstBattleMatrix !== []) {
+                $lines[] = '### Matriz de batalhas sugerida';
+                $lines[] = '';
+                $lines[] = '| Battle | Caso | Comando dry-run |';
+                $lines[] = '|---|---|---|';
+                foreach ($firstBattleMatrix as $battle) {
+                    $lines[] = '| `'.$battle['battle_id'].'` | `'.$battle['case_id'].'` | `'.$battle['dry_run_command'].'` |';
+                }
+                $lines[] = '';
+            }
+        }
+
         $lines[] = '## Onde Atlas é melhor';
         $lines[] = '';
         $atlasBetter = (array) ($matrix['atlas_better_in'] ?? []);
@@ -1129,6 +1811,23 @@ final class AtlasForgeRivalsMatrixReportService
             'planning_vs_execution' => [
                 'planning' => ['atlas' => null, 'rival' => null, 'leader' => null, 'sample_size' => 0, 'dimensions' => self::PLANNING_DIMENSIONS],
                 'execution' => ['atlas' => null, 'rival' => null, 'leader' => null, 'sample_size' => 0, 'dimensions' => self::EXECUTION_DIMENSIONS],
+            ],
+            'capability_ranking' => [
+                'schema_version' => 'atlas.forge.rivals.matrix_capability_ranking.v1',
+                'status' => 'insufficient_evidence',
+                'rows' => [],
+                'required_360_capabilities' => AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES,
+                'observed_capability_count' => 0,
+                'min_cases_per_capability_signal' => AtlasForgeRivalsReportService::MIN_CASES_PER_CAPABILITY_SIGNAL,
+                'missing_required_capabilities' => AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES,
+                'under_sampled_required_capabilities' => [],
+                'floor_met' => false,
+                'advisory_only' => true,
+                'should_update_provider_topology' => false,
+                'never_changes_atlas_decide_topology' => true,
+                'owner_of_model_routing' => 'atlas_decide',
+                'routing_effect' => 'none',
+                'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
             ],
             'atlas_better_in' => ['categories' => [], 'difficulty_levels' => []],
             'rival_better_in' => ['categories' => [], 'difficulty_levels' => []],

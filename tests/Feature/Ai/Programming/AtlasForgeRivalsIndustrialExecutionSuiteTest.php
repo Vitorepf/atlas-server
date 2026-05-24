@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming;
 
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCorpusPreValidationService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsDryRunService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsIndustrialExecutionSuiteService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsModeRegistry;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsPreflightService;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -17,6 +20,9 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteTest extends TestCase
     {
         foreach ([
             '__tmp_industrial_execution_empty_seed',
+            '__tmp_industrial_execution_extreme',
+            '__tmp_industrial_execution_ceiling',
+            '__tmp_industrial_execution_single_override',
             '__tmp_industrial_execution_missing_expected',
             '__tmp_industrial_execution_missing_test',
         ] as $caseId) {
@@ -38,6 +44,79 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteTest extends TestCase
         $this->assertSame([], $payload['empty_seed_cases']);
         $this->assertFalse($payload['external_provider_call']);
         $this->assertFalse($payload['provider_tokens_spent']);
+    }
+
+    public function test_extreme_differentiator_is_an_executable_industrial_case_set(): void
+    {
+        $case = $this->fixtureCase('__tmp_industrial_execution_extreme');
+        $case['industrial_case_set'] = AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR;
+        $this->writeExecutableSeed($case);
+
+        $payload = app(AtlasForgeRivalsIndustrialExecutionSuiteService::class)->readiness([
+            'case_set' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            'ensure_fixtures' => false,
+            'cases_override' => array_fill(0, 80, $case),
+        ]);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(80, $payload['required_cases']);
+        $this->assertSame(80, $payload['total_cases']);
+        $this->assertSame(80, $payload['executable_cases']);
+        $this->assertContains(
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            $payload['execution_case_sets'],
+        );
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertSame('none', $payload['routing_effect']);
+    }
+
+    public function test_ceiling_360_is_an_executable_industrial_case_set(): void
+    {
+        $case = $this->fixtureCase('__tmp_industrial_execution_ceiling');
+        $case['industrial_case_set'] = AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360;
+        $this->writeExecutableSeed($case);
+
+        $payload = app(AtlasForgeRivalsIndustrialExecutionSuiteService::class)->readiness([
+            'case_set' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
+            'ensure_fixtures' => false,
+            'cases_override' => array_fill(0, 120, $case),
+        ]);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(120, $payload['required_cases']);
+        $this->assertSame(120, $payload['total_cases']);
+        $this->assertSame(120, $payload['executable_cases']);
+        $this->assertContains(
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
+            $payload['execution_case_sets'],
+        );
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertSame('none', $payload['routing_effect']);
+    }
+
+    public function test_single_case_override_can_materialize_fixture_with_required_floor_one(): void
+    {
+        $case = $this->fixtureCase('__tmp_industrial_execution_single_override');
+        $case['industrial_case_set'] = AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR;
+
+        $payload = app(AtlasForgeRivalsIndustrialExecutionSuiteService::class)->readiness([
+            'case_set' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            'ensure_fixtures' => true,
+            'cases_override' => [$case],
+            'required_cases_override' => 1,
+        ]);
+
+        $this->assertSame('ok', $payload['status'], json_encode($payload, JSON_PRETTY_PRINT));
+        $this->assertSame(1, $payload['required_cases']);
+        $this->assertSame(1, $payload['total_cases']);
+        $this->assertSame(1, $payload['executable_cases']);
+        $this->assertFileExists(base_path($case['fixture_seed_path'].'/'.$case['expected_changed_files'][0]));
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertTrue($payload['advisory_only']);
+        $this->assertSame('none', $payload['routing_effect']);
     }
 
     public function test_empty_fixture_blocks_execution_readiness(): void
@@ -122,8 +201,87 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteTest extends TestCase
         $this->assertNull($payload['scorecard']);
     }
 
+    public function test_industrial_preflight_uses_industrial_contract_instead_of_legacy_single_case_protocol(): void
+    {
+        $payload = app(AtlasForgeRivalsPreflightService::class)->preflight([
+            'preset' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            'case_set' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            'mode' => AtlasForgeRivalsModeRegistry::MODE_FAIR,
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_sonnet',
+            'workspace' => base_path(),
+            'baseline_workspace' => base_path(),
+            'confirmations' => [
+                'runbook_reviewed' => true,
+                'provider_cost' => true,
+                'real_provider_call' => true,
+            ],
+        ]);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(80, $payload['cases_count']);
+        $this->assertTrue($payload['industrial_protocol_bypass']);
+        $this->assertSame('ready_for_provider_battery', $payload['protocol_status']);
+        $this->assertSame([], $payload['blockers']);
+        $this->assertTrue($payload['protocol_report']['legacy_protocol_bypassed']);
+        $this->assertFalse($payload['protocol_report']['external_provider_call']);
+        $this->assertFalse($payload['protocol_report']['provider_tokens_spent']);
+        $this->assertSame('none', $payload['protocol_report']['routing_effect']);
+        $this->assertStringNotContainsString('protocol:case_manifest_invalid', implode(',', $payload['blockers']));
+        $this->assertStringNotContainsString('protocol:atlas_arm_not_forge', implode(',', $payload['blockers']));
+    }
+
+    public function test_industrial_dry_run_uses_industrial_plan_instead_of_legacy_single_case_protocol(): void
+    {
+        $payload = app(AtlasForgeRivalsDryRunService::class)->plan([
+            'preset' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            'case_set' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            'mode' => AtlasForgeRivalsModeRegistry::MODE_FAIR,
+            'atlas_model' => 'sonnet',
+            'rival' => 'claude_sonnet',
+            'workspace' => base_path(),
+            'baseline_workspace' => base_path(),
+        ]);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(80, $payload['cases_count']);
+        $this->assertTrue($payload['industrial_protocol_bypass']);
+        $this->assertSame('industrial_dry_run_planned', $payload['protocol_status']);
+        $this->assertSame([], $payload['blockers']);
+        $this->assertTrue($payload['dry_run_report']['legacy_protocol_bypassed']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertSame('none', $payload['routing_effect']);
+        $this->assertStringNotContainsString('protocol:case_manifest_invalid', implode(',', $payload['blockers']));
+        $this->assertStringNotContainsString('protocol:replay_manifest_invalid', implode(',', $payload['blockers']));
+    }
+
+    public function test_extreme_prevalidation_uses_materialized_fixture_seed_path_fallback(): void
+    {
+        app(AtlasForgeRivalsIndustrialExecutionSuiteService::class)->readiness([
+            'case_set' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            'ensure_fixtures' => true,
+        ]);
+
+        $payload = app(AtlasForgeRivalsCorpusPreValidationService::class)->validate([
+            'preset' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            'case_set' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            'require_expected_changed_files' => true,
+        ]);
+
+        $this->assertSame('ok', $payload['status'], json_encode($payload['blockers'], JSON_PRETTY_PRINT));
+        $this->assertSame(80, $payload['case_count']);
+        $this->assertSame(80, $payload['valid_count']);
+        $this->assertSame(0, $payload['blocked_count']);
+        $this->assertSame([], $payload['blockers']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+    }
+
     public function test_local_fake_execution_does_not_call_provider_and_keeps_claim_blocked(): void
     {
+        $this->skipWorktreeHeavyIndustrialBatteryTestWhenDiskIsInsufficient();
+
         $exitCode = Artisan::call('atlas:forge:rivals', [
             'action' => 'run-battery',
             '--preset' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50,
@@ -247,5 +405,27 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteTest extends TestCase
         $this->assertIsArray($payload, $raw);
 
         return $payload;
+    }
+
+    private function skipWorktreeHeavyIndustrialBatteryTestWhenDiskIsInsufficient(): void
+    {
+        $probePath = base_path('../Atlas-rivals/arms');
+        $probeRoot = is_dir($probePath) ? $probePath : dirname($probePath);
+        $free = @disk_free_space($probeRoot);
+        if ($free === false) {
+            $this->markTestSkipped('Cannot probe free disk space for worktree-heavy industrial Rivals battery test.');
+        }
+
+        $required = (int) config(
+            'atlas_rivals.min_free_bytes_before_worktree_add',
+            env('ATLAS_FORGE_RIVALS_MIN_FREE_BYTES_BEFORE_WORKTREE_ADD', 1073741824),
+        );
+        if ($required > 0 && (int) $free < $required) {
+            $this->markTestSkipped(sprintf(
+                'Skipping worktree-heavy industrial Rivals battery test: free_bytes=%d required_bytes=%d.',
+                (int) $free,
+                $required,
+            ));
+        }
     }
 }

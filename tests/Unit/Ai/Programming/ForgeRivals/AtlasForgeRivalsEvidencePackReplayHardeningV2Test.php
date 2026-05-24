@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\ForgeRivals;
 
+use App\Console\Commands\AtlasForgeRivalsCommand;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCollectEvidenceService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEventStream;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEvidencePackVerifierService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEvidencePolicy;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsReplayService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
+use App\Services\Ai\Programming\RivalsForgeRunLogStreamService;
+use App\Services\Ai\Programming\WorkspaceHygieneService;
 use Tests\TestCase;
 
 /**
@@ -301,7 +304,7 @@ final class AtlasForgeRivalsEvidencePackReplayHardeningV2Test extends TestCase
     // 12. PYTHONDONTWRITEBYTECODE=1 é injetado/registrado
     public function test_workspace_hygiene_service_force_bytecode_disabled_env_returns_canonical_block(): void
     {
-        $env = app(\App\Services\Ai\Programming\WorkspaceHygieneService::class)->forceBytecodeDisabledEnv();
+        $env = app(WorkspaceHygieneService::class)->forceBytecodeDisabledEnv();
         $this->assertSame('1', $env['PYTHONDONTWRITEBYTECODE'] ?? null);
         $this->assertNotEmpty($env['PYTHONPYCACHEPREFIX'] ?? null);
     }
@@ -309,9 +312,9 @@ final class AtlasForgeRivalsEvidencePackReplayHardeningV2Test extends TestCase
     // 13. events.jsonl contém run_started/heartbeat/final_report
     public function test_events_jsonl_supports_canonical_kinds(): void
     {
-        $this->assertContains('run_started', \App\Services\Ai\Programming\RivalsForgeRunLogStreamService::CANONICAL_EVENT_KINDS);
-        $this->assertContains('heartbeat', \App\Services\Ai\Programming\RivalsForgeRunLogStreamService::CANONICAL_EVENT_KINDS);
-        $this->assertContains('final_report', \App\Services\Ai\Programming\RivalsForgeRunLogStreamService::CANONICAL_EVENT_KINDS);
+        $this->assertContains('run_started', RivalsForgeRunLogStreamService::CANONICAL_EVENT_KINDS);
+        $this->assertContains('heartbeat', RivalsForgeRunLogStreamService::CANONICAL_EVENT_KINDS);
+        $this->assertContains('final_report', RivalsForgeRunLogStreamService::CANONICAL_EVENT_KINDS);
     }
 
     // 14. replay sem provider call valida artifacts
@@ -531,6 +534,246 @@ final class AtlasForgeRivalsEvidencePackReplayHardeningV2Test extends TestCase
         $this->assertFalse($result['claim_ready']);
     }
 
+    public function test_meta_provider_real_run_evidence_requires_human_prompt_context_and_receipts(): void
+    {
+        $runId = $this->seedMetaProviderStressRun('meta-provider-ok');
+        $collect = $this->collect->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+
+        $pack = $collect['evidence_pack'];
+        $this->assertTrue($pack['meta_provider_evidence_contract']['applies']);
+        $this->assertSame('cursor_cli', $pack['meta_provider_evidence_contract']['arms']['atlas']['arm_id']);
+        $this->assertSame('composer_2_5', $pack['meta_provider_evidence_contract']['arms']['rival']['arm_id']);
+        $this->assertContains('complexity_profile', $pack['meta_provider_evidence_contract']['required_case_fields']);
+        $this->assertContains('human_prompt_probe', $pack['meta_provider_evidence_contract']['required_case_fields']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $pack['cases'][0]['human_prompt_hash']);
+        $this->assertSame('atlas.forge.rivals.context_profile.v1', $pack['cases'][0]['context_profile']['schema_version']);
+        $this->assertSame('atlas.forge.rivals.case_complexity_profile.v1', $pack['cases'][0]['context_profile']['complexity_profile']['schema_version']);
+        $this->assertSame('atlas.forge.rivals.human_prompt_probe.v1', $pack['cases'][0]['human_prompt_probe']['schema_version']);
+        $this->assertSame('atlas.forge.rivals.case_complexity_profile.v1', $pack['cases'][0]['human_prompt_probe']['complexity_profile']['schema_version']);
+        $this->assertContains('replay_matrix', $pack['cases'][0]['human_prompt_probe']['requires_sections']);
+        $this->assertContains('honest_blockers', $pack['cases'][0]['human_prompt_probe']['requires_sections']);
+        $this->assertSame('stdin', $pack['provider_receipts']['atlas']['prompt_transport']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $pack['provider_receipts']['atlas']['stdin_prompt_hash']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['command_shape_summary']['governed_cursor_cli_shape']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['command_shape_summary']['prompt_arg_absent']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['command_shape_summary']['force_absent']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['command_shape_summary']['resume_absent']);
+        $this->assertSame('stream-json', $pack['provider_receipts']['atlas']['output_format']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['stream_json_summary']['system_init_event']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['stream_json_summary']['system_init_api_key_source_present']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['stream_json_summary']['system_init_cwd_absolute']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['stream_json_summary']['system_init_model_present']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['stream_json_summary']['system_init_permission_mode_present']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['stream_json_summary']['user_message_event']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['stream_json_summary']['terminal_result_event']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['stream_json_summary']['terminal_result_success']);
+        $this->assertGreaterThan(0, $pack['provider_receipts']['atlas']['stream_json_summary']['tool_event_count']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['stream_json_summary']['tool_event_observed']);
+        $this->assertTrue($pack['provider_receipts']['atlas']['stream_json_summary']['session_id_consistent']);
+
+        $result = $this->verifier->verify([
+            'run_id' => $runId,
+            'mode' => AtlasForgeRivalsEvidencePackVerifierService::MODE_REAL_RUN,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+
+        $this->assertSame('passed', $result['verification_status']);
+        $this->assertFalse($result['claim_ready']);
+    }
+
+    public function test_meta_provider_collector_parses_cursor_stream_json_stdout_tail(): void
+    {
+        $runId = $this->seedMetaProviderStressRun('meta-provider-parse-stdout-tail');
+        $paths = $this->paths->paths($runId);
+        $receiptPath = $paths['evidence'].'/atlas_receipt.json';
+        $receipt = json_decode((string) file_get_contents($receiptPath), true);
+        unset($receipt['output_format'], $receipt['stream_json_summary']);
+        $receipt['stdout_tail'] = $this->cursorStreamJsonTail('atlas');
+        file_put_contents($receiptPath, $this->jsonEncode($receipt));
+
+        $collect = $this->collect->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+
+        $summary = $collect['evidence_pack']['provider_receipts']['atlas']['stream_json_summary'];
+        $this->assertSame('stream-json', $collect['evidence_pack']['provider_receipts']['atlas']['output_format']);
+        $this->assertTrue($summary['parsed']);
+        $this->assertTrue($summary['system_init_event']);
+        $this->assertTrue($summary['system_init_api_key_source_present']);
+        $this->assertTrue($summary['system_init_cwd_absolute']);
+        $this->assertTrue($summary['system_init_model_present']);
+        $this->assertTrue($summary['system_init_permission_mode_present']);
+        $this->assertTrue($summary['user_message_event']);
+        $this->assertTrue($summary['terminal_result_event']);
+        $this->assertTrue($summary['terminal_result_success']);
+        $this->assertSame(1, $summary['tool_event_count']);
+        $this->assertTrue($summary['tool_event_observed']);
+        $this->assertTrue($summary['session_id_consistent']);
+        $this->assertSame([], $summary['parse_errors']);
+    }
+
+    public function test_meta_provider_verifier_blocks_missing_human_prompt_hash_or_stream_receipt_field(): void
+    {
+        $runId = $this->seedMetaProviderStressRun('meta-provider-missing-context');
+        $this->collect->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+        $paths = $this->paths->paths($runId);
+        $packPath = $paths['evidence'].'/evidence_pack.json';
+        $pack = json_decode((string) file_get_contents($packPath), true);
+        unset(
+            $pack['cases'][0]['human_prompt_hash'],
+            $pack['cases'][0]['context_profile']['complexity_profile'],
+            $pack['cases'][0]['human_prompt_probe']['complexity_profile'],
+            $pack['provider_receipts']['atlas']['stdout_hash'],
+            $pack['provider_receipts']['atlas']['stdin_prompt_hash'],
+        );
+        $pack['cases'][0]['human_prompt_probe']['requires_sections'] = array_values(array_filter(
+            (array) $pack['cases'][0]['human_prompt_probe']['requires_sections'],
+            static fn (string $section): bool => $section !== 'replay_matrix',
+        ));
+        $pack['provider_receipts']['atlas']['prompt_transport'] = 'argv';
+        $pack['provider_receipts']['atlas']['command_shape_summary'] = [
+            'schema_version' => 'atlas.forge.rivals.cursor_command_shape_summary.v1',
+            'print_mode' => true,
+            'output_format_stream_json' => true,
+            'model_arg_present' => true,
+            'force_absent' => false,
+            'resume_absent' => false,
+            'prompt_arg_absent' => false,
+            'governed_cursor_cli_shape' => false,
+        ];
+        file_put_contents($packPath, $this->jsonEncode($pack));
+
+        $result = $this->verifier->verify([
+            'run_id' => $runId,
+            'mode' => AtlasForgeRivalsEvidencePackVerifierService::MODE_REAL_RUN,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+
+        $this->assertSame('invalid_missing_evidence', $result['verification_status']);
+        $this->assertContains('meta_provider_case_human_prompt_hash_missing:meta-provider-stress-001-industrial-001-ambiguous_bug', $result['blockers']);
+        $this->assertContains('meta_provider_case_context_complexity_profile_missing:meta-provider-stress-001-industrial-001-ambiguous_bug', $result['blockers']);
+        $this->assertContains('meta_provider_case_human_prompt_probe_section_missing:meta-provider-stress-001-industrial-001-ambiguous_bug:replay_matrix', $result['blockers']);
+        $this->assertContains('meta_provider_case_human_prompt_probe_complexity_profile_missing:meta-provider-stress-001-industrial-001-ambiguous_bug', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_field_missing:atlas:stdout_hash', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_field_missing:atlas:stdin_prompt_hash', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_prompt_transport_not_stdin:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stdin_prompt_hash_invalid:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_cursor_command_shape_invalid:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_cursor_command_shape_force_absent_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_cursor_command_shape_resume_absent_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_cursor_command_shape_prompt_arg_absent_missing:atlas', $result['blockers']);
+        $this->assertFalse($result['claim_ready']);
+    }
+
+    public function test_meta_provider_verifier_blocks_malformed_cursor_stream_json_receipt(): void
+    {
+        $runId = $this->seedMetaProviderStressRun('meta-provider-bad-stream-json');
+        $this->collect->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+        $paths = $this->paths->paths($runId);
+        $packPath = $paths['evidence'].'/evidence_pack.json';
+        $pack = json_decode((string) file_get_contents($packPath), true);
+        $pack['provider_receipts']['atlas']['output_format'] = 'text';
+        $pack['provider_receipts']['atlas']['stream_json_summary'] = [
+            'schema_version' => 'atlas.forge.rivals.cursor_stream_json_receipt_summary.v1',
+            'parsed' => false,
+            'system_init_event' => false,
+            'system_init_api_key_source_present' => false,
+            'system_init_cwd_absolute' => false,
+            'system_init_model_present' => false,
+            'system_init_permission_mode_present' => false,
+            'user_message_event' => false,
+            'terminal_result_event' => false,
+            'terminal_result_success' => false,
+            'tool_event_count' => 0,
+            'tool_event_observed' => false,
+            'session_id_consistent' => false,
+            'parse_errors' => ['invalid_json_line'],
+        ];
+        file_put_contents($packPath, $this->jsonEncode($pack));
+
+        $result = $this->verifier->verify([
+            'run_id' => $runId,
+            'mode' => AtlasForgeRivalsEvidencePackVerifierService::MODE_REAL_RUN,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+
+        $this->assertSame('invalid_missing_evidence', $result['verification_status']);
+        $this->assertContains('meta_provider_receipt_stream_json_output_format_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_system_init_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_system_init_api_key_source_present_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_system_init_cwd_absolute_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_system_init_model_present_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_system_init_permission_mode_present_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_user_message_event_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_terminal_result_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_terminal_result_success_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_tool_event_missing:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_session_inconsistent:atlas', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_parse_errors:atlas', $result['blockers']);
+        $this->assertFalse($result['claim_ready']);
+    }
+
+    public function test_meta_provider_verifier_applies_cursor_receipt_rules_to_composer_rival_side(): void
+    {
+        $runId = $this->seedMetaProviderStressRun('meta-provider-bad-rival-stream-json');
+        $this->collect->collect([
+            'run_id' => $runId,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+        $paths = $this->paths->paths($runId);
+        $packPath = $paths['evidence'].'/evidence_pack.json';
+        $pack = json_decode((string) file_get_contents($packPath), true);
+        $pack['provider_receipts']['rival']['prompt_transport'] = 'argv';
+        $pack['provider_receipts']['rival']['output_format'] = 'text';
+        $pack['provider_receipts']['rival']['command_shape_summary']['governed_cursor_cli_shape'] = false;
+        $pack['provider_receipts']['rival']['command_shape_summary']['prompt_arg_absent'] = false;
+        $pack['provider_receipts']['rival']['stream_json_summary'] = [
+            'schema_version' => 'atlas.forge.rivals.cursor_stream_json_receipt_summary.v1',
+            'parsed' => false,
+            'system_init_event' => false,
+            'system_init_api_key_source_present' => false,
+            'system_init_cwd_absolute' => false,
+            'system_init_model_present' => false,
+            'system_init_permission_mode_present' => false,
+            'user_message_event' => false,
+            'terminal_result_event' => true,
+            'terminal_result_success' => false,
+            'tool_event_count' => 0,
+            'tool_event_observed' => false,
+            'session_id_consistent' => false,
+            'parse_errors' => ['rival_invalid_json_line'],
+        ];
+        file_put_contents($packPath, $this->jsonEncode($pack));
+
+        $result = $this->verifier->verify([
+            'run_id' => $runId,
+            'mode' => AtlasForgeRivalsEvidencePackVerifierService::MODE_REAL_RUN,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+        ]);
+
+        $this->assertSame('invalid_missing_evidence', $result['verification_status']);
+        $this->assertContains('meta_provider_receipt_prompt_transport_not_stdin:rival', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_cursor_command_shape_invalid:rival', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_cursor_command_shape_prompt_arg_absent_missing:rival', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_output_format_missing:rival', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_system_init_missing:rival', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_terminal_result_success_missing:rival', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_tool_event_missing:rival', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_session_inconsistent:rival', $result['blockers']);
+        $this->assertContains('meta_provider_receipt_stream_json_parse_errors:rival', $result['blockers']);
+        $this->assertFalse($result['claim_ready']);
+    }
+
     // 25. CLI evidence retorna paths e hashes
     public function test_cli_evidence_action_returns_paths_and_hashes(): void
     {
@@ -643,8 +886,8 @@ final class AtlasForgeRivalsEvidencePackReplayHardeningV2Test extends TestCase
     // 30. architecture: action is registered + alias resolves
     public function test_verify_evidence_action_is_registered_in_command_actions(): void
     {
-        $this->assertContains('verify-evidence', \App\Console\Commands\AtlasForgeRivalsCommand::ACTIONS);
-        $this->assertContains('evidence', \App\Console\Commands\AtlasForgeRivalsCommand::ACTIONS);
+        $this->assertContains('verify-evidence', AtlasForgeRivalsCommand::ACTIONS);
+        $this->assertContains('evidence', AtlasForgeRivalsCommand::ACTIONS);
     }
 
     // --- helpers ---
@@ -664,6 +907,129 @@ final class AtlasForgeRivalsEvidencePackReplayHardeningV2Test extends TestCase
             'verdict' => 'invalid_no_patch_diff',
             'mode' => 'local_fake',
         ], includePatchesAndLogs: false, isFake: true, externalProviderCall: false);
+
+        return $runId;
+    }
+
+    private function seedMetaProviderStressRun(string $suffix): string
+    {
+        $runId = $this->seedRealRun($suffix);
+        $paths = $this->paths->paths($runId);
+        $manifest = json_decode((string) file_get_contents($paths['manifest_json']), true);
+        $caseId = 'meta-provider-stress-001-industrial-001-ambiguous_bug';
+        $humanPrompt = 'Oi, preciso que voce pegue esse caso como se fosse um ticket real de engenharia, com contexto incompleto e pressao de entrega.';
+        $complexityProfile = [
+            'schema_version' => 'atlas.forge.rivals.case_complexity_profile.v1',
+            'difficulty_level' => 'L1',
+            'difficulty_score' => 1,
+            'domain_count' => 2,
+            'scope_surface_count' => 5,
+            'estimated_context_tokens' => 6210,
+            'reasoning_depth' => 3,
+            'ambiguity_score' => 3,
+            'risk_score' => 2,
+            'long_context_required' => true,
+            'requires_multi_step_plan' => true,
+            'requires_rollback_plan' => false,
+            'requires_evidence_matrix' => true,
+            'measured_dimensions' => [
+                'long_context_retention',
+                'ambiguous_human_prompt_handling',
+                'multi_step_reasoning',
+                'scope_boundary_discipline',
+                'replayable_evidence_quality',
+                'honest_blocker_behavior',
+            ],
+        ];
+        $manifest['arena_contracts'] = [
+            'arm_a' => [
+                'arm_id' => 'cursor_cli',
+                'provider' => 'cursor',
+                'provider_kind' => 'meta_provider',
+                'meta_provider' => true,
+                'meta_provider_parent' => null,
+                'provider_metadata' => [
+                    'model_routing_owner' => 'cursor',
+                    'atlas_routing_effect' => 'none',
+                    'tool_event_stream' => 'stream-json',
+                ],
+            ],
+            'arm_b' => [
+                'arm_id' => 'composer_2_5',
+                'provider' => 'composer',
+                'provider_kind' => 'meta_provider_surface',
+                'meta_provider' => true,
+                'meta_provider_parent' => 'cursor',
+                'provider_metadata' => [
+                    'model_routing_owner' => 'cursor',
+                    'atlas_routing_effect' => 'none',
+                    'tool_event_stream' => 'stream-json',
+                ],
+            ],
+        ];
+        $manifest['is_multi_case'] = true;
+        $manifest['cases'] = [
+            [
+                'case_id' => $caseId,
+                'case_index' => 0,
+                'case_source' => 'provider_arena_corpus',
+                'case_set' => 'meta-provider-stress',
+                'task_category' => 'docs',
+                'difficulty' => 'easy',
+                'difficulty_level' => 'L1',
+                'human_prompt_hash' => hash('sha256', $humanPrompt),
+                'context_profile' => [
+                    'schema_version' => 'atlas.forge.rivals.context_profile.v1',
+                    'prompt_style' => 'human_ambiguous_operator_ticket',
+                    'long_context_required' => true,
+                    'requires_assumption_log' => true,
+                    'requires_tradeoff_notes' => true,
+                    'requires_scope_boundary_reasoning' => true,
+                    'requires_replayable_evidence' => true,
+                    'requires_evidence_matrix' => true,
+                    'complexity_profile' => $complexityProfile,
+                ],
+                'measurement_tags' => ['human_prompt', 'long_context', 'meta_provider_stress'],
+                'human_prompt_probe' => [
+                    'schema_version' => 'atlas.forge.rivals.human_prompt_probe.v1',
+                    'requires_sections' => [
+                        'facts_observed',
+                        'assumptions',
+                        'reversible_decisions',
+                        'scope_boundaries',
+                        'evidence_plan',
+                        'replay_matrix',
+                        'tradeoffs',
+                        'honest_blockers',
+                    ],
+                    'complexity_profile' => $complexityProfile,
+                ],
+                'meta_provider_stress' => [
+                    'schema_version' => 'atlas.forge.rivals.meta_provider_stress.v1',
+                    'targets' => ['cursor_cli', 'composer_2_5'],
+                    'complexity_profile' => $complexityProfile,
+                ],
+                'verdict' => 'comparable',
+                'workspace_hash_before' => ['atlas' => 'h1', 'rival' => 'h1'],
+                'workspace_hash_after' => ['atlas' => 'h2', 'rival' => 'h2'],
+                'workspace_blockers' => [],
+                'atlas_arm' => ['exit_code' => 0, 'test_exit_code' => 0],
+                'rival_arm' => ['exit_code' => 0, 'test_exit_code' => 0],
+            ],
+        ];
+        file_put_contents($paths['manifest_json'], $this->jsonEncode($manifest));
+        foreach (['atlas', 'rival'] as $arm) {
+            $receiptPath = $paths['evidence'].'/'.$arm.'_receipt.json';
+            $receipt = json_decode((string) file_get_contents($receiptPath), true);
+            $receipt['model'] = $arm === 'atlas' ? 'composer-latest' : 'composer-2.5';
+            $receipt['command'] = ['cursor-agent', '--print', '--output-format', 'stream-json', '--model', (string) $receipt['model']];
+            $receipt['prompt_transport'] = 'stdin';
+            $receipt['stdin_prompt_hash'] = hash('sha256', 'cursor-stdin-prompt-'.$arm);
+            $receipt['stdin_prompt_bytes'] = strlen('cursor-stdin-prompt-'.$arm);
+            $receipt['output_format'] = 'stream-json';
+            $receipt['stream_json_summary'] = $this->cursorStreamJsonSummary($arm);
+            file_put_contents($receiptPath, $this->jsonEncode($receipt));
+        }
 
         return $runId;
     }
@@ -807,6 +1173,83 @@ final class AtlasForgeRivalsEvidencePackReplayHardeningV2Test extends TestCase
             'test_log_tail' => '(50 tests, 120 assertions)',
             'fake' => $fake,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function cursorStreamJsonSummary(string $arm): array
+    {
+        return [
+            'schema_version' => 'atlas.forge.rivals.cursor_stream_json_receipt_summary.v1',
+            'parsed' => true,
+            'system_init_event' => true,
+            'system_init_api_key_source_present' => true,
+            'system_init_cwd_absolute' => true,
+            'system_init_model_present' => true,
+            'system_init_permission_mode_present' => true,
+            'user_message_event' => true,
+            'terminal_result_event' => true,
+            'terminal_result_success' => true,
+            'tool_event_count' => 2,
+            'tool_event_observed' => true,
+            'session_id_consistent' => true,
+            'session_id_hash' => hash('sha256', 'cursor-session-'.$arm),
+            'parse_errors' => [],
+        ];
+    }
+
+    private function cursorStreamJsonTail(string $arm): string
+    {
+        $sessionId = 'cursor-session-'.$arm;
+        $events = [
+            [
+                'type' => 'system',
+                'subtype' => 'init',
+                'apiKeySource' => 'login',
+                'cwd' => base_path(),
+                'session_id' => $sessionId,
+                'model' => 'Composer 2.5',
+                'permissionMode' => 'default',
+            ],
+            [
+                'type' => 'user',
+                'message' => [
+                    'role' => 'user',
+                    'content' => [
+                        ['type' => 'text', 'text' => 'Human ambiguous engineering prompt'],
+                    ],
+                ],
+                'session_id' => $sessionId,
+            ],
+            [
+                'type' => 'tool_call',
+                'subtype' => 'completed',
+                'call_id' => 'toolu_'.$arm,
+                'tool_call' => [
+                    'readToolCall' => [
+                        'args' => ['path' => 'README.md'],
+                        'result' => ['success' => ['isEmpty' => false, 'totalLines' => 12, 'totalChars' => 800]],
+                    ],
+                ],
+                'session_id' => $sessionId,
+            ],
+            [
+                'type' => 'result',
+                'subtype' => 'success',
+                'duration_ms' => 1234,
+                'duration_api_ms' => 1234,
+                'is_error' => false,
+                'result' => 'Done',
+                'session_id' => $sessionId,
+                'request_id' => 'request-'.$arm,
+            ],
+        ];
+
+        return implode("\n", array_map(
+            static fn (array $event): string => (string) json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            $events,
+        ))."\n";
     }
 
     private function jsonEncode(mixed $value): string

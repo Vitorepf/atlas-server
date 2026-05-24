@@ -137,6 +137,31 @@ final class AtlasForgeRivalsSchemaContractServiceTest extends TestCase
         $this->assertContains('corpus_case.claim_level_must_be_case_result_only:global_claim', $violations);
     }
 
+    public function test_corpus_case_schema_requires_human_prompt_context_profile_and_measurement_tags(): void
+    {
+        $corpus = new AtlasForgeRivalsProviderArenaCorpusService;
+        $case = $corpus->case('backend-pagination-off-by-one');
+        unset($case['human_prompt']);
+        $case['context_profile'] = ['schema_version' => 'wrong'];
+        $case['measurement_tags'] = ['long_context'];
+        $case['human_prompt_probe'] = [
+            'schema_version' => 'wrong',
+            'requires_sections' => ['facts_observed'],
+        ];
+
+        $violations = $this->contract->validateCorpusCase($case);
+
+        $this->assertContains('corpus_case.missing_field:human_prompt', $violations);
+        $this->assertContains('corpus_case.context_profile_schema_version_invalid', $violations);
+        $this->assertContains('corpus_case.context_profile_requires_assumption_log_missing', $violations);
+        $this->assertContains('corpus_case.context_profile_complexity_profile_missing', $violations);
+        $this->assertContains('corpus_case.measurement_tags_missing_human_prompt', $violations);
+        $this->assertContains('corpus_case.human_prompt_probe_schema_version_invalid', $violations);
+        $this->assertContains('corpus_case.human_prompt_probe_missing_section:replay_matrix', $violations);
+        $this->assertContains('corpus_case.human_prompt_probe_missing_section:honest_blockers', $violations);
+        $this->assertContains('corpus_case.human_prompt_probe_complexity_profile_missing', $violations);
+    }
+
     /* ---------- schema 2: run_result ---------- */
 
     public function test_run_result_schema_accepts_canonical_payload(): void
@@ -282,7 +307,18 @@ final class AtlasForgeRivalsSchemaContractServiceTest extends TestCase
                     'difficulty_weighted_score' => ['atlas' => 26.66, 'rival' => 20.0],
                 ],
             ],
-            'claim_status' => ['external_rivals_status' => 'blocked_requires_operator_approval'],
+            'claim_status' => [
+                'external_rivals_status' => 'blocked_requires_operator_approval',
+                'can_feed_ledger' => false,
+                'can_feed_decide_signal' => false,
+                'ledger_blockers' => ['meta_provider_stress_floor_not_met'],
+            ],
+            'provider_performance_signal' => $this->providerPerformanceSignal([
+                'ledger_blockers' => ['meta_provider_stress_floor_not_met'],
+                'do_not_use_when' => [
+                    ['condition' => 'meta_provider_stress_floor_not_met'],
+                ],
+            ]),
         ];
         $this->assertSame([], $this->contract->validateReport($payload));
     }
@@ -306,10 +342,204 @@ final class AtlasForgeRivalsSchemaContractServiceTest extends TestCase
                     'difficulty_weighted_score' => ['atlas' => null, 'rival' => null],
                 ],
             ],
-            'claim_status' => [],
+            'claim_status' => [
+                'can_feed_ledger' => false,
+                'can_feed_decide_signal' => false,
+                'ledger_blockers' => [],
+            ],
+            'provider_performance_signal' => $this->providerPerformanceSignal(),
         ];
         $violations = $this->contract->validateReport($payload);
         $this->assertContains('report.case_results[0].missing_field:raw_score', $violations);
+    }
+
+    public function test_report_schema_requires_advisory_provider_signal_and_ledger_blockers(): void
+    {
+        $payload = [
+            'schema_version' => AtlasForgeRivalsSchemaContractService::SCHEMA_REPORT,
+            'run_id' => 'rivals-test-001',
+            'winner' => null,
+            'atlas_score' => null,
+            'rival_score' => null,
+            'case_results' => [],
+            'claim_status' => [
+                'can_feed_ledger' => false,
+                'can_feed_decide_signal' => false,
+                // ledger_blockers absent
+            ],
+            'provider_performance_signal' => array_replace(
+                $this->providerPerformanceSignal(),
+                [
+                    'advisory_only' => false,
+                    'should_update_provider_topology' => true,
+                    'never_changes_atlas_decide_topology' => false,
+                    'owner_of_model_routing' => 'rivals',
+                    'routing_effect' => 'update',
+                ],
+            ),
+        ];
+        unset($payload['provider_performance_signal']['ledger_blockers']);
+
+        $violations = $this->contract->validateReport($payload);
+
+        $this->assertContains('report.claim_status.missing_field:ledger_blockers', $violations);
+        $this->assertContains('report.provider_performance_signal.missing_field:ledger_blockers', $violations);
+        $this->assertContains('report.provider_performance_signal.advisory_only_must_be_true', $violations);
+        $this->assertContains('report.provider_performance_signal.should_update_provider_topology_must_be_false', $violations);
+        $this->assertContains('report.provider_performance_signal.never_changes_atlas_decide_topology_must_be_true', $violations);
+        $this->assertContains('report.provider_performance_signal.owner_of_model_routing_must_be_atlas_decide', $violations);
+        $this->assertContains('report.provider_performance_signal.routing_effect_must_be_none', $violations);
+    }
+
+    public function test_report_schema_requires_human_prompt_and_complexity_coverage_blocks(): void
+    {
+        $payload = [
+            'schema_version' => AtlasForgeRivalsSchemaContractService::SCHEMA_REPORT,
+            'run_id' => 'rivals-test-001',
+            'winner' => null,
+            'atlas_score' => null,
+            'rival_score' => null,
+            'case_results' => [],
+            'claim_status' => [
+                'can_feed_ledger' => false,
+                'can_feed_decide_signal' => false,
+                'ledger_blockers' => [],
+            ],
+            'provider_performance_signal' => $this->providerPerformanceSignal(),
+        ];
+        unset(
+            $payload['provider_performance_signal']['human_prompt_contract_coverage'],
+            $payload['provider_performance_signal']['complexity_profile_coverage'],
+        );
+
+        $violations = $this->contract->validateReport($payload);
+
+        $this->assertContains(
+            'report.provider_performance_signal.missing_field:human_prompt_contract_coverage',
+            $violations,
+        );
+        $this->assertContains(
+            'report.provider_performance_signal.human_prompt_contract_coverage.not_an_object',
+            $violations,
+        );
+        $this->assertContains(
+            'report.provider_performance_signal.missing_field:complexity_profile_coverage',
+            $violations,
+        );
+        $this->assertContains(
+            'report.provider_performance_signal.complexity_profile_coverage.not_an_object',
+            $violations,
+        );
+    }
+
+    public function test_report_schema_rejects_non_advisory_nested_measurement_coverage(): void
+    {
+        $payload = [
+            'schema_version' => AtlasForgeRivalsSchemaContractService::SCHEMA_REPORT,
+            'run_id' => 'rivals-test-001',
+            'winner' => null,
+            'atlas_score' => null,
+            'rival_score' => null,
+            'case_results' => [],
+            'claim_status' => [
+                'can_feed_ledger' => false,
+                'can_feed_decide_signal' => false,
+                'ledger_blockers' => [],
+            ],
+            'provider_performance_signal' => $this->providerPerformanceSignal([
+                'human_prompt_contract_coverage' => array_replace(
+                    $this->humanPromptCoverage(),
+                    ['advisory_only' => false, 'routing_effect' => 'update'],
+                ),
+                'complexity_profile_coverage' => array_replace(
+                    $this->complexityCoverage(),
+                    ['schema_version' => 'wrong', 'advisory_only' => false, 'routing_effect' => 'update'],
+                ),
+            ]),
+        ];
+
+        $violations = $this->contract->validateReport($payload);
+
+        $this->assertContains(
+            'report.provider_performance_signal.human_prompt_contract_coverage.advisory_only_must_be_true',
+            $violations,
+        );
+        $this->assertContains(
+            'report.provider_performance_signal.human_prompt_contract_coverage.routing_effect_must_be_none',
+            $violations,
+        );
+        $this->assertContains(
+            'report.provider_performance_signal.complexity_profile_coverage.schema_version_invalid',
+            $violations,
+        );
+        $this->assertContains(
+            'report.provider_performance_signal.complexity_profile_coverage.advisory_only_must_be_true',
+            $violations,
+        );
+        $this->assertContains(
+            'report.provider_performance_signal.complexity_profile_coverage.routing_effect_must_be_none',
+            $violations,
+        );
+    }
+
+    public function test_report_schema_rejects_ledger_feed_when_measurement_has_blockers_or_do_not_use_conditions(): void
+    {
+        $payload = [
+            'schema_version' => AtlasForgeRivalsSchemaContractService::SCHEMA_REPORT,
+            'run_id' => 'rivals-test-001',
+            'winner' => null,
+            'atlas_score' => null,
+            'rival_score' => null,
+            'case_results' => [],
+            'claim_status' => [
+                'can_feed_ledger' => true,
+                'can_feed_decide_signal' => false,
+                'ledger_blockers' => ['meta_provider_stress_floor_not_met'],
+            ],
+            'provider_performance_signal' => $this->providerPerformanceSignal([
+                'can_feed_ledger' => true,
+                'ledger_blockers' => ['long_context_not_measured'],
+                'do_not_use_when' => [
+                    ['condition' => 'long_context_not_measured'],
+                ],
+            ]),
+        ];
+
+        $violations = $this->contract->validateReport($payload);
+
+        $this->assertContains('report.claim_status.can_feed_ledger_true_with_ledger_blockers', $violations);
+        $this->assertContains('report.provider_performance_signal.can_feed_ledger_true_with_ledger_blockers', $violations);
+        $this->assertContains('report.provider_performance_signal.can_feed_ledger_true_with_do_not_use_when', $violations);
+    }
+
+    public function test_report_schema_rejects_claim_status_ledger_feed_when_provider_signal_blocks_it(): void
+    {
+        $payload = [
+            'schema_version' => AtlasForgeRivalsSchemaContractService::SCHEMA_REPORT,
+            'run_id' => 'rivals-test-001',
+            'winner' => null,
+            'atlas_score' => null,
+            'rival_score' => null,
+            'case_results' => [],
+            'claim_status' => [
+                'can_feed_ledger' => true,
+                'can_feed_decide_signal' => false,
+                'ledger_blockers' => [],
+            ],
+            'provider_performance_signal' => $this->providerPerformanceSignal([
+                'ledger_blockers' => ['complexity_profile_coverage_incomplete'],
+                'do_not_use_when' => [
+                    ['condition' => 'complexity_profile_coverage_incomplete'],
+                ],
+            ]),
+        ];
+
+        $violations = $this->contract->validateReport($payload);
+
+        $this->assertContains(
+            'report.claim_status.can_feed_ledger_true_while_provider_signal_blocks_ledger',
+            $violations,
+        );
     }
 
     public function test_report_schema_rejects_wrong_version(): void
@@ -321,7 +551,12 @@ final class AtlasForgeRivalsSchemaContractServiceTest extends TestCase
             'atlas_score' => null,
             'rival_score' => null,
             'case_results' => [],
-            'claim_status' => [],
+            'claim_status' => [
+                'can_feed_ledger' => false,
+                'can_feed_decide_signal' => false,
+                'ledger_blockers' => [],
+            ],
+            'provider_performance_signal' => $this->providerPerformanceSignal(),
         ];
         $violations = $this->contract->validateReport($payload);
         $this->assertContains('report.schema_version_mismatch:atlas.forge.rivals.report.vX', $violations);
@@ -367,5 +602,62 @@ final class AtlasForgeRivalsSchemaContractServiceTest extends TestCase
         $this->assertSame(['L1', 'L2', 'L3', 'L4', 'L5'], $snap['difficulty_canon']['levels']);
         $this->assertFalse($snap['external_provider_call']);
         $this->assertTrue($snap['separated_from_external_rivals_certification']);
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     * @return array<string,mixed>
+     */
+    private function providerPerformanceSignal(array $overrides = []): array
+    {
+        return array_replace([
+            'schema_version' => 'atlas.forge.rivals.provider_performance_signal.v1',
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'can_feed_ledger' => false,
+            'ledger_blockers' => [],
+            'do_not_use_when' => [],
+            'human_prompt_contract_coverage' => $this->humanPromptCoverage(),
+            'complexity_profile_coverage' => $this->complexityCoverage(),
+        ], $overrides);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function humanPromptCoverage(): array
+    {
+        return [
+            'schema_version' => 'atlas.forge.rivals.human_prompt_contract_coverage.v1',
+            'advisory_only' => true,
+            'routing_effect' => 'none',
+            'case_count' => 1,
+            'cases_with_contract' => 1,
+            'complete_contract_cases' => 1,
+            'coverage_ratio' => 1.0,
+            'complete_ratio' => 1.0,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function complexityCoverage(): array
+    {
+        return [
+            'schema_version' => 'atlas.forge.rivals.complexity_profile_coverage.v1',
+            'advisory_only' => true,
+            'routing_effect' => 'none',
+            'case_count' => 1,
+            'cases_with_complexity_profile' => 1,
+            'coverage_ratio' => 1.0,
+            'long_context_required_cases' => 1,
+            'evidence_matrix_required_cases' => 1,
+            'multi_step_plan_required_cases' => 1,
+            'meta_provider_claim_floor_met' => false,
+        ];
     }
 }

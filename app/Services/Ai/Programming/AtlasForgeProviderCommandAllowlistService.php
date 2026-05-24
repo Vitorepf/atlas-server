@@ -8,7 +8,7 @@ namespace App\Services\Ai\Programming;
  * Atlas Forge Provider Command Allowlist.
  *
  * Validates that a provider driver only ever spawns canonical binaries
- * (`claude`, `claude-code`, `codex`, `gemini`) and that the command argv
+ * (`claude`, `claude-code`, `codex`, `gemini`, `cursor-agent`) and that the command argv
  * cannot smuggle shell injection, redirects, sudo, network probes or
  * filesystem mutators.
  *
@@ -31,9 +31,13 @@ class AtlasForgeProviderCommandAllowlistService
     public const SCHEMA_VERSION = 'atlas.forge.provider_command_allowlist.v1';
 
     public const BLOCKER_NOT_ALLOWED = 'provider_command_not_allowed';
+
     public const BLOCKER_FORBIDDEN_BINARY = 'provider_command_forbidden_binary';
+
     public const BLOCKER_SHELL_METACHARACTER = 'provider_command_shell_metacharacter';
+
     public const BLOCKER_PATH_ESCAPE = 'provider_command_path_escape';
+
     public const BLOCKER_EMPTY_ARGV = 'provider_command_empty_argv';
 
     /** @var list<string> Binaries the Atlas Forge runtime is allowed to spawn. */
@@ -42,6 +46,7 @@ class AtlasForgeProviderCommandAllowlistService
         'claude-code',
         'codex',
         'gemini',
+        'cursor-agent',
     ];
 
     /** @var list<string> Binaries that are NEVER allowed, even if argv[0]. */
@@ -81,6 +86,7 @@ class AtlasForgeProviderCommandAllowlistService
         foreach ($argv as $idx => $arg) {
             if (! is_string($arg)) {
                 $blockers[] = self::BLOCKER_NOT_ALLOWED;
+
                 continue;
             }
             if ($this->containsShellMetacharacter($arg)) {

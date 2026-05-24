@@ -12,9 +12,10 @@ use DateTimeZone;
 /**
  * Atlas Forge Rivals · Industrial Execution Suite v1 readiness.
  *
- * Local-only executable-fixture readiness for industrial-50. This service may
- * materialize deterministic local fixtures under storage/, but it never calls
- * providers, never spends tokens, and never unlocks external certification.
+ * Local-only executable-fixture readiness for industrial case sets. This
+ * service may materialize deterministic local fixtures under storage/, but it
+ * never calls providers, never spends tokens, and never unlocks external
+ * certification.
  */
 final class AtlasForgeRivalsIndustrialExecutionSuiteService
 {
@@ -29,6 +30,14 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
     /** @var list<string> */
     private const EXECUTION_CASE_SETS = [
         AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50,
+        AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_100,
+        AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_200,
+        AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_AMBIGUOUS_BUGS,
+        AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_MULTI_DAY_REFACTORS,
+        AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INCIDENT_RESPONSE,
+        AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_PRODUCT_SECURITY_MIGRATIONS,
+        AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+        AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
     ];
 
     public function __construct(
@@ -55,20 +64,33 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
         }
 
         $ensureFixtures = (bool) ($input['ensure_fixtures'] ?? true);
-        $cases = is_array($input['cases_override'] ?? null)
+        $hasCasesOverride = is_array($input['cases_override'] ?? null);
+        $cases = $hasCasesOverride
             ? array_values((array) $input['cases_override'])
             : $this->corpus->casesForCaseSet($caseSet);
 
-        if ($ensureFixtures && $caseSet === AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50 && ! is_array($input['cases_override'] ?? null)) {
-            $this->ensureFixtures($caseSet);
-            $cases = $this->corpus->casesForCaseSet($caseSet);
+        if ($ensureFixtures) {
+            if ($hasCasesOverride) {
+                foreach ($cases as $case) {
+                    if (is_array($case)) {
+                        $this->materializeCaseFixture($case);
+                    }
+                }
+            } else {
+                $this->ensureFixtures($caseSet);
+                $cases = $this->corpus->casesForCaseSet($caseSet);
+            }
         }
 
-        return $this->readinessForCases($caseSet, $cases);
+        $requiredCasesOverride = is_numeric($input['required_cases_override'] ?? null)
+            ? max(1, (int) $input['required_cases_override'])
+            : null;
+
+        return $this->readinessForCases($caseSet, $cases, $requiredCasesOverride);
     }
 
     /**
-     * Materialize deterministic seed files for the executable industrial-50
+     * Materialize deterministic seed files for an executable industrial
      * corpus. Files are stored under the declared fixture_seed_path so the
      * existing RunReal staging logic remains the single execution path.
      *
@@ -77,11 +99,11 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
     public function ensureFixtures(string $caseSet = AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50): array
     {
         $caseSet = strtolower(trim($caseSet));
-        if ($caseSet !== AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50) {
+        if (! in_array($caseSet, self::EXECUTION_CASE_SETS, true)) {
             return [
                 'status' => 'blocked',
                 'case_set' => $caseSet,
-                'blockers' => ['fixture_materialization_supported_only_for:'.AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50],
+                'blockers' => ['fixture_materialization_not_supported_for:'.$caseSet],
             ];
         }
 
@@ -103,7 +125,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
      * @param  list<array<string,mixed>>  $cases
      * @return array<string,mixed>
      */
-    public function readinessForCases(string $caseSet, array $cases): array
+    public function readinessForCases(string $caseSet, array $cases, ?int $requiredCasesOverride = null): array
     {
         $caseSet = strtolower(trim($caseSet));
         $missingFixtures = [];
@@ -171,20 +193,23 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
         }
 
         $total = count($cases);
+        $requiredCases = $requiredCasesOverride
+            ?? AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SET_MIN_VALID_CASES[$caseSet]
+            ?? 50;
         $invalidCases = array_values(array_unique($invalidCases));
         $executable = max(0, $total - count(array_unique(array_map(
             static fn (string $entry): string => explode(':', $entry, 2)[0],
             $invalidCases,
         ))));
         $blockers = [];
-        if ($caseSet !== AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50) {
+        if (! in_array($caseSet, self::EXECUTION_CASE_SETS, true)) {
             $blockers[] = 'not_industrial_execution_case_set:'.$caseSet;
         }
-        if ($total !== 50) {
-            $blockers[] = 'industrial_50_requires_exactly_50_cases:'.$total;
+        if ($total < $requiredCases) {
+            $blockers[] = 'industrial_execution_requires_min_cases:'.$caseSet.':'.$total.'/'.$requiredCases;
         }
-        if ($executable !== 50) {
-            $blockers[] = 'industrial_50_has_non_executable_cases:'.$executable.'/50';
+        if ($executable < $requiredCases) {
+            $blockers[] = 'industrial_execution_has_non_executable_cases:'.$caseSet.':'.$executable.'/'.$requiredCases;
         }
         foreach ($invalidCases as $invalid) {
             $blockers[] = 'industrial_case_not_executable:'.$invalid;
@@ -201,6 +226,8 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
             'case_set' => $caseSet,
             'total_cases' => $total,
             'executable_cases' => $executable,
+            'required_cases' => $requiredCases,
+            'execution_case_sets' => self::EXECUTION_CASE_SETS,
             'missing_fixtures' => array_values(array_unique($missingFixtures)),
             'empty_seed_cases' => array_values(array_unique($emptySeedCases)),
             'missing_tests' => array_values(array_unique($missingTests)),
@@ -227,8 +254,8 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
             'separated_from_external_rivals_certification' => true,
             'blockers' => array_values(array_unique($blockers)),
             'next_command' => $ok
-                ? 'php artisan atlas:forge:rivals run-battery --preset=industrial-50 --mode=local_fake --json'
-                : 'fix industrial execution fixture blockers, then re-run php artisan atlas:forge:rivals industrial-execution --case-set=industrial-50 --json',
+                ? 'php artisan atlas:forge:rivals run-battery --preset='.$caseSet.' --mode=local_fake --json'
+                : 'fix industrial execution fixture blockers, then re-run php artisan atlas:forge:rivals industrial-execution --case-set='.$caseSet.' --json',
             'note' => 'Industrial execution readiness is local-only. No provider invoked, no tokens spent, and no external claim unlocked.',
         ];
     }
@@ -301,7 +328,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
             'routing_effect' => 'none',
             'separated_from_external_rivals_certification' => true,
             'blockers' => array_values(array_unique($blockers)),
-            'next_command' => 'use --case-set=industrial-50 for industrial execution readiness',
+            'next_command' => 'use an executable industrial case set: '.implode('|', self::EXECUTION_CASE_SETS),
         ];
     }
 
@@ -357,7 +384,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
                 'schema_version' => self::SCHEMA_VERSION,
                 'suite_id' => self::SUITE_ID,
                 'case_id' => $caseId,
-                'case_set' => AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50,
+                'case_set' => (string) ($case['industrial_case_set'] ?? $case['case_set'] ?? AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_INDUSTRIAL_50),
                 'category' => $case['category'] ?? null,
                 'task_type' => $case['task_type'] ?? null,
                 'difficulty_level' => $case['difficulty_level'] ?? null,

@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsActionDispatcher;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsAdjudicatorService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 /**
@@ -112,6 +113,8 @@ final class AtlasForgeRivalsRunBatteryTest extends TestCase
 
     public function test_run_battery_local_fake_reaches_comparable_tie_with_real_evidence(): void
     {
+        $this->skipWorktreeHeavyBatteryTestWhenDiskIsInsufficient();
+
         $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
 
         $response = $dispatcher->dispatch('run-battery', [
@@ -137,6 +140,8 @@ final class AtlasForgeRivalsRunBatteryTest extends TestCase
 
     public function test_run_real_enforces_provider_idle_timeout_without_masking_it_as_heartbeat(): void
     {
+        $this->skipWorktreeHeavyBatteryTestWhenDiskIsInsufficient();
+
         $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
         $runId = 'rivals-timeout-'.Str::lower(Str::random(8));
         $binDir = sys_get_temp_dir().'/atlas-rivals-fake-bin-'.Str::lower(Str::random(8));
@@ -280,9 +285,29 @@ final class AtlasForgeRivalsRunBatteryTest extends TestCase
         $this->assertNull(AtlasForgeRivalsAdjudicatorService::WINNER_NONE);
     }
 
+    private function skipWorktreeHeavyBatteryTestWhenDiskIsInsufficient(): void
+    {
+        $free = @disk_free_space(sys_get_temp_dir());
+        if ($free === false) {
+            $this->markTestSkipped('Cannot probe free disk space for worktree-heavy Rivals battery test.');
+        }
+
+        $minimum = (int) config(
+            'atlas_rivals.min_free_bytes_before_worktree_add',
+            env('ATLAS_FORGE_RIVALS_MIN_FREE_BYTES_BEFORE_WORKTREE_ADD', 1073741824),
+        );
+        if ($minimum > 0 && $free < $minimum) {
+            $this->markTestSkipped(sprintf(
+                'Skipping worktree-heavy Rivals battery test: free_bytes=%d required_bytes=%d.',
+                (int) $free,
+                $minimum,
+            ));
+        }
+    }
+
     private function whichBinary(string $binary): string
     {
-        $proc = \Symfony\Component\Process\Process::fromShellCommandline('which '.escapeshellarg($binary));
+        $proc = Process::fromShellCommandline('which '.escapeshellarg($binary));
         $proc->setTimeout(5);
         $proc->run();
         if (! $proc->isSuccessful()) {

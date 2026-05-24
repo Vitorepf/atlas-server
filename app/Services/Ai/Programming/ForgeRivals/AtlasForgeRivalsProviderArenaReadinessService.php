@@ -22,6 +22,8 @@ final class AtlasForgeRivalsProviderArenaReadinessService
         private readonly AtlasForgeRivalsArmContractService $contracts,
         private readonly AtlasForgeRivalsProviderModelRegistryService $models,
         private readonly AtlasForgeRivalsArmCommandBuilderService $commands,
+        private readonly AtlasForgeRivalsProviderEvidenceDiskGuardService $evidenceDiskGuard,
+        private readonly AtlasForgeRivalsRunPathResolver $paths,
     ) {}
 
     /**
@@ -30,8 +32,9 @@ final class AtlasForgeRivalsProviderArenaReadinessService
      */
     public function snapshot(array $input = []): array
     {
+        $evidenceDisk = $this->evidenceDiskGuard->check($this->paths->rootDirectory().'/readiness-probe');
         $pairs = array_map(
-            fn (array $pair): array => $this->pairReadiness($pair),
+            fn (array $pair): array => $this->pairReadiness($pair, $evidenceDisk),
             $this->canonicalPairs(),
         );
 
@@ -43,6 +46,8 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             'real_run_ready_count' => count(array_filter($pairs, static fn (array $pair): bool => (bool) $pair['real_run_ready'])),
             'blocked_count' => count(array_filter($pairs, static fn (array $pair): bool => $pair['status'] === 'blocked')),
             'driver_missing_count' => count(array_filter($pairs, static fn (array $pair): bool => $pair['status'] === 'plan_ready_driver_missing')),
+            'evidence_disk_blocked_count' => count(array_filter($pairs, static fn (array $pair): bool => $pair['status'] === 'plan_ready_evidence_disk_blocked')),
+            'evidence_disk_status' => $this->projectEvidenceDiskStatus($evidenceDisk),
             'pairs' => $pairs,
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
@@ -94,6 +99,26 @@ final class AtlasForgeRivalsProviderArenaReadinessService
                 'purpose' => 'Cross-provider Codex against Gemini once Gemini driver is configured.',
             ],
             [
+                'pair_id' => 'cursor_default_vs_claude_sonnet',
+                'arm_a' => 'cursor_cli',
+                'arm_a_model' => 'default',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'sonnet',
+                'mode' => 'provider_arena',
+                'task_category' => 'bugfix',
+                'purpose' => 'Cursor CLI configured default against Claude Code Sonnet.',
+            ],
+            [
+                'pair_id' => 'composer_2_5_vs_codex_gpt55',
+                'arm_a' => 'composer_2_5',
+                'arm_a_model' => 'default',
+                'arm_b' => 'codex_cli',
+                'arm_b_model' => 'gpt-5.5',
+                'mode' => 'provider_arena',
+                'task_category' => 'bugfix',
+                'purpose' => 'Composer 2.5 runner surface against Codex CLI premium model.',
+            ],
+            [
                 'pair_id' => 'claude_sonnet_vs_claude_opus',
                 'arm_a' => 'claude_code',
                 'arm_a_model' => 'sonnet',
@@ -120,7 +145,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
      * @param  array<string,string>  $pair
      * @return array<string,mixed>
      */
-    private function pairReadiness(array $pair): array
+    private function pairReadiness(array $pair, array $evidenceDisk): array
     {
         $contractA = $this->contract('arm_a', $pair);
         $contractB = $this->contract('arm_b', $pair);
@@ -154,12 +179,15 @@ final class AtlasForgeRivalsProviderArenaReadinessService
         $allBlockers = array_values(array_unique(array_merge($blockers, $driverBlockers)));
         $contractBlocked = $blockers !== [];
         $driverBlocked = $driverBlockers !== [];
+        $evidenceDiskBlocked = ($evidenceDisk['status'] ?? null) !== 'ok';
 
         $status = match (true) {
             $contractBlocked => 'blocked',
             $driverBlocked => 'plan_ready_driver_missing',
+            $evidenceDiskBlocked => 'plan_ready_evidence_disk_blocked',
             default => 'real_run_ready_after_confirmations',
         };
+        $realRunBlockers = $evidenceDiskBlocked ? $this->stringList($evidenceDisk['blockers'] ?? []) : [];
 
         return [
             'pair_id' => $pair['pair_id'],
@@ -168,13 +196,31 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             'mode' => $pair['mode'],
             'task_category' => $pair['task_category'],
             'dry_run_ready' => ! $contractBlocked,
-            'real_run_ready' => ! $contractBlocked && ! $driverBlocked,
-            'blockers' => $allBlockers,
+            'real_run_ready' => ! $contractBlocked && ! $driverBlocked && ! $evidenceDiskBlocked,
+            'blockers' => array_values(array_unique(array_merge($allBlockers, $realRunBlockers))),
+            'evidence_disk_status' => $this->projectEvidenceDiskStatus($evidenceDisk),
             'required_confirmations_for_real_run' => ['runbook_reviewed', 'provider_cost', 'real_provider_call'],
             'arm_a' => $this->armSummary($contractA),
             'arm_b' => $this->armSummary($contractB),
             'command_plan' => $commandPlan,
             'next_command' => $this->nextCommand($pair),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidenceDisk
+     * @return array<string,mixed>
+     */
+    private function projectEvidenceDiskStatus(array $evidenceDisk): array
+    {
+        return [
+            'status' => $evidenceDisk['status'] ?? 'unknown',
+            'path' => $evidenceDisk['path'] ?? null,
+            'required_free_bytes' => $evidenceDisk['required_free_bytes'] ?? null,
+            'free_bytes' => $evidenceDisk['free_bytes'] ?? null,
+            'blockers' => $this->stringList($evidenceDisk['blockers'] ?? []),
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
         ];
     }
 
@@ -230,6 +276,12 @@ final class AtlasForgeRivalsProviderArenaReadinessService
         }
 
         $provider = (string) ($contract['provider'] ?? '');
+        if (in_array($provider, ['cursor', 'composer'], true)
+            && (bool) config('atlas.ai.providers.cursor_cli.enabled', false) !== true
+        ) {
+            return ['provider_disabled_by_policy:'.$role.':'.$provider.':atlas.ai.providers.cursor_cli.enabled'];
+        }
+
         $binary = $this->models->binaryForProvider($provider);
         if (! (bool) ($binary['ok'] ?? false)) {
             return array_values(array_map(
@@ -260,6 +312,21 @@ final class AtlasForgeRivalsProviderArenaReadinessService
     }
 
     /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): string => trim((string) $item),
+            $value,
+        ), static fn (string $item): bool => $item !== ''));
+    }
+
+    /**
      * @param  array<string,mixed>  $contract
      * @return array<string,mixed>
      */
@@ -267,8 +334,14 @@ final class AtlasForgeRivalsProviderArenaReadinessService
     {
         return [
             'arm_id' => (string) data_get($contract, 'arm.arm_id', ''),
+            'resolved_arm' => (string) data_get($contract, 'arm.arm_id', ''),
             'label' => (string) data_get($contract, 'arm.label', data_get($contract, 'arm.arm_id', '')),
             'provider' => (string) ($contract['provider'] ?? ''),
+            'provider_kind' => $contract['provider_kind'] ?? null,
+            'meta_provider' => (bool) ($contract['meta_provider'] ?? false),
+            'meta_provider_parent' => $contract['meta_provider_parent'] ?? null,
+            'provider_metadata' => (array) ($contract['provider_metadata'] ?? []),
+            'model_alias' => $contract['requested_model'] ?? null,
             'resolved_model' => $contract['resolved_model'] ?? null,
             'resolved_model_id' => $contract['resolved_model_id'] ?? null,
             'resolved_model_label' => $contract['resolved_model_label'] ?? null,
@@ -283,7 +356,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
     private function redactedCommand(array $built): array
     {
         $command = (array) ($built['command'] ?? []);
-        if ($command !== []) {
+        if ($command !== [] && ($built['prompt_transport'] ?? 'argv') !== 'stdin') {
             $command[count($command) - 1] = '<prompt>';
         }
 
@@ -293,6 +366,12 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             'model' => $built['model'] ?? null,
             'model_id' => $built['model_id'] ?? null,
             'command_family' => $built['command_family'] ?? null,
+            'prompt_transport' => $built['prompt_transport'] ?? 'argv',
+            'stdin_prompt_hash' => $built['stdin_prompt_hash'] ?? null,
+            'stdin_prompt_bytes' => $built['stdin_prompt_bytes'] ?? null,
+            'command_shape_summary' => is_array($built['command_shape_summary'] ?? null)
+                ? (array) $built['command_shape_summary']
+                : null,
             'command' => array_values(array_map(static fn (mixed $part): string => (string) $part, $command)),
             'blockers' => (array) ($built['blockers'] ?? []),
         ];

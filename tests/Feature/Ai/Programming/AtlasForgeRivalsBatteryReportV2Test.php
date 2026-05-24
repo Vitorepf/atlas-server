@@ -103,6 +103,14 @@ final class AtlasForgeRivalsBatteryReportV2Test extends TestCase
         $this->assertTrue($envelope['confidence']['is_trusted']);
         $this->assertFalse($envelope['claim_ready']);
         $this->assertTrue($envelope['result_valid_for_ranking']);
+        $this->assertArrayHasKey('separation_analysis', $envelope);
+        $this->assertSame('atlas.forge.rivals.separation_analysis.v1', $envelope['separation_analysis']['schema_version']);
+        $this->assertContains('extreme-differentiator', $envelope['separation_analysis']['recommended_case_sets']);
+        $this->assertArrayHasKey('extreme_measurement_plan', $envelope);
+        $this->assertSame('atlas.forge.rivals.extreme_measurement_plan.v1', $envelope['extreme_measurement_plan']['schema_version']);
+        $this->assertTrue($envelope['extreme_measurement_plan']['advisory_only']);
+        $this->assertFalse($envelope['extreme_measurement_plan']['external_provider_call']);
+        $this->assertFalse($envelope['extreme_measurement_plan']['provider_tokens_spent']);
 
         $this->assertFalse($envelope['contaminated_game']);
         $this->assertSame([], $envelope['hard_failures']);
@@ -221,6 +229,41 @@ final class AtlasForgeRivalsBatteryReportV2Test extends TestCase
         $this->assertSame(AtlasForgeRivalsAdjudicatorService::WINNER_TIE, $envelope['winner']);
         $this->assertTrue($envelope['human_review_required']);
         $this->assertFalse($envelope['claim_ready']);
+        $this->assertTrue($envelope['separation_analysis']['low_discrimination']);
+        $this->assertSame(1.0, $envelope['separation_analysis']['tie_rate']);
+        $this->assertContains('extreme-differentiator', $envelope['separation_analysis']['recommended_case_sets']);
+        $this->assertSame('needs_extreme_followup', $envelope['extreme_measurement_plan']['status']);
+        $this->assertTrue($envelope['extreme_measurement_plan']['requires_harder_followup']);
+        $this->assertTrue($envelope['extreme_measurement_plan']['tie_is_diagnostic_not_claim']);
+        $this->assertSame('none', $envelope['extreme_measurement_plan']['routing_effect']);
+        $this->assertContains('global_delta_inside_tie_threshold', $envelope['extreme_measurement_plan']['reasons']);
+        $matchupIds = array_column($envelope['extreme_measurement_plan']['required_matchups'], 'id');
+        $this->assertContains('atlas_forge_vs_claude_sonnet', $matchupIds);
+        $this->assertContains('claude_sonnet_vs_codex_gpt_5_5', $matchupIds);
+        $this->assertContains('composer_2_5_vs_codex_gpt_5_5', $matchupIds);
+        $this->assertContains('cursor_default_vs_claude_sonnet', $matchupIds);
+        $atlasDevForge = array_values(array_filter(
+            $envelope['extreme_measurement_plan']['required_matchups'],
+            static fn (array $matchup): bool => ($matchup['id'] ?? null) === 'atlas_dev_vs_atlas_forge',
+        ))[0] ?? null;
+        $this->assertSame('provider_arena', $atlasDevForge['mode'] ?? null);
+        $this->assertSame('sonnet', $atlasDevForge['arm_b_model'] ?? null);
+        $commands = array_column($envelope['extreme_measurement_plan']['recommended_commands'], 'command');
+        $this->assertNotEmpty(array_filter(
+            $commands,
+            static fn (string $command): bool => str_contains($command, '--arm-a=composer_2_5')
+                && str_contains($command, '--arm-b=codex_cli')
+                && str_contains($command, '--dry-run'),
+        ));
+        $this->assertNotEmpty($envelope['extreme_measurement_plan']['category_slices']);
+        $this->assertNotEmpty($envelope['extreme_measurement_plan']['capability_slices']);
+        $this->assertNotEmpty(array_filter(
+            $envelope['separation_analysis']['reasons'],
+            static fn (string $reason): bool => str_starts_with($reason, 'high_tie_rate:'),
+        ));
+        $md = (string) file_get_contents($envelope['report_path']);
+        $this->assertStringContainsString('## Plano Extremo 360', $md);
+        $this->assertStringContainsString('composer_2_5_vs_codex_gpt_5_5', $md);
     }
 
     public function test_winner_per_category_is_identified(): void

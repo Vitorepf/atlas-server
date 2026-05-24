@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\ForgeRivals;
 
+use App\Console\Commands\AtlasForgeRivalsCommand;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsBatteryEvidenceService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCollectEvidenceService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEvidencePolicy;
@@ -164,6 +165,151 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertSame(AtlasForgeRivalsMatrixReportService::EXECUTION_DIMENSIONS, $split['execution']['dimensions']);
     }
 
+    public function test_matrix_report_emits_capability_ranking_for_360_diagnosis(): void
+    {
+        $runId = $this->seedBattery([
+            $this->case('security-l5', 'security', 'hard', 'comparable', atlas: 91, rival: 87, capabilities: [
+                'security_fail_closed',
+                'threat_model_quality',
+                'assumption_quality',
+                'scope_boundary_probe',
+            ]),
+            $this->case('rollback-l5', 'architecture', 'hard', 'comparable', atlas: 84, rival: 84, capabilities: [
+                'rollback_safety',
+                'evidence_replay_completeness',
+            ]),
+        ]);
+
+        $result = $this->matrix->render(['run_ids' => [$runId]]);
+        $ranking = $result['matrix_report']['capability_ranking'];
+        $this->assertSame('advisory', $ranking['status']);
+        $this->assertFalse($ranking['floor_met']);
+        $this->assertTrue($ranking['advisory_only']);
+        $this->assertFalse($ranking['should_update_provider_topology']);
+        $this->assertTrue($ranking['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $ranking['owner_of_model_routing']);
+        $this->assertSame('none', $ranking['routing_effect']);
+
+        $byCapability = [];
+        foreach ($ranking['rows'] as $row) {
+            $byCapability[$row['capability']] = $row;
+        }
+
+        $this->assertArrayHasKey('security_fail_closed', $byCapability);
+        $this->assertArrayHasKey('threat_model_quality', $byCapability);
+        $this->assertArrayHasKey('ambiguous_human_prompt_handling', $byCapability);
+        $this->assertArrayHasKey('scope_boundary_discipline', $byCapability);
+        $this->assertArrayHasKey('rollback_safety', $byCapability);
+        $this->assertArrayHasKey('replayable_evidence_quality', $byCapability);
+        $this->assertSame('tie', $byCapability['rollback_safety']['leader']);
+        $this->assertSame('insufficient', $byCapability['security_fail_closed']['validity']);
+        $this->assertSame('insufficient', $byCapability['scope_boundary_discipline']['validity']);
+        $plan = $ranking['next_measurement_plan'];
+        $this->assertSame('needs_more_measurement', $plan['status']);
+        $this->assertTrue($plan['advisory_only']);
+        $this->assertFalse($plan['should_update_provider_topology']);
+        $this->assertTrue($plan['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $plan['owner_of_model_routing']);
+        $this->assertSame('none', $plan['routing_effect']);
+        $this->assertFalse($plan['provider_call']);
+        $this->assertFalse($plan['tokens_spent']);
+
+        $requirementsByCapability = [];
+        foreach ($plan['requirements'] as $requirement) {
+            $requirementsByCapability[$requirement['capability']] = $requirement;
+        }
+        $this->assertArrayHasKey('scope_boundary_discipline', $requirementsByCapability);
+        $this->assertNotEmpty($requirementsByCapability['scope_boundary_discipline']['candidate_cases']);
+        $this->assertStringContainsString('--dry-run --json', $requirementsByCapability['scope_boundary_discipline']['recommended_dry_run_commands'][0]);
+        $this->assertStringContainsString('--case=', $requirementsByCapability['scope_boundary_discipline']['recommended_dry_run_commands'][0]);
+        $battleMatrix = $requirementsByCapability['scope_boundary_discipline']['battle_matrix'];
+        $battleIds = array_column($battleMatrix, 'battle_id');
+        $this->assertContains('atlas_forge_vs_claude_sonnet', $battleIds);
+        $this->assertContains('atlas_dev_vs_atlas_forge', $battleIds);
+        $this->assertContains('composer_2_5_vs_codex_gpt_5_5', $battleIds);
+        $this->assertContains('cursor_default_vs_claude_sonnet', $battleIds);
+        $this->assertContains('claude_sonnet_vs_codex_gpt_5_5', $battleIds);
+        $this->assertContains('codex_gpt_5_5_vs_gemini_pro', $battleIds);
+        $this->assertContains('claude_sonnet_vs_claude_opus', $battleIds);
+        $this->assertContains('atlas_forge_full_power_vs_claude_opus', $battleIds);
+        foreach ($battleMatrix as $battle) {
+            $this->assertFalse($battle['provider_call']);
+            $this->assertFalse($battle['tokens_spent']);
+            $this->assertSame('none', $battle['routing_effect']);
+            $this->assertStringContainsString('--dry-run --json', $battle['dry_run_command']);
+            $this->assertStringContainsString('--case=', $battle['dry_run_command']);
+            $this->assertSame(['runbook_reviewed', 'provider_cost', 'real_provider_call'], $battle['real_run_requires_confirmations']);
+        }
+
+        $paths = $this->paths->paths($runId);
+        $md = (string) file_get_contents($paths['evidence'].'/'.AtlasForgeRivalsMatrixReportService::MATRIX_REPORT_MD_FILE);
+        $this->assertStringContainsString('Ranking por capacidade (360)', $md);
+    }
+
+    public function test_matrix_report_marks_full_floor_ties_as_low_differentiation_not_strength_claim(): void
+    {
+        $required = [
+            'long_context_retention',
+            'multi_step_reasoning',
+            'rollback_safety',
+            'scope_boundary_discipline',
+            'replayable_evidence_quality',
+            'honest_blocker_behavior',
+            'ambiguous_human_prompt_handling',
+        ];
+        $runId = $this->seedBattery([
+            $this->case('tie-l5-1', 'architecture', 'hard', 'comparable', atlas: 88, rival: 87, capabilities: $required),
+            $this->case('tie-l5-2', 'refactor', 'hard', 'comparable', atlas: 86, rival: 86, capabilities: $required),
+            $this->case('tie-l5-3', 'security', 'hard', 'comparable', atlas: 89, rival: 88, capabilities: $required),
+        ]);
+
+        $result = $this->matrix->render(['run_ids' => [$runId]]);
+        $report = $result['matrix_report'];
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame('tie', $report['overall']['winner']);
+        $this->assertTrue($report['capability_ranking']['floor_met']);
+        $this->assertSame('low_differentiation', $report['differentiation']['status']);
+        $this->assertSame([], $report['differentiation']['required_differentiated_capabilities']);
+        $this->assertSame($required, $report['differentiation']['required_tied_capabilities']);
+        $this->assertTrue($report['differentiation']['tie_is_diagnostic_not_claim']);
+        $this->assertFalse($report['differentiation']['should_update_provider_topology']);
+        $this->assertSame('none', $report['differentiation']['routing_effect']);
+        $this->assertSame('run_extreme_differentiator_cases_targeting_required_tied_or_insufficient_capabilities', $report['differentiation']['next_action']);
+
+        $paths = $this->paths->paths($runId);
+        $md = (string) file_get_contents($paths['evidence'].'/'.AtlasForgeRivalsMatrixReportService::MATRIX_REPORT_MD_FILE);
+        $this->assertStringContainsString('Diagnóstico de diferenciação', $md);
+        $this->assertStringContainsString('low_differentiation', $md);
+    }
+
+    public function test_matrix_report_marks_repeated_l5_capability_wins_as_differentiated_signal(): void
+    {
+        $required = [
+            'long_context_retention',
+            'multi_step_reasoning',
+            'rollback_safety',
+            'scope_boundary_discipline',
+            'replayable_evidence_quality',
+            'honest_blocker_behavior',
+            'ambiguous_human_prompt_handling',
+        ];
+        $runId = $this->seedBattery([
+            $this->case('atlas-l5-1', 'architecture', 'hard', 'comparable', atlas: 96, rival: 80, capabilities: $required),
+            $this->case('atlas-l5-2', 'refactor', 'hard', 'comparable', atlas: 94, rival: 81, capabilities: $required),
+            $this->case('atlas-l5-3', 'security', 'hard', 'comparable', atlas: 95, rival: 82, capabilities: $required),
+        ]);
+
+        $report = $this->matrix->render(['run_ids' => [$runId]])['matrix_report'];
+
+        $this->assertSame('atlas', $report['overall']['winner']);
+        $this->assertSame('differentiated', $report['differentiation']['status']);
+        $this->assertSame($required, $report['differentiation']['required_differentiated_capabilities']);
+        $this->assertSame([], $report['differentiation']['required_tied_capabilities']);
+        $this->assertSame(1.0, $report['differentiation']['separation_ratio']);
+        $this->assertSame('continue_repetition_for_confidence_and_cost_receipts', $report['differentiation']['next_action']);
+    }
+
     public function test_matrix_report_separates_invalid_and_suspicious_cases(): void
     {
         $runId = $this->seedBattery([
@@ -303,7 +449,7 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
 
     public function test_matrix_report_action_is_registered_in_cli(): void
     {
-        $this->assertContains('matrix-report', \App\Console\Commands\AtlasForgeRivalsCommand::ACTIONS);
+        $this->assertContains('matrix-report', AtlasForgeRivalsCommand::ACTIONS);
     }
 
     // --- helpers ---
@@ -345,6 +491,12 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
                 'case_source' => 'provider_arena_corpus',
                 'task_category' => $spec['task_category'],
                 'case_set' => 'quick',
+                'context_profile' => $spec['context_profile'] ?? null,
+                'measurement_tags' => $spec['measurement_tags'] ?? [],
+                'human_prompt_probe' => $spec['human_prompt_probe'] ?? null,
+                'meta_provider_stress' => $spec['meta_provider_stress'] ?? null,
+                'extreme_differentiator' => $spec['extreme_differentiator'] ?? null,
+                'measured_capabilities' => $spec['capabilities'] ?? [],
                 'difficulty' => $spec['difficulty'],
                 'difficulty_level' => AtlasForgeRivalsProviderArenaCorpusService::difficultyToLevel($spec['difficulty']),
                 'difficulty_weight' => AtlasForgeRivalsProviderArenaCorpusService::difficultyLevelWeight(
@@ -555,6 +707,7 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         ?int $executionAtlasOverride = null,
         ?int $executionRivalOverride = null,
         array $hardFailures = [],
+        array $capabilities = [],
     ): array {
         return [
             'case_id' => $caseId,
@@ -568,6 +721,11 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
             'execution_atlas' => $executionAtlasOverride,
             'execution_rival' => $executionRivalOverride,
             'hard_failures' => $hardFailures,
+            'capabilities' => $capabilities,
+            'measurement_tags' => $capabilities,
+            'extreme_differentiator' => $capabilities === [] ? null : [
+                'capability_axes' => $capabilities,
+            ],
         ];
     }
 

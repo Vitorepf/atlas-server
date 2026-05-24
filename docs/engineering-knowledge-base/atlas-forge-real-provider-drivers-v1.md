@@ -5,7 +5,7 @@ title: Atlas Forge Governed Real Provider Drivers v1
 status: active
 category: programming-forge
 priority: 98
-summary: Drivers reais governados para claude_cli, codex_cli, gemini_cli, antigravity_sdk e cursor_sdk no Atlas Forge Governed Provider Invocation. Plan-only por padrao; execute real exige 3 confirmacoes + budget + dispatch + capacity + driver configurado. Atlas-local continua executor seguro.
+summary: Drivers reais governados para claude_cli, codex_cli, gemini_cli, antigravity_sdk, cursor_sdk e cursor_cli no Atlas Forge Governed Provider Invocation. Plan-only por padrao; execute real exige 3 confirmacoes + budget + dispatch + capacity + driver configurado. Atlas-local continua executor seguro.
 tags:
   - atlas
   - forge
@@ -22,7 +22,8 @@ capabilities:
 decisions:
   - Provider real so pode ser chamado quando os 13 gates de invocation + driver configurado + allowlist + capacity estiverem todos verdes.
   - atlas-local continua executor seguro deterministico; nunca chama provider externo.
-  - claude_cli/codex_cli/gemini_cli, antigravity_sdk e cursor_sdk sao drivers governados; bloqueiam honestamente se runtime ou auth ausente.
+  - claude_cli/codex_cli/gemini_cli, antigravity_sdk, cursor_sdk e cursor_cli sao drivers governados; bloqueiam honestamente se runtime ou auth ausente.
+  - cursor_cli e o caminho preferencial quando a estrategia e usar assinatura/login Cursor sem on-demand/API extra; cursor_sdk fica reservado para futuro uso API/Cloud Agent explicito.
   - Comandos sao argv array; nunca shell raw.
   - Output e capturado com sha256; secrets sao redacted antes do excerpt.
   - Failure classifier mapeia exit/stdout/stderr para canonical failure types.
@@ -36,6 +37,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-antigravity-cli-governed-terminal-executor-v1.md
   - docs/engineering-knowledge-base/atlas-antigravity-sdk-governed-executor-v1.md
   - docs/engineering-knowledge-base/atlas-cursor-sdk-governed-executor-v1.md
+  - docs/engineering-knowledge-base/atlas-cursor-cli-governed-executor-v1.md
   - docs/engineering-knowledge-base/system-graph/atlas-decide.md
   - docs/engineering-knowledge-base/domains/programming-professional-completion-audit.md
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationDriver.php
@@ -46,6 +48,7 @@ related_paths:
   - app/Services/Ai/Programming/AtlasForgeCodexCliInvocationDriver.php
   - app/Services/Ai/Programming/AtlasForgeGeminiCliInvocationDriver.php
   - app/Services/Ai/Programming/AtlasForgeCursorSdkInvocationDriver.php
+  - app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php
   - app/Services/Ai/Programming/AtlasCursorSdkRuntimeExecutor.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationFailureClassifier.php
@@ -54,6 +57,7 @@ related_paths:
   - app/Http/Controllers/AtlasCodeForgeProviderInvocationController.php
   - tests/Feature/Ai/Programming/AtlasForgeRealProviderDriversTest.php
   - tests/Feature/Ai/Programming/AtlasForgeCursorSdkDriverTest.php
+  - tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-forge-real-provider-drivers-v1
@@ -80,17 +84,20 @@ repo_paths:
   - app/Services/Ai/Programming/AtlasForgeCodexCliInvocationDriver.php
   - app/Services/Ai/Programming/AtlasForgeGeminiCliInvocationDriver.php
   - app/Services/Ai/Programming/AtlasForgeCursorSdkInvocationDriver.php
+  - app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php
   - app/Services/Ai/Programming/AtlasCursorSdkRuntimeExecutor.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationFailureClassifier.php
   - tests/Feature/Ai/Programming/AtlasForgeRealProviderDriversTest.php
   - tests/Feature/Ai/Programming/AtlasForgeCursorSdkDriverTest.php
+  - tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php
 evidence:
   - docs/engineering-knowledge-base/atlas-forge-real-provider-drivers-v1.md
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php
   - app/Services/Ai/Programming/AtlasForgeProviderProcessRunner.php
   - tests/Feature/Ai/Programming/AtlasForgeRealProviderDriversTest.php
   - tests/Feature/Ai/Programming/AtlasForgeCursorSdkDriverTest.php
+  - tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php
 allowed_changes:
   - Adicionar novos drivers governados apenas com allowlist + safe runner + tests + audit invariants.
   - Estender failure classifier para sinais novos quando provider mudar.
@@ -113,6 +120,7 @@ governs:
 required_tests:
   - "php artisan test --filter=AtlasForgeRealProviderDriversTest"
   - "php artisan test tests/Feature/Ai/Programming/AtlasForgeCursorSdkDriverTest.php"
+  - "php artisan test tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php"
 requires_evidence: true
 risk_level: critical
 visual_tags:
@@ -164,7 +172,7 @@ next_actions:
 
 ## Resumo
 
-Substitui o blocker `provider_driver_missing` por drivers reais governados para `claude_cli`, `codex_cli`, `gemini_cli`, `antigravity_sdk` e `cursor_sdk`. Sem reduzir nenhum gate: execute real continua exigindo `--confirm-provider-call` + `--confirm-budget` (externo) + `--confirm-runtime-dispatch` + driver configurado + dispatch live + capacity OK.
+Substitui o blocker `provider_driver_missing` por drivers reais governados para `claude_cli`, `codex_cli`, `gemini_cli`, `antigravity_sdk`, `cursor_sdk` e `cursor_cli`. Sem reduzir nenhum gate: execute real continua exigindo `--confirm-provider-call` + `--confirm-budget` (externo) + `--confirm-runtime-dispatch` + driver configurado + dispatch live + capacity OK.
 
 Mantem `atlas-local` como executor seguro deterministico. Quando nenhum CLI estiver instalado/auth configurada, drivers bloqueiam honestamente com `provider_driver_not_configured`.
 
@@ -194,7 +202,8 @@ Atlas Code Surface (SCOR-1)
    │     ├─ codex_cli driver
 │     ├─ gemini_cli driver
 │     ├─ antigravity_sdk driver
-│     └─ cursor_sdk driver
+│     ├─ cursor_sdk driver
+│     └─ cursor_cli driver
    ├─ Allowlist + Safe Process Runner + Failure Classifier
    ├─ Invocation Receipt + Evidence Ledger
    ├─ Review/Completion Gate
@@ -249,8 +258,10 @@ Backend:
 - `AtlasForgeGeminiCliInvocationDriver`
 - `AtlasForgeAntigravitySdkInvocationDriver`
 - `AtlasForgeCursorSdkInvocationDriver`
+- `AtlasForgeCursorCliInvocationDriver`
 - `AtlasCursorSdkRuntimeExecutor`
 - `runtimes/node/cursor_sdk/adapter.mjs`
+- `app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php`
 - `AtlasForgeProviderInvocationFailureClassifier`
 - `AtlasForgeProviderInvocationDriverRouter` v2 (registro + driverStatus + driverPlan + driverInvoke)
 - CLI: `atlas:forge:provider-invoke --driver-status` + `--plan-driver` + `--provider-timeout`

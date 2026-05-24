@@ -8,7 +8,7 @@ namespace App\Services\Ai\Programming;
  * Atlas Forge Provider Invocation Driver Router (v2).
  *
  * Maps a provider id (atlas-local, claude_cli, codex_cli, gemini_cli,
- * antigravity_sdk, cursor_sdk, claude_codex) to a concrete runtime driver implementing
+ * antigravity_sdk, cursor_sdk, cursor_cli, claude_codex) to a concrete runtime driver implementing
  * `AtlasForgeProviderInvocationDriver`. The router exposes:
  *
  *   - `supports(provider)`           — provider is canonical?
@@ -30,11 +30,19 @@ namespace App\Services\Ai\Programming;
 class AtlasForgeProviderInvocationDriverRouter
 {
     public const DRIVER_ATLAS_LOCAL = 'atlas-local';
+
     public const DRIVER_CLAUDE_CLI = AtlasForgeClaudeCliInvocationDriver::PROVIDER;
+
     public const DRIVER_CODEX_CLI = AtlasForgeCodexCliInvocationDriver::PROVIDER;
+
     public const DRIVER_GEMINI_CLI = AtlasForgeGeminiCliInvocationDriver::PROVIDER;
+
     public const DRIVER_ANTIGRAVITY_SDK = AtlasForgeAntigravitySdkInvocationDriver::PROVIDER;
+
     public const DRIVER_CURSOR_SDK = AtlasForgeCursorSdkInvocationDriver::PROVIDER;
+
+    public const DRIVER_CURSOR_CLI = AtlasForgeCursorCliInvocationDriver::PROVIDER;
+
     public const DRIVER_CLAUDE_CODEX = 'claude_codex';
 
     /** @var list<string> Drivers the Atlas Forge Continuum OS recognises. */
@@ -45,11 +53,14 @@ class AtlasForgeProviderInvocationDriverRouter
         self::DRIVER_GEMINI_CLI,
         self::DRIVER_ANTIGRAVITY_SDK,
         self::DRIVER_CURSOR_SDK,
+        self::DRIVER_CURSOR_CLI,
         self::DRIVER_CLAUDE_CODEX,
     ];
 
     public const BLOCKER_PROVIDER_DRIVER_MISSING = 'provider_driver_missing';
+
     public const BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED = 'provider_invocation_not_configured';
+
     public const BLOCKER_PROVIDER_DRIVER_NOT_CONFIGURED = 'provider_driver_not_configured';
 
     /** @var array<string, AtlasForgeProviderInvocationDriver> */
@@ -61,6 +72,7 @@ class AtlasForgeProviderInvocationDriverRouter
         AtlasForgeGeminiCliInvocationDriver $gemini,
         AtlasForgeAntigravitySdkInvocationDriver $antigravity,
         AtlasForgeCursorSdkInvocationDriver $cursor,
+        AtlasForgeCursorCliInvocationDriver $cursorCli,
     ) {
         $this->drivers = [
             $claude->provider() => $claude,
@@ -68,6 +80,7 @@ class AtlasForgeProviderInvocationDriverRouter
             $gemini->provider() => $gemini,
             $antigravity->provider() => $antigravity,
             $cursor->provider() => $cursor,
+            $cursorCli->provider() => $cursorCli,
         ];
     }
 

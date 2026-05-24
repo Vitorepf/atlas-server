@@ -1,0 +1,40 @@
+{
+    "schema_version": "atlas.forge.rivals.industrial_execution_suite.v1",
+    "suite_id": "atlas-forge-rivals-industrial-execution-suite-v1",
+    "case_id": "extreme-differentiator-056-industrial-061-security",
+    "case_set": "extreme-differentiator",
+    "category": "refactor",
+    "task_type": "security",
+    "difficulty_level": "L1",
+    "acceptance_criteria": [
+        "Entrega resolve o caso sem tocar arquivos proibidos.",
+        "Patch inclui evidencia local suficiente para auditoria e replay.",
+        "Resposta explicita incertezas, tradeoffs e limites quando o prompt for ambiguo.",
+        "Scorecard por caso pode ser reconstruido a partir do evidence pack."
+    ],
+    "evidence_requirements": [
+        "patch_diff",
+        "provider_receipt",
+        "test_log",
+        "scorecard_per_case",
+        "workspace_hashes",
+        "oracle_adjudication_notes"
+    ],
+    "invalid_if": [
+        "synthetic_score_admitted",
+        "touched_forbidden_files",
+        "external_rivals_unlock_attempted",
+        "missing_case_scorecard",
+        "missing_replay",
+        "missing_evidence_pack",
+        "oracle_metadata_ignored"
+    ],
+    "expected_changed_files": [
+        "storage/forge-rivals-industrial/extreme-differentiator-056-industrial-061-security/src/extreme-differentiator-056-industrial-061-security.php",
+        "storage/forge-rivals-industrial/extreme-differentiator-056-industrial-061-security/tests/extreme-differentiator-056-industrial-061-securityTest.php",
+        "storage/forge-rivals-industrial/extreme-differentiator-056-industrial-061-security/docs/extreme-differentiator-056-industrial-061-security-runbook.md"
+    ],
+    "oracle_hash": "b4e905e4030d33068288ee9408e00e58aa3baa9a6c02a58f2721052fdbde6aaa",
+    "external_provider_call": false,
+    "provider_tokens_spent": false
+}

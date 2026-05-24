@@ -6,10 +6,14 @@ namespace Tests\Unit\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsAdjudicatorService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCollectEvidenceService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsDoctorService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEventStream;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEvidencePolicy;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsReplayService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsReportService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Programming\WorkspaceHygieneService;
 use Tests\TestCase;
 
 /**
@@ -69,6 +73,68 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         $this->assertSame('atlas.forge.rivals.report.v3', $report['schema_version']);
         $this->assertNotEmpty($report['headline']);
         $this->assertStringContainsString('caso', strtolower($report['headline']));
+    }
+
+    public function test_provider_signal_category_fit_uses_category_bucket_name(): void
+    {
+        $reflection = new \ReflectionMethod($this->report, 'buildAxisFit');
+        $reflection->setAccessible(true);
+
+        $fit = $reflection->invoke($this->report, [[
+            'category' => 'bugfix',
+            'cases' => 1,
+            'winner' => AtlasForgeRivalsAdjudicatorService::WINNER_TIE,
+            'validity' => 'insufficient',
+            'validity_reason' => 'small_sample_less_than_three',
+            'margin' => 0.0,
+        ]], 'category');
+
+        $this->assertSame('bugfix', $fit[0]['key']);
+        $this->assertSame('none', $fit[0]['routing_effect']);
+    }
+
+    public function test_capability_results_expand_complexity_dimensions_and_measurement_tags(): void
+    {
+        $reflection = new \ReflectionMethod($this->report, 'buildCapabilityResults');
+        $reflection->setAccessible(true);
+
+        $results = $reflection->invoke($this->report, [[
+            'case_id' => 'l5-hard-case',
+            'atlas_score' => 91.0,
+            'rival_score' => 84.0,
+            'winner' => AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS,
+            'suspicious' => false,
+            'replay_passes' => true,
+            'hard_failures' => [],
+            'evidence_status' => 'evidence_ok',
+            'complexity_profile' => [
+                'schema_version' => 'atlas.forge.rivals.case_complexity_profile.v1',
+                'requires_rollback_plan' => true,
+                'measured_dimensions' => [
+                    'long_context_retention',
+                ],
+            ],
+            'measurement_tags' => [
+                'ambiguity_handling',
+                'rollback_safety',
+            ],
+            'measured_capabilities' => [
+                'multi_step_execution',
+                'evidence_replay_completeness',
+                'assumption_quality',
+            ],
+        ]], 5.0);
+
+        $keys = array_column($results, 'key');
+        $this->assertContains('long_context_retention', $keys);
+        $this->assertContains('rollback_safety', $keys);
+        $this->assertContains('ambiguous_human_prompt_handling', $keys);
+        $this->assertContains('multi_step_reasoning', $keys);
+        $this->assertContains('replayable_evidence_quality', $keys);
+        foreach ($results as $row) {
+            $this->assertSame('capability', $row['axis']);
+            $this->assertSame('none', $row['routing_effect']);
+        }
     }
 
     public function test_2_inconclusive_when_evidence_invalid(): void
@@ -199,14 +265,17 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         $this->assertFalse($report['claim_status']['claim_ready']);
     }
 
-    public function test_12_can_feed_ledger_true_only_when_evidence_and_adjudication_valid(): void
+    public function test_12_can_feed_ledger_requires_valid_evidence_and_no_measurement_blockers(): void
     {
         $runId = $this->newRunId('feed-ledger');
         $this->seedMultiCaseRelease($runId);
 
         $report = $this->report->render(['run_id' => $runId]);
 
-        $this->assertTrue($report['claim_status']['can_feed_ledger']);
+        $this->assertFalse($report['claim_status']['can_feed_ledger']);
+        $this->assertContains('complexity_profile_coverage_incomplete', $report['claim_status']['ledger_blockers']);
+        $this->assertContains('resolve_ledger_blockers', array_column($report['next_actions'], 'kind'));
+        $this->assertNotContains('feed_ledger', array_column($report['next_actions'], 'kind'));
 
         $runIdBad = $this->newRunId('feed-ledger-bad');
         $this->seedInvalidEvidenceRun($runIdBad);
@@ -255,6 +324,193 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         $this->assertSame('atlas.forge.rivals.report.v3', $report['schema_version']);
     }
 
+    public function test_report_exposes_capability_results_and_signal_fit(): void
+    {
+        $runId = $this->newRunId('capability-fit');
+        $complexity = [
+            'schema_version' => 'atlas.forge.rivals.case_complexity_profile.v1',
+            'difficulty_level' => 'L5',
+            'difficulty_score' => 5,
+            'estimated_context_tokens' => 6400,
+            'reasoning_depth' => 5,
+            'ambiguity_score' => 4,
+            'risk_score' => 4,
+            'long_context_required' => true,
+            'requires_multi_step_plan' => true,
+            'requires_rollback_plan' => true,
+            'requires_evidence_matrix' => true,
+            'measured_dimensions' => [
+                'long_context_retention',
+                'rollback_safety',
+            ],
+        ];
+        $this->seedSingleCaseManifest($runId, [
+            'verdict' => 'comparable',
+            'mode' => 'fair',
+            'preset' => 'release',
+            'case_id' => 'l5-capability-case',
+            'task_category' => 'bugfix',
+            'difficulty_band' => 'L5',
+            'difficulty_level' => 'L5',
+            'difficulty_score' => 5.0,
+            'measurement_tags' => ['ambiguity_handling'],
+            'measured_capabilities' => [
+                'multi_step_execution',
+                'evidence_replay_completeness',
+                'assumption_quality',
+            ],
+            'context_profile' => [
+                'schema_version' => 'atlas.forge.rivals.context_profile.v1',
+                'prompt_style' => 'human_ambiguous_operator_ticket',
+                'long_context_required' => true,
+                'requires_assumption_log' => true,
+                'requires_scope_boundary_reasoning' => true,
+                'requires_replayable_evidence' => true,
+                'complexity_profile' => $complexity,
+            ],
+            'human_prompt_probe' => [
+                'schema_version' => 'atlas.forge.rivals.human_prompt_probe.v1',
+                'complexity_profile' => $complexity,
+                'requires_sections' => [
+                    'facts_observed',
+                    'assumptions',
+                    'reversible_decisions',
+                    'scope_boundaries',
+                    'evidence_plan',
+                    'replay_matrix',
+                    'tradeoffs',
+                    'honest_blockers',
+                ],
+            ],
+        ]);
+        $this->seedScorecard($runId, [
+            'winner' => AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS,
+            'atlas_score' => 91.0,
+            'rival_score' => 84.0,
+            'score_source' => 'quality_dimensions',
+            'quality_score_available' => true,
+            'hard_failures' => [],
+            'tie_threshold' => AtlasForgeRivalsAdjudicatorService::DEFAULT_TIE_THRESHOLD,
+            'winner_reason' => ['atlas_better_on_l5_capability_probe'],
+            'hard_gates' => $this->okGates(),
+            'quality_dimensions' => ['objective_alignment' => ['atlas' => 91.0, 'rival' => 84.0, 'explanation' => 'capability probe']],
+        ]);
+        $this->runCollectFinal($runId);
+
+        $report = $this->report->render(['run_id' => $runId]);
+        $capabilities = array_column($report['capability_results'], 'key');
+        $signalCapabilities = array_column($report['provider_performance_signal']['capability_fit'], 'key');
+        $body = (string) file_get_contents($report['report_path']);
+
+        $this->assertContains('long_context_retention', $capabilities);
+        $this->assertContains('rollback_safety', $capabilities);
+        $this->assertContains('ambiguous_human_prompt_handling', $capabilities);
+        $this->assertContains('multi_step_reasoning', $capabilities);
+        $this->assertContains('replayable_evidence_quality', $capabilities);
+        $this->assertContains('long_context_retention', $signalCapabilities);
+        $this->assertFalse($report['provider_performance_signal']['capability_coverage']['floor_met']);
+        $this->assertContains('capability_floor_not_met', $report['provider_performance_signal']['ledger_blockers']);
+        $this->assertContains('capability_floor_not_met', $report['claim_status']['ledger_blockers']);
+        $separation = $report['provider_performance_signal']['capability_coverage']['separation'];
+        $this->assertSame('atlas.forge.rivals.capability_separation.v1', $separation['schema_version']);
+        $this->assertTrue($separation['tie_is_diagnostic_not_claim']);
+        $this->assertContains('long_context_retention', $separation['insufficient_sample_capabilities']);
+        $this->assertSame('insufficient_sample', $separation['capabilities']['long_context_retention']['state']);
+        $this->assertSame('none', $separation['capabilities']['long_context_retention']['routing_effect']);
+        $plan = $report['provider_performance_signal']['capability_coverage']['next_measurement_plan'];
+        $this->assertSame('needs_more_cases', $plan['status']);
+        $this->assertNotEmpty($plan['requirements']);
+        $firstRequirement = $plan['requirements'][0];
+        $this->assertArrayHasKey('additional_cases_needed', $firstRequirement);
+        $this->assertContains('extreme-differentiator', $report['provider_performance_signal']['capability_coverage']['recommended_case_sets']);
+        $commands = $plan['recommended_commands'];
+        $this->assertNotEmpty($commands);
+        $this->assertSame('none', $commands[0]['routing_effect']);
+        $this->assertFalse($commands[0]['external_provider_call']);
+        $this->assertFalse($commands[0]['provider_tokens_spent']);
+        $realCommands = array_values(array_filter(
+            $commands,
+            static fn (array $command): bool => (bool) ($command['external_provider_call'] ?? false),
+        ));
+        $this->assertNotEmpty($realCommands);
+        $this->assertTrue($realCommands[0]['requires_confirmations']);
+        $this->assertStringContainsString('--confirm-real-provider-call', $realCommands[0]['command']);
+        $this->assertSame($commands, $report['provider_performance_signal']['next_measurement_commands']);
+        $this->assertStringContainsString('Capacidade Medida (360)', $body);
+        $this->assertStringContainsString('capability_floor_met = **false**', $body);
+        $this->assertStringContainsString('capability_separation_ratio = `0`', $body);
+        $this->assertStringContainsString('tie_is_diagnostic_not_claim = **true**', $body);
+        $this->assertStringContainsString('next_measurement_plan: `needs_more_cases`', $body);
+        $this->assertStringContainsString('command `dry_run_extreme_differentiator`', $body);
+        $pressure = $report['provider_performance_signal']['difficulty_pressure'];
+        $this->assertSame('atlas.forge.rivals.difficulty_pressure.v1', $pressure['schema_version']);
+        $this->assertSame('needs_valid_difficulty_sample', $pressure['status']);
+        $this->assertSame('L5', $pressure['highest_observed_difficulty_band']);
+        $this->assertNull($pressure['highest_valid_difficulty_band']);
+        $this->assertTrue($pressure['requires_harder_followup']);
+        $this->assertFalse($pressure['difficulty_ceiling_reached']);
+        $this->assertSame('none', $pressure['routing_effect']);
+        $this->assertFalse($pressure['should_update_provider_topology']);
+        $this->assertStringContainsString('difficulty_pressure_status = `needs_valid_difficulty_sample`', $body);
+        $this->assertStringContainsString('requires_harder_followup = **true**', $body);
+        $this->assertSame('none', $report['provider_performance_signal']['capability_fit'][0]['routing_effect']);
+    }
+
+    public function test_difficulty_pressure_marks_l5_tie_as_diagnostic_not_claim(): void
+    {
+        $reflection = new \ReflectionMethod($this->report, 'buildDifficultyPressure');
+        $reflection->setAccessible(true);
+
+        $pressure = $reflection->invoke($this->report, [[
+            'axis' => 'difficulty',
+            'key' => 'L5',
+            'cases' => 40,
+            'winner' => AtlasForgeRivalsAdjudicatorService::WINNER_TIE,
+            'margin' => 0.0,
+            'validity' => AtlasForgeRivalsReportService::VALIDITY_VALID,
+            'validity_reason' => 'sample_size_and_evidence_ok',
+            'routing_effect' => 'none',
+        ]]);
+
+        $this->assertSame('l5_tied_needs_extreme_pressure', $pressure['status']);
+        $this->assertSame('L5', $pressure['highest_valid_difficulty_band']);
+        $this->assertSame(40, $pressure['l5_cases']);
+        $this->assertTrue($pressure['l5_tie_is_diagnostic_not_claim']);
+        $this->assertTrue($pressure['all_valid_bands_tied']);
+        $this->assertTrue($pressure['requires_harder_followup']);
+        $this->assertFalse($pressure['difficulty_ceiling_reached']);
+        $this->assertContains('extreme-differentiator', $pressure['recommended_case_sets']);
+        $this->assertSame('none', $pressure['routing_effect']);
+        $this->assertTrue($pressure['advisory_only']);
+        $this->assertFalse($pressure['should_update_provider_topology']);
+        $this->assertSame('atlas_decide', $pressure['owner_of_model_routing']);
+    }
+
+    public function test_difficulty_pressure_keeps_single_l5_tie_diagnostic_even_when_under_sampled(): void
+    {
+        $reflection = new \ReflectionMethod($this->report, 'buildDifficultyPressure');
+        $reflection->setAccessible(true);
+
+        $pressure = $reflection->invoke($this->report, [[
+            'axis' => 'difficulty',
+            'key' => 'L5',
+            'cases' => 1,
+            'winner' => AtlasForgeRivalsAdjudicatorService::WINNER_TIE,
+            'margin' => 4.0,
+            'validity' => AtlasForgeRivalsReportService::VALIDITY_INSUFFICIENT,
+            'validity_reason' => 'small_sample_less_than_three',
+            'routing_effect' => 'none',
+        ]]);
+
+        $this->assertSame('needs_valid_difficulty_sample', $pressure['status']);
+        $this->assertSame('L5', $pressure['highest_observed_difficulty_band']);
+        $this->assertNull($pressure['highest_valid_difficulty_band']);
+        $this->assertTrue($pressure['l5_tie_is_diagnostic_not_claim']);
+        $this->assertTrue($pressure['requires_harder_followup']);
+        $this->assertFalse($pressure['difficulty_ceiling_reached']);
+        $this->assertSame('none', $pressure['routing_effect']);
+    }
+
     public function test_16_artifacts_paths_appear_in_envelope(): void
     {
         $runId = $this->newRunId('artifacts');
@@ -296,10 +552,10 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
 
     public function test_19_doctor_exposes_corpus_registry_field_in_both_paths(): void
     {
-        $hygiene = new \App\Services\Ai\Programming\WorkspaceHygieneService;
+        $hygiene = new WorkspaceHygieneService;
 
         // Path A: corpus dependency not injected (unit-test seam).
-        $doctorNull = new \App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsDoctorService(
+        $doctorNull = new AtlasForgeRivalsDoctorService(
             $this->paths,
             $hygiene,
             null,
@@ -313,8 +569,8 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         // surface the real state honestly — either ok=true with the case
         // count when the corpus loads, or ok=false with a non-empty error
         // when an in-flight corpus change has left the registry broken.
-        $realCorpus = app(\App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService::class);
-        $doctorReal = new \App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsDoctorService(
+        $realCorpus = app(AtlasForgeRivalsProviderArenaCorpusService::class);
+        $doctorReal = new AtlasForgeRivalsDoctorService(
             $this->paths,
             $hygiene,
             $realCorpus,
@@ -631,7 +887,7 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
     {
         $this->collect->collect([
             'run_id' => $runId,
-            'evidence_stage' => \App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEvidencePolicy::STAGE_FINAL,
+            'evidence_stage' => AtlasForgeRivalsEvidencePolicy::STAGE_FINAL,
         ]);
     }
 

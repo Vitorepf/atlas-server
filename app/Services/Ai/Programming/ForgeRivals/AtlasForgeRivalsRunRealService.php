@@ -53,6 +53,8 @@ final class AtlasForgeRivalsRunRealService
 
     public const DEFAULT_HARD_KILL_SECONDS = 1200;
 
+    private const MIN_CLAIM_READY_CASES = 12;
+
     /**
      * Dependency/build/cache artifacts created by language toolchains during
      * validation are harness noise unless the case explicitly expects them.
@@ -68,6 +70,7 @@ final class AtlasForgeRivalsRunRealService
         'coverage',
         'dist',
         'build',
+        'vendor',
         '.pytest_cache',
         '__pycache__',
     ];
@@ -524,10 +527,27 @@ final class AtlasForgeRivalsRunRealService
                 'task_category' => $case['task_category'] ?? null,
                 'category' => $case['category'] ?? ($case['task_category'] ?? null),
                 'case_set' => $case['case_set'] ?? null,
+                'human_prompt_hash' => $case['human_prompt_hash'] ?? (
+                    isset($case['human_prompt']) ? hash('sha256', (string) $case['human_prompt']) : null
+                ),
+                'context_profile' => is_array($case['context_profile'] ?? null) ? $case['context_profile'] : null,
+                'measurement_tags' => $this->stringList($case['measurement_tags'] ?? []),
+                'human_prompt_probe' => is_array($case['human_prompt_probe'] ?? null) ? $case['human_prompt_probe'] : null,
+                'meta_provider_stress' => is_array($case['meta_provider_stress'] ?? null) ? $case['meta_provider_stress'] : null,
+                'extreme_differentiator' => is_array($case['extreme_differentiator'] ?? null) ? $case['extreme_differentiator'] : null,
+                'measured_capabilities' => $this->stringList($case['measured_capabilities'] ?? []),
                 'prompt_mode' => $case['prompt_mode'] ?? $promptMode,
                 'difficulty' => $case['difficulty'] ?? null,
                 'difficulty_level' => $case['difficulty_level'] ?? null,
+                'difficulty_band' => $case['difficulty_level'] ?? null,
+                'difficulty_score' => $case['difficulty_score'] ?? null,
+                'difficulty_reason' => $case['difficulty_reason'] ?? null,
                 'difficulty_weight' => $case['difficulty_weight'] ?? null,
+                'planning_weight' => $case['planning_weight'] ?? null,
+                'execution_weight' => $case['execution_weight'] ?? null,
+                'ambiguity_level' => $case['ambiguity_level'] ?? null,
+                'risk_level' => $case['risk_level'] ?? null,
+                'role_focus' => $case['role_focus'] ?? null,
                 'verdict' => $caseVerdict,
                 'workspace_blockers' => $caseWorkspaceBlockers,
                 'arm_contract_blockers' => $caseArmContractBlockers,
@@ -744,7 +764,7 @@ final class AtlasForgeRivalsRunRealService
                 'quality_claim' => 'automated gates passed; human diff review still required for qualitative winner',
                 'case_count' => count($cases),
             ];
-            $claimReady = $aggregateClaimReady;
+            $claimReady = $aggregateClaimReady && $originalCaseCount >= self::MIN_CLAIM_READY_CASES;
         }
 
         // Persist top-level receipts (legacy compat). When multi-case, these
@@ -782,10 +802,25 @@ final class AtlasForgeRivalsRunRealService
                     'case_source' => (string) ($entry['case_source'] ?? 'legacy'),
                     'task_category' => $entry['task_category'] ?? null,
                     'case_set' => $entry['case_set'] ?? null,
+                    'human_prompt_hash' => $entry['human_prompt_hash'] ?? null,
+                    'context_profile' => $entry['context_profile'] ?? null,
+                    'measurement_tags' => $entry['measurement_tags'] ?? [],
+                    'human_prompt_probe' => $entry['human_prompt_probe'] ?? null,
+                    'meta_provider_stress' => $entry['meta_provider_stress'] ?? null,
+                    'extreme_differentiator' => $entry['extreme_differentiator'] ?? null,
+                    'measured_capabilities' => $entry['measured_capabilities'] ?? [],
                     'prompt_mode' => $entry['prompt_mode'] ?? 'spec-perfect',
                     'difficulty' => $entry['difficulty'] ?? null,
                     'difficulty_level' => $entry['difficulty_level'] ?? null,
+                    'difficulty_band' => $entry['difficulty_band'] ?? ($entry['difficulty_level'] ?? null),
+                    'difficulty_score' => $entry['difficulty_score'] ?? null,
+                    'difficulty_reason' => $entry['difficulty_reason'] ?? null,
                     'difficulty_weight' => $entry['difficulty_weight'] ?? null,
+                    'planning_weight' => $entry['planning_weight'] ?? null,
+                    'execution_weight' => $entry['execution_weight'] ?? null,
+                    'ambiguity_level' => $entry['ambiguity_level'] ?? null,
+                    'risk_level' => $entry['risk_level'] ?? null,
+                    'role_focus' => $entry['role_focus'] ?? null,
                     'verdict' => (string) ($entry['verdict'] ?? 'unknown'),
                     'evidence_subdir' => $entry['evidence_subdir'] ?? null,
                     'workspace_hash_before' => $entry['workspace_hash_before'] ?? null,
@@ -845,6 +880,27 @@ final class AtlasForgeRivalsRunRealService
             'case_source' => $firstCase['case_source'] ?? 'legacy',
             'case_set' => $firstCase['case_set'] ?? null,
             'task_category' => $firstCase['task_category'] ?? null,
+            'category' => $firstCase['category'] ?? ($firstCase['task_category'] ?? null),
+            'human_prompt_hash' => $firstCase['human_prompt_hash'] ?? (
+                isset($firstCase['human_prompt']) ? hash('sha256', (string) $firstCase['human_prompt']) : null
+            ),
+            'context_profile' => is_array($firstCase['context_profile'] ?? null) ? $firstCase['context_profile'] : null,
+            'measurement_tags' => $this->stringList($firstCase['measurement_tags'] ?? []),
+            'human_prompt_probe' => is_array($firstCase['human_prompt_probe'] ?? null) ? $firstCase['human_prompt_probe'] : null,
+            'meta_provider_stress' => is_array($firstCase['meta_provider_stress'] ?? null) ? $firstCase['meta_provider_stress'] : null,
+            'extreme_differentiator' => is_array($firstCase['extreme_differentiator'] ?? null) ? $firstCase['extreme_differentiator'] : null,
+            'measured_capabilities' => $this->stringList($firstCase['measured_capabilities'] ?? []),
+            'difficulty' => $firstCase['difficulty'] ?? null,
+            'difficulty_level' => $firstCase['difficulty_level'] ?? null,
+            'difficulty_band' => $firstCase['difficulty_level'] ?? null,
+            'difficulty_score' => $firstCase['difficulty_score'] ?? null,
+            'difficulty_reason' => $firstCase['difficulty_reason'] ?? null,
+            'difficulty_weight' => $firstCase['difficulty_weight'] ?? null,
+            'planning_weight' => $firstCase['planning_weight'] ?? null,
+            'execution_weight' => $firstCase['execution_weight'] ?? null,
+            'ambiguity_level' => $firstCase['ambiguity_level'] ?? null,
+            'risk_level' => $firstCase['risk_level'] ?? null,
+            'role_focus' => $firstCase['role_focus'] ?? null,
             'case_count' => count($cases),
             // Battery Runner v1 aggregate counters: total_cases / passed_count /
             // comparable_count / invalid_count / blocked_count / skipped_count.
@@ -1040,7 +1096,8 @@ final class AtlasForgeRivalsRunRealService
 
     /**
      * The battery is claim-ready only when every case reached `completed`,
-     * the run mode is not local_fake, and no case carries a kill / timeout
+     * the run mode is not local_fake, the sample is large enough to be more
+     * than a single-case diagnostic, and no case carries a kill / timeout
      * signal. Resume runs preserve this — a single failed case keeps
      * claim_ready=false until the operator addresses it.
      */
@@ -1053,10 +1110,14 @@ final class AtlasForgeRivalsRunRealService
         if ($battery === null) {
             return false;
         }
-        foreach ((array) ($battery['cases'] ?? []) as $row) {
-            if (! is_array($row)) {
-                continue;
-            }
+        $rows = array_values(array_filter(
+            (array) ($battery['cases'] ?? []),
+            static fn (mixed $row): bool => is_array($row),
+        ));
+        if (count($rows) < self::MIN_CLAIM_READY_CASES) {
+            return false;
+        }
+        foreach ($rows as $row) {
             $state = (string) ($row['state'] ?? '');
             if ($state !== AtlasForgeRivalsBatteryStateService::CASE_STATE_COMPLETED) {
                 return false;
@@ -1144,6 +1205,9 @@ final class AtlasForgeRivalsRunRealService
         $minPatchBytes = null;
         $sumStdoutBytes = 0;
         $sumStderrBytes = 0;
+        $sumTokens = 0;
+        $sumCost = 0.0;
+        $usageObserved = false;
         $caseIds = [];
         $workspaceBlockers = [];
         $armContractBlockers = [];
@@ -1164,6 +1228,14 @@ final class AtlasForgeRivalsRunRealService
             $minPatchBytes = $minPatchBytes === null ? $patchBytes : min($minPatchBytes, $patchBytes);
             $sumStdoutBytes += (int) ($receipt['stdout_bytes'] ?? 0);
             $sumStderrBytes += (int) ($receipt['stderr_bytes'] ?? 0);
+            if (isset($receipt['tokens_used']) && is_numeric($receipt['tokens_used'])) {
+                $sumTokens += (int) $receipt['tokens_used'];
+                $usageObserved = true;
+            }
+            if (isset($receipt['token_cost']) && is_numeric($receipt['token_cost'])) {
+                $sumCost += (float) $receipt['token_cost'];
+                $usageObserved = true;
+            }
             $cid = (string) ($receipt['case_id'] ?? '');
             if ($cid !== '') {
                 $caseIds[] = $cid;
@@ -1186,6 +1258,8 @@ final class AtlasForgeRivalsRunRealService
         $aggregated['patch_diff_bytes'] = $minPatchBytes ?? 0;
         $aggregated['stdout_bytes'] = $sumStdoutBytes;
         $aggregated['stderr_bytes'] = $sumStderrBytes;
+        $aggregated['tokens_used'] = $usageObserved ? $sumTokens : ($base['tokens_used'] ?? null);
+        $aggregated['token_cost'] = $usageObserved ? round($sumCost, 8) : ($base['token_cost'] ?? null);
         $aggregated['case_ids'] = array_values(array_unique($caseIds));
         if (count($aggregated['case_ids']) > 1) {
             $aggregated['case_id'] = 'multi_case_aggregate';
@@ -1327,17 +1401,27 @@ final class AtlasForgeRivalsRunRealService
                 $blockers[] = 'vendor_symlink_unlink_failed';
             } elseif ($this->copyDirectory($vendorSource, $vendorTarget)) {
                 $actions[] = 'vendor_symlink_replaced_with_isolated_copy';
+            } elseif ($this->provisionHybridVendor($vendorSource, $vendorTarget)) {
+                $actions[] = 'vendor_symlink_replaced_with_hybrid_isolated_vendor';
             } else {
                 $blockers[] = 'vendor_copy_failed_after_symlink_unlink';
             }
         } elseif (! is_dir($vendorTarget)) {
             if ($this->copyDirectory($vendorSource, $vendorTarget)) {
                 $actions[] = 'vendor_isolated_copy_created';
+            } elseif ($this->provisionHybridVendor($vendorSource, $vendorTarget)) {
+                $actions[] = 'vendor_hybrid_isolated_vendor_created';
             } else {
                 $blockers[] = 'vendor_copy_failed';
             }
         } else {
             $actions[] = 'vendor_directory_already_isolated';
+            if (! is_file($vendorTarget.'/autoload.php')) {
+                $this->removePath($vendorTarget);
+                if ($this->provisionHybridVendor($vendorSource, $vendorTarget)) {
+                    $actions[] = 'vendor_incomplete_directory_replaced_with_hybrid_isolated_vendor';
+                }
+            }
         }
 
         if (is_link($vendorTarget)) {
@@ -1529,6 +1613,87 @@ final class AtlasForgeRivalsRunRealService
         }
     }
 
+    private function provisionHybridVendor(string $source, string $target): bool
+    {
+        $source = rtrim($source, '/');
+        $target = rtrim($target, '/');
+        if (! is_file($source.'/autoload.php') || ! is_dir($source.'/composer')) {
+            return false;
+        }
+
+        $this->removePath($target);
+        if (! @mkdir($target, 0o755, true) && ! is_dir($target)) {
+            return false;
+        }
+
+        if (! @copy($source.'/autoload.php', $target.'/autoload.php')) {
+            return false;
+        }
+        if (! $this->copyDirectory($source.'/composer', $target.'/composer')) {
+            return false;
+        }
+
+        try {
+            foreach (new \DirectoryIterator($source) as $entry) {
+                if ($entry->isDot()) {
+                    continue;
+                }
+
+                $name = $entry->getFilename();
+                if (in_array($name, ['autoload.php', 'composer'], true)) {
+                    continue;
+                }
+
+                $destination = $target.'/'.$name;
+                if (file_exists($destination) || is_link($destination)) {
+                    continue;
+                }
+                if (! @symlink($entry->getPathname(), $destination)) {
+                    return false;
+                }
+            }
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return is_file($target.'/autoload.php') && is_dir($target.'/composer');
+    }
+
+    private function removePath(string $path): void
+    {
+        if ($path === '' || ! file_exists($path) && ! is_link($path)) {
+            return;
+        }
+        if (is_link($path) || is_file($path)) {
+            @unlink($path);
+
+            return;
+        }
+        if (! is_dir($path)) {
+            return;
+        }
+
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($iterator as $entry) {
+                if (! $entry instanceof \SplFileInfo) {
+                    continue;
+                }
+                if ($entry->isLink() || $entry->isFile()) {
+                    @unlink($entry->getPathname());
+                } elseif ($entry->isDir()) {
+                    @rmdir($entry->getPathname());
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        @rmdir($path);
+    }
+
     /**
      * Sanitize a case id into a filesystem-safe directory name. Falls back
      * to a deterministic short hash if the id contains anything unusual.
@@ -1544,6 +1709,21 @@ final class AtlasForgeRivalsRunRealService
         }
 
         return 'case-'.substr(hash('sha256', $trimmed), 0, 12);
+    }
+
+    /**
+     * Pre-setup semantic blockers for Provider Arena real execution.
+     *
+     * ArenaRunService owns worktree setup, but driver/policy blockers must be
+     * surfaced before checkout so low disk never hides a more actionable
+     * provider-governance failure.
+     *
+     * @param  array<string,mixed>  $arenaContracts
+     * @return list<string>
+     */
+    public function arenaPreSetupBlockers(array $arenaContracts): array
+    {
+        return $this->arenaDriverAvailabilityBlockers($arenaContracts);
     }
 
     /**
@@ -1673,6 +1853,14 @@ final class AtlasForgeRivalsRunRealService
             'id' => (string) ($corpusCase['case_id'] ?? ''),
             'case_source' => 'provider_arena_corpus',
             'case_set' => $caseSet !== '' ? $caseSet : null,
+            'human_prompt' => (string) ($corpusCase['human_prompt'] ?? ''),
+            'human_prompt_hash' => hash('sha256', (string) ($corpusCase['human_prompt'] ?? '')),
+            'context_profile' => is_array($corpusCase['context_profile'] ?? null) ? $corpusCase['context_profile'] : null,
+            'measurement_tags' => $this->stringList($corpusCase['measurement_tags'] ?? []),
+            'human_prompt_probe' => is_array($corpusCase['human_prompt_probe'] ?? null) ? $corpusCase['human_prompt_probe'] : null,
+            'meta_provider_stress' => is_array($corpusCase['meta_provider_stress'] ?? null) ? $corpusCase['meta_provider_stress'] : null,
+            'extreme_differentiator' => is_array($corpusCase['extreme_differentiator'] ?? null) ? $corpusCase['extreme_differentiator'] : null,
+            'measured_capabilities' => $this->stringList($corpusCase['measured_capabilities'] ?? []),
             'task_category' => (string) ($corpusCase['task_category'] ?? ''),
             'category' => (string) ($corpusCase['category'] ?? ''),
             'difficulty' => $difficulty,
@@ -1752,8 +1940,11 @@ final class AtlasForgeRivalsRunRealService
         }
 
         $fixture = is_array($case['setup_fixture'] ?? null) ? $case['setup_fixture'] : [];
-        $seedDir = trim((string) ($fixture['seed_dir'] ?? ''));
-        if ($seedDir === '') {
+        $seedCandidates = array_values(array_unique(array_filter([
+            trim((string) ($fixture['seed_dir'] ?? '')),
+            trim((string) ($case['fixture_seed_path'] ?? '')),
+        ], static fn (string $path): bool => $path !== '')));
+        if ($seedCandidates === []) {
             return [
                 'status' => 'blocked',
                 'staged_files' => [],
@@ -1763,12 +1954,24 @@ final class AtlasForgeRivalsRunRealService
             ];
         }
 
-        $seedSource = 'worktree';
-        $seedRoot = $worktree.'/'.$seedDir;
-        $sourceSeedRoot = $this->sourceFixtureSeedRoot($seedDir);
-        if ($sourceSeedRoot !== null) {
-            $seedRoot = $sourceSeedRoot;
-            $seedSource = 'source_repo';
+        $seedDir = $seedCandidates[0];
+        $seedSource = 'unresolved';
+        $seedRoot = '';
+        foreach ($seedCandidates as $candidate) {
+            $sourceSeedRoot = $this->sourceFixtureSeedRoot($candidate);
+            if ($sourceSeedRoot !== null) {
+                $seedDir = $candidate;
+                $seedRoot = $sourceSeedRoot;
+                $seedSource = 'source_repo';
+                break;
+            }
+            $worktreeSeedRoot = $worktree.'/'.$candidate;
+            if (is_dir($worktreeSeedRoot)) {
+                $seedDir = $candidate;
+                $seedRoot = $worktreeSeedRoot;
+                $seedSource = 'worktree';
+                break;
+            }
         }
         if (! is_dir($seedRoot)) {
             return [
@@ -2015,14 +2218,25 @@ TS,
             }
 
             $fixture = is_array($case['setup_fixture'] ?? null) ? $case['setup_fixture'] : [];
-            $seedDir = trim((string) ($fixture['seed_dir'] ?? ''));
-            if ($seedDir === '') {
+            $seedCandidates = array_values(array_unique(array_filter([
+                trim((string) ($fixture['seed_dir'] ?? '')),
+                trim((string) ($case['fixture_seed_path'] ?? '')),
+            ], static fn (string $path): bool => $path !== '')));
+            if ($seedCandidates === []) {
                 $blockers[] = 'fixture_seed_dir_missing:'.$caseId;
 
                 continue;
             }
 
-            $seedRoot = $this->sourceFixtureSeedRoot($seedDir);
+            $seedRoot = null;
+            $seedDir = $seedCandidates[0];
+            foreach ($seedCandidates as $candidate) {
+                $seedRoot = $this->sourceFixtureSeedRoot($candidate);
+                if ($seedRoot !== null) {
+                    $seedDir = $candidate;
+                    break;
+                }
+            }
             if ($seedRoot === null || ! is_dir($seedRoot)) {
                 $blockers[] = 'fixture_seed_dir_not_found:'.$seedDir;
 
@@ -2257,9 +2471,11 @@ TS,
         // Real provider: build provider command per arm, spawn subprocess.
         $commandEnvelope = $this->resolveProviderCommandEnvelope($arm, $model, $case, $worktree);
         $command = $commandEnvelope['command'];
+        $stdinPrompt = (string) ($commandEnvelope['stdin_prompt'] ?? '');
         $env = $this->subprocessEnv();
         $promptHash = hash('sha256', $this->jsonEncode([
             'command' => $command,
+            'stdin_prompt_hash' => $stdinPrompt !== '' ? hash('sha256', $stdinPrompt) : null,
             'arm' => $arm,
             'model' => $model,
             'model_id' => $commandEnvelope['model_id'] ?? null,
@@ -2272,6 +2488,9 @@ TS,
         $providerTimeoutSeconds = $this->providerTimeoutSeconds();
         $hardKillSeconds = $this->hardKillSeconds();
         $proc = new Process($command, $worktree, $env, null, $hardKillSeconds);
+        if ($stdinPrompt !== '') {
+            $proc->setInput($stdinPrompt);
+        }
         // We enforce idle and hard timeouts explicitly below. Symfony's idle
         // timeout can be bypassed when callers only poll isRunning(); the
         // explicit clock is the Rivals source of truth.
@@ -2405,6 +2624,7 @@ TS,
         }
         $stdoutDigest = hash_final($stdoutHash);
         $stderrDigest = hash_final($stderrHash);
+        $providerUsage = $this->providerUsageFromJsonLog($stdoutPath);
 
         $this->events->event($runId, 'provider_finished', [
             'arm' => $arm,
@@ -2438,6 +2658,9 @@ TS,
             'command' => $command,
             'command_hash' => $commandHash,
             'prompt_hash' => $promptHash,
+            'prompt_transport' => $commandEnvelope['prompt_transport'] ?? 'argv',
+            'stdin_prompt_hash' => $commandEnvelope['stdin_prompt_hash'] ?? null,
+            'stdin_prompt_bytes' => $commandEnvelope['stdin_prompt_bytes'] ?? null,
             'started_at' => $startedAt,
             'finished_at' => $this->nowIso(),
             'exit_code' => $exit,
@@ -2452,8 +2675,9 @@ TS,
             'stderr_tail' => $stderrTail,
             'stdout_path' => $logPaths['stdout_path'],
             'stderr_path' => $logPaths['stderr_path'],
-            'token_cost' => null,
-            'tokens_used' => null,
+            'token_cost' => $providerUsage['token_cost'],
+            'tokens_used' => $providerUsage['tokens_used'],
+            'provider_usage' => $providerUsage['provider_usage'],
             'worktree' => $worktree,
             'case_id' => $case['id'],
             'changed_files' => $scope['changed_files'],
@@ -2704,6 +2928,10 @@ DIFF;
                 'command' => ['php', '-r', 'fwrite(STDERR, '.var_export($message, true).'); exit(2);'],
                 'blockers' => (array) $built['blockers'],
             ];
+        }
+
+        if (($built['prompt_transport'] ?? null) === 'stdin') {
+            $built['stdin_prompt'] = $prompt;
         }
 
         return $built;
@@ -3116,6 +3344,9 @@ PROMPT;
             if ($file === '') {
                 continue;
             }
+            if (! file_exists($worktree.'/'.$file) && ! array_key_exists($file, $fixtureHashes)) {
+                continue;
+            }
             if ($this->isUnchangedFixtureFile($worktree, $file, $fixtureHashes)) {
                 continue;
             }
@@ -3359,6 +3590,10 @@ PROMPT;
     private function isGeneratedArtifactPath(string $file): bool
     {
         $file = $this->normalizeWorkspacePath($file);
+        if (in_array($file, ['.env', '.env.testing'], true)) {
+            return true;
+        }
+
         $segments = array_values(array_filter(explode('/', $file), static fn (string $part): bool => $part !== ''));
         foreach ($segments as $segment) {
             if (in_array($segment, self::GENERATED_ARTIFACT_PATH_SEGMENTS, true)) {
@@ -3544,6 +3779,11 @@ PROMPT;
             if ($policyBlocker !== null) {
                 $blockers[] = $policyBlocker;
             }
+            if (in_array($provider, ['cursor', 'composer'], true)
+                && (bool) config('atlas.ai.providers.cursor_cli.enabled', false) !== true
+            ) {
+                $blockers[] = 'arena_provider_disabled_by_policy:'.$role.':'.$provider.':atlas.ai.providers.cursor_cli.enabled';
+            }
 
             $binary = $this->modelRegistry->binaryForProvider($provider);
             if (! (bool) ($binary['ok'] ?? false)) {
@@ -3592,11 +3832,26 @@ PROMPT;
                 'arm_id' => data_get($contract, 'arm.arm_id'),
                 'runner_type' => data_get($contract, 'arm.runner_type'),
                 'provider' => $contract['provider'] ?? data_get($contract, 'arm.provider'),
+                'provider_kind' => $contract['provider_kind'] ?? null,
+                'meta_provider' => (bool) ($contract['meta_provider'] ?? false),
+                'meta_provider_parent' => $contract['meta_provider_parent'] ?? null,
+                'provider_metadata' => (array) ($contract['provider_metadata'] ?? []),
                 'requested_model' => $contract['requested_model'] ?? null,
+                'model_alias' => $contract['requested_model'] ?? null,
                 'resolved_model' => $contract['resolved_model'] ?? null,
                 'resolved_model_id' => $contract['resolved_model_id'] ?? null,
+                'resolved_model_id_config_key' => $contract['resolved_model_id_config_key'] ?? null,
                 'resolved_model_label' => $contract['resolved_model_label'] ?? null,
                 'legacy_model_id' => $contract['legacy_model_id'] ?? null,
+                'command_builder' => match ((string) ($contract['provider'] ?? data_get($contract, 'arm.provider', ''))) {
+                    'claude' => 'claude_cli',
+                    'codex' => 'codex_cli',
+                    'gemini' => 'gemini_cli',
+                    'cursor' => 'cursor_cli',
+                    'composer' => 'composer_2_5',
+                    default => null,
+                },
+                'capabilities' => data_get($contract, 'arm.capabilities', []),
             ];
         };
 
@@ -3700,9 +3955,23 @@ PROMPT;
             'case_set' => $caseEntry['case_set'] ?? null,
             'task_category' => $caseEntry['task_category'] ?? null,
             'category' => $caseEntry['category'] ?? ($caseEntry['task_category'] ?? null),
+            'human_prompt_hash' => $caseEntry['human_prompt_hash'] ?? null,
+            'context_profile' => $caseEntry['context_profile'] ?? null,
+            'measurement_tags' => $caseEntry['measurement_tags'] ?? [],
+            'human_prompt_probe' => $caseEntry['human_prompt_probe'] ?? null,
+            'meta_provider_stress' => $caseEntry['meta_provider_stress'] ?? null,
+            'extreme_differentiator' => $caseEntry['extreme_differentiator'] ?? null,
             'difficulty' => $caseEntry['difficulty'] ?? null,
             'difficulty_level' => $caseEntry['difficulty_level'] ?? null,
+            'difficulty_band' => $caseEntry['difficulty_band'] ?? ($caseEntry['difficulty_level'] ?? null),
+            'difficulty_score' => $caseEntry['difficulty_score'] ?? null,
+            'difficulty_reason' => $caseEntry['difficulty_reason'] ?? null,
             'difficulty_weight' => $caseEntry['difficulty_weight'] ?? null,
+            'planning_weight' => $caseEntry['planning_weight'] ?? null,
+            'execution_weight' => $caseEntry['execution_weight'] ?? null,
+            'ambiguity_level' => $caseEntry['ambiguity_level'] ?? null,
+            'risk_level' => $caseEntry['risk_level'] ?? null,
+            'role_focus' => $caseEntry['role_focus'] ?? null,
             'mode' => $context['mode'] ?? null,
             'prompt_mode' => $context['prompt_mode'] ?? ($caseEntry['prompt_mode'] ?? null),
             'atlas_model' => $context['atlas_model'] ?? null,
@@ -3907,6 +4176,158 @@ PROMPT;
         }
 
         return $counters;
+    }
+
+    /**
+     * Extract best-effort provider usage from JSONL/stream-json stdout without
+     * making usage mandatory. Unknown shapes stay honest as null instead of
+     * invented receipts.
+     *
+     * @return array{token_cost:?float,tokens_used:?int,provider_usage:array<string,mixed>}
+     */
+    private function providerUsageFromJsonLog(string $stdoutPath): array
+    {
+        if ($stdoutPath === '' || ! is_file($stdoutPath)) {
+            return ['token_cost' => null, 'tokens_used' => null, 'provider_usage' => []];
+        }
+
+        $handle = @fopen($stdoutPath, 'rb');
+        if (! is_resource($handle)) {
+            return ['token_cost' => null, 'tokens_used' => null, 'provider_usage' => []];
+        }
+
+        $maxCost = null;
+        $maxTokens = null;
+        $observedModels = [];
+        $usageEvents = 0;
+
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '' || ! str_starts_with($line, '{')) {
+                    continue;
+                }
+                $decoded = json_decode($line, true);
+                if (! is_array($decoded)) {
+                    continue;
+                }
+
+                $cost = $this->maxNumericValueByKey($decoded, ['costUSD', 'cost_usd', 'total_cost_usd']);
+                if ($cost !== null) {
+                    $maxCost = $maxCost === null ? $cost : max($maxCost, $cost);
+                    $usageEvents++;
+                }
+
+                $tokens = $this->maxTokenTotal($decoded);
+                if ($tokens !== null) {
+                    $maxTokens = $maxTokens === null ? $tokens : max($maxTokens, $tokens);
+                    $usageEvents++;
+                }
+
+                foreach ($this->stringValuesByKey($decoded, ['model', 'model_id']) as $model) {
+                    if ($model !== '') {
+                        $observedModels[] = $model;
+                    }
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        return [
+            'token_cost' => $maxCost === null ? null : round($maxCost, 8),
+            'tokens_used' => $maxTokens,
+            'provider_usage' => [
+                'schema_version' => 'atlas.forge.rivals.provider_usage_receipt.v1',
+                'source' => 'provider_stdout_jsonl',
+                'parse_strategy' => 'max_cumulative_values',
+                'usage_events_observed' => $usageEvents,
+                'models_observed' => array_values(array_unique($observedModels)),
+                'complete' => $maxCost !== null || $maxTokens !== null,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  list<string>  $keys
+     */
+    private function maxNumericValueByKey(array $payload, array $keys): ?float
+    {
+        $max = null;
+        foreach ($payload as $key => $value) {
+            if (in_array((string) $key, $keys, true) && is_numeric($value)) {
+                $number = (float) $value;
+                $max = $max === null ? $number : max($max, $number);
+            }
+            if (is_array($value)) {
+                $nested = $this->maxNumericValueByKey($value, $keys);
+                if ($nested !== null) {
+                    $max = $max === null ? $nested : max($max, $nested);
+                }
+            }
+        }
+
+        return $max;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return list<string>
+     */
+    private function stringValuesByKey(array $payload, array $keys): array
+    {
+        $values = [];
+        foreach ($payload as $key => $value) {
+            if (in_array((string) $key, $keys, true) && is_string($value)) {
+                $values[] = $value;
+            }
+            if (is_array($value)) {
+                $values = array_merge($values, $this->stringValuesByKey($value, $keys));
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function maxTokenTotal(array $payload): ?int
+    {
+        $max = null;
+        foreach ($payload as $key => $value) {
+            if ($key === 'usage' && is_array($value)) {
+                $total = 0;
+                foreach ([
+                    'input_tokens',
+                    'output_tokens',
+                    'cache_creation_input_tokens',
+                    'cache_read_input_tokens',
+                    'total_tokens',
+                    'tokens_used',
+                ] as $tokenKey) {
+                    if (isset($value[$tokenKey]) && is_numeric($value[$tokenKey])) {
+                        $total += (int) $value[$tokenKey];
+                    }
+                }
+                if ($total > 0) {
+                    $max = $max === null ? $total : max($max, $total);
+                }
+            }
+            if (in_array((string) $key, ['total_tokens', 'tokens_used'], true) && is_numeric($value)) {
+                $number = (int) $value;
+                $max = $max === null ? $number : max($max, $number);
+            }
+            if (is_array($value)) {
+                $nested = $this->maxTokenTotal($value);
+                if ($nested !== null) {
+                    $max = $max === null ? $nested : max($max, $nested);
+                }
+            }
+        }
+
+        return $max;
     }
 
     private function jsonEncode(mixed $value): string

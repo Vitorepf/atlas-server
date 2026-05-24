@@ -23,7 +23,7 @@ use DateTimeZone;
  * `external_rivals_certification` — that remains operator-approval-gated
  * and separately tracked.
  *
-     * 18 invariants:
+ * 19 invariants:
  *
  *   1.  arm_registry_available
  *   2.  arm_contract_service_available
@@ -35,14 +35,15 @@ use DateTimeZone;
  *   8.  declared_non_executable_blockers_honest
  *   9.  scripted_or_manual_cannot_forge_score
  *   10. arena_real_provider_requires_three_confirmations
-     *   11. arena_never_unlocks_external_rivals
-     *   12. arena_doc_canonical
-     *   13. provider_model_registry_available
-     *   14. models_action_exposes_registry
-     *   15. arm_command_builder_centralized
-     *   16. provider_arena_modes_declared
-     *   17. provider_arena_real_executor_wired
-     *   18. arena_contracts_flow_to_manifest_report_signal
+ *   11. arena_never_unlocks_external_rivals
+ *   12. arena_doc_canonical
+ *   13. provider_model_registry_available
+ *   14. models_action_exposes_registry
+ *   15. arm_command_builder_centralized
+ *   16. provider_arena_modes_declared
+ *   17. provider_arena_real_executor_wired
+ *   18. arena_contracts_flow_to_manifest_report_signal
+ *   19. cursor_composer_meta_provider_command_shape_locked
  *
  * Schema: atlas.forge_rivals_provider_arena_core_certification.v1
  * Doc:    docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md
@@ -79,6 +80,7 @@ class AtlasForgeRivalsProviderArenaCoreCertification
         'provider_arena_modes_declared',
         'provider_arena_real_executor_wired',
         'arena_contracts_flow_to_manifest_report_signal',
+        'cursor_composer_meta_provider_command_shape_locked',
     ];
 
     /**
@@ -212,10 +214,10 @@ class AtlasForgeRivalsProviderArenaCoreCertification
             case 'arm_registry_available':
                 return [
                     'ok' => class_exists(AtlasForgeRivalsArmRegistryService::class)
-                        && count(AtlasForgeRivalsArmRegistryService::ARMS) === 8,
+                        && count(AtlasForgeRivalsArmRegistryService::ARMS) === 10,
                     'status' => 'slice_8',
                     'description' => 'Arm registry exists and declares the canonical runners.',
-                    'check' => 'class exists + ARMS count is 8',
+                    'check' => 'class exists + ARMS count is 10',
                     'evidence' => ['app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php'],
                 ];
 
@@ -284,6 +286,8 @@ class AtlasForgeRivalsProviderArenaCoreCertification
                     AtlasForgeRivalsArmRegistryService::ARM_CLAUDE_CODE,
                     AtlasForgeRivalsArmRegistryService::ARM_CODEX_CLI,
                     AtlasForgeRivalsArmRegistryService::ARM_GEMINI_CLI,
+                    AtlasForgeRivalsArmRegistryService::ARM_CURSOR_CLI,
+                    AtlasForgeRivalsArmRegistryService::ARM_COMPOSER_2_5,
                     AtlasForgeRivalsArmRegistryService::ARM_SCRIPTED_RUNNER,
                     AtlasForgeRivalsArmRegistryService::ARM_MANUAL_RUNNER,
                     AtlasForgeRivalsArmRegistryService::ARM_FUTURE_RUNNER,
@@ -400,12 +404,15 @@ class AtlasForgeRivalsProviderArenaCoreCertification
                         && str_contains($src, "'claude'")
                         && str_contains($src, "'codex'")
                         && str_contains($src, "'gemini'")
+                        && str_contains($src, "'cursor'")
+                        && str_contains($src, "'composer'")
                         && str_contains($src, "'gpt-5.5'")
                         && str_contains($src, "'claude_opus'")
-                        && str_contains($src, "'gemini-pro'"),
+                        && str_contains($src, "'gemini-pro'")
+                        && str_contains($src, "'composer-2.5'"),
                     'status' => 'provider_arena_v2',
                     'description' => 'Provider/model ids, aliases and defaults are centralized in ProviderModelRegistry.',
-                    'check' => 'registry class exists + declares Claude/Codex/Gemini + Opus/GPT-5.5/Gemini Pro',
+                    'check' => 'registry class exists + declares Claude/Codex/Gemini/Cursor/Composer + Opus/GPT-5.5/Gemini Pro/Composer 2.5',
                     'evidence' => ['app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderModelRegistryService.php'],
                 ];
 
@@ -438,6 +445,7 @@ class AtlasForgeRivalsProviderArenaCoreCertification
                         && str_contains($src, 'claudeCommand')
                         && str_contains($src, 'codexCommand')
                         && str_contains($src, 'geminiCommand')
+                        && str_contains($src, 'cursorCommand')
                         && str_contains($runRealSrc, 'AtlasForgeRivalsArmCommandBuilderService $commandBuilder')
                         && str_contains($runRealSrc, '$this->commandBuilder->build'),
                     'status' => 'provider_arena_v2',
@@ -506,6 +514,39 @@ class AtlasForgeRivalsProviderArenaCoreCertification
                     'evidence' => [
                         'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunRealService.php',
                         'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportService.php',
+                    ],
+                ];
+
+            case 'cursor_composer_meta_provider_command_shape_locked':
+                $builderSrc = $this->readFile($commandBuilderFile);
+                $arenaSrc = $this->readFile($arenaFile);
+                $readinessFile = $repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderArenaReadinessService.php';
+                $readinessSrc = $this->readFile($readinessFile);
+
+                return [
+                    'ok' => str_contains($builderSrc, 'cursorCommand')
+                        && str_contains($builderSrc, "'cursor_cli'")
+                        && str_contains($builderSrc, "'composer_2_5'")
+                        && str_contains($builderSrc, "'--print'")
+                        && str_contains($builderSrc, "'--output-format'")
+                        && str_contains($builderSrc, "'stream-json'")
+                        && str_contains($builderSrc, "'--model'")
+                        && str_contains($builderSrc, "'prompt_transport' => 'stdin'")
+                        && str_contains($builderSrc, 'atlas.forge.rivals.cursor_command_shape_summary.v1')
+                        && str_contains($builderSrc, "'governed_cursor_cli_shape' => true")
+                        && str_contains($builderSrc, "'force_absent' => true")
+                        && str_contains($builderSrc, "'resume_absent' => true")
+                        && str_contains($arenaSrc, 'command_shape_summary')
+                        && str_contains($arenaSrc, "'prompt_transport' => \$plan['prompt_transport'] ?? 'argv'")
+                        && str_contains($readinessSrc, 'command_shape_summary')
+                        && str_contains($readinessSrc, "'prompt_transport' => \$built['prompt_transport'] ?? 'argv'"),
+                    'status' => 'provider_arena_v3',
+                    'description' => 'Cursor CLI and Composer 2.5 are locked to the governed meta-provider command shape.',
+                    'check' => 'builder emits cursor-agent print/stream-json/model/stdin shape + arena/readiness propagate command_shape_summary and prompt_transport',
+                    'evidence' => [
+                        'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArmCommandBuilderService.php',
+                        'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php',
+                        'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderArenaReadinessService.php',
                     ],
                 ];
         }

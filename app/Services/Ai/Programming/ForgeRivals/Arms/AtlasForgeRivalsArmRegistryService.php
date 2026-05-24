@@ -23,6 +23,8 @@ use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderModelRegistr
  *   - supports_replay                     bool
  *   - supports_patch_diff                 bool
  *   - supports_test_log                   bool
+ *   - capabilities                        stable runner capability contract
+ *   - allowed_modes                       modes accepted by the runner
  *   - allowed_task_categories             '*' (all) or explicit list
  *   - safety_contract                     immutable safety promises
  *   - status                              available | not_yet_executable | placeholder
@@ -31,7 +33,8 @@ use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderModelRegistr
  * scripted/manual/future_runner are declared (so UIs and audits
  * can see them) but the real-run path returns an honest
  * `arm_runner_not_yet_executable:<arm_id>` blocker. `atlas_forge`,
- * `atlas_dev`, `claude_code`, `codex_cli` and `gemini_cli` are executable
+ * `atlas_dev`, `claude_code`, `codex_cli`, `gemini_cli`, `cursor_cli` and
+ * `composer_2_5` are executable
  * when their provider binary/policy is configured and the operator passes
  * the real-provider confirmations.
  *
@@ -53,6 +56,10 @@ final class AtlasForgeRivalsArmRegistryService
 
     public const ARM_GEMINI_CLI = 'gemini_cli';
 
+    public const ARM_CURSOR_CLI = 'cursor_cli';
+
+    public const ARM_COMPOSER_2_5 = 'composer_2_5';
+
     public const ARM_SCRIPTED_RUNNER = 'scripted_runner';
 
     public const ARM_MANUAL_RUNNER = 'manual_runner';
@@ -66,6 +73,8 @@ final class AtlasForgeRivalsArmRegistryService
         self::ARM_CLAUDE_CODE,
         self::ARM_CODEX_CLI,
         self::ARM_GEMINI_CLI,
+        self::ARM_CURSOR_CLI,
+        self::ARM_COMPOSER_2_5,
         self::ARM_SCRIPTED_RUNNER,
         self::ARM_MANUAL_RUNNER,
         self::ARM_FUTURE_RUNNER,
@@ -161,6 +170,8 @@ final class AtlasForgeRivalsArmRegistryService
             self::ARM_CLAUDE_CODE => $this->claudeCode(),
             self::ARM_CODEX_CLI => $this->codexCli(),
             self::ARM_GEMINI_CLI => $this->geminiCli(),
+            self::ARM_CURSOR_CLI => $this->cursorCli(),
+            self::ARM_COMPOSER_2_5 => $this->composer25(),
             self::ARM_SCRIPTED_RUNNER => $this->scriptedRunner(),
             self::ARM_MANUAL_RUNNER => $this->manualRunner(),
             self::ARM_FUTURE_RUNNER => $this->futureRunner(),
@@ -194,6 +205,11 @@ final class AtlasForgeRivalsArmRegistryService
             'generated_at' => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format(\DateTimeInterface::ATOM),
             'model_registry_schema_version' => AtlasForgeRivalsProviderModelRegistryService::SCHEMA_VERSION,
             'note' => 'Provider Arena Core v2 — declared arms. Real execution is gated by per-arm status, model registry, command builder and the three operator confirmations.',
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
             'separated_from_external_rivals_certification' => true,
         ];
     }
@@ -215,6 +231,8 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_replay' => true,
             'supports_patch_diff' => true,
             'supports_test_log' => true,
+            'capabilities' => $this->capabilities(realProvider: true),
+            'allowed_modes' => $this->allowedModes(),
             'allowed_task_categories' => self::TASK_CATEGORIES,
             'safety_contract' => $this->safety(realProvider: true),
             'status' => self::STATUS_AVAILABLE,
@@ -242,6 +260,8 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_replay' => true,
             'supports_patch_diff' => true,
             'supports_test_log' => true,
+            'capabilities' => $this->capabilities(realProvider: true),
+            'allowed_modes' => $this->allowedModes(),
             'allowed_task_categories' => ['frontend', 'backend', 'bugfix', 'tests', 'refactor', 'docs'],
             'safety_contract' => $this->safety(realProvider: true) + [
                 'escalates_to_forge_on_high_risk' => true,
@@ -272,6 +292,8 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_replay' => true,
             'supports_patch_diff' => true,
             'supports_test_log' => true,
+            'capabilities' => $this->capabilities(realProvider: true),
+            'allowed_modes' => $this->allowedModes(),
             'allowed_task_categories' => self::TASK_CATEGORIES,
             'safety_contract' => $this->safety(realProvider: true),
             'status' => self::STATUS_AVAILABLE,
@@ -298,6 +320,8 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_replay' => true,
             'supports_patch_diff' => true,
             'supports_test_log' => true,
+            'capabilities' => $this->capabilities(realProvider: true),
+            'allowed_modes' => $this->allowedModes(),
             'allowed_task_categories' => self::TASK_CATEGORIES,
             'safety_contract' => $this->safety(realProvider: true),
             'status' => self::STATUS_AVAILABLE,
@@ -324,12 +348,77 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_replay' => true,
             'supports_patch_diff' => true,
             'supports_test_log' => true,
+            'capabilities' => $this->capabilities(realProvider: true),
+            'allowed_modes' => $this->allowedModes(),
             'allowed_task_categories' => self::TASK_CATEGORIES,
             'safety_contract' => $this->safety(realProvider: true),
             'status' => self::STATUS_AVAILABLE,
             'not_executable_reason' => null,
             'human_label' => 'Gemini CLI',
             'human_description' => 'Gemini baseline — declared. Real execution arrives in a future slice; blocks honestly today.',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function cursorCli(): array
+    {
+        return [
+            'arm_id' => self::ARM_CURSOR_CLI,
+            'runner_type' => self::RUNNER_CLI_PROVIDER,
+            'provider' => 'cursor',
+            'model_options' => $this->models->aliasesForProvider('cursor'),
+            'execution_mode' => 'cli_provider_real',
+            'requires_external_provider_call' => true,
+            'requires_cost_confirmation' => true,
+            'supports_streaming' => true,
+            'supports_replay' => true,
+            'supports_patch_diff' => true,
+            'supports_test_log' => true,
+            'capabilities' => $this->capabilities(realProvider: true),
+            'allowed_modes' => $this->allowedModes(),
+            'allowed_task_categories' => self::TASK_CATEGORIES,
+            'safety_contract' => $this->safety(realProvider: true) + [
+                'cursor_cli_is_executor_only' => true,
+                'composer_model_is_resolved_by_provider_model_registry' => true,
+            ],
+            'status' => self::STATUS_AVAILABLE,
+            'not_executable_reason' => null,
+            'human_label' => 'Cursor CLI',
+            'human_description' => 'Cursor Agent CLI baseline using the configured Cursor model. Dry-run plans never spawn cursor-agent.',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function composer25(): array
+    {
+        return [
+            'arm_id' => self::ARM_COMPOSER_2_5,
+            'runner_type' => self::RUNNER_CLI_PROVIDER,
+            'provider' => 'composer',
+            'model_options' => $this->models->aliasesForProvider('composer'),
+            'execution_mode' => 'cli_provider_real',
+            'requires_external_provider_call' => true,
+            'requires_cost_confirmation' => true,
+            'supports_streaming' => true,
+            'supports_replay' => true,
+            'supports_patch_diff' => true,
+            'supports_test_log' => true,
+            'capabilities' => $this->capabilities(realProvider: true),
+            'allowed_modes' => $this->allowedModes(),
+            'allowed_task_categories' => self::TASK_CATEGORIES,
+            'safety_contract' => $this->safety(realProvider: true) + [
+                'uses_cursor_cli_binary' => true,
+                'composer_2_5_is_runner_surface' => true,
+                'model_id_resolved_by_provider_model_registry' => true,
+            ],
+            'status' => self::STATUS_AVAILABLE,
+            'not_executable_reason' => null,
+            'human_label' => 'Composer 2.5',
+            'human_description' => 'Composer 2.5 runner surface through Cursor Agent CLI. Model id stays configurable in ProviderModelRegistry/config.',
         ];
     }
 
@@ -350,6 +439,8 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_replay' => true,
             'supports_patch_diff' => true,
             'supports_test_log' => true,
+            'capabilities' => $this->capabilities(realProvider: false, supportsExplicitModel: false, supportsJsonOutput: false, supportsStreamingLogs: false),
+            'allowed_modes' => $this->allowedModes(localOnly: true),
             'allowed_task_categories' => ['tests', 'refactor', 'bugfix', 'docs'],
             'safety_contract' => $this->safety(realProvider: false, scriptedOrManual: true),
             'status' => self::STATUS_NOT_YET_EXECUTABLE,
@@ -376,6 +467,8 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_replay' => true,
             'supports_patch_diff' => true,
             'supports_test_log' => true,
+            'capabilities' => $this->capabilities(realProvider: false, supportsExplicitModel: false, supportsJsonOutput: false, supportsStreamingLogs: false),
+            'allowed_modes' => $this->allowedModes(localOnly: true),
             'allowed_task_categories' => self::TASK_CATEGORIES,
             'safety_contract' => $this->safety(realProvider: false, scriptedOrManual: true),
             'status' => self::STATUS_NOT_YET_EXECUTABLE,
@@ -402,6 +495,8 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_replay' => false,
             'supports_patch_diff' => false,
             'supports_test_log' => false,
+            'capabilities' => $this->capabilities(realProvider: false, supportsExplicitModel: false, supportsNonInteractive: false, supportsJsonOutput: false, supportsWorkspacePath: false, supportsTimeout: false, supportsResume: false, supportsStreamingLogs: false, supportsEvidencePack: false, supportsLocalFake: false),
+            'allowed_modes' => [],
             'allowed_task_categories' => [],
             'safety_contract' => $this->safety(realProvider: false, scriptedOrManual: false, placeholder: true),
             'status' => self::STATUS_PLACEHOLDER,
@@ -427,6 +522,59 @@ final class AtlasForgeRivalsArmRegistryService
             'evidence_required_before_winner' => true,
             'scripted_or_manual_cannot_forge_score' => $scriptedOrManual,
             'placeholder_blocks_real_run' => $placeholder,
+        ];
+    }
+
+    /**
+     * @return array<string,bool>
+     */
+    private function capabilities(
+        bool $realProvider,
+        bool $supportsExplicitModel = true,
+        bool $supportsNonInteractive = true,
+        bool $supportsJsonOutput = true,
+        bool $supportsWorkspacePath = true,
+        bool $supportsTimeout = true,
+        bool $supportsResume = true,
+        bool $supportsStreamingLogs = true,
+        bool $supportsEvidencePack = true,
+        bool $supportsLocalFake = true,
+    ): array {
+        return [
+            'supports_explicit_model' => $supportsExplicitModel,
+            'supports_non_interactive' => $supportsNonInteractive,
+            'supports_json_output' => $supportsJsonOutput,
+            'supports_workspace_path' => $supportsWorkspacePath,
+            'supports_timeout' => $supportsTimeout,
+            'supports_resume' => $supportsResume,
+            'supports_streaming_logs' => $supportsStreamingLogs,
+            'supports_cost_receipts' => $realProvider,
+            'supports_provider_receipts' => $realProvider,
+            'supports_evidence_pack' => $supportsEvidencePack,
+            'supports_local_fake' => $supportsLocalFake,
+            'requires_human_confirmation_for_real_call' => $realProvider,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allowedModes(bool $localOnly = false): array
+    {
+        if ($localOnly) {
+            return ['local_fake', 'dry-run'];
+        }
+
+        return [
+            'fair',
+            'fair-mode',
+            'power-mode',
+            'provider_arena',
+            'provider-arena',
+            'provider_pure',
+            'full_power',
+            'local_fake',
+            'dry-run',
         ];
     }
 }

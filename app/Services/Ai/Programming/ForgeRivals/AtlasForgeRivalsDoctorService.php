@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Console\Commands\AtlasForgeRivalsCommand;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use App\Services\Ai\Programming\WorkspaceHygieneService;
 use Symfony\Component\Process\Process;
@@ -93,23 +94,27 @@ final class AtlasForgeRivalsDoctorService
 
         // 7. canonical command + dispatcher load
         $checks['canonical_classes_loadable'] = [
-            'ok' => class_exists(\App\Console\Commands\AtlasForgeRivalsCommand::class)
+            'ok' => class_exists(AtlasForgeRivalsCommand::class)
                 && class_exists(AtlasForgeRivalsActionDispatcher::class),
             'value' => 'AtlasForgeRivalsCommand + AtlasForgeRivalsActionDispatcher',
         ];
 
         // 8. provider binaries discoverable (info-only)
-        $claudeProbe = $this->probe('which', ['claude']);
-        $codexProbe = $this->probe('which', ['codex']);
+        $claudeBinary = $this->configuredProviderBinary('claude_cli', 'claude');
+        $codexBinary = $this->configuredProviderBinary('codex_cli', 'codex');
+        $claudeProbe = $this->probeProviderBinary($claudeBinary);
+        $codexProbe = $this->probeProviderBinary($codexBinary);
         $checks['provider_binary_claude'] = [
             'ok' => $claudeProbe['ok'],
             'value' => trim($claudeProbe['stdout']) ?: 'not found (real-mode runs will fail until installed)',
             'severity' => $claudeProbe['ok'] ? 'info' : 'warning',
+            'configured_binary' => $claudeBinary,
         ];
         $checks['provider_binary_codex'] = [
             'ok' => $codexProbe['ok'],
             'value' => trim($codexProbe['stdout']) ?: 'not found (real-mode runs will fail until installed)',
             'severity' => $codexProbe['ok'] ? 'info' : 'warning',
+            'configured_binary' => $codexBinary,
         ];
 
         // 9. corpus registry loadable (only when DI provided it — keeps unit
@@ -195,5 +200,31 @@ final class AtlasForgeRivalsDoctorService
         } catch (\Throwable $e) {
             return ['ok' => false, 'stdout' => '', 'stderr' => $e->getMessage(), 'exit_code' => 127];
         }
+    }
+
+    private function configuredProviderBinary(string $provider, string $fallback): string
+    {
+        $configured = trim((string) config('atlas.ai.providers.'.$provider.'.binary', ''));
+
+        return $configured !== '' ? $configured : $fallback;
+    }
+
+    /**
+     * @return array{ok:bool,stdout:string,stderr:string,exit_code:int}
+     */
+    private function probeProviderBinary(string $binary): array
+    {
+        if (str_contains($binary, '/')) {
+            $ok = is_file($binary) && is_executable($binary);
+
+            return [
+                'ok' => $ok,
+                'stdout' => $ok ? $binary : '',
+                'stderr' => $ok ? '' : 'configured provider binary is not executable: '.$binary,
+                'exit_code' => $ok ? 0 : 127,
+            ];
+        }
+
+        return $this->probe('which', [$binary]);
     }
 }
