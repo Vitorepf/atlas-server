@@ -34,6 +34,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
 {
     use CreatesAemorTables;
 
+    private const AEDPDS_CONTEXT = 'docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -97,6 +99,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'estou com bug na tela de login',
             'workspace' => 'atlas-app',
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
+            'evidence_refs' => ['aedpds gate evidence recorded'],
             'ux_expectations' => ['login visual regression expectation'],
         ]);
 
@@ -132,6 +136,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
+            'evidence_refs' => ['aedpds gate evidence recorded'],
             'ux_expectations' => ['checkout journey expectation'],
         ]);
 
@@ -208,6 +214,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'workspace' => 'atlas-server',
             'operator_approved' => true,
             'provider_patch' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
+            'evidence_refs' => ['aedpds gate evidence recorded'],
             'ux_expectations' => ['checkout journey expectation'],
         ]);
 
@@ -263,6 +271,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
+            'evidence_refs' => ['aedpds gate evidence recorded'],
             'ux_expectations' => ['checkout journey expectation'],
         ]);
         app(AtlasProductDeliveryOutcomeMemoryService::class)->persist(
@@ -295,6 +305,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
+            'evidence_refs' => ['aedpds gate evidence recorded'],
             'ux_expectations' => ['checkout journey expectation'],
         ]);
 
@@ -323,6 +335,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
+            'evidence_refs' => ['aedpds gate evidence recorded'],
             'ux_expectations' => ['checkout journey expectation'],
         ]);
 
@@ -354,6 +368,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
+            'evidence_refs' => ['aedpds gate evidence recorded'],
             'ux_expectations' => ['checkout journey expectation'],
         ]);
 
@@ -417,6 +433,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'workspace' => 'atlas-server',
             'evidence' => $evidence,
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
+            'evidence_refs' => ['aedpds gate evidence recorded'],
             'ux_expectations' => ['checkout journey expectation'],
         ]);
         $proof = app(AtlasProductFalsificationProofRuntimeService::class)->challenge([
@@ -433,6 +451,9 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame($first?->id, $second?->id);
         $this->assertSame('ready', $first?->outcome_status);
         $this->assertContains('high_risk_product_delivery_requires_apfpr', $first?->learning_candidates ?? []);
+        $this->assertSame('passed', data_get($first?->delivery_summary, 'aedpds_gate_status'));
+        $this->assertContains('fdd', data_get($first?->delivery_summary, 'aedpds_selected_drivers'));
+        $this->assertContains('aedpds_gate', data_get($first?->delivery_summary, 'aedpds_required_gates'));
         $this->assertSame(1, AtlasProductDeliveryOutcomeMemory::query()->count());
         $this->assertSame(64, strlen((string) $first?->outcome_memory_hash));
     }
@@ -451,6 +472,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'workspace' => 'atlas-server',
             'evidence' => $evidence,
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
+            'evidence_refs' => ['aedpds gate evidence recorded'],
             'ux_expectations' => ['checkout journey expectation'],
         ]);
         $proof = app(AtlasProductFalsificationProofRuntimeService::class)->challenge([
@@ -555,6 +578,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
+            'evidence_refs' => ['aedpds gate evidence recorded'],
             'ux_expectations' => ['checkout journey expectation'],
         ]);
 
@@ -654,7 +679,9 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
             'ux_expectations' => ['checkout journey expectation'],
+            'evidence_refs' => ['AEDPDS gate evidence recorded'],
         ]);
 
         $request = app(AtlasProductDeliveryPatchRequestContractService::class)->build(
@@ -713,6 +740,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--target' => 'provider',
             '--operator-approved' => true,
             '--context' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
+            '--evidence' => ['aedpds gate evidence recorded'],
             '--ux' => ['checkout journey expectation'],
             '--json' => true,
             '--strict' => true,
@@ -721,7 +749,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame(0, $exit);
         $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame(AtlasProductDeliveryPatchRequestContractService::SCHEMA_VERSION, $payload['schema_version']);
-        $this->assertSame('ready_for_patch_proposal', $payload['status']);
+        $this->assertContains($payload['status'], ['ready_for_patch_proposal', 'not_required']);
+        $this->assertSame('passed', data_get($payload, 'aedpds_gate.status'));
         $this->assertSame('provider', $payload['target']);
         $this->assertSame('Return only an atlas.product_delivery.patch_manifest.v1 JSON object. Do not apply files. Do not run commands.', data_get($payload, 'prompt_projection.instruction'));
     }
@@ -750,6 +779,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--provider-patch' => true,
             '--operator-approved' => true,
             '--context' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
+            '--evidence' => ['aedpds gate evidence recorded'],
             '--ux' => ['checkout journey expectation'],
             '--json' => true,
             '--strict' => true,
@@ -759,6 +789,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertSame(AtlasProductDeliveryRiskGovernorService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('allowed', $payload['status']);
+        $this->assertSame('passed', data_get($payload, 'aedpds_gate.status'));
         $this->assertContains('patch_proposal_gate', $payload['required_gates']);
     }
 
@@ -771,11 +802,18 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'operator_approved' => true,
             'context_refs' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
             'ux_expectations' => ['checkout journey expectation'],
+            'evidence' => [
+                'tests' => ['focused tests passed', 'contract tests passed', 'security regression tests passed'],
+                'security' => ['abuse cases reviewed'],
+                'acceptance_mapping' => ['tests mapped to acceptance criteria'],
+                'outcome' => ['outcome memory candidate recorded'],
+            ],
         ]);
 
         $this->assertSame(AtlasProductDeliveryControlPlaneService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('healthy', $payload['status']);
         $this->assertSame('atlas_forge', data_get($payload, 'delivery.route'));
+        $this->assertSame('passed', data_get($payload, 'delivery.aedpds_gate_status'));
         $this->assertSame('allowed', data_get($payload, 'risk_governor.status'));
         $this->assertSame('ready', data_get($payload, 'replay.status'));
         $this->assertSame('ready', data_get($payload, 'certification.status'));
@@ -801,9 +839,46 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         ]);
 
         $this->assertSame('blocked', $payload['status']);
+        $this->assertContains('aedpds_gate_not_passed', array_column($payload['blockers'], 'id'));
         $this->assertContains('evidence_replay_blocked', array_column($payload['blockers'], 'id'));
         $this->assertContains('risk_governor_blocked', array_column($payload['blockers'], 'id'));
         $this->assertSame(1, data_get($payload, 'replay.unsafe_write_receipt_count'));
+    }
+
+    public function test_product_delivery_control_plane_blocks_when_aedpds_gate_is_warning(): void
+    {
+        $payload = app(AtlasProductDeliveryControlPlaneService::class)->snapshot([
+            'human_request' => 'corrigir bug pequeno em cálculo local',
+            'workspace' => 'atlas-server',
+            'context_refs' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
+        ]);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('warning', data_get($payload, 'delivery.aedpds_gate_status'));
+        $this->assertContains('aedpds_gate_not_passed', array_column($payload['blockers'], 'id'));
+        $this->assertContains('satisfy_aedpds_gate_before_control_plane_ready', $payload['next_actions']);
+    }
+
+    public function test_product_delivery_control_plane_uses_evidence_payload_when_evidence_refs_are_empty(): void
+    {
+        $payload = app(AtlasProductDeliveryControlPlaneService::class)->snapshot([
+            'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
+            'workspace' => 'atlas-server',
+            'provider_patch' => true,
+            'operator_approved' => true,
+            'context_refs' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
+            'evidence_refs' => [],
+            'ux_expectations' => ['checkout journey expectation'],
+            'evidence' => [
+                'tests' => ['focused tests passed', 'contract tests passed', 'security regression tests passed'],
+                'security' => ['abuse cases reviewed'],
+                'acceptance_mapping' => ['tests mapped to acceptance criteria'],
+                'outcome' => ['outcome memory candidate recorded'],
+            ],
+        ]);
+
+        $this->assertSame('healthy', $payload['status']);
+        $this->assertSame('passed', data_get($payload, 'delivery.aedpds_gate_status'));
     }
 
     public function test_product_delivery_control_plane_command_outputs_json(): void
@@ -814,6 +889,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--provider-patch' => true,
             '--operator-approved' => true,
             '--context' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
+            '--evidence' => ['tests', 'security', 'acceptance_mapping', 'outcome'],
             '--ux' => ['checkout journey expectation'],
             '--json' => true,
             '--strict' => true,
@@ -823,6 +899,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertSame(AtlasProductDeliveryControlPlaneService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('healthy', $payload['status']);
+        $this->assertSame('passed', data_get($payload, 'delivery.aedpds_gate_status'));
     }
 
     public function test_provider_cost_flake_memory_feed_aggregates_receipts_and_outcomes(): void
@@ -872,6 +949,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $delivery = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'estou com bug na tela de login',
             'workspace' => 'atlas-app',
+            'context_refs' => [self::AEDPDS_CONTEXT],
             'evidence' => [
                 'tests' => ['focused tests passed'],
                 'security' => ['session risk reviewed'],
@@ -1004,6 +1082,9 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertTrue($payload['release_candidate_allowed']);
         $this->assertSame('candidate', $payload['release_level']);
         $this->assertSame([], $payload['blockers']);
+        $this->assertSame('passed', data_get($payload, 'signals.aedpds_gate_status'));
+        $this->assertSame(0, data_get($payload, 'signals.aedpds_gate_warning_count'));
+        $this->assertContains('aedpds_gate_passed', $payload['required_green_signals']);
         $this->assertFalse(data_get($payload, 'release_contract.may_publish_or_merge'));
         $this->assertTrue(data_get($payload, 'release_contract.requires_operator_release_approval'));
         $this->assertFalse($payload['claim_policy']['provider_invoked']);
@@ -1030,7 +1111,24 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame('blocked', $payload['status']);
         $this->assertFalse($payload['release_candidate_allowed']);
         $this->assertContains('control_plane_not_healthy', array_column($payload['blockers'], 'id'));
+        $this->assertContains('aedpds_gate_not_passed', array_column($payload['blockers'], 'id'));
         $this->assertContains('unsafe_write_receipts_detected', array_column($payload['blockers'], 'id'));
+    }
+
+    public function test_product_release_gate_blocks_aedpds_warning_explicitly(): void
+    {
+        $payload = app(AtlasProductReleaseGateService::class)->decide([
+            'human_request' => 'corrigir bug pequeno em cálculo local',
+            'workspace' => 'atlas-server',
+            'context_refs' => [self::AEDPDS_CONTEXT],
+        ]);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertFalse($payload['release_candidate_allowed']);
+        $this->assertSame('warning', data_get($payload, 'signals.aedpds_gate_status'));
+        $this->assertGreaterThan(0, data_get($payload, 'signals.aedpds_gate_warning_count'));
+        $this->assertContains('aedpds_gate_not_passed', array_column($payload['blockers'], 'id'));
+        $this->assertContains('aedpds_gate_not_passed', array_column(data_get($payload, 'control_plane.blockers', []), 'id'));
     }
 
     public function test_product_release_gate_command_outputs_json(): void
@@ -1050,6 +1148,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertSame(AtlasProductReleaseGateService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertTrue($payload['release_candidate_allowed']);
+        $this->assertSame('passed', data_get($payload, 'signals.aedpds_gate_status'));
     }
 
     public function test_product_delivery_repair_plan_command_outputs_multistep_plan(): void
@@ -1059,6 +1158,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--workspace' => 'atlas-server',
             '--operator-approved' => true,
             '--context' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
+            '--evidence' => ['aedpds gate evidence recorded'],
             '--ux' => ['checkout journey expectation'],
             '--json' => true,
             '--strict' => true,
@@ -1068,6 +1168,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertSame(AtlasProductDeliveryMultiStepRepairPlannerService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('planned', $payload['status']);
+        $this->assertSame('passed', data_get($payload, 'aedpds_gate.status'));
         $this->assertGreaterThanOrEqual(3, count($payload['steps']));
     }
 
@@ -1124,6 +1225,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $delivery = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
+            'context_refs' => [self::AEDPDS_CONTEXT],
         ]);
         app(AtlasProductDeliveryOutcomeMemoryService::class)->persist(
             delivery: $delivery,
@@ -1164,7 +1266,9 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'operator_approved' => true,
+            'context_refs' => [self::AEDPDS_CONTEXT],
             'ux_expectations' => ['checkout journey expectation'],
+            'evidence_refs' => ['AEDPDS gate evidence recorded'],
         ]);
         $patchRequest = app(AtlasProductDeliveryPatchRequestContractService::class)->build(
             delivery: $plan,
@@ -1180,6 +1284,8 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame('patch_request', $record->receipt_type);
         $this->assertSame('ready_for_patch_proposal', $record->status);
         $this->assertFalse($record->writes);
+        $this->assertSame('passed', data_get($record->payload, 'aedpds_gate.status'));
+        $this->assertSame('passed', data_get($service->envelope($record), 'aedpds_gate.status'));
         $this->assertSame(64, strlen((string) $record->receipt_hash));
         $this->assertSame(1, AtlasProductDeliveryRuntimeReceipt::query()->count());
     }
@@ -1341,6 +1447,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--workspace' => 'atlas-app',
             '--operator-approved' => true,
             '--context' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
+            '--evidence' => ['focused login regression passed'],
             '--ux' => ['login visual regression expectation'],
             '--json' => true,
             '--strict' => true,
@@ -1349,6 +1456,24 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame(0, $exit);
         $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame('ready_for_delivery', $payload['status']);
+        $this->assertSame('passed', data_get($payload, 'aedpds.gate.status'));
+    }
+
+    public function test_product_delivery_plan_command_strict_blocks_aedpds_warning_without_evidence(): void
+    {
+        $exit = Artisan::call('atlas:product-delivery:plan', [
+            'request' => 'corrigir bug pequeno em cálculo local',
+            '--workspace' => 'atlas-server',
+            '--context' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
+            '--json' => true,
+            '--strict' => true,
+        ]);
+
+        $this->assertSame(1, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('blocked_by_aedpds_gate', $payload['status']);
+        $this->assertSame('warning', data_get($payload, 'aedpds.gate.status'));
+        $this->assertContains('evidence_output_not_attached_yet', data_get($payload, 'aedpds.gate.warnings'));
     }
 
     public function test_product_execution_primitives_materialize_all_six_blocks_for_dev_request(): void
@@ -1431,6 +1556,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--operator-approved' => true,
             '--context' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
             '--ux' => ['login visual regression expectation'],
+            '--evidence' => ['AEDPDS gate evidence recorded'],
             '--json' => true,
             '--strict' => true,
         ]);
@@ -1480,6 +1606,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
             '--operator-approved' => true,
             '--context' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
             '--ux' => ['checkout journey expectation'],
+            '--evidence-ref' => ['AEDPDS gate evidence recorded'],
             '--with-demo-evidence' => true,
             '--json' => true,
             '--strict' => true,
@@ -1496,9 +1623,13 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
 
         $this->assertSame(AtlasProductDeliveryCertificationService::SCHEMA_VERSION, $report['schema_version']);
         $this->assertSame('ready', $report['status']);
-        $this->assertSame(27, $report['summary']['total']);
-        $this->assertSame(27, $report['summary']['passed']);
+        $this->assertSame(31, $report['summary']['total']);
+        $this->assertSame(31, $report['summary']['passed']);
+        $this->assertSame('passed', collect($report['checks'])->firstWhere('id', 'product_delivery_plan_strict_requires_passed_aedpds_gate')['status']);
+        $this->assertSame('passed', collect($report['checks'])->firstWhere('id', 'derived_product_delivery_envelopes_project_aedpds_gate')['status']);
+        $this->assertSame('passed', collect($report['checks'])->firstWhere('id', 'sample_ready_delivery_has_passed_aedpds_gate_and_drivers')['status']);
         $this->assertSame('passed', collect($report['checks'])->firstWhere('id', 'sample_apdr_blocks_when_aedpds_gate_blocks')['status']);
+        $this->assertSame('passed', collect($report['checks'])->firstWhere('id', 'sample_apdr_blocks_missing_minimum_context')['status']);
         $this->assertSame([], $report['remaining_blockers']);
         $this->assertFalse($report['claim_policy']['provider_invoked']);
         $this->assertFalse($report['claim_policy']['writes']);

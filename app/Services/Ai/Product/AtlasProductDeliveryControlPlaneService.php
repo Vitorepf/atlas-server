@@ -36,7 +36,7 @@ class AtlasProductDeliveryControlPlaneService
             'evidence' => $this->map($options['evidence'] ?? []),
             'context_refs' => $this->list($options['context_refs'] ?? []),
             'canonical_docs' => $this->list($options['canonical_docs'] ?? []),
-            'evidence_refs' => $this->list($options['evidence_refs'] ?? data_get($options, 'evidence.tests', [])),
+            'evidence_refs' => $this->evidenceRefs($options),
             'ux_expectations' => $this->list($options['ux_expectations'] ?? []),
         ]);
         $replay = $this->replayLab->replay([
@@ -69,7 +69,7 @@ class AtlasProductDeliveryControlPlaneService
             ],
         );
         $cert = $this->certification->certify();
-        $blockers = $this->blockers($risk, $replay, $fitness, $cert);
+        $blockers = $this->blockers($delivery, $risk, $replay, $fitness, $cert);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -80,6 +80,10 @@ class AtlasProductDeliveryControlPlaneService
                 'status' => $delivery['status'] ?? null,
                 'route' => $delivery['route'] ?? null,
                 'delivery_hash' => $delivery['delivery_hash'] ?? null,
+                'aedpds_gate_status' => data_get($delivery, 'aedpds.gate.status'),
+                'aedpds_gate_hash' => data_get($delivery, 'aedpds.gate.hash'),
+                'aedpds_gate_warnings' => $this->list(data_get($delivery, 'aedpds.gate.warnings', [])),
+                'aedpds_gate_blockers' => $this->list(data_get($delivery, 'aedpds.gate.blockers', [])),
                 'proof_status' => data_get($delivery, 'proof_preview.status'),
                 'twin_status' => data_get($delivery, 'product_twin_simulation.status'),
             ],
@@ -152,9 +156,16 @@ class AtlasProductDeliveryControlPlaneService
      * @param  array<string,mixed>  $certification
      * @return list<array<string,mixed>>
      */
-    private function blockers(array $risk, array $replay, array $fitness, array $certification): array
+    private function blockers(array $delivery, array $risk, array $replay, array $fitness, array $certification): array
     {
         $blockers = [];
+        if (data_get($delivery, 'aedpds.gate.status') !== 'passed') {
+            $blockers[] = [
+                'id' => 'aedpds_gate_not_passed',
+                'severity' => 'critical',
+                'gate_status' => data_get($delivery, 'aedpds.gate.status', 'unknown'),
+            ];
+        }
         if (($certification['status'] ?? null) !== 'ready') {
             $blockers[] = ['id' => 'product_delivery_certification_not_ready', 'severity' => 'critical'];
         }
@@ -224,6 +235,9 @@ class AtlasProductDeliveryControlPlaneService
         if (($risk['status'] ?? null) === 'blocked') {
             $actions[] = 'resolve_risk_governor_blockers';
         }
+        if (in_array('aedpds_gate_not_passed', array_column($blockers, 'id'), true)) {
+            $actions[] = 'satisfy_aedpds_gate_before_control_plane_ready';
+        }
         if (($replay['status'] ?? null) === 'blocked') {
             $actions[] = 'repair_replay_regression_before_autonomy';
         }
@@ -254,6 +268,17 @@ class AtlasProductDeliveryControlPlaneService
     private function list(mixed $value): array
     {
         return is_array($value) ? array_values($value) : [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return list<mixed>
+     */
+    private function evidenceRefs(array $options): array
+    {
+        $refs = $this->list($options['evidence_refs'] ?? []);
+
+        return $refs !== [] ? $refs : $this->list(data_get($options, 'evidence.tests', []));
     }
 
     /**

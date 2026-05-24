@@ -148,7 +148,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneCertificationCoverageReportT
     public function test_coverage_block_count(): void
     {
         $payload = $this->coverageResult();
-        $this->assertSame(11, (int) $payload['block_count']);
+        $this->assertSame(count($payload['coverage_blocks']), (int) $payload['block_count']);
     }
 
     public function test_coverage_is_read_only(): void

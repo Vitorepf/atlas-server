@@ -5,7 +5,7 @@ namespace Tests\Unit\Ai\Programming\BenchmarkReadiness;
 use App\Services\Ai\Programming\BenchmarkReadiness\BenchmarkReadinessAuthorizationException;
 use App\Services\Ai\Programming\BenchmarkReadiness\BenchmarkReadinessCanon;
 use App\Services\Ai\Programming\BenchmarkReadiness\BenchmarkReadinessHarness;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 class BenchmarkReadinessHarnessTest extends TestCase
 {

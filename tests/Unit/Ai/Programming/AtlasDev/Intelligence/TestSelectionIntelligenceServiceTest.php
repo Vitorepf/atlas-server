@@ -9,7 +9,7 @@ use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionIntelligenceS
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\FocusedTestCommand;
 use App\Services\Ai\Programming\AtlasDev\Schemas\PatchIntelligenceReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\TestSelectionReceipt;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 class TestSelectionIntelligenceServiceTest extends TestCase
 {

@@ -7,7 +7,7 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\Schemas\Context;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ContextRetrievalPlan;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalJson;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class ContextRetrievalPlanTest extends TestCase
 {

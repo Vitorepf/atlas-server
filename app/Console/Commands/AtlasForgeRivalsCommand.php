@@ -68,8 +68,8 @@ class AtlasForgeRivalsCommand extends Command
         {--provider= : Filter the ledger snapshot by provider id}
         {--preset=smoke : smoke|quick|release|full|industrial-50|industrial-100|industrial-200|ambiguous-bugs|multi-day-refactors|incident-response|product-security-migrations|meta-provider-stress|extreme-differentiator|ceiling-360|statistical-repeat}
         {--source-ref= : Git ref/SHA used to provision isolated worktrees (Slice 1+)}
-        {--run-id= : Run id for status/collect-evidence/replay/adjudicate/report/run-battery/run-arena}
-        {--run-ids= : Comma-separated run_ids for battery-evidence/battery-verify-evidence (alt to repeated --run-id)}
+        {--run-id=* : Run id for status/collect-evidence/replay/adjudicate/report/run-battery/run-arena. Repeated values are honored by battery/matrix aggregators.}
+        {--run-ids= : Comma-separated run_ids for battery-evidence/battery-verify-evidence/matrix-report (alt to repeated --run-id)}
         {--battery-id= : Optional explicit battery_id (default: sha8 of sorted run_ids)}
         {--reviewer= : Operator id for reset/triage (Slice 1+)}
         {--reason= : Auditable reason for reset (Slice 1+)}
@@ -195,7 +195,7 @@ class AtlasForgeRivalsCommand extends Command
             'preset' => $this->stringOption('preset') ?: 'smoke',
             'source_ref' => $this->stringOption('source-ref'),
             'run_id' => $this->stringOption('run-id'),
-            'run_ids' => $this->stringOption('run-ids'),
+            'run_ids' => $this->runIdsOption(),
             'battery_id' => $this->stringOption('battery-id'),
             'reviewer' => $this->stringOption('reviewer'),
             'reason' => $this->stringOption('reason'),
@@ -234,8 +234,45 @@ class AtlasForgeRivalsCommand extends Command
     private function stringOption(string $name): ?string
     {
         $value = $this->option($name);
+        if (is_array($value)) {
+            $last = null;
+            foreach ($value as $entry) {
+                if (is_string($entry) && trim($entry) !== '') {
+                    $last = trim($entry);
+                }
+            }
+
+            return $last;
+        }
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    /**
+     * @return list<string>|string|null
+     */
+    private function runIdsOption(): array|string|null
+    {
+        $csv = $this->stringOption('run-ids');
+        $repeated = [];
+        $raw = $this->option('run-id');
+        if (is_array($raw)) {
+            foreach ($raw as $entry) {
+                if (is_string($entry) && trim($entry) !== '') {
+                    $repeated[] = trim($entry);
+                }
+            }
+        }
+
+        if ($csv !== null && $repeated !== []) {
+            return array_values(array_unique(array_merge(explode(',', $csv), $repeated)));
+        }
+
+        if ($repeated !== []) {
+            return $repeated;
+        }
+
+        return $csv;
     }
 
     private function firstCaseOption(): ?string

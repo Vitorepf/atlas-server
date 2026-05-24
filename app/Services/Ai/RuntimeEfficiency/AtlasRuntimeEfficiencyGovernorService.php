@@ -158,11 +158,12 @@ final class AtlasRuntimeEfficiencyGovernorService
         $payload['outcome_hash'] = MissionCanonicalHash::sha256($payload);
 
         $outcome = null;
-        if (Schema::hasTable('atlas_runtime_efficiency_outcomes')) {
+        $persist = ($input['persist'] ?? true) !== false;
+        if ($persist && Schema::hasTable('atlas_runtime_efficiency_outcomes')) {
             $outcome = AtlasRuntimeEfficiencyOutcome::query()->create($payload);
         }
         $compiledPolicy = null;
-        if ($decisionId !== null && Schema::hasTable('atlas_runtime_efficiency_decisions')) {
+        if ($persist && $decisionId !== null && Schema::hasTable('atlas_runtime_efficiency_decisions')) {
             $decision = AtlasRuntimeEfficiencyDecision::query()->find($decisionId);
             if ($decision instanceof AtlasRuntimeEfficiencyDecision) {
                 $compiledPolicy = $this->compilePolicy([

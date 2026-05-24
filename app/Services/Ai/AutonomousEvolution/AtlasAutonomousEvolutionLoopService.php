@@ -10,6 +10,7 @@ use App\Models\AtlasAaelPromotionDecision;
 use App\Services\Ai\AutonomousWorkExecution\AtlasAutonomousWorkExecutionService;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Product\AtlasAiAssistedExecutionQualityService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -28,6 +29,8 @@ final class AtlasAutonomousEvolutionLoopService
 
     public const CONTROL_PLANE_SCHEMA = 'atlas.aael.control_plane.v1';
 
+    public const ASSISTED_EXECUTION_BRIDGE_SCHEMA = 'atlas.aael.assisted_execution_bridge.v1';
+
     public const LEVEL_MAX = 'AAEL-L10 Autonomous Evolution Portfolio OS';
 
     public const STATUS_READY = 'ready';
@@ -39,6 +42,7 @@ final class AtlasAutonomousEvolutionLoopService
     public function __construct(
         private readonly ?AtlasAutonomousWorkExecutionService $aweos = null,
         private readonly ?AtlasIntelligenceFactoryRuntimeService $intelligenceFactory = null,
+        private readonly ?AtlasAiAssistedExecutionQualityService $assistedExecutionQuality = null,
     ) {}
 
     /**
@@ -385,6 +389,7 @@ final class AtlasAutonomousEvolutionLoopService
             'workspace' => $workspace,
             'evidence_refs' => array_values(array_unique([...$evidenceRefs, 'aael:evolution_experiment'])),
         ]) ?? ['status' => 'unavailable'];
+        $assistedExecution = $this->assistedExecutionBridge($opportunity, $workspace, $evidenceRefs, $input);
 
         $impact = $this->impactSimulation($opportunity, $aseif, $aweos);
         $lane = $this->experimentLane($opportunity, $impact);
@@ -400,8 +405,10 @@ final class AtlasAutonomousEvolutionLoopService
             'spec_packet' => $this->specPacket($opportunity),
             'impact_simulation' => $impact,
             'execution_plan' => data_get($aweos, 'execution_plan', $this->fallbackExecutionPlan($opportunity)),
+            'assisted_execution_quality' => $assistedExecution,
             'verification_plan' => [
                 'requires_aver' => true,
+                'requires_aaeq_aedpds_areg_aemor' => true,
                 'requires_docs_health_when_docs_change' => true,
                 'requires_targeted_tests' => true,
                 'requires_diff_review' => true,
@@ -432,6 +439,7 @@ final class AtlasAutonomousEvolutionLoopService
             'experiment_id' => $record?->id,
             'intelligence_factory' => $aseif,
             'autonomous_work_execution' => $this->summarizeAweos($aweos),
+            'assisted_execution_quality' => $assistedExecution,
             'writes' => $record !== null,
         ];
     }
@@ -443,9 +451,11 @@ final class AtlasAutonomousEvolutionLoopService
     {
         $risk = (string) data_get($experiment, 'impact_simulation.risk_level', 'medium');
         $missingEvidence = $evidenceRefs === [];
+        $assistedExecutionReady = data_get($experiment, 'assisted_execution_quality.status') === self::STATUS_READY;
         $trustLevel = match (true) {
             ($experiment['status'] ?? null) === self::STATUS_BLOCKED => 'forbidden',
             $risk === 'high' || $risk === 'critical' => 'signature_required',
+            ! $assistedExecutionReady => 'review_required',
             $missingEvidence => 'review_required',
             default => 'auto_with_rollback',
         };
@@ -464,6 +474,8 @@ final class AtlasAutonomousEvolutionLoopService
                 'sandbox_required' => true,
                 'aver_required' => true,
                 'aemor_required' => true,
+                'assisted_execution_quality_required' => true,
+                'assisted_execution_quality_status' => data_get($experiment, 'assisted_execution_quality.status'),
                 'evidence_refs_required' => true,
                 'has_evidence_refs' => ! $missingEvidence,
                 'risk_level' => $risk,
@@ -499,6 +511,7 @@ final class AtlasAutonomousEvolutionLoopService
     {
         $blocked = count(array_filter($promotionDecisions, fn (array $decision): bool => ($decision['status'] ?? null) === self::STATUS_BLOCKED));
         $review = count(array_filter($promotionDecisions, fn (array $decision): bool => ($decision['status'] ?? null) === 'operator_review_required'));
+        $assistedReady = count(array_filter($experiments, fn (array $experiment): bool => data_get($experiment, 'assisted_execution_quality.status') === self::STATUS_READY));
         $score = max(0.0, min(1.0, 0.92 - ($blocked * 0.25) - ($review * 0.08) + (count($evidenceRefs) > 0 ? 0.04 : 0.0)));
         $payload = [
             'cycle_id' => $cycleId,
@@ -510,6 +523,7 @@ final class AtlasAutonomousEvolutionLoopService
                 'evidence_critic' => $evidenceRefs === [] ? 'watch_missing_external_evidence' : 'passed',
                 'overengineering_critic' => 'passed_reuse_existing_aweos_aseif_aver_aemor',
                 'doctrine_critic' => data_get($cycle, 'anti_drift_doctrine_gate.status'),
+                'assisted_execution_critic' => $assistedReady === count($experiments) ? 'passed' : 'watch',
             ],
             'self_evolution_memory' => [
                 'record_positive_patterns' => ['reuse_existing_runtime', 'sandbox_before_promotion', 'operator_only_for_high_risk'],
@@ -526,6 +540,7 @@ final class AtlasAutonomousEvolutionLoopService
                 'blocked_decisions' => $blocked,
                 'operator_review_decisions' => $review,
                 'experiment_count' => count($experiments),
+                'assisted_execution_ready_count' => $assistedReady,
             ],
             'claim_policy' => $this->claimPolicy(),
             'evidence_refs' => $evidenceRefs,
@@ -552,6 +567,90 @@ final class AtlasAutonomousEvolutionLoopService
             str_contains($text, 'tool') || str_contains($text, 'capability') => 'capability_evolution',
             default => 'system_evolution',
         };
+    }
+
+    /**
+     * @param  list<string>  $evidenceRefs
+     * @return array<string,mixed>
+     */
+    private function assistedExecutionBridge(array $opportunity, string $workspace, array $evidenceRefs, array $input): array
+    {
+        $service = $this->assistedExecutionQuality ?? app(AtlasAiAssistedExecutionQualityService::class);
+        $route = (string) ($opportunity['flow_id'] ?? 'atlas_dev');
+        $requiredEvidence = array_values(array_unique([...$evidenceRefs, 'aael:assisted_execution_bridge']));
+        $envelope = $service->buildEnvelope([
+            'human_request' => (string) ($opportunity['objective'] ?? 'AAEL evolution opportunity'),
+            'workspace' => $workspace,
+            'surface_id' => 'atlas_evolution_command',
+            'route' => str_contains($route, 'forge') ? 'atlas_forge' : 'atlas_dev',
+            'context_refs' => $this->stringList($input['context_refs'] ?? [
+                'docs/engineering-knowledge-base/atlas-autonomous-evolution-loop.md',
+                'docs/engineering-knowledge-base/atlas-ai-assisted-execution-quality.md',
+            ]),
+            'expected_files' => $this->stringList($opportunity['dependencies'] ?? []),
+            'acceptance_criteria' => [
+                'AAEL opportunity has AEDPDS doctrine and gate status.',
+                'AAEL experiment has AREG path and AEMOR feedback contract.',
+                'AAEL promotion cannot claim ready without evidence refs and assisted execution quality.',
+            ],
+            'suggested_tests' => ['php artisan test tests/Feature/Ai/AutonomousEvolution'],
+            'required_evidence' => $requiredEvidence,
+            'risk_band' => $opportunity['risk_level'] ?? 'medium',
+            'review_refs' => in_array(($opportunity['risk_level'] ?? 'medium'), ['high', 'critical'], true)
+                ? $this->stringList($input['review_refs'] ?? [])
+                : ['aael:low_risk_auto_review_policy'],
+        ]);
+        $feedback = $service->recordOutcomeFeedback($envelope, [
+            'status' => ($envelope['status'] ?? null) === 'ready_for_assisted_execution' ? 'succeeded' : 'blocked',
+            'quality_score' => ($envelope['status'] ?? null) === 'ready_for_assisted_execution' ? 0.88 : 0.42,
+            'context_roi_score' => ($envelope['status'] ?? null) === 'ready_for_assisted_execution' ? 0.80 : 0.35,
+            'evidence_refs' => $requiredEvidence,
+            'persist' => false,
+        ]);
+
+        $blockers = array_values(array_unique(array_filter(array_merge(
+            $this->blockerIds(is_array($envelope['blockers'] ?? null) ? $envelope['blockers'] : []),
+            $this->blockerIds(is_array($feedback['blockers'] ?? null) ? $feedback['blockers'] : []),
+        ))));
+
+        $payload = [
+            'schema_version' => self::ASSISTED_EXECUTION_BRIDGE_SCHEMA,
+            'status' => ($envelope['status'] ?? null) === 'ready_for_assisted_execution' && ($feedback['status'] ?? null) === 'recorded' && $blockers === []
+                ? self::STATUS_READY
+                : self::STATUS_WATCH,
+            'route_target' => data_get($envelope, 'route.target'),
+            'flow_id' => data_get($envelope, 'route.flow_id'),
+            'aedpds_gate_status' => data_get($envelope, 'aedpds.gate.status'),
+            'selected_drivers' => $this->stringList(data_get($envelope, 'aedpds.doctrine.selected_primary_drivers', [])),
+            'context_memory_status' => data_get($envelope, 'aucri_acmf.status'),
+            'areg_path' => data_get($envelope, 'areg.path'),
+            'outcome_feedback_status' => data_get($feedback, 'status'),
+            'aemor_feedback_status' => data_get($feedback, 'aemor_outcome.status'),
+            'blockers' => $blockers,
+            'envelope_hash' => data_get($envelope, 'assisted_execution_hash'),
+            'feedback_hash' => data_get($feedback, 'feedback_hash'),
+            'claim_policy' => [
+                'provider_invoked' => false,
+                'writes' => false,
+                'raw_objective_exposed' => false,
+                'promotion_requires_evidence' => true,
+            ],
+        ];
+        $payload['bridge_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $blockers
+     * @return list<string>
+     */
+    private function blockerIds(array $blockers): array
+    {
+        return array_values(array_filter(array_map(
+            fn (array $blocker): string => $this->stringValue($blocker['id'] ?? null) ?? '',
+            $blockers,
+        ), fn (string $id): bool => $id !== ''));
     }
 
     private function riskLevel(string $objective, array $input): string

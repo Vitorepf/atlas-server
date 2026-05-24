@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\PromptProjection;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\PromptSections;
-use Illuminate\Support\Facades\Blade;
 use RuntimeException;
 
 /**
@@ -45,7 +44,7 @@ final class PromptRenderer
     ): string {
         $template = $this->loadTemplate();
 
-        $rendered = Blade::render($template, [
+        $rendered = $this->renderTemplate($template, [
             'runId' => $runId,
             'provider' => $provider,
             'modelFamily' => $modelFamily,
@@ -54,7 +53,7 @@ final class PromptRenderer
             'flow' => $this->normaliseFlow($flow),
             'providerLock' => $this->normaliseProviderLock($providerLock, $provider, $modelFamily),
             'fileExcerpts' => $this->normaliseFileExcerpts($fileExcerpts),
-        ], deleteCachedView: true);
+        ]);
 
         return $this->normaliseLineEndings($rendered);
     }
@@ -96,11 +95,131 @@ final class PromptRenderer
 
     private function resolveTemplatePath(): string
     {
-        if (function_exists('resource_path')) {
+        if (function_exists('resource_path') && method_exists(app(), 'resourcePath')) {
             return resource_path(self::TEMPLATE_RESOURCE_PATH);
         }
 
         return dirname(__DIR__, 6).'/resources/'.self::TEMPLATE_RESOURCE_PATH;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function renderTemplate(string $template, array $data): string
+    {
+        unset($template);
+
+        /** @var array<string, mixed> $sections */
+        $sections = $data['sections'];
+        /** @var array<string, string> $flow */
+        $flow = $data['flow'];
+        /** @var array<string, string> $providerLock */
+        $providerLock = $data['providerLock'];
+        /** @var array<string, string> $upstreamHashes */
+        $upstreamHashes = $data['upstreamHashes'];
+        /** @var list<array{path: string, sha256: string, content: string, truncated: string}> $fileExcerpts */
+        $fileExcerpts = $data['fileExcerpts'];
+
+        $lines = [
+            '# Atlas Dev Provider Prompt',
+            '',
+            'Run: '.$data['runId'],
+            'Provider: '.$data['provider'].' ('.$data['modelFamily'].')',
+            '',
+            '## Atlas Dev Flow',
+            '- flow_id: '.$flow['flow_id'].' (workspace-dev)',
+            '- flow_origin: '.$flow['flow_origin'],
+            '- command_intent: '.$flow['command_intent'],
+            '- workspace_hash: '.$flow['workspace_hash'],
+            '- scope: Atlas Dev workspace-dev - NOT Router global, NOT Research/Conversation/Explain.',
+            '',
+            '## Provider Lock',
+            '- provider: '.$providerLock['provider'],
+            '- model_family: '.$providerLock['model_family'],
+            '- fallback_allowed: '.$providerLock['fallback_allowed'],
+            '',
+            '## Objective',
+            (string) $sections['objective'],
+            '',
+            '## Operating Rules',
+            ...$this->bulletLines($sections['operating_rules']),
+            '',
+            '## Non-Goals',
+            ...$this->bulletLines($sections['non_goals'], '(no non-goals declared - read-only or escalation preview)'),
+            '',
+            '## References',
+            '- mini_spec: '.$sections['mini_spec_ref'],
+            '- task_contract: '.$sections['task_contract_ref'],
+            '- code_discovery: '.$sections['code_discovery_ref'],
+            '',
+            '## Context Refs',
+            ...$this->bulletLines($sections['context_refs'], '(no context refs provided)'),
+            '',
+            '## Focused File Excerpts',
+        ];
+
+        if ($fileExcerpts === []) {
+            $lines[] = '- (no focused file excerpts provided; use allowed_files and context refs only)';
+        } else {
+            foreach ($fileExcerpts as $excerpt) {
+                array_push(
+                    $lines,
+                    '### '.$excerpt['path'],
+                    '- sha256: '.$excerpt['sha256'],
+                    '- truncated: '.$excerpt['truncated'],
+                    '',
+                    '```text',
+                    $excerpt['content'],
+                    '```'
+                );
+            }
+        }
+
+        foreach ([
+            '',
+            '## Allowed Files',
+            ...$this->bulletLines($sections['allowed_files'], '(no allowed files - read-only run)'),
+            '',
+            '## Forbidden Files',
+            ...$this->bulletLines($sections['forbidden_files'], '(none declared)'),
+            '',
+            '## Expected Tests',
+            ...$this->bulletLines($sections['expected_tests'], '(no test expected - see no_test_reason in task contract)'),
+            '',
+            '## Acceptance Criteria',
+            ...$this->bulletLines($sections['acceptance_criteria']),
+            '',
+            '## Stop Conditions',
+            ...$this->bulletLines($sections['stop_conditions']),
+            '',
+            '## Escalation Conditions',
+            ...$this->bulletLines($sections['escalation_conditions']),
+            '',
+            '## Output Contract',
+            ...$this->bulletLines($sections['output_contract']),
+            '',
+            '## Upstream Artifacts',
+        ] as $line) {
+            $lines[] = $line;
+        }
+
+        foreach ($upstreamHashes as $name => $hash) {
+            $lines[] = '- '.$name.': '.$hash;
+        }
+
+        return implode("\n", $lines)."\n";
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function bulletLines(mixed $values, ?string $empty = null): array
+    {
+        if (! is_array($values) || $values === []) {
+            return $empty === null ? [] : ['- '.$empty];
+        }
+
+        return array_values(array_map(static fn (mixed $value): string => '- '.(string) $value, $values));
     }
 
     /**

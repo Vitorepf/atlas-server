@@ -14,12 +14,12 @@ class AtlasSecurity
     {
         $current = self::currentEnvironment();
         $allowlist = array_unique(array_merge(
-            self::stringList(config('atlas.ai.security.process_env.allowlist', [])),
-            self::stringList(config("atlas.ai.security.process_env.profiles.{$profile}.allowlist", [])),
+            self::stringList(self::config('atlas.ai.security.process_env.allowlist', [])),
+            self::stringList(self::config("atlas.ai.security.process_env.profiles.{$profile}.allowlist", [])),
         ));
         $prefixes = array_unique(array_merge(
-            self::stringList(config('atlas.ai.security.process_env.prefix_allowlist', [])),
-            self::stringList(config("atlas.ai.security.process_env.profiles.{$profile}.prefix_allowlist", [])),
+            self::stringList(self::config('atlas.ai.security.process_env.prefix_allowlist', [])),
+            self::stringList(self::config("atlas.ai.security.process_env.profiles.{$profile}.prefix_allowlist", [])),
         ));
 
         $env = [];
@@ -82,7 +82,7 @@ class AtlasSecurity
             }
         }
 
-        foreach (self::stringList(config('atlas.ai.security.redaction.extra_patterns', [])) as $pattern) {
+        foreach (self::stringList(self::config('atlas.ai.security.redaction.extra_patterns', [])) as $pattern) {
             $redacted = @preg_replace($pattern, self::REDACTED, $value);
             if (is_string($redacted)) {
                 $value = $redacted;
@@ -90,6 +90,15 @@ class AtlasSecurity
         }
 
         return $value;
+    }
+
+    private static function config(string $key, mixed $default = null): mixed
+    {
+        try {
+            return config($key, $default);
+        } catch (\Throwable) {
+            return $default;
+        }
     }
 
     /**

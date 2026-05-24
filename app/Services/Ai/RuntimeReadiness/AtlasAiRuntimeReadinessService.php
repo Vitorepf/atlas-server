@@ -13,6 +13,7 @@ use App\Services\Ai\Mission\MissionFollowThroughService;
 use App\Services\Ai\Mission\MissionModeService;
 use App\Services\Ai\Mission\MissionReadinessService;
 use App\Services\Ai\OperatorApproval\OperatorApprovalGateService;
+use App\Services\Ai\Product\AtlasAiAssistedExecutionQualityService;
 use App\Services\Ai\Product\AtlasAiProductCertificationService;
 use App\Services\Ai\RouterRuntime\AtlasDesktopHyperflowIntegrationCertificationService;
 use App\Services\Ai\RouterRuntime\AtlasHyperflowSpecialistFlowsReadinessService;
@@ -182,7 +183,106 @@ class AtlasAiRuntimeReadinessService
             'active_mission' => $this->activeMission(),
             'pending_approvals_count' => $this->pendingApprovalsCount(),
             'latest_handoff' => $this->latestHandoff(),
+            'assisted_execution' => $this->assistedExecutionOperationalState(),
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function assistedExecutionOperationalState(): array
+    {
+        try {
+            $service = $this->container->make(AtlasAiAssistedExecutionQualityService::class);
+            $envelope = $service->buildEnvelope([
+                'human_request' => 'Corrigir bug pequeno de interface no Atlas AI com teste focado e evidencia.',
+                'workspace' => 'atlas',
+                'surface_id' => 'atlas_ai',
+                'expected_files' => [
+                    'app/Services/Ai/RuntimeReadiness/AtlasAiRuntimeReadinessService.php',
+                    'tests/Feature/Ai/Product/AtlasAiRuntimeUxCertificationServiceTest.php',
+                ],
+                'context_refs' => [
+                    'docs/engineering-knowledge-base/atlas-ai-assisted-execution-quality.md',
+                    'docs/engineering-knowledge-base/atlas-ai-runtime-release-gate.md',
+                ],
+                'acceptance_criteria' => [
+                    'Runtime UX mostra estado operacional assistido sem JSON bruto.',
+                    'Certificacao Runtime UX prova AEDPDS, contexto, AREG e AEMOR no bundle.',
+                    'Teste focado valida shape e hash fora do certification_hash.',
+                ],
+                'suggested_tests' => [
+                    'php artisan test tests/Feature/Ai/Product/AtlasAiRuntimeUxCertificationServiceTest.php',
+                ],
+                'required_evidence' => [
+                    'runtime_ux_assisted_execution_projection',
+                    'focused_tests',
+                    'certification_hash',
+                ],
+            ]);
+            $feedback = $service->recordOutcomeFeedback($envelope, [
+                'status' => 'succeeded',
+                'quality_score' => 0.90,
+                'context_roi_score' => 0.82,
+                'evidence_refs' => [
+                    'runtime_ux_assisted_execution_projection',
+                    'focused_tests',
+                    'certification_hash',
+                ],
+                'persist' => false,
+            ]);
+
+            $blockers = array_values(array_filter(array_merge(
+                $this->stringList(array_map(
+                    static fn (array $blocker): string => (string) ($blocker['id'] ?? 'unknown_blocker'),
+                    is_array($envelope['blockers'] ?? null) ? $envelope['blockers'] : [],
+                )),
+                $this->stringList(array_map(
+                    static fn (array $blocker): string => (string) ($blocker['id'] ?? 'unknown_feedback_blocker'),
+                    is_array($feedback['blockers'] ?? null) ? $feedback['blockers'] : [],
+                )),
+            )));
+
+            $payload = [
+                'schema_version' => 'atlas.ai.assisted_execution.operational_ux.v1',
+                'status' => $blockers === [] ? 'ready' : 'needs_attention',
+                'route_target' => data_get($envelope, 'route.target'),
+                'flow_id' => data_get($envelope, 'route.flow_id'),
+                'doctrine_gate_status' => data_get($envelope, 'aedpds.gate.status'),
+                'selected_drivers' => $this->stringList(data_get($envelope, 'aedpds.doctrine.selected_primary_drivers', [])),
+                'context_memory_status' => data_get($envelope, 'aucri_acmf.status'),
+                'context_must_keep_coverage' => data_get($envelope, 'aucri_acmf.working_set.must_keep_coverage'),
+                'areg_status' => data_get($envelope, 'areg.status'),
+                'areg_path' => data_get($envelope, 'areg.path'),
+                'outcome_feedback_status' => data_get($feedback, 'status'),
+                'aemor_feedback_status' => data_get($feedback, 'aemor_outcome.status'),
+                'blockers' => $blockers,
+                'summary' => $blockers === []
+                    ? 'Execucao assistida governada por AEDPDS, contexto, AREG e feedback AEMOR.'
+                    : 'Execucao assistida requer acao antes de rodar.',
+            ];
+            $payload['hash'] = MissionCanonicalHash::sha256($payload);
+
+            return $payload;
+        } catch (Throwable) {
+            return [
+                'schema_version' => 'atlas.ai.assisted_execution.operational_ux.v1',
+                'status' => 'unavailable',
+                'route_target' => null,
+                'flow_id' => null,
+                'doctrine_gate_status' => null,
+                'selected_drivers' => [],
+                'context_memory_status' => null,
+                'context_must_keep_coverage' => null,
+                'areg_status' => null,
+                'areg_path' => null,
+                'outcome_feedback_status' => null,
+                'aemor_feedback_status' => null,
+                'blockers' => ['assisted_execution_projection_unavailable'],
+                'summary' => 'Estado operacional assistido indisponivel.',
+                'hash' => null,
+            ];
+        }
     }
 
     /**
@@ -284,6 +384,21 @@ class AtlasAiRuntimeReadinessService
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): string => is_scalar($item) ? trim((string) $item) : '',
+            $value,
+        ), static fn (string $item): bool => $item !== ''));
     }
 
     /* ============================================================ */

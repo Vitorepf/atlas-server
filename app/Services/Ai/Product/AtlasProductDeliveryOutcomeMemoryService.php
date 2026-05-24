@@ -39,6 +39,12 @@ class AtlasProductDeliveryOutcomeMemoryService
                 'required_lenses' => $this->list(data_get($delivery, 'delivery_plan.required_lenses', [])),
                 'risk_band' => data_get($delivery, 'assisted_execution.execution_contract.risk_band'),
                 'apfpr_required' => data_get($delivery, 'proof_requirements.apfpr_required') === true,
+                'aedpds_gate_status' => data_get($delivery, 'aedpds.gate.status'),
+                'aedpds_gate_hash' => data_get($delivery, 'aedpds.gate.hash'),
+                'aedpds_selected_drivers' => $this->list(data_get($delivery, 'aedpds.doctrine.selected_primary_drivers', [])),
+                'aedpds_required_gates' => $this->list(data_get($delivery, 'aedpds.gate.required_gates', [])),
+                'aedpds_warnings' => $this->list(data_get($delivery, 'aedpds.gate.warnings', [])),
+                'aedpds_blockers' => $this->list(data_get($delivery, 'aedpds.gate.blockers', [])),
             ],
             'proof_summary' => [
                 'schema_version' => $proof['schema_version'] ?? null,

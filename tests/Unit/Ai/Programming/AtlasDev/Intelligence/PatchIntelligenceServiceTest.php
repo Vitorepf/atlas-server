@@ -10,7 +10,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\EvidenceRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeFileDiff;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopePreExistingChange;
 use App\Services\Ai\Programming\AtlasDev\Schemas\PatchIntelligenceReceipt;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 class PatchIntelligenceServiceTest extends TestCase
 {

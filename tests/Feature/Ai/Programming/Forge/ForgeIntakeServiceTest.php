@@ -147,6 +147,13 @@ class ForgeIntakeServiceTest extends TestCase
         $this->assertTrue((bool) data_get($intake->workspace_execution_gate, 'allowed'));
         $this->assertSame('atlas', data_get($intake->workspace_execution_gate, 'workspace_id'));
         $this->assertTrue((bool) data_get($intake->workspace_execution_gate, 'required_contracts.awco_execution_readiness'));
+        $inventoryHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.repository_inventory_hash');
+        $this->assertSame(64, strlen((string) $inventoryHash));
+        $this->assertContains('awis_cache:repository_inventory:'.$inventoryHash, $intake->context_refs);
+        $this->assertContains('awis_repo:atlas-server', $intake->context_refs);
+        $this->assertContains('awis_manifest:atlas-server:composer.json', $intake->context_refs);
+        $packet = $intake->workPackets()->firstOrFail();
+        $this->assertContains('php artisan test tests/Feature/Ai/Programming/Forge/ForgeIntakeServiceTest.php', $packet->suggested_tests);
     }
 
     public function test_forge_intake_blocks_without_awis_workspace(): void
@@ -450,6 +457,38 @@ class ForgeIntakeServiceTest extends TestCase
             'blockers' => [],
             'required_contracts' => [
                 'awco_execution_readiness' => true,
+            ],
+            'execution_context' => [
+                'schema_version' => 'atlas.workspace_intelligence.execution_context.v1',
+                'provider_safe' => true,
+                'focused_repositories' => [[
+                    'repo_key' => 'atlas-server',
+                    'score' => 8,
+                    'reasons' => ['test_fixture'],
+                    'stack' => ['laravel', 'php'],
+                ]],
+                'execution_priority' => [[
+                    'command' => 'php artisan test tests/Feature/Ai/Programming/Forge/ForgeIntakeServiceTest.php',
+                    'why' => 'focused_forge_intake_regression',
+                    'requires_operator_approval' => true,
+                ]],
+                'context_loading_plan' => [
+                    'schema_version' => 'atlas.awis.context_loading_plan.v1',
+                    'repository_inventory_hash' => str_repeat('b', 64),
+                    'stack_tags' => ['laravel', 'php'],
+                    'focused_manifest_refs' => [[
+                        'repo_key' => 'atlas-server',
+                        'manifest_files' => ['composer.json', 'artisan'],
+                        'stack' => ['laravel', 'php'],
+                        'script_names' => ['composer:test'],
+                    ]],
+                    'command_hints' => ['php artisan test tests/Feature/Ai/Programming/Forge/ForgeIntakeServiceTest.php'],
+                    'provider_policy' => [
+                        'raw_manifest_returned' => false,
+                        'script_bodies_returned' => false,
+                        'absolute_workspace_path_returned' => false,
+                    ],
+                ],
             ],
         ];
     }

@@ -127,6 +127,94 @@ final class GitWorkspaceInspector
         ]);
     }
 
+    /**
+     * Provider-safe and fast variant for AWIS workspace memory.
+     *
+     * It intentionally never materializes or returns a diff excerpt. The hash is
+     * derived from Git metadata and changed relative paths only, which is enough
+     * to invalidate context without moving source content through the runtime.
+     *
+     * @return array{
+     *   schema_version: string,
+     *   success: bool,
+     *   is_git: bool,
+     *   workspace_path: string,
+     *   workspace_path_exists: bool,
+     *   head_sha: ?string,
+     *   branch: ?string,
+     *   files_changed: array<int, string>,
+     *   files_changed_truncated: bool,
+     *   diff_excerpt: null,
+     *   diff_truncated: false,
+     *   diff_hash: ?string,
+     *   blocker_reason: ?string,
+     *   captured_at: string
+     * }
+     */
+    public function captureProviderSafeSnapshot(string $workspacePath): array
+    {
+        $base = [
+            'schema_version' => self::SCHEMA_VERSION,
+            'success' => false,
+            'is_git' => false,
+            'workspace_path' => $workspacePath,
+            'workspace_path_exists' => false,
+            'head_sha' => null,
+            'branch' => null,
+            'files_changed' => [],
+            'files_changed_truncated' => false,
+            'diff_excerpt' => null,
+            'diff_truncated' => false,
+            'diff_hash' => null,
+            'blocker_reason' => null,
+            'captured_at' => now()->toJSON(),
+        ];
+
+        if ($workspacePath === '' || ! @is_dir($workspacePath)) {
+            return array_merge($base, ['blocker_reason' => 'workspace_path_missing_or_unreadable']);
+        }
+        $base['workspace_path_exists'] = true;
+
+        if (! $this->isGitRepository($workspacePath)) {
+            return array_merge($base, ['blocker_reason' => 'not_a_git_repository']);
+        }
+        $base['is_git'] = true;
+
+        try {
+            $headSha = $this->run($workspacePath, ['git', 'rev-parse', 'HEAD']);
+            $branch = $this->run($workspacePath, ['git', 'rev-parse', '--abbrev-ref', 'HEAD']);
+            $status = $this->run($workspacePath, ['git', 'status', '--porcelain=v1', '--untracked-files=all']);
+        } catch (Throwable $e) {
+            return array_merge($base, [
+                'blocker_reason' => 'git_command_failed:'.substr($e->getMessage(), 0, 200),
+            ]);
+        }
+
+        $files = $this->parseStatusFiles($status);
+        $filesTruncated = false;
+        if (count($files) > self::MAX_FILES_LISTED) {
+            $files = array_slice($files, 0, self::MAX_FILES_LISTED);
+            $filesTruncated = true;
+        }
+
+        $head = trim($headSha) !== '' ? trim($headSha) : null;
+        $currentBranch = trim($branch) !== '' ? trim($branch) : null;
+
+        return array_merge($base, [
+            'success' => true,
+            'head_sha' => $head,
+            'branch' => $currentBranch,
+            'files_changed' => $files,
+            'files_changed_truncated' => $filesTruncated,
+            'diff_hash' => $files !== [] ? hash('sha256', json_encode([
+                'head_sha' => $head,
+                'branch' => $currentBranch,
+                'files_changed' => $files,
+                'files_changed_truncated' => $filesTruncated,
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '') : null,
+        ]);
+    }
+
     public function isGitRepository(string $workspacePath): bool
     {
         if (@is_dir($workspacePath.'/.git') || @is_file($workspacePath.'/.git')) {

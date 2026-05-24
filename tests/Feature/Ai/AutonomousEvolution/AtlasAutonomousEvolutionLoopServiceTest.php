@@ -37,6 +37,13 @@ class AtlasAutonomousEvolutionLoopServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(1, data_get($payload, 'portfolio_snapshot.selected_count'));
         $this->assertSame('passed', data_get($payload, 'strategic_alignment_gate.status'));
         $this->assertSame('passed', data_get($payload, 'anti_drift_doctrine_gate.status'));
+        $this->assertSame(AtlasAutonomousEvolutionLoopService::ASSISTED_EXECUTION_BRIDGE_SCHEMA, data_get($payload, 'experiments.0.assisted_execution_quality.schema_version'));
+        $this->assertSame(AtlasAutonomousEvolutionLoopService::STATUS_READY, data_get($payload, 'experiments.0.assisted_execution_quality.status'));
+        $this->assertSame('passed', data_get($payload, 'experiments.0.assisted_execution_quality.aedpds_gate_status'));
+        $this->assertNotEmpty(data_get($payload, 'experiments.0.assisted_execution_quality.selected_drivers'));
+        $this->assertSame('recorded', data_get($payload, 'experiments.0.assisted_execution_quality.outcome_feedback_status'));
+        $this->assertSame('ready_to_record', data_get($payload, 'experiments.0.assisted_execution_quality.aemor_feedback_status'));
+        $this->assertSame('passed', data_get($payload, 'audit_report.audit_court.assisted_execution_critic'));
         $this->assertSame(AtlasAutonomousEvolutionLoopService::AUDIT_SCHEMA, data_get($payload, 'audit_report.schema_version'));
         $this->assertDatabaseCount('atlas_aael_opportunities', 1);
         $this->assertDatabaseCount('atlas_aael_portfolio_cycles', 1);
@@ -60,7 +67,9 @@ class AtlasAutonomousEvolutionLoopServiceTest extends TestCase
         ]);
 
         $this->assertSame('human_signature_required', data_get($payload, 'operator_queue.0.action'));
+        $this->assertSame(AtlasAutonomousEvolutionLoopService::STATUS_WATCH, data_get($payload, 'experiments.0.assisted_execution_quality.status'));
         $this->assertSame('signature_required', data_get($payload, 'promotion_decisions.0.trust_level'));
+        $this->assertSame(AtlasAutonomousEvolutionLoopService::STATUS_WATCH, data_get($payload, 'promotion_decisions.0.promotion_gate.assisted_execution_quality_status'));
         $this->assertSame('operator_review_required', data_get($payload, 'promotion_decisions.0.status'));
     }
 

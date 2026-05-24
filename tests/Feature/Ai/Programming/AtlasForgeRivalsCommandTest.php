@@ -31,7 +31,7 @@ final class AtlasForgeRivalsCommandTest extends TestCase
             'battery-evidence', 'battery-verify-evidence',
             'adjudicate', 'report', 'reset',
             'full-smoke', 'run-battery', 'run-arena', 'arms', 'models',
-            'arena-readiness', 'industrial-suite', 'cases',
+            'arena-readiness', 'industrial-suite', 'industrial-execution', 'cases',
             'ledger', 'ledger-record', 'decide-signal',
             'next',
             'resume',
@@ -112,7 +112,7 @@ final class AtlasForgeRivalsCommandTest extends TestCase
     {
         // status is a real action (Slice 3) and requires --run-id. Without it,
         // the response is status=blocked with run_id_required in blockers.
-        $dispatcher = app(\App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsActionDispatcher::class);
+        $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
         $response = $dispatcher->dispatch('status', [
             'preset' => 'smoke',
             'confirmations' => ['runbook_reviewed' => false, 'provider_cost' => false, 'real_provider_call' => false],

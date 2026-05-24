@@ -156,11 +156,13 @@ class ForgeIntakeService
             ForgeIntakeCanon::defaultRequiredEvidence(),
         );
         $richInputPayload = $this->normalizeRichInputPayload($options['rich_input_payload'] ?? $options['rich_input'] ?? null);
+        $workspaceGate = $this->workspaceExecutionGateForIntake($workspaceSlug, $prompt, $options);
+        $awisContextSelection = $this->awisContextSelection($workspaceGate);
         $contextRefs = array_values(array_unique(array_merge(
             $this->arrayOrNull($options['context_refs'] ?? null) ?? [],
             $this->deriveRichInputContextRefs($richInputPayload),
+            (array) ($awisContextSelection['context_refs'] ?? []),
         )));
-        $workspaceGate = $this->workspaceExecutionGateForIntake($workspaceSlug, $prompt, $options);
 
         $blockerReason = $this->detectIntakeBlocker($prompt, $escalationPacket, $options, $workspaceGate);
         $status = $blockerReason === null
@@ -388,6 +390,8 @@ class ForgeIntakeService
             $supplied,
             $promptForFallback,
             $intake->risk_band,
+            $this->stringList(data_get($intake->workspace_execution_gate, 'execution_context.execution_priority.*.command'))
+                ?: $this->stringList(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.command_hints')),
         );
     }
 
@@ -675,6 +679,21 @@ class ForgeIntakeService
     }
 
     /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            fn (mixed $item): ?string => $this->stringOrNull($item),
+            $value,
+        ))));
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
     /**
@@ -697,6 +716,60 @@ class ForgeIntakeService
             mode: 'forge',
             task: $prompt,
         );
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $workspaceGate
+     * @return array<string,mixed>
+     */
+    private function awisContextSelection(?array $workspaceGate): array
+    {
+        $contextLoadingPlan = (array) data_get($workspaceGate, 'execution_context.context_loading_plan', []);
+        $refs = [];
+        foreach ((array) data_get($workspaceGate, 'execution_context.focused_repositories', []) as $repository) {
+            if (! is_array($repository)) {
+                continue;
+            }
+            $repoKey = $this->stringOrNull($repository['repo_key'] ?? null);
+            if ($repoKey !== null) {
+                $refs[] = 'awis_repo:'.$repoKey;
+            }
+        }
+        foreach ((array) ($contextLoadingPlan['focused_manifest_refs'] ?? []) as $manifestRef) {
+            if (! is_array($manifestRef)) {
+                continue;
+            }
+            $repoKey = $this->stringOrNull($manifestRef['repo_key'] ?? null);
+            if ($repoKey === null) {
+                continue;
+            }
+            foreach ($this->stringList($manifestRef['manifest_files'] ?? []) as $manifestFile) {
+                $refs[] = 'awis_manifest:'.$repoKey.':'.$manifestFile;
+            }
+        }
+        foreach ($this->stringList($contextLoadingPlan['stack_tags'] ?? []) as $stackTag) {
+            $refs[] = 'awis_stack:'.$stackTag;
+        }
+        $inventoryHash = $this->stringOrNull($contextLoadingPlan['repository_inventory_hash'] ?? null);
+        if ($inventoryHash !== null) {
+            $refs[] = 'awis_cache:repository_inventory:'.$inventoryHash;
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.awis_context_selection.v1',
+            'source' => 'workspace_execution_gate.context_loading_plan',
+            'context_refs' => array_slice(array_values(array_unique($refs)), 0, 24),
+            'suggested_tests' => array_slice(array_values(array_unique(array_merge(
+                $this->stringList(data_get($workspaceGate, 'execution_context.execution_priority.*.command')),
+                $this->stringList($contextLoadingPlan['command_hints'] ?? []),
+            ))), 0, 12),
+            'repository_inventory_hash' => $inventoryHash,
+            'provider_safe' => data_get($workspaceGate, 'execution_context.provider_safe') === true
+                && data_get($workspaceGate, 'execution_context.context_loading_plan.provider_policy.raw_manifest_returned') === false
+                && data_get($workspaceGate, 'execution_context.context_loading_plan.provider_policy.script_bodies_returned') === false
+                && data_get($workspaceGate, 'execution_context.context_loading_plan.provider_policy.absolute_workspace_path_returned') === false,
+            'raw_content_returned' => false,
+        ];
     }
 
     private function normalizeIntent(string $prompt): string

@@ -33,6 +33,7 @@ final class ForgeWorkPacketComposer
         array $supplied,
         string $promptForFallback,
         string $defaultRiskBand,
+        array $defaultSuggestedTests = [],
     ): array {
         $rawPackets = $supplied;
         if ($rawPackets === [] && $escalationPacket !== null) {
@@ -47,7 +48,7 @@ final class ForgeWorkPacketComposer
             if (! is_array($raw)) {
                 continue;
             }
-            $persisted[] = $this->persistPacket($intake, $index + 1, $raw, $defaultRiskBand);
+            $persisted[] = $this->persistPacket($intake, $index + 1, $raw, $defaultRiskBand, $defaultSuggestedTests);
         }
 
         return $persisted;
@@ -56,7 +57,7 @@ final class ForgeWorkPacketComposer
     /**
      * @param  array<string,mixed>  $raw
      */
-    private function persistPacket(AiForgeIntake $intake, int $position, array $raw, string $defaultRiskBand): AiForgeWorkPacket
+    private function persistPacket(AiForgeIntake $intake, int $position, array $raw, string $defaultRiskBand, array $defaultSuggestedTests): AiForgeWorkPacket
     {
         $packetId = (string) ($raw['id']
             ?? $raw['packet_id']
@@ -79,9 +80,12 @@ final class ForgeWorkPacketComposer
             ?? []));
         $dependencies = array_values((array) ($raw['dependencies'] ?? []));
         $risks = array_values((array) ($raw['risks'] ?? []));
-        $suggestedTests = array_values((array) ($raw['suggested_tests']
-            ?? $raw['tests']
-            ?? []));
+        $suggestedTests = array_values(array_unique(array_merge(
+            array_values((array) ($raw['suggested_tests']
+                ?? $raw['tests']
+                ?? [])),
+            array_values(array_filter($defaultSuggestedTests, 'is_string')),
+        )));
 
         $riskBand = $this->normalizeRiskBand((string) ($raw['risk_band'] ?? $defaultRiskBand));
 

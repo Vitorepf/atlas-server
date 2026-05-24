@@ -1074,17 +1074,19 @@ final class AtlasForgeRivalsAdjudicatorService
         }
 
         $markerGroups = $this->ceiling360MarkerGroups();
-        $atlas = $this->scoreCeiling360Patch($this->patchText($atlasReceipt), $markerGroups);
-        $rival = $this->scoreCeiling360Patch($this->patchText($rivalReceipt), $markerGroups);
+        $atlas = $this->scoreCeiling360Patch($this->armEvidenceText($atlasReceipt), $markerGroups);
+        $rival = $this->scoreCeiling360Patch($this->armEvidenceText($rivalReceipt), $markerGroups);
 
         return [
             'atlas' => $atlas['score'],
             'rival' => $rival['score'],
-            'explanation' => 'L5+/ceiling-360 marker coverage: facts/assumptions/decisions split, tradeoffs, rollback, replay/negative probes, uncertainty boundary, production invariants and capability-specific evidence.',
+            'explanation' => 'L5+/ceiling-360 evidence depth: marker coverage plus structured sections, replayable specificity and adversarial L5++ proof. This is deterministic and local-only.',
             'markers' => [
                 'required' => true,
                 'atlas' => $atlas['markers'],
                 'rival' => $rival['markers'],
+                'atlas_depth' => $atlas['depth'],
+                'rival_depth' => $rival['depth'],
                 'routing_effect' => 'none',
             ],
         ];
@@ -1109,7 +1111,7 @@ final class AtlasForgeRivalsAdjudicatorService
             $manifest['complexity_profile'] ?? null,
             $manifest['case']['complexity_profile'] ?? null,
         ] as $profile) {
-            if (is_array($profile) && (string) ($profile['pressure_level'] ?? '') === 'L5+') {
+            if (is_array($profile) && str_starts_with((string) ($profile['pressure_level'] ?? ''), 'L5+')) {
                 return true;
             }
         }
@@ -1123,34 +1125,62 @@ final class AtlasForgeRivalsAdjudicatorService
     private function ceiling360MarkerGroups(): array
     {
         return [
-            'facts_assumptions_decisions_split' => ['facts observed', 'facts', 'assumptions', 'reversible decisions', 'decisions', 'fatos', 'premissas', 'decisoes'],
+            'facts_assumptions_decisions_split' => ['facts observed', 'facts', 'assumptions', 'reversible decisions', 'decisions', 'fatos', 'premissas', 'decisoes', 'root cause', 'contributing factors'],
             'tradeoff_matrix' => ['tradeoff', 'trade-off', 'decision | alternative', 'alternative | reason', 'risk accepted', 'risco aceito'],
             'rollback_plan' => ['rollback', 'rollout undo', 'revert', 'restore traffic', 'restore'],
             'negative_test_or_replay_probe' => ['replay', 'negative test', 'regression', 'verify state hash', 'reconstruct scorecard', 'auto-halt'],
             'uncertainty_boundary' => ['uncertainty', 'uncertainties', 'cannot be quantified', 'not available', 'unconfirmed', 'incerteza'],
             'production_invariant_reasoning' => ['invariant', 'data loss', 'replica lag', 'circuit breaker', 'health checks', 'p99'],
             'capability_specific_evidence' => ['evidence pack', 'scorecard', 'workspace hashes', 'audit trail', 'postmortem', 'matriz'],
+            'contradiction_resolution' => ['contradiction resolution', 'conflicting constraint', 'conflicting constraints', 'contradicao', 'contradicoes', 'resolve conflict', 'tradeoff', 'accepted for speed'],
+            'hidden_oracle_hypotheses' => ['hidden oracle', 'oracle hypothesis', 'oracle hypotheses', 'hipotese do oraculo', 'oraculo escondido', 'oracle hash', 'oracle_adjudication_notes'],
+            'failure_mode_matrix' => ['failure_mode_matrix', 'failure mode matrix', 'failure modes', 'modo de falha', 'modos de falha', 'escape hatch', 'contributing factors', 'abort criteria'],
+            'stop_block_criteria' => ['stop_block_criteria', 'stop criteria', 'block criteria', 'stop/block', 'bloquear', 'blocker criteria', 'auto-halt', 'abort criteria', 'halt rollback'],
+            'telemetry_delta' => ['telemetry delta', 'before/after metric', 'delta metric', 'metric delta', 'telemetria delta', 'error rate before', 'error rate after', 'ttd', 'ttm', 'ttr', 'peak error rate'],
+            'counterfactual_check' => ['counterfactual check', 'counterfactual', 'what would fail first', 'falharia primeiro', 'alternate outcome', 'alternative outcome'],
+            'blast_radius_quantification' => ['blast radius', 'affected users', 'impact radius', 'customer impact', 'raio de impacto', 'impacto quantificado'],
+            'confidence_calibration' => ['confidence_calibration', 'confidence calibration', 'confidence:', 'confidence =', 'confidence level', 'probability', 'likelihood', 'calibrated confidence', 'confianca calibrada', 'confiança calibrada', 'probabilidade'],
         ];
     }
 
     /**
      * @param  array<string,mixed>  $receipt
      */
-    private function patchText(array $receipt): string
+    private function armEvidenceText(array $receipt): string
     {
+        $parts = [];
+
         $path = (string) ($receipt['patch_diff_path'] ?? '');
         if ($path !== '' && is_file($path)) {
             $text = file_get_contents($path);
 
-            return is_string($text) ? strtolower($text) : '';
+            if (is_string($text)) {
+                $parts[] = $text;
+            }
         }
 
-        return strtolower((string) ($receipt['patch_diff_tail'] ?? $receipt['stdout_tail'] ?? ''));
+        $stdoutPath = (string) ($receipt['stdout_path'] ?? '');
+        if ($stdoutPath !== '' && is_file($stdoutPath)) {
+            $text = file_get_contents($stdoutPath);
+
+            if (is_string($text)) {
+                $parts[] = $text;
+            }
+        }
+
+        foreach (['patch_diff_tail', 'stdout_tail', 'test_log_tail'] as $key) {
+            $tail = (string) ($receipt[$key] ?? '');
+            if ($tail !== '') {
+                $parts[] = $tail;
+            }
+        }
+
+        return strtolower(implode("\n", $parts));
     }
 
     /**
      * @param  array<string,list<string>>  $markerGroups
-     * @return array{score:float,markers:array<string,bool>}
+     * @return array{score:float,markers:array<string,bool>,depth:array<string,mixed>}
      */
     private function scoreCeiling360Patch(string $patchText, array $markerGroups): array
     {
@@ -1158,6 +1188,15 @@ final class AtlasForgeRivalsAdjudicatorService
             return [
                 'score' => 0.0,
                 'markers' => array_fill_keys(array_keys($markerGroups), false),
+                'depth' => [
+                    'marker_coverage_score' => 0.0,
+                    'section_depth_score' => 0.0,
+                    'specificity_score' => 0.0,
+                    'adversarial_proof_score' => 0.0,
+                    'section_hits' => 0,
+                    'specificity_hits' => 0,
+                    'adversarial_hits' => 0,
+                ],
             ];
         }
 
@@ -1177,10 +1216,120 @@ final class AtlasForgeRivalsAdjudicatorService
             }
         }
 
+        $markerCoverageScore = ($hits / max(1, count($markerGroups))) * 58.0;
+        $sectionHits = $this->ceiling360SectionHits($patchText);
+        $specificityHits = $this->ceiling360SpecificityHits($patchText);
+        $adversarialHits = $this->ceiling360AdversarialHits($patchText);
+        $sectionDepthScore = min(18.0, ($sectionHits / 17.0) * 18.0);
+        $specificityScore = min(12.0, ($specificityHits / 8.0) * 12.0);
+        $adversarialProofScore = min(12.0, ($adversarialHits / 8.0) * 12.0);
+
         return [
-            'score' => round(($hits / max(1, count($markerGroups))) * 100.0, 3),
+            'score' => round(min(100.0, $markerCoverageScore + $sectionDepthScore + $specificityScore + $adversarialProofScore), 3),
             'markers' => $markers,
+            'depth' => [
+                'marker_coverage_score' => round($markerCoverageScore, 3),
+                'section_depth_score' => round($sectionDepthScore, 3),
+                'specificity_score' => round($specificityScore, 3),
+                'adversarial_proof_score' => round($adversarialProofScore, 3),
+                'section_hits' => $sectionHits,
+                'specificity_hits' => $specificityHits,
+                'adversarial_hits' => $adversarialHits,
+            ],
         ];
+    }
+
+    private function ceiling360SectionHits(string $patchText): int
+    {
+        $sections = [
+            ['facts observed', 'facts', 'root cause', 'contributing factors'],
+            ['assumptions', 'uncertainty'],
+            ['reversible decisions', 'pre-checks before rollback', 'corrective actions'],
+            ['tradeoff matrix', 'tradeoffs', 'trade-offs'],
+            ['rollback plan', 'rollback procedure', 'safe rollback'],
+            ['replay/negative regression probe', 'smoke test', 'replay matrix', 'negative test'],
+            ['production invariants', 'safety properties', 'health checks', 'data loss'],
+            ['uncertainty boundary', 'uncertainties', 'uncertainty'],
+            ['capability-specific evidence', 'evidence requirements', 'evidence pack'],
+            ['contradiction resolution', 'conflicting constraints', 'accepted for speed'],
+            ['hidden oracle hypotheses', 'oracle hash', 'oracle adjudication notes'],
+            ['failure_mode_matrix', 'failure mode matrix', 'failure modes', 'contributing factors'],
+            ['stop_block_criteria', 'stop/block criteria', 'abort criteria', 'halt rollback'],
+            ['telemetry delta', 'ttd', 'ttm', 'ttr', 'peak error rate'],
+            ['counterfactual check', 'counterfactual', 'what would fail first'],
+            ['blast radius', 'affected users', 'customer impact'],
+            ['confidence_calibration', 'confidence calibration', 'confidence level', 'probability', 'probabilidade', 'confianca calibrada', 'confiança calibrada'],
+        ];
+
+        $hits = 0;
+        foreach ($sections as $sectionVariants) {
+            $variants = [];
+            foreach ($sectionVariants as $section) {
+                $variants[] = $section;
+                $variants[] = str_replace('/', ' ', $section);
+                $variants[] = str_replace('-', ' ', $section);
+            }
+            foreach (array_unique($variants) as $variant) {
+                if (preg_match('/(?:^|\n)\s*(?:[+ #>*\\-]+|\d+\.)?\s*'.preg_quote($variant, '/').'\b/i', $patchText) === 1) {
+                    $hits++;
+                    break;
+                }
+            }
+        }
+
+        return $hits;
+    }
+
+    private function ceiling360SpecificityHits(string $patchText): int
+    {
+        $signals = [
+            '/\bstorage\/forge-rivals-[^\s`]*/i',
+            '/\b(?:src|tests|docs)\/[^\s`]+/i',
+            '/\bphp\s+[^\n]+test[^\n]*/i',
+            '/\b(?:sha256|hash|workspace hashes|scorecard|evidence pack)\b/i',
+            '/\b(?:test_exit_code|exit_code|replay_passes|dirty_after_run)\b/i',
+            '/\b(?:p95|p99|slo|latency|replica lag|data loss|circuit breaker)\b/i',
+            '/\b(?:rollback command|revert command|restore traffic|kill switch|feature flag)\b/i',
+            '/\b\d+(?:ms|s|%|kb|mb| requests?| retries?)\b/i',
+            '/\b(?:before|after)\s*[:=]\s*[^\n]+/i',
+            '/\b(?:ttd|ttm|ttr|peak error rate|affected users|duration)\b/i',
+            '/\b(?:confidence|likelihood|probability|probabilidade|confianca|confiança|blast radius|severity)\s*[:=]\s*[^\n]+/i',
+            '/\b(?:counterfactual|what would fail first|alternate outcome|alternative outcome)\b/i',
+            '/\b(?:affected users|blast radius|customer impact|percent of traffic|% of traffic)\b/i',
+            '/\b(?:confidence level|calibrated confidence|confidence|probabilidade|confianca|confiança)\s*[:=]\s*(?:high|medium|low|alta|media|média|baixa|[0-9]{1,3}%|0\.\d+)/i',
+        ];
+
+        $hits = 0;
+        foreach ($signals as $pattern) {
+            if (preg_match($pattern, $patchText) === 1) {
+                $hits++;
+            }
+        }
+
+        return $hits;
+    }
+
+    private function ceiling360AdversarialHits(string $patchText): int
+    {
+        $patterns = [
+            '/\b(?:conflicting constraints?|contradiction resolution|resolve conflict|accepted for speed|tradeoff)\b/i',
+            '/\b(?:hidden oracle|oracle hypothes(?:is|es)|oraculo escondido|oracle hash|oracle_adjudication_notes)\b/i',
+            '/\b(?:failure_mode_matrix|failure mode matrix|failure modes?|escape hatch|contributing factors)\b/i',
+            '/\b(?:stop_block_criteria|stop\/block criteria|stop criteria|block criteria|auto-halt|abort criteria|halt rollback)\b/i',
+            '/\b(?:telemetry delta|before\/after metric|metric delta|telemetria delta|ttd|ttm|ttr|peak error rate)\b/i',
+            '/\b(?:counterfactual check|counterfactual|what would fail first|alternate outcome|alternative outcome)\b/i',
+            '/\b(?:blast radius|affected users|customer impact|impact radius|percent of traffic|% of traffic)\b/i',
+            '/\b(?:confidence_calibration|confidence calibration|confidence level|calibrated confidence|likelihood|probability|probabilidade|confianca calibrada|confiança calibrada)\b/i',
+        ];
+
+        $hits = 0;
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $patchText) === 1) {
+                $hits++;
+            }
+        }
+
+        return $hits;
     }
 
     /**

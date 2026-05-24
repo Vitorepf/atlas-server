@@ -33,9 +33,11 @@ class AtlasProductReleaseGateService
             'control_plane' => [
                 'status' => $snapshot['status'] ?? null,
                 'hash' => $snapshot['control_plane_hash'] ?? null,
+                'blockers' => $this->list($snapshot['blockers'] ?? []),
             ],
             'required_green_signals' => [
                 'control_plane_healthy',
+                'aedpds_gate_passed',
                 'product_delivery_certification_ready',
                 'risk_governor_allowed',
                 'evidence_replay_ready',
@@ -45,6 +47,10 @@ class AtlasProductReleaseGateService
             'signals' => [
                 'route' => data_get($snapshot, 'delivery.route'),
                 'delivery_status' => data_get($snapshot, 'delivery.status'),
+                'aedpds_gate_status' => data_get($snapshot, 'delivery.aedpds_gate_status'),
+                'aedpds_gate_hash' => data_get($snapshot, 'delivery.aedpds_gate_hash'),
+                'aedpds_gate_warning_count' => count($this->list(data_get($snapshot, 'delivery.aedpds_gate_warnings', []))),
+                'aedpds_gate_blocker_count' => count($this->list(data_get($snapshot, 'delivery.aedpds_gate_blockers', []))),
                 'proof_status' => data_get($snapshot, 'delivery.proof_status'),
                 'risk_status' => data_get($snapshot, 'risk_governor.status'),
                 'risk_band' => data_get($snapshot, 'risk_governor.risk_band'),
@@ -87,6 +93,13 @@ class AtlasProductReleaseGateService
         }
         if (($snapshot['blockers'] ?? []) !== []) {
             $blockers[] = ['id' => 'control_plane_blockers_present', 'severity' => 'critical'];
+        }
+        if (data_get($snapshot, 'delivery.aedpds_gate_status') !== 'passed') {
+            $blockers[] = [
+                'id' => 'aedpds_gate_not_passed',
+                'severity' => 'critical',
+                'gate_status' => data_get($snapshot, 'delivery.aedpds_gate_status', 'unknown'),
+            ];
         }
         if (data_get($snapshot, 'certification.status') !== 'ready') {
             $blockers[] = ['id' => 'product_delivery_certification_not_ready', 'severity' => 'critical'];

@@ -25,9 +25,9 @@ use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\Surface\AtlasAppAdapter;
 use App\Services\Ai\Programming\AtlasDev\Surface\SurfaceResponseFormatter;
 use InvalidArgumentException;
+use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Tests\Feature\Ai\Programming\AtlasDev\Http\FakeAtlasOpenBrainService;
-use Tests\TestCase;
 
 final class AtlasAppAdapterTest extends TestCase
 {

@@ -7,9 +7,10 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\Provider;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderLockViolationException;
 use App\Services\Ai\Programming\AtlasDev\Provider\SonnetClaudeCliAdapter;
+use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use InvalidArgumentException;
+use PHPUnit\Framework\TestCase;
 use ReflectionClass;
-use Tests\TestCase;
 
 final class SonnetClaudeCliAdapterTest extends TestCase
 {
@@ -17,7 +18,7 @@ final class SonnetClaudeCliAdapterTest extends TestCase
 
     private function makeAdapter(?FakeClaudeCliGateway $gateway = null): array
     {
-        $gateway ??= new FakeClaudeCliGateway();
+        $gateway ??= new FakeClaudeCliGateway;
         $adapter = new SonnetClaudeCliAdapter($gateway);
 
         return [$adapter, $gateway];
@@ -58,7 +59,7 @@ final class SonnetClaudeCliAdapterTest extends TestCase
         $firstType = $first->getType();
         $this->assertNotNull($firstType);
         $this->assertSame(
-            \App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection::class,
+            ProviderPromptProjection::class,
             (string) $firstType,
             'executeOneCall must accept ProviderPromptProjection as the first parameter.',
         );

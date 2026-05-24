@@ -267,15 +267,29 @@ final class AtlasForgeRivalsProviderArenaCorpusTest extends TestCase
             $this->assertSame('high', $caseRow['ambiguity_level']);
             $this->assertGreaterThanOrEqual(0.70, (float) $caseRow['planning_weight']);
             $this->assertGreaterThanOrEqual(
-                6000,
+                18000,
                 (int) $caseRow['ceiling_360']['required_signal']['min_estimated_context_tokens'],
             );
             $this->assertTrue($caseRow['ceiling_360']['required_signal']['requires_all_360_capabilities']);
+            $this->assertTrue($caseRow['ceiling_360']['required_signal']['requires_contradiction_resolution']);
+            $this->assertTrue($caseRow['ceiling_360']['required_signal']['requires_hidden_oracle_hypotheses']);
+            $this->assertTrue($caseRow['ceiling_360']['required_signal']['requires_failure_mode_matrix']);
+            $this->assertTrue($caseRow['ceiling_360']['required_signal']['requires_stop_block_criteria']);
+            $this->assertTrue($caseRow['ceiling_360']['required_signal']['requires_telemetry_delta']);
+            $this->assertTrue($caseRow['ceiling_360']['required_signal']['requires_counterfactual_check']);
+            $this->assertTrue($caseRow['ceiling_360']['required_signal']['requires_blast_radius_quantification']);
+            $this->assertTrue($caseRow['ceiling_360']['required_signal']['requires_confidence_calibration']);
             $this->assertFalse($caseRow['ceiling_360']['claim_policy']['external_claim_allowed']);
             foreach ($required as $capability) {
                 $this->assertContains($capability, $caseRow['measured_capabilities']);
             }
             $this->assertContains('ceiling_360', $caseRow['measurement_tags']);
+            $this->assertStringContainsString('Pressao L5++', (string) $caseRow['human_prompt']);
+            $this->assertStringContainsString('Failure Mode Matrix', (string) $caseRow['human_prompt']);
+            $this->assertStringContainsString('Telemetry Delta', (string) $caseRow['human_prompt']);
+            $this->assertStringContainsString('Counterfactual Check', (string) $caseRow['human_prompt']);
+            $this->assertStringContainsString('Blast Radius', (string) $caseRow['human_prompt']);
+            $this->assertStringContainsString('Confidence Calibration', (string) $caseRow['human_prompt']);
         }
     }
 

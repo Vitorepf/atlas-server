@@ -8,7 +8,7 @@ use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptQualityChecker;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\PromptSections;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class PromptQualityCheckerTest extends TestCase
 {
@@ -16,12 +16,12 @@ final class PromptQualityCheckerTest extends TestCase
 
     private function checker(): PromptQualityChecker
     {
-        return new PromptQualityChecker();
+        return new PromptQualityChecker;
     }
 
     private function baselineSections(): PromptSections
     {
-        return (new PromptSectionsMapper())->map(
+        return (new PromptSectionsMapper)->map(
             envelope: $this->envelope(),
             miniSpec: $this->miniSpec(),
             taskContract: $this->taskContract(),

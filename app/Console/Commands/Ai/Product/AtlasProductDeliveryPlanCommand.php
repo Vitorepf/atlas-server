@@ -19,7 +19,7 @@ class AtlasProductDeliveryPlanCommand extends Command
         {--evidence=* : Evidence refs to pass into APDR/AEDPDS}
         {--ux=* : UX expectation or prototype refs to pass into APDR/AEDPDS}
         {--json : Print JSON}
-        {--strict : Exit non-zero unless ready_for_delivery}';
+        {--strict : Exit non-zero unless ready_for_delivery and AEDPDS gate passed}';
 
     protected $description = 'Plans a provider-free AEDPDS/APDR delivery envelope from a human request.';
 
@@ -45,7 +45,10 @@ class AtlasProductDeliveryPlanCommand extends Command
             $this->components->twoColumnDetail('delivery_hash', (string) $report['delivery_hash']);
         }
 
-        return (bool) $this->option('strict') && ($report['status'] ?? null) !== 'ready_for_delivery'
+        return (bool) $this->option('strict') && (
+            ($report['status'] ?? null) !== 'ready_for_delivery'
+            || data_get($report, 'aedpds.gate.status') !== 'passed'
+        )
             ? self::FAILURE
             : self::SUCCESS;
     }

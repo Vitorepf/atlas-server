@@ -19,6 +19,7 @@ class AtlasProductDeliveryCertificationService
             'human_request' => 'cria um ecommerce completo com pagamentos e webhooks',
             'workspace' => 'atlas-server',
             'operator_approved' => true,
+            'context_refs' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
             'ux_expectations' => ['checkout journey expectation'],
             'evidence' => [
                 'tests' => ['focused_tests passed', 'contract tests passed', 'security regression tests passed'],
@@ -30,6 +31,18 @@ class AtlasProductDeliveryCertificationService
         $blockedGateSample = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
             'human_request' => 'estou com bug na tela de login',
             'workspace' => 'atlas-app',
+        ]);
+        $missingContextSample = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
+            'human_request' => 'corrigir bug pequeno em cálculo local',
+            'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'context_refs' => [],
+            'ux_expectations' => ['local bug expectation'],
+            'evidence' => [
+                'tests' => ['focused tests passed'],
+                'acceptance_mapping' => ['tests mapped to acceptance'],
+                'outcome' => ['outcome memory candidate recorded'],
+            ],
         ]);
 
         $checks = [
@@ -51,7 +64,7 @@ class AtlasProductDeliveryCertificationService
             )),
             $this->check('product_delivery_outcome_memory', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductDeliveryOutcomeMemoryService.php',
-                ['atlas.product_delivery.outcome_memory.v1', 'AtlasProductDeliveryOutcomeMemory', 'should_promote_to_aemor'],
+                ['atlas.product_delivery.outcome_memory.v1', 'AtlasProductDeliveryOutcomeMemory', 'should_promote_to_aemor', 'aedpds_selected_drivers', 'aedpds_gate_status'],
             ) && $this->sourceHas(
                 'database/migrations/2026_05_22_171000_create_atlas_product_delivery_outcome_memories.php',
                 ['atlas_product_delivery_outcome_memories', 'outcome_memory_hash'],
@@ -99,7 +112,7 @@ class AtlasProductDeliveryCertificationService
             )),
             $this->check('product_delivery_runtime_receipts', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductDeliveryRuntimeReceiptService.php',
-                ['atlas.product_delivery.runtime_receipt.v1', 'patch_request', 'repair_execution'],
+                ['atlas.product_delivery.runtime_receipt.v1', 'patch_request', 'repair_execution', 'aedpdsGate'],
             ) && $this->sourceHas(
                 'app/Models/AtlasProductDeliveryRuntimeReceipt.php',
                 ['append-only', 'atlas_product_delivery_runtime_receipts'],
@@ -138,23 +151,23 @@ class AtlasProductDeliveryCertificationService
             )),
             $this->check('product_delivery_control_plane', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductDeliveryControlPlaneService.php',
-                ['atlas.product_delivery.control_plane.v1', 'risk_governor', 'doctrine_fitness', 'control_plane_hash'],
+                ['atlas.product_delivery.control_plane.v1', 'risk_governor', 'doctrine_fitness', 'control_plane_hash', 'aedpds_gate_not_passed'],
             ) && $this->sourceHas(
                 'app/Console/Commands/Ai/Product/AtlasProductDeliveryControlPlaneCommand.php',
                 ['atlas:product-delivery:control-plane', 'Aggregates AEDPDS delivery'],
             ) && $this->sourceHas(
                 'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
-                ['test_product_delivery_control_plane_aggregates_delivery_risk_replay_fitness_and_certification', 'test_product_delivery_control_plane_blocks_when_replay_or_receipts_are_unsafe', 'test_product_delivery_control_plane_command_outputs_json'],
+                ['test_product_delivery_control_plane_aggregates_delivery_risk_replay_fitness_and_certification', 'test_product_delivery_control_plane_blocks_when_replay_or_receipts_are_unsafe', 'test_product_delivery_control_plane_blocks_when_aedpds_gate_is_warning', 'test_product_delivery_control_plane_command_outputs_json'],
             )),
             $this->check('product_release_gate', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductReleaseGateService.php',
-                ['atlas.product_delivery.release_gate.v1', 'release_candidate_allowed', 'required_green_signals', 'release_gate_hash'],
+                ['atlas.product_delivery.release_gate.v1', 'release_candidate_allowed', 'required_green_signals', 'release_gate_hash', 'aedpds_gate_passed', 'aedpds_gate_not_passed'],
             ) && $this->sourceHas(
                 'app/Console/Commands/Ai/Product/AtlasProductReleaseGateCommand.php',
                 ['atlas:product-delivery:release-gate', 'Decides whether AEDPDS can create a release candidate'],
             ) && $this->sourceHas(
                 'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
-                ['test_product_release_gate_allows_candidate_only_when_control_plane_is_green', 'test_product_release_gate_blocks_unsafe_replay_and_receipts', 'test_product_release_gate_command_outputs_json'],
+                ['test_product_release_gate_allows_candidate_only_when_control_plane_is_green', 'test_product_release_gate_blocks_unsafe_replay_and_receipts', 'test_product_release_gate_blocks_aedpds_warning_explicitly', 'test_product_release_gate_command_outputs_json'],
             )),
             $this->check('provider_cost_flake_memory_feed', $this->sourceHas(
                 'app/Services/Ai/Product/AtlasProductDeliveryProviderMemoryFeedService.php',
@@ -226,6 +239,29 @@ class AtlasProductDeliveryCertificationService
                 'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
                 ['atlas:product-truth:compile', 'atlas:product-delivery:plan', 'atlas:product-twin:simulate', 'atlas:product-delivery:risk-govern', 'atlas:product-delivery:control-plane', 'atlas:product-delivery:release-gate', 'atlas:product-delivery:provider-memory', 'atlas:product-delivery:policy-optimizer', 'atlas:product-delivery:repair-plan', 'atlas:product-delivery:replay-lab', 'atlas:product-delivery:doctrine-fitness', 'atlas:product-proof:challenge', 'atlas:product-delivery:patch-request', 'atlas:product-delivery:repair-execute', 'atlas:product-delivery:outcome', 'completion_enforcement'],
             )),
+            $this->check('product_delivery_plan_strict_requires_passed_aedpds_gate', $this->sourceHas(
+                'app/Console/Commands/Ai/Product/AtlasProductDeliveryPlanCommand.php',
+                ['ready_for_delivery and AEDPDS gate passed', "aedpds.gate.status') !== 'passed"],
+            ) && $this->sourceHas(
+                'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
+                ['test_product_delivery_plan_command_strict_blocks_aedpds_warning_without_evidence', 'evidence_output_not_attached_yet'],
+            )),
+            $this->check('derived_product_delivery_envelopes_project_aedpds_gate', $this->sourceHas(
+                'app/Services/Ai/Product/AtlasProductDeliveryPatchRequestContractService.php',
+                ["'aedpds_gate' => \$this->aedpdsGate(\$delivery)", 'aedpds.gate.warnings'],
+            ) && $this->sourceHas(
+                'app/Services/Ai/Product/AtlasProductDeliveryMultiStepRepairPlannerService.php',
+                ["'aedpds_gate' => \$this->aedpdsGate(\$delivery)", 'aedpds.gate.warnings'],
+            ) && $this->sourceHas(
+                'app/Services/Ai/Product/AtlasProductDeliveryRiskGovernorService.php',
+                ["'aedpds_gate' => \$this->aedpdsGate(\$delivery)", 'aedpds.gate.warnings'],
+            ) && $this->sourceHas(
+                'app/Services/Ai/Product/AtlasProductDeliveryControlPlaneService.php',
+                ['aedpds_gate_status', 'aedpds_gate_warnings'],
+            ) && $this->sourceHas(
+                'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php',
+                ['delivery.aedpds_gate_status', 'aedpds_gate.status', 'evidence_output_not_attached_yet'],
+            )),
             $this->check('canonical_docs', $this->sourceHas(
                 'docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md',
                 ['APTC compila a verdade do produto', 'APDR e o motor que executa a regra', 'APFPR tenta provar que a entrega esta errada'],
@@ -237,10 +273,23 @@ class AtlasProductDeliveryCertificationService
             $this->check('sample_ecommerce_requires_apfpr', data_get($sample, 'proof_requirements.apfpr_required') === true),
             $this->check('sample_pre_provider_enforcement_allows_delivery', data_get($sample, 'enforcement.status') === 'allowed'
                 && data_get($sample, 'enforcement.provider_execution_allowed') === true),
+            $this->check('sample_ready_delivery_has_passed_aedpds_gate_and_drivers', data_get($sample, 'aedpds.gate.status') === 'passed'
+                && data_get($sample, 'aedpds.doctrine.allowed_to_execute') === true
+                && collect(data_get($sample, 'aedpds.doctrine.selected_primary_drivers', []))->intersect([
+                    'fdd',
+                    'domain_driven_design',
+                    'atdd',
+                    'ux_driven',
+                    'architecture_driven',
+                    'security_driven',
+                ])->count() >= 6),
             $this->check('sample_apdr_blocks_when_aedpds_gate_blocks', ($blockedGateSample['status'] ?? null) === 'blocked_by_aedpds_gate'
                 && data_get($blockedGateSample, 'aedpds.gate.status') === 'blocked'
                 && data_get($blockedGateSample, 'enforcement.status') === 'blocked'
                 && collect(data_get($blockedGateSample, 'proof_preview.critical_blockers', []))->pluck('id')->contains('delivery_contract_not_ready')),
+            $this->check('sample_apdr_blocks_missing_minimum_context', ($missingContextSample['status'] ?? null) === 'blocked_by_aedpds_gate'
+                && data_get($missingContextSample, 'aedpds.gate.status') === 'blocked'
+                && in_array('missing_minimum_context_ref', (array) data_get($missingContextSample, 'aedpds.gate.blockers', []), true)),
         ];
 
         $failed = array_values(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) !== 'passed'));

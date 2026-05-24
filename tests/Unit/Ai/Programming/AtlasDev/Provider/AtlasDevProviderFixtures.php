@@ -96,9 +96,9 @@ trait AtlasDevProviderFixtures
         ?LightTaskContract $taskContract = null,
     ): ProviderPromptProjection {
         $builder = new ProviderPromptBuilder(
-            new PromptSectionsMapper(),
-            new PromptRenderer(),
-            new PromptQualityChecker(),
+            new PromptSectionsMapper,
+            new PromptRenderer,
+            new PromptQualityChecker,
         );
 
         return $builder->build(

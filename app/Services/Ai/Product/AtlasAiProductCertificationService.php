@@ -134,6 +134,20 @@ class AtlasAiProductCertificationService
 
     public const PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_TEST = 'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneClaimLeaseRepositoryTest.php';
 
+    public const PATH_AGENTIC_WORKCELL_RUNTIME_SERVICE = 'app/Services/Ai/AgenticWorkcell/AtlasAgenticWorkcellRuntimeService.php';
+
+    public const PATH_AGENTIC_WORKCELL_CERTIFICATION_SERVICE = 'app/Services/Ai/AgenticWorkcell/AtlasAgenticWorkcellCertificationService.php';
+
+    public const PATH_AGENTIC_WORKCELL_COMMAND = 'app/Console/Commands/AtlasAgenticWorkcellCommand.php';
+
+    public const PATH_AGENTIC_WORKCELL_CERTIFY_COMMAND = 'app/Console/Commands/AtlasAgenticWorkcellCertifyCommand.php';
+
+    public const PATH_AGENTIC_WORKCELL_RUNTIME_TEST = 'tests/Feature/Ai/AgenticWorkcell/AtlasAgenticWorkcellRuntimeServiceTest.php';
+
+    public const PATH_AGENTIC_WORKCELL_CERTIFICATION_TEST = 'tests/Feature/Ai/AgenticWorkcell/AtlasAgenticWorkcellCertificationServiceTest.php';
+
+    public const PATH_AGENTIC_WORKCELL_DOC = 'docs/engineering-knowledge-base/atlas-agentic-workcell-runtime.md';
+
     public const PATH_AVCEL_SERVICE = 'app/Services/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopService.php';
 
     public const PATH_AVCEL_COMMAND = 'app/Console/Commands/AtlasVerifiedContextExecutionLoopCommand.php';
@@ -149,6 +163,12 @@ class AtlasAiProductCertificationService
     public const PATH_CODE_INTELLIGENCE_DOC = 'docs/engineering-knowledge-base/code-intelligence.md';
 
     public const PATH_PROGRAMMING_CODE_INTELLIGENCE_GATE = 'app/Services/Ai/Programming/Governance/Gates/ProgrammingCodeIntelligenceGate.php';
+
+    public const PATH_PROGRAMMING_ORCHESTRATOR = 'app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php';
+
+    public const PATH_PROGRAMMING_ORCHESTRATOR_TEST = 'tests/Unit/Ai/AtlasProgrammingOrchestratorTest.php';
+
+    public const PATH_PROGRAMMING_FRONTEND_DOC = 'docs/engineering-knowledge-base/domains/programming-frontend-superpower.md';
 
     public const PATH_ASSISTED_EXECUTION_SERVICE = 'app/Services/Ai/Product/AtlasAiAssistedExecutionQualityService.php';
 
@@ -230,6 +250,56 @@ class AtlasAiProductCertificationService
 
     public const PATH_AEDPDS_TEST = 'tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php';
 
+    public const PATH_CONTEXT_QUALITY_SERVICE = 'app/Services/Ai/Context/AtlasContextQualityCertificationService.php';
+
+    public const PATH_CONTEXT_QUALITY_COMMAND = 'app/Console/Commands/AtlasContextQualityCertifyCommand.php';
+
+    public const PATH_COGNITIVE_MEMORY_FABRIC_SERVICE = 'app/Services/Ai/Context/AtlasCognitiveMemoryFabricService.php';
+
+    public const PATH_CONTEXT_QUALITY_TEST = 'tests/Feature/Ai/Context/ContextQualityCertificationTest.php';
+
+    public const PATH_COGNITIVE_MEMORY_FABRIC_TEST = 'tests/Feature/Ai/Context/CognitiveMemoryFabricTest.php';
+
+    public const PATH_CONTEXT_QUALITY_DOC = 'docs/engineering-knowledge-base/atlas-context-quality-certification-gate.md';
+
+    public const PATH_RUNTIME_EFFICIENCY_CERTIFICATION_SERVICE = 'app/Services/Ai/RuntimeEfficiency/AtlasRuntimeEfficiencyGovernorCertificationService.php';
+
+    public const PATH_RUNTIME_EFFICIENCY_SERVICE = 'app/Services/Ai/RuntimeEfficiency/AtlasRuntimeEfficiencyGovernorService.php';
+
+    public const PATH_RUNTIME_EFFICIENCY_COMMAND = 'app/Console/Commands/AtlasRuntimeEfficiencyGovernorCertifyCommand.php';
+
+    public const PATH_RUNTIME_EFFICIENCY_TEST = 'tests/Feature/Ai/RuntimeEfficiency/AtlasRuntimeEfficiencyGovernorCertificationServiceTest.php';
+
+    public const PATH_RUNTIME_EFFICIENCY_SERVICE_TEST = 'tests/Feature/Ai/RuntimeEfficiency/AtlasRuntimeEfficiencyGovernorServiceTest.php';
+
+    public const PATH_RUNTIME_EFFICIENCY_DOC = 'docs/engineering-knowledge-base/atlas-runtime-efficiency-governor.md';
+
+    public const PATH_AEMOR_CERTIFICATION_SERVICE = 'app/Services/Ai/Aemor/AtlasAemorCertificationService.php';
+
+    public const PATH_AEMOR_CERTIFICATION_COMMAND = 'app/Console/Commands/AtlasAemorCertifyCommand.php';
+
+    public const PATH_AEMOR_DOC = 'docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md';
+
+    public const PATH_RUNTIME_UX_CERTIFICATION_SERVICE = 'app/Services/Ai/Product/AtlasAiRuntimeUxCertificationService.php';
+
+    public const PATH_RUNTIME_UX_TEST = 'tests/Feature/Ai/Product/AtlasAiRuntimeUxCertificationServiceTest.php';
+
+    public const PATH_RUNTIME_READINESS_SERVICE = 'app/Services/Ai/RuntimeReadiness/AtlasAiRuntimeReadinessService.php';
+
+    public const PATH_AAEL_RUNTIME_SERVICE = 'app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopService.php';
+
+    public const PATH_AAEL_CERTIFICATION_SERVICE = 'app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionCertificationService.php';
+
+    public const PATH_AAEL_COMMAND = 'app/Console/Commands/AtlasAaelCommand.php';
+
+    public const PATH_AAEL_CERTIFY_COMMAND = 'app/Console/Commands/AtlasAaelCertifyCommand.php';
+
+    public const PATH_AAEL_TEST = 'tests/Feature/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopServiceTest.php';
+
+    public const PATH_AAEL_CERTIFICATION_TEST = 'tests/Feature/Ai/AutonomousEvolution/AtlasAutonomousEvolutionCertificationServiceTest.php';
+
+    public const PATH_AAEL_DOC = 'docs/engineering-knowledge-base/atlas-autonomous-evolution-loop.md';
+
     /**
      * @return array<string,mixed>
      */
@@ -250,13 +320,20 @@ class AtlasAiProductCertificationService
             $this->noAttachmentPathStillWorksCheck(),      // warn (not blocker)
             $this->desktopControlPlaneRuntimeUxCheck(),     // critical
             $this->agentControlPlaneRuntimeStandardCheck(), // critical
+            $this->agenticWorkcellRuntimeCheck(),            // critical
             $this->governedExternalExecutionCheck(),        // critical
             $this->autonomousCompanyRuntimeCheck(),         // critical
             $this->capabilityEvolutionLoopCheck(),          // critical
             $this->codeIntelligenceAutomaticGateCheck(),     // critical
             $this->verifiedContextExecutionLoopCheck(),      // critical
+            $this->frontendOperationalUnderstandingCheck(),  // critical
             $this->assistedExecutionQualityCheck(),          // critical
             $this->executionDoctrineProductDeliverySystemCheck(), // critical
+            $this->contextMemoryQualityCheck(),              // critical
+            $this->runtimeEfficiencyGovernorCheck(),          // critical
+            $this->aemorRuntimeCheck(),                       // critical
+            $this->runtimeUxOperationalCheck(),               // critical
+            $this->autonomousEvolutionLoopCheck(),            // critical
         ];
 
         $criticalFailed = array_values(array_filter(
@@ -286,6 +363,9 @@ class AtlasAiProductCertificationService
                 'critical_failed' => count($criticalFailed),
                 'warn_failed' => count($warnFailed),
             ],
+            'assisted_execution_scorecard' => $this->assistedExecutionScorecard($checks),
+            'agentic_workforce_scorecard' => $this->agenticWorkforceScorecard($checks),
+            'frontend_operational_scorecard' => $this->frontendOperationalScorecard($checks),
             'checks' => $checks,
             'remaining_blockers' => array_map(
                 static fn (array $check): string => (string) ($check['id'] ?? 'unknown_check'),
@@ -301,13 +381,20 @@ class AtlasAiProductCertificationService
                 'scope' => 'product_runtime_governance',
                 'covers_desktop_runtime_ux' => true,
                 'covers_agent_control_plane_runtime' => true,
+                'covers_agentic_workcell_runtime' => true,
                 'covers_external_execution_governance' => true,
                 'covers_internal_autonomous_company_runtime' => true,
                 'covers_capability_usage_evolution' => true,
                 'covers_code_intelligence_automatic_gate' => true,
                 'covers_verified_context_execution_loop' => true,
+                'covers_frontend_operational_understanding' => true,
                 'covers_assisted_execution_quality' => true,
                 'covers_execution_doctrine_product_delivery_system' => true,
+                'covers_context_memory_quality' => true,
+                'covers_runtime_efficiency_governor' => true,
+                'covers_aemor_runtime' => true,
+                'covers_runtime_ux_operational' => true,
+                'covers_autonomous_evolution_loop' => true,
             ],
             'writes' => false,
         ];
@@ -317,6 +404,271 @@ class AtlasAiProductCertificationService
         $payload['certification_hash'] = MissionCanonicalHash::sha256($hashPayload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $checks
+     * @return array<string,mixed>
+     */
+    private function frontendOperationalScorecard(array $checks): array
+    {
+        $byId = [];
+        foreach ($checks as $check) {
+            $byId[(string) ($check['id'] ?? '')] = $check;
+        }
+
+        $areas = [
+            'surface_map' => [
+                'label' => 'Surface Map',
+                'check_ids' => ['mobile_uses_canon', 'desktop_uses_canon', 'presentation_contract'],
+                'scope' => 'desktop/mobile Atlas AI surfaces, rich-input canon and response presentation contract',
+            ],
+            'interaction_flow' => [
+                'label' => 'Interaction Flow',
+                'check_ids' => ['ai_interactions_preserves_rich_input', 'forge_accepts_canon', 'routing_anti_regression_tests_present'],
+                'scope' => 'composer payload, /ai/interactions, Hyperflow routing, Forge intake and anti-regression paths',
+            ],
+            'operator_context_audit' => [
+                'label' => 'Operator Context/Audit',
+                'check_ids' => ['context_trace_audit_consumes_technical_data', 'runtime_ux_operational', 'desktop_control_plane_runtime_governance_ux'],
+                'scope' => 'ContextPanel, ResponseAudit, mobile ContextSheet, runtime readiness and control-plane visibility',
+            ],
+            'frontend_specialist_harness' => [
+                'label' => 'Frontend Specialist Harness',
+                'check_ids' => ['frontend_operational_understanding'],
+                'scope' => 'programming.frontend routing, provider-neutral frontend design harness, required visual/a11y/perf gates and completion rules',
+            ],
+            'frontend_evidence_rules' => [
+                'label' => 'Frontend Evidence Rules',
+                'check_ids' => ['frontend_operational_understanding', 'verified_context_execution_loop'],
+                'scope' => 'frontend context pack, visual smoke, asset provenance, design review and screenshot-alone-is-insufficient policy',
+            ],
+            'frontend_product_certification' => [
+                'label' => 'Frontend Product Certification',
+                'check_ids' => ['frontend_operational_understanding', 'no_attachment_path_still_works'],
+                'scope' => 'frontend flow remains usable with and without attachments, with certification evidence and warnings surfaced',
+            ],
+        ];
+
+        $scoredAreas = [];
+        foreach ($areas as $areaId => $area) {
+            $checkIds = $area['check_ids'];
+            $passed = count(array_filter(
+                $checkIds,
+                static fn (string $checkId): bool => ($byId[$checkId]['status'] ?? null) === 'passed',
+            ));
+            $total = count($checkIds);
+            $score = $total === 0 ? 0.0 : round(($passed / $total) * 10, 1);
+
+            $scoredAreas[$areaId] = [
+                'label' => $area['label'],
+                'status' => $passed === $total ? 'ready' : 'blocked',
+                'score' => $score,
+                'score_basis' => 'certified_check_ratio',
+                'passed_checks' => $passed,
+                'total_checks' => $total,
+                'check_ids' => $checkIds,
+                'scope' => $area['scope'],
+            ];
+        }
+
+        $scores = array_column($scoredAreas, 'score');
+        $overall = $scores === [] ? 0.0 : round(array_sum($scores) / count($scores), 1);
+
+        return [
+            'schema_version' => 'atlas.ai.frontend_operational_scorecard.v1',
+            'score_scale' => '0_to_10',
+            'status' => min($scores ?: [0.0]) >= 10.0 ? 'ready' : 'partial',
+            'overall_score' => $overall,
+            'areas' => $scoredAreas,
+            'claim_policy' => [
+                'local_certification_scope_only' => true,
+                'frontend_understanding_claim' => 'operational_contract_and_wiring',
+                'visual_screenshot_alone_sufficient' => false,
+                'provider_hardcoding_allowed' => false,
+                'requires_visual_a11y_perf_or_reason' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $checks
+     * @return array<string,mixed>
+     */
+    private function agenticWorkforceScorecard(array $checks): array
+    {
+        $byId = [];
+        foreach ($checks as $check) {
+            $byId[(string) ($check['id'] ?? '')] = $check;
+        }
+
+        $areas = [
+            'governed_agent_runtime' => [
+                'label' => 'Governed Agent Runtime',
+                'check_ids' => ['agent_control_plane_runtime_standard', 'governed_external_execution_control_plane'],
+                'scope' => 'task packets, claim leases, scope locks, dry-run receipts and fail-closed external execution',
+            ],
+            'operational_roster_workcells' => [
+                'label' => 'Operational Roster / Workcells',
+                'check_ids' => ['agentic_workcell_runtime'],
+                'scope' => 'role roster, topology selection, task graph, context packs, schedule and verification plan',
+            ],
+            'multi_agent_orchestration' => [
+                'label' => 'Multi-Agent Orchestration',
+                'check_ids' => ['agent_control_plane_runtime_standard', 'agentic_workcell_runtime'],
+                'scope' => 'parallel claim loops, workcell crews, role isolation and independent verification',
+            ],
+            'outcome_learning' => [
+                'label' => 'Outcome Learning',
+                'check_ids' => ['agentic_workcell_runtime', 'aemor_runtime', 'assisted_execution_quality'],
+                'scope' => 'workcell outcome closure, organization-pattern learning, AEMOR feedback and assisted-execution feedback',
+            ],
+            'continuous_evolution' => [
+                'label' => 'Continuous Evolution',
+                'check_ids' => ['autonomous_evolution_loop', 'capability_usage_and_evolution_loop'],
+                'scope' => 'AAEL bridge, capability usage evolution and promotion gates',
+                'boundary' => 'Continuous evolution remains governed; high-risk or production mutation requires evidence and human signature.',
+            ],
+            'operator_visibility' => [
+                'label' => 'Operator Visibility',
+                'check_ids' => ['runtime_ux_operational', 'desktop_control_plane_runtime_governance_ux', 'agentic_workcell_runtime'],
+                'scope' => 'control-plane and runtime UX surfaces expose readiness, blockers, workcells and hashes without raw prompts',
+            ],
+        ];
+
+        $scoredAreas = [];
+        foreach ($areas as $areaId => $area) {
+            $checkIds = $area['check_ids'];
+            $passed = count(array_filter(
+                $checkIds,
+                static fn (string $checkId): bool => ($byId[$checkId]['status'] ?? null) === 'passed',
+            ));
+            $total = count($checkIds);
+            $score = $total === 0 ? 0.0 : round(($passed / $total) * 10, 1);
+            $scoredAreas[$areaId] = [
+                'label' => $area['label'],
+                'status' => $passed === $total ? 'ready' : 'blocked',
+                'score' => $score,
+                'score_basis' => 'certified_check_ratio',
+                'passed_checks' => $passed,
+                'total_checks' => $total,
+                'check_ids' => $checkIds,
+                'scope' => $area['scope'],
+            ];
+
+            if (isset($area['boundary'])) {
+                $scoredAreas[$areaId]['boundary'] = $area['boundary'];
+            }
+        }
+
+        $scores = array_column($scoredAreas, 'score');
+        $overall = $scores === [] ? 0.0 : round(array_sum($scores) / count($scores), 1);
+
+        return [
+            'schema_version' => 'atlas.ai.agentic_workforce_scorecard.v1',
+            'score_scale' => '0_to_10',
+            'status' => min($scores ?: [0.0]) >= 10.0 ? 'ready' : 'partial',
+            'overall_score' => $overall,
+            'areas' => $scoredAreas,
+            'claim_policy' => [
+                'local_certification_scope_only' => true,
+                'provider_invoked' => false,
+                'agents_spawned_by_certification' => false,
+                'external_execution_performed' => false,
+                'production_autonomous_mutation_claimed' => false,
+                'human_signature_required_for_high_risk' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $checks
+     * @return array<string,mixed>
+     */
+    private function assistedExecutionScorecard(array $checks): array
+    {
+        $byId = [];
+        foreach ($checks as $check) {
+            $byId[(string) ($check['id'] ?? '')] = $check;
+        }
+
+        $areas = [
+            'aedpds_delivery_doctrine' => [
+                'label' => 'AEDPDS / delivery doctrine',
+                'check_ids' => ['execution_doctrine_product_delivery_system', 'assisted_execution_quality'],
+                'scope' => 'doctrine selector, gate, Dev/Forge envelope and assisted-execution quality',
+            ],
+            'aucri_acmf_context_memory' => [
+                'label' => 'AUCRI/ACMF / context and cognitive memory',
+                'check_ids' => ['context_memory_quality'],
+                'scope' => 'context quality certification, AUCRI blocks and cognitive memory fabric',
+            ],
+            'areg_efficiency_governor' => [
+                'label' => 'AREG / runtime efficiency governor',
+                'check_ids' => ['runtime_efficiency_governor'],
+                'scope' => 'route, budget, context layer admission, outcomes and replay',
+            ],
+            'aemor_outcome_memory' => [
+                'label' => 'AEMOR / execution memory and outcome learning',
+                'check_ids' => ['aemor_runtime', 'assisted_execution_quality'],
+                'scope' => 'episodes, outcomes, judgment, replay and assisted-execution feedback',
+            ],
+            'runtime_ux_operational' => [
+                'label' => 'Runtime UX / operational visibility',
+                'check_ids' => ['runtime_ux_operational'],
+                'scope' => 'operator-facing readiness bundle for doctrine, context, AREG and AEMOR',
+            ],
+            'aael_autonomous_evolution' => [
+                'label' => 'AAEL / continuous autonomous evolution',
+                'check_ids' => ['autonomous_evolution_loop'],
+                'scope' => 'autonomous evolution bridge with AEDPDS, AREG and AEMOR promotion gates',
+                'boundary' => 'Production mutation remains gated by sandbox evidence and human signature for high risk.',
+            ],
+        ];
+
+        $scoredAreas = [];
+        foreach ($areas as $areaId => $area) {
+            $checkIds = $area['check_ids'];
+            $passed = count(array_filter(
+                $checkIds,
+                static fn (string $checkId): bool => ($byId[$checkId]['status'] ?? null) === 'passed',
+            ));
+            $total = count($checkIds);
+            $score = $total === 0 ? 0.0 : round(($passed / $total) * 10, 1);
+
+            $scoredAreas[$areaId] = [
+                'label' => $area['label'],
+                'status' => $passed === $total ? 'ready' : 'blocked',
+                'score' => $score,
+                'score_basis' => 'certified_check_ratio',
+                'passed_checks' => $passed,
+                'total_checks' => $total,
+                'check_ids' => $checkIds,
+                'scope' => $area['scope'],
+            ];
+
+            if (isset($area['boundary'])) {
+                $scoredAreas[$areaId]['boundary'] = $area['boundary'];
+            }
+        }
+
+        $scores = array_column($scoredAreas, 'score');
+        $overall = $scores === [] ? 0.0 : round(array_sum($scores) / count($scores), 1);
+
+        return [
+            'schema_version' => 'atlas.ai.assisted_execution_scorecard.v1',
+            'score_scale' => '0_to_10',
+            'status' => min($scores ?: [0.0]) >= 10.0 ? 'ready' : 'partial',
+            'overall_score' => $overall,
+            'areas' => $scoredAreas,
+            'claim_policy' => [
+                'local_certification_scope_only' => true,
+                'provider_invoked' => false,
+                'external_benchmark_run' => false,
+                'production_autonomous_mutation_claimed' => false,
+                'high_risk_human_signature_required' => true,
+            ],
+        ];
     }
 
     /* ---------------------------------------------------------------- */
@@ -839,7 +1191,69 @@ class AtlasAiProductCertificationService
     }
 
     /* ---------------------------------------------------------------- */
-    /* Check 15 · Internal autonomous software company runtime claim gate */
+    /* Check 15 · Agentic Workcell is the operational workforce layer */
+    /* ---------------------------------------------------------------- */
+
+    private function agenticWorkcellRuntimeCheck(): array
+    {
+        $runtimeSource = $this->source($this->repoPath(self::PATH_AGENTIC_WORKCELL_RUNTIME_SERVICE));
+        $certSource = $this->source($this->repoPath(self::PATH_AGENTIC_WORKCELL_CERTIFICATION_SERVICE));
+        $commandSource = $this->source($this->repoPath(self::PATH_AGENTIC_WORKCELL_COMMAND));
+        $certCommandSource = $this->source($this->repoPath(self::PATH_AGENTIC_WORKCELL_CERTIFY_COMMAND));
+        $runtimeTestSource = $this->source($this->repoPath(self::PATH_AGENTIC_WORKCELL_RUNTIME_TEST));
+        $certTestSource = $this->source($this->repoPath(self::PATH_AGENTIC_WORKCELL_CERTIFICATION_TEST));
+        $docSource = $this->source($this->repoPath(self::PATH_AGENTIC_WORKCELL_DOC));
+
+        $runtimeEmitsOperationalRoster = str_contains($runtimeSource, 'role_roster')
+            && str_contains($runtimeSource, 'task_graph')
+            && str_contains($runtimeSource, 'context_packs')
+            && str_contains($runtimeSource, 'execution_schedule')
+            && str_contains($runtimeSource, 'verification_plan');
+        $runtimeLearnsAndSurfacesControlPlane = str_contains($runtimeSource, 'closeOutcome')
+            && str_contains($runtimeSource, 'compileOrgPattern')
+            && str_contains($runtimeSource, 'controlPlane')
+            && str_contains($runtimeSource, 'objective_hash')
+            && str_contains($runtimeSource, 'claimPolicy');
+        $certifiesTopologies = str_contains($certSource, 'forgeCrewSmoke')
+            && str_contains($certSource, 'researchMapReduceSmoke')
+            && str_contains($certSource, 'redBlueSmoke')
+            && str_contains($certSource, 'toolBuilderSmoke')
+            && str_contains($certSource, 'outcomeLearningSmoke')
+            && str_contains($certSource, 'controlPlaneSmoke');
+        $commandsPresent = str_contains($commandSource, 'atlas:agentic-workcell')
+            && str_contains($commandSource, 'design|event|outcome|control-plane')
+            && str_contains($certCommandSource, 'atlas:agentic-workcell:certify')
+            && str_contains($certCommandSource, '--strict');
+        $testsCoverRuntime = str_contains($runtimeTestSource, 'test_forge_objective_creates_milestone_crew_with_context_isolation')
+            && str_contains($runtimeTestSource, 'test_close_outcome_compiles_org_pattern_and_control_plane_hides_objective')
+            && str_contains($runtimeTestSource, 'test_external_side_effect_is_blocked_before_agent_execution')
+            && str_contains($certTestSource, 'test_certification_passes_with_all_canonical_artifacts')
+            && str_contains($certTestSource, 'test_commands_design_control_plane_and_certify_json');
+        $docPresent = str_contains($docSource, 'Atlas Agentic Workcell Runtime')
+            && str_contains($docSource, 'AAWR')
+            && str_contains($docSource, 'Atlas Cognitive Workcell')
+            && str_contains($docSource, 'AtlasAgenticWorkcellRuntimeService');
+
+        $passed = $runtimeEmitsOperationalRoster && $runtimeLearnsAndSurfacesControlPlane
+            && $certifiesTopologies && $commandsPresent && $testsCoverRuntime && $docPresent;
+
+        return $this->check('agentic_workcell_runtime', $passed, 'critical', [
+            'runtime_emits_operational_roster' => $runtimeEmitsOperationalRoster,
+            'runtime_learns_and_surfaces_control_plane' => $runtimeLearnsAndSurfacesControlPlane,
+            'certifies_topologies_and_outcome_learning' => $certifiesTopologies,
+            'commands_present' => $commandsPresent,
+            'tests_cover_runtime_and_certification' => $testsCoverRuntime,
+            'canonical_doc_present' => $docPresent,
+            'runtime_service_path' => self::PATH_AGENTIC_WORKCELL_RUNTIME_SERVICE,
+            'certification_service_path' => self::PATH_AGENTIC_WORKCELL_CERTIFICATION_SERVICE,
+            'runtime_test_path' => self::PATH_AGENTIC_WORKCELL_RUNTIME_TEST,
+            'certification_test_path' => self::PATH_AGENTIC_WORKCELL_CERTIFICATION_TEST,
+            'doc_path' => self::PATH_AGENTIC_WORKCELL_DOC,
+        ]);
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Check 16 · Internal autonomous software company runtime claim gate */
     /* ---------------------------------------------------------------- */
 
     private function autonomousCompanyRuntimeCheck(): array
@@ -1020,6 +1434,7 @@ class AtlasAiProductCertificationService
 
         $serviceBuildsHumanEnvelope = str_contains($serviceSource, 'atlas.ai.assisted_execution_quality.v1')
             && str_contains($serviceSource, 'REQUIRED_PIPELINE_STEPS')
+            && str_contains($serviceSource, 'REQUIRED_CONTROL_AREAS')
             && str_contains($serviceSource, 'ready_for_assisted_execution')
             && str_contains($serviceSource, 'needs_context');
         $serviceRoutesDevAndForge = str_contains($serviceSource, "'atlas_dev'")
@@ -1029,8 +1444,24 @@ class AtlasAiProductCertificationService
         $serviceUsesDevRuntimeGate = str_contains($serviceSource, 'DevRuntimeIntelligenceService')
             && str_contains($serviceSource, 'provider_safe')
             && str_contains($serviceSource, 'dev_context_not_provider_safe');
+        $serviceUsesRequiredControlAreas = str_contains($serviceSource, 'AtlasExecutionDoctrineRuntimeService')
+            && str_contains($serviceSource, 'AtlasExecutionDoctrineGateService')
+            && str_contains($serviceSource, 'AtlasCognitiveMemoryFabricService')
+            && str_contains($serviceSource, 'AtlasRuntimeEfficiencyGovernorService')
+            && str_contains($serviceSource, 'AtlasAemorRuntimeService')
+            && str_contains($serviceSource, 'provider_may_run_without_aedpds_gate')
+            && str_contains($serviceSource, 'provider_may_run_without_acmf_plan')
+            && str_contains($serviceSource, 'provider_may_run_without_areg_decision')
+            && str_contains($serviceSource, 'completion_requires_aemor_outcome');
+        $serviceClosesAregAemorFeedback = str_contains($serviceSource, 'recordOutcomeFeedback')
+            && str_contains($serviceSource, 'atlas.ai.assisted_execution_outcome_feedback.v1')
+            && str_contains($serviceSource, 'assisted_execution_feedback')
+            && str_contains($serviceSource, 'requires_aemor_judgment_for_learning_promotion')
+            && str_contains($serviceSource, 'persist')
+            && str_contains($serviceSource, 'driver_effectiveness');
         $serviceProtectsHumanBugPath = str_contains($serviceSource, 'Login|Auth|Session')
             && str_contains($serviceSource, 'workspace_required')
+            && str_contains($serviceSource, 'aedpds_gate_blocked')
             && str_contains($serviceSource, 'failure_capsule_or_success')
             && str_contains($serviceSource, 'run_certification');
         $controllerWired = str_contains($controllerSource, 'AtlasAiAssistedExecutionQualityService')
@@ -1041,22 +1472,33 @@ class AtlasAiProductCertificationService
             && str_contains($controllerSource, 'assisted_execution_needs_context')
             && str_contains($controllerSource, 'dev_context_not_provider_safe')
             && str_contains($controllerSource, 'provider_execution_allowed');
-        $testsCover = str_contains($testSource, 'test_login_bug_human_request_builds_provider_safe_dev_envelope')
+        $testsCover = str_contains($testSource, 'test_login_bug_human_request_builds_control_area_envelope_and_blocks_without_review')
+            && str_contains($testSource, 'test_reviewed_login_bug_can_pass_assisted_execution_gate')
             && str_contains($testSource, 'test_missing_workspace_blocks_before_provider')
             && str_contains($testSource, 'test_large_obra_request_routes_to_forge_without_dev_preview')
-            && str_contains($testSource, 'test_hash_is_deterministic_for_same_input');
+            && str_contains($testSource, 'test_hash_is_deterministic_for_same_input')
+            && str_contains($testSource, 'test_outcome_feedback_records_areg_and_prepares_aemor_without_writes_by_default')
+            && str_contains($testSource, 'test_outcome_feedback_can_persist_areg_and_aemor_when_explicitly_allowed');
         $docPresent = str_contains($docSource, 'runtime_acronym: AAEQ')
             && str_contains($docSource, 'Pedido humano nunca vira provider call bruto')
-            && str_contains($docSource, 'Dev so executa se `provider_safe=true`');
+            && str_contains($docSource, 'Dev so executa se `provider_safe=true`')
+            && str_contains($docSource, 'AEDPDS')
+            && str_contains($docSource, 'AUCRI/ACMF')
+            && str_contains($docSource, 'AREG')
+            && str_contains($docSource, 'AEMOR')
+            && str_contains($docSource, 'recordOutcomeFeedback')
+            && str_contains($docSource, 'atlas.ai.assisted_execution_outcome_feedback.v1');
 
         $passed = $serviceBuildsHumanEnvelope && $serviceRoutesDevAndForge
-            && $serviceUsesDevRuntimeGate && $serviceProtectsHumanBugPath
+            && $serviceUsesDevRuntimeGate && $serviceUsesRequiredControlAreas && $serviceClosesAregAemorFeedback && $serviceProtectsHumanBugPath
             && $controllerWired && $controllerEnforcesGate && $testsCover && $docPresent;
 
         return $this->check('assisted_execution_quality', $passed, 'critical', [
             'service_builds_human_execution_envelope' => $serviceBuildsHumanEnvelope,
             'service_routes_dev_and_forge' => $serviceRoutesDevAndForge,
             'service_uses_dev_runtime_context_gate' => $serviceUsesDevRuntimeGate,
+            'service_uses_required_control_areas' => $serviceUsesRequiredControlAreas,
+            'service_closes_areg_aemor_feedback' => $serviceClosesAregAemorFeedback,
             'service_protects_login_bug_human_path' => $serviceProtectsHumanBugPath,
             'ai_interaction_controller_wired_before_dev_runtime' => $controllerWired,
             'ai_interaction_controller_enforces_context_gate' => $controllerEnforcesGate,
@@ -1338,6 +1780,202 @@ class AtlasAiProductCertificationService
         ]);
     }
 
+    private function contextMemoryQualityCheck(): array
+    {
+        $certSource = $this->source($this->repoPath(self::PATH_CONTEXT_QUALITY_SERVICE));
+        $memorySource = $this->source($this->repoPath(self::PATH_COGNITIVE_MEMORY_FABRIC_SERVICE));
+        $commandSource = $this->source($this->repoPath(self::PATH_CONTEXT_QUALITY_COMMAND));
+        $certTestSource = $this->source($this->repoPath(self::PATH_CONTEXT_QUALITY_TEST));
+        $memoryTestSource = $this->source($this->repoPath(self::PATH_COGNITIVE_MEMORY_FABRIC_TEST));
+        $docSource = $this->source($this->repoPath(self::PATH_CONTEXT_QUALITY_DOC));
+
+        $certifiesAucriBlocks = str_contains($certSource, 'atlas.context.quality_certification.v1')
+            && str_contains($certSource, 'aucri_runtime_enforcement')
+            && str_contains($certSource, 'aucri_blocks_executed')
+            && str_contains($certSource, 'target_score');
+        $cognitiveMemoryPresent = str_contains($memorySource, 'atlas.aucri.cognitive_memory_fabric.v1')
+            && str_contains($memorySource, 'must_keep_coverage')
+            && str_contains($memorySource, 'raw_text_exposed');
+        $commandPresent = str_contains($commandSource, 'atlas:context:quality-certify')
+            && str_contains($commandSource, '--strict');
+        $testsCover = str_contains($certTestSource, 'quality_score')
+            && str_contains($certTestSource, 'aucri_runtime_enforcement')
+            && str_contains($memoryTestSource, 'must_keep_coverage')
+            && str_contains($memoryTestSource, 'raw_text_exposed');
+        $docPresent = str_contains($docSource, 'atlas:context:quality-certify --json --strict')
+            && str_contains($docSource, 'target=10');
+
+        $passed = $certifiesAucriBlocks && $cognitiveMemoryPresent
+            && $commandPresent && $testsCover && $docPresent;
+
+        return $this->check('context_memory_quality', $passed, 'critical', [
+            'context_quality_certifies_aucri_blocks' => $certifiesAucriBlocks,
+            'cognitive_memory_fabric_present' => $cognitiveMemoryPresent,
+            'command_present' => $commandPresent,
+            'tests_cover_quality_and_memory' => $testsCover,
+            'canonical_doc_present' => $docPresent,
+            'certification_service_path' => self::PATH_CONTEXT_QUALITY_SERVICE,
+            'memory_fabric_path' => self::PATH_COGNITIVE_MEMORY_FABRIC_SERVICE,
+            'test_path' => self::PATH_CONTEXT_QUALITY_TEST,
+        ]);
+    }
+
+    private function runtimeEfficiencyGovernorCheck(): array
+    {
+        $certSource = $this->source($this->repoPath(self::PATH_RUNTIME_EFFICIENCY_CERTIFICATION_SERVICE));
+        $runtimeSource = $this->source($this->repoPath(self::PATH_RUNTIME_EFFICIENCY_SERVICE));
+        $commandSource = $this->source($this->repoPath(self::PATH_RUNTIME_EFFICIENCY_COMMAND));
+        $testSource = $this->source($this->repoPath(self::PATH_RUNTIME_EFFICIENCY_TEST));
+        $serviceTestSource = $this->source($this->repoPath(self::PATH_RUNTIME_EFFICIENCY_SERVICE_TEST));
+        $docSource = $this->source($this->repoPath(self::PATH_RUNTIME_EFFICIENCY_DOC));
+
+        $certifiesCorePaths = str_contains($certSource, 'fast_path_smoke')
+            && str_contains($certSource, 'forge_path_smoke')
+            && str_contains($certSource, 'blocked_path_smoke')
+            && str_contains($certSource, 'self_optimization_smoke');
+        $runtimeGoverns = str_contains($runtimeSource, 'context_minimum_pack')
+            && str_contains($runtimeSource, 'layer_admissions')
+            && str_contains($runtimeSource, 'recordOutcome')
+            && str_contains($runtimeSource, 'persist');
+        $commandPresent = str_contains($commandSource, 'atlas:runtime-efficiency:certify')
+            && str_contains($commandSource, '--strict');
+        $testsCover = str_contains($testSource, 'STATUS_PASSED')
+            && str_contains($serviceTestSource, 'fast_path')
+            && str_contains($serviceTestSource, 'forge_path')
+            && str_contains($serviceTestSource, 'blocked_path')
+            && str_contains($serviceTestSource, 'recordOutcome');
+        $docPresent = str_contains($docSource, 'Atlas Runtime Efficiency Governor')
+            && str_contains($docSource, 'recordOutcome');
+
+        $passed = $certifiesCorePaths && $runtimeGoverns
+            && $commandPresent && $testsCover && $docPresent;
+
+        return $this->check('runtime_efficiency_governor', $passed, 'critical', [
+            'certifies_core_paths' => $certifiesCorePaths,
+            'runtime_governs_context_layers_and_outcome' => $runtimeGoverns,
+            'command_present' => $commandPresent,
+            'tests_cover_core_paths' => $testsCover,
+            'canonical_doc_present' => $docPresent,
+            'certification_service_path' => self::PATH_RUNTIME_EFFICIENCY_CERTIFICATION_SERVICE,
+            'runtime_service_path' => self::PATH_RUNTIME_EFFICIENCY_SERVICE,
+            'test_path' => self::PATH_RUNTIME_EFFICIENCY_TEST,
+            'service_test_path' => self::PATH_RUNTIME_EFFICIENCY_SERVICE_TEST,
+        ]);
+    }
+
+    private function aemorRuntimeCheck(): array
+    {
+        $certSource = $this->source($this->repoPath(self::PATH_AEMOR_CERTIFICATION_SERVICE));
+        $runtimeSource = $this->source($this->repoPath(self::PATH_AEMOR_RUNTIME_SERVICE));
+        $commandSource = $this->source($this->repoPath(self::PATH_AEMOR_CERTIFICATION_COMMAND));
+        $testSource = $this->source($this->repoPath(self::PATH_AEMOR_RUNTIME_TEST));
+        $docSource = $this->source($this->repoPath(self::PATH_AEMOR_DOC));
+
+        $certifiesJudgment = str_contains($certSource, 'judgment_smoke')
+            && str_contains($certSource, 'intelligence_outputs')
+            && str_contains($certSource, 'claimPolicy');
+        $runtimeClosesOutcome = str_contains($runtimeSource, 'openEpisode')
+            && str_contains($runtimeSource, 'closeOutcome')
+            && str_contains($runtimeSource, 'distill')
+            && str_contains($runtimeSource, 'riskPredict');
+        $commandPresent = str_contains($commandSource, 'atlas:aemor:certify')
+            && str_contains($commandSource, '--strict');
+        $testsCover = str_contains($testSource, 'close_outcome')
+            && str_contains($testSource, 'risk_predict')
+            && str_contains($testSource, 'replay');
+        $docPresent = str_contains($docSource, 'Atlas Execution Memory')
+            && str_contains($docSource, 'AEMOR');
+
+        $passed = $certifiesJudgment && $runtimeClosesOutcome
+            && $commandPresent && $testsCover && $docPresent;
+
+        return $this->check('aemor_runtime', $passed, 'critical', [
+            'certifies_judgment_and_intelligence_outputs' => $certifiesJudgment,
+            'runtime_closes_outcome_and_replays' => $runtimeClosesOutcome,
+            'command_present' => $commandPresent,
+            'tests_cover_outcome_risk_replay' => $testsCover,
+            'canonical_doc_present' => $docPresent,
+            'certification_service_path' => self::PATH_AEMOR_CERTIFICATION_SERVICE,
+            'runtime_service_path' => self::PATH_AEMOR_RUNTIME_SERVICE,
+            'test_path' => self::PATH_AEMOR_RUNTIME_TEST,
+        ]);
+    }
+
+    private function runtimeUxOperationalCheck(): array
+    {
+        $certSource = $this->source($this->repoPath(self::PATH_RUNTIME_UX_CERTIFICATION_SERVICE));
+        $readinessSource = $this->source($this->repoPath(self::PATH_RUNTIME_READINESS_SERVICE));
+        $testSource = $this->source($this->repoPath(self::PATH_RUNTIME_UX_TEST));
+        $mobileContextSource = $this->source($this->repoPath(self::PATH_MOBILE_CONTEXT_SHEET));
+
+        $certifiesAssistedUx = str_contains($certSource, 'assisted_execution_operational_ux')
+            && str_contains($certSource, 'doctrine_signal_present')
+            && str_contains($certSource, 'areg_aemor_signal_present');
+        $readinessEmitsBundle = str_contains($readinessSource, 'atlas.ai.assisted_execution.operational_ux.v1')
+            && str_contains($readinessSource, 'assistedExecutionOperationalState')
+            && str_contains($readinessSource, "'assisted_execution' =>");
+        $testsCover = str_contains($testSource, 'assisted_execution')
+            && str_contains($testSource, 'doctrine_gate_status')
+            && str_contains($testSource, 'aemor_feedback_status');
+        $mobileRenders = str_contains($mobileContextSource, 'assistedExecution')
+            && str_contains($mobileContextSource, 'doutrina')
+            && str_contains($mobileContextSource, 'AEMOR');
+
+        $passed = $certifiesAssistedUx && $readinessEmitsBundle
+            && $testsCover && $mobileRenders;
+
+        return $this->check('runtime_ux_operational', $passed, 'critical', [
+            'certification_checks_assisted_execution_ux' => $certifiesAssistedUx,
+            'readiness_emits_assisted_execution_bundle' => $readinessEmitsBundle,
+            'tests_cover_assisted_execution_bundle' => $testsCover,
+            'mobile_context_renders_operational_signals' => $mobileRenders,
+            'certification_service_path' => self::PATH_RUNTIME_UX_CERTIFICATION_SERVICE,
+            'readiness_service_path' => self::PATH_RUNTIME_READINESS_SERVICE,
+            'test_path' => self::PATH_RUNTIME_UX_TEST,
+        ]);
+    }
+
+    private function autonomousEvolutionLoopCheck(): array
+    {
+        $runtimeSource = $this->source($this->repoPath(self::PATH_AAEL_RUNTIME_SERVICE));
+        $certSource = $this->source($this->repoPath(self::PATH_AAEL_CERTIFICATION_SERVICE));
+        $commandSource = $this->source($this->repoPath(self::PATH_AAEL_COMMAND));
+        $certCommandSource = $this->source($this->repoPath(self::PATH_AAEL_CERTIFY_COMMAND));
+        $testSource = $this->source($this->repoPath(self::PATH_AAEL_TEST));
+        $certTestSource = $this->source($this->repoPath(self::PATH_AAEL_CERTIFICATION_TEST));
+        $docSource = $this->source($this->repoPath(self::PATH_AAEL_DOC));
+
+        $runtimeHasBridge = str_contains($runtimeSource, 'atlas.aael.assisted_execution_bridge.v1')
+            && str_contains($runtimeSource, 'assistedExecutionBridge')
+            && str_contains($runtimeSource, 'AtlasAiAssistedExecutionQualityService')
+            && str_contains($runtimeSource, 'assisted_execution_quality_required');
+        $certifiesBridge = str_contains($certSource, 'assistedExecutionBridgeSmoke')
+            && str_contains($certSource, 'promotion_gate_status')
+            && str_contains($certSource, 'aemor_feedback_status');
+        $commandsPresent = str_contains($commandSource, 'atlas:aael')
+            && str_contains($certCommandSource, 'atlas:aael:certify');
+        $testsCover = str_contains($testSource, 'assisted_execution_quality')
+            && str_contains($testSource, 'aedpds_gate_status')
+            && str_contains($certTestSource, 'certification_passes_all_checks');
+        $docPresent = str_contains($docSource, 'atlas.aael.assisted_execution_bridge.v1')
+            && str_contains($docSource, 'AAEQ assisted-execution bridge');
+
+        $passed = $runtimeHasBridge && $certifiesBridge
+            && $commandsPresent && $testsCover && $docPresent;
+
+        return $this->check('autonomous_evolution_loop', $passed, 'critical', [
+            'runtime_has_assisted_execution_bridge' => $runtimeHasBridge,
+            'certification_checks_bridge' => $certifiesBridge,
+            'commands_present' => $commandsPresent,
+            'tests_cover_bridge_and_certification' => $testsCover,
+            'canonical_doc_present' => $docPresent,
+            'runtime_service_path' => self::PATH_AAEL_RUNTIME_SERVICE,
+            'certification_service_path' => self::PATH_AAEL_CERTIFICATION_SERVICE,
+            'test_path' => self::PATH_AAEL_TEST,
+            'doc_path' => self::PATH_AAEL_DOC,
+        ]);
+    }
+
     /* ---------------------------------------------------------------- */
     /* Evidence refs · canonical artifacts backing the cert */
     /* ---------------------------------------------------------------- */
@@ -1380,6 +2018,13 @@ class AtlasAiProductCertificationService
             'test:'.self::PATH_AGENT_CONTROL_PLANE_MULTI_AGENT_TEST,
             'test:'.self::PATH_AGENT_CONTROL_PLANE_TASK_PACKET_TEST,
             'test:'.self::PATH_AGENT_CONTROL_PLANE_CLAIM_LEASE_TEST,
+            'server:'.self::PATH_AGENTIC_WORKCELL_RUNTIME_SERVICE,
+            'server:'.self::PATH_AGENTIC_WORKCELL_CERTIFICATION_SERVICE,
+            'server:'.self::PATH_AGENTIC_WORKCELL_COMMAND,
+            'server:'.self::PATH_AGENTIC_WORKCELL_CERTIFY_COMMAND,
+            'test:'.self::PATH_AGENTIC_WORKCELL_RUNTIME_TEST,
+            'test:'.self::PATH_AGENTIC_WORKCELL_CERTIFICATION_TEST,
+            'server:'.self::PATH_AGENTIC_WORKCELL_DOC,
             'server:'.self::PATH_ENGINEERING_COMPANY_SERVICE,
             'test:'.self::PATH_ENGINEERING_COMPANY_FEATURE_TEST,
             'test:'.self::PATH_ENGINEERING_COMPANY_UNIT_TEST,
@@ -1434,6 +2079,31 @@ class AtlasAiProductCertificationService
             'test:'.self::PATH_AEDPDS_TEST,
             'server:'.self::PATH_AEDPDS_DOC,
             'server:'.self::PATH_APFPR_DOC,
+            'server:'.self::PATH_CONTEXT_QUALITY_SERVICE,
+            'server:'.self::PATH_COGNITIVE_MEMORY_FABRIC_SERVICE,
+            'server:'.self::PATH_CONTEXT_QUALITY_COMMAND,
+            'test:'.self::PATH_CONTEXT_QUALITY_TEST,
+            'test:'.self::PATH_COGNITIVE_MEMORY_FABRIC_TEST,
+            'server:'.self::PATH_CONTEXT_QUALITY_DOC,
+            'server:'.self::PATH_RUNTIME_EFFICIENCY_CERTIFICATION_SERVICE,
+            'server:'.self::PATH_RUNTIME_EFFICIENCY_SERVICE,
+            'server:'.self::PATH_RUNTIME_EFFICIENCY_COMMAND,
+            'test:'.self::PATH_RUNTIME_EFFICIENCY_TEST,
+            'test:'.self::PATH_RUNTIME_EFFICIENCY_SERVICE_TEST,
+            'server:'.self::PATH_RUNTIME_EFFICIENCY_DOC,
+            'server:'.self::PATH_AEMOR_CERTIFICATION_SERVICE,
+            'server:'.self::PATH_AEMOR_CERTIFICATION_COMMAND,
+            'server:'.self::PATH_AEMOR_DOC,
+            'server:'.self::PATH_RUNTIME_UX_CERTIFICATION_SERVICE,
+            'server:'.self::PATH_RUNTIME_READINESS_SERVICE,
+            'test:'.self::PATH_RUNTIME_UX_TEST,
+            'server:'.self::PATH_AAEL_RUNTIME_SERVICE,
+            'server:'.self::PATH_AAEL_CERTIFICATION_SERVICE,
+            'server:'.self::PATH_AAEL_COMMAND,
+            'server:'.self::PATH_AAEL_CERTIFY_COMMAND,
+            'test:'.self::PATH_AAEL_TEST,
+            'test:'.self::PATH_AAEL_CERTIFICATION_TEST,
+            'server:'.self::PATH_AAEL_DOC,
         ];
 
         return array_values(array_unique($refs));

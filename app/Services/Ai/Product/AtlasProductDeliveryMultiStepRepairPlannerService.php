@@ -33,6 +33,7 @@ class AtlasProductDeliveryMultiStepRepairPlannerService
             'delivery_hash' => (string) ($delivery['delivery_hash'] ?? ''),
             'proof_hash' => (string) ($proof['proof_hash'] ?? ''),
             'repair_bridge_hash' => (string) ($repairBridge['repair_bridge_hash'] ?? ''),
+            'aedpds_gate' => $this->aedpdsGate($delivery),
             'budgets' => $budgets,
             'rollback_policy' => [
                 'required' => true,
@@ -59,6 +60,19 @@ class AtlasProductDeliveryMultiStepRepairPlannerService
         $payload['repair_plan_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @return array{status:string,hash:string,warnings:list<string>,blockers:list<string>}
+     */
+    private function aedpdsGate(array $delivery): array
+    {
+        return [
+            'status' => (string) data_get($delivery, 'aedpds.gate.status', 'unknown'),
+            'hash' => (string) data_get($delivery, 'aedpds.gate.hash', ''),
+            'warnings' => $this->list(data_get($delivery, 'aedpds.gate.warnings', [])),
+            'blockers' => $this->list(data_get($delivery, 'aedpds.gate.blockers', [])),
+        ];
     }
 
     /**
@@ -161,6 +175,12 @@ class AtlasProductDeliveryMultiStepRepairPlannerService
         }
         if (($delivery['status'] ?? null) !== 'ready_for_delivery') {
             $blockers[] = ['id' => 'delivery_contract_not_ready'];
+        }
+        if (data_get($delivery, 'aedpds.gate.status') !== 'passed') {
+            $blockers[] = [
+                'id' => 'aedpds_gate_not_passed',
+                'gate_status' => data_get($delivery, 'aedpds.gate.status', 'unknown'),
+            ];
         }
         if (($proof['schema_version'] ?? null) !== AtlasProductFalsificationProofRuntimeService::SCHEMA_VERSION) {
             $blockers[] = ['id' => 'invalid_proof_challenge'];

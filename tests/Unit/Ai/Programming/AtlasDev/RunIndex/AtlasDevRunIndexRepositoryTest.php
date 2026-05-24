@@ -5,30 +5,39 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Programming\AtlasDev\RunIndex;
 
 use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
+use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasDevRunIndexRepositoryTest extends TestCase
 {
     private AtlasDevRunIndexRepository $repo;
 
+    private Capsule $db;
+
     protected function setUp(): void
     {
         parent::setUp();
 
+        $this->db = new Capsule;
+        $this->db->addConnection([
+            'database' => ':memory:',
+            'driver' => 'sqlite',
+            'prefix' => '',
+        ]);
+        $this->db->setAsGlobal();
+        $this->db->bootEloquent();
+
         $this->createRunIndexTable();
-        config()->set('atlas_dev.run_index.list_default_limit', 50);
-        config()->set('atlas_dev.run_index.list_max_limit', 200);
-        $this->repo = new AtlasDevRunIndexRepository;
+        $this->repo = new AtlasDevRunIndexRepository(listDefaultLimit: 50, listMaxLimit: 200);
     }
 
     protected function tearDown(): void
     {
         Carbon::setTestNow();
-        Schema::dropIfExists('atlas_dev_run_index');
+        $this->db->schema()->dropIfExists('atlas_dev_run_index');
         parent::tearDown();
     }
 
@@ -138,8 +147,8 @@ final class AtlasDevRunIndexRepositoryTest extends TestCase
         $this->assertSame('run-3', $list[1]->runId);
 
         // Caller-supplied limit is clamped to list_max_limit.
-        config()->set('atlas_dev.run_index.list_max_limit', 3);
-        $clamped = $this->repo->listByWorkspace('ws-shared', limit: 999);
+        $clampedRepo = new AtlasDevRunIndexRepository(listDefaultLimit: 50, listMaxLimit: 3);
+        $clamped = $clampedRepo->listByWorkspace('ws-shared', limit: 999);
         $this->assertCount(3, $clamped);
     }
 
@@ -162,8 +171,8 @@ final class AtlasDevRunIndexRepositoryTest extends TestCase
 
     private function createRunIndexTable(): void
     {
-        Schema::dropIfExists('atlas_dev_run_index');
-        Schema::create('atlas_dev_run_index', function (Blueprint $table): void {
+        $this->db->schema()->dropIfExists('atlas_dev_run_index');
+        $this->db->schema()->create('atlas_dev_run_index', function (Blueprint $table): void {
             $table->string('run_id', 128)->primary();
             $table->string('surface_id', 80)->index();
             $table->string('workspace_hash', 128)->index();

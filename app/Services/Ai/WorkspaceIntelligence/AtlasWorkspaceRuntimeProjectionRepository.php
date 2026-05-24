@@ -33,6 +33,7 @@ final class AtlasWorkspaceRuntimeProjectionRepository
             'AWCO' => 'awco',
             'AWEF' => 'awef',
             'AWIL' => 'awis_learning_loop',
+            'AWNSB' => 'workspace_next_session_brain',
         ] as $family => $key) {
             $payload = (array) ($report[$key] ?? []);
             if ($payload === []) {

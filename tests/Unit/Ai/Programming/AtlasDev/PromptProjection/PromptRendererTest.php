@@ -6,7 +6,7 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\PromptProjection;
 
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptRenderer;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class PromptRendererTest extends TestCase
 {
@@ -14,12 +14,12 @@ final class PromptRendererTest extends TestCase
 
     private function renderer(): PromptRenderer
     {
-        return new PromptRenderer();
+        return new PromptRenderer;
     }
 
     private function sectionsMapper(): PromptSectionsMapper
     {
-        return new PromptSectionsMapper();
+        return new PromptSectionsMapper;
     }
 
     public function test_template_resolves_to_atlas_dev_blade_file_on_disk(): void
@@ -129,7 +129,7 @@ final class PromptRendererTest extends TestCase
     public function test_template_sha_changes_only_when_template_file_changes(): void
     {
         $first = $this->renderer()->templateSha256();
-        $second = (new PromptRenderer())->templateSha256();
+        $second = (new PromptRenderer)->templateSha256();
 
         $this->assertSame($first, $second);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $first);

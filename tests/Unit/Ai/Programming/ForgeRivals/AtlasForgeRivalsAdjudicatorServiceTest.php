@@ -304,6 +304,22 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
             'Uncertainties: telemetry not available; root cause unconfirmed.',
             'Production invariant: prevent data loss, replica lag > 5s, circuit breaker, p99 guard.',
             'Evidence pack includes scorecard, workspace hashes, audit trail and postmortem.',
+            '## Contradiction Resolution',
+            'Conflicting constraints are resolved by preserving data safety before delivery speed.',
+            '## Hidden Oracle Hypotheses',
+            'Hidden oracle hypothesis: replay must catch scorecard hash drift and dirty_after_run.',
+            '## Failure Mode Matrix',
+            '| Failure mode | Severity | Blast radius |',
+            '## Stop/Block Criteria',
+            'Stop/block criteria: auto-halt if replay_passes=false or test_exit_code != 0.',
+            '## Telemetry Delta',
+            'Telemetry delta before: p99=420ms after: p99=240ms and 0 data loss events.',
+            '## Counterfactual Check',
+            'Counterfactual: the alternative outcome would fail first under 15% retry traffic.',
+            '## Blast Radius',
+            'Blast radius: 2% affected users, severity=high, customer impact bounded by feature flag.',
+            '## Confidence Calibration',
+            'Confidence: 82% because replay_passes=true but hidden oracle remains partially unconfirmed.',
         ]));
         file_put_contents($rivalPatch, implode("\n", [
             'Rollback plan.',
@@ -320,7 +336,7 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
                 'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
                 'ceiling_pressure_profile' => [
                     'schema_version' => 'atlas.forge.rivals.ceiling_pressure_profile.v1',
-                    'pressure_level' => 'L5+',
+                    'pressure_level' => 'L5++',
                 ],
             ],
         );
@@ -330,11 +346,245 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
         $this->assertSame(AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS, $scorecard['winner']);
         $this->assertArrayHasKey('ceiling_360_contract', $scorecard['quality_dimensions']);
         $dimension = $scorecard['quality_dimensions']['ceiling_360_contract'];
-        $this->assertSame(100.0, $dimension['atlas']);
+        $this->assertGreaterThan(85.0, $dimension['atlas']);
         $this->assertLessThan(50.0, $dimension['rival']);
         $this->assertTrue($dimension['markers']['required']);
         $this->assertTrue($dimension['markers']['atlas']['uncertainty_boundary']);
+        $this->assertTrue($dimension['markers']['atlas']['hidden_oracle_hypotheses']);
+        $this->assertTrue($dimension['markers']['atlas']['telemetry_delta']);
+        $this->assertTrue($dimension['markers']['atlas']['counterfactual_check']);
+        $this->assertTrue($dimension['markers']['atlas']['blast_radius_quantification']);
+        $this->assertTrue($dimension['markers']['atlas']['confidence_calibration']);
         $this->assertFalse($dimension['markers']['rival']['uncertainty_boundary']);
+        $this->assertGreaterThan($dimension['markers']['rival_depth']['section_hits'], $dimension['markers']['atlas_depth']['section_hits']);
+        $this->assertGreaterThan($dimension['markers']['rival_depth']['specificity_hits'], $dimension['markers']['atlas_depth']['specificity_hits']);
+        $this->assertGreaterThan($dimension['markers']['rival_depth']['adversarial_hits'], $dimension['markers']['atlas_depth']['adversarial_hits']);
+    }
+
+    public function test_ceiling_360_contract_recognizes_operational_l5_plus_plus_evidence_variants(): void
+    {
+        $runId = $this->newRunId('ceiling-operational-variants');
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        $atlasPatch = $paths['evidence'].'/atlas_patch.diff';
+        $rivalPatch = $paths['evidence'].'/rival_patch.diff';
+
+        file_put_contents($atlasPatch, implode("\n", [
+            '## Rollback Procedure',
+            'Rollback uses restore traffic and health checks.',
+            '## Evidence Requirements',
+            'Evidence pack includes scorecard and workspace hashes.',
+        ]));
+        file_put_contents($rivalPatch, implode("\n", [
+            '## Root Cause',
+            'Deployment introduced a null dereference under production traffic.',
+            '## Contributing Factors',
+            'Canary skipped; staging traffic shape diverged.',
+            '## Tradeoffs and Uncertainties',
+            'Feature flag kill is accepted for speed but degrades UX.',
+            '## Safe Rollback',
+            'Restore traffic gradually and keep data loss at zero.',
+            '## Evidence Requirements',
+            'Evidence pack, scorecard, workspace hashes and oracle_adjudication_notes reference the oracle hash.',
+            '## Abort Criteria',
+            'Halt rollback if smoke test fails or replay_passes=false.',
+            '## Impact',
+            'TTD: 0m; TTM: 8m; TTR: 35m; peak error rate: 18%; affected users: 2%.',
+            '## Counterfactual Check',
+            'Counterfactual: an alternate outcome fails first when 20% of traffic bypasses cache.',
+            '## Confidence Calibration',
+            'Confidence level: medium because oracle hash is still hidden.',
+        ]));
+
+        $this->seedComparableRun(
+            $paths,
+            atlasOverrides: ['patch_diff_path' => $atlasPatch, 'patch_diff_bytes' => 4_000],
+            rivalOverrides: ['patch_diff_path' => $rivalPatch, 'patch_diff_bytes' => 4_000],
+            manifestOverrides: [
+                'case_set' => 'ceiling-360',
+                'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
+                'ceiling_pressure_profile' => [
+                    'schema_version' => 'atlas.forge.rivals.ceiling_pressure_profile.v1',
+                    'pressure_level' => 'L5++',
+                ],
+            ],
+        );
+
+        $dimension = $this->adjudicator
+            ->adjudicate(['run_id' => $runId])['scorecard']['quality_dimensions']['ceiling_360_contract'];
+
+        $this->assertGreaterThan($dimension['atlas'], $dimension['rival']);
+        $this->assertTrue($dimension['markers']['rival']['hidden_oracle_hypotheses']);
+        $this->assertTrue($dimension['markers']['rival']['failure_mode_matrix']);
+        $this->assertTrue($dimension['markers']['rival']['stop_block_criteria']);
+        $this->assertTrue($dimension['markers']['rival']['telemetry_delta']);
+        $this->assertTrue($dimension['markers']['rival']['counterfactual_check']);
+        $this->assertTrue($dimension['markers']['rival']['blast_radius_quantification']);
+        $this->assertTrue($dimension['markers']['rival']['confidence_calibration']);
+        $this->assertGreaterThanOrEqual(4, $dimension['markers']['rival_depth']['adversarial_hits']);
+    }
+
+    public function test_ceiling_360_contract_scores_provider_stdout_evidence_when_patch_is_code_only(): void
+    {
+        $runId = $this->newRunId('ceiling-stdout-evidence');
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        $atlasPatch = $paths['evidence'].'/atlas_patch.diff';
+        $rivalPatch = $paths['evidence'].'/rival_patch.diff';
+        $atlasStdout = $paths['evidence'].'/atlas_stdout.log';
+        $rivalStdout = $paths['evidence'].'/rival_stdout.log';
+
+        file_put_contents($atlasPatch, 'code-only change with no operational prose');
+        file_put_contents($rivalPatch, 'code-only change with no operational prose');
+        file_put_contents($atlasStdout, implode("\n", [
+            '## Facts Observed',
+            '## Assumptions',
+            '## Reversible Decisions',
+            '## Tradeoff Matrix',
+            '## Rollback Plan',
+            '## Replay/Negative Regression Probe',
+            '## Production Invariants',
+            '## Uncertainty Boundary',
+            '## Capability-Specific Evidence',
+            '## Contradiction Resolution',
+            '## Hidden Oracle Hypotheses',
+            'Oracle hash remains hidden, so confidence is bounded.',
+            '## Failure Mode Matrix',
+            '## Stop/Block Criteria',
+            'Auto-halt if replay_passes=false or p99 > 500ms.',
+            '## Telemetry Delta',
+            'Before: p99=480ms after: p99=220ms; TTD=1m TTM=6m TTR=20m.',
+            '## Counterfactual Check',
+            'Counterfactual: the alternate outcome would fail first under 20% traffic.',
+            '## Blast Radius',
+            'Blast radius: affected users=2%, severity=high.',
+            '## Confidence Calibration',
+            'Confidence: 78% because hidden oracle evidence is unavailable.',
+        ]));
+        file_put_contents($rivalStdout, 'Short final answer without L5++ evidence sections.');
+
+        $this->seedComparableRun(
+            $paths,
+            atlasOverrides: [
+                'patch_diff_path' => $atlasPatch,
+                'stdout_path' => $atlasStdout,
+                'patch_diff_bytes' => 3_000,
+            ],
+            rivalOverrides: [
+                'patch_diff_path' => $rivalPatch,
+                'stdout_path' => $rivalStdout,
+                'patch_diff_bytes' => 3_000,
+            ],
+            manifestOverrides: [
+                'case_set' => 'ceiling-360',
+                'case_id' => 'ceiling-360-002-industrial-010-product',
+                'ceiling_pressure_profile' => [
+                    'schema_version' => 'atlas.forge.rivals.ceiling_pressure_profile.v1',
+                    'pressure_level' => 'L5++',
+                ],
+            ],
+        );
+
+        $dimension = $this->adjudicator
+            ->adjudicate(['run_id' => $runId])['scorecard']['quality_dimensions']['ceiling_360_contract'];
+
+        $this->assertGreaterThan(90.0, $dimension['atlas']);
+        $this->assertLessThan(30.0, $dimension['rival']);
+        $this->assertTrue($dimension['markers']['atlas']['counterfactual_check']);
+        $this->assertTrue($dimension['markers']['atlas']['blast_radius_quantification']);
+        $this->assertTrue($dimension['markers']['atlas']['confidence_calibration']);
+        $this->assertGreaterThanOrEqual(7, $dimension['markers']['atlas_depth']['adversarial_hits']);
+    }
+
+    public function test_ceiling_360_contract_recognizes_machine_readable_confidence_calibration_section(): void
+    {
+        $runId = $this->newRunId('ceiling-confidence-underscore');
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        $atlasPatch = $paths['evidence'].'/atlas_patch.diff';
+        $rivalPatch = $paths['evidence'].'/rival_patch.diff';
+
+        file_put_contents($atlasPatch, implode("\n", [
+            '## confidence_calibration',
+            '| Decisao | Confidence | Nivel | Razao |',
+            '| Test passara | 0.97 | Alta | Evidencia local e replay_passes=true |',
+        ]));
+        file_put_contents($rivalPatch, 'implementation summary with local tests and replay notes only');
+
+        $this->seedComparableRun(
+            $paths,
+            atlasOverrides: [
+                'patch_diff_path' => $atlasPatch,
+                'patch_diff_bytes' => 3_000,
+            ],
+            rivalOverrides: [
+                'patch_diff_path' => $rivalPatch,
+                'patch_diff_bytes' => 3_000,
+            ],
+            manifestOverrides: [
+                'case_set' => 'ceiling-360',
+                'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
+                'ceiling_pressure_profile' => [
+                    'schema_version' => 'atlas.forge.rivals.ceiling_pressure_profile.v1',
+                    'pressure_level' => 'L5++',
+                ],
+            ],
+        );
+
+        $dimension = $this->adjudicator
+            ->adjudicate(['run_id' => $runId])['scorecard']['quality_dimensions']['ceiling_360_contract'];
+
+        $this->assertTrue($dimension['markers']['atlas']['confidence_calibration']);
+        $this->assertFalse($dimension['markers']['rival']['confidence_calibration']);
+        $this->assertGreaterThanOrEqual(1, $dimension['markers']['atlas_depth']['section_hits']);
+    }
+
+    public function test_ceiling_360_contract_recognizes_machine_readable_stop_and_failure_sections(): void
+    {
+        $runId = $this->newRunId('ceiling-stop-failure-underscore');
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        $atlasPatch = $paths['evidence'].'/atlas_patch.diff';
+        $rivalPatch = $paths['evidence'].'/rival_patch.diff';
+
+        file_put_contents($atlasPatch, implode("\n", [
+            '## failure_mode_matrix',
+            '| Mode | Escape | Detection |',
+            '| checkpoint drift | stale replay hash | replay_passes=false |',
+            '## stop_block_criteria',
+            '- Block if replay_passes=false.',
+            '- Abort if p99 > 500ms after rollout.',
+        ]));
+        file_put_contents($rivalPatch, 'implementation summary with rollback and replay notes only');
+
+        $this->seedComparableRun(
+            $paths,
+            atlasOverrides: [
+                'patch_diff_path' => $atlasPatch,
+                'patch_diff_bytes' => 3_000,
+            ],
+            rivalOverrides: [
+                'patch_diff_path' => $rivalPatch,
+                'patch_diff_bytes' => 3_000,
+            ],
+            manifestOverrides: [
+                'case_set' => 'ceiling-360',
+                'case_id' => 'ceiling-360-006-industrial-030-multi_day_task',
+                'ceiling_pressure_profile' => [
+                    'schema_version' => 'atlas.forge.rivals.ceiling_pressure_profile.v1',
+                    'pressure_level' => 'L5++',
+                ],
+            ],
+        );
+
+        $dimension = $this->adjudicator
+            ->adjudicate(['run_id' => $runId])['scorecard']['quality_dimensions']['ceiling_360_contract'];
+
+        $this->assertTrue($dimension['markers']['atlas']['failure_mode_matrix']);
+        $this->assertTrue($dimension['markers']['atlas']['stop_block_criteria']);
+        $this->assertFalse($dimension['markers']['rival']['failure_mode_matrix']);
+        $this->assertFalse($dimension['markers']['rival']['stop_block_criteria']);
+        $this->assertGreaterThanOrEqual(2, $dimension['markers']['atlas_depth']['section_hits']);
     }
 
     public function test_weights_explicit_and_sum_to_one(): void

@@ -23,6 +23,9 @@ class AtlasProductDeliveryEnforcementService
         if (($delivery['status'] ?? null) !== 'ready_for_delivery') {
             $blockers[] = $this->blocker('delivery_not_ready', 'critical', 'APDR delivery contract is not ready.');
         }
+        if (data_get($delivery, 'aedpds.gate.status') !== 'passed') {
+            $blockers[] = $this->blocker('aedpds_gate_not_passed', 'critical', 'AEDPDS gate must pass before product delivery execution.');
+        }
 
         if (($delivery['product_truth']['schema_version'] ?? null) !== AtlasProductTruthCompilerService::SCHEMA_VERSION) {
             $blockers[] = $this->blocker('missing_product_truth_contract', 'critical', 'APTC Product Truth Contract is missing.');

@@ -22,6 +22,7 @@ class AtlasProductDeliveryRuntimeReceiptService
             'delivery_hash' => $this->nullableString($payload['delivery_hash'] ?? null),
             'proof_hash' => $this->nullableString($payload['proof_hash'] ?? null),
             'writes' => (bool) ($payload['writes'] ?? false),
+            'aedpds_gate' => $this->aedpdsGate($payload),
             'payload' => $payload,
         ];
         $receipt['receipt_hash'] = MissionCanonicalHash::sha256($receipt);
@@ -43,8 +44,23 @@ class AtlasProductDeliveryRuntimeReceiptService
             'delivery_hash' => $record->delivery_hash,
             'proof_hash' => $record->proof_hash,
             'writes' => (bool) $record->writes,
+            'aedpds_gate' => $this->aedpdsGate((array) $record->payload),
             'receipt_hash' => $record->receipt_hash,
             'created_at' => $record->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array{status:string,hash:string,warnings:list<string>,blockers:list<string>}
+     */
+    private function aedpdsGate(array $payload): array
+    {
+        return [
+            'status' => (string) data_get($payload, 'aedpds_gate.status', data_get($payload, 'delivery_contract.aedpds.gate.status', 'unknown')),
+            'hash' => (string) data_get($payload, 'aedpds_gate.hash', data_get($payload, 'delivery_contract.aedpds.gate.hash', '')),
+            'warnings' => $this->stringList(data_get($payload, 'aedpds_gate.warnings', data_get($payload, 'delivery_contract.aedpds.gate.warnings', []))),
+            'blockers' => $this->stringList(data_get($payload, 'aedpds_gate.blockers', data_get($payload, 'delivery_contract.aedpds.gate.blockers', []))),
         ];
     }
 
@@ -76,5 +92,20 @@ class AtlasProductDeliveryRuntimeReceiptService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 }

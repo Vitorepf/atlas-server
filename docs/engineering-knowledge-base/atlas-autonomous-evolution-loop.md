@@ -20,6 +20,7 @@ capabilities:
 decisions:
   - AAEL is a portfolio governor, not a free self-programming runtime.
   - AAEL must reuse Self-Improvement, Self-Construction, ASEIF, AWEOS, AVER and AEMOR instead of creating parallel runtimes.
+  - AAEL experiments must carry an AAEQ assisted-execution bridge with AEDPDS, AUCRI/ACMF, AREG and AEMOR feedback before promotion can be considered ready.
   - AAEL may plan and sandbox evolution work autonomously, but high-risk or irreversible promotion requires human approval.
   - AAEL must not run benchmarks, call providers directly or mutate production without certified evidence.
 maintenance:
@@ -148,6 +149,7 @@ Schemas:
 - `atlas.aael.audit_report.v1`
 - `atlas.aael.control_plane.v1`
 - `atlas.aael.certification.v1`
+- `atlas.aael.assisted_execution_bridge.v1`
 
 ## Fluxo
 
@@ -158,10 +160,12 @@ Schemas:
 5. It enforces Autonomy Budget.
 6. It runs Anti-Drift Doctrine Gate.
 7. It creates sandbox experiments for selected opportunities.
-8. It uses ASEIF to check whether capability should be built, reused or blocked.
-9. It uses AWEOS to create execution planning and verified sidecars.
-10. It creates promotion decisions with trust levels.
-11. It writes an audit report with Evolution Audit Court and learning plan.
+8. It attaches an AAEQ assisted-execution bridge so the experiment inherits
+   AEDPDS selection/gate, AUCRI/ACMF context, AREG path and AEMOR feedback.
+9. It uses ASEIF to check whether capability should be built, reused or blocked.
+10. It uses AWEOS to create execution planning and verified sidecars.
+11. It creates promotion decisions with trust levels.
+12. It writes an audit report with Evolution Audit Court and learning plan.
 
 ## Regras para IA
 
@@ -172,6 +176,7 @@ Schemas:
 - Never mutate production directly from AAEL.
 - Always preserve rollback, evidence and promotion decision records.
 - Treat AAEL as portfolio governance, not as a chat response pattern.
+- Do not mark an experiment promotion-ready when the AAEQ/AEDPDS/AREG/AEMOR bridge is missing or not ready.
 
 ## Escopo de Implementacao
 
@@ -184,6 +189,7 @@ Implemented runtime scope:
 - impact simulation;
 - anti-drift doctrine gate;
 - sandbox experiment creation;
+- AAEQ assisted-execution bridge for AEDPDS, context, AREG and AEMOR feedback;
 - promotion trust levels;
 - self-evolution memory plan;
 - dormant capability activation plan;
@@ -204,6 +210,7 @@ Out of scope:
 AAEL depends on:
 
 - Atlas Self-Construction OS for governed Atlas-building-Atlas work;
+- AAEQ/AEDPDS for assisted execution doctrine and gate selection;
 - ASEIF for capability build/buy/borrow and simulation;
 - AWEOS for autonomous execution planning;
 - AVER for verified execution evidence;
@@ -229,6 +236,12 @@ php artisan atlas:aael control-plane --json
 php artisan atlas:aael:certify --json --strict
 ```
 
+The certification includes `assisted_execution_bridge`, which proves that a
+selected AAEL experiment receives `atlas.aael.assisted_execution_bridge.v1`.
+The bridge stores only status, drivers, route, context status, AREG path,
+AEMOR feedback status and hashes. It does not expose the raw objective, invoke
+providers, run benchmarks or persist additional outcome feedback.
+
 ## Riscos
 
 - Overengineering: mitigated by reuse-first policy.
@@ -243,7 +256,8 @@ php artisan atlas:aael:certify --json --strict
 Low-risk docs/test improvement:
 
 ```text
-opportunity -> auto_safe_sandbox -> AWEOS plan -> AVER evidence -> promotion_ready
+opportunity -> auto_safe_sandbox -> AAEQ/AEDPDS/AREG/AEMOR bridge
+-> AWEOS plan -> AVER evidence -> promotion_ready
 ```
 
 Router/provider topology change:

@@ -113,6 +113,14 @@ class AtlasAiControlPlaneService
 
     private const BLOCKER_LIMIT = 50;
 
+    /**
+     * Runtime projections required for a workspace to be considered fully
+     * operational by the control plane.
+     *
+     * @var array<int,string>
+     */
+    private const REQUIRED_WORKSPACE_INTELLIGENCE_FAMILIES = ['AWCO', 'AWEF', 'AWIL', 'AWNSB', 'AWTR'];
+
     public function __construct(
         private readonly AtlasAiLearningLoopService $learningLoop,
     ) {}
@@ -198,7 +206,7 @@ class AtlasAiControlPlaneService
             'persistent_context_total' => $persistentContext['total'],
             'persistent_context_blocked' => $persistentContext['blocked'],
             'workspace_intelligence_snapshots_total' => $workspaceIntelligence['summary']['total'] ?? 0,
-            'workspace_intelligence_blocked' => ($workspaceIntelligence['summary']['blocked'] ?? 0) + ($workspaceIntelligence['summary']['stale'] ?? 0) + ($workspaceIntelligence['summary']['artifact_graph_blocked'] ?? 0) + ($workspaceIntelligence['summary']['artifact_graph_stale'] ?? 0),
+            'workspace_intelligence_blocked' => ($workspaceIntelligence['summary']['blocked'] ?? 0) + ($workspaceIntelligence['summary']['stale'] ?? 0) + ($workspaceIntelligence['summary']['missing_required_families'] ?? 0) + ($workspaceIntelligence['summary']['artifact_graph_blocked'] ?? 0) + ($workspaceIntelligence['summary']['artifact_graph_stale'] ?? 0),
             'workspace_intelligence_workspaces_total' => $workspaceIntelligence['summary']['workspaces_total'] ?? 0,
             'aemor_episodes_total' => $aemor['summary']['episodes_total'] ?? 0,
             'aemor_blocked_outcomes' => $aemor['summary']['blocked'] ?? 0,
@@ -436,7 +444,10 @@ class AtlasAiControlPlaneService
                 'artifact_graph_stale' => 0,
                 'workspaces_total' => 0,
                 'families_total' => 0,
+                'required_families_total' => count(self::REQUIRED_WORKSPACE_INTELLIGENCE_FAMILIES),
+                'missing_required_families' => 0,
             ],
+            'required_families' => self::REQUIRED_WORKSPACE_INTELLIGENCE_FAMILIES,
             'by_family' => [],
             'by_workspace' => [],
             'latest' => [],
@@ -583,6 +594,22 @@ class AtlasAiControlPlaneService
         $summary['artifact_graph_total'] = (int) data_get($artifactGraph, 'summary.total', 0);
         $summary['artifact_graph_blocked'] = (int) data_get($artifactGraph, 'summary.blocked', 0);
         $summary['artifact_graph_stale'] = (int) data_get($artifactGraph, 'summary.stale', 0);
+        foreach ($byWorkspace as $workspaceId => &$workspace) {
+            $presentFamilies = array_keys((array) ($workspace['families'] ?? []));
+            $missingFamilies = array_values(array_diff(self::REQUIRED_WORKSPACE_INTELLIGENCE_FAMILIES, $presentFamilies));
+            sort($missingFamilies);
+            $workspace['missing_required_families'] = $missingFamilies;
+            $summary['missing_required_families'] += count($missingFamilies);
+            foreach ($missingFamilies as $family) {
+                $blockers[] = [
+                    'kind' => 'workspace_intelligence_required_projection_missing',
+                    'workspace_id' => (string) $workspaceId,
+                    'family' => $family,
+                    'detail' => 'AWIS control plane requires the full runtime projection family for an operational workspace',
+                ];
+            }
+        }
+        unset($workspace);
         $shadowExecution = $this->workspaceArtifactShadowExecution(array_keys($workspaceIds));
         foreach ((array) ($shadowExecution['blockers'] ?? []) as $blocker) {
             if (is_array($blocker)) {
@@ -596,6 +623,7 @@ class AtlasAiControlPlaneService
             'schema_version' => 'atlas.workspace_intelligence.control_plane.v1',
             'status' => $blockers === [] ? 'ready' : 'blocked',
             'summary' => $summary,
+            'required_families' => self::REQUIRED_WORKSPACE_INTELLIGENCE_FAMILIES,
             'by_family' => array_values($byFamily),
             'by_workspace' => array_map(static function (array $workspace): array {
                 $workspace['families'] = array_keys($workspace['families']);

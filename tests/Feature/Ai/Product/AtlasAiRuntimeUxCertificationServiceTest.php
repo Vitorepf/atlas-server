@@ -10,7 +10,7 @@ use Tests\TestCase;
 /**
  * Atlas AI · Runtime UX Certification feature test.
  *
- * Guards: envelope canon stable, all 7 UX checks pass on current tree,
+ * Guards: envelope canon stable, all 8 UX checks pass on current tree,
  * hash deterministic, and the underlying readiness endpoint exposes
  * `ux_bundle` outside the deterministic certification_hash.
  */
@@ -28,7 +28,7 @@ class AtlasAiRuntimeUxCertificationServiceTest extends TestCase
         $this->assertArrayHasKey('checks', $report);
         $this->assertArrayHasKey('certification_hash', $report);
         $this->assertSame(64, strlen((string) $report['certification_hash']));
-        $this->assertSame(7, count($report['checks']));
+        $this->assertSame(8, count($report['checks']));
         $this->assertFalse($report['writes']);
         $this->assertSame('runtime_ux_layer_only', $report['claims']['scope']);
     }
@@ -52,6 +52,7 @@ class AtlasAiRuntimeUxCertificationServiceTest extends TestCase
 
         $expected = [
             'backend_ux_bundle',
+            'assisted_execution_operational_ux',
             'desktop_view_model_extended',
             'desktop_pill_exists_and_wired',
             'mobile_view_model_extended',
@@ -79,6 +80,16 @@ class AtlasAiRuntimeUxCertificationServiceTest extends TestCase
         $this->assertArrayHasKey('active_mission', $payload['ux_bundle']);
         $this->assertArrayHasKey('pending_approvals_count', $payload['ux_bundle']);
         $this->assertArrayHasKey('latest_handoff', $payload['ux_bundle']);
+        $this->assertArrayHasKey('assisted_execution', $payload['ux_bundle']);
+        $this->assertSame(
+            'atlas.ai.assisted_execution.operational_ux.v1',
+            $payload['ux_bundle']['assisted_execution']['schema_version'],
+        );
+        $this->assertArrayHasKey('doctrine_gate_status', $payload['ux_bundle']['assisted_execution']);
+        $this->assertArrayHasKey('selected_drivers', $payload['ux_bundle']['assisted_execution']);
+        $this->assertArrayHasKey('context_memory_status', $payload['ux_bundle']['assisted_execution']);
+        $this->assertArrayHasKey('areg_path', $payload['ux_bundle']['assisted_execution']);
+        $this->assertArrayHasKey('aemor_feedback_status', $payload['ux_bundle']['assisted_execution']);
 
         // Recompute hash WITHOUT ux_bundle — must equal certification_hash.
         $forHash = $payload;
@@ -109,6 +120,7 @@ class AtlasAiRuntimeUxCertificationServiceTest extends TestCase
                 'active_mission',
                 'pending_approvals_count',
                 'latest_handoff',
+                'assisted_execution',
             ],
         ]);
     }

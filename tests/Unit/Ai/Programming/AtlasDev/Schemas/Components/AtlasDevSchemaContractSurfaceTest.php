@@ -29,7 +29,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Schema-contract surface test: every AtlasDevSchemaContract implementation

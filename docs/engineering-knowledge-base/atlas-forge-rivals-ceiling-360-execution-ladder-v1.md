@@ -142,7 +142,7 @@ Fora de escopo:
 ## Ceiling 360
 
 `ceiling-360` e o preset de teto pratico para runners de proxima geracao:
-120 casos L5 com perfil de pressao `L5+`. Todos declaram risco `critical`,
+120 casos L5 com perfil de pressao `L5++`. Todos declaram risco `critical`,
 ambiguidade alta, contexto longo, planejamento dominante
 (`planning_weight >= 0.70`) e cobertura explicita das capacidades obrigatorias
 de 360:
@@ -159,6 +159,9 @@ de 360:
 - `uncertainty_boundary_quality`
 - `production_invariant_reasoning`
 - `capability_separation_signal`
+- `counterfactual_reasoning`
+- `blast_radius_quantification`
+- `confidence_calibration`
 
 Um empate em `ceiling-360` nunca vira claim real sozinho. Ele exige separacao
 estatistica, replay e revisao humana.
@@ -168,15 +171,18 @@ Cada caso `ceiling-360` tambem carrega
 (`atlas.forge.rivals.ceiling_pressure_profile.v1`) para evitar que um teste
 grande ainda seja facil. O floor minimo e:
 
-- `pressure_level=L5+`
-- `estimated_context_tokens >= 12000`
-- `reasoning_depth >= 6`
+- `pressure_level=L5++`
+- `estimated_context_tokens >= 18000`
+- `reasoning_depth >= 8`
 - constraints parcialmente conflitantes;
 - regressao nao obvia;
 - invariantes de producao;
 - rollback e replay matrix;
 - fronteira honesta de incerteza;
-- autoavaliacao por capacidade medida.
+- autoavaliacao por capacidade medida;
+- contrafactual de qual solucao falharia primeiro;
+- blast radius quantificado;
+- calibracao de confianca por decisao.
 
 Esse perfil aumenta a dificuldade do prompt/corpus sem alterar o limite de
 seguranca: dry-run continua sem provider, local_fake nao vira claim e real-run
@@ -195,6 +201,44 @@ deterministicos do contrato L5+:
 - fronteira honesta de incerteza;
 - invariantes de producao;
 - evidencia especifica por capacidade.
+
+### Extensao L5++
+
+Quando baterias L5 continuam empatando, `ceiling-360` sobe para pressao L5++
+sem criar claim externo. L5++ nao muda provider routing e nao chama LLM juiz;
+ele adiciona marcadores que tornam a diferenca operacional mais visivel:
+
+- resolucao de contradicoes e constraints conflitantes;
+- hipoteses sobre oraculo escondido ou oracle hash;
+- matriz/modos de falha que ainda poderiam escapar;
+- criterios objetivos de stop/block/abort;
+- telemetria delta mensuravel antes/depois.
+- contrafactual anti-empate: qual decisao falharia primeiro em producao;
+- blast radius quantificado por usuarios, trafego, severidade ou custo;
+- confianca calibrada com probabilidade/likelihood e evidencia restante.
+
+O prompt deve pedir as secoes obrigatorias:
+`Contradiction Resolution`, `Hidden Oracle Hypotheses`,
+`Failure Mode Matrix`, `Stop/Block Criteria`, `Telemetry Delta`,
+`Counterfactual Check`, `Blast Radius` e `Confidence Calibration`, alem das
+secoes L5+ existentes. O adjudicator tambem aceita variantes operacionais
+comuns como `Abort Criteria`, `Contributing Factors`, `Oracle hash`,
+`TTD/TTM/TTR`, `peak error rate`, `affected users`, `what would fail first`,
+`confidence_calibration`, `calibrated confidence`, `probabilidade` e
+`accepted for speed`.
+
+Isso evita dois falsos sinais:
+
+- empate global escondendo superioridade em profundidade operacional;
+- texto longo passando como evidencia quando nao cobre stop criteria,
+  telemetry delta, hidden-oracle reasoning ou contrafactual anti-empate.
+
+O contrato L5++ precisa estar no prompt real, nao apenas no manifest. O
+`RunRealService` deve transportar o `human_prompt` canonico e o
+`ceiling_pressure_profile` para todos os modos de prompt, incluindo
+`enterprise-change`; caso contrario a matriz aparenta estar no teto, mas o
+provider so recebeu objetivo/regra/aceite simplificados e a medicao fica
+subpressionada.
 
 Essa medicao nao usa LLM juiz, nao chama provider e nao altera routing. Ela
 existe para expor diferenca entre respostas que passam o mesmo teste rapido mas

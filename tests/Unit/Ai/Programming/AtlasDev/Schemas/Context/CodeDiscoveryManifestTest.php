@@ -10,7 +10,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\MissingRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use InvalidArgumentException;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class CodeDiscoveryManifestTest extends TestCase
 {

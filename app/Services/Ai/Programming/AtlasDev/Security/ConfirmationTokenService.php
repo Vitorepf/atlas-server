@@ -6,8 +6,8 @@ namespace App\Services\Ai\Programming\AtlasDev\Security;
 
 use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
 use App\Models\AtlasDevConfirmationToken;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
@@ -28,7 +28,9 @@ use InvalidArgumentException;
  */
 class ConfirmationTokenService
 {
-    public function __construct() {}
+    public function __construct(
+        private readonly ?ConfigRepository $config = null,
+    ) {}
 
     /**
      * Mint a single-use confirmation token bound to (run_id, task_contract_hash,
@@ -49,9 +51,9 @@ class ConfirmationTokenService
         $this->assertNonEmpty('task_contract_hash', $taskContractHash);
         $this->assertNonEmpty('surface_id', $surfaceId);
 
-        $bytes = max(16, (int) config('atlas_dev.confirmation_token.plaintext_bytes', 32));
+        $bytes = max(16, (int) $this->config('atlas_dev.confirmation_token.plaintext_bytes', 32));
         $plaintext = $this->generatePlaintext($bytes);
-        $ttl = max(30, (int) config('atlas_dev.confirmation_token.ttl_seconds', 300));
+        $ttl = max(30, (int) $this->config('atlas_dev.confirmation_token.ttl_seconds', 300));
 
         $now = Carbon::now();
         $expiresAt = $now->copy()->addSeconds($ttl);
@@ -93,10 +95,12 @@ class ConfirmationTokenService
             return ConfirmationTokenResult::fail(ConfirmationTokenResult::REASON_KEY_MISSING);
         }
 
-        return DB::transaction(function () use ($runId, $taskContractHash, $hash): ConfirmationTokenResult {
+        $connection = (new AtlasDevConfirmationToken)->getConnection();
+
+        return $connection->transaction(function () use ($connection, $runId, $taskContractHash, $hash): ConfirmationTokenResult {
             $query = AtlasDevConfirmationToken::query()->where('token_hash', $hash);
 
-            if (DB::connection()->getDriverName() !== 'sqlite') {
+            if ($connection->getDriverName() !== 'sqlite') {
                 $query->lockForUpdate();
             }
 
@@ -165,7 +169,7 @@ class ConfirmationTokenService
      */
     public function signingKey(): string
     {
-        $raw = (string) config('app.key', '');
+        $raw = (string) $this->config('app.key', '');
 
         // Laravel stores keys as "base64:..." — accept the decoded bytes when
         // present, fall back to the raw string when not (e.g. testing env
@@ -186,6 +190,19 @@ class ConfirmationTokenService
     private function generatePlaintext(int $bytes): string
     {
         return rtrim(strtr(base64_encode(random_bytes($bytes)), '+/', '-_'), '=');
+    }
+
+    private function config(string $key, mixed $default): mixed
+    {
+        if ($this->config !== null) {
+            return $this->config->get($key, $default);
+        }
+
+        try {
+            return config($key, $default);
+        } catch (\Throwable) {
+            return $default;
+        }
     }
 
     private function assertNonEmpty(string $field, string $value): void

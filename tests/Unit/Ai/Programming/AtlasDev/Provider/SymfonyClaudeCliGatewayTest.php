@@ -8,8 +8,8 @@ use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliRequest;
 use App\Services\Ai\Programming\AtlasDev\Provider\SymfonyClaudeCliGateway;
 use Illuminate\Config\Repository;
 use InvalidArgumentException;
+use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
-use Tests\TestCase;
 
 final class SymfonyClaudeCliGatewayTest extends TestCase
 {

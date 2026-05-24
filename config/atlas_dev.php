@@ -68,7 +68,9 @@ return [
 
     'receipts_path' => env(
         'ATLAS_DEV_RECEIPTS_PATH',
-        function_exists('storage_path') ? storage_path('atlas-dev/receipts') : sys_get_temp_dir().'/atlas-dev/receipts',
+        function_exists('storage_path') && method_exists(app(), 'storagePath')
+            ? storage_path('atlas-dev/receipts')
+            : sys_get_temp_dir().'/atlas-dev/receipts',
     ),
 
     // F-01: under PHP-FPM the SSE endpoint cannot keep a worker pinned, so the

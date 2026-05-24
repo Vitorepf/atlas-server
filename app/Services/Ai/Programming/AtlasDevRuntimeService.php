@@ -135,6 +135,16 @@ class AtlasDevRuntimeService
             $payload['atlas_dev_runtime']['artifact_agent_packet_blockers'] = $artifactAgentPacketAllowed;
         }
 
+        $workspaceGate = $this->workspaceExecutionGate?->gate(
+            workspace: $workspace,
+            mode: 'dev',
+            task: $this->stringValue($payload['input_text'] ?? null)
+                ?? $this->stringValue($payload['prompt'] ?? null)
+                ?? $flowId,
+        );
+        $workspaceContextSelection = $this->workspaceContextSelection($workspaceGate);
+        $payload['atlas_dev_runtime']['workspace_context_selection'] = $workspaceContextSelection;
+
         $runtimeIntelligence = (new DevRuntimeIntelligenceService)->preview([
             'run_id' => $this->stringValue($payload['run_id'] ?? null)
                 ?? $this->stringValue($payload['trace_id'] ?? null)
@@ -148,23 +158,35 @@ class AtlasDevRuntimeService
             'workspace_slug' => $workspace,
             'allowed_files' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'allowed_paths', data_get($payload, 'tool_permissions.allowed_files', []))),
             'forbidden_files' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'forbidden_paths', data_get($payload, 'tool_permissions.forbidden_files', []))),
-            'context_refs' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'context_refs', $payload['context_refs'] ?? [])),
+            'context_refs' => $this->mergeStrings(
+                $this->arrayOfStrings(data_get($artifactAgentPacket, 'context_refs', $payload['context_refs'] ?? [])),
+                (array) ($workspaceContextSelection['context_refs'] ?? []),
+            ),
             'expected_files' => $this->arrayOfStrings($payload['expected_files'] ?? []),
-            'suggested_tests' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'test_plan', $payload['suggested_tests'] ?? [])),
+            'suggested_tests' => $this->mergeStrings(
+                $this->arrayOfStrings(data_get($artifactAgentPacket, 'test_plan', $payload['suggested_tests'] ?? [])),
+                (array) ($workspaceContextSelection['suggested_tests'] ?? []),
+            ),
             'acceptance_criteria' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'done_when', $payload['acceptance_criteria'] ?? [])),
             'required_evidence' => self::EXPECTED_ARTIFACTS,
-            'source' => $artifactAgentPacket !== null ? 'AtlasDevRuntimeService:artifact_agent_packet' : 'AtlasDevRuntimeService',
+            'source' => $artifactAgentPacket !== null
+                ? 'AtlasDevRuntimeService:artifact_agent_packet+awis_context_loading_plan'
+                : 'AtlasDevRuntimeService:awis_context_loading_plan',
         ]);
         $payload['atlas_dev_runtime_intelligence'] = $runtimeIntelligence;
-        $workspaceGate = $this->workspaceExecutionGate?->gate(
-            workspace: $workspace,
-            mode: 'dev',
-            task: $this->stringValue($payload['input_text'] ?? null)
-                ?? $this->stringValue($payload['prompt'] ?? null)
-                ?? $flowId,
-        );
         if (is_array($workspaceGate)) {
             $payload['atlas_dev_runtime']['workspace_execution_gate'] = $workspaceGate;
+            $payload['atlas_dev_runtime']['workspace_next_session_brain'] = [
+                'schema_version' => 'atlas.dev_runtime.workspace_next_session_brain.v1',
+                'brain_hash' => data_get($workspaceGate, 'execution_context.workspace_next_session_brain_hash'),
+                'load_order' => array_values((array) data_get($workspaceGate, 'execution_context.load_order', [])),
+                'focused_repositories' => array_values((array) data_get($workspaceGate, 'execution_context.focused_repositories', [])),
+                'focused_areas' => array_values((array) data_get($workspaceGate, 'execution_context.focused_areas', [])),
+                'execution_priority' => array_values((array) data_get($workspaceGate, 'execution_context.execution_priority', [])),
+                'context_loading_plan' => (array) data_get($workspaceGate, 'execution_context.context_loading_plan', []),
+                'provider_safe' => (bool) data_get($workspaceGate, 'execution_context.provider_safe', false),
+                'raw_content_returned' => false,
+            ];
         }
         $handoffPack = ($this->workspaceHandoffPack ?? app(AtlasWorkspaceHandoffPackService::class))->build(
             workspace: $workspace,
@@ -179,7 +201,7 @@ class AtlasDevRuntimeService
         $workspaceAllowed = ! is_array($workspaceGate) || (bool) ($workspaceGate['allowed'] ?? false);
         $handoffAllowed = ($handoffPack['status'] ?? null) === 'ready'
             && (bool) data_get($handoffPack, 'claim_policy.safe_for_provider_prompt', false);
-        $payload['atlas_dev_runtime']['provider_safe'] = $providerSafe && $handoffAllowed && $artifactAgentPacketAllowed === true;
+        $payload['atlas_dev_runtime']['provider_safe'] = $providerSafe && $workspaceAllowed && $handoffAllowed && $artifactAgentPacketAllowed === true;
         $payload['atlas_dev_runtime']['provider_execution_allowed'] = $providerSafe && $workspaceAllowed && $artifactAgentPacketAllowed === true;
         $payload['atlas_dev_runtime']['native_capability_status'] = (string) data_get($runtimeIntelligence, 'native_capabilities.status', 'unknown');
         $payload['atlas_dev_runtime']['native_capability_blockers'] = data_get($runtimeIntelligence, 'native_capabilities.blockers', []);
@@ -195,6 +217,72 @@ class AtlasDevRuntimeService
     public function supportedFlows(): array
     {
         return self::SUPPORTED_FLOWS;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $workspaceGate
+     * @return array<string,mixed>
+     */
+    private function workspaceContextSelection(?array $workspaceGate): array
+    {
+        $contextLoadingPlan = (array) data_get($workspaceGate, 'execution_context.context_loading_plan', []);
+        $contextRefs = [];
+        foreach ((array) data_get($workspaceGate, 'execution_context.focused_repositories', []) as $repository) {
+            if (! is_array($repository)) {
+                continue;
+            }
+            $repoKey = $this->stringValue($repository['repo_key'] ?? null);
+            if ($repoKey !== null) {
+                $contextRefs[] = 'awis_repo:'.$repoKey;
+            }
+        }
+
+        foreach ((array) ($contextLoadingPlan['focused_manifest_refs'] ?? []) as $manifestRef) {
+            if (! is_array($manifestRef)) {
+                continue;
+            }
+            $repoKey = $this->stringValue($manifestRef['repo_key'] ?? null);
+            if ($repoKey === null) {
+                continue;
+            }
+            foreach ($this->arrayOfStrings($manifestRef['manifest_files'] ?? []) as $manifestFile) {
+                $contextRefs[] = 'awis_manifest:'.$repoKey.':'.$manifestFile;
+            }
+        }
+
+        foreach ($this->arrayOfStrings($contextLoadingPlan['stack_tags'] ?? []) as $stackTag) {
+            $contextRefs[] = 'awis_stack:'.$stackTag;
+        }
+
+        $repositoryInventoryHash = $this->stringValue($contextLoadingPlan['repository_inventory_hash'] ?? null);
+        if ($repositoryInventoryHash !== null) {
+            $contextRefs[] = 'awis_cache:repository_inventory:'.$repositoryInventoryHash;
+        }
+
+        $suggestedTests = [];
+        foreach ((array) data_get($workspaceGate, 'execution_context.execution_priority', []) as $priority) {
+            if (! is_array($priority)) {
+                continue;
+            }
+            $command = $this->stringValue($priority['command'] ?? null);
+            if ($command !== null) {
+                $suggestedTests[] = $command;
+            }
+        }
+        $suggestedTests = $this->mergeStrings($suggestedTests, $this->arrayOfStrings($contextLoadingPlan['command_hints'] ?? []));
+
+        return [
+            'schema_version' => 'atlas.dev_runtime.awis_context_selection.v1',
+            'source' => 'workspace_next_session_brain.context_loading_plan',
+            'context_refs' => array_slice($this->mergeStrings([], $contextRefs), 0, 24),
+            'suggested_tests' => array_slice($this->mergeStrings([], $suggestedTests), 0, 12),
+            'repository_inventory_hash' => $repositoryInventoryHash,
+            'provider_safe' => data_get($workspaceGate, 'execution_context.provider_safe') === true
+                && data_get($workspaceGate, 'execution_context.context_loading_plan.provider_policy.raw_manifest_returned') === false
+                && data_get($workspaceGate, 'execution_context.context_loading_plan.provider_policy.script_bodies_returned') === false
+                && data_get($workspaceGate, 'execution_context.context_loading_plan.provider_policy.absolute_workspace_path_returned') === false,
+            'raw_content_returned' => false,
+        ];
     }
 
     /**
@@ -417,5 +505,15 @@ class AtlasDevRuntimeService
             fn (mixed $item): ?string => $this->stringValue($item),
             $value,
         ))));
+    }
+
+    /**
+     * @param  array<int,string>  $left
+     * @param  array<int,string>  $right
+     * @return array<int,string>
+     */
+    private function mergeStrings(array $left, array $right): array
+    {
+        return array_values(array_unique(array_filter(array_merge($left, $right), 'is_string')));
     }
 }

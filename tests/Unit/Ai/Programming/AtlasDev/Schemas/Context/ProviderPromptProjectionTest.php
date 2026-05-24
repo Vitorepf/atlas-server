@@ -9,7 +9,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\QualityChecks;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use InvalidArgumentException;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class ProviderPromptProjectionTest extends TestCase
 {

@@ -10,7 +10,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\MissingRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\PromptSections;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\QualityChecks;
 use InvalidArgumentException;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class ContextLayerComponentsTest extends TestCase
 {

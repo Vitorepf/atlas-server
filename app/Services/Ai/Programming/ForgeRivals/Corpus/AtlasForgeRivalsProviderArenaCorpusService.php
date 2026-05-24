@@ -1372,7 +1372,9 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             $case['human_prompt'] = $this->humanPromptForCase($case)
                 ."\n\nPressao adicional: trate este como caso de teto pratico do Rivals. Se faltar informacao para uma mudanca segura, bloqueie com evidencia; se seguir, entregue plano, rollback, matriz de replay, fronteiras de escopo e custo/risco por decisao."
                 ."\n\nPressao L5+: ha requisitos parcialmente conflitantes, um oraculo incompleto, sinais de regressao nao obvios e risco operacional alto. Nao otimize apenas para passar o teste rapido; explicite as invariantes que protegeriam producao e diga exatamente o que voce nao conseguiu provar."
-                ."\n\nSecoes obrigatorias para evidenciar capacidade 360: Facts Observed, Assumptions, Reversible Decisions, Tradeoff Matrix, Rollback Plan, Replay/Negative Regression Probe, Production Invariants, Uncertainty Boundary, Capability-Specific Evidence.";
+                ."\n\nPressao L5++: resolva explicitamente as contradicoes do prompt, formule hipoteses para o oraculo escondido, liste modos de falha que ainda poderiam escapar, defina criterios objetivos de stop/block e proponha telemetria delta mensuravel antes/depois."
+                ."\n\nPressao L5++ anti-empate: inclua um Counterfactual Check, quantifique Blast Radius e calibre Confidence por decisao. Se duas solucoes empatariam no teste rapido, explique qual falharia primeiro em producao e qual evidencia separaria essa diferenca."
+                ."\n\nSecoes obrigatorias para evidenciar capacidade 360: Facts Observed, Assumptions, Reversible Decisions, Tradeoff Matrix, Rollback Plan, Replay/Negative Regression Probe, Production Invariants, Uncertainty Boundary, Capability-Specific Evidence, Contradiction Resolution, Hidden Oracle Hypotheses, Failure Mode Matrix, Stop/Block Criteria, Telemetry Delta, Counterfactual Check, Blast Radius, Confidence Calibration.";
             $case['context_profile'] = $this->contextProfileForCase($case);
             $case['human_prompt_probe'] = $this->humanPromptProbeForCase($case);
 
@@ -1388,13 +1390,21 @@ final class AtlasForgeRivalsProviderArenaCorpusService
                 'required_signal' => [
                     'min_cases' => 120,
                     'difficulty_level' => self::DIFFICULTY_LEVEL_L5,
-                    'pressure_level' => 'L5+',
-                    'min_reasoning_depth' => 6,
-                    'min_estimated_context_tokens' => 12000,
+                    'pressure_level' => 'L5++',
+                    'min_reasoning_depth' => 8,
+                    'min_estimated_context_tokens' => 18000,
                     'requires_all_360_capabilities' => true,
                     'requires_adversarial_constraints' => true,
                     'requires_non_obvious_regression_probe' => true,
                     'requires_honest_uncertainty_boundary' => true,
+                    'requires_contradiction_resolution' => true,
+                    'requires_hidden_oracle_hypotheses' => true,
+                    'requires_failure_mode_matrix' => true,
+                    'requires_stop_block_criteria' => true,
+                    'requires_telemetry_delta' => true,
+                    'requires_counterfactual_check' => true,
+                    'requires_blast_radius_quantification' => true,
+                    'requires_confidence_calibration' => true,
                     'requires_separation_analysis' => true,
                     'tie_is_diagnostic_not_claim' => true,
                 ],
@@ -1457,10 +1467,10 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             (array) ($case['industrial_domains'] ?? []),
         )));
 
-        $complexity['pressure_level'] = 'L5+';
-        $complexity['estimated_context_tokens'] = max(12000, (int) ($complexity['estimated_context_tokens'] ?? 0) + 2500);
-        $complexity['reasoning_depth'] = max(6, (int) ($complexity['reasoning_depth'] ?? 0));
-        $complexity['scope_surface_count'] = max(8, (int) ($complexity['scope_surface_count'] ?? 0));
+        $complexity['pressure_level'] = 'L5++';
+        $complexity['estimated_context_tokens'] = max(18000, (int) ($complexity['estimated_context_tokens'] ?? 0) + 4500);
+        $complexity['reasoning_depth'] = max(8, (int) ($complexity['reasoning_depth'] ?? 0));
+        $complexity['scope_surface_count'] = max(12, (int) ($complexity['scope_surface_count'] ?? 0));
         $complexity['long_context_required'] = true;
         $complexity['requires_multi_step_plan'] = true;
         $complexity['requires_rollback_plan'] = true;
@@ -1476,6 +1486,14 @@ final class AtlasForgeRivalsProviderArenaCorpusService
                 'uncertainty_boundary_quality',
                 'production_invariant_reasoning',
                 'capability_separation_signal',
+                'contradiction_resolution_quality',
+                'hidden_oracle_reasoning',
+                'failure_mode_analysis',
+                'stop_block_criteria_quality',
+                'telemetry_delta_quality',
+                'counterfactual_reasoning',
+                'blast_radius_quantification',
+                'confidence_calibration',
             ],
             $this->extremeCapabilityAxes($case),
         )));
@@ -1494,10 +1512,10 @@ final class AtlasForgeRivalsProviderArenaCorpusService
     {
         return [
             'schema_version' => 'atlas.forge.rivals.ceiling_pressure_profile.v1',
-            'pressure_level' => 'L5+',
+            'pressure_level' => 'L5++',
             'purpose' => 'force measurable separation among strong runners after easy batteries tie',
-            'estimated_context_tokens_floor' => 12000,
-            'reasoning_depth_floor' => 6,
+            'estimated_context_tokens_floor' => 18000,
+            'reasoning_depth_floor' => 8,
             'requires' => [
                 'conflicting_constraints_analysis',
                 'non_obvious_regression_probe',
@@ -1505,6 +1523,13 @@ final class AtlasForgeRivalsProviderArenaCorpusService
                 'rollback_and_replay_matrix',
                 'honest_uncertainty_boundary',
                 'capability_specific_self_evaluation',
+                'hidden_oracle_hypothesis_generation',
+                'failure_mode_matrix',
+                'stop_block_criteria',
+                'telemetry_delta_measurement',
+                'counterfactual_check',
+                'blast_radius_quantification',
+                'confidence_calibration',
             ],
             'required_sections' => [
                 'facts_observed',
@@ -1516,6 +1541,14 @@ final class AtlasForgeRivalsProviderArenaCorpusService
                 'production_invariants',
                 'uncertainty_boundary',
                 'capability_specific_evidence',
+                'contradiction_resolution',
+                'hidden_oracle_hypotheses',
+                'failure_mode_matrix',
+                'stop_block_criteria',
+                'telemetry_delta',
+                'counterfactual_check',
+                'blast_radius',
+                'confidence_calibration',
             ],
             'invalid_if_missing' => [
                 'facts_assumptions_decisions_split',
@@ -1524,6 +1557,11 @@ final class AtlasForgeRivalsProviderArenaCorpusService
                 'negative_test_or_replay_probe',
                 'uncertainty_boundary',
                 'capability_specific_evidence',
+                'contradiction_resolution',
+                'failure_mode_matrix',
+                'stop_block_criteria',
+                'counterfactual_check',
+                'confidence_calibration',
             ],
             'capability_axes' => $capabilityAxes,
             'domain_pressure' => array_values(array_map(
@@ -1629,6 +1667,14 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'uncertainty_boundary_quality',
             'production_invariant_reasoning',
             'capability_separation_signal',
+            'contradiction_resolution_quality',
+            'hidden_oracle_reasoning',
+            'failure_mode_analysis',
+            'stop_block_criteria_quality',
+            'telemetry_delta_quality',
+            'counterfactual_reasoning',
+            'blast_radius_quantification',
+            'confidence_calibration',
         ], $this->extremeCapabilityAxes($case))));
     }
 

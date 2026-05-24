@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Product;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Engineering\EngineeringDocumentationHealthService;
 use Illuminate\Support\Facades\File;
 
 class AtlasAedpdsInspectionService
@@ -27,7 +28,7 @@ class AtlasAedpdsInspectionService
             'outcome_memory' => $this->item('app/Services/Ai/Product/AtlasProductDeliveryOutcomeMemoryService.php', ['outcome_memory', 'should_promote_to_aemor'], 'implemented_runtime'),
             'dev_task_packet' => $this->item('app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevTaskPacketRuntimeService.php', ['AtlasExecutionDoctrineRuntimeService', 'aedpds_context'], 'implemented_runtime'),
             'dev_context_gate' => $this->item('app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevContextGateService.php', ['aedpds_context:', 'owner_docs_or_context_refs'], 'implemented_runtime'),
-            'dev_run_certification' => $this->item('app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevRunCertificationService.php', ['aedpds_gate_status', 'aedpds_selected_drivers', 'certificationBlockers', 'aedpds_fail'], 'implemented_runtime'),
+            'dev_run_certification' => $this->item('app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevRunCertificationService.php', ['aedpds_gate_status', 'aedpds_selected_drivers', 'certificationBlockers', 'aedpds_fail', 'aedpds_gate_passed'], 'implemented_runtime'),
             'forge_intake' => $this->item('app/Services/Ai/Programming/AtlasCodeForgeWorkIntakeService.php', ['atlas.forge.aedpds_projection.v1', 'blocked_aedpds_'], 'implemented_runtime'),
             'forge_work_packet_capabilities' => $this->item('app/Services/Ai/Programming/Forge/Intelligence/ForgeWorkPacketCapabilityOrchestrator.php', ['atlas.forge.work_packet_aedpds_projection.v1', 'AEDPDS', 'AtlasExecutionDoctrineRuntimeService'], 'implemented_runtime'),
             'forge_outcome_memory' => $this->multiItem([
@@ -66,6 +67,7 @@ class AtlasAedpdsInspectionService
     public function certify(): array
     {
         $inspect = $this->inspect();
+        $docsHealth = app(EngineeringDocumentationHealthService::class)->report();
         $sample = app(AtlasExecutionDoctrineRuntimeService::class)->select([
             'task' => 'Implement API endpoint with auth and database migration',
             'surface' => 'atlas_dev',
@@ -119,6 +121,10 @@ class AtlasAedpdsInspectionService
 
         $checks = [
             'doctrine_doc_present' => $this->passed('doctrine_doc', $inspect),
+            'docs_health_green' => ($docsHealth['status'] ?? null) === 'ok'
+                && (int) data_get($docsHealth, 'summary.oversized_count', 0) === 0
+                && (int) data_get($docsHealth, 'summary.frontmatter_violation_count', 0) === 0
+                && (int) data_get($docsHealth, 'summary.canonical_module_violation_count', 0) === 0,
             'driver_registry_present' => count(AtlasExecutionDoctrineRuntimeService::DRIVERS) >= 20,
             'selector_service_present' => $this->passed('selector_service', $inspect),
             'gate_service_present' => $this->passed('gate_service', $inspect),
@@ -143,7 +149,7 @@ class AtlasAedpdsInspectionService
             'outcome_memory_present' => $this->passed('outcome_memory', $inspect),
             'command_surface_present' => $this->passed('commands', $inspect),
             'no_documentation_only_claims' => $this->passed('selector_service', $inspect) && $this->passed('gate_service', $inspect),
-            'sample_gate_passes' => ($gate['status'] ?? null) === 'passed' || ($gate['status'] ?? null) === 'warning',
+            'sample_gate_passes' => ($gate['status'] ?? null) === 'passed',
             'sample_gate_blocks_missing_artifacts' => ($blockedGate['status'] ?? null) === 'blocked'
                 && in_array('missing_contract_or_schema', (array) ($blockedGate['blockers'] ?? []), true)
                 && in_array('missing_senior_review_for_sensitive_change', (array) ($blockedGate['blockers'] ?? []), true),
@@ -162,6 +168,7 @@ class AtlasAedpdsInspectionService
             'sample' => [
                 'selected_drivers' => $sample['selected_primary_drivers'],
                 'gate_status' => $gate['status'],
+                'docs_health_status' => $docsHealth['status'] ?? 'unknown',
             ],
             'claim_policy' => [
                 'ready_requires_runtime_not_docs_only' => true,

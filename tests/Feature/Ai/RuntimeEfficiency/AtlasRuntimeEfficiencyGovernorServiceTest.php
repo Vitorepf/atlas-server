@@ -145,6 +145,24 @@ class AtlasRuntimeEfficiencyGovernorServiceTest extends TestCase
         $this->assertDatabaseCount('atlas_runtime_efficiency_outcomes', 1);
     }
 
+    public function test_record_outcome_can_emit_feedback_without_persisting(): void
+    {
+        $outcome = app(AtlasRuntimeEfficiencyGovernorService::class)->recordOutcome([
+            'decision_id' => null,
+            'status' => 'ready',
+            'quality_score' => 0.88,
+            'context_roi_score' => 0.79,
+            'signals' => ['source' => 'assisted_execution_feedback'],
+            'evidence_refs' => ['outcome:dry-run'],
+            'persist' => false,
+        ]);
+
+        $this->assertSame('atlas.runtime_efficiency_outcome.v1', $outcome['schema_version']);
+        $this->assertFalse($outcome['writes']);
+        $this->assertNotEmpty($outcome['outcome_hash']);
+        $this->assertDatabaseCount('atlas_runtime_efficiency_outcomes', 0);
+    }
+
     public function test_counterfactual_replay_scores_alternate_paths_without_provider_calls(): void
     {
         $replay = app(AtlasRuntimeEfficiencyGovernorService::class)->counterfactualReplay([

@@ -6,8 +6,8 @@ namespace App\Services\Ai\WorkspaceIntelligence;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
+use App\Services\AtlasCode\GitWorkspaceInspector;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\File;
 
 /**
  * Atlas Workspace Intelligence System runtime.
@@ -38,6 +38,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     public function __construct(
         private readonly AtlasCodeWorkspaceProfileService $profiles,
         private readonly AtlasWorkspaceExecutionBoundaryAuditService $boundaryAudit,
+        private readonly GitWorkspaceInspector $gitWorkspace,
     ) {}
 
     /**
@@ -48,17 +49,21 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     {
         $profile = $this->resolveProfile($workspace);
         $workspaceReport = $this->workspaceReport($profile);
+        $changeMemory = $this->workspaceChangeMemory($profile);
         $twin = $this->workspaceTwin($profile);
+        $repositoryInventory = (array) data_get($twin, 'repository_inventory', []);
         $continuity = $this->continuity($profile, $conversationTexts);
-        $artifacts = $this->artifacts($profile, $task, $twin, $continuity);
+        $focusMap = $this->workspaceFocusMap($profile, $task, $twin, $changeMemory);
+        $artifacts = $this->artifacts($profile, $task, $twin, $continuity, $focusMap);
         $artifactIntelligence = $this->artifactIntelligence($profile, $task, $artifacts, $twin, $continuity);
         $contracts = $this->contracts($workspaceReport, $artifacts);
         $evolution = $this->evolution($profile, $twin);
-        $learningLoop = $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution);
+        $nextSessionBrain = $this->workspaceNextSessionBrain($profile, $task, $workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap);
+        $learningLoop = $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $nextSessionBrain);
         $executionBoundaries = $this->executionBoundarySummary($this->boundaryAudit->audit());
         $registryEditing = $this->registryEditingSummary();
         $surfaceContracts = $this->surfaceContractSummary();
-        $checks = $this->checks($workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $executionBoundaries, $registryEditing, $surfaceContracts, $learningLoop);
+        $checks = $this->checks($workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $executionBoundaries, $registryEditing, $surfaceContracts, $learningLoop, $changeMemory, $focusMap, $nextSessionBrain, $repositoryInventory);
         $summary = $this->summary($checks);
 
         $payload = [
@@ -68,6 +73,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'summary' => $summary,
             'family' => self::FAMILY,
             'workspace' => $workspaceReport,
+            'repository_inventory' => $repositoryInventory,
+            'workspace_change_memory' => $changeMemory,
+            'workspace_focus_map' => $focusMap,
+            'workspace_next_session_brain' => $nextSessionBrain,
             'awtr' => $twin,
             'acios' => $continuity,
             'awaf' => $artifacts,
@@ -90,6 +99,16 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'ui_registry_editing_complete' => data_get($registryEditing, 'status') === 'ready',
                 'desktop_mobile_surface_contracts_complete' => data_get($surfaceContracts, 'status') === 'ready',
                 'workspace_learning_loop_closed' => data_get($learningLoop, 'closed_loop.loop_closed') === true,
+                'workspace_repository_inventory_provider_safe' => data_get($repositoryInventory, 'source_policy.raw_manifest_returned') === false
+                    && data_get($repositoryInventory, 'source_policy.script_bodies_returned') === false
+                    && data_get($repositoryInventory, 'source_policy.absolute_workspace_path_returned') === false,
+                'workspace_change_memory_provider_safe' => data_get($changeMemory, 'source_policy.raw_diff_returned') === false
+                    && data_get($changeMemory, 'source_policy.absolute_workspace_path_returned') === false,
+                'workspace_focus_map_provider_safe' => data_get($focusMap, 'source_policy.raw_file_content_returned') === false
+                    && data_get($focusMap, 'source_policy.absolute_workspace_path_returned') === false,
+                'workspace_next_session_brain_provider_safe' => data_get($nextSessionBrain, 'source_policy.raw_file_content_returned') === false
+                    && data_get($nextSessionBrain, 'source_policy.raw_conversation_returned') === false
+                    && data_get($nextSessionBrain, 'source_policy.absolute_workspace_path_returned') === false,
             ],
         ];
 
@@ -115,7 +134,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $workspaceReport = $this->workspaceReport($profile);
         $twin = $this->workspaceTwin($profile);
         $continuity = $this->continuity($profile, []);
-        $artifacts = $this->artifacts($profile, $task, $twin, $continuity);
+        $changeMemory = $this->workspaceChangeMemory($profile);
+        $focusMap = $this->workspaceFocusMap($profile, $task, $twin, $changeMemory);
+        $artifacts = $this->artifacts($profile, $task, $twin, $continuity, $focusMap);
 
         return $this->contracts($workspaceReport, $artifacts);
     }
@@ -138,14 +159,27 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     {
         $profile = $this->resolveProfile($workspace);
         $workspaceReport = $this->workspaceReport($profile);
+        $changeMemory = $this->workspaceChangeMemory($profile);
         $twin = $this->workspaceTwin($profile);
         $continuity = $this->continuity($profile, $conversationTexts);
-        $artifacts = $this->artifacts($profile, $task, $twin, $continuity);
+        $focusMap = $this->workspaceFocusMap($profile, $task, $twin, $changeMemory);
+        $artifacts = $this->artifacts($profile, $task, $twin, $continuity, $focusMap);
         $artifactIntelligence = $this->artifactIntelligence($profile, $task, $artifacts, $twin, $continuity);
         $contracts = $this->contracts($workspaceReport, $artifacts);
         $evolution = $this->evolution($profile, $twin);
+        $nextSessionBrain = $this->workspaceNextSessionBrain($profile, $task, $workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap);
 
-        return $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution);
+        return $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $nextSessionBrain);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function nextSessionBrain(?string $workspace = null, string $task = ''): array
+    {
+        $report = $this->certify(workspace: $workspace, task: $task, conversationTexts: []);
+
+        return (array) ($report['workspace_next_session_brain'] ?? []);
     }
 
     /**
@@ -207,6 +241,660 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     }
 
     /**
+     * Provider-safe memory of current workspace changes.
+     *
+     * @param  array<string,mixed>|null  $profile
+     * @return array<string,mixed>
+     */
+    private function workspaceChangeMemory(?array $profile): array
+    {
+        $base = [
+            'schema_version' => 'atlas.awis.workspace_change_memory.v1',
+            'status' => 'blocked',
+            'workspace_id' => $profile['slug'] ?? null,
+            'is_git' => false,
+            'branch' => null,
+            'head_sha_short' => null,
+            'dirty' => false,
+            'repository_count' => 0,
+            'repositories' => [],
+            'changed_file_count' => 0,
+            'changed_files_preview' => [],
+            'changed_files_truncated' => false,
+            'top_level_areas' => [],
+            'critical_areas_touched' => [],
+            'blocker_reason' => null,
+            'source_policy' => [
+                'raw_diff_returned' => false,
+                'absolute_workspace_path_returned' => false,
+                'provider_prompt_unit' => 'relative_paths_hashes_and_area_names_only',
+                'diff_hash_allowed' => true,
+            ],
+        ];
+
+        if ($profile === null) {
+            $base['blocker_reason'] = 'workspace_not_registered';
+            $base['change_hash'] = MissionCanonicalHash::sha256($base);
+
+            return $base;
+        }
+
+        $path = (string) ($profile['workspace_path'] ?? '');
+        if ($path === '' || ! (bool) ($profile['workspace_path_exists'] ?? false)) {
+            $base['blocker_reason'] = 'workspace_path_missing_or_inaccessible';
+            $base['change_hash'] = MissionCanonicalHash::sha256($base);
+
+            return $base;
+        }
+
+        $rootSnapshot = $this->gitWorkspace->captureProviderSafeSnapshot($path);
+        $rootHasDirectGitMetadata = @is_dir(rtrim($path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'.git')
+            || @is_file(rtrim($path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'.git');
+        $nestedRepositories = $this->discoverGitRepositories($path);
+        $snapshots = [];
+        if (($rootSnapshot['success'] ?? false) === true && ($rootHasDirectGitMetadata || $nestedRepositories === [])) {
+            $snapshots[] = ['repo_key' => '.', 'snapshot' => $rootSnapshot];
+        } else {
+            foreach ($nestedRepositories as $repoKey) {
+                $snapshots[] = [
+                    'repo_key' => $repoKey,
+                    'snapshot' => $this->gitWorkspace->captureProviderSafeSnapshot($path.DIRECTORY_SEPARATOR.$repoKey),
+                ];
+            }
+        }
+
+        if ($snapshots === []) {
+            $payload = array_merge($base, [
+                'status' => 'limited',
+                'blocker_reason' => isset($rootSnapshot['blocker_reason']) && is_string($rootSnapshot['blocker_reason'])
+                    ? $rootSnapshot['blocker_reason']
+                    : 'git_workspace_not_found',
+            ]);
+            $payload['change_hash'] = MissionCanonicalHash::sha256($payload);
+
+            return $payload;
+        }
+
+        $repositorySummaries = [];
+        $diffHashes = [];
+        $files = [];
+        $filesTruncated = false;
+        $successfulSnapshots = 0;
+        foreach ($snapshots as $repo) {
+            $repoKey = (string) ($repo['repo_key'] ?? '');
+            $snapshot = (array) ($repo['snapshot'] ?? []);
+            if (($snapshot['success'] ?? false) === true) {
+                $successfulSnapshots++;
+            }
+            if (($snapshot['files_changed_truncated'] ?? false) === true) {
+                $filesTruncated = true;
+            }
+            $repoFiles = array_values(array_filter(
+                (array) ($snapshot['files_changed'] ?? []),
+                static fn (mixed $file): bool => is_string($file) && trim($file) !== '' && ! str_starts_with(trim($file), '/'),
+            ));
+            foreach ($repoFiles as $file) {
+                $files[] = $repoKey === '.'
+                    ? $file
+                    : trim($repoKey.'/'.$file, '/');
+            }
+            if (isset($snapshot['diff_hash']) && is_string($snapshot['diff_hash'])) {
+                $diffHashes[] = $repoKey.':'.$snapshot['diff_hash'];
+            }
+            $repositorySummaries[] = [
+                'repo_key' => $repoKey,
+                'status' => ($snapshot['success'] ?? false) === true ? 'ready' : 'limited',
+                'branch' => isset($snapshot['branch']) && is_string($snapshot['branch']) ? $snapshot['branch'] : null,
+                'head_sha_short' => isset($snapshot['head_sha']) && is_string($snapshot['head_sha'])
+                    ? substr($snapshot['head_sha'], 0, 12)
+                    : null,
+                'dirty' => $repoFiles !== [],
+                'changed_file_count' => count($repoFiles),
+                'blocker_reason' => isset($snapshot['blocker_reason']) && is_string($snapshot['blocker_reason'])
+                    ? $snapshot['blocker_reason']
+                    : null,
+            ];
+        }
+
+        $files = array_values(array_unique($files));
+        $files = array_values(array_filter(
+            $files,
+            static fn (mixed $file): bool => is_string($file) && trim($file) !== '' && ! str_starts_with(trim($file), '/'),
+        ));
+        $preview = array_slice($files, 0, 20);
+        $topLevelAreas = array_values(array_unique(array_filter(array_map(
+            static function (string $file): string {
+                $normalized = str_replace('\\', '/', $file);
+                $first = explode('/', $normalized, 2)[0] ?? '';
+
+                return trim($first);
+            },
+            $files,
+        ))));
+        sort($topLevelAreas);
+
+        $criticalAreasTouched = $this->criticalAreasTouched(
+            $files,
+            array_values((array) ($profile['critical_areas'] ?? [])),
+        );
+
+        $payload = array_merge($base, [
+            'status' => $successfulSnapshots > 0 ? 'ready' : 'limited',
+            'is_git' => $successfulSnapshots > 0,
+            'branch' => count($repositorySummaries) === 1 ? $repositorySummaries[0]['branch'] : null,
+            'head_sha_short' => count($repositorySummaries) === 1 ? $repositorySummaries[0]['head_sha_short'] : null,
+            'dirty' => $files !== [],
+            'repository_count' => count($repositorySummaries),
+            'repositories' => $repositorySummaries,
+            'changed_file_count' => count($files),
+            'changed_files_preview' => $preview,
+            'changed_files_truncated' => $filesTruncated || count($files) > count($preview),
+            'top_level_areas' => $topLevelAreas,
+            'critical_areas_touched' => $criticalAreasTouched,
+            'blocker_reason' => $successfulSnapshots > 0 ? null : 'git_workspace_not_ready',
+            'diff_hash' => $diffHashes !== [] ? MissionCanonicalHash::sha256($diffHashes) : null,
+        ]);
+        $payload['change_hash'] = MissionCanonicalHash::sha256([
+            'workspace_id' => $payload['workspace_id'],
+            'is_git' => $payload['is_git'],
+            'repositories' => $payload['repositories'],
+            'changed_files_preview' => $payload['changed_files_preview'],
+            'changed_files_truncated' => $payload['changed_files_truncated'],
+            'top_level_areas' => $payload['top_level_areas'],
+            'critical_areas_touched' => $payload['critical_areas_touched'],
+            'diff_hash' => $payload['diff_hash'],
+        ]);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function discoverGitRepositories(string $workspacePath, int $maxDepth = 3): array
+    {
+        $workspacePath = rtrim($workspacePath, DIRECTORY_SEPARATOR);
+        if ($workspacePath === '' || ! @is_dir($workspacePath)) {
+            return [];
+        }
+
+        $repos = [];
+        $queue = [['path' => $workspacePath, 'relative' => '', 'depth' => 0]];
+        $skip = ['.git', 'node_modules', 'vendor', 'storage', 'target', 'build', 'dist', '.next', '.turbo'];
+
+        while ($queue !== []) {
+            $current = array_shift($queue);
+            $path = (string) ($current['path'] ?? '');
+            $relative = (string) ($current['relative'] ?? '');
+            $depth = (int) ($current['depth'] ?? 0);
+
+            if ($relative !== '' && (@is_dir($path.DIRECTORY_SEPARATOR.'.git') || @is_file($path.DIRECTORY_SEPARATOR.'.git'))) {
+                $repos[] = str_replace(DIRECTORY_SEPARATOR, '/', $relative);
+                continue;
+            }
+
+            if ($depth >= $maxDepth) {
+                continue;
+            }
+
+            $entries = @scandir($path);
+            if (! is_array($entries)) {
+                continue;
+            }
+
+            foreach ($entries as $entry) {
+                if ($entry === '.' || $entry === '..' || in_array($entry, $skip, true)) {
+                    continue;
+                }
+                $childPath = $path.DIRECTORY_SEPARATOR.$entry;
+                if (! @is_dir($childPath)) {
+                    continue;
+                }
+                $childRelative = $relative === '' ? $entry : $relative.DIRECTORY_SEPARATOR.$entry;
+                $queue[] = ['path' => $childPath, 'relative' => $childRelative, 'depth' => $depth + 1];
+            }
+        }
+
+        sort($repos);
+
+        return array_slice(array_values(array_unique($repos)), 0, 12);
+    }
+
+    /**
+     * @param  array<int,string>  $files
+     * @param  array<int,string>  $criticalAreas
+     * @return array<int,string>
+     */
+    private function criticalAreasTouched(array $files, array $criticalAreas): array
+    {
+        $touched = [];
+        foreach ($criticalAreas as $area) {
+            $area = trim(str_replace('\\', '/', $area));
+            if ($area === '') {
+                continue;
+            }
+            $prefix = rtrim(explode('*', $area, 2)[0], '/');
+            if ($prefix === '') {
+                continue;
+            }
+            foreach ($files as $file) {
+                $file = trim(str_replace('\\', '/', $file));
+                if ($file === $prefix || str_starts_with($file, $prefix.'/')) {
+                    $touched[] = $area;
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($touched));
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $profile
+     * @return array<string,mixed>
+     */
+    private function workspaceRepositoryInventory(?array $profile): array
+    {
+        $base = [
+            'schema_version' => 'atlas.workspace_repository_inventory.v1',
+            'status' => 'blocked',
+            'workspace_id' => $profile['slug'] ?? null,
+            'repository_count' => 0,
+            'repositories' => [],
+            'stack' => [],
+            'command_hints' => [],
+            'source_policy' => [
+                'raw_manifest_returned' => false,
+                'absolute_workspace_path_returned' => false,
+                'script_bodies_returned' => false,
+                'provider_prompt_unit' => 'repo_key_manifest_names_stack_tags_and_command_hints_only',
+            ],
+        ];
+
+        if ($profile === null) {
+            $base['blocker_reason'] = 'workspace_not_registered';
+            $base['inventory_hash'] = MissionCanonicalHash::sha256($base);
+
+            return $base;
+        }
+
+        $workspacePath = (string) ($profile['workspace_path'] ?? '');
+        if ($workspacePath === '' || ! (bool) ($profile['workspace_path_exists'] ?? false)) {
+            $base['blocker_reason'] = 'workspace_path_missing_or_inaccessible';
+            $base['inventory_hash'] = MissionCanonicalHash::sha256($base);
+
+            return $base;
+        }
+
+        $repositories = [];
+        $stack = [];
+        $commandHints = [];
+        foreach ($this->discoverWorkspaceRepositoryKeys($workspacePath) as $repoKey) {
+            $repoPath = $repoKey === '.'
+                ? rtrim($workspacePath, DIRECTORY_SEPARATOR)
+                : rtrim($workspacePath, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$repoKey;
+            $signals = $this->repositoryManifestSignals($repoPath, $repoKey);
+            if ($signals === null) {
+                continue;
+            }
+
+            $repositories[] = $signals;
+            $stack = array_merge($stack, (array) ($signals['stack'] ?? []));
+            $commandHints = array_merge($commandHints, (array) ($signals['command_hints'] ?? []));
+        }
+
+        $stack = array_values(array_unique(array_filter($stack, 'is_string')));
+        sort($stack);
+        $commandHints = array_values(array_unique(array_filter($commandHints, 'is_string')));
+
+        $payload = array_merge($base, [
+            'status' => $repositories !== [] ? 'ready' : 'limited',
+            'repository_count' => count($repositories),
+            'repositories' => $repositories,
+            'stack' => $stack,
+            'command_hints' => $commandHints,
+            'blocker_reason' => $repositories === [] ? 'workspace_manifests_not_found' : null,
+        ]);
+        $payload['inventory_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function discoverWorkspaceRepositoryKeys(string $workspacePath): array
+    {
+        $keys = [];
+        $root = rtrim($workspacePath, DIRECTORY_SEPARATOR);
+
+        if (@is_dir($root.DIRECTORY_SEPARATOR.'.git') || @is_file($root.DIRECTORY_SEPARATOR.'.git')) {
+            $keys[] = '.';
+        }
+
+        $keys = array_merge($keys, $this->discoverGitRepositories($root));
+
+        foreach ($this->discoverManifestDirectories($root) as $manifestDirectory) {
+            $keys[] = $manifestDirectory;
+        }
+
+        $keys = array_values(array_unique(array_filter($keys, 'is_string')));
+        usort($keys, static function (string $left, string $right): int {
+            if ($left === '.') {
+                return -1;
+            }
+            if ($right === '.') {
+                return 1;
+            }
+
+            return $left <=> $right;
+        });
+
+        return array_slice($keys, 0, 24);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function discoverManifestDirectories(string $workspacePath, int $maxDepth = 3): array
+    {
+        $workspacePath = rtrim($workspacePath, DIRECTORY_SEPARATOR);
+        if ($workspacePath === '' || ! @is_dir($workspacePath)) {
+            return [];
+        }
+
+        $directories = [];
+        $queue = [['path' => $workspacePath, 'relative' => '', 'depth' => 0]];
+        $skip = ['.git', 'node_modules', 'vendor', 'storage', 'target', 'build', 'dist', '.next', '.turbo'];
+
+        while ($queue !== []) {
+            $current = array_shift($queue);
+            $path = (string) ($current['path'] ?? '');
+            $relative = (string) ($current['relative'] ?? '');
+            $depth = (int) ($current['depth'] ?? 0);
+
+            if ($relative !== '' && $this->hasWorkspaceManifest($path)) {
+                $directories[] = str_replace(DIRECTORY_SEPARATOR, '/', $relative);
+            }
+
+            if ($depth >= $maxDepth) {
+                continue;
+            }
+
+            $entries = @scandir($path);
+            if (! is_array($entries)) {
+                continue;
+            }
+
+            foreach ($entries as $entry) {
+                if ($entry === '.' || $entry === '..' || in_array($entry, $skip, true)) {
+                    continue;
+                }
+                $childPath = $path.DIRECTORY_SEPARATOR.$entry;
+                if (! @is_dir($childPath)) {
+                    continue;
+                }
+                $childRelative = $relative === '' ? $entry : $relative.DIRECTORY_SEPARATOR.$entry;
+                $queue[] = ['path' => $childPath, 'relative' => $childRelative, 'depth' => $depth + 1];
+            }
+        }
+
+        sort($directories);
+
+        return array_values(array_unique($directories));
+    }
+
+    private function hasWorkspaceManifest(string $path): bool
+    {
+        foreach (['composer.json', 'package.json', 'tsconfig.json', 'pnpm-workspace.yaml', 'artisan'] as $file) {
+            if ($this->fileExists(rtrim($path, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$file)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function repositoryManifestSignals(string $repoPath, string $repoKey): ?array
+    {
+        $manifestFiles = [];
+        $stack = [];
+        $commandHints = [];
+        $scriptNames = [];
+        $packageManager = null;
+
+        if ($this->fileExists($repoPath.DIRECTORY_SEPARATOR.'composer.json')) {
+            $manifestFiles[] = 'composer.json';
+            $stack[] = 'php';
+            $composer = $this->jsonFile($repoPath.DIRECTORY_SEPARATOR.'composer.json');
+            $composerPackages = array_keys(array_merge(
+                (array) ($composer['require'] ?? []),
+                (array) ($composer['require-dev'] ?? []),
+            ));
+            if (in_array('laravel/framework', $composerPackages, true) || $this->fileExists($repoPath.DIRECTORY_SEPARATOR.'artisan')) {
+                $stack[] = 'laravel';
+            }
+            $composerScripts = array_keys((array) ($composer['scripts'] ?? []));
+            foreach ($composerScripts as $script) {
+                if (is_string($script) && $script !== '') {
+                    $scriptNames[] = 'composer:'.$script;
+                }
+            }
+            if (in_array('test', $composerScripts, true)) {
+                $commandHints[] = $repoKey === '.' ? 'composer test' : 'cd '.$repoKey.' && composer test';
+            }
+        }
+
+        if ($this->fileExists($repoPath.DIRECTORY_SEPARATOR.'package.json')) {
+            $manifestFiles[] = 'package.json';
+            $stack[] = 'node';
+            $packageManager = $this->fileExists($repoPath.DIRECTORY_SEPARATOR.'pnpm-lock.yaml') ? 'pnpm'
+                : ($this->fileExists($repoPath.DIRECTORY_SEPARATOR.'yarn.lock') ? 'yarn' : 'npm');
+            $package = $this->jsonFile($repoPath.DIRECTORY_SEPARATOR.'package.json');
+            $packages = array_keys(array_merge(
+                (array) ($package['dependencies'] ?? []),
+                (array) ($package['devDependencies'] ?? []),
+            ));
+            foreach ([
+                'react' => 'react',
+                'typescript' => 'typescript',
+                'expo' => 'expo',
+                '@tauri-apps/api' => 'tauri',
+                'vite' => 'vite',
+            ] as $dependency => $tag) {
+                if (in_array($dependency, $packages, true)) {
+                    $stack[] = $tag;
+                }
+            }
+            $scripts = array_keys((array) ($package['scripts'] ?? []));
+            foreach ($scripts as $script) {
+                if (is_string($script) && $script !== '') {
+                    $scriptNames[] = 'npm:'.$script;
+                }
+            }
+            foreach (['test', 'typecheck', 'build'] as $script) {
+                if (in_array($script, $scripts, true)) {
+                    $command = $packageManager.' run '.$script;
+                    $commandHints[] = $repoKey === '.' ? $command : 'cd '.$repoKey.' && '.$command;
+                }
+            }
+        }
+
+        foreach ([
+            'tsconfig.json' => 'typescript',
+            'pnpm-workspace.yaml' => 'node',
+            'artisan' => 'laravel',
+            'src-tauri/tauri.conf.json' => 'tauri',
+            'apps/desktop/src-tauri/tauri.conf.json' => 'tauri',
+            'app.json' => 'expo',
+        ] as $file => $tag) {
+            if ($this->fileExists($repoPath.DIRECTORY_SEPARATOR.$file)) {
+                $manifestFiles[] = $file;
+                $stack[] = $tag;
+            }
+        }
+
+        $manifestFiles = array_values(array_unique($manifestFiles));
+        if ($manifestFiles === []) {
+            return null;
+        }
+
+        $stack = array_values(array_unique($stack));
+        sort($stack);
+        $scriptNames = array_values(array_unique($scriptNames));
+        sort($scriptNames);
+
+        return [
+            'repo_key' => $repoKey,
+            'manifest_files' => $manifestFiles,
+            'stack' => $stack,
+            'package_manager' => $packageManager,
+            'script_names' => array_slice($scriptNames, 0, 20),
+            'command_hints' => array_values(array_unique($commandHints)),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function jsonFile(string $path): array
+    {
+        $contents = $this->fileGet($path);
+        if ($contents === '') {
+            return [];
+        }
+
+        $decoded = json_decode($contents, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $profile
+     * @param  array<string,mixed>  $twin
+     * @param  array<string,mixed>  $changeMemory
+     * @return array<string,mixed>
+     */
+    private function workspaceFocusMap(?array $profile, string $task, array $twin, array $changeMemory): array
+    {
+        $task = mb_strtolower(trim($task));
+        $changedFiles = array_values((array) data_get($changeMemory, 'changed_files_preview', []));
+        $criticalAreas = array_values((array) ($profile['critical_areas'] ?? []));
+        $criticalTouched = array_values((array) data_get($changeMemory, 'critical_areas_touched', []));
+        $repositories = array_values(array_filter(
+            (array) data_get($twin, 'repository_inventory.repositories', []),
+            'is_array',
+        ));
+        $focusedRepositories = [];
+
+        foreach ($repositories as $repository) {
+            $repoKey = (string) ($repository['repo_key'] ?? '');
+            if ($repoKey === '') {
+                continue;
+            }
+
+            $stack = array_values((array) ($repository['stack'] ?? []));
+            $score = 0;
+            $reasons = [];
+            foreach ($changedFiles as $file) {
+                if (is_string($file) && ($repoKey === '.' || $file === $repoKey || str_starts_with($file, $repoKey.'/'))) {
+                    $score += 4;
+                    $reasons[] = 'changed_files';
+                    break;
+                }
+            }
+            foreach ($criticalTouched as $area) {
+                if (is_string($area) && ($repoKey === '.' || $area === $repoKey || str_starts_with($area, $repoKey.'/'))) {
+                    $score += 3;
+                    $reasons[] = 'critical_area_touched';
+                    break;
+                }
+            }
+            foreach ($stack as $tag) {
+                if (is_string($tag) && $task !== '' && str_contains($task, mb_strtolower($tag))) {
+                    $score += 2;
+                    $reasons[] = 'task_mentions_stack';
+                    break;
+                }
+            }
+            if ($task !== '' && str_contains($task, str_replace(['-', '_'], ' ', mb_strtolower($repoKey)))) {
+                $score += 2;
+                $reasons[] = 'task_mentions_repo';
+            }
+            if ($score === 0 && count($focusedRepositories) < 2) {
+                $score = 1;
+                $reasons[] = 'workspace_baseline';
+            }
+
+            if ($score <= 0) {
+                continue;
+            }
+
+            $focusedRepositories[] = [
+                'repo_key' => $repoKey,
+                'score' => $score,
+                'reasons' => array_values(array_unique($reasons)),
+                'stack' => $stack,
+                'command_hints' => array_slice(array_values((array) ($repository['command_hints'] ?? [])), 0, 6),
+            ];
+        }
+
+        usort($focusedRepositories, static fn (array $left, array $right): int => ($right['score'] <=> $left['score'])
+            ?: ((string) $left['repo_key'] <=> (string) $right['repo_key']));
+        $focusedRepositories = array_slice($focusedRepositories, 0, 4);
+
+        $focusedAreas = array_values(array_unique(array_filter(array_merge(
+            $criticalTouched,
+            array_slice($criticalAreas, 0, $criticalTouched === [] ? 4 : 2),
+            array_values((array) data_get($changeMemory, 'top_level_areas', [])),
+        ), 'is_string')));
+
+        $focusedCommands = [];
+        foreach ($focusedRepositories as $repository) {
+            foreach ((array) ($repository['command_hints'] ?? []) as $command) {
+                if (is_string($command) && $command !== '') {
+                    $focusedCommands[] = $command;
+                }
+            }
+        }
+        $focusedCommands = array_values(array_unique(array_merge(
+            $focusedCommands,
+            array_values((array) ($profile['test_commands'] ?? [])),
+        )));
+
+        $payload = [
+            'schema_version' => 'atlas.awis.workspace_focus_map.v1',
+            'status' => $profile === null ? 'blocked' : 'ready',
+            'workspace_id' => $profile['slug'] ?? null,
+            'task_hash' => trim($task) !== '' ? hash('sha256', $task) : null,
+            'focused_repositories' => $focusedRepositories,
+            'focused_areas' => array_slice($focusedAreas, 0, 8),
+            'focused_files_preview' => array_slice($changedFiles, 0, 12),
+            'focused_commands' => array_slice($focusedCommands, 0, 10),
+            'context_units' => [
+                'workspace_brief',
+                'repository_inventory',
+                'workspace_change_memory',
+                'focused_files_preview',
+                'focused_commands',
+                'risk_sheet',
+            ],
+            'source_policy' => [
+                'raw_file_content_returned' => false,
+                'raw_diff_returned' => false,
+                'raw_manifest_returned' => false,
+                'absolute_workspace_path_returned' => false,
+            ],
+        ];
+        $payload['focus_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
      * @param  array<string,mixed>|null  $profile
      * @return array<string,mixed>
      */
@@ -222,12 +910,17 @@ final class AtlasWorkspaceIntelligenceRuntimeService
 
         $path = (string) ($profile['workspace_path'] ?? '');
         $exists = (bool) ($profile['workspace_path_exists'] ?? false);
-        $stack = $this->detectStack($path, (string) ($profile['stack_summary'] ?? ''));
+        $repositoryInventory = $this->workspaceRepositoryInventory($profile);
+        $stack = array_values(array_unique(array_merge(
+            $this->detectStack($path, (string) ($profile['stack_summary'] ?? '')),
+            array_values((array) data_get($repositoryInventory, 'stack', [])),
+        )));
         $docs = $this->ownerDocs($path);
         $commands = array_values(array_filter(array_merge(
             array_values((array) ($profile['commands'] ?? [])),
             (array) ($profile['test_commands'] ?? []),
             (array) ($profile['build_commands'] ?? []),
+            (array) data_get($repositoryInventory, 'command_hints', []),
         ), 'is_string'));
 
         $genome = [
@@ -240,12 +933,14 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'owner_docs' => $docs,
             'test_families' => array_values((array) ($profile['test_commands'] ?? [])),
             'risk_zones' => array_values((array) ($profile['critical_areas'] ?? [])),
+            'repository_count' => (int) data_get($repositoryInventory, 'repository_count', 0),
         ];
         $genome['genome_hash'] = MissionCanonicalHash::sha256($genome);
 
         $livingCodeMap = [
             'schema_version' => 'atlas.workspace_living_code_map.v1',
             'root_exists' => $exists,
+            'repository_inventory' => $repositoryInventory,
             'owner_docs' => $docs,
             'critical_areas' => array_values((array) ($profile['critical_areas'] ?? [])),
             'source_policy' => 'repo_docs_code_tests_and_receipts_only',
@@ -284,6 +979,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             ],
             'command_registry' => $commandRegistry,
             'risk_fragility_map' => $riskMap,
+            'repository_inventory' => $repositoryInventory,
             'provider_skill_memory' => [
                 'schema_version' => 'atlas.workspace_provider_skill_memory.v1',
                 'status' => 'shadow',
@@ -377,9 +1073,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      * @param  array<string,mixed>|null  $profile
      * @param  array<string,mixed>  $twin
      * @param  array<string,mixed>  $continuity
+     * @param  array<string,mixed>  $focusMap
      * @return array<string,mixed>
      */
-    private function artifacts(?array $profile, string $task, array $twin, array $continuity): array
+    private function artifacts(?array $profile, string $task, array $twin, array $continuity, array $focusMap): array
     {
         $workspaceId = $profile['slug'] ?? null;
         $task = trim($task) !== '' ? trim($task) : 'workspace readiness and context preparation';
@@ -389,16 +1086,21 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'summary' => (string) ($profile['stack_summary'] ?? 'workspace unavailable'),
                 'stack' => data_get($twin, 'genome.stack', []),
                 'risk_floor' => data_get($twin, 'genome.risk_floor'),
+                'repository_count' => data_get($twin, 'repository_inventory.repository_count', 0),
             ]),
             $this->artifact('task_packet', $workspaceId, [
                 'task' => $task,
                 'scope' => 'workspace_scoped',
-                'likely_areas' => data_get($twin, 'risk_fragility_map.sensitive_areas', []),
+                'likely_repositories' => data_get($focusMap, 'focused_repositories', []),
+                'likely_areas' => data_get($focusMap, 'focused_areas', data_get($twin, 'risk_fragility_map.sensitive_areas', [])),
                 'definition_of_done' => ['tests selected', 'artifact certified', 'outcome recorded'],
             ]),
             $this->artifact('context_pack', $workspaceId, [
                 'sources' => data_get($continuity, 'current_truth_pack.canonical_sources', []),
+                'context_units' => data_get($focusMap, 'context_units', []),
                 'raw_conversation_included' => false,
+                'raw_file_content_included' => false,
+                'raw_diff_included' => false,
                 'learning_loop_required' => true,
             ]),
             $this->artifact('execution_plan', $workspaceId, [
@@ -406,17 +1108,19 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'mutative_execution_requires_certified_contracts' => true,
             ]),
             $this->artifact('test_plan', $workspaceId, [
-                'focused_tests' => data_get($twin, 'test_command_intelligence.commands', []),
-                'skip_reason' => data_get($twin, 'test_command_intelligence.commands') === [] ? 'no_test_commands_registered' : null,
+                'focused_tests' => data_get($focusMap, 'focused_commands', data_get($twin, 'test_command_intelligence.commands', [])),
+                'skip_reason' => data_get($focusMap, 'focused_commands') === [] ? 'no_test_commands_registered' : null,
             ]),
             $this->artifact('risk_sheet', $workspaceId, [
                 'risk_floor' => data_get($twin, 'genome.risk_floor'),
                 'sensitive_areas' => data_get($twin, 'risk_fragility_map.sensitive_areas', []),
+                'focused_areas' => data_get($focusMap, 'focused_areas', []),
+                'critical_changes_require_review' => data_get($focusMap, 'focused_files_preview') !== [],
             ]),
             $this->artifact('handoff_packet', $workspaceId, [
                 'provider_safe' => true,
                 'raw_conversation_included' => false,
-                'allowed_context' => ['workspace_brief', 'task_packet', 'context_pack', 'test_plan', 'risk_sheet'],
+                'allowed_context' => data_get($focusMap, 'context_units', ['workspace_brief', 'task_packet', 'context_pack', 'test_plan', 'risk_sheet']),
             ]),
             $this->artifact('failure_capsule', $workspaceId, [
                 'status' => 'empty_until_failure',
@@ -591,6 +1295,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      * @param  array<string,mixed>  $artifactIntelligence
      * @param  array<string,mixed>  $contracts
      * @param  array<string,mixed>  $evolution
+     * @param  array<string,mixed>  $changeMemory
+     * @param  array<string,mixed>  $focusMap
+     * @param  array<string,mixed>  $nextSessionBrain
      * @return array<string,mixed>
      */
     private function workspaceLearningLoop(
@@ -601,6 +1308,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         array $artifactIntelligence,
         array $contracts,
         array $evolution,
+        array $changeMemory,
+        array $focusMap,
+        array $nextSessionBrain,
     ): array {
         $workspaceId = $profile['slug'] ?? null;
         $artifacts = array_values(array_filter((array) ($artifactFabric['artifacts'] ?? []), 'is_array'));
@@ -611,6 +1321,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $decisions = array_values((array) data_get($continuity, 'current_truth_pack.active_decisions', []));
         $blockers = array_values((array) data_get($continuity, 'current_truth_pack.open_blockers', []));
         $riskZones = array_values((array) ($profile['critical_areas'] ?? []));
+        $criticalChanges = array_values((array) data_get($changeMemory, 'critical_areas_touched', []));
+        $changeHash = (string) data_get($changeMemory, 'change_hash', '');
 
         $events = array_values(array_filter([
             [
@@ -632,6 +1344,11 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'event_type' => 'artifacts_compiled',
                 'event_status' => 'observed',
                 'source_ref' => 'artifact_fabric:'.(string) ($artifactFabric['artifact_fabric_hash'] ?? ''),
+            ] : null,
+            data_get($changeMemory, 'status') !== 'blocked' ? [
+                'event_type' => 'workspace_changes_observed',
+                'event_status' => data_get($changeMemory, 'dirty') === true ? 'dirty' : 'clean',
+                'source_ref' => $changeHash !== '' ? 'workspace_change_memory:'.$changeHash : 'workspace_change_memory:unknown',
             ] : null,
         ]));
 
@@ -656,7 +1373,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'decisions' => $decisions,
                 'blockers' => $blockers,
                 'risk_zones' => $riskZones,
-                'summary_hash' => MissionCanonicalHash::sha256([$decisions, $blockers, $riskZones]),
+                'changed_top_level_areas' => array_values((array) data_get($changeMemory, 'top_level_areas', [])),
+                'critical_areas_touched' => $criticalChanges,
+                'summary_hash' => MissionCanonicalHash::sha256([$decisions, $blockers, $riskZones, $criticalChanges]),
             ],
             'operational_memory' => [
                 'schema_version' => 'atlas.awis.operational_memory_update.v1',
@@ -668,12 +1387,18 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                     'workspace_runbook_delta',
                     'failure_signature_candidate',
                     'pattern_library_signal',
+                    'workspace_change_memory',
+                    'workspace_focus_map',
+                    'workspace_next_session_brain',
                 ],
                 'memory_candidate_hash' => MissionCanonicalHash::sha256([
                     'workspace_id' => $workspaceId,
                     'decisions' => $decisions,
                     'blockers' => $blockers,
                     'patterns' => data_get($evolution, 'pattern_library.patterns', []),
+                    'workspace_change_hash' => $changeHash,
+                    'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
+                    'workspace_next_session_brain_hash' => data_get($nextSessionBrain, 'brain_hash'),
                 ]),
             ],
             'context_application' => [
@@ -681,7 +1406,16 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'default_context_units' => ['workspace_brief', 'task_packet', 'context_pack', 'test_plan', 'risk_sheet'],
                 'context_pack_hash' => (string) data_get($artifactIntelligence, 'artifact_context_compiler.current_truth_pack_hash', ''),
                 'artifact_hashes' => $artifactHashes,
+                'workspace_change_memory_hash' => $changeHash !== '' ? $changeHash : null,
+                'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
+                'workspace_next_session_brain_hash' => data_get($nextSessionBrain, 'brain_hash'),
+                'focused_repositories' => data_get($focusMap, 'focused_repositories', []),
+                'focused_areas' => data_get($focusMap, 'focused_areas', []),
+                'focused_commands' => data_get($focusMap, 'focused_commands', []),
+                'changed_files_preview' => array_values((array) data_get($changeMemory, 'changed_files_preview', [])),
+                'critical_changes_require_review' => $criticalChanges !== [],
                 'raw_conversation_included' => false,
+                'raw_diff_included' => false,
                 'provider_prompt_allowed' => data_get($contracts, 'execution_readiness_status') === 'ready',
                 'stale_policy' => 'regenerate_awis_before_mutative_execution',
             ],
@@ -695,6 +1429,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                         data_get($artifactIntelligence, 'artifact_graph.graph_hash') !== null ? 'awis_artifact_graph:'.data_get($artifactIntelligence, 'artifact_graph.graph_hash') : null,
                         ($contracts['contract_hash'] ?? null) !== null ? 'awis_contract:'.$contracts['contract_hash'] : null,
                         ($evolution['evolution_hash'] ?? null) !== null ? 'awef:'.$evolution['evolution_hash'] : null,
+                        $changeHash !== '' ? 'awis_workspace_change_memory:'.$changeHash : null,
+                        data_get($focusMap, 'focus_hash') !== null ? 'awis_workspace_focus_map:'.data_get($focusMap, 'focus_hash') : null,
+                        data_get($nextSessionBrain, 'brain_hash') !== null ? 'awis_workspace_next_session_brain:'.data_get($nextSessionBrain, 'brain_hash') : null,
                     ],
                 ))),
                 'missing_evidence' => $loopClosed ? [] : ['ready_workspace_contract_or_replay_required'],
@@ -715,6 +1452,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'provider_calls_made' => false,
                 'spends_tokens' => false,
                 'raw_conversation_returned' => false,
+                'raw_diff_returned' => false,
+                'absolute_workspace_path_returned' => false,
                 'auto_promotes_memory' => false,
                 'cross_workspace_learning_allowed' => false,
             ],
@@ -765,6 +1504,206 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         }
 
         return $this->workspaceRootHash((string) ($profile['workspace_path'] ?? ''));
+    }
+
+    /**
+     * Provider-safe packet that lets the next session restart with the right
+     * repo, context units, commands and memory candidates without rereading the
+     * whole workspace or replaying raw conversation.
+     *
+     * @param  array<string,mixed>|null  $profile
+     * @param  array<string,mixed>  $workspaceReport
+     * @param  array<string,mixed>  $twin
+     * @param  array<string,mixed>  $continuity
+     * @param  array<string,mixed>  $artifactFabric
+     * @param  array<string,mixed>  $artifactIntelligence
+     * @param  array<string,mixed>  $contracts
+     * @param  array<string,mixed>  $evolution
+     * @param  array<string,mixed>  $changeMemory
+     * @param  array<string,mixed>  $focusMap
+     * @return array<string,mixed>
+     */
+    private function workspaceNextSessionBrain(
+        ?array $profile,
+        string $task,
+        array $workspaceReport,
+        array $twin,
+        array $continuity,
+        array $artifactFabric,
+        array $artifactIntelligence,
+        array $contracts,
+        array $evolution,
+        array $changeMemory,
+        array $focusMap,
+    ): array {
+        $workspaceId = $profile['slug'] ?? null;
+        $focusedRepositories = array_values((array) data_get($focusMap, 'focused_repositories', []));
+        $focusedAreas = array_values((array) data_get($focusMap, 'focused_areas', []));
+        $focusedCommands = array_values((array) data_get($focusMap, 'focused_commands', []));
+        $contextUnits = array_values((array) data_get($focusMap, 'context_units', []));
+        $criticalChanges = array_values((array) data_get($changeMemory, 'critical_areas_touched', []));
+        $repositoryInventory = (array) data_get($twin, 'repository_inventory', []);
+        $repositories = array_values(array_filter(
+            (array) data_get($repositoryInventory, 'repositories', []),
+            'is_array',
+        ));
+        $focusedRepoKeys = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $repo): string => is_array($repo) ? (string) ($repo['repo_key'] ?? '') : '',
+            $focusedRepositories,
+        ), static fn (string $repoKey): bool => $repoKey !== '')));
+        $focusedManifestRefs = [];
+        foreach ($repositories as $repository) {
+            $repoKey = (string) ($repository['repo_key'] ?? '');
+            if ($repoKey === '' || ($focusedRepoKeys !== [] && ! in_array($repoKey, $focusedRepoKeys, true))) {
+                continue;
+            }
+            $focusedManifestRefs[] = [
+                'repo_key' => $repoKey,
+                'manifest_files' => array_slice(array_values((array) ($repository['manifest_files'] ?? [])), 0, 8),
+                'stack' => array_slice(array_values((array) ($repository['stack'] ?? [])), 0, 8),
+                'script_names' => array_slice(array_values((array) ($repository['script_names'] ?? [])), 0, 12),
+            ];
+        }
+        $artifactHashes = array_values(array_filter(array_map(
+            static fn (mixed $artifact): string => is_array($artifact) ? (string) ($artifact['artifact_hash'] ?? '') : '',
+            (array) data_get($artifactFabric, 'artifacts', []),
+        )));
+        $ownerDocs = array_values((array) data_get($twin, 'living_code_map.owner_docs', []));
+        $loadOrder = array_values(array_unique(array_filter(array_merge([
+            'workspace_binding',
+            'repository_inventory',
+            'workspace_change_memory',
+            'workspace_focus_map',
+        ], $contextUnits, [
+            'artifact_graph',
+            'contract_certification',
+            'workspace_runbook',
+        ]), 'is_string')));
+
+        $readinessInputs = [
+            data_get($workspaceReport, 'readiness_status') === 'ready',
+            data_get($contracts, 'execution_readiness_status') === 'ready',
+            data_get($artifactIntelligence, 'artifact_replay.replay_ready') === true,
+            data_get($focusMap, 'status') === 'ready',
+            in_array(data_get($repositoryInventory, 'status'), ['ready', 'limited'], true),
+            data_get($changeMemory, 'source_policy.raw_diff_returned') === false,
+        ];
+        $readySignals = count(array_filter($readinessInputs));
+        $readinessScore = round($readySignals / max(count($readinessInputs), 1), 2);
+        $brainStatus = $workspaceId !== null && $readinessScore >= 0.8 ? 'ready' : 'blocked';
+
+        $executionPriority = [];
+        foreach (array_slice($focusedCommands, 0, 4) as $command) {
+            if (is_string($command) && trim($command) !== '') {
+                $executionPriority[] = [
+                    'command' => trim($command),
+                    'why' => 'focused_command_from_workspace_inventory_or_profile',
+                    'requires_operator_approval' => true,
+                ];
+            }
+        }
+
+        $memoryCandidates = array_values(array_filter([
+            'workspace_change_hash:'.(string) data_get($changeMemory, 'change_hash', ''),
+            'workspace_focus_hash:'.(string) data_get($focusMap, 'focus_hash', ''),
+            'artifact_graph_hash:'.(string) data_get($artifactIntelligence, 'artifact_graph.graph_hash', ''),
+            'contract_hash:'.(string) data_get($contracts, 'contract_hash', ''),
+            data_get($evolution, 'evolution_hash') !== null ? 'evolution_hash:'.(string) data_get($evolution, 'evolution_hash') : null,
+        ], static fn (?string $value): bool => is_string($value) && ! str_ends_with($value, ':')));
+
+        $payload = [
+            'schema_version' => 'atlas.awis.workspace_next_session_brain.v1',
+            'status' => $brainStatus,
+            'workspace_id' => $workspaceId,
+            'task_hash' => trim($task) !== '' ? hash('sha256', trim($task)) : null,
+            'readiness_score' => $readinessScore,
+            'readiness_signals' => [
+                'workspace_ready' => data_get($workspaceReport, 'readiness_status') === 'ready',
+                'contracts_ready' => data_get($contracts, 'execution_readiness_status') === 'ready',
+                'artifact_replay_ready' => data_get($artifactIntelligence, 'artifact_replay.replay_ready') === true,
+                'focus_ready' => data_get($focusMap, 'status') === 'ready',
+                'repository_inventory_ready' => in_array(data_get($repositoryInventory, 'status'), ['ready', 'limited'], true),
+                'provider_safe_change_memory' => data_get($changeMemory, 'source_policy.raw_diff_returned') === false,
+            ],
+            'resume_packet' => [
+                'load_order' => $loadOrder,
+                'focused_repositories' => array_map(
+                    static fn (mixed $repo): array => is_array($repo) ? [
+                        'repo_key' => (string) ($repo['repo_key'] ?? ''),
+                        'score' => (int) ($repo['score'] ?? 0),
+                        'reasons' => array_values((array) ($repo['reasons'] ?? [])),
+                        'stack' => array_values((array) ($repo['stack'] ?? [])),
+                    ] : [],
+                    $focusedRepositories,
+                ),
+                'focused_areas' => array_slice($focusedAreas, 0, 8),
+                'owner_docs' => array_slice($ownerDocs, 0, 8),
+                'artifact_refs' => array_map(static fn (string $hash): string => 'awis_artifact:'.$hash, array_slice($artifactHashes, 0, 6)),
+                'current_truth_pack_hash' => MissionCanonicalHash::sha256(data_get($continuity, 'current_truth_pack', [])),
+            ],
+            'context_loading_plan' => [
+                'schema_version' => 'atlas.awis.context_loading_plan.v1',
+                'mode' => 'folder_first_provider_safe_resume',
+                'repository_inventory_hash' => data_get($repositoryInventory, 'inventory_hash'),
+                'repository_count' => (int) data_get($repositoryInventory, 'repository_count', 0),
+                'stack_tags' => array_slice(array_values((array) data_get($repositoryInventory, 'stack', [])), 0, 16),
+                'focused_manifest_refs' => array_slice($focusedManifestRefs, 0, 6),
+                'command_hints' => array_slice(array_values((array) data_get($repositoryInventory, 'command_hints', [])), 0, 10),
+                'cache_keys' => [
+                    'workspace_hash' => data_get($workspaceReport, 'workspace_hash'),
+                    'repository_inventory_hash' => data_get($repositoryInventory, 'inventory_hash'),
+                    'workspace_change_hash' => data_get($changeMemory, 'change_hash'),
+                    'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
+                    'command_registry_hash' => data_get($twin, 'command_registry.command_registry_hash'),
+                ],
+                'refresh_triggers' => [
+                    'workspace_hash_changed',
+                    'repository_inventory_hash_changed',
+                    'workspace_change_hash_changed',
+                    'task_hash_changed',
+                ],
+                'provider_policy' => [
+                    'load_manifest_names_only' => true,
+                    'load_script_names_only' => true,
+                    'raw_manifest_returned' => false,
+                    'script_bodies_returned' => false,
+                    'absolute_workspace_path_returned' => false,
+                ],
+            ],
+            'execution_priority' => $executionPriority,
+            'review_required' => [
+                'critical_changes_require_review' => $criticalChanges !== [],
+                'critical_areas_touched' => $criticalChanges,
+                'stale_policy' => 'regenerate_before_mutative_execution_when_workspace_hash_or_focus_hash_changes',
+            ],
+            'memory_candidates' => [
+                'promotion_policy' => 'candidate_only_until_evidence_review',
+                'candidate_refs' => $memoryCandidates,
+                'auto_promote' => false,
+                'cross_workspace_reuse' => false,
+            ],
+            'performance_budget' => [
+                'uses_repository_inventory' => true,
+                'uses_git_status_only_for_change_memory' => true,
+                'uses_manifest_names_only_for_folder_context' => true,
+                'uses_hash_cache_keys_for_resume' => true,
+                'raw_file_scan_required_for_provider_prompt' => false,
+                'max_focused_repositories' => 4,
+                'max_focused_commands' => 10,
+                'max_manifest_refs' => 6,
+            ],
+            'source_policy' => [
+                'raw_file_content_returned' => false,
+                'raw_diff_returned' => false,
+                'raw_manifest_returned' => false,
+                'raw_conversation_returned' => false,
+                'absolute_workspace_path_returned' => false,
+                'provider_prompt_unit' => 'hash_refs_focus_map_artifact_refs_and_command_names_only',
+            ],
+        ];
+        $payload['brain_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
     }
 
     /**
@@ -926,6 +1865,18 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $this->check('awis_registry_editing_contract_complete', data_get($sections, '8.status') === 'ready', 'critical'),
             $this->check('awis_desktop_mobile_surface_contracts_complete', data_get($sections, '9.status') === 'ready', 'critical'),
             $this->check('awis_workspace_intelligence_loop_closed', data_get($sections, '10.closed_loop.loop_closed') === true, 'critical'),
+            $this->check('awis_workspace_change_memory_provider_safe', data_get($sections, '11.source_policy.raw_diff_returned') === false
+                && data_get($sections, '11.source_policy.absolute_workspace_path_returned') === false, 'critical'),
+            $this->check('awis_workspace_focus_map_provider_safe', data_get($sections, '12.source_policy.raw_file_content_returned') === false
+                && data_get($sections, '12.source_policy.absolute_workspace_path_returned') === false, 'critical'),
+            $this->check('awis_workspace_next_session_brain_ready_provider_safe', data_get($sections, '13.status') === 'ready'
+                && data_get($sections, '13.source_policy.raw_file_content_returned') === false
+                && data_get($sections, '13.source_policy.raw_conversation_returned') === false
+                && data_get($sections, '13.source_policy.absolute_workspace_path_returned') === false, 'critical'),
+            $this->check('awis_repository_inventory_provider_safe', in_array(data_get($sections, '14.status'), ['ready', 'limited'], true)
+                && data_get($sections, '14.source_policy.raw_manifest_returned') === false
+                && data_get($sections, '14.source_policy.script_bodies_returned') === false
+                && data_get($sections, '14.source_policy.absolute_workspace_path_returned') === false, 'critical'),
         ];
 
         return $checks;
@@ -978,6 +1929,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 && (
                     str_contains($desktopThreadList, 'Solte em outra conversa para criar um pack AWIS')
                     || str_contains($desktopThreadList, 'Solte em outra conversa para criar um Space')
+                    || str_contains($desktopThreadList, 'Solte sobre outra conversa para criar um Space')
                 ),
             'desktop_drag_fusion_persists_artifact' => str_contains($desktopSurface, 'refreshConversationFusion(threadIds, { persist: true })') && str_contains($desktopFusionTest, 'Drag thread-to-thread fusion'),
             'mobile_workspace_model_present' => str_contains($mobileModel, 'workspaceContextFromThreadAndTrace'),
@@ -1006,7 +1958,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'missing' => $missing,
             'surface_policy' => [
                 'desktop_conversation_workspace_mutation_allowed_after_start' => false,
-                'desktop_drag_thread_to_thread_creates_awis_pack' => true,
+                'desktop_drag_thread_to_thread_creates_space' => true,
                 'mobile_context_sheet_must_show_awis_scope' => true,
                 'mobile_conversation_workspace_mutation_allowed_after_start' => false,
                 'mobile_submit_must_emit_awis_workspace_scope' => true,

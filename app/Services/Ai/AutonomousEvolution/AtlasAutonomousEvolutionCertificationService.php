@@ -21,16 +21,17 @@ final class AtlasAutonomousEvolutionCertificationService
     {
         $checks = [
             $this->fileCheck('canonical_doc', 'docs/engineering-knowledge-base/atlas-autonomous-evolution-loop.md', ['Atlas Autonomous Evolution Loop', 'AAEL', 'Autonomous Evolution Portfolio OS']),
-            $this->fileCheck('runtime_service', 'app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopService.php', ['runCycle', 'strategicAlignmentGate', 'antiDriftDoctrineGate', 'autonomyBudget', 'decidePromotion']),
+            $this->fileCheck('runtime_service', 'app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopService.php', ['runCycle', 'strategicAlignmentGate', 'antiDriftDoctrineGate', 'autonomyBudget', 'decidePromotion', 'assistedExecutionBridge']),
             $this->fileCheck('persistence', 'database/migrations/2026_05_20_210000_create_atlas_aael_tables.php', ['atlas_aael_opportunities', 'atlas_aael_portfolio_cycles', 'atlas_aael_evolution_experiments', 'atlas_aael_promotion_decisions', 'atlas_aael_audit_reports']),
             $this->fileCheck('models', 'app/Models/AtlasAaelPortfolioCycle.php', ['AtlasAaelPortfolioCycle', 'experiments']),
             $this->runtimeSmoke(),
+            $this->assistedExecutionBridgeSmoke(),
             $this->highRiskGateSmoke(),
             $this->doctrineBlockerSmoke(),
             $this->claimPolicy(),
             $this->fileCheck('commands', 'app/Console/Commands/AtlasAaelCommand.php', ['atlas:aael', 'cycle', 'control-plane']),
             $this->fileCheck('certify_command', 'app/Console/Commands/AtlasAaelCertifyCommand.php', ['atlas:aael:certify']),
-            $this->fileCheck('tests', 'tests/Feature/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopServiceTest.php', ['test_cycle_creates_portfolio_experiment_decision_and_audit', 'test_doctrine_gate_blocks_parallel_runtime_duplication']),
+            $this->fileCheck('tests', 'tests/Feature/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopServiceTest.php', ['test_cycle_creates_portfolio_experiment_decision_and_audit', 'test_doctrine_gate_blocks_parallel_runtime_duplication', 'assisted_execution_quality']),
             $this->integrationWiring(),
             $this->fileCheck('control_plane', 'app/Services/Ai/ControlPlane/AtlasAiControlPlaneService.php', ['autonomous_evolution', 'aael_cycles_total']),
         ];
@@ -110,6 +111,43 @@ final class AtlasAutonomousEvolutionCertificationService
             && data_get($payload, 'promotion_decisions.0.trust_level') === 'signature_required';
 
         return ['id' => 'high_risk_gate_smoke', 'status' => $ok ? 'pass' : 'fail', 'evidence' => ['cycle_hash' => $payload['cycle_hash'] ?? null]];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function assistedExecutionBridgeSmoke(): array
+    {
+        $payload = $this->withoutPersistingSmoke(fn (): array => $this->runtime->runCycle([
+            'opportunities' => [[
+                'objective' => 'Improve AAEL assisted execution bridge with evidence and rollback',
+                'domain' => 'programming',
+                'flow_id' => 'atlas_dev',
+                'risk_level' => 'low',
+                'strategic_alignment_score' => 0.95,
+                'impact' => 0.9,
+                'frequency' => 0.9,
+                'effort' => 0.1,
+            ]],
+            'evidence_refs' => ['test:aael_assisted_execution_bridge'],
+        ]));
+        $bridge = data_get($payload, 'experiments.0.assisted_execution_quality', []);
+        $promotionGateStatus = data_get($payload, 'promotion_decisions.0.promotion_gate.assisted_execution_quality_status');
+        $ok = ($bridge['schema_version'] ?? null) === AtlasAutonomousEvolutionLoopService::ASSISTED_EXECUTION_BRIDGE_SCHEMA
+            && ($bridge['status'] ?? null) === AtlasAutonomousEvolutionLoopService::STATUS_READY
+            && ($bridge['aedpds_gate_status'] ?? null) === 'passed'
+            && ($bridge['outcome_feedback_status'] ?? null) === 'recorded'
+            && ($bridge['aemor_feedback_status'] ?? null) === 'ready_to_record'
+            && $promotionGateStatus === AtlasAutonomousEvolutionLoopService::STATUS_READY;
+
+        return [
+            'id' => 'assisted_execution_bridge',
+            'status' => $ok ? 'pass' : 'fail',
+            'evidence' => [
+                'bridge_hash' => $bridge['bridge_hash'] ?? null,
+                'promotion_gate_status' => $promotionGateStatus,
+            ],
+        ];
     }
 
     /**

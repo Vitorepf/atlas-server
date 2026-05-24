@@ -8,7 +8,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use InvalidArgumentException;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class OpenBrainProgrammingProjectionTest extends TestCase
 {

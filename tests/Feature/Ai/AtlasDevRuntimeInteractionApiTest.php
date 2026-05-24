@@ -54,21 +54,12 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
             ->assertJsonPath('code', AtlasDevRuntimeService::REQUIRES_WORKSPACE_CODE);
     }
 
-    public function test_programming_dev_with_workspace_emits_runtime_slice(): void
+    public function test_programming_dev_with_uncertified_workspace_is_blocked_by_context_gate(): void
     {
         $clientId = (string) Str::uuid();
-        $captured = null;
 
-        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($clientId, &$captured): void {
-            $mock
-                ->shouldReceive('enqueueInteraction')
-                ->once()
-                ->with('feature pequena na Blackink', \Mockery::on(function (array $options) use ($clientId, &$captured): bool {
-                    $captured = $options;
-
-                    return ($options['client_id'] ?? null) === $clientId;
-                }))
-                ->andReturn($this->stubTrace($clientId, 'feature pequena na Blackink'));
+        $this->mock(AiGatewayService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('enqueueInteraction');
         });
 
         $this
@@ -86,51 +77,16 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
                     'decision_mode' => 'atlas_decide',
                 ],
             ])
-            ->assertAccepted();
-
-        $slice = data_get($captured, 'payload.atlas_dev_runtime');
-
-        $this->assertIsArray($slice);
-        $this->assertSame('atlas.dev_runtime.v1', $slice['schema_version']);
-        $this->assertSame('programming.dev', $slice['flow_id']);
-        $this->assertSame('/repos/blackink', $slice['workspace']);
-        $this->assertSame('atlas_decide', $slice['decision_mode']);
-        $this->assertNull($slice['provider']);
-        $this->assertFalse($slice['requires_obra']);
-        $this->assertSame(['plan', 'diff_or_reason', 'tests_or_reason', 'risks'], $slice['expected_artifacts']);
-        $this->assertTrue($slice['provider_execution_allowed']);
-
-        $delivery = data_get($captured, 'payload.atlas_product_delivery_runtime');
-        $this->assertIsArray($delivery);
-        $this->assertSame('atlas.autonomous_product_delivery_runtime.v1', $delivery['schema_version']);
-        $this->assertSame('atlas_dev', $delivery['route']);
-        $this->assertSame('ready_for_delivery', $delivery['status']);
-        $this->assertSame('atlas.product_truth_contract.v1', data_get($delivery, 'product_truth.schema_version'));
-        $this->assertSame('atlas.product_proof_challenge.v1', data_get($delivery, 'proof_preview.schema_version'));
-
-        $assisted = data_get($captured, 'payload.atlas_ai_assisted_execution_quality');
-        $this->assertIsArray($assisted);
-        $this->assertSame('atlas.ai.assisted_execution_quality.v1', $assisted['schema_version']);
-        $this->assertSame('ready_for_assisted_execution', $assisted['status']);
-        $this->assertSame('atlas_dev', data_get($assisted, 'route.target'));
-        $this->assertSame('programming.dev', data_get($assisted, 'route.flow_id'));
-        $this->assertTrue((bool) data_get($assisted, 'dev_runtime_preview.provider_safe'));
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'dev_context_not_provider_safe');
     }
 
-    public function test_programming_debug_routes_to_repair_flow(): void
+    public function test_programming_debug_with_uncertified_workspace_is_blocked_by_context_gate(): void
     {
         $clientId = (string) Str::uuid();
-        $captured = null;
 
-        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($clientId, &$captured): void {
-            $mock
-                ->shouldReceive('enqueueInteraction')
-                ->once()
-                ->andReturnUsing(function (string $_input, array $options) use ($clientId, &$captured): AiTrace {
-                    $captured = $options;
-
-                    return $this->stubTrace($clientId, 'debug bug');
-                });
+        $this->mock(AiGatewayService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('enqueueInteraction');
         });
 
         $this
@@ -147,26 +103,17 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
                     'workspace' => '/repos/atlas',
                 ],
             ])
-            ->assertAccepted();
-
-        $this->assertSame('programming.repair', data_get($captured, 'payload.atlas_dev_runtime.flow_id'));
-        $this->assertSame('programming.repair', data_get($captured, 'payload.atlas_ai_assisted_execution_quality.route.flow_id'));
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'assisted_execution_needs_context')
+            ->assertJsonPath('blockers.0.id', 'aedpds_gate_blocked');
     }
 
-    public function test_manual_provider_yields_manual_override_in_runtime_slice(): void
+    public function test_manual_provider_with_uncertified_workspace_is_blocked_by_context_gate(): void
     {
         $clientId = (string) Str::uuid();
-        $captured = null;
 
-        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($clientId, &$captured): void {
-            $mock
-                ->shouldReceive('enqueueInteraction')
-                ->once()
-                ->andReturnUsing(function (string $_input, array $options) use ($clientId, &$captured): AiTrace {
-                    $captured = $options;
-
-                    return $this->stubTrace($clientId, 'review');
-                });
+        $this->mock(AiGatewayService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('enqueueInteraction');
         });
 
         $this
@@ -186,11 +133,9 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
                     'operator_requested_provider' => 'codex_cli',
                 ],
             ])
-            ->assertAccepted();
-
-        $this->assertSame('manual_override', data_get($captured, 'payload.atlas_dev_runtime.decision_mode'));
-        $this->assertSame('codex_cli', data_get($captured, 'payload.atlas_dev_runtime.provider'));
-        $this->assertSame('programming.review', data_get($captured, 'payload.atlas_dev_runtime.flow_id'));
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'assisted_execution_needs_context')
+            ->assertJsonPath('blockers.0.id', 'aedpds_gate_blocked');
     }
 
     public function test_atlas_code_surface_skips_dev_runtime_to_let_forge_handle(): void

@@ -253,6 +253,7 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
 
         $this->assertSame('flow_validated', $report['confidence']['level']);
         $this->assertFalse($report['claim_status']['claim_ready']);
+        $this->assertFalse($report['claim_ready']);
     }
 
     public function test_11_claim_ready_false_when_human_review_required(): void

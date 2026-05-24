@@ -146,13 +146,17 @@ Atlas AI Surface
               → Presentation Contract (corpo limpo)
               → Context · Trace · Audit (técnico)
                 → Control Plane runtime governance
-                  → Agent Control Plane / Company Runtime / capability evolution
+                  → Agent Control Plane / Agentic Workcell / Company Runtime / capability evolution
                     / external governance
 ```
 
-está intacto.
+está intacto. A certificação também emite scorecards versionados para execução
+assistida e workforce agentivo:
 
-### 17 checks canônicos (cada um carrega evidence: paths + booleans)
+- `atlas.ai.assisted_execution_scorecard.v1`
+- `atlas.ai.agentic_workforce_scorecard.v1`
+
+### 27 checks canônicos (cada um carrega evidence: paths + booleans)
 
 | # | id | severity | invariante |
 |---|---|---|---|
@@ -170,9 +174,19 @@ está intacto.
 | 12 | `no_attachment_path_still_works` | **warn** | testes desktop cobrem fluxo sem anexo (não-blocker) |
 | 13 | `desktop_control_plane_runtime_governance_ux` | critical | Desktop Control Plane renderiza runtime governance: unsafe external execution, receipt gaps, signature coverage e policy blocked-by-default/manual-handoff |
 | 14 | `agent_control_plane_runtime_standard` | critical | Agent Control Plane possui task packets, claim/leases, multi-agent loop certification, context/evidence receipts e runtime safety flags sem dispatch livre |
-| 15 | `governed_external_execution_control_plane` | critical | Control Plane rastreia unsafe execution, receipt bindings, pending approval como operator queue e bloqueia runtime status quando execução externa insegura aparece |
-| 16 | `internal_autonomous_company_runtime_claim_gate` | critical | Engineering Company Runtime só permite claim interna quando roles têm agent task packets; external superiority e benchmark continuam bloqueados |
-| 17 | `capability_usage_and_evolution_loop` | critical | Control Plane, AEMOR e Intelligence Factory conectam capability used events, outcome, evolution candidates e certification registry |
+| 15 | `agentic_workcell_runtime` | critical | AAWR/Atlas Cognitive Workcell emite roster operacional, topologia, task graph, context packs, schedule, verification, outcome learning, org patterns, control-plane e comandos |
+| 16 | `governed_external_execution_control_plane` | critical | Control Plane rastreia unsafe execution, receipt bindings, pending approval como operator queue e bloqueia runtime status quando execução externa insegura aparece |
+| 17 | `internal_autonomous_company_runtime_claim_gate` | critical | Engineering Company Runtime só permite claim interna quando roles têm agent task packets; external superiority e benchmark continuam bloqueados |
+| 18 | `capability_usage_and_evolution_loop` | critical | Control Plane, AEMOR e Intelligence Factory conectam capability used events, outcome, evolution candidates e certification registry |
+| 19 | `code_intelligence_automatic_gate` | critical | Code Intelligence vira gate automático antes de contexto de programação pesado |
+| 20 | `verified_context_execution_loop` | critical | AVCEL valida contexto antes da execução e produz loop/certificado sem provider |
+| 21 | `assisted_execution_quality` | critical | AAEQ envelope conecta AEDPDS, AUCRI/ACMF, AREG e feedback AEMOR |
+| 22 | `execution_doctrine_product_delivery_system` | critical | AEDPDS/APDR runtime, gate, Dev/Forge, receipts e outcome memory certificados |
+| 23 | `context_memory_quality` | critical | AUCRI/ACMF certifica qualidade de contexto, 18 blocos, corpus e memory fabric |
+| 24 | `runtime_efficiency_governor` | critical | AREG governa fast/standard/forge/blocked paths, budgets, outcomes e replay |
+| 25 | `aemor_runtime` | critical | AEMOR registra episódios, outcomes, judgment, replay e aprendizado com evidência |
+| 26 | `runtime_ux_operational` | critical | Runtime UX expõe AEDPDS, contexto, AREG e AEMOR sem vazar prompt cru |
+| 27 | `autonomous_evolution_loop` | critical | AAEL integra bridge de execução assistida, promoção governada e claim policy |
 
 ## Como rodar
 
@@ -197,7 +211,7 @@ vendor/bin/phpunit tests/Feature/Ai/Product/
 
 | status | quando | exit em `--strict` |
 |---|---|---|
-| `ready`   | todos os 17 checks `passed` | 0 |
+| `ready`   | todos os 27 checks `passed` | 0 |
 | `partial` | algum check `warn` falhou, mas nenhum `critical` | 1 |
 | `blocked` | algum check `critical` falhou | 1 |
 
@@ -235,6 +249,7 @@ Esta certificação agora cobre a fase atual da evolução do Atlas:
 
 - Desktop UX operacional via Control Plane runtime governance;
 - Agent Control Plane como base governada para subagentes/metagentes;
+- Agentic Workcell como roster operacional/topologias/organização agentiva;
 - execução externa governada, sem free-run;
 - empresa autônoma interna via Engineering Company Runtime;
 - capabilities realmente usadas e melhoradas por AEMOR/Intelligence Factory;

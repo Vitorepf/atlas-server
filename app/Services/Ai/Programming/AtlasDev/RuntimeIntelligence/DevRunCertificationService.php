@@ -55,7 +55,7 @@ class DevRunCertificationService
         ]);
         $aedpdsChecks = [
             $this->check('aedpds_doctrine_selected', $doctrine['selected_primary_drivers'] !== [], 'AEDPDS selected delivery drivers'),
-            $this->check('aedpds_gate_not_blocked', ($aedpdsGate['status'] ?? null) !== 'blocked', 'AEDPDS gate passed or warned before Dev run certification'),
+            $this->check('aedpds_gate_passed', ($aedpdsGate['status'] ?? null) === 'passed', 'AEDPDS gate passed before Dev run certification'),
         ];
         $checks = [
             $this->check('task_packet_present', true, 'Dev task packet persisted'),

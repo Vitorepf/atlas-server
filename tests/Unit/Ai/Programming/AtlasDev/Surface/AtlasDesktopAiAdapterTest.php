@@ -25,7 +25,7 @@ use App\Services\Ai\Programming\AtlasDev\Surface\AtlasDesktopAiAdapter;
 use App\Services\Ai\Programming\AtlasDev\Surface\DesktopUiHintsBuilder;
 use App\Services\Ai\Programming\AtlasDev\Surface\SurfaceResponseFormatter;
 use InvalidArgumentException;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasDesktopAiAdapterTest extends TestCase
 {

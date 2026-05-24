@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Programming\AtlasDev\PromptProjection;
 
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class PromptSectionsMapperTest extends TestCase
 {
@@ -13,7 +13,7 @@ final class PromptSectionsMapperTest extends TestCase
 
     private function mapper(): PromptSectionsMapper
     {
-        return new PromptSectionsMapper();
+        return new PromptSectionsMapper;
     }
 
     public function test_mapper_pulls_objective_from_mini_spec_goal(): void

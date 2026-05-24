@@ -72,6 +72,8 @@ final class AtlasForgeRivalsMatrixReportService
 
     private const MIN_DIFFERENTIATED_CAPABILITIES_FOR_STRONG_SIGNAL = 3;
 
+    private const HIGH_TIE_RATE_THRESHOLD = 0.6;
+
     /** @var array<string,list<string>> */
     private const CEILING_360_MARKER_CAPABILITY_MAP = [
         'facts_assumptions_decisions_split' => [
@@ -102,6 +104,46 @@ final class AtlasForgeRivalsMatrixReportService
         'capability_specific_evidence' => [
             'capability_separation_signal',
             'replayable_evidence_quality',
+        ],
+        'contradiction_resolution' => [
+            'contradiction_resolution_quality',
+            'adversarial_constraint_handling',
+            'multi_step_reasoning',
+        ],
+        'hidden_oracle_hypotheses' => [
+            'hidden_oracle_reasoning',
+            'honest_blocker_behavior',
+            'uncertainty_boundary_quality',
+        ],
+        'failure_mode_matrix' => [
+            'failure_mode_analysis',
+            'non_obvious_regression_detection',
+            'production_invariant_reasoning',
+        ],
+        'stop_block_criteria' => [
+            'stop_block_criteria_quality',
+            'honest_blocker_behavior',
+            'scope_boundary_discipline',
+        ],
+        'telemetry_delta' => [
+            'telemetry_delta_quality',
+            'production_invariant_reasoning',
+            'replayable_evidence_quality',
+        ],
+        'counterfactual_check' => [
+            'counterfactual_reasoning',
+            'adversarial_constraint_handling',
+            'non_obvious_regression_detection',
+        ],
+        'blast_radius_quantification' => [
+            'blast_radius_quantification',
+            'production_invariant_reasoning',
+            'scope_boundary_discipline',
+        ],
+        'confidence_calibration' => [
+            'confidence_calibration',
+            'uncertainty_boundary_quality',
+            'honest_blocker_behavior',
         ],
     ];
 
@@ -826,19 +868,20 @@ final class AtlasForgeRivalsMatrixReportService
             $validity = $casesCount >= AtlasForgeRivalsReportService::MIN_CASES_PER_CAPABILITY_SIGNAL
                 ? 'valid'
                 : 'insufficient';
+            $tieRate = round((int) $bucket['ties'] / max(1, $casesCount), 4);
             $rows[] = [
                 'capability' => $key,
                 'cases' => $casesCount,
                 'atlas_wins' => (int) $bucket['atlas_wins'],
                 'rival_wins' => (int) $bucket['rival_wins'],
                 'ties' => (int) $bucket['ties'],
-                'tie_rate' => round((int) $bucket['ties'] / max(1, $casesCount), 4),
+                'tie_rate' => $tieRate,
                 'leader' => $leader,
                 'atlas_avg_score' => round((float) $bucket['atlas_score_sum'] / max(1, $casesCount), 2),
                 'rival_avg_score' => round((float) $bucket['rival_score_sum'] / max(1, $casesCount), 2),
                 'validity' => $validity,
                 'validity_reason' => $validity === 'valid' ? 'sample_size_and_evidence_ok' : 'small_sample_less_than_three',
-                'separation_state' => $this->capabilitySeparationState($leader, $validity),
+                'separation_state' => $this->capabilitySeparationState($leader, $validity, $tieRate),
                 'routing_effect' => 'none',
                 'case_ids' => array_values(array_unique(array_filter($bucket['case_ids']))),
             ];
@@ -927,7 +970,7 @@ final class AtlasForgeRivalsMatrixReportService
 
             if ($state === 'differentiated') {
                 $differentiated[] = $capability;
-            } elseif ($state === 'tied') {
+            } elseif (in_array($state, ['tied', 'tied_high_tie_rate'], true)) {
                 $tied[] = $capability;
             } else {
                 $insufficient[] = $capability;
@@ -1319,7 +1362,7 @@ final class AtlasForgeRivalsMatrixReportService
             'l5_tie_rate' => $l5TieRate,
             'average_abs_margin' => $avgMargin,
             'max_abs_margin' => round($maxMargin, 2),
-            'high_tie_rate_threshold' => 0.6,
+            'high_tie_rate_threshold' => self::HIGH_TIE_RATE_THRESHOLD,
             'requires_harder_followup' => $requiresHarderFollowup,
             'target_capabilities' => $targetCapabilities,
             'candidate_cases' => array_values(array_filter($candidateCases)),
@@ -1583,10 +1626,13 @@ final class AtlasForgeRivalsMatrixReportService
         ));
     }
 
-    private function capabilitySeparationState(string $leader, string $validity): string
+    private function capabilitySeparationState(string $leader, string $validity, ?float $tieRate = null): string
     {
         if ($validity !== 'valid') {
             return 'insufficient_sample';
+        }
+        if ($tieRate !== null && $tieRate >= self::HIGH_TIE_RATE_THRESHOLD) {
+            return 'tied_high_tie_rate';
         }
         if (in_array($leader, [self::WINNER_ATLAS, self::WINNER_RIVAL], true)) {
             return 'differentiated';

@@ -24,6 +24,11 @@ use InvalidArgumentException;
  */
 class AtlasDevRunIndexRepository
 {
+    public function __construct(
+        private readonly ?int $listDefaultLimit = null,
+        private readonly ?int $listMaxLimit = null,
+    ) {}
+
     public function upsertFromPlan(
         string $runId,
         string $surfaceId,
@@ -142,11 +147,20 @@ class AtlasDevRunIndexRepository
 
     private function resolveLimit(?int $limit): int
     {
-        $default = max(1, (int) config('atlas_dev.run_index.list_default_limit', 50));
-        $max = max(1, (int) config('atlas_dev.run_index.list_max_limit', 200));
+        $default = max(1, $this->listDefaultLimit ?? (int) $this->config('atlas_dev.run_index.list_default_limit', 50));
+        $max = max(1, $this->listMaxLimit ?? (int) $this->config('atlas_dev.run_index.list_max_limit', 200));
         $effective = max(1, $limit ?? $default);
 
         return min($effective, $max);
+    }
+
+    private function config(string $key, mixed $default): mixed
+    {
+        try {
+            return config($key, $default);
+        } catch (\Throwable) {
+            return $default;
+        }
     }
 
     private function assertNonEmpty(string $field, string $value): void

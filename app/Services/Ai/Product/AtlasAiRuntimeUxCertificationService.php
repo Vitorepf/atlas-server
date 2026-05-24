@@ -67,6 +67,7 @@ class AtlasAiRuntimeUxCertificationService
     {
         $checks = [
             $this->backendUxBundleCheck(),
+            $this->assistedExecutionOperationalUxCheck(),
             $this->desktopViewModelExtendedCheck(),
             $this->desktopPillExistsAndWiredCheck(),
             $this->mobileViewModelExtendedCheck(),
@@ -142,7 +143,8 @@ class AtlasAiRuntimeUxCertificationService
         $bundleShape = isset($bundle['schema_version'])
             && array_key_exists('active_mission', $bundle)
             && array_key_exists('pending_approvals_count', $bundle)
-            && array_key_exists('latest_handoff', $bundle);
+            && array_key_exists('latest_handoff', $bundle)
+            && array_key_exists('assisted_execution', $bundle);
 
         $passed = $hasUxBundleMethod && $emitsBundleKey && $declaresUxBundleSchema
             && $hashIsClean && $bundleShape;
@@ -157,6 +159,41 @@ class AtlasAiRuntimeUxCertificationService
         ]);
     }
 
+    private function assistedExecutionOperationalUxCheck(): array
+    {
+        $bundle = $this->readiness->uxBundle();
+        $assisted = is_array($bundle['assisted_execution'] ?? null) ? $bundle['assisted_execution'] : [];
+        $source = $this->source($this->repoPath(self::PATH_READINESS_SERVICE));
+
+        $schemaPresent = ($assisted['schema_version'] ?? null) === 'atlas.ai.assisted_execution.operational_ux.v1'
+            && str_contains($source, 'atlas.ai.assisted_execution.operational_ux.v1');
+        $hasDoctrineSignal = array_key_exists('doctrine_gate_status', $assisted)
+            && array_key_exists('selected_drivers', $assisted);
+        $hasContextSignal = array_key_exists('context_memory_status', $assisted)
+            && array_key_exists('context_must_keep_coverage', $assisted);
+        $hasGovernanceSignal = array_key_exists('areg_path', $assisted)
+            && array_key_exists('outcome_feedback_status', $assisted)
+            && array_key_exists('aemor_feedback_status', $assisted);
+        $hasDeterministicHash = is_string($assisted['hash'] ?? null)
+            && strlen((string) $assisted['hash']) === 64;
+        $noRawRequest = ! str_contains($source, "'request' =>")
+            && ! array_key_exists('human_request', $assisted)
+            && ! array_key_exists('prompt', $assisted);
+
+        $passed = $schemaPresent && $hasDoctrineSignal && $hasContextSignal
+            && $hasGovernanceSignal && $hasDeterministicHash && $noRawRequest;
+
+        return $this->check('assisted_execution_operational_ux', $passed, 'critical', [
+            'schema_present' => $schemaPresent,
+            'doctrine_signal_present' => $hasDoctrineSignal,
+            'context_signal_present' => $hasContextSignal,
+            'areg_aemor_signal_present' => $hasGovernanceSignal,
+            'deterministic_hash_present' => $hasDeterministicHash,
+            'raw_request_not_exposed' => $noRawRequest,
+            'status' => $assisted['status'] ?? null,
+        ]);
+    }
+
     private function desktopViewModelExtendedCheck(): array
     {
         $typesSrc = $this->source($this->repoPath(self::PATH_DESKTOP_TYPES));
@@ -165,11 +202,15 @@ class AtlasAiRuntimeUxCertificationService
         $typesHaveUxBundle = str_contains($typesSrc, 'ux_bundle')
             && str_contains($typesSrc, 'active_mission')
             && str_contains($typesSrc, 'pending_approvals_count')
-            && str_contains($typesSrc, 'latest_handoff');
+            && str_contains($typesSrc, 'latest_handoff')
+            && str_contains($typesSrc, 'assisted_execution')
+            && str_contains($typesSrc, 'doctrine_gate_status')
+            && str_contains($typesSrc, 'aemor_feedback_status');
         $viewHasNewFields = str_contains($viewSrc, 'activeMission')
             && str_contains($viewSrc, 'pendingApprovalsCount')
             && str_contains($viewSrc, 'latestHandoff')
-            && str_contains($viewSrc, 'primaryBlocker');
+            && str_contains($viewSrc, 'primaryBlocker')
+            && str_contains($viewSrc, 'assistedExecution');
         $viewExposesPrimaryBlocker = str_contains($viewSrc, 'humanizeBlockerId');
 
         $passed = $typesHaveUxBundle && $viewHasNewFields && $viewExposesPrimaryBlocker;
@@ -196,7 +237,8 @@ class AtlasAiRuntimeUxCertificationService
             && str_contains($pillSrc, 'primaryBlocker')
             && str_contains($pillSrc, 'activeMission')
             && str_contains($pillSrc, 'pendingApprovalsCount')
-            && str_contains($pillSrc, 'latestHandoff');
+            && str_contains($pillSrc, 'latestHandoff')
+            && str_contains($pillSrc, 'assistedExecution');
         $pillRendersNoRawJson = ! str_contains($pillSrc, 'JSON.stringify')
             && ! str_contains($pillSrc, 'JSON.parse')
             && ! str_contains($pillSrc, '{readiness.raw}');
@@ -225,11 +267,15 @@ class AtlasAiRuntimeUxCertificationService
         $modelHasUxBundle = str_contains($modelSrc, 'ux_bundle')
             && str_contains($modelSrc, 'active_mission')
             && str_contains($modelSrc, 'pending_approvals_count')
-            && str_contains($modelSrc, 'latest_handoff');
+            && str_contains($modelSrc, 'latest_handoff')
+            && str_contains($modelSrc, 'assisted_execution')
+            && str_contains($modelSrc, 'doctrine_gate_status')
+            && str_contains($modelSrc, 'aemor_feedback_status');
         $modelHasNewFields = str_contains($modelSrc, 'activeMission')
             && str_contains($modelSrc, 'pendingApprovalsCount')
             && str_contains($modelSrc, 'latestHandoff')
-            && str_contains($modelSrc, 'primaryBlocker');
+            && str_contains($modelSrc, 'primaryBlocker')
+            && str_contains($modelSrc, 'assistedExecution');
 
         $hookPresent = is_file($hookPath);
         $clientPresent = is_file($clientPath);
@@ -253,13 +299,17 @@ class AtlasAiRuntimeUxCertificationService
         $src = $this->source($sheetPath);
         $usesHook = str_contains($src, 'useRuntimeReadiness');
         $rendersStatusBlock = str_contains($src, 'runtimeReadiness') || str_contains($src, 'showRuntimeBlock');
+        $rendersAssistedExecution = str_contains($src, 'assistedExecution')
+            && str_contains($src, 'doutrina')
+            && str_contains($src, 'outcome');
 
-        $passed = $sheetPresent && $usesHook && $rendersStatusBlock;
+        $passed = $sheetPresent && $usesHook && $rendersStatusBlock && $rendersAssistedExecution;
 
         return $this->check('mobile_context_sheet_wired', $passed, 'critical', [
             'mobile_context_sheet_present' => $sheetPresent,
             'mobile_context_sheet_consumes_hook' => $usesHook,
             'mobile_context_sheet_renders_runtime_block' => $rendersStatusBlock,
+            'mobile_context_sheet_renders_assisted_execution' => $rendersAssistedExecution,
             'mobile_context_sheet_path' => self::PATH_MOBILE_CONTEXT_SHEET,
         ]);
     }
@@ -299,15 +349,18 @@ class AtlasAiRuntimeUxCertificationService
         $desktopCoversBundle = str_contains($desktopHookTest, 'ux_bundle')
             && str_contains($desktopHookTest, 'activeMission')
             && str_contains($desktopHookTest, 'pendingApprovalsCount')
-            && str_contains($desktopHookTest, 'latestHandoff');
+            && str_contains($desktopHookTest, 'latestHandoff')
+            && str_contains($desktopHookTest, 'assistedExecution');
         $desktopCoversPill = str_contains($desktopPillTest, 'NÃO renderiza quando runtime unavailable')
             && str_contains($desktopPillTest, 'não pode conter snake_case')
             && str_contains($desktopPillTest, 'missão')
-            && str_contains($desktopPillTest, 'pendingApprovalsCount');
+            && str_contains($desktopPillTest, 'pendingApprovalsCount')
+            && str_contains($desktopPillTest, 'doutrina');
         $mobileCoversBundle = str_contains($mobileTest, 'ux_bundle')
             && str_contains($mobileTest, 'activeMission')
             && str_contains($mobileTest, 'pendingApprovalsCount')
-            && str_contains($mobileTest, 'primaryBlocker');
+            && str_contains($mobileTest, 'primaryBlocker')
+            && str_contains($mobileTest, 'assistedExecution');
 
         $passed = $desktopCoversBundle && $desktopCoversPill && $mobileCoversBundle;
 

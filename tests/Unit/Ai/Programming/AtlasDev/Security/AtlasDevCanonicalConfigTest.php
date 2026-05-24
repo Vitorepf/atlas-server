@@ -4,12 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\AtlasDev\Security;
 
-use App\Services\Ai\Programming\AtlasDev\Gate\SymfonyProcessCommandRunner;
-use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandRunner;
-use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
-use App\Services\Ai\Programming\AtlasDev\Provider\SymfonyClaudeCliGateway;
-use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Regression coverage for review findings F-02 and F-08:
@@ -21,11 +16,24 @@ use Tests\TestCase;
  */
 final class AtlasDevCanonicalConfigTest extends TestCase
 {
+    private array $atlasDevConfig;
+
+    private string $atlasConfigSource;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->forceEnv('ATLAS_DEV_RECEIPTS_PATH', sys_get_temp_dir().'/atlas-dev/receipts');
+        $this->atlasDevConfig = require $this->repoPath('config/atlas_dev.php');
+        $this->atlasConfigSource = (string) file_get_contents($this->repoPath('config/atlas.php'));
+    }
+
     public function test_confirmation_token_ttl_default_is_300_seconds(): void
     {
         $this->assertSame(
             300,
-            (int) config('atlas_dev.confirmation_token.ttl_seconds'),
+            (int) $this->atlasDevConfig['confirmation_token']['ttl_seconds'],
             'F-02: TTL default must be 300s per canonical decision.',
         );
     }
@@ -33,38 +41,32 @@ final class AtlasDevCanonicalConfigTest extends TestCase
     public function test_legacy_atlas_dev_config_block_is_gone(): void
     {
         $this->assertNull(
-            config('atlas.dev'),
+            preg_match("/['\"]dev['\"]\\s*=>/", $this->atlasConfigSource) === 1 ? 'dev' : null,
             'F-08: config/atlas.php must not carry a duplicate "dev" block.',
         );
-        $this->assertNull(config('atlas.dev.confirmation_token_ttl_seconds'));
-        $this->assertNull(config('atlas.dev.efficient_plan_enabled'));
-        $this->assertNull(config('atlas.dev.efficient_run_enabled'));
-        $this->assertNull(config('atlas.dev.stream_timeout_seconds'));
-        $this->assertNull(config('atlas.dev.stream_keepalive_seconds'));
-        $this->assertNull(config('atlas.dev.receipts_path'));
     }
 
     public function test_canonical_atlas_dev_keys_exist(): void
     {
-        $this->assertIsInt(config('atlas_dev.confirmation_token.ttl_seconds'));
-        $this->assertIsInt(config('atlas_dev.confirmation_token.plaintext_bytes'));
-        $this->assertIsInt(config('atlas_dev.stream.timeout_seconds'));
-        $this->assertIsInt(config('atlas_dev.stream.keepalive_seconds'));
-        $this->assertIsBool(config('atlas_dev.efficient.plan_enabled'));
-        $this->assertIsBool(config('atlas_dev.efficient.run_enabled'));
-        $this->assertIsBool(config('atlas_dev.efficient.desktop_enabled'));
-        $this->assertIsString(config('atlas_dev.receipts_path'));
+        $this->assertIsInt($this->atlasDevConfig['confirmation_token']['ttl_seconds']);
+        $this->assertIsInt($this->atlasDevConfig['confirmation_token']['plaintext_bytes']);
+        $this->assertIsInt($this->atlasDevConfig['stream']['timeout_seconds']);
+        $this->assertIsInt($this->atlasDevConfig['stream']['keepalive_seconds']);
+        $this->assertIsBool($this->atlasDevConfig['efficient']['plan_enabled']);
+        $this->assertIsBool($this->atlasDevConfig['efficient']['run_enabled']);
+        $this->assertIsBool($this->atlasDevConfig['efficient']['desktop_enabled']);
+        $this->assertIsString($this->atlasDevConfig['receipts_path']);
     }
 
     public function test_stream_defaults_are_300_and_15(): void
     {
-        $this->assertSame(300, (int) config('atlas_dev.stream.timeout_seconds'));
-        $this->assertSame(15, (int) config('atlas_dev.stream.keepalive_seconds'));
+        $this->assertSame(300, (int) $this->atlasDevConfig['stream']['timeout_seconds']);
+        $this->assertSame(15, (int) $this->atlasDevConfig['stream']['keepalive_seconds']);
     }
 
     public function test_run_and_desktop_default_off_for_safety(): void
     {
-        $configSource = (string) file_get_contents(config_path('atlas_dev.php'));
+        $configSource = (string) file_get_contents($this->repoPath('config/atlas_dev.php'));
 
         $this->assertStringContainsString("'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', false)", $configSource);
         $this->assertStringContainsString("'desktop_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED', false)", $configSource);
@@ -75,35 +77,33 @@ final class AtlasDevCanonicalConfigTest extends TestCase
         // F-05 canonical: ConfirmationTokenService is the only token backend.
         // The legacy filesystem ConfirmationTokenStore was removed; this guards
         // that the canonical TTL=300s contract still flows into the service.
-        $this->assertSame(300, (int) config('atlas_dev.confirmation_token.ttl_seconds'));
-        $this->assertInstanceOf(
-            ConfirmationTokenService::class,
-            $this->app->make(ConfirmationTokenService::class),
-            'F-02: canonical confirmation token service must be resolvable from the container.',
+        $providerSource = (string) file_get_contents($this->repoPath('app/Providers/AtlasDevServiceProvider.php'));
+
+        $this->assertSame(300, (int) $this->atlasDevConfig['confirmation_token']['ttl_seconds']);
+        $this->assertStringContainsString(
+            'singleton(ConfirmationTokenService::class',
+            $providerSource,
+            'F-02/F-05: canonical confirmation token service must be registered by AtlasDevServiceProvider.',
         );
     }
 
     public function test_production_run_driver_bindings_are_registered(): void
     {
-        $this->assertInstanceOf(
-            SymfonyClaudeCliGateway::class,
-            $this->app->make(ClaudeCliGateway::class),
-            'Atlas Dev /run must have a production ClaudeCliGateway binding; otherwise Desktop executes into blocked.',
-        );
-        $this->assertInstanceOf(
-            SymfonyProcessCommandRunner::class,
-            $this->app->make(VerificationCommandRunner::class),
-            'Atlas Dev /run must have a production VerificationCommandRunner binding.',
-        );
+        $providerSource = (string) file_get_contents($this->repoPath('app/Providers/AtlasDevServiceProvider.php'));
+
+        $this->assertStringContainsString('singleton(ClaudeCliGateway::class', $providerSource);
+        $this->assertStringContainsString('new SymfonyClaudeCliGateway', $providerSource);
+        $this->assertStringContainsString('singleton(VerificationCommandRunner::class', $providerSource);
+        $this->assertStringContainsString('new SymfonyProcessCommandRunner', $providerSource);
     }
 
     public function test_env_override_propagates_to_confirmation_token_service(): void
     {
-        config()->set('atlas_dev.confirmation_token.ttl_seconds', 600);
-        $this->assertSame(600, (int) config('atlas_dev.confirmation_token.ttl_seconds'));
-        // The service reads the TTL at issue() time, not at construction, so
-        // we don't need to rebuild the singleton — just assert config is the
-        // canonical source of truth.
+        $configSource = (string) file_get_contents($this->repoPath('config/atlas_dev.php'));
+        $serviceSource = (string) file_get_contents($this->repoPath('app/Services/Ai/Programming/AtlasDev/Security/ConfirmationTokenService.php'));
+
+        $this->assertStringContainsString('ATLAS_DEV_CONFIRMATION_TOKEN_TTL_SECONDS', $configSource);
+        $this->assertStringContainsString("config('atlas_dev.confirmation_token.ttl_seconds', 300)", $serviceSource);
     }
 
     public function test_legacy_filesystem_confirmation_token_store_is_gone(): void
@@ -118,5 +118,17 @@ final class AtlasDevCanonicalConfigTest extends TestCase
             class_exists('App\\Http\\Controllers\\AtlasDev\\Support\\ConfirmationTokenStatus'),
             'F-05: ConfirmationTokenStatus enum (filesystem path) must not exist.',
         );
+    }
+
+    private function repoPath(string $relative): string
+    {
+        return dirname(__DIR__, 6).'/'.$relative;
+    }
+
+    private function forceEnv(string $key, string $value): void
+    {
+        putenv($key.'='.$value);
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
     }
 }

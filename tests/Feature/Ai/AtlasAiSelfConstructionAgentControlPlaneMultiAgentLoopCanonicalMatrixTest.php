@@ -66,6 +66,8 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCanonicalMatri
         'terminal_loop_cycle_supervisor_present',
         'terminal_loop_cycle_supervisor_launch_path_verified',
         'terminal_loop_cycle_supervisor_evidence_review_path_verified',
+        'terminal_loop_fleet_launch_runbook_present',
+        'terminal_loop_fleet_launch_runbook_ready_path_verified',
         'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts',
         'worker_invalid_scope_rejected',
         'worker_bootstrap_preview_read_only',

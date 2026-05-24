@@ -163,7 +163,7 @@ class AtlasAiControlPlaneServiceTest extends TestCase
     {
         $now = now();
         $workspaceHash = $this->currentAtlasWorkspaceHash();
-        foreach (['AWTR', 'AWCO', 'AWEF'] as $family) {
+        foreach (['AWTR', 'AWCO', 'AWEF', 'AWIL', 'AWNSB'] as $family) {
             DB::table('atlas_workspace_runtime_projection_snapshots')->insert([
                 'id' => Str::uuid()->toString(),
                 'workspace_id' => 'atlas',
@@ -182,12 +182,15 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $report = $this->service()->report(24);
 
         $this->assertSame('ready', $report['workspace_intelligence']['status']);
-        $this->assertSame(3, $report['summary']['workspace_intelligence_snapshots_total']);
+        $this->assertSame(5, $report['summary']['workspace_intelligence_snapshots_total']);
         $this->assertSame(0, $report['summary']['workspace_intelligence_blocked']);
         $this->assertSame(1, $report['summary']['workspace_intelligence_workspaces_total']);
         $this->assertSame(0, $report['workspace_intelligence']['summary']['stale']);
-        $this->assertSame(['AWCO', 'AWEF', 'AWTR'], array_column($report['workspace_intelligence']['by_family'], 'family'));
-        $this->assertCount(3, $report['workspace_intelligence']['latest']);
+        $this->assertSame(0, $report['workspace_intelligence']['summary']['missing_required_families']);
+        $this->assertSame(['AWCO', 'AWEF', 'AWIL', 'AWNSB', 'AWTR'], $report['workspace_intelligence']['required_families']);
+        $this->assertSame(['AWCO', 'AWEF', 'AWIL', 'AWNSB', 'AWTR'], array_column($report['workspace_intelligence']['by_family'], 'family'));
+        $this->assertCount(5, $report['workspace_intelligence']['latest']);
+        $this->assertSame([], $report['workspace_intelligence']['by_workspace'][0]['missing_required_families']);
         $this->assertSame('ready', $report['workspace_intelligence']['shadow_execution']['status']);
         $this->assertSame(1, $report['workspace_intelligence']['shadow_execution']['summary']['total']);
         $this->assertSame(1, $report['workspace_intelligence']['shadow_execution']['summary']['ready']);
@@ -221,8 +224,38 @@ class AtlasAiControlPlaneServiceTest extends TestCase
 
         $this->assertSame('blocked', $report['workspace_intelligence']['status']);
         $this->assertSame('blocked', $report['status']);
-        $this->assertSame(1, $report['summary']['workspace_intelligence_blocked']);
+        $this->assertSame(5, $report['summary']['workspace_intelligence_blocked']);
+        $this->assertSame(4, $report['workspace_intelligence']['summary']['missing_required_families']);
         $this->assertContains('workspace_intelligence_projection_blocked', array_column($report['blockers'], 'kind'));
+    }
+
+    public function test_workspace_intelligence_missing_required_projection_blocks_runtime_report(): void
+    {
+        $now = now();
+        $workspaceHash = $this->currentAtlasWorkspaceHash();
+        foreach (['AWTR', 'AWCO', 'AWEF', 'AWIL'] as $family) {
+            DB::table('atlas_workspace_runtime_projection_snapshots')->insert([
+                'id' => Str::uuid()->toString(),
+                'workspace_id' => 'atlas',
+                'family' => $family,
+                'schema_version' => 'atlas.test.'.$family.'.v1',
+                'runtime_hash' => 'sha256:runtime_'.$family,
+                'projection_hash' => 'sha256:projection_'.$family,
+                'status' => 'ready',
+                'payload' => json_encode($this->workspaceProjectionPayload($family, 'ready', $workspaceHash)),
+                'captured_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $report = $this->service()->report(24);
+
+        $this->assertSame('blocked', $report['workspace_intelligence']['status']);
+        $this->assertSame('blocked', $report['status']);
+        $this->assertSame(1, $report['workspace_intelligence']['summary']['missing_required_families']);
+        $this->assertSame(['AWNSB'], $report['workspace_intelligence']['by_workspace'][0]['missing_required_families']);
+        $this->assertContains('workspace_intelligence_required_projection_missing', array_column($report['blockers'], 'kind'));
     }
 
     public function test_workspace_intelligence_stale_projection_blocks_runtime_report(): void
@@ -247,7 +280,8 @@ class AtlasAiControlPlaneServiceTest extends TestCase
         $this->assertSame('blocked', $report['workspace_intelligence']['status']);
         $this->assertSame('blocked', $report['status']);
         $this->assertSame(1, $report['workspace_intelligence']['summary']['stale']);
-        $this->assertSame(1, $report['summary']['workspace_intelligence_blocked']);
+        $this->assertSame(5, $report['summary']['workspace_intelligence_blocked']);
+        $this->assertSame(4, $report['workspace_intelligence']['summary']['missing_required_families']);
         $this->assertSame('workspace_hash_changed', $report['workspace_intelligence']['latest'][0]['stale_reason']);
         $this->assertContains('workspace_intelligence_projection_stale', array_column($report['blockers'], 'kind'));
     }

@@ -19,7 +19,7 @@ use InvalidArgumentException;
 final class AtlasWorkspaceIntelligenceCommand extends Command
 {
     protected $signature = 'atlas:workspace-intelligence
-        {action=certify : certify|show|twin|artifacts|contracts|evolution|learning-loop|artifact-intelligence|conversation-fusion|handoff-pack|boundary-audit|gate|register|list}
+        {action=certify : certify|show|twin|artifacts|contracts|evolution|learning-loop|next-session-brain|artifact-intelligence|conversation-fusion|handoff-pack|boundary-audit|gate|register|list}
         {--workspace= : Workspace slug, defaults to configured Atlas workspace}
         {--path= : Workspace root path for register action}
         {--name= : Human workspace name for register action}
@@ -103,6 +103,7 @@ final class AtlasWorkspaceIntelligenceCommand extends Command
                 task: $this->stringOption('task') ?? '',
                 conversationTexts: $this->conversationOption(),
             ),
+            'next-session-brain', 'session-brain', 'brain' => $report['workspace_next_session_brain'] ?? [],
             'artifact-intelligence' => $report['awair'] ?? [],
             'conversation-fusion', 'fusion', 'merge-conversations' => $conversationFusion->build(
                 workspace: $this->stringOption('workspace'),
@@ -127,7 +128,7 @@ final class AtlasWorkspaceIntelligenceCommand extends Command
                 'schema_version' => AtlasWorkspaceIntelligenceRuntimeService::SCHEMA_VERSION,
                 'status' => 'blocked',
                 'error' => 'unknown_action',
-                'allowed_actions' => ['certify', 'show', 'twin', 'artifacts', 'contracts', 'evolution', 'learning-loop', 'artifact-intelligence', 'conversation-fusion', 'handoff-pack', 'boundary-audit', 'gate', 'register', 'list'],
+                'allowed_actions' => ['certify', 'show', 'twin', 'artifacts', 'contracts', 'evolution', 'learning-loop', 'next-session-brain', 'artifact-intelligence', 'conversation-fusion', 'handoff-pack', 'boundary-audit', 'gate', 'register', 'list'],
             ],
         };
 

@@ -299,7 +299,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneDeterministicChainReplayTest
     {
         $replay = $this->newService()->replay([
             'override_projection' => [
-                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract',
+                'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract',
             ],
         ]);
         // A pointer regression must surface either as a violation or a

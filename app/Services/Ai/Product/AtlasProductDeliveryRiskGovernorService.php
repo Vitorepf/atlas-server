@@ -36,6 +36,7 @@ class AtlasProductDeliveryRiskGovernorService
             'status' => $blocked ? 'blocked' : 'allowed',
             'mode' => 'provider_free_read_only',
             'route' => $route,
+            'aedpds_gate' => $this->aedpdsGate($delivery),
             'risk_score' => $riskScore,
             'risk_band' => $riskBand,
             'risk_factors' => $riskFactors,
@@ -69,6 +70,19 @@ class AtlasProductDeliveryRiskGovernorService
     }
 
     /**
+     * @return array{status:string,hash:string,warnings:list<string>,blockers:list<string>}
+     */
+    private function aedpdsGate(array $delivery): array
+    {
+        return [
+            'status' => (string) data_get($delivery, 'aedpds.gate.status', 'unknown'),
+            'hash' => (string) data_get($delivery, 'aedpds.gate.hash', ''),
+            'warnings' => $this->list(data_get($delivery, 'aedpds.gate.warnings', [])),
+            'blockers' => $this->list(data_get($delivery, 'aedpds.gate.blockers', [])),
+        ];
+    }
+
+    /**
      * @param  list<string>  $lenses
      * @param  array<string,mixed>  $runtimeSignals
      * @return list<string>
@@ -89,6 +103,9 @@ class AtlasProductDeliveryRiskGovernorService
         }
         if (($proof['status'] ?? null) !== 'ready') {
             $factors[] = 'proof_not_ready';
+        }
+        if (data_get($delivery, 'aedpds.gate.status') !== 'passed') {
+            $factors[] = 'aedpds_gate_not_passed';
         }
         if ($this->list($proof['critical_blockers'] ?? []) !== []) {
             $factors[] = 'critical_proof_blockers';
@@ -157,6 +174,7 @@ class AtlasProductDeliveryRiskGovernorService
             'provider_failure_pressure' => 12,
             'test_flake_pressure' => 10,
             'cost_pressure' => 6,
+            'aedpds_gate_not_passed' => 30,
         ];
         foreach ($riskFactors as $factor) {
             $score += $weights[$factor] ?? 4;
@@ -213,6 +231,13 @@ class AtlasProductDeliveryRiskGovernorService
         $blockers = [];
         if (($delivery['status'] ?? null) !== 'ready_for_delivery') {
             $blockers[] = ['id' => 'delivery_not_ready', 'severity' => 'critical'];
+        }
+        if (data_get($delivery, 'aedpds.gate.status') !== 'passed') {
+            $blockers[] = [
+                'id' => 'aedpds_gate_not_passed',
+                'severity' => 'critical',
+                'gate_status' => data_get($delivery, 'aedpds.gate.status', 'unknown'),
+            ];
         }
         if (($simulation['status'] ?? 'simulated') === 'blocked') {
             $blockers[] = ['id' => 'product_twin_blocked', 'severity' => 'critical'];

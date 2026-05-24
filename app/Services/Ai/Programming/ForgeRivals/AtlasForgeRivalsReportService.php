@@ -448,7 +448,7 @@ final class AtlasForgeRivalsReportService
             'rival_score' => $rivalScore,
             'threshold' => $threshold,
             'human_review_required' => $humanReviewRequired,
-            'claim_ready' => $claimReady,
+            'claim_ready' => (bool) ($claimStatus['claim_ready'] ?? false),
             'replay_passes' => $replayOk,
             'declared_why' => $declaredWhy,
             'quality_dimensions' => $qualityDimensions,

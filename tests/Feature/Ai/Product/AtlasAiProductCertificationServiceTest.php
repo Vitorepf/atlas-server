@@ -28,13 +28,15 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         );
         $this->assertContains($report['status'], ['ready', 'partial', 'blocked']);
         $this->assertArrayHasKey('summary', $report);
+        $this->assertArrayHasKey('assisted_execution_scorecard', $report);
+        $this->assertArrayHasKey('agentic_workforce_scorecard', $report);
         $this->assertArrayHasKey('checks', $report);
         $this->assertArrayHasKey('remaining_blockers', $report);
         $this->assertArrayHasKey('evidence_refs', $report);
         $this->assertArrayHasKey('claims', $report);
         $this->assertArrayHasKey('certification_hash', $report);
         $this->assertSame(64, strlen((string) $report['certification_hash']));
-        $this->assertSame(21, count($report['checks']));
+        $this->assertSame(27, count($report['checks']));
         $this->assertFalse($report['writes']);
     }
 
@@ -50,6 +52,7 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertSame('product_runtime_governance', $report['claims']['scope']);
         $this->assertTrue($report['claims']['covers_desktop_runtime_ux']);
         $this->assertTrue($report['claims']['covers_agent_control_plane_runtime']);
+        $this->assertTrue($report['claims']['covers_agentic_workcell_runtime']);
         $this->assertTrue($report['claims']['covers_external_execution_governance']);
         $this->assertTrue($report['claims']['covers_internal_autonomous_company_runtime']);
         $this->assertTrue($report['claims']['covers_capability_usage_evolution']);
@@ -57,6 +60,79 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($report['claims']['covers_verified_context_execution_loop']);
         $this->assertTrue($report['claims']['covers_assisted_execution_quality']);
         $this->assertTrue($report['claims']['covers_execution_doctrine_product_delivery_system']);
+        $this->assertTrue($report['claims']['covers_context_memory_quality']);
+        $this->assertTrue($report['claims']['covers_runtime_efficiency_governor']);
+        $this->assertTrue($report['claims']['covers_aemor_runtime']);
+        $this->assertTrue($report['claims']['covers_runtime_ux_operational']);
+        $this->assertTrue($report['claims']['covers_autonomous_evolution_loop']);
+    }
+
+    public function test_assisted_execution_scorecard_rates_all_goal_areas_from_certified_checks(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $scorecard = $report['assisted_execution_scorecard'];
+
+        $this->assertSame('atlas.ai.assisted_execution_scorecard.v1', $scorecard['schema_version']);
+        $this->assertSame('ready', $scorecard['status']);
+        $this->assertSame(10.0, $scorecard['overall_score']);
+
+        $expectedAreas = [
+            'aedpds_delivery_doctrine',
+            'aucri_acmf_context_memory',
+            'areg_efficiency_governor',
+            'aemor_outcome_memory',
+            'runtime_ux_operational',
+            'aael_autonomous_evolution',
+        ];
+
+        foreach ($expectedAreas as $areaId) {
+            $this->assertArrayHasKey($areaId, $scorecard['areas']);
+            $this->assertSame('ready', $scorecard['areas'][$areaId]['status']);
+            $this->assertSame(10.0, $scorecard['areas'][$areaId]['score']);
+            $this->assertNotEmpty($scorecard['areas'][$areaId]['check_ids']);
+        }
+
+        $this->assertTrue($scorecard['claim_policy']['local_certification_scope_only']);
+        $this->assertFalse($scorecard['claim_policy']['provider_invoked']);
+        $this->assertFalse($scorecard['claim_policy']['production_autonomous_mutation_claimed']);
+        $this->assertTrue($scorecard['claim_policy']['high_risk_human_signature_required']);
+        $this->assertStringContainsString(
+            'Production mutation remains gated',
+            $scorecard['areas']['aael_autonomous_evolution']['boundary'],
+        );
+    }
+
+    public function test_agentic_workforce_scorecard_rates_agents_as_product_from_certified_checks(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $scorecard = $report['agentic_workforce_scorecard'];
+
+        $this->assertSame('atlas.ai.agentic_workforce_scorecard.v1', $scorecard['schema_version']);
+        $this->assertSame('ready', $scorecard['status']);
+        $this->assertSame(10.0, $scorecard['overall_score']);
+
+        $expectedAreas = [
+            'governed_agent_runtime',
+            'operational_roster_workcells',
+            'multi_agent_orchestration',
+            'outcome_learning',
+            'continuous_evolution',
+            'operator_visibility',
+        ];
+
+        foreach ($expectedAreas as $areaId) {
+            $this->assertArrayHasKey($areaId, $scorecard['areas']);
+            $this->assertSame('ready', $scorecard['areas'][$areaId]['status']);
+            $this->assertSame(10.0, $scorecard['areas'][$areaId]['score']);
+            $this->assertNotEmpty($scorecard['areas'][$areaId]['check_ids']);
+        }
+
+        $this->assertTrue($scorecard['claim_policy']['local_certification_scope_only']);
+        $this->assertFalse($scorecard['claim_policy']['provider_invoked']);
+        $this->assertFalse($scorecard['claim_policy']['agents_spawned_by_certification']);
+        $this->assertFalse($scorecard['claim_policy']['external_execution_performed']);
+        $this->assertFalse($scorecard['claim_policy']['production_autonomous_mutation_claimed']);
+        $this->assertTrue($scorecard['claim_policy']['human_signature_required_for_high_risk']);
     }
 
     public function test_certification_hash_is_deterministic_across_runs(): void
@@ -96,6 +172,7 @@ class AtlasAiProductCertificationServiceTest extends TestCase
             'no_attachment_path_still_works',
             'desktop_control_plane_runtime_governance_ux',
             'agent_control_plane_runtime_standard',
+            'agentic_workcell_runtime',
             'governed_external_execution_control_plane',
             'internal_autonomous_company_runtime_claim_gate',
             'capability_usage_and_evolution_loop',
@@ -103,6 +180,11 @@ class AtlasAiProductCertificationServiceTest extends TestCase
             'verified_context_execution_loop',
             'assisted_execution_quality',
             'execution_doctrine_product_delivery_system',
+            'context_memory_quality',
+            'runtime_efficiency_governor',
+            'aemor_runtime',
+            'runtime_ux_operational',
+            'autonomous_evolution_loop',
         ];
 
         foreach ($expected as $id) {
@@ -310,6 +392,23 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($evidence['claim_lease_test_present']);
     }
 
+    public function test_evidence_proves_agentic_workcell_runtime_as_operational_roster(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $byId = [];
+        foreach ($report['checks'] as $check) {
+            $byId[$check['id']] = $check;
+        }
+
+        $evidence = $byId['agentic_workcell_runtime']['evidence'];
+        $this->assertTrue($evidence['runtime_emits_operational_roster']);
+        $this->assertTrue($evidence['runtime_learns_and_surfaces_control_plane']);
+        $this->assertTrue($evidence['certifies_topologies_and_outcome_learning']);
+        $this->assertTrue($evidence['commands_present']);
+        $this->assertTrue($evidence['tests_cover_runtime_and_certification']);
+        $this->assertTrue($evidence['canonical_doc_present']);
+    }
+
     public function test_evidence_proves_internal_autonomous_company_claim_gate(): void
     {
         $report = app(AtlasAiProductCertificationService::class)->certify();
@@ -357,6 +456,8 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($evidence['service_builds_human_execution_envelope']);
         $this->assertTrue($evidence['service_routes_dev_and_forge']);
         $this->assertTrue($evidence['service_uses_dev_runtime_context_gate']);
+        $this->assertTrue($evidence['service_uses_required_control_areas']);
+        $this->assertTrue($evidence['service_closes_areg_aemor_feedback']);
         $this->assertTrue($evidence['service_protects_login_bug_human_path']);
         $this->assertTrue($evidence['ai_interaction_controller_wired_before_dev_runtime']);
         $this->assertTrue($evidence['ai_interaction_controller_enforces_context_gate']);

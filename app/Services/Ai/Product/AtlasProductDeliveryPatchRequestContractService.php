@@ -24,10 +24,14 @@ class AtlasProductDeliveryPatchRequestContractService
         if (($delivery['status'] ?? null) !== 'ready_for_delivery') {
             $blockers[] = 'delivery_contract_not_ready';
         }
+        if (data_get($delivery, 'aedpds.gate.status') !== 'passed') {
+            $blockers[] = 'aedpds_gate_not_passed';
+        }
         $requiredRepairs = $this->stringList($proof['required_repairs'] ?? []);
         $requiredEvidence = $this->requiredEvidence($delivery, $proof, $repairBridge);
         $risk = $this->risk($delivery);
         $status = in_array('delivery_contract_not_ready', $blockers, true)
+            || in_array('aedpds_gate_not_passed', $blockers, true)
             ? 'blocked'
             : (($proof['status'] ?? null) === 'ready' ? 'not_required' : 'ready_for_patch_proposal');
 
@@ -40,6 +44,7 @@ class AtlasProductDeliveryPatchRequestContractService
             'proof_hash' => (string) ($proof['proof_hash'] ?? ''),
             'repair_bridge_hash' => (string) ($repairBridge['repair_bridge_hash'] ?? ''),
             'route' => (string) ($delivery['route'] ?? 'atlas_dev'),
+            'aedpds_gate' => $this->aedpdsGate($delivery),
             'risk' => $risk,
             'failure_summary' => [
                 'proof_status' => (string) ($proof['status'] ?? 'unknown'),
@@ -88,6 +93,19 @@ class AtlasProductDeliveryPatchRequestContractService
         $payload['patch_request_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @return array{status:string,hash:string,warnings:list<string>,blockers:list<string>}
+     */
+    private function aedpdsGate(array $delivery): array
+    {
+        return [
+            'status' => (string) data_get($delivery, 'aedpds.gate.status', 'unknown'),
+            'hash' => (string) data_get($delivery, 'aedpds.gate.hash', ''),
+            'warnings' => $this->stringList(data_get($delivery, 'aedpds.gate.warnings', [])),
+            'blockers' => $this->stringList(data_get($delivery, 'aedpds.gate.blockers', [])),
+        ];
     }
 
     /**

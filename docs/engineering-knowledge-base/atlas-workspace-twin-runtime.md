@@ -22,6 +22,7 @@ capabilities:
   - risk_fragility_map
   - provider_skill_memory
   - workspace_learning_loop
+  - workspace_next_session_brain
 decisions:
   - AWTR vive dentro de AWIS e nunca substitui workspace binding.
   - O twin e derivado de docs, codigo, testes, receipts, outcomes e comandos reais.
@@ -224,11 +225,15 @@ Blocos:
 | Bloco | Funcao | Saida |
 |---|---|---|
 | Workspace Genome | identidade tecnica | `genome_hash` |
+| Repository Inventory | manifests/repos seguros | `inventory_hash` |
 | Living Code Map | modulos/fluxos/testes | `code_map_hash` |
 | Context Autopilot | contexto por tarefa | `task_context_pack` |
 | Test Command Intelligence | comandos e testes certos | `focused_tests` |
 | Risk Fragility Map | zonas sensiveis | `risk_map_hash` |
 | Workspace Memory Core | outcomes e decisoes | recall scoped |
+| Workspace Change Memory | mudancas Git provider-safe | `change_hash` |
+| Workspace Focus Map | foco por tarefa/mudanca | `focus_hash` |
+| Workspace Next Session Brain | retomada operacional segura | `brain_hash` |
 | Provider Skill Memory | provider por tarefa | routing hint |
 | Simulation Layer | impacto antes de executar | risk report |
 
@@ -268,11 +273,72 @@ incluindo o conteudo da ref atual quando existir, e hashes de arquivos
 estruturais do workspace/docs AWIS. Isso impede twin stale depois de mudanca em
 git, lockfile, package, tsconfig ou docs criticas de workspace.
 
+AWIS tambem emite `workspace_change_memory`, uma memoria operacional
+provider-safe do estado Git atual. Ela suporta tanto repo Git direto quanto uma
+pasta ampla com repos filhos, como `atlas-server`, `atlas-desktop` e `atlas-app`.
+Ela registra apenas `repo_key`, caminhos relativos, areas tocadas, areas
+criticas tocadas, branch, `head_sha_short`, `diff_hash` agregado e
+`change_hash`; nao retorna `diff_excerpt`, conteudo bruto de arquivo nem caminho
+absoluto do workspace. O Workspace Learning Loop consome esse `change_hash`
+como unidade candidata de memoria, mantendo `auto_promotes_memory=false` ate
+revisao por evidencia.
+
+AWTR tambem emite `repository_inventory`, um inventario provider-safe dos repos
+e manifests do workspace. Ele usa nomes de manifests, tags de stack, nomes de
+scripts e command hints derivados, mas nao retorna manifest bruto nem corpo de
+scripts. Esse inventario permite que pasta ampla carregue stack real e comandos
+provaveis sem depender apenas do `stack_summary` manual do profile.
+
+AWIS tambem emite `workspace_focus_map`, calculado a partir de tarefa, mudancas
+atuais, areas criticas e `repository_inventory`. O foco aponta repos provaveis,
+areas, arquivos relativos de preview e comandos sugeridos para `task_packet`,
+`context_pack`, `test_plan`, `risk_sheet` e Learning Loop. Ele nao retorna
+conteudo bruto de arquivos, diff ou caminho absoluto.
+
+AWIS tambem emite `workspace_next_session_brain`, um pacote provider-safe para
+retomada da proxima sessao. Ele cruza binding, inventario, change memory, focus
+map, artifact graph, contratos e runbook para declarar ordem de carregamento,
+repositorios focados, docs donas, comandos priorizados, revisoes obrigatorias e
+candidatos de memoria. O pacote e desenhado para reduzir varredura repetida e
+evitar que a proxima IA nasca zerada, mas mantem `auto_promote=false` e nao
+retorna arquivo bruto, diff, manifest bruto, conversa bruta ou caminho absoluto.
+O runtime completo tambem publica `repository_inventory` no topo do payload,
+alem de `awtr.repository_inventory`, para que surfaces e gates nao precisem
+desempacotar o Twin inteiro para entender a pasta. O brain inclui
+`context_loading_plan`, com `repository_inventory_hash`, stack tags, refs de
+manifest por repo focado, command hints, cache keys e gatilhos de refresh. Esse
+plano e a ponte performatica entre "escolher pasta" e "nascer com contexto":
+ele orienta o que carregar primeiro sem enviar manifest bruto, corpo de script
+ou caminho absoluto ao provider.
+Ele possui projection dedicada `AWNSB`, comando
+`atlas:workspace-intelligence next-session-brain`, endpoint
+`/atlas-code/workspace-intelligence/next-session-brain` e replay `latest=1`
+bloqueado quando o `workspace_hash` muda.
+O AWIS execution gate tambem exige `awnsb_next_session_brain` para execucao
+mutativa e projeta `execution_context` com `brain_hash`, ordem de carregamento,
+repositorios/areas focadas, comandos priorizados, refs de memoria e
+`context_loading_plan`. O Handoff Pack e o Atlas Dev Runtime tambem carregam
+esse plano antes de liberar `provider_execution_allowed`, garantindo que Dev,
+Forge e subagentes recebam o mesmo contrato de pasta performatico e
+provider-safe, sem precisar reabrir o Twin inteiro nem receber conteudo bruto.
+Atlas Dev tambem converte esse plano em `workspace_context_selection`, anexando
+refs provider-safe (`awis_repo`, `awis_manifest`, `awis_stack`,
+`awis_cache:repository_inventory`) e comandos sugeridos ao
+`atlas_dev_runtime_intelligence.task_packet`. Assim o plano deixa de ser apenas
+metadado de retomada e passa a influenciar a selecao real de contexto/testes
+antes do prompt de provider.
+O Atlas AI Control Plane considera a familia AWIS operacional somente quando
+as projections persistidas incluem `AWTR`, `AWCO`, `AWEF`, `AWIL` e `AWNSB`.
+Se um workspace tiver projection parcial, o Control Plane emite
+`workspace_intelligence_required_projection_missing` em vez de declarar pronto.
+
 Comandos planejados:
 
 ```bash
 php artisan atlas:workspace-intelligence twin --workspace=atlas --json --strict
+php artisan atlas:workspace-intelligence next-session-brain --workspace=atlas --json --strict
 curl /atlas-code/workspace-intelligence/twin?workspace=atlas
+curl /atlas-code/workspace-intelligence/next-session-brain?workspace=atlas
 ```
 
 ## Riscos

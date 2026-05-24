@@ -67,14 +67,14 @@ class AtlasAutonomousProductDeliveryRuntimeService
         $doctrineGate = $this->executionDoctrineGate->evaluate([
             'doctrine' => $doctrine,
             'acceptance_criteria' => $this->list(data_get($truth, 'acceptance_universe.must_work', [])),
-            'context_refs' => $this->list($input['context_refs'] ?? ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md']),
+            'context_refs' => $this->list($input['context_refs'] ?? []),
             'tests' => $this->testsFromTruth($truth),
             'contracts' => array_merge(
                 $this->list(data_get($truth, 'contract_map.apis', [])),
                 $this->list(data_get($truth, 'contract_map.events', [])),
                 $this->list(data_get($truth, 'contract_map.data_shapes', [])),
             ),
-            'docs' => $this->list($input['canonical_docs'] ?? ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md']),
+            'docs' => $this->list($input['canonical_docs'] ?? []),
             'review' => (bool) ($input['operator_approved'] ?? false) ? ['operator_or_senior_review'] : [],
             'evidence' => $this->list($input['evidence_refs'] ?? data_get($input, 'evidence.tests', [])),
             'ux_expectations' => $this->list($input['ux_expectations'] ?? []),
@@ -86,7 +86,7 @@ class AtlasAutonomousProductDeliveryRuntimeService
             'surface_id' => $this->string($input['surface_id'] ?? null) ?? 'atlas_ai',
             'route' => $route,
             'risk_band' => $this->riskBand($truth),
-            'context_refs' => $this->list($input['context_refs'] ?? ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md']),
+            'context_refs' => $this->list($input['context_refs'] ?? []),
             'acceptance_criteria' => $this->list(data_get($truth, 'acceptance_universe.must_work', [])),
             'suggested_tests' => $this->testsFromTruth($truth),
         ]);
@@ -188,7 +188,7 @@ class AtlasAutonomousProductDeliveryRuntimeService
         if (($assisted['status'] ?? null) !== 'ready_for_assisted_execution') {
             return 'needs_context';
         }
-        if (($doctrineGate['status'] ?? null) === 'blocked') {
+        if (($doctrineGate['status'] ?? null) !== 'passed') {
             return 'blocked_by_aedpds_gate';
         }
 

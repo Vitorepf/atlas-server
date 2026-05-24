@@ -178,11 +178,31 @@ class AtlasAedpdsRuntimeTest extends TestCase
             'human_request' => 'criar API endpoint com auth e payload',
             'workspace' => 'atlas-server',
             'operator_approved' => true,
+            'context_refs' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
         ]);
 
         $this->assertSame(AtlasExecutionDoctrineRuntimeService::SCHEMA_VERSION, data_get($plan, 'aedpds.doctrine.schema_version'));
         $this->assertSame(AtlasExecutionDoctrineGateService::SCHEMA_VERSION, data_get($plan, 'aedpds.gate.schema_version'));
         $this->assertContains('api_first', data_get($plan, 'aedpds.doctrine.selected_primary_drivers'));
+    }
+
+    public function test_apdr_blocks_without_explicit_context_even_for_simple_ready_truth(): void
+    {
+        $plan = app(AtlasAutonomousProductDeliveryRuntimeService::class)->plan([
+            'human_request' => 'corrigir bug pequeno em cálculo local',
+            'workspace' => 'atlas-server',
+            'operator_approved' => true,
+            'ux_expectations' => ['local bug expectation'],
+            'evidence' => [
+                'tests' => ['focused tests passed'],
+                'acceptance_mapping' => ['tests mapped to acceptance'],
+                'outcome' => ['outcome memory candidate recorded'],
+            ],
+        ]);
+
+        $this->assertSame('blocked_by_aedpds_gate', $plan['status']);
+        $this->assertSame('blocked', data_get($plan, 'aedpds.gate.status'));
+        $this->assertContains('missing_minimum_context_ref', data_get($plan, 'aedpds.gate.blockers'));
     }
 
     public function test_apdr_status_is_blocked_when_aedpds_gate_is_blocked(): void
@@ -280,8 +300,47 @@ class AtlasAedpdsRuntimeTest extends TestCase
         $this->assertSame(DevRunCertificationService::STATUS_NEEDS_REVIEW, $certification->status);
         $this->assertSame(17, $certification->summary['total']);
         $this->assertGreaterThanOrEqual(1, $certification->summary['aedpds_fail']);
-        $this->assertSame('fail', collect($certification->summary['aedpds_checks'])->firstWhere('id', 'aedpds_gate_not_blocked')['status']);
-        $this->assertNull(collect($certification->checks)->firstWhere('id', 'aedpds_gate_not_blocked'));
+        $this->assertSame('fail', collect($certification->summary['aedpds_checks'])->firstWhere('id', 'aedpds_gate_passed')['status']);
+        $this->assertNull(collect($certification->checks)->firstWhere('id', 'aedpds_gate_passed'));
+        $this->assertNotEmpty($certification->blockers);
+    }
+
+    public function test_dev_run_certification_blocks_when_aedpds_gate_warns_without_evidence(): void
+    {
+        $packet = (new DevTaskPacketRuntimeService)->persist([
+            'run_id' => 'aedpds-dev-warning-run',
+            'task_id' => 'aedpds-dev-warning-task',
+            'objective' => 'corrigir bug pequeno em cálculo local',
+            'risk_band' => 'medium',
+            'task_class' => 'bug',
+            'allowed_files' => ['app/Services/Foo.php'],
+            'context_refs' => ['docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md'],
+            'suggested_tests' => ['php artisan test --filter=Foo'],
+            'acceptance_criteria' => ['reported bug no longer reproduces'],
+        ]);
+        $contextGate = (new DevContextGateService)->persist($packet);
+        $outcome = (new DevOutcomeMemoryService)->persist([
+            'outcome_status' => 'success',
+            'evidence_kinds' => ['phpunit'],
+            'selected_tests' => ['php artisan test --filter=Foo'],
+        ], $packet);
+        $native = (new DevNativeCapabilityOrchestrator)->evaluate($packet->toArray(), [
+            'context_gate' => $contextGate->toArray(),
+            'outcome' => $outcome->toArray(),
+            'changed_files' => ['app/Services/Foo.php'],
+            'diff_clean' => true,
+        ]);
+        $decisions = [];
+        foreach ((array) ($native['decisions'] ?? []) as $kind => $decision) {
+            $decisions[] = (new DevDecisionMaterializationService)->persist($packet, (string) $kind, (array) $decision);
+        }
+
+        $certification = (new DevRunCertificationService)->persist($packet, $contextGate, $outcome, decisionMaterializations: $decisions);
+
+        $this->assertSame(DevRunCertificationService::STATUS_NEEDS_REVIEW, $certification->status);
+        $this->assertSame('warning', $certification->summary['aedpds_gate_status']);
+        $this->assertSame('fail', collect($certification->summary['aedpds_checks'])->firstWhere('id', 'aedpds_gate_passed')['status']);
+        $this->assertNull(collect($certification->checks)->firstWhere('id', 'aedpds_gate_passed'));
         $this->assertNotEmpty($certification->blockers);
     }
 
@@ -294,6 +353,7 @@ class AtlasAedpdsRuntimeTest extends TestCase
         $this->assertSame(14, data_get($inspection, 'classifications.implemented_runtime'));
         $this->assertSame(AtlasAedpdsInspectionService::CERTIFICATION_SCHEMA_VERSION, $certification['schema_version']);
         $this->assertSame('ready', $certification['status']);
+        $this->assertSame('passed', collect($certification['checks'])->firstWhere('id', 'docs_health_green')['status']);
         $this->assertSame('passed', collect($certification['checks'])->firstWhere('id', 'forge_integration_present')['status']);
         $this->assertSame('passed', collect($certification['checks'])->firstWhere('id', 'forge_work_packet_capability_present')['status']);
         $this->assertSame('passed', collect($certification['checks'])->firstWhere('id', 'sample_gate_blocks_missing_artifacts')['status']);

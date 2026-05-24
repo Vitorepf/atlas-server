@@ -3047,9 +3047,16 @@ DIFF;
         $testCommand = $this->testCommand($case);
         $businessRule = trim((string) ($case['business_rule'] ?? ''));
         $expectedSignal = trim((string) ($case['expected_signal'] ?? ''));
+        $operatorTicket = $this->operatorTicketPromptBlock($case);
         $fixtureNote = ($case['case_source'] ?? '') === 'provider_arena_corpus'
-            ? "\nEstado inicial:\n- Os arquivos de seed ja foram posicionados no workspace. Trate inputs e testes existentes como fixtures somente-leitura; leia-os, mas nao modifique.\n"
+            ? "\nEstado inicial:\n- Os arquivos de seed ja foram posicionados no workspace. Use-os como ponto de partida e altere somente os arquivos esperados dentro do escopo permitido.\n"
             : '';
+        $workspaceEvidencePolicy = <<<'TEXT'
+Política de artefatos:
+- Modifique somente os arquivos esperados para alteracao.
+- Nao crie arquivos adicionais no workspace do caso, incluindo scorecard.json, evidence_pack.json, receipt.json, logs, caches ou artefatos temporarios.
+- O scorecard e o evidence pack oficiais sao gerados pelo harness do Rivals fora do workspace do caso; documente evidencias no runbook permitido quando necessario.
+TEXT;
 
         if ($promptMode === 'human-normal') {
             return <<<PROMPT
@@ -3057,6 +3064,8 @@ DIFF;
 
 Pedido do operador:
 Preciso que você resolva esta demanda no workspace atual: {$case['objective']}
+
+{$operatorTicket}
 
 Contexto do problema:
 {$businessRule}
@@ -3069,6 +3078,7 @@ Regras do benchmark:
 - Preserve os critérios de aceite abaixo:
 - {$acceptance}
 {$fixtureNote}
+{$workspaceEvidencePolicy}
 
 Validação obrigatória:
 {$testCommand}
@@ -3084,6 +3094,8 @@ PROMPT;
 Pedido do operador, do jeito que chegou:
 Tem algo errado ou incompleto nesta área e eu preciso que você entregue a correção sem abrir escopo. A intenção principal é: {$case['objective']}
 
+{$operatorTicket}
+
 Contexto disponível:
 {$businessRule}
 
@@ -3095,6 +3107,7 @@ Limites que não podem ser violados:
 - Critérios que serão usados para aceitar/rejeitar:
 - {$acceptance}
 {$fixtureNote}
+{$workspaceEvidencePolicy}
 
 Comando que precisa passar:
 {$testCommand}
@@ -3110,6 +3123,8 @@ PROMPT;
 Mudança enterprise solicitada:
 {$case['objective']}
 
+{$operatorTicket}
+
 Motivo de negócio:
 {$businessRule}
 
@@ -3121,6 +3136,7 @@ Controles obrigatórios:
 - Critérios de aceite:
 - {$acceptance}
 {$fixtureNote}
+{$workspaceEvidencePolicy}
 
 Comando obrigatório de validação:
 {$testCommand}
@@ -3134,6 +3150,8 @@ PROMPT;
 
 Objetivo:
 {$case['objective']}
+
+{$operatorTicket}
 
 Regra de negocio:
 {$businessRule}
@@ -3150,6 +3168,7 @@ Critérios de aceitação:
 Sinal esperado:
 {$expectedSignal}
 {$fixtureNote}
+{$workspaceEvidencePolicy}
 
 Comando obrigatório de validação:
 {$testCommand}
@@ -3162,6 +3181,41 @@ Regras:
 - Deixe as alterações no workspace para o harness capturar diff e evidência.
 - Responda com resumo curto, arquivos alterados e resultado do teste.
 PROMPT;
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     */
+    private function operatorTicketPromptBlock(array $case): string
+    {
+        $humanPrompt = trim((string) ($case['human_prompt'] ?? ''));
+        $pressure = is_array($case['ceiling_pressure_profile'] ?? null)
+            ? (array) $case['ceiling_pressure_profile']
+            : [];
+
+        $blocks = [];
+        if ($humanPrompt !== '') {
+            $blocks[] = "Ticket humano canonico do caso:\n".$humanPrompt;
+        }
+
+        if ($pressure !== []) {
+            $pressureLevel = (string) ($pressure['pressure_level'] ?? 'unknown');
+            $requiredSections = implode(', ', $this->stringList($pressure['required_sections'] ?? []));
+            $invalidIfMissing = implode(', ', $this->stringList($pressure['invalid_if_missing'] ?? []));
+            $requires = implode(', ', $this->stringList($pressure['requires'] ?? []));
+
+            $blocks[] = <<<TEXT
+Contrato Rivals 360 obrigatorio:
+- Pressure level: {$pressureLevel}
+- Required sections: {$requiredSections}
+- Invalid if missing: {$invalidIfMissing}
+- Required reasoning signals: {$requires}
+- Ao terminar, inclua no runbook permitido ou na resposta final um bloco "Rivals 360 Evidence" com essas secoes nomeadas explicitamente.
+- Para cada decisao relevante, inclua Counterfactual Check, Blast Radius quantificado e Confidence Calibration com nivel/probabilidade e razao.
+TEXT;
+        }
+
+        return implode("\n\n", array_filter($blocks, static fn (string $block): bool => trim($block) !== ''));
     }
 
     private function normalizePromptMode(string $mode): string

@@ -46,6 +46,14 @@ final class AtlasWorkspaceIntelligenceExecutionGateService
 
         $mutative = in_array($normalizedMode, self::MUTATIVE_MODES, true);
         $artifactShadow = $this->artifactShadowExecution->evaluate($report, $normalizedMode);
+        $nextSessionBrain = (array) ($report['workspace_next_session_brain'] ?? []);
+        $nextSessionBrainReady = ($nextSessionBrain['status'] ?? null) === 'ready'
+            && data_get($nextSessionBrain, 'source_policy.raw_file_content_returned') === false
+            && data_get($nextSessionBrain, 'source_policy.raw_conversation_returned') === false
+            && data_get($nextSessionBrain, 'source_policy.absolute_workspace_path_returned') === false
+            && data_get($nextSessionBrain, 'context_loading_plan.provider_policy.raw_manifest_returned') === false
+            && data_get($nextSessionBrain, 'context_loading_plan.provider_policy.script_bodies_returned') === false
+            && data_get($nextSessionBrain, 'context_loading_plan.provider_policy.absolute_workspace_path_returned') === false;
         $blockers = [];
         $warnings = [];
 
@@ -61,6 +69,9 @@ final class AtlasWorkspaceIntelligenceExecutionGateService
             }
             if (($artifactShadow['status'] ?? null) !== 'ready') {
                 $blockers[] = 'artifact_shadow_execution_blocked';
+            }
+            if (! $nextSessionBrainReady) {
+                $blockers[] = 'workspace_next_session_brain_not_ready';
             }
         } elseif (($report['status'] ?? null) !== 'ready') {
             $warnings[] = 'workspace_not_ready_conversation_only';
@@ -82,7 +93,21 @@ final class AtlasWorkspaceIntelligenceExecutionGateService
                 'awaf_artifacts_generated' => (int) data_get($report, 'awaf.artifact_count', 0) >= 10,
                 'awco_execution_readiness' => data_get($report, 'awco.execution_readiness_status') === 'ready',
                 'awair_shadow_execution' => ($artifactShadow['status'] ?? null) === 'ready',
+                'awnsb_next_session_brain' => $nextSessionBrainReady,
+                'awnsb_context_loading_plan' => data_get($nextSessionBrain, 'context_loading_plan.schema_version') === 'atlas.awis.context_loading_plan.v1',
                 'raw_conversation_excluded' => data_get($report, 'claim_policy.raw_conversation_used_as_prompt') === false,
+            ],
+            'execution_context' => [
+                'schema_version' => 'atlas.workspace_intelligence.execution_context.v1',
+                'workspace_next_session_brain_hash' => data_get($nextSessionBrain, 'brain_hash'),
+                'load_order' => array_values((array) data_get($nextSessionBrain, 'resume_packet.load_order', [])),
+                'focused_repositories' => array_values((array) data_get($nextSessionBrain, 'resume_packet.focused_repositories', [])),
+                'focused_areas' => array_values((array) data_get($nextSessionBrain, 'resume_packet.focused_areas', [])),
+                'execution_priority' => array_values((array) data_get($nextSessionBrain, 'execution_priority', [])),
+                'context_loading_plan' => (array) data_get($nextSessionBrain, 'context_loading_plan', []),
+                'memory_candidate_refs' => array_values((array) data_get($nextSessionBrain, 'memory_candidates.candidate_refs', [])),
+                'provider_safe' => $nextSessionBrainReady,
+                'raw_content_returned' => false,
             ],
             'artifact_shadow_execution' => $artifactShadow,
             'blockers' => array_values(array_unique($blockers)),
@@ -91,6 +116,7 @@ final class AtlasWorkspaceIntelligenceExecutionGateService
                 'conversation_allowed_without_workspace' => true,
                 'mutative_execution_requires_workspace' => true,
                 'mutative_execution_requires_certified_contracts' => true,
+                'mutative_execution_requires_next_session_brain' => true,
                 'raw_conversation_used_as_prompt' => false,
             ],
         ];

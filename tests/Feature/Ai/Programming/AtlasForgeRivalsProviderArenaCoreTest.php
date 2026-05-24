@@ -12,6 +12,7 @@ use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsArmCommandBuilderSer
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsModeRegistry;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderModelRegistryService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsReportService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunRealService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsSetupService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
@@ -28,6 +29,41 @@ use Tests\TestCase;
  */
 final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 {
+    public function test_enterprise_change_prompt_forbids_workspace_scorecard_artifacts(): void
+    {
+        $service = app(AtlasForgeRivalsRunRealService::class);
+        $method = new \ReflectionMethod($service, 'casePrompt');
+        $method->setAccessible(true);
+
+        $prompt = $method->invoke($service, [
+            'prompt_mode' => 'enterprise-change',
+            'case_source' => 'provider_arena_corpus',
+            'objective' => 'Projetar testes 060 que capturem regressao, edge cases e comportamento esperado.',
+            'business_rule' => 'Regressao historica deve falhar antes do fix e passar depois dele.',
+            'allowed_files' => [
+                'storage/forge-rivals-industrial/example/src/**',
+                'storage/forge-rivals-industrial/example/tests/**',
+                'storage/forge-rivals-industrial/example/docs/**',
+            ],
+            'expected_changed_files' => [
+                'storage/forge-rivals-industrial/example/src/example.php',
+                'storage/forge-rivals-industrial/example/tests/exampleTest.php',
+                'storage/forge-rivals-industrial/example/docs/example-runbook.md',
+            ],
+            'acceptance_criteria' => [
+                'Scorecard por caso pode ser reconstruido a partir do evidence pack.',
+            ],
+            'quick_test_command' => 'php storage/forge-rivals-industrial/example/tests/exampleTest.php',
+            'full_test_command' => 'php storage/forge-rivals-industrial/example/tests/exampleTest.php',
+        ], 'Você é o braço Atlas Forge.');
+
+        $this->assertIsString($prompt);
+        $this->assertStringContainsString('Modifique somente os arquivos esperados para alteracao.', $prompt);
+        $this->assertStringContainsString('Nao crie arquivos adicionais no workspace do caso, incluindo scorecard.json', $prompt);
+        $this->assertStringContainsString('O scorecard e o evidence pack oficiais sao gerados pelo harness do Rivals fora do workspace do caso', $prompt);
+        $this->assertStringContainsString('Use-os como ponto de partida e altere somente os arquivos esperados dentro do escopo permitido.', $prompt);
+    }
+
     public function test_registry_lists_canonical_arms_including_cursor_and_composer(): void
     {
         $registry = app(AtlasForgeRivalsArmRegistryService::class);

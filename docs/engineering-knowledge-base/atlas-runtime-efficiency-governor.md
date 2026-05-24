@@ -156,7 +156,7 @@ versions:
 version_note: AREG evolui de controlador de orcamento para governador cognitivo auto-otimizavel.
 next_actions:
   - Endurecer enforcement progressivo para que camadas caras possam ser realmente puladas quando AREG provar baixo risco.
-  - Conectar outcomes reais de AEMOR ao recordOutcome do AREG automaticamente.
+  - Expandir a conexao `recordOutcomeFeedback` do AAEQ para mais surfaces Dev/Forge.
   - Calibrar politicas aprendidas por flow com dados reais de producao.
 ---
 # Atlas Runtime Efficiency Governor
@@ -374,7 +374,10 @@ Evidencia implementada:
 - actions `compile-policy` e `replay` no comando AREG;
 - testes de fast path, standard/deep path, forge path, blocked path,
   undercontext, overcontext, outcome learning, policy learning,
-  replay contrafactual e sanitizacao.
+  replay contrafactual e sanitizacao;
+- AAEQ `recordOutcomeFeedback`, que fecha feedback pos-execucao em AREG e
+  AEMOR com `persist=false` por padrao e `persist=true` explicito para gravar
+  outcome local com evidencia.
 
 Limite honesto: o enforcement e progressivo e conservador. AREG aplica
 politicas aprendidas somente quando a amostra minima e os gates de risco
@@ -428,7 +431,7 @@ milestones, receipts e verification budget alto.
 
 ## Proximas Acoes
 
-1. Alimentar `recordOutcome` com mais sinais reais de AEMOR em todos os flows.
+1. Alimentar `recordOutcomeFeedback` com mais sinais reais de AEMOR em todos os flows.
 2. Calibrar `context_budget_multiplier` com dados reais de custo e qualidade.
 3. Expor AREG no Control Plane visual sem permitir override silencioso.
 4. Usar AREG para governar admissao de novos MCPs, skills e subagentes.

@@ -56,13 +56,21 @@ class AtlasProductDeliveryEvidenceReplayLabService
     private function scenarioResults(array $options): array
     {
         $workspace = (string) ($options['workspace'] ?? 'atlas-server');
+        $contextRefs = $this->strings($options['context_refs'] ?? [
+            'docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md',
+        ]);
+        $evidenceRefs = $this->strings($options['evidence_refs'] ?? [
+            'AEDPDS gate evidence recorded for deterministic replay',
+        ]);
         $scenarioDefs = [
             [
                 'id' => 'ecommerce_routes_to_forge_and_plans_repair_without_proof',
                 'request' => 'cria um ecommerce completo com pagamentos e webhooks',
                 'workspace' => $workspace,
                 'operator_approved' => true,
+                'context_refs' => $contextRefs,
                 'ux_expectations' => ['checkout journey expectation'],
+                'evidence_refs' => $evidenceRefs,
                 'evidence' => [],
                 'expect' => [
                     'route' => 'atlas_forge',
@@ -80,7 +88,9 @@ class AtlasProductDeliveryEvidenceReplayLabService
                 'request' => 'cria um ecommerce completo com pagamentos e webhooks',
                 'workspace' => $workspace,
                 'operator_approved' => true,
+                'context_refs' => $contextRefs,
                 'ux_expectations' => ['checkout journey expectation'],
+                'evidence_refs' => $evidenceRefs,
                 'evidence' => [
                     'tests' => ['focused_tests passed', 'contract tests passed', 'security regression tests passed'],
                     'security' => ['abuse cases reviewed'],
@@ -103,7 +113,9 @@ class AtlasProductDeliveryEvidenceReplayLabService
                 'request' => 'estou com um bug na tela de login',
                 'workspace' => $workspace,
                 'operator_approved' => true,
+                'context_refs' => $contextRefs,
                 'ux_expectations' => ['login visual regression expectation'],
+                'evidence_refs' => $evidenceRefs,
                 'evidence' => [],
                 'expect' => [
                     'route' => 'atlas_dev',
@@ -131,7 +143,9 @@ class AtlasProductDeliveryEvidenceReplayLabService
             'human_request' => $scenario['request'] ?? '',
             'workspace' => $scenario['workspace'] ?? 'atlas-server',
             'operator_approved' => (bool) ($scenario['operator_approved'] ?? false),
+            'context_refs' => $scenario['context_refs'] ?? [],
             'ux_expectations' => $scenario['ux_expectations'] ?? [],
+            'evidence_refs' => $scenario['evidence_refs'] ?? [],
             'evidence' => $scenario['evidence'] ?? [],
         ]);
         $actual = [
@@ -245,6 +259,21 @@ class AtlasProductDeliveryEvidenceReplayLabService
         }
 
         return (string) ($delivery['status'] ?? 'unknown');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
+            $value,
+        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 
     /**

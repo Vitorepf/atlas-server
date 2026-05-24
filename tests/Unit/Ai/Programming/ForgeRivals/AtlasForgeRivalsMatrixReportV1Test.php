@@ -297,6 +297,28 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertStringContainsString('low_differentiation', $md);
     }
 
+    public function test_matrix_report_does_not_call_one_win_inside_many_ties_differentiated(): void
+    {
+        $required = AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES;
+        $runId = $this->seedBattery([
+            $this->case('atlas-l5-one', 'bugfix', 'hard', 'comparable', atlas: 91, rival: 84, capabilities: $required),
+            $this->case('tie-l5-one', 'architecture', 'hard', 'comparable', atlas: 88, rival: 87, capabilities: $required),
+            $this->case('tie-l5-two', 'backend', 'hard', 'comparable', atlas: 86, rival: 86, capabilities: $required),
+            $this->case('tie-l5-three', 'docs', 'hard', 'comparable', atlas: 89, rival: 88, capabilities: $required),
+        ]);
+
+        $report = $this->matrix->render(['run_ids' => [$runId]])['matrix_report'];
+        $firstCapability = $report['capability_ranking']['rows'][0];
+
+        $this->assertSame('atlas', $report['overall']['winner']);
+        $this->assertSame(0.75, $firstCapability['tie_rate']);
+        $this->assertSame('tied_high_tie_rate', $firstCapability['separation_state']);
+        $this->assertSame('low_differentiation', $report['differentiation']['status']);
+        $this->assertSame([], $report['differentiation']['required_differentiated_capabilities']);
+        $this->assertTrue($report['tie_pressure_diagnosis']['requires_harder_followup']);
+        $this->assertSame('none', $report['differentiation']['routing_effect']);
+    }
+
     public function test_matrix_report_marks_repeated_l5_capability_wins_as_differentiated_signal(): void
     {
         $required = AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES;
@@ -539,11 +561,21 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
                         'required' => true,
                         'atlas' => [
                             'facts_assumptions_decisions_split' => false,
+                            'failure_mode_matrix' => false,
                             'production_invariant_reasoning' => false,
+                            'stop_block_criteria' => false,
+                            'counterfactual_check' => false,
+                            'blast_radius_quantification' => false,
+                            'confidence_calibration' => false,
                         ],
                         'rival' => [
                             'facts_assumptions_decisions_split' => false,
+                            'failure_mode_matrix' => false,
                             'production_invariant_reasoning' => false,
+                            'stop_block_criteria' => false,
+                            'counterfactual_check' => false,
+                            'blast_radius_quantification' => false,
+                            'confidence_calibration' => false,
                         ],
                     ],
                 ]),
@@ -562,6 +594,31 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
             $this->assertFalse($plan['provider_call']);
             $this->assertFalse($plan['tokens_spent']);
             $this->assertSame('none', $plan['routing_effect']);
+
+            $byMarker = [];
+            foreach ($plan['requirements'] as $requirement) {
+                $byMarker[(string) $requirement['marker']] = $requirement;
+            }
+            $this->assertContains(
+                'failure_mode_analysis',
+                $byMarker['failure_mode_matrix']['target_capabilities'] ?? [],
+            );
+            $this->assertContains(
+                'stop_block_criteria_quality',
+                $byMarker['stop_block_criteria']['target_capabilities'] ?? [],
+            );
+            $this->assertContains(
+                'counterfactual_reasoning',
+                $byMarker['counterfactual_check']['target_capabilities'] ?? [],
+            );
+            $this->assertContains(
+                'blast_radius_quantification',
+                $byMarker['blast_radius_quantification']['target_capabilities'] ?? [],
+            );
+            $this->assertContains(
+                'confidence_calibration',
+                $byMarker['confidence_calibration']['target_capabilities'] ?? [],
+            );
         } finally {
             config(['atlas_rivals.min_free_bytes_before_provider_evidence' => $oldEvidenceFloor]);
         }
@@ -702,6 +759,33 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $paths = $this->paths->paths($runId);
         $this->assertFileExists($paths['evidence'].'/'.AtlasForgeRivalsMatrixReportService::MATRIX_REPORT_JSON_FILE);
         $this->assertFileExists($paths['evidence'].'/'.AtlasForgeRivalsMatrixReportService::MATRIX_REPORT_MD_FILE);
+    }
+
+    public function test_cli_matrix_report_honors_repeated_run_id_values(): void
+    {
+        $firstRunId = $this->seedBattery([
+            $this->case('c1', 'backend_logic', 'medium', 'comparable', atlas: 80, rival: 60),
+        ]);
+        $secondRunId = $this->seedBattery([
+            $this->case('c2', 'frontend_ui', 'hard', 'comparable', atlas: 70, rival: 90),
+        ]);
+
+        $exit = $this->artisan('atlas:forge:rivals', [
+            'action' => 'matrix-report',
+            '--run-id' => [$firstRunId, $secondRunId],
+            '--stage' => AtlasForgeRivalsEvidencePolicy::STAGE_PRE_ADJUDICATION,
+            '--json' => true,
+        ])->run();
+
+        $this->assertSame(0, $exit);
+        $paths = $this->paths->paths($firstRunId);
+        $report = json_decode(
+            (string) file_get_contents($paths['evidence'].'/'.AtlasForgeRivalsMatrixReportService::MATRIX_REPORT_JSON_FILE),
+            true,
+        );
+
+        $this->assertSame([$firstRunId, $secondRunId], $report['run_ids'] ?? null);
+        $this->assertSame(2, $report['case_count'] ?? null);
     }
 
     public function test_matrix_report_action_is_registered_in_cli(): void

@@ -226,6 +226,46 @@ AEDPDS mae -> runtime matrix -> service/comando/teste -> certification
 | 8 | Otimiza doutrina por evidencia longitudinal. | planned |
 | 9 | Libera release candidate por Control Plane healthy. | implemented_shadow |
 
+## Maturidade e Definition of Done
+
+| Fase | Nome | Criterio |
+|---:|---|---|
+| 0 | Canonical Doctrine | Doc mae existe e passa docs-health. |
+| 1 | APTC Spec | Product Truth Contract, schemas, comandos e testes definidos. |
+| 2 | APDR Spec | Delivery contract, comandos e testes definidos. |
+| 3 | APFPR Spec | Falsificacao, prova e blockers definidos. |
+| 4 | Truth Shadow Runtime | APTC gera Product Truth sem alterar execucao. |
+| 5 | Delivery Shadow Runtime | APDR gera envelope sem alterar execucao. |
+| 6 | Proof Shadow Runtime | APFPR tenta reprovar sem bloquear execucao. |
+| 7 | Dev/Forge Opt-in | Dev/Forge consomem envelopes em modo opt-in. |
+| 8 | Partial Enforcement | Risco alto exige Product Truth e APFPR antes do provider. |
+| 9 | Default Enforcement | Produto complexo passa por APTC + APDR + APFPR. |
+| 10 | Self-Improving Delivery | Outcome memory melhora rotas, testes e criterios. |
+| 11 | Mutative Repair Autonomy | Reparo real com rollback, receipts e override humano. |
+| 12 | Assisted Patch Generation | Atlas gera patch candidato; Proposal Gate decide. |
+| 13 | Multi-Step Repair Plan | Reparo vira passos com budget, testes e rollback. |
+| 14 | Product Twin Simulation | Simula impacto antes de executar. |
+| 15 | Evidence Replay Lab | Reexecuta cenarios/receipts para detectar regressao. |
+| 16 | Doctrine Fitness Loop | Mede lente/gate por outcome real. |
+| 17 | Autonomous Delivery Governance | Autonomia sobe ou recua por prova, custo, risco e historico. |
+| 18 | Delivery Risk Governor | Calcula autonomia permitida, approvals e gates. |
+| 19 | Product Control Plane | Agrega risk, replay, fitness, receipts e certification. |
+| 20 | Autonomous Product Release Gate | Release candidate so com prova completa. |
+| 21 | Provider/Cost/Flake Memory Feed | Alimenta risco por falha, custo e flake reais. |
+| 22 | Product Policy Optimizer | Propoe doutrina por replay/fitness sem aplicar policy. |
+
+Definition of Done por fase: schema existe; service ou comando existe; teste
+positivo e teste blocker existem; `atlas:product-delivery:certify --json
+--strict` passa; `atlas:ai:product-certify --json --strict` inclui evidencia;
+docs-health passa; claim policy declara side effects; outcome memory ou skip
+reason existe.
+
+Reparo controlado exige patch manifest explicito, Patch Request Contract antes
+do provider/subagente, Patch Proposal Gate, approval para risco alto, rollback,
+failure capsule, APFPR rerun, completion enforcement e receipt append-only.
+Fases apex continuam read-only/controladas ate AEMOR Judgment e operador
+permitirem promocao.
+
 ## Runtime Matrix
 
 | Runtime | Input | Output | Risco | Comando/Teste |
@@ -254,6 +294,66 @@ AEDPDS mae -> runtime matrix -> service/comando/teste -> certification
 | Provider/Cost/Flake Memory Feed | outcomes, test logs, provider receipts | risk signal | custo/flake mal atribuido | `atlas:product-delivery:provider-memory --json --strict` |
 | Product Policy Optimizer | replay, fitness, AEMOR judgment | policy proposal | auto-policy perigosa | `atlas:product-delivery:policy-optimizer --json --strict` |
 | Certification | arquivos, testes, comandos | readiness granular AEDPDS/APDR | claim inflado | `atlas:aedpds:certify --json --strict` + `atlas:product-delivery:certify --json --strict` |
+
+## AEDPDS Selector e Gate
+
+Runtime tecnico do selector: `AtlasExecutionDoctrineRuntimeService`.
+Schema: `atlas.aedpds.execution_doctrine.v1`.
+Comando: `php artisan atlas:aedpds:select --task="..." --surface=dev --json`.
+
+Gate tecnico: `AtlasExecutionDoctrineGateService`.
+Schema: `atlas.aedpds.execution_gate.v1`.
+Comando: `php artisan atlas:aedpds:gate --task="..." --surface=dev --json`.
+Status: `passed | warning | blocked`.
+
+O gate valida aceite, contexto, testes, contratos, docs, UX/prototipo, modelo
+formal/semi-formal, observabilidade/readiness, risk review, senior review e
+evidencia esperada antes de execucao relevante. O comando nao injeta artefatos
+falsos. Para passar via CLI, forneca explicitamente `--acceptance`,
+`--context`, `--test`, `--contract`, `--doc`, `--review`, `--evidence` e `--ux`
+conforme os drivers selecionados. Em `--strict`, ausencia obrigatoria precisa
+sair com codigo diferente de zero.
+
+Campos canonicos do selector: `request_id`, `trace_id`, `surface`, `workspace`,
+`task_type`, `user_intent_summary`, `ambiguity_level`, `risk_level`,
+`selected_primary_drivers`, `selected_secondary_drivers`, `required_artifacts`,
+`required_context`, `required_tests`, `required_contracts`, `required_docs`,
+`required_review`, `required_evidence`, `blockers`, `warnings`,
+`allowed_to_execute`, `reason` e `certification_hash`.
+
+Drivers canonicos: `tdd`, `bdd`, `atdd`, `fdd`, `sdd`, `cdd`, `api_first`,
+`documentation_driven`, `readme_driven`, `domain_driven_design`,
+`model_driven`, `database_driven`, `prototype_driven`, `ux_driven`,
+`risk_driven`, `architecture_driven`, `security_driven`, `performance_driven`,
+`reliability_observability_driven` e `data_evidence_driven`.
+
+Gates especificos:
+
+- Todo envelope com `required_context` precisa carregar ao menos um contexto
+  real: owner doc, context pack, arquivo provavel, `--context` ou evidencia de
+  contexto. Sem isso bloqueia com `missing_minimum_context_ref`.
+- `model_driven` exige especificacao de modelo ou state machine e contrato
+  formal/semi-formal antes de execucao.
+- `reliability_observability_driven` exige logs, traces, receipts ou readiness
+  signal quando observabilidade/readiness for driver primario.
+- APDR propaga bloqueio AEDPDS para status do envelope e enforcement
+  pre-provider; carregar gate bloqueado sem bloquear e falso readiness.
+- APFPR bloqueia `delivery_contract_not_ready` quando APDR nao estiver
+  `ready_for_delivery`.
+- Patch Request e Multi-Step Repair Plan bloqueiam `delivery_contract_not_ready`
+  para nao projetar patch sobre APDR bloqueado.
+
+Relacoes operacionais:
+
+- APDR executa produto; AEDPDS define a doutrina carregada no envelope.
+- Atlas Dev usa AEDPDS no Task Packet, Context Gate, Test Impact e Run
+  Certification.
+- Forge usa AEDPDS no Work Intake, Work Packets, senior review, escalacao e
+  Outcome Memory por driver.
+- AEMOR aprende efetividade por outcome memory e sinais aprovados.
+- ACRUI impede duplicacao, scaffold falso e claim contra realidade.
+- AUCRI/context fornece contexto minimo proporcional aos drivers escolhidos.
+- Control Plane e certificacao expõem AEDPDS como readiness/audit.
 
 ## Estados
 

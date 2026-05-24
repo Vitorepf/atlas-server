@@ -8,32 +8,54 @@ use App\Models\AtlasDevConfirmationToken;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenKeyMissingException;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
+use Illuminate\Config\Repository;
+use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class ConfirmationTokenServiceTest extends TestCase
 {
     private ConfirmationTokenService $service;
 
+    private Capsule $db;
+
+    private Repository $config;
+
     protected function setUp(): void
     {
         parent::setUp();
 
+        $this->db = new Capsule;
+        $this->db->addConnection([
+            'database' => ':memory:',
+            'driver' => 'sqlite',
+            'prefix' => '',
+        ]);
+        $this->db->setAsGlobal();
+        $this->db->bootEloquent();
+
         $this->createTokensTable();
-        config()->set('atlas_dev.confirmation_token.ttl_seconds', 300);
-        config()->set('atlas_dev.confirmation_token.plaintext_bytes', 32);
+        $this->config = new Repository([
+            'app' => [
+                'key' => 'base64:'.base64_encode(str_repeat('A', 32)),
+            ],
+            'atlas_dev' => [
+                'confirmation_token' => [
+                    'plaintext_bytes' => 32,
+                    'ttl_seconds' => 300,
+                ],
+            ],
+        ]);
         // F-09: HMAC requires a real APP_KEY ≥ 32 bytes. Tests use the same
         // base64:... shape Laravel emits via `php artisan key:generate`.
-        config()->set('app.key', 'base64:'.base64_encode(str_repeat('A', 32)));
-        $this->service = new ConfirmationTokenService;
+        $this->service = new ConfirmationTokenService($this->config);
     }
 
     protected function tearDown(): void
     {
         Carbon::setTestNow();
-        Schema::dropIfExists('atlas_dev_confirmation_tokens');
+        $this->db->schema()->dropIfExists('atlas_dev_confirmation_tokens');
         parent::tearDown();
     }
 
@@ -71,7 +93,7 @@ final class ConfirmationTokenServiceTest extends TestCase
     public function test_expired_token_fails(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-05-16 10:00:00'));
-        config()->set('atlas_dev.confirmation_token.ttl_seconds', 60);
+        $this->config->set('atlas_dev.confirmation_token.ttl_seconds', 60);
 
         $issue = $this->service->issue('run-003', 'task-contract-ccc', 'cli');
 
@@ -140,7 +162,7 @@ final class ConfirmationTokenServiceTest extends TestCase
     public function test_token_hash_is_constant_time_comparable_via_hash_equals(): void
     {
         // Documents that we intentionally use the HMAC + hash_equals path.
-        $service = new ConfirmationTokenService;
+        $service = new ConfirmationTokenService($this->config);
         $this->assertSame($service->hashSecret('abc'), $service->hashSecret('abc'));
         $this->assertNotSame($service->hashSecret('abc'), $service->hashSecret('abcd'));
     }
@@ -148,7 +170,7 @@ final class ConfirmationTokenServiceTest extends TestCase
     public function test_issue_fails_closed_when_app_key_is_missing(): void
     {
         // F-09: no public fallback. Issue MUST throw, not return a "token".
-        config()->set('app.key', '');
+        $this->config->set('app.key', '');
 
         $this->expectException(ConfirmationTokenKeyMissingException::class);
         $this->service->issue('run-key-1', 'task-contract-key', 'cli');
@@ -157,7 +179,7 @@ final class ConfirmationTokenServiceTest extends TestCase
     public function test_issue_fails_closed_when_app_key_is_short(): void
     {
         // F-09: anything shorter than 32 decoded bytes is treated as missing.
-        config()->set('app.key', 'base64:'.base64_encode('too-short'));
+        $this->config->set('app.key', 'base64:'.base64_encode('too-short'));
 
         $this->expectException(ConfirmationTokenKeyMissingException::class);
         $this->service->issue('run-key-2', 'task-contract-key', 'cli');
@@ -170,7 +192,7 @@ final class ConfirmationTokenServiceTest extends TestCase
 
         // Then drop the key — any subsequent consume MUST fail closed and
         // never accidentally succeed by hashing under the same default.
-        config()->set('app.key', '');
+        $this->config->set('app.key', '');
 
         $result = $this->service->validateAndConsume('run-key-3', 'task-contract-key', $issue->plaintext);
 
@@ -188,7 +210,7 @@ final class ConfirmationTokenServiceTest extends TestCase
     {
         $issue = $this->service->issue('run-key-4', 'task-contract-key', 'cli');
 
-        config()->set('app.key', 'short-raw-key');
+        $this->config->set('app.key', 'short-raw-key');
 
         $result = $this->service->validateAndConsume('run-key-4', 'task-contract-key', $issue->plaintext);
 
@@ -246,8 +268,8 @@ final class ConfirmationTokenServiceTest extends TestCase
 
     private function createTokensTable(): void
     {
-        Schema::dropIfExists('atlas_dev_confirmation_tokens');
-        Schema::create('atlas_dev_confirmation_tokens', function (Blueprint $table): void {
+        $this->db->schema()->dropIfExists('atlas_dev_confirmation_tokens');
+        $this->db->schema()->create('atlas_dev_confirmation_tokens', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('run_id', 128)->index();
             $table->string('token_hash', 128)->unique();

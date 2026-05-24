@@ -148,6 +148,55 @@ Use `php artisan atlas:ai:self-construction --agent-control-plane --json` para i
 
 Manter este contrato sincronizado com qualquer novo gate de provider start, evidence bridge, liveness monitor ou dispatch executor.
 
+## Anchors Da Cadeia Profunda
+
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start signed real invoker release gate as read-only signed release bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start implementation boundary gate as read-only implementation boundary bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start executor plan gate as read-only executor plan bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start executor fresh release gate as read-only fresh release bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start executor enablement gate as read-only executor enablement bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start supervised start activation gate as read-only supervised start activation bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start guarded process start executor gate as read-only guarded process start bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start final process start authorization gate as read-only final process start authorization bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start actual process start rehearsal gate as read-only process start rehearsal bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start process start envelope gate as read-only process start envelope bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start start execution gate as read-only start execution bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start process starter readiness gate as read-only process starter readiness bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start manual start executor receipt as read-only manual start receipt bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start operator start handoff as read-only operator handoff bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start receipt contract as read-only receipt contract bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start evidence receipt as read-only evidence receipt bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start evidence acceptance bridge as read-only evidence acceptance bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start liveness monitor as read-only liveness monitor bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start dispatch release gate as read-only dispatch release bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start signed dispatch authorization gate as read-only signed dispatch authorization bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start dispatch executor handoff as read-only dispatch executor handoff bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start dispatch receipt-use executor as read-only dispatch receipt-use bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start provider start driver gate as read-only provider start driver bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start adapter invocation boundary gate as read-only adapter invocation boundary bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start adapter execution guard gate as read-only adapter execution guard bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start provider execution contract gate as read-only provider execution contract bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start process start release gate as read-only process start release bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start supervised start executor gate as read-only supervised start executor bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start process spawn enablement gate as read-only process spawn enablement bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start final process spawn executor gate as read-only final process spawn executor bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start external process runtime gate as read-only external process runtime bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start process invocation authorization gate as read-only process invocation authorization bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start external process invoker dry-run gate as read-only external process invoker dry-run bridge.
+- expose automatic dispatch scheduler one-shot tick Codex real invoker post-start real invoker release preflight gate as read-only real invoker release preflight bridge.
+
+## Agent Control Plane Chain Integrity Certification v1
+
+Schema: `atlas.self_construction.agent_control_plane_chain_integrity_certification.v1`.
+
+This certification audits deep-chain anchors, command options, readiness methods, invoker classes, runtime-safety flags, documentation coverage and cycle integrity without authorizing provider start, dispatch, token spend, adapter execution, ledger writes or self-programming.
+
+## Agent Control Plane Deterministic Chain Replay
+
+Schema: `atlas.self_construction.agent_control_plane_deterministic_chain_replay.v1`.
+
+The replay rebuilds the chain proof from canonical slices, edges, runtime-safety flags and documentation anchors in read-only mode. It exists to prove that chain integrity is reproducible without starting providers, spawning processes, spending tokens, writing ledger entries or mutating the next required slice.
+
 ## Detalhes Extraidos
 
 Comandos, capacidades runtime, simuladores, filas, journals e superfícies de prontidão foram movidos para recortes filhos para manter este contrato legível no modal humano e na cartografia.

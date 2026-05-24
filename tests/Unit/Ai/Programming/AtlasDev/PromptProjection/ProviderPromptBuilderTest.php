@@ -10,7 +10,7 @@ use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\PromptSections;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class ProviderPromptBuilderTest extends TestCase
 {

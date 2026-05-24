@@ -341,6 +341,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
     {
         $flow = (string) data_get($plan, 'programming_flow', 'dev');
         $profile = (string) data_get($plan, 'programming_profile', 'dev');
+        $workspace = (string) data_get($plan, 'workspace', base_path());
         $flowId = $profile === 'forge' ? 'atlas_forge' : match ($flow) {
             'repair' => 'atlas_debug',
             'review' => 'atlas_review',
@@ -357,10 +358,47 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             is_string($decisionId) && $decisionId !== '' ? 'decision:'.$decisionId : null,
         ], 'is_string'));
 
+        if (! $this->workspaceLooksProjectScoped($workspace)) {
+            $runtime = [
+                'workspace' => $workspace,
+                'flow_id' => $flowId,
+                'plan_id' => data_get($plan, 'plan_id'),
+                'reason' => 'workspace_not_project_scoped',
+            ];
+
+            return [
+                'schema_version' => AtlasPersistentContextRuntimeService::SCHEMA_VERSION,
+                'status' => AtlasPersistentContextRuntimeService::STATUS_DEGRADED,
+                'scope' => [
+                    'scope_type' => 'programming_plan',
+                    'scope_id' => (string) data_get($plan, 'plan_id'),
+                    'workspace' => $workspace,
+                    'surface_id' => 'atlas_programming_orchestrator',
+                    'domain' => 'programming',
+                    'flow_id' => $flowId,
+                    'provider' => data_get($plan, 'executor_decision.provider') ?: data_get($plan, 'executor_decision.executor'),
+                ],
+                'reason' => 'workspace_not_project_scoped',
+                'context_pack_hash' => hash('sha256', json_encode($runtime, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+                'persistent_context_hash' => hash('sha256', json_encode([
+                    'schema_version' => AtlasPersistentContextRuntimeService::SCHEMA_VERSION,
+                    ...$runtime,
+                ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+                'must_know_ledger' => [],
+                'evidence_refs' => $evidenceRefs,
+                'claim_policy' => [
+                    'provider_calls_made' => false,
+                    'workspace_scan_skipped' => true,
+                    'reason' => 'workspace_not_project_scoped',
+                ],
+                'writes' => false,
+            ];
+        }
+
         try {
             return ($this->persistentContext ?? app(AtlasPersistentContextRuntimeService::class))->build([
                 'prompt' => (string) ($options['task'] ?? data_get($plan, 'operational_decision.input_text', '')),
-                'workspace' => (string) data_get($plan, 'workspace', base_path()),
+                'workspace' => $workspace,
                 'surface_id' => 'atlas_programming_orchestrator',
                 'domain' => 'programming',
                 'flow_id' => $flowId,
@@ -407,6 +445,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
     {
         $flow = (string) data_get($plan, 'programming_flow', 'dev');
         $profile = (string) data_get($plan, 'programming_profile', 'dev');
+        $workspace = (string) data_get($plan, 'workspace', base_path());
         $flowId = $profile === 'forge' ? 'atlas_forge' : match ($flow) {
             'repair' => 'atlas_debug',
             'review' => 'atlas_review',
@@ -422,6 +461,59 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             is_string($receiptId) && $receiptId !== '' ? 'agentic_rag:'.$receiptId : null,
             is_string($decisionId) && $decisionId !== '' ? 'decision:'.$decisionId : null,
         ], 'is_string'));
+
+        if (! $this->workspaceLooksProjectScoped($workspace)) {
+            return [
+                'schema_version' => AtlasContextOperationsRuntimeService::SCHEMA_VERSION,
+                'status' => AtlasContextOperationsRuntimeService::STATUS_WATCH,
+                'flow_binding' => [
+                    'domain' => 'programming',
+                    'flow_id' => $flowId,
+                    'flow_profile' => 'programming.'.$flow,
+                    'runtime_mode' => $profile === 'forge' ? 'forge' : 'dev',
+                    'required_gates' => [],
+                ],
+                'reason' => 'workspace_not_project_scoped',
+                'context_intelligence' => [
+                    'schema_version' => 'atlas.context_intelligence.context_certification.v1',
+                    'status' => 'watch',
+                    'reason' => 'workspace_scan_skipped_for_non_project_workspace',
+                ],
+                'conversation_ops' => [
+                    'schema_version' => 'atlas.conversation_ops.health_report.v1',
+                    'status' => 'watch',
+                    'reason' => 'workspace_scan_skipped_for_non_project_workspace',
+                ],
+                'handoff_packet' => [
+                    'schema_version' => 'atlas.conversation_ops.handoff_packet.v1',
+                    'role' => $profile === 'forge' ? 'forge_intake' : 'dev_runtime',
+                    'task' => 'execute programming flow '.$flowId.' with project-scoped context required before mutation',
+                    'allowed_scope' => ['domain:programming', 'flow:'.$flowId],
+                    'evidence_refs' => $evidenceRefs,
+                ],
+                'integration_policy' => [
+                    'context_required_for_flow' => true,
+                    'verified_compaction_required' => $profile === 'forge',
+                    'verified_compaction_deferred_until_project_scoped_workspace' => $profile === 'forge',
+                    'handoff_required' => true,
+                    'subagent_return_audit_required' => true,
+                    'memory_promotion_requires_review' => true,
+                    'workspace_scan_skipped' => true,
+                ],
+                'claim_policy' => [
+                    'provider_calls_made' => false,
+                    'workspace_scan_skipped' => true,
+                    'reason' => 'workspace_not_project_scoped',
+                ],
+                'writes' => false,
+                'operations_runtime_hash' => hash('sha256', json_encode([
+                    'workspace' => $workspace,
+                    'flow_id' => $flowId,
+                    'plan_id' => data_get($plan, 'plan_id'),
+                    'reason' => 'workspace_not_project_scoped',
+                ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+            ];
+        }
 
         return ($this->contextOperations ?? app(AtlasContextOperationsRuntimeService::class))->evaluate([
             'prompt' => (string) ($options['task'] ?? ''),
@@ -449,6 +541,22 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
                 ['role' => 'user', 'content' => (string) ($options['task'] ?? '')],
             ],
         ]);
+    }
+
+    private function workspaceLooksProjectScoped(string $workspace): bool
+    {
+        $workspace = realpath($workspace) ?: $workspace;
+        if (! is_dir($workspace)) {
+            return false;
+        }
+
+        foreach (['.git', 'composer.json', 'package.json', 'pnpm-workspace.yaml', 'artisan', 'pyproject.toml', 'go.mod', 'Package.swift'] as $marker) {
+            if (file_exists($workspace.DIRECTORY_SEPARATOR.$marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

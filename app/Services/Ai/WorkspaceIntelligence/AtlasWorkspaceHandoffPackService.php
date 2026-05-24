@@ -96,9 +96,20 @@ final class AtlasWorkspaceHandoffPackService
                 'owner_docs' => array_values((array) data_get($report, 'awtr.living_code_map.owner_docs', [])),
             ],
             'test_contract' => [
-                'focused_tests' => array_values((array) data_get($report, 'awtr.test_command_intelligence.commands', [])),
+                'focused_tests' => array_values((array) data_get($report, 'workspace_focus_map.focused_commands', data_get($report, 'awtr.test_command_intelligence.commands', []))),
                 'fallback_tests' => array_values((array) data_get($report, 'awtr.genome.test_families', [])),
                 'skip_reason' => data_get($report, 'awaf.artifacts.4.body.skip_reason'),
+            ],
+            'next_session_brain' => [
+                'schema_version' => (string) data_get($report, 'workspace_next_session_brain.schema_version', 'atlas.awis.workspace_next_session_brain.v1'),
+                'status' => (string) data_get($report, 'workspace_next_session_brain.status', 'blocked'),
+                'brain_hash' => data_get($report, 'workspace_next_session_brain.brain_hash'),
+                'readiness_score' => data_get($report, 'workspace_next_session_brain.readiness_score'),
+                'load_order' => array_values((array) data_get($report, 'workspace_next_session_brain.resume_packet.load_order', [])),
+                'focused_repositories' => array_values((array) data_get($report, 'workspace_next_session_brain.resume_packet.focused_repositories', [])),
+                'execution_priority' => array_values((array) data_get($report, 'workspace_next_session_brain.execution_priority', [])),
+                'context_loading_plan' => (array) data_get($report, 'workspace_next_session_brain.context_loading_plan', []),
+                'raw_content_returned' => false,
             ],
             'conversation_fusion' => $this->safeFusionProjection($fusion),
             'claim_policy' => [
@@ -108,6 +119,11 @@ final class AtlasWorkspaceHandoffPackService
                 'safe_for_provider_prompt' => true,
                 'raw_conversation_returned' => false,
                 'full_message_content_returned' => false,
+                'next_session_brain_provider_safe' => data_get($report, 'workspace_next_session_brain.source_policy.raw_file_content_returned') === false
+                    && data_get($report, 'workspace_next_session_brain.source_policy.raw_conversation_returned') === false
+                    && data_get($report, 'workspace_next_session_brain.context_loading_plan.provider_policy.raw_manifest_returned') === false
+                    && data_get($report, 'workspace_next_session_brain.context_loading_plan.provider_policy.script_bodies_returned') === false
+                    && data_get($report, 'workspace_next_session_brain.context_loading_plan.provider_policy.absolute_workspace_path_returned') === false,
             ],
         ];
         $payload['handoff_hash'] = $this->hashWithoutGeneratedAt($payload);
