@@ -104,4 +104,25 @@ class AtlasFrontendExecutionGateServiceTest extends TestCase
         $this->assertContains('task_spec_hash_mismatch', collect($blocked['blockers'])->pluck('id')->all());
         $this->assertContains('recompile_or_attach_matching_task_spec_hash', $blocked['required_next_actions']);
     }
+
+    public function test_gate_carries_frontend_app_scope_from_task_spec(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-gate-monorepo-'.bin2hex(random_bytes(4));
+        File::makeDirectory($workspace.'/apps/web/src', 0755, true);
+
+        $payload = app(AtlasFrontendExecutionGateService::class)->evaluate([
+            'task' => 'Ajustar checkout web',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+        ]);
+
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertSame('apps/web', data_get($payload, 'task_spec.frontend_app_scope.relative_name'));
+        $this->assertStringNotContainsString($workspace.'/apps/web', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
 }

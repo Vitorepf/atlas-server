@@ -49,4 +49,23 @@ class AtlasFrontendTaskSpecCompilerServiceTest extends TestCase
         $this->assertContains('acceptance_context_required', collect($spec['blockers'])->pluck('id')->all());
         $this->assertContains('design_direction_selection_recommended', collect($spec['warnings'])->pluck('id')->all());
     }
+
+    public function test_task_spec_carries_frontend_app_scope_without_changing_workspace(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-spec-monorepo-'.bin2hex(random_bytes(4));
+        mkdir($workspace.'/apps/web', 0755, true);
+
+        $spec = app(AtlasFrontendTaskSpecCompilerService::class)->compile([
+            'task' => 'Ajustar checkout web',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+            'acceptance' => true,
+        ]);
+
+        $this->assertSame('subscope_selected', data_get($spec, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($spec, 'frontend_app_scope.relative_name'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($spec, 'frontend_app_scope.relative_name_hash'));
+        $this->assertTrue((bool) data_get($spec, 'frontend_app_scope.repo_workspace_remains_primary'));
+        $this->assertStringNotContainsString($workspace.'/apps/web', json_encode($spec, JSON_THROW_ON_ERROR));
+    }
 }

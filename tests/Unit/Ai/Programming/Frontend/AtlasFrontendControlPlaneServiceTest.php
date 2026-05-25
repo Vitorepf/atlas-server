@@ -40,4 +40,22 @@ class AtlasFrontendControlPlaneServiceTest extends TestCase
         $this->assertContains('fill_company_design_dossier_docs', $payload['required_next_actions']);
         $this->assertContains('generate_or_write_product_blueprint', $payload['required_next_actions']);
     }
+
+    public function test_control_plane_carries_frontend_app_scope_into_gauntlet_signal(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-control-plane-monorepo-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($workspace.'/apps/web');
+
+        $payload = app(AtlasFrontendControlPlaneService::class)->snapshot([
+            'task' => 'Ajustar checkout web',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+        ]);
+
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'input_scope.frontend_app_hash'));
+        $this->assertSame('subscope_selected', data_get($payload, 'signals.gauntlet.frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'signals.gauntlet.frontend_app_scope.relative_name'));
+        $this->assertTrue((bool) data_get($payload, 'signals.gauntlet.frontend_app_scope.repo_workspace_remains_primary'));
+        $this->assertStringNotContainsString($workspace.'/apps/web', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
 }

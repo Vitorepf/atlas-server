@@ -11,6 +11,7 @@ class AtlasFrontendTaskSpecCommand extends Command
         {--task= : Frontend task or brief}
         {--surface=programming.frontend : Surface}
         {--workspace= : Workspace/project path or identifier}
+        {--frontend-app= : Optional frontend app subdirectory inside the selected repository, e.g. apps/web}
         {--route=* : Route hints}
         {--hint=* : Additional provider-safe hints}
         {--acceptance : Acceptance context exists}
@@ -28,6 +29,7 @@ class AtlasFrontendTaskSpecCommand extends Command
             'task' => (string) ($this->option('task') ?: ''),
             'surface' => (string) ($this->option('surface') ?: 'programming.frontend'),
             'workspace' => (string) ($this->option('workspace') ?: ''),
+            'frontend_app' => (string) ($this->option('frontend-app') ?: ''),
             'routes' => (array) $this->option('route'),
             'hints' => (array) $this->option('hint'),
             'acceptance' => (bool) $this->option('acceptance'),

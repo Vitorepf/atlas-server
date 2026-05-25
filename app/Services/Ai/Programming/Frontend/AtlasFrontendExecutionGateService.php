@@ -22,6 +22,7 @@ final class AtlasFrontendExecutionGateService
             'task' => $task,
             'surface' => (string) ($options['surface'] ?? 'programming.frontend'),
             'workspace' => $workspace,
+            'frontend_app' => (string) ($options['frontend_app'] ?? ''),
             'acceptance' => (bool) ($options['acceptance_criteria'] ?? false),
             'asset_context' => (bool) ($options['asset_context'] ?? false),
             'company_profile' => $profilePath !== '' || (bool) ($options['company_profile_ready'] ?? false),
@@ -112,6 +113,11 @@ final class AtlasFrontendExecutionGateService
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
             'task_spec' => $this->summarizeTaskSpec($taskSpec, $declaredTaskSpecHash),
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
+            'frontend_app_scope' => $taskSpec['frontend_app_scope'] ?? [
+                'status' => 'repo_root',
+                'relative_name' => null,
+                'relative_name_hash' => null,
+            ],
             'runtime_contract_hash' => $contract['contract_hash'] ?? null,
             'inventory' => $this->summarizeInventory($inventory),
             'design_dossier' => $this->summarizeDossier($dossier),
@@ -154,6 +160,7 @@ final class AtlasFrontendExecutionGateService
             'viewport_count' => count((array) ($taskSpec['viewports'] ?? [])),
             'state_count' => count((array) ($taskSpec['states'] ?? [])),
             'raw_task_returned' => $taskSpec['raw_task_returned'] ?? null,
+            'frontend_app_scope' => $taskSpec['frontend_app_scope'] ?? null,
         ];
     }
 

@@ -19,6 +19,7 @@ final class AtlasFrontendEvidenceKitService
     {
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = trim((string) ($input['workspace'] ?? ''));
+        $frontendApp = $this->frontendAppRelativeName($input['frontend_app'] ?? null);
         $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
         $output = rtrim(trim((string) ($input['output'] ?? '')), DIRECTORY_SEPARATOR);
         if ($output === '') {
@@ -31,6 +32,7 @@ final class AtlasFrontendEvidenceKitService
         $scenarioMatrix = app(AtlasFrontendScenarioMatrixService::class)->compile([
             'task' => $task,
             'workspace' => $workspace,
+            'frontend_app' => $frontendApp ?? '',
             'surface' => $surface,
             'acceptance_criteria' => (bool) ($input['acceptance_criteria'] ?? $input['acceptance'] ?? false),
             'asset_context' => (bool) ($input['asset_context'] ?? false),
@@ -41,13 +43,20 @@ final class AtlasFrontendEvidenceKitService
         $taskSpecHash = is_string($scenarioMatrix['task_spec_hash'] ?? null)
             ? (string) $scenarioMatrix['task_spec_hash']
             : '<sha256-64-hex>';
+        $frontendAppScope = (array) ($scenarioMatrix['frontend_app_scope'] ?? [
+            'status' => 'repo_root',
+            'relative_name' => null,
+            'relative_name_hash' => null,
+            'repo_workspace_remains_primary' => true,
+        ]);
+        $validatedFrontendApp = $this->validatedFrontendApp($frontendAppScope);
 
         $written = [];
         $written[] = $this->writeJson($output.'/scenario-matrix.json', $scenarioMatrix);
-        $written[] = $this->writeJson($output.'/visual-quality-report.json', $this->visualQualityReportTemplate($taskSpecHash));
-        $written[] = $this->writeJson($output.'/quality-budget-report.json', $this->qualityBudgetReportTemplate($taskSpecHash));
-        $written[] = $this->writeJson($output.'/design-review-report.json', $this->designReviewReportTemplate($taskSpecHash));
-        $written[] = $this->writeJson($output.'/evidence/evidence-pack.json', $this->evidencePackTemplate($taskSpecHash));
+        $written[] = $this->writeJson($output.'/visual-quality-report.json', $this->visualQualityReportTemplate($taskSpecHash, $frontendAppScope));
+        $written[] = $this->writeJson($output.'/quality-budget-report.json', $this->qualityBudgetReportTemplate($taskSpecHash, $frontendAppScope));
+        $written[] = $this->writeJson($output.'/design-review-report.json', $this->designReviewReportTemplate($taskSpecHash, $frontendAppScope));
+        $written[] = $this->writeJson($output.'/evidence/evidence-pack.json', $this->evidencePackTemplate($taskSpecHash, $frontendAppScope));
         $written[] = $this->writeJson($output.'/outcome-record-template.json', app(AtlasFrontendOutcomeMemoryService::class)->template());
 
         $blockers = [];
@@ -64,9 +73,10 @@ final class AtlasFrontendEvidenceKitService
             'status' => $blockers === [] ? 'ready_for_evidence_collection' : 'blocked',
             'task_spec_hash' => $taskSpecHash,
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
+            'frontend_app_scope' => $frontendAppScope,
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
             'kit_artifacts' => $written,
-            'collection_commands' => $this->collectionCommands($output),
+            'collection_commands' => $this->collectionCommands($output, $validatedFrontendApp),
             'claim_policy' => [
                 'evidence_kit_is_not_evidence' => true,
                 'templates_must_be_replaced_with_measured_artifacts' => true,
@@ -89,12 +99,13 @@ final class AtlasFrontendEvidenceKitService
             'output_hash' => hash('sha256', $output),
             'task_spec_hash' => $taskSpecHash,
             'scenario_matrix_hash' => $scenarioMatrix['scenario_matrix_hash'] ?? null,
+            'frontend_app_scope' => $frontendAppScope,
             'manifest' => $manifestRef,
             'kit_artifacts' => $written,
             'required_next_actions' => $blockers === []
                 ? ['collect_measured_visual_quality_budget_review_and_evidence_artifacts', 'run_atlas_frontend_run_certify']
                 : ['fix_task_spec_or_acceptance_before_collecting_evidence'],
-            'collection_commands' => $this->collectionCommands($output),
+            'collection_commands' => $this->collectionCommands($output, $validatedFrontendApp),
             'claim_policy' => [
                 'evidence_kit_is_not_completion_evidence' => true,
                 'safe_to_share_with_operator' => true,
@@ -128,7 +139,7 @@ final class AtlasFrontendEvidenceKitService
     /**
      * @return array<string,mixed>
      */
-    private function visualQualityReportTemplate(string $taskSpecHash): array
+    private function visualQualityReportTemplate(string $taskSpecHash, array $frontendAppScope): array
     {
         $gate = app(AtlasFrontendVisualQualityGateService::class);
 
@@ -136,6 +147,7 @@ final class AtlasFrontendEvidenceKitService
             'schema_version' => AtlasFrontendVisualQualityGateService::REPORT_SCHEMA_VERSION,
             'status' => 'passed',
             'task_spec_hash' => $taskSpecHash,
+            'frontend_app_scope' => $frontendAppScope,
             'routes' => ['/'],
             'viewports' => $gate->requiredViewports(),
             'checks' => array_fill_keys($gate->requiredChecks(), 'replace_with_measured_pass_or_reason'),
@@ -151,7 +163,7 @@ final class AtlasFrontendEvidenceKitService
     /**
      * @return array<string,mixed>
      */
-    private function qualityBudgetReportTemplate(string $taskSpecHash): array
+    private function qualityBudgetReportTemplate(string $taskSpecHash, array $frontendAppScope): array
     {
         $gate = app(AtlasFrontendQualityBudgetGateService::class);
 
@@ -159,6 +171,7 @@ final class AtlasFrontendEvidenceKitService
             'schema_version' => AtlasFrontendQualityBudgetGateService::REPORT_SCHEMA_VERSION,
             'status' => 'passed',
             'task_spec_hash' => $taskSpecHash,
+            'frontend_app_scope' => $frontendAppScope,
             'viewports' => $gate->requiredViewports(),
             'metrics' => collect($gate->budgets())->mapWithKeys(fn (array $budget, string $id): array => [$id => $budget['max']])->all(),
             'operator_approved_exception' => false,
@@ -169,7 +182,7 @@ final class AtlasFrontendEvidenceKitService
     /**
      * @return array<string,mixed>
      */
-    private function designReviewReportTemplate(string $taskSpecHash): array
+    private function designReviewReportTemplate(string $taskSpecHash, array $frontendAppScope): array
     {
         $review = app(AtlasFrontendDesignReviewService::class);
 
@@ -177,6 +190,7 @@ final class AtlasFrontendEvidenceKitService
             'schema_version' => AtlasFrontendDesignReviewService::REPORT_SCHEMA_VERSION,
             'status' => 'passed',
             'task_spec_hash' => $taskSpecHash,
+            'frontend_app_scope' => $frontendAppScope,
             'dimensions' => collect($review->requiredDimensions())->mapWithKeys(fn (string $dimension): array => [
                 $dimension => [
                     'score' => 8,
@@ -192,7 +206,7 @@ final class AtlasFrontendEvidenceKitService
     /**
      * @return array<string,mixed>
      */
-    private function evidencePackTemplate(string $taskSpecHash): array
+    private function evidencePackTemplate(string $taskSpecHash, array $frontendAppScope): array
     {
         $verifier = app(AtlasFrontendEvidencePackVerifierService::class);
 
@@ -202,6 +216,7 @@ final class AtlasFrontendEvidenceKitService
             'case_id' => 'company_frontend_execution',
             'system' => 'atlas_frontend',
             'task_spec_hash' => $taskSpecHash,
+            'frontend_app_scope' => $frontendAppScope,
             'artifacts' => array_map(fn (string $kind): array => [
                 'kind' => $kind,
                 'path' => 'artifacts/'.$kind.'.json',
@@ -214,12 +229,13 @@ final class AtlasFrontendEvidenceKitService
     /**
      * @return array<int,string>
      */
-    private function collectionCommands(string $output): array
+    private function collectionCommands(string $output, ?string $frontendApp): array
     {
         $outputArg = escapeshellarg($output);
+        $frontendAppArg = $frontendApp !== null ? ' --frontend-app='.$frontendApp : '';
 
         return [
-            'php artisan atlas:frontend:scenarios --task="<intent>" --workspace=<local-company-repo> --acceptance --json --strict',
+            'php artisan atlas:frontend:scenarios --task="<intent>" --workspace=<local-company-repo>'.$frontendAppArg.' --acceptance --json --strict',
             'php artisan atlas:frontend:visual-quality inspect --report='.$outputArg.'/visual-quality-report.json --json --strict',
             'php artisan atlas:frontend:quality-budget inspect --report='.$outputArg.'/quality-budget-report.json --json --strict',
             'php artisan atlas:frontend:review inspect --report='.$outputArg.'/design-review-report.json --json --strict',
@@ -231,5 +247,30 @@ final class AtlasFrontendEvidenceKitService
     private function relativeName(string $path): string
     {
         return basename(dirname($path)).'/'.basename($path);
+    }
+
+    private function frontendAppRelativeName(mixed $frontendApp): ?string
+    {
+        if (! is_string($frontendApp) || trim($frontendApp) === '') {
+            return null;
+        }
+
+        $relative = trim(str_replace('\\', '/', $frontendApp), '/');
+
+        return $relative !== '' ? $relative : null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $frontendAppScope
+     */
+    private function validatedFrontendApp(array $frontendAppScope): ?string
+    {
+        if (($frontendAppScope['status'] ?? null) !== 'subscope_selected') {
+            return null;
+        }
+
+        $relative = $frontendAppScope['relative_name'] ?? null;
+
+        return is_string($relative) && $relative !== '' ? $relative : null;
     }
 }

@@ -10,6 +10,7 @@ class AtlasFrontendExecutionRunbookCommand extends Command
     protected $signature = 'atlas:frontend:runbook
         {--task= : Frontend task or intent}
         {--workspace= : Local company/product frontend repository path}
+        {--frontend-app= : Optional frontend app subdirectory inside the selected repository, e.g. apps/web}
         {--surface=programming.frontend : Surface/profile requesting frontend work}
         {--evidence-output= : Evidence output directory}
         {--acceptance : Acceptance criteria exists}
@@ -31,6 +32,7 @@ class AtlasFrontendExecutionRunbookCommand extends Command
         $payload = $runbook->compile([
             'task' => (string) ($this->option('task') ?: ''),
             'workspace' => (string) ($this->option('workspace') ?: ''),
+            'frontend_app' => (string) ($this->option('frontend-app') ?: ''),
             'surface' => (string) ($this->option('surface') ?: 'programming.frontend'),
             'evidence_output' => (string) ($this->option('evidence-output') ?: ''),
             'acceptance_criteria' => (bool) $this->option('acceptance'),

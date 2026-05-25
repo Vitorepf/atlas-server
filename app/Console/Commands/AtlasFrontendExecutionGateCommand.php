@@ -11,6 +11,7 @@ class AtlasFrontendExecutionGateCommand extends Command
         {--task= : Frontend task or user intent}
         {--surface=programming.frontend : Surface/profile requesting frontend work}
         {--workspace= : Workspace root}
+        {--frontend-app= : Optional frontend app subdirectory inside the selected repository, e.g. apps/web}
         {--task-spec-hash= : Optional canonical atlas:frontend:spec hash to verify}
         {--company-profile= : Company design profile JSON path}
         {--acceptance : Acceptance criteria are present}
@@ -33,6 +34,7 @@ class AtlasFrontendExecutionGateCommand extends Command
             'task' => (string) ($this->option('task') ?? ''),
             'surface' => (string) ($this->option('surface') ?? 'programming.frontend'),
             'workspace' => (string) ($this->option('workspace') ?? ''),
+            'frontend_app' => (string) ($this->option('frontend-app') ?? ''),
             'task_spec_hash' => (string) ($this->option('task-spec-hash') ?? ''),
             'company_profile' => (string) ($this->option('company-profile') ?? ''),
             'acceptance_criteria' => (bool) $this->option('acceptance'),

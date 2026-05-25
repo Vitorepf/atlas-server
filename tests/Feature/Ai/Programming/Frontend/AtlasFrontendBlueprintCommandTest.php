@@ -43,4 +43,24 @@ class AtlasFrontendBlueprintCommandTest extends TestCase
         $this->assertSame(0, $exitCode);
         $this->assertTrue(File::isFile($workspace.'/docs/design/atlas-frontend-product-blueprint.json'));
     }
+
+    public function test_blueprint_command_accepts_frontend_app_scope(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-blueprint-command-monorepo-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($workspace.'/apps/web');
+
+        $exitCode = Artisan::call('atlas:frontend:blueprint', [
+            'action' => 'generate',
+            '--task' => 'Ajustar checkout web premium',
+            '--workspace' => $workspace,
+            '--frontend-app' => 'apps/web',
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('frontend_app_scope', $output);
+        $this->assertStringContainsString('subscope_selected', $output);
+        $this->assertStringNotContainsString($workspace.'/apps/web', $output);
+    }
 }

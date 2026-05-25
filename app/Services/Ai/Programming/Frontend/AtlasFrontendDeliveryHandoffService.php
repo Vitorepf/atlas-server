@@ -22,6 +22,7 @@ final class AtlasFrontendDeliveryHandoffService
         $publication = $publicationReportPath !== null && trim($publicationReportPath) !== ''
             ? $this->readJsonFile(trim($publicationReportPath), 'publication_report')
             : ['status' => 'missing'];
+        $frontendAppScope = $this->frontendAppScopeConsistency($run, $evidence, $publication);
 
         $blockers = [];
         $warnings = [];
@@ -53,6 +54,11 @@ final class AtlasFrontendDeliveryHandoffService
         if (($evidence['task_spec_hash'] ?? null) !== ($run['task_spec_hash'] ?? null)) {
             $blockers[] = 'evidence_manifest_task_spec_hash_mismatch';
         }
+        if (! (bool) ($frontendAppScope['consistent'] ?? false)) {
+            $blockers[] = ($frontendAppScope['mismatch_source'] ?? null) === 'publication_report'
+                ? 'publication_report_frontend_app_scope_mismatch'
+                : 'evidence_manifest_frontend_app_scope_mismatch';
+        }
         if ($this->hasForbiddenRawFields($run) || $this->hasForbiddenRawFields($evidence) || $this->hasForbiddenRawFields($publication)) {
             $blockers[] = 'forbidden_raw_prompt_source_or_customer_field_present';
         }
@@ -73,6 +79,7 @@ final class AtlasFrontendDeliveryHandoffService
             'source' => self::class,
             'task_spec_hash' => is_string($run['task_spec_hash'] ?? null) ? $run['task_spec_hash'] : null,
             'run_certification_hash' => is_string($run['run_certification_hash'] ?? null) ? $run['run_certification_hash'] : null,
+            'frontend_app_scope' => $frontendAppScope,
             'artifact_hashes' => [
                 'run_certification_report' => is_string($run['file_hash'] ?? null) ? $run['file_hash'] : null,
                 'evidence_manifest' => is_string($evidence['file_hash'] ?? null) ? $evidence['file_hash'] : null,
@@ -103,6 +110,8 @@ final class AtlasFrontendDeliveryHandoffService
                 'raw_customer_source_returned' => false,
                 'requires_run_certification_hash' => true,
                 'requires_matching_task_spec_hash' => true,
+                'requires_matching_frontend_app_scope' => true,
+                'public_distribution_requires_matching_frontend_app_scope' => true,
                 'public_distribution_requires_verified_publication_report' => true,
                 'world_best_claim_allowed' => false,
             ],
@@ -190,5 +199,101 @@ final class AtlasFrontendDeliveryHandoffService
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $run
+     * @param  array<string,mixed>  $evidence
+     * @param  array<string,mixed>  $publication
+     * @return array<string,mixed>
+     */
+    private function frontendAppScopeConsistency(array $run, array $evidence, array $publication): array
+    {
+        $runScope = $this->normalizeFrontendAppScope((array) ($run['frontend_app_scope'] ?? []));
+        $evidenceScope = $this->normalizeFrontendAppScope((array) ($evidence['frontend_app_scope'] ?? []));
+        $publicationScope = ($publication['status'] ?? null) !== 'missing'
+            ? $this->normalizeFrontendAppScope((array) ($publication['frontend_app_scope'] ?? []))
+            : null;
+        $scopes = array_filter([
+            'run_certification' => $runScope,
+            'evidence_manifest' => $evidenceScope,
+            'publication_report' => $publicationScope,
+        ], 'is_array');
+        $runScopeKey = $this->frontendAppScopeKey($runScope);
+        $mismatchSource = collect($scopes)
+            ->reject(fn (array $scope): bool => $this->frontendAppScopeKey($scope) === $runScopeKey)
+            ->keys()
+            ->first();
+        $invalid = collect($scopes)->contains(fn (array $scope): bool => in_array($scope['status'] ?? null, ['invalid_subscope', 'missing_subscope'], true));
+        $consistent = $mismatchSource === null && ! $invalid;
+
+        return [
+            'status' => $consistent ? (string) ($runScope['status'] ?? 'repo_root') : 'mismatch',
+            'consistent' => $consistent,
+            'mismatch_source' => $mismatchSource,
+            'relative_name' => $consistent && ($runScope['status'] ?? null) === 'subscope_selected' ? ($runScope['relative_name'] ?? null) : null,
+            'relative_name_hash' => $consistent ? ($runScope['relative_name_hash'] ?? null) : null,
+            'observed_scopes' => collect($scopes)->map(fn (array $scope): array => [
+                'status' => $scope['status'] ?? 'repo_root',
+                'relative_name_hash' => $scope['relative_name_hash'] ?? null,
+            ])->all(),
+            'run_certification_scope' => [
+                'status' => $runScope['status'] ?? 'repo_root',
+                'relative_name_hash' => $runScope['relative_name_hash'] ?? null,
+            ],
+            'evidence_manifest_scope' => [
+                'status' => $evidenceScope['status'] ?? 'repo_root',
+                'relative_name_hash' => $evidenceScope['relative_name_hash'] ?? null,
+            ],
+            'publication_report_scope' => $publicationScope !== null ? [
+                'status' => $publicationScope['status'] ?? 'repo_root',
+                'relative_name_hash' => $publicationScope['relative_name_hash'] ?? null,
+            ] : null,
+            'observed_scope_keys_hash' => hash('sha256', implode('|', array_map(fn (array $scope): string => $this->frontendAppScopeKey($scope), $scopes))),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $scope
+     * @return array<string,mixed>
+     */
+    private function normalizeFrontendAppScope(array $scope): array
+    {
+        if ($scope === []) {
+            return ['status' => 'repo_root', 'relative_name_hash' => null];
+        }
+
+        $status = (string) ($scope['status'] ?? 'repo_root');
+        if ($status !== 'subscope_selected') {
+            return [
+                'status' => $status !== '' ? $status : 'repo_root',
+                'relative_name_hash' => null,
+            ];
+        }
+
+        $relative = is_string($scope['relative_name'] ?? null) ? trim(str_replace('\\', '/', (string) $scope['relative_name']), '/') : null;
+        if ($relative === null || $relative === '' || str_starts_with($relative, '/') || str_contains($relative, '..')) {
+            return [
+                'status' => 'invalid_subscope',
+                'relative_name_hash' => $relative !== null ? hash('sha256', $relative) : null,
+            ];
+        }
+
+        return [
+            'status' => 'subscope_selected',
+            'relative_name' => $relative,
+            'relative_name_hash' => hash('sha256', $relative),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $scope
+     */
+    private function frontendAppScopeKey(array $scope): string
+    {
+        return implode(':', [
+            (string) ($scope['status'] ?? 'repo_root'),
+            (string) ($scope['relative_name_hash'] ?? ''),
+        ]);
     }
 }

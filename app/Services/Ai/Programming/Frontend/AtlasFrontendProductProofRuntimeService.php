@@ -53,10 +53,11 @@ final class AtlasFrontendProductProofRuntimeService
     /**
      * @return array<string,mixed>
      */
-    public function buildStaticBundle(?string $outputDirectory = null): array
+    public function buildStaticBundle(?string $outputDirectory = null, ?string $frontendApp = null): array
     {
         $catalog = $this->catalog();
         $outputDirectory = $outputDirectory ?: storage_path('app/atlas/frontend-product-proof');
+        $frontendAppScope = $this->frontendAppScope($frontendApp);
         File::ensureDirectoryExists($outputDirectory);
 
         $assets = [];
@@ -80,15 +81,41 @@ final class AtlasFrontendProductProofRuntimeService
             'status' => 'ready',
             'bundle_type' => 'static_publishable_product_proof',
             'output_path_hash' => hash('sha256', $outputDirectory),
+            'frontend_app_scope' => $frontendAppScope,
             'index' => [
                 'path' => 'index.html',
                 'hash' => hash('sha256', File::get($outputDirectory.'/index.html')),
             ],
             'assets' => $assets,
+            'publication_workflow' => [
+                'schema_version' => 'atlas.frontend.product_proof_publication_workflow.v1',
+                'status' => 'local_bundle_ready_publication_pending',
+                'receipt_schema_version' => AtlasFrontendPublicationVerifierService::RECEIPT_SCHEMA_VERSION,
+                'commands' => [
+                    'php artisan atlas:frontend:publish receipt-template --bundle=<bundle> --output=<bundle> --json',
+                    'php artisan atlas:frontend:publish verify --bundle=<bundle> --receipt=<receipt> --json --strict',
+                    'php artisan atlas:frontend:world-best-plan --rival-evidence=<dir> --bundle=<bundle> --publication-receipt=<receipt> --json --strict',
+                ],
+                'required_public_evidence' => [
+                    'public_https_url',
+                    'http_200_receipt',
+                    'bundle_hash_match',
+                    'index_content_hash_match',
+                    'operator_approval',
+                    'matching_frontend_app_scope_when_subscope_selected',
+                ],
+                'claim_policy' => [
+                    'local_bundle_is_not_public_distribution' => true,
+                    'receipt_template_is_not_public_verification' => true,
+                    'world_best_requires_rival_replay_and_public_receipt' => true,
+                    'raw_customer_source_returned' => false,
+                ],
+            ],
             'publication_policy' => [
                 'publishable_static_bundle_created' => true,
                 'external_hosting_verified' => false,
                 'public_url_present' => false,
+                'frontend_app_scope_from_bundle_manifest' => true,
                 'raw_customer_source_returned' => false,
             ],
         ];
@@ -107,6 +134,7 @@ final class AtlasFrontendProductProofRuntimeService
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = rtrim(trim((string) ($input['workspace'] ?? '')), DIRECTORY_SEPARATOR);
         $provider = trim((string) ($input['provider'] ?? 'provider_neutral')) ?: 'provider_neutral';
+        $frontendApp = $this->frontendAppRelativeName($input['frontend_app'] ?? null);
         $output = rtrim(trim((string) ($input['output'] ?? '')), DIRECTORY_SEPARATOR);
         if ($output === '') {
             $output = storage_path('app/atlas/frontend-proof-pilot/'.hash('sha256', $task.'|'.$workspace.'|'.$provider));
@@ -117,6 +145,7 @@ final class AtlasFrontendProductProofRuntimeService
         $sharedInput = [
             'task' => $task,
             'workspace' => $workspace,
+            'frontend_app' => $frontendApp ?? '',
             'provider' => $provider,
             'acceptance_criteria' => (bool) ($input['acceptance_criteria'] ?? false),
             'test_plan' => (bool) ($input['test_plan'] ?? false),
@@ -163,6 +192,10 @@ final class AtlasFrontendProductProofRuntimeService
             'source' => self::class,
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
+            'frontend_app_scope' => $runbook['frontend_app_scope'] ?? $evidenceKit['frontend_app_scope'] ?? [
+                'status' => 'repo_root',
+                'relative_name_hash' => null,
+            ],
             'provider' => $provider,
             'output_path_hash' => hash('sha256', $output),
             'readiness' => [
@@ -187,6 +220,7 @@ final class AtlasFrontendProductProofRuntimeService
             'execution_contract' => [
                 'provider_mandates' => $providerPacket['provider_mandates'] ?? [],
                 'forbidden_provider_behaviors' => $providerPacket['forbidden_provider_behaviors'] ?? [],
+                'frontend_app_scope' => $runbook['frontend_app_scope'] ?? null,
                 'runbook_steps' => $runbook['runbook_steps'] ?? [],
                 'collection_commands' => $evidenceKit['collection_commands'] ?? [],
             ],
@@ -291,6 +325,42 @@ final class AtlasFrontendProductProofRuntimeService
             ->map(fn (string $item): string => $prefix.'_'.$item)
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function frontendAppScope(?string $frontendApp): array
+    {
+        $relative = is_string($frontendApp) ? trim(str_replace('\\', '/', $frontendApp), '/') : '';
+        if ($relative === '') {
+            return ['status' => 'repo_root', 'relative_name_hash' => null];
+        }
+
+        if (str_starts_with($relative, '/') || str_contains($relative, '..')) {
+            return [
+                'status' => 'invalid_subscope',
+                'relative_name_hash' => hash('sha256', $relative),
+            ];
+        }
+
+        return [
+            'status' => 'subscope_selected',
+            'relative_name' => $relative,
+            'relative_name_hash' => hash('sha256', $relative),
+            'repo_workspace_remains_primary' => true,
+        ];
+    }
+
+    private function frontendAppRelativeName(mixed $frontendApp): ?string
+    {
+        if (! is_string($frontendApp) || trim($frontendApp) === '') {
+            return null;
+        }
+
+        $relative = trim(str_replace('\\', '/', $frontendApp), '/');
+
+        return $relative !== '' ? $relative : null;
     }
 
     /**

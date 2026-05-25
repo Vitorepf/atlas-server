@@ -66,6 +66,23 @@ class AtlasFrontendProductBlueprintServiceTest extends TestCase
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['document_hash']);
     }
 
+    public function test_blueprint_carries_frontend_app_scope(): void
+    {
+        $workspace = $this->workspaceWithDossier();
+        File::ensureDirectoryExists($workspace.'/apps/web');
+
+        $payload = app(AtlasFrontendProductBlueprintService::class)->generate([
+            'task' => 'Ajustar checkout web premium',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+        ]);
+
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'frontend_app_scope.relative_name_hash'));
+        $this->assertStringNotContainsString($workspace.'/apps/web', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
     private function workspaceWithDossier(): string
     {
         $workspace = sys_get_temp_dir().'/atlas-frontend-blueprint-'.bin2hex(random_bytes(4));

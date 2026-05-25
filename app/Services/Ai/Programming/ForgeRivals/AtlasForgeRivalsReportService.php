@@ -2947,19 +2947,19 @@ final class AtlasForgeRivalsReportService
     {
         return [
             [
-                'id' => 'atlas_forge_vs_claude_sonnet',
+                'id' => 'atlas_dev_vs_claude_sonnet',
                 'mode' => 'provider_arena',
-                'arm_a' => 'atlas_forge',
+                'arm_a' => 'atlas_dev',
                 'arm_a_model' => 'sonnet',
                 'arm_b' => 'claude_code',
                 'arm_b_model' => 'sonnet',
             ],
             [
-                'id' => 'atlas_dev_vs_atlas_forge',
+                'id' => 'atlas_dev_architecture_pressure_vs_claude_sonnet',
                 'mode' => 'provider_arena',
                 'arm_a' => 'atlas_dev',
                 'arm_a_model' => 'sonnet',
-                'arm_b' => 'atlas_forge',
+                'arm_b' => 'claude_code',
                 'arm_b_model' => 'sonnet',
             ],
             [

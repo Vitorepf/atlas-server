@@ -27,4 +27,24 @@ class AtlasFrontendGauntletCommandTest extends TestCase
         $this->assertStringContainsString('fill_company_design_dossier_docs', $output);
         $this->assertStringContainsString('recommended_command_sequence', $output);
     }
+
+    public function test_gauntlet_command_accepts_frontend_app_scope(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-gauntlet-command-monorepo-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($workspace.'/apps/web');
+
+        $exitCode = Artisan::call('atlas:frontend:gauntlet', [
+            '--task' => 'Ajustar checkout web',
+            '--workspace' => $workspace,
+            '--frontend-app' => 'apps/web',
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('frontend_app_scope', $output);
+        $this->assertStringContainsString('subscope_selected', $output);
+        $this->assertStringContainsString('--frontend-app=apps/web', $output);
+        $this->assertStringNotContainsString($workspace.'/apps/web', $output);
+    }
 }

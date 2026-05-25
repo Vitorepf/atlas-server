@@ -10,6 +10,7 @@ class AtlasFrontendCompanyRepoOnboardingCommand extends Command
     protected $signature = 'atlas:frontend:onboard
         {--task= : Company frontend/product/design task}
         {--workspace= : Local company/product frontend repository path}
+        {--frontend-app= : Optional monorepo frontend app scope, e.g. apps/web}
         {--provider=provider_neutral : Provider name for pilot/provider packet}
         {--output= : Proof pilot output directory}
         {--write-docs : Write Atlas Frontend design dossier and blueprint templates when missing}
@@ -31,8 +32,10 @@ class AtlasFrontendCompanyRepoOnboardingCommand extends Command
         $payload = $onboarding->run([
             'task' => (string) ($this->option('task') ?: ''),
             'workspace' => (string) ($this->option('workspace') ?: ''),
+            'frontend_app' => (string) ($this->option('frontend-app') ?: ''),
             'provider' => (string) ($this->option('provider') ?: 'provider_neutral'),
             'output' => (string) ($this->option('output') ?: ''),
+            'write' => true,
             'write_docs' => (bool) $this->option('write-docs'),
             'acceptance_criteria' => (bool) $this->option('acceptance'),
             'test_plan' => (bool) $this->option('test-plan'),

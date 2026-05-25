@@ -43,6 +43,11 @@ final class AtlasFrontendWorkOrderService
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
             'task_spec_hash' => $gauntlet['task_spec_hash'] ?? null,
+            'frontend_app_scope' => $gauntlet['frontend_app_scope'] ?? [
+                'status' => 'repo_root',
+                'relative_name' => null,
+                'relative_name_hash' => null,
+            ],
             'gauntlet_hash' => $gauntlet['gauntlet_hash'] ?? null,
             'control_plane_hash' => $controlPlane['control_plane_hash'] ?? null,
             'dispatch_policy' => [
@@ -83,6 +88,9 @@ final class AtlasFrontendWorkOrderService
     private function executionPackets(array $gauntlet): array
     {
         $taskSpecHash = (string) ($gauntlet['task_spec_hash'] ?? '<task-spec-hash>');
+        $frontendAppArg = data_get($gauntlet, 'frontend_app_scope.status') === 'subscope_selected'
+            ? ' --frontend-app='.(string) data_get($gauntlet, 'frontend_app_scope.relative_name')
+            : '';
 
         return [
             $this->packet('repo_context_lock', 10, 'Lock product context, repo map, design dossier and design system inventory before editing.', [
@@ -110,8 +118,8 @@ final class AtlasFrontendWorkOrderService
                 'screenshots_by_route_viewport_state',
                 'console_a11y_perf_receipts',
             ], [
-                'php artisan atlas:frontend:evidence-kit prepare --task="<brief>" --workspace=<local-company-repo> --acceptance --output=<evidence-dir> --json --strict',
-                'php artisan atlas:frontend:scenarios --task="<brief>" --workspace=<local-company-repo> --acceptance --json --strict',
+                'php artisan atlas:frontend:evidence-kit prepare --task="<brief>" --workspace=<local-company-repo>'.$frontendAppArg.' --acceptance --output=<evidence-dir> --json --strict',
+                'php artisan atlas:frontend:scenarios --task="<brief>" --workspace=<local-company-repo>'.$frontendAppArg.' --acceptance --json --strict',
                 'php artisan atlas:frontend:visual-quality inspect --report=<report> --json --strict',
                 'php artisan atlas:frontend:quality-budget inspect --report=<report> --json --strict',
             ]),

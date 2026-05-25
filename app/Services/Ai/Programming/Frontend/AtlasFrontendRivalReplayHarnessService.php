@@ -48,6 +48,7 @@ final class AtlasFrontendRivalReplayHarnessService
         $fairness = $this->fairnessSummary($runs);
         $evidencePackReadiness = $this->evidencePackReadiness($directory);
         $atlasWinsAllCompleteCases = $this->atlasWinsAllCompleteCases($runs);
+        $competitiveDiagnostics = $this->competitiveDiagnostics($runs);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -66,6 +67,7 @@ final class AtlasFrontendRivalReplayHarnessService
             'runs' => $runs,
             'fairness' => $fairness,
             'evidence_pack_readiness' => $evidencePackReadiness,
+            'competitive_diagnostics' => $competitiveDiagnostics,
             'summary' => [
                 'total_runs' => count($runs),
                 'complete' => $complete,
@@ -92,10 +94,7 @@ final class AtlasFrontendRivalReplayHarnessService
                 'raw_prompts_or_customer_source_returned' => false,
                 'external_system_names_are_comparison_labels_not_runtime_dependencies' => true,
             ],
-            'remaining_gaps' => $allRunsCompleted ? [] : [
-                'external_rival_replay_artifacts_required_for_world_best_claim',
-                ...($evidencePackReadiness['status'] === 'ready' ? [] : ['rival_replay_evidence_packs_incomplete']),
-            ],
+            'remaining_gaps' => $this->remainingGaps($allRunsCompleted, $atlasWinsAllCompleteCases, $evidencePackReadiness),
         ];
         $payload['replay_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -288,6 +287,27 @@ final class AtlasFrontendRivalReplayHarnessService
     public function writeEvidenceWorklist(string $evidenceDirectory, ?string $outputPath = null): array
     {
         $directory = $this->evidenceDirectory($evidenceDirectory);
+        $target = $this->worklistOutputPath($directory, $outputPath);
+        $payload = $this->evidenceWorklist($directory, $target);
+        File::ensureDirectoryExists(dirname($target));
+        File::put($target, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function compileEvidenceWorklist(?string $evidenceDirectory = null): array
+    {
+        return $this->evidenceWorklist($this->evidenceDirectory($evidenceDirectory));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function evidenceWorklist(string $directory, ?string $target = null): array
+    {
         $inspect = $this->inspect($directory);
         $requiredKinds = app(AtlasFrontendEvidencePackVerifierService::class)->requiredArtifactKinds();
         $workItems = [];
@@ -331,9 +351,6 @@ final class AtlasFrontendRivalReplayHarnessService
             ];
         }
 
-        $target = $this->worklistOutputPath($directory, $outputPath);
-        File::ensureDirectoryExists(dirname($target));
-
         $payload = [
             'schema_version' => self::EVIDENCE_WORKLIST_SCHEMA_VERSION,
             'status' => $workItems === [] ? 'ready' : 'pending',
@@ -348,9 +365,11 @@ final class AtlasFrontendRivalReplayHarnessService
             ],
             'work_item_count' => count($workItems),
             'work_items' => $workItems,
-            'output_ref_hash' => hash('sha256', $target),
+            'output_ref_hash' => $target !== null ? hash('sha256', $target) : null,
+            'write_performed' => $target !== null,
             'commands' => [
                 'inspect' => 'php artisan atlas:frontend:replay inspect --evidence='.$directory.' --json',
+                'write_worklist' => 'php artisan atlas:frontend:replay evidence-worklist --evidence='.$directory.' --output=<worklist.json> --json',
                 'world_best_plan' => 'php artisan atlas:frontend:world-best-plan --rival-evidence='.$directory.' --json --strict',
             ],
             'claim_policy' => [
@@ -361,7 +380,6 @@ final class AtlasFrontendRivalReplayHarnessService
             ],
         ];
         $payload['worklist_hash'] = MissionCanonicalHash::sha256($payload);
-        File::put($target, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
 
         return $payload;
     }
@@ -531,6 +549,7 @@ final class AtlasFrontendRivalReplayHarnessService
             'evidence_pack_verification_hash' => $evidencePack['verification_hash'] ?? null,
             'score_total' => is_numeric($manifest['score_total'] ?? null) ? (int) $manifest['score_total'] : null,
             'score_max' => is_numeric($manifest['score_max'] ?? null) ? (int) $manifest['score_max'] : null,
+            'score_breakdown' => is_array($manifest['score_breakdown'] ?? null) ? $manifest['score_breakdown'] : null,
             'completed_at' => is_string($manifest['completed_at'] ?? null) ? $manifest['completed_at'] : null,
         ]);
     }
@@ -555,8 +574,131 @@ final class AtlasFrontendRivalReplayHarnessService
             'evidence_pack_verification_hash' => $extra['evidence_pack_verification_hash'] ?? null,
             'score_total' => $extra['score_total'] ?? null,
             'score_max' => $extra['score_max'] ?? null,
+            'score_breakdown' => $extra['score_breakdown'] ?? null,
             'completed_at' => $extra['completed_at'] ?? null,
         ], fn (mixed $value): bool => $value !== null);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $runs
+     * @return array<string,mixed>
+     */
+    private function competitiveDiagnostics(array $runs): array
+    {
+        $cases = [];
+        foreach ($this->cases() as $case) {
+            $caseRuns = collect($runs)->where('case_id', $case['id']);
+            $completeRuns = $caseRuns->where('status', 'complete');
+            if ($completeRuns->count() < count($this->systems())) {
+                $cases[] = [
+                    'case_id' => $case['id'],
+                    'status' => 'pending',
+                    'complete_run_count' => $completeRuns->count(),
+                    'required_run_count' => count($this->systems()),
+                    'next_action' => 'complete_external_rival_replay_manifests',
+                ];
+
+                continue;
+            }
+
+            $atlas = $completeRuns->firstWhere('system', 'atlas_frontend');
+            $rivals = $completeRuns->reject(fn (array $run): bool => $run['system'] === 'atlas_frontend');
+            $bestRival = $rivals->sortByDesc(fn (array $run): int => (int) ($run['score_total'] ?? -1))->first();
+            $atlasScore = (int) data_get($atlas, 'score_total', 0);
+            $bestRivalScore = (int) data_get($bestRival, 'score_total', 0);
+            $delta = $atlasScore - $bestRivalScore;
+            $dimensionGaps = $this->dimensionGaps(
+                is_array($atlas['score_breakdown'] ?? null) ? $atlas['score_breakdown'] : [],
+                is_array($bestRival['score_breakdown'] ?? null) ? $bestRival['score_breakdown'] : [],
+                $case['id'],
+                (string) ($bestRival['system'] ?? ''),
+            );
+
+            $cases[] = [
+                'case_id' => $case['id'],
+                'status' => match (true) {
+                    $delta > 0 => 'atlas_leads',
+                    $delta === 0 => 'atlas_tied_best',
+                    default => 'atlas_loses',
+                },
+                'atlas_score' => $atlasScore,
+                'best_rival_system' => $bestRival['system'] ?? null,
+                'best_rival_score' => $bestRivalScore,
+                'atlas_delta_vs_best_rival' => $delta,
+                'minimum_points_to_match_best_rival' => max(0, $bestRivalScore - $atlasScore),
+                'minimum_points_to_lead_best_rival' => max(0, $bestRivalScore - $atlasScore + 1),
+                'dimension_gap_count' => count($dimensionGaps),
+                'dimension_gaps' => $dimensionGaps,
+                'recommended_repair_plan_commands' => array_values(array_filter(array_map(
+                    fn (array $gap): ?string => is_string($gap['repair_plan_command'] ?? null) ? (string) $gap['repair_plan_command'] : null,
+                    $dimensionGaps,
+                ))),
+                'next_action' => $delta < 0 ? 'improve_atlas_frontend_case_and_rerun_replay' : 'preserve_case_evidence',
+            ];
+        }
+
+        $losing = collect($cases)->where('status', 'atlas_loses')->count();
+        $pending = collect($cases)->where('status', 'pending')->count();
+
+        return [
+            'schema_version' => 'atlas.frontend.rival_replay_competitive_diagnostics.v1',
+            'status' => $losing > 0 ? 'atlas_needs_improvement' : ($pending > 0 ? 'pending_replay' : 'atlas_matches_or_beats_all_complete_cases'),
+            'case_count' => count($cases),
+            'losing_case_count' => $losing,
+            'pending_case_count' => $pending,
+            'cases' => $cases,
+            'claim_policy' => [
+                'diagnostics_are_not_market_claim_evidence' => true,
+                'world_best_requires_no_losing_cases' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $atlasBreakdown
+     * @param  array<string,mixed>  $bestRivalBreakdown
+     * @return array<int,array<string,mixed>>
+     */
+    private function dimensionGaps(array $atlasBreakdown, array $bestRivalBreakdown, string $caseId, string $bestRivalSystem): array
+    {
+        $rubricDimensions = app(AtlasFrontendCompetitiveRubricService::class)->rubric()['dimensions'];
+        $gaps = [];
+
+        foreach ($rubricDimensions as $dimension) {
+            $id = (string) $dimension['id'];
+            $atlas = (int) ($atlasBreakdown[$id] ?? 0);
+            $rival = (int) ($bestRivalBreakdown[$id] ?? 0);
+            $delta = $atlas - $rival;
+            if ($delta >= 0) {
+                continue;
+            }
+
+            $gaps[] = [
+                'dimension' => $id,
+                'case_id' => $caseId,
+                'atlas_score' => $atlas,
+                'best_rival_system' => $bestRivalSystem,
+                'best_rival_score' => $rival,
+                'delta_vs_best_rival' => $delta,
+                'points_to_match' => abs($delta),
+                'weight' => (int) ($dimension['weight'] ?? 0),
+                'next_action' => 'improve_'.$id,
+                'repair_plan_command' => sprintf(
+                    'php artisan atlas:frontend:repair-plan --dimension-gap=%s:%d:%d:%d:%s:%s --json',
+                    $id,
+                    abs($delta),
+                    $delta,
+                    $rival,
+                    $caseId,
+                    $bestRivalSystem,
+                ),
+            ];
+        }
+
+        return collect($gaps)
+            ->sortByDesc(fn (array $gap): int => (int) $gap['points_to_match'])
+            ->values()
+            ->all();
     }
 
     /**
@@ -697,6 +839,22 @@ final class AtlasFrontendRivalReplayHarnessService
     }
 
     /**
+     * @param  array<string,mixed>  $evidencePackReadiness
+     * @return array<int,string>
+     */
+    private function remainingGaps(bool $allRunsCompleted, bool $atlasWinsAllCompleteCases, array $evidencePackReadiness): array
+    {
+        if (! $allRunsCompleted) {
+            return [
+                'external_rival_replay_artifacts_required_for_world_best_claim',
+                ...($evidencePackReadiness['status'] === 'ready' ? [] : ['rival_replay_evidence_packs_incomplete']),
+            ];
+        }
+
+        return $atlasWinsAllCompleteCases ? [] : ['atlas_does_not_win_every_complete_case'];
+    }
+
+    /**
      * @param  array<string,mixed>  $manifest
      * @return array<int,string>
      */
@@ -799,8 +957,25 @@ final class AtlasFrontendRivalReplayHarnessService
     {
         $forbidden = ['raw_prompt', 'prompt', 'source', 'raw_source', 'customer_source', 'customer_data'];
 
-        return collect(array_keys($manifest))
-            ->contains(fn (string $key): bool => in_array(Str::snake($key), $forbidden, true));
+        return $this->containsForbiddenKeyRecursive($manifest, $forbidden);
+    }
+
+    /**
+     * @param  array<int,string>  $forbidden
+     */
+    private function containsForbiddenKeyRecursive(array $payload, array $forbidden): bool
+    {
+        foreach ($payload as $key => $value) {
+            if (is_string($key) && in_array(Str::snake($key), $forbidden, true)) {
+                return true;
+            }
+
+            if (is_array($value) && $this->containsForbiddenKeyRecursive($value, $forbidden)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

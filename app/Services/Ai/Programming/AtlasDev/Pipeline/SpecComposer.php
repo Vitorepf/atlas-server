@@ -90,10 +90,10 @@ class SpecComposer
         string $riskLevel,
     ): CompactSdd {
         $this->assertRiskLevel($riskLevel);
-        $mode = $this->resolveMode($classification, $riskLevel);
+        $mode = $this->resolveMode($envelope, $classification, $riskLevel);
         $scopeMode = $this->resolveScopeMode($classification, $riskLevel);
         $budgetChars = self::BUDGET_BY_MODE[$mode] ?? 8000;
-        $maxRepair = self::MAX_REPAIR_ATTEMPTS_BY_RISK[$riskLevel] ?? 0;
+        $maxRepair = $this->maxRepairAttemptsFor($envelope, $riskLevel);
 
         $contextBudget = new ContextBudget(
             maxChars: $budgetChars,
@@ -203,8 +203,8 @@ class SpecComposer
         CompactSdd $compactSdd,
         MiniProgrammingSpec $miniSpec,
     ): LightTaskContract {
-        $maxFiles = self::MAX_FILES_BY_RISK[$compactSdd->riskLevel] ?? 0;
-        $maxRepair = self::MAX_REPAIR_ATTEMPTS_BY_RISK[$compactSdd->riskLevel] ?? 0;
+        $maxFiles = $this->maxFilesChangedFor($envelope, $compactSdd, $miniSpec);
+        $maxRepair = $this->maxRepairAttemptsFor($envelope, $compactSdd->riskLevel);
         $writeAllowed = $this->writeAllowed($envelope, $compactSdd);
 
         $allowedTools = $writeAllowed
@@ -274,8 +274,19 @@ class SpecComposer
         }
     }
 
-    private function resolveMode(TaskClassification $classification, string $riskLevel): string
+    private function resolveMode(OperationEnvelope $envelope, TaskClassification $classification, string $riskLevel): string
     {
+        if (in_array($riskLevel, [RiskLevelScorer::R4, RiskLevelScorer::R5], true)
+            && $this->allowsRivalsIsolatedRuntimeExecution($envelope)) {
+            return match ($classification->taskKind) {
+                TaskClassification::KIND_QUESTION => self::MODE_READ_ONLY,
+                TaskClassification::KIND_REVIEW => self::MODE_REVIEW,
+                TaskClassification::KIND_REPAIR => self::MODE_REPAIR,
+                TaskClassification::KIND_FRONTEND => self::MODE_FRONTEND_VISUAL,
+                default => self::MODE_PATCH,
+            };
+        }
+
         if ($riskLevel === RiskLevelScorer::R4 || $riskLevel === RiskLevelScorer::R5) {
             return self::MODE_ESCALATE_PREVIEW;
         }
@@ -310,6 +321,32 @@ class SpecComposer
             RiskLevelScorer::R5 => 12,
             default => 6,
         };
+    }
+
+    private function maxFilesChangedFor(OperationEnvelope $envelope, CompactSdd $compactSdd, MiniProgrammingSpec $miniSpec): int
+    {
+        if ($this->allowsRivalsIsolatedRuntimeExecution($envelope)
+            && in_array($compactSdd->riskLevel, [RiskLevelScorer::R4, RiskLevelScorer::R5], true)
+            && ! in_array($compactSdd->mode, [self::MODE_READ_ONLY, self::MODE_REVIEW, self::MODE_ESCALATE_PREVIEW], true)) {
+            $declaredFiles = max(count($miniSpec->expectedFiles), count($miniSpec->allowedFiles));
+
+            return max(1, min(5, $declaredFiles > 0 ? $declaredFiles : 1));
+        }
+
+        return self::MAX_FILES_BY_RISK[$compactSdd->riskLevel] ?? 0;
+    }
+
+    private function maxRepairAttemptsFor(OperationEnvelope $envelope, string $riskLevel): int
+    {
+        if ($this->allowsRivalsIsolatedRuntimeExecution($envelope)) {
+            return match ($riskLevel) {
+                RiskLevelScorer::R4 => 1,
+                RiskLevelScorer::R5 => 2,
+                default => self::MAX_REPAIR_ATTEMPTS_BY_RISK[$riskLevel] ?? 0,
+            };
+        }
+
+        return self::MAX_REPAIR_ATTEMPTS_BY_RISK[$riskLevel] ?? 0;
     }
 
     /**
@@ -874,6 +911,25 @@ class SpecComposer
             self::MODE_REVIEW,
             self::MODE_ESCALATE_PREVIEW,
         ], true);
+    }
+
+    private function allowsRivalsIsolatedRuntimeExecution(OperationEnvelope $envelope): bool
+    {
+        if ($envelope->surfaceId !== 'atlas_forge_rivals') {
+            return false;
+        }
+        if (! $envelope->preflight->operatorExplicit) {
+            return false;
+        }
+
+        foreach ($envelope->userConstraints as $constraint) {
+            $normalized = strtolower(trim((string) $constraint));
+            if ($normalized === 'rivals_runtime_execution=true') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function relativise(string $workspace, string $absolute): string

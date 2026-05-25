@@ -20,6 +20,15 @@ final class AtlasFrontendWorldBestProofPlanService
         $controlPlane = app(AtlasFrontendControlPlaneService::class)->snapshot($input);
 
         $evidencePackReadiness = (array) ($replay['evidence_pack_readiness'] ?? []);
+        $competitiveDimensionGaps = $this->competitiveDimensionGaps((array) data_get($replay, 'competitive_diagnostics.cases', []));
+        $competitiveRepairPlan = $competitiveDimensionGaps !== []
+            ? app(AtlasFrontendRepairPlannerService::class)->plan([
+                'blockers' => ['competitive_dimension_gap'],
+                'dimension_gaps' => $competitiveDimensionGaps,
+            ])
+            : null;
+        $evidenceWorklist = app(AtlasFrontendRivalReplayHarnessService::class)
+            ->compileEvidenceWorklist($this->nullableString($input['rival_evidence'] ?? null));
         $replayWorkItems = $this->replayWorkItems((array) ($replay['runs'] ?? []), $evidencePackReadiness);
         $publicationWorkItems = $this->publicationWorkItems($publication);
         $worldBestClaimAllowed = (bool) data_get($replay, 'claim_policy.may_claim_world_best_frontend_system')
@@ -50,6 +59,8 @@ final class AtlasFrontendWorldBestProofPlanService
                 'runtime_certified' => (bool) data_get($controlPlane, 'readiness_levels.runtime_contract_ready'),
                 'external_rival_replay_completed' => (bool) data_get($replay, 'summary.external_replay_completed'),
                 'evidence_pack_readiness' => $evidencePackReadinessSummary,
+                'competitive_diagnostics_status' => data_get($replay, 'competitive_diagnostics.status', 'not_evaluated'),
+                'competitive_losing_case_count' => (int) data_get($replay, 'competitive_diagnostics.losing_case_count', 0),
                 'atlas_wins_replay' => (bool) data_get($replay, 'claim_policy.may_claim_world_best_frontend_system'),
                 'product_proof_catalog_ready' => ($proof['status'] ?? null) === 'ready',
                 'public_distribution_verified' => (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed'),
@@ -70,9 +81,21 @@ final class AtlasFrontendWorldBestProofPlanService
                         'competitive_score_breakdown',
                     ],
                     'evidence_pack_readiness' => $evidencePackReadinessSummary,
+                    'evidence_worklist' => [
+                        'schema_version' => $evidenceWorklist['schema_version'] ?? null,
+                        'status' => $evidenceWorklist['status'] ?? 'pending',
+                        'work_item_count' => $evidenceWorklist['work_item_count'] ?? 0,
+                        'worklist_hash' => $evidenceWorklist['worklist_hash'] ?? null,
+                        'write_performed' => $evidenceWorklist['write_performed'] ?? false,
+                        'commands' => $evidenceWorklist['commands'] ?? [],
+                        'claim_policy' => $evidenceWorklist['claim_policy'] ?? [],
+                    ],
+                    'competitive_diagnostics' => data_get($replay, 'competitive_diagnostics', []),
+                    'competitive_repair_plan' => $competitiveRepairPlan,
                     'work_items' => $replayWorkItems,
                     'commands' => [
                         'php artisan atlas:frontend:replay runner-kit --output=<dir> --json',
+                        'php artisan atlas:frontend:replay evidence-worklist --evidence=<dir> --output=<worklist.json> --json',
                         'php artisan atlas:frontend:replay inspect --evidence=<dir> --json',
                     ],
                 ],
@@ -117,9 +140,11 @@ final class AtlasFrontendWorldBestProofPlanService
             ],
             'blockers' => $blockers,
             'warnings' => $this->warnings($replay, $publication, $controlPlane),
-            'required_next_actions' => $this->nextActions($replayWorkItems, $publicationWorkItems, $worldBestClaimAllowed, $evidencePackReadiness),
+            'required_next_actions' => $this->nextActions($replayWorkItems, $publicationWorkItems, $worldBestClaimAllowed, $evidencePackReadiness, (array) data_get($replay, 'competitive_diagnostics', [])),
             'evidence_hashes' => [
                 'replay_hash' => $replay['replay_hash'] ?? null,
+                'competitive_repair_plan_hash' => $competitiveRepairPlan['repair_plan_hash'] ?? null,
+                'evidence_worklist_hash' => $evidenceWorklist['worklist_hash'] ?? null,
                 'product_proof_hash' => $proof['product_proof_hash'] ?? null,
                 'publication_hash' => $publication['publication_hash'] ?? null,
                 'control_plane_hash' => $controlPlane['control_plane_hash'] ?? null,
@@ -128,6 +153,26 @@ final class AtlasFrontendWorldBestProofPlanService
         $payload['proof_plan_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<int,mixed>  $cases
+     * @return array<int,array<string,mixed>>
+     */
+    private function competitiveDimensionGaps(array $cases): array
+    {
+        return collect($cases)
+            ->filter(fn (mixed $case): bool => is_array($case))
+            ->flatMap(fn (array $case): array => array_map(
+                fn (array $gap): array => [
+                    ...$gap,
+                    'case_id' => $case['case_id'] ?? null,
+                    'best_rival_system' => $case['best_rival_system'] ?? null,
+                ],
+                array_filter((array) ($case['dimension_gaps'] ?? []), 'is_array'),
+            ))
+            ->values()
+            ->all();
     }
 
     /**
@@ -198,7 +243,7 @@ final class AtlasFrontendWorldBestProofPlanService
                 'warnings' => $publication['warnings'] ?? [],
                 'commands' => [
                     'php artisan atlas:frontend:proof build --output=<bundle> --json',
-                    'php artisan atlas:frontend:publish receipt-template --output=<bundle> --json',
+                    'php artisan atlas:frontend:publish receipt-template --bundle=<bundle> --output=<bundle> --json',
                     'php artisan atlas:frontend:publish verify --bundle=<bundle> --receipt=<receipt> --json',
                 ],
             ],
@@ -269,7 +314,7 @@ final class AtlasFrontendWorldBestProofPlanService
      * @param  array<string,mixed>  $evidencePackReadiness
      * @return array<int,string>
      */
-    private function nextActions(array $replayWorkItems, array $publicationWorkItems, bool $worldBestClaimAllowed, array $evidencePackReadiness): array
+    private function nextActions(array $replayWorkItems, array $publicationWorkItems, bool $worldBestClaimAllowed, array $evidencePackReadiness, array $competitiveDiagnostics): array
     {
         if ($worldBestClaimAllowed) {
             return ['claim_world_best_only_with_attached_proof_plan_hash'];
@@ -282,6 +327,9 @@ final class AtlasFrontendWorldBestProofPlanService
         }
         if (($evidencePackReadiness['status'] ?? null) !== 'ready') {
             $actions[] = 'fill_and_verify_rival_replay_evidence_packs';
+        }
+        if ((int) ($competitiveDiagnostics['losing_case_count'] ?? 0) > 0) {
+            $actions[] = 'improve_atlas_frontend_until_replay_wins_every_case';
         }
         if ($publicationWorkItems !== []) {
             $actions[] = 'verify_public_product_proof_distribution';

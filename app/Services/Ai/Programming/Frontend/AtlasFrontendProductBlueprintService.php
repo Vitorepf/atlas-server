@@ -23,6 +23,7 @@ final class AtlasFrontendProductBlueprintService
         $taskSpec = app(AtlasFrontendTaskSpecCompilerService::class)->compile([
             'task' => $task,
             'workspace' => $workspace,
+            'frontend_app' => (string) ($input['frontend_app'] ?? ''),
             'surface' => $surface,
             'acceptance' => true,
             'asset_context' => (bool) ($input['asset_context'] ?? false),
@@ -52,6 +53,11 @@ final class AtlasFrontendProductBlueprintService
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
             'task_spec_hash' => $taskSpec['task_spec_hash'] ?? null,
+            'frontend_app_scope' => $taskSpec['frontend_app_scope'] ?? [
+                'status' => 'repo_root',
+                'relative_name' => null,
+                'relative_name_hash' => null,
+            ],
             'dossier_hash' => $dossier['dossier_hash'] ?? null,
             'product_model' => $this->productModel((array) ($taskSpec['signals'] ?? [])),
             'ux_success_model' => $this->uxSuccessModel((array) ($taskSpec['signals'] ?? [])),

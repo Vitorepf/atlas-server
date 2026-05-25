@@ -34,4 +34,35 @@ class AtlasFrontendRepairPlanCommandTest extends TestCase
         $this->assertSame(1, $exitCode);
         $this->assertStringContainsString('no_repair_signal_provided', $output);
     }
+
+    public function test_repair_plan_command_accepts_competitive_dimension_gap(): void
+    {
+        $exitCode = Artisan::call('atlas:frontend:repair-plan', [
+            '--dimension-gap' => ['product_intent_fit:2:-2:12:live_mode_repair_loop:pbakaus_impeccable'],
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('competitive_replay_repair', $output);
+        $this->assertStringContainsString('repair_competitive_dimension_product_intent_fit', $output);
+        $this->assertStringContainsString('live_mode_repair_loop', $output);
+        $this->assertStringContainsString('pbakaus_impeccable', $output);
+        $this->assertStringContainsString('dimension_improvement_receipt', $output);
+    }
+
+    public function test_repair_plan_command_blocks_invalid_competitive_dimension_gap_in_strict_mode(): void
+    {
+        $exitCode = Artisan::call('atlas:frontend:repair-plan', [
+            '--dimension-gap' => ['not_a_dimension:1:-1:10'],
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString('invalid_competitive_dimension_gap', $output);
+        $this->assertStringContainsString('dimension_not_in_competitive_rubric', $output);
+        $this->assertStringNotContainsString('repair_competitive_dimension_not_a_dimension', $output);
+    }
 }

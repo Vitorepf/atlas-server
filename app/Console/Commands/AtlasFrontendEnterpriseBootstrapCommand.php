@@ -11,6 +11,7 @@ class AtlasFrontendEnterpriseBootstrapCommand extends Command
         {action=inspect : inspect or write}
         {--task= : Company frontend/product/design task}
         {--workspace= : Local company/product frontend repository path}
+        {--frontend-app= : Optional frontend app subdirectory inside the selected repository, e.g. apps/web}
         {--surface=programming.frontend : Surface/profile requesting frontend work}
         {--asset-context : Asset provenance or placeholder policy exists}
         {--prototype : Prototype/discovery mode requested}
@@ -32,6 +33,7 @@ class AtlasFrontendEnterpriseBootstrapCommand extends Command
             'inspect', 'write' => $bootstrap->run([
                 'task' => (string) ($this->option('task') ?: ''),
                 'workspace' => (string) ($this->option('workspace') ?: base_path()),
+                'frontend_app' => (string) ($this->option('frontend-app') ?: ''),
                 'surface' => (string) ($this->option('surface') ?: 'programming.frontend'),
                 'write' => $action === 'write',
                 'asset_context' => (bool) $this->option('asset-context'),

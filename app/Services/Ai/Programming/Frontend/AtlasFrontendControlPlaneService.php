@@ -45,6 +45,7 @@ final class AtlasFrontendControlPlaneService
             'input_scope' => [
                 'task_hash' => $this->hashNullable($input['task'] ?? null),
                 'workspace_hash' => $this->hashNullable($input['workspace'] ?? null),
+                'frontend_app_hash' => $this->hashNullable($input['frontend_app'] ?? null),
                 'surface' => $this->nullableString($input['surface'] ?? null) ?: 'programming.frontend',
                 'gauntlet_requested' => $this->shouldRunGauntlet($input),
                 'rival_evidence_directory_hash' => $this->hashNullable($input['rival_evidence'] ?? null),
@@ -62,6 +63,7 @@ final class AtlasFrontendControlPlaneService
                 'gauntlet' => [
                     'schema_version' => AtlasFrontendGauntletService::SCHEMA_VERSION,
                     'status' => $gauntlet['status'] ?? null,
+                    'frontend_app_scope' => $gauntlet['frontend_app_scope'] ?? null,
                     'provider_dispatch_allowed' => (bool) data_get($gauntlet, 'claim_policy.provider_dispatch_allowed'),
                     'gauntlet_hash' => $gauntlet['gauntlet_hash'] ?? null,
                 ],
@@ -140,6 +142,7 @@ final class AtlasFrontendControlPlaneService
             'task' => $this->nullableString($input['task'] ?? null) ?? '',
             'surface' => $this->nullableString($input['surface'] ?? null) ?? 'programming.frontend',
             'workspace' => $this->nullableString($input['workspace'] ?? null) ?? '',
+            'frontend_app' => $this->nullableString($input['frontend_app'] ?? null) ?? '',
             'acceptance_criteria' => (bool) ($input['acceptance_criteria'] ?? false),
             'asset_context' => (bool) ($input['asset_context'] ?? false),
             'company_profile_ready' => (bool) ($input['company_profile_ready'] ?? false),

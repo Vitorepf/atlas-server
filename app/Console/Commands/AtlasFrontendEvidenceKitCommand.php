@@ -11,6 +11,7 @@ class AtlasFrontendEvidenceKitCommand extends Command
         {action=prepare : prepare}
         {--task= : Frontend task or intent}
         {--workspace= : Local company/product frontend repository path}
+        {--frontend-app= : Optional frontend app subdirectory inside the selected repository, e.g. apps/web}
         {--surface=programming.frontend : Surface/profile requesting frontend work}
         {--output= : Output directory for evidence collection kit}
         {--acceptance : Acceptance criteria exists}
@@ -29,6 +30,7 @@ class AtlasFrontendEvidenceKitCommand extends Command
             'prepare' => $kit->prepare([
                 'task' => (string) ($this->option('task') ?: ''),
                 'workspace' => (string) ($this->option('workspace') ?: ''),
+                'frontend_app' => (string) ($this->option('frontend-app') ?: ''),
                 'surface' => (string) ($this->option('surface') ?: 'programming.frontend'),
                 'output' => (string) ($this->option('output') ?: ''),
                 'acceptance_criteria' => (bool) $this->option('acceptance'),

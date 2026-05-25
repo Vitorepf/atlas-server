@@ -4,8 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming;
 
+use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsOperatorBatteryCertification;
 use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsProviderArenaCoreCertification;
+use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
+use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliRequest;
+use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliResponse;
+use App\Services\Ai\Programming\AtlasDev\Provider\SonnetClaudeCliAdapter;
+use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use App\Services\Ai\Programming\ForgeRivals\Arms\AtlasForgeRivalsArmRegistryService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsActionDispatcher;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsArmCommandBuilderService;
@@ -14,6 +21,7 @@ use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderModelRegistr
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsReportService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunRealService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsSetupService;
+use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
@@ -60,7 +68,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertIsString($prompt);
         $this->assertStringContainsString('Modifique somente os arquivos esperados para alteracao.', $prompt);
         $this->assertStringContainsString('Nao crie arquivos adicionais no workspace do caso, incluindo scorecard.json', $prompt);
-        $this->assertStringContainsString('O scorecard e o evidence pack oficiais sao gerados pelo harness do Rivals fora do workspace do caso', $prompt);
+        $this->assertStringContainsString('O scorecard e o evidence pack oficiais sao gerados pelo harness externo fora do workspace do caso', $prompt);
         $this->assertStringContainsString('Use-os como ponto de partida e altere somente os arquivos esperados dentro do escopo permitido.', $prompt);
     }
 
@@ -154,7 +162,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         }
     }
 
-    public function test_atlas_dev_is_declared_as_lightweight_sonnet_arm(): void
+    public function test_atlas_dev_is_declared_as_runtime_sonnet_arm(): void
     {
         $registry = app(AtlasForgeRivalsArmRegistryService::class);
         $arm = $registry->arm('atlas_dev');
@@ -162,6 +170,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertSame('atlas_dev', $arm['arm_id']);
         $this->assertSame('atlas_dev', $arm['runner_type']);
         $this->assertSame('claude', $arm['provider']);
+        $this->assertStringContainsString('SeniorEngineerLoopExecutor', $arm['human_description']);
         $this->assertContains('sonnet', $arm['model_options']);
         $this->assertContains('claude_sonnet', $arm['model_options']);
         $this->assertSame('available', $arm['status']);
@@ -169,9 +178,45 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertContains('architecture', $arm['allowed_task_categories']);
         $this->assertContains('security', $arm['allowed_task_categories']);
         $this->assertContains('performance', $arm['allowed_task_categories']);
+        $this->assertContains('backend_logic', $arm['allowed_task_categories']);
+        $this->assertContains('frontend_ui', $arm['allowed_task_categories']);
+        $this->assertContains('realistic_bugfix', $arm['allowed_task_categories']);
+        $this->assertContains('test_design', $arm['allowed_task_categories']);
+        $this->assertContains('integration_performance', $arm['allowed_task_categories']);
         $this->assertTrue($arm['safety_contract']['escalates_to_forge_on_high_risk']);
         $this->assertTrue($arm['safety_contract']['architecture_security_performance_categories_use_atlas_dev_escalation_policy']);
         $this->assertTrue($arm['safety_contract']['keeps_call_budget_low']);
+    }
+
+    public function test_atlas_dev_dry_run_uses_runtime_command_builder_not_raw_claude_cli(): void
+    {
+        $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
+        $response = $dispatcher->dispatch('run-arena', [
+            'arm_a' => 'atlas_dev',
+            'arm_b' => 'claude_code',
+            'arm_a_model' => 'sonnet',
+            'arm_b_model' => 'sonnet',
+            'task_category' => 'backend_logic',
+            'mode' => 'provider_arena',
+            'dry_run' => true,
+            'confirmations' => [
+                'runbook_reviewed' => false,
+                'provider_cost' => false,
+                'real_provider_call' => false,
+            ],
+        ]);
+
+        $this->assertSame('ok', $response['status'], json_encode($response, JSON_PRETTY_PRINT));
+        $this->assertSame('atlas_runtime', $response['arm_a']['provider_kind']);
+        $this->assertSame('atlas_dev_runtime', $response['arm_a']['command_builder']);
+        $this->assertSame('atlas_dev_runtime', $response['command_plan']['arm_a']['provider']);
+        $this->assertSame('atlas_dev_runtime', $response['command_plan']['arm_a']['command_family']);
+        $this->assertTrue($response['command_plan']['arm_a']['command_shape_summary']['uses_atlas_dev_fast_path_orchestrator']);
+        $this->assertTrue($response['command_plan']['arm_a']['command_shape_summary']['uses_pipeline_run_executor']);
+        $this->assertTrue($response['command_plan']['arm_a']['command_shape_summary']['provider_cli_is_not_directly_spawned_by_rivals']);
+        $this->assertSame(['atlas_dev_runtime', 'SeniorEngineerLoopExecutor'], $response['command_plan']['arm_a']['command']);
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
     }
 
     public function test_atlas_dev_accepts_architecture_pressure_without_switching_rivals_arm(): void
@@ -198,6 +243,35 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertSame('claude_code', data_get($response, 'arm_b.arm_id'));
         $this->assertFalse($response['external_provider_call']);
         $this->assertFalse($response['provider_tokens_spent']);
+    }
+
+    public function test_atlas_dev_accepts_canonical_corpus_categories_without_switching_rivals_arm(): void
+    {
+        $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
+
+        foreach (['backend_logic', 'frontend_ui', 'realistic_bugfix', 'test_design', 'integration_performance'] as $taskCategory) {
+            $response = $dispatcher->dispatch('run-arena', [
+                'arm_a' => 'atlas_dev',
+                'arm_b' => 'claude_code',
+                'arm_a_model' => 'sonnet',
+                'arm_b_model' => 'sonnet',
+                'task_category' => $taskCategory,
+                'mode' => 'provider_arena',
+                'preset' => 'quick',
+                'dry_run' => true,
+                'confirmations' => [
+                    'runbook_reviewed' => false,
+                    'provider_cost' => false,
+                    'real_provider_call' => false,
+                ],
+            ]);
+
+            $this->assertSame('ok', $response['status'], json_encode($response, JSON_PRETTY_PRINT));
+            $this->assertSame('atlas_dev', data_get($response, 'arm_a.arm_id'));
+            $this->assertSame($taskCategory, $response['task_category']);
+            $this->assertFalse($response['external_provider_call']);
+            $this->assertFalse($response['provider_tokens_spent']);
+        }
     }
 
     public function test_atlas_dev_can_join_local_fake_corpus_dry_run_without_provider_spend(): void
@@ -307,8 +381,8 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 
         $pairIds = array_column($response['pairs'], 'pair_id');
         $this->assertContains('atlas_dev_architecture_escalated_vs_claude_sonnet', $pairIds);
-        $this->assertContains('atlas_forge_vs_claude_sonnet', $pairIds);
-        $this->assertContains('atlas_dev_vs_atlas_forge', $pairIds);
+        $this->assertContains('atlas_dev_vs_claude_sonnet', $pairIds);
+        $this->assertContains('atlas_dev_architecture_pressure_vs_claude_sonnet', $pairIds);
         $this->assertContains('claude_opus_vs_codex_gpt55', $pairIds);
         $this->assertContains('codex_gpt55_vs_gemini_pro', $pairIds);
         $this->assertContains('cursor_default_vs_claude_sonnet', $pairIds);
@@ -772,6 +846,8 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
     {
         $fakeProvider = $this->fakeProviderBinary();
         $oldClaudeBinary = config('atlas.ai.providers.claude_cli.binary');
+        $oldCodexBinary = config('atlas.ai.providers.codex_cli.binary');
+        $oldCodexArgs = config('atlas.ai.providers.codex_cli.args');
         $oldFullFloor = config('atlas_rivals.min_free_bytes_before_worktree_add');
         $oldMinimalFloor = config('atlas_rivals.min_free_bytes_before_minimal_worktree_add');
 
@@ -793,8 +869,14 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
             ]);
             $payload = json_decode((string) Artisan::output(), true);
 
-            $this->assertSame('ok', $payload['status'], json_encode($payload, JSON_PRETTY_PRINT));
+            $this->assertSame('blocked', $payload['status'], json_encode($payload, JSON_PRETTY_PRINT));
             $this->assertSame('ok', $payload['phases'][1]['status'], json_encode($payload, JSON_PRETTY_PRINT));
+            $this->assertFalse(
+                collect($payload['blockers'] ?? [])->contains(
+                    static fn (string $blocker): bool => str_starts_with($blocker, 'worktree_disk_space_insufficient:'),
+                ),
+                json_encode($payload, JSON_PRETTY_PRINT),
+            );
             $this->assertFalse($payload['external_provider_call']);
             $this->assertFalse($payload['provider_tokens_spent']);
             $this->assertTrue($payload['advisory_only']);
@@ -816,10 +898,10 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
             config(['atlas_rivals.min_free_bytes_before_worktree_add' => PHP_INT_MAX]);
 
             $response = app(AtlasForgeRivalsActionDispatcher::class)->dispatch('run-arena', [
-                'arm_a' => 'atlas_forge',
-                'arm_b' => 'claude_code',
+                'arm_a' => 'claude_code',
+                'arm_b' => 'codex_cli',
                 'arm_a_model' => 'sonnet',
-                'arm_b_model' => 'sonnet',
+                'arm_b_model' => 'gpt-5.5',
                 'task_category' => 'bugfix',
                 'mode' => 'local_fake',
                 'preset' => 'quick',
@@ -850,6 +932,8 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
     {
         $fakeProvider = $this->fakeProviderBinary();
         $oldClaudeBinary = config('atlas.ai.providers.claude_cli.binary');
+        $oldCodexBinary = config('atlas.ai.providers.codex_cli.binary');
+        $oldCodexArgs = config('atlas.ai.providers.codex_cli.args');
         $oldFullFloor = config('atlas_rivals.min_free_bytes_before_worktree_add');
         $oldMinimalFloor = config('atlas_rivals.min_free_bytes_before_minimal_worktree_add');
         $oldEvidenceFloor = config('atlas_rivals.min_free_bytes_before_provider_evidence');
@@ -857,16 +941,18 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         try {
             config([
                 'atlas.ai.providers.claude_cli.binary' => $fakeProvider,
+                'atlas.ai.providers.codex_cli.binary' => $fakeProvider,
+                'atlas.ai.providers.codex_cli.args' => ['exec', '--skip-git-repo-check'],
                 'atlas_rivals.min_free_bytes_before_worktree_add' => 0,
                 'atlas_rivals.min_free_bytes_before_minimal_worktree_add' => 0,
                 'atlas_rivals.min_free_bytes_before_provider_evidence' => PHP_INT_MAX,
             ]);
 
             $response = app(AtlasForgeRivalsActionDispatcher::class)->dispatch('run-arena', [
-                'arm_a' => 'atlas_forge',
-                'arm_b' => 'claude_code',
+                'arm_a' => 'claude_code',
+                'arm_b' => 'codex_cli',
                 'arm_a_model' => 'sonnet',
-                'arm_b_model' => 'sonnet',
+                'arm_b_model' => 'gpt-5.5',
                 'task_category' => 'refactor',
                 'mode' => 'provider_arena',
                 'case' => 'extreme-differentiator-002-industrial-005-incident_rollback',
@@ -896,6 +982,8 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         } finally {
             config([
                 'atlas.ai.providers.claude_cli.binary' => $oldClaudeBinary,
+                'atlas.ai.providers.codex_cli.binary' => $oldCodexBinary,
+                'atlas.ai.providers.codex_cli.args' => $oldCodexArgs,
                 'atlas_rivals.min_free_bytes_before_worktree_add' => $oldFullFloor,
                 'atlas_rivals.min_free_bytes_before_minimal_worktree_add' => $oldMinimalFloor,
                 'atlas_rivals.min_free_bytes_before_provider_evidence' => $oldEvidenceFloor,
@@ -907,6 +995,8 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
     {
         $fakeProvider = $this->fakeProviderBinary();
         $oldClaudeBinary = config('atlas.ai.providers.claude_cli.binary');
+        $oldCodexBinary = config('atlas.ai.providers.codex_cli.binary');
+        $oldCodexArgs = config('atlas.ai.providers.codex_cli.args');
         $oldFullFloor = config('atlas_rivals.min_free_bytes_before_worktree_add');
         $oldMinimalFloor = config('atlas_rivals.min_free_bytes_before_minimal_worktree_add');
         $oldEvidenceFloor = config('atlas_rivals.min_free_bytes_before_provider_evidence');
@@ -914,16 +1004,18 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         try {
             config([
                 'atlas.ai.providers.claude_cli.binary' => $fakeProvider,
+                'atlas.ai.providers.codex_cli.binary' => $fakeProvider,
+                'atlas.ai.providers.codex_cli.args' => ['exec', '--skip-git-repo-check'],
                 'atlas_rivals.min_free_bytes_before_worktree_add' => PHP_INT_MAX,
                 'atlas_rivals.min_free_bytes_before_minimal_worktree_add' => 0,
                 'atlas_rivals.min_free_bytes_before_provider_evidence' => 0,
             ]);
 
             $response = app(AtlasForgeRivalsActionDispatcher::class)->dispatch('run-arena', [
-                'arm_a' => 'atlas_forge',
-                'arm_b' => 'claude_code',
+                'arm_a' => 'claude_code',
+                'arm_b' => 'codex_cli',
                 'arm_a_model' => 'sonnet',
-                'arm_b_model' => 'sonnet',
+                'arm_b_model' => 'gpt-5.5',
                 'task_category' => 'refactor',
                 'mode' => 'provider_arena',
                 'case' => 'ceiling-360-001-industrial-005-incident_rollback',
@@ -953,6 +1045,8 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         } finally {
             config([
                 'atlas.ai.providers.claude_cli.binary' => $oldClaudeBinary,
+                'atlas.ai.providers.codex_cli.binary' => $oldCodexBinary,
+                'atlas.ai.providers.codex_cli.args' => $oldCodexArgs,
                 'atlas_rivals.min_free_bytes_before_worktree_add' => $oldFullFloor,
                 'atlas_rivals.min_free_bytes_before_minimal_worktree_add' => $oldMinimalFloor,
                 'atlas_rivals.min_free_bytes_before_provider_evidence' => $oldEvidenceFloor,
@@ -999,7 +1093,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
     {
         $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
         $response = $dispatcher->dispatch('run-arena', [
-            'arm_a' => 'atlas_forge',
+            'arm_a' => 'atlas_dev',
             'arm_b' => 'claude_code',
             'arm_a_model' => 'sonnet',
             'arm_b_model' => 'sonnet',
@@ -1503,7 +1597,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         }
     }
 
-    public function test_provider_arena_real_pipeline_runs_atlas_dev_vs_atlas_forge_with_stubbed_claude(): void
+    public function test_provider_arena_real_pipeline_blocks_atlas_dev_vs_atlas_forge_until_atlas_runtime_is_wired(): void
     {
         $this->skipStubbedRealPipelineWhenWorktreeDiskIsInsufficient();
 
@@ -1530,19 +1624,242 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
                 ],
             ]);
 
-            $this->assertSame('ok', $response['status'], json_encode($response, JSON_PRETTY_PRINT));
-            $this->assertSame('provider_arena_v2', $response['executor']);
+            $this->assertSame('blocked', $response['status'], json_encode($response, JSON_PRETTY_PRINT));
             $this->assertSame('atlas_dev', $response['arm_a']['arm_id']);
             $this->assertSame('atlas_forge', $response['arm_b']['arm_id']);
-            $this->assertTrue($response['replay_passes'] ?? false);
-            $this->assertSame('atlas_dev', data_get($response, 'manifest.arena_contracts.arm_a.arm_id'));
-            $this->assertSame('atlas_forge', data_get($response, 'manifest.arena_contracts.arm_b.arm_id'));
+            $this->assertContains(
+                'arena_atlas_runtime_arm_not_connected:arm_b:atlas_forge:expected_atlas_runtime_not_provider_cli',
+                $response['blockers'] ?? [],
+            );
+            $this->assertFalse($response['external_provider_call']);
+            $this->assertFalse($response['provider_tokens_spent']);
         } finally {
             config(['atlas.ai.providers.claude_cli.binary' => $oldClaudeBinary]);
         }
     }
 
-    public function test_full_power_real_pipeline_uses_provider_arena_v2_for_atlas_system_vs_provider_pure(): void
+    public function test_run_real_uses_atlas_dev_runtime_not_raw_provider_cli_for_atlas_dev_arm(): void
+    {
+        $oldDeterministicFastPath = config('atlas_dev.efficient.deterministic_fast_path_enabled');
+        $workspace = sys_get_temp_dir().'/atlas-dev-runtime-rivals-'.Str::lower(Str::random(8));
+        @mkdir($workspace.'/tests/Feature/Ai/Programming', 0o755, true);
+        file_put_contents($workspace.'/composer.json', '{"scripts":{"test":"php -r \"exit(0);\""}}');
+        file_put_contents($workspace.'/tests/Feature/Ai/Programming/GovernedRuntimeStubEvidenceTest.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+test('governed runtime stub evidence exists', function (): void {
+    expect(false)->toBeTrue();
+});
+PHP);
+        (new Process(['git', 'init'], $workspace))->mustRun();
+        (new Process(['git', 'config', 'user.email', 'rivals@example.test'], $workspace))->mustRun();
+        (new Process(['git', 'config', 'user.name', 'Rivals Test'], $workspace))->mustRun();
+        (new Process(['git', 'add', 'composer.json', 'tests/Feature/Ai/Programming/GovernedRuntimeStubEvidenceTest.php'], $workspace))->mustRun();
+        (new Process(['git', 'commit', '-m', 'fixture'], $workspace))->mustRun();
+
+        try {
+            config(['atlas_dev.efficient.deterministic_fast_path_enabled' => false]);
+            foreach ([ClaudeCliGateway::class, SonnetClaudeCliAdapter::class, RunExecutor::class, ReceiptStorage::class, SeniorEngineerLoopExecutor::class] as $abstract) {
+                $this->app->forgetInstance($abstract);
+            }
+            $this->app->singleton(
+                ClaudeCliGateway::class,
+                fn () => new class implements ClaudeCliGateway
+                {
+                    public function dispatch(ClaudeCliRequest $request): ClaudeCliResponse
+                    {
+                        $stdout = <<<'DIFF'
+```diff
+--- tests/Feature/Ai/Programming/GovernedRuntimeStubEvidenceTest.php
++++ tests/Feature/Ai/Programming/GovernedRuntimeStubEvidenceTest.php
+@@ -1,7 +1,7 @@
+ <?php
+
+ declare(strict_types=1);
+
+ test('governed runtime stub evidence exists', function (): void {
+-    expect(false)->toBeTrue();
++    expect(true)->toBeTrue();
+ });
+```
+DIFF;
+
+                        return new ClaudeCliResponse(
+                            actualProvider: SonnetClaudeCliAdapter::PROVIDER,
+                            actualModelFamily: SonnetClaudeCliAdapter::MODEL_FAMILY,
+                            exitCode: 0,
+                            stdout: $stdout,
+                            stderr: '',
+                            durationMs: 25,
+                            tokensIn: 123,
+                            tokensOut: 45,
+                            costEstimateUsd: 0.0,
+                        );
+                    }
+                },
+            );
+
+            $service = app(AtlasForgeRivalsRunRealService::class);
+            $method = new \ReflectionMethod($service, 'runArm');
+            $method->setAccessible(true);
+            $receipt = $method->invoke(
+                $service,
+                'arena-atlas-dev-runtime-direct-'.Str::lower(Str::random(8)),
+                'atlas',
+                $workspace,
+                'provider_arena',
+                'claude_sonnet',
+                [
+                    'id' => 'atlas-dev-runtime-direct-case',
+                    'objective' => 'Fix the focused governed runtime stub evidence test during a production rollback incident so it passes.',
+                    'allowed_files' => ['tests/Feature/Ai/Programming/**'],
+                    'expected_changed_files' => ['tests/Feature/Ai/Programming/GovernedRuntimeStubEvidenceTest.php'],
+                    'acceptance_criteria' => ['The test file exists and validation command passes.'],
+                    'test_command' => 'php -r "exit(0);"',
+                    'prompt_mode' => 'spec-perfect',
+                    '_arena_contract' => [
+                        'arm' => ['arm_id' => 'atlas_dev'],
+                        'resolved_model' => 'claude_sonnet',
+                        'resolved_model_id' => 'claude-sonnet-4-6',
+                    ],
+                ],
+                '',
+            );
+
+            $this->assertSame('atlas_dev_runtime', $receipt['command_family']);
+            $this->assertSame('atlas_dev_runtime', $receipt['provider']);
+            $this->assertSame(SeniorEngineerLoopExecutor::class, data_get($receipt, 'atlas_dev_runtime.executor'));
+            $this->assertTrue((bool) data_get($receipt, 'atlas_dev_runtime.uses_atlas_dev_fast_path_orchestrator'));
+            $this->assertTrue((bool) data_get($receipt, 'atlas_dev_runtime.uses_pipeline_run_executor'));
+            $this->assertSame('claude_sonnet', $receipt['resolved_model']);
+            $this->assertSame('claude-sonnet-4-6', $receipt['resolved_model_id']);
+            $this->assertSame(['claude-sonnet-4-6'], data_get($receipt, 'provider_usage.models_observed'));
+            $this->assertSame(0, $receipt['exit_code']);
+            $this->assertSame(0, $receipt['test_exit_code']);
+            $this->assertGreaterThan(0, $receipt['patch_diff_bytes']);
+            $this->assertSame('atlas_dev_fast_path', data_get($receipt, 'atlas_dev_runtime.routing_decision.kind'));
+            $this->assertContains(
+                'risk_level=R4_rivals_isolated_runtime_execution',
+                data_get($receipt, 'atlas_dev_runtime.routing_decision.reasons', []),
+            );
+        } finally {
+            config(['atlas_dev.efficient.deterministic_fast_path_enabled' => $oldDeterministicFastPath]);
+            foreach ([ClaudeCliGateway::class, SonnetClaudeCliAdapter::class, RunExecutor::class, ReceiptStorage::class, SeniorEngineerLoopExecutor::class] as $abstract) {
+                $this->app->forgetInstance($abstract);
+            }
+        }
+    }
+
+    public function test_atlas_dev_runtime_executes_ceiling_360_l5_case_without_provider_safety_leakage(): void
+    {
+        $this->skipStubbedRealPipelineWhenWorktreeDiskIsInsufficient();
+
+        $oldDeterministicFastPath = config('atlas_dev.efficient.deterministic_fast_path_enabled');
+        $workspace = sys_get_temp_dir().'/atlas-dev-runtime-rivals-l5-'.Str::lower(Str::random(8));
+        @mkdir($workspace, 0o755, true);
+
+        $seed = base_path('storage/forge-rivals-corpus/ceiling-360-001-industrial-005-incident_rollback/seed');
+        $this->copyDirectory($seed, $workspace);
+
+        (new Process(['git', 'init'], $workspace))->mustRun();
+        (new Process(['git', 'config', 'user.email', 'rivals@example.test'], $workspace))->mustRun();
+        (new Process(['git', 'config', 'user.name', 'Rivals Test'], $workspace))->mustRun();
+        (new Process(['git', 'add', 'storage'], $workspace))->mustRun();
+        (new Process(['git', 'commit', '-m', 'fixture'], $workspace))->mustRun();
+
+        try {
+            config(['atlas_dev.efficient.deterministic_fast_path_enabled' => false]);
+            foreach ([ClaudeCliGateway::class, SonnetClaudeCliAdapter::class, RunExecutor::class, ReceiptStorage::class, SeniorEngineerLoopExecutor::class] as $abstract) {
+                $this->app->forgetInstance($abstract);
+            }
+            $this->app->singleton(
+                ClaudeCliGateway::class,
+                fn () => new class implements ClaudeCliGateway
+                {
+                    public function dispatch(ClaudeCliRequest $request): ClaudeCliResponse
+                    {
+                        $stdout = <<<'DIFF'
+```diff
+--- storage/forge-rivals-industrial/ceiling-360-001-industrial-005-incident_rollback/docs/ceiling-360-001-industrial-005-incident_rollback-runbook.md
++++ storage/forge-rivals-industrial/ceiling-360-001-industrial-005-incident_rollback/docs/ceiling-360-001-industrial-005-incident_rollback-runbook.md
+@@ -18,4 +18,8 @@
+ - missing_case_scorecard
+ - missing_replay
+ - missing_evidence_pack
+ - oracle_metadata_ignored
+
+ No provider is called by this fixture.
++
++## 360 Evidence
++- Facts Observed: source, fixture manifest, and replay test are present.
++- Stop/Block Criteria: block if rollback evidence cannot be reconstructed.
+```
+DIFF;
+
+                        return new ClaudeCliResponse(
+                            actualProvider: SonnetClaudeCliAdapter::PROVIDER,
+                            actualModelFamily: SonnetClaudeCliAdapter::MODEL_FAMILY,
+                            exitCode: 0,
+                            stdout: $stdout,
+                            stderr: '',
+                            durationMs: 25,
+                            tokensIn: 200,
+                            tokensOut: 80,
+                            costEstimateUsd: 0.0,
+                        );
+                    }
+                },
+            );
+
+            $case = app(AtlasForgeRivalsProviderArenaCorpusService::class)
+                ->case('ceiling-360-001-industrial-005-incident_rollback');
+            $case['prompt_mode'] = 'enterprise-change';
+            $case['_arena_contract'] = [
+                'arm' => ['arm_id' => 'atlas_dev'],
+                'resolved_model' => 'claude_sonnet',
+                'resolved_model_id' => 'claude-sonnet-4-6',
+            ];
+
+            $service = app(AtlasForgeRivalsRunRealService::class);
+            $method = new \ReflectionMethod($service, 'runArm');
+            $method->setAccessible(true);
+            $receipt = $method->invoke(
+                $service,
+                'arena-atlas-dev-runtime-l5-direct-'.Str::lower(Str::random(8)),
+                'atlas',
+                $workspace,
+                'provider_arena',
+                'claude_sonnet',
+                $case,
+                '',
+            );
+
+            $this->assertSame('atlas_dev_runtime', $receipt['command_family']);
+            $this->assertSame(0, $receipt['exit_code'], (string) ($receipt['stderr_tail'] ?? ''));
+            $this->assertSame(0, $receipt['test_exit_code'], (string) ($receipt['test_log_tail'] ?? ''));
+            $this->assertGreaterThan(0, $receipt['patch_diff_bytes']);
+            $this->assertSame('atlas_dev_fast_path', data_get($receipt, 'atlas_dev_runtime.routing_decision.kind'));
+            $this->assertContains(
+                'risk_level=R5_rivals_isolated_runtime_execution',
+                data_get($receipt, 'atlas_dev_runtime.routing_decision.reasons', []),
+            );
+
+            $promptProjectionPath = rtrim((string) data_get($receipt, 'atlas_dev_runtime.receipt_dir'), '/')
+                .'/'.data_get($receipt, 'atlas_dev_runtime.run_id').'/prompt_projection.json';
+            $projection = json_decode((string) file_get_contents($promptProjectionPath), true);
+            $this->assertTrue((bool) data_get($projection, 'quality_checks.no_hidden_benchmark_instruction'));
+            $this->assertTrue((bool) data_get($projection, 'quality_checks.no_forge_or_council_leakage'));
+        } finally {
+            config(['atlas_dev.efficient.deterministic_fast_path_enabled' => $oldDeterministicFastPath]);
+            foreach ([ClaudeCliGateway::class, SonnetClaudeCliAdapter::class, RunExecutor::class, ReceiptStorage::class, SeniorEngineerLoopExecutor::class] as $abstract) {
+                $this->app->forgetInstance($abstract);
+            }
+        }
+    }
+
+    public function test_full_power_real_pipeline_blocks_atlas_system_until_atlas_runtime_is_wired(): void
     {
         $this->skipStubbedRealPipelineWhenWorktreeDiskIsInsufficient();
 
@@ -1569,12 +1886,16 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
                 ],
             ]);
 
-            $this->assertSame('ok', $response['status'], json_encode($response, JSON_PRETTY_PRINT));
+            $this->assertSame('blocked', $response['status'], json_encode($response, JSON_PRETTY_PRINT));
             $this->assertSame('full_power', $response['mode']);
-            $this->assertSame('provider_arena_v2', $response['executor']);
             $this->assertSame('atlas_forge', $response['arm_a']['arm_id']);
             $this->assertSame('claude_code', $response['arm_b']['arm_id']);
-            $this->assertTrue($response['replay_passes'] ?? false);
+            $this->assertContains(
+                'arena_atlas_runtime_arm_not_connected:arm_a:atlas_forge:expected_atlas_runtime_not_provider_cli',
+                $response['blockers'] ?? [],
+            );
+            $this->assertFalse($response['external_provider_call']);
+            $this->assertFalse($response['provider_tokens_spent']);
             $this->assertFalse($response['should_update_provider_topology']);
             $this->assertSame('atlas_decide', $response['owner_of_model_routing']);
             $this->assertSame('none', $response['routing_effect']);
@@ -1940,7 +2261,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertSame('arms', $response['action']);
         $this->assertSame('atlas.forge.rivals.runner_registry.v1', $response['schema_version']);
         $this->assertSame(10, $response['arm_count']);
-        $this->assertCount(10, $response['task_categories']);
+        $this->assertCount(16, $response['task_categories']);
         $this->assertContains('planning', $response['task_categories']);
     }
 
@@ -2045,7 +2366,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 
         Artisan::call('atlas:forge:rivals', [
             'action' => 'run-arena',
-            '--arm-a' => 'atlas_forge',
+            '--arm-a' => 'atlas_dev',
             '--arm-b' => 'claude_code',
             '--arm-a-model' => 'sonnet',
             '--arm-b-model' => 'sonnet',
@@ -2059,7 +2380,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertIsArray($payload);
         $this->assertSame('run-arena', $payload['action']);
         $this->assertSame('atlas.forge.rivals.action_response.v1', $payload['schema_version']);
-        $this->assertSame('atlas_forge', $payload['arm_a']['arm_id']);
+        $this->assertSame('atlas_dev', $payload['arm_a']['arm_id']);
         $this->assertSame('claude_code', $payload['arm_b']['arm_id']);
         $this->assertSame('bugfix', $payload['task_category']);
         $this->assertFalse($payload['external_provider_call']);
@@ -2149,7 +2470,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
             'run-arena-ceiling-l5-plus-dry-run' => [
                 'args' => [
                     'action' => 'run-arena',
-                    '--arm-a' => 'atlas_forge',
+                    '--arm-a' => 'atlas_dev',
                     '--arm-a-model' => 'sonnet',
                     '--arm-b' => 'claude_code',
                     '--arm-b-model' => 'sonnet',
@@ -2167,8 +2488,8 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
                     $this->assertSame('ceiling-360-001-industrial-005-incident_rollback', $case['case_id'] ?? null);
                     $this->assertSame('L5++', data_get($case, 'ceiling_pressure_profile.pressure_level'));
                     $this->assertSame('atlas.forge.rivals.ceiling_pressure_profile.v1', data_get($case, 'ceiling_pressure_profile.schema_version'));
-                    $this->assertSame(12000, data_get($case, 'context_profile.estimated_context_tokens'));
-                    $this->assertSame(6, data_get($case, 'context_profile.reasoning_depth'));
+                    $this->assertSame(18000, data_get($case, 'context_profile.estimated_context_tokens'));
+                    $this->assertSame(8, data_get($case, 'context_profile.reasoning_depth'));
                     $this->assertTrue(data_get($case, 'ceiling_360.required_signal.requires_adversarial_constraints'));
                     $this->assertContains('non_obvious_regression_probe', data_get($case, 'ceiling_pressure_profile.requires'));
                     $this->assertContains('facts_observed', data_get($case, 'ceiling_pressure_profile.required_sections'));
@@ -2211,7 +2532,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
             'provider_tokens_spent' => true,
             'arena_contracts' => [
                 'arm_a' => [
-                    'arm_id' => 'atlas_forge',
+                    'arm_id' => 'atlas_dev',
                     'model_alias' => 'sonnet',
                     'requested_model' => 'sonnet',
                 ],
@@ -2269,6 +2590,31 @@ BASH);
         chmod($fakeProvider, 0o755);
 
         return $fakeProvider;
+    }
+
+    private function copyDirectory(string $source, string $destination): void
+    {
+        $source = rtrim($source, DIRECTORY_SEPARATOR);
+        $destination = rtrim($destination, DIRECTORY_SEPARATOR);
+        $this->assertDirectoryExists($source);
+        @mkdir($destination, 0o755, true);
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST,
+        );
+
+        foreach ($iterator as $item) {
+            $target = $destination.DIRECTORY_SEPARATOR.$iterator->getSubPathName();
+            if ($item->isDir()) {
+                @mkdir($target, 0o755, true);
+
+                continue;
+            }
+
+            @mkdir(dirname($target), 0o755, true);
+            copy((string) $item->getPathname(), $target);
+        }
     }
 
     private function skipStubbedRealPipelineWhenWorktreeDiskIsInsufficient(): void

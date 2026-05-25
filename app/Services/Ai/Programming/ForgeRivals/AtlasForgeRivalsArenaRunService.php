@@ -607,9 +607,22 @@ final class AtlasForgeRivalsArenaRunService
             'safety_contract' => $contract['safety_contract'] ?? [],
             'capabilities' => data_get($contract, 'arm.capabilities', []),
             'allowed_modes' => data_get($contract, 'arm.allowed_modes', []),
-            'command_builder' => $this->commandBuilderFamily((string) ($contract['provider'] ?? ($contract['arm']['provider'] ?? ''))),
+            'command_builder' => $this->commandBuilderFamilyForContract($contract),
             'human_label' => $contract['arm']['human_label'] ?? null,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $contract
+     */
+    private function commandBuilderFamilyForContract(array $contract): ?string
+    {
+        $armId = (string) data_get($contract, 'arm.arm_id', $contract['arm_id'] ?? '');
+        if ($armId === AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV) {
+            return 'atlas_dev_runtime';
+        }
+
+        return $this->commandBuilderFamily((string) ($contract['provider'] ?? ($contract['arm']['provider'] ?? '')));
     }
 
     private function commandBuilderFamily(string $provider): ?string
@@ -631,7 +644,7 @@ final class AtlasForgeRivalsArenaRunService
     private function redactPromptFromCommandPlan(array $plan): array
     {
         $command = (array) ($plan['command'] ?? []);
-        if ($command !== [] && ($plan['prompt_transport'] ?? 'argv') !== 'stdin') {
+        if ($command !== [] && ($plan['prompt_transport'] ?? 'argv') === 'argv') {
             $last = array_key_last($command);
             if ($last !== null) {
                 $command[$last] = '<prompt>';
@@ -699,7 +712,7 @@ final class AtlasForgeRivalsArenaRunService
                 'status' => $contractA['arm']['status'] ?? null,
                 'safety_contract' => $contractA['safety_contract'],
                 'capabilities' => data_get($contractA, 'arm.capabilities', []),
-                'command_builder' => $this->commandBuilderFamily((string) ($contractA['provider'] ?? '')),
+                'command_builder' => $this->commandBuilderFamilyForContract($contractA),
                 'human_label' => $contractA['arm']['human_label'] ?? null,
             ],
             'arm_b' => [
@@ -720,7 +733,7 @@ final class AtlasForgeRivalsArenaRunService
                 'status' => $contractB['arm']['status'] ?? null,
                 'safety_contract' => $contractB['safety_contract'],
                 'capabilities' => data_get($contractB, 'arm.capabilities', []),
-                'command_builder' => $this->commandBuilderFamily((string) ($contractB['provider'] ?? '')),
+                'command_builder' => $this->commandBuilderFamilyForContract($contractB),
                 'human_label' => $contractB['arm']['human_label'] ?? null,
             ],
             'task_category' => $taskCategory,

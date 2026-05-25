@@ -234,6 +234,12 @@ final class AtlasForgeRivalsBatteryReportV2Test extends TestCase
         $this->assertFalse($envelope['claim_ready']);
         $this->assertTrue($envelope['separation_analysis']['low_discrimination']);
         $this->assertSame(1.0, $envelope['separation_analysis']['tie_rate']);
+        $this->assertSame(10, $envelope['separation_analysis']['tie_reinforcement_threshold_count']);
+        $this->assertTrue($envelope['separation_analysis']['tie_reinforcement_required']);
+        $this->assertSame(
+            'cancel_current_battery_and_increase_baseline_complexity_and_capability_measurement',
+            $envelope['separation_analysis']['tie_reinforcement_action'],
+        );
         $this->assertContains('extreme-differentiator', $envelope['separation_analysis']['recommended_case_sets']);
         $this->assertSame('needs_extreme_followup', $envelope['extreme_measurement_plan']['status']);
         $this->assertTrue($envelope['extreme_measurement_plan']['requires_harder_followup']);
@@ -243,19 +249,21 @@ final class AtlasForgeRivalsBatteryReportV2Test extends TestCase
         $this->assertSame(['L1', 'L2', 'L3', 'L4', 'L5'], $envelope['per_level_tie_escalation']['levels_exceeding_tie_budget']);
         $this->assertSame(0.55, $envelope['per_level_tie_escalation']['max_allowed_technical_tie_rate']);
         $this->assertContains('difficulty_level_tie_rate_above_55_percent:L1', $envelope['separation_analysis']['reasons']);
+        $this->assertContains('technical_tie_count_reached_reinforcement_threshold:40', $envelope['separation_analysis']['reasons']);
         $this->assertContains('reinforce_difficulty_level_above_55_percent_tie_rate:L5', $envelope['extreme_measurement_plan']['reasons']);
+        $this->assertContains('technical_tie_count_reached_reinforcement_threshold:40', $envelope['extreme_measurement_plan']['reasons']);
         $this->assertContains('global_delta_inside_tie_threshold', $envelope['extreme_measurement_plan']['reasons']);
         $matchupIds = array_column($envelope['extreme_measurement_plan']['required_matchups'], 'id');
-        $this->assertContains('atlas_forge_vs_claude_sonnet', $matchupIds);
+        $this->assertContains('atlas_dev_vs_claude_sonnet', $matchupIds);
         $this->assertContains('claude_sonnet_vs_codex_gpt_5_5', $matchupIds);
         $this->assertContains('composer_2_5_vs_codex_gpt_5_5', $matchupIds);
         $this->assertContains('cursor_default_vs_claude_sonnet', $matchupIds);
-        $atlasDevForge = array_values(array_filter(
+        $atlasDevPressure = array_values(array_filter(
             $envelope['extreme_measurement_plan']['required_matchups'],
-            static fn (array $matchup): bool => ($matchup['id'] ?? null) === 'atlas_dev_vs_atlas_forge',
+            static fn (array $matchup): bool => ($matchup['id'] ?? null) === 'atlas_dev_architecture_pressure_vs_claude_sonnet',
         ))[0] ?? null;
-        $this->assertSame('provider_arena', $atlasDevForge['mode'] ?? null);
-        $this->assertSame('sonnet', $atlasDevForge['arm_b_model'] ?? null);
+        $this->assertSame('provider_arena', $atlasDevPressure['mode'] ?? null);
+        $this->assertSame('claude_code', $atlasDevPressure['arm_b'] ?? null);
         $commands = array_column($envelope['extreme_measurement_plan']['recommended_commands'], 'command');
         $this->assertNotEmpty(array_filter(
             $commands,

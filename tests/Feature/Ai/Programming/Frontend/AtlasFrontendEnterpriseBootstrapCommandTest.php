@@ -44,4 +44,25 @@ class AtlasFrontendEnterpriseBootstrapCommandTest extends TestCase
         $this->assertTrue(File::isFile($workspace.'/docs/design/product-experience-brief.md'));
         $this->assertTrue(File::isFile($workspace.'/docs/design/atlas-frontend-product-blueprint.json'));
     }
+
+    public function test_enterprise_bootstrap_command_accepts_frontend_app_scope(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-enterprise-bootstrap-command-monorepo-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($workspace.'/apps/web');
+
+        $exitCode = Artisan::call('atlas:frontend:enterprise-bootstrap', [
+            'action' => 'inspect',
+            '--task' => 'Ajustar checkout web',
+            '--workspace' => $workspace,
+            '--frontend-app' => 'apps/web',
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('frontend_app_scope', $output);
+        $this->assertStringContainsString('subscope_selected', $output);
+        $this->assertStringContainsString('--frontend-app=apps/web', $output);
+        $this->assertStringNotContainsString($workspace.'/apps/web', $output);
+    }
 }

@@ -655,6 +655,14 @@ final class AtlasForgeRivalsAdjudicatorService
         $atlasBytecode = $this->stringList($atlasReceipt['bytecode_artifacts'] ?? []);
         $rivalBytecode = $this->stringList($rivalReceipt['bytecode_artifacts'] ?? []);
         $missingEvidence = $this->stringList($evidencePack['missing_evidence'] ?? []);
+        $atlasForbiddenPremiumModels = $this->forbiddenPremiumModelsObservedForModelLock(
+            (string) ($manifest['atlas_model'] ?? $atlasReceipt['model'] ?? ''),
+            $atlasReceipt,
+        );
+        $rivalForbiddenPremiumModels = $this->forbiddenPremiumModelsObservedForModelLock(
+            (string) ($manifest['rival_model'] ?? $rivalReceipt['model'] ?? ''),
+            $rivalReceipt,
+        );
 
         $invalidVerdict = $verdict !== 'comparable';
 
@@ -695,6 +703,16 @@ final class AtlasForgeRivalsAdjudicatorService
                 'detail' => $missingEvidence === [] ? 'ok' : implode(',', $missingEvidence),
             ],
             [
+                'code' => 'no_forbidden_premium_model_spend_atlas',
+                'ok' => $atlasForbiddenPremiumModels === [],
+                'detail' => $atlasForbiddenPremiumModels === [] ? 'ok' : implode(',', $atlasForbiddenPremiumModels),
+            ],
+            [
+                'code' => 'no_forbidden_premium_model_spend_rival',
+                'ok' => $rivalForbiddenPremiumModels === [],
+                'detail' => $rivalForbiddenPremiumModels === [] ? 'ok' : implode(',', $rivalForbiddenPremiumModels),
+            ],
+            [
                 'code' => 'no_out_of_scope_files_atlas',
                 'ok' => $atlasOos === [],
                 'detail' => $atlasOos === [] ? 'ok' : implode(',', $atlasOos),
@@ -730,6 +748,143 @@ final class AtlasForgeRivalsAdjudicatorService
                 'detail' => 'patch_diff_bytes='.(int) ($rivalReceipt['patch_diff_bytes'] ?? 0),
             ],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @return list<string>
+     */
+    private function forbiddenPremiumModelsObservedForModelLock(string $modelLock, array $receipt): array
+    {
+        $normalizedLock = strtolower(str_replace(['-', '.'], '_', trim($modelLock)));
+        if ($normalizedLock === '' || ! str_contains($normalizedLock, 'sonnet')) {
+            return [];
+        }
+
+        $observed = [];
+        foreach ($this->observedProviderModels($receipt) as $model) {
+            if (str_contains(strtolower($model), 'opus')) {
+                $observed[] = $model;
+            }
+        }
+
+        return array_values(array_unique($observed));
+    }
+
+    /**
+     * Reads provider telemetry surfaces only: parsed provider usage plus
+     * Claude Code result/modelUsage fragments. Prompt mentions of "Opus" are
+     * ignored so adversarial benchmark text cannot trip this guard by itself.
+     *
+     * @param  array<string,mixed>  $receipt
+     * @return list<string>
+     */
+    private function observedProviderModels(array $receipt): array
+    {
+        $models = [];
+        $providerUsage = is_array($receipt['provider_usage'] ?? null) ? $receipt['provider_usage'] : [];
+        foreach ($this->stringList($providerUsage['models_observed'] ?? []) as $model) {
+            $models[] = $model;
+        }
+
+        foreach (['resolved_model_id', 'selected_model_id'] as $key) {
+            $model = trim((string) ($receipt[$key] ?? ''));
+            if ($model !== '') {
+                $models[] = $model;
+            }
+        }
+
+        foreach (['stdout_tail', 'stderr_tail'] as $key) {
+            $models = array_merge($models, $this->observedProviderModelsFromTelemetryText((string) ($receipt[$key] ?? '')));
+        }
+
+        $stdoutPath = (string) ($receipt['stdout_path'] ?? '');
+        if ($stdoutPath !== '' && is_file($stdoutPath)) {
+            $models = array_merge($models, $this->observedProviderModelsFromJsonlPath($stdoutPath));
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map(static fn (string $model): string => trim($model), $models),
+            static fn (string $model): bool => $model !== '',
+        )));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function observedProviderModelsFromTelemetryText(string $text): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        $models = [];
+        if (preg_match_all('/"model"\s*:\s*"([^"]+)"/', $text, $matches)) {
+            foreach ($matches[1] as $model) {
+                $models[] = (string) $model;
+            }
+        }
+        if (preg_match_all('/"([^"]*opus[^"]*)"\s*:\s*\{[^}]*"costUSD"/i', $text, $matches)) {
+            foreach ($matches[1] as $model) {
+                $models[] = (string) $model;
+            }
+        }
+
+        return array_values(array_unique($models));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function observedProviderModelsFromJsonlPath(string $path): array
+    {
+        $handle = @fopen($path, 'rb');
+        if (! is_resource($handle)) {
+            return [];
+        }
+
+        $models = [];
+        while (($line = fgets($handle)) !== false) {
+            $row = json_decode(trim($line), true);
+            if (is_array($row)) {
+                $models = array_merge($models, $this->observedProviderModelsFromDecodedTelemetry($row));
+
+                continue;
+            }
+
+            $models = array_merge($models, $this->observedProviderModelsFromTelemetryText($line));
+        }
+        fclose($handle);
+
+        return array_values(array_unique($models));
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return list<string>
+     */
+    private function observedProviderModelsFromDecodedTelemetry($value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $models = [];
+        if (isset($value['model']) && is_scalar($value['model'])) {
+            $models[] = (string) $value['model'];
+        }
+        if (isset($value['modelUsage']) && is_array($value['modelUsage'])) {
+            foreach (array_keys($value['modelUsage']) as $model) {
+                $models[] = (string) $model;
+            }
+        }
+        foreach ($value as $child) {
+            if (is_array($child)) {
+                $models = array_merge($models, $this->observedProviderModelsFromDecodedTelemetry($child));
+            }
+        }
+
+        return array_values(array_unique($models));
     }
 
     /**

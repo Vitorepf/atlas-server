@@ -177,6 +177,8 @@ final class PromptQualityChecker
 
     private function checkNoBenchmarkLeakage(string $haystack): bool
     {
+        $haystack = $this->redactPathLikeTokens($haystack);
+
         return ! $this->containsAny($haystack, self::BENCHMARK_TOKENS);
     }
 
@@ -187,6 +189,8 @@ final class PromptQualityChecker
 
     private function checkNoForgeOrCouncilLeakage(string $haystack): bool
     {
+        $haystack = $this->redactPathLikeTokens($haystack);
+
         return ! $this->containsAny($haystack, self::FORGE_COUNCIL_TOKENS);
     }
 
@@ -234,6 +238,15 @@ final class PromptQualityChecker
         }
 
         return false;
+    }
+
+    private function redactPathLikeTokens(string $haystack): string
+    {
+        return (string) preg_replace(
+            '~(?<![A-Za-z0-9_])(?:[A-Za-z0-9_.@:+-]+/){1,}[A-Za-z0-9_.@:+-]+~',
+            '[path]',
+            $haystack,
+        );
     }
 
     /**

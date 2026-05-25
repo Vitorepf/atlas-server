@@ -18,6 +18,7 @@ final class AtlasFrontendScenarioMatrixService
     {
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = trim((string) ($input['workspace'] ?? ''));
+        $frontendAppScope = $this->frontendAppScope($workspace, $input['frontend_app'] ?? null);
         $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
         $taskSpec = app(AtlasFrontendTaskSpecCompilerService::class)->compile([
             'task' => $task,
@@ -36,7 +37,10 @@ final class AtlasFrontendScenarioMatrixService
         $viewports = array_values(array_filter((array) ($taskSpec['viewports'] ?? []), 'is_string'));
         $states = array_values(array_filter((array) ($taskSpec['states'] ?? []), 'is_string'));
         $scenarios = $this->scenarios($routes, $viewports, $states);
-        $blockers = $this->blockers($taskSpec, $scenarios);
+        $blockers = array_values(array_unique(array_merge(
+            $this->blockers($taskSpec, $scenarios),
+            (array) ($frontendAppScope['blockers'] ?? []),
+        )));
         $warnings = count($routes) * count($viewports) * count($states) > self::MAX_SCENARIOS
             ? ['scenario_matrix_truncated']
             : [];
@@ -48,6 +52,7 @@ final class AtlasFrontendScenarioMatrixService
             'matrix_type' => 'route_viewport_state_visual_verification_matrix',
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
+            'frontend_app_scope' => $frontendAppScope,
             'task_spec_hash' => $taskSpec['task_spec_hash'] ?? null,
             'task_spec_status' => $taskSpec['status'] ?? 'unknown',
             'coverage' => [
@@ -133,5 +138,49 @@ final class AtlasFrontendScenarioMatrixService
         }
 
         return array_values(array_unique($blockers));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function frontendAppScope(string $workspace, mixed $frontendApp): array
+    {
+        if (! is_string($frontendApp) || trim($frontendApp) === '') {
+            return [
+                'status' => 'repo_root',
+                'relative_name' => null,
+                'relative_name_hash' => null,
+                'repo_workspace_remains_primary' => true,
+            ];
+        }
+
+        $relative = trim(str_replace('\\', '/', $frontendApp), '/');
+        if ($relative === '' || str_contains($relative, '..') || str_starts_with($relative, '/')) {
+            return [
+                'status' => 'invalid_subscope',
+                'relative_name' => null,
+                'relative_name_hash' => hash('sha256', $relative),
+                'repo_workspace_remains_primary' => true,
+                'blockers' => ['frontend_app_scope_invalid_relative_frontend_app_subscope'],
+            ];
+        }
+
+        $workspaceExists = $workspace !== '' && is_dir($workspace);
+        if ($workspaceExists && ! is_dir(rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$relative)) {
+            return [
+                'status' => 'missing_subscope',
+                'relative_name' => $relative,
+                'relative_name_hash' => hash('sha256', $relative),
+                'repo_workspace_remains_primary' => true,
+                'blockers' => ['frontend_app_scope_frontend_app_subscope_directory_missing'],
+            ];
+        }
+
+        return [
+            'status' => 'subscope_selected',
+            'relative_name' => $relative,
+            'relative_name_hash' => hash('sha256', $relative),
+            'repo_workspace_remains_primary' => true,
+        ];
     }
 }

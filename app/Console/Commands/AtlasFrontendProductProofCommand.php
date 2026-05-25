@@ -13,6 +13,7 @@ class AtlasFrontendProductProofCommand extends Command
         {--workspace= : Local company frontend repository path for pilot proof}
         {--provider=provider_neutral : Provider name for pilot proof packet}
         {--output= : Output directory for build action}
+        {--frontend-app= : Optional monorepo frontend app scope for build or pilot action, e.g. apps/web}
         {--acceptance : Acceptance criteria are present}
         {--test-plan : Test plan is present}
         {--visual-quality-plan : Visual quality plan is present}
@@ -27,10 +28,11 @@ class AtlasFrontendProductProofCommand extends Command
     {
         $payload = match ((string) $this->argument('action')) {
             'catalog' => $proof->catalog(),
-            'build' => $proof->buildStaticBundle((string) ($this->option('output') ?: '')),
+            'build' => $proof->buildStaticBundle((string) ($this->option('output') ?: ''), (string) ($this->option('frontend-app') ?: '')),
             'pilot' => $proof->pilotDossier([
                 'task' => (string) ($this->option('task') ?: ''),
                 'workspace' => (string) ($this->option('workspace') ?: ''),
+                'frontend_app' => (string) ($this->option('frontend-app') ?: ''),
                 'provider' => (string) ($this->option('provider') ?: 'provider_neutral'),
                 'output' => (string) ($this->option('output') ?: ''),
                 'acceptance_criteria' => (bool) $this->option('acceptance'),

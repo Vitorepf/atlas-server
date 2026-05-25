@@ -95,6 +95,70 @@ class AtlasFrontendEvidencePackVerifierServiceTest extends TestCase
         $this->assertContains('forbidden_raw_prompt_or_source_field_present', $payload['blockers']);
     }
 
+    public function test_verifier_blocks_nested_raw_prompt_or_source_fields_in_manifest(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-evidence-nested-raw-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($dir);
+        $manifest = $dir.'/evidence-pack.json';
+
+        File::put($manifest, json_encode([
+            'schema_version' => AtlasFrontendEvidencePackVerifierService::PACK_SCHEMA_VERSION,
+            'pack_id' => 'run-4',
+            'case_id' => 'saas_dashboard_repair',
+            'system' => 'atlas_frontend',
+            'task_spec_hash' => hash('sha256', 'task'),
+            'debug' => [
+                'metadata' => [
+                    'customer_source' => 'secret source excerpt',
+                ],
+            ],
+            'artifacts' => [],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $payload = app(AtlasFrontendEvidencePackVerifierService::class)->verify($manifest, $dir);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertContains('forbidden_raw_prompt_or_source_field_present', $payload['blockers']);
+    }
+
+    public function test_verifier_blocks_raw_prompt_or_source_fields_inside_artifact_json(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-evidence-artifact-raw-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($dir.'/artifacts');
+        $service = app(AtlasFrontendEvidencePackVerifierService::class);
+        $artifacts = [];
+
+        foreach ($service->requiredArtifactKinds() as $kind) {
+            $path = 'artifacts/'.$kind.'.json';
+            File::put($dir.'/'.$path, json_encode([
+                'kind' => $kind,
+                'debug' => $kind === 'receipt' ? ['raw_prompt' => 'secret prompt'] : [],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+            $artifacts[] = [
+                'kind' => $kind,
+                'path' => $path,
+                'sha256' => hash_file('sha256', $dir.'/'.$path),
+            ];
+        }
+
+        $manifest = $dir.'/evidence-pack.json';
+        File::put($manifest, json_encode([
+            'schema_version' => AtlasFrontendEvidencePackVerifierService::PACK_SCHEMA_VERSION,
+            'pack_id' => 'run-5',
+            'case_id' => 'saas_dashboard_repair',
+            'system' => 'atlas_frontend',
+            'task_spec_hash' => hash('sha256', 'task'),
+            'artifacts' => $artifacts,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $payload = $service->verify($manifest, $dir);
+        $receipt = collect($payload['artifact_results'])->firstWhere('kind', 'receipt');
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertContains('artifact_forbidden_raw_prompt_or_source_field_present', $payload['blockers']);
+        $this->assertContains('artifact_forbidden_raw_prompt_or_source_field_present', $receipt['blockers']);
+    }
+
     public function test_template_writes_pack_manifest_skeleton(): void
     {
         $dir = sys_get_temp_dir().'/atlas-frontend-evidence-template-'.bin2hex(random_bytes(4));

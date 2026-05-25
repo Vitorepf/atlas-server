@@ -16,6 +16,7 @@ class AtlasFrontendCompanyPortfolioCommandTest extends TestCase
 
         $exitCode = Artisan::call('atlas:frontend:portfolio', [
             '--root' => $root,
+            '--task' => 'Melhorar dashboard Refinar',
             '--json' => true,
             '--strict' => true,
         ]);
@@ -24,7 +25,17 @@ class AtlasFrontendCompanyPortfolioCommandTest extends TestCase
         $this->assertSame(0, $exitCode);
         $this->assertStringContainsString(AtlasFrontendCompanyPortfolioService::SCHEMA_VERSION, $output);
         $this->assertStringContainsString('local_company_frontend_repo_portfolio', $output);
+        $this->assertStringContainsString('optional_repository_discovery_only', $output);
+        $this->assertStringContainsString('operator_selected_repository_workspace', $output);
+        $this->assertStringContainsString('selection_brief', $output);
+        $this->assertStringContainsString('ready_for_operator_choice', $output);
+        $this->assertStringContainsString('task_bound_for_candidate_ranking', $output);
+        $this->assertStringContainsString('task_fit_status', $output);
+        $this->assertStringContainsString('selection_handoff', $output);
+        $this->assertStringContainsString('atlas:frontend:selected-workspace', $output);
         $this->assertStringContainsString('refinar-web', $output);
+        $this->assertStringNotContainsString('Melhorar dashboard Refinar', $output);
+        $this->assertStringNotContainsString($root, $output);
     }
 
     public function test_portfolio_command_strict_fails_missing_root(): void
@@ -34,9 +45,11 @@ class AtlasFrontendCompanyPortfolioCommandTest extends TestCase
             '--json' => true,
             '--strict' => true,
         ]);
+        $output = Artisan::output();
 
         $this->assertSame(1, $exitCode);
-        $this->assertStringContainsString('root_not_found', Artisan::output());
+        $this->assertStringContainsString('root_not_found', $output);
+        $this->assertStringContainsString('portfolio_dispatch_allowed', $output);
     }
 
     private function workspace(string $root, string $name): string

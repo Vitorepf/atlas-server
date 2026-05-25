@@ -47,6 +47,7 @@ final class AtlasFrontendPublicationVerifierService
             (string) ($publicReceiptPath ?? ''),
             is_array($bundle) ? (string) ($bundle['bundle_hash'] ?? '') : '',
             is_array($bundle) ? (string) data_get($bundle, 'index.hash', '') : '',
+            $this->frontendAppScope(is_array($bundle) ? (array) ($bundle['frontend_app_scope'] ?? []) : []),
         );
         if ($publicReceiptPath !== null && trim($publicReceiptPath) !== '' && $publicReceipt['status'] !== 'verified') {
             $blockers[] = 'public_receipt_invalid';
@@ -67,6 +68,7 @@ final class AtlasFrontendPublicationVerifierService
             'bundle_directory_hash' => $bundleDirectory !== '' ? hash('sha256', $bundleDirectory) : null,
             'bundle_manifest_hash' => File::isFile($manifestPath) ? hash_file('sha256', $manifestPath) : null,
             'bundle_hash' => is_array($bundle) ? ($bundle['bundle_hash'] ?? null) : null,
+            'frontend_app_scope' => $this->frontendAppScope(is_array($bundle) ? (array) ($bundle['frontend_app_scope'] ?? []) : []),
             'public_receipt' => $publicReceipt,
             'blockers' => array_values(array_unique($blockers)),
             'warnings' => array_values(array_unique($warnings)),
@@ -75,6 +77,7 @@ final class AtlasFrontendPublicationVerifierService
                 'public_distribution_claim_allowed' => $publicVerified,
                 'world_best_claim_allowed' => false,
                 'public_distribution_requires_verified_receipt' => true,
+                'public_distribution_requires_matching_frontend_app_scope' => true,
                 'raw_customer_source_returned' => false,
             ],
         ];
@@ -86,20 +89,26 @@ final class AtlasFrontendPublicationVerifierService
     /**
      * @return array<string,mixed>
      */
-    public function writeReceiptTemplate(string $outputDirectory): array
+    public function writeReceiptTemplate(string $outputDirectory, ?string $bundleDirectory = null): array
     {
         $outputDirectory = rtrim(trim($outputDirectory), DIRECTORY_SEPARATOR);
         File::ensureDirectoryExists($outputDirectory);
         $path = $outputDirectory.'/publication-receipt.json';
+        $bundleContext = $this->receiptTemplateBundleContext($bundleDirectory);
 
         if (! File::isFile($path)) {
             File::put($path, json_encode([
                 'schema_version' => self::RECEIPT_SCHEMA_VERSION,
                 'status' => 'pending',
                 'public_url' => 'https://example.com/atlas-frontend-proof/',
-                'bundle_hash' => '<atlas.frontend.product_proof_bundle.v1 bundle_hash>',
-                'index_content_hash' => '<sha256-64-hex>',
-                'local_index_hash' => '<same sha256-64-hex from bundle index.hash>',
+                'bundle_hash' => $bundleContext['bundle_hash'] ?? '<atlas.frontend.product_proof_bundle.v1 bundle_hash>',
+                'index_content_hash' => $bundleContext['index_hash'] ?? '<sha256-64-hex>',
+                'local_index_hash' => $bundleContext['index_hash'] ?? '<same sha256-64-hex from bundle index.hash>',
+                'frontend_app_scope' => $bundleContext['frontend_app_scope'] ?? [
+                    'status' => 'repo_root',
+                    'relative_name' => null,
+                    'relative_name_hash' => null,
+                ],
                 'http_status' => 200,
                 'checked_at' => '<ISO-8601 timestamp>',
                 'operator_approved' => false,
@@ -109,18 +118,73 @@ final class AtlasFrontendPublicationVerifierService
 
         $payload = [
             'schema_version' => self::TEMPLATE_SCHEMA_VERSION,
-            'status' => 'ready',
+            'status' => ($bundleContext['blockers'] ?? []) === [] ? 'ready' : 'blocked',
             'template_type' => 'frontend_publication_receipt',
             'receipt_path_hash' => hash('sha256', $path),
+            'bundle_context' => [
+                'provided' => (bool) ($bundleContext['provided'] ?? false),
+                'prefilled_from_bundle' => (bool) ($bundleContext['prefilled_from_bundle'] ?? false),
+                'bundle_directory_hash' => $bundleContext['bundle_directory_hash'] ?? null,
+                'bundle_manifest_hash' => $bundleContext['bundle_manifest_hash'] ?? null,
+                'frontend_app_scope' => $bundleContext['frontend_app_scope'] ?? null,
+            ],
             'claim_policy' => [
                 'template_is_not_public_verification' => true,
+                'prefilled_bundle_hash_is_not_public_verification' => true,
                 'operator_approval_required' => true,
                 'bundle_hash_match_required' => true,
             ],
+            'blockers' => array_values(array_unique((array) ($bundleContext['blockers'] ?? []))),
+            'warnings' => [],
         ];
         $payload['template_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function receiptTemplateBundleContext(?string $bundleDirectory): array
+    {
+        $bundleDirectory = rtrim(trim((string) ($bundleDirectory ?? '')), DIRECTORY_SEPARATOR);
+        if ($bundleDirectory === '') {
+            return [
+                'provided' => false,
+                'prefilled_from_bundle' => false,
+                'blockers' => [],
+            ];
+        }
+
+        $blockers = [];
+        $manifestPath = $bundleDirectory.'/manifest.json';
+        $bundle = null;
+
+        if (! File::isDirectory($bundleDirectory)) {
+            $blockers[] = 'bundle_directory_missing';
+        } elseif (! File::isFile($manifestPath)) {
+            $blockers[] = 'bundle_manifest_missing';
+        } else {
+            $bundle = $this->readJson($manifestPath);
+            if (! is_array($bundle)) {
+                $blockers[] = 'bundle_manifest_json_invalid';
+            } else {
+                $blockers = array_merge($blockers, $this->bundleBlockers($bundle, $bundleDirectory));
+            }
+        }
+
+        return [
+            'provided' => true,
+            'prefilled_from_bundle' => $blockers === [] && is_array($bundle),
+            'bundle_directory_hash' => hash('sha256', $bundleDirectory),
+            'bundle_manifest_hash' => File::isFile($manifestPath) ? hash_file('sha256', $manifestPath) : null,
+            'bundle_hash' => $blockers === [] && is_array($bundle) ? (string) ($bundle['bundle_hash'] ?? '') : null,
+            'index_hash' => $blockers === [] && is_array($bundle) ? (string) data_get($bundle, 'index.hash', '') : null,
+            'frontend_app_scope' => $blockers === [] && is_array($bundle)
+                ? $this->frontendAppScope((array) ($bundle['frontend_app_scope'] ?? []))
+                : null,
+            'blockers' => array_values(array_unique($blockers)),
+        ];
     }
 
     /**
@@ -164,7 +228,7 @@ final class AtlasFrontendPublicationVerifierService
     /**
      * @return array<string,mixed>
      */
-    private function verifyPublicReceipt(string $path, string $bundleHash, string $localIndexHash): array
+    private function verifyPublicReceipt(string $path, string $bundleHash, string $localIndexHash, array $expectedFrontendAppScope): array
     {
         $path = trim($path);
         if ($path === '') {
@@ -213,11 +277,18 @@ final class AtlasFrontendPublicationVerifierService
         if (isset($receipt['local_index_hash']) && $receipt['local_index_hash'] !== $localIndexHash) {
             $blockers[] = 'public_receipt_local_index_hash_mismatch';
         }
+        $receiptFrontendAppScope = $this->frontendAppScope((array) ($receipt['frontend_app_scope'] ?? []));
+        if (($expectedFrontendAppScope['status'] ?? null) === 'subscope_selected' && ! is_array($receipt['frontend_app_scope'] ?? null)) {
+            $blockers[] = 'public_receipt_frontend_app_scope_missing';
+        } elseif ($this->frontendAppScopeKey($receiptFrontendAppScope) !== $this->frontendAppScopeKey($expectedFrontendAppScope)) {
+            $blockers[] = 'public_receipt_frontend_app_scope_mismatch';
+        }
 
         return [
             'status' => $blockers === [] ? 'verified' : 'blocked',
             'receipt_hash' => hash('sha256', $raw),
             'public_url_hash' => isset($receipt['public_url']) ? hash('sha256', (string) $receipt['public_url']) : null,
+            'frontend_app_scope' => $receiptFrontendAppScope,
             'blockers' => $blockers,
         ];
     }
@@ -253,5 +324,50 @@ final class AtlasFrontendPublicationVerifierService
         $decoded = json_decode(File::get($path), true);
 
         return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $scope
+     * @return array<string,mixed>
+     */
+    private function frontendAppScope(array $scope): array
+    {
+        if ($scope === []) {
+            return ['status' => 'repo_root', 'relative_name_hash' => null];
+        }
+
+        $status = (string) ($scope['status'] ?? 'repo_root');
+        if ($status !== 'subscope_selected') {
+            return [
+                'status' => $status !== '' ? $status : 'repo_root',
+                'relative_name_hash' => null,
+            ];
+        }
+
+        $relative = is_string($scope['relative_name'] ?? null) ? trim(str_replace('\\', '/', (string) $scope['relative_name']), '/') : null;
+        if ($relative === null || $relative === '' || str_starts_with($relative, '/') || str_contains($relative, '..')) {
+            return [
+                'status' => 'invalid_subscope',
+                'relative_name_hash' => $relative !== null ? hash('sha256', $relative) : null,
+            ];
+        }
+
+        return [
+            'status' => 'subscope_selected',
+            'relative_name' => $relative,
+            'relative_name_hash' => hash('sha256', $relative),
+            'repo_workspace_remains_primary' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $scope
+     */
+    private function frontendAppScopeKey(array $scope): string
+    {
+        return implode(':', [
+            (string) ($scope['status'] ?? 'repo_root'),
+            (string) ($scope['relative_name_hash'] ?? ''),
+        ]);
     }
 }

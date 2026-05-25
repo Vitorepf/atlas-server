@@ -41,6 +41,25 @@ final class AtlasForgeRivalsArmCommandBuilderService
         $modelId = (string) ($contract['resolved_model_id'] ?? $model);
         $armId = (string) data_get($contract, 'arm.arm_id', $contract['arm_id'] ?? '');
 
+        if ($armId === 'atlas_dev') {
+            return $this->ok('atlas_dev_runtime', $model, $modelId, 'atlas_dev_runtime', [
+                'atlas_dev_runtime',
+                'SeniorEngineerLoopExecutor',
+            ], [
+                'prompt_transport' => 'atlas_dev_provider_prompt_projection',
+                'stdin_prompt_hash' => null,
+                'stdin_prompt_bytes' => null,
+                'command_shape_summary' => [
+                    'schema_version' => 'atlas.forge.rivals.atlas_dev_runtime_command_shape_summary.v1',
+                    'runtime_executor' => 'SeniorEngineerLoopExecutor',
+                    'uses_atlas_dev_fast_path_orchestrator' => true,
+                    'uses_pipeline_run_executor' => true,
+                    'provider_cli_is_not_directly_spawned_by_rivals' => true,
+                    'sonnet_lock_owned_by_atlas_dev_runtime' => true,
+                ],
+            ]);
+        }
+
         if ($provider === '') {
             return $this->blocked($provider, $model, $modelId, ['provider_missing_for_arm:'.$armId]);
         }

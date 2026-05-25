@@ -26,6 +26,7 @@ class AtlasFrontendProviderInstructionPacketServiceTest extends TestCase
         $this->assertSame('ready', $payload['status']);
         $this->assertSame('provider_safe_frontend_execution_instruction_packet', $payload['packet_type']);
         $this->assertSame('codex_cli', $payload['target_provider']);
+        $this->assertSame('repo_root', data_get($payload, 'frontend_app_scope.status'));
         $this->assertContains('preserve_repo_design_system_and_product_intent', $payload['provider_mandates']);
         $this->assertContains('never_claim_world_best_or_done_without_certified_evidence', $payload['provider_mandates']);
         $this->assertContains('generic_landing_page_when_product_context_exists', $payload['forbidden_provider_behaviors']);
@@ -53,13 +54,81 @@ class AtlasFrontendProviderInstructionPacketServiceTest extends TestCase
         $this->assertContains('provide_acceptance_criteria', $payload['required_next_actions']);
     }
 
+    public function test_read_only_packet_projects_runbook_without_writing_evidence_kit(): void
+    {
+        $evidence = sys_get_temp_dir().'/atlas-frontend-provider-packet-read-only-evidence-'.bin2hex(random_bytes(4));
+
+        $payload = app(AtlasFrontendProviderInstructionPacketService::class)->compile([
+            'task' => 'Refinar dashboard BlackInk com design premium responsivo',
+            'workspace' => $this->readyWorkspace(),
+            'provider' => 'codex_cli',
+            'evidence_output' => $evidence,
+            'write_evidence_kit' => false,
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+            'senior_design_review' => true,
+        ]);
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.read_only_packet_does_not_write_evidence_kit'));
+        $this->assertFileDoesNotExist($evidence.'/evidence-kit-manifest.json');
+    }
+
+    public function test_packet_carries_frontend_app_scope_into_provider_sequence(): void
+    {
+        $payload = app(AtlasFrontendProviderInstructionPacketService::class)->compile([
+            'task' => 'Refinar dashboard BlackInk com design premium responsivo',
+            'workspace' => $this->readyWorkspace(),
+            'frontend_app' => 'apps/web',
+            'provider' => 'codex_cli',
+            'write_evidence_kit' => false,
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+            'senior_design_review' => true,
+        ]);
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'frontend_app_scope.relative_name_hash'));
+        $this->assertTrue((bool) data_get($payload, 'frontend_app_scope.repo_workspace_remains_primary'));
+        $commands = implode("\n", collect($payload['execution_sequence'])->flatMap(fn (array $step): array => $step['commands'])->all());
+        $this->assertStringContainsString("cd 'apps/web' && pnpm install --frozen-lockfile", $commands);
+        $this->assertStringContainsString("cd 'apps/web' && pnpm run test", $commands);
+    }
+
+    public function test_packet_blocks_invalid_frontend_app_scope(): void
+    {
+        $payload = app(AtlasFrontendProviderInstructionPacketService::class)->compile([
+            'task' => 'Refinar dashboard BlackInk com design premium responsivo',
+            'workspace' => $this->readyWorkspace(),
+            'frontend_app' => '../secrets',
+            'provider' => 'codex_cli',
+            'write_evidence_kit' => false,
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+            'senior_design_review' => true,
+        ]);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('invalid_subscope', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertContains('runbook_frontend_app_scope_invalid_relative_frontend_app_subscope', $payload['blockers']);
+    }
+
     private function readyWorkspace(): string
     {
         $workspace = sys_get_temp_dir().'/atlas-frontend-provider-packet-ready-'.bin2hex(random_bytes(4));
         File::ensureDirectoryExists($workspace.'/src/components/ui');
         File::ensureDirectoryExists($workspace.'/src/pages');
+        File::ensureDirectoryExists($workspace.'/apps/web');
         File::put($workspace.'/pnpm-lock.yaml', 'lockfileVersion: 9.0');
-        File::put($workspace.'/package.json', json_encode([
+        $package = json_encode([
             'scripts' => [
                 'dev' => 'vite --host 127.0.0.1',
                 'test' => 'vitest run',
@@ -68,7 +137,9 @@ class AtlasFrontendProviderInstructionPacketServiceTest extends TestCase
                 'lint' => 'eslint .',
             ],
             'dependencies' => ['react' => '^latest', 'vite' => '^latest', 'tailwindcss' => '^latest'],
-        ], JSON_THROW_ON_ERROR));
+        ], JSON_THROW_ON_ERROR);
+        File::put($workspace.'/package.json', $package);
+        File::put($workspace.'/apps/web/package.json', $package);
         File::put($workspace.'/index.html', '<div id="root"></div>');
         File::put($workspace.'/src/main.tsx', 'import React from "react";');
         File::put($workspace.'/src/pages/Dashboard.tsx', 'export function Dashboard() { return <main className="bg-primary text-white" />; }');

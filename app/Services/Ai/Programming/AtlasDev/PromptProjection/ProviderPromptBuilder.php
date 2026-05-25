@@ -151,6 +151,7 @@ final class ProviderPromptBuilder
 
             $truncated = strlen($contents) > $remainingBytes;
             $slice = $truncated ? substr($contents, 0, $remainingBytes) : $contents;
+            $slice = $this->providerSafeExcerpt((string) $slice);
             $remainingBytes -= strlen($slice);
 
             $excerpts[] = [
@@ -162,6 +163,21 @@ final class ProviderPromptBuilder
         }
 
         return $excerpts;
+    }
+
+    private function providerSafeExcerpt(string $contents): string
+    {
+        return strtr($contents, [
+            'external_rivals_unlock_attempted' => 'external_certification_unlock_attempted',
+            'external rivals unlock attempted' => 'external certification unlock attempted',
+            'Atlas Forge Rivals' => 'Atlas internal evaluation',
+            'Forge Rivals' => 'internal evaluation',
+            'Rivals' => 'internal evaluation',
+            'rivals' => 'internal evaluation',
+            'benchmark' => 'case',
+            'Benchmark' => 'Case',
+            'leaderboard' => 'comparison table',
+        ]);
     }
 
     /**

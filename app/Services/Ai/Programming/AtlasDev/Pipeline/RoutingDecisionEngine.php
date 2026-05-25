@@ -67,6 +67,16 @@ class RoutingDecisionEngine
         // High-risk levels never patch on the fast path. They go to preview.
         $risk = $compactSdd->riskLevel;
         if ($risk === RiskLevelScorer::R4 || $risk === RiskLevelScorer::R5) {
+            if ($this->allowsRivalsIsolatedRuntimeExecution($envelope)) {
+                $reasons[] = "risk_level={$risk}_rivals_isolated_runtime_execution";
+
+                return new RoutingDecision(
+                    kind: RoutingDecision::ATLAS_DEV_FAST_PATH,
+                    reasons: $reasons,
+                    blockers: $blockers,
+                );
+            }
+
             $reasons[] = "risk_level={$risk}_requires_forge_preview";
 
             return new RoutingDecision(
@@ -132,5 +142,24 @@ class RoutingDecisionEngine
             reasons: $reasons,
             blockers: $blockers,
         );
+    }
+
+    private function allowsRivalsIsolatedRuntimeExecution(OperationEnvelope $envelope): bool
+    {
+        if ($envelope->surfaceId !== 'atlas_forge_rivals') {
+            return false;
+        }
+        if (! $envelope->preflight->operatorExplicit) {
+            return false;
+        }
+
+        foreach ($envelope->userConstraints as $constraint) {
+            $normalized = strtolower(trim((string) $constraint));
+            if ($normalized === 'rivals_runtime_execution=true') {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

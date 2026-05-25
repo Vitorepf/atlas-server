@@ -36,4 +36,36 @@ class AtlasFrontendScenarioMatrixServiceTest extends TestCase
         $this->assertContains('task_spec_not_ready', $payload['blockers']);
         $this->assertTrue((bool) data_get($payload, 'claim_policy.scenario_matrix_is_not_completion_evidence'));
     }
+
+    public function test_matrix_carries_frontend_app_scope_without_changing_workspace(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-scenario-scope-'.bin2hex(random_bytes(4));
+        mkdir($workspace.'/apps/web', 0777, true);
+
+        $payload = app(AtlasFrontendScenarioMatrixService::class)->compile([
+            'task' => 'Criar dashboard SaaS com login',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+            'acceptance_criteria' => true,
+        ]);
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertTrue((bool) data_get($payload, 'frontend_app_scope.repo_workspace_remains_primary'));
+        $this->assertStringNotContainsString($workspace.'/apps/web', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_matrix_blocks_invalid_frontend_app_scope(): void
+    {
+        $payload = app(AtlasFrontendScenarioMatrixService::class)->compile([
+            'task' => 'Criar dashboard SaaS com login',
+            'frontend_app' => '../secrets',
+            'acceptance_criteria' => true,
+        ]);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('invalid_subscope', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertContains('frontend_app_scope_invalid_relative_frontend_app_subscope', $payload['blockers']);
+    }
 }

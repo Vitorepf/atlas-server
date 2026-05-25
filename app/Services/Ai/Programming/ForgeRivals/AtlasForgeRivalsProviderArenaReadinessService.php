@@ -345,24 +345,24 @@ final class AtlasForgeRivalsProviderArenaReadinessService
                 'purpose' => 'Atlas Dev Sonnet against provider-pure Claude Code Sonnet on architecture pressure; Atlas Dev may apply its internal escalation policy without changing the Rivals arm.',
             ],
             [
-                'pair_id' => 'atlas_forge_vs_claude_sonnet',
-                'arm_a' => 'atlas_forge',
+                'pair_id' => 'atlas_dev_vs_claude_sonnet',
+                'arm_a' => 'atlas_dev',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'sonnet',
+                'mode' => 'fair',
+                'task_category' => 'refactor',
+                'purpose' => 'Atlas Dev Sonnet runtime against provider-pure Claude Code Sonnet baseline without switching to Forge.',
+            ],
+            [
+                'pair_id' => 'atlas_dev_architecture_pressure_vs_claude_sonnet',
+                'arm_a' => 'atlas_dev',
                 'arm_a_model' => 'sonnet',
                 'arm_b' => 'claude_code',
                 'arm_b_model' => 'sonnet',
                 'mode' => 'provider_arena',
-                'task_category' => 'refactor',
-                'purpose' => 'Atlas Forge system against provider-pure Claude Code Sonnet baseline.',
-            ],
-            [
-                'pair_id' => 'atlas_dev_vs_atlas_forge',
-                'arm_a' => 'atlas_dev',
-                'arm_a_model' => 'sonnet',
-                'arm_b' => 'atlas_forge',
-                'arm_b_model' => 'sonnet',
-                'mode' => 'provider_arena',
                 'task_category' => 'bugfix',
-                'purpose' => 'Atlas lightweight dev loop against full Forge system.',
+                'purpose' => 'Atlas Dev under pressure against provider-pure Claude Code Sonnet, preserving Atlas Dev as the Rivals arm.',
             ],
             [
                 'pair_id' => 'claude_opus_vs_codex_gpt55',
@@ -650,7 +650,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
     private function redactedCommand(array $built): array
     {
         $command = (array) ($built['command'] ?? []);
-        if ($command !== [] && ($built['prompt_transport'] ?? 'argv') !== 'stdin') {
+        if ($command !== [] && ($built['prompt_transport'] ?? 'argv') === 'argv') {
             $command[count($command) - 1] = '<prompt>';
         }
 

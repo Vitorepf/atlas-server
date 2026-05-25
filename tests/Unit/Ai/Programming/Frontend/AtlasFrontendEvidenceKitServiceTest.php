@@ -45,6 +45,58 @@ class AtlasFrontendEvidenceKitServiceTest extends TestCase
         $this->assertStringContainsString('run-certify', implode("\n", $payload['collection_commands']));
     }
 
+    public function test_prepare_carries_frontend_app_scope_into_manifest_and_collection_commands(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-evidence-kit-scope-workspace-'.bin2hex(random_bytes(4));
+        $output = sys_get_temp_dir().'/atlas-frontend-evidence-kit-scope-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($workspace.'/apps/web');
+
+        $payload = app(AtlasFrontendEvidenceKitService::class)->prepare([
+            'task' => 'Criar dashboard SaaS premium com estados mobile e desktop',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+            'output' => $output,
+            'acceptance_criteria' => true,
+        ]);
+
+        $manifest = json_decode(File::get($output.'/evidence-kit-manifest.json'), true);
+        $visual = json_decode(File::get($output.'/visual-quality-report.json'), true);
+        $quality = json_decode(File::get($output.'/quality-budget-report.json'), true);
+        $review = json_decode(File::get($output.'/design-review-report.json'), true);
+        $pack = json_decode(File::get($output.'/evidence/evidence-pack.json'), true);
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertSame('apps/web', data_get($manifest, 'frontend_app_scope.relative_name'));
+        $this->assertSame('apps/web', data_get($visual, 'frontend_app_scope.relative_name'));
+        $this->assertSame('apps/web', data_get($quality, 'frontend_app_scope.relative_name'));
+        $this->assertSame('apps/web', data_get($review, 'frontend_app_scope.relative_name'));
+        $this->assertSame('apps/web', data_get($pack, 'frontend_app_scope.relative_name'));
+        $this->assertStringContainsString('--frontend-app=apps/web', implode("\n", $payload['collection_commands']));
+        $this->assertStringNotContainsString($workspace.'/apps/web', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_prepare_blocks_invalid_frontend_app_scope_without_emitting_unsafe_command(): void
+    {
+        $output = sys_get_temp_dir().'/atlas-frontend-evidence-kit-invalid-scope-'.bin2hex(random_bytes(4));
+
+        $payload = app(AtlasFrontendEvidenceKitService::class)->prepare([
+            'task' => 'Criar dashboard SaaS premium com estados mobile e desktop',
+            'frontend_app' => '../secrets',
+            'output' => $output,
+            'acceptance_criteria' => true,
+        ]);
+
+        $commands = implode("\n", $payload['collection_commands']);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('invalid_subscope', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertContains('scenario_matrix_not_ready', $payload['blockers']);
+        $this->assertStringNotContainsString('../secrets', $commands);
+        $this->assertStringNotContainsString('--frontend-app=', $commands);
+    }
+
     public function test_prepare_blocks_when_scenario_matrix_is_not_ready(): void
     {
         $output = sys_get_temp_dir().'/atlas-frontend-evidence-kit-blocked-'.bin2hex(random_bytes(4));

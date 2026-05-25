@@ -40,6 +40,71 @@ class AtlasFrontendRepairPlannerServiceTest extends TestCase
         $this->assertContains('task_spec_hash', $plan['evidence_required']);
     }
 
+    public function test_competitive_dimension_gaps_compile_into_replay_repair_plan(): void
+    {
+        $plan = app(AtlasFrontendRepairPlannerService::class)->plan([
+            'dimension_gaps' => [
+                [
+                    'dimension' => 'product_intent_fit',
+                    'points_to_match' => 2,
+                    'delta_vs_best_rival' => -2,
+                    'best_rival_score' => 12,
+                    'case_id' => 'live_mode_repair_loop',
+                    'best_rival_system' => 'pbakaus_impeccable',
+                ],
+            ],
+        ]);
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertSame('competitive_replay_repair', $plan['repair_strategy']);
+        $this->assertSame('high', $plan['severity']);
+        $this->assertContains('rival_replay_inspect', $plan['rerun_gates']);
+        $this->assertContains('score_breakdown', $plan['evidence_required']);
+        $this->assertSame('repair_competitive_dimension_product_intent_fit', data_get($plan, 'repair_steps.1.id'));
+        $this->assertSame('competitive_rubric.product_intent_fit', data_get($plan, 'repair_steps.1.target'));
+        $this->assertStringContainsString('Close at least 2 point(s)', data_get($plan, 'repair_steps.1.action'));
+        $this->assertSame(-2, data_get($plan, 'repair_steps.1.competitive_gap.delta_vs_best_rival'));
+        $this->assertSame('live_mode_repair_loop', data_get($plan, 'repair_steps.1.competitive_gap.case_id'));
+        $this->assertSame('pbakaus_impeccable', data_get($plan, 'repair_steps.1.competitive_gap.best_rival_system'));
+    }
+
+    public function test_invalid_competitive_dimension_gap_blocks_fake_repair_plan(): void
+    {
+        $plan = app(AtlasFrontendRepairPlannerService::class)->plan([
+            'dimension_gaps' => [
+                [
+                    'dimension' => 'not_a_rubric_dimension',
+                    'points_to_match' => 2,
+                    'delta_vs_best_rival' => -2,
+                    'best_rival_score' => 12,
+                ],
+            ],
+        ]);
+
+        $this->assertSame('blocked', $plan['status']);
+        $this->assertContains('invalid_competitive_dimension_gap', $plan['blockers']);
+        $this->assertSame([], $plan['repair_steps']);
+        $this->assertSame([], data_get($plan, 'inputs.dimension_gaps'));
+        $this->assertSame('dimension_not_in_competitive_rubric', data_get($plan, 'inputs.invalid_dimension_gaps.0.reason'));
+        $this->assertSame('not_a_rubric_dimension', data_get($plan, 'inputs.invalid_dimension_gaps.0.dimension'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($plan, 'inputs.invalid_dimension_gaps.0.dimension_hash'));
+    }
+
+    public function test_mixed_competitive_dimension_gaps_keep_valid_steps_and_warn(): void
+    {
+        $plan = app(AtlasFrontendRepairPlannerService::class)->plan([
+            'dimension_gaps' => [
+                ['dimension' => 'product_intent_fit', 'points_to_match' => 1],
+                ['dimension' => 'made_up_dimension', 'points_to_match' => 1],
+            ],
+        ]);
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertContains('some_competitive_dimension_gaps_invalid', $plan['warnings']);
+        $this->assertSame('repair_competitive_dimension_product_intent_fit', data_get($plan, 'repair_steps.1.id'));
+        $this->assertSame('made_up_dimension', data_get($plan, 'inputs.invalid_dimension_gaps.0.dimension'));
+    }
+
     public function test_missing_repair_signal_blocks_strict_claims(): void
     {
         $plan = app(AtlasFrontendRepairPlannerService::class)->plan([]);

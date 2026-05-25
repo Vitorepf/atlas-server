@@ -218,6 +218,39 @@ final class PromptQualityCheckerTest extends TestCase
         $this->assertFalse($result->noForgeOrCouncilLeakage);
     }
 
+    public function test_checker_does_not_treat_workspace_paths_as_benchmark_or_forge_leakage(): void
+    {
+        $base = $this->baselineSections();
+        $sections = new PromptSections(
+            objective: $base->objective,
+            operatingRules: $base->operatingRules,
+            miniSpecRef: $base->miniSpecRef,
+            taskContractRef: $base->taskContractRef,
+            contextRefs: $base->contextRefs,
+            codeDiscoveryRef: $base->codeDiscoveryRef,
+            allowedFiles: [
+                'storage/forge-rivals-industrial/case-001/src/Handler.php',
+            ],
+            forbiddenFiles: $base->forbiddenFiles,
+            expectedTests: [
+                'php storage/forge-rivals-industrial/case-001/tests/HandlerTest.php',
+            ],
+            acceptanceCriteria: $base->acceptanceCriteria,
+            stopConditions: $base->stopConditions,
+            escalationConditions: $base->escalationConditions,
+            outputContract: $base->outputContract,
+        );
+
+        $result = $this->checker()->check(
+            sections: $sections,
+            renderedPromptText: "Open storage/forge-rivals-industrial/case-001/src/Handler.php\n",
+            taskContract: $this->baselineTaskContract(),
+        );
+
+        $this->assertTrue($result->noHiddenBenchmarkInstruction);
+        $this->assertTrue($result->noForgeOrCouncilLeakage);
+    }
+
     public function test_check_flags_provider_unsafe_secret_in_rendered_text(): void
     {
         $result = $this->checker()->check(

@@ -55,6 +55,41 @@ class AtlasFrontendGauntletServiceTest extends TestCase
         $this->assertStringContainsString('php artisan atlas:frontend:design-dossier inspect --workspace=', implode("\n", $payload['recommended_command_sequence']));
     }
 
+    public function test_gauntlet_carries_frontend_app_scope_into_evidence_commands(): void
+    {
+        $workspace = $this->readyWorkspace();
+        File::ensureDirectoryExists($workspace.'/apps/web/src/pages');
+        File::put($workspace.'/apps/web/package.json', json_encode([
+            'scripts' => ['dev' => 'vite', 'test' => 'vitest run', 'build' => 'vite build'],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+
+        $payload = app(AtlasFrontendGauntletService::class)->run([
+            'task' => 'Ajustar checkout web',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+        ]);
+
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'frontend_app_scope.relative_name_hash'));
+        $this->assertTrue((bool) data_get($payload, 'frontend_app_scope.repo_workspace_remains_primary'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.frontend_app_scope_is_relative_subdirectory'));
+
+        $commands = implode("\n", $payload['recommended_command_sequence']);
+        $this->assertStringContainsString('atlas:frontend:blueprint generate --task="<brief>"', $commands);
+        $this->assertStringContainsString('atlas:frontend:spec --task="<brief>"', $commands);
+        $this->assertStringContainsString('atlas:frontend:gate --task="<brief>"', $commands);
+        $this->assertStringContainsString('atlas:frontend:scenarios --task="<brief>"', $commands);
+        $this->assertStringContainsString('--frontend-app=apps/web --acceptance', $commands);
+        $this->assertStringContainsString('atlas:frontend:evidence-kit prepare --task="<brief>"', $commands);
+        $this->assertStringNotContainsString($workspace.'/apps/web', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
     private function readyWorkspace(): string
     {
         $workspace = sys_get_temp_dir().'/atlas-frontend-gauntlet-ready-'.bin2hex(random_bytes(4));

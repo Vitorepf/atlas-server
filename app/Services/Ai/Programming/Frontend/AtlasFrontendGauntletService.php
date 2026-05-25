@@ -17,6 +17,8 @@ final class AtlasFrontendGauntletService
     {
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = trim((string) ($input['workspace'] ?? ''));
+        $frontendApp = trim((string) ($input['frontend_app'] ?? ''));
+        $frontendAppScope = $this->frontendAppScope($workspace, $frontendApp);
         $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
 
         $contract = app(AtlasFrontendDesignRuntimeService::class)->contract([
@@ -31,6 +33,7 @@ final class AtlasFrontendGauntletService
             'task' => $task,
             'workspace' => $workspace,
             'surface' => $surface,
+            'frontend_app' => $frontendApp,
             'acceptance' => (bool) ($input['acceptance_criteria'] ?? false),
             'asset_context' => (bool) ($input['asset_context'] ?? false),
             'company_profile' => (bool) ($input['company_profile_ready'] ?? false),
@@ -41,6 +44,7 @@ final class AtlasFrontendGauntletService
             'task' => $task,
             'workspace' => $workspace,
             'surface' => $surface,
+            'frontend_app' => $frontendApp,
             'task_spec_hash' => (string) ($taskSpec['task_spec_hash'] ?? ''),
             'acceptance_criteria' => (bool) ($input['acceptance_criteria'] ?? false),
             'asset_context' => (bool) ($input['asset_context'] ?? false),
@@ -59,6 +63,7 @@ final class AtlasFrontendGauntletService
             'task' => $task,
             'workspace' => $workspace,
             'surface' => $surface,
+            'frontend_app' => $frontendApp,
             'asset_context' => (bool) ($input['asset_context'] ?? false),
             'prototype' => (bool) ($input['prototype'] ?? false),
             'live' => (bool) ($input['live'] ?? false),
@@ -76,7 +81,8 @@ final class AtlasFrontendGauntletService
             $this->phase('runtime_certification', $runtimeCertification['status'] ?? 'unknown', $runtimeCertification['certification_hash'] ?? null, $runtimeCertification['blockers'] ?? [], $runtimeCertification['warnings'] ?? []),
         ];
 
-        $blocked = collect($phases)->contains(fn (array $phase): bool => in_array($phase['status'], ['blocked', 'failed', 'missing'], true) || $phase['blocker_count'] > 0);
+        $frontendAppScopeBlockers = (array) ($frontendAppScope['blockers'] ?? []);
+        $blocked = $frontendAppScopeBlockers !== [] || collect($phases)->contains(fn (array $phase): bool => in_array($phase['status'], ['blocked', 'failed', 'missing'], true) || $phase['blocker_count'] > 0);
         $warnings = collect($phases)->contains(fn (array $phase): bool => in_array($phase['status'], ['partial', 'warning'], true) || $phase['warning_count'] > 0);
         $status = $blocked ? 'blocked' : ($warnings ? 'warning' : 'ready');
 
@@ -88,12 +94,17 @@ final class AtlasFrontendGauntletService
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
             'task_spec_hash' => $taskSpec['task_spec_hash'] ?? null,
+            'frontend_app_scope' => $frontendAppScope,
             'phase_results' => $phases,
-            'required_next_actions' => $this->nextActions($gate, $dossier, $inventory, $blueprint, $intake),
-            'recommended_command_sequence' => $this->recommendedCommandSequence($workspace, $taskSpec['task_spec_hash'] ?? null),
+            'required_next_actions' => array_values(array_unique(array_merge(
+                $frontendAppScopeBlockers !== [] ? ['choose_valid_frontend_app_subscope_inside_selected_repo'] : [],
+                $this->nextActions($gate, $dossier, $inventory, $blueprint, $intake),
+            ))),
+            'recommended_command_sequence' => $this->recommendedCommandSequence($workspace, $taskSpec['task_spec_hash'] ?? null, $frontendAppScope),
             'claim_policy' => [
                 'provider_dispatch_allowed' => $status !== 'blocked' && (bool) ($gate['execution_allowed'] ?? false),
                 'premium_frontend_claim_allowed' => $status === 'ready',
+                'frontend_app_scope_is_relative_subdirectory' => ($frontendAppScope['status'] ?? null) === 'subscope_selected',
                 'template_docs_do_not_count_as_context' => true,
                 'world_best_claim_allowed' => false,
                 'raw_customer_source_returned' => false,
@@ -186,21 +197,77 @@ final class AtlasFrontendGauntletService
     /**
      * @return array<int,string>
      */
-    private function recommendedCommandSequence(string $workspace, mixed $taskSpecHash): array
+    private function recommendedCommandSequence(string $workspace, mixed $taskSpecHash, array $frontendAppScope): array
     {
         $workspaceArg = $workspace !== '' ? '--workspace='.escapeshellarg($workspace) : '--workspace=<local-company-repo>';
         $hashArg = is_string($taskSpecHash) ? '--task-spec-hash='.$taskSpecHash : '--task-spec-hash=<hash>';
+        $frontendAppArg = ($frontendAppScope['status'] ?? null) === 'subscope_selected'
+            ? ' --frontend-app='.(string) $frontendAppScope['relative_name']
+            : '';
 
         return [
-            'php artisan atlas:frontend:blueprint generate --task="<brief>" '.$workspaceArg.' --json',
+            'php artisan atlas:frontend:blueprint generate --task="<brief>" '.$workspaceArg.$frontendAppArg.' --json',
             'php artisan atlas:frontend:intake '.$workspaceArg.' --json --strict',
             'php artisan atlas:frontend:design-dossier inspect '.$workspaceArg.' --json --strict',
             'php artisan atlas:frontend:inventory inspect '.$workspaceArg.' --json',
-            'php artisan atlas:frontend:spec --task="<brief>" '.$workspaceArg.' --acceptance --json',
-            'php artisan atlas:frontend:gate --task="<brief>" '.$workspaceArg.' '.$hashArg.' --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'php artisan atlas:frontend:spec --task="<brief>" '.$workspaceArg.$frontendAppArg.' --acceptance --json',
+            'php artisan atlas:frontend:gate --task="<brief>" '.$workspaceArg.$frontendAppArg.' '.$hashArg.' --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'php artisan atlas:frontend:scenarios --task="<brief>" '.$workspaceArg.$frontendAppArg.' --acceptance --json --strict',
+            'php artisan atlas:frontend:evidence-kit prepare --task="<brief>" '.$workspaceArg.$frontendAppArg.' --acceptance --output=<evidence-dir> --json --strict',
             'php artisan atlas:frontend:visual-quality template --output=<evidence-dir> --json',
             'php artisan atlas:frontend:quality-budget template --output=<evidence-dir> --json',
             'php artisan atlas:frontend:run-certify --visual-report=<report> --design-review-report=<report> --quality-budget-report=<report> --evidence-manifest=<manifest> --outcome-store=<jsonl> --json --strict',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function frontendAppScope(string $workspace, string $frontendApp): array
+    {
+        $raw = trim($frontendApp);
+        $relative = trim(str_replace('\\', '/', $raw), '/');
+
+        if ($relative === '' || $relative === '.') {
+            return [
+                'status' => 'repo_root',
+                'relative_name' => null,
+                'relative_name_hash' => null,
+                'repo_workspace_remains_primary' => true,
+                'raw_absolute_path_returned' => false,
+                'blockers' => [],
+            ];
+        }
+
+        if (str_contains($relative, '..') || str_starts_with($raw, '/') || str_contains($relative, '//')) {
+            return [
+                'status' => 'invalid_subscope',
+                'relative_name' => null,
+                'relative_name_hash' => hash('sha256', $relative),
+                'repo_workspace_remains_primary' => true,
+                'raw_absolute_path_returned' => false,
+                'blockers' => ['frontend_app_scope_invalid_relative_frontend_app_subscope'],
+            ];
+        }
+
+        if ($workspace !== '' && is_dir($workspace) && ! is_dir(rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relative))) {
+            return [
+                'status' => 'missing_subscope',
+                'relative_name' => $relative,
+                'relative_name_hash' => hash('sha256', $relative),
+                'repo_workspace_remains_primary' => true,
+                'raw_absolute_path_returned' => false,
+                'blockers' => ['frontend_app_scope_frontend_app_subscope_directory_missing'],
+            ];
+        }
+
+        return [
+            'status' => 'subscope_selected',
+            'relative_name' => $relative,
+            'relative_name_hash' => hash('sha256', $relative),
+            'repo_workspace_remains_primary' => true,
+            'raw_absolute_path_returned' => false,
+            'blockers' => [],
         ];
     }
 }

@@ -79,6 +79,67 @@ class AtlasFrontendRunCertificationServiceTest extends TestCase
         $this->assertSame('fail', collect($payload['checks'])->firstWhere('id', 'task_spec_hash_consistent')['status']);
     }
 
+    public function test_certifies_run_when_frontend_app_scope_matches_across_evidence_chain(): void
+    {
+        $dir = $this->fixtureDir($this->frontendAppScope('apps/web'));
+        $outcomeStore = $dir.'/outcomes.jsonl';
+        app(AtlasFrontendOutcomeMemoryService::class)->record([
+            'status' => 'passed',
+            'gates' => ['visual_quality_gate', 'design_5d_review', 'evidence_pack_verifier'],
+            'evidence_refs' => ['receipt://visual-quality'],
+        ], $outcomeStore);
+
+        $payload = app(AtlasFrontendRunCertificationService::class)->certify([
+            'visual_report' => $dir.'/visual-quality-report.json',
+            'design_review_report' => $dir.'/design-review-report.json',
+            'quality_budget_report' => $dir.'/quality-budget-report.json',
+            'evidence_manifest' => $dir.'/evidence/evidence-pack.json',
+            'evidence_root' => $dir.'/evidence',
+            'outcome_store' => $outcomeStore,
+        ]);
+
+        $this->assertSame('warning', $payload['status']);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'frontend_app_scope.relative_name_hash'));
+        $this->assertSame('pass', collect($payload['checks'])->firstWhere('id', 'frontend_app_scope_consistent')['status']);
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.frontend_completion_claim_allowed'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.frontend_completion_claim_requires_frontend_app_scope_consistency'));
+    }
+
+    public function test_blocks_mismatched_frontend_app_scope_across_evidence_chain(): void
+    {
+        $dir = $this->fixtureDir($this->frontendAppScope('apps/web'));
+        $outcomeStore = $dir.'/outcomes.jsonl';
+        app(AtlasFrontendOutcomeMemoryService::class)->record([
+            'status' => 'passed',
+            'gates' => ['visual_quality_gate', 'design_5d_review', 'evidence_pack_verifier'],
+            'evidence_refs' => ['receipt://visual-quality'],
+        ], $outcomeStore);
+
+        $manifestPath = $dir.'/evidence/evidence-pack.json';
+        $manifest = json_decode((string) File::get($manifestPath), true);
+        $manifest['frontend_app_scope'] = $this->frontendAppScope('apps/admin');
+        File::put($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        $payload = app(AtlasFrontendRunCertificationService::class)->certify([
+            'visual_report' => $dir.'/visual-quality-report.json',
+            'design_review_report' => $dir.'/design-review-report.json',
+            'quality_budget_report' => $dir.'/quality-budget-report.json',
+            'evidence_manifest' => $manifestPath,
+            'evidence_root' => $dir.'/evidence',
+            'outcome_store' => $outcomeStore,
+        ]);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('mismatch', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertContains('frontend_app_scope_consistent', $payload['blockers']);
+        $this->assertSame('fail', collect($payload['checks'])->firstWhere('id', 'frontend_app_scope_consistent')['status']);
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.frontend_completion_claim_allowed'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'frontend_app_scope.artifact_scopes.visual_quality.relative_name_hash'));
+        $this->assertSame(hash('sha256', 'apps/admin'), data_get($payload, 'frontend_app_scope.artifact_scopes.evidence_pack.relative_name_hash'));
+    }
+
     public function test_blocks_completion_claim_without_outcome_memory(): void
     {
         $dir = $this->fixtureDir();
@@ -116,7 +177,10 @@ class AtlasFrontendRunCertificationServiceTest extends TestCase
         $this->assertSame('fail', collect($payload['checks'])->firstWhere('id', 'quality_budget_passed')['status']);
     }
 
-    private function fixtureDir(): string
+    /**
+     * @param  array<string,mixed>|null  $frontendAppScope
+     */
+    private function fixtureDir(?array $frontendAppScope = null): string
     {
         $dir = sys_get_temp_dir().'/atlas-frontend-run-cert-'.bin2hex(random_bytes(4));
         File::ensureDirectoryExists($dir.'/evidence/artifacts');
@@ -126,7 +190,7 @@ class AtlasFrontendRunCertificationServiceTest extends TestCase
         $qualityBudgetGate = app(AtlasFrontendQualityBudgetGateService::class);
         $evidenceGate = app(AtlasFrontendEvidencePackVerifierService::class);
 
-        File::put($dir.'/visual-quality-report.json', json_encode([
+        $visualReport = [
             'schema_version' => AtlasFrontendVisualQualityGateService::REPORT_SCHEMA_VERSION,
             'status' => 'passed',
             'task_spec_hash' => $taskSpecHash,
@@ -138,9 +202,13 @@ class AtlasFrontendRunCertificationServiceTest extends TestCase
                 'path' => 'artifacts/'.$kind.'.json',
                 'sha256' => str_repeat('b', 64),
             ], $visualGate->requiredArtifactKinds()),
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        ];
+        if ($frontendAppScope !== null) {
+            $visualReport['frontend_app_scope'] = $frontendAppScope;
+        }
+        File::put($dir.'/visual-quality-report.json', json_encode($visualReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-        File::put($dir.'/design-review-report.json', json_encode([
+        $designReviewReport = [
             'schema_version' => AtlasFrontendDesignReviewService::REPORT_SCHEMA_VERSION,
             'status' => 'passed',
             'task_spec_hash' => $taskSpecHash,
@@ -148,9 +216,13 @@ class AtlasFrontendRunCertificationServiceTest extends TestCase
                 $dimension => ['score' => 9, 'rationale' => 'Evidence-backed pass.', 'evidence_refs' => ['receipt://'.$dimension]],
             ])->all(),
             'evidence_refs' => ['receipt://visual-quality', 'receipt://anti-slop'],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        ];
+        if ($frontendAppScope !== null) {
+            $designReviewReport['frontend_app_scope'] = $frontendAppScope;
+        }
+        File::put($dir.'/design-review-report.json', json_encode($designReviewReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-        File::put($dir.'/quality-budget-report.json', json_encode([
+        $qualityBudgetReport = [
             'schema_version' => AtlasFrontendQualityBudgetGateService::REPORT_SCHEMA_VERSION,
             'status' => 'passed',
             'task_spec_hash' => $taskSpecHash,
@@ -159,7 +231,11 @@ class AtlasFrontendRunCertificationServiceTest extends TestCase
                 $id => $budget['warning'],
             ])->all(),
             'operator_approved_exception' => false,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        ];
+        if ($frontendAppScope !== null) {
+            $qualityBudgetReport['frontend_app_scope'] = $frontendAppScope;
+        }
+        File::put($dir.'/quality-budget-report.json', json_encode($qualityBudgetReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         $artifacts = [];
         foreach ($evidenceGate->requiredArtifactKinds() as $kind) {
@@ -167,15 +243,32 @@ class AtlasFrontendRunCertificationServiceTest extends TestCase
             File::put($dir.'/evidence/'.$path, json_encode(['kind' => $kind, 'ok' => true], JSON_THROW_ON_ERROR));
             $artifacts[] = ['kind' => $kind, 'path' => $path, 'sha256' => hash_file('sha256', $dir.'/evidence/'.$path)];
         }
-        File::put($dir.'/evidence/evidence-pack.json', json_encode([
+        $evidencePack = [
             'schema_version' => AtlasFrontendEvidencePackVerifierService::PACK_SCHEMA_VERSION,
             'pack_id' => 'run-cert-1',
             'case_id' => 'saas_dashboard_repair',
             'system' => 'atlas_frontend',
             'task_spec_hash' => $taskSpecHash,
             'artifacts' => $artifacts,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        ];
+        if ($frontendAppScope !== null) {
+            $evidencePack['frontend_app_scope'] = $frontendAppScope;
+        }
+        File::put($dir.'/evidence/evidence-pack.json', json_encode($evidencePack, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         return $dir;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function frontendAppScope(string $relativeName): array
+    {
+        return [
+            'status' => 'subscope_selected',
+            'relative_name' => $relativeName,
+            'relative_name_hash' => hash('sha256', $relativeName),
+            'repo_workspace_remains_primary' => true,
+        ];
     }
 }

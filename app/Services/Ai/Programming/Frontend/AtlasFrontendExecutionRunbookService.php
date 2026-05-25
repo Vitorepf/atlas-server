@@ -18,7 +18,12 @@ final class AtlasFrontendExecutionRunbookService
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = trim((string) ($input['workspace'] ?? ''));
         $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
+        $frontendAppScope = $this->frontendAppScope($workspace, (string) ($input['frontend_app'] ?? ''));
+        $frontendApp = $frontendAppScope['status'] === 'subscope_selected'
+            ? (string) $frontendAppScope['relative_name']
+            : null;
         $evidenceOutput = $this->evidenceOutput($input['evidence_output'] ?? null, $task, $workspace);
+        $writeEvidenceKit = (bool) ($input['write_evidence_kit'] ?? true);
 
         $intake = $this->safeIntake($workspace);
         $workOrder = app(AtlasFrontendWorkOrderService::class)->compile($input + [
@@ -26,7 +31,7 @@ final class AtlasFrontendExecutionRunbookService
             'workspace' => $workspace,
             'surface' => $surface,
         ]);
-        $evidenceKit = app(AtlasFrontendEvidenceKitService::class)->prepare([
+        $evidenceKitInput = [
             'task' => $task,
             'workspace' => $workspace,
             'surface' => $surface,
@@ -36,10 +41,14 @@ final class AtlasFrontendExecutionRunbookService
             'company_profile_ready' => (bool) ($input['company_profile_ready'] ?? false),
             'prototype' => (bool) ($input['prototype'] ?? false),
             'live' => (bool) ($input['live'] ?? false),
-        ]);
+        ];
+        $evidenceKit = $writeEvidenceKit
+            ? app(AtlasFrontendEvidenceKitService::class)->prepare($evidenceKitInput)
+            : $this->evidenceKitProjection($evidenceKitInput, $evidenceOutput);
 
         $blockers = array_values(array_unique(array_merge(
             $this->prefix('repo', (array) ($intake['blockers'] ?? [])),
+            $this->prefix('frontend_app_scope', (array) ($frontendAppScope['blockers'] ?? [])),
             $this->prefix('work_order', (array) ($workOrder['blockers'] ?? [])),
             $this->prefix('evidence_kit', (array) ($evidenceKit['blockers'] ?? [])),
         )));
@@ -49,7 +58,7 @@ final class AtlasFrontendExecutionRunbookService
             $this->prefix('evidence_kit', (array) ($evidenceKit['warnings'] ?? [])),
         )));
 
-        $steps = $this->steps($intake, $workOrder, $evidenceKit, $workspace, $evidenceOutput);
+        $steps = $this->steps($intake, $workOrder, $evidenceKit, $workspace, $evidenceOutput, $frontendApp);
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $blockers === [] ? 'ready' : 'blocked',
@@ -58,6 +67,8 @@ final class AtlasFrontendExecutionRunbookService
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
             'task_spec_hash' => $evidenceKit['task_spec_hash'] ?? null,
+            'write_evidence_kit' => $writeEvidenceKit,
+            'frontend_app_scope' => $frontendAppScope,
             'repo_operating_map' => [
                 'package_manager' => $intake['package_manager'] ?? 'unknown',
                 'framework' => data_get($intake, 'framework.primary'),
@@ -77,7 +88,9 @@ final class AtlasFrontendExecutionRunbookService
                 ))),
             'claim_policy' => [
                 'runbook_is_not_execution_evidence' => true,
+                'read_only_runbook_does_not_write_evidence_kit' => ! $writeEvidenceKit,
                 'commands_must_be_run_in_operator_repo' => true,
+                'frontend_app_scope_is_relative_subdirectory' => true,
                 'completion_requires_run_certification_and_handoff' => true,
                 'raw_customer_source_returned' => false,
                 'world_best_claim_allowed' => false,
@@ -98,6 +111,57 @@ final class AtlasFrontendExecutionRunbookService
         }
 
         return storage_path('app/atlas/frontend-evidence-kit/'.hash('sha256', $task.'|'.$workspace));
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function evidenceKitProjection(array $input, string $evidenceOutput): array
+    {
+        $scenarioMatrix = app(AtlasFrontendScenarioMatrixService::class)->compile($input);
+        $blockers = [];
+        if (($scenarioMatrix['status'] ?? null) !== 'ready') {
+            $blockers[] = 'scenario_matrix_not_ready';
+        }
+
+        $payload = [
+            'schema_version' => AtlasFrontendEvidenceKitService::SCHEMA_VERSION,
+            'status' => $blockers === [] ? 'ready' : 'blocked',
+            'kit_type' => 'read_only_frontend_execution_evidence_collection_projection',
+            'task_spec_hash' => $scenarioMatrix['task_spec_hash'] ?? null,
+            'scenario_matrix_hash' => $scenarioMatrix['scenario_matrix_hash'] ?? null,
+            'output_hash' => hash('sha256', $evidenceOutput),
+            'collection_commands' => $this->collectionCommands($evidenceOutput),
+            'claim_policy' => [
+                'evidence_kit_projection_is_not_completion_evidence' => true,
+                'templates_not_written' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+            'blockers' => $blockers,
+            'warnings' => ['evidence_kit_not_written_read_only'],
+        ];
+        $payload['evidence_kit_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function collectionCommands(string $output): array
+    {
+        $outputArg = $this->quote($output);
+
+        return [
+            'php artisan atlas:frontend:scenarios --task="<intent>" --workspace=<local-company-repo> --acceptance --json --strict',
+            'php artisan atlas:frontend:evidence-kit prepare --task="<intent>" --workspace=<local-company-repo> --acceptance --output='.$outputArg.' --json --strict',
+            'php artisan atlas:frontend:visual-quality inspect --report='.$outputArg.'/visual-quality-report.json --json --strict',
+            'php artisan atlas:frontend:quality-budget inspect --report='.$outputArg.'/quality-budget-report.json --json --strict',
+            'php artisan atlas:frontend:review inspect --report='.$outputArg.'/design-review-report.json --json --strict',
+            'php artisan atlas:frontend:evidence verify --manifest='.$outputArg.'/evidence/evidence-pack.json --root='.$outputArg.'/evidence --json',
+        ];
     }
 
     /**
@@ -125,7 +189,7 @@ final class AtlasFrontendExecutionRunbookService
      * @param  array<string,mixed>  $evidenceKit
      * @return array<int,array<string,mixed>>
      */
-    private function steps(array $intake, array $workOrder, array $evidenceKit, string $workspace, string $evidenceOutput): array
+    private function steps(array $intake, array $workOrder, array $evidenceKit, string $workspace, string $evidenceOutput, ?string $frontendApp): array
     {
         $packageManager = (string) ($intake['package_manager'] ?? 'unknown');
         $testCommands = array_values(array_filter((array) data_get($intake, 'repo_map.test_commands', []), 'is_string'));
@@ -139,10 +203,10 @@ final class AtlasFrontendExecutionRunbookService
                 'php artisan atlas:frontend:work-order --task="<intent>" '.$this->workspaceArg($workspace).' --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
             ], ['enterprise_bootstrap_hash', 'work_order_hash']),
             $this->step('repo_install_and_dev_server', 20, 'Install dependencies and start local preview using repo-native commands.', array_values(array_filter([
-                $this->installCommand($packageManager),
-                $devCommands[0] ?? null,
+                $this->repoNativeCommand($this->installCommand($packageManager), $frontendApp),
+                $this->repoNativeCommand($devCommands[0] ?? null, $frontendApp),
             ])), ['install_receipt_or_reason', 'local_preview_url']),
-            $this->step('implementation_quality_gates', 30, 'Run repo-native quality, tests and build before visual certification.', array_values(array_merge($qualityCommands, $testCommands, $buildCommands)), ['test_receipt', 'build_receipt', 'quality_receipt']),
+            $this->step('implementation_quality_gates', 30, 'Run repo-native quality, tests and build before visual certification.', array_map(fn (string $command): string => $this->repoNativeCommand($command, $frontendApp), array_values(array_merge($qualityCommands, $testCommands, $buildCommands))), ['test_receipt', 'build_receipt', 'quality_receipt']),
             $this->step('visual_evidence_collection', 40, 'Prepare and fill measured frontend evidence artifacts.', array_values(array_filter(array_merge([
                 'php artisan atlas:frontend:evidence-kit prepare --task="<intent>" '.$this->workspaceArg($workspace).' --acceptance --output='.$this->quote($evidenceOutput).' --json --strict',
             ], (array) ($evidenceKit['collection_commands'] ?? [])), 'is_string')), ['visual_quality_report', 'quality_budget_report', 'design_review_report', 'evidence_pack']),
@@ -182,6 +246,69 @@ final class AtlasFrontendExecutionRunbookService
             'npm' => 'npm ci',
             default => null,
         };
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function frontendAppScope(string $workspace, string $value): array
+    {
+        $raw = trim($value);
+        $value = trim(str_replace('\\', '/', $raw), '/');
+        $blockers = [];
+        $status = 'repo_root';
+
+        if ($value === '' || $value === '.') {
+            return $this->frontendAppScopePayload($status, null, []);
+        }
+
+        if (str_contains($value, '..') || str_starts_with($raw, '/') || str_contains($value, '//')) {
+            return $this->frontendAppScopePayload('invalid_subscope', $value, ['invalid_relative_frontend_app_subscope']);
+        }
+
+        if ($workspace === '' || ! is_dir($workspace)) {
+            return $this->frontendAppScopePayload('workspace_unavailable', $value, ['workspace_required_to_validate_frontend_app_subscope']);
+        }
+
+        $candidate = rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $value);
+        if (! is_dir($candidate)) {
+            return $this->frontendAppScopePayload('missing_subscope', $value, ['frontend_app_subscope_directory_missing']);
+        }
+
+        if (! file_exists($candidate.DIRECTORY_SEPARATOR.'package.json')) {
+            return $this->frontendAppScopePayload('missing_package_manifest', $value, ['frontend_app_subscope_package_manifest_missing']);
+        }
+
+        return $this->frontendAppScopePayload('subscope_selected', $value, []);
+    }
+
+    /**
+     * @param  array<int,string>  $blockers
+     * @return array<string,mixed>
+     */
+    private function frontendAppScopePayload(string $status, ?string $relativeName, array $blockers): array
+    {
+        return [
+            'schema_version' => 'atlas.frontend.execution_runbook.frontend_app_scope.v1',
+            'status' => $status,
+            'relative_name' => $relativeName,
+            'relative_name_hash' => $relativeName !== null ? hash('sha256', $relativeName) : null,
+            'repo_workspace_remains_primary' => true,
+            'raw_absolute_path_returned' => false,
+            'blockers' => $blockers,
+        ];
+    }
+
+    private function repoNativeCommand(?string $command, ?string $frontendApp): ?string
+    {
+        if ($command === null || trim($command) === '') {
+            return null;
+        }
+        if ($frontendApp === null) {
+            return $command;
+        }
+
+        return 'cd '.$this->quote($frontendApp).' && '.$command;
     }
 
     /**

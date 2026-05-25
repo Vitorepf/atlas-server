@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use App\Services\Ai\Programming\ForgeRivals\Schema\AtlasForgeRivalsSchemaContractService;
 use App\Services\Ai\Programming\WorkspaceHygieneService;
@@ -2476,6 +2478,10 @@ TS,
             return $this->fakeArm($runId, $arm, $worktree, $model, $case, $startedAt, $caseSubdir);
         }
 
+        if ($this->arenaArmId($arm, $case) === 'atlas_dev') {
+            return $this->runAtlasDevRuntimeArm($runId, $arm, $worktree, $mode, $model, $case, $startedAt, $caseSubdir);
+        }
+
         // Real provider: build provider command per arm, spawn subprocess.
         $commandEnvelope = $this->resolveProviderCommandEnvelope($arm, $model, $case, $worktree);
         $command = $commandEnvelope['command'];
@@ -2801,6 +2807,315 @@ TS,
     }
 
     /**
+     * Executes the real Atlas Dev runtime for the Atlas-owned arm. This is
+     * deliberately separate from provider command building: the provider call
+     * is owned by Atlas Dev's Sonnet-locked PipelineRunExecutor, while Rivals
+     * only captures the resulting workspace diff, receipts and validation.
+     *
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function runAtlasDevRuntimeArm(
+        string $runId,
+        string $arm,
+        string $worktree,
+        string $mode,
+        string $model,
+        array $case,
+        string $startedAt,
+        string $caseSubdir = '',
+    ): array {
+        $paths = $this->paths->paths($runId);
+        $artifactDir = $this->artifactDir($paths['evidence'], $caseSubdir);
+        @mkdir($artifactDir, 0o755, true);
+
+        $stdoutPath = $artifactDir.'/'.$arm.'_atlas_dev_runtime_stdout.log';
+        $stderrPath = $artifactDir.'/'.$arm.'_atlas_dev_runtime_stderr.log';
+        $runtimeReceiptDir = $artifactDir.'/'.$arm.'_atlas_dev_receipts';
+        @mkdir($runtimeReceiptDir, 0o755, true);
+
+        $this->events->event($runId, 'atlas_dev_runtime_started', [
+            'arm' => $arm,
+            'case_id' => (string) ($case['id'] ?? ''),
+            'worktree' => $worktree,
+        ]);
+
+        $previousReceiptsPath = config('atlas_dev.receipts_path');
+        config(['atlas_dev.receipts_path' => $runtimeReceiptDir]);
+        app()->forgetInstance(ReceiptStorage::class);
+
+        $exit = 1;
+        $stdout = '';
+        $stderr = '';
+        $execution = null;
+        $atlasDevRunId = null;
+
+        try {
+            /** @var SeniorEngineerLoopExecutor $executor */
+            $executor = app(SeniorEngineerLoopExecutor::class);
+            $execution = $executor->run(
+                surfaceId: 'atlas_forge_rivals',
+                workspace: $worktree,
+                rawIntent: $this->atlasDevRuntimeIntent($case),
+                userConstraints: $this->atlasDevRuntimeConstraints($case),
+                surfaceHints: [
+                    'thread_id' => 'forge-rivals:'.$runId,
+                    'conversation_id' => (string) ($case['id'] ?? ''),
+                    'composer_mode' => 'rivals',
+                    'composer_task' => 'provider_arena',
+                    'provider_choice' => 'sonnet',
+                    'flow_origin' => 'direct',
+                    'command_intent' => 'dev',
+                    'operator_explicit' => true,
+                ],
+            );
+            $atlasDevRunId = $execution->runId;
+            $stdout = $this->jsonEncode([
+                'schema_version' => 'atlas.forge.rivals.atlas_dev_runtime_stdout.v1',
+                'runtime' => 'atlas_dev',
+                'rivals_run_id' => $runId,
+                'atlas_dev_run_id' => $atlasDevRunId,
+                'execution' => $execution->toCanonicalArray(),
+            ]);
+            $exit = $execution->status === 'passed' ? 0 : 1;
+        } catch (\Throwable $e) {
+            $stderr = $e->getMessage();
+            $stdout = $this->jsonEncode([
+                'schema_version' => 'atlas.forge.rivals.atlas_dev_runtime_stdout.v1',
+                'runtime' => 'atlas_dev',
+                'rivals_run_id' => $runId,
+                'status' => 'failed',
+                'error_class' => $e::class,
+            ]);
+        } finally {
+            config(['atlas_dev.receipts_path' => $previousReceiptsPath]);
+            app()->forgetInstance(ReceiptStorage::class);
+        }
+
+        file_put_contents($stdoutPath, $stdout);
+        file_put_contents($stderrPath, $stderr);
+
+        $patch = $this->capturePatch($runId, $arm, $worktree, $case, $caseSubdir);
+        $runtimeDiff = $this->atlasDevRuntimeDiffEvidence($runtimeReceiptDir, $atlasDevRunId);
+        $runtimeRouting = $this->atlasDevRuntimeRoutingEvidence($runtimeReceiptDir, $atlasDevRunId);
+        if ((int) ($patch['bytes'] ?? 0) <= 0 && is_string($runtimeDiff['diff'] ?? null) && trim((string) $runtimeDiff['diff']) !== '') {
+            file_put_contents($patch['path'], (string) $runtimeDiff['diff']);
+            $patch = [
+                'path' => $patch['path'],
+                'sha256' => (string) hash_file('sha256', $patch['path']),
+                'bytes' => (int) filesize($patch['path']),
+            ];
+        }
+        $scope = $this->scopeCheck($worktree, $case);
+        $runtimeChangedFiles = $this->stringList($runtimeDiff['changed_files'] ?? []);
+        $changedFiles = $scope['changed_files'];
+        if ($changedFiles === [] && $runtimeChangedFiles !== []) {
+            $changedFiles = $runtimeChangedFiles;
+        }
+        $test = $this->runValidationCommand($runId, $arm, $worktree, $case, $caseSubdir);
+        $stdoutBytes = strlen($stdout);
+        $stderrBytes = strlen($stderr);
+        $providerSummary = is_object($execution) ? (array) data_get($execution->toCanonicalArray(), 'run_summary.provider_call', []) : [];
+        $resolvedModel = (string) data_get($case, '_arena_contract.resolved_model', $model);
+        $resolvedModelId = (string) data_get(
+            $case,
+            '_arena_contract.resolved_model_id',
+            config('atlas.ai.providers.claude_cli.model') ?: $resolvedModel,
+        );
+        $actualModelFamily = (string) ($providerSummary['actual_model_family'] ?? $providerSummary['model_family'] ?? '');
+        $observedModel = $resolvedModelId;
+        if (trim($observedModel) === '') {
+            $observedModel = $actualModelFamily !== '' ? $actualModelFamily : 'sonnet';
+        }
+
+        $this->events->event($runId, 'atlas_dev_runtime_finished', [
+            'arm' => $arm,
+            'exit_code' => $exit,
+            'atlas_dev_run_id' => $atlasDevRunId,
+            'completion_state' => is_object($execution) ? data_get($execution->toCanonicalArray(), 'run_summary.completion_state') : null,
+            'scope_guard_status' => is_object($execution) ? data_get($execution->toCanonicalArray(), 'run_summary.scope_guard_status') : null,
+            'verification_status' => is_object($execution) ? data_get($execution->toCanonicalArray(), 'run_summary.verification_status') : null,
+        ]);
+
+        return [
+            'arm' => $arm,
+            'mode' => $mode,
+            'model' => $model,
+            'provider' => 'atlas_dev_runtime',
+            'resolved_model' => $resolvedModel,
+            'resolved_model_id' => $resolvedModelId,
+            'command_family' => 'atlas_dev_runtime',
+            'command' => ['atlas_dev_runtime', 'SeniorEngineerLoopExecutor'],
+            'command_hash' => hash('sha256', 'atlas_dev_runtime|'.$runId.'|'.(string) ($case['id'] ?? '')),
+            'prompt_hash' => hash('sha256', $this->atlasDevRuntimeIntent($case)),
+            'prompt_transport' => 'atlas_dev_provider_prompt_projection',
+            'started_at' => $startedAt,
+            'finished_at' => $this->nowIso(),
+            'exit_code' => $exit,
+            'killed' => false,
+            'timeout' => false,
+            'timeout_reason' => null,
+            'stdout_hash' => hash('sha256', $stdout),
+            'stderr_hash' => hash('sha256', $stderr),
+            'stdout_bytes' => $stdoutBytes,
+            'stderr_bytes' => $stderrBytes,
+            'stdout_tail' => substr($stdout, -2000),
+            'stderr_tail' => substr($stderr, -2000),
+            'stdout_path' => $stdoutPath,
+            'stderr_path' => $stderrPath,
+            'token_cost' => (float) ($providerSummary['estimated_cost_usd'] ?? 0.0),
+            'tokens_used' => (int) (($providerSummary['tokens_in'] ?? 0) + ($providerSummary['tokens_out'] ?? 0)),
+            'provider_usage' => [
+                'schema_version' => 'atlas.forge.rivals.provider_usage_receipt.v1',
+                'source' => 'atlas_dev_runtime',
+                'models_observed' => [$observedModel],
+                'actual_model_families_observed' => $actualModelFamily !== '' ? [$actualModelFamily] : [],
+                'tokens_used' => (int) (($providerSummary['tokens_in'] ?? 0) + ($providerSummary['tokens_out'] ?? 0)),
+                'token_cost' => (float) ($providerSummary['estimated_cost_usd'] ?? 0.0),
+                'cost_token_efficiency_is_telemetry_only' => true,
+            ],
+            'worktree' => $worktree,
+            'case_id' => $case['id'],
+            'changed_files' => $changedFiles,
+            'out_of_scope_files' => $scope['out_of_scope_files'],
+            'bytecode_artifacts' => $scope['bytecode_artifacts'],
+            'workspace_blockers' => $scope['blockers'],
+            'workspace_has_blocking_changes' => $scope['blockers'] !== [],
+            'isolation_leak_detected' => false,
+            'isolation_leak_blockers' => [],
+            'isolation_leak_matches' => [],
+            'patch_diff_path' => $patch['path'],
+            'patch_diff_hash' => $patch['sha256'],
+            'patch_diff_bytes' => $patch['bytes'],
+            'test_command' => $test['command'],
+            'test_exit_code' => $test['exit_code'],
+            'test_log_path' => $test['log_path'],
+            'test_log_hash' => $test['log_hash'],
+            'test_log_tail' => $test['tail'],
+            'atlas_dev_runtime' => [
+                'schema_version' => 'atlas.forge.rivals.atlas_dev_runtime_receipt.v1',
+                'run_id' => $atlasDevRunId,
+                'receipt_dir' => $runtimeReceiptDir,
+                'executor' => SeniorEngineerLoopExecutor::class,
+                'uses_atlas_dev_fast_path_orchestrator' => true,
+                'uses_pipeline_run_executor' => true,
+                'uses_scope_guard' => true,
+                'uses_verification_gate' => true,
+                'uses_completion_state_gate' => true,
+                'uses_failure_capsule_or_learning_handoff' => true,
+                'routing_decision' => $runtimeRouting,
+                'diff_evidence_source' => (int) ($patch['bytes'] ?? 0) > 0 && $scope['changed_files'] === [] && $runtimeChangedFiles !== []
+                    ? 'atlas_dev_diff_parse_result'
+                    : 'workspace_git_diff',
+            ],
+        ];
+    }
+
+    /**
+     * @return array{diff?:string,changed_files?:list<string>}
+     */
+    private function atlasDevRuntimeDiffEvidence(string $runtimeReceiptDir, ?string $atlasDevRunId): array
+    {
+        $runId = trim((string) $atlasDevRunId);
+        if ($runId === '') {
+            return [];
+        }
+
+        $path = rtrim($runtimeReceiptDir, '/').'/'.$runId.'/diff_parse_result.json';
+        if (! is_file($path)) {
+            return [];
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        return [
+            'diff' => is_string($decoded['diff'] ?? null) ? (string) $decoded['diff'] : '',
+            'changed_files' => $this->stringList($decoded['changed_files'] ?? []),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function atlasDevRuntimeRoutingEvidence(string $runtimeReceiptDir, ?string $atlasDevRunId): array
+    {
+        $runId = trim((string) $atlasDevRunId);
+        if ($runId === '') {
+            return [];
+        }
+
+        $path = rtrim($runtimeReceiptDir, '/').'/'.$runId.'/routing_decision.json';
+        if (! is_file($path)) {
+            return [];
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     */
+    private function atlasDevRuntimeIntent(array $case): string
+    {
+        return $this->casePrompt(
+            $this->atlasDevProviderSafeCase($case),
+            'Você está executando o runtime real do Atlas Dev em uma execução governada interna. Isto é uma solicitação explícita de execução de patch no workspace, não uma resposta textual. Use o fluxo Atlas Dev completo, incluindo contexto, gates, patch, validação, evidência, repair/learning quando aplicável e recibos.',
+            true,
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function atlasDevProviderSafeCase(array $case): array
+    {
+        foreach (['objective', 'business_rule', 'expected_signal', 'human_prompt'] as $key) {
+            if (is_string($case[$key] ?? null)) {
+                $case[$key] = $this->providerSafeRivalsText((string) $case[$key]);
+            }
+        }
+
+        return $case;
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return list<string>
+     */
+    private function atlasDevRuntimeConstraints(array $case): array
+    {
+        $constraints = [
+            'operator_explicit=true',
+            'rivals_runtime_execution=true',
+            'workspace_patch_required=true',
+        ];
+        foreach ($this->stringList($case['allowed_files'] ?? []) as $path) {
+            $constraints[] = 'allowed_files='.$path;
+        }
+        foreach ($this->expectedChangedScope($case) as $path) {
+            $constraints[] = 'expected_changed_file='.$path;
+        }
+        foreach ($this->stringList($case['forbidden_files'] ?? []) as $path) {
+            $constraints[] = 'forbidden_files='.$path;
+        }
+        $testCommand = $this->testCommand($case);
+        if ($testCommand !== '') {
+            $constraints[] = 'validation_command='.$testCommand;
+        }
+
+        return $constraints;
+    }
+
+    /**
      * Provider output may include command summaries and cwd paths. That is
      * fine. It must not include metadata paths, evidence files, or the sibling
      * arm workspace. If it does, the run is contaminated: the provider observed
@@ -2996,6 +3311,21 @@ DIFF;
     }
 
     /**
+     * @param  array<string,mixed>  $case
+     */
+    private function arenaArmId(string $arm, array $case): string
+    {
+        if (is_array($case['_arena_contract'] ?? null)) {
+            $armId = (string) data_get((array) $case['_arena_contract'], 'arm.arm_id', '');
+            if ($armId !== '') {
+                return $armId;
+            }
+        }
+
+        return $this->legacyArmId($arm, '');
+    }
+
+    /**
      * @param  array<string,mixed>  $contract
      * @param  array<string,mixed>  $case
      */
@@ -3038,7 +3368,7 @@ DIFF;
     /**
      * @param  array<string,mixed>  $case
      */
-    private function casePrompt(array $case, string $role): string
+    private function casePrompt(array $case, string $role, bool $providerSafeProjection = false): string
     {
         $promptMode = (string) ($case['prompt_mode'] ?? 'spec-perfect');
         $allowed = implode("\n- ", $this->stringList($case['allowed_files'] ?? []));
@@ -3047,7 +3377,7 @@ DIFF;
         $testCommand = $this->testCommand($case);
         $businessRule = trim((string) ($case['business_rule'] ?? ''));
         $expectedSignal = trim((string) ($case['expected_signal'] ?? ''));
-        $operatorTicket = $this->operatorTicketPromptBlock($case);
+        $operatorTicket = $this->operatorTicketPromptBlock($case, $providerSafeProjection);
         $fixtureNote = ($case['case_source'] ?? '') === 'provider_arena_corpus'
             ? "\nEstado inicial:\n- Os arquivos de seed ja foram posicionados no workspace. Use-os como ponto de partida e altere somente os arquivos esperados dentro do escopo permitido.\n"
             : '';
@@ -3055,10 +3385,12 @@ DIFF;
 Política de artefatos:
 - Modifique somente os arquivos esperados para alteracao.
 - Nao crie arquivos adicionais no workspace do caso, incluindo scorecard.json, evidence_pack.json, receipt.json, logs, caches ou artefatos temporarios.
-- O scorecard e o evidence pack oficiais sao gerados pelo harness do Rivals fora do workspace do caso; documente evidencias no runbook permitido quando necessario.
+- O scorecard e o evidence pack oficiais sao gerados pelo harness externo fora do workspace do caso; documente evidencias no runbook permitido quando necessario.
 TEXT;
 
         if ($promptMode === 'human-normal') {
+            $rulesLabel = $providerSafeProjection ? 'Regras da execução:' : 'Regras do benchmark:';
+
             return <<<PROMPT
 {$role}
 
@@ -3070,7 +3402,7 @@ Preciso que você resolva esta demanda no workspace atual: {$case['objective']}
 Contexto do problema:
 {$businessRule}
 
-Regras do benchmark:
+{$rulesLabel}
 - Fique dentro deste escopo permitido:
 - {$allowed}
 - A entrega esperada deve tocar estes arquivos:
@@ -3186,7 +3518,7 @@ PROMPT;
     /**
      * @param  array<string,mixed>  $case
      */
-    private function operatorTicketPromptBlock(array $case): string
+    private function operatorTicketPromptBlock(array $case, bool $providerSafeProjection = false): string
     {
         $humanPrompt = trim((string) ($case['human_prompt'] ?? ''));
         $pressure = is_array($case['ceiling_pressure_profile'] ?? null)
@@ -3195,7 +3527,7 @@ PROMPT;
 
         $blocks = [];
         if ($humanPrompt !== '') {
-            $blocks[] = "Ticket humano canonico do caso:\n".$humanPrompt;
+            $blocks[] = "Ticket humano canonico do caso:\n".$this->providerSafeRivalsText($humanPrompt);
         }
 
         if ($pressure !== []) {
@@ -3204,18 +3536,40 @@ PROMPT;
             $invalidIfMissing = implode(', ', $this->stringList($pressure['invalid_if_missing'] ?? []));
             $requires = implode(', ', $this->stringList($pressure['requires'] ?? []));
 
+            $contractLabel = $providerSafeProjection ? 'Contrato 360 obrigatorio' : 'Contrato Rivals 360 obrigatorio';
+            $evidenceLabel = $providerSafeProjection ? '360 Evidence' : 'Rivals 360 Evidence';
+
             $blocks[] = <<<TEXT
-Contrato Rivals 360 obrigatorio:
+{$contractLabel}:
 - Pressure level: {$pressureLevel}
 - Required sections: {$requiredSections}
 - Invalid if missing: {$invalidIfMissing}
 - Required reasoning signals: {$requires}
-- Ao terminar, inclua no runbook permitido ou na resposta final um bloco "Rivals 360 Evidence" com essas secoes nomeadas explicitamente.
+- Ao terminar, inclua no runbook permitido ou na resposta final um bloco "{$evidenceLabel}" com essas secoes nomeadas explicitamente.
 - Para cada decisao relevante, inclua Counterfactual Check, Blast Radius quantificado e Confidence Calibration com nivel/probabilidade e razao.
 TEXT;
         }
 
         return implode("\n\n", array_filter($blocks, static fn (string $block): bool => trim($block) !== ''));
+    }
+
+    private function providerSafeRivalsText(string $text): string
+    {
+        $replacements = [
+            'Atlas Forge Rivals' => 'Atlas internal evaluation',
+            'Forge Rivals' => 'internal evaluation',
+            'Rivals 360' => '360',
+            'Rivals' => 'internal evaluation',
+            'rivals' => 'internal evaluation',
+            'benchmark' => 'case',
+            'Benchmark' => 'Case',
+            'provider arena' => 'governed comparison',
+            'Provider Arena' => 'Governed Comparison',
+            'forge battle' => 'comparison',
+            'Forge battle' => 'Comparison',
+        ];
+
+        return strtr($text, $replacements);
     }
 
     private function normalizePromptMode(string $mode): string
@@ -3451,7 +3805,7 @@ TEXT;
     private function expectedChangedScope(array $case): array
     {
         $expected = $this->stringList($case['expected_changed_files'] ?? []);
-        if (($case['case_source'] ?? '') === 'provider_arena_corpus' && $expected !== []) {
+        if ($expected !== []) {
             return $expected;
         }
 
@@ -3831,6 +4185,13 @@ TEXT;
         $blockers = [];
         foreach (['arm_a', 'arm_b'] as $role) {
             $contract = is_array($arenaContracts[$role] ?? null) ? (array) $arenaContracts[$role] : [];
+            $runtimeBlocker = $this->atlasRuntimeArmBlocker($role, $contract);
+            if ($runtimeBlocker !== null) {
+                $blockers[] = $runtimeBlocker;
+
+                continue;
+            }
+
             $provider = strtolower(trim((string) ($contract['provider'] ?? data_get($contract, 'arm.provider', ''))));
             if ($provider === '') {
                 $blockers[] = 'arena_provider_missing:'.$role;
@@ -3861,6 +4222,35 @@ TEXT;
         }
 
         return array_values(array_unique($blockers));
+    }
+
+    /**
+     * Atlas-owned arms must execute the Atlas runtime, not a provider CLI
+     * wearing an Atlas prompt. Until the full runtime adapter is wired into
+     * Rivals, real runs fail closed before provider spend.
+     *
+     * @param  array<string,mixed>  $contract
+     */
+    private function atlasRuntimeArmBlocker(string $role, array $contract): ?string
+    {
+        $armId = (string) data_get($contract, 'arm.arm_id', '');
+        if (! in_array($armId, ['atlas_dev', 'atlas_forge'], true)) {
+            return null;
+        }
+
+        if ($armId === 'atlas_dev') {
+            return null;
+        }
+
+        $commandBuilder = (string) ($contract['command_builder'] ?? '');
+        $providerKind = (string) ($contract['provider_kind'] ?? data_get($contract, 'arm.provider_kind', ''));
+        if (in_array($commandBuilder, ['atlas_dev_runtime', 'atlas_forge_runtime'], true)
+            && $providerKind === 'atlas_runtime'
+        ) {
+            return null;
+        }
+
+        return 'arena_atlas_runtime_arm_not_connected:'.$role.':'.$armId.':expected_atlas_runtime_not_provider_cli';
     }
 
     private function providerPolicyBlocker(string $provider, string $role): ?string
@@ -3905,14 +4295,16 @@ TEXT;
                 'resolved_model_id_config_key' => $contract['resolved_model_id_config_key'] ?? null,
                 'resolved_model_label' => $contract['resolved_model_label'] ?? null,
                 'legacy_model_id' => $contract['legacy_model_id'] ?? null,
-                'command_builder' => match ((string) ($contract['provider'] ?? data_get($contract, 'arm.provider', ''))) {
-                    'claude' => 'claude_cli',
-                    'codex' => 'codex_cli',
-                    'gemini' => 'gemini_cli',
-                    'cursor' => 'cursor_cli',
-                    'composer' => 'composer_2_5',
-                    default => null,
-                },
+                'command_builder' => ((string) data_get($contract, 'arm.arm_id', '') === 'atlas_dev')
+                    ? 'atlas_dev_runtime'
+                    : match ((string) ($contract['provider'] ?? data_get($contract, 'arm.provider', ''))) {
+                        'claude' => 'claude_cli',
+                        'codex' => 'codex_cli',
+                        'gemini' => 'gemini_cli',
+                        'cursor' => 'cursor_cli',
+                        'composer' => 'composer_2_5',
+                        default => null,
+                    },
                 'capabilities' => data_get($contract, 'arm.capabilities', []),
             ];
         };

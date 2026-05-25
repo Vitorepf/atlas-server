@@ -24,6 +24,8 @@ class AtlasFrontendWorldBestProofPlanCommandTest extends TestCase
         $this->assertStringContainsString('runner-kit', $output);
         $this->assertStringContainsString('complete_external_rival_replay_manifests', $output);
         $this->assertStringContainsString('evidence_pack_readiness', $output);
+        $this->assertStringContainsString('evidence_worklist', $output);
+        $this->assertStringContainsString('write_performed', $output);
         $this->assertStringContainsString('fill_and_verify_rival_replay_evidence_packs', $output);
     }
 }

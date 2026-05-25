@@ -21,7 +21,10 @@ class AtlasFrontendPublicationCommand extends Command
     {
         $payload = match ((string) $this->argument('action')) {
             'verify' => $verifier->verify((string) ($this->option('bundle') ?: ''), (string) ($this->option('receipt') ?: '')),
-            'receipt-template' => $verifier->writeReceiptTemplate((string) ($this->option('output') ?: storage_path('app/atlas/frontend-publication'))),
+            'receipt-template' => $verifier->writeReceiptTemplate(
+                (string) ($this->option('output') ?: storage_path('app/atlas/frontend-publication')),
+                (string) ($this->option('bundle') ?: ''),
+            ),
             default => [
                 'schema_version' => AtlasFrontendPublicationVerifierService::SCHEMA_VERSION,
                 'status' => 'failed',

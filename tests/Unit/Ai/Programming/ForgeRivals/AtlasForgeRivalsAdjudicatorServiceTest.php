@@ -169,6 +169,39 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
         $this->assertContains('patch_diff_present_atlas', $scorecard['hard_failures']);
     }
 
+    public function test_hard_fail_when_sonnet_locked_run_observes_opus_spend(): void
+    {
+        $runId = $this->newRunId('hard-fail-opus-spend');
+        $paths = $this->paths->paths($runId);
+        $this->seedComparableRun(
+            $paths,
+            atlasOverrides: [
+                'provider_usage' => [
+                    'schema_version' => 'atlas.forge.rivals.provider_usage_receipt.v1',
+                    'models_observed' => ['claude-sonnet-4-6', 'claude-opus-4-7'],
+                ],
+                'stdout_tail' => '"modelUsage":{"claude-opus-4-7":{"costUSD":1.23},"claude-sonnet-4-6":{"costUSD":0.10}}',
+            ],
+            rivalOverrides: [],
+            manifestOverrides: [
+                'atlas_model' => 'claude_sonnet',
+                'rival_model' => 'claude_sonnet',
+            ],
+        );
+
+        $scorecard = $this->adjudicator->adjudicate(['run_id' => $runId])['scorecard'];
+
+        $this->assertNull($scorecard['winner']);
+        $this->assertNull($scorecard['atlas_score']);
+        $this->assertNull($scorecard['rival_score']);
+        $this->assertContains('no_forbidden_premium_model_spend_atlas', $scorecard['hard_failures']);
+        $this->assertStringContainsString(
+            'claude-opus-4-7',
+            collect($scorecard['hard_gates'])->firstWhere('code', 'no_forbidden_premium_model_spend_atlas')['detail'] ?? '',
+        );
+        $this->assertFalse($scorecard['claim_ready']);
+    }
+
     public function test_one_sided_test_failure_produces_gate_winner_without_quality_score_or_external_claim(): void
     {
         $runId = $this->newRunId('rival-test-fails');

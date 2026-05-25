@@ -18,28 +18,33 @@ final class AtlasFrontendCompanyRepoOnboardingService
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = rtrim(trim((string) ($input['workspace'] ?? '')), DIRECTORY_SEPARATOR);
         $provider = trim((string) ($input['provider'] ?? 'provider_neutral')) ?: 'provider_neutral';
+        $frontendApp = $this->frontendAppRelativeName($input['frontend_app'] ?? null);
+        $write = (bool) ($input['write'] ?? false);
         $writeDocs = (bool) ($input['write_docs'] ?? false);
         $proofOutput = $this->proofOutput($input['output'] ?? null, $workspace, $task);
 
-        $skillInstall = app(AtlasFrontendSkillPackService::class)->install([
-            'workspace' => $workspace,
-        ]);
+        $skillInstall = $write
+            ? app(AtlasFrontendSkillPackService::class)->install(['workspace' => $workspace])
+            : $this->inspectSkillPack($workspace);
         $bootstrap = app(AtlasFrontendEnterpriseBootstrapService::class)->run($input + [
             'task' => $task,
             'workspace' => $workspace,
             'write' => $writeDocs,
         ]);
-        $proofPilot = app(AtlasFrontendProductProofRuntimeService::class)->pilotDossier($input + [
-            'task' => $task,
-            'workspace' => $workspace,
-            'provider' => $provider,
-            'output' => $proofOutput,
-        ]);
+        $proofPilot = $write
+            ? app(AtlasFrontendProductProofRuntimeService::class)->pilotDossier($input + [
+                'task' => $task,
+                'workspace' => $workspace,
+                'frontend_app' => $frontendApp ?? '',
+                'provider' => $provider,
+                'output' => $proofOutput,
+            ])
+            : $this->readOnlyProofPilotProjection($bootstrap, $frontendApp);
 
         $blockers = array_values(array_unique(array_merge(
-            $this->prefix('skill_install', (array) ($skillInstall['blockers'] ?? [])),
+            $write ? $this->prefix('skill_install', (array) ($skillInstall['blockers'] ?? [])) : [],
             $this->prefix('bootstrap', (array) ($bootstrap['blockers'] ?? [])),
-            $this->prefix('proof_pilot', (array) ($proofPilot['blockers'] ?? [])),
+            $write ? $this->prefix('proof_pilot', (array) ($proofPilot['blockers'] ?? [])) : [],
         )));
         $warnings = array_values(array_unique(array_merge(
             $this->prefix('skill_install', (array) ($skillInstall['warnings'] ?? [])),
@@ -51,10 +56,13 @@ final class AtlasFrontendCompanyRepoOnboardingService
         $workspaceExists = $workspace !== '' && File::isDirectory($workspace);
         $skillInstalled = ($skillInstall['status'] ?? null) === 'installed';
         $executionReady = $blockers === []
-            && $skillInstalled
+            && (! $write || $skillInstalled)
             && ($bootstrap['status'] ?? null) === 'ready'
-            && ($proofPilot['status'] ?? null) === 'ready_for_operator_execution';
-        $prepared = $workspaceExists && $skillInstalled && ! $executionReady;
+            && (
+                ($write && ($proofPilot['status'] ?? null) === 'ready_for_operator_execution')
+                || (! $write && ($proofPilot['status'] ?? null) === 'ready_for_operator_execution_read_only_projection')
+            );
+        $prepared = $workspaceExists && ! $executionReady;
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -63,13 +71,20 @@ final class AtlasFrontendCompanyRepoOnboardingService
             'source' => self::class,
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
+            'frontend_app_scope' => $proofPilot['frontend_app_scope'] ?? [
+                'status' => 'repo_root',
+                'relative_name_hash' => null,
+            ],
             'provider' => $provider,
+            'write_requested' => $write,
             'write_docs_requested' => $writeDocs,
             'readiness' => [
                 'workspace_exists' => $workspaceExists,
                 'skill_pack_installed' => $skillInstalled,
                 'enterprise_bootstrap_ready' => ($bootstrap['status'] ?? null) === 'ready',
-                'proof_pilot_ready' => ($proofPilot['status'] ?? null) === 'ready_for_operator_execution',
+                'proof_pilot_ready' => $write
+                    ? ($proofPilot['status'] ?? null) === 'ready_for_operator_execution'
+                    : ($proofPilot['status'] ?? null) === 'ready_for_operator_execution_read_only_projection',
                 'provider_dispatch_allowed' => $executionReady,
                 'measured_evidence_present' => false,
                 'world_best_claim_allowed' => false,
@@ -78,6 +93,7 @@ final class AtlasFrontendCompanyRepoOnboardingService
                 'skill_pack_install_hash' => $skillInstall['skill_pack_install_hash'] ?? null,
                 'enterprise_bootstrap_hash' => $bootstrap['enterprise_bootstrap_hash'] ?? null,
                 'pilot_dossier_hash' => $proofPilot['pilot_dossier_hash'] ?? null,
+                'proof_pilot_projection_hash' => $proofPilot['projection_hash'] ?? null,
             ],
             'installed_refs' => [
                 'skill_path' => data_get($skillInstall, 'provider_activation.skill_path'),
@@ -88,6 +104,7 @@ final class AtlasFrontendCompanyRepoOnboardingService
                 : $this->nextActions($skillInstall, $bootstrap, $proofPilot, $writeDocs),
             'claim_policy' => [
                 'onboarding_is_not_delivery_evidence' => true,
+                'read_only_onboarding_does_not_write_workspace' => ! $write,
                 'prepared_needs_context_is_not_ready_for_provider_dispatch' => true,
                 'completion_requires_run_certification_handoff_and_outcome' => true,
                 'raw_customer_source_returned' => false,
@@ -98,7 +115,7 @@ final class AtlasFrontendCompanyRepoOnboardingService
         ];
         $payload['onboarding_hash'] = MissionCanonicalHash::sha256($payload);
 
-        if ($workspaceExists) {
+        if ($write && $workspaceExists) {
             File::ensureDirectoryExists($workspace.'/.atlas/frontend');
             File::put($workspace.'/.atlas/frontend/onboarding-receipt.json', json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
         }
@@ -118,6 +135,48 @@ final class AtlasFrontendCompanyRepoOnboardingService
         }
 
         return storage_path('app/atlas/frontend-onboarding-proof-pilot/'.hash('sha256', $task));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function inspectSkillPack(string $workspace): array
+    {
+        $exists = $workspace !== '' && File::isFile($workspace.'/.atlas/skills/atlas-frontend/SKILL.md');
+
+        return [
+            'schema_version' => AtlasFrontendSkillPackService::INSTALL_SCHEMA_VERSION,
+            'status' => $exists ? 'installed' : 'not_installed',
+            'skill_pack_install_hash' => $exists ? hash_file('sha256', $workspace.'/.atlas/skills/atlas-frontend/SKILL.md') : null,
+            'provider_activation' => [
+                'skill_path' => '.atlas/skills/atlas-frontend/SKILL.md',
+                'provider_should_read_before_frontend_edits' => $exists,
+                'runtime_commands_remain_authoritative' => true,
+            ],
+            'blockers' => [],
+            'warnings' => $exists ? [] : ['skill_pack_not_installed_read_only'],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $bootstrap
+     * @return array<string,mixed>
+     */
+    private function readOnlyProofPilotProjection(array $bootstrap, ?string $frontendApp): array
+    {
+        $payload = [
+            'schema_version' => AtlasFrontendProductProofRuntimeService::PILOT_DOSSIER_SCHEMA_VERSION,
+            'status' => ($bootstrap['status'] ?? null) === 'ready'
+                ? 'ready_for_operator_execution_read_only_projection'
+                : 'not_generated_read_only',
+            'proof_type' => 'read_only_company_repo_frontend_pilot_projection',
+            'frontend_app_scope' => $this->frontendAppScope($frontendApp),
+            'blockers' => [],
+            'warnings' => ['proof_pilot_not_written_in_read_only_onboarding'],
+        ];
+        $payload['projection_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
     }
 
     /**
@@ -152,5 +211,36 @@ final class AtlasFrontendCompanyRepoOnboardingService
         array_push($actions, ...array_values(array_filter((array) ($proofPilot['required_next_actions'] ?? []), 'is_string')));
 
         return array_values(array_unique($actions));
+    }
+
+    private function frontendAppRelativeName(mixed $frontendApp): ?string
+    {
+        if (! is_string($frontendApp) || trim($frontendApp) === '') {
+            return null;
+        }
+
+        $relative = trim(str_replace('\\', '/', $frontendApp), '/');
+
+        return $relative !== '' ? $relative : null;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function frontendAppScope(?string $frontendApp): array
+    {
+        if ($frontendApp === null || $frontendApp === '') {
+            return [
+                'status' => 'repo_root',
+                'relative_name_hash' => null,
+            ];
+        }
+
+        return [
+            'status' => 'subscope_selected',
+            'relative_name' => $frontendApp,
+            'relative_name_hash' => hash('sha256', $frontendApp),
+            'repo_workspace_remains_primary' => true,
+        ];
     }
 }

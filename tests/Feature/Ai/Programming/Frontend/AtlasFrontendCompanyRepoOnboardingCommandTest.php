@@ -35,6 +35,31 @@ class AtlasFrontendCompanyRepoOnboardingCommandTest extends TestCase
         $this->assertFileExists($workspace.'/.atlas/frontend/onboarding-receipt.json');
     }
 
+    public function test_onboard_command_prepares_ready_company_repo_with_frontend_app_scope(): void
+    {
+        $workspace = $this->readyMonorepoWorkspace();
+
+        $exitCode = Artisan::call('atlas:frontend:onboard', [
+            '--task' => 'Refinar app web premium no monorepo',
+            '--workspace' => $workspace,
+            '--frontend-app' => 'apps/web',
+            '--provider' => 'codex_cli',
+            '--acceptance' => true,
+            '--test-plan' => true,
+            '--visual-quality-plan' => true,
+            '--evidence-plan' => true,
+            '--senior-design-review' => true,
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertFileExists($workspace.'/.atlas/frontend/onboarding-receipt.json');
+    }
+
     public function test_onboard_command_strict_fails_when_repo_only_prepared(): void
     {
         $workspace = $this->minimalWorkspace();
@@ -66,6 +91,26 @@ class AtlasFrontendCompanyRepoOnboardingCommandTest extends TestCase
             File::ensureDirectoryExists(dirname($workspace.'/'.$definition['path']));
             File::put($workspace.'/'.$definition['path'], $this->filledDocument((string) $definition['title'], (array) $definition['sections']));
         }
+
+        return $workspace;
+    }
+
+    private function readyMonorepoWorkspace(): string
+    {
+        $workspace = $this->readyWorkspace();
+        File::ensureDirectoryExists($workspace.'/apps/web/src');
+        File::put($workspace.'/apps/web/package.json', json_encode([
+            'scripts' => [
+                'dev' => 'vite --host 127.0.0.1',
+                'test' => 'vitest run',
+                'build' => 'vite build',
+                'typecheck' => 'tsc --noEmit',
+                'lint' => 'eslint .',
+            ],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+        File::put($workspace.'/apps/web/index.html', '<div id="root"></div>');
+        File::put($workspace.'/apps/web/src/main.tsx', 'import React from "react";');
 
         return $workspace;
     }

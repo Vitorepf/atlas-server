@@ -57,4 +57,25 @@ class AtlasFrontendPublicationCommandTest extends TestCase
         $this->assertStringContainsString('atlas.frontend.publication_receipt_template.v1', $output);
         $this->assertTrue(File::isFile($dir.'/publication-receipt.json'));
     }
+
+    public function test_publish_receipt_template_command_prefills_from_bundle(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-publish-command-template-bundle-'.bin2hex(random_bytes(4));
+        $manifest = app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle, 'apps/web');
+        $dir = sys_get_temp_dir().'/atlas-frontend-publish-command-template-prefill-'.bin2hex(random_bytes(4));
+
+        $exitCode = Artisan::call('atlas:frontend:publish', [
+            'action' => 'receipt-template',
+            '--bundle' => $bundle,
+            '--output' => $dir,
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+        $receipt = json_decode(File::get($dir.'/publication-receipt.json'), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('prefilled_from_bundle', $output);
+        $this->assertSame($manifest['bundle_hash'], $receipt['bundle_hash']);
+        $this->assertSame('apps/web', data_get($receipt, 'frontend_app_scope.relative_name'));
+    }
 }

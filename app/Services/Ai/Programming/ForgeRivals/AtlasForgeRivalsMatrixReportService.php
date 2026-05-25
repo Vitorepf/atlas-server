@@ -439,7 +439,7 @@ final class AtlasForgeRivalsMatrixReportService
         );
 
         $planningExecution = $this->splitPlanningExecutionFromScorecard($scorecard);
-        $battle = $this->battleIdentityFromManifest($manifest);
+        $battle = $this->battleIdentityFromManifest($manifest, (string) ($case['task_category'] ?? ''));
         $reason = match (true) {
             $isInvalid => 'invalid_verdict:'.$verdict,
             $scorecard === [] => 'no_scorecard',
@@ -480,7 +480,7 @@ final class AtlasForgeRivalsMatrixReportService
      * @param  array<string,mixed>  $manifest
      * @return array<string,mixed>
      */
-    private function battleIdentityFromManifest(array $manifest): array
+    private function battleIdentityFromManifest(array $manifest, string $caseTaskCategory = ''): array
     {
         $contracts = is_array($manifest['arena_contracts'] ?? null) ? (array) $manifest['arena_contracts'] : [];
         $armA = is_array($contracts['arm_a'] ?? null) ? (array) $contracts['arm_a'] : [];
@@ -492,7 +492,8 @@ final class AtlasForgeRivalsMatrixReportService
         $armBModel = (string) ($armB['model_alias'] ?? $armB['requested_model'] ?? $manifest['arm_b_model'] ?? $manifest['rival_model'] ?? 'sonnet');
         $mode = (string) ($manifest['mode'] ?? 'provider_arena');
 
-        $battleId = $this->battleIdFor($armAId, $armAModel, $armBId, $armBModel, $mode);
+        $taskCategory = $caseTaskCategory !== '' ? $caseTaskCategory : (string) ($manifest['task_category'] ?? '');
+        $battleId = $this->battleIdFor($armAId, $armAModel, $armBId, $armBModel, $mode, $taskCategory);
 
         return [
             'battle_id' => $battleId,
@@ -1532,7 +1533,7 @@ final class AtlasForgeRivalsMatrixReportService
             $cases = (int) ($bucket['cases'] ?? 0);
             $ties = (int) ($bucket['ties'] ?? 0);
             $tieRate = $cases > 0 ? round($ties / $cases, 4) : null;
-            $exceeds = $tieRate !== null && $tieRate > self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL;
+            $exceeds = $tieRate !== null && $tieRate >= self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL;
             if ($exceeds) {
                 $levelsExceeding[] = $level;
             }
@@ -1779,8 +1780,8 @@ final class AtlasForgeRivalsMatrixReportService
                     fn (array $case): string => $this->arenaDryRunCommandForCase($case, 'atlas_dev', 'sonnet', 'claude_code', 'sonnet'),
                     $candidates,
                 )),
-                'atlas_dev_vs_atlas_forge' => array_values(array_map(
-                    fn (array $case): string => $this->arenaDryRunCommandForCase($case, 'atlas_dev', 'sonnet', 'atlas_forge', 'sonnet'),
+                'atlas_dev_architecture_pressure_vs_claude_sonnet' => array_values(array_map(
+                    fn (array $case): string => $this->arenaDryRunCommandForCase($case, 'atlas_dev', 'sonnet', 'claude_code', 'sonnet'),
                     $candidates,
                 )),
             ],
@@ -1797,9 +1798,9 @@ final class AtlasForgeRivalsMatrixReportService
                     ),
                     $candidates,
                 )),
-                'atlas_dev_vs_atlas_forge' => array_values(array_map(
+                'atlas_dev_architecture_pressure_vs_claude_sonnet' => array_values(array_map(
                     fn (array $case): string => $this->arenaRealRunCommand(
-                        $this->arenaDryRunCommandForCase($case, 'atlas_dev', 'sonnet', 'atlas_forge', 'sonnet'),
+                        $this->arenaDryRunCommandForCase($case, 'atlas_dev', 'sonnet', 'claude_code', 'sonnet'),
                     ),
                     $candidates,
                 )),
@@ -2181,9 +2182,9 @@ final class AtlasForgeRivalsMatrixReportService
                 'case_id' => 'ceiling-360-003-industrial-015-incomplete_requirements',
             ],
             [
-                'id' => 'atlas_forge_vs_claude_sonnet',
+                'id' => 'atlas_dev_vs_claude_sonnet',
                 'mode' => 'provider_arena',
-                'arm_a' => 'atlas_forge',
+                'arm_a' => 'atlas_dev',
                 'arm_a_model' => 'sonnet',
                 'arm_b' => 'claude_code',
                 'arm_b_model' => 'sonnet',
@@ -2191,11 +2192,11 @@ final class AtlasForgeRivalsMatrixReportService
                 'case_id' => 'ceiling-360-003-industrial-015-incomplete_requirements',
             ],
             [
-                'id' => 'atlas_dev_vs_atlas_forge',
+                'id' => 'atlas_dev_architecture_pressure_vs_claude_sonnet',
                 'mode' => 'provider_arena',
                 'arm_a' => 'atlas_dev',
                 'arm_a_model' => 'sonnet',
-                'arm_b' => 'atlas_forge',
+                'arm_b' => 'claude_code',
                 'arm_b_model' => 'sonnet',
                 'task_category' => 'refactor',
                 'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
@@ -2263,7 +2264,7 @@ final class AtlasForgeRivalsMatrixReportService
         ];
     }
 
-    private function battleIdFor(string $armA, string $armAModel, string $armB, string $armBModel, string $mode): string
+    private function battleIdFor(string $armA, string $armAModel, string $armB, string $armBModel, string $mode, string $taskCategory = ''): string
     {
         foreach ($this->canonicalCapabilityBattles() as $battle) {
             if (
@@ -2272,6 +2273,7 @@ final class AtlasForgeRivalsMatrixReportService
                 && $battle['arm_b'] === $armB
                 && $battle['arm_b_model'] === $armBModel
                 && $battle['mode'] === $mode
+                && ($taskCategory === '' || $battle['task_category'] === $taskCategory)
             ) {
                 return $battle['id'];
             }

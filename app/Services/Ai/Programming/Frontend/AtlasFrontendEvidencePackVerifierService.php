@@ -81,6 +81,7 @@ final class AtlasFrontendEvidencePackVerifierService
             'pack_id_hash' => isset($manifest['pack_id']) ? hash('sha256', (string) $manifest['pack_id']) : null,
             'case_id' => is_string($manifest['case_id'] ?? null) ? $manifest['case_id'] : null,
             'system' => is_string($manifest['system'] ?? null) ? $manifest['system'] : null,
+            'frontend_app_scope' => $this->frontendAppScope($manifest),
         ]);
     }
 
@@ -183,6 +184,9 @@ final class AtlasFrontendEvidencePackVerifierService
             }
 
             $actualHash = ($absolute !== '' && File::isFile($absolute)) ? hash_file('sha256', $absolute) : null;
+            if ($actualHash !== null && $this->artifactHasForbiddenRawFields($absolute)) {
+                $blockers[] = 'artifact_forbidden_raw_prompt_or_source_field_present';
+            }
             if ($actualHash !== null && $expectedHash !== '' && preg_match('/^[a-f0-9]{64}$/', $expectedHash) && $actualHash !== $expectedHash) {
                 $blockers[] = 'artifact_hash_mismatch';
             }
@@ -241,8 +245,66 @@ final class AtlasFrontendEvidencePackVerifierService
     {
         $forbidden = ['raw_prompt', 'prompt', 'source', 'raw_source', 'customer_source', 'customer_data'];
 
-        return collect(array_keys($manifest))
-            ->contains(fn (string $key): bool => in_array(Str::snake($key), $forbidden, true));
+        return $this->containsForbiddenKeyRecursive($manifest, $forbidden);
+    }
+
+    /**
+     * @param  array<int,string>  $forbidden
+     */
+    private function containsForbiddenKeyRecursive(array $payload, array $forbidden): bool
+    {
+        foreach ($payload as $key => $value) {
+            if (is_string($key) && in_array(Str::snake($key), $forbidden, true)) {
+                return true;
+            }
+
+            if (is_array($value) && $this->containsForbiddenKeyRecursive($value, $forbidden)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function artifactHasForbiddenRawFields(string $path): bool
+    {
+        if (! str_ends_with(strtolower($path), '.json')) {
+            return false;
+        }
+
+        $payload = json_decode(File::get($path), true);
+
+        return is_array($payload) && $this->hasForbiddenRawFields($payload);
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function frontendAppScope(array $manifest): array
+    {
+        $scope = $manifest['frontend_app_scope'] ?? null;
+        if (! is_array($scope)) {
+            return ['status' => 'repo_root', 'relative_name_hash' => null];
+        }
+
+        $status = (string) ($scope['status'] ?? 'repo_root');
+        $relative = is_string($scope['relative_name'] ?? null) ? trim(str_replace('\\', '/', (string) $scope['relative_name']), '/') : null;
+
+        if ($status !== 'subscope_selected') {
+            return ['status' => $status !== '' ? $status : 'repo_root', 'relative_name_hash' => null];
+        }
+
+        if ($relative === null || $relative === '' || str_starts_with($relative, '/') || str_contains($relative, '..')) {
+            return ['status' => 'invalid_subscope', 'relative_name_hash' => $relative !== null ? hash('sha256', $relative) : null];
+        }
+
+        return [
+            'status' => 'subscope_selected',
+            'relative_name' => $relative,
+            'relative_name_hash' => hash('sha256', $relative),
+            'repo_workspace_remains_primary' => true,
+        ];
     }
 
     private function rootDirectory(?string $rootDirectory, string $manifestPath): string

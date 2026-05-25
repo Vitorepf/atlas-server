@@ -88,6 +88,7 @@ final class AtlasFrontendQualityBudgetGateService
                 'task_spec_hash' => preg_match('/^[a-f0-9]{64}$/', strtolower((string) ($report['task_spec_hash'] ?? '')))
                     ? strtolower((string) $report['task_spec_hash'])
                     : null,
+                'frontend_app_scope' => $this->frontendAppScope($report),
                 'verified_viewports' => $viewports,
             ],
         );
@@ -243,5 +244,35 @@ final class AtlasFrontendQualityBudgetGateService
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     * @return array<string,mixed>
+     */
+    private function frontendAppScope(array $report): array
+    {
+        $scope = $report['frontend_app_scope'] ?? null;
+        if (! is_array($scope)) {
+            return ['status' => 'repo_root', 'relative_name_hash' => null];
+        }
+
+        $status = (string) ($scope['status'] ?? 'repo_root');
+        $relative = is_string($scope['relative_name'] ?? null) ? trim(str_replace('\\', '/', (string) $scope['relative_name']), '/') : null;
+
+        if ($status !== 'subscope_selected') {
+            return ['status' => $status !== '' ? $status : 'repo_root', 'relative_name_hash' => null];
+        }
+
+        if ($relative === null || $relative === '' || str_starts_with($relative, '/') || str_contains($relative, '..')) {
+            return ['status' => 'invalid_subscope', 'relative_name_hash' => $relative !== null ? hash('sha256', $relative) : null];
+        }
+
+        return [
+            'status' => 'subscope_selected',
+            'relative_name' => $relative,
+            'relative_name_hash' => hash('sha256', $relative),
+            'repo_workspace_remains_primary' => true,
+        ];
     }
 }

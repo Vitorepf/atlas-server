@@ -105,13 +105,19 @@ final class AtlasForgeRivalsArmRegistryService
     /** @var list<string> */
     public const TASK_CATEGORIES = [
         'planning',
+        'frontend_ui',
         'frontend',
+        'backend_logic',
         'backend',
+        'realistic_bugfix',
         'bugfix',
+        'test_design',
         'tests',
         'refactor',
         'architecture',
         'docs',
+        'integration_performance',
+        'integration',
         'performance',
         'security',
     ];
@@ -273,7 +279,7 @@ final class AtlasForgeRivalsArmRegistryService
             'status' => self::STATUS_AVAILABLE,
             'not_executable_reason' => null,
             'human_label' => 'Atlas Dev',
-            'human_description' => 'Atlas Dev lightweight runner around Claude Sonnet: scoped context, short plan, patch, focused tests, simple verification, then escalation to Forge on risk/failure.',
+            'human_description' => 'Atlas Dev runtime runner over Sonnet: SeniorEngineerLoopExecutor, scoped context, gates, patch, focused tests, verification receipts, learning handoff, and governed escalation policy.',
         ];
     }
 

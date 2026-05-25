@@ -4,6 +4,7 @@
 node_modules
 vendor
 storage/atlas
+storage/app/private/*
 storage/logs/*.log
 storage/framework/cache/*
 storage/framework/sessions/*

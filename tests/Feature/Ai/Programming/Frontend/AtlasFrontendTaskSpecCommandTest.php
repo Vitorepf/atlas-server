@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\Programming\Frontend;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendTaskSpecCompilerService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class AtlasFrontendTaskSpecCommandTest extends TestCase
@@ -36,5 +37,25 @@ class AtlasFrontendTaskSpecCommandTest extends TestCase
 
         $this->assertSame(1, $exitCode);
         $this->assertStringContainsString('task_missing', $output);
+    }
+
+    public function test_spec_command_accepts_frontend_app_scope(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-spec-command-monorepo-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($workspace.'/apps/web');
+
+        $exitCode = Artisan::call('atlas:frontend:spec', [
+            '--task' => 'Ajustar checkout web',
+            '--workspace' => $workspace,
+            '--frontend-app' => 'apps/web',
+            '--acceptance' => true,
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('frontend_app_scope', $output);
+        $this->assertStringContainsString('subscope_selected', $output);
+        $this->assertStringNotContainsString($workspace.'/apps/web', $output);
     }
 }

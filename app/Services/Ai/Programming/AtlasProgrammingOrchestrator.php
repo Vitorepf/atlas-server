@@ -15,6 +15,7 @@ use App\Services\Ai\Programming\Frontend\AtlasFrontendEnterpriseBootstrapService
 use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionGateService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionRunbookService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendProviderInstructionPacketService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendSelectedWorkspaceService;
 use App\Services\Engineering\EngineeringHarnessExecutionService;
 use Illuminate\Support\Str;
 use Throwable;
@@ -687,34 +688,42 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'senior_design_review' => (bool) ($options['senior_design_review'] ?? $options['frontend_senior_design_review'] ?? false),
         ]);
         $workspace = (string) data_get($programmingMessagePlan, 'workspace', '');
+        $frontendApp = trim((string) ($options['frontend_app'] ?? $options['frontend_app_subscope'] ?? ''));
         $enterpriseInput = [
             'task' => $task,
             'surface' => 'programming.frontend',
             'workspace' => $workspace,
+            'frontend_app' => $frontendApp,
             'acceptance_criteria' => (bool) ($options['acceptance_criteria'] ?? $options['frontend_acceptance'] ?? false),
             'test_plan' => (bool) ($options['test_plan'] ?? $options['frontend_test_plan'] ?? false),
             'visual_quality_plan' => (bool) ($options['visual_quality_plan'] ?? $options['frontend_visual_quality_plan'] ?? false),
             'evidence_plan' => (bool) ($options['evidence_plan'] ?? $options['frontend_evidence_plan'] ?? false),
             'senior_design_review' => (bool) ($options['senior_design_review'] ?? $options['frontend_senior_design_review'] ?? false),
         ];
-        $enterpriseBootstrap = $this->workspaceLooksProjectScoped($workspace)
+        $selectedWorkspace = app(AtlasFrontendSelectedWorkspaceService::class)->resolve($enterpriseInput + [
+            'selection_source' => 'atlas_dev_or_atlas_code',
+        ]);
+        $workspaceSelected = ($selectedWorkspace['status'] ?? null) === 'selected';
+        $enterpriseBootstrap = $workspaceSelected
             ? app(AtlasFrontendEnterpriseBootstrapService::class)->run($enterpriseInput)
             : null;
-        $companyRepoOnboarding = $this->workspaceLooksProjectScoped($workspace)
+        $companyRepoOnboarding = $workspaceSelected
             ? app(AtlasFrontendCompanyRepoOnboardingService::class)->run($enterpriseInput + [
                 'provider' => (string) ($options['provider'] ?? $options['frontend_provider'] ?? 'provider_neutral'),
                 'output' => (string) ($options['frontend_proof_output'] ?? $options['proof_output'] ?? ''),
             ])
             : null;
-        $executionRunbook = $this->workspaceLooksProjectScoped($workspace)
+        $executionRunbook = $workspaceSelected
             ? app(AtlasFrontendExecutionRunbookService::class)->compile($enterpriseInput + [
                 'evidence_output' => (string) ($options['frontend_evidence_output'] ?? $options['evidence_output'] ?? '<evidence-dir>'),
+                'write_evidence_kit' => false,
             ])
             : null;
-        $providerInstructionPacket = $this->workspaceLooksProjectScoped($workspace)
+        $providerInstructionPacket = $workspaceSelected
             ? app(AtlasFrontendProviderInstructionPacketService::class)->compile($enterpriseInput + [
                 'provider' => (string) ($options['provider'] ?? $options['frontend_provider'] ?? 'provider_neutral'),
                 'evidence_output' => (string) ($options['frontend_evidence_output'] ?? $options['evidence_output'] ?? '<evidence-dir>'),
+                'write_evidence_kit' => false,
             ])
             : null;
 
@@ -785,15 +794,34 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'pre_execution_gate' => $preExecutionGate,
             'enterprise_operating_contract' => [
                 'schema_version' => 'atlas.programming.frontend_enterprise_operating_contract.v1',
-                'workspace_mode' => $this->workspaceLooksProjectScoped($workspace) ? 'local_company_or_product_repo' : 'generic_or_missing_workspace',
+                'workspace_mode' => $selectedWorkspace['workspace_mode'] ?? 'generic_or_missing_workspace',
+                'selected_workspace_schema' => AtlasFrontendSelectedWorkspaceService::SCHEMA_VERSION,
                 'enterprise_bootstrap_schema' => AtlasFrontendEnterpriseBootstrapService::SCHEMA_VERSION,
                 'company_repo_onboarding_schema' => AtlasFrontendCompanyRepoOnboardingService::SCHEMA_VERSION,
                 'execution_runbook_schema' => AtlasFrontendExecutionRunbookService::SCHEMA_VERSION,
                 'provider_instruction_packet_schema' => AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION,
+                'selected_workspace_status' => $selectedWorkspace['status'] ?? 'not_evaluated',
+                'selected_workspace_dispatch_readiness_status' => data_get($selectedWorkspace, 'dispatch_readiness.status', 'not_evaluated'),
+                'runtime_projection_allowed' => (bool) data_get($selectedWorkspace, 'dispatch_readiness.runtime_projection_allowed', false),
+                'frontend_app_candidate_status' => data_get($selectedWorkspace, 'frontend_app_candidates.status', 'not_evaluated'),
+                'frontend_app_candidate_count' => (int) data_get($selectedWorkspace, 'frontend_app_candidates.candidate_count', 0),
+                'frontend_app_primary_candidate_ref' => data_get($selectedWorkspace, 'frontend_app_candidates.primary_candidate_ref'),
+                'frontend_app_candidate_confirmation_required' => (bool) data_get($selectedWorkspace, 'frontend_app_candidates.operator_decision.required', false),
+                'frontend_app_scope_status' => data_get($executionRunbook, 'frontend_app_scope.status', 'not_evaluated'),
+                'frontend_app_scope_hash' => data_get($executionRunbook, 'frontend_app_scope.relative_name_hash'),
+                'onboarding_frontend_app_scope_status' => data_get($companyRepoOnboarding, 'frontend_app_scope.status', 'not_evaluated'),
+                'onboarding_frontend_app_scope_hash' => data_get($companyRepoOnboarding, 'frontend_app_scope.relative_name_hash'),
+                'operator_start_panel_status' => data_get($selectedWorkspace, 'operator_start_panel.status', 'not_evaluated'),
+                'operator_primary_action' => data_get($selectedWorkspace, 'operator_start_panel.primary_action'),
+                'next_best_action' => data_get($selectedWorkspace, 'next_best_action.id'),
+                'next_best_action_priority' => data_get($selectedWorkspace, 'next_best_action.priority'),
+                'task_binding_status' => data_get($selectedWorkspace, 'task_binding.status', 'not_evaluated'),
+                'task_bound' => (bool) data_get($selectedWorkspace, 'task_binding.task_present', false),
                 'onboarding_status' => $companyRepoOnboarding['status'] ?? 'not_evaluated',
                 'bootstrap_status' => $enterpriseBootstrap['status'] ?? 'not_evaluated',
                 'runbook_status' => $executionRunbook['status'] ?? 'not_evaluated',
                 'provider_packet_status' => $providerInstructionPacket['status'] ?? 'not_evaluated',
+                'selected_workspace_provider_dispatch_allowed' => (bool) data_get($selectedWorkspace, 'dispatch_readiness.provider_dispatch_allowed', false),
                 'provider_dispatch_allowed' => (bool) data_get($enterpriseBootstrap, 'readiness.provider_dispatch_allowed') && ($companyRepoOnboarding['status'] ?? null) === 'ready_for_operator_execution' && ($executionRunbook['status'] ?? null) === 'ready' && ($providerInstructionPacket['status'] ?? null) === 'ready',
                 'premium_frontend_claim_allowed' => (bool) data_get($enterpriseBootstrap, 'readiness.premium_frontend_claim_allowed') && ($executionRunbook['status'] ?? null) === 'ready',
                 'world_best_claim_allowed' => false,
@@ -810,6 +838,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
                     'provider_instruction_packet_hash' => $providerInstructionPacket['provider_instruction_packet_hash'] ?? null,
                 ],
             ],
+            'selected_workspace' => $selectedWorkspace,
             'company_repo_onboarding' => $companyRepoOnboarding,
             'enterprise_bootstrap' => $enterpriseBootstrap,
             'execution_runbook' => $executionRunbook,

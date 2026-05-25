@@ -18,6 +18,7 @@ final class AtlasFrontendEnterpriseBootstrapService
     {
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = rtrim(trim((string) ($input['workspace'] ?? '')), DIRECTORY_SEPARATOR);
+        $frontendApp = trim((string) ($input['frontend_app'] ?? ''));
         $write = (bool) ($input['write'] ?? false);
         $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
 
@@ -77,6 +78,11 @@ final class AtlasFrontendEnterpriseBootstrapService
             'bootstrap_type' => 'company_owned_local_repo_premium_frontend_bootstrap',
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
+            'frontend_app_scope' => $workOrder['frontend_app_scope'] ?? $gauntlet['frontend_app_scope'] ?? [
+                'status' => 'repo_root',
+                'relative_name' => null,
+                'relative_name_hash' => null,
+            ],
             'company_work_mode' => $this->companyWorkMode($task, $workspace),
             'write_result' => $writeResult,
             'readiness' => [
@@ -99,7 +105,7 @@ final class AtlasFrontendEnterpriseBootstrapService
             ],
             'required_docs' => app(AtlasFrontendDesignDossierService::class)->requiredDocuments(),
             'required_next_actions' => $this->nextActions($write, $dossier, $blueprint, $intake, $gauntlet, $workOrder),
-            'recommended_command_sequence' => $this->recommendedCommandSequence($workspace),
+            'recommended_command_sequence' => $this->recommendedCommandSequence($workspace, $frontendApp),
             'claim_policy' => [
                 'enterprise_bootstrap_is_not_completion_evidence' => true,
                 'missing_docs_must_be_filled_by_operator_or_product_owner' => true,
@@ -231,15 +237,17 @@ final class AtlasFrontendEnterpriseBootstrapService
     /**
      * @return array<int,string>
      */
-    private function recommendedCommandSequence(string $workspace): array
+    private function recommendedCommandSequence(string $workspace, string $frontendApp): array
     {
         $workspaceArg = $workspace !== '' ? '--workspace='.escapeshellarg($workspace) : '--workspace=<local-company-repo>';
+        $relativeFrontendApp = trim(str_replace('\\', '/', $frontendApp), '/');
+        $frontendAppArg = $relativeFrontendApp !== '' ? ' --frontend-app='.$relativeFrontendApp : '';
 
         return [
             'php artisan atlas:frontend:enterprise-bootstrap write --task="<intent>" '.$workspaceArg.' --json',
             'php artisan atlas:frontend:design-dossier inspect '.$workspaceArg.' --json --strict',
             'php artisan atlas:frontend:intake '.$workspaceArg.' --json --strict',
-            'php artisan atlas:frontend:work-order --task="<intent>" '.$workspaceArg.' --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'php artisan atlas:frontend:work-order --task="<intent>" '.$workspaceArg.$frontendAppArg.' --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
         ];
     }
 }

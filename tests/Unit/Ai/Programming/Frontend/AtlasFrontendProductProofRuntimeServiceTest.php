@@ -37,10 +37,27 @@ class AtlasFrontendProductProofRuntimeServiceTest extends TestCase
         $this->assertSame('ready', $payload['status']);
         $this->assertTrue((bool) data_get($payload, 'publication_policy.publishable_static_bundle_created'));
         $this->assertFalse((bool) data_get($payload, 'publication_policy.external_hosting_verified'));
+        $this->assertSame('atlas.frontend.product_proof_publication_workflow.v1', data_get($payload, 'publication_workflow.schema_version'));
+        $this->assertSame('local_bundle_ready_publication_pending', data_get($payload, 'publication_workflow.status'));
+        $this->assertContains('php artisan atlas:frontend:publish receipt-template --bundle=<bundle> --output=<bundle> --json', data_get($payload, 'publication_workflow.commands'));
+        $this->assertContains('matching_frontend_app_scope_when_subscope_selected', data_get($payload, 'publication_workflow.required_public_evidence'));
+        $this->assertTrue((bool) data_get($payload, 'publication_workflow.claim_policy.local_bundle_is_not_public_distribution'));
         $this->assertFileExists($output.'/index.html');
         $this->assertFileExists($output.'/manifest.json');
         $this->assertCount(5, $payload['assets']);
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['bundle_hash']);
+    }
+
+    public function test_build_static_bundle_carries_frontend_app_scope_for_monorepo_publication(): void
+    {
+        $output = sys_get_temp_dir().'/atlas-frontend-proof-bundle-scope-'.bin2hex(random_bytes(4));
+
+        $payload = app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($output, 'apps/web');
+
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'frontend_app_scope.relative_name_hash'));
+        $this->assertTrue((bool) data_get($payload, 'publication_policy.frontend_app_scope_from_bundle_manifest'));
     }
 
     public function test_pilot_dossier_prepares_real_repo_execution_without_done_or_world_best_claim(): void
@@ -73,6 +90,35 @@ class AtlasFrontendProductProofRuntimeServiceTest extends TestCase
         $this->assertFileExists($output.'/pilot-dossier.json');
         $this->assertFileExists($output.'/evidence-kit/evidence-kit-manifest.json');
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['pilot_dossier_hash']);
+    }
+
+    public function test_pilot_dossier_carries_frontend_app_scope_into_runbook_and_evidence_commands(): void
+    {
+        $workspace = $this->readyMonorepoWorkspace('atlas-frontend-proof-pilot-monorepo');
+        $output = sys_get_temp_dir().'/atlas-frontend-proof-pilot-monorepo-output-'.bin2hex(random_bytes(4));
+
+        $payload = app(AtlasFrontendProductProofRuntimeService::class)->pilotDossier([
+            'task' => 'Refinar app web premium no monorepo',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+            'provider' => 'codex_cli',
+            'output' => $output,
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+            'senior_design_review' => true,
+        ]);
+
+        $this->assertSame('ready_for_operator_execution', $payload['status']);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'frontend_app_scope.relative_name_hash'));
+        $this->assertSame('apps/web', data_get($payload, 'execution_contract.frontend_app_scope.relative_name'));
+        $this->assertTrue(collect(data_get($payload, 'execution_contract.collection_commands'))->contains(
+            fn (string $command): bool => str_contains($command, '--frontend-app=apps/web'),
+        ));
+        $this->assertFileExists($output.'/evidence-kit/evidence-kit-manifest.json');
     }
 
     public function test_pilot_dossier_blocks_when_repo_context_cannot_support_provider_execution(): void
@@ -114,6 +160,26 @@ class AtlasFrontendProductProofRuntimeServiceTest extends TestCase
             File::ensureDirectoryExists(dirname($workspace.'/'.$definition['path']));
             File::put($workspace.'/'.$definition['path'], $this->filledDocument((string) $definition['title'], (array) $definition['sections']));
         }
+
+        return $workspace;
+    }
+
+    private function readyMonorepoWorkspace(string $prefix): string
+    {
+        $workspace = $this->readyWorkspace($prefix);
+        File::ensureDirectoryExists($workspace.'/apps/web/src');
+        File::put($workspace.'/apps/web/package.json', json_encode([
+            'scripts' => [
+                'dev' => 'vite --host 127.0.0.1',
+                'test' => 'vitest run',
+                'build' => 'vite build',
+                'typecheck' => 'tsc --noEmit',
+                'lint' => 'eslint .',
+            ],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+        File::put($workspace.'/apps/web/index.html', '<div id="root"></div>');
+        File::put($workspace.'/apps/web/src/main.tsx', 'import React from "react";');
 
         return $workspace;
     }

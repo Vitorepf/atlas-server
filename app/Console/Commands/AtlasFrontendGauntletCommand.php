@@ -11,6 +11,7 @@ class AtlasFrontendGauntletCommand extends Command
         {--task= : Frontend task or user intent}
         {--surface=programming.frontend : Surface/profile requesting frontend work}
         {--workspace= : Local company/product repository path}
+        {--frontend-app= : Optional frontend app subdirectory inside the selected repository, e.g. apps/web}
         {--acceptance : Acceptance criteria are present}
         {--asset-context : Asset provenance or placeholder policy exists}
         {--company-profile-ready : Ready company profile exists}
@@ -32,6 +33,7 @@ class AtlasFrontendGauntletCommand extends Command
             'task' => (string) ($this->option('task') ?? ''),
             'surface' => (string) ($this->option('surface') ?? 'programming.frontend'),
             'workspace' => (string) ($this->option('workspace') ?? ''),
+            'frontend_app' => (string) ($this->option('frontend-app') ?? ''),
             'acceptance_criteria' => (bool) $this->option('acceptance'),
             'asset_context' => (bool) $this->option('asset-context'),
             'company_profile_ready' => (bool) $this->option('company-profile-ready'),

@@ -47,6 +47,35 @@ class AtlasFrontendWorkOrderServiceTest extends TestCase
         $this->assertContains('confirm_frontend_workspace_or_create_package_manifest', $payload['required_next_actions']);
     }
 
+    public function test_work_order_carries_frontend_app_scope_into_verification_packets(): void
+    {
+        $workspace = $this->readyWorkspace();
+        File::ensureDirectoryExists($workspace.'/apps/web/src/pages');
+        File::put($workspace.'/apps/web/package.json', json_encode([
+            'scripts' => ['dev' => 'vite', 'test' => 'vitest run', 'build' => 'vite build'],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+
+        $payload = app(AtlasFrontendWorkOrderService::class)->compile([
+            'task' => 'Ajustar checkout web com qualidade premium',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+        ]);
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+
+        $commands = implode("\n", collect($payload['work_packets'])->flatMap(fn (array $packet): array => $packet['commands'])->all());
+        $this->assertStringContainsString('atlas:frontend:evidence-kit prepare --task="<brief>" --workspace=<local-company-repo> --frontend-app=apps/web', $commands);
+        $this->assertStringContainsString('atlas:frontend:scenarios --task="<brief>" --workspace=<local-company-repo> --frontend-app=apps/web', $commands);
+        $this->assertStringNotContainsString($workspace.'/apps/web', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
     private function readyWorkspace(): string
     {
         $workspace = sys_get_temp_dir().'/atlas-frontend-work-order-ready-'.bin2hex(random_bytes(4));

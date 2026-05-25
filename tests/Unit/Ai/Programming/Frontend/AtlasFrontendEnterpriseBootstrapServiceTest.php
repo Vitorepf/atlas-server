@@ -61,6 +61,32 @@ class AtlasFrontendEnterpriseBootstrapServiceTest extends TestCase
         $this->assertFalse((bool) data_get($payload, 'readiness.world_best_claim_allowed'));
     }
 
+    public function test_bootstrap_carries_frontend_app_scope_into_recommended_work_order(): void
+    {
+        $workspace = $this->readyFrontendWorkspace('atlas-frontend-enterprise-bootstrap-monorepo');
+        File::ensureDirectoryExists($workspace.'/apps/web/src/pages');
+        File::put($workspace.'/apps/web/package.json', json_encode([
+            'scripts' => ['dev' => 'vite', 'test' => 'vitest run', 'build' => 'vite build'],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+
+        $payload = app(AtlasFrontendEnterpriseBootstrapService::class)->run([
+            'task' => 'Refinar checkout web com design premium',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+        ]);
+
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertTrue((bool) data_get($payload, 'frontend_app_scope.repo_workspace_remains_primary'));
+        $this->assertStringContainsString('--frontend-app=apps/web', implode("\n", $payload['recommended_command_sequence']));
+        $this->assertStringNotContainsString($workspace.'/apps/web', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
     private function minimalFrontendWorkspace(string $prefix): string
     {
         $workspace = sys_get_temp_dir().'/'.$prefix.'-'.bin2hex(random_bytes(4));

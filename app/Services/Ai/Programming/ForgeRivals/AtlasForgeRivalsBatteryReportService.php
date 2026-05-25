@@ -83,6 +83,8 @@ final class AtlasForgeRivalsBatteryReportService
 
     public const MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL = 0.55;
 
+    public const MAX_TECHNICAL_TIES_BEFORE_REINFORCEMENT = 10;
+
     /** Trusted battery floors. */
     public const TRUSTED_MIN_CASES = 12;
 
@@ -993,6 +995,9 @@ final class AtlasForgeRivalsBatteryReportService
         if ($tieRate !== null && $tieRate >= $suspiciousTieRateThreshold) {
             $reasons[] = 'high_tie_rate:'.number_format($tieRate, 2, '.', '');
         }
+        if ($tieCount >= self::MAX_TECHNICAL_TIES_BEFORE_REINFORCEMENT) {
+            $reasons[] = 'technical_tie_count_reached_reinforcement_threshold:'.$tieCount;
+        }
         if ($averageAbsDelta !== null && $averageAbsDelta < $lowSeparationThreshold) {
             $reasons[] = 'average_abs_delta_below_tie_threshold:'.$averageAbsDelta;
         }
@@ -1030,6 +1035,11 @@ final class AtlasForgeRivalsBatteryReportService
             'global_delta' => $globalAverages['delta'],
             'low_separation_threshold' => $lowSeparationThreshold,
             'suspicious_tie_rate_threshold' => $suspiciousTieRateThreshold,
+            'tie_reinforcement_threshold_count' => self::MAX_TECHNICAL_TIES_BEFORE_REINFORCEMENT,
+            'tie_reinforcement_required' => $tieCount >= self::MAX_TECHNICAL_TIES_BEFORE_REINFORCEMENT,
+            'tie_reinforcement_action' => $tieCount >= self::MAX_TECHNICAL_TIES_BEFORE_REINFORCEMENT
+                ? 'cancel_current_battery_and_increase_baseline_complexity_and_capability_measurement'
+                : 'continue_sampling',
             'per_level_tie_escalation' => $perLevelTieEscalation,
             'low_discrimination' => $reasons !== [],
             'reasons' => array_values(array_unique($reasons)),
@@ -1068,7 +1078,7 @@ final class AtlasForgeRivalsBatteryReportService
             $validCases = (int) ($band['valid_cases'] ?? 0);
             $ties = (int) ($band['ties'] ?? 0);
             $tieRate = $validCases > 0 ? round($ties / $validCases, 4) : null;
-            $exceeds = $tieRate !== null && $tieRate > self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL;
+            $exceeds = $tieRate !== null && $tieRate >= self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL;
             if ($exceeds) {
                 $levelsExceeding[] = $level;
             }
@@ -1314,11 +1324,11 @@ final class AtlasForgeRivalsBatteryReportService
     private function extremeRequiredMatchups(): array
     {
         return [
-            ['id' => 'atlas_forge_vs_claude_sonnet', 'mode' => 'fair', 'arm_a' => 'atlas_forge', 'arm_a_model' => 'sonnet', 'arm_b' => 'claude_code', 'arm_b_model' => 'sonnet'],
+            ['id' => 'atlas_dev_vs_claude_sonnet', 'mode' => 'fair', 'arm_a' => 'atlas_dev', 'arm_a_model' => 'sonnet', 'arm_b' => 'claude_code', 'arm_b_model' => 'sonnet'],
             ['id' => 'claude_sonnet_vs_codex_gpt_5_5', 'mode' => 'provider_arena', 'arm_a' => 'claude_code', 'arm_a_model' => 'sonnet', 'arm_b' => 'codex_cli', 'arm_b_model' => 'gpt-5.5'],
             ['id' => 'composer_2_5_vs_codex_gpt_5_5', 'mode' => 'provider_arena', 'arm_a' => 'composer_2_5', 'arm_a_model' => 'default', 'arm_b' => 'codex_cli', 'arm_b_model' => 'gpt-5.5'],
             ['id' => 'cursor_default_vs_claude_sonnet', 'mode' => 'provider_arena', 'arm_a' => 'cursor_cli', 'arm_a_model' => 'default', 'arm_b' => 'claude_code', 'arm_b_model' => 'sonnet'],
-            ['id' => 'atlas_dev_vs_atlas_forge', 'mode' => 'provider_arena', 'arm_a' => 'atlas_dev', 'arm_a_model' => 'sonnet', 'arm_b' => 'atlas_forge', 'arm_b_model' => 'sonnet'],
+            ['id' => 'atlas_dev_architecture_pressure_vs_claude_sonnet', 'mode' => 'provider_arena', 'arm_a' => 'atlas_dev', 'arm_a_model' => 'sonnet', 'arm_b' => 'claude_code', 'arm_b_model' => 'sonnet'],
             ['id' => 'codex_vs_gemini', 'mode' => 'provider_arena', 'arm_a' => 'codex_cli', 'arm_a_model' => 'gpt-5.5', 'arm_b' => 'gemini_cli', 'arm_b_model' => 'gemini-pro'],
         ];
     }

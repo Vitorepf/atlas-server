@@ -17,6 +17,7 @@ class AtlasFrontendCompanyRepoOnboardingServiceTest extends TestCase
             'task' => 'Refinar BlackInk com dashboard premium responsivo',
             'workspace' => $workspace,
             'provider' => 'codex_cli',
+            'write' => true,
             'acceptance_criteria' => true,
             'test_plan' => true,
             'visual_quality_plan' => true,
@@ -45,6 +46,7 @@ class AtlasFrontendCompanyRepoOnboardingServiceTest extends TestCase
         $payload = app(AtlasFrontendCompanyRepoOnboardingService::class)->run([
             'task' => 'Criar SaaS novo premium',
             'workspace' => $workspace,
+            'write' => true,
             'write_docs' => true,
             'acceptance_criteria' => true,
             'test_plan' => true,
@@ -63,6 +65,77 @@ class AtlasFrontendCompanyRepoOnboardingServiceTest extends TestCase
         $this->assertTrue((bool) data_get($payload, 'claim_policy.prepared_needs_context_is_not_ready_for_provider_dispatch'));
     }
 
+    public function test_read_only_onboarding_projects_selected_repo_without_writing_skill_or_receipt(): void
+    {
+        $workspace = $this->readyWorkspace('atlas-frontend-onboarding-read-only');
+
+        $payload = app(AtlasFrontendCompanyRepoOnboardingService::class)->run([
+            'task' => 'Refinar BlackInk com dashboard premium responsivo',
+            'workspace' => $workspace,
+            'provider' => 'codex_cli',
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+            'senior_design_review' => true,
+        ]);
+
+        $this->assertSame('ready_for_operator_execution', $payload['status']);
+        $this->assertFalse((bool) data_get($payload, 'write_requested'));
+        $this->assertTrue((bool) data_get($payload, 'readiness.provider_dispatch_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'readiness.skill_pack_installed'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.read_only_onboarding_does_not_write_workspace'));
+        $this->assertFileDoesNotExist($workspace.'/.atlas/skills/atlas-frontend/SKILL.md');
+        $this->assertFileDoesNotExist($workspace.'/.atlas/frontend/onboarding-receipt.json');
+    }
+
+    public function test_write_onboarding_carries_frontend_app_scope_into_proof_pilot(): void
+    {
+        $workspace = $this->readyMonorepoWorkspace('atlas-frontend-onboarding-monorepo');
+
+        $payload = app(AtlasFrontendCompanyRepoOnboardingService::class)->run([
+            'task' => 'Refinar app web premium no monorepo',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+            'provider' => 'codex_cli',
+            'write' => true,
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+            'senior_design_review' => true,
+        ]);
+
+        $this->assertSame('ready_for_operator_execution', $payload['status']);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'frontend_app_scope.relative_name_hash'));
+        $this->assertFileExists($workspace.'/.atlas/frontend/onboarding-receipt.json');
+    }
+
+    public function test_read_only_onboarding_projects_frontend_app_scope_without_writing_workspace(): void
+    {
+        $workspace = $this->readyMonorepoWorkspace('atlas-frontend-onboarding-read-only-monorepo');
+
+        $payload = app(AtlasFrontendCompanyRepoOnboardingService::class)->run([
+            'task' => 'Refinar app web premium no monorepo',
+            'workspace' => $workspace,
+            'frontend_app' => 'apps/web',
+            'provider' => 'codex_cli',
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+            'senior_design_review' => true,
+        ]);
+
+        $this->assertSame('ready_for_operator_execution', $payload['status']);
+        $this->assertFalse((bool) data_get($payload, 'write_requested'));
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertFileDoesNotExist($workspace.'/.atlas/frontend/onboarding-receipt.json');
+    }
+
     public function test_onboarding_blocks_missing_workspace(): void
     {
         $payload = app(AtlasFrontendCompanyRepoOnboardingService::class)->run([
@@ -71,9 +144,9 @@ class AtlasFrontendCompanyRepoOnboardingServiceTest extends TestCase
         ]);
 
         $this->assertSame('blocked', $payload['status']);
-        $this->assertContains('skill_install_workspace_not_found', $payload['blockers']);
         $this->assertContains('bootstrap_dossier_workspace_missing', $payload['blockers']);
-        $this->assertTrue(collect($payload['blockers'])->contains(fn (string $blocker): bool => str_starts_with($blocker, 'proof_pilot_')));
+        $this->assertContains('bootstrap_repo_workspace_not_found', $payload['blockers']);
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.read_only_onboarding_does_not_write_workspace'));
     }
 
     private function readyWorkspace(string $prefix): string
@@ -83,6 +156,26 @@ class AtlasFrontendCompanyRepoOnboardingServiceTest extends TestCase
             File::ensureDirectoryExists(dirname($workspace.'/'.$definition['path']));
             File::put($workspace.'/'.$definition['path'], $this->filledDocument((string) $definition['title'], (array) $definition['sections']));
         }
+
+        return $workspace;
+    }
+
+    private function readyMonorepoWorkspace(string $prefix): string
+    {
+        $workspace = $this->readyWorkspace($prefix);
+        File::ensureDirectoryExists($workspace.'/apps/web/src');
+        File::put($workspace.'/apps/web/package.json', json_encode([
+            'scripts' => [
+                'dev' => 'vite --host 127.0.0.1',
+                'test' => 'vitest run',
+                'build' => 'vite build',
+                'typecheck' => 'tsc --noEmit',
+                'lint' => 'eslint .',
+            ],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+        File::put($workspace.'/apps/web/index.html', '<div id="root"></div>');
+        File::put($workspace.'/apps/web/src/main.tsx', 'import React from "react";');
 
         return $workspace;
     }

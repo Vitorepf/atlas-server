@@ -53,6 +53,14 @@ final class AtlasFrontendProviderInstructionPacketService
             'surface' => $surface,
             'task_hash' => $task !== '' ? hash('sha256', $task) : null,
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
+            'frontend_app_scope' => [
+                'schema_version' => 'atlas.frontend.provider_instruction_packet.frontend_app_scope.v1',
+                'status' => data_get($runbook, 'frontend_app_scope.status', 'repo_root'),
+                'relative_name' => data_get($runbook, 'frontend_app_scope.relative_name'),
+                'relative_name_hash' => data_get($runbook, 'frontend_app_scope.relative_name_hash'),
+                'repo_workspace_remains_primary' => true,
+                'raw_absolute_path_returned' => false,
+            ],
             'upstream_hash_refs' => [
                 'gate_hash' => $gate['hash'] ?? null,
                 'work_order_hash' => $workOrder['work_order_hash'] ?? null,
@@ -90,6 +98,7 @@ final class AtlasFrontendProviderInstructionPacketService
                 ))),
             'claim_policy' => [
                 'provider_packet_is_not_execution_evidence' => true,
+                'read_only_packet_does_not_write_evidence_kit' => ! (bool) ($runbook['write_evidence_kit'] ?? true),
                 'provider_must_return_receipts_not_claims' => true,
                 'completion_requires_run_certification_handoff_and_outcome' => true,
                 'raw_customer_source_returned' => false,

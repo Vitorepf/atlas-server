@@ -473,7 +473,7 @@ final class AtlasForgeRivalsReportV3Test extends TestCase
         $this->assertFalse($commands[0]['external_provider_call']);
         $this->assertFalse($commands[0]['provider_tokens_spent']);
         $commandIds = array_column($commands, 'id');
-        $this->assertContains('dry_run_atlas_forge_vs_claude_sonnet', $commandIds);
+        $this->assertContains('dry_run_atlas_dev_vs_claude_sonnet', $commandIds);
         $this->assertContains('dry_run_composer_2_5_vs_codex_gpt_5_5', $commandIds);
         $this->assertContains('dry_run_cursor_default_vs_claude_sonnet', $commandIds);
         $composerDryRun = collect($commands)->firstWhere('id', 'dry_run_composer_2_5_vs_codex_gpt_5_5');

@@ -33,8 +33,28 @@ class AtlasFrontendProductProofCommandTest extends TestCase
 
         $this->assertSame(0, $exitCode);
         $this->assertStringContainsString('atlas.frontend.product_proof_bundle.v1', $output);
+        $this->assertStringContainsString('publication_workflow', $output);
+        $this->assertStringContainsString('receipt-template --bundle=<bundle>', $output);
         $this->assertFileExists($outputPath.'/index.html');
         $this->assertFileExists($outputPath.'/manifest.json');
+    }
+
+    public function test_proof_command_builds_static_bundle_with_frontend_app_scope(): void
+    {
+        $outputPath = sys_get_temp_dir().'/atlas-frontend-proof-command-scope-'.bin2hex(random_bytes(4));
+
+        $exitCode = Artisan::call('atlas:frontend:proof', [
+            'action' => 'build',
+            '--output' => $outputPath,
+            '--frontend-app' => 'apps/web',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'frontend_app_scope.relative_name_hash'));
     }
 
     public function test_proof_command_builds_company_repo_pilot_dossier(): void
@@ -64,6 +84,36 @@ class AtlasFrontendProductProofCommandTest extends TestCase
         $this->assertStringContainsString('world_best_claim_allowed', $output);
         $this->assertFileExists($outputPath.'/pilot-dossier.json');
         $this->assertFileExists($outputPath.'/evidence-kit/evidence-kit-manifest.json');
+    }
+
+    public function test_proof_command_builds_company_repo_pilot_dossier_with_frontend_app_scope(): void
+    {
+        $workspace = $this->readyMonorepoWorkspace();
+        $outputPath = sys_get_temp_dir().'/atlas-frontend-proof-pilot-command-scope-'.bin2hex(random_bytes(4));
+
+        $exitCode = Artisan::call('atlas:frontend:proof', [
+            'action' => 'pilot',
+            '--task' => 'Refinar app web premium no monorepo',
+            '--workspace' => $workspace,
+            '--frontend-app' => 'apps/web',
+            '--provider' => 'codex_cli',
+            '--output' => $outputPath,
+            '--acceptance' => true,
+            '--test-plan' => true,
+            '--visual-quality-plan' => true,
+            '--evidence-plan' => true,
+            '--senior-design-review' => true,
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_app_scope.relative_name'));
+        $this->assertTrue(collect(data_get($payload, 'execution_contract.collection_commands'))->contains(
+            fn (string $command): bool => str_contains($command, '--frontend-app=apps/web'),
+        ));
     }
 
     public function test_proof_command_strict_fails_blocked_pilot_dossier(): void
@@ -106,6 +156,26 @@ class AtlasFrontendProductProofCommandTest extends TestCase
             File::ensureDirectoryExists(dirname($workspace.'/'.$definition['path']));
             File::put($workspace.'/'.$definition['path'], $this->filledDocument((string) $definition['title'], (array) $definition['sections']));
         }
+
+        return $workspace;
+    }
+
+    private function readyMonorepoWorkspace(): string
+    {
+        $workspace = $this->readyWorkspace();
+        File::ensureDirectoryExists($workspace.'/apps/web/src');
+        File::put($workspace.'/apps/web/package.json', json_encode([
+            'scripts' => [
+                'dev' => 'vite --host 127.0.0.1',
+                'test' => 'vitest run',
+                'build' => 'vite build',
+                'typecheck' => 'tsc --noEmit',
+                'lint' => 'eslint .',
+            ],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+        File::put($workspace.'/apps/web/index.html', '<div id="root"></div>');
+        File::put($workspace.'/apps/web/src/main.tsx', 'import React from "react";');
 
         return $workspace;
     }

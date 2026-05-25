@@ -11,6 +11,7 @@ class AtlasFrontendBlueprintCommand extends Command
         {action=generate : generate or write}
         {--task= : Frontend product/design task}
         {--workspace= : Local company/product repository path}
+        {--frontend-app= : Optional frontend app subdirectory inside the selected repository, e.g. apps/web}
         {--surface=programming.frontend : Surface/profile requesting frontend work}
         {--asset-context : Asset provenance or placeholder policy exists}
         {--prototype : Prototype/discovery mode requested}
@@ -25,6 +26,7 @@ class AtlasFrontendBlueprintCommand extends Command
         $input = [
             'task' => (string) ($this->option('task') ?: ''),
             'workspace' => (string) ($this->option('workspace') ?: ''),
+            'frontend_app' => (string) ($this->option('frontend-app') ?: ''),
             'surface' => (string) ($this->option('surface') ?: 'programming.frontend'),
             'asset_context' => (bool) $this->option('asset-context'),
             'prototype' => (bool) $this->option('prototype'),

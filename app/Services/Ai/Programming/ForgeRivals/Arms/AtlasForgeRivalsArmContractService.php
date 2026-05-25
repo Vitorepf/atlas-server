@@ -103,15 +103,29 @@ final class AtlasForgeRivalsArmContractService
 
         $resolved = $this->resolveModel($arm, $model, $blockers);
 
+        $providerKind = $resolved['provider_kind'] ?? null;
+        $providerMetadata = (array) ($resolved['provider_metadata'] ?? []);
+        if (($arm['arm_id'] ?? null) === AtlasForgeRivalsArmRegistryService::ARM_ATLAS_DEV) {
+            $providerKind = 'atlas_runtime';
+            $providerMetadata = array_replace($providerMetadata, [
+                'runtime' => 'atlas_dev',
+                'runtime_executor' => 'SeniorEngineerLoopExecutor',
+                'underlying_provider' => $arm['provider'] ?? 'claude',
+                'underlying_model_provider' => $arm['provider'] ?? 'claude',
+                'model_routing_owner' => 'atlas_dev_runtime',
+                'atlas_routing_effect' => 'none',
+            ]);
+        }
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'arm_role' => $armRole,
             'arm' => $arm,
             'provider' => $arm['provider'] ?? null,
-            'provider_kind' => $resolved['provider_kind'] ?? null,
+            'provider_kind' => $providerKind,
             'meta_provider' => $resolved['meta_provider'] ?? false,
             'meta_provider_parent' => $resolved['meta_provider_parent'] ?? null,
-            'provider_metadata' => $resolved['provider_metadata'] ?? [],
+            'provider_metadata' => $providerMetadata,
             'requested_model' => $model,
             'resolved_model' => $resolved['canonical_model'],
             'resolved_model_id' => $resolved['model_id'],

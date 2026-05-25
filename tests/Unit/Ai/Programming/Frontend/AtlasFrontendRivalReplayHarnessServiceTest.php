@@ -196,6 +196,22 @@ class AtlasFrontendRivalReplayHarnessServiceTest extends TestCase
         $this->assertSame(15, data_get($payload, 'evidence_pack_readiness.summary.passed'));
         $this->assertSame('passed', data_get($payload, 'fairness.status'));
         $this->assertFalse((bool) data_get($payload, 'claim_policy.may_claim_world_best_frontend_system'));
+        $this->assertContains('atlas_does_not_win_every_complete_case', $payload['remaining_gaps']);
+        $this->assertSame('atlas_needs_improvement', data_get($payload, 'competitive_diagnostics.status'));
+        $this->assertSame(1, data_get($payload, 'competitive_diagnostics.losing_case_count'));
+        $losingCase = collect(data_get($payload, 'competitive_diagnostics.cases'))->firstWhere('status', 'atlas_loses');
+        $this->assertSame('live_mode_repair_loop', $losingCase['case_id']);
+        $this->assertSame('pbakaus_impeccable', $losingCase['best_rival_system']);
+        $this->assertSame(2, $losingCase['minimum_points_to_lead_best_rival']);
+        $this->assertSame(1, $losingCase['dimension_gap_count']);
+        $this->assertSame('product_intent_fit', data_get($losingCase, 'dimension_gaps.0.dimension'));
+        $this->assertSame('live_mode_repair_loop', data_get($losingCase, 'dimension_gaps.0.case_id'));
+        $this->assertSame('pbakaus_impeccable', data_get($losingCase, 'dimension_gaps.0.best_rival_system'));
+        $this->assertSame(1, data_get($losingCase, 'dimension_gaps.0.points_to_match'));
+        $this->assertSame('improve_product_intent_fit', data_get($losingCase, 'dimension_gaps.0.next_action'));
+        $this->assertSame('php artisan atlas:frontend:repair-plan --dimension-gap=product_intent_fit:1:-1:10:live_mode_repair_loop:pbakaus_impeccable --json', data_get($losingCase, 'dimension_gaps.0.repair_plan_command'));
+        $this->assertContains('php artisan atlas:frontend:repair-plan --dimension-gap=product_intent_fit:1:-1:10:live_mode_repair_loop:pbakaus_impeccable --json', $losingCase['recommended_repair_plan_commands']);
+        $this->assertSame('improve_atlas_frontend_case_and_rerun_replay', $losingCase['next_action']);
         $this->assertSame(45, data_get($payload, 'scoreboard.atlas_frontend.score'));
         $this->assertSame(46, data_get($payload, 'scoreboard.pbakaus_impeccable.score'));
     }
@@ -307,6 +323,47 @@ class AtlasFrontendRivalReplayHarnessServiceTest extends TestCase
         $this->assertSame('invalid', $run['status']);
         $this->assertContains('evidence_pack_ref_missing', $run['issues']);
         $this->assertFalse((bool) data_get($payload, 'summary.external_replay_completed'));
+    }
+
+    public function test_complete_manifest_is_invalid_with_nested_raw_prompt_or_source_fields(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-nested-raw-'.bin2hex(random_bytes(4));
+        $service = app(AtlasFrontendRivalReplayHarnessService::class);
+        $service->writeTemplate($dir);
+        $taskSpecHash = $this->taskSpecHash($dir, 'saas_dashboard_repair');
+        $hashes = $this->writeEvidencePack($dir, 'saas_dashboard_repair', 'atlas_frontend', $taskSpecHash);
+
+        File::put($dir.'/saas_dashboard_repair/atlas_frontend/manifest.json', json_encode([
+            'case_id' => 'saas_dashboard_repair',
+            'system' => 'atlas_frontend',
+            'status' => 'complete',
+            'run_id' => 'saas_dashboard_repair-atlas_frontend',
+            'task_spec_hash' => $taskSpecHash,
+            'task_spec_ref' => '../task-spec.json',
+            'evidence_pack_ref' => 'evidence/evidence-pack.json',
+            'output_artifact_ref' => 'artifact://saas_dashboard_repair/atlas_frontend',
+            'output_artifact_hash' => $hashes['output_artifact'],
+            'screenshot_hashes' => [$hashes['screenshot_set']],
+            'anti_slop_report_hash' => $hashes['anti_slop_report'],
+            'verification_hashes' => [$hashes['verification_report']],
+            'score_breakdown' => $this->scoreBreakdown(9),
+            'score_total' => 9,
+            'score_max' => 100,
+            'completed_at' => '2026-05-25T00:00:00Z',
+            'debug' => [
+                'capture' => [
+                    'raw_source' => 'secret source excerpt',
+                ],
+            ],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $payload = $service->inspect($dir);
+        $run = collect($payload['runs'])->firstWhere('case_id', 'saas_dashboard_repair');
+
+        $this->assertSame('invalid', $run['status']);
+        $this->assertContains('forbidden_raw_prompt_or_source_field_present', $run['issues']);
+        $this->assertFalse((bool) data_get($payload, 'summary.external_replay_completed'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.may_claim_world_best_frontend_system'));
     }
 
     /**

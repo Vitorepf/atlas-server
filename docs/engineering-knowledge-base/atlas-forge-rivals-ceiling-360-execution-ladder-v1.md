@@ -291,8 +291,9 @@ Ele impede que o Rivals trate tres casos L5+ no mesmo par como compreensao 360
 dos modelos/runners. O floor de batalha exige evidencia comparavel nos pares
 canonicos:
 
-- `atlas_forge_vs_claude_sonnet`;
-- `atlas_dev_vs_atlas_forge`;
+- `atlas_dev_architecture_escalated_vs_claude_sonnet`;
+- `atlas_dev_vs_claude_sonnet`;
+- `atlas_dev_architecture_pressure_vs_claude_sonnet`;
 - `composer_2_5_vs_codex_gpt_5_5`;
 - `cursor_default_vs_claude_sonnet`;
 - `claude_sonnet_vs_codex_gpt_5_5`;
@@ -366,6 +367,9 @@ casos ou qualquer faixa L1-L5 ainda esta facil demais:
 - L1-L5 acima de 55% de empate tecnico:
   `per_level_tie_escalation_cancel_and_increase_complexity`
 - 10 empates agregados: `tie_escalation_cancel_and_increase_baseline_complexity`
+- custo, tokens, tempo, diff minimo e tamanho medio de patch permanecem
+  diagnosticos/telemetria; nunca decidem vencedor sem evidencia forte de
+  qualidade, replay, scope e contrato 360.
 
 Ambos preservam advisory-only invariants e recomendam mais medicao, nao routing.
 
@@ -377,7 +381,7 @@ anterior:
 - `case_set=ceiling-360`
 - `case_count=120`
 - `ceiling_360_matrix=true`
-- `pair_count=8`
+- `pair_count=9`
 - `dry_run_command` por par
 - `next_command` real apenas com confirmacoes explicitas
 
@@ -387,8 +391,8 @@ Readiness nunca executa provider. Ela pode emitir
 
 Pares canonicos minimos:
 
-- `atlas_forge` vs `claude_code`
-- `atlas_dev` vs `atlas_forge`
+- `atlas_dev` vs `claude_code` em fair-mode Sonnet vs Sonnet
+- `atlas_dev` vs `claude_code` em provider_arena para pressao arquitetural
 - `composer_2_5` vs `codex_cli`
 - `cursor_cli` vs `claude_code`
 - `claude_code` vs `codex_cli`
@@ -401,9 +405,9 @@ Pares canonicos minimos:
 `execution_ladder`
 (`atlas.forge.rivals.ceiling_360_execution_ladder.v1`) tem tres etapas:
 
-- `canary_8`: 8 casos x 8 pares = 64 runs reais.
-- `floor_24`: 24 casos x 8 pares = 192 runs reais.
-- `full_120`: 120 casos x 8 pares = 960 runs reais.
+- `canary_8`: 8 casos x 9 pares = 72 runs reais.
+- `floor_24`: 24 casos x 9 pares = 216 runs reais.
+- `full_120`: 120 casos x 9 pares = 1080 runs reais.
 
 A escada preserva dificuldade L5+ e permite coletar evidencia real em camadas
 antes de gastar no sweep completo. Os comandos do primeiro caso de cada etapa

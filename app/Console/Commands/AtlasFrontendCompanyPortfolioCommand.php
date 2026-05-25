@@ -9,6 +9,7 @@ class AtlasFrontendCompanyPortfolioCommand extends Command
 {
     protected $signature = 'atlas:frontend:portfolio
         {--root= : Parent directory containing local company repositories}
+        {--task= : Optional frontend task or operator intent used only to rank repository candidates}
         {--max-depth=2 : Maximum directory depth to search}
         {--max-repos=30 : Maximum repositories to inspect}
         {--json : Emit canonical JSON payload}
@@ -20,6 +21,7 @@ class AtlasFrontendCompanyPortfolioCommand extends Command
     {
         $payload = $portfolio->scan([
             'root' => (string) ($this->option('root') ?: ''),
+            'task' => (string) ($this->option('task') ?: ''),
             'max_depth' => (int) ($this->option('max-depth') ?: 2),
             'max_repos' => (int) ($this->option('max-repos') ?: 30),
         ]);

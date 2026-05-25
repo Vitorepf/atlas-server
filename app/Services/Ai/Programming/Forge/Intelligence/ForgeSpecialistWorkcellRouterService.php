@@ -13,6 +13,7 @@ use App\Services\Ai\Programming\Frontend\AtlasFrontendEnterpriseBootstrapService
 use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionGateService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionRunbookService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendProviderInstructionPacketService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendSelectedWorkspaceService;
 use Illuminate\Support\Str;
 
 final class ForgeSpecialistWorkcellRouterService
@@ -26,6 +27,7 @@ final class ForgeSpecialistWorkcellRouterService
     {
         $text = strtolower((string) $packet->title.' '.(string) $packet->objective.' '.(string) $packet->scope);
         $workspace = $this->workspaceFromPacket($packet);
+        $frontendApp = $this->frontendAppFromPacket($packet, $workspace);
         $route = 'implementation';
         if (str_contains($text, 'test') || str_contains($text, 'teste') || str_contains($text, 'qa')) {
             $route = 'qa_test';
@@ -54,29 +56,39 @@ final class ForgeSpecialistWorkcellRouterService
             'task' => trim($text),
             'surface' => 'atlas_forge',
             'workspace' => $workspace ?? '',
+            'frontend_app' => $frontendApp ?? '',
             'acceptance_criteria' => $this->hasPacketItems($packet->acceptance_criteria),
             'test_plan' => $this->hasPacketItems($packet->suggested_tests),
             'visual_quality_plan' => $this->hasPacketItems($packet->required_evidence) || str_contains($text, 'visual') || str_contains($text, 'screenshot'),
             'evidence_plan' => $this->hasPacketItems($packet->required_evidence),
             'senior_design_review' => in_array((string) $packet->risk_band, ['high', 'critical'], true),
         ];
+        $atlasFrontendSelectedWorkspace = $route === 'surface_ui'
+            ? app(AtlasFrontendSelectedWorkspaceService::class)->resolve($frontendInput + [
+                'selection_source' => 'atlas_forge_work_packet',
+            ])
+            : null;
+        $frontendWorkspaceSelected = ($atlasFrontendSelectedWorkspace['status'] ?? null) === 'selected';
         $atlasFrontendGate = $route === 'surface_ui'
             ? app(AtlasFrontendExecutionGateService::class)->evaluate($frontendInput)
             : null;
-        $atlasFrontendEnterpriseBootstrap = $route === 'surface_ui' && $workspace !== null && $this->workspaceLooksProjectScoped($workspace)
+        $atlasFrontendEnterpriseBootstrap = $route === 'surface_ui' && $frontendWorkspaceSelected
             ? app(AtlasFrontendEnterpriseBootstrapService::class)->run($frontendInput)
             : null;
-        $atlasFrontendCompanyRepoOnboarding = $route === 'surface_ui' && $workspace !== null && $this->workspaceLooksProjectScoped($workspace)
+        $atlasFrontendCompanyRepoOnboarding = $route === 'surface_ui' && $frontendWorkspaceSelected
             ? app(AtlasFrontendCompanyRepoOnboardingService::class)->run($frontendInput + [
                 'provider' => 'forge_provider_neutral',
             ])
             : null;
-        $atlasFrontendExecutionRunbook = $route === 'surface_ui' && $workspace !== null && $this->workspaceLooksProjectScoped($workspace)
-            ? app(AtlasFrontendExecutionRunbookService::class)->compile($frontendInput)
+        $atlasFrontendExecutionRunbook = $route === 'surface_ui' && $frontendWorkspaceSelected
+            ? app(AtlasFrontendExecutionRunbookService::class)->compile($frontendInput + [
+                'write_evidence_kit' => false,
+            ])
             : null;
-        $atlasFrontendProviderInstructionPacket = $route === 'surface_ui' && $workspace !== null && $this->workspaceLooksProjectScoped($workspace)
+        $atlasFrontendProviderInstructionPacket = $route === 'surface_ui' && $frontendWorkspaceSelected
             ? app(AtlasFrontendProviderInstructionPacketService::class)->compile($frontendInput + [
                 'provider' => 'forge_provider_neutral',
+                'write_evidence_kit' => false,
             ])
             : null;
 
@@ -94,15 +106,34 @@ final class ForgeSpecialistWorkcellRouterService
             $payload['atlas_frontend_pre_execution_gate'] = $atlasFrontendGate;
             $payload['atlas_frontend_enterprise_operating_contract'] = [
                 'schema_version' => 'atlas.forge.frontend_enterprise_operating_contract.v1',
-                'workspace_mode' => $workspace !== null && $this->workspaceLooksProjectScoped($workspace) ? 'local_company_or_product_repo' : 'generic_or_missing_workspace',
+                'workspace_mode' => $atlasFrontendSelectedWorkspace['workspace_mode'] ?? 'generic_or_missing_workspace',
+                'selected_workspace_schema' => AtlasFrontendSelectedWorkspaceService::SCHEMA_VERSION,
                 'enterprise_bootstrap_schema' => AtlasFrontendEnterpriseBootstrapService::SCHEMA_VERSION,
                 'company_repo_onboarding_schema' => AtlasFrontendCompanyRepoOnboardingService::SCHEMA_VERSION,
                 'execution_runbook_schema' => AtlasFrontendExecutionRunbookService::SCHEMA_VERSION,
                 'provider_instruction_packet_schema' => AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION,
+                'selected_workspace_status' => $atlasFrontendSelectedWorkspace['status'] ?? 'not_evaluated',
+                'selected_workspace_dispatch_readiness_status' => data_get($atlasFrontendSelectedWorkspace, 'dispatch_readiness.status', 'not_evaluated'),
+                'runtime_projection_allowed' => (bool) data_get($atlasFrontendSelectedWorkspace, 'dispatch_readiness.runtime_projection_allowed', false),
+                'frontend_app_candidate_status' => data_get($atlasFrontendSelectedWorkspace, 'frontend_app_candidates.status', 'not_evaluated'),
+                'frontend_app_candidate_count' => (int) data_get($atlasFrontendSelectedWorkspace, 'frontend_app_candidates.candidate_count', 0),
+                'frontend_app_primary_candidate_ref' => data_get($atlasFrontendSelectedWorkspace, 'frontend_app_candidates.primary_candidate_ref'),
+                'frontend_app_candidate_confirmation_required' => (bool) data_get($atlasFrontendSelectedWorkspace, 'frontend_app_candidates.operator_decision.required', false),
+                'frontend_app_scope_status' => data_get($atlasFrontendExecutionRunbook, 'frontend_app_scope.status', 'not_evaluated'),
+                'frontend_app_scope_hash' => data_get($atlasFrontendExecutionRunbook, 'frontend_app_scope.relative_name_hash'),
+                'onboarding_frontend_app_scope_status' => data_get($atlasFrontendCompanyRepoOnboarding, 'frontend_app_scope.status', 'not_evaluated'),
+                'onboarding_frontend_app_scope_hash' => data_get($atlasFrontendCompanyRepoOnboarding, 'frontend_app_scope.relative_name_hash'),
+                'operator_start_panel_status' => data_get($atlasFrontendSelectedWorkspace, 'operator_start_panel.status', 'not_evaluated'),
+                'operator_primary_action' => data_get($atlasFrontendSelectedWorkspace, 'operator_start_panel.primary_action'),
+                'next_best_action' => data_get($atlasFrontendSelectedWorkspace, 'next_best_action.id'),
+                'next_best_action_priority' => data_get($atlasFrontendSelectedWorkspace, 'next_best_action.priority'),
+                'task_binding_status' => data_get($atlasFrontendSelectedWorkspace, 'task_binding.status', 'not_evaluated'),
+                'task_bound' => (bool) data_get($atlasFrontendSelectedWorkspace, 'task_binding.task_present', false),
                 'onboarding_status' => $atlasFrontendCompanyRepoOnboarding['status'] ?? 'not_evaluated',
                 'bootstrap_status' => $atlasFrontendEnterpriseBootstrap['status'] ?? 'not_evaluated',
                 'runbook_status' => $atlasFrontendExecutionRunbook['status'] ?? 'not_evaluated',
                 'provider_packet_status' => $atlasFrontendProviderInstructionPacket['status'] ?? 'not_evaluated',
+                'selected_workspace_provider_dispatch_allowed' => (bool) data_get($atlasFrontendSelectedWorkspace, 'dispatch_readiness.provider_dispatch_allowed', false),
                 'provider_dispatch_allowed' => (bool) data_get($atlasFrontendEnterpriseBootstrap, 'readiness.provider_dispatch_allowed') && ($atlasFrontendCompanyRepoOnboarding['status'] ?? null) === 'ready_for_operator_execution' && ($atlasFrontendExecutionRunbook['status'] ?? null) === 'ready' && ($atlasFrontendProviderInstructionPacket['status'] ?? null) === 'ready',
                 'premium_frontend_claim_allowed' => (bool) data_get($atlasFrontendEnterpriseBootstrap, 'readiness.premium_frontend_claim_allowed') && ($atlasFrontendExecutionRunbook['status'] ?? null) === 'ready',
                 'world_best_claim_allowed' => false,
@@ -119,6 +150,7 @@ final class ForgeSpecialistWorkcellRouterService
                     'raw_customer_source_returned' => false,
                 ],
             ];
+            $payload['atlas_frontend_selected_workspace'] = $atlasFrontendSelectedWorkspace;
             $payload['atlas_frontend_company_repo_onboarding'] = $atlasFrontendCompanyRepoOnboarding;
             $payload['atlas_frontend_enterprise_bootstrap'] = $atlasFrontendEnterpriseBootstrap;
             $payload['atlas_frontend_execution_runbook'] = $atlasFrontendExecutionRunbook;
@@ -126,6 +158,7 @@ final class ForgeSpecialistWorkcellRouterService
             $payload['route_reasons'][] = 'atlas_frontend_runtime_contract_attached';
             $payload['route_reasons'][] = 'atlas_frontend_pre_execution_gate_attached';
             $payload['route_reasons'][] = 'atlas_frontend_enterprise_operating_contract_attached';
+            $payload['route_reasons'][] = 'atlas_frontend_selected_workspace_attached';
             $payload['route_reasons'][] = 'atlas_frontend_company_repo_onboarding_attached';
             $payload['route_reasons'][] = 'atlas_frontend_provider_instruction_packet_attached';
         }
@@ -203,6 +236,11 @@ final class ForgeSpecialistWorkcellRouterService
             }
             $path = trim($file);
             if (str_starts_with($path, DIRECTORY_SEPARATOR)) {
+                $canonicalPath = $this->canonicalMacPath(str_replace('\\', '/', $path));
+                if (preg_match('#^(.+)/(apps|packages)/[^/]+(?:/|$)#', $canonicalPath, $matches) === 1 && $this->workspaceLooksProjectScoped($matches[1])) {
+                    return (string) (realpath($matches[1]) ?: $matches[1]);
+                }
+
                 $directory = is_dir($path) ? $path : dirname($path);
                 while ($directory !== DIRECTORY_SEPARATOR && $directory !== '.') {
                     if ($this->workspaceLooksProjectScoped($directory)) {
@@ -230,6 +268,40 @@ final class ForgeSpecialistWorkcellRouterService
         }
 
         return false;
+    }
+
+    private function frontendAppFromPacket(AiForgeWorkPacket $packet, ?string $workspace): ?string
+    {
+        if ($workspace === null || trim($workspace) === '') {
+            return null;
+        }
+
+        $workspace = rtrim((string) (realpath($workspace) ?: $workspace), DIRECTORY_SEPARATOR);
+        foreach ((array) ($packet->expected_files ?? []) as $file) {
+            if (! is_string($file) || trim($file) === '') {
+                continue;
+            }
+
+            $path = $this->canonicalMacPath(str_replace('\\', '/', trim($file)));
+            $workspacePrefix = $this->canonicalMacPath(str_replace('\\', '/', $workspace)).'/';
+            if (! str_starts_with($path, $workspacePrefix)) {
+                continue;
+            }
+
+            $relative = substr($path, strlen($workspacePrefix));
+            if (preg_match('#^(apps|packages)/([^/]+)/#', $relative, $matches) === 1) {
+                return $matches[1].'/'.$matches[2];
+            }
+        }
+
+        return null;
+    }
+
+    private function canonicalMacPath(string $path): string
+    {
+        return str_starts_with($path, '/private/var/')
+            ? substr($path, strlen('/private'))
+            : $path;
     }
 
     private function hasPacketItems(mixed $items): bool
