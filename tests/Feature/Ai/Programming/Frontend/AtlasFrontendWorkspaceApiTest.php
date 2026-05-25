@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai\Programming\Frontend;
 
+use App\Models\AtlasWorkspaceProfile;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignDossierService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignReviewService;
@@ -13,7 +14,9 @@ use App\Services\Ai\Programming\Frontend\AtlasFrontendQualityBudgetGateService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendRivalReplayHarnessService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendRunCertificationService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendVisualQualityGateService;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AtlasFrontendWorkspaceApiTest extends TestCase
@@ -83,6 +86,116 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
             ->assertJsonPath('meta.provider_dispatch_allowed', false);
 
         $payload = $response->json();
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_selection_receipt_api_writes_multi_repo_selection_receipt_without_authorizing_execution(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-selection-receipt-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-commerce');
+        File::ensureDirectoryExists($repo.'/apps/web/src');
+        File::put($repo.'/apps/web/package.json', json_encode([
+            'scripts' => ['dev' => 'vite', 'test' => 'vitest run', 'build' => 'vite build'],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+        $output = $repo.'/.atlas/frontend-evidence/apps-web/selection-receipt.json';
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/selection-receipt', [
+            'portfolio_root' => $root,
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Selecionar repo para Atlas Frontend',
+            'selection_source' => 'atlas_code',
+            'output' => $output,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.selection_receipt.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_workspace_selection_receipt')
+            ->assertJsonPath('selection_receipt.schema_version', 'atlas.frontend.selected_workspace.selection_receipt.v1')
+            ->assertJsonPath('selection_receipt.status', 'ready')
+            ->assertJsonPath('selection_receipt.receipt_type', 'multi_repo_selected_repository_frontend_workspace_receipt')
+            ->assertJsonPath('selection_receipt.portfolio_binding.portfolio_root_is_not_selected_workspace', true)
+            ->assertJsonPath('selection_receipt.portfolio_binding.selected_workspace_inside_portfolio_root', true)
+            ->assertJsonPath('selection_receipt.runtime_policy.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('selection_receipt.runtime_policy.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('selection_receipt.runtime_policy.space_runtime_required', false)
+            ->assertJsonPath('selection_receipt.runtime_policy.provider_dispatch_performed', false)
+            ->assertJsonPath('selection_receipt.evidence_policy.selection_receipt_is_not_delivery_evidence', true)
+            ->assertJsonPath('selection_receipt.evidence_policy.portfolio_candidate_is_not_execution_evidence', true)
+            ->assertJsonPath('selection_receipt.write_performed', true)
+            ->assertJsonPath('meta.execution_allowed', false)
+            ->assertJsonPath('meta.provider_dispatch_allowed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $this->assertFileExists($output);
+        $payload = $response->json();
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'selection_receipt.selection_receipt_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'selection_receipt.receipt_file_hash'));
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($output, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_project_activation_persists_selected_repo_as_atlas_code_project_without_authorizing_execution(): void
+    {
+        $this->createWorkspaceProfilesTable();
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-project-activation-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-commerce');
+        File::ensureDirectoryExists($repo.'/apps/web/src');
+        File::put($repo.'/apps/web/package.json', json_encode([
+            'scripts' => ['dev' => 'vite', 'test' => 'vitest run', 'build' => 'vite build'],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/project-activation', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Ativar repo selecionado no Atlas Code',
+            'project_slug' => 'atlas-commerce',
+            'project_name' => 'Atlas Commerce',
+            'selection_source' => 'atlas_code',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.project_activation.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_project_workspace_activation')
+            ->assertJsonPath('project_activation.schema_version', 'atlas.frontend.selected_workspace.project_activation.v1')
+            ->assertJsonPath('project_activation.status', 'ready')
+            ->assertJsonPath('project_activation.activation_type', 'selected_repository_to_atlas_code_project_workspace')
+            ->assertJsonPath('project_activation.project_workspace.slug', 'atlas-commerce')
+            ->assertJsonPath('project_activation.project_workspace.name', 'Atlas Commerce')
+            ->assertJsonPath('project_activation.project_workspace.kind', 'frontend_product_repo')
+            ->assertJsonPath('project_activation.project_workspace.workspace_path_exists', true)
+            ->assertJsonPath('project_activation.runtime_policy.atlas_code_project_workspace_persisted', true)
+            ->assertJsonPath('project_activation.runtime_policy.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('project_activation.runtime_policy.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('project_activation.runtime_policy.space_runtime_required', false)
+            ->assertJsonPath('project_activation.runtime_policy.provider_dispatch_performed', false)
+            ->assertJsonPath('meta.execution_allowed', false)
+            ->assertJsonPath('meta.provider_dispatch_allowed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false);
+
+        $this->assertDatabaseHas('atlas_workspace_profiles', [
+            'slug' => 'atlas-commerce',
+            'name' => 'Atlas Commerce',
+            'kind' => 'frontend_product_repo',
+            'workspace_path' => $repo,
+            'source' => 'atlas_frontend_selected_workspace',
+            'status' => 'active',
+        ]);
+
+        $payload = $response->json();
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'project_activation.project_activation_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'project_activation.project_workspace.workspace_path_hash'));
         $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
         $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
     }
@@ -575,6 +688,174 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
         $this->assertStringNotContainsString($output, json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
+    public function test_replay_apply_patch_api_applies_provider_safe_patch_without_returning_paths(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-replay-apply-patch-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        $output = $repo.'/.atlas/frontend-evidence/apps-web/rival-replay';
+        $service = app(AtlasFrontendRivalReplayHarnessService::class);
+        $service->writeTemplate($output);
+        $taskSpec = json_decode(File::get($output.'/saas_dashboard_repair/task-spec.json'), true);
+        $taskSpecHash = (string) ($taskSpec['task_spec_hash'] ?? hash_file('sha256', $output.'/saas_dashboard_repair/task-spec.json'));
+        $hashes = $this->writeReplayEvidencePack($output, 'saas_dashboard_repair', 'pbakaus_impeccable', $taskSpecHash);
+
+        File::put($output.'/saas_dashboard_repair/pbakaus_impeccable/manifest.json', json_encode([
+            'case_id' => 'saas_dashboard_repair',
+            'system' => 'pbakaus_impeccable',
+            'status' => 'complete',
+            'run_id' => 'workspace-api-replay-apply-patch',
+            'task_spec_hash' => $taskSpecHash,
+            'task_spec_ref' => '../task-spec.json',
+            'evidence_pack_ref' => 'evidence/evidence-pack.json',
+            'output_artifact_ref' => 'artifact://workspace-api-replay-apply-patch',
+            'output_artifact_hash' => $hashes['output_artifact'],
+            'screenshot_hashes' => [$hashes['screenshot_set']],
+            'anti_slop_report_hash' => $hashes['anti_slop_report'],
+            'verification_hashes' => [$hashes['verification_report']],
+            'score_breakdown' => [
+                'product_intent_fit' => 2,
+                'visual_craft' => 2,
+                'interaction_completeness' => 2,
+                'engineering_integration' => 1,
+                'evidence_quality' => 2,
+            ],
+            'score_total' => 9,
+            'score_max' => 100,
+            'completed_at' => '2026-05-25T00:00:00Z',
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $patch = $service->writeExternalExecutionReceiptTemplate($output, 'saas_dashboard_repair', 'pbakaus_impeccable');
+        $patch['manifest_patch']['external_execution_receipt']['status'] = 'verified';
+        $patch['manifest_patch']['external_execution_receipt']['captured_at'] = '2026-05-25T00:00:00Z';
+        $patch['manifest_patch']['external_execution_receipt']['operator_approved'] = true;
+        File::put($output.'/external-patch.json', json_encode($patch, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/replay-apply-patch', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Aplicar receipt externo verificado ao replay competitivo',
+            'evidence' => $output,
+            'patch' => $output.'/external-patch.json',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.replay_apply_patch.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_rival_replay_manifest_patch_application')
+            ->assertJsonPath('rival_replay_manifest_patch_application.schema_version', 'atlas.frontend.workspace_rival_replay_manifest_patch_application.v1')
+            ->assertJsonPath('rival_replay_manifest_patch_application.status', 'applied')
+            ->assertJsonPath('rival_replay_manifest_patch_application.application_schema_version', 'atlas.frontend.rival_replay.manifest_patch_application.v1')
+            ->assertJsonPath('rival_replay_manifest_patch_application.applied_keys.0', 'external_execution_receipt')
+            ->assertJsonPath('rival_replay_manifest_patch_application.write_performed', true)
+            ->assertJsonPath('rival_replay_manifest_patch_application.claim_policy.manifest_patch_application_is_not_world_best_evidence', true)
+            ->assertJsonPath('rival_replay_manifest_patch_application.claim_policy.raw_absolute_path_returned', false)
+            ->assertJsonPath('rival_replay_manifest_patch_application.claim_policy.space_runtime_required', false)
+            ->assertJsonPath('meta.provider_dispatch_performed', false)
+            ->assertJsonPath('meta.frontend_completion_claim_allowed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $manifest = json_decode(File::get($output.'/saas_dashboard_repair/pbakaus_impeccable/manifest.json'), true);
+        $payload = $response->json();
+
+        $this->assertSame('verified', data_get($manifest, 'external_execution_receipt.status'));
+        $this->assertContains('rerun_atlas_frontend_rival_replay_inspection', data_get($payload, 'rival_replay_manifest_patch_application.required_next_actions'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'rival_replay_manifest_patch_application.application_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'rival_replay_manifest_patch_application.workspace_manifest_patch_application_hash'));
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($output, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_replay_template_apis_write_provider_safe_patches_without_returning_paths(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-replay-templates-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        $output = $repo.'/.atlas/frontend-evidence/apps-web/rival-replay';
+        $service = app(AtlasFrontendRivalReplayHarnessService::class);
+        $service->writeTemplate($output);
+        $taskSpec = json_decode(File::get($output.'/saas_dashboard_repair/task-spec.json'), true);
+        $taskSpecHash = (string) ($taskSpec['task_spec_hash'] ?? hash_file('sha256', $output.'/saas_dashboard_repair/task-spec.json'));
+        $hashes = $this->writeReplayEvidencePack($output, 'saas_dashboard_repair', 'pbakaus_impeccable', $taskSpecHash);
+
+        File::put($output.'/saas_dashboard_repair/pbakaus_impeccable/manifest.json', json_encode([
+            'case_id' => 'saas_dashboard_repair',
+            'system' => 'pbakaus_impeccable',
+            'status' => 'complete',
+            'run_id' => 'workspace-api-replay-templates',
+            'task_spec_hash' => $taskSpecHash,
+            'task_spec_ref' => '../task-spec.json',
+            'evidence_pack_ref' => 'evidence/evidence-pack.json',
+            'output_artifact_ref' => 'artifact://workspace-api-replay-templates',
+            'output_artifact_hash' => $hashes['output_artifact'],
+            'screenshot_hashes' => [$hashes['screenshot_set']],
+            'anti_slop_report_hash' => $hashes['anti_slop_report'],
+            'verification_hashes' => [$hashes['verification_report']],
+            'score_breakdown' => [
+                'product_intent_fit' => 2,
+                'visual_craft' => 2,
+                'interaction_completeness' => 2,
+                'engineering_integration' => 1,
+                'evidence_quality' => 2,
+            ],
+            'score_total' => 9,
+            'score_max' => 100,
+            'completed_at' => '2026-05-25T00:00:00Z',
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $receipt = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/replay-external-receipt-template', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Gerar receipt externo',
+            'evidence' => $output,
+            'case_id' => 'saas_dashboard_repair',
+            'system' => 'pbakaus_impeccable',
+        ]);
+        $score = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/replay-score-template', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Gerar score attestation',
+            'evidence' => $output,
+            'case_id' => 'saas_dashboard_repair',
+            'system' => 'pbakaus_impeccable',
+            'reviewer_ref_hash' => hash('sha256', 'workspace-api-reviewer'),
+        ]);
+
+        $receipt
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.replay_external_receipt_template.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_rival_replay_external_receipt_template')
+            ->assertJsonPath('rival_replay_external_receipt_template.status', 'ready')
+            ->assertJsonPath('rival_replay_external_receipt_template.template_schema_version', 'atlas.frontend.rival_replay.external_execution_receipt_template.v1')
+            ->assertJsonPath('rival_replay_external_receipt_template.claim_policy.template_is_not_replay_evidence', true)
+            ->assertJsonPath('rival_replay_external_receipt_template.claim_policy.apply_patch_required_after_operator_approval', true)
+            ->assertJsonPath('rival_replay_external_receipt_template.claim_policy.raw_absolute_path_returned', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+        $score
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.replay_score_template.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_rival_replay_score_template')
+            ->assertJsonPath('rival_replay_score_template.status', 'ready')
+            ->assertJsonPath('rival_replay_score_template.template_schema_version', 'atlas.frontend.rival_replay.score_attestation_template.v1')
+            ->assertJsonPath('rival_replay_score_template.claim_policy.template_is_not_replay_evidence', true)
+            ->assertJsonPath('rival_replay_score_template.claim_policy.apply_patch_required_after_operator_approval', true)
+            ->assertJsonPath('rival_replay_score_template.claim_policy.raw_absolute_path_returned', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $receiptPayload = $receipt->json();
+        $scorePayload = $score->json();
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($receiptPayload, 'rival_replay_external_receipt_template.rival_replay_external_receipt_template_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($scorePayload, 'rival_replay_score_template.rival_replay_score_template_hash'));
+        $this->assertStringNotContainsString($repo, json_encode($receiptPayload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($receiptPayload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($output, json_encode($receiptPayload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($repo, json_encode($scorePayload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($scorePayload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($output, json_encode($scorePayload, JSON_THROW_ON_ERROR));
+    }
+
     public function test_proof_bundle_api_writes_safe_competitive_index_without_returning_paths(): void
     {
         $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-proof-bundle-'.bin2hex(random_bytes(4));
@@ -814,6 +1095,42 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
     }
 
     /**
+     * @return array<string,string>
+     */
+    private function writeReplayEvidencePack(string $dir, string $case, string $system, string $taskSpecHash): array
+    {
+        $root = $dir.'/'.$case.'/'.$system;
+        $artifactDir = $root.'/evidence/artifacts';
+        File::ensureDirectoryExists($artifactDir);
+        $hashes = [];
+
+        foreach (app(AtlasFrontendEvidencePackVerifierService::class)->requiredArtifactKinds() as $kind) {
+            $path = $artifactDir.'/'.$kind.'.json';
+            File::put($path, json_encode([
+                'kind' => $kind,
+                'case_id' => $case,
+                'system' => $system,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+            $hashes[$kind] = hash_file('sha256', $path);
+        }
+
+        File::put($root.'/evidence/evidence-pack.json', json_encode([
+            'schema_version' => 'atlas.frontend.evidence_pack.v1',
+            'pack_id' => $case.'-'.$system,
+            'case_id' => $case,
+            'system' => $system,
+            'task_spec_hash' => $taskSpecHash,
+            'artifacts' => array_map(fn (string $kind): array => [
+                'kind' => $kind,
+                'path' => 'artifacts/'.$kind.'.json',
+                'sha256' => $hashes[$kind],
+            ], array_keys($hashes)),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        return $hashes;
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function providerPacket(): array
@@ -884,5 +1201,37 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
             'Accept' => 'application/json',
             'X-Atlas-Token' => 'testing-atlas-token-with-enough-length',
         ];
+    }
+
+    private function createWorkspaceProfilesTable(): void
+    {
+        if (Schema::hasTable('atlas_workspace_profiles')) {
+            AtlasWorkspaceProfile::query()->delete();
+
+            return;
+        }
+
+        Schema::create('atlas_workspace_profiles', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('slug', 120)->unique();
+            $table->string('name', 200);
+            $table->string('kind', 80)->default('product');
+            $table->string('workspace_path', 1000)->nullable();
+            $table->string('repo_root', 1000)->nullable();
+            $table->string('production_status', 80)->default('development');
+            $table->text('stack_summary')->nullable();
+            $table->json('commands')->nullable();
+            $table->json('test_commands')->nullable();
+            $table->json('build_commands')->nullable();
+            $table->string('dev_server_command', 1000)->nullable();
+            $table->json('critical_areas')->nullable();
+            $table->string('docs_status', 80)->default('unknown');
+            $table->string('default_risk', 40)->default('medium');
+            $table->text('deployment_notes')->nullable();
+            $table->json('surfaces_enabled')->nullable();
+            $table->string('source', 80)->default('operator');
+            $table->string('status', 40)->default('active');
+            $table->timestamps();
+        });
     }
 }

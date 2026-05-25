@@ -316,6 +316,7 @@ final class AtlasCodeRealityUsageIntelligenceService
         $statusDrift = $this->statusDriftInventory($docs, $code);
         $topicClusters = $this->topicClusters($docs, $code);
         $criticalTopicPressure = $this->criticalTopicPressure($topicClusters);
+        $sourceMaterialShadowQueue = $this->sourceMaterialShadowQueue($topicClusters);
         $docIdDuplicateGroups = $this->duplicateGroups($docs['canonical_active_items'], 'id');
         $docGraphDuplicateGroups = $this->duplicateGroups($docs['canonical_active_items'], 'graph_id');
         $docTitleDuplicateGroups = $this->duplicateGroups($docs['canonical_active_items'], 'title_key');
@@ -446,12 +447,14 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'legacy_signal_count' => $code['legacy_signal_count'],
                 'legacy_signal_type_count' => count($code['legacy_signal_groups']),
                 'legacy_signal_area_count' => count($code['legacy_area_groups']),
+                'legacy_triage_queue_count' => count($code['legacy_triage_queue']),
                 'ai_service_file_count' => $code['ai_service_hotspots']['file_count'],
                 'ai_service_hotspot_subarea_count' => count($code['ai_service_hotspots']['subareas']),
                 'ai_service_hotspot_topic_count' => count($code['ai_service_hotspots']['topics']),
                 'critical_topic_cluster_count' => count($topicClusters),
                 'critical_topic_source_material_count' => $criticalTopicPressure['source_material_count'],
                 'critical_topic_noncanonical_active_count' => $criticalTopicPressure['noncanonical_active_count'],
+                'source_material_shadow_queue_count' => count($sourceMaterialShadowQueue),
                 'rag_retrieval_source_material_count' => (int) data_get($topicClusters, 'rag_retrieval.source_material_doc_count', 0),
                 'rag_retrieval_code_match_count' => (int) data_get($topicClusters, 'rag_retrieval.code_match_count', 0),
                 'rag_retrieval_flow_family_count' => count((array) data_get($topicClusters, 'rag_retrieval.flow_families', [])),
@@ -466,6 +469,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'non_canonical_active_samples' => array_slice($docs['non_canonical_active'], 0, 20),
                 'archived_source_material_samples' => array_slice($docs['archived_source_material'], 0, 20),
                 'critical_topic_noncanonical_samples' => $docs['critical_topic_noncanonical_samples'],
+                'source_material_shadow_queue' => $sourceMaterialShadowQueue,
             ],
             'code' => [
                 'duplicate_class_groups' => $classDuplicateGroups,
@@ -478,6 +482,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'runtime_route_action_alias_groups' => array_slice($runtimeRouteActionAliasGroups, 0, 30),
                 'legacy_signal_groups' => $code['legacy_signal_groups'],
                 'legacy_area_groups' => array_slice($code['legacy_area_groups'], 0, 20),
+                'legacy_triage_queue' => $code['legacy_triage_queue'],
                 'ai_service_hotspots' => $code['ai_service_hotspots'],
                 'legacy_signal_samples' => array_slice($code['legacy_signals'], 0, 30),
             ],
@@ -708,6 +713,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             'legacy_signals' => $legacySignals,
             'legacy_signal_groups' => $this->legacySignalGroups($legacySignals, 'signal'),
             'legacy_area_groups' => $this->legacySignalGroups($legacySignals, 'area'),
+            'legacy_triage_queue' => $this->legacySignalTriageQueue($legacySignals),
             'ai_service_hotspots' => $this->aiServiceHotspots($aiServiceRecords, $legacySignals),
         ];
     }
@@ -777,6 +783,8 @@ final class AtlasCodeRealityUsageIntelligenceService
             if ($reason === null) {
                 continue;
             }
+
+            $boundaryContract ??= $this->defaultStatusDriftBoundaryContract($status, $reason, $evidenceScore);
 
             $reviewItems[] = [
                 'id' => 'status_drift:'.$docId,
@@ -923,6 +931,28 @@ final class AtlasCodeRealityUsageIntelligenceService
             ],
             default => null,
         };
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function defaultStatusDriftBoundaryContract(string $frontmatterStatus, string $reason, int $evidenceScore): array
+    {
+        return [
+            'classification' => 'status_language_review_over_existing_evidence',
+            'frontmatter_status' => $frontmatterStatus,
+            'reason' => $reason,
+            'evidence_score' => $evidenceScore,
+            'current_runtime_boundary' => 'code_test_command_references_are_review_pressure_not_automatic_status_truth',
+            'existing_runtime_refs_are' => 'candidate_evidence_requiring_owner_doc_reachability_tests_and_operator_decision',
+            'required_owner_decision' => 'confirm_planned|mark_partial|mark_implemented|split_future_work_from_implemented_runtime',
+            'safe_next_commands' => [
+                'php artisan atlas:code-reality reachability --target="<runtime-or-doc-target>" --json',
+                'php artisan atlas:code-reality status-drift-audit --json',
+                'php artisan atlas:documentation:enforce --task="<task>" --feature="<feature>" --strict --json',
+            ],
+            'forbidden' => 'do_not_auto_change_frontmatter_or_claim_doc_wrong_from_heuristic_evidence',
+        ];
     }
 
     /**
@@ -1136,6 +1166,128 @@ final class AtlasCodeRealityUsageIntelligenceService
     }
 
     /**
+     * @param  array<int,array<string,string>>  $legacySignals
+     * @return array<int,array<string,mixed>>
+     */
+    private function legacySignalTriageQueue(array $legacySignals): array
+    {
+        $items = [];
+        foreach ($legacySignals as $signal) {
+            $path = (string) ($signal['path'] ?? '');
+            $type = (string) ($signal['signal'] ?? 'unknown');
+            $area = $this->legacySignalArea($path);
+            $items[] = [
+                'id' => 'legacy_signal:'.$type.':'.str_replace(['/', '.', '\\'], ':', $path),
+                'kind' => 'legacy_or_scaffold_signal',
+                'signal' => $type,
+                'severity' => $this->legacySignalSeverity($type, $area),
+                'path' => $path,
+                'area' => $area,
+                'boundary_contract' => $this->legacySignalBoundaryContract($type, $path, $area),
+                'cleanup_recommendation' => $this->legacySignalCleanupRecommendation($type),
+                'claim_policy' => 'keyword_signal_is_triage_pressure_not_dead_code_or_delete_authority',
+                'next_commands' => [
+                    'php artisan atlas:code-reality reachability --target="'.$path.'" --json',
+                    'php artisan atlas:code-reality deletion-preflight --target="'.$path.'" --json',
+                ],
+            ];
+        }
+
+        usort($items, static function (array $a, array $b): int {
+            $rank = ['high' => 0, 'medium' => 1, 'review' => 2, 'low' => 3];
+
+            return ($rank[$a['severity']] ?? 9) <=> ($rank[$b['severity']] ?? 9);
+        });
+
+        return array_slice($items, 0, 50);
+    }
+
+    private function legacySignalSeverity(string $type, string $area): string
+    {
+        return match ($type) {
+            'deprecated' => 'high',
+            'duplicate', 'executed_scaffold', 'planned_scaffold' => 'medium',
+            'scaffold' => str_starts_with($area, 'app/Services/Ai') ? 'medium' : 'review',
+            'legacy', 'todo', 'fixme' => 'review',
+            default => 'low',
+        };
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function legacySignalBoundaryContract(string $type, string $path, string $area): array
+    {
+        return [
+            'classification' => 'legacy_scaffold_keyword_triage',
+            'signal' => $type,
+            'area' => $area,
+            'target' => $path,
+            'owner_docs' => $this->legacySignalOwnerDocs($path, $area),
+            'evidence_required_before_cleanup' => [
+                'reachability',
+                'deletion_preflight',
+                'owner_doc_decision',
+                'focused_tests',
+            ],
+            'allowed_direction' => 'classify_reachability_then_choose_keep_boundary_rename_quarantine_or_delete_with_owner_decision',
+            'forbidden' => 'do_not_delete_rename_or_reimplement_from_keyword_signal_alone',
+        ];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function legacySignalOwnerDocs(string $path, string $area): array
+    {
+        if (str_starts_with($path, 'app/Services/Ai/Programming') || str_starts_with($path, 'app/Services/AtlasCode')) {
+            return [
+                'docs/engineering-knowledge-base/atlas-programming-forge-flow.md',
+                'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+            ];
+        }
+        if (str_starts_with($path, 'app/Services/Ai/SelfConstruction')) {
+            return [
+                'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract-part-01.md',
+                'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+            ];
+        }
+        if (str_contains($path, 'Voice') || str_contains($path, '/Vox/')) {
+            return [
+                'docs/engineering-knowledge-base/atlas-vox-operational-thinking-interface.md',
+                'docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md',
+                'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+            ];
+        }
+        if ($area === 'app/Services/Engineering') {
+            return [
+                'docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md',
+                'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+            ];
+        }
+
+        return ['docs/engineering-knowledge-base/atlas-duplication-reality-governance.md'];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function legacySignalCleanupRecommendation(string $type): array
+    {
+        return [
+            'delete_allowed' => false,
+            'rename_allowed_without_owner_decision' => false,
+            'safe_next_action' => match ($type) {
+                'deprecated' => 'prove_replacement_and_callers_then_plan_deprecation_or_quarantine',
+                'duplicate' => 'compare_owner_contracts_and_reachability_before_merge_or_rename',
+                'scaffold', 'planned_scaffold', 'executed_scaffold' => 'split_scaffold_language_from_active_runtime_or_mark_partial_with_owner_doc',
+                'todo', 'fixme' => 'convert_comment_to_tracked_owner_decision_or_test_gap',
+                default => 'run_reachability_and_owner_review_before_cleanup',
+            },
+        ];
+    }
+
+    /**
      * @return array{routes:array<int,array<string,string>>,named_routes:array<int,array<string,string>>,route_actions:array<int,array<string,string>>}
      */
     private function routeInventoryForContent(string $content, string $path): array
@@ -1321,11 +1473,22 @@ final class AtlasCodeRealityUsageIntelligenceService
         if ($action === 'app.http.controllers.atlascodeobservedsessioncontroller@import') {
             return [
                 'canonical_owner' => 'atlas_code_observed_session_import',
+                'alias_family' => 'backward_compatibility_endpoint',
+                'owner_docs' => [
+                    'docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md',
+                    'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+                ],
+                'primary_controller' => 'app/Http/Controllers/AtlasCodeObservedSessionController.php',
                 'primary_route' => 'post:/atlas-code/works/{project}/observed-sessions/{session}/import',
                 'alias_routes' => array_values(array_diff($methodUris, [
                     'post:/atlas-code/works/{project}/observed-sessions/{session}/import',
                 ])),
                 'allowed_direction' => 'keep_import_result_only_as_documented_backward_compatibility_or_replace_it_with_explicit_redirect/deprecation_plan',
+                'parity_rule' => 'alias_must_call_same_controller_action_and_return_same_import_contract',
+                'proof_commands' => [
+                    'php artisan route:list --json',
+                    'php artisan test tests/Feature/AtlasCodeInteractiveObservedProviderTest.php',
+                ],
                 'forbidden' => 'do_not_add_third_import_endpoint_or_choose_alias_without_owner_decision',
             ];
         }
@@ -1341,21 +1504,87 @@ final class AtlasCodeRealityUsageIntelligenceService
             ));
 
             return [
-                'canonical_owner' => 'base_api_controller_action',
+                'canonical_owner' => $this->mobileAliasCanonicalOwner($action),
+                'alias_family' => $this->mobileAliasFamily($action),
+                'owner_docs' => $this->mobileAliasOwnerDocs($action),
+                'primary_controller' => $this->routeActionControllerPath($action),
                 'primary_routes' => $baseRoutes,
                 'alias_routes' => $mobileRoutes,
                 'allowed_direction' => 'mobile_route_may_alias_base_api_when_payload_auth_and_response_contract_are_identical',
+                'parity_rule' => 'mobile_alias_must_remain_same_controller_action_same_auth_same_payload_same_response_contract',
+                'proof_commands' => [
+                    'php artisan route:list --json',
+                    'php artisan atlas:code-reality global-duplication-audit --json',
+                ],
                 'forbidden' => 'do_not_implement_separate_mobile_business_logic_inside_same_action_without_wrapper_or_owner_doc',
             ];
         }
 
         return [
             'canonical_owner' => 'route_owner_review_required',
+            'alias_family' => 'unclassified_same_action_alias',
+            'owner_docs' => ['docs/engineering-knowledge-base/atlas-duplication-reality-governance.md'],
+            'primary_controller' => $this->routeActionControllerPath($action),
             'primary_routes' => $methodUris,
             'alias_routes' => [],
             'allowed_direction' => 'owner_must_document_whether_paths_are_backward_compatibility_aliases_or_should_be_merged',
+            'parity_rule' => 'same_action_alias_requires_owner_decision_before_new_routes_or_logic',
+            'proof_commands' => ['php artisan route:list --json'],
             'forbidden' => 'do_not_create_new_route_for_same_action_before_alias_review',
         ];
+    }
+
+    private function mobileAliasCanonicalOwner(string $action): string
+    {
+        return match (true) {
+            str_contains($action, 'atlasaivoicerealtimecontroller@') => 'voice_realtime_base_api_action',
+            str_contains($action, 'aitelemetrycontroller@') => 'telemetry_base_api_action',
+            str_contains($action, 'atlasconstelacaocontroller@') => 'constelacao_base_api_action',
+            default => 'base_api_controller_action',
+        };
+    }
+
+    private function mobileAliasFamily(string $action): string
+    {
+        return match (true) {
+            str_contains($action, 'atlasaivoicerealtimecontroller@') => 'voice_realtime_mobile_base_alias',
+            str_contains($action, 'aitelemetrycontroller@') => 'telemetry_mobile_base_alias',
+            str_contains($action, 'atlasconstelacaocontroller@') => 'constelacao_mobile_base_alias',
+            default => 'mobile_base_alias',
+        };
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function mobileAliasOwnerDocs(string $action): array
+    {
+        return match (true) {
+            str_contains($action, 'atlasaivoicerealtimecontroller@') => [
+                'docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md',
+                'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+            ],
+            str_contains($action, 'aitelemetrycontroller@') => [
+                'docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md',
+                'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+            ],
+            str_contains($action, 'atlasconstelacaocontroller@') => [
+                'docs/engineering-knowledge-base/atlas-constelacao-surface.md',
+                'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+            ],
+            default => ['docs/engineering-knowledge-base/atlas-duplication-reality-governance.md'],
+        };
+    }
+
+    private function routeActionControllerPath(string $action): string
+    {
+        return match (true) {
+            str_contains($action, 'atlasaivoicerealtimecontroller@') => 'app/Http/Controllers/AtlasAiVoiceRealtimeController.php',
+            str_contains($action, 'aitelemetrycontroller@') => 'app/Http/Controllers/AiTelemetryController.php',
+            str_contains($action, 'atlasconstelacaocontroller@') => 'app/Http/Controllers/AtlasConstelacaoController.php',
+            str_contains($action, 'atlascodeobservedsessioncontroller@') => 'app/Http/Controllers/AtlasCodeObservedSessionController.php',
+            default => 'owner_review_required',
+        };
     }
 
     /**
@@ -1463,6 +1692,16 @@ final class AtlasCodeRealityUsageIntelligenceService
             'operationenvelope' => [
                 'canonical_owner' => 'kernel_and_programming_boundaries',
                 'primary_runtime' => 'app/Services/Ai/Kernel/Envelope/OperationEnvelope.php',
+                'owner_docs' => [
+                    'docs/engineering-knowledge-base/kernel/contracts.md',
+                    'docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-contracts-v1-part-02.md',
+                    'docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md',
+                ],
+                'schema_versions' => [
+                    'kernel' => 'atlas.envelope.v1',
+                    'atlas_dev' => 'atlas.dev.operation_envelope.v1',
+                    'sdd_pipeline' => 'local_pipeline_dto_without_kernel_schema',
+                ],
                 'specialized_variants' => [
                     'app/Services/Ai/Programming/AtlasDev/Schemas/OperationEnvelope.php',
                     'app/Services/Ai/Programming/Sdd/Pipeline/OperationEnvelope.php',
@@ -1473,6 +1712,27 @@ final class AtlasCodeRealityUsageIntelligenceService
             'verificationcommandrunner' => [
                 'canonical_owner' => 'atlas_code_runner_vs_atlas_dev_gate',
                 'primary_runtime' => 'app/Services/AtlasCode/VerificationCommandRunner.php',
+                'owner_docs' => [
+                    'docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-runbook-v1-part-06.md',
+                    'docs/engineering-knowledge-base/atlas-dev-patamares.md',
+                    'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+                ],
+                'contract_features' => [
+                    'atlas_code_runner' => [
+                        'kind' => 'concrete_service',
+                        'schema_version' => 'atlas.code.verification_run.v1',
+                        'modes' => ['dry_run', 'execute'],
+                        'guards' => ['workspace_check', 'allowlist', 'operator_override_token', 'timeout', 'evidence_persistence'],
+                        'primary_consumers' => ['AtlasCodeObservedSessionController'],
+                    ],
+                    'atlas_dev_gate_runner' => [
+                        'kind' => 'interface_contract',
+                        'implementation' => 'App\\Services\\Ai\\Programming\\AtlasDev\\Gate\\SymfonyProcessCommandRunner',
+                        'result_contract' => 'VerificationCommandResult',
+                        'guards' => ['UnsafeCommandPolicy', 'workspace_check', 'timeout'],
+                        'primary_consumers' => ['VerificationGate', 'PipelineRunExecutor', 'AtlasDevReadinessService'],
+                    ],
+                ],
                 'specialized_variants' => [
                     'app/Services/Ai/Programming/AtlasDev/Gate/VerificationCommandRunner.php',
                 ],
@@ -1482,6 +1742,26 @@ final class AtlasCodeRealityUsageIntelligenceService
             'frontmatterparser' => [
                 'canonical_owner' => 'semantic_docs_parser_vs_vault_parser',
                 'primary_runtime' => 'app/Services/Semantic/FrontmatterParser.php',
+                'owner_docs' => [
+                    'docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md',
+                    'docs/engineering-knowledge-base/obsidian-atlas-vault.md',
+                    'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+                ],
+                'contract_features' => [
+                    'semantic_parser' => [
+                        'purpose' => 'canonical_engineering_docs_parse_validate_build',
+                        'returns_errors' => true,
+                        'validates_required_doc_fields' => ['id', 'type', 'title', 'status', 'summary'],
+                        'builds_markdown' => true,
+                    ],
+                    'vault_parser' => [
+                        'purpose' => 'read_only_vault_note_and_cartography_shape_parse',
+                        'returns_errors' => false,
+                        'accepts_dotted_or_hyphenated_keys' => true,
+                        'supports_gear_flow_object_lists' => true,
+                        'strips_bom' => true,
+                    ],
+                ],
                 'specialized_variants' => [
                     'app/Services/Vault/FrontmatterParser.php',
                 ],
@@ -1491,6 +1771,26 @@ final class AtlasCodeRealityUsageIntelligenceService
             'aiexecutionplan' => [
                 'canonical_owner' => 'persistent_model_vs_prompt_value_object',
                 'primary_runtime' => 'app/Models/AiExecutionPlan.php',
+                'owner_docs' => [
+                    'docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md',
+                    'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+                ],
+                'contract_features' => [
+                    'persistent_model' => [
+                        'kind' => 'eloquent_model',
+                        'table' => 'ai_execution_plans',
+                        'primary_consumers' => ['AtlasAutonomousEngineeringService'],
+                        'casts' => ['steps', 'expected_files', 'expected_tests', 'risks', 'rollback_plan', 'compounding_memories', 'receipt'],
+                        'schema_version_examples' => ['atlas.ai.autonomous_engineering.execution_plan.v1'],
+                    ],
+                    'prompt_value_object' => [
+                        'kind' => 'prompt_runtime_value_object',
+                        'factory' => 'AiExecutionPlan::fromTask',
+                        'primary_consumers' => ['AiPromptBuilder', 'KernelArchitectureStaticScanner AP-149'],
+                        'required_payload' => ['agent_behavior_contract', 'workflow', 'selected_provider', 'tools_allowed', 'quality_gates'],
+                        'output_methods' => ['toArray', 'toPromptSection'],
+                    ],
+                ],
                 'specialized_variants' => [
                     'app/Services/Ai/ValueObjects/AiExecutionPlan.php',
                 ],
@@ -1500,6 +1800,28 @@ final class AtlasCodeRealityUsageIntelligenceService
             'smokesubject' => [
                 'canonical_owner' => 'generated_smoke_fixture',
                 'primary_runtime' => 'generated_fixture_inside_smoke_workspace',
+                'owner_docs' => [
+                    'docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1-part-01.md',
+                    'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+                ],
+                'contract_features' => [
+                    'fixture_generators' => [
+                        'kind' => 'generated_workspace_fixture',
+                        'primary_consumers' => [
+                            'AtlasDevSeniorLoopAuditCommand',
+                            'AtlasDevDesktopRealSmokeCommand',
+                            'AtlasDevSeniorLoopRunCommand',
+                        ],
+                        'generated_files' => ['src/SmokeSubject.php', 'tests/SmokeSubjectTest.php'],
+                        'intent' => 'exercise_patch_apply_verification_and_desktop_smoke_flow_with_local_workspace_only',
+                    ],
+                    'production_boundary' => [
+                        'kind' => 'non_production_fixture',
+                        'namespace' => 'Smoke',
+                        'persistence' => false,
+                        'route_surface' => false,
+                    ],
+                ],
                 'specialized_variants' => [
                     'app/Console/Commands/AtlasDevSeniorLoopAuditCommand.php',
                     'app/Console/Commands/AtlasDevDesktopRealSmokeCommand.php',
@@ -1616,6 +1938,48 @@ final class AtlasCodeRealityUsageIntelligenceService
             'items' => $items,
             'policy' => 'source_material_and_code_matches_are_triage_pressure_not_authority_or_delete_permission',
         ];
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $topicClusters
+     * @return array<int,array<string,mixed>>
+     */
+    private function sourceMaterialShadowQueue(array $topicClusters): array
+    {
+        $items = [];
+        foreach ($topicClusters as $topic => $cluster) {
+            foreach ((array) ($cluster['source_material_samples'] ?? []) as $path) {
+                $path = (string) $path;
+                $items[] = [
+                    'id' => 'source_material_shadow:'.$topic.':'.str_replace(['/', '.', '\\'], ':', $path),
+                    'kind' => 'archived_source_material_shadow',
+                    'topic' => $topic,
+                    'severity' => $topic === 'rag_retrieval' ? 'high' : 'review',
+                    'path' => $path,
+                    'canonical_owner' => (string) ($cluster['canonical_owner'] ?? ''),
+                    'canonical_owner_exists' => (bool) ($cluster['canonical_owner_exists'] ?? false),
+                    'shadow_reason' => 'archived_doc_mentions_critical_topic_and_can_look_like_current_owner_to_ai_retrieval',
+                    'boundary_contract' => [
+                        'classification' => 'source_material_shadow_not_authority',
+                        'allowed_use' => 'historical_context_after_reading_canonical_owner',
+                        'required_owner_decision' => 'keep_archived_context_only|promote_specific_content_into_canonical_owner|delete_or_quarantine_by_separate_cleanup',
+                        'forbidden' => 'do_not_use_archived_source_material_as_current_runtime_feature_or_flow_owner',
+                    ],
+                    'next_commands' => [
+                        'php artisan atlas:code-reality global-duplication-audit --json',
+                        'php artisan atlas:documentation:enforce --task="<task>" --feature="<feature>" --strict --json',
+                    ],
+                ];
+            }
+        }
+
+        usort($items, static function (array $a, array $b): int {
+            $rank = ['high' => 0, 'review' => 1, 'low' => 2];
+
+            return ($rank[$a['severity']] ?? 9) <=> ($rank[$b['severity']] ?? 9);
+        });
+
+        return array_slice($items, 0, 50);
     }
 
     /**
@@ -1739,6 +2103,15 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'local_rag' => 'document_as_benchmark_readiness_only_or_promote_to_owner_runtime',
                 'retrieval_feedback' => 'ensure_feedback_loop_has_single_owner_between_context_and_compounding',
                 'context_pack' => 'ensure_context_pack_model_store_builder_have_single_contract',
+                'context_compiler_cache' => 'decide_compiler_vs_cache_compiler_runtime_boundary',
+                'persistent_context' => 'keep_persistent_context_as_storage_runtime_not_second_context_pack_owner',
+                'open_brain' => 'document_open_brain_as_projection_surface_not_parallel_memory_source',
+                'python_data_retrieval' => 'keep_python_data_retrieval_behind_runtime_language_boundary',
+                'retrieval_eval' => 'keep_retrieval_eval_as_benchmark_not_primary_retrieval_runtime',
+                'agentic_rag' => 'keep_agentic_rag_as_context_orchestration_framework_not_memory_owner',
+                'hybrid_retrieval' => 'keep_hybrid_retrieval_as_infrastructure_layer_under_unified_context_contract',
+                'memory_recall' => 'keep_memory_recall_as_query_surface_over_memory_contracts',
+                'memory_governance_quality' => 'keep_memory_quality_as_governance_metric_not_retrieval_owner',
                 default => 'document_owner_boundary_or_mark_intentional_surface_wrapper',
             };
             $items[] = [
@@ -1801,6 +2174,51 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'observed_boundary' => 'Context ranking is canonical retrieval ranking; ProgrammingProfessionalReranker is domain-specific rerank consumer',
                 'cleanup_bias' => 'document shared ranking contract and programming-specific adapter boundary',
             ],
+            'context_compiler_cache' => [
+                'reachability' => 'context_compiler_command_and_context_cache_compiler_services_present',
+                'observed_boundary' => 'ContextCompilerRuntime composes source context; ContextCacheCompilerRuntime optimizes/cache-compiles the same context family',
+                'cleanup_bias' => 'do_not_delete; define compiler vs cache compiler responsibility before consolidation',
+            ],
+            'persistent_context' => [
+                'reachability' => 'persistent_context_model_service_and_migration_present',
+                'observed_boundary' => 'PersistentContext runtime stores durable packs; base context pack builder remains the composition contract',
+                'cleanup_bias' => 'do_not_delete; document storage boundary and avoid second context pack owner',
+            ],
+            'open_brain' => [
+                'reachability' => 'open_brain_injection_mcp_and_programming_projection_adapter_present',
+                'observed_boundary' => 'Open Brain exposes provider-safe context projections; it must not author canonical docs or decide implementation',
+                'cleanup_bias' => 'document projection/surface role and avoid treating Open Brain as parallel memory authority',
+            ],
+            'python_data_retrieval' => [
+                'reachability' => 'python_data_retrieval_command_and_context_service_present',
+                'observed_boundary' => 'Python data retrieval is a runtime-boundary integration point, not Laravel-owned ML/vector runtime',
+                'cleanup_bias' => 'keep behind AP-201 runtime language boundary and decision receipt',
+            ],
+            'retrieval_eval' => [
+                'reachability' => 'retrieval_benchmark_and_evaluation_arena_surfaces_present',
+                'observed_boundary' => 'Retrieval evaluation benchmarks retrieval behavior; it must not become the primary retrieval runtime',
+                'cleanup_bias' => 'document benchmark-only role unless owner promotes runtime explicitly',
+            ],
+            'agentic_rag' => [
+                'reachability' => 'agentic_rag_command_service_and_programming_spec_present',
+                'observed_boundary' => 'Agentic RAG orchestrates retrieval strategy for programming; memory/context owners remain canonical',
+                'cleanup_bias' => 'do_not_delete; prevent framework from becoming parallel memory owner',
+            ],
+            'hybrid_retrieval' => [
+                'reachability' => 'hybrid_retrieval_command_service_and_owner_doc_present',
+                'observed_boundary' => 'Hybrid retrieval is infrastructure under unified context retrieval, not an isolated RAG fork',
+                'cleanup_bias' => 'document as infrastructure layer under context/retrieval contracts',
+            ],
+            'memory_recall' => [
+                'reachability' => 'memory_recall_command_and_controller_present',
+                'observed_boundary' => 'Memory recall is a query surface over memory contracts, not a new memory store or retrieval owner',
+                'cleanup_bias' => 'document as surface and keep policy in memory contracts',
+            ],
+            'memory_governance_quality' => [
+                'reachability' => 'memory_quality_service_present',
+                'observed_boundary' => 'Memory quality scores/governs memory and retrieval health; it does not retrieve context directly',
+                'cleanup_bias' => 'document as governance metric and avoid coupling it as retrieval owner',
+            ],
             default => [
                 'reachability' => 'run_target_reachability_before_cleanup',
                 'observed_boundary' => 'owner_boundary_review_required',
@@ -1856,6 +2274,69 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'adapter_or_consumer' => 'app/Services/Ai/Programming/ProgrammingProfessionalReranker.php',
                 'allowed_direction' => 'programming_reranker_applies_domain_scoring_after_context_ranking_contract',
                 'forbidden' => 'programming_reranker_must_not_fork_global_context_ranking_policy',
+            ],
+            'context_compiler_cache' => [
+                'canonical_owner' => 'docs/engineering-knowledge-base/atlas-context-compiler-runtime.md',
+                'owner_runtime' => 'app/Services/Ai/Context/AtlasContextCompilerRuntimeService.php',
+                'adapter_or_consumer' => 'app/Services/Ai/Context/AtlasContextCacheCompilerRuntimeService.php',
+                'allowed_direction' => 'cache_compiler_may_optimize_context_compiler_outputs_without_redefining_context_sources',
+                'forbidden' => 'cache_compiler_must_not_become_second_context_compiler_owner',
+            ],
+            'persistent_context' => [
+                'canonical_owner' => 'docs/engineering-knowledge-base/atlas-persistent-context-runtime.md',
+                'owner_runtime' => 'app/Services/Ai/PersistentContext/AtlasPersistentContextRuntimeService.php',
+                'adapter_or_consumer' => 'app/Models/AtlasPersistentContextPack.php',
+                'allowed_direction' => 'persistent_context_stores_durable_packs_under_memory_context_contracts',
+                'forbidden' => 'persistent_context_must_not_redefine_base_context_pack_or_open_brain_contract',
+            ],
+            'open_brain' => [
+                'canonical_owner' => 'docs/engineering-knowledge-base/open-brain-context-injection.md',
+                'owner_runtime' => 'app/Services/Ai/AtlasOpenBrainContextInjectionService.php',
+                'adapter_or_consumer' => 'app/Services/Ai/Programming/AtlasDev/Discovery/OpenBrainProjectionAdapter.php',
+                'allowed_direction' => 'open_brain_exports_provider_safe_context_projection_from_canonical_memory_docs_and_code_intelligence',
+                'forbidden' => 'open_brain_must_not_author_docs_or_override_canonical_repo_docs',
+            ],
+            'python_data_retrieval' => [
+                'canonical_owner' => 'docs/engineering-knowledge-base/atlas-python-data-retrieval-runtime.md',
+                'owner_runtime' => 'app/Services/Ai/Context/AtlasPythonDataRetrievalRuntimeService.php',
+                'adapter_or_consumer' => 'app/Console/Commands/AtlasPythonDataRetrievalRuntimeCommand.php',
+                'allowed_direction' => 'laravel_invokes_python_data_retrieval_through_runtime_boundary_and_receipts',
+                'forbidden' => 'do_not_implement_python_rag_vector_or_ml_runtime_inside_laravel_app_services',
+            ],
+            'retrieval_eval' => [
+                'canonical_owner' => 'docs/engineering-knowledge-base/atlas-retrieval-evaluation-benchmark-arena.md',
+                'owner_runtime' => 'app/Services/Ai/Context/AtlasRetrievalEvaluationBenchmarkArenaService.php',
+                'adapter_or_consumer' => 'app/Services/Ai/Programming/ProgrammingRetrievalBenchmarkService.php',
+                'allowed_direction' => 'evaluation_benchmarks_measure_retrieval_quality_and_feed_memory_quality',
+                'forbidden' => 'retrieval_eval_must_not_become_primary_retrieval_runtime_or_memory_source',
+            ],
+            'agentic_rag' => [
+                'canonical_owner' => 'docs/engineering-knowledge-base/atlas-agentic-rag-framework.md',
+                'owner_runtime' => 'app/Services/Ai/Context/AtlasAgenticRagFrameworkService.php',
+                'adapter_or_consumer' => 'docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md',
+                'allowed_direction' => 'agentic_rag_orchestrates_retrieval_strategy_over_existing_memory_context_and_code_intelligence',
+                'forbidden' => 'agentic_rag_must_not_create_parallel_memory_store_or_context_authority',
+            ],
+            'hybrid_retrieval' => [
+                'canonical_owner' => 'docs/engineering-knowledge-base/atlas-hybrid-retrieval-infrastructure.md',
+                'owner_runtime' => 'app/Services/Ai/Context/AtlasHybridRetrievalInfrastructureService.php',
+                'adapter_or_consumer' => 'docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md',
+                'allowed_direction' => 'hybrid_retrieval_combines_existing_retrieval_channels_under_unified_context_contract',
+                'forbidden' => 'hybrid_retrieval_must_not_become_isolated_rag_runtime_without_context_owner_review',
+            ],
+            'memory_recall' => [
+                'canonical_owner' => 'docs/engineering-knowledge-base/memory/retrieval-and-context.md',
+                'owner_runtime' => 'app/Console/Commands/AtlasMemoryRecallCommand.php',
+                'adapter_or_consumer' => 'app/Http/Controllers/AtlasMemoryRecallController.php',
+                'allowed_direction' => 'memory_recall_surfaces_queries_over_memory_contracts_and_open_brain_policy',
+                'forbidden' => 'memory_recall_must_not_create_parallel_retrieval_policy_or_memory_store',
+            ],
+            'memory_governance_quality' => [
+                'canonical_owner' => 'docs/engineering-knowledge-base/memory/retrieval-and-context.md',
+                'owner_runtime' => 'app/Services/Ai/AtlasMemoryQualityService.php',
+                'adapter_or_consumer' => 'docs/engineering-knowledge-base/memory/foundation-map.md',
+                'allowed_direction' => 'memory_quality_scores_retrieval_and_memory_health_without_serving_context_directly',
+                'forbidden' => 'memory_quality_must_not_be_used_as_retrieval_owner_or_context_source',
             ],
             default => [
                 'canonical_owner' => 'owner_review_required',

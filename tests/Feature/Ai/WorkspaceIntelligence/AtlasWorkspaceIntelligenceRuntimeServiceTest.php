@@ -75,13 +75,30 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertFalse($report['workspace_focus_map']['source_policy']['raw_file_content_returned']);
         $this->assertFalse($report['workspace_focus_map']['source_policy']['absolute_workspace_path_returned']);
         $this->assertSame(64, strlen((string) $report['workspace_focus_map']['focus_hash']));
+        $this->assertSame('atlas.awis.workspace_live_execution_memory.v1', $report['workspace_live_execution_memory']['schema_version']);
+        $this->assertSame('ready', $report['workspace_live_execution_memory']['status']);
+        $this->assertContains('workspace_live_execution_memory', $report['workspace_live_execution_memory']['startup_packet']['load_first']);
+        $this->assertContains('raw_conversation_replay', $report['workspace_live_execution_memory']['startup_packet']['avoid']);
+        $this->assertSame('workspace_runbook.body.live_execution_memory', $report['workspace_live_execution_memory']['persistence_contract']['embedded_in_artifact_lake']);
+        $this->assertFalse($report['workspace_live_execution_memory']['source_policy']['raw_file_content_returned']);
+        $this->assertFalse($report['workspace_live_execution_memory']['source_policy']['raw_diff_returned']);
+        $this->assertFalse($report['workspace_live_execution_memory']['source_policy']['raw_conversation_returned']);
+        $this->assertFalse($report['workspace_live_execution_memory']['source_policy']['absolute_workspace_path_returned']);
+        $this->assertSame(64, strlen((string) $report['workspace_live_execution_memory']['live_memory_hash']));
         $this->assertSame('atlas.awis.workspace_next_session_brain.v1', $report['workspace_next_session_brain']['schema_version']);
         $this->assertSame('ready', $report['workspace_next_session_brain']['status']);
         $this->assertGreaterThanOrEqual(0.8, $report['workspace_next_session_brain']['readiness_score']);
+        $this->assertContains('workspace_live_execution_memory', $report['workspace_next_session_brain']['resume_packet']['load_order']);
         $this->assertContains('workspace_change_memory', $report['workspace_next_session_brain']['resume_packet']['load_order']);
         $this->assertContains('workspace_focus_map', $report['workspace_next_session_brain']['resume_packet']['load_order']);
+        $this->assertSame(
+            'awis_live_memory:'.$report['workspace_live_execution_memory']['live_memory_hash'],
+            $report['workspace_next_session_brain']['resume_packet']['live_execution_memory_ref'],
+        );
         $this->assertSame('atlas.awis.context_loading_plan.v1', $report['workspace_next_session_brain']['context_loading_plan']['schema_version']);
         $this->assertSame($report['repository_inventory']['inventory_hash'], $report['workspace_next_session_brain']['context_loading_plan']['repository_inventory_hash']);
+        $this->assertSame($report['workspace_live_execution_memory']['live_memory_hash'], $report['workspace_next_session_brain']['context_loading_plan']['live_execution_memory_hash']);
+        $this->assertSame($report['workspace_live_execution_memory']['live_memory_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['workspace_live_execution_memory_hash']);
         $this->assertSame('atlas.awis.workspace_working_set.v1', $report['workspace_next_session_brain']['context_loading_plan']['workspace_working_set']['schema_version']);
         $this->assertSame('provider_safe_hot_context_set', $report['workspace_next_session_brain']['context_loading_plan']['workspace_working_set']['mode']);
         $this->assertSame(64, strlen((string) $report['workspace_next_session_brain']['context_loading_plan']['working_set_hash']));
@@ -102,6 +119,7 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertFalse($report['workspace_next_session_brain']['context_loading_plan']['workspace_working_set']['prewarm_plan']['load_raw_file_content']);
         $this->assertTrue($report['workspace_next_session_brain']['performance_budget']['uses_workspace_working_set']);
         $this->assertTrue($report['workspace_next_session_brain']['performance_budget']['uses_context_delta_plan']);
+        $this->assertTrue($report['workspace_next_session_brain']['performance_budget']['uses_live_execution_memory']);
         $this->assertFalse($report['workspace_next_session_brain']['context_loading_plan']['provider_policy']['raw_manifest_returned']);
         $this->assertFalse($report['workspace_next_session_brain']['context_loading_plan']['provider_policy']['script_bodies_returned']);
         $this->assertFalse($report['workspace_next_session_brain']['source_policy']['raw_file_content_returned']);
@@ -139,12 +157,18 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
             'outcome_record',
             'workspace_runbook',
         ], $artifactTypes);
+        $contextPack = collect($report['awaf']['artifacts'])->firstWhere('artifact_type', 'context_pack');
+        $runbook = collect($report['awaf']['artifacts'])->firstWhere('artifact_type', 'workspace_runbook');
+        $this->assertSame($report['workspace_live_execution_memory']['live_memory_hash'], data_get($contextPack, 'body.live_execution_memory_hash'));
+        $this->assertSame($report['workspace_live_execution_memory']['live_memory_hash'], data_get($runbook, 'body.live_execution_memory.live_memory_hash'));
         $this->assertSame('ready', $report['awair']['status']);
         $this->assertSame('atlas.workspace_artifact_intelligence.v1', $report['awair']['schema_version']);
         $this->assertSame(10, $report['awair']['artifact_lake']['artifact_count']);
         $this->assertNotEmpty($report['awair']['artifact_graph']['nodes']);
         $this->assertNotEmpty($report['awair']['artifact_graph']['edges']);
         $this->assertTrue($report['awair']['artifact_replay']['replay_ready']);
+        $this->assertContains('workspace_live_execution_memory', $report['awair']['artifact_replay']['required_inputs']);
+        $this->assertContains('workspace_live_execution_memory', $report['awair']['artifact_context_compiler']['context_units']);
         $this->assertSame('ready', $report['awair']['artifact_simulation']['decision']);
         $this->assertFalse($report['awair']['artifact_context_compiler']['raw_conversation_included']);
         $this->assertTrue($report['awair']['artifact_quality_governor']['all_executable_artifacts_ready']);
@@ -174,9 +198,11 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame(['AEMOR', 'AWEF', 'workspace_runbook', 'context_autopilot'], $report['awis_learning_loop']['evidence_learning']['feedback_targets']);
         $this->assertContains('workspace_change_memory', $report['awis_learning_loop']['operational_memory']['candidate_units']);
         $this->assertContains('workspace_focus_map', $report['awis_learning_loop']['operational_memory']['candidate_units']);
+        $this->assertContains('workspace_live_execution_memory', $report['awis_learning_loop']['operational_memory']['candidate_units']);
         $this->assertContains('workspace_next_session_brain', $report['awis_learning_loop']['operational_memory']['candidate_units']);
         $this->assertSame($report['workspace_change_memory']['change_hash'], $report['awis_learning_loop']['context_application']['workspace_change_memory_hash']);
         $this->assertSame($report['workspace_focus_map']['focus_hash'], $report['awis_learning_loop']['context_application']['workspace_focus_hash']);
+        $this->assertSame($report['workspace_live_execution_memory']['live_memory_hash'], $report['awis_learning_loop']['context_application']['workspace_live_execution_memory_hash']);
         $this->assertSame($report['workspace_next_session_brain']['brain_hash'], $report['awis_learning_loop']['context_application']['workspace_next_session_brain_hash']);
         $this->assertFalse($report['awis_learning_loop']['context_application']['raw_diff_included']);
         $this->assertTrue($report['awis_learning_loop']['closed_loop']['loop_closed']);
@@ -198,6 +224,9 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $report['workspace_learning_snapshot']['learned_signal_counts']['context_delta_effectiveness_profile_count']);
         $this->assertSame($report['workspace_change_memory']['change_hash'], $report['workspace_learning_snapshot']['component_hashes']['workspace_change_hash']);
         $this->assertSame($report['workspace_focus_map']['focus_hash'], $report['workspace_learning_snapshot']['component_hashes']['workspace_focus_hash']);
+        $this->assertSame($report['workspace_live_execution_memory']['live_memory_hash'], $report['workspace_learning_snapshot']['component_hashes']['workspace_live_execution_memory_hash']);
+        $this->assertGreaterThanOrEqual(0, $report['workspace_learning_snapshot']['learned_signal_counts']['live_memory_repository_count']);
+        $this->assertGreaterThanOrEqual(0, $report['workspace_learning_snapshot']['learned_signal_counts']['live_memory_command_count']);
         $this->assertTrue($report['workspace_learning_snapshot']['workspace_state']['learning_loop_closed']);
         $this->assertFalse($report['workspace_learning_snapshot']['persistence_policy']['auto_promotes_memory']);
         $this->assertFalse($report['workspace_learning_snapshot']['persistence_policy']['cross_workspace_learning_allowed']);
@@ -233,6 +262,7 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertTrue($report['claim_policy']['workspace_learning_loop_closed']);
         $this->assertTrue($report['claim_policy']['workspace_change_memory_provider_safe']);
         $this->assertTrue($report['claim_policy']['workspace_focus_map_provider_safe']);
+        $this->assertTrue($report['claim_policy']['workspace_live_execution_memory_provider_safe']);
         $this->assertTrue($report['claim_policy']['workspace_next_session_brain_provider_safe']);
         $this->assertTrue($report['claim_policy']['workspace_learning_snapshot_provider_safe']);
         $this->assertSame(64, strlen((string) $report['runtime_hash']));

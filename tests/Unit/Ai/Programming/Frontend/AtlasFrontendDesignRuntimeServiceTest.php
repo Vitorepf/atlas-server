@@ -152,6 +152,10 @@ class AtlasFrontendDesignRuntimeServiceTest extends TestCase
         $this->assertContains('task_spec_command_tests_present', collect($certification['checks'])->pluck('id')->all());
         $this->assertContains('selected_workspace_space_runtime_absent', collect($certification['checks'])->pluck('id')->all());
         $this->assertSame('pass', collect($certification['checks'])->firstWhere('id', 'selected_workspace_space_runtime_absent')['status'] ?? null);
+        $this->assertContains('desktop_frontend_action_queue_summary_present', collect($certification['checks'])->pluck('id')->all());
+        $this->assertContains('desktop_frontend_action_queue_summary_tests_present', collect($certification['checks'])->pluck('id')->all());
+        $this->assertSame('pass', collect($certification['checks'])->firstWhere('id', 'desktop_frontend_action_queue_summary_present')['status'] ?? null);
+        $this->assertSame('pass', collect($certification['checks'])->firstWhere('id', 'desktop_frontend_action_queue_summary_tests_present')['status'] ?? null);
         $this->assertContains('benchmark_command_present', collect($certification['checks'])->pluck('id')->all());
         $this->assertContains('browser_bridge_runtime_present', collect($certification['checks'])->pluck('id')->all());
         $this->assertContains('browser_bridge_command_present', collect($certification['checks'])->pluck('id')->all());

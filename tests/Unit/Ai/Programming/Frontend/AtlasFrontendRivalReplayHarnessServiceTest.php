@@ -378,7 +378,7 @@ class AtlasFrontendRivalReplayHarnessServiceTest extends TestCase
         $this->assertSame($hashes['output_artifact'], data_get($payload, 'score_attestation.reviewed_manifest_hashes.output_artifact_hash'));
         $this->assertSame([$hashes['screenshot_set']], data_get($payload, 'score_attestation.reviewed_manifest_hashes.screenshot_hashes'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.score_template_is_not_evidence'));
-        $this->assertContains('embed_manifest_patch_score_attestation', $payload['required_next_actions']);
+        $this->assertContains('apply_manifest_patch_with_atlas_frontend_replay_apply_patch', $payload['required_next_actions']);
     }
 
     public function test_score_attestation_template_blocks_until_evidence_pack_verifies(): void
@@ -470,7 +470,7 @@ class AtlasFrontendRivalReplayHarnessServiceTest extends TestCase
         $this->assertSame([$hashes['screenshot_set']], data_get($payload, 'external_execution_receipt.manifest_hashes.screenshot_hashes'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'external_execution_receipt.manifest_hashes.evidence_pack_verification_hash'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.external_receipt_template_is_not_evidence'));
-        $this->assertContains('embed_manifest_patch_external_execution_receipt', $payload['required_next_actions']);
+        $this->assertContains('apply_manifest_patch_with_atlas_frontend_replay_apply_patch', $payload['required_next_actions']);
     }
 
     public function test_external_execution_receipt_template_blocks_internal_system(): void

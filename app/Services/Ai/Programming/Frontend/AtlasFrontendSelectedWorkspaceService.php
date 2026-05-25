@@ -10,6 +10,8 @@ final class AtlasFrontendSelectedWorkspaceService
 {
     public const SCHEMA_VERSION = 'atlas.frontend.selected_workspace.v1';
 
+    public const SELECTION_RECEIPT_SCHEMA_VERSION = 'atlas.frontend.selected_workspace.selection_receipt.v1';
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -119,6 +121,98 @@ final class AtlasFrontendSelectedWorkspaceService
         $payload['selected_workspace_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function selectionReceipt(array $input): array
+    {
+        $workspace = rtrim(trim((string) ($input['workspace'] ?? '')), DIRECTORY_SEPARATOR);
+        $portfolioRoot = rtrim(trim((string) ($input['portfolio_root'] ?? '')), DIRECTORY_SEPARATOR);
+        $task = trim((string) ($input['task'] ?? ''));
+        $frontendApp = $this->requestedFrontendAppRelativeName($input['frontend_app'] ?? null);
+        $output = trim((string) ($input['output'] ?? ''));
+        $selection = $this->resolve($input);
+        $invalidFrontendApp = data_get($selection, 'frontend_app_candidates.status') === 'requested_frontend_app_subscope_invalid';
+        $selected = ($selection['status'] ?? null) === 'selected' && ! $invalidFrontendApp;
+        $portfolioReal = $portfolioRoot !== '' ? (realpath($portfolioRoot) ?: $portfolioRoot) : '';
+        $workspaceReal = $workspace !== '' ? (realpath($workspace) ?: $workspace) : '';
+        $portfolioContainsWorkspace = $portfolioReal !== ''
+            && $workspaceReal !== ''
+            && ($workspaceReal === $portfolioReal || str_starts_with($workspaceReal, rtrim($portfolioReal, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR));
+
+        $receipt = [
+            'schema_version' => self::SELECTION_RECEIPT_SCHEMA_VERSION,
+            'status' => $selected ? 'ready' : 'blocked',
+            'receipt_type' => 'multi_repo_selected_repository_frontend_workspace_receipt',
+            'selection_schema_version' => self::SCHEMA_VERSION,
+            'selection_status' => $selection['status'] ?? 'unknown',
+            'selection_source' => $selection['selection_source'] ?? ($input['selection_source'] ?? 'unknown'),
+            'task_hash' => $task !== '' ? hash('sha256', $task) : null,
+            'portfolio_root_hash' => $portfolioReal !== '' ? hash('sha256', $portfolioReal) : null,
+            'workspace_hash' => $workspaceReal !== '' ? hash('sha256', $workspaceReal) : null,
+            'selected_workspace_hash' => $selection['selected_workspace_hash'] ?? null,
+            'portfolio_binding' => [
+                'portfolio_root_provided' => $portfolioReal !== '',
+                'portfolio_root_is_not_selected_workspace' => $portfolioReal === '' || $portfolioReal !== $workspaceReal,
+                'selected_workspace_inside_portfolio_root' => $portfolioContainsWorkspace,
+                'raw_absolute_paths_returned' => false,
+            ],
+            'frontend_app_scope' => [
+                'status' => $frontendApp !== null ? 'subscope_selected' : 'repo_root_or_auto_detected',
+                'relative_name_hash' => $frontendApp !== null ? hash('sha256', $frontendApp) : data_get($selection, 'confirmed_frontend_app_scope.relative_name_hash'),
+                'candidate_status' => data_get($selection, 'frontend_app_candidates.status', 'not_evaluated'),
+                'candidate_count' => (int) data_get($selection, 'frontend_app_candidates.candidate_count', 0),
+                'frontend_app_is_subscope_only' => true,
+            ],
+            'runtime_policy' => [
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime'.'_required' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'execution_performed' => false,
+                'world_best_claim_allowed' => false,
+            ],
+            'evidence_policy' => [
+                'selection_receipt_is_not_delivery_evidence' => true,
+                'selection_receipt_is_not_replay_evidence' => true,
+                'portfolio_candidate_is_not_execution_evidence' => true,
+                'completion_requires_run_certification_handoff_and_outcome' => true,
+                'external_rival_replay_still_required_for_world_best_claim' => true,
+                'raw_customer_source_returned' => false,
+                'raw_absolute_paths_returned' => false,
+            ],
+            'required_next_actions' => $selected
+                ? [
+                    'run_atlas_frontend_runtime_projection_for_selected_repo',
+                    'prepare_provider_instruction_packet_and_evidence_kit',
+                    'execute_work_then_collect_run_certification_handoff_and_rival_replay_receipts',
+                ]
+                : ['select_valid_project_scoped_repository_before_frontend_runtime'],
+            'write_performed' => false,
+            'receipt_file_hash' => null,
+            'output_ref_hash' => $output !== '' ? hash('sha256', $output) : null,
+            'blockers' => $selected ? [] : array_values(array_unique(array_merge(
+                (array) ($selection['blockers'] ?? []),
+                $invalidFrontendApp ? ['requested_frontend_app_subscope_not_found'] : [],
+            ))),
+            'warnings' => ['selection_receipt_does_not_authorize_provider_dispatch'],
+        ];
+        if ($output !== '' && $selected) {
+            $receipt['write_performed'] = true;
+            $receipt['selection_receipt_hash'] = MissionCanonicalHash::sha256($receipt);
+            File::ensureDirectoryExists(dirname($output));
+            File::put($output, json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+            $receipt['receipt_file_hash'] = hash_file('sha256', $output);
+            $receipt['selection_receipt_hash'] = MissionCanonicalHash::sha256($receipt);
+        } else {
+            $receipt['selection_receipt_hash'] = MissionCanonicalHash::sha256($receipt);
+        }
+
+        return $receipt;
     }
 
     /**

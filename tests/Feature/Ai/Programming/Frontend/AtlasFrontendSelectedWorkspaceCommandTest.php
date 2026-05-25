@@ -119,6 +119,54 @@ class AtlasFrontendSelectedWorkspaceCommandTest extends TestCase
         $this->assertStringNotContainsString($workspace.'/apps/web', $output);
     }
 
+    public function test_selected_workspace_command_writes_selection_receipt_for_multi_repo_scan(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-selected-workspace-command-receipt-root-'.bin2hex(random_bytes(4));
+        $workspace = $root.'/atlas-shop';
+        File::ensureDirectoryExists($workspace.'/apps/web/src/pages');
+        File::put($workspace.'/package.json', json_encode([
+            'private' => true,
+            'workspaces' => ['apps/*'],
+        ], JSON_THROW_ON_ERROR));
+        File::put($workspace.'/pnpm-workspace.yaml', 'packages: ["apps/*"]');
+        File::put($workspace.'/apps/web/package.json', json_encode([
+            'scripts' => [
+                'dev' => 'vite --host 127.0.0.1',
+                'test' => 'vitest run',
+                'build' => 'vite build',
+            ],
+            'dependencies' => [
+                'react' => '^latest',
+                'vite' => '^latest',
+            ],
+        ], JSON_THROW_ON_ERROR));
+        $outputPath = $workspace.'/.atlas/frontend-evidence/apps-web/selection-receipt.json';
+
+        $exitCode = Artisan::call('atlas:frontend:selected-workspace', [
+            '--task' => 'Selecionar repo multi tenant',
+            '--workspace' => $workspace,
+            '--frontend-app' => 'apps/web',
+            '--portfolio-root' => $root,
+            '--selection-receipt' => true,
+            '--output' => $outputPath,
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertFileExists($outputPath);
+        $this->assertStringContainsString('atlas.frontend.selected_workspace.selection_receipt.v1', $output);
+        $this->assertStringContainsString('multi_repo_selected_repository_frontend_workspace_receipt', $output);
+        $this->assertStringContainsString('selection_receipt_is_not_delivery_evidence', $output);
+        $this->assertStringContainsString('portfolio_candidate_is_not_execution_evidence', $output);
+        $this->assertStringContainsString('space_runtime_required', $output);
+        $this->assertStringContainsString('write_performed', $output);
+        $this->assertStringNotContainsString($workspace, $output);
+        $this->assertStringNotContainsString($root, $output);
+        $this->assertStringNotContainsString($outputPath, $output);
+    }
+
     public function test_selected_workspace_command_fails_strict_for_invalid_frontend_app_subscope(): void
     {
         $workspace = sys_get_temp_dir().'/atlas-frontend-selected-workspace-command-invalid-subscope-'.bin2hex(random_bytes(4));

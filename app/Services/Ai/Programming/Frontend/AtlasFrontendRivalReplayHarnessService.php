@@ -827,7 +827,7 @@ final class AtlasFrontendRivalReplayHarnessService
             ],
             'blockers' => $blockers,
             'required_next_actions' => $blockers === []
-                ? ['review_artifact_refs_against_rubric', 'set_verified_reviewed_at_and_operator_approval', 'embed_manifest_patch_score_attestation', 'rerun_replay_inspect']
+                ? ['review_artifact_refs_against_rubric', 'set_verified_reviewed_at_and_operator_approval', 'apply_manifest_patch_with_atlas_frontend_replay_apply_patch', 'rerun_replay_inspect']
                 : ['fix_blockers_before_score_attestation'],
             'output_ref_hash' => hash('sha256', $target),
             'write_performed' => $blockers === [],
@@ -940,7 +940,7 @@ final class AtlasFrontendRivalReplayHarnessService
             ],
             'blockers' => $blockers,
             'required_next_actions' => $blockers === []
-                ? ['run_external_rival_against_unchanged_task_spec', 'verify_manifest_hashes_match_artifacts', 'set_verified_captured_at_and_operator_approval', 'embed_manifest_patch_external_execution_receipt', 'rerun_replay_inspect']
+                ? ['run_external_rival_against_unchanged_task_spec', 'verify_manifest_hashes_match_artifacts', 'set_verified_captured_at_and_operator_approval', 'apply_manifest_patch_with_atlas_frontend_replay_apply_patch', 'rerun_replay_inspect']
                 : ['fix_blockers_before_external_execution_receipt'],
             'output_ref_hash' => hash('sha256', $target),
             'write_performed' => $blockers === [],
@@ -1234,10 +1234,12 @@ final class AtlasFrontendRivalReplayHarnessService
                         'run_external_rival_against_unchanged_task_spec',
                         'run_external_receipt_template_command_for_provider_safe_manifest_patch',
                         'fill_external_execution_receipt_without_raw_prompt_source_tokens_urls_or_provider_secrets',
+                        'apply_manifest_patch_with_atlas_frontend_replay_apply_patch',
                         'rerun_php_artisan_atlas_frontend_replay_inspect',
                     ],
                     'commands' => [
                         'write_external_receipt_template' => 'php artisan atlas:frontend:replay external-receipt-template --evidence='.$directory.' --case='.$caseId.' --system='.$system.' --json',
+                        'apply_manifest_patch' => 'php artisan atlas:frontend:replay apply-patch --evidence='.$directory.' --patch=<filled-template.json> --json',
                     ],
                 ];
             }
@@ -1292,10 +1294,12 @@ final class AtlasFrontendRivalReplayHarnessService
                         'run_score_template_command_for_provider_safe_manifest_patch',
                         'compute_score_breakdown_hash_from_manifest_score_breakdown',
                         'fill_score_attestation_without_raw_prompt_source_or_reviewer_identity',
+                        'apply_manifest_patch_with_atlas_frontend_replay_apply_patch',
                         'rerun_php_artisan_atlas_frontend_replay_inspect',
                     ],
                     'commands' => [
                         'write_score_template' => 'php artisan atlas:frontend:replay score-template --evidence='.$directory.' --case='.$caseId.' --system='.$system.' --json',
+                        'apply_manifest_patch' => 'php artisan atlas:frontend:replay apply-patch --evidence='.$directory.' --patch=<filled-template.json> --json',
                     ],
                 ];
             }

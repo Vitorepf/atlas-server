@@ -131,6 +131,12 @@ Documentos irmaos:
 
 Atlas Dev fica **dentro** do Atlas AI, ao lado de outros fluxos como Research, Explain, Debug, Review e Conversation. Forge entra quando o trabalho vira **Obra**: entrega longa, multiagente, persistente, auditavel, com necessidade de maximo poder de fogo.
 
+Boundary anti-duplicacao: `App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope`
+nao substitui `App\Services\Ai\Kernel\Envelope\OperationEnvelope`. O primeiro e
+o DTO canonico do fluxo Atlas Dev (`atlas.dev.operation_envelope.v1`); o segundo
+e o contrato Kernel (`atlas.envelope.v1`). Qualquer ponte entre eles exige
+adapter explicito, testes e owner doc.
+
 ### 1.1 Posicionamento No Atlas Kernel Pipeline
 
 Atlas Dev nao e pipeline paralelo. Ele e **uma instancia governada do Atlas Kernel Pipeline canonico** para o dominio Programming, com fluxo Atlas Dev (workspace-bound). Mapeamento estagio a estagio:
@@ -140,7 +146,7 @@ Atlas Dev nao e pipeline paralelo. Ele e **uma instancia governada do Atlas Kern
 | 1. Surface Plane | Atlas AI Desktop Mac (primeira surface); CLI/App/API entram como paridade |
 | 2. Surface Adapter | `AtlasDesktopAiAdapter` (e demais 3) sob `AtlasDev/Surface/` |
 | 3. Atlas Input | texto + screenshot/clipboard via `OperationEnvelope.attachments` |
-| 4. Operation Envelope | `OperationEnvelope` (schema canonico Atlas Dev, nome identico ao Kernel) |
+| 4. Operation Envelope | `OperationEnvelope` (`atlas.dev.operation_envelope.v1`; schema Atlas Dev local, nao a classe Kernel) |
 | 5. Intent / Routing | `IntakeNormalizer` + `TaskClassifier` + `RiskLevelScorer` |
 | 6. Business Context | `business_context` em `OperationEnvelope` (organization, project, environment, customer) |
 | 7. Domain / Profile / Flow | Domain=Programming, Profile=atlas_dev_fast_path, Flow=programming.dev_efficient |

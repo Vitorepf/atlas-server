@@ -234,6 +234,11 @@ Contrato operacional resumido:
    operator packet estiver ausente, stale, adulterado ou com path bruto, o plano
    bloqueia claim com `operator_packet_verification_blocked`. Depois do operador
    preencher evidence packs, execution receipts e score attestations,
+   `atlas:frontend:replay apply-patch --evidence=<dir> --patch=<filled-template.json> --json`
+   aplica somente patches provider-safe gerados pelos templates de receipt/score
+   quando o `manifest_hash` ainda bate com o manifesto atual. O apply-patch
+   recusa chaves fora de allowlist, campos brutos sensiveis e manifestos stale;
+   ele facilita a operacao, mas nao vira evidence de world-best por si so.
    `atlas:frontend:replay proof-bundle --evidence=<dir> --json` materializa
    `atlas.frontend.rival_replay_competitive_proof_bundle.v1`: um indice
    provider-safe de replay, proof-contract, operator-packet verification,

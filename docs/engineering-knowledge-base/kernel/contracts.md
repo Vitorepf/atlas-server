@@ -26,6 +26,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/kernel/failure-domain-taxonomy.md
 doc_schema: atlas_canonical_module_doc.v1
 
@@ -120,6 +121,12 @@ next_actions:
 | Domain Manifest | domain id, flows, orchestrator, profiles, gates, memory projection |
 | Surface Adapter | normalize input, declare capabilities, call Kernel, render output |
 | Provider Driver | prepare call, inject identity, execute, normalize response, report telemetry |
+
+Boundary anti-duplicacao: o Kernel `Operation Envelope` e o contrato
+`App\Services\Ai\Kernel\Envelope\OperationEnvelope` (`atlas.envelope.v1`).
+Schemas locais como `App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope`
+(`atlas.dev.operation_envelope.v1`) ou DTOs de pipeline SDD nao substituem este
+contrato. Use adapter explicito antes de cruzar a fronteira.
 
 ## State Machines
 

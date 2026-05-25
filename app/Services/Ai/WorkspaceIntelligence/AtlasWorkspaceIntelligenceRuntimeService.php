@@ -60,16 +60,17 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $repositoryInventory = (array) data_get($twin, 'repository_inventory', []);
         $continuity = $this->continuity($profile, $conversationTexts);
         $focusMap = $this->workspaceFocusMap($profile, $task, $twin, $changeMemory);
-        $artifacts = $this->artifacts($profile, $task, $twin, $continuity, $focusMap);
+        $liveExecutionMemory = $this->workspaceLiveExecutionMemory($profile, $task, $workspaceReport, $twin, $continuity, $changeMemory, $focusMap);
+        $artifacts = $this->artifacts($profile, $task, $twin, $continuity, $focusMap, $liveExecutionMemory);
         $artifactIntelligence = $this->artifactIntelligence($profile, $task, $artifacts, $twin, $continuity);
         $contracts = $this->contracts($workspaceReport, $artifacts);
         $evolution = $this->evolution($profile, $twin);
-        $nextSessionBrain = $this->workspaceNextSessionBrain($profile, $task, $workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap);
-        $learningLoop = $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $nextSessionBrain);
-        $learningSnapshot = $this->workspaceLearningSnapshot($profile, $workspaceReport, $repositoryInventory, $changeMemory, $focusMap, $nextSessionBrain, $learningLoop, $twin);
+        $nextSessionBrain = $this->workspaceNextSessionBrain($profile, $task, $workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $liveExecutionMemory);
+        $learningLoop = $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $nextSessionBrain, $liveExecutionMemory);
+        $learningSnapshot = $this->workspaceLearningSnapshot($profile, $workspaceReport, $repositoryInventory, $changeMemory, $focusMap, $nextSessionBrain, $learningLoop, $twin, $liveExecutionMemory);
         $nextSessionBrain = $this->attachLearningSnapshotToNextSessionBrain($nextSessionBrain, $learningSnapshot);
-        $learningLoop = $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $nextSessionBrain);
-        $learningSnapshot = $this->workspaceLearningSnapshot($profile, $workspaceReport, $repositoryInventory, $changeMemory, $focusMap, $nextSessionBrain, $learningLoop, $twin);
+        $learningLoop = $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $nextSessionBrain, $liveExecutionMemory);
+        $learningSnapshot = $this->workspaceLearningSnapshot($profile, $workspaceReport, $repositoryInventory, $changeMemory, $focusMap, $nextSessionBrain, $learningLoop, $twin, $liveExecutionMemory);
         $executionBoundaries = $this->executionBoundarySummary($this->boundaryAudit->audit());
         $registryEditing = $this->registryEditingSummary();
         $surfaceContracts = $this->surfaceContractSummary();
@@ -86,6 +87,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'repository_inventory' => $repositoryInventory,
             'workspace_change_memory' => $changeMemory,
             'workspace_focus_map' => $focusMap,
+            'workspace_live_execution_memory' => $liveExecutionMemory,
             'workspace_next_session_brain' => $nextSessionBrain,
             'workspace_learning_snapshot' => $learningSnapshot,
             'awtr' => $twin,
@@ -117,6 +119,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                     && data_get($changeMemory, 'source_policy.absolute_workspace_path_returned') === false,
                 'workspace_focus_map_provider_safe' => data_get($focusMap, 'source_policy.raw_file_content_returned') === false
                     && data_get($focusMap, 'source_policy.absolute_workspace_path_returned') === false,
+                'workspace_live_execution_memory_provider_safe' => data_get($liveExecutionMemory, 'source_policy.raw_file_content_returned') === false
+                    && data_get($liveExecutionMemory, 'source_policy.raw_diff_returned') === false
+                    && data_get($liveExecutionMemory, 'source_policy.raw_conversation_returned') === false
+                    && data_get($liveExecutionMemory, 'source_policy.absolute_workspace_path_returned') === false,
                 'workspace_next_session_brain_provider_safe' => data_get($nextSessionBrain, 'source_policy.raw_file_content_returned') === false
                     && data_get($nextSessionBrain, 'source_policy.raw_conversation_returned') === false
                     && data_get($nextSessionBrain, 'source_policy.absolute_workspace_path_returned') === false,
@@ -152,7 +158,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $continuity = $this->continuity($profile, []);
         $changeMemory = $this->workspaceChangeMemory($profile);
         $focusMap = $this->workspaceFocusMap($profile, $task, $twin, $changeMemory);
-        $artifacts = $this->artifacts($profile, $task, $twin, $continuity, $focusMap);
+        $liveExecutionMemory = $this->workspaceLiveExecutionMemory($profile, $task, $workspaceReport, $twin, $continuity, $changeMemory, $focusMap);
+        $artifacts = $this->artifacts($profile, $task, $twin, $continuity, $focusMap, $liveExecutionMemory);
 
         return $this->contracts($workspaceReport, $artifacts);
     }
@@ -179,13 +186,14 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $twin = $this->workspaceTwin($profile);
         $continuity = $this->continuity($profile, $conversationTexts);
         $focusMap = $this->workspaceFocusMap($profile, $task, $twin, $changeMemory);
-        $artifacts = $this->artifacts($profile, $task, $twin, $continuity, $focusMap);
+        $liveExecutionMemory = $this->workspaceLiveExecutionMemory($profile, $task, $workspaceReport, $twin, $continuity, $changeMemory, $focusMap);
+        $artifacts = $this->artifacts($profile, $task, $twin, $continuity, $focusMap, $liveExecutionMemory);
         $artifactIntelligence = $this->artifactIntelligence($profile, $task, $artifacts, $twin, $continuity);
         $contracts = $this->contracts($workspaceReport, $artifacts);
         $evolution = $this->evolution($profile, $twin);
-        $nextSessionBrain = $this->workspaceNextSessionBrain($profile, $task, $workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap);
+        $nextSessionBrain = $this->workspaceNextSessionBrain($profile, $task, $workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $liveExecutionMemory);
 
-        return $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $nextSessionBrain);
+        return $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $nextSessionBrain, $liveExecutionMemory);
     }
 
     /**
@@ -2549,13 +2557,143 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     }
 
     /**
+     * Provider-safe live memory that turns the current workspace state into a
+     * durable startup contract for the next session.
+     *
+     * @param  array<string,mixed>|null  $profile
+     * @param  array<string,mixed>  $workspaceReport
+     * @param  array<string,mixed>  $twin
+     * @param  array<string,mixed>  $continuity
+     * @param  array<string,mixed>  $changeMemory
+     * @param  array<string,mixed>  $focusMap
+     * @return array<string,mixed>
+     */
+    private function workspaceLiveExecutionMemory(
+        ?array $profile,
+        string $task,
+        array $workspaceReport,
+        array $twin,
+        array $continuity,
+        array $changeMemory,
+        array $focusMap,
+    ): array {
+        $workspaceId = $profile['slug'] ?? data_get($workspaceReport, 'workspace_id');
+        $repositoryInventory = (array) data_get($twin, 'repository_inventory', []);
+        $repositories = array_values(array_filter((array) data_get($repositoryInventory, 'repositories', []), 'is_array'));
+        $focusedRepositories = array_values((array) data_get($focusMap, 'focused_repositories', []));
+        $focusedAreas = array_values((array) data_get($focusMap, 'focused_areas', []));
+        $focusedCommands = array_values((array) data_get($focusMap, 'focused_commands', []));
+        $contextUnits = array_values((array) data_get($focusMap, 'context_units', []));
+
+        $repositoryMemory = array_slice(array_map(static fn (array $repository): array => [
+            'repo_key' => (string) ($repository['repo_key'] ?? ''),
+            'stack' => array_slice(array_values((array) ($repository['stack'] ?? [])), 0, 8),
+            'manifest_count' => count((array) ($repository['manifest_files'] ?? [])),
+            'script_count' => count((array) ($repository['script_names'] ?? [])),
+        ], $repositories), 0, 8);
+
+        $payload = [
+            'schema_version' => 'atlas.awis.workspace_live_execution_memory.v1',
+            'status' => data_get($workspaceReport, 'workspace_active') === true ? 'ready' : 'blocked',
+            'workspace_id' => $workspaceId,
+            'task_hash' => trim($task) !== '' ? hash('sha256', trim($task)) : null,
+            'startup_packet' => [
+                'load_first' => array_values(array_unique(array_filter(array_merge([
+                    'workspace_binding',
+                    'workspace_live_execution_memory',
+                    'repository_inventory',
+                    'workspace_change_memory',
+                    'workspace_focus_map',
+                ], $contextUnits, [
+                    'context_pack',
+                    'test_plan',
+                    'workspace_runbook',
+                ]), 'is_string'))),
+                'use_as_summary' => [
+                    'reusable_workspace_state',
+                    'focused_repositories_and_areas',
+                    'validated_commands_and_risk_boundaries',
+                    'artifact_backed_handoff_without_raw_conversation',
+                ],
+                'validate_before_trust' => [
+                    'workspace_hash',
+                    'repository_inventory_hash',
+                    'workspace_change_hash',
+                    'workspace_focus_hash',
+                    'current_truth_pack_hash',
+                ],
+                'avoid' => [
+                    'raw_conversation_replay',
+                    'absolute_workspace_path_in_provider_prompt',
+                    'cross_workspace_raw_memory_transfer',
+                    'auto_promotion_without_evidence',
+                ],
+                'human_boundary' => [
+                    'mutative_execution_requires_operator_or_certified_contract',
+                    'canonical_doc_changes_require_human_review',
+                ],
+            ],
+            'workspace_learning' => [
+                'repositories' => $repositoryMemory,
+                'focused_repositories' => array_map(static fn (mixed $repo): array => is_array($repo) ? [
+                    'repo_key' => (string) ($repo['repo_key'] ?? ''),
+                    'score' => (int) ($repo['score'] ?? 0),
+                    'reasons' => array_slice(array_values((array) ($repo['reasons'] ?? [])), 0, 6),
+                ] : [], array_slice($focusedRepositories, 0, 6)),
+                'focused_areas' => array_slice($focusedAreas, 0, 10),
+                'focused_commands' => array_slice($focusedCommands, 0, 10),
+                'changed_files_preview' => array_slice(array_values((array) data_get($changeMemory, 'changed_files_preview', [])), 0, 10),
+                'canonical_source_count' => count((array) data_get($continuity, 'current_truth_pack.canonical_sources', [])),
+            ],
+            'automation_loop' => [
+                'before_send' => ['refresh_workspace_hashes', 'load_context_pack', 'validate_contracts'],
+                'after_success' => ['record_outcome', 'promote_candidate_patterns_with_evidence', 'refresh_artifact_lake'],
+                'after_failure' => ['create_failure_capsule', 'prefer_last_known_good_context', 'raise_review_flag'],
+                'on_drift' => ['regenerate_focus_map', 'recompute_delta_plan', 'demote_stale_candidates'],
+            ],
+            'promotion_rules' => [
+                'promote_to_gold' => ['repeated_success', 'same_workspace_hash_family', 'human_or_test_evidence'],
+                'preserve_as_artifact' => ['handoff_packet', 'workspace_runbook', 'context_pack'],
+                'revalidate' => ['workspace_hash_changed', 'repository_inventory_hash_changed', 'task_hash_changed'],
+                'demote' => ['failed_validation', 'stale_workspace_hash', 'contradicted_by_canonical_docs'],
+            ],
+            'persistence_contract' => [
+                'stored_with_awis_snapshot' => true,
+                'embedded_in_artifact_lake' => 'workspace_runbook.body.live_execution_memory',
+                'cross_session_replay' => 'provider_safe_hashes_counts_and_refs_only',
+                'raw_conversation_stored' => false,
+                'auto_promotes_memory' => false,
+            ],
+            'cache_keys' => [
+                'workspace_hash' => data_get($workspaceReport, 'workspace_hash'),
+                'repository_inventory_hash' => data_get($repositoryInventory, 'inventory_hash'),
+                'workspace_change_hash' => data_get($changeMemory, 'change_hash'),
+                'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
+                'current_truth_pack_hash' => MissionCanonicalHash::sha256(data_get($continuity, 'current_truth_pack', [])),
+            ],
+            'source_policy' => [
+                'raw_file_content_returned' => false,
+                'raw_diff_returned' => false,
+                'raw_log_returned' => false,
+                'raw_manifest_returned' => false,
+                'raw_conversation_returned' => false,
+                'absolute_workspace_path_returned' => false,
+                'provider_prompt_unit' => 'startup_contract_hashes_counts_refs_and_short_labels_only',
+            ],
+        ];
+        $payload['live_memory_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
      * @param  array<string,mixed>|null  $profile
      * @param  array<string,mixed>  $twin
      * @param  array<string,mixed>  $continuity
      * @param  array<string,mixed>  $focusMap
      * @return array<string,mixed>
      */
-    private function artifacts(?array $profile, string $task, array $twin, array $continuity, array $focusMap): array
+    private function artifacts(?array $profile, string $task, array $twin, array $continuity, array $focusMap, array $liveExecutionMemory): array
     {
         $workspaceId = $profile['slug'] ?? null;
         $task = trim($task) !== '' ? trim($task) : 'workspace readiness and context preparation';
@@ -2577,6 +2715,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $this->artifact('context_pack', $workspaceId, [
                 'sources' => data_get($continuity, 'current_truth_pack.canonical_sources', []),
                 'context_units' => data_get($focusMap, 'context_units', []),
+                'live_execution_memory_hash' => data_get($liveExecutionMemory, 'live_memory_hash'),
+                'startup_packet' => data_get($liveExecutionMemory, 'startup_packet', []),
                 'raw_conversation_included' => false,
                 'raw_file_content_included' => false,
                 'raw_diff_included' => false,
@@ -2613,6 +2753,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'commands' => data_get($twin, 'command_registry', []),
                 'risk_floor' => data_get($twin, 'genome.risk_floor'),
                 'docs' => data_get($twin, 'living_code_map.owner_docs', []),
+                'live_execution_memory' => $liveExecutionMemory,
             ]),
         ];
 
@@ -2722,7 +2863,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'artifact_replay' => [
                 'schema_version' => 'atlas.workspace_artifact_replay.v1',
                 'replay_ready' => $workspaceId !== null && count($artifacts) >= 10,
-                'required_inputs' => ['workspace_id', 'artifact_hash', 'source_hashes', 'task_packet', 'context_pack', 'test_plan'],
+                'required_inputs' => ['workspace_id', 'artifact_hash', 'source_hashes', 'task_packet', 'context_pack', 'test_plan', 'workspace_live_execution_memory'],
                 'raw_conversation_required' => false,
             ],
             'artifact_simulation' => [
@@ -2735,7 +2876,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'artifact_context_compiler' => [
                 'schema_version' => 'atlas.workspace_artifact_context_compiler.v1',
                 'task' => trim($task) !== '' ? trim($task) : 'workspace readiness and context preparation',
-                'context_units' => ['workspace_brief', 'task_packet', 'context_pack', 'test_plan', 'risk_sheet'],
+                'context_units' => ['workspace_brief', 'task_packet', 'context_pack', 'test_plan', 'risk_sheet', 'workspace_live_execution_memory'],
                 'raw_conversation_included' => false,
                 'current_truth_pack_hash' => MissionCanonicalHash::sha256(data_get($continuity, 'current_truth_pack', [])),
             ],
@@ -2777,6 +2918,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      * @param  array<string,mixed>  $changeMemory
      * @param  array<string,mixed>  $focusMap
      * @param  array<string,mixed>  $nextSessionBrain
+     * @param  array<string,mixed>  $liveExecutionMemory
      * @return array<string,mixed>
      */
     private function workspaceLearningLoop(
@@ -2790,6 +2932,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         array $changeMemory,
         array $focusMap,
         array $nextSessionBrain,
+        array $liveExecutionMemory,
     ): array {
         $workspaceId = $profile['slug'] ?? null;
         $artifacts = array_values(array_filter((array) ($artifactFabric['artifacts'] ?? []), 'is_array'));
@@ -2868,6 +3011,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                     'pattern_library_signal',
                     'workspace_change_memory',
                     'workspace_focus_map',
+                    'workspace_live_execution_memory',
                     'workspace_next_session_brain',
                 ],
                 'memory_candidate_hash' => MissionCanonicalHash::sha256([
@@ -2877,6 +3021,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                     'patterns' => data_get($evolution, 'pattern_library.patterns', []),
                     'workspace_change_hash' => $changeHash,
                     'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
+                    'workspace_live_execution_memory_hash' => data_get($liveExecutionMemory, 'live_memory_hash'),
                     'workspace_next_session_brain_hash' => data_get($nextSessionBrain, 'brain_hash'),
                 ]),
             ],
@@ -2887,6 +3032,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'artifact_hashes' => $artifactHashes,
                 'workspace_change_memory_hash' => $changeHash !== '' ? $changeHash : null,
                 'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
+                'workspace_live_execution_memory_hash' => data_get($liveExecutionMemory, 'live_memory_hash'),
                 'workspace_next_session_brain_hash' => data_get($nextSessionBrain, 'brain_hash'),
                 'focused_repositories' => data_get($focusMap, 'focused_repositories', []),
                 'focused_areas' => data_get($focusMap, 'focused_areas', []),
@@ -2910,6 +3056,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                         ($evolution['evolution_hash'] ?? null) !== null ? 'awef:'.$evolution['evolution_hash'] : null,
                         $changeHash !== '' ? 'awis_workspace_change_memory:'.$changeHash : null,
                         data_get($focusMap, 'focus_hash') !== null ? 'awis_workspace_focus_map:'.data_get($focusMap, 'focus_hash') : null,
+                        data_get($liveExecutionMemory, 'live_memory_hash') !== null ? 'awis_workspace_live_execution_memory:'.data_get($liveExecutionMemory, 'live_memory_hash') : null,
                         data_get($nextSessionBrain, 'brain_hash') !== null ? 'awis_workspace_next_session_brain:'.data_get($nextSessionBrain, 'brain_hash') : null,
                     ],
                 ))),
@@ -3000,6 +3147,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      * @param  array<string,mixed>  $evolution
      * @param  array<string,mixed>  $changeMemory
      * @param  array<string,mixed>  $focusMap
+     * @param  array<string,mixed>  $liveExecutionMemory
      * @return array<string,mixed>
      */
     private function workspaceNextSessionBrain(
@@ -3014,6 +3162,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         array $evolution,
         array $changeMemory,
         array $focusMap,
+        array $liveExecutionMemory,
     ): array {
         $workspaceId = $profile['slug'] ?? null;
         $focusedRepositories = array_values((array) data_get($focusMap, 'focused_repositories', []));
@@ -3054,6 +3203,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $ownerDocs = array_values((array) data_get($twin, 'living_code_map.owner_docs', []));
         $loadOrder = array_values(array_unique(array_filter(array_merge([
             'workspace_binding',
+            'workspace_live_execution_memory',
             'repository_inventory',
             'workspace_change_memory',
             'workspace_focus_map',
@@ -3089,6 +3239,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $memoryCandidates = array_values(array_filter([
             'workspace_change_hash:'.(string) data_get($changeMemory, 'change_hash', ''),
             'workspace_focus_hash:'.(string) data_get($focusMap, 'focus_hash', ''),
+            'workspace_live_execution_memory_hash:'.(string) data_get($liveExecutionMemory, 'live_memory_hash', ''),
             'artifact_graph_hash:'.(string) data_get($artifactIntelligence, 'artifact_graph.graph_hash', ''),
             'contract_hash:'.(string) data_get($contracts, 'contract_hash', ''),
             data_get($evolution, 'evolution_hash') !== null ? 'evolution_hash:'.(string) data_get($evolution, 'evolution_hash') : null,
@@ -3141,12 +3292,15 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'focused_areas' => array_slice($focusedAreas, 0, 8),
                 'owner_docs' => array_slice($ownerDocs, 0, 8),
                 'artifact_refs' => array_map(static fn (string $hash): string => 'awis_artifact:'.$hash, array_slice($artifactHashes, 0, 6)),
+                'live_execution_memory_ref' => 'awis_live_memory:'.(string) data_get($liveExecutionMemory, 'live_memory_hash', ''),
                 'current_truth_pack_hash' => MissionCanonicalHash::sha256(data_get($continuity, 'current_truth_pack', [])),
             ],
             'context_loading_plan' => [
                 'schema_version' => 'atlas.awis.context_loading_plan.v1',
                 'mode' => 'folder_first_provider_safe_resume',
                 'repository_inventory_hash' => data_get($repositoryInventory, 'inventory_hash'),
+                'live_execution_memory_hash' => data_get($liveExecutionMemory, 'live_memory_hash'),
+                'live_execution_startup_packet' => data_get($liveExecutionMemory, 'startup_packet', []),
                 'repository_count' => (int) data_get($repositoryInventory, 'repository_count', 0),
                 'working_set_hash' => $workspaceWorkingSet['working_set_hash'],
                 'workspace_working_set' => $workspaceWorkingSet,
@@ -3205,6 +3359,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                     'context_delta_plan_hash' => $contextDeltaPlan['delta_plan_hash'],
                     'workspace_change_hash' => data_get($changeMemory, 'change_hash'),
                     'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
+                    'workspace_live_execution_memory_hash' => data_get($liveExecutionMemory, 'live_memory_hash'),
                     'command_registry_hash' => data_get($twin, 'command_registry.command_registry_hash'),
                     'outcome_command_memory_hash' => $outcomeCommandMemory['outcome_memory_hash'] ?? null,
                     'command_performance_histogram_hash' => data_get($outcomeCommandMemory, 'performance_histogram.histogram_hash'),
@@ -3220,6 +3375,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                     'workspace_hash_changed',
                     'repository_inventory_hash_changed',
                     'workspace_change_hash_changed',
+                    'workspace_live_execution_memory_hash_changed',
                     'context_delta_plan_hash_changed',
                     'task_hash_changed',
                 ],
@@ -3252,6 +3408,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'uses_hash_cache_keys_for_resume' => true,
                 'uses_workspace_working_set' => true,
                 'uses_context_delta_plan' => true,
+                'uses_live_execution_memory' => true,
                 'raw_file_scan_required_for_provider_prompt' => false,
                 'max_focused_repositories' => 4,
                 'max_focused_commands' => 10,
@@ -3952,6 +4109,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      * @param  array<string,mixed>  $nextSessionBrain
      * @param  array<string,mixed>  $learningLoop
      * @param  array<string,mixed>  $twin
+     * @param  array<string,mixed>  $liveExecutionMemory
      * @return array<string,mixed>
      */
     private function workspaceLearningSnapshot(
@@ -3963,6 +4121,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         array $nextSessionBrain,
         array $learningLoop,
         array $twin,
+        array $liveExecutionMemory,
     ): array {
         $outcomeMemory = (array) data_get($twin, 'test_command_intelligence.outcome_memory', []);
         $histogram = (array) data_get($outcomeMemory, 'performance_histogram', []);
@@ -3999,6 +4158,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'context_delta_plan_hash' => data_get($contextDeltaPlan, 'delta_plan_hash'),
                 'workspace_change_hash' => data_get($changeMemory, 'change_hash'),
                 'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
+                'workspace_live_execution_memory_hash' => data_get($liveExecutionMemory, 'live_memory_hash'),
                 'outcome_command_memory_hash' => data_get($outcomeMemory, 'outcome_memory_hash'),
                 'command_performance_histogram_hash' => data_get($histogram, 'histogram_hash'),
                 'area_performance_index_hash' => data_get($areaIndex, 'index_hash'),
@@ -4018,6 +4178,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'changed_file_count' => (int) data_get($changeMemory, 'changed_file_count', 0),
                 'focused_repository_count' => count((array) data_get($focusMap, 'focused_repositories', [])),
                 'focused_area_count' => count((array) data_get($focusMap, 'focused_areas', [])),
+                'live_memory_repository_count' => count((array) data_get($liveExecutionMemory, 'workspace_learning.repositories', [])),
+                'live_memory_command_count' => count((array) data_get($liveExecutionMemory, 'workspace_learning.focused_commands', [])),
                 'observed_command_count' => (int) data_get($outcomeMemory, 'observed_command_count', 0),
                 'ranked_command_count' => count((array) data_get($outcomeMemory, 'ranked_commands', [])),
                 'flaky_command_count' => count((array) data_get($outcomeMemory, 'flaky_commands', [])),

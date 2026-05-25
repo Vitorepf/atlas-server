@@ -292,24 +292,40 @@ Contratos de direcao para limpeza RAG:
 | `retrieval_feedback` | `Context/AtlasRetrievalFeedbackLoopService` | `Compounding/AtlasRagFeedbackService` | Compounding criar schema/owner paralelo |
 | `context_pack` | `AiContextPackBuilder` | `ProgrammingContextPackStore` | Store redefinir contrato base de context pack |
 | `local_rag` | `LocalRagReadinessService` | `LocalRagBenchmarkService` | Benchmark virar runtime canonico por acidente |
+| `context_compiler_cache` | `AtlasContextCompilerRuntimeService` | `AtlasContextCacheCompilerRuntimeService` | cache compiler virar segundo owner de context compiler |
+| `persistent_context` | `AtlasPersistentContextRuntimeService` | `AtlasPersistentContextPack` | redefinir contrato base de context pack ou Open Brain |
+| `open_brain` | `Open Brain Context Injection` | MCP/projection adapters | Open Brain autorar docs ou sobrescrever docs canonicos |
+| `python_data_retrieval` | `AtlasPythonDataRetrievalRuntimeService` | comando Laravel de invocacao | implementar RAG/vector/ML Python dentro de `app/Services` Laravel |
+| `retrieval_eval` | `AtlasRetrievalEvaluationBenchmarkArenaService` | `ProgrammingRetrievalBenchmarkService` | benchmark virar runtime primario de retrieval |
+| `agentic_rag` | `AtlasAgenticRagFrameworkService` | specs Programming Agentic RAG | criar store de memoria paralelo ou autoridade de contexto paralela |
+| `hybrid_retrieval` | `AtlasHybridRetrievalInfrastructureService` | Unified Context Retrieval Intelligence | virar RAG isolado sem owner review de contexto |
+| `memory_recall` | `AtlasMemoryRecallCommand` | `AtlasMemoryRecallController` | criar policy de retrieval ou store de memoria paralelo |
+| `memory_governance_quality` | `AtlasMemoryQualityService` | Memory foundation/retrieval docs | usar metricas de qualidade como owner de retrieval/contexto |
 
-Overlaps literais de rota sao sinais de review, nao duplicacao provada, porque a
-varredura regex nao expande `Route::prefix()` ou middleware groups. O
-`route:list` real provou 0 duplicatas metodo+URI e 0 nomes de rota duplicados,
-mas 30 actions com aliases. O ACRUI agora gera `boundary_contract` para cada
-alias: mobile/base e permitido quando payload, auth e resposta sao identicos; se
-houver logica mobile separada, ela precisa de wrapper ou owner doc. O alias de
-`AtlasCodeObservedSessionController@import` fica medium ate owner decidir se
-`import-result` e compatibilidade documentada ou deve ser removido por plano de
-deprecacao.
+Regra: qualquer familia RAG/retrieval sem contrato explicito e
+`owner_boundary_review_required`, nunca convite para criar runtime novo. Se tocar
+Python, embedding, vector search, RAG local, Open Brain, context pack ou memory
+quality, rode `atlas:ai:runtime-boundary --json` e preserve o owner canonico.
+
+Overlaps literais de rota sao review, nao duplicacao provada: regex nao expande
+`Route::prefix()`, mas `route:list` provou 0 duplicatas metodo+URI e 0 nomes
+duplicados. O ACRUI gera `boundary_contract` por alias: mobile/base so e valido
+com mesmo payload, auth e resposta; logica mobile separada exige wrapper/doc. O
+alias `import-result` fica medium ate owner decidir compatibilidade/deprecacao.
 
 Contratos de direcao para aliases de rota:
 
 | Alias | Owner | Permitido | Proibido |
 |---|---|---|---|
-| mobile/base API | base controller action | alias mobile quando contrato e identico | logica mobile separada na mesma action sem wrapper/doc |
-| `AtlasCodeObservedSessionController@import` | observed session import | `import-result` como compatibilidade documentada ou deprecada | terceiro endpoint de import sem decisao de owner |
+| Voice mobile/base API | `atlas-ai-voice-realtime-surface.md` | `/v1/mobile/ai/voice/*` chamar a mesma action da rota `/ai/voice/*` com mesmo auth/payload/resposta | logica mobile separada na mesma action sem wrapper/doc |
+| Telemetry mobile/base API | `atlas-ai-telemetry-evidence-performance.md` | `/v1/mobile/telemetry/events` chamar a mesma action de `/ai/telemetry/events` | criar collector mobile paralelo ou schema de telemetry paralelo |
+| Constelacao mobile/base API | `atlas-constelacao-surface.md` | `/v1/mobile/atlas/celestial/positions` chamar a mesma action de `/atlas/celestial/positions` | transformar alias mobile em surface ou domain separado |
+| `AtlasCodeObservedSessionController@import` | `atlas-code-interactive-observed-provider-workflow-v1.md` | `import-result` como compatibilidade documentada ou deprecada | terceiro endpoint de import sem decisao de owner |
 | outros aliases | owner review | documentar compatibilidade ou merge | criar nova rota antes da revisao |
+
+Todo alias intencional precisa provar mesma controller action, mesmo contrato
+auth/payload/resposta, owner doc explicito, `php artisan route:list --json` e
+ACRUI `global-duplication-audit`.
 
 Fila de triagem inicial gerada pelo ACRUI:
 
@@ -322,10 +338,11 @@ Fila de triagem inicial gerada pelo ACRUI:
 | `route_action_alias:AtlasCodeObservedSessionController@import` | medium | documentar alias `import` vs `import-result` ou unificar contrato |
 | aliases mobile/base de Voice, Telemetry e Constelacao | low | documentar como alias intencional ou criar wrapper mobile |
 
-Conclusao de limpeza: nenhum desses grupos deve ser deletado por ausencia de uso.
-O problema comprovado e clareza de boundary/nome. A ordem segura e:
-`reachability -> owner decision -> rename/boundary doc -> tests -> only then
-merge/supersede/quarantine`.
+Conclusao de limpeza: nenhum desses grupos deve ser deletado por ausencia de
+uso; o problema comprovado e clareza de boundary/nome. Ordem segura:
+`reachability -> owner decision -> rename/boundary doc -> tests -> cleanup`.
+
+Archive/source-material nao e owner atual: ACRUI emite `source_material_shadow_queue` para docs historicas que podem confundir retrieval/IA, especialmente RAG.
 
 Hotspots de legado/scaffold no codigo:
 
@@ -339,7 +356,23 @@ Hotspots de legado/scaffold no codigo:
 
 Por tipo: `legacy=102`, `todo=44`, `scaffold=36`, `duplicate=32`,
 `deprecated=9`, `executed_scaffold=1`, `planned_scaffold=1`. Esses sinais sao
-fila de triagem, nao autorizacao de delete.
+fila de triagem, nao autorizacao de delete. ACRUI agora emite
+`legacy_triage_queue`: cada item exige reachability, deletion-preflight, owner
+doc e teste focado antes de keep/boundary/rename/quarantine/delete.
+
+Contratos para status drift:
+
+| Sinal | Significado | Proibido |
+|---|---|---|
+| `status_language_review_over_existing_evidence` | codigo, teste ou comando citado cria pressao de revisao sobre a doc | mudar frontmatter automaticamente ou declarar doc errada por heuristica |
+| `planned_or_future_status_references_existing_dependency_boundary` | doc planejada/futura referencia runtime existente como dependencia ou boundary | declarar camada futura implementada so porque dependencia existe |
+| `body_mixes_scaffold_and_implemented_language_with_code_evidence` | corpo mistura linguagem de scaffold e implementado com evidencia real de codigo | IA escolher status final sem owner doc, reachability e decisao de operador |
+
+Regra operacional: status drift e fila de owner review. ACRUI deve carregar
+`boundary_contract` em todos os itens para dizer que referencias de codigo sao
+evidencia candidata, nao verdade final. A decisao segura e
+`confirm_planned`, `mark_partial`, `mark_implemented` ou
+`split_future_work_from_implemented_runtime`.
 
 Dentro de `app/Services/Ai`, o ACRUI contou 2111 arquivos e 143 sinais. Os
 maiores focos por subarea sao:
@@ -376,6 +409,42 @@ Contratos de direcao para classes duplicadas:
 | `FrontmatterParser` | `Services/Semantic` docs parser | `Services/Vault` note parser | usar parser Vault como parser canonico de engineering docs |
 | `AiExecutionPlan` | `app/Models` database model | AI value object | typehint do value object onde model persistente e requerido |
 | `SmokeSubject` | fixture gerado | comandos smoke | tratar como classe de dominio/producao |
+
+Schemas conhecidos de `OperationEnvelope`:
+
+| Variante | Schema | Regra |
+|---|---|---|
+| Kernel | `atlas.envelope.v1` | contrato Kernel, dono de `kernel/contracts.md` |
+| Atlas Dev | `atlas.dev.operation_envelope.v1` | DTO local do fluxo Atlas Dev, nao contrato Kernel |
+| SDD pipeline | DTO local sem schema Kernel | envelope de pipeline, requer adapter antes de cruzar para Kernel |
+
+Contratos conhecidos de `FrontmatterParser`:
+
+| Variante | Uso permitido | Proibido |
+|---|---|---|
+| `Services/Semantic/FrontmatterParser` | parse, validate e build de docs canonicos de engenharia | tratar como parser de shape livre do Vault |
+| `Services/Vault/FrontmatterParser` | leitura read-only de notas Vault/Obsidian, BOM, chaves com ponto/hifen e `gear_flow` | validar docs canonicos ou substituir docs-health/authority audit |
+
+Contratos conhecidos de `VerificationCommandRunner`:
+
+| Variante | Uso permitido | Proibido |
+|---|---|---|
+| `Services/AtlasCode/VerificationCommandRunner` | servico concreto `atlas.code.verification_run.v1`, dry-run/execute, allowlist, token humano e evidence persistida | usar como interface injetavel do gate AtlasDev |
+| `Ai/Programming/AtlasDev/Gate/VerificationCommandRunner` | interface do `VerificationGate`, implementada por `SymfonyProcessCommandRunner` e fakes de teste | substituir o runner AtlasCode ou escrever evidence AtlasCode diretamente |
+
+Contratos conhecidos de `AiExecutionPlan`:
+
+| Variante | Uso permitido | Proibido |
+|---|---|---|
+| `app/Models/AiExecutionPlan` | model Eloquent da tabela `ai_execution_plans`, usado pelo Autonomous Engineering para plano persistente | usar como payload de prompt/provider |
+| `Services/Ai/ValueObjects/AiExecutionPlan` | value object de prompt com `agent_behavior_contract`, `toArray` e `toPromptSection` | typehint em fluxo que exige model persistente ou tabela |
+
+Contratos conhecidos de `SmokeSubject`:
+
+| Variante | Uso permitido | Proibido |
+|---|---|---|
+| `src/SmokeSubject.php` gerado em workspace local | fixture temporario de comandos AtlasDev smoke/senior-loop para testar patch, verificacao e desktop flow | tratar como classe de dominio, model, rota, provider runtime ou feature real do Atlas |
+| `tests/SmokeSubjectTest.php` gerado em workspace local | teste local do fixture gerado no workspace de smoke | usar como evidencia de feature implementada no repo principal |
 
 Ordem segura de limpeza para classes com mesmo nome curto:
 

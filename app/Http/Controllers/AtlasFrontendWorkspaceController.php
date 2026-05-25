@@ -15,9 +15,12 @@ use App\Services\Ai\Programming\Frontend\AtlasFrontendRivalReplayHarnessService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendRunCertificationService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendSelectedWorkspaceService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendWorkspaceRuntimeProjectionService;
+use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 final class AtlasFrontendWorkspaceController extends Controller
 {
@@ -46,6 +49,10 @@ final class AtlasFrontendWorkspaceController extends Controller
                 'provider_dispatch_allowed' => false,
                 'next_required_contract' => AtlasFrontendSelectedWorkspaceService::SCHEMA_VERSION,
                 'portfolio_scan_is_inventory_only' => true,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
             ],
         ]);
     }
@@ -81,6 +88,161 @@ final class AtlasFrontendWorkspaceController extends Controller
                 'space_runtime_required' => false,
             ],
         ], $status);
+    }
+
+    public function selectionReceipt(Request $request, AtlasFrontendSelectedWorkspaceService $selectedWorkspace): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['sometimes', 'nullable', 'string', 'max:4000'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'selection_source' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'portfolio_root' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'output' => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
+
+        $receipt = $selectedWorkspace->selectionReceipt([
+            'workspace' => $payload['workspace'],
+            'task' => (string) ($payload['task'] ?? ''),
+            'frontend_app' => (string) ($payload['frontend_app'] ?? ''),
+            'selection_source' => (string) ($payload['selection_source'] ?? 'atlas_code'),
+            'portfolio_root' => (string) ($payload['portfolio_root'] ?? ''),
+            'output' => (string) ($payload['output'] ?? ''),
+        ]);
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.selection_receipt.v1',
+            'surface' => 'atlas_code_frontend_workspace_selection_receipt',
+            'selection_receipt' => $receipt,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ], ($receipt['status'] ?? null) === 'ready' ? 200 : 422);
+    }
+
+    public function activateProjectWorkspace(
+        Request $request,
+        AtlasFrontendSelectedWorkspaceService $selectedWorkspace,
+        AtlasCodeWorkspaceProfileService $profiles,
+    ): JsonResponse {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['sometimes', 'nullable', 'string', 'max:4000'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'selection_source' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'project_slug' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'project_name' => ['sometimes', 'nullable', 'string', 'max:200'],
+        ]);
+
+        $selection = $selectedWorkspace->resolve([
+            'workspace' => $payload['workspace'],
+            'task' => (string) ($payload['task'] ?? ''),
+            'frontend_app' => (string) ($payload['frontend_app'] ?? ''),
+            'selection_source' => (string) ($payload['selection_source'] ?? 'atlas_code'),
+        ]);
+        $invalidFrontendApp = data_get($selection, 'frontend_app_candidates.status') === 'requested_frontend_app_subscope_invalid';
+        $selected = ($selection['status'] ?? null) === 'selected' && ! $invalidFrontendApp;
+        $workspace = rtrim((string) ($payload['workspace'] ?? ''), DIRECTORY_SEPARATOR);
+        $projectSlug = $this->frontendProjectSlug((string) ($payload['project_slug'] ?? ''), $workspace);
+        $projectName = trim((string) ($payload['project_name'] ?? ''));
+        if ($projectName === '') {
+            $projectName = basename($workspace) ?: $projectSlug;
+        }
+
+        $blockers = $selected ? [] : array_values(array_unique(array_merge(
+            (array) ($selection['blockers'] ?? []),
+            $invalidFrontendApp ? ['requested_frontend_app_subscope_not_found'] : [],
+        )));
+        $profile = null;
+
+        if ($selected) {
+            try {
+                $profile = $profiles->upsertPersistedProfile([
+                    'slug' => $projectSlug,
+                    'name' => $projectName,
+                    'kind' => 'frontend_product_repo',
+                    'workspace_path' => $workspace,
+                    'repo_root' => $workspace,
+                    'production_status' => 'development',
+                    'stack_summary' => 'Atlas Frontend selected repository workspace',
+                    'commands' => [],
+                    'test_commands' => [],
+                    'build_commands' => [],
+                    'critical_areas' => [],
+                    'docs_status' => 'unknown',
+                    'default_risk' => 'medium',
+                    'deployment_notes' => 'Created from Atlas Frontend multi-repo selected workspace activation.',
+                    'surfaces_enabled' => ['atlas_ai', 'cartografia', 'code', 'atencao'],
+                    'source' => 'atlas_frontend_selected_workspace',
+                    'status' => 'active',
+                ]);
+            } catch (InvalidArgumentException $exception) {
+                $blockers[] = $exception->getMessage();
+            }
+        }
+
+        $ready = $selected && $profile !== null && empty($blockers);
+        $activation = [
+            'schema_version' => 'atlas.frontend.selected_workspace.project_activation.v1',
+            'status' => $ready ? 'ready' : 'blocked',
+            'activation_type' => 'selected_repository_to_atlas_code_project_workspace',
+            'selected_workspace_schema_version' => AtlasFrontendSelectedWorkspaceService::SCHEMA_VERSION,
+            'selected_workspace_status' => $selection['status'] ?? 'unknown',
+            'project_workspace_schema_version' => AtlasCodeWorkspaceProfileService::SCHEMA_VERSION,
+            'project_workspace' => [
+                'slug' => $profile['slug'] ?? $projectSlug,
+                'name' => $profile['name'] ?? $projectName,
+                'kind' => $profile['kind'] ?? 'frontend_product_repo',
+                'status' => $profile['status'] ?? 'unknown',
+                'workspace_path_hash' => hash('sha256', (string) (realpath($workspace) ?: $workspace)),
+                'workspace_path_exists' => (bool) ($profile['workspace_path_exists'] ?? is_dir($workspace)),
+                'source' => $profile['source'] ?? 'atlas_frontend_selected_workspace',
+            ],
+            'frontend_app_scope' => [
+                'status' => data_get($selection, 'confirmed_frontend_app_scope.status', 'repo_root'),
+                'relative_name_hash' => data_get($selection, 'confirmed_frontend_app_scope.relative_name_hash'),
+                'frontend_app_is_subscope_only' => true,
+            ],
+            'runtime_policy' => [
+                'selected_repository_is_primary_workspace' => true,
+                'atlas_code_project_workspace_persisted' => $profile !== null,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'execution_performed' => false,
+                'world_best_claim_allowed' => false,
+            ],
+            'required_next_actions' => $ready
+                ? ['switch_atlas_code_active_workspace_to_project_slug', 'open_atlas_frontend_runtime_cockpit_for_selected_repo']
+                : ['repair_selected_workspace_project_activation_before_frontend_runtime'],
+            'blockers' => array_values(array_unique(array_filter($blockers, 'is_string'))),
+            'warnings' => ['project_activation_does_not_authorize_provider_dispatch'],
+        ];
+        $activation['project_activation_hash'] = MissionCanonicalHash::sha256($activation);
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.project_activation.v1',
+            'surface' => 'atlas_code_frontend_project_workspace_activation',
+            'project_activation' => $activation,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ], $ready ? 200 : 422);
     }
 
     public function runtimeProjection(Request $request, AtlasFrontendWorkspaceRuntimeProjectionService $projection): JsonResponse
@@ -364,7 +526,7 @@ final class AtlasFrontendWorkspaceController extends Controller
             ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
             ->values()
             ->all();
-        $workItems = $this->rivalReplayWorkItems($worklist);
+        $workItems = $this->rivalReplayWorkItems($worklist, $directory);
 
         $report = [
             'schema_version' => 'atlas.frontend.workspace_rival_replay_preparation.v1',
@@ -488,7 +650,7 @@ final class AtlasFrontendWorkspaceController extends Controller
             ])
             ->values()
             ->all();
-        $workItems = $this->rivalReplayWorkItems($worklist);
+        $workItems = $this->rivalReplayWorkItems($worklist, $directory);
 
         $report = [
             'schema_version' => 'atlas.frontend.workspace_rival_replay_inspection.v1',
@@ -623,6 +785,179 @@ final class AtlasFrontendWorkspaceController extends Controller
                 'world_best_claim_allowed' => $worldBestAllowed,
             ],
         ]);
+    }
+
+    public function applyReplayPatch(Request $request, AtlasFrontendRivalReplayHarnessService $replay): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['required', 'string', 'max:4000'],
+            'evidence' => ['required', 'string', 'max:1000'],
+            'patch' => ['required', 'string', 'max:1000'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $directory = rtrim((string) $payload['evidence'], DIRECTORY_SEPARATOR);
+        $application = $replay->applyManifestPatch($directory, (string) $payload['patch']);
+        $applied = ($application['status'] ?? null) === 'applied';
+
+        $report = [
+            'schema_version' => 'atlas.frontend.workspace_rival_replay_manifest_patch_application.v1',
+            'status' => $application['status'] ?? 'unknown',
+            'application_type' => 'selected_repo_provider_safe_rival_replay_manifest_patch',
+            'application_schema_version' => AtlasFrontendRivalReplayHarnessService::MANIFEST_PATCH_APPLICATION_SCHEMA_VERSION,
+            'application_hash' => $application['manifest_patch_application_hash'] ?? null,
+            'patch_schema_version' => $application['patch_schema_version'] ?? null,
+            'evidence_directory_hash' => $application['evidence_directory_hash'] ?? hash('sha256', $directory),
+            'patch_path_hash' => $application['patch_path_hash'] ?? hash('sha256', (string) $payload['patch']),
+            'manifest_ref' => $application['manifest_ref'] ?? null,
+            'previous_manifest_hash' => $application['previous_manifest_hash'] ?? null,
+            'applied_manifest_hash' => $application['applied_manifest_hash'] ?? null,
+            'applied_keys' => array_values(array_filter((array) ($application['applied_keys'] ?? []), 'is_string')),
+            'post_apply_run_status' => $application['post_apply_run_status'] ?? null,
+            'post_apply_run_issues' => array_values(array_filter((array) ($application['post_apply_run_issues'] ?? []), 'is_string')),
+            'write_performed' => (bool) ($application['write_performed'] ?? false),
+            'required_next_actions' => $applied
+                ? ['rerun_atlas_frontend_rival_replay_inspection', 'rerun_atlas_frontend_proof_bundle']
+                : ['repair_manifest_patch_and_rerun_apply_patch'],
+            'claim_policy' => [
+                'manifest_patch_application_is_not_world_best_evidence' => true,
+                'world_best_claim_forbidden_until_replay_inspect_passes' => true,
+                'raw_absolute_path_returned' => false,
+                'raw_customer_source_returned' => false,
+                'selected_repository_remains_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+            'blockers' => array_values(array_filter((array) ($application['blockers'] ?? []), 'is_string')),
+            'warnings' => array_values(array_filter((array) ($application['warnings'] ?? []), 'is_string')),
+        ];
+        $report['workspace_manifest_patch_application_hash'] = MissionCanonicalHash::sha256($report);
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.replay_apply_patch.v1',
+            'surface' => 'atlas_code_frontend_rival_replay_manifest_patch_application',
+            'rival_replay_manifest_patch_application' => $report,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ], $applied ? 200 : 422);
+    }
+
+    public function replayExternalReceiptTemplate(Request $request, AtlasFrontendRivalReplayHarnessService $replay): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['required', 'string', 'max:4000'],
+            'evidence' => ['required', 'string', 'max:1000'],
+            'case_id' => ['required', 'string', 'max:120'],
+            'system' => ['required', 'string', 'max:120'],
+            'output' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'execution_surface' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $directory = rtrim((string) $payload['evidence'], DIRECTORY_SEPARATOR);
+        $template = $replay->writeExternalExecutionReceiptTemplate(
+            $directory,
+            (string) $payload['case_id'],
+            (string) $payload['system'],
+            trim((string) ($payload['output'] ?? '')) !== '' ? (string) $payload['output'] : null,
+            trim((string) ($payload['execution_surface'] ?? '')) !== '' ? (string) $payload['execution_surface'] : null,
+        );
+
+        return $this->replayTemplateResponse(
+            'atlas.frontend.workspace_api.replay_external_receipt_template.v1',
+            'atlas_code_frontend_rival_replay_external_receipt_template',
+            'rival_replay_external_receipt_template',
+            [
+                'schema_version' => 'atlas.frontend.workspace_rival_replay_external_receipt_template.v1',
+                'status' => $template['status'] ?? 'unknown',
+                'template_schema_version' => AtlasFrontendRivalReplayHarnessService::EXTERNAL_EXECUTION_RECEIPT_TEMPLATE_SCHEMA_VERSION,
+                'template_hash' => $template['external_receipt_template_hash'] ?? null,
+                'case_id' => $template['case_id'] ?? null,
+                'system' => $template['system'] ?? null,
+                'manifest_ref' => $template['manifest_ref'] ?? null,
+                'manifest_hash' => $template['manifest_hash'] ?? null,
+                'output_ref_hash' => $template['output_ref_hash'] ?? null,
+                'write_performed' => (bool) ($template['write_performed'] ?? false),
+                'required_next_actions' => array_values(array_filter((array) ($template['required_next_actions'] ?? []), 'is_string')),
+                'claim_policy' => [
+                    'template_is_not_replay_evidence' => true,
+                    'operator_approval_required_before_complete_manifest' => true,
+                    'apply_patch_required_after_operator_approval' => true,
+                    'raw_absolute_path_returned' => false,
+                    'selected_repository_remains_primary_workspace' => true,
+                    'frontend_app_is_subscope_only' => true,
+                    'space_runtime_required' => false,
+                    'world_best_claim_allowed' => false,
+                ],
+                'blockers' => array_values(array_filter((array) ($template['blockers'] ?? []), 'is_string')),
+                'warnings' => array_values(array_filter((array) ($template['warnings'] ?? []), 'is_string')),
+            ],
+        );
+    }
+
+    public function replayScoreTemplate(Request $request, AtlasFrontendRivalReplayHarnessService $replay): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['required', 'string', 'max:4000'],
+            'evidence' => ['required', 'string', 'max:1000'],
+            'case_id' => ['required', 'string', 'max:120'],
+            'system' => ['required', 'string', 'max:120'],
+            'output' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'reviewer_ref_hash' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $template = $replay->writeScoreAttestationTemplate(
+            rtrim((string) $payload['evidence'], DIRECTORY_SEPARATOR),
+            (string) $payload['case_id'],
+            (string) $payload['system'],
+            trim((string) ($payload['output'] ?? '')) !== '' ? (string) $payload['output'] : null,
+            trim((string) ($payload['reviewer_ref_hash'] ?? '')) !== '' ? (string) $payload['reviewer_ref_hash'] : null,
+        );
+
+        return $this->replayTemplateResponse(
+            'atlas.frontend.workspace_api.replay_score_template.v1',
+            'atlas_code_frontend_rival_replay_score_template',
+            'rival_replay_score_template',
+            [
+                'schema_version' => 'atlas.frontend.workspace_rival_replay_score_template.v1',
+                'status' => $template['status'] ?? 'unknown',
+                'template_schema_version' => AtlasFrontendRivalReplayHarnessService::SCORE_ATTESTATION_TEMPLATE_SCHEMA_VERSION,
+                'template_hash' => $template['score_attestation_template_hash'] ?? null,
+                'case_id' => $template['case_id'] ?? null,
+                'system' => $template['system'] ?? null,
+                'manifest_ref' => $template['manifest_ref'] ?? null,
+                'manifest_hash' => $template['manifest_hash'] ?? null,
+                'output_ref_hash' => $template['output_ref_hash'] ?? null,
+                'write_performed' => (bool) ($template['write_performed'] ?? false),
+                'required_next_actions' => array_values(array_filter((array) ($template['required_next_actions'] ?? []), 'is_string')),
+                'claim_policy' => [
+                    'template_is_not_replay_evidence' => true,
+                    'operator_approval_required_before_complete_manifest' => true,
+                    'apply_patch_required_after_operator_approval' => true,
+                    'raw_absolute_path_returned' => false,
+                    'selected_repository_remains_primary_workspace' => true,
+                    'frontend_app_is_subscope_only' => true,
+                    'space_runtime_required' => false,
+                    'world_best_claim_allowed' => false,
+                ],
+                'blockers' => array_values(array_filter((array) ($template['blockers'] ?? []), 'is_string')),
+                'warnings' => array_values(array_filter((array) ($template['warnings'] ?? []), 'is_string')),
+            ],
+        );
     }
 
     public function verifyPublication(Request $request, AtlasFrontendPublicationVerifierService $publication): JsonResponse
@@ -762,7 +1097,7 @@ final class AtlasFrontendWorkspaceController extends Controller
      * @param  array<string,mixed>  $worklist
      * @return array<int,array<string,mixed>>
      */
-    private function rivalReplayWorkItems(array $worklist): array
+    private function rivalReplayWorkItems(array $worklist, string $evidenceDirectory = ''): array
     {
         return collect((array) ($worklist['work_items'] ?? []))
             ->filter(fn (mixed $item): bool => is_array($item))
@@ -779,8 +1114,29 @@ final class AtlasFrontendWorkspaceController extends Controller
                 'requires_score_attestation' => isset($item['score_attestation_schema_version']),
                 'requires_external_execution_receipt' => isset($item['external_execution_receipt_schema_version']),
                 'requires_evidence_pack' => str_starts_with((string) ($item['id'] ?? ''), 'fill_evidence_pack_'),
+                'commands' => $this->safeRivalReplayCommands((array) ($item['commands'] ?? []), $evidenceDirectory),
             ])
             ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $commands
+     * @return array<string,string>
+     */
+    private function safeRivalReplayCommands(array $commands, string $evidenceDirectory): array
+    {
+        $directory = rtrim($evidenceDirectory, DIRECTORY_SEPARATOR);
+
+        return collect($commands)
+            ->filter(fn (mixed $command, mixed $key): bool => is_string($key) && is_string($command) && $command !== '')
+            ->mapWithKeys(function (string $command, string $key) use ($directory): array {
+                $safe = $directory !== ''
+                    ? str_replace($directory, '${ATLAS_FRONTEND_REPLAY_EVIDENCE}', $command)
+                    : $command;
+
+                return [$key => $safe];
+            })
             ->all();
     }
 
@@ -805,5 +1161,40 @@ final class AtlasFrontendWorkspaceController extends Controller
         $actions[] = 'rerun_atlas_frontend_rival_replay_inspection';
 
         return array_values(array_unique($actions));
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     */
+    private function replayTemplateResponse(string $schemaVersion, string $surface, string $payloadKey, array $report): JsonResponse
+    {
+        $report[$payloadKey.'_hash'] = MissionCanonicalHash::sha256($report);
+
+        return response()->json([
+            'schema_version' => $schemaVersion,
+            'surface' => $surface,
+            $payloadKey => $report,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ], ($report['status'] ?? null) === 'blocked' ? 422 : 200);
+    }
+
+    private function frontendProjectSlug(string $requested, string $workspace): string
+    {
+        $slug = Str::slug(trim($requested) !== '' ? $requested : (basename($workspace) ?: 'frontend-project'));
+        if (strlen($slug) < 3) {
+            $slug = 'frontend-'.$slug;
+        }
+
+        return trim(substr($slug, 0, 120), '-') ?: 'frontend-project';
     }
 }

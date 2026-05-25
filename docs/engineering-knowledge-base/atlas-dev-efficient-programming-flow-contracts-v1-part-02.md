@@ -114,6 +114,12 @@ Atualizar este recorte quando a parte correspondente mudar e rodar docs-health.
 
 Entrada normalizada do intake. Toda execucao comeca aqui.
 
+Boundary anti-duplicacao: este `OperationEnvelope` e o DTO local do Atlas Dev
+e carrega `schema_version: atlas.dev.operation_envelope.v1`. Ele nao e
+`App\Services\Ai\Kernel\Envelope\OperationEnvelope` (`atlas.envelope.v1`) e nao
+deve ser importado como contrato Kernel. Ponte entre Atlas Dev e Kernel exige
+adapter explicito e teste de contrato.
+
 #### Schema
 
 ```yaml
@@ -412,4 +418,3 @@ final class CompactSdd
 ```
 
 ---
-
