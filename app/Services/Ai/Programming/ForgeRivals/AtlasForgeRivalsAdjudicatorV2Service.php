@@ -117,23 +117,41 @@ final class AtlasForgeRivalsAdjudicatorV2Service
     public const EXTERNAL_RIVALS_STATUS_BLOCKED = 'BLOCKED';
 
     /**
-     * Default dimension weights when a case does not declare its own. Source:
-     * canon `atlas-forge-rivals-benchmark-strategy-v1.md` §Scoring canonico.
-     * Sum is exactly 1.0.
+     * Default winner-decision weights when a case does not declare its own.
+     * Cost/time is still measured as an operational dimension, but its winner
+     * weight is always 0.0. Sum is exactly 1.0 across decision dimensions.
      *
      * @var array<string,float>
      */
     public const DEFAULT_WEIGHTS = [
-        'correctness' => 0.18,
-        'test_coverage' => 0.12,
-        'scope_discipline' => 0.15,
-        'minimality' => 0.10,
-        'maintainability' => 0.10,
-        'architecture_fit' => 0.10,
-        'evidence_quality' => 0.10,
-        'cost_time' => 0.05,
-        'ux_quality' => 0.05,
-        'performance' => 0.05,
+        'correctness' => 0.25,
+        'test_coverage' => 0.20,
+        'scope_discipline' => 0.20,
+        'minimality' => 0.0,
+        'maintainability' => 0.0,
+        'architecture_fit' => 0.0,
+        'evidence_quality' => 0.15,
+        'cost_time' => 0.0,
+        'ux_quality' => 0.10,
+        'performance' => 0.10,
+    ];
+
+    /** @var list<string> Dimensions measured but excluded from winner decisions. */
+    public const TELEMETRY_ONLY_DIMENSIONS = [
+        'cost_time',
+    ];
+
+    /** @var list<string> Weak shape heuristics reported for diagnosis only. */
+    public const DIAGNOSTIC_ONLY_DIMENSIONS = [
+        'minimality',
+        'maintainability',
+        'architecture_fit',
+    ];
+
+    /** @var list<string> Dimensions excluded from winner decisions. */
+    public const WINNER_DECISION_EXCLUDED_DIMENSIONS = [
+        ...self::TELEMETRY_ONLY_DIMENSIONS,
+        ...self::DIAGNOSTIC_ONLY_DIMENSIONS,
     ];
 
     /** @var list<string> Canonical task categories (11, plus aliases and the catch-all `unknown`). */
@@ -501,6 +519,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
             'role_focus' => (string) ($manifest['role_focus'] ?? 'unknown'),
             'weights_source' => $weightsResolved['source'],
             'weights' => $weightsResolved['weights'],
+            'score_decision_policy' => $this->scoreDecisionPolicy($weightsResolved['weights']),
             'dimensions' => $dimensionsV2,
             'scores' => [
                 'atlas' => $atlasScore,
@@ -653,6 +672,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
             'role_focus' => (string) ($caseManifest['role_focus'] ?? $manifest['role_focus'] ?? 'unknown'),
             'weights_source' => $weightsResolved['source'],
             'weights' => $weightsResolved['weights'],
+            'score_decision_policy' => $this->scoreDecisionPolicy($weightsResolved['weights']),
             'dimensions' => $dimensions,
             'scores' => [
                 'atlas' => $atlasScore !== null ? round($atlasScore, 2) : null,
@@ -694,21 +714,70 @@ final class AtlasForgeRivalsAdjudicatorV2Service
                 }
             }
             if ($raw !== []) {
-                $sum = array_sum($raw);
-                if ($sum <= 0) {
+                $weights = $this->winnerDecisionWeights($raw);
+                if ($weights === []) {
                     return ['source' => 'default_policy', 'weights' => self::DEFAULT_WEIGHTS];
                 }
-                // Normalize without changing semantics: rescale so sum is 1.0.
-                $normalized = [];
-                foreach ($raw as $k => $v) {
-                    $normalized[$k] = round($v / $sum, 6);
-                }
 
-                return ['source' => 'case_manifest', 'weights' => $normalized];
+                return ['source' => 'case_manifest', 'weights' => $weights];
             }
         }
 
         return ['source' => 'default_policy', 'weights' => self::DEFAULT_WEIGHTS];
+    }
+
+    /**
+     * @param  array<string,float>  $raw
+     * @return array<string,float>
+     */
+    private function winnerDecisionWeights(array $raw): array
+    {
+        foreach (self::WINNER_DECISION_EXCLUDED_DIMENSIONS as $dimension) {
+            if (array_key_exists($dimension, $raw)) {
+                $raw[$dimension] = 0.0;
+            }
+        }
+
+        $decisionSum = 0.0;
+        foreach ($raw as $dimension => $weight) {
+            if (in_array($dimension, self::WINNER_DECISION_EXCLUDED_DIMENSIONS, true)) {
+                continue;
+            }
+            $decisionSum += max(0.0, (float) $weight);
+        }
+        if ($decisionSum <= 0.0) {
+            return [];
+        }
+
+        $weights = [];
+        foreach ($raw as $dimension => $weight) {
+            $weights[$dimension] = in_array($dimension, self::WINNER_DECISION_EXCLUDED_DIMENSIONS, true)
+                ? 0.0
+                : round(max(0.0, (float) $weight) / $decisionSum, 6);
+        }
+        foreach (self::WINNER_DECISION_EXCLUDED_DIMENSIONS as $dimension) {
+            $weights[$dimension] ??= 0.0;
+        }
+
+        return $weights;
+    }
+
+    /**
+     * @param  array<string,float>  $weights
+     * @return array<string,mixed>
+     */
+    private function scoreDecisionPolicy(array $weights): array
+    {
+        return [
+            'winner_uses_cost_time' => false,
+            'telemetry_only_dimensions' => self::TELEMETRY_ONLY_DIMENSIONS,
+            'diagnostic_only_dimensions' => self::DIAGNOSTIC_ONLY_DIMENSIONS,
+            'winner_decision_excluded_dimensions' => self::WINNER_DECISION_EXCLUDED_DIMENSIONS,
+            'winner_decision_weights' => $weights,
+            'cost_token_efficiency_role' => 'telemetry_only_excluded_from_winner',
+            'strong_quality_decision_policy' => 'winner_uses_only_strong_evidence_dimensions',
+            'note' => 'Cost/token/time/efficiency and weak patch-shape heuristics are measured for diagnosis but excluded from round winners.',
+        ];
     }
 
     /**
@@ -1753,6 +1822,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
             'categories' => $categories,
             'overall' => $overall,
             'confidence' => $confidence,
+            'score_decision_policy' => $this->scoreDecisionPolicy(self::DEFAULT_WEIGHTS),
             'suspicious_results' => $suspiciousFlat,
             'hard_failures' => $hardFailuresFlat,
             'human_review' => $humanReview,

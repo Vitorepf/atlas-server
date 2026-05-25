@@ -372,6 +372,25 @@ conversa ou texto de provider. Dev e Forge propagam esse hash como
 `awis_cache:workspace_learning_snapshot:<hash>` nos context refs, entao task
 packets e work packets recebem a memoria de aprendizado validada como cache
 ref, nao como conteudo bruto.
+O `context_loading_plan` tambem publica `workspace_working_set`: um conjunto
+quente provider-safe com repositorios, areas, stacks, comandos e refs de cache
+mais provaveis para a proxima sessao. Ele usa apenas nomes, hashes e contagens,
+nao conteudo bruto, e e propagado por Dev e Forge como
+`awis_cache:workspace_working_set:<hash>`. Esse working set permite prewarm de
+contexto e retomada rapida sem recompor o workspace inteiro a cada pedido.
+Outcomes com esse ref alimentam `working_set_effectiveness_index`, entao o
+proximo brain sabe se deve reutilizar o formato quente ou recomputar areas,
+comandos e caches provaveis.
+Sobre esse working set, o `context_loading_plan` publica
+`context_delta_plan`: um plano incremental provider-safe que compara hashes de
+workspace, inventario, mudanca, foco, working set e outcome memory. Ele decide
+se a proxima sessao pode reutilizar contexto quente, se precisa refrescar areas
+alteradas, ou se existe sobreposicao entre area quente e area alterada. Dev e
+Forge propagam `awis_cache:context_delta_plan:<hash>`, permitindo retomar com
+prewarm e invalidacao seletiva sem enviar diff, arquivo bruto, path absoluto ou
+script body para provider. Outcomes com esse ref alimentam
+`context_delta_effectiveness_index`; se a estrategia incremental ficar mista ou
+falhar, o proximo delta plan passa a preferir refresh parcial ate estabilizar.
 O mesmo plano publica `execution_optimization_policy`, derivada de outcome
 memory e performance memory. Essa politica separa comandos em preferidos,
 padrao, adiados e bloqueados, define tiers `instant`, `standard` e `deep`, e

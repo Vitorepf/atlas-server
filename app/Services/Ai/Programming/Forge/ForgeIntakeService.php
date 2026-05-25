@@ -772,6 +772,10 @@ class ForgeIntakeService
         if ($workspaceWorkingSetHash !== null) {
             $refs[] = 'awis_cache:workspace_working_set:'.$workspaceWorkingSetHash;
         }
+        $contextDeltaPlanHash = $this->stringOrNull($contextLoadingPlan['context_delta_plan_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.context_delta_plan_hash'));
+        if ($contextDeltaPlanHash !== null) {
+            $refs[] = 'awis_cache:context_delta_plan:'.$contextDeltaPlanHash;
+        }
         $outcomeCommandMemoryHash = $this->stringOrNull($contextLoadingPlan['outcome_command_memory_hash'] ?? null);
         if ($outcomeCommandMemoryHash !== null) {
             $refs[] = 'awis_cache:outcome_command_memory:'.$outcomeCommandMemoryHash;
@@ -817,7 +821,7 @@ class ForgeIntakeService
             'context_refs' => array_slice(array_values(array_unique(array_merge(
                 $refs,
                 $this->scopeRouteSelectionRefs($contextLoadingPlan, $expectedFiles),
-            ))), 0, 32),
+            ))), 0, 40),
             'suggested_tests' => array_slice(array_values(array_diff(array_unique(array_merge(
                 $this->scopeRouteSuggestedTests($contextLoadingPlan, $expectedFiles),
                 $this->stringList(data_get($contextLoadingPlan, 'execution_optimization_policy.preferred_commands', [])),
@@ -833,6 +837,7 @@ class ForgeIntakeService
             )))), 0, 12),
             'repository_inventory_hash' => $inventoryHash,
             'workspace_working_set_hash' => $workspaceWorkingSetHash,
+            'context_delta_plan_hash' => $contextDeltaPlanHash,
             'outcome_command_memory_hash' => $outcomeCommandMemoryHash,
             'command_performance_histogram_hash' => $performanceHistogramHash,
             'area_performance_index_hash' => $areaPerformanceIndexHash,

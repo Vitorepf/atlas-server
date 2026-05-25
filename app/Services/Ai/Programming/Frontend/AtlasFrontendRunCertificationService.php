@@ -16,16 +16,18 @@ final class AtlasFrontendRunCertificationService
     {
         $visual = $this->visual((string) ($input['visual_report'] ?? ''));
         $review = $this->review((string) ($input['design_review_report'] ?? ''));
+        $qualityBudget = $this->qualityBudget((string) ($input['quality_budget_report'] ?? ''));
         $evidence = $this->evidence((string) ($input['evidence_manifest'] ?? ''), (string) ($input['evidence_root'] ?? ''));
         $publication = $this->publication((string) ($input['bundle'] ?? ''), (string) ($input['publication_receipt'] ?? ''));
         $outcome = $this->outcome((string) ($input['outcome_store'] ?? ''));
-        $taskSpecHashes = $this->taskSpecHashes($visual, $review, $evidence);
+        $taskSpecHashes = $this->taskSpecHashes($visual, $review, $qualityBudget, $evidence);
 
         $checks = [
             $this->check('visual_quality_passed', in_array($visual['status'] ?? null, ['passed', 'warning'], true), $visual['status'] ?? 'missing'),
             $this->check('design_5d_review_passed', in_array($review['status'] ?? null, ['passed', 'warning'], true), $review['status'] ?? 'missing'),
+            $this->check('quality_budget_passed', in_array($qualityBudget['status'] ?? null, ['passed', 'warning'], true), $qualityBudget['status'] ?? 'missing'),
             $this->check('evidence_pack_passed', ($evidence['status'] ?? null) === 'passed', $evidence['status'] ?? 'missing'),
-            $this->check('task_spec_hash_consistent', count(array_unique($taskSpecHashes)) === 1 && count($taskSpecHashes) === 3, $taskSpecHashes === [] ? 'missing' : implode(',', array_values(array_unique($taskSpecHashes)))),
+            $this->check('task_spec_hash_consistent', count(array_unique($taskSpecHashes)) === 1 && count($taskSpecHashes) === 4, $taskSpecHashes === [] ? 'missing' : implode(',', array_values(array_unique($taskSpecHashes)))),
             $this->check('outcome_memory_available', ($outcome['status'] ?? null) === 'ready', $outcome['status'] ?? 'missing'),
             $this->check('publication_local_ready', in_array($publication['status'] ?? null, ['local_ready', 'public_verified'], true), $publication['status'] ?? 'missing', 'warn'),
         ];
@@ -43,6 +45,7 @@ final class AtlasFrontendRunCertificationService
             'artifacts' => [
                 'visual_quality' => $this->summary($visual, 'gate_hash'),
                 'design_review' => $this->summary($review, 'review_hash'),
+                'quality_budget' => $this->summary($qualityBudget, 'quality_budget_hash'),
                 'evidence_pack' => $this->summary($evidence, 'verification_hash'),
                 'publication' => $this->summary($publication, 'publication_hash'),
                 'outcome_memory' => $this->summary($outcome, 'outcome_memory_hash'),
@@ -50,6 +53,7 @@ final class AtlasFrontendRunCertificationService
             'claim_policy' => [
                 'frontend_completion_claim_allowed' => in_array($status, ['certified', 'warning'], true) && ! $failedCritical && ($outcome['status'] ?? null) === 'ready',
                 'frontend_completion_claim_requires_outcome_memory' => true,
+                'frontend_completion_claim_requires_quality_budget' => true,
                 'public_distribution_claim_allowed' => ($publication['status'] ?? null) === 'public_verified',
                 'world_best_claim_allowed' => false,
                 'requires_real_artifact_hashes' => true,
@@ -77,6 +81,14 @@ final class AtlasFrontendRunCertificationService
     private function review(string $path): array
     {
         return $path !== '' ? app(AtlasFrontendDesignReviewService::class)->inspect($path) : ['status' => 'missing'];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function qualityBudget(string $path): array
+    {
+        return $path !== '' ? app(AtlasFrontendQualityBudgetGateService::class)->inspect($path) : ['status' => 'missing'];
     }
 
     /**

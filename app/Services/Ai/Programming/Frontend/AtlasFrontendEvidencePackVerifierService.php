@@ -136,6 +136,7 @@ final class AtlasFrontendEvidencePackVerifierService
             'output_artifact',
             'screenshot_set',
             'design_5d_review',
+            'quality_budget_report',
             'anti_slop_report',
             'verification_report',
             'console_report',

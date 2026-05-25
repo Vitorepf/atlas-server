@@ -166,8 +166,38 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertContains('claude_sonnet', $arm['model_options']);
         $this->assertSame('available', $arm['status']);
         $this->assertNull($arm['not_executable_reason']);
+        $this->assertContains('architecture', $arm['allowed_task_categories']);
+        $this->assertContains('security', $arm['allowed_task_categories']);
+        $this->assertContains('performance', $arm['allowed_task_categories']);
         $this->assertTrue($arm['safety_contract']['escalates_to_forge_on_high_risk']);
+        $this->assertTrue($arm['safety_contract']['architecture_security_performance_categories_use_atlas_dev_escalation_policy']);
         $this->assertTrue($arm['safety_contract']['keeps_call_budget_low']);
+    }
+
+    public function test_atlas_dev_accepts_architecture_pressure_without_switching_rivals_arm(): void
+    {
+        $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);
+        $response = $dispatcher->dispatch('run-arena', [
+            'arm_a' => 'atlas_dev',
+            'arm_b' => 'claude_code',
+            'arm_a_model' => 'sonnet',
+            'arm_b_model' => 'sonnet',
+            'task_category' => 'architecture',
+            'mode' => 'provider_arena',
+            'preset' => 'quick',
+            'dry_run' => true,
+            'confirmations' => [
+                'runbook_reviewed' => false,
+                'provider_cost' => false,
+                'real_provider_call' => false,
+            ],
+        ]);
+
+        $this->assertSame('ok', $response['status']);
+        $this->assertSame('atlas_dev', data_get($response, 'arm_a.arm_id'));
+        $this->assertSame('claude_code', data_get($response, 'arm_b.arm_id'));
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
     }
 
     public function test_atlas_dev_can_join_local_fake_corpus_dry_run_without_provider_spend(): void
@@ -252,19 +282,19 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertSame('ceiling-360', $response['case_set']);
         $this->assertSame(120, $response['case_count']);
         $this->assertTrue($response['ceiling_360_matrix']);
-        $this->assertSame(8, $response['pair_count']);
-        $this->assertSame(8, $response['dry_run_ready_count']);
+        $this->assertSame(9, $response['pair_count']);
+        $this->assertSame(9, $response['dry_run_ready_count']);
         $this->assertSame('atlas.forge.rivals.ceiling_360_execution_ladder.v1', data_get($response, 'execution_ladder.schema_version'));
         $this->assertSame('ready', data_get($response, 'execution_ladder.status'));
         $stages = collect(data_get($response, 'execution_ladder.stages'));
         $this->assertSame(['canary_8', 'floor_24', 'full_120'], $stages->pluck('stage')->all());
         $canary = $stages->firstWhere('stage', 'canary_8');
         $this->assertSame(8, $canary['case_count']);
-        $this->assertSame(8, $canary['pair_count']);
-        $this->assertSame(64, $canary['estimated_real_runs']);
-        $this->assertSame(128, $canary['estimated_provider_invocations']);
-        $this->assertCount(8, $canary['first_case_dry_run_commands']);
-        $this->assertCount(8, $canary['first_case_real_commands']);
+        $this->assertSame(9, $canary['pair_count']);
+        $this->assertSame(72, $canary['estimated_real_runs']);
+        $this->assertSame(144, $canary['estimated_provider_invocations']);
+        $this->assertCount(9, $canary['first_case_dry_run_commands']);
+        $this->assertCount(9, $canary['first_case_real_commands']);
         $this->assertStringContainsString('--case=ceiling-360-001-industrial-005-incident_rollback', $canary['first_case_dry_run_commands'][0]);
         $this->assertStringContainsString('--dry-run', $canary['first_case_dry_run_commands'][0]);
         $this->assertStringContainsString('--confirm-real-provider-call', $canary['first_case_real_commands'][0]);
@@ -276,6 +306,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertSame('none', $response['routing_effect']);
 
         $pairIds = array_column($response['pairs'], 'pair_id');
+        $this->assertContains('atlas_dev_architecture_escalated_vs_claude_sonnet', $pairIds);
         $this->assertContains('atlas_forge_vs_claude_sonnet', $pairIds);
         $this->assertContains('atlas_dev_vs_atlas_forge', $pairIds);
         $this->assertContains('claude_opus_vs_codex_gpt55', $pairIds);
@@ -325,7 +356,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 
             $response = $dispatcher->dispatch('arena-readiness', []);
 
-            $this->assertSame(8, $response['real_run_ready_count']);
+            $this->assertSame(9, $response['real_run_ready_count']);
             $this->assertSame(0, $response['driver_missing_count']);
             foreach ($response['pairs'] as $pair) {
                 $this->assertSame('real_run_ready_after_confirmations', $pair['status']);
@@ -401,7 +432,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 
             $this->assertSame(1, $canary['observed_real_runs']);
             $this->assertSame(1, $canary['replay_verified_runs']);
-            $this->assertSame(63, $canary['missing_real_runs']);
+            $this->assertSame(71, $canary['missing_real_runs']);
             $this->assertSame('partial', $canary['coverage_status']);
             $this->assertSame('arena-a-valid', $canary['observed_runs'][0]['run_id']);
             $this->assertTrue($canary['observed_runs'][0]['valid_evidence']);
@@ -440,9 +471,9 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
             $response = $dispatcher->dispatch('arena-readiness', []);
 
             $this->assertSame('ok', $response['status']);
-            $this->assertSame(8, $response['dry_run_ready_count']);
+            $this->assertSame(9, $response['dry_run_ready_count']);
             $this->assertSame(0, $response['real_run_ready_count']);
-            $this->assertSame(8, $response['evidence_disk_blocked_count']);
+            $this->assertSame(9, $response['evidence_disk_blocked_count']);
             $this->assertSame('blocked', $response['evidence_disk_status']['status']);
             $this->assertFalse($response['external_provider_call']);
             $this->assertFalse($response['provider_tokens_spent']);
@@ -2134,7 +2165,7 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
                     $this->assertSame('arena_plan_ready', $payload['verdict']);
                     $case = $payload['cases'][0] ?? [];
                     $this->assertSame('ceiling-360-001-industrial-005-incident_rollback', $case['case_id'] ?? null);
-                    $this->assertSame('L5+', data_get($case, 'ceiling_pressure_profile.pressure_level'));
+                    $this->assertSame('L5++', data_get($case, 'ceiling_pressure_profile.pressure_level'));
                     $this->assertSame('atlas.forge.rivals.ceiling_pressure_profile.v1', data_get($case, 'ceiling_pressure_profile.schema_version'));
                     $this->assertSame(12000, data_get($case, 'context_profile.estimated_context_tokens'));
                     $this->assertSame(6, data_get($case, 'context_profile.reasoning_depth'));

@@ -267,6 +267,10 @@ class AtlasDevRuntimeService
         if ($workspaceWorkingSetHash !== null) {
             $contextRefs[] = 'awis_cache:workspace_working_set:'.$workspaceWorkingSetHash;
         }
+        $contextDeltaPlanHash = $this->stringValue($contextLoadingPlan['context_delta_plan_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.context_delta_plan_hash'));
+        if ($contextDeltaPlanHash !== null) {
+            $contextRefs[] = 'awis_cache:context_delta_plan:'.$contextDeltaPlanHash;
+        }
         $outcomeCommandMemoryHash = $this->stringValue($contextLoadingPlan['outcome_command_memory_hash'] ?? null);
         if ($outcomeCommandMemoryHash !== null) {
             $contextRefs[] = 'awis_cache:outcome_command_memory:'.$outcomeCommandMemoryHash;
@@ -338,10 +342,11 @@ class AtlasDevRuntimeService
         return [
             'schema_version' => 'atlas.dev_runtime.awis_context_selection.v1',
             'source' => 'workspace_next_session_brain.context_loading_plan',
-            'context_refs' => array_slice($this->mergeStrings([], $contextRefs), 0, 32),
+            'context_refs' => array_slice($this->mergeStrings([], $contextRefs), 0, 40),
             'suggested_tests' => array_slice($this->mergeStrings([], $suggestedTests), 0, 12),
             'repository_inventory_hash' => $repositoryInventoryHash,
             'workspace_working_set_hash' => $workspaceWorkingSetHash,
+            'context_delta_plan_hash' => $contextDeltaPlanHash,
             'outcome_command_memory_hash' => $outcomeCommandMemoryHash,
             'command_performance_histogram_hash' => $performanceHistogramHash,
             'area_performance_index_hash' => $areaPerformanceIndexHash,

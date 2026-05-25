@@ -2131,7 +2131,7 @@ final class AtlasForgeRivalsReportService
         } elseif ($humanReviewRequired) {
             $checklist[] = 'Inspecionar `evidence/atlas_patch.diff` vs `evidence/rival_patch.diff`.';
             $checklist[] = 'Ler `evidence/atlas_test.log` vs `evidence/rival_test.log`.';
-            $checklist[] = 'Decidir qual patch é qualitativamente melhor — o adjudicator só viu heurísticas.';
+            $checklist[] = 'Decidir qualidade apenas por evidência forte: testes/oráculo, replay, invariantes, escopo e contrato semântico; patch menor/diff menor é diagnóstico, não prova de qualidade.';
             $checklist[] = 'Se ambos parecerem equivalentes, aceitar o empate — não forçar winner.';
             $checklist[] = 'Nunca elevar empate a claim sem assinatura do operador.';
         } else {

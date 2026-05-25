@@ -36,6 +36,7 @@ final class AtlasFrontendExecutionGateService
         ]);
 
         $inventory = $this->inventory($workspace);
+        $dossier = $this->dossier($workspace);
         $profile = $profilePath !== '' ? app(AtlasFrontendCompanyDesignProfileService::class)->inspect($profilePath) : null;
         $blockers = [];
         $warnings = [];
@@ -80,9 +81,13 @@ final class AtlasFrontendExecutionGateService
             || (bool) data_get($contract, 'signals.enterprise_multi_company');
         $profileReady = is_array($profile) && in_array((string) ($profile['status'] ?? ''), ['ready', 'partial'], true);
         $inventoryReady = is_array($inventory) && ($inventory['status'] ?? null) === 'ready';
+        $dossierReady = is_array($dossier) && ($dossier['status'] ?? null) === 'ready';
 
-        if ($broadOrEnterprise && ! $inventoryReady && ! $profileReady) {
-            $blockers[] = $this->issue('design_system_context_missing', 'Broad or multi-company frontend work needs a ready design-system inventory or company profile.');
+        if ($broadOrEnterprise && ! $inventoryReady && ! $profileReady && ! $dossierReady) {
+            $blockers[] = $this->issue('design_system_context_missing', 'Broad or multi-company frontend work needs a ready design-system inventory, company profile, or design dossier.');
+        }
+        if ($broadOrEnterprise && ! $dossierReady) {
+            $blockers[] = $this->issue('company_design_dossier_required', 'Company-owned repo frontend work needs a ready design dossier before premium visual claims.');
         }
         if ((bool) data_get($contract, 'signals.enterprise_multi_company') && ! $profileReady) {
             $blockers[] = $this->issue('company_design_profile_required', 'Multi-company frontend work needs an inspected company design profile.');
@@ -109,6 +114,7 @@ final class AtlasFrontendExecutionGateService
             'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
             'runtime_contract_hash' => $contract['contract_hash'] ?? null,
             'inventory' => $this->summarizeInventory($inventory),
+            'design_dossier' => $this->summarizeDossier($dossier),
             'company_profile' => $this->summarizeProfile($profile),
             'required_gates' => $contract['required_gates'] ?? [],
             'required_evidence' => $contract['required_evidence'] ?? [],
@@ -164,6 +170,18 @@ final class AtlasFrontendExecutionGateService
     }
 
     /**
+     * @return array<string,mixed>|null
+     */
+    private function dossier(string $workspace): ?array
+    {
+        if ($workspace === '' || ! File::isDirectory($workspace)) {
+            return null;
+        }
+
+        return app(AtlasFrontendDesignDossierService::class)->inspect($workspace);
+    }
+
+    /**
      * @param  array<string,mixed>|null  $inventory
      * @return array<string,mixed>
      */
@@ -203,6 +221,26 @@ final class AtlasFrontendExecutionGateService
     }
 
     /**
+     * @param  array<string,mixed>|null  $dossier
+     * @return array<string,mixed>
+     */
+    private function summarizeDossier(?array $dossier): array
+    {
+        if ($dossier === null) {
+            return ['status' => 'missing'];
+        }
+
+        return [
+            'schema_version' => $dossier['schema_version'] ?? null,
+            'status' => $dossier['status'] ?? 'unknown',
+            'dossier_hash' => $dossier['dossier_hash'] ?? null,
+            'required_document_count' => count((array) ($dossier['required_document_ids'] ?? [])),
+            'can_drive_ultra_premium_redesign' => data_get($dossier, 'readiness.can_drive_ultra_premium_redesign'),
+            'raw_customer_source_returned' => data_get($dossier, 'claim_policy.raw_customer_source_returned'),
+        ];
+    }
+
+    /**
      * @return array<string,string>
      */
     private function issue(string $id, string $reason): array
@@ -236,6 +274,7 @@ final class AtlasFrontendExecutionGateService
                 'task_spec_asset_context_required' => 'compile_task_spec_with_asset_context',
                 'task_spec_hash_invalid', 'task_spec_hash_mismatch' => 'recompile_or_attach_matching_task_spec_hash',
                 'design_system_context_missing' => 'run_atlas_frontend_inventory_or_attach_company_profile',
+                'company_design_dossier_required' => 'run_atlas_frontend_design_dossier_template_or_fill_docs',
                 'company_design_profile_required', 'company_design_profile_blocked' => 'inspect_ready_company_design_profile',
                 'senior_design_review_missing' => 'obtain_senior_design_review',
                 default => 'resolve_'.$blocker['id'],

@@ -43,7 +43,11 @@ final class AtlasFrontendPublicationVerifierService
             $blockers = array_merge($blockers, $this->bundleBlockers($bundle, $bundleDirectory));
         }
 
-        $publicReceipt = $this->verifyPublicReceipt((string) ($publicReceiptPath ?? ''), is_array($bundle) ? (string) ($bundle['bundle_hash'] ?? '') : '');
+        $publicReceipt = $this->verifyPublicReceipt(
+            (string) ($publicReceiptPath ?? ''),
+            is_array($bundle) ? (string) ($bundle['bundle_hash'] ?? '') : '',
+            is_array($bundle) ? (string) data_get($bundle, 'index.hash', '') : '',
+        );
         if ($publicReceiptPath !== null && trim($publicReceiptPath) !== '' && $publicReceipt['status'] !== 'verified') {
             $blockers[] = 'public_receipt_invalid';
         }
@@ -95,6 +99,7 @@ final class AtlasFrontendPublicationVerifierService
                 'public_url' => 'https://example.com/atlas-frontend-proof/',
                 'bundle_hash' => '<atlas.frontend.product_proof_bundle.v1 bundle_hash>',
                 'index_content_hash' => '<sha256-64-hex>',
+                'local_index_hash' => '<same sha256-64-hex from bundle index.hash>',
                 'http_status' => 200,
                 'checked_at' => '<ISO-8601 timestamp>',
                 'operator_approved' => false,
@@ -159,7 +164,7 @@ final class AtlasFrontendPublicationVerifierService
     /**
      * @return array<string,mixed>
      */
-    private function verifyPublicReceipt(string $path, string $bundleHash): array
+    private function verifyPublicReceipt(string $path, string $bundleHash, string $localIndexHash): array
     {
         $path = trim($path);
         if ($path === '') {
@@ -196,6 +201,17 @@ final class AtlasFrontendPublicationVerifierService
         }
         if (! is_string($receipt['index_content_hash'] ?? null) || preg_match('/^[a-f0-9]{64}$/', (string) $receipt['index_content_hash']) !== 1) {
             $blockers[] = 'public_receipt_index_content_hash_invalid';
+        }
+        if (
+            is_string($receipt['index_content_hash'] ?? null)
+            && preg_match('/^[a-f0-9]{64}$/', (string) $receipt['index_content_hash']) === 1
+            && $localIndexHash !== ''
+            && (string) $receipt['index_content_hash'] !== $localIndexHash
+        ) {
+            $blockers[] = 'public_receipt_index_content_hash_mismatch';
+        }
+        if (isset($receipt['local_index_hash']) && $receipt['local_index_hash'] !== $localIndexHash) {
+            $blockers[] = 'public_receipt_local_index_hash_mismatch';
         }
 
         return [

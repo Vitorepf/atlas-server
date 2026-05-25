@@ -26,6 +26,22 @@ class AtlasFrontendPublicationCommandTest extends TestCase
         $this->assertStringContainsString('local_ready', $output);
     }
 
+    public function test_publish_verify_strict_requires_public_receipt(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-publish-command-strict-'.bin2hex(random_bytes(4));
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle);
+
+        $exitCode = Artisan::call('atlas:frontend:publish', [
+            'action' => 'verify',
+            '--bundle' => $bundle,
+            '--strict' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString('local_ready', Artisan::output());
+    }
+
     public function test_publish_receipt_template_command_writes_receipt(): void
     {
         $dir = sys_get_temp_dir().'/atlas-frontend-publish-command-template-'.bin2hex(random_bytes(4));

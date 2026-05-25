@@ -7,6 +7,7 @@ use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignReviewService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendEvidencePackVerifierService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendOutcomeMemoryService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendProductProofRuntimeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendQualityBudgetGateService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendRunCertificationService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendVisualQualityGateService;
 use Illuminate\Support\Facades\Artisan;
@@ -58,6 +59,7 @@ class AtlasFrontendDeliveryHandoffCommandTest extends TestCase
         $taskSpecHash = str_repeat('a', 64);
         $visualGate = app(AtlasFrontendVisualQualityGateService::class);
         $reviewGate = app(AtlasFrontendDesignReviewService::class);
+        $qualityBudgetGate = app(AtlasFrontendQualityBudgetGateService::class);
         $evidenceGate = app(AtlasFrontendEvidencePackVerifierService::class);
 
         File::put($dir.'/visual-quality-report.json', json_encode([
@@ -82,6 +84,17 @@ class AtlasFrontendDeliveryHandoffCommandTest extends TestCase
                 $dimension => ['score' => 9, 'rationale' => 'Evidence-backed pass.', 'evidence_refs' => ['receipt://'.$dimension]],
             ])->all(),
             'evidence_refs' => ['receipt://visual-quality', 'receipt://anti-slop'],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        File::put($dir.'/quality-budget-report.json', json_encode([
+            'schema_version' => AtlasFrontendQualityBudgetGateService::REPORT_SCHEMA_VERSION,
+            'status' => 'passed',
+            'task_spec_hash' => $taskSpecHash,
+            'viewports' => $qualityBudgetGate->requiredViewports(),
+            'metrics' => collect($qualityBudgetGate->budgets())->mapWithKeys(fn (array $budget, string $id): array => [
+                $id => $budget['warning'],
+            ])->all(),
+            'operator_approved_exception' => false,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         $artifacts = [];
@@ -111,6 +124,7 @@ class AtlasFrontendDeliveryHandoffCommandTest extends TestCase
         $run = app(AtlasFrontendRunCertificationService::class)->certify([
             'visual_report' => $dir.'/visual-quality-report.json',
             'design_review_report' => $dir.'/design-review-report.json',
+            'quality_budget_report' => $dir.'/quality-budget-report.json',
             'evidence_manifest' => $dir.'/evidence/evidence-pack.json',
             'evidence_root' => $dir.'/evidence',
             'bundle' => $bundle,

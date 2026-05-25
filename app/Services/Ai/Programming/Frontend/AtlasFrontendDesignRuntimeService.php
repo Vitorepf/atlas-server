@@ -45,6 +45,16 @@ final class AtlasFrontendDesignRuntimeService
             'required_capabilities' => $capabilities,
             'required_gates' => $requiredGates,
             'required_evidence' => $requiredEvidence,
+            'product_blueprint_contract' => $this->productBlueprintContract(),
+            'enterprise_bootstrap_contract' => $this->enterpriseBootstrapContract(),
+            'gauntlet_contract' => $this->gauntletContract(),
+            'work_order_contract' => $this->workOrderContract(),
+            'execution_runbook_contract' => $this->executionRunbookContract(),
+            'provider_instruction_packet_contract' => $this->providerInstructionPacketContract(),
+            'scenario_matrix_contract' => $this->scenarioMatrixContract(),
+            'evidence_kit_contract' => $this->evidenceKitContract(),
+            'world_best_proof_plan_contract' => $this->worldBestProofPlanContract(),
+            'repo_intake_contract' => $this->repoIntakeContract(),
             'task_spec_contract' => $this->taskSpecContract(),
             'execution_gate_contract' => $this->executionGateContract(),
             'repair_planner_contract' => $this->repairPlannerContract(),
@@ -54,9 +64,11 @@ final class AtlasFrontendDesignRuntimeService
             'design_quality_rule_registry' => $this->designQualityRules(),
             'design_review_contract' => $this->designReviewContract(),
             'visual_quality_gate_contract' => $this->visualQualityGateContract(),
+            'quality_budget_gate_contract' => $this->qualityBudgetGateContract(),
             'design_system_inventory_contract' => $this->designSystemInventoryContract($signals),
             'design_system_drift_gate_contract' => $this->designSystemDriftGateContract($signals),
             'asset_pack_contract' => $this->assetPackContract($signals),
+            'design_dossier_contract' => $this->designDossierContract($signals),
             'company_design_profile_contract' => $this->companyDesignProfileContract($signals),
             'design_direction_advisor_contract' => $this->designDirectionAdvisorContract($signals),
             'variant_strategy' => $this->variantStrategy($signals),
@@ -95,38 +107,66 @@ final class AtlasFrontendDesignRuntimeService
             $this->fileCheck('frontend_domain_doc_present', 'docs/engineering-knowledge-base/domains/programming-frontend-superpower.md', ['frontend_design_harness', 'programming.frontend']),
             $this->fileCheck('impeccable_teardown_present', 'docs/engineering-knowledge-base/domains/programming-frontend-impeccable-coverage-audit.md', ['pbakaus/impeccable', 'covered']),
             $this->fileCheck('runtime_service_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignRuntimeService.php', [self::CONTRACT_SCHEMA_VERSION, 'competitive_scorecard']),
-            $this->fileCheck('orchestrator_integration_present', 'app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php', ['AtlasFrontendDesignRuntimeService', 'AtlasFrontendExecutionGateService', 'pre_execution_gate']),
-            $this->fileCheck('forge_integration_present', 'app/Services/Ai/Programming/Forge/Intelligence/ForgeSpecialistWorkcellRouterService.php', ['AtlasFrontendDesignRuntimeService', 'AtlasFrontendExecutionGateService', 'atlas_frontend_pre_execution_gate']),
+            $this->fileCheck('orchestrator_integration_present', 'app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php', ['AtlasFrontendDesignRuntimeService', 'AtlasFrontendExecutionGateService', 'AtlasFrontendEnterpriseBootstrapService', 'AtlasFrontendCompanyRepoOnboardingService', 'AtlasFrontendExecutionRunbookService', 'AtlasFrontendProviderInstructionPacketService', 'enterprise_operating_contract', 'company_repo_onboarding', 'provider_instruction_packet', 'pre_execution_gate']),
+            $this->fileCheck('forge_integration_present', 'app/Services/Ai/Programming/Forge/Intelligence/ForgeSpecialistWorkcellRouterService.php', ['AtlasFrontendDesignRuntimeService', 'AtlasFrontendExecutionGateService', 'AtlasFrontendEnterpriseBootstrapService', 'AtlasFrontendCompanyRepoOnboardingService', 'AtlasFrontendExecutionRunbookService', 'AtlasFrontendProviderInstructionPacketService', 'atlas_frontend_pre_execution_gate', 'atlas_frontend_enterprise_operating_contract', 'atlas_frontend_company_repo_onboarding', 'atlas_frontend_provider_instruction_packet']),
             $this->fileCheck('visual_smoke_runtime_present', 'app/Console/Commands/AtlasEngineeringVisualSmokeCommand.php', ['atlas:engineering:visual-smoke', 'atlas_visual_smoke']),
             $this->fileCheck('visual_driver_present', 'app/Console/Commands/AtlasEngineeringVisualDriverCommand.php', ['atlas:engineering:visual-driver', 'Playwright']),
             $this->fileCheck('anti_slop_detector_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendAntiSlopDetectorService.php', [AtlasFrontendAntiSlopDetectorService::SCHEMA_VERSION, 'inspectPath']),
             $this->fileCheck('benchmark_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendBenchmarkRuntimeService.php', [AtlasFrontendBenchmarkRuntimeService::SCHEMA_VERSION, 'atlas_world_best_frontend_system']),
+            $this->fileCheck('gauntlet_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendGauntletService.php', [AtlasFrontendGauntletService::SCHEMA_VERSION, 'company_owned_local_repo_frontend_gauntlet']),
+            $this->fileCheck('control_plane_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendControlPlaneService.php', [AtlasFrontendControlPlaneService::SCHEMA_VERSION, 'world_best_claim_allowed', 'honest_claim_boundary']),
+            $this->fileCheck('work_order_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendWorkOrderService.php', [AtlasFrontendWorkOrderService::SCHEMA_VERSION, 'company_frontend_execution_work_order']),
+            $this->fileCheck('execution_runbook_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendExecutionRunbookService.php', [AtlasFrontendExecutionRunbookService::SCHEMA_VERSION, 'company_frontend_repo_execution_runbook']),
+            $this->fileCheck('provider_instruction_packet_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendProviderInstructionPacketService.php', [AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION, 'provider_safe_frontend_execution_instruction_packet']),
+            $this->fileCheck('company_repo_onboarding_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendCompanyRepoOnboardingService.php', [AtlasFrontendCompanyRepoOnboardingService::SCHEMA_VERSION, 'company_frontend_repo_atlas_frontend_onboarding', 'ready_for_operator_execution']),
+            $this->fileCheck('skill_pack_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendSkillPackService.php', [AtlasFrontendSkillPackService::SCHEMA_VERSION, AtlasFrontendSkillPackService::INSTALL_SCHEMA_VERSION, 'provider_safe_atlas_frontend_operating_skill', 'SKILL.md', '.atlas/skills/atlas-frontend']),
+            $this->fileCheck('enterprise_bootstrap_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendEnterpriseBootstrapService.php', [AtlasFrontendEnterpriseBootstrapService::SCHEMA_VERSION, 'company_owned_local_repo_premium_frontend_bootstrap']),
+            $this->fileCheck('scenario_matrix_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendScenarioMatrixService.php', [AtlasFrontendScenarioMatrixService::SCHEMA_VERSION, 'route_viewport_state_visual_verification_matrix']),
+            $this->fileCheck('evidence_kit_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendEvidenceKitService.php', [AtlasFrontendEvidenceKitService::SCHEMA_VERSION, 'frontend_execution_evidence_collection_kit']),
+            $this->fileCheck('world_best_proof_plan_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendWorldBestProofPlanService.php', [AtlasFrontendWorldBestProofPlanService::SCHEMA_VERSION, 'world_best_frontend_market_proof', 'generate_rival_replay_runner_kit', 'evidence_pack_ref', 'evidence_pack_readiness', 'fill_and_verify_rival_replay_evidence_packs']),
+            $this->fileCheck('repo_intake_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRepoIntakeService.php', [AtlasFrontendRepoIntakeService::SCHEMA_VERSION, 'company_owned_frontend_repo_operating_map']),
+            $this->fileCheck('product_blueprint_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendProductBlueprintService.php', [AtlasFrontendProductBlueprintService::SCHEMA_VERSION, 'company_product_frontend_success_blueprint']),
             $this->fileCheck('task_spec_compiler_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendTaskSpecCompilerService.php', [AtlasFrontendTaskSpecCompilerService::SCHEMA_VERSION, 'canonicalSections']),
             $this->fileCheck('browser_bridge_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendBrowserBridgeService.php', [AtlasFrontendBrowserBridgeService::SCHEMA_VERSION, 'atlas:frontend:pick']),
             $this->fileCheck('framework_adapter_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendFrameworkAdapterRuntimeService.php', [AtlasFrontendFrameworkAdapterRuntimeService::SCHEMA_VERSION, 'hmr_supported']),
             $this->fileCheck('design_system_inventory_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignSystemInventoryService.php', [AtlasFrontendDesignSystemInventoryService::SCHEMA_VERSION, 'raw_source_returned']),
             $this->fileCheck('execution_gate_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendExecutionGateService.php', [AtlasFrontendExecutionGateService::SCHEMA_VERSION, 'provider_dispatch_allowed']),
             $this->fileCheck('repair_planner_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRepairPlannerService.php', [AtlasFrontendRepairPlannerService::SCHEMA_VERSION, 'knownSignals']),
-            $this->fileCheck('run_certification_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRunCertificationService.php', [AtlasFrontendRunCertificationService::SCHEMA_VERSION, 'frontend_completion_claim_allowed', 'frontend_completion_claim_requires_outcome_memory']),
+            $this->fileCheck('run_certification_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRunCertificationService.php', [AtlasFrontendRunCertificationService::SCHEMA_VERSION, 'frontend_completion_claim_allowed', 'frontend_completion_claim_requires_outcome_memory', 'frontend_completion_claim_requires_quality_budget']),
             $this->fileCheck('run_certification_task_spec_hash_consistency_enforced', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRunCertificationService.php', ['task_spec_hash_consistent', 'taskSpecHashes']),
             $this->fileCheck('delivery_handoff_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDeliveryHandoffService.php', [AtlasFrontendDeliveryHandoffService::SCHEMA_VERSION, 'customer_handoff_allowed']),
             $this->fileCheck('live_preview_relay_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendLivePreviewRelayService.php', [AtlasFrontendLivePreviewRelayService::SCHEMA_VERSION, 'atlas:frontend:preview-css']),
             $this->fileCheck('live_source_patch_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendLiveSourcePatchRuntimeService.php', [AtlasFrontendLiveSourcePatchRuntimeService::SESSION_SCHEMA_VERSION, 'recover']),
-            $this->fileCheck('product_proof_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendProductProofRuntimeService.php', [AtlasFrontendProductProofRuntimeService::SCHEMA_VERSION, AtlasFrontendProductProofRuntimeService::BUNDLE_SCHEMA_VERSION, 'buildStaticBundle']),
+            $this->fileCheck('product_proof_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendProductProofRuntimeService.php', [AtlasFrontendProductProofRuntimeService::SCHEMA_VERSION, AtlasFrontendProductProofRuntimeService::BUNDLE_SCHEMA_VERSION, AtlasFrontendProductProofRuntimeService::PILOT_DOSSIER_SCHEMA_VERSION, 'buildStaticBundle', 'pilotDossier']),
+            $this->fileCheck('design_dossier_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignDossierService.php', [AtlasFrontendDesignDossierService::SCHEMA_VERSION, 'company_owned_local_repo_frontend_design']),
             $this->fileCheck('company_design_profile_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendCompanyDesignProfileService.php', [AtlasFrontendCompanyDesignProfileService::SCHEMA_VERSION, 'multi_company_frontend_design_context']),
             $this->fileCheck('design_direction_advisor_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignDirectionAdvisorService.php', [AtlasFrontendDesignDirectionAdvisorService::SCHEMA_VERSION, 'selection_requires_reason']),
             $this->fileCheck('asset_pack_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendAssetPackService.php', [AtlasFrontendAssetPackService::SCHEMA_VERSION, 'placeholder_or_unlicensed_assets_block_claim']),
             $this->fileCheck('design_review_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignReviewService.php', [AtlasFrontendDesignReviewService::SCHEMA_VERSION, 'frontend_design_5d_review']),
             $this->fileCheck('visual_quality_gate_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendVisualQualityGateService.php', [AtlasFrontendVisualQualityGateService::SCHEMA_VERSION, 'screenshot_alone_is_insufficient']),
+            $this->fileCheck('quality_budget_gate_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendQualityBudgetGateService.php', [AtlasFrontendQualityBudgetGateService::SCHEMA_VERSION, 'objective_measured_values_required']),
             $this->fileCheck('design_system_drift_gate_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignSystemDriftGateService.php', [AtlasFrontendDesignSystemDriftGateService::SCHEMA_VERSION, 'unapproved_new_tokens_or_components_block_claim']),
-            $this->fileCheck('publication_verifier_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendPublicationVerifierService.php', [AtlasFrontendPublicationVerifierService::SCHEMA_VERSION, 'public_distribution_claim_allowed']),
+            $this->fileCheck('publication_verifier_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendPublicationVerifierService.php', [AtlasFrontendPublicationVerifierService::SCHEMA_VERSION, 'public_distribution_claim_allowed', 'public_receipt_index_content_hash_mismatch']),
             $this->fileCheck('evidence_pack_verifier_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendEvidencePackVerifierService.php', [AtlasFrontendEvidencePackVerifierService::SCHEMA_VERSION, 'requiredArtifactKinds']),
             $this->fileCheck('outcome_memory_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendOutcomeMemoryService.php', [AtlasFrontendOutcomeMemoryService::SCHEMA_VERSION, 'safe_for_aemor_projection']),
             $this->fileCheck('competitive_rubric_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendCompetitiveRubricService.php', [AtlasFrontendCompetitiveRubricService::SCHEMA_VERSION, 'product_intent_fit']),
-            $this->fileCheck('rival_replay_harness_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRivalReplayHarnessService.php', [AtlasFrontendRivalReplayHarnessService::SCHEMA_VERSION, 'external_rival_replay_artifacts_required_for_world_best_claim']),
+            $this->fileCheck('rival_replay_harness_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRivalReplayHarnessService.php', [AtlasFrontendRivalReplayHarnessService::SCHEMA_VERSION, 'external_rival_replay_artifacts_required_for_world_best_claim', 'task_spec_hash_mismatch_across_systems', 'task_spec_hash_mismatch_with_task_spec_ref', 'evidence_pack_verification_failed', 'created_evidence_pack_refs', 'rival_replay_evidence_pack_readiness', 'rival_replay_evidence_worklist', 'manifest_hash_mapping', AtlasFrontendRivalReplayHarnessService::TASK_SPEC_SCHEMA_VERSION, AtlasFrontendRivalReplayHarnessService::RUNNER_KIT_SCHEMA_VERSION]),
             $this->fileCheck('command_surface_present', 'app/Console/Commands/AtlasFrontendDesignRuntimePlanCommand.php', ['atlas:frontend:plan']),
             $this->fileCheck('anti_slop_command_present', 'app/Console/Commands/AtlasFrontendAntiSlopDetectCommand.php', ['atlas:frontend:detect', 'anti-AI-slop']),
             $this->fileCheck('benchmark_command_present', 'app/Console/Commands/AtlasFrontendBenchmarkCommand.php', ['atlas:frontend:benchmark']),
+            $this->fileCheck('gauntlet_command_present', 'app/Console/Commands/AtlasFrontendGauntletCommand.php', ['atlas:frontend:gauntlet', 'local company repo gauntlet']),
+            $this->fileCheck('control_plane_command_present', 'app/Console/Commands/AtlasFrontendControlPlaneCommand.php', ['atlas:frontend:control-plane', 'market claim policy']),
+            $this->fileCheck('work_order_command_present', 'app/Console/Commands/AtlasFrontendWorkOrderCommand.php', ['atlas:frontend:work-order', 'executable Atlas Frontend work order']),
+            $this->fileCheck('execution_runbook_command_present', 'app/Console/Commands/AtlasFrontendExecutionRunbookCommand.php', ['atlas:frontend:runbook', 'repo-specific Atlas Frontend execution runbook']),
+            $this->fileCheck('provider_instruction_packet_command_present', 'app/Console/Commands/AtlasFrontendProviderInstructionPacketCommand.php', ['atlas:frontend:provider-packet', 'provider-safe Atlas Frontend execution instruction packet']),
+            $this->fileCheck('company_repo_onboarding_command_present', 'app/Console/Commands/AtlasFrontendCompanyRepoOnboardingCommand.php', ['atlas:frontend:onboard', 'local company frontend repo']),
+            $this->fileCheck('skill_pack_command_present', 'app/Console/Commands/AtlasFrontendSkillPackCommand.php', ['atlas:frontend:skill-pack', 'export or install', 'SKILL.md']),
+            $this->fileCheck('enterprise_bootstrap_command_present', 'app/Console/Commands/AtlasFrontendEnterpriseBootstrapCommand.php', ['atlas:frontend:enterprise-bootstrap', 'company-owned local repo']),
+            $this->fileCheck('scenario_matrix_command_present', 'app/Console/Commands/AtlasFrontendScenarioMatrixCommand.php', ['atlas:frontend:scenarios', 'route x viewport x state']),
+            $this->fileCheck('evidence_kit_command_present', 'app/Console/Commands/AtlasFrontendEvidenceKitCommand.php', ['atlas:frontend:evidence-kit', 'evidence collection kit']),
+            $this->fileCheck('world_best_proof_plan_command_present', 'app/Console/Commands/AtlasFrontendWorldBestProofPlanCommand.php', ['atlas:frontend:world-best-plan', 'world-best proof']),
+            $this->fileCheck('repo_intake_command_present', 'app/Console/Commands/AtlasFrontendRepoIntakeCommand.php', ['atlas:frontend:intake', 'operating map']),
+            $this->fileCheck('product_blueprint_command_present', 'app/Console/Commands/AtlasFrontendBlueprintCommand.php', ['atlas:frontend:blueprint', 'product/UX/design blueprint']),
             $this->fileCheck('task_spec_command_present', 'app/Console/Commands/AtlasFrontendTaskSpecCommand.php', ['atlas:frontend:spec', 'deterministic Atlas Frontend task spec']),
             $this->fileCheck('browser_bridge_command_present', 'app/Console/Commands/AtlasFrontendBrowserBridgeCommand.php', ['atlas:frontend:bridge', 'script, inject or remove']),
             $this->fileCheck('framework_adapter_command_present', 'app/Console/Commands/AtlasFrontendFrameworkAdapterCommand.php', ['atlas:frontend:adapters', 'Inspect frontend framework adapter']),
@@ -137,22 +177,37 @@ final class AtlasFrontendDesignRuntimeService
             $this->fileCheck('delivery_handoff_command_present', 'app/Console/Commands/AtlasFrontendDeliveryHandoffCommand.php', ['atlas:frontend:handoff', 'enterprise Atlas Frontend delivery handoff']),
             $this->fileCheck('live_preview_relay_command_present', 'app/Console/Commands/AtlasFrontendLivePreviewRelayCommand.php', ['atlas:frontend:relay', 'script, inject or remove']),
             $this->fileCheck('live_source_patch_command_present', 'app/Console/Commands/AtlasFrontendLiveSourcePatchCommand.php', ['atlas:frontend:live', 'prepare, accept, discard, recover']),
-            $this->fileCheck('product_proof_command_present', 'app/Console/Commands/AtlasFrontendProductProofCommand.php', ['atlas:frontend:proof', 'catalog or build']),
+            $this->fileCheck('product_proof_command_present', 'app/Console/Commands/AtlasFrontendProductProofCommand.php', ['atlas:frontend:proof', 'catalog or build', 'pilot']),
+            $this->fileCheck('design_dossier_command_present', 'app/Console/Commands/AtlasFrontendDesignDossierCommand.php', ['atlas:frontend:design-dossier', 'Local company/product repository path']),
             $this->fileCheck('company_design_profile_command_present', 'app/Console/Commands/AtlasFrontendCompanyDesignProfileCommand.php', ['atlas:frontend:company-profile', 'inspect or template']),
             $this->fileCheck('design_direction_advisor_command_present', 'app/Console/Commands/AtlasFrontendDesignDirectionCommand.php', ['atlas:frontend:directions', 'Design Directions']),
             $this->fileCheck('asset_pack_command_present', 'app/Console/Commands/AtlasFrontendAssetPackCommand.php', ['atlas:frontend:assets', 'inspect or template']),
             $this->fileCheck('design_review_command_present', 'app/Console/Commands/AtlasFrontendDesignReviewCommand.php', ['atlas:frontend:review', '5D design review']),
             $this->fileCheck('visual_quality_gate_command_present', 'app/Console/Commands/AtlasFrontendVisualQualityGateCommand.php', ['atlas:frontend:visual-quality', 'inspect or template']),
+            $this->fileCheck('quality_budget_gate_command_present', 'app/Console/Commands/AtlasFrontendQualityBudgetCommand.php', ['atlas:frontend:quality-budget', 'objective Atlas Frontend quality budgets']),
             $this->fileCheck('design_system_drift_gate_command_present', 'app/Console/Commands/AtlasFrontendDesignSystemDriftCommand.php', ['atlas:frontend:design-system-drift', 'inspect or template']),
-            $this->fileCheck('publication_command_present', 'app/Console/Commands/AtlasFrontendPublicationCommand.php', ['atlas:frontend:publish', 'receipt-template']),
+            $this->fileCheck('publication_command_present', 'app/Console/Commands/AtlasFrontendPublicationCommand.php', ['atlas:frontend:publish', 'receipt-template', '--strict']),
             $this->fileCheck('evidence_pack_command_present', 'app/Console/Commands/AtlasFrontendEvidencePackCommand.php', ['atlas:frontend:evidence', 'verify or template']),
             $this->fileCheck('outcome_memory_command_present', 'app/Console/Commands/AtlasFrontendOutcomeMemoryCommand.php', ['atlas:frontend:outcomes', 'outcome memory']),
             $this->fileCheck('competitive_rubric_command_present', 'app/Console/Commands/AtlasFrontendCompetitiveRubricCommand.php', ['atlas:frontend:rubric']),
-            $this->fileCheck('rival_replay_command_present', 'app/Console/Commands/AtlasFrontendRivalReplayCommand.php', ['atlas:frontend:replay', 'inspect or template']),
+            $this->fileCheck('rival_replay_command_present', 'app/Console/Commands/AtlasFrontendRivalReplayCommand.php', ['atlas:frontend:replay', 'inspect, template, runner-kit or evidence-worklist']),
             $this->fileCheck('certification_command_present', 'app/Console/Commands/AtlasFrontendDesignRuntimeCertifyCommand.php', ['atlas:frontend:certify']),
             $this->fileCheck('unit_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDesignRuntimeServiceTest.php', ['market_leading_contract', 'certification']),
             $this->fileCheck('anti_slop_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendAntiSlopDetectorServiceTest.php', ['gradient_text', 'provider_safe']),
             $this->fileCheck('benchmark_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendBenchmarkRuntimeServiceTest.php', ['contract_superiority', 'world_best_claim']),
+            $this->fileCheck('gauntlet_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendGauntletServiceTest.php', ['ready_local_company_repo_gauntlet', 'missing_design_context']),
+            $this->fileCheck('control_plane_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendControlPlaneServiceTest.php', ['governed_runtime_claim', 'world_best_without_real_replay']),
+            $this->fileCheck('work_order_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendWorkOrderServiceTest.php', ['ready_company_repo_work_order', 'blocks_provider_dispatch']),
+            $this->fileCheck('execution_runbook_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendExecutionRunbookServiceTest.php', ['repo_native_commands_and_evidence_kit', 'repo_context_is_missing']),
+            $this->fileCheck('provider_instruction_packet_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendProviderInstructionPacketServiceTest.php', ['provider_to_follow_runbook_evidence_and_claim_policy', 'blocks_provider']),
+            $this->fileCheck('company_repo_onboarding_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendCompanyRepoOnboardingServiceTest.php', ['ready_company_repo_onboarding', 'minimal_repo_onboarding', 'missing_workspace']),
+            $this->fileCheck('skill_pack_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendSkillPackServiceTest.php', ['provider_safe_skill_pack', 'installs_skill_pack', 'world_best_claim']),
+            $this->fileCheck('enterprise_bootstrap_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendEnterpriseBootstrapServiceTest.php', ['creates_design_docs_and_blueprint', 'ready_company_repo_bootstrap']),
+            $this->fileCheck('scenario_matrix_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendScenarioMatrixServiceTest.php', ['route_viewport_state_matrix', 'task_spec_needs_acceptance_context']),
+            $this->fileCheck('evidence_kit_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendEvidenceKitServiceTest.php', ['full_evidence_collection_kit', 'scenario_matrix_is_not_ready']),
+            $this->fileCheck('world_best_proof_plan_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendWorldBestProofPlanServiceTest.php', ['missing_market_proof', 'world_best_only_when_replay', 'generate_rival_replay_runner_kit', 'evidence_pack_ref', 'evidence_pack_readiness']),
+            $this->fileCheck('repo_intake_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendRepoIntakeServiceTest.php', ['ready_company_frontend_repo', 'blocks_repo_without_frontend_operating_map']),
+            $this->fileCheck('product_blueprint_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendProductBlueprintServiceTest.php', ['company_product_blueprint', 'writes_blueprint_document']),
             $this->fileCheck('task_spec_compiler_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendTaskSpecCompilerServiceTest.php', ['saas_dashboard_task_spec', 'raw_task_returned']),
             $this->fileCheck('browser_bridge_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendBrowserBridgeServiceTest.php', ['emits_pick_event_contract', 'inject_is_idempotent']),
             $this->fileCheck('framework_adapter_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendFrameworkAdapterRuntimeServiceTest.php', ['detects_vite_workspace', 'fake_ready']),
@@ -163,21 +218,36 @@ final class AtlasFrontendDesignRuntimeService
             $this->fileCheck('delivery_handoff_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDeliveryHandoffServiceTest.php', ['compiles_customer_safe_handoff', 'evidence_manifest_task_spec_hash_mismatch']),
             $this->fileCheck('live_preview_relay_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendLivePreviewRelayServiceTest.php', ['emits_preview_event_contract', 'inject_is_idempotent']),
             $this->fileCheck('live_source_patch_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendLiveSourcePatchRuntimeServiceTest.php', ['prepare_accept_and_recover', 'source_changed_since_prepare']),
-            $this->fileCheck('product_proof_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendProductProofRuntimeServiceTest.php', ['multi_company_demo_proofs', 'build_static_bundle']),
+            $this->fileCheck('product_proof_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendProductProofRuntimeServiceTest.php', ['multi_company_demo_proofs', 'build_static_bundle', 'pilot_dossier']),
+            $this->fileCheck('design_dossier_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDesignDossierServiceTest.php', ['ready_dossier', 'missing_docs']),
             $this->fileCheck('company_design_profile_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendCompanyDesignProfileServiceTest.php', ['ready_profile', 'raw_prompt']),
             $this->fileCheck('design_direction_advisor_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDesignDirectionAdvisorServiceTest.php', ['three_governed_directions', 'task_missing']),
             $this->fileCheck('asset_pack_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendAssetPackServiceTest.php', ['valid_asset_pack_passes', 'placeholder_or_unlicensed']),
             $this->fileCheck('design_review_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDesignReviewServiceTest.php', ['valid_review_passes', 'score_below_threshold']),
             $this->fileCheck('visual_quality_gate_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendVisualQualityGateServiceTest.php', ['valid_report_passes', 'raw_prompt']),
+            $this->fileCheck('quality_budget_gate_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendQualityBudgetGateServiceTest.php', ['valid_budget_report_passes', 'blocks_over_budget_metrics']),
             $this->fileCheck('design_system_drift_gate_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDesignSystemDriftGateServiceTest.php', ['valid_report_passes', 'unapproved_new_token']),
-            $this->fileCheck('publication_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendPublicationVerifierServiceTest.php', ['local_ready', 'public_verified']),
+            $this->fileCheck('publication_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendPublicationVerifierServiceTest.php', ['local_ready', 'public_verified', 'mismatched_index_hash']),
             $this->fileCheck('evidence_pack_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendEvidencePackVerifierServiceTest.php', ['matching_hashes', 'raw_prompt']),
             $this->fileCheck('outcome_memory_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendOutcomeMemoryServiceTest.php', ['failed_gate_counts', 'provider_safe']),
             $this->fileCheck('competitive_rubric_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendCompetitiveRubricServiceTest.php', ['validates_score_breakdown', 'score_max']),
-            $this->fileCheck('rival_replay_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendRivalReplayHarnessServiceTest.php', ['ready_for_replay', 'world_best']),
+            $this->fileCheck('rival_replay_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendRivalReplayHarnessServiceTest.php', ['ready_for_replay', 'world_best', 'task_spec_hash_differs_across_systems', 'same_task_spec_hash_for_each_system', 'task_spec_hash_does_not_match_referenced_task_spec', 'without_verified_evidence_pack', 'created_evidence_pack_refs', 'evidence_pack_readiness', 'evidence_worklist', 'runner_kit_writes_operational_replay_packets']),
             $this->fileCheck('command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDesignRuntimeCommandTest.php', ['atlas:frontend:plan', 'atlas:frontend:certify']),
             $this->fileCheck('anti_slop_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendAntiSlopDetectCommandTest.php', ['atlas:frontend:detect', 'fails_strict']),
             $this->fileCheck('benchmark_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendBenchmarkCommandTest.php', ['atlas:frontend:benchmark', 'competitive_matrix']),
+            $this->fileCheck('gauntlet_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendGauntletCommandTest.php', ['atlas:frontend:gauntlet', 'recommended_command_sequence']),
+            $this->fileCheck('control_plane_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendControlPlaneCommandTest.php', ['atlas:frontend:control-plane', 'world_best_claim_allowed']),
+            $this->fileCheck('work_order_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendWorkOrderCommandTest.php', ['atlas:frontend:work-order', 'work_order_hash']),
+            $this->fileCheck('execution_runbook_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendExecutionRunbookCommandTest.php', ['atlas:frontend:runbook', 'runbook_hash']),
+            $this->fileCheck('provider_instruction_packet_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendProviderInstructionPacketCommandTest.php', ['atlas:frontend:provider-packet', 'provider_instruction_packet_hash']),
+            $this->fileCheck('company_repo_onboarding_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendCompanyRepoOnboardingCommandTest.php', ['atlas:frontend:onboard', 'strict_fails_when_repo_only_prepared']),
+            $this->fileCheck('skill_pack_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendSkillPackCommandTest.php', ['atlas:frontend:skill-pack', 'installs_into_workspace', 'provider_safe_atlas_frontend_operating_skill']),
+            $this->fileCheck('enterprise_bootstrap_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendEnterpriseBootstrapCommandTest.php', ['atlas:frontend:enterprise-bootstrap', 'enterprise_bootstrap_hash']),
+            $this->fileCheck('scenario_matrix_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendScenarioMatrixCommandTest.php', ['atlas:frontend:scenarios', 'scenario_matrix_hash']),
+            $this->fileCheck('evidence_kit_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendEvidenceKitCommandTest.php', ['atlas:frontend:evidence-kit', 'evidence_kit_hash']),
+            $this->fileCheck('world_best_proof_plan_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendWorldBestProofPlanCommandTest.php', ['atlas:frontend:world-best-plan', 'generate_rival_replay_runner_kit', 'complete_external_rival_replay_manifests', 'fill_and_verify_rival_replay_evidence_packs']),
+            $this->fileCheck('repo_intake_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendRepoIntakeCommandTest.php', ['atlas:frontend:intake', 'repo_intake_hash']),
+            $this->fileCheck('product_blueprint_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendBlueprintCommandTest.php', ['atlas:frontend:blueprint', 'product_blueprint']),
             $this->fileCheck('task_spec_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendTaskSpecCommandTest.php', ['atlas:frontend:spec', 'task_spec_hash']),
             $this->fileCheck('browser_bridge_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendBrowserBridgeCommandTest.php', ['atlas:frontend:bridge', 'injects_and_removes']),
             $this->fileCheck('framework_adapter_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendFrameworkAdapterCommandTest.php', ['atlas:frontend:adapters', 'framework_contract']),
@@ -188,20 +258,22 @@ final class AtlasFrontendDesignRuntimeService
             $this->fileCheck('delivery_handoff_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDeliveryHandoffCommandTest.php', ['atlas:frontend:handoff', 'customer_handoff_allowed']),
             $this->fileCheck('live_preview_relay_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendLivePreviewRelayCommandTest.php', ['atlas:frontend:relay', 'injects_and_removes']),
             $this->fileCheck('live_source_patch_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendLiveSourcePatchCommandTest.php', ['atlas:frontend:live', 'recovers_patch']),
-            $this->fileCheck('product_proof_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendProductProofCommandTest.php', ['atlas:frontend:proof', 'builds_static_bundle']),
+            $this->fileCheck('product_proof_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendProductProofCommandTest.php', ['atlas:frontend:proof', 'builds_static_bundle', 'pilot_dossier']),
+            $this->fileCheck('design_dossier_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDesignDossierCommandTest.php', ['atlas:frontend:design-dossier', 'template']),
             $this->fileCheck('company_design_profile_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendCompanyDesignProfileCommandTest.php', ['atlas:frontend:company-profile', 'template']),
             $this->fileCheck('design_direction_advisor_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDesignDirectionCommandTest.php', ['atlas:frontend:directions', 'brand_product_depth']),
             $this->fileCheck('asset_pack_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendAssetPackCommandTest.php', ['atlas:frontend:assets', 'template']),
             $this->fileCheck('design_review_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDesignReviewCommandTest.php', ['atlas:frontend:review', 'design_review_report']),
             $this->fileCheck('visual_quality_gate_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendVisualQualityGateCommandTest.php', ['atlas:frontend:visual-quality', 'template']),
+            $this->fileCheck('quality_budget_gate_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendQualityBudgetCommandTest.php', ['atlas:frontend:quality-budget', 'quality-budget-report']),
             $this->fileCheck('design_system_drift_gate_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDesignSystemDriftCommandTest.php', ['atlas:frontend:design-system-drift', 'template']),
-            $this->fileCheck('publication_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendPublicationCommandTest.php', ['atlas:frontend:publish', 'receipt-template']),
+            $this->fileCheck('publication_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendPublicationCommandTest.php', ['atlas:frontend:publish', 'receipt-template', 'strict_requires_public_receipt']),
             $this->fileCheck('evidence_pack_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendEvidencePackCommandTest.php', ['atlas:frontend:evidence', 'template']),
             $this->fileCheck('outcome_memory_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendOutcomeMemoryCommandTest.php', ['atlas:frontend:outcomes', 'frontend_execution_gate']),
             $this->fileCheck('competitive_rubric_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendCompetitiveRubricCommandTest.php', ['atlas:frontend:rubric']),
-            $this->fileCheck('rival_replay_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendRivalReplayCommandTest.php', ['atlas:frontend:replay', 'template']),
-            $this->fileCheck('forge_tests_present', 'tests/Feature/Ai/Programming/Forge/ForgeFrontendWorkcellRuntimeTest.php', ['surface_ui', 'atlas_frontend_runtime']),
-            $this->fileCheck('orchestrator_tests_present', 'tests/Unit/Ai/AtlasProgrammingOrchestratorTest.php', ['atlas_frontend_runtime', self::CONTRACT_SCHEMA_VERSION]),
+            $this->fileCheck('rival_replay_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendRivalReplayCommandTest.php', ['atlas:frontend:replay', 'template', 'rival_replay_task_spec', 'runner_kit_command', 'evidence-worklist']),
+            $this->fileCheck('forge_tests_present', 'tests/Feature/Ai/Programming/Forge/ForgeFrontendWorkcellRuntimeTest.php', ['surface_ui', 'atlas_frontend_runtime', 'local_repo_receives_enterprise_bootstrap_and_runbook', 'atlas_frontend_provider_instruction_packet']),
+            $this->fileCheck('orchestrator_tests_present', 'tests/Unit/Ai/AtlasProgrammingOrchestratorTest.php', ['atlas_frontend_runtime', self::CONTRACT_SCHEMA_VERSION, 'frontend_session_plan_attaches_enterprise_bootstrap_and_runbook', 'provider_instruction_packet']),
             $this->capabilityCheck('multi_output_contract_present', ['production_ui_patch', 'clickable_prototype', 'motion_design_asset', 'deck_infographic']),
             $this->capabilityCheck('evidence_gates_exceed_impeccable', ['visual_smoke_multi_viewport', 'design_5d_review', 'anti_ai_slop_detector', 'competitive_benchmark_scorecard']),
             $this->capabilityCheck('honest_not_doc_only_claim', ['evidence_receipts', 'visual_smoke_multi_viewport', 'documentation_only_claim_forbidden']),
@@ -248,7 +320,7 @@ final class AtlasFrontendDesignRuntimeService
             'live_iteration_requested' => (bool) ($options['live'] ?? false) || $this->containsAny($haystack, ['live', 'browser', 'selecionar elemento', 'accept', 'discard']),
             'asset_heavy' => $this->containsAny($haystack, ['logo', 'brand', 'marca', 'image', 'asset', 'hero', 'photo', 'video']),
             'motion_or_deck' => $this->containsAny($haystack, ['motion', 'animation', 'animacao', 'deck', 'slides', 'ppt', 'infographic']),
-            'enterprise_multi_company' => $this->containsAny($haystack, ['empresa', 'enterprise', 'saas', 'ecommerce', 'multiempresa', 'client', 'cliente']),
+            'enterprise_multi_company' => $this->containsAny($haystack, ['inumeras empresas', 'multiempresa', 'multi-company', 'white label', 'clientes', 'multi tenant', 'multitenant']),
             'broad_visual_change' => $this->containsAny($haystack, ['design system', 'redesign', 'todas as telas', 'produto inteiro', 'inumeras empresas']),
             'performance_sensitive' => $this->containsAny($haystack, ['performance', 'lighthouse', 'latencia', 'bundle', 'custo', 'cache']),
             'accessibility_sensitive' => true,
@@ -285,6 +357,9 @@ final class AtlasFrontendDesignRuntimeService
     {
         $capabilities = [
             'design_context_pack',
+            'company_owned_local_repo_design_dossier',
+            'company_frontend_repo_operating_map',
+            'product_ux_visual_success_blueprint',
             'deterministic_frontend_task_spec_compiler',
             'design_direction_advisor',
             'framework_route_component_discovery',
@@ -296,6 +371,7 @@ final class AtlasFrontendDesignRuntimeService
             'multi_viewport_visual_smoke',
             'a11y_state_console_performance_gates',
             'frontend_visual_quality_gate',
+            'objective_frontend_quality_budget_gate',
             'design_5d_critique',
             'repair_loop_from_visual_evidence',
             'evidence_receipts',
@@ -331,16 +407,19 @@ final class AtlasFrontendDesignRuntimeService
             'eslint_or_biome_or_reason',
             'console_error_check',
             'frontend_visual_quality_gate',
+            'frontend_quality_budget_gate',
             'visual_smoke_multi_viewport',
             'no_text_overlap',
             'responsive_check',
             'a11y_check_or_reason',
             'state_transition_check',
             'design_system_inventory_or_profile',
+            'company_design_dossier_ready_or_created',
             'asset_provenance_check',
             'anti_ai_slop_detector',
             'design_5d_review',
             'performance_budget_or_reason',
+            'objective_quality_budget_report',
             'evidence_receipt_required',
         ];
         if ($signals['broad_visual_change'] || $signals['enterprise_multi_company']) {
@@ -364,6 +443,10 @@ final class AtlasFrontendDesignRuntimeService
     {
         $evidence = [
             'frontend_context_pack',
+            'frontend_repo_intake',
+            'frontend_scenario_matrix',
+            'company_design_dossier',
+            'product_blueprint',
             'frontend_task_spec',
             'selected_design_direction_or_reason',
             'design_system_inventory',
@@ -372,6 +455,7 @@ final class AtlasFrontendDesignRuntimeService
             'tool_run_receipts',
             'visual_smoke_manifest',
             'visual_quality_report',
+            'quality_budget_report',
             'design_system_drift_report',
             'screenshots_or_reason',
             'console_network_check',
@@ -547,6 +631,35 @@ final class AtlasFrontendDesignRuntimeService
      * @param  array<string,bool|string>  $signals
      * @return array<string,mixed>
      */
+    private function designDossierContract(array $signals): array
+    {
+        return [
+            'schema_version' => AtlasFrontendDesignDossierService::SCHEMA_VERSION,
+            'status' => ($signals['broad_visual_change'] ?? false) || ($signals['enterprise_multi_company'] ?? false) ? 'required' : 'available',
+            'runtime' => 'AtlasFrontendDesignDossierService',
+            'command' => 'php artisan atlas:frontend:design-dossier inspect --workspace=<local-company-repo> --json --strict',
+            'template_command' => 'php artisan atlas:frontend:design-dossier template --workspace=<local-company-repo> --json',
+            'default_operating_mode' => 'company_owned_local_repo_on_operator_macbook',
+            'required_documents' => app(AtlasFrontendDesignDossierService::class)->requiredDocuments(),
+            'required_for' => [
+                'ultra_premium_redesign',
+                'new_saas_frontend',
+                'company_repo_frontend_refinement',
+                'customer_safe_delivery_handoff',
+            ],
+            'claim_policy' => [
+                'premium_design_claim_requires_ready_dossier' => true,
+                'missing_docs_should_be_created_before_visual_claim' => true,
+                'template_is_not_design_context' => true,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @return array<string,mixed>
+     */
     private function designSystemInventoryContract(array $signals): array
     {
         return [
@@ -617,6 +730,29 @@ final class AtlasFrontendDesignRuntimeService
     /**
      * @return array<string,mixed>
      */
+    private function qualityBudgetGateContract(): array
+    {
+        $gate = app(AtlasFrontendQualityBudgetGateService::class);
+
+        return [
+            'schema_version' => AtlasFrontendQualityBudgetGateService::SCHEMA_VERSION,
+            'status' => 'required',
+            'runtime' => 'AtlasFrontendQualityBudgetGateService',
+            'command' => 'php artisan atlas:frontend:quality-budget inspect --report=<quality-budget-report.json> --json --strict',
+            'template_command' => 'php artisan atlas:frontend:quality-budget template --output=<dir> --json',
+            'required_viewports' => $gate->requiredViewports(),
+            'budgets' => $gate->budgets(),
+            'claim_policy' => [
+                'frontend_quality_budget_requires_measured_values' => true,
+                'operator_exception_does_not_authorize_world_best_claim' => true,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function taskSpecContract(): array
     {
         $compiler = app(AtlasFrontendTaskSpecCompilerService::class);
@@ -641,6 +777,288 @@ final class AtlasFrontendDesignRuntimeService
                 'frontend_execution_requires_task_spec_hash' => true,
                 'raw_customer_task_returned' => false,
                 'ambiguous_or_broad_work_blocks_without_acceptance_context' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function gauntletContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendGauntletService::SCHEMA_VERSION,
+            'status' => 'recommended_entrypoint_for_local_company_repos',
+            'runtime' => 'AtlasFrontendGauntletService',
+            'command' => 'php artisan atlas:frontend:gauntlet --task="<intent>" --workspace=<local-company-repo> --json --strict',
+            'composes' => [
+                'runtime_contract',
+                'task_spec',
+                'pre_execution_gate',
+                'company_design_dossier',
+                'repo_intake',
+                'design_system_inventory',
+                'runtime_certification',
+            ],
+            'claim_policy' => [
+                'provider_dispatch_requires_gauntlet_not_blocked' => true,
+                'premium_frontend_claim_requires_ready_gauntlet' => true,
+                'world_best_claim_allowed' => false,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function productBlueprintContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendProductBlueprintService::SCHEMA_VERSION,
+            'status' => 'required_for_premium_or_new_product_frontend',
+            'runtime' => 'AtlasFrontendProductBlueprintService',
+            'command' => 'php artisan atlas:frontend:blueprint generate --task="<intent>" --workspace=<local-company-repo> --json',
+            'write_command' => 'php artisan atlas:frontend:blueprint write --task="<intent>" --workspace=<local-company-repo> --json',
+            'covers' => [
+                'product_model',
+                'ux_success_model',
+                'screen_blueprint',
+                'visual_strategy',
+                'acceptance_blueprint',
+                'evidence_map',
+            ],
+            'claim_policy' => [
+                'premium_frontend_work_requires_blueprint' => true,
+                'blueprint_is_not_completion_evidence' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function enterpriseBootstrapContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendEnterpriseBootstrapService::SCHEMA_VERSION,
+            'status' => 'default_entrypoint_for_company_owned_local_repos',
+            'runtime' => 'AtlasFrontendEnterpriseBootstrapService',
+            'command' => 'php artisan atlas:frontend:enterprise-bootstrap inspect --task="<intent>" --workspace=<local-company-repo> --json --strict',
+            'write_command' => 'php artisan atlas:frontend:enterprise-bootstrap write --task="<intent>" --workspace=<local-company-repo> --json',
+            'covers' => [
+                'design_dossier_template_or_readiness',
+                'product_blueprint_document',
+                'repo_intake',
+                'gauntlet',
+                'work_order',
+                'provider_dispatch_policy',
+            ],
+            'company_modes' => [
+                'existing_company_blackink_refinement',
+                'existing_company_refinar_refinement',
+                'new_saas_or_product_creation',
+                'existing_company_premium_redesign',
+                'company_frontend_product_work',
+            ],
+            'claim_policy' => [
+                'enterprise_bootstrap_is_not_completion_evidence' => true,
+                'template_docs_do_not_count_as_ready_context' => true,
+                'provider_dispatch_requires_ready_work_order' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function repoIntakeContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendRepoIntakeService::SCHEMA_VERSION,
+            'status' => 'required_for_local_company_repo_execution',
+            'runtime' => 'AtlasFrontendRepoIntakeService',
+            'command' => 'php artisan atlas:frontend:intake --workspace=<local-company-repo> --json --strict',
+            'covers' => [
+                'package_manager',
+                'framework_adapter',
+                'entrypoints',
+                'route_candidates',
+                'test_commands',
+                'build_commands',
+                'quality_commands',
+                'design_dossier_status',
+                'design_system_inventory_status',
+            ],
+            'claim_policy' => [
+                'provider_can_start_with_repo_map' => true,
+                'repo_intake_is_not_completion_evidence' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function workOrderContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendWorkOrderService::SCHEMA_VERSION,
+            'status' => 'required_before_provider_dispatch_for_company_repo_work',
+            'runtime' => 'AtlasFrontendWorkOrderService',
+            'command' => 'php artisan atlas:frontend:work-order --task="<intent>" --workspace=<local-company-repo> --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'packets' => [
+                'repo_context_lock',
+                'implementation_patch_or_prototype',
+                'visual_quality_verification',
+                'certified_handoff',
+            ],
+            'claim_policy' => [
+                'provider_dispatch_requires_ready_work_order' => true,
+                'work_order_is_not_completion_evidence' => true,
+                'premium_claim_requires_all_packets_evidenced' => true,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function executionRunbookContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendExecutionRunbookService::SCHEMA_VERSION,
+            'status' => 'recommended_before_operator_or_agent_execution',
+            'runtime' => 'AtlasFrontendExecutionRunbookService',
+            'command' => 'php artisan atlas:frontend:runbook --task="<intent>" --workspace=<local-company-repo> --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'covers' => [
+                'repo_context_preflight',
+                'repo_native_install_and_dev_server',
+                'repo_native_quality_test_build_commands',
+                'evidence_kit_collection',
+                'run_certification',
+                'customer_safe_handoff',
+            ],
+            'claim_policy' => [
+                'runbook_is_not_execution_evidence' => true,
+                'commands_must_be_run_in_operator_repo' => true,
+                'completion_requires_run_certification_and_handoff' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function providerInstructionPacketContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION,
+            'status' => 'required_before_provider_dispatch_for_premium_frontend_work',
+            'runtime' => 'AtlasFrontendProviderInstructionPacketService',
+            'command' => 'php artisan atlas:frontend:provider-packet --task="<intent>" --workspace=<local-company-repo> --provider=<provider> --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'binds' => [
+                'pre_execution_gate',
+                'work_order',
+                'execution_runbook',
+                'provider_mandates',
+                'forbidden_provider_behaviors',
+            ],
+            'claim_policy' => [
+                'provider_packet_is_not_execution_evidence' => true,
+                'provider_must_return_receipts_not_claims' => true,
+                'completion_requires_run_certification_handoff_and_outcome' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function scenarioMatrixContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendScenarioMatrixService::SCHEMA_VERSION,
+            'status' => 'required_before_visual_quality_verification',
+            'runtime' => 'AtlasFrontendScenarioMatrixService',
+            'command' => 'php artisan atlas:frontend:scenarios --task="<intent>" --workspace=<local-company-repo> --acceptance --json --strict',
+            'covers' => [
+                'routes',
+                'viewports',
+                'states',
+                'required_checks_per_scenario',
+                'task_spec_hash',
+            ],
+            'claim_policy' => [
+                'visual_done_requires_scenario_matrix_evidence' => true,
+                'scenario_matrix_is_not_completion_evidence' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function evidenceKitContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendEvidenceKitService::SCHEMA_VERSION,
+            'status' => 'required_before_real_visual_evidence_collection',
+            'runtime' => 'AtlasFrontendEvidenceKitService',
+            'command' => 'php artisan atlas:frontend:evidence-kit prepare --task="<intent>" --workspace=<local-company-repo> --acceptance --output=<evidence-dir> --json --strict',
+            'prepares' => [
+                'scenario_matrix',
+                'visual_quality_report',
+                'quality_budget_report',
+                'design_5d_review',
+                'evidence_pack_manifest',
+                'outcome_record_template',
+                'run_certification_command',
+            ],
+            'claim_policy' => [
+                'evidence_kit_is_not_completion_evidence' => true,
+                'templates_must_be_replaced_with_measured_artifacts' => true,
+                'completion_requires_run_certification' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function worldBestProofPlanContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendWorldBestProofPlanService::SCHEMA_VERSION,
+            'status' => 'required_before_world_best_market_claim',
+            'runtime' => 'AtlasFrontendWorldBestProofPlanService',
+            'command' => 'php artisan atlas:frontend:world-best-plan --rival-evidence=<dir> --bundle=<bundle> --publication-receipt=<receipt> --json --strict',
+            'required_proof_streams' => [
+                'external_rival_replay',
+                'public_product_distribution',
+                'claim_audit',
+            ],
+            'claim_policy' => [
+                'world_best_claim_requires_proof_plan_ready' => true,
+                'world_best_claim_requires_external_rival_replay' => true,
+                'world_best_claim_requires_public_distribution_receipt' => true,
+                'documentation_only_claim_forbidden' => true,
+                'raw_prompt_source_customer_data_forbidden' => true,
             ],
         ];
     }
@@ -704,10 +1122,11 @@ final class AtlasFrontendDesignRuntimeService
             'schema_version' => AtlasFrontendRunCertificationService::SCHEMA_VERSION,
             'status' => 'required_before_completion_claim',
             'runtime' => 'AtlasFrontendRunCertificationService',
-            'command' => 'php artisan atlas:frontend:run-certify --visual-report=<report> --design-review-report=<report> --evidence-manifest=<manifest> --json --strict',
+            'command' => 'php artisan atlas:frontend:run-certify --visual-report=<report> --design-review-report=<report> --quality-budget-report=<report> --evidence-manifest=<manifest> --json --strict',
             'required_evidence' => [
                 'visual_quality_report',
                 'design_5d_review',
+                'quality_budget_report',
                 'evidence_pack',
                 'artifact_hashes',
                 'outcome_memory_record',
@@ -715,6 +1134,7 @@ final class AtlasFrontendDesignRuntimeService
             'claim_policy' => [
                 'frontend_completion_claim_requires_run_certification' => true,
                 'frontend_completion_claim_requires_outcome_memory' => true,
+                'frontend_completion_claim_requires_quality_budget' => true,
                 'public_distribution_claim_requires_publication_receipt' => true,
                 'world_best_claim_allowed' => false,
             ],

@@ -119,6 +119,26 @@ canonical 5-level `confidence_level` exposed in
 is **always** computed from a multi-case battery report, never from a single
 case.
 
+## Cost/token telemetry-only rule
+
+Rivals measures cost, token use, wall time and stdout volume for operator
+auditing, but these dimensions never decide a round winner. In v1 this is
+reported as `cost_time_efficiency` with `winner_decision_weights` equal to
+`0.0`; in v2 this is reported as `cost_time` with the same winner exclusion.
+If a case manifest tries to assign positive winner weight to cost/time, the
+resolver must zero that dimension and renormalize the remaining technical
+dimensions. This prevents Atlas from losing or winning because it naturally
+spends more tokens while still keeping the operational cost visible.
+
+The same rule applies to weak patch-shape heuristics. Smaller diffs,
+lower touched-file counts, lower average bytes per file, or lower apparent
+implementation complexity are diagnostic signals only. They can identify
+review risk, but they do not prove semantic quality and must not decide a
+winner. A model only wins through stronger evidence: deterministic acceptance,
+replayable evidence, scope correctness, test/oracle quality, production
+invariant reasoning, rollback safety, compatibility, and ceiling-360 contract
+coverage.
+
 ## Sanity gates (single-run)
 
 The adjudicator now produces a `fairness.sanity_gates` block — each gate is a

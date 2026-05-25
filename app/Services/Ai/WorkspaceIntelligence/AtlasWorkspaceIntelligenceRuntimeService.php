@@ -446,6 +446,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
 
             if ($relative !== '' && (@is_dir($path.DIRECTORY_SEPARATOR.'.git') || @is_file($path.DIRECTORY_SEPARATOR.'.git'))) {
                 $repos[] = str_replace(DIRECTORY_SEPARATOR, '/', $relative);
+
                 continue;
             }
 
@@ -1176,6 +1177,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                         $policyRefs,
                         $this->executionRouteRefs($contextRefs, (string) $command),
                         $contextRefs,
+                        $contextRefs,
+                        $contextRefs,
                     );
                 }
             }
@@ -1221,6 +1224,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                         $outcome->created_at?->toISOString(),
                         $policyRefs,
                         $this->executionRouteRefs($contextRefs, (string) $command),
+                        $contextRefs,
+                        $contextRefs,
                         $contextRefs,
                     );
                 }
@@ -1334,6 +1339,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'execution_policy_effectiveness_index' => $this->workspaceExecutionPolicyEffectivenessIndex($observed),
             'execution_route_effectiveness_index' => $this->workspaceExecutionRouteEffectivenessIndex($observed),
             'validation_tier_effectiveness_index' => $this->workspaceValidationTierEffectivenessIndex($observed),
+            'working_set_effectiveness_index' => $this->workspaceWorkingSetEffectivenessIndex($observed),
+            'context_delta_effectiveness_index' => $this->workspaceContextDeltaEffectivenessIndex($observed),
             'avoid_commands' => array_slice(array_map(
                 static fn (array $item): string => (string) $item['command'],
                 array_values(array_filter($observed, static fn (array $item): bool => (int) $item['score'] < 0 || ($item['performance_grade'] ?? null) === 'slow')),
@@ -1387,6 +1394,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'execution_policy_refs' => [],
             'execution_route_refs' => [],
             'validation_tier_refs' => [],
+            'working_set_refs' => [],
+            'context_delta_refs' => [],
             'stability' => 'unknown',
             'confidence' => 0.0,
         ];
@@ -1408,8 +1417,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         array $executionPolicyRefs = [],
         array $executionRouteRefs = [],
         array $validationTierRefs = [],
-    ): void
-    {
+        array $workingSetRefs = [],
+        array $contextDeltaRefs = [],
+    ): void {
         $command = trim((string) $command);
         if ($command === '') {
             return;
@@ -1498,6 +1508,50 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             } else {
                 $stats[$command]['validation_tier_refs'][$tierRef]['neutral_count']++;
                 $stats[$command]['validation_tier_refs'][$tierRef]['score'] += 1;
+            }
+        }
+
+        foreach ($this->workingSetRefs($workingSetRefs) as $workingSetRef) {
+            $stats[$command]['working_set_refs'][$workingSetRef] ??= [
+                'working_set_ref' => $workingSetRef,
+                'success_count' => 0,
+                'failure_count' => 0,
+                'neutral_count' => 0,
+                'total_count' => 0,
+                'score' => 0,
+            ];
+            $stats[$command]['working_set_refs'][$workingSetRef]['total_count']++;
+            if ($polarity > 0) {
+                $stats[$command]['working_set_refs'][$workingSetRef]['success_count']++;
+                $stats[$command]['working_set_refs'][$workingSetRef]['score'] += 3;
+            } elseif ($polarity < 0) {
+                $stats[$command]['working_set_refs'][$workingSetRef]['failure_count']++;
+                $stats[$command]['working_set_refs'][$workingSetRef]['score'] -= 2;
+            } else {
+                $stats[$command]['working_set_refs'][$workingSetRef]['neutral_count']++;
+                $stats[$command]['working_set_refs'][$workingSetRef]['score'] += 1;
+            }
+        }
+
+        foreach ($this->contextDeltaRefs($contextDeltaRefs) as $deltaRef) {
+            $stats[$command]['context_delta_refs'][$deltaRef] ??= [
+                'context_delta_ref' => $deltaRef,
+                'success_count' => 0,
+                'failure_count' => 0,
+                'neutral_count' => 0,
+                'total_count' => 0,
+                'score' => 0,
+            ];
+            $stats[$command]['context_delta_refs'][$deltaRef]['total_count']++;
+            if ($polarity > 0) {
+                $stats[$command]['context_delta_refs'][$deltaRef]['success_count']++;
+                $stats[$command]['context_delta_refs'][$deltaRef]['score'] += 3;
+            } elseif ($polarity < 0) {
+                $stats[$command]['context_delta_refs'][$deltaRef]['failure_count']++;
+                $stats[$command]['context_delta_refs'][$deltaRef]['score'] -= 2;
+            } else {
+                $stats[$command]['context_delta_refs'][$deltaRef]['neutral_count']++;
+                $stats[$command]['context_delta_refs'][$deltaRef]['score'] += 1;
             }
         }
 
@@ -2064,6 +2118,182 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 }
 
                 return 'tier:'.$matches[1];
+            },
+            $refs,
+        ), static fn (string $ref): bool => $ref !== '')));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $observed
+     * @return array<string,mixed>
+     */
+    private function workspaceWorkingSetEffectivenessIndex(array $observed): array
+    {
+        $workingSets = [];
+        foreach ($observed as $commandStats) {
+            $command = (string) ($commandStats['command'] ?? '');
+            foreach ((array) ($commandStats['working_set_refs'] ?? []) as $workingSetRef => $workingSetStats) {
+                if (! is_string($workingSetRef) || ! is_array($workingSetStats)) {
+                    continue;
+                }
+                $workingSets[$workingSetRef] ??= [
+                    'working_set_ref' => $workingSetRef,
+                    'success_count' => 0,
+                    'failure_count' => 0,
+                    'neutral_count' => 0,
+                    'total_count' => 0,
+                    'score' => 0,
+                    'commands' => [],
+                ];
+                foreach (['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'] as $key) {
+                    $workingSets[$workingSetRef][$key] = (int) $workingSets[$workingSetRef][$key] + (int) ($workingSetStats[$key] ?? 0);
+                }
+                if ($command !== '') {
+                    $workingSets[$workingSetRef]['commands'] = array_slice(array_values(array_unique(array_merge(
+                        (array) ($workingSets[$workingSetRef]['commands'] ?? []),
+                        [$command],
+                    ))), 0, 8);
+                }
+            }
+        }
+
+        foreach ($workingSets as $workingSetRef => $workingSet) {
+            $total = max((int) ($workingSet['total_count'] ?? 0), 1);
+            $workingSets[$workingSetRef]['success_rate'] = round((int) ($workingSet['success_count'] ?? 0) / $total, 2);
+            $workingSets[$workingSetRef]['effectiveness'] = match (true) {
+                (int) ($workingSet['failure_count'] ?? 0) > 0 && (int) ($workingSet['success_count'] ?? 0) > 0 => 'mixed',
+                (int) ($workingSet['failure_count'] ?? 0) > 0 => 'failing',
+                (int) ($workingSet['success_count'] ?? 0) > 0 => 'effective',
+                default => 'unknown',
+            };
+        }
+
+        uasort($workingSets, static fn (array $left, array $right): int => ((int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0))
+            ?: ((int) ($right['total_count'] ?? 0) <=> (int) ($left['total_count'] ?? 0))
+            ?: ((string) ($left['working_set_ref'] ?? '') <=> (string) ($right['working_set_ref'] ?? '')));
+
+        $payload = [
+            'schema_version' => 'atlas.workspace_working_set_effectiveness_index.v1',
+            'working_set_count' => count($workingSets),
+            'working_sets' => array_slice(array_values($workingSets), 0, 8),
+            'source_policy' => [
+                'raw_logs_returned' => false,
+                'raw_provider_text_returned' => false,
+                'raw_file_content_returned' => false,
+                'absolute_workspace_path_returned' => false,
+            ],
+        ];
+        $payload['index_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function workingSetRefs(array $refs): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static function (mixed $ref): string {
+                $ref = trim((string) $ref);
+                if (preg_match('/^workspace_working_set:[a-f0-9]{64}$/', $ref) === 1) {
+                    return $ref;
+                }
+                if (! str_starts_with($ref, 'awis_cache:workspace_working_set:')) {
+                    return '';
+                }
+
+                $hash = substr($ref, strlen('awis_cache:workspace_working_set:'));
+
+                return preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? 'workspace_working_set:'.$hash : '';
+            },
+            $refs,
+        ), static fn (string $ref): bool => $ref !== '')));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $observed
+     * @return array<string,mixed>
+     */
+    private function workspaceContextDeltaEffectivenessIndex(array $observed): array
+    {
+        $plans = [];
+        foreach ($observed as $commandStats) {
+            $command = (string) ($commandStats['command'] ?? '');
+            foreach ((array) ($commandStats['context_delta_refs'] ?? []) as $deltaRef => $deltaStats) {
+                if (! is_string($deltaRef) || ! is_array($deltaStats)) {
+                    continue;
+                }
+                $plans[$deltaRef] ??= [
+                    'context_delta_ref' => $deltaRef,
+                    'success_count' => 0,
+                    'failure_count' => 0,
+                    'neutral_count' => 0,
+                    'total_count' => 0,
+                    'score' => 0,
+                    'commands' => [],
+                ];
+                foreach (['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'] as $key) {
+                    $plans[$deltaRef][$key] = (int) $plans[$deltaRef][$key] + (int) ($deltaStats[$key] ?? 0);
+                }
+                if ($command !== '') {
+                    $plans[$deltaRef]['commands'] = array_slice(array_values(array_unique(array_merge(
+                        (array) ($plans[$deltaRef]['commands'] ?? []),
+                        [$command],
+                    ))), 0, 8);
+                }
+            }
+        }
+
+        foreach ($plans as $deltaRef => $plan) {
+            $total = max((int) ($plan['total_count'] ?? 0), 1);
+            $plans[$deltaRef]['success_rate'] = round((int) ($plan['success_count'] ?? 0) / $total, 2);
+            $plans[$deltaRef]['effectiveness'] = match (true) {
+                (int) ($plan['failure_count'] ?? 0) > 0 && (int) ($plan['success_count'] ?? 0) > 0 => 'mixed',
+                (int) ($plan['failure_count'] ?? 0) > 0 => 'failing',
+                (int) ($plan['success_count'] ?? 0) > 0 => 'effective',
+                default => 'unknown',
+            };
+        }
+
+        uasort($plans, static fn (array $left, array $right): int => ((int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0))
+            ?: ((int) ($right['total_count'] ?? 0) <=> (int) ($left['total_count'] ?? 0))
+            ?: ((string) ($left['context_delta_ref'] ?? '') <=> (string) ($right['context_delta_ref'] ?? '')));
+
+        $payload = [
+            'schema_version' => 'atlas.workspace_context_delta_effectiveness_index.v1',
+            'context_delta_plan_count' => count($plans),
+            'context_delta_plans' => array_slice(array_values($plans), 0, 8),
+            'source_policy' => [
+                'raw_logs_returned' => false,
+                'raw_provider_text_returned' => false,
+                'raw_file_content_returned' => false,
+                'absolute_workspace_path_returned' => false,
+            ],
+        ];
+        $payload['index_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function contextDeltaRefs(array $refs): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static function (mixed $ref): string {
+                $ref = trim((string) $ref);
+                if (preg_match('/^context_delta_plan:[a-f0-9]{64}$/', $ref) === 1) {
+                    return $ref;
+                }
+                if (! str_starts_with($ref, 'awis_cache:context_delta_plan:')) {
+                    return '';
+                }
+
+                $hash = substr($ref, strlen('awis_cache:context_delta_plan:'));
+
+                return preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? 'context_delta_plan:'.$hash : '';
             },
             $refs,
         ), static fn (string $ref): bool => $ref !== '')));
@@ -2873,6 +3103,15 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $outcomeCommandMemory,
             $changeMemory,
         );
+        $contextDeltaPlan = $this->contextDeltaPlan(
+            $workspaceId,
+            $workspaceReport,
+            $repositoryInventory,
+            $changeMemory,
+            $focusMap,
+            $workspaceWorkingSet,
+            $outcomeCommandMemory,
+        );
 
         $payload = [
             'schema_version' => 'atlas.awis.workspace_next_session_brain.v1',
@@ -2911,6 +3150,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'repository_count' => (int) data_get($repositoryInventory, 'repository_count', 0),
                 'working_set_hash' => $workspaceWorkingSet['working_set_hash'],
                 'workspace_working_set' => $workspaceWorkingSet,
+                'context_delta_plan_hash' => $contextDeltaPlan['delta_plan_hash'],
+                'context_delta_plan' => $contextDeltaPlan,
                 'stack_tags' => array_slice(array_values((array) data_get($repositoryInventory, 'stack', [])), 0, 16),
                 'focused_manifest_refs' => array_slice($focusedManifestRefs, 0, 6),
                 'command_hints' => array_slice($this->rankCommandsByOutcome(
@@ -2944,6 +3185,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'execution_route_effectiveness_profiles' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'execution_route_effectiveness_index.routes', [])), 0, 8),
                 'validation_tier_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'validation_tier_effectiveness_index.index_hash'),
                 'validation_tier_effectiveness_profiles' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'validation_tier_effectiveness_index.tiers', [])), 0, 8),
+                'working_set_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'working_set_effectiveness_index.index_hash'),
+                'working_set_effectiveness_profiles' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'working_set_effectiveness_index.working_sets', [])), 0, 8),
+                'context_delta_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'context_delta_effectiveness_index.index_hash'),
+                'context_delta_effectiveness_profiles' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'context_delta_effectiveness_index.context_delta_plans', [])), 0, 8),
                 'command_performance_histogram' => [
                     'bucket_counts' => (array) data_get($outcomeCommandMemory, 'performance_histogram.bucket_counts', []),
                     'fast_commands' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'performance_histogram.fast_commands', [])), 0, 6),
@@ -2957,6 +3202,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                     'workspace_hash' => data_get($workspaceReport, 'workspace_hash'),
                     'repository_inventory_hash' => data_get($repositoryInventory, 'inventory_hash'),
                     'workspace_working_set_hash' => $workspaceWorkingSet['working_set_hash'],
+                    'context_delta_plan_hash' => $contextDeltaPlan['delta_plan_hash'],
                     'workspace_change_hash' => data_get($changeMemory, 'change_hash'),
                     'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
                     'command_registry_hash' => data_get($twin, 'command_registry.command_registry_hash'),
@@ -2967,11 +3213,14 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                     'execution_policy_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'execution_policy_effectiveness_index.index_hash'),
                     'execution_route_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'execution_route_effectiveness_index.index_hash'),
                     'validation_tier_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'validation_tier_effectiveness_index.index_hash'),
+                    'working_set_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'working_set_effectiveness_index.index_hash'),
+                    'context_delta_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'context_delta_effectiveness_index.index_hash'),
                 ],
                 'refresh_triggers' => [
                     'workspace_hash_changed',
                     'repository_inventory_hash_changed',
                     'workspace_change_hash_changed',
+                    'context_delta_plan_hash_changed',
                     'task_hash_changed',
                 ],
                 'provider_policy' => [
@@ -3002,6 +3251,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'uses_command_performance_memory' => true,
                 'uses_hash_cache_keys_for_resume' => true,
                 'uses_workspace_working_set' => true,
+                'uses_context_delta_plan' => true,
                 'raw_file_scan_required_for_provider_prompt' => false,
                 'max_focused_repositories' => 4,
                 'max_focused_commands' => 10,
@@ -3027,6 +3277,149 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $payload['brain_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * Provider-safe incremental context plan. It tells the next session what can
+     * be reused from cache and what must be refreshed when folder signals move.
+     *
+     * @param  array<string,mixed>  $workspaceReport
+     * @param  array<string,mixed>  $repositoryInventory
+     * @param  array<string,mixed>  $changeMemory
+     * @param  array<string,mixed>  $focusMap
+     * @param  array<string,mixed>  $workspaceWorkingSet
+     * @param  array<string,mixed>  $outcomeCommandMemory
+     * @return array<string,mixed>
+     */
+    private function contextDeltaPlan(
+        mixed $workspaceId,
+        array $workspaceReport,
+        array $repositoryInventory,
+        array $changeMemory,
+        array $focusMap,
+        array $workspaceWorkingSet,
+        array $outcomeCommandMemory,
+    ): array {
+        $changedAreas = array_slice(array_values(array_unique(array_filter(array_merge(
+            $this->providerSafeStringList(data_get($changeMemory, 'critical_areas_touched', [])),
+            $this->providerSafeStringList(data_get($changeMemory, 'changed_areas', [])),
+            $this->providerSafeStringList(data_get($focusMap, 'focused_areas', [])),
+        )))), 0, 12);
+        $hotAreas = $this->providerSafeStringList(data_get($workspaceWorkingSet, 'hot_areas', []));
+        $hotOverlap = array_values(array_intersect($hotAreas, $changedAreas));
+
+        $workspaceHash = data_get($workspaceReport, 'workspace_hash');
+        $inventoryHash = data_get($repositoryInventory, 'inventory_hash');
+        $workingSetHash = data_get($workspaceWorkingSet, 'working_set_hash');
+        $changeHash = data_get($changeMemory, 'change_hash');
+        $focusHash = data_get($focusMap, 'focus_hash');
+        $outcomeMemoryHash = data_get($outcomeCommandMemory, 'outcome_memory_hash');
+        $histogramHash = data_get($outcomeCommandMemory, 'performance_histogram.histogram_hash');
+        $areaIndexHash = data_get($outcomeCommandMemory, 'area_performance_index.index_hash');
+        $stackIndexHash = data_get($outcomeCommandMemory, 'stack_performance_index.index_hash');
+
+        $reuseRefs = array_values(array_filter([
+            is_string($inventoryHash) ? 'awis_cache:repository_inventory:'.$inventoryHash : null,
+            is_string($workingSetHash) ? 'awis_cache:workspace_working_set:'.$workingSetHash : null,
+            is_string($outcomeMemoryHash) ? 'awis_cache:outcome_command_memory:'.$outcomeMemoryHash : null,
+            is_string($histogramHash) ? 'awis_cache:command_performance_histogram:'.$histogramHash : null,
+            is_string($areaIndexHash) ? 'awis_cache:area_performance_index:'.$areaIndexHash : null,
+            is_string($stackIndexHash) ? 'awis_cache:stack_performance_index:'.$stackIndexHash : null,
+        ], 'is_string'));
+        $refreshRefs = array_values(array_filter([
+            is_string($workspaceHash) ? 'workspace_hash:'.$workspaceHash : null,
+            is_string($changeHash) ? 'workspace_change_hash:'.$changeHash : null,
+            is_string($focusHash) ? 'workspace_focus_hash:'.$focusHash : null,
+            ...array_map(static fn (string $area): string => 'context_delta:changed_area:'.hash('sha256', $area), $changedAreas),
+        ], 'is_string'));
+
+        $decision = $hotOverlap !== []
+            ? 'partial_refresh_hot_overlap'
+            : ($changedAreas !== [] ? 'reuse_hot_context_refresh_changed_areas' : 'reuse_hot_context_with_hash_checks');
+
+        $payload = [
+            'schema_version' => 'atlas.awis.context_delta_plan.v1',
+            'workspace_id' => is_string($workspaceId) ? $workspaceId : null,
+            'status' => 'ready',
+            'mode' => 'hash_based_incremental_context_resume',
+            'decision' => $decision,
+            'changed_area_count' => count($changedAreas),
+            'hot_area_overlap_count' => count($hotOverlap),
+            'changed_area_hashes' => array_map(static fn (string $area): string => hash('sha256', $area), array_slice($changedAreas, 0, 8)),
+            'hot_overlap_area_hashes' => array_map(static fn (string $area): string => hash('sha256', $area), array_slice($hotOverlap, 0, 8)),
+            'reuse_refs' => array_slice($reuseRefs, 0, 12),
+            'refresh_refs' => array_slice($refreshRefs, 0, 16),
+            'feedback' => $this->contextDeltaFeedbackSummary((array) data_get($outcomeCommandMemory, 'context_delta_effectiveness_index.context_delta_plans', [])),
+            'refresh_triggers' => [
+                'workspace_hash_changed',
+                'repository_inventory_hash_changed',
+                'workspace_change_hash_changed',
+                'workspace_focus_hash_changed',
+                'workspace_working_set_hash_changed',
+            ],
+            'prewarm_order' => [
+                'context_delta_plan',
+                'workspace_working_set',
+                'repository_inventory',
+                'outcome_command_memory',
+                'execution_optimization_policy',
+            ],
+            'source_hashes' => [
+                'workspace_hash' => $workspaceHash,
+                'repository_inventory_hash' => $inventoryHash,
+                'workspace_working_set_hash' => $workingSetHash,
+                'workspace_change_hash' => $changeHash,
+                'workspace_focus_hash' => $focusHash,
+                'outcome_command_memory_hash' => $outcomeMemoryHash,
+                'command_performance_histogram_hash' => $histogramHash,
+                'area_performance_index_hash' => $areaIndexHash,
+                'stack_performance_index_hash' => $stackIndexHash,
+            ],
+            'source_policy' => [
+                'raw_file_content_returned' => false,
+                'raw_diff_returned' => false,
+                'raw_manifest_returned' => false,
+                'script_bodies_returned' => false,
+                'absolute_workspace_path_returned' => false,
+            ],
+        ];
+        $payload['delta_plan_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<int,mixed>  $profiles
+     * @return array<string,mixed>
+     */
+    private function contextDeltaFeedbackSummary(array $profiles): array
+    {
+        $effective = 0;
+        $mixed = 0;
+        $failing = 0;
+        foreach ($profiles as $profile) {
+            if (! is_array($profile)) {
+                continue;
+            }
+            match ((string) ($profile['effectiveness'] ?? 'unknown')) {
+                'effective' => $effective++,
+                'mixed' => $mixed++,
+                'failing' => $failing++,
+                default => null,
+            };
+        }
+
+        return [
+            'schema_version' => 'atlas.awis.context_delta_feedback.v1',
+            'observed_delta_plan_count' => count(array_filter($profiles, 'is_array')),
+            'effective_delta_plan_count' => $effective,
+            'mixed_delta_plan_count' => $mixed,
+            'failing_delta_plan_count' => $failing,
+            'next_adjustment' => $failing > 0 || $mixed > 0
+                ? 'prefer_partial_refresh_until_delta_stabilizes'
+                : ($effective > 0 ? 'reuse_incremental_delta_shape' : 'collect_context_delta_outcome_feedback'),
+            'raw_logs_returned' => false,
+        ];
     }
 
     /**
@@ -3114,6 +3507,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'max_hot_areas' => 8,
                 'max_hot_commands' => 10,
             ],
+            'feedback' => $this->workingSetFeedbackSummary((array) data_get($outcomeCommandMemory, 'working_set_effectiveness_index.working_sets', [])),
             'source_policy' => [
                 'raw_file_content_returned' => false,
                 'raw_diff_returned' => false,
@@ -3125,6 +3519,40 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $payload['working_set_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<int,mixed>  $profiles
+     * @return array<string,mixed>
+     */
+    private function workingSetFeedbackSummary(array $profiles): array
+    {
+        $effective = 0;
+        $mixed = 0;
+        $failing = 0;
+        foreach ($profiles as $profile) {
+            if (! is_array($profile)) {
+                continue;
+            }
+            match ((string) ($profile['effectiveness'] ?? 'unknown')) {
+                'effective' => $effective++,
+                'mixed' => $mixed++,
+                'failing' => $failing++,
+                default => null,
+            };
+        }
+
+        return [
+            'schema_version' => 'atlas.awis.workspace_working_set_feedback.v1',
+            'observed_working_set_count' => count(array_filter($profiles, 'is_array')),
+            'effective_working_set_count' => $effective,
+            'mixed_working_set_count' => $mixed,
+            'failing_working_set_count' => $failing,
+            'next_adjustment' => $failing > 0 || $mixed > 0
+                ? 'refresh_hot_areas_and_recompute_command_order'
+                : ($effective > 0 ? 'reuse_effective_hot_context_shape' : 'collect_working_set_outcome_feedback'),
+            'raw_logs_returned' => false,
+        ];
     }
 
     /**
@@ -3543,7 +3971,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $policyEffectivenessIndex = (array) data_get($outcomeMemory, 'execution_policy_effectiveness_index', []);
         $routeEffectivenessIndex = (array) data_get($outcomeMemory, 'execution_route_effectiveness_index', []);
         $validationTierEffectivenessIndex = (array) data_get($outcomeMemory, 'validation_tier_effectiveness_index', []);
+        $workingSetEffectivenessIndex = (array) data_get($outcomeMemory, 'working_set_effectiveness_index', []);
+        $contextDeltaEffectivenessIndex = (array) data_get($outcomeMemory, 'context_delta_effectiveness_index', []);
         $workingSet = (array) data_get($nextSessionBrain, 'context_loading_plan.workspace_working_set', []);
+        $contextDeltaPlan = (array) data_get($nextSessionBrain, 'context_loading_plan.context_delta_plan', []);
         $bucketCounts = (array) ($histogram['bucket_counts'] ?? []);
 
         $payload = [
@@ -3565,6 +3996,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'component_hashes' => [
                 'repository_inventory_hash' => data_get($repositoryInventory, 'inventory_hash'),
                 'workspace_working_set_hash' => data_get($workingSet, 'working_set_hash'),
+                'context_delta_plan_hash' => data_get($contextDeltaPlan, 'delta_plan_hash'),
                 'workspace_change_hash' => data_get($changeMemory, 'change_hash'),
                 'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
                 'outcome_command_memory_hash' => data_get($outcomeMemory, 'outcome_memory_hash'),
@@ -3574,11 +4006,15 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'execution_policy_effectiveness_index_hash' => data_get($policyEffectivenessIndex, 'index_hash'),
                 'execution_route_effectiveness_index_hash' => data_get($routeEffectivenessIndex, 'index_hash'),
                 'validation_tier_effectiveness_index_hash' => data_get($validationTierEffectivenessIndex, 'index_hash'),
+                'working_set_effectiveness_index_hash' => data_get($workingSetEffectivenessIndex, 'index_hash'),
+                'context_delta_effectiveness_index_hash' => data_get($contextDeltaEffectivenessIndex, 'index_hash'),
             ],
             'learned_signal_counts' => [
                 'repository_count' => (int) data_get($repositoryInventory, 'repository_count', 0),
                 'working_set_hot_area_count' => count((array) data_get($workingSet, 'hot_areas', [])),
                 'working_set_hot_command_count' => count((array) data_get($workingSet, 'hot_commands', [])),
+                'context_delta_changed_area_count' => (int) data_get($contextDeltaPlan, 'changed_area_count', 0),
+                'context_delta_hot_overlap_count' => (int) data_get($contextDeltaPlan, 'hot_area_overlap_count', 0),
                 'changed_file_count' => (int) data_get($changeMemory, 'changed_file_count', 0),
                 'focused_repository_count' => count((array) data_get($focusMap, 'focused_repositories', [])),
                 'focused_area_count' => count((array) data_get($focusMap, 'focused_areas', [])),
@@ -3594,6 +4030,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'execution_policy_profile_count' => count((array) data_get($policyEffectivenessIndex, 'policies', [])),
                 'execution_route_profile_count' => count((array) data_get($routeEffectivenessIndex, 'routes', [])),
                 'validation_tier_profile_count' => count((array) data_get($validationTierEffectivenessIndex, 'tiers', [])),
+                'working_set_effectiveness_profile_count' => count((array) data_get($workingSetEffectivenessIndex, 'working_sets', [])),
+                'context_delta_effectiveness_profile_count' => count((array) data_get($contextDeltaEffectivenessIndex, 'context_delta_plans', [])),
             ],
             'performance_memory' => [
                 'bucket_counts' => [

@@ -405,7 +405,16 @@ Cursor e Composer exigem contrato adicional de evidence quando saem do dry-run:
   aparecem no scorecard/report, mas `winner_decision_weights` deve manter peso
   `0.0` e `winner_decision_excluded_dimensions` deve impedir que custo, tokens
   ou latencia decidam vencedor. Atlas normalmente nao ganha por custo; Rivals
-  mede esse dado para auditoria, nao para ranking.
+  mede esse dado para auditoria, nao para ranking. Esse contrato vale no
+  adjudicator v1 e no adjudicator v2: mesmo se um `case_manifest` tentar
+  atribuir peso positivo para `cost_time`, o resolver zera essa dimensao e
+  renormaliza apenas as dimensoes tecnicas restantes.
+- Heuristicas de formato do patch tambem nao podem virar falso positivo de
+  qualidade: patch menor, menos arquivos, diff medio menor ou menor
+  complexidade aparente sao diagnostico/review-risk, nao prova de qualidade.
+  Vencedor deve depender de evidencias fortes como oracle deterministico,
+  replay, scope correto, testes semanticos, rollback, invariantes de producao,
+  compatibilidade e cobertura `ceiling_360_contract`.
 - O corpus release tambem materializa `anti_tie_pressure` por caso:
   `max_technical_tie_rate=0.55`, `must_cancel_and_reinforce_when_exceeded=true`,
   `winner_excludes_cost_time_efficiency=true` e dimensoes minimas por nivel.

@@ -12,6 +12,7 @@ class AtlasFrontendPublicationCommand extends Command
         {--bundle= : Static product proof bundle directory for verify action}
         {--receipt= : Optional public publication receipt JSON}
         {--output= : Output directory for receipt-template action}
+        {--strict : Fail verify unless public distribution is verified}
         {--json : Emit canonical JSON payload}';
 
     protected $description = 'Verify Atlas Frontend product proof publication readiness.';
@@ -32,6 +33,10 @@ class AtlasFrontendPublicationCommand extends Command
             $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         } else {
             $this->line('Atlas Frontend Publication: '.$payload['status']);
+        }
+
+        if ((bool) $this->option('strict') && ((string) $this->argument('action')) === 'verify') {
+            return ($payload['status'] ?? null) === 'public_verified' ? self::SUCCESS : self::FAILURE;
         }
 
         return in_array($payload['status'] ?? null, ['failed', 'blocked'], true) ? self::FAILURE : self::SUCCESS;

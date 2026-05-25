@@ -172,7 +172,18 @@ final class AtlasForgeRivalsAdjudicatorService
     ];
 
     /** @var list<string> */
-    public const WINNER_DECISION_EXCLUDED_DIMENSIONS = self::TELEMETRY_ONLY_DIMENSIONS;
+    public const DIAGNOSTIC_ONLY_DIMENSIONS = [
+        'patch_focus',
+        'implementation_complexity',
+        'maintainability',
+        'risk_surface',
+    ];
+
+    /** @var list<string> */
+    public const WINNER_DECISION_EXCLUDED_DIMENSIONS = [
+        ...self::TELEMETRY_ONLY_DIMENSIONS,
+        ...self::DIAGNOSTIC_ONLY_DIMENSIONS,
+    ];
 
     private readonly AtlasForgeRivalsAdjudicatorV2Service $v2;
 
@@ -447,7 +458,9 @@ final class AtlasForgeRivalsAdjudicatorService
             'winner_decision_weights' => $quality['winner_decision_weights'],
             'winner_decision_excluded_dimensions' => self::WINNER_DECISION_EXCLUDED_DIMENSIONS,
             'telemetry_only_dimensions' => self::TELEMETRY_ONLY_DIMENSIONS,
+            'diagnostic_only_dimensions' => self::DIAGNOSTIC_ONLY_DIMENSIONS,
             'cost_efficiency_decision_policy' => 'measured_but_excluded_from_winner',
+            'strong_quality_decision_policy' => 'winner_uses_only_strong_evidence_dimensions',
             'replay_passes' => $replayPasses,
             'claim_ready' => $winner === self::WINNER_ATLAS || $winner === self::WINNER_RIVAL,
             'human_review_required' => $humanReviewRequired,
@@ -1410,7 +1423,7 @@ final class AtlasForgeRivalsAdjudicatorService
             $diff,
         );
         foreach ($quality['dimensions'] as $name => $d) {
-            if (in_array($name, self::TELEMETRY_ONLY_DIMENSIONS, true)) {
+            if (in_array($name, self::WINNER_DECISION_EXCLUDED_DIMENSIONS, true)) {
                 continue;
             }
             $dDiff = ($d['atlas'] ?? 0) - ($d['rival'] ?? 0);

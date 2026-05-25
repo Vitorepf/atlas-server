@@ -244,23 +244,56 @@ final class AtlasForgeRivalsAdjudicatorScoringSanityV1Test extends TestCase
     public function test_high_confidence_requires_fair_mode_replay_evidence_and_clear_margin(): void
     {
         $runId = $this->newRunId('fair-clean-win');
-        // Atlas produces a focused diff with strong test signal; rival
-        // produces a sprawling diff with poor tests. Margin clears the
-        // tie_threshold*2 floor and mode is `fair` with intact evidence.
+        $paths = $this->paths->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        $atlasPatch = $paths['evidence'].'/atlas_semantic.diff';
+        $rivalPatch = $paths['evidence'].'/rival_semantic.diff';
+        file_put_contents($atlasPatch, implode("\n", [
+            '## Facts / Assumptions / Decisions',
+            '## Tradeoff Matrix',
+            '## Rollback Plan',
+            '## Negative Replay Probe',
+            '## Uncertainty Boundary',
+            '## Production Invariant Reasoning',
+            '## Capability Evidence',
+            '## Hidden Oracle Hypotheses',
+            '## Failure Mode Matrix',
+            '## Stop Block Criteria',
+            '## Telemetry Delta',
+            '## Counterfactual Check',
+            '## Blast Radius',
+            '## Confidence Calibration',
+        ]));
+        file_put_contents($rivalPatch, '## Brief fix');
+
+        // Atlas wins only on strong semantic evidence: test signal plus the
+        // ceiling-360 contract. Patch size/shape is diagnostic-only.
         $this->seedRun(
             $runId,
             mode: 'fair',
             atlas: [
+                'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
                 'patch_diff_bytes' => 1500,
+                'patch_diff_path' => $atlasPatch,
                 'changed_files' => ['tests/Feature/A.php', 'app/A.php'],
                 'test_log_tail' => '(300 tests, 800 assertions)',
                 'stdout_bytes' => 2000,
             ],
             rival: [
+                'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
                 'patch_diff_bytes' => 80000,
+                'patch_diff_path' => $rivalPatch,
                 'changed_files' => array_map(static fn (int $i): string => 'src/wide_'.$i.'.php', range(1, 9)),
                 'test_log_tail' => '(4 tests, 8 assertions)',
                 'stdout_bytes' => 8000,
+            ],
+            manifestOverrides: [
+                'case_set' => 'ceiling-360',
+                'case_id' => 'ceiling-360-001-industrial-005-incident_rollback',
+                'ceiling_pressure_profile' => [
+                    'schema_version' => 'atlas.forge.rivals.ceiling_pressure_profile.v1',
+                    'pressure_level' => 'L5++',
+                ],
             ],
         );
 
@@ -341,9 +374,16 @@ final class AtlasForgeRivalsAdjudicatorScoringSanityV1Test extends TestCase
             'Cost/time cannot break an otherwise equal quality round.',
         );
         $this->assertSame(['cost_time_efficiency'], $scorecard['telemetry_only_dimensions']);
-        $this->assertSame(['cost_time_efficiency'], $scorecard['winner_decision_excluded_dimensions']);
+        $this->assertSame(
+            ['cost_time_efficiency', 'patch_focus', 'implementation_complexity', 'maintainability', 'risk_surface'],
+            $scorecard['winner_decision_excluded_dimensions'],
+        );
         $this->assertSame(0.0, $scorecard['winner_decision_weights']['cost_time_efficiency']);
+        $this->assertSame(0.0, $scorecard['winner_decision_weights']['patch_focus']);
+        $this->assertSame(0.0, $scorecard['winner_decision_weights']['maintainability']);
+        $this->assertSame(['patch_focus', 'implementation_complexity', 'maintainability', 'risk_surface'], $scorecard['diagnostic_only_dimensions']);
         $this->assertSame('measured_but_excluded_from_winner', $scorecard['cost_efficiency_decision_policy']);
+        $this->assertSame('winner_uses_only_strong_evidence_dimensions', $scorecard['strong_quality_decision_policy']);
         $this->assertLessThan(
             $scorecard['quality_dimensions']['cost_time_efficiency']['rival'],
             $scorecard['quality_dimensions']['cost_time_efficiency']['atlas'],

@@ -82,6 +82,26 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertContains('workspace_focus_map', $report['workspace_next_session_brain']['resume_packet']['load_order']);
         $this->assertSame('atlas.awis.context_loading_plan.v1', $report['workspace_next_session_brain']['context_loading_plan']['schema_version']);
         $this->assertSame($report['repository_inventory']['inventory_hash'], $report['workspace_next_session_brain']['context_loading_plan']['repository_inventory_hash']);
+        $this->assertSame('atlas.awis.workspace_working_set.v1', $report['workspace_next_session_brain']['context_loading_plan']['workspace_working_set']['schema_version']);
+        $this->assertSame('provider_safe_hot_context_set', $report['workspace_next_session_brain']['context_loading_plan']['workspace_working_set']['mode']);
+        $this->assertSame(64, strlen((string) $report['workspace_next_session_brain']['context_loading_plan']['working_set_hash']));
+        $this->assertSame(
+            $report['workspace_next_session_brain']['context_loading_plan']['working_set_hash'],
+            $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['workspace_working_set_hash'],
+        );
+        $this->assertSame('atlas.awis.context_delta_plan.v1', $report['workspace_next_session_brain']['context_loading_plan']['context_delta_plan']['schema_version']);
+        $this->assertSame('hash_based_incremental_context_resume', $report['workspace_next_session_brain']['context_loading_plan']['context_delta_plan']['mode']);
+        $this->assertSame(64, strlen((string) $report['workspace_next_session_brain']['context_loading_plan']['context_delta_plan_hash']));
+        $this->assertSame(
+            $report['workspace_next_session_brain']['context_loading_plan']['context_delta_plan_hash'],
+            $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['context_delta_plan_hash'],
+        );
+        $this->assertFalse($report['workspace_next_session_brain']['context_loading_plan']['context_delta_plan']['source_policy']['raw_file_content_returned']);
+        $this->assertFalse($report['workspace_next_session_brain']['context_loading_plan']['context_delta_plan']['source_policy']['raw_diff_returned']);
+        $this->assertFalse($report['workspace_next_session_brain']['context_loading_plan']['workspace_working_set']['source_policy']['raw_file_content_returned']);
+        $this->assertFalse($report['workspace_next_session_brain']['context_loading_plan']['workspace_working_set']['prewarm_plan']['load_raw_file_content']);
+        $this->assertTrue($report['workspace_next_session_brain']['performance_budget']['uses_workspace_working_set']);
+        $this->assertTrue($report['workspace_next_session_brain']['performance_budget']['uses_context_delta_plan']);
         $this->assertFalse($report['workspace_next_session_brain']['context_loading_plan']['provider_policy']['raw_manifest_returned']);
         $this->assertFalse($report['workspace_next_session_brain']['context_loading_plan']['provider_policy']['script_bodies_returned']);
         $this->assertFalse($report['workspace_next_session_brain']['source_policy']['raw_file_content_returned']);
@@ -171,6 +191,11 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame(0.98, $report['workspace_learning_snapshot']['learning_score']);
         $this->assertSame($report['workspace']['workspace_hash'], $report['workspace_learning_snapshot']['workspace_hash']);
         $this->assertSame($report['repository_inventory']['inventory_hash'], $report['workspace_learning_snapshot']['component_hashes']['repository_inventory_hash']);
+        $this->assertSame($report['workspace_next_session_brain']['context_loading_plan']['working_set_hash'], $report['workspace_learning_snapshot']['component_hashes']['workspace_working_set_hash']);
+        $this->assertSame($report['workspace_next_session_brain']['context_loading_plan']['context_delta_plan_hash'], $report['workspace_learning_snapshot']['component_hashes']['context_delta_plan_hash']);
+        $this->assertGreaterThanOrEqual(0, $report['workspace_learning_snapshot']['learned_signal_counts']['working_set_hot_area_count']);
+        $this->assertGreaterThanOrEqual(0, $report['workspace_learning_snapshot']['learned_signal_counts']['context_delta_changed_area_count']);
+        $this->assertGreaterThanOrEqual(0, $report['workspace_learning_snapshot']['learned_signal_counts']['context_delta_effectiveness_profile_count']);
         $this->assertSame($report['workspace_change_memory']['change_hash'], $report['workspace_learning_snapshot']['component_hashes']['workspace_change_hash']);
         $this->assertSame($report['workspace_focus_map']['focus_hash'], $report['workspace_learning_snapshot']['component_hashes']['workspace_focus_hash']);
         $this->assertTrue($report['workspace_learning_snapshot']['workspace_state']['learning_loop_closed']);
@@ -220,6 +245,8 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $flaky = 'php artisan test --filter=FlakyArea';
         $slow = 'cd atlas-server && php artisan test --filter=SlowIntegration';
         $policyRef = 'awis_cache:execution_optimization_policy:'.str_repeat('a', 64);
+        $workingSetRef = 'awis_cache:workspace_working_set:'.str_repeat('6', 64);
+        $contextDeltaRef = 'awis_cache:context_delta_plan:'.str_repeat('5', 64);
         $instantTierRef = 'awis_validation_tier:instant';
         $docsRouteRef = 'area:'.hash('sha256', 'docs/engineering-knowledge-base');
         $routeRef = 'awis_execution_route_command:'.hash('sha256', $preferred).':'.$docsRouteRef;
@@ -235,7 +262,7 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
             'workspace_slug' => 'atlas',
             'allowed_files' => [],
             'forbidden_files' => [],
-            'context_refs' => [$policyRef, $routeRef, $instantTierRef],
+            'context_refs' => [$policyRef, $workingSetRef, $contextDeltaRef, $routeRef, $instantTierRef],
             'expected_files' => ['docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md'],
             'suggested_tests' => [$preferred],
             'acceptance_criteria' => ['docs health passes'],
@@ -271,7 +298,7 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
             'workspace_slug' => 'atlas',
             'allowed_files' => [],
             'forbidden_files' => [],
-            'context_refs' => [$policyRef, $instantTierRef],
+            'context_refs' => [$policyRef, $workingSetRef, $contextDeltaRef, $instantTierRef],
             'expected_files' => ['atlas-server/app/Services/Ai/LegacyBroadTest.php'],
             'suggested_tests' => [$failing],
             'acceptance_criteria' => ['broad test command observed'],
@@ -426,6 +453,16 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame(1, $memory['validation_tier_effectiveness_index']['tiers'][0]['success_count']);
         $this->assertSame(1, $memory['validation_tier_effectiveness_index']['tiers'][0]['failure_count']);
         $this->assertFalse($memory['validation_tier_effectiveness_index']['source_policy']['raw_logs_returned']);
+        $this->assertSame('atlas.workspace_working_set_effectiveness_index.v1', $memory['working_set_effectiveness_index']['schema_version']);
+        $this->assertSame(1, $memory['working_set_effectiveness_index']['working_set_count']);
+        $this->assertSame('workspace_working_set:'.str_repeat('6', 64), $memory['working_set_effectiveness_index']['working_sets'][0]['working_set_ref']);
+        $this->assertSame('mixed', $memory['working_set_effectiveness_index']['working_sets'][0]['effectiveness']);
+        $this->assertFalse($memory['working_set_effectiveness_index']['source_policy']['raw_logs_returned']);
+        $this->assertSame('atlas.workspace_context_delta_effectiveness_index.v1', $memory['context_delta_effectiveness_index']['schema_version']);
+        $this->assertSame(1, $memory['context_delta_effectiveness_index']['context_delta_plan_count']);
+        $this->assertSame('context_delta_plan:'.str_repeat('5', 64), $memory['context_delta_effectiveness_index']['context_delta_plans'][0]['context_delta_ref']);
+        $this->assertSame('mixed', $memory['context_delta_effectiveness_index']['context_delta_plans'][0]['effectiveness']);
+        $this->assertFalse($memory['context_delta_effectiveness_index']['source_policy']['raw_logs_returned']);
         $this->assertSame('atlas.workspace_area_performance_index.v1', $memory['area_performance_index']['schema_version']);
         $this->assertSame('atlas.workspace_stack_performance_index.v1', $memory['stack_performance_index']['schema_version']);
         $this->assertContains('laravel', array_column($memory['stack_performance_index']['profiles'], 'key'));
@@ -465,9 +502,15 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame($memory['execution_policy_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['execution_policy_effectiveness_index_hash']);
         $this->assertSame($memory['execution_route_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['execution_route_effectiveness_index_hash']);
         $this->assertSame($memory['validation_tier_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['validation_tier_effectiveness_index_hash']);
+        $this->assertSame($memory['working_set_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['working_set_effectiveness_index_hash']);
+        $this->assertSame($memory['context_delta_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['context_delta_effectiveness_index_hash']);
         $this->assertSame('mixed', $report['workspace_next_session_brain']['context_loading_plan']['execution_policy_effectiveness_profiles'][0]['effectiveness']);
         $this->assertSame('effective', $report['workspace_next_session_brain']['context_loading_plan']['execution_route_effectiveness_profiles'][0]['effectiveness']);
         $this->assertSame('mixed', $report['workspace_next_session_brain']['context_loading_plan']['validation_tier_effectiveness_profiles'][0]['effectiveness']);
+        $this->assertSame('mixed', $report['workspace_next_session_brain']['context_loading_plan']['working_set_effectiveness_profiles'][0]['effectiveness']);
+        $this->assertSame('mixed', $report['workspace_next_session_brain']['context_loading_plan']['context_delta_effectiveness_profiles'][0]['effectiveness']);
+        $this->assertSame('prefer_partial_refresh_until_delta_stabilizes', $report['workspace_next_session_brain']['context_loading_plan']['context_delta_plan']['feedback']['next_adjustment']);
+        $this->assertSame('refresh_hot_areas_and_recompute_command_order', $report['workspace_next_session_brain']['context_loading_plan']['workspace_working_set']['feedback']['next_adjustment']);
         $optimizationPolicy = $report['workspace_next_session_brain']['context_loading_plan']['execution_optimization_policy'];
         $this->assertSame('atlas.awis.execution_optimization_policy.v1', $optimizationPolicy['schema_version']);
         $this->assertSame('prefer_fast_stable_area_relevant_commands', $optimizationPolicy['mode']);
@@ -515,6 +558,8 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame($memory['execution_policy_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['execution_policy_effectiveness_index_hash']);
         $this->assertSame($memory['execution_route_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['execution_route_effectiveness_index_hash']);
         $this->assertSame($memory['validation_tier_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['validation_tier_effectiveness_index_hash']);
+        $this->assertSame($memory['working_set_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['working_set_effectiveness_index_hash']);
+        $this->assertSame($memory['context_delta_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['context_delta_effectiveness_index_hash']);
         $this->assertSame($optimizationPolicy['policy_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['execution_optimization_policy_hash']);
         $this->assertTrue($report['workspace_next_session_brain']['performance_budget']['uses_outcome_command_memory']);
         $this->assertTrue($report['workspace_next_session_brain']['performance_budget']['uses_command_performance_memory']);
@@ -2079,6 +2124,10 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame(64, strlen((string) $brain['context_loading_plan']['command_performance_histogram_hash']));
         $this->assertSame(64, strlen((string) $brain['context_loading_plan']['area_performance_index_hash']));
         $this->assertSame(64, strlen((string) $brain['context_loading_plan']['stack_performance_index_hash']));
+        $this->assertSame(64, strlen((string) $brain['context_loading_plan']['working_set_hash']));
+        $this->assertSame(64, strlen((string) $brain['context_loading_plan']['context_delta_plan_hash']));
+        $this->assertSame('atlas.awis.context_delta_plan.v1', data_get($brain, 'context_loading_plan.context_delta_plan.schema_version'));
+        $this->assertFalse(data_get($brain, 'context_loading_plan.context_delta_plan.source_policy.raw_file_content_returned'));
         $this->assertFalse($brain['context_loading_plan']['provider_policy']['raw_manifest_returned']);
         $this->assertFalse($brain['context_loading_plan']['provider_policy']['script_bodies_returned']);
         $this->assertTrue($brain['provider_safe']);
@@ -2088,6 +2137,8 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame('atlas.dev_runtime.awis_context_selection.v1', $selection['schema_version']);
         $this->assertTrue($selection['provider_safe']);
         $this->assertSame(64, strlen((string) $selection['repository_inventory_hash']));
+        $this->assertSame(64, strlen((string) $selection['workspace_working_set_hash']));
+        $this->assertSame(64, strlen((string) $selection['context_delta_plan_hash']));
         $this->assertSame(64, strlen((string) $selection['outcome_command_memory_hash']));
         $this->assertSame(64, strlen((string) $selection['command_performance_histogram_hash']));
         $this->assertSame(64, strlen((string) $selection['area_performance_index_hash']));
@@ -2099,6 +2150,8 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertContains(data_get($selection, 'validation_depth_decision.tier'), ['instant', 'standard', 'deep']);
         $this->assertFalse(data_get($selection, 'validation_depth_decision.raw_logs_returned'));
         $this->assertContains('awis_cache:repository_inventory:'.$selection['repository_inventory_hash'], $selection['context_refs']);
+        $this->assertContains('awis_cache:workspace_working_set:'.$selection['workspace_working_set_hash'], $selection['context_refs']);
+        $this->assertContains('awis_cache:context_delta_plan:'.$selection['context_delta_plan_hash'], $selection['context_refs']);
         $this->assertContains('awis_cache:outcome_command_memory:'.$selection['outcome_command_memory_hash'], $selection['context_refs']);
         $this->assertContains('awis_cache:command_performance_histogram:'.$selection['command_performance_histogram_hash'], $selection['context_refs']);
         $this->assertContains('awis_cache:area_performance_index:'.$selection['area_performance_index_hash'], $selection['context_refs']);
@@ -2109,6 +2162,8 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertContains('awis_validation_tier:'.data_get($selection, 'validation_depth_decision.tier'), $selection['context_refs']);
         $preview = data_get($data, 'payload.atlas_dev_runtime_intelligence');
         $this->assertContains('awis_cache:repository_inventory:'.$selection['repository_inventory_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:workspace_working_set:'.$selection['workspace_working_set_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:context_delta_plan:'.$selection['context_delta_plan_hash'], data_get($preview, 'task_packet.context_refs'));
         $this->assertContains('awis_cache:outcome_command_memory:'.$selection['outcome_command_memory_hash'], data_get($preview, 'task_packet.context_refs'));
         $this->assertContains('awis_cache:command_performance_histogram:'.$selection['command_performance_histogram_hash'], data_get($preview, 'task_packet.context_refs'));
         $this->assertContains('awis_cache:area_performance_index:'.$selection['area_performance_index_hash'], data_get($preview, 'task_packet.context_refs'));

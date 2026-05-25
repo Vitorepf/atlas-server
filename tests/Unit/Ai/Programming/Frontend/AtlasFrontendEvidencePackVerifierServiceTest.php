@@ -105,5 +105,6 @@ class AtlasFrontendEvidencePackVerifierServiceTest extends TestCase
         $this->assertSame('ready', $payload['status']);
         $this->assertTrue(File::isFile($dir.'/evidence-pack.json'));
         $this->assertContains('screenshot_set', $payload['required_artifact_kinds']);
+        $this->assertContains('quality_budget_report', $payload['required_artifact_kinds']);
     }
 }

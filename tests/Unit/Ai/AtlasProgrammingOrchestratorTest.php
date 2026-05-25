@@ -3,6 +3,8 @@
 namespace Tests\Unit\Ai;
 
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignDossierService;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class AtlasProgrammingOrchestratorTest extends TestCase
@@ -157,6 +159,47 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertFalse((bool) data_get($frontend, 'frontend_design_harness_contract.pre_execution_gate.claim_policy.provider_dispatch_allowed'));
         $this->assertContains('anti_ai_slop_detector', data_get($frontend, 'frontend_design_harness_contract.atlas_frontend_runtime.required_gates', []));
         $this->assertTrue((bool) data_get($frontend, 'frontend_design_harness_contract.atlas_frontend_runtime.provider_policy.provider_neutral'));
+    }
+
+    public function test_frontend_session_plan_attaches_enterprise_bootstrap_and_runbook_for_local_company_repo(): void
+    {
+        $workspace = $this->readyFrontendWorkspace();
+        $plan = app(AtlasProgrammingOrchestrator::class)->sessionPlan($workspace, 'dev', [
+            'task' => 'Refinar BlackInk com frontend premium e dashboard responsivo',
+            'interactive' => false,
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+            'senior_design_review' => true,
+        ]);
+
+        $contract = data_get($plan, 'frontend_design_harness_contract');
+        $this->assertSame('ready_for_enterprise_frontend_dispatch', data_get($contract, 'status'));
+        $this->assertSame('atlas.programming.frontend_enterprise_operating_contract.v1', data_get($contract, 'enterprise_operating_contract.schema_version'));
+        $this->assertSame('local_company_or_product_repo', data_get($contract, 'enterprise_operating_contract.workspace_mode'));
+        $this->assertSame('ready_for_operator_execution', data_get($contract, 'enterprise_operating_contract.onboarding_status'));
+        $this->assertSame('ready', data_get($contract, 'enterprise_operating_contract.bootstrap_status'));
+        $this->assertSame('ready', data_get($contract, 'enterprise_operating_contract.runbook_status'));
+        $this->assertSame('ready', data_get($contract, 'enterprise_operating_contract.provider_packet_status'));
+        $this->assertTrue((bool) data_get($contract, 'enterprise_operating_contract.provider_dispatch_allowed'));
+        $this->assertTrue((bool) data_get($contract, 'enterprise_operating_contract.premium_frontend_claim_allowed'));
+        $this->assertFalse((bool) data_get($contract, 'enterprise_operating_contract.world_best_claim_allowed'));
+        $this->assertSame('atlas.frontend.enterprise_bootstrap.v1', data_get($contract, 'enterprise_bootstrap.schema_version'));
+        $this->assertSame('atlas.frontend.company_repo_onboarding.v1', data_get($contract, 'company_repo_onboarding.schema_version'));
+        $this->assertSame('atlas.frontend.execution_runbook.v1', data_get($contract, 'execution_runbook.schema_version'));
+        $this->assertSame('atlas.frontend.provider_instruction_packet.v1', data_get($contract, 'provider_instruction_packet.schema_version'));
+        $this->assertSame('ready', data_get($contract, 'enterprise_bootstrap.status'));
+        $this->assertSame('ready_for_operator_execution', data_get($contract, 'company_repo_onboarding.status'));
+        $this->assertSame('ready', data_get($contract, 'execution_runbook.status'));
+        $this->assertSame('ready', data_get($contract, 'provider_instruction_packet.status'));
+        $this->assertSame('pnpm', data_get($contract, 'execution_runbook.repo_operating_map.package_manager'));
+        $commands = implode("\n", collect(data_get($contract, 'execution_runbook.runbook_steps', []))->flatMap(fn (array $step): array => $step['commands'])->all());
+        $this->assertStringContainsString('pnpm install --frozen-lockfile', $commands);
+        $this->assertStringContainsString('atlas:frontend:run-certify', $commands);
+        $this->assertContains('never_claim_world_best_or_done_without_certified_evidence', data_get($contract, 'provider_instruction_packet.provider_mandates'));
+        $this->assertFalse((bool) data_get($contract, 'company_repo_onboarding.readiness.world_best_claim_allowed'));
+        $this->assertFileExists($workspace.'/.atlas/skills/atlas-frontend/SKILL.md');
     }
 
     public function test_dispatch_contract_records_selected_execution_path(): void
@@ -418,5 +461,49 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertStringContainsString('app/Foo.php', $prompt);
         $this->assertStringContainsString('phpunit', $prompt);
         $this->assertStringContainsString('repair_capsule', $prompt);
+    }
+
+    private function readyFrontendWorkspace(): string
+    {
+        $workspace = sys_get_temp_dir().'/atlas-programming-orchestrator-frontend-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($workspace.'/src/components/ui');
+        File::ensureDirectoryExists($workspace.'/src/pages');
+        File::put($workspace.'/pnpm-lock.yaml', 'lockfileVersion: 9.0');
+        File::put($workspace.'/package.json', json_encode([
+            'scripts' => [
+                'dev' => 'vite --host 127.0.0.1',
+                'test' => 'vitest run',
+                'build' => 'vite build',
+                'typecheck' => 'tsc --noEmit',
+            ],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest', 'tailwindcss' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+        File::put($workspace.'/index.html', '<div id="root"></div>');
+        File::put($workspace.'/src/main.tsx', 'import React from "react";');
+        File::put($workspace.'/src/pages/Dashboard.tsx', 'export function Dashboard() { return <main className="bg-primary" />; }');
+        File::put($workspace.'/src/components/ui/Button.tsx', 'export function Button() { return <button className="bg-primary text-white" />; }');
+        File::put($workspace.'/src/styles.css', ':root { --color-primary: #123456; --space-2: 8px; }');
+
+        foreach (app(AtlasFrontendDesignDossierService::class)->requiredDocuments() as $definition) {
+            File::ensureDirectoryExists(dirname($workspace.'/'.$definition['path']));
+            File::put($workspace.'/'.$definition['path'], $this->filledFrontendDocument((string) $definition['title'], (array) $definition['sections']));
+        }
+
+        return $workspace;
+    }
+
+    /**
+     * @param  array<int,string>  $sections
+     */
+    private function filledFrontendDocument(string $title, array $sections): string
+    {
+        $lines = ['# '.$title, '', 'Status: canonical', ''];
+        foreach ($sections as $section) {
+            $lines[] = '## '.$section;
+            $lines[] = 'Approved operating context for a premium company frontend product, including business intent, UX expectations, design constraints, quality gates, and release evidence.';
+            $lines[] = '';
+        }
+
+        return implode(PHP_EOL, $lines);
     }
 }

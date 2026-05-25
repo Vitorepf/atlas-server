@@ -194,38 +194,40 @@ final class AtlasForgeRivalsAdjudicatorServiceTest extends TestCase
         $this->assertTrue($scorecard['separated_from_external_rivals_certification']);
     }
 
-    public function test_atlas_wins_when_patch_focus_and_scope_clearly_better(): void
+    public function test_patch_shape_heuristics_are_diagnostic_only_not_winner_proof(): void
     {
-        $runId = $this->newRunId('atlas-wins');
+        $runId = $this->newRunId('patch-shape-diagnostic-only');
         $paths = $this->paths->paths($runId);
         $this->seedComparableRun(
             $paths,
             atlasOverrides: [
                 'patch_diff_bytes' => 1_500,
                 'changed_files' => ['tests/Feature/Foo.php', 'app/Foo.php'],
-                'test_log_tail' => '(150 tests, 320 assertions)',
+                'test_log_tail' => '(20 tests, 40 assertions)',
             ],
             rivalOverrides: [
                 'patch_diff_bytes' => 120_000,
                 'changed_files' => ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n'],
-                'test_log_tail' => '(5 tests, 10 assertions)',
+                'test_log_tail' => '(20 tests, 40 assertions)',
             ],
         );
 
         $scorecard = $this->adjudicator->adjudicate(['run_id' => $runId])['scorecard'];
-        $this->assertSame(AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS, $scorecard['winner']);
-        $this->assertGreaterThan($scorecard['rival_score'], $scorecard['atlas_score']);
-        $this->assertNotEmpty($scorecard['winner_reason']);
-        // local_fake mode never produces a real claim, even on a clear win.
-        // The fairness gate flips claim_ready to false with an explicit
-        // validity_class so the operator sees the harness signal vs a real
-        // superiority claim.
+        $this->assertSame(AtlasForgeRivalsAdjudicatorService::WINNER_TIE, $scorecard['winner']);
+        $this->assertSame(0.0, $scorecard['winner_decision_weights']['patch_focus']);
+        $this->assertSame(0.0, $scorecard['winner_decision_weights']['implementation_complexity']);
+        $this->assertSame(0.0, $scorecard['winner_decision_weights']['maintainability']);
+        $this->assertContains('patch_focus', $scorecard['diagnostic_only_dimensions']);
+        $this->assertGreaterThan(
+            $scorecard['quality_dimensions']['patch_focus']['rival'],
+            $scorecard['quality_dimensions']['patch_focus']['atlas'],
+        );
         $this->assertFalse($scorecard['claim_ready']);
         $this->assertSame(
             AtlasForgeRivalsAdjudicatorService::VALIDITY_INVALID_LOCAL_FAKE,
             $scorecard['fairness']['validity_class'],
         );
-        $this->assertFalse($scorecard['human_review_required']);
+        $this->assertTrue($scorecard['human_review_required']);
     }
 
     public function test_rival_wins_when_test_quality_and_focus_clearly_better(): void

@@ -156,17 +156,19 @@ Matriz `present_categories × L1..L5`. Cada célula carrega
 
 ### 3.5 planning_score vs execution_score
 
-A canon split sobre as 9 dimensões do adjudicator:
+A canon split separa evidencia forte, diagnostico e telemetria:
 
-| Eixo       | Dimensões                                                            |
-| ---------- | -------------------------------------------------------------------- |
-| `planning` | `objective_alignment`, `scope_discipline`, `evidence_quality`        |
-| `execution`| `patch_focus`, `implementation_complexity`, `test_quality`, `maintainability`, `risk_surface`, `cost_time_efficiency` |
+| Eixo | Dimensões | Policy |
+| --- | --- | --- |
+| `planning` | `objective_alignment`, `scope_discipline`, `evidence_quality` | winner signal |
+| `execution` | `test_quality`, `ceiling_360_contract` | winner signal |
+| `diagnostic_only` | `patch_focus`, `implementation_complexity`, `maintainability`, `risk_surface` | excluded_from_winner |
+| `telemetry_only` | `cost_time_efficiency` | excluded_from_winner |
 
-Para cada case com `quality_dimensions`, média Atlas/Rival nas 3 (planning)
-e 6 (execution) dimensões. Agrega entre cases. `leader` por eixo é
-calculado com threshold `|atlas - rival| < 0.5 ⇒ tie`. Sem case com
-`quality_dimensions`, o eixo retorna `atlas=null, rival=null,
+Para cada case com `quality_dimensions`, média Atlas/Rival nas dimensões
+fortes de planning/execution e mantém patch-shape/custo fora do winner.
+`leader` por eixo é calculado com threshold `|atlas - rival| < 0.5 ⇒ tie`.
+Sem case com `quality_dimensions`, o eixo retorna `atlas=null, rival=null,
 sample_size=0` em vez de zero falso.
 
 ### 3.6 Invalid vs Suspicious
@@ -327,10 +329,12 @@ _Legenda: `A` Atlas, `R` Rival, `T` Tie. `Ax/Rx/Tx` = wins por arm._
 
 ## planning_score vs execution_score
 
-| Eixo       | Atlas | Rival | Leader        | Amostra | Dimensões                                  |
-|---|---:|---:|---|---:|---|
-| planning   | 81.4  | 64.2  | **Atlas Forge** |   36   | objective_alignment, scope_discipline, evidence_quality |
-| execution  | 76.8  | 70.5  | **Atlas Forge** |   36   | patch_focus, implementation_complexity, test_quality, maintainability, risk_surface, cost_time_efficiency |
+| Eixo | Atlas | Rival | Leader | Amostra | Dimensões | Policy |
+|---|---:|---:|---|---:|---|---|
+| planning | 81.4 | 64.2 | **Atlas Forge** | 36 | objective_alignment, scope_discipline, evidence_quality | winner signal |
+| execution | 76.8 | 70.5 | **Atlas Forge** | 36 | test_quality, ceiling_360_contract | winner signal |
+| diagnostic_only | 79.2 | 73.1 | **Atlas Forge** | 36 | patch_focus, implementation_complexity, maintainability, risk_surface | excluded_from_winner |
+| telemetry_only | 52.0 | 68.0 | **Rival** | 36 | cost_time_efficiency | excluded_from_winner |
 
 ## Onde Atlas é melhor
 - **Categorias:** `backend_logic`, `realistic_bugfix`, `refactor`, `test_design`
@@ -512,5 +516,4 @@ php artisan atlas:forge:rivals matrix-report \
 ```
 
 ## Proximas Acoes
-
 Sincronizar este doc se o adjudicator alterar o set de 9 dimensões (afeta split planning/execution) ou se o corpus expandir a ladder L1-L5 (afeta `weights`).

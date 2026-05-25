@@ -36,6 +36,7 @@ class AtlasFrontendPublicationVerifierServiceTest extends TestCase
             'public_url' => 'https://example.com/atlas-frontend-proof/',
             'bundle_hash' => $manifest['bundle_hash'],
             'index_content_hash' => hash_file('sha256', $bundle.'/index.html'),
+            'local_index_hash' => hash_file('sha256', $bundle.'/index.html'),
             'http_status' => 200,
             'checked_at' => '2026-05-25T00:00:00Z',
             'operator_approved' => true,
@@ -46,6 +47,32 @@ class AtlasFrontendPublicationVerifierServiceTest extends TestCase
         $this->assertSame('public_verified', $payload['status']);
         $this->assertTrue((bool) data_get($payload, 'claim_policy.public_distribution_claim_allowed'));
         $this->assertSame('verified', data_get($payload, 'public_receipt.status'));
+    }
+
+    public function test_verifier_blocks_public_receipt_with_mismatched_index_hash(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-publication-index-mismatch-'.bin2hex(random_bytes(4));
+        $manifest = app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle);
+        $receipt = $bundle.'/publication-receipt.json';
+
+        File::put($receipt, json_encode([
+            'schema_version' => AtlasFrontendPublicationVerifierService::RECEIPT_SCHEMA_VERSION,
+            'status' => 'verified',
+            'public_url' => 'https://example.com/atlas-frontend-proof/',
+            'bundle_hash' => $manifest['bundle_hash'],
+            'index_content_hash' => str_repeat('a', 64),
+            'local_index_hash' => hash_file('sha256', $bundle.'/index.html'),
+            'http_status' => 200,
+            'checked_at' => '2026-05-25T00:00:00Z',
+            'operator_approved' => true,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $payload = app(AtlasFrontendPublicationVerifierService::class)->verify($bundle, $receipt);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertContains('public_receipt_invalid', $payload['blockers']);
+        $this->assertContains('public_receipt_index_content_hash_mismatch', data_get($payload, 'public_receipt.blockers'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.public_distribution_claim_allowed'));
     }
 
     public function test_verifier_blocks_tampered_bundle_hash(): void

@@ -1,0 +1,311 @@
+<?php
+
+namespace App\Services\Ai\Programming\Frontend;
+
+use App\Services\Ai\Mission\MissionCanonicalHash;
+
+final class AtlasFrontendWorldBestProofPlanService
+{
+    public const SCHEMA_VERSION = 'atlas.frontend.world_best_proof_plan.v1';
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function plan(array $input = []): array
+    {
+        $replay = app(AtlasFrontendRivalReplayHarnessService::class)->inspect($this->nullableString($input['rival_evidence'] ?? null));
+        $proof = app(AtlasFrontendProductProofRuntimeService::class)->catalog();
+        $publication = $this->publication($input);
+        $controlPlane = app(AtlasFrontendControlPlaneService::class)->snapshot($input);
+
+        $evidencePackReadiness = (array) ($replay['evidence_pack_readiness'] ?? []);
+        $replayWorkItems = $this->replayWorkItems((array) ($replay['runs'] ?? []), $evidencePackReadiness);
+        $publicationWorkItems = $this->publicationWorkItems($publication);
+        $worldBestClaimAllowed = (bool) data_get($replay, 'claim_policy.may_claim_world_best_frontend_system')
+            && (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed');
+
+        $blockers = $this->blockers($replay, $publication);
+        $status = $worldBestClaimAllowed
+            ? 'ready'
+            : ($blockers !== [] ? 'blocked' : 'ready_for_execution');
+        $evidencePackReadinessSummary = [
+            'schema_version' => data_get($evidencePackReadiness, 'schema_version'),
+            'status' => data_get($evidencePackReadiness, 'status', 'pending'),
+            'summary' => data_get($evidencePackReadiness, 'summary', []),
+            'required_artifact_kinds' => data_get($evidencePackReadiness, 'required_artifact_kinds', []),
+        ];
+
+        $payload = [
+            'schema_version' => self::SCHEMA_VERSION,
+            'status' => $status,
+            'proof_plan_type' => 'world_best_frontend_market_proof',
+            'source' => self::class,
+            'input_scope' => [
+                'rival_evidence_directory_hash' => $this->hashNullable($input['rival_evidence'] ?? null),
+                'publication_bundle_hash' => $this->hashNullable($input['bundle'] ?? null),
+                'publication_receipt_hash' => $this->hashNullable($input['publication_receipt'] ?? null),
+            ],
+            'readiness' => [
+                'runtime_certified' => (bool) data_get($controlPlane, 'readiness_levels.runtime_contract_ready'),
+                'external_rival_replay_completed' => (bool) data_get($replay, 'summary.external_replay_completed'),
+                'evidence_pack_readiness' => $evidencePackReadinessSummary,
+                'atlas_wins_replay' => (bool) data_get($replay, 'claim_policy.may_claim_world_best_frontend_system'),
+                'product_proof_catalog_ready' => ($proof['status'] ?? null) === 'ready',
+                'public_distribution_verified' => (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed'),
+                'world_best_claim_allowed' => $worldBestClaimAllowed,
+            ],
+            'workstreams' => [
+                [
+                    'id' => 'external_rival_replay',
+                    'status' => $replayWorkItems === [] ? 'ready' : 'pending',
+                    'objective' => 'Run the same product cases against Atlas Frontend and rival systems, then attach provider-safe manifest evidence.',
+                    'required_artifacts' => [
+                        'manifest.json_per_case_system',
+                        'evidence_pack_ref',
+                        'output_artifact_hash',
+                        'screenshot_hashes',
+                        'anti_slop_report_hash',
+                        'verification_hashes',
+                        'competitive_score_breakdown',
+                    ],
+                    'evidence_pack_readiness' => $evidencePackReadinessSummary,
+                    'work_items' => $replayWorkItems,
+                    'commands' => [
+                        'php artisan atlas:frontend:replay runner-kit --output=<dir> --json',
+                        'php artisan atlas:frontend:replay inspect --evidence=<dir> --json',
+                    ],
+                ],
+                [
+                    'id' => 'public_product_distribution',
+                    'status' => $publicationWorkItems === [] ? 'ready' : 'pending',
+                    'objective' => 'Publish the Atlas Frontend product proof bundle and verify it with a public receipt.',
+                    'required_artifacts' => [
+                        'atlas.frontend.product_proof_bundle.v1',
+                        'public_https_url',
+                        'http_200_receipt',
+                        'bundle_hash_match',
+                        'operator_approval',
+                    ],
+                    'work_items' => $publicationWorkItems,
+                    'command' => 'php artisan atlas:frontend:publish verify --bundle=<bundle> --receipt=<receipt> --json',
+                ],
+                [
+                    'id' => 'claim_audit',
+                    'status' => $worldBestClaimAllowed ? 'ready' : 'pending',
+                    'objective' => 'Re-run control-plane and certification after replay and public proof are attached.',
+                    'required_artifacts' => [
+                        'atlas.frontend.control_plane.v1',
+                        'atlas.frontend.design_runtime_certification.v1',
+                    ],
+                    'work_items' => $worldBestClaimAllowed ? [] : [
+                        [
+                            'id' => 'rerun_control_plane_after_market_proof',
+                            'status' => 'pending',
+                            'command' => 'php artisan atlas:frontend:control-plane --rival-evidence=<dir> --bundle=<bundle> --publication-receipt=<receipt> --json --strict',
+                        ],
+                    ],
+                ],
+            ],
+            'claim_policy' => [
+                'world_best_claim_allowed' => $worldBestClaimAllowed,
+                'world_best_requires_external_rival_replay' => true,
+                'world_best_requires_public_distribution_receipt' => true,
+                'world_best_requires_provider_safe_hash_refs' => true,
+                'documentation_only_claim_forbidden' => true,
+                'raw_prompt_source_customer_data_forbidden' => true,
+            ],
+            'blockers' => $blockers,
+            'warnings' => $this->warnings($replay, $publication, $controlPlane),
+            'required_next_actions' => $this->nextActions($replayWorkItems, $publicationWorkItems, $worldBestClaimAllowed, $evidencePackReadiness),
+            'evidence_hashes' => [
+                'replay_hash' => $replay['replay_hash'] ?? null,
+                'product_proof_hash' => $proof['product_proof_hash'] ?? null,
+                'publication_hash' => $publication['publication_hash'] ?? null,
+                'control_plane_hash' => $controlPlane['control_plane_hash'] ?? null,
+            ],
+        ];
+        $payload['proof_plan_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $runs
+     * @param  array<string,mixed>  $evidencePackReadiness
+     * @return array<int,array<string,mixed>>
+     */
+    private function replayWorkItems(array $runs, array $evidencePackReadiness): array
+    {
+        $evidencePacksByRun = collect((array) data_get($evidencePackReadiness, 'packs', []))
+            ->keyBy(fn (array $pack): string => ($pack['case_id'] ?? '').'|'.($pack['system'] ?? ''));
+
+        return collect($runs)
+            ->reject(fn (array $run): bool => ($run['status'] ?? null) === 'complete')
+            ->map(function (array $run) use ($evidencePacksByRun): array {
+                $caseId = (string) ($run['case_id'] ?? '');
+                $system = (string) ($run['system'] ?? '');
+                $pack = (array) ($evidencePacksByRun->get($caseId.'|'.$system) ?? []);
+
+                return [
+                    'id' => 'complete_replay_'.$run['case_id'].'_'.$run['system'],
+                    'case_id' => $run['case_id'] ?? null,
+                    'system' => $run['system'] ?? null,
+                    'status' => $run['status'] ?? 'missing',
+                    'issues' => $run['issues'] ?? [],
+                    'evidence_pack_status' => $pack['status'] ?? 'missing',
+                    'evidence_pack_blockers' => $pack['blockers'] ?? ['evidence_pack_missing'],
+                    'evidence_pack_warnings' => $pack['warnings'] ?? [],
+                    'required_manifest_fields' => [
+                        'case_id',
+                        'system',
+                        'status',
+                        'run_id',
+                        'task_spec_hash',
+                        'task_spec_ref',
+                        'evidence_pack_ref',
+                        'output_artifact_ref',
+                        'output_artifact_hash',
+                        'screenshot_hashes',
+                        'anti_slop_report_hash',
+                        'verification_hashes',
+                        'score_breakdown',
+                        'score_total',
+                        'score_max',
+                        'completed_at',
+                    ],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $publication
+     * @return array<int,array<string,mixed>>
+     */
+    private function publicationWorkItems(array $publication): array
+    {
+        if ((bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed')) {
+            return [];
+        }
+
+        return [
+            [
+                'id' => 'build_or_verify_public_product_proof',
+                'status' => $publication['status'] ?? 'not_requested',
+                'blockers' => $publication['blockers'] ?? [],
+                'warnings' => $publication['warnings'] ?? [],
+                'commands' => [
+                    'php artisan atlas:frontend:proof build --output=<bundle> --json',
+                    'php artisan atlas:frontend:publish receipt-template --output=<bundle> --json',
+                    'php artisan atlas:frontend:publish verify --bundle=<bundle> --receipt=<receipt> --json',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function publication(array $input): array
+    {
+        $bundle = $this->nullableString($input['bundle'] ?? null);
+        if ($bundle === null) {
+            return [
+                'schema_version' => AtlasFrontendPublicationVerifierService::SCHEMA_VERSION,
+                'status' => 'not_requested',
+                'claim_policy' => [
+                    'public_distribution_claim_allowed' => false,
+                ],
+                'warnings' => ['publication_bundle_not_supplied'],
+                'blockers' => [],
+            ];
+        }
+
+        return app(AtlasFrontendPublicationVerifierService::class)->verify(
+            $bundle,
+            $this->nullableString($input['publication_receipt'] ?? null),
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $replay
+     * @param  array<string,mixed>  $publication
+     * @return array<int,string>
+     */
+    private function blockers(array $replay, array $publication): array
+    {
+        $blockers = [];
+        if ((int) data_get($replay, 'summary.invalid', 0) > 0) {
+            $blockers[] = 'invalid_rival_replay_manifest';
+        }
+        if (($publication['status'] ?? null) === 'blocked') {
+            $blockers[] = 'publication_verification_blocked';
+        }
+
+        return array_values(array_unique($blockers));
+    }
+
+    /**
+     * @param  array<string,mixed>  $replay
+     * @param  array<string,mixed>  $publication
+     * @param  array<string,mixed>  $controlPlane
+     * @return array<int,string>
+     */
+    private function warnings(array $replay, array $publication, array $controlPlane): array
+    {
+        return array_values(array_unique(array_filter(array_merge(
+            (array) ($replay['remaining_gaps'] ?? []),
+            (array) ($publication['warnings'] ?? []),
+            (array) ($controlPlane['warnings'] ?? []),
+        ))));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $replayWorkItems
+     * @param  array<int,array<string,mixed>>  $publicationWorkItems
+     * @param  array<string,mixed>  $evidencePackReadiness
+     * @return array<int,string>
+     */
+    private function nextActions(array $replayWorkItems, array $publicationWorkItems, bool $worldBestClaimAllowed, array $evidencePackReadiness): array
+    {
+        if ($worldBestClaimAllowed) {
+            return ['claim_world_best_only_with_attached_proof_plan_hash'];
+        }
+
+        $actions = [];
+        if ($replayWorkItems !== []) {
+            $actions[] = 'generate_rival_replay_runner_kit';
+            $actions[] = 'complete_external_rival_replay_manifests';
+        }
+        if (($evidencePackReadiness['status'] ?? null) !== 'ready') {
+            $actions[] = 'fill_and_verify_rival_replay_evidence_packs';
+        }
+        if ($publicationWorkItems !== []) {
+            $actions[] = 'verify_public_product_proof_distribution';
+        }
+        $actions[] = 'rerun_world_best_proof_plan_and_control_plane';
+
+        return array_values(array_unique($actions));
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    private function hashNullable(mixed $value): ?string
+    {
+        $value = $this->nullableString($value);
+
+        return $value === null ? null : hash('sha256', $value);
+    }
+}

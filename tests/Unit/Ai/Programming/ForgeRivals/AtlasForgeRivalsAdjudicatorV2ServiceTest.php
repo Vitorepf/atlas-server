@@ -150,6 +150,76 @@ final class AtlasForgeRivalsAdjudicatorV2ServiceTest extends TestCase
         $this->assertSame(AtlasForgeRivalsAdjudicatorV2Service::DEFAULT_WEIGHTS, $env['cases'][0]['weights']);
     }
 
+    public function test_cost_time_is_telemetry_only_even_when_case_manifest_weights_it(): void
+    {
+        $payload = $this->releasePayload(1);
+        $payload['runs'][0]['case_manifest'] = [
+            'role_focus' => 'telemetry_only_guard',
+            'quality_gates' => [
+                'dimensions' => ['cost_time', 'test_coverage'],
+                'weights' => [
+                    'cost_time' => 0.99,
+                    'test_coverage' => 0.01,
+                ],
+            ],
+        ];
+        $payload['runs'][0]['atlas_receipt']['stdout_bytes'] = 700_000;
+        $payload['runs'][0]['atlas_receipt']['finished_at'] = '2026-05-15T12:20:00+00:00';
+        $payload['runs'][0]['atlas_receipt']['test_log_tail'] = '(120 tests, 300 assertions)';
+        $payload['runs'][0]['rival_receipt']['stdout_bytes'] = 100;
+        $payload['runs'][0]['rival_receipt']['finished_at'] = '2026-05-15T12:01:00+00:00';
+        $payload['runs'][0]['rival_receipt']['test_log_tail'] = '(10 tests, 20 assertions)';
+
+        $env = $this->svc->adjudicateBatch(['payload' => $payload]);
+        $case = $env['cases'][0];
+
+        $this->assertSame(0.0, $case['weights']['cost_time']);
+        $this->assertSame(1.0, $case['weights']['test_coverage']);
+        $this->assertSame(0.0, $case['dimensions']['cost_time']['weight']);
+        $this->assertLessThan($case['dimensions']['cost_time']['rival'], $case['dimensions']['cost_time']['atlas']);
+        $this->assertSame(AtlasForgeRivalsAdjudicatorV2Service::WINNER_ATLAS, $case['winner']);
+        $this->assertSame('telemetry_only_excluded_from_winner', $case['score_decision_policy']['cost_token_efficiency_role']);
+        $this->assertSame(0.0, $case['score_decision_policy']['winner_decision_weights']['cost_time']);
+        $this->assertSame(1.0, $case['score_decision_policy']['winner_decision_weights']['test_coverage']);
+        $this->assertFalse($env['score_decision_policy']['winner_uses_cost_time']);
+    }
+
+    public function test_patch_shape_dimensions_are_diagnostic_only_even_when_case_manifest_weights_them(): void
+    {
+        $payload = $this->releasePayload(1);
+        $payload['runs'][0]['case_manifest'] = [
+            'role_focus' => 'strong_quality_guard',
+            'quality_gates' => [
+                'dimensions' => ['minimality', 'maintainability', 'architecture_fit', 'test_coverage'],
+                'weights' => [
+                    'minimality' => 0.30,
+                    'maintainability' => 0.30,
+                    'architecture_fit' => 0.30,
+                    'test_coverage' => 0.10,
+                ],
+            ],
+        ];
+        $payload['runs'][0]['atlas_receipt']['patch_diff_bytes'] = 1_400;
+        $payload['runs'][0]['atlas_receipt']['changed_files'] = ['app/Product.php'];
+        $payload['runs'][0]['atlas_receipt']['test_log_tail'] = '(10 tests, 20 assertions)';
+        $payload['runs'][0]['rival_receipt']['patch_diff_bytes'] = 250_000;
+        $payload['runs'][0]['rival_receipt']['changed_files'] = array_map(static fn (int $i) => 'src/big_'.$i.'.php', range(1, 20));
+        $payload['runs'][0]['rival_receipt']['test_log_tail'] = '(10 tests, 20 assertions)';
+
+        $env = $this->svc->adjudicateBatch(['payload' => $payload]);
+        $case = $env['cases'][0];
+
+        $this->assertSame(0.0, $case['weights']['minimality']);
+        $this->assertSame(0.0, $case['weights']['maintainability']);
+        $this->assertSame(0.0, $case['weights']['architecture_fit']);
+        $this->assertSame(1.0, $case['weights']['test_coverage']);
+        $this->assertSame(AtlasForgeRivalsAdjudicatorV2Service::WINNER_TIE, $case['winner']);
+        $this->assertSame(
+            ['minimality', 'maintainability', 'architecture_fit'],
+            $case['score_decision_policy']['diagnostic_only_dimensions'],
+        );
+    }
+
     // 8
     public function test_release_12_cases_8_categories_reaches_trusted_battery(): void
     {
@@ -177,10 +247,15 @@ final class AtlasForgeRivalsAdjudicatorV2ServiceTest extends TestCase
     public function test_claude_low_without_hard_fail_triggers_suspicious(): void
     {
         $payload = $this->releasePayload(1);
-        // Force Claude (rival) to score below 70 with no hard fail by giving it
-        // a tiny but valid patch with low test signal.
-        $payload['runs'][0]['rival_receipt']['patch_diff_bytes'] = 250_000; // Big diff hurts minimality.
-        $payload['runs'][0]['rival_receipt']['changed_files'] = array_map(static fn (int $i) => 'src/big_'.$i.'.php', range(1, 25));
+        // Force Claude (rival) below 70 using a strong scored signal
+        // (semantic test coverage), not patch shape.
+        $payload['runs'][0]['case_manifest'] = [
+            'role_focus' => 'ui_correctness',
+            'quality_gates' => [
+                'dimensions' => ['test_coverage'],
+                'weights' => ['test_coverage' => 1.0],
+            ],
+        ];
         $payload['runs'][0]['rival_receipt']['test_log_tail'] = '(2 tests, 4 assertions)';
 
         $env = $this->svc->adjudicateBatch(['payload' => $payload]);
@@ -194,26 +269,17 @@ final class AtlasForgeRivalsAdjudicatorV2ServiceTest extends TestCase
     {
         $payload = $this->releasePayload(1);
         // Mark the case as a simple ui_correctness focus and make Atlas crush
-        // rival across the dimensions that move the aggregate (minimality,
-        // test_coverage, maintainability, architecture_fit).
+        // rival through strong semantic test evidence only.
         $payload['runs'][0]['case_manifest'] = [
             'role_focus' => 'ui_correctness',
             'quality_gates' => [
-                'dimensions' => ['correctness', 'minimality', 'test_coverage', 'maintainability', 'architecture_fit'],
+                'dimensions' => ['test_coverage'],
                 'weights' => [
-                    'correctness' => 0.20,
-                    'minimality' => 0.25,
-                    'test_coverage' => 0.25,
-                    'maintainability' => 0.15,
-                    'architecture_fit' => 0.15,
+                    'test_coverage' => 1.0,
                 ],
             ],
         ];
-        $payload['runs'][0]['atlas_receipt']['patch_diff_bytes'] = 1_500;
-        $payload['runs'][0]['atlas_receipt']['changed_files'] = ['app/Foo.php'];
         $payload['runs'][0]['atlas_receipt']['test_log_tail'] = '(300 tests, 900 assertions)';
-        $payload['runs'][0]['rival_receipt']['patch_diff_bytes'] = 250_000;
-        $payload['runs'][0]['rival_receipt']['changed_files'] = array_map(static fn (int $i) => 'src/big_'.$i.'.php', range(1, 30));
         $payload['runs'][0]['rival_receipt']['test_log_tail'] = '(1 tests, 1 assertions)';
 
         $env = $this->svc->adjudicateBatch(['payload' => $payload]);

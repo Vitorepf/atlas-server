@@ -335,6 +335,16 @@ final class AtlasForgeRivalsProviderArenaReadinessService
     {
         return [
             [
+                'pair_id' => 'atlas_dev_architecture_escalated_vs_claude_sonnet',
+                'arm_a' => 'atlas_dev',
+                'arm_a_model' => 'sonnet',
+                'arm_b' => 'claude_code',
+                'arm_b_model' => 'sonnet',
+                'mode' => 'provider_arena',
+                'task_category' => 'architecture',
+                'purpose' => 'Atlas Dev Sonnet against provider-pure Claude Code Sonnet on architecture pressure; Atlas Dev may apply its internal escalation policy without changing the Rivals arm.',
+            ],
+            [
                 'pair_id' => 'atlas_forge_vs_claude_sonnet',
                 'arm_a' => 'atlas_forge',
                 'arm_a_model' => 'sonnet',

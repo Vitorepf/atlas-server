@@ -11,6 +11,8 @@ final class AtlasFrontendProductProofRuntimeService
 
     public const BUNDLE_SCHEMA_VERSION = 'atlas.frontend.product_proof_bundle.v1';
 
+    public const PILOT_DOSSIER_SCHEMA_VERSION = 'atlas.frontend.company_repo_proof_dossier.v1';
+
     /**
      * @return array<string,mixed>
      */
@@ -97,6 +99,136 @@ final class AtlasFrontendProductProofRuntimeService
     }
 
     /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function pilotDossier(array $input): array
+    {
+        $task = trim((string) ($input['task'] ?? ''));
+        $workspace = rtrim(trim((string) ($input['workspace'] ?? '')), DIRECTORY_SEPARATOR);
+        $provider = trim((string) ($input['provider'] ?? 'provider_neutral')) ?: 'provider_neutral';
+        $output = rtrim(trim((string) ($input['output'] ?? '')), DIRECTORY_SEPARATOR);
+        if ($output === '') {
+            $output = storage_path('app/atlas/frontend-proof-pilot/'.hash('sha256', $task.'|'.$workspace.'|'.$provider));
+        }
+
+        File::ensureDirectoryExists($output);
+
+        $sharedInput = [
+            'task' => $task,
+            'workspace' => $workspace,
+            'provider' => $provider,
+            'acceptance_criteria' => (bool) ($input['acceptance_criteria'] ?? false),
+            'test_plan' => (bool) ($input['test_plan'] ?? false),
+            'visual_quality_plan' => (bool) ($input['visual_quality_plan'] ?? false),
+            'evidence_plan' => (bool) ($input['evidence_plan'] ?? false),
+            'senior_design_review' => (bool) ($input['senior_design_review'] ?? false),
+            'evidence_output' => $output.'/evidence-kit',
+        ];
+
+        $bootstrap = app(AtlasFrontendEnterpriseBootstrapService::class)->run($sharedInput);
+        $providerPacket = app(AtlasFrontendProviderInstructionPacketService::class)->compile($sharedInput);
+        $runbook = app(AtlasFrontendExecutionRunbookService::class)->compile($sharedInput);
+        $evidenceKit = app(AtlasFrontendEvidenceKitService::class)->prepare($sharedInput + [
+            'output' => $output.'/evidence-kit',
+        ]);
+        $runtimeCertification = app(AtlasFrontendDesignRuntimeService::class)->certify();
+        $catalog = $this->catalog();
+
+        $blockers = array_values(array_unique(array_merge(
+            $this->prefix('bootstrap', (array) ($bootstrap['blockers'] ?? [])),
+            $this->prefix('provider_packet', (array) ($providerPacket['blockers'] ?? [])),
+            $this->prefix('runbook', (array) ($runbook['blockers'] ?? [])),
+            $this->prefix('evidence_kit', (array) ($evidenceKit['blockers'] ?? [])),
+        )));
+        $warnings = array_values(array_unique(array_merge(
+            $this->prefix('bootstrap', (array) ($bootstrap['warnings'] ?? [])),
+            $this->prefix('provider_packet', (array) ($providerPacket['warnings'] ?? [])),
+            $this->prefix('runbook', (array) ($runbook['warnings'] ?? [])),
+            $this->prefix('evidence_kit', (array) ($evidenceKit['warnings'] ?? [])),
+            ['pilot_dossier_is_not_measured_delivery_evidence'],
+        )));
+
+        $ready = $blockers === []
+            && ($bootstrap['status'] ?? null) === 'ready'
+            && ($providerPacket['status'] ?? null) === 'ready'
+            && ($runbook['status'] ?? null) === 'ready'
+            && ($evidenceKit['status'] ?? null) === 'ready'
+            && ($runtimeCertification['status'] ?? null) === 'ready';
+
+        $payload = [
+            'schema_version' => self::PILOT_DOSSIER_SCHEMA_VERSION,
+            'status' => $ready ? 'ready_for_operator_execution' : 'blocked',
+            'proof_type' => 'company_repo_frontend_pilot_dossier',
+            'source' => self::class,
+            'task_hash' => $task !== '' ? hash('sha256', $task) : null,
+            'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
+            'provider' => $provider,
+            'output_path_hash' => hash('sha256', $output),
+            'readiness' => [
+                'enterprise_bootstrap_ready' => ($bootstrap['status'] ?? null) === 'ready',
+                'provider_packet_ready' => ($providerPacket['status'] ?? null) === 'ready',
+                'runbook_ready' => ($runbook['status'] ?? null) === 'ready',
+                'evidence_kit_ready' => ($evidenceKit['status'] ?? null) === 'ready',
+                'frontend_runtime_certified' => ($runtimeCertification['status'] ?? null) === 'ready',
+                'operator_execution_required' => true,
+                'measured_evidence_present' => false,
+                'rival_replay_present' => false,
+                'world_best_claim_allowed' => false,
+            ],
+            'hash_refs' => [
+                'enterprise_bootstrap_hash' => $bootstrap['enterprise_bootstrap_hash'] ?? null,
+                'provider_instruction_packet_hash' => $providerPacket['provider_instruction_packet_hash'] ?? null,
+                'runbook_hash' => $runbook['runbook_hash'] ?? null,
+                'evidence_kit_hash' => $evidenceKit['evidence_kit_hash'] ?? null,
+                'runtime_certification_hash' => $runtimeCertification['certification_hash'] ?? null,
+                'product_proof_hash' => $catalog['product_proof_hash'] ?? null,
+            ],
+            'execution_contract' => [
+                'provider_mandates' => $providerPacket['provider_mandates'] ?? [],
+                'forbidden_provider_behaviors' => $providerPacket['forbidden_provider_behaviors'] ?? [],
+                'runbook_steps' => $runbook['runbook_steps'] ?? [],
+                'collection_commands' => $evidenceKit['collection_commands'] ?? [],
+            ],
+            'required_next_actions' => $ready
+                ? [
+                    'dispatch_provider_with_provider_instruction_packet',
+                    'execute_runbook_in_local_company_repo',
+                    'replace_evidence_templates_with_measured_artifacts',
+                    'run_frontend_run_certify_and_delivery_handoff',
+                    'run_real_rival_replay_before_world_best_claim',
+                ]
+                : array_values(array_unique(array_merge(
+                    (array) ($bootstrap['required_next_actions'] ?? []),
+                    (array) ($providerPacket['required_next_actions'] ?? []),
+                    (array) ($runbook['required_next_actions'] ?? []),
+                    (array) ($evidenceKit['required_next_actions'] ?? []),
+                ))),
+            'claim_policy' => [
+                'pilot_dossier_is_pre_execution_proof' => true,
+                'ready_for_operator_execution_is_not_delivery_done' => true,
+                'measured_evidence_required_for_done_claim' => true,
+                'rival_replay_required_for_market_superiority_claim' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+            'artifact_refs' => [
+                'dossier' => 'pilot-dossier.json',
+                'evidence_kit_manifest' => 'evidence-kit/evidence-kit-manifest.json',
+                'provider_packet_embedded' => true,
+                'runbook_embedded' => true,
+            ],
+            'blockers' => $blockers,
+            'warnings' => $warnings,
+        ];
+        $payload['pilot_dossier_hash'] = MissionCanonicalHash::sha256($payload);
+
+        File::put($output.'/pilot-dossier.json', json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+
+        return $payload;
+    }
+
+    /**
      * @return array<int,array<string,mixed>>
      */
     private function demos(): array
@@ -146,6 +278,19 @@ final class AtlasFrontendProductProofRuntimeService
                 'content_hash' => $present ? hash('sha256', File::get($absolute)) : null,
             ];
         }, $demos);
+    }
+
+    /**
+     * @param  array<int,mixed>  $items
+     * @return array<int,string>
+     */
+    private function prefix(string $prefix, array $items): array
+    {
+        return collect($items)
+            ->filter(fn (mixed $item): bool => is_string($item))
+            ->map(fn (string $item): string => $prefix.'_'.$item)
+            ->values()
+            ->all();
     }
 
     /**

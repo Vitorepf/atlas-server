@@ -149,6 +149,8 @@ class ForgeIntakeServiceTest extends TestCase
         $this->assertSame('atlas', data_get($intake->workspace_execution_gate, 'workspace_id'));
         $this->assertTrue((bool) data_get($intake->workspace_execution_gate, 'required_contracts.awco_execution_readiness'));
         $inventoryHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.repository_inventory_hash');
+        $workingSetHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.working_set_hash');
+        $contextDeltaPlanHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.context_delta_plan_hash');
         $outcomeCommandMemoryHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.outcome_command_memory_hash');
         $performanceHistogramHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.command_performance_histogram_hash');
         $areaPerformanceIndexHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.area_performance_index_hash');
@@ -158,6 +160,8 @@ class ForgeIntakeServiceTest extends TestCase
         $executionPolicyEffectivenessIndexHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.execution_policy_effectiveness_index_hash');
         $executionRouteEffectivenessIndexHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.execution_route_effectiveness_index_hash');
         $this->assertSame(64, strlen((string) $inventoryHash));
+        $this->assertSame(64, strlen((string) $workingSetHash));
+        $this->assertSame(64, strlen((string) $contextDeltaPlanHash));
         $this->assertSame(64, strlen((string) $outcomeCommandMemoryHash));
         $this->assertSame(64, strlen((string) $performanceHistogramHash));
         $this->assertSame(64, strlen((string) $areaPerformanceIndexHash));
@@ -167,6 +171,8 @@ class ForgeIntakeServiceTest extends TestCase
         $this->assertSame(64, strlen((string) $executionPolicyEffectivenessIndexHash));
         $this->assertSame(64, strlen((string) $executionRouteEffectivenessIndexHash));
         $this->assertContains('awis_cache:repository_inventory:'.$inventoryHash, $intake->context_refs);
+        $this->assertContains('awis_cache:workspace_working_set:'.$workingSetHash, $intake->context_refs);
+        $this->assertContains('awis_cache:context_delta_plan:'.$contextDeltaPlanHash, $intake->context_refs);
         $this->assertContains('awis_cache:outcome_command_memory:'.$outcomeCommandMemoryHash, $intake->context_refs);
         $this->assertContains('awis_cache:command_performance_histogram:'.$performanceHistogramHash, $intake->context_refs);
         $this->assertContains('awis_cache:area_performance_index:'.$areaPerformanceIndexHash, $intake->context_refs);
@@ -541,6 +547,31 @@ class ForgeIntakeServiceTest extends TestCase
                 'context_loading_plan' => [
                     'schema_version' => 'atlas.awis.context_loading_plan.v1',
                     'repository_inventory_hash' => str_repeat('b', 64),
+                    'working_set_hash' => str_repeat('6', 64),
+                    'workspace_working_set' => [
+                        'schema_version' => 'atlas.awis.workspace_working_set.v1',
+                        'working_set_hash' => str_repeat('6', 64),
+                        'mode' => 'provider_safe_hot_context_set',
+                        'hot_areas' => ['app/Services/Ai/Programming/Forge'],
+                        'hot_commands' => ['php artisan test tests/Feature/Ai/Programming/Forge/ScopedForgeRouteTest.php'],
+                        'source_policy' => [
+                            'raw_file_content_returned' => false,
+                            'raw_diff_returned' => false,
+                        ],
+                    ],
+                    'context_delta_plan_hash' => str_repeat('5', 64),
+                    'context_delta_plan' => [
+                        'schema_version' => 'atlas.awis.context_delta_plan.v1',
+                        'delta_plan_hash' => str_repeat('5', 64),
+                        'mode' => 'hash_based_incremental_context_resume',
+                        'decision' => 'partial_refresh_hot_overlap',
+                        'reuse_refs' => ['awis_cache:workspace_working_set:'.str_repeat('6', 64)],
+                        'refresh_refs' => ['workspace_change_hash:'.str_repeat('4', 64)],
+                        'source_policy' => [
+                            'raw_file_content_returned' => false,
+                            'raw_diff_returned' => false,
+                        ],
+                    ],
                     'stack_tags' => ['laravel', 'php'],
                     'focused_manifest_refs' => [[
                         'repo_key' => 'atlas-server',
@@ -560,6 +591,8 @@ class ForgeIntakeServiceTest extends TestCase
                     'execution_policy_effectiveness_index_hash' => str_repeat('8', 64),
                     'execution_route_effectiveness_index_hash' => str_repeat('7', 64),
                     'cache_keys' => [
+                        'workspace_working_set_hash' => str_repeat('6', 64),
+                        'context_delta_plan_hash' => str_repeat('5', 64),
                         'workspace_learning_snapshot_hash' => str_repeat('a', 64),
                         'execution_optimization_policy_hash' => str_repeat('9', 64),
                         'execution_policy_effectiveness_index_hash' => str_repeat('8', 64),

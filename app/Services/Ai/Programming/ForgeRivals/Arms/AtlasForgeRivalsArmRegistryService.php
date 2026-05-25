@@ -263,9 +263,10 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_test_log' => true,
             'capabilities' => $this->capabilities(realProvider: true),
             'allowed_modes' => $this->allowedModes(),
-            'allowed_task_categories' => ['planning', 'frontend', 'backend', 'bugfix', 'tests', 'refactor', 'docs'],
+            'allowed_task_categories' => self::TASK_CATEGORIES,
             'safety_contract' => $this->safety(realProvider: true) + [
                 'escalates_to_forge_on_high_risk' => true,
+                'architecture_security_performance_categories_use_atlas_dev_escalation_policy' => true,
                 'forbids_enterprise_claim_without_forge_escalation' => true,
                 'keeps_call_budget_low' => true,
             ],

@@ -9,8 +9,12 @@ use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
 use App\Services\Ai\Kernel\Provider\AgentBehaviorContract;
 use App\Services\Ai\Kernel\Repair\RepairStrategy;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendCompanyRepoOnboardingService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignRuntimeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendEnterpriseBootstrapService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionGateService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionRunbookService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendProviderInstructionPacketService;
 use App\Services\Engineering\EngineeringHarnessExecutionService;
 use Illuminate\Support\Str;
 use Throwable;
@@ -682,12 +686,45 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'evidence_plan' => (bool) ($options['evidence_plan'] ?? $options['frontend_evidence_plan'] ?? false),
             'senior_design_review' => (bool) ($options['senior_design_review'] ?? $options['frontend_senior_design_review'] ?? false),
         ]);
+        $workspace = (string) data_get($programmingMessagePlan, 'workspace', '');
+        $enterpriseInput = [
+            'task' => $task,
+            'surface' => 'programming.frontend',
+            'workspace' => $workspace,
+            'acceptance_criteria' => (bool) ($options['acceptance_criteria'] ?? $options['frontend_acceptance'] ?? false),
+            'test_plan' => (bool) ($options['test_plan'] ?? $options['frontend_test_plan'] ?? false),
+            'visual_quality_plan' => (bool) ($options['visual_quality_plan'] ?? $options['frontend_visual_quality_plan'] ?? false),
+            'evidence_plan' => (bool) ($options['evidence_plan'] ?? $options['frontend_evidence_plan'] ?? false),
+            'senior_design_review' => (bool) ($options['senior_design_review'] ?? $options['frontend_senior_design_review'] ?? false),
+        ];
+        $enterpriseBootstrap = $this->workspaceLooksProjectScoped($workspace)
+            ? app(AtlasFrontendEnterpriseBootstrapService::class)->run($enterpriseInput)
+            : null;
+        $companyRepoOnboarding = $this->workspaceLooksProjectScoped($workspace)
+            ? app(AtlasFrontendCompanyRepoOnboardingService::class)->run($enterpriseInput + [
+                'provider' => (string) ($options['provider'] ?? $options['frontend_provider'] ?? 'provider_neutral'),
+                'output' => (string) ($options['frontend_proof_output'] ?? $options['proof_output'] ?? ''),
+            ])
+            : null;
+        $executionRunbook = $this->workspaceLooksProjectScoped($workspace)
+            ? app(AtlasFrontendExecutionRunbookService::class)->compile($enterpriseInput + [
+                'evidence_output' => (string) ($options['frontend_evidence_output'] ?? $options['evidence_output'] ?? '<evidence-dir>'),
+            ])
+            : null;
+        $providerInstructionPacket = $this->workspaceLooksProjectScoped($workspace)
+            ? app(AtlasFrontendProviderInstructionPacketService::class)->compile($enterpriseInput + [
+                'provider' => (string) ($options['provider'] ?? $options['frontend_provider'] ?? 'provider_neutral'),
+                'evidence_output' => (string) ($options['frontend_evidence_output'] ?? $options['evidence_output'] ?? '<evidence-dir>'),
+            ])
+            : null;
 
         return [
             'schema_version' => 'atlas.programming.frontend_design_harness.v1',
             'source' => 'AtlasProgrammingOrchestrator',
             'plan_id' => $planId,
-            'status' => 'contract_required_before_frontend_claim',
+            'status' => $enterpriseBootstrap !== null && ($enterpriseBootstrap['status'] ?? null) === 'ready' && ($executionRunbook['status'] ?? null) === 'ready' && ($providerInstructionPacket['status'] ?? null) === 'ready'
+                ? 'ready_for_enterprise_frontend_dispatch'
+                : 'contract_required_before_frontend_claim',
             'specialist_profile' => 'programming.frontend',
             'provider_policy' => [
                 'provider_neutral' => true,
@@ -746,6 +783,37 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             ],
             'atlas_frontend_runtime' => $atlasFrontendRuntime,
             'pre_execution_gate' => $preExecutionGate,
+            'enterprise_operating_contract' => [
+                'schema_version' => 'atlas.programming.frontend_enterprise_operating_contract.v1',
+                'workspace_mode' => $this->workspaceLooksProjectScoped($workspace) ? 'local_company_or_product_repo' : 'generic_or_missing_workspace',
+                'enterprise_bootstrap_schema' => AtlasFrontendEnterpriseBootstrapService::SCHEMA_VERSION,
+                'company_repo_onboarding_schema' => AtlasFrontendCompanyRepoOnboardingService::SCHEMA_VERSION,
+                'execution_runbook_schema' => AtlasFrontendExecutionRunbookService::SCHEMA_VERSION,
+                'provider_instruction_packet_schema' => AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION,
+                'onboarding_status' => $companyRepoOnboarding['status'] ?? 'not_evaluated',
+                'bootstrap_status' => $enterpriseBootstrap['status'] ?? 'not_evaluated',
+                'runbook_status' => $executionRunbook['status'] ?? 'not_evaluated',
+                'provider_packet_status' => $providerInstructionPacket['status'] ?? 'not_evaluated',
+                'provider_dispatch_allowed' => (bool) data_get($enterpriseBootstrap, 'readiness.provider_dispatch_allowed') && ($companyRepoOnboarding['status'] ?? null) === 'ready_for_operator_execution' && ($executionRunbook['status'] ?? null) === 'ready' && ($providerInstructionPacket['status'] ?? null) === 'ready',
+                'premium_frontend_claim_allowed' => (bool) data_get($enterpriseBootstrap, 'readiness.premium_frontend_claim_allowed') && ($executionRunbook['status'] ?? null) === 'ready',
+                'world_best_claim_allowed' => false,
+                'claim_policy' => [
+                    'local_company_repos_use_enterprise_bootstrap_and_runbook' => true,
+                    'runbook_is_not_execution_evidence' => true,
+                    'completion_requires_run_certification_handoff_and_outcome' => true,
+                    'raw_customer_source_returned' => false,
+                ],
+                'hash_refs' => [
+                    'enterprise_bootstrap_hash' => $enterpriseBootstrap['enterprise_bootstrap_hash'] ?? null,
+                    'company_repo_onboarding_hash' => $companyRepoOnboarding['onboarding_hash'] ?? null,
+                    'runbook_hash' => $executionRunbook['runbook_hash'] ?? null,
+                    'provider_instruction_packet_hash' => $providerInstructionPacket['provider_instruction_packet_hash'] ?? null,
+                ],
+            ],
+            'company_repo_onboarding' => $companyRepoOnboarding,
+            'enterprise_bootstrap' => $enterpriseBootstrap,
+            'execution_runbook' => $executionRunbook,
+            'provider_instruction_packet' => $providerInstructionPacket,
         ];
     }
 

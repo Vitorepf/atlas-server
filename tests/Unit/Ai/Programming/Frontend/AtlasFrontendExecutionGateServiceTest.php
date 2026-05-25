@@ -24,11 +24,13 @@ class AtlasFrontendExecutionGateServiceTest extends TestCase
         $this->assertFalse((bool) $payload['execution_allowed']);
         $this->assertContains('acceptance_criteria_missing', collect($payload['blockers'])->pluck('id')->all());
         $this->assertContains('task_spec_acceptance_context_required', collect($payload['blockers'])->pluck('id')->all());
+        $this->assertContains('company_design_dossier_required', collect($payload['blockers'])->pluck('id')->all());
         $this->assertContains('company_design_profile_required', collect($payload['blockers'])->pluck('id')->all());
         $this->assertContains('senior_design_review_missing', collect($payload['blockers'])->pluck('id')->all());
         $this->assertSame('blocked', data_get($payload, 'task_spec.status'));
         $this->assertFalse((bool) data_get($payload, 'task_spec.raw_task_returned'));
         $this->assertContains('inspect_ready_company_design_profile', $payload['required_next_actions']);
+        $this->assertContains('run_atlas_frontend_design_dossier_template_or_fill_docs', $payload['required_next_actions']);
         $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['gate_hash']);
     }
