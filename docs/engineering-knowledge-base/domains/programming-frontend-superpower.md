@@ -212,6 +212,52 @@ Contrato operacional resumido:
 5. Claims de superioridade/world-best exigem replay externo completo, evidence
    packs, score attestation, publication receipt verificado e margem decisiva
    minima por caso. Vencer por 1 ponto nao basta para claim world-best.
+   O inspect do replay emite
+   `atlas.frontend.rival_replay_competitive_proof_contract.v1`; o operador pode
+   materializar o recibo compacto com
+   `atlas:frontend:replay proof-contract --evidence=<dir> --json`. Esse arquivo
+   indexa o estado da prova, mas nao substitui os artifacts/receipts reais.
+   Para reduzir improviso operacional, `atlas:frontend:replay operator-packet
+   --evidence=<dir> --json` materializa
+   `atlas.frontend.rival_replay_operator_packet.v1` com ordem de runs externos,
+   refs, hashes e comandos de template. O endpoint padrao
+   `/atlas-code/frontend/prepare-rival-replay` tambem escreve esse packet junto
+   com runner kit, worklist e proof-contract, mas a resposta HTTP continua
+   provider-safe e nao retorna paths brutos. O packet usa
+   `${ATLAS_FRONTEND_REPLAY_EVIDENCE}` nos comandos internos para nao embutir o
+   path absoluto do repo. `atlas:frontend:replay operator-packet-verify
+   --evidence=<dir> --json` emite
+   `atlas.frontend.rival_replay_operator_packet_verification.v1` e valida se
+   hashes, placeholders e policy ainda estao intactos; ele tambem nao executa
+   providers nem autoriza claim. O `atlas:frontend:world-best-plan` consome
+   essa verificacao como gate: se um diretorio de replay for informado e o
+   operator packet estiver ausente, stale, adulterado ou com path bruto, o plano
+   bloqueia claim com `operator_packet_verification_blocked`. Depois do operador
+   preencher evidence packs, execution receipts e score attestations,
+   `atlas:frontend:replay proof-bundle --evidence=<dir> --json` materializa
+   `atlas.frontend.rival_replay_competitive_proof_bundle.v1`: um indice
+   provider-safe de replay, proof-contract, operator-packet verification,
+   scoreboard e hashes de manifest. Esse bundle tambem nao guarda artifacts
+   brutos, nao executa providers e so libera claim quando o replay externo real
+   passou; o claim de produto publico ainda exige publication receipt verificado.
+   No cockpit do Atlas Code/Frontend, o endpoint
+   `/atlas-code/frontend/proof-bundle` compila o mesmo indice para o repo
+   selecionado e devolve `atlas.frontend.workspace_api.proof_bundle.v1`; a UI
+   deve mostrar isso como degrau de prova competitivo, nao como evidence bruta
+   nem como autorizacao de dispatch.
+   O cockpit tambem chama `/atlas-code/frontend/control-plane` para consolidar,
+   no repo selecionado, runtime projection, proof bundle, publication receipt,
+   replay status e claim policy em `atlas.frontend.workspace_api.control_plane.v1`.
+   Essa visao e somente control-plane/readiness: nao cria Space runtime, nao
+   executa provider e nao converte pasta local em prova publica sem receipt e
+   replay externo real.
+   Para o ultimo gate publico, `/atlas-code/frontend/publication-receipt-template`
+   gera o template `atlas.frontend.publication_receipt.v1` dentro da pasta de
+   evidencia do repo selecionado, e `/atlas-code/frontend/publication-verify`
+   devolve `atlas.frontend.workspace_api.publication_verify.v1` com status
+   `local_ready`, `public_verified` ou `blocked`. Esse gate tambem nao executa
+   provider, nao retorna path bruto e nao libera world-best sem replay externo
+   real; ele apenas prova se a distribuicao publica bate com o bundle local.
 6. Live mode `accept`/`discard`/`recover` emite
    `atlas.frontend.live_source_patch_decision_receipt.v1` com hashes de decisao,
    diff e variante, mas `live_patch_decision_is_not_delivery_evidence=true`;

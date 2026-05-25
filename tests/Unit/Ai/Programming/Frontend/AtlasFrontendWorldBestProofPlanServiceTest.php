@@ -22,6 +22,7 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertSame('ready_for_execution', $payload['status']);
         $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
         $this->assertFalse((bool) data_get($payload, 'readiness.external_rival_replay_completed'));
+        $this->assertSame('pending', data_get($payload, 'readiness.operator_packet_verification_status'));
         $this->assertSame('not_requested', data_get($payload, 'readiness.publication_attestation_status'));
         $this->assertSame('pending', data_get($payload, 'readiness.evidence_pack_readiness.status'));
         $this->assertSame(15, data_get($payload, 'readiness.evidence_pack_readiness.summary.missing'));
@@ -31,8 +32,14 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertSame(15, data_get($payload, 'workstreams.0.evidence_worklist.work_item_count'));
         $this->assertFalse((bool) data_get($payload, 'workstreams.0.evidence_worklist.write_performed'));
         $this->assertTrue((bool) data_get($payload, 'workstreams.0.evidence_worklist.claim_policy.worklist_is_not_evidence'));
+        $this->assertSame('atlas.frontend.rival_replay_operator_packet_verification.v1', data_get($payload, 'workstreams.0.operator_packet_verification.schema_version'));
+        $this->assertSame('pending', data_get($payload, 'workstreams.0.operator_packet_verification.status'));
+        $this->assertContains('operator_packet_verification_requires_rival_evidence_directory', data_get($payload, 'workstreams.0.operator_packet_verification.warnings'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'evidence_hashes.evidence_worklist_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'evidence_hashes.operator_packet_verification_hash'));
         $this->assertCount(15, data_get($payload, 'workstreams.0.work_items'));
+        $this->assertContains('php artisan atlas:frontend:replay operator-packet --evidence=<dir> --json', data_get($payload, 'workstreams.0.commands'));
+        $this->assertContains('php artisan atlas:frontend:replay operator-packet-verify --evidence=<dir> --json', data_get($payload, 'workstreams.0.commands'));
         $this->assertContains('php artisan atlas:frontend:replay runner-kit --output=<dir> --json', data_get($payload, 'workstreams.0.commands'));
         $this->assertContains('php artisan atlas:frontend:replay evidence-worklist --evidence=<dir> --output=<worklist.json> --json', data_get($payload, 'workstreams.0.commands'));
         $this->assertContains('php artisan atlas:frontend:publish attest --bundle=<bundle> --receipt=<receipt> --json', data_get($payload, 'workstreams.1.work_items.0.commands'));
@@ -48,6 +55,7 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertContains('external_execution_receipt', data_get($payload, 'workstreams.0.work_items.1.required_receipts'));
         $this->assertSame('missing', data_get($payload, 'workstreams.0.work_items.0.evidence_pack_status'));
         $this->assertContains('evidence_pack_missing', data_get($payload, 'workstreams.0.work_items.0.evidence_pack_blockers'));
+        $this->assertContains('generate_and_verify_rival_replay_operator_packet', $payload['required_next_actions']);
         $this->assertContains('generate_rival_replay_runner_kit', $payload['required_next_actions']);
         $this->assertContains('complete_external_rival_replay_manifests', $payload['required_next_actions']);
         $this->assertContains('fill_and_verify_rival_replay_evidence_packs', $payload['required_next_actions']);
@@ -84,6 +92,9 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertSame('ready', $payload['status']);
         $this->assertTrue((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
         $this->assertTrue((bool) data_get($payload, 'readiness.external_rival_replay_completed'));
+        $this->assertSame('passed', data_get($payload, 'readiness.operator_packet_verification_status'));
+        $this->assertSame('passed', data_get($payload, 'workstreams.0.operator_packet_verification.status'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.world_best_requires_verified_operator_packet'));
         $this->assertTrue((bool) data_get($payload, 'readiness.public_distribution_verified'));
         $this->assertSame('public_verified', data_get($payload, 'readiness.publication_attestation_status'));
         $this->assertSame('public_verified', data_get($payload, 'workstreams.1.publication_attestation.status'));
@@ -92,6 +103,27 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'workstreams.1.publication_attestation.public_url_hash'));
         $this->assertSame([], data_get($payload, 'workstreams.0.work_items'));
         $this->assertSame(['claim_world_best_only_with_attached_proof_plan_hash'], $payload['required_next_actions']);
+    }
+
+    public function test_plan_blocks_supplied_replay_directory_when_operator_packet_is_stale_or_tampered(): void
+    {
+        $replayDir = $this->winningReplayDirectory();
+        $packetPath = $replayDir.'/replay-operator-packet.json';
+        $packet = json_decode(File::get($packetPath), true);
+        $packet['commands']['inspect'] = 'php artisan atlas:frontend:replay inspect --evidence='.$replayDir.' --json';
+        File::put($packetPath, json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $payload = app(AtlasFrontendWorldBestProofPlanService::class)->plan([
+            'rival_evidence' => $replayDir,
+        ]);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('blocked', data_get($payload, 'readiness.operator_packet_verification_status'));
+        $this->assertSame('blocked', data_get($payload, 'workstreams.0.operator_packet_verification.status'));
+        $this->assertContains('operator_packet_verification_blocked', $payload['blockers']);
+        $this->assertContains('operator_packet_hash_valid_failed', data_get($payload, 'workstreams.0.operator_packet_verification.blockers'));
+        $this->assertContains('generate_and_verify_rival_replay_operator_packet', $payload['required_next_actions']);
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
     }
 
     public function test_plan_attests_local_publication_bundle_as_pending_public_distribution(): void
@@ -194,6 +226,11 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
     {
         $dir = sys_get_temp_dir().'/atlas-frontend-world-best-replay-'.bin2hex(random_bytes(4));
         app(AtlasFrontendRivalReplayHarnessService::class)->writeTemplate($dir);
+        $runnerKit = app(AtlasFrontendRivalReplayHarnessService::class)->writeRunnerKit($dir);
+        $runPacketHashes = collect((array) ($runnerKit['run_packets'] ?? []))
+            ->mapWithKeys(fn (array $packet): array => [
+                ((string) ($packet['case_id'] ?? '')).'|'.((string) ($packet['system'] ?? '')) => (string) ($packet['run_packet_hash'] ?? ''),
+            ]);
 
         foreach (['saas_dashboard_repair', 'ecommerce_product_page', 'mobile_app_onboarding', 'design_system_migration', 'live_mode_repair_loop'] as $case) {
             $taskSpec = json_decode(File::get($dir.'/'.$case.'/task-spec.json'), true);
@@ -202,11 +239,13 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
                 $breakdown = $this->breakdownForRun($system, $case, $atlasScore, $rivalScore, $losingCase, $dimensionGapCase);
                 $score = array_sum($breakdown);
                 $hashes = $this->writeEvidencePack($dir, $case, $system, $taskSpecHash);
+                $runPacketHash = (string) $runPacketHashes->get($case.'|'.$system, '');
                 File::put($dir.'/'.$case.'/'.$system.'/manifest.json', json_encode([
                     'case_id' => $case,
                     'system' => $system,
                     'status' => 'complete',
                     'run_id' => $case.'-'.$system,
+                    'run_packet_hash' => $runPacketHash,
                     'task_spec_hash' => $taskSpecHash,
                     'task_spec_ref' => '../task-spec.json',
                     'evidence_pack_ref' => 'evidence/evidence-pack.json',
@@ -219,11 +258,13 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
                     'score_breakdown' => $breakdown,
                     'score_total' => $score,
                     'score_max' => 100,
-                    'score_attestation' => $this->scoreAttestation($case, $system, $hashes, $breakdown, $score),
+                    'score_attestation' => $this->scoreAttestation($case, $system, $hashes, $breakdown, $score, $runPacketHash),
                     'completed_at' => '2026-05-25T00:00:00Z',
                 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
             }
         }
+
+        app(AtlasFrontendRivalReplayHarnessService::class)->writeOperatorPacket($dir);
 
         return $dir;
     }
@@ -333,7 +374,7 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
      * @param  array<string,int>  $breakdown
      * @return array<string,mixed>
      */
-    private function scoreAttestation(string $case, string $system, array $hashes, array $breakdown, int $score): array
+    private function scoreAttestation(string $case, string $system, array $hashes, array $breakdown, int $score, string $runPacketHash): array
     {
         return [
             'schema_version' => AtlasFrontendRivalReplayHarnessService::SCORE_ATTESTATION_SCHEMA_VERSION,
@@ -354,7 +395,7 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
                 'screenshot_hashes' => [$hashes['screenshot_set']],
                 'anti_slop_report_hash' => $hashes['anti_slop_report'],
                 'verification_hashes' => [$hashes['verification_report']],
-                'run_packet_hash' => null,
+                'run_packet_hash' => $runPacketHash,
                 'evidence_pack_verification_hash' => $hashes['evidence_pack_verification'],
             ],
         ];

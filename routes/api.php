@@ -681,7 +681,13 @@ Route::prefix('atlas-code')->group(function () {
     Route::get('/frontend/portfolio', [AtlasFrontendWorkspaceController::class, 'portfolio']);
     Route::post('/frontend/selected-workspace', [AtlasFrontendWorkspaceController::class, 'selected']);
     Route::post('/frontend/runtime-projection', [AtlasFrontendWorkspaceController::class, 'runtimeProjection']);
+    Route::post('/frontend/control-plane', [AtlasFrontendWorkspaceController::class, 'controlPlane']);
     Route::post('/frontend/prepare-evidence', [AtlasFrontendWorkspaceController::class, 'prepareEvidence']);
+    Route::post('/frontend/prepare-rival-replay', [AtlasFrontendWorkspaceController::class, 'prepareRivalReplay']);
+    Route::post('/frontend/inspect-rival-replay', [AtlasFrontendWorkspaceController::class, 'inspectRivalReplay']);
+    Route::post('/frontend/proof-bundle', [AtlasFrontendWorkspaceController::class, 'proofBundle']);
+    Route::post('/frontend/publication-receipt-template', [AtlasFrontendWorkspaceController::class, 'publicationReceiptTemplate']);
+    Route::post('/frontend/publication-verify', [AtlasFrontendWorkspaceController::class, 'verifyPublication']);
     Route::post('/frontend/run-certification', [AtlasFrontendWorkspaceController::class, 'runCertification']);
     Route::post('/frontend/handoff', [AtlasFrontendWorkspaceController::class, 'handoff']);
     Route::get('/workspace-intelligence', [AtlasWorkspaceIntelligenceController::class, 'show']);

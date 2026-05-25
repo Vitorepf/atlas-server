@@ -87,6 +87,94 @@ class AtlasFrontendRivalReplayCommandTest extends TestCase
         $this->assertTrue(File::isFile($dir.'/replay-evidence-worklist.json'));
     }
 
+    public function test_replay_proof_contract_command_writes_compact_claim_receipt(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-command-proof-contract-'.bin2hex(random_bytes(4));
+
+        Artisan::call('atlas:frontend:replay', [
+            'action' => 'runner-kit',
+            '--output' => $dir,
+            '--json' => true,
+        ]);
+
+        $exitCode = Artisan::call('atlas:frontend:replay', [
+            'action' => 'proof-contract',
+            '--evidence' => $dir,
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('atlas.frontend.rival_replay_competitive_proof_contract_file.v1', $output);
+        $this->assertStringContainsString('competitive_proof_contract', $output);
+        $this->assertStringContainsString('proof_contract_file_is_not_the_underlying_evidence', $output);
+        $this->assertTrue(File::isFile($dir.'/replay-competitive-proof-contract.json'));
+    }
+
+    public function test_replay_operator_packet_command_writes_external_replay_handoff(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-command-operator-packet-'.bin2hex(random_bytes(4));
+
+        $exitCode = Artisan::call('atlas:frontend:replay', [
+            'action' => 'operator-packet',
+            '--evidence' => $dir,
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('atlas.frontend.rival_replay_operator_packet.v1', $output);
+        $this->assertStringContainsString('external_provider_dispatch_not_performed_by_atlas', $output);
+        $this->assertStringContainsString('run_saas_dashboard_repair_pbakaus_impeccable', $output);
+        $this->assertStringContainsString('${ATLAS_FRONTEND_REPLAY_EVIDENCE}', $output);
+        $this->assertStringNotContainsString($dir, $output);
+        $this->assertTrue(File::isFile($dir.'/replay-operator-packet.json'));
+    }
+
+    public function test_replay_operator_packet_verify_command_checks_integrity_without_authorizing_claims(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-command-operator-packet-verify-'.bin2hex(random_bytes(4));
+
+        Artisan::call('atlas:frontend:replay', [
+            'action' => 'operator-packet',
+            '--evidence' => $dir,
+            '--json' => true,
+        ]);
+
+        $exitCode = Artisan::call('atlas:frontend:replay', [
+            'action' => 'operator-packet-verify',
+            '--evidence' => $dir,
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('atlas.frontend.rival_replay_operator_packet_verification.v1', $output);
+        $this->assertStringContainsString('"status": "passed"', $output);
+        $this->assertStringContainsString('verification_is_not_external_replay_evidence', $output);
+        $this->assertStringNotContainsString($dir, $output);
+    }
+
+    public function test_replay_proof_bundle_command_writes_provider_safe_competitive_index(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-command-proof-bundle-'.bin2hex(random_bytes(4));
+
+        $exitCode = Artisan::call('atlas:frontend:replay', [
+            'action' => 'proof-bundle',
+            '--evidence' => $dir,
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('atlas.frontend.rival_replay_competitive_proof_bundle.v1', $output);
+        $this->assertStringContainsString('pending_external_replay_evidence', $output);
+        $this->assertStringContainsString('operator_packet_verification', $output);
+        $this->assertStringContainsString('proof_bundle_is_not_raw_artifact_storage', $output);
+        $this->assertStringNotContainsString($dir, $output);
+        $this->assertTrue(File::isFile($dir.'/replay-competitive-proof-bundle.json'));
+    }
+
     public function test_replay_score_template_command_writes_provider_safe_patch(): void
     {
         $dir = sys_get_temp_dir().'/atlas-frontend-replay-command-score-template-'.bin2hex(random_bytes(4));
@@ -215,6 +303,68 @@ class AtlasFrontendRivalReplayCommandTest extends TestCase
         $this->assertStringContainsString('pending_operator_approval', $output);
         $this->assertStringContainsString('manifest_patch', $output);
         $this->assertTrue(File::isFile($dir.'/saas_dashboard_repair/pbakaus_impeccable/external-execution-receipt-template.json'));
+    }
+
+    public function test_replay_apply_patch_command_applies_provider_safe_manifest_patch(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-command-apply-patch-'.bin2hex(random_bytes(4));
+        $service = app(AtlasFrontendRivalReplayHarnessService::class);
+        $service->writeTemplate($dir);
+        $taskSpec = json_decode(File::get($dir.'/saas_dashboard_repair/task-spec.json'), true);
+        $taskSpecHash = (string) $taskSpec['task_spec_hash'];
+        $hashes = $this->writeEvidencePack($dir, 'saas_dashboard_repair', 'pbakaus_impeccable', $taskSpecHash);
+
+        File::put($dir.'/saas_dashboard_repair/pbakaus_impeccable/manifest.json', json_encode([
+            'case_id' => 'saas_dashboard_repair',
+            'system' => 'pbakaus_impeccable',
+            'status' => 'complete',
+            'run_id' => 'saas_dashboard_repair-pbakaus_impeccable',
+            'task_spec_hash' => $taskSpecHash,
+            'task_spec_ref' => '../task-spec.json',
+            'evidence_pack_ref' => 'evidence/evidence-pack.json',
+            'output_artifact_ref' => 'artifact://saas_dashboard_repair/pbakaus_impeccable',
+            'output_artifact_hash' => $hashes['output_artifact'],
+            'screenshot_hashes' => [$hashes['screenshot_set']],
+            'anti_slop_report_hash' => $hashes['anti_slop_report'],
+            'verification_hashes' => [$hashes['verification_report']],
+            'score_breakdown' => [
+                'product_intent_fit' => 9,
+                'visual_hierarchy_and_information_architecture' => 0,
+                'composition_layout_and_spacing' => 0,
+                'interaction_states_and_workflow_ergonomics' => 0,
+                'responsive_multi_viewport_quality' => 0,
+                'accessibility_and_semantics' => 0,
+                'implementation_integrity' => 0,
+                'performance_and_runtime_budget' => 0,
+                'anti_slop_originality_and_brand_fit' => 0,
+                'evidence_completeness' => 0,
+            ],
+            'score_total' => 9,
+            'score_max' => 100,
+            'completed_at' => '2026-05-25T00:00:00Z',
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $template = $service->writeExternalExecutionReceiptTemplate($dir, 'saas_dashboard_repair', 'pbakaus_impeccable');
+        $template['manifest_patch']['external_execution_receipt']['status'] = 'verified';
+        $template['manifest_patch']['external_execution_receipt']['captured_at'] = '2026-05-25T00:00:00Z';
+        $template['manifest_patch']['external_execution_receipt']['operator_approved'] = true;
+        $patch = $dir.'/external-patch.json';
+        File::put($patch, json_encode($template, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $exitCode = Artisan::call('atlas:frontend:replay', [
+            'action' => 'apply-patch',
+            '--evidence' => $dir,
+            '--patch' => $patch,
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+        $manifest = json_decode(File::get($dir.'/saas_dashboard_repair/pbakaus_impeccable/manifest.json'), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('atlas.frontend.rival_replay.manifest_patch_application.v1', $output);
+        $this->assertStringContainsString('"status": "applied"', $output);
+        $this->assertStringContainsString('manifest_patch_application_is_not_world_best_evidence', $output);
+        $this->assertSame('verified', data_get($manifest, 'external_execution_receipt.status'));
     }
 
     /**

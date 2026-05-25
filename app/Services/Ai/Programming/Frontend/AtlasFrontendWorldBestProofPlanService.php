@@ -14,7 +14,12 @@ final class AtlasFrontendWorldBestProofPlanService
      */
     public function plan(array $input = []): array
     {
-        $replay = app(AtlasFrontendRivalReplayHarnessService::class)->inspect($this->nullableString($input['rival_evidence'] ?? null));
+        $rivalEvidence = $this->nullableString($input['rival_evidence'] ?? null);
+        $replayHarness = app(AtlasFrontendRivalReplayHarnessService::class);
+        $replay = $replayHarness->inspect($rivalEvidence);
+        $operatorPacketVerification = $rivalEvidence === null
+            ? $this->missingOperatorPacketVerification()
+            : $replayHarness->verifyOperatorPacket($rivalEvidence);
         $proof = app(AtlasFrontendProductProofRuntimeService::class)->catalog();
         $publication = $this->publication($input);
         $controlPlane = app(AtlasFrontendControlPlaneService::class)->snapshot($input);
@@ -28,17 +33,19 @@ final class AtlasFrontendWorldBestProofPlanService
             ])
             : null;
         $evidenceWorklist = app(AtlasFrontendRivalReplayHarnessService::class)
-            ->compileEvidenceWorklist($this->nullableString($input['rival_evidence'] ?? null));
+            ->compileEvidenceWorklist($rivalEvidence);
         $replayWorkItems = $this->replayWorkItems((array) ($replay['runs'] ?? []), $evidencePackReadiness);
         $publicationWorkItems = $this->publicationWorkItems($publication);
+        $operatorPacketVerified = ($operatorPacketVerification['status'] ?? null) === 'passed';
         $worldBestClaimAllowed = (bool) data_get($replay, 'claim_policy.may_claim_world_best_frontend_system')
+            && $operatorPacketVerified
             && (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed');
         $publicationAttestation = app(AtlasFrontendPublicationAttestationService::class)->attest($publication, [
             'rerun_action' => 'rerun_atlas_frontend_world_best_plan',
             'world_best_claim_allowed' => $worldBestClaimAllowed,
         ]);
 
-        $blockers = $this->blockers($replay, $publication);
+        $blockers = $this->blockers($replay, $publication, $operatorPacketVerification, $rivalEvidence !== null);
         $status = $worldBestClaimAllowed
             ? 'ready'
             : ($blockers !== [] ? 'blocked' : 'ready_for_execution');
@@ -62,6 +69,7 @@ final class AtlasFrontendWorldBestProofPlanService
             'readiness' => [
                 'runtime_certified' => (bool) data_get($controlPlane, 'readiness_levels.runtime_contract_ready'),
                 'external_rival_replay_completed' => (bool) data_get($replay, 'summary.external_replay_completed'),
+                'operator_packet_verification_status' => $operatorPacketVerification['status'] ?? 'blocked',
                 'evidence_pack_readiness' => $evidencePackReadinessSummary,
                 'competitive_diagnostics_status' => data_get($replay, 'competitive_diagnostics.status', 'not_evaluated'),
                 'competitive_losing_case_count' => (int) data_get($replay, 'competitive_diagnostics.losing_case_count', 0),
@@ -100,10 +108,21 @@ final class AtlasFrontendWorldBestProofPlanService
                         'commands' => $evidenceWorklist['commands'] ?? [],
                         'claim_policy' => $evidenceWorklist['claim_policy'] ?? [],
                     ],
+                    'operator_packet_verification' => [
+                        'schema_version' => $operatorPacketVerification['schema_version'] ?? AtlasFrontendRivalReplayHarnessService::OPERATOR_PACKET_VERIFICATION_SCHEMA_VERSION,
+                        'status' => $operatorPacketVerification['status'] ?? 'blocked',
+                        'checks' => $operatorPacketVerification['checks'] ?? [],
+                        'blockers' => $operatorPacketVerification['blockers'] ?? [],
+                        'warnings' => $operatorPacketVerification['warnings'] ?? [],
+                        'operator_packet_verification_hash' => $operatorPacketVerification['operator_packet_verification_hash'] ?? null,
+                        'claim_policy' => $operatorPacketVerification['claim_policy'] ?? [],
+                    ],
                     'competitive_diagnostics' => data_get($replay, 'competitive_diagnostics', []),
                     'competitive_repair_plan' => $competitiveRepairPlan,
                     'work_items' => $replayWorkItems,
                     'commands' => [
+                        'php artisan atlas:frontend:replay operator-packet --evidence=<dir> --json',
+                        'php artisan atlas:frontend:replay operator-packet-verify --evidence=<dir> --json',
                         'php artisan atlas:frontend:replay runner-kit --output=<dir> --json',
                         'php artisan atlas:frontend:replay evidence-worklist --evidence=<dir> --output=<worklist.json> --json',
                         'php artisan atlas:frontend:replay inspect --evidence=<dir> --json',
@@ -145,6 +164,7 @@ final class AtlasFrontendWorldBestProofPlanService
             'claim_policy' => [
                 'world_best_claim_allowed' => $worldBestClaimAllowed,
                 'world_best_requires_external_rival_replay' => true,
+                'world_best_requires_verified_operator_packet' => true,
                 'world_best_requires_public_distribution_receipt' => true,
                 'world_best_requires_decisive_lead_each_case' => true,
                 'world_best_requires_no_tied_cases' => true,
@@ -155,10 +175,11 @@ final class AtlasFrontendWorldBestProofPlanService
                 'raw_prompt_source_customer_data_forbidden' => true,
             ],
             'blockers' => $blockers,
-            'warnings' => $this->warnings($replay, $publication, $controlPlane),
-            'required_next_actions' => $this->nextActions($replayWorkItems, $publicationWorkItems, $worldBestClaimAllowed, $evidencePackReadiness, (array) data_get($replay, 'competitive_diagnostics', [])),
+            'warnings' => $this->warnings($replay, $publication, $controlPlane, $operatorPacketVerification),
+            'required_next_actions' => $this->nextActions($replayWorkItems, $publicationWorkItems, $worldBestClaimAllowed, $evidencePackReadiness, (array) data_get($replay, 'competitive_diagnostics', []), $operatorPacketVerified),
             'evidence_hashes' => [
                 'replay_hash' => $replay['replay_hash'] ?? null,
+                'operator_packet_verification_hash' => $operatorPacketVerification['operator_packet_verification_hash'] ?? null,
                 'competitive_repair_plan_hash' => $competitiveRepairPlan['repair_plan_hash'] ?? null,
                 'evidence_worklist_hash' => $evidenceWorklist['worklist_hash'] ?? null,
                 'product_proof_hash' => $proof['product_proof_hash'] ?? null,
@@ -313,11 +334,43 @@ final class AtlasFrontendWorldBestProofPlanService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    private function missingOperatorPacketVerification(): array
+    {
+        $payload = [
+            'schema_version' => AtlasFrontendRivalReplayHarnessService::OPERATOR_PACKET_VERIFICATION_SCHEMA_VERSION,
+            'status' => 'pending',
+            'verification_type' => 'external_rival_replay_operator_packet_integrity',
+            'checks' => [
+                'operator_packet_present' => false,
+                'operator_packet_hash_valid' => false,
+                'runner_kit_hash_matches' => false,
+                'worklist_hash_matches' => false,
+                'proof_contract_file_hash_matches' => false,
+                'uses_replay_evidence_env_placeholder' => false,
+                'raw_absolute_path_not_embedded' => true,
+            ],
+            'claim_policy' => [
+                'verification_is_not_external_replay_evidence' => true,
+                'world_best_claim_allowed' => false,
+                'raw_absolute_path_returned' => false,
+                'external_provider_dispatch_performed' => false,
+            ],
+            'blockers' => [],
+            'warnings' => ['operator_packet_verification_requires_rival_evidence_directory'],
+        ];
+        $payload['operator_packet_verification_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
      * @param  array<string,mixed>  $replay
      * @param  array<string,mixed>  $publication
      * @return array<int,string>
      */
-    private function blockers(array $replay, array $publication): array
+    private function blockers(array $replay, array $publication, array $operatorPacketVerification, bool $rivalEvidenceProvided): array
     {
         $blockers = [];
         if ((int) data_get($replay, 'summary.invalid', 0) > 0) {
@@ -325,6 +378,9 @@ final class AtlasFrontendWorldBestProofPlanService
         }
         if (($publication['status'] ?? null) === 'blocked') {
             $blockers[] = 'publication_verification_blocked';
+        }
+        if ($rivalEvidenceProvided && ($operatorPacketVerification['status'] ?? null) !== 'passed') {
+            $blockers[] = 'operator_packet_verification_blocked';
         }
 
         return array_values(array_unique($blockers));
@@ -336,12 +392,13 @@ final class AtlasFrontendWorldBestProofPlanService
      * @param  array<string,mixed>  $controlPlane
      * @return array<int,string>
      */
-    private function warnings(array $replay, array $publication, array $controlPlane): array
+    private function warnings(array $replay, array $publication, array $controlPlane, array $operatorPacketVerification): array
     {
         return array_values(array_unique(array_filter(array_merge(
             (array) ($replay['remaining_gaps'] ?? []),
             (array) ($publication['warnings'] ?? []),
             (array) ($controlPlane['warnings'] ?? []),
+            (array) ($operatorPacketVerification['warnings'] ?? []),
         ))));
     }
 
@@ -351,13 +408,16 @@ final class AtlasFrontendWorldBestProofPlanService
      * @param  array<string,mixed>  $evidencePackReadiness
      * @return array<int,string>
      */
-    private function nextActions(array $replayWorkItems, array $publicationWorkItems, bool $worldBestClaimAllowed, array $evidencePackReadiness, array $competitiveDiagnostics): array
+    private function nextActions(array $replayWorkItems, array $publicationWorkItems, bool $worldBestClaimAllowed, array $evidencePackReadiness, array $competitiveDiagnostics, bool $operatorPacketVerified): array
     {
         if ($worldBestClaimAllowed) {
             return ['claim_world_best_only_with_attached_proof_plan_hash'];
         }
 
         $actions = [];
+        if (! $operatorPacketVerified) {
+            $actions[] = 'generate_and_verify_rival_replay_operator_packet';
+        }
         if ($replayWorkItems !== []) {
             $actions[] = 'generate_rival_replay_runner_kit';
             $actions[] = 'complete_external_rival_replay_manifests';

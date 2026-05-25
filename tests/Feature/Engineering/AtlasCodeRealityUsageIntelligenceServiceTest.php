@@ -139,6 +139,8 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertContains('docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md', $contextPack['minimal_sources']);
         $this->assertContains('dead_code_confirmed_without_quarantine', $contextPack['do_not_claim']);
         $this->assertContains('php artisan atlas:code-reality reality-audit --json', $contextPack['required_commands']);
+        $this->assertContains('php artisan atlas:code-reality global-duplication-audit --json', $contextPack['required_commands']);
+        $this->assertContains('php artisan atlas:code-reality status-drift-audit --json', $contextPack['required_commands']);
         $this->assertContains('php artisan atlas:code-reality reachability --target="<target>" --json', $contextPack['required_commands']);
         $this->assertContains('php artisan atlas:code-reality deletion-preflight --target="<target>" --json', $contextPack['required_commands']);
 
@@ -146,6 +148,115 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('reachability', $reachability['action']);
         $this->assertSame('reachable', data_get($reachability, 'reachability.status'));
         $this->assertSame('high', data_get($reachability, 'reachability.confidence'));
+    }
+
+    public function test_global_duplication_audit_surfaces_candidates_without_deleting_or_claiming_cleanliness(): void
+    {
+        $payload = app(AtlasCodeRealityUsageIntelligenceService::class)->globalDuplicationAudit();
+
+        $this->assertSame(AtlasCodeRealityUsageIntelligenceService::GLOBAL_DUPLICATION_AUDIT_SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('global-duplication-audit', $payload['action']);
+        $this->assertFalse($payload['writes']);
+        $this->assertFalse($payload['claim_policy']['deletes_files']);
+        $this->assertFalse($payload['claim_policy']['dead_code_confirmation_allowed']);
+        $this->assertFalse($payload['claim_policy']['global_no_duplication_claim_allowed']);
+        $this->assertGreaterThan(0, data_get($payload, 'summary.doc_count'));
+        $this->assertSame(0, data_get($payload, 'summary.duplicate_canonical_doc_id_group_count'));
+        $this->assertSame(0, data_get($payload, 'summary.duplicate_canonical_doc_graph_id_group_count'));
+        $this->assertSame(0, data_get($payload, 'summary.duplicate_canonical_doc_title_group_count'));
+        $this->assertArrayHasKey('duplicate_active_doc_path_stem_group_count', $payload['summary']);
+        $this->assertArrayHasKey('duplicate_canonical_doc_id_groups', $payload['documentation']);
+        $this->assertArrayHasKey('duplicate_canonical_doc_graph_id_groups', $payload['documentation']);
+        $this->assertArrayHasKey('duplicate_canonical_doc_title_groups', $payload['documentation']);
+        $this->assertArrayHasKey('duplicate_active_doc_path_stem_groups', $payload['documentation']);
+        $this->assertGreaterThan(0, data_get($payload, 'summary.php_class_count'));
+        $this->assertGreaterThan(0, data_get($payload, 'summary.route_count'));
+        $this->assertGreaterThan(0, data_get($payload, 'summary.runtime_route_count'));
+        $this->assertArrayHasKey('rag_retrieval', $payload['topic_clusters']);
+        $this->assertArrayHasKey('critical_topic_pressure', $payload);
+        $this->assertArrayHasKey('critical_topic_source_material_count', $payload['summary']);
+        $this->assertArrayHasKey('status_drift_owner_group_count', $payload['summary']);
+        $this->assertArrayHasKey('status_drift_doc_area_group_count', $payload['summary']);
+        $this->assertArrayHasKey('rag_retrieval_source_material_count', $payload['summary']);
+        $this->assertArrayHasKey('rag_retrieval_flow_family_count', $payload['summary']);
+        $this->assertArrayHasKey('rag_retrieval_flow_family_review_count', $payload['summary']);
+        $this->assertArrayHasKey('rag_retrieval_code_role_count', $payload['summary']);
+        $this->assertArrayHasKey('canonical_owner_exists', $payload['topic_clusters']['rag_retrieval']);
+        $this->assertArrayHasKey('source_material_doc_count', $payload['topic_clusters']['rag_retrieval']);
+        $this->assertArrayHasKey('code_subareas', $payload['topic_clusters']['rag_retrieval']);
+        $this->assertArrayHasKey('code_roles', $payload['topic_clusters']['rag_retrieval']);
+        $this->assertArrayHasKey('flow_families', $payload['topic_clusters']['rag_retrieval']);
+        $this->assertArrayHasKey('flow_family_review_queue', $payload['topic_clusters']['rag_retrieval']);
+        $graphRetrievalReview = collect($payload['topic_clusters']['rag_retrieval']['flow_family_review_queue'])->firstWhere('family', 'graph_retrieval');
+        $this->assertSame('high', $graphRetrievalReview['severity'] ?? null);
+        $this->assertArrayHasKey('current_evidence', $graphRetrievalReview);
+        $this->assertArrayHasKey('boundary_contract', $graphRetrievalReview);
+        $this->assertSame('do_not_delete; document context owner and programming adapter/runtime boundary', data_get($graphRetrievalReview, 'current_evidence.cleanup_bias'));
+        $this->assertSame('app/Services/Ai/Context/AtlasGraphRetrievalNetworkService.php', data_get($graphRetrievalReview, 'boundary_contract.owner_runtime'));
+        $this->assertSame('programming_must_not_become_second_global_graph_retrieval_owner', data_get($graphRetrievalReview, 'boundary_contract.forbidden'));
+        $this->assertIsArray($payload['critical_topic_pressure']['items']);
+        $this->assertArrayHasKey('duplicate_route_groups', $payload['code']);
+        $this->assertArrayHasKey('runtime_route_action_alias_groups', $payload['code']);
+        $this->assertArrayHasKey('route_action_alias_groups', $payload['code']);
+        $this->assertArrayHasKey('legacy_signal_groups', $payload['code']);
+        $this->assertArrayHasKey('legacy_area_groups', $payload['code']);
+        $this->assertArrayHasKey('ai_service_hotspots', $payload['code']);
+        $this->assertGreaterThan(0, data_get($payload, 'code.ai_service_hotspots.file_count'));
+        $this->assertArrayHasKey('legacy_signal_samples', $payload['code']);
+        $this->assertIsArray($payload['triage_queue']);
+        $this->assertContains('duplicate_class_name', collect($payload['triage_queue'])->pluck('kind')->all());
+        $operationEnvelope = collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:operationenvelope');
+        $this->assertSame('critical', $operationEnvelope['severity'] ?? null);
+        $this->assertSame('do_not_delete; prefer explicit naming or owner doc boundary before merge', data_get($operationEnvelope, 'current_evidence.cleanup_bias'));
+        $this->assertSame('app/Services/Ai/Kernel/Envelope/OperationEnvelope.php', data_get($operationEnvelope, 'boundary_contract.primary_runtime'));
+        $this->assertContains('app/Services/Ai/Programming/Sdd/Pipeline/OperationEnvelope.php', data_get($operationEnvelope, 'boundary_contract.specialized_variants'));
+        $this->assertSame('do_not_import_specialized_programming_envelope_as_kernel_contract_or_merge_without_adapter_plan', data_get($operationEnvelope, 'boundary_contract.forbidden'));
+        $this->assertSame(1, data_get($operationEnvelope, 'cleanup_recommendation.priority'));
+        $this->assertFalse(data_get($operationEnvelope, 'cleanup_recommendation.delete_allowed'));
+        $this->assertSame('programming_variants_only', data_get($operationEnvelope, 'cleanup_recommendation.rename_candidate'));
+        $frontmatterParser = collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:frontmatterparser');
+        $this->assertSame(2, data_get($frontmatterParser, 'cleanup_recommendation.priority'));
+        $this->assertSame('App\\Services\\Vault\\FrontmatterParser', data_get($frontmatterParser, 'cleanup_recommendation.rename_candidate'));
+        $this->assertFalse(data_get($frontmatterParser, 'cleanup_recommendation.merge_allowed_without_owner_decision'));
+        $observedSessionImport = collect($payload['triage_queue'])->firstWhere('id', 'route_action_alias:app.http.controllers.atlascodeobservedsessioncontroller@import');
+        $this->assertSame('medium', $observedSessionImport['severity'] ?? null);
+        $this->assertSame('atlas_code_observed_session_import', data_get($observedSessionImport, 'boundary_contract.canonical_owner'));
+        $this->assertSame('post:/atlas-code/works/{project}/observed-sessions/{session}/import', data_get($observedSessionImport, 'boundary_contract.primary_route'));
+        $this->assertSame('do_not_add_third_import_endpoint_or_choose_alias_without_owner_decision', data_get($observedSessionImport, 'boundary_contract.forbidden'));
+        $mobileAlias = collect($payload['triage_queue'])
+            ->where('kind', 'runtime_route_action_alias')
+            ->first(fn (array $item): bool => data_get($item, 'boundary_contract.canonical_owner') === 'base_api_controller_action');
+        $this->assertSame('low', $mobileAlias['severity'] ?? null);
+        $this->assertSame('do_not_implement_separate_mobile_business_logic_inside_same_action_without_wrapper_or_owner_doc', data_get($mobileAlias, 'boundary_contract.forbidden'));
+        $this->assertContains($payload['status'], ['ready', 'blocked']);
+    }
+
+    public function test_status_drift_audit_surfaces_doc_status_pressure_without_mutating_docs(): void
+    {
+        $payload = app(AtlasCodeRealityUsageIntelligenceService::class)->statusDriftAudit();
+
+        $this->assertSame(AtlasCodeRealityUsageIntelligenceService::STATUS_DRIFT_AUDIT_SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('status-drift-audit', $payload['action']);
+        $this->assertFalse($payload['writes']);
+        $this->assertFalse($payload['claim_policy']['deletes_files']);
+        $this->assertFalse($payload['claim_policy']['declares_doc_wrong_automatically']);
+        $this->assertTrue($payload['claim_policy']['requires_owner_review_before_status_change']);
+        $this->assertGreaterThan(0, data_get($payload, 'summary.canonical_doc_count'));
+        $this->assertArrayHasKey('status_counts', $payload['summary']);
+        $this->assertArrayHasKey('owner_group_count', $payload['summary']);
+        $this->assertArrayHasKey('doc_area_group_count', $payload['summary']);
+        $this->assertArrayHasKey('planned_or_future_with_existing_code_count', $payload['summary']);
+        $this->assertArrayHasKey('planned_future_boundary_explained_count', $payload['summary']);
+        $this->assertArrayHasKey('scaffold_language_with_existing_code_count', $payload['summary']);
+        $this->assertIsArray($payload['owner_groups']);
+        $this->assertIsArray($payload['doc_area_groups']);
+        $this->assertGreaterThan(0, data_get($payload, 'owner_groups.0.count'));
+        $this->assertArrayHasKey('samples', $payload['owner_groups'][0]);
+        $this->assertIsArray($payload['review_items']);
+        $rivalsLedger = collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-forge-rivals-intelligence-ledger-v1');
+        $this->assertSame('planned_next_layer_over_existing_provider_performance_ledger', data_get($rivalsLedger, 'boundary_contract.classification'));
+        $this->assertSame('do_not_treat_existing_forge_rivals_ledger_services_as_intelligence_ledger_v1_complete', data_get($rivalsLedger, 'boundary_contract.forbidden'));
+        $this->assertContains($payload['status'], ['ready', 'review']);
     }
 
     public function test_cli_actions_emit_json(): void
@@ -175,5 +286,25 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             $this->assertSame('ready', $payload['status']);
             $this->assertFalse($payload['writes']);
         }
+
+        $exit = Artisan::call('atlas:code-reality', [
+            'action' => 'global-duplication-audit',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(AtlasCodeRealityUsageIntelligenceService::GLOBAL_DUPLICATION_AUDIT_SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertFalse($payload['writes']);
+
+        $exit = Artisan::call('atlas:code-reality', [
+            'action' => 'status-drift-audit',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(AtlasCodeRealityUsageIntelligenceService::STATUS_DRIFT_AUDIT_SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertFalse($payload['writes']);
     }
 }

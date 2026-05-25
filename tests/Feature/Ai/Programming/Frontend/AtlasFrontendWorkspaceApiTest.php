@@ -170,6 +170,72 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
             ->assertJsonPath('meta.space_runtime_required', false);
     }
 
+    public function test_control_plane_api_summarizes_market_and_public_proof_without_returning_paths(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-control-plane-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        $bundle = $repo.'/.atlas/frontend-evidence/apps-web/product-proof';
+        $rivalEvidence = $repo.'/.atlas/frontend-evidence/apps-web/rival-replay';
+
+        File::ensureDirectoryExists($repo.'/apps/web/src/components/ui');
+        File::ensureDirectoryExists($repo.'/apps/web/src/pages');
+        File::put($repo.'/apps/web/package.json', json_encode([
+            'scripts' => ['dev' => 'vite', 'test' => 'vitest run', 'build' => 'vite build'],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest', 'tailwindcss' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+        File::put($repo.'/apps/web/src/pages/Dashboard.tsx', 'export function Dashboard() { return <main />; }');
+        File::put($repo.'/apps/web/src/components/ui/Button.tsx', 'export function Button() { return <button className="bg-primary text-white" />; }');
+        File::put($repo.'/apps/web/src/styles.css', ':root { --color-primary: #123456; --space-2: 8px; }');
+        $this->fillDesignDocs($repo);
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle, 'apps/web');
+        app(AtlasFrontendRivalReplayHarnessService::class)->writeRunnerKit($rivalEvidence);
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/control-plane', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Avaliar readiness Atlas Frontend',
+            'acceptance_criteria' => true,
+            'test_plan' => true,
+            'visual_quality_plan' => true,
+            'evidence_plan' => true,
+            'senior_design_review' => true,
+            'asset_context' => true,
+            'company_profile_ready' => true,
+            'rival_evidence' => $rivalEvidence,
+            'bundle' => $bundle,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.control_plane.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_control_plane')
+            ->assertJsonPath('control_plane.schema_version', 'atlas.frontend.control_plane.v1')
+            ->assertJsonPath('control_plane.status', 'warning')
+            ->assertJsonPath('control_plane.input_scope.frontend_app_hash', hash('sha256', 'apps/web'))
+            ->assertJsonPath('control_plane.readiness_levels.runtime_contract_ready', true)
+            ->assertJsonPath('control_plane.readiness_levels.external_replay_ready', false)
+            ->assertJsonPath('control_plane.readiness_levels.public_distribution_ready', false)
+            ->assertJsonPath('control_plane.claim_policy.may_claim_more_complete_than_impeccable', true)
+            ->assertJsonPath('control_plane.claim_policy.world_best_claim_allowed', false)
+            ->assertJsonPath('control_plane.claim_policy.documentation_only_claim_forbidden', true)
+            ->assertJsonPath('control_plane.signals.rival_replay.status', 'ready_for_replay')
+            ->assertJsonPath('control_plane.signals.publication.status', 'local_ready')
+            ->assertJsonPath('meta.provider_dispatch_performed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $payload = $response->json();
+        $this->assertContains('external_rival_replay_not_completed', data_get($payload, 'control_plane.warnings'));
+        $this->assertContains('public_distribution_receipt_not_verified', data_get($payload, 'control_plane.warnings'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'control_plane.control_plane_hash'));
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($bundle, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($rivalEvidence, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
     public function test_prepare_evidence_api_writes_templates_and_provider_packet_without_returning_paths(): void
     {
         $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-prepare-'.bin2hex(random_bytes(4));
@@ -384,6 +450,272 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
         $payload = $response->json();
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'delivery_handoff.handoff_hash'));
         $this->assertStringNotContainsString($dir, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_prepare_rival_replay_api_writes_operator_packet_without_returning_paths(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-rival-replay-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        $output = $repo.'/.atlas/frontend-evidence/apps-web/rival-replay';
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/prepare-rival-replay', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Provar superioridade contra Impeccable e Claude Design',
+            'output' => $output,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.prepare_rival_replay.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_rival_replay_preparation')
+            ->assertJsonPath('rival_replay_preparation.schema_version', 'atlas.frontend.workspace_rival_replay_preparation.v1')
+            ->assertJsonPath('rival_replay_preparation.status', 'ready_for_external_rival_replay')
+            ->assertJsonPath('rival_replay_preparation.runner_kit_schema_version', 'atlas.frontend.rival_replay_runner_kit.v1')
+            ->assertJsonPath('rival_replay_preparation.worklist_schema_version', 'atlas.frontend.rival_replay_evidence_worklist.v1')
+            ->assertJsonPath('rival_replay_preparation.proof_contract_schema_version', 'atlas.frontend.rival_replay_competitive_proof_contract_file.v1')
+            ->assertJsonPath('rival_replay_preparation.operator_packet_schema_version', 'atlas.frontend.rival_replay_operator_packet.v1')
+            ->assertJsonPath('rival_replay_preparation.operator_packet_status', 'ready_for_external_operator_replay')
+            ->assertJsonPath('rival_replay_preparation.operator_packet_verification_schema_version', 'atlas.frontend.rival_replay_operator_packet_verification.v1')
+            ->assertJsonPath('rival_replay_preparation.operator_packet_verification_status', 'passed')
+            ->assertJsonPath('rival_replay_preparation.external_operator_run_count', 10)
+            ->assertJsonPath('rival_replay_preparation.run_packet_count', 15)
+            ->assertJsonPath('rival_replay_preparation.action_queue.schema_version', 'atlas.frontend.rival_replay_evidence_worklist.v1')
+            ->assertJsonPath('rival_replay_preparation.action_queue.status', 'pending')
+            ->assertJsonPath('rival_replay_preparation.action_queue.work_item_count', 15)
+            ->assertJsonPath('rival_replay_preparation.action_queue.work_items.0.requires_evidence_pack', true)
+            ->assertJsonPath('rival_replay_preparation.action_queue.raw_absolute_path_returned', false)
+            ->assertJsonPath('rival_replay_preparation.claim_policy.runner_kit_is_not_replay_evidence', true)
+            ->assertJsonPath('rival_replay_preparation.claim_policy.operator_packet_is_not_replay_evidence', true)
+            ->assertJsonPath('rival_replay_preparation.claim_policy.operator_packet_verification_is_not_replay_evidence', true)
+            ->assertJsonPath('rival_replay_preparation.claim_policy.external_rival_replay_receipts_required', true)
+            ->assertJsonPath('rival_replay_preparation.claim_policy.raw_absolute_path_returned', false)
+            ->assertJsonPath('rival_replay_preparation.claim_policy.world_best_claim_allowed', false)
+            ->assertJsonPath('meta.provider_dispatch_performed', false)
+            ->assertJsonPath('meta.frontend_completion_claim_allowed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $this->assertFileExists($output.'/replay-runner-kit.json');
+        $this->assertFileExists($output.'/replay-evidence-worklist.json');
+        $this->assertFileExists($output.'/replay-competitive-proof-contract.json');
+        $this->assertFileExists($output.'/replay-operator-packet.json');
+        $this->assertFileExists($output.'/saas_dashboard_repair/task-spec.json');
+        $this->assertFileExists($output.'/saas_dashboard_repair/pbakaus_impeccable/manifest.json');
+        $this->assertFileExists($output.'/saas_dashboard_repair/pbakaus_impeccable/evidence/evidence-pack.json');
+
+        $payload = $response->json();
+        $this->assertContains('pbakaus_impeccable', data_get($payload, 'rival_replay_preparation.system_ids'));
+        $this->assertContains('claude_design_plugin', data_get($payload, 'rival_replay_preparation.system_ids'));
+        $this->assertContains('open_replay_operator_packet', data_get($payload, 'rival_replay_preparation.required_next_actions'));
+        $this->assertContains('fill_and_hash_missing_rival_replay_evidence_packs', data_get($payload, 'rival_replay_preparation.action_queue.next_actions'));
+        $this->assertContains('external_rival_replay_receipts_missing', data_get($payload, 'rival_replay_preparation.blockers'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'rival_replay_preparation.proof_contract_file_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'rival_replay_preparation.operator_packet_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'rival_replay_preparation.operator_packet_verification_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'rival_replay_preparation.rival_replay_preparation_hash'));
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($output, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_inspect_rival_replay_api_summarizes_external_replay_without_returning_paths(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-rival-inspect-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        $output = $repo.'/.atlas/frontend-evidence/apps-web/rival-replay';
+
+        app(AtlasFrontendRivalReplayHarnessService::class)->writeRunnerKit($output);
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/inspect-rival-replay', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Inspecionar replay competitivo',
+            'evidence' => $output,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.inspect_rival_replay.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_rival_replay_inspection')
+            ->assertJsonPath('rival_replay_inspection.schema_version', 'atlas.frontend.workspace_rival_replay_inspection.v1')
+            ->assertJsonPath('rival_replay_inspection.status', 'ready_for_replay')
+            ->assertJsonPath('rival_replay_inspection.summary.total_runs', 15)
+            ->assertJsonPath('rival_replay_inspection.summary.external_replay_completed', false)
+            ->assertJsonPath('rival_replay_inspection.action_queue.schema_version', 'atlas.frontend.rival_replay_evidence_worklist.v1')
+            ->assertJsonPath('rival_replay_inspection.action_queue.status', 'pending')
+            ->assertJsonPath('rival_replay_inspection.action_queue.work_item_count', 15)
+            ->assertJsonPath('rival_replay_inspection.action_queue.work_items.0.requires_evidence_pack', true)
+            ->assertJsonPath('rival_replay_inspection.action_queue.raw_absolute_path_returned', false)
+            ->assertJsonPath('rival_replay_inspection.competitive_proof_contract.schema_version', 'atlas.frontend.rival_replay_competitive_proof_contract.v1')
+            ->assertJsonPath('rival_replay_inspection.competitive_proof_contract.status', 'evidence_packs_required')
+            ->assertJsonPath('rival_replay_inspection.competitive_proof_contract.claim_policy.may_claim_world_best_frontend_system', false)
+            ->assertJsonPath('rival_replay_inspection.claim_policy.may_claim_external_replay_completed', false)
+            ->assertJsonPath('rival_replay_inspection.claim_policy.may_claim_world_best_frontend_system', false)
+            ->assertJsonPath('rival_replay_inspection.claim_policy.raw_absolute_path_returned', false)
+            ->assertJsonPath('rival_replay_inspection.claim_policy.space_runtime_required', false)
+            ->assertJsonPath('meta.provider_dispatch_performed', false)
+            ->assertJsonPath('meta.frontend_completion_claim_allowed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $payload = $response->json();
+        $this->assertCount(15, data_get($payload, 'rival_replay_inspection.runs'));
+        $this->assertCount(15, data_get($payload, 'rival_replay_inspection.action_queue.work_items'));
+        $this->assertContains('fill_and_hash_missing_rival_replay_evidence_packs', data_get($payload, 'rival_replay_inspection.action_queue.next_actions'));
+        $this->assertContains('fill_and_hash_missing_rival_replay_evidence_packs', data_get($payload, 'rival_replay_inspection.competitive_proof_contract.next_minimum_actions'));
+        $this->assertContains('external_rival_replay_artifacts_required_for_world_best_claim', data_get($payload, 'rival_replay_inspection.remaining_gaps'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'rival_replay_inspection.rival_replay_inspection_hash'));
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($output, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_proof_bundle_api_writes_safe_competitive_index_without_returning_paths(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-proof-bundle-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        $output = $repo.'/.atlas/frontend-evidence/apps-web/rival-replay';
+
+        app(AtlasFrontendRivalReplayHarnessService::class)->writeRunnerKit($output);
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/proof-bundle', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Compilar proof bundle competitivo',
+            'evidence' => $output,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.proof_bundle.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_competitive_proof_bundle')
+            ->assertJsonPath('rival_replay_proof_bundle.schema_version', 'atlas.frontend.workspace_competitive_proof_bundle.v1')
+            ->assertJsonPath('rival_replay_proof_bundle.status', 'pending_external_replay_evidence')
+            ->assertJsonPath('rival_replay_proof_bundle.proof_bundle_schema_version', 'atlas.frontend.rival_replay_competitive_proof_bundle.v1')
+            ->assertJsonPath('rival_replay_proof_bundle.operator_packet_verification_status', 'passed')
+            ->assertJsonPath('rival_replay_proof_bundle.run_manifest_count', 15)
+            ->assertJsonPath('rival_replay_proof_bundle.artifact_refs.proof_bundle.relative_name', 'rival-replay/replay-competitive-proof-bundle.json')
+            ->assertJsonPath('rival_replay_proof_bundle.claim_policy.proof_bundle_is_not_raw_artifact_storage', true)
+            ->assertJsonPath('rival_replay_proof_bundle.claim_policy.external_provider_dispatch_performed', false)
+            ->assertJsonPath('rival_replay_proof_bundle.claim_policy.may_claim_world_best_frontend_system', false)
+            ->assertJsonPath('rival_replay_proof_bundle.claim_policy.public_distribution_receipt_still_required_for_product_claim', true)
+            ->assertJsonPath('rival_replay_proof_bundle.claim_policy.raw_absolute_path_returned', false)
+            ->assertJsonPath('rival_replay_proof_bundle.claim_policy.space_runtime_required', false)
+            ->assertJsonPath('meta.provider_dispatch_performed', false)
+            ->assertJsonPath('meta.frontend_completion_claim_allowed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $this->assertFileExists($output.'/replay-competitive-proof-bundle.json');
+
+        $payload = $response->json();
+        $this->assertContains('fill_and_hash_missing_rival_replay_evidence_packs', data_get($payload, 'rival_replay_proof_bundle.required_next_actions'));
+        $this->assertContains('external_rival_replay_receipts_or_decisive_lead_missing', data_get($payload, 'rival_replay_proof_bundle.blockers'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'rival_replay_proof_bundle.proof_bundle_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'rival_replay_proof_bundle.competitive_proof_bundle_hash'));
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($output, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_publication_receipt_template_api_writes_operator_template_without_returning_paths(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-publication-template-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        $bundle = $repo.'/.atlas/frontend-evidence/apps-web/product-proof';
+        $output = $repo.'/.atlas/frontend-evidence/apps-web';
+
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle, 'apps/web');
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/publication-receipt-template', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Gerar receipt publico',
+            'bundle' => $bundle,
+            'output' => $output,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.publication_receipt_template.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_publication_receipt_template')
+            ->assertJsonPath('publication_receipt_template.schema_version', 'atlas.frontend.workspace_publication_receipt_template.v1')
+            ->assertJsonPath('publication_receipt_template.status', 'ready')
+            ->assertJsonPath('publication_receipt_template.template_schema_version', 'atlas.frontend.publication_receipt_template.v1')
+            ->assertJsonPath('publication_receipt_template.bundle_context.prefilled_from_bundle', true)
+            ->assertJsonPath('publication_receipt_template.artifact_refs.publication_receipt.relative_name', 'publication-receipt.json')
+            ->assertJsonPath('publication_receipt_template.claim_policy.template_is_not_public_verification', true)
+            ->assertJsonPath('publication_receipt_template.claim_policy.raw_absolute_path_returned', false)
+            ->assertJsonPath('publication_receipt_template.claim_policy.space_runtime_required', false)
+            ->assertJsonPath('meta.provider_dispatch_performed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $this->assertFileExists($output.'/publication-receipt.json');
+
+        $payload = $response->json();
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'publication_receipt_template.template_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'publication_receipt_template.publication_receipt_template_hash'));
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($bundle, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($output, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_publication_verify_api_reports_public_distribution_gate_without_returning_paths(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-publication-verify-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        $bundle = $repo.'/.atlas/frontend-evidence/apps-web/product-proof';
+
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle, 'apps/web');
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/publication-verify', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Verificar publicacao',
+            'bundle' => $bundle,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.publication_verify.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_publication_verification')
+            ->assertJsonPath('publication_verification.schema_version', 'atlas.frontend.workspace_publication_verification.v1')
+            ->assertJsonPath('publication_verification.status', 'local_ready')
+            ->assertJsonPath('publication_verification.publication_schema_version', 'atlas.frontend.publication_verifier.v1')
+            ->assertJsonPath('publication_verification.frontend_app_scope.status', 'subscope_selected')
+            ->assertJsonPath('publication_verification.product_site_assets.schema_version', 'atlas.frontend.product_proof_site_assets.v1')
+            ->assertJsonPath('publication_verification.public_receipt_status', 'missing')
+            ->assertJsonPath('publication_verification.claim_policy.local_bundle_claim_allowed', true)
+            ->assertJsonPath('publication_verification.claim_policy.public_distribution_claim_allowed', false)
+            ->assertJsonPath('publication_verification.claim_policy.public_distribution_requires_verified_receipt', true)
+            ->assertJsonPath('publication_verification.claim_policy.raw_absolute_path_returned', false)
+            ->assertJsonPath('publication_verification.claim_policy.space_runtime_required', false)
+            ->assertJsonPath('meta.customer_handoff_allowed', false)
+            ->assertJsonPath('meta.provider_dispatch_performed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $payload = $response->json();
+        $this->assertContains('fill_operator_approved_publication_receipt', data_get($payload, 'publication_verification.required_next_actions'));
+        $this->assertContains('public_receipt_missing', data_get($payload, 'publication_verification.warnings'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'publication_verification.publication_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'publication_verification.publication_verification_hash'));
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($bundle, json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
     private function frontendRepo(string $root, string $name): string

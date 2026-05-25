@@ -191,6 +191,7 @@ Comando alvo:
 php artisan atlas:code-reality classify --target="<path|symbol|feature>" --json
 php artisan atlas:code-reality usage-map --target="<feature>" --json
 php artisan atlas:code-reality reality-audit --json
+php artisan atlas:code-reality global-duplication-audit --json
 php artisan atlas:code-reality reachability --target="<target>" --json
 php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json
 php artisan atlas:code-reality deletion-preflight --target="<target>" --json
@@ -205,6 +206,7 @@ task
 -> session-bootstrap
 -> feature-placement
 -> ACRUI anti-duplicate
+-> ACRUI global-duplication-audit quando a tarefa mexe em docs/codigo/fluxos amplos
 -> ACRUI usage-map
 -> owner docs + live code + tests
 -> implementation
@@ -278,8 +280,13 @@ O grafo separa sinais por `routes`, `commands`, `tests`, `owner_docs`,
 `high|medium|low|review_required|none`. Isso ainda e read-only e nao autoriza
 delete.
 
-`reality-audit` audita o cluster ADRS/ACRUI/AURC. `deletion-preflight` nunca
-autoriza delecao; ele retorna decisao, provas e sequencia obrigatoria de
+`reality-audit` audita o cluster ADRS/ACRUI/AURC. `global-duplication-audit`
+varre docs, classes PHP, comandos Artisan, rotas estaticas, rotas registradas,
+sinais de legado/scaffold e clusters criticos para listar candidatos globais de
+duplicacao. Ele emite `triage_queue` com severidade e proximos comandos; e
+read-only, pode retornar `blocked` quando ha candidatos reais, nao autoriza
+delecao e nao prova "duplicacao zero". `deletion-preflight` nunca autoriza
+delecao; ele retorna decisao, provas e sequencia obrigatoria de
 quarentena/aprovacao humana.
 ### Bloco 3 - Usage Evidence Correlator
 Cruza alvo com:

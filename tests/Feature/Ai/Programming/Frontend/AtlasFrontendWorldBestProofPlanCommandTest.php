@@ -20,6 +20,9 @@ class AtlasFrontendWorldBestProofPlanCommandTest extends TestCase
         $this->assertStringContainsString(AtlasFrontendWorldBestProofPlanService::SCHEMA_VERSION, $output);
         $this->assertStringContainsString('external_rival_replay', $output);
         $this->assertStringContainsString('world_best_claim_allowed', $output);
+        $this->assertStringContainsString('operator_packet_verification', $output);
+        $this->assertStringContainsString('generate_and_verify_rival_replay_operator_packet', $output);
+        $this->assertStringContainsString('operator-packet-verify', $output);
         $this->assertStringContainsString('generate_rival_replay_runner_kit', $output);
         $this->assertStringContainsString('runner-kit', $output);
         $this->assertStringContainsString('complete_external_rival_replay_manifests', $output);

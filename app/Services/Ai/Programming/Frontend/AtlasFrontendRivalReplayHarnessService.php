@@ -18,6 +18,14 @@ final class AtlasFrontendRivalReplayHarnessService
 
     public const EVIDENCE_WORKLIST_SCHEMA_VERSION = 'atlas.frontend.rival_replay_evidence_worklist.v1';
 
+    public const PROOF_CONTRACT_FILE_SCHEMA_VERSION = 'atlas.frontend.rival_replay_competitive_proof_contract_file.v1';
+
+    public const OPERATOR_PACKET_SCHEMA_VERSION = 'atlas.frontend.rival_replay_operator_packet.v1';
+
+    public const OPERATOR_PACKET_VERIFICATION_SCHEMA_VERSION = 'atlas.frontend.rival_replay_operator_packet_verification.v1';
+
+    public const PROOF_BUNDLE_SCHEMA_VERSION = 'atlas.frontend.rival_replay_competitive_proof_bundle.v1';
+
     public const EXTERNAL_EXECUTION_RECEIPT_SCHEMA_VERSION = 'atlas.frontend.rival_replay.external_execution_receipt.v1';
 
     public const EXTERNAL_EXECUTION_RECEIPT_TEMPLATE_SCHEMA_VERSION = 'atlas.frontend.rival_replay.external_execution_receipt_template.v1';
@@ -25,6 +33,8 @@ final class AtlasFrontendRivalReplayHarnessService
     public const SCORE_ATTESTATION_SCHEMA_VERSION = 'atlas.frontend.rival_replay.score_attestation.v1';
 
     public const SCORE_ATTESTATION_TEMPLATE_SCHEMA_VERSION = 'atlas.frontend.rival_replay.score_attestation_template.v1';
+
+    public const MANIFEST_PATCH_APPLICATION_SCHEMA_VERSION = 'atlas.frontend.rival_replay.manifest_patch_application.v1';
 
     public const DECISIVE_LEAD_MINIMUM_POINTS = 2;
 
@@ -78,6 +88,14 @@ final class AtlasFrontendRivalReplayHarnessService
             'fairness' => $fairness,
             'evidence_pack_readiness' => $evidencePackReadiness,
             'competitive_diagnostics' => $competitiveDiagnostics,
+            'competitive_proof_contract' => $this->competitiveProofContract(
+                $allRunsCompleted,
+                $externalReplayCompleted,
+                $atlasWinsAllCompleteCases,
+                $evidencePackReadiness,
+                $fairness,
+                $competitiveDiagnostics,
+            ),
             'summary' => [
                 'total_runs' => count($runs),
                 'complete' => $complete,
@@ -166,6 +184,103 @@ final class AtlasFrontendRivalReplayHarnessService
             'required_artifact_kinds' => app(AtlasFrontendEvidencePackVerifierService::class)->requiredArtifactKinds(),
             'packs' => $packs,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidencePackReadiness
+     * @param  array<string,mixed>  $fairness
+     * @param  array<string,mixed>  $competitiveDiagnostics
+     * @return array<string,mixed>
+     */
+    private function competitiveProofContract(
+        bool $allRunsCompleted,
+        bool $externalReplayCompleted,
+        bool $atlasWinsAllCompleteCases,
+        array $evidencePackReadiness,
+        array $fairness,
+        array $competitiveDiagnostics,
+    ): array {
+        $evidenceReady = ($evidencePackReadiness['status'] ?? null) === 'ready';
+        $fairnessPassed = ($fairness['status'] ?? null) === 'passed';
+        $diagnosticsStatus = (string) ($competitiveDiagnostics['status'] ?? 'pending_replay');
+        $worldBestReady = $allRunsCompleted
+            && $externalReplayCompleted
+            && $evidenceReady
+            && $fairnessPassed
+            && $atlasWinsAllCompleteCases
+            && $diagnosticsStatus === 'atlas_leads_all_complete_cases';
+
+        $nextActions = [];
+        if (! $evidenceReady) {
+            $nextActions[] = 'fill_and_hash_missing_rival_replay_evidence_packs';
+        }
+        if (! $externalReplayCompleted) {
+            $nextActions[] = 'run_external_rivals_against_unchanged_task_specs';
+            $nextActions[] = 'embed_verified_external_execution_receipts';
+        }
+        if (! $fairnessPassed) {
+            $nextActions[] = 'restore_same_task_spec_hash_across_all_systems_per_case';
+        }
+        if (! $allRunsCompleted) {
+            $nextActions[] = 'complete_all_replay_manifests_with_verified_hash_refs';
+        }
+        if ($allRunsCompleted && ! $atlasWinsAllCompleteCases) {
+            $nextActions = array_merge(
+                $nextActions,
+                collect((array) ($competitiveDiagnostics['cases'] ?? []))
+                    ->filter(fn (mixed $case): bool => is_array($case) && ($case['status'] ?? null) !== 'atlas_leads')
+                    ->map(fn (array $case): string => (string) ($case['next_action'] ?? 'improve_atlas_frontend_case_until_decisive_lead'))
+                    ->filter()
+                    ->values()
+                    ->all(),
+            );
+        }
+        if ($worldBestReady) {
+            $nextActions[] = 'preserve_verified_replay_evidence_and_publish_world_best_proof_packet';
+        }
+
+        $repairCommands = collect((array) ($competitiveDiagnostics['cases'] ?? []))
+            ->flatMap(fn (mixed $case): array => is_array($case) ? (array) ($case['recommended_repair_plan_commands'] ?? []) : [])
+            ->filter(fn (mixed $command): bool => is_string($command) && $command !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        $contract = [
+            'schema_version' => 'atlas.frontend.rival_replay_competitive_proof_contract.v1',
+            'status' => match (true) {
+                $worldBestReady => 'world_best_proof_ready',
+                ! $evidenceReady => 'evidence_packs_required',
+                ! $externalReplayCompleted => 'external_replay_receipts_required',
+                ! $fairnessPassed => 'fairness_repair_required',
+                ! $allRunsCompleted => 'run_manifests_required',
+                default => 'atlas_improvement_required',
+            },
+            'gates' => [
+                'evidence_packs_verified' => $evidenceReady,
+                'external_rival_execution_receipts_verified' => $externalReplayCompleted,
+                'same_task_spec_hash_fairness_passed' => $fairnessPassed,
+                'all_run_manifests_complete' => $allRunsCompleted,
+                'atlas_decisively_leads_every_case' => $atlasWinsAllCompleteCases,
+                'no_dimension_gaps_against_best_rival' => ((int) ($competitiveDiagnostics['dimension_gap_case_count'] ?? 0)) === 0,
+            ],
+            'minimum_decisive_lead_points' => self::DECISIVE_LEAD_MINIMUM_POINTS,
+            'diagnostics_status' => $diagnosticsStatus,
+            'next_minimum_actions' => array_values(array_unique($nextActions)),
+            'recommended_repair_plan_commands' => $repairCommands,
+            'claim_policy' => [
+                'contract_is_a_proof_index_not_the_artifacts' => true,
+                'may_claim_external_replay_completed' => $externalReplayCompleted,
+                'may_claim_world_best_frontend_system' => $worldBestReady,
+                'world_best_requires_verified_evidence_pack_for_every_run' => true,
+                'world_best_requires_verified_external_receipt_for_every_external_rival_run' => true,
+                'world_best_requires_decisive_lead_and_no_dimension_gaps' => true,
+                'documentation_only_claim_forbidden' => true,
+            ],
+        ];
+        $contract['proof_contract_hash'] = MissionCanonicalHash::sha256($contract);
+
+        return $contract;
     }
 
     /**
@@ -309,6 +424,290 @@ final class AtlasFrontendRivalReplayHarnessService
         $directory = $this->evidenceDirectory($evidenceDirectory);
         $target = $this->worklistOutputPath($directory, $outputPath);
         $payload = $this->evidenceWorklist($directory, $target);
+        File::ensureDirectoryExists(dirname($target));
+        File::put($target, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function writeCompetitiveProofContract(string $evidenceDirectory, ?string $outputPath = null): array
+    {
+        $directory = $this->evidenceDirectory($evidenceDirectory);
+        $target = $this->proofContractOutputPath($directory, $outputPath);
+        $inspect = $this->inspect($directory);
+        $contract = (array) ($inspect['competitive_proof_contract'] ?? []);
+        $payload = [
+            'schema_version' => self::PROOF_CONTRACT_FILE_SCHEMA_VERSION,
+            'status' => (string) ($contract['status'] ?? 'unknown'),
+            'file_type' => 'competitive_proof_contract_receipt',
+            'source' => self::class,
+            'evidence_directory_hash' => hash('sha256', $directory),
+            'replay_hash' => $inspect['replay_hash'] ?? null,
+            'competitive_proof_contract' => $contract,
+            'summary' => [
+                'total_runs' => data_get($inspect, 'summary.total_runs'),
+                'external_replay_completed' => (bool) data_get($inspect, 'summary.external_replay_completed'),
+                'evidence_pack_status' => data_get($inspect, 'evidence_pack_readiness.status'),
+                'competitive_diagnostics_status' => data_get($inspect, 'competitive_diagnostics.status'),
+            ],
+            'output_ref_hash' => hash('sha256', $target),
+            'write_performed' => true,
+            'claim_policy' => [
+                'proof_contract_file_is_not_the_underlying_evidence' => true,
+                'world_best_claim_allowed' => (bool) data_get($contract, 'claim_policy.may_claim_world_best_frontend_system'),
+                'raw_prompts_customer_source_tokens_or_cookies_forbidden' => true,
+            ],
+        ];
+        $payload['proof_contract_file_hash'] = MissionCanonicalHash::sha256($payload);
+
+        File::ensureDirectoryExists(dirname($target));
+        File::put($target, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function writeOperatorPacket(string $evidenceDirectory, ?string $outputPath = null): array
+    {
+        $directory = $this->evidenceDirectory($evidenceDirectory);
+        $runnerKit = $this->writeRunnerKit($directory);
+        $worklist = $this->writeEvidenceWorklist($directory);
+        $proofContractFile = $this->writeCompetitiveProofContract($directory);
+        $target = $this->operatorPacketOutputPath($directory, $outputPath);
+        $evidenceArg = '${ATLAS_FRONTEND_REPLAY_EVIDENCE}';
+        $externalRunPackets = collect((array) ($runnerKit['run_packets'] ?? []))
+            ->filter(fn (mixed $packet): bool => is_array($packet) && ($packet['system_kind'] ?? null) === 'external_rival')
+            ->map(fn (array $packet): array => [
+                'id' => (string) ($packet['id'] ?? ''),
+                'case_id' => (string) ($packet['case_id'] ?? ''),
+                'system' => (string) ($packet['system'] ?? ''),
+                'task_spec_ref' => (string) ($packet['task_spec_ref'] ?? ''),
+                'manifest_ref' => (string) ($packet['manifest_ref'] ?? ''),
+                'evidence_pack_ref' => (string) ($packet['evidence_pack_ref'] ?? ''),
+                'run_packet_hash' => (string) ($packet['run_packet_hash'] ?? ''),
+                'execution_steps' => array_values(array_filter((array) ($packet['execution_steps'] ?? []), 'is_string')),
+                'evidence_checklist' => array_values(array_filter((array) ($packet['evidence_checklist'] ?? []), 'is_string')),
+                'commands' => [
+                    'external_receipt_template' => 'php artisan atlas:frontend:replay external-receipt-template --evidence='.$evidenceArg.' --case='.(string) ($packet['case_id'] ?? '').' --system='.(string) ($packet['system'] ?? '').' --json',
+                    'score_template' => 'php artisan atlas:frontend:replay score-template --evidence='.$evidenceArg.' --case='.(string) ($packet['case_id'] ?? '').' --system='.(string) ($packet['system'] ?? '').' --json',
+                ],
+            ])
+            ->values()
+            ->all();
+        $proofContract = (array) ($proofContractFile['competitive_proof_contract'] ?? []);
+
+        $payload = [
+            'schema_version' => self::OPERATOR_PACKET_SCHEMA_VERSION,
+            'status' => data_get($proofContract, 'claim_policy.may_claim_world_best_frontend_system') === true
+                ? 'world_best_proof_ready'
+                : 'ready_for_external_operator_replay',
+            'packet_type' => 'external_rival_replay_operator_execution_packet',
+            'source' => self::class,
+            'evidence_directory_hash' => hash('sha256', $directory),
+            'runner_kit_hash' => $runnerKit['runner_kit_hash'] ?? null,
+            'worklist_hash' => $worklist['worklist_hash'] ?? null,
+            'proof_contract_file_hash' => $proofContractFile['proof_contract_file_hash'] ?? null,
+            'external_run_count' => count($externalRunPackets),
+            'external_runs' => $externalRunPackets,
+            'execution_environment' => [
+                'required_env' => [
+                    'ATLAS_FRONTEND_REPLAY_EVIDENCE' => 'absolute local path to the prepared rival replay evidence directory',
+                ],
+                'raw_absolute_path_embedded' => false,
+                'evidence_directory_hash_only' => true,
+            ],
+            'operator_sequence' => [
+                'export ATLAS_FRONTEND_REPLAY_EVIDENCE_to_the_local_replay_directory',
+                'run_or_review_each_external_system_against_task_spec_ref',
+                'capture_artifacts_and_fill_evidence_pack_hashes',
+                'run_external_receipt_template_for_each_external_run',
+                'run_score_template_for_each_run_after_rubric_review',
+                'embed_verified_manifest_patches',
+                'rerun_replay_inspect_and_proof_contract',
+            ],
+            'commands' => [
+                'refresh_runner_kit' => 'php artisan atlas:frontend:replay runner-kit --output='.$evidenceArg.' --json',
+                'refresh_worklist' => 'php artisan atlas:frontend:replay evidence-worklist --evidence='.$evidenceArg.' --json',
+                'refresh_proof_contract' => 'php artisan atlas:frontend:replay proof-contract --evidence='.$evidenceArg.' --json',
+                'inspect' => 'php artisan atlas:frontend:replay inspect --evidence='.$evidenceArg.' --json',
+                'world_best_plan' => 'php artisan atlas:frontend:world-best-plan --rival-evidence='.$evidenceArg.' --json --strict',
+            ],
+            'claim_policy' => [
+                'operator_packet_is_not_replay_evidence' => true,
+                'external_provider_dispatch_not_performed_by_atlas' => true,
+                'world_best_claim_allowed' => (bool) data_get($proofContract, 'claim_policy.may_claim_world_best_frontend_system'),
+                'raw_prompts_customer_source_tokens_or_cookies_forbidden' => true,
+                'raw_absolute_path_embedded' => false,
+            ],
+        ];
+        $payload['operator_packet_hash'] = MissionCanonicalHash::sha256($payload);
+
+        File::ensureDirectoryExists(dirname($target));
+        File::put($target, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function verifyOperatorPacket(string $evidenceDirectory, ?string $packetPath = null): array
+    {
+        $directory = $this->evidenceDirectory($evidenceDirectory);
+        $target = $this->operatorPacketOutputPath($directory, $packetPath);
+        $blockers = [];
+        $warnings = [];
+
+        $packet = $this->readJsonFile($target);
+        if ($packet === null) {
+            $blockers[] = 'operator_packet_missing';
+            $packet = [];
+        }
+
+        $runnerKitPath = $directory.'/replay-runner-kit.json';
+        $worklistPath = $directory.'/replay-evidence-worklist.json';
+        $proofContractPath = $directory.'/replay-competitive-proof-contract.json';
+        $runnerKit = $this->readJsonFile($runnerKitPath) ?? [];
+        $worklist = $this->readJsonFile($worklistPath) ?? [];
+        $proofContract = $this->readJsonFile($proofContractPath) ?? [];
+
+        $checks = [
+            'operator_packet_present' => $packet !== [],
+            'schema_version_valid' => ($packet['schema_version'] ?? null) === self::OPERATOR_PACKET_SCHEMA_VERSION,
+            'operator_packet_hash_valid' => $packet !== [] && $this->embeddedHashMatches($packet, 'operator_packet_hash'),
+            'runner_kit_hash_matches' => $this->referencedHashMatches($packet, 'runner_kit_hash', $runnerKit, 'runner_kit_hash'),
+            'worklist_hash_matches' => $this->referencedHashMatches($packet, 'worklist_hash', $worklist, 'worklist_hash'),
+            'proof_contract_file_hash_matches' => $this->referencedHashMatches($packet, 'proof_contract_file_hash', $proofContract, 'proof_contract_file_hash'),
+            'external_run_count_matches' => (int) ($packet['external_run_count'] ?? -1) === count((array) ($packet['external_runs'] ?? [])),
+            'external_run_count_expected' => (int) ($packet['external_run_count'] ?? 0) === 10,
+            'uses_replay_evidence_env_placeholder' => $this->packetUsesReplayEvidencePlaceholder($packet),
+            'raw_absolute_path_not_embedded' => ! str_contains(json_encode($packet, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '', $directory),
+            'operator_packet_is_not_replay_evidence' => data_get($packet, 'claim_policy.operator_packet_is_not_replay_evidence') === true,
+            'dispatch_not_performed_by_atlas' => data_get($packet, 'claim_policy.external_provider_dispatch_not_performed_by_atlas') === true,
+        ];
+
+        foreach ($checks as $id => $passed) {
+            if (! $passed) {
+                $blockers[] = $id.'_failed';
+            }
+        }
+
+        if ($packet !== [] && data_get($packet, 'execution_environment.raw_absolute_path_embedded') !== false) {
+            $warnings[] = 'operator_packet_execution_environment_does_not_explicitly_forbid_raw_path';
+        }
+
+        $payload = [
+            'schema_version' => self::OPERATOR_PACKET_VERIFICATION_SCHEMA_VERSION,
+            'status' => $blockers === [] ? 'passed' : 'blocked',
+            'verification_type' => 'external_rival_replay_operator_packet_integrity',
+            'source' => self::class,
+            'evidence_directory_hash' => hash('sha256', $directory),
+            'operator_packet_ref_hash' => hash('sha256', $target),
+            'checks' => $checks,
+            'referenced_hashes' => [
+                'operator_packet_hash' => $packet['operator_packet_hash'] ?? null,
+                'runner_kit_hash' => $packet['runner_kit_hash'] ?? null,
+                'worklist_hash' => $packet['worklist_hash'] ?? null,
+                'proof_contract_file_hash' => $packet['proof_contract_file_hash'] ?? null,
+            ],
+            'claim_policy' => [
+                'verification_is_not_external_replay_evidence' => true,
+                'world_best_claim_allowed' => false,
+                'raw_absolute_path_returned' => false,
+                'external_provider_dispatch_performed' => false,
+            ],
+            'blockers' => array_values(array_unique($blockers)),
+            'warnings' => array_values(array_unique($warnings)),
+        ];
+        $payload['operator_packet_verification_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function writeCompetitiveProofBundle(string $evidenceDirectory, ?string $outputPath = null): array
+    {
+        $directory = $this->evidenceDirectory($evidenceDirectory);
+        $target = $this->proofBundleOutputPath($directory, $outputPath);
+        $operatorPacket = $this->writeOperatorPacket($directory);
+        $operatorVerification = $this->verifyOperatorPacket($directory);
+        $inspect = $this->inspect($directory);
+        $proofContract = (array) ($inspect['competitive_proof_contract'] ?? []);
+        $proofContractWorldBest = data_get($proofContract, 'claim_policy.may_claim_world_best_frontend_system') === true;
+        $operatorVerified = ($operatorVerification['status'] ?? null) === 'passed';
+        $externalReplayCompleted = (bool) data_get($inspect, 'summary.external_replay_completed');
+        $blockers = array_values(array_unique(array_filter([
+            ...($operatorVerified ? [] : ['operator_packet_verification_blocked']),
+            ...($proofContractWorldBest ? [] : (array) data_get($proofContract, 'next_minimum_actions', [])),
+        ], fn (mixed $item): bool => is_string($item) && $item !== '')));
+
+        $payload = [
+            'schema_version' => self::PROOF_BUNDLE_SCHEMA_VERSION,
+            'status' => $operatorVerified && $proofContractWorldBest ? 'world_best_replay_proof_ready' : 'pending_external_replay_evidence',
+            'bundle_type' => 'provider_safe_competitive_replay_proof_index',
+            'source' => self::class,
+            'evidence_directory_hash' => hash('sha256', $directory),
+            'replay_hash' => $inspect['replay_hash'] ?? null,
+            'operator_packet_hash' => $operatorPacket['operator_packet_hash'] ?? null,
+            'operator_packet_verification_hash' => $operatorVerification['operator_packet_verification_hash'] ?? null,
+            'proof_contract_hash' => data_get($proofContract, 'proof_contract_hash'),
+            'competitive_proof_contract' => $proofContract,
+            'operator_packet_verification' => [
+                'schema_version' => $operatorVerification['schema_version'] ?? null,
+                'status' => $operatorVerification['status'] ?? null,
+                'checks' => $operatorVerification['checks'] ?? [],
+                'blockers' => $operatorVerification['blockers'] ?? [],
+            ],
+            'readiness' => [
+                'external_replay_completed' => $externalReplayCompleted,
+                'all_runs_completed' => (bool) data_get($inspect, 'summary.all_runs_completed'),
+                'evidence_pack_status' => data_get($inspect, 'evidence_pack_readiness.status'),
+                'fairness_status' => data_get($inspect, 'fairness.status'),
+                'competitive_diagnostics_status' => data_get($inspect, 'competitive_diagnostics.status'),
+                'operator_packet_verification_status' => $operatorVerification['status'] ?? 'unknown',
+            ],
+            'run_manifest_index' => collect((array) ($inspect['runs'] ?? []))
+                ->filter(fn (mixed $run): bool => is_array($run))
+                ->map(fn (array $run): array => [
+                    'case_id' => (string) ($run['case_id'] ?? ''),
+                    'system' => (string) ($run['system'] ?? ''),
+                    'status' => (string) ($run['status'] ?? 'unknown'),
+                    'manifest_hash' => $run['manifest_hash'] ?? null,
+                    'task_spec_hash' => $run['task_spec_hash'] ?? null,
+                    'run_packet_hash' => $run['run_packet_hash'] ?? null,
+                    'evidence_pack_verification_hash' => $run['evidence_pack_verification_hash'] ?? null,
+                    'external_execution_receipt_hash' => $run['external_execution_receipt_hash'] ?? null,
+                    'score_attestation_hash' => $run['score_attestation_hash'] ?? null,
+                    'score_total' => $run['score_total'] ?? null,
+                    'score_max' => $run['score_max'] ?? null,
+                ])
+                ->values()
+                ->all(),
+            'scoreboard' => $inspect['scoreboard'] ?? [],
+            'required_next_actions' => $blockers === []
+                ? ['preserve_verified_replay_evidence_and_attach_public_distribution_receipt_before_product_world_best_claim']
+                : $blockers,
+            'output_ref_hash' => hash('sha256', $target),
+            'write_performed' => true,
+            'claim_policy' => [
+                'proof_bundle_is_not_raw_artifact_storage' => true,
+                'raw_prompts_customer_source_tokens_urls_or_cookies_forbidden' => true,
+                'external_provider_dispatch_performed' => false,
+                'may_claim_external_replay_completed' => $externalReplayCompleted,
+                'may_claim_world_best_replay_proof' => $operatorVerified && $proofContractWorldBest,
+                'may_claim_world_best_frontend_system' => $operatorVerified && $proofContractWorldBest,
+                'public_distribution_receipt_still_required_for_product_claim' => true,
+            ],
+        ];
+        $payload['proof_bundle_hash'] = MissionCanonicalHash::sha256($payload);
+
         File::ensureDirectoryExists(dirname($target));
         File::put($target, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
 
@@ -555,6 +954,160 @@ final class AtlasFrontendRivalReplayHarnessService
         $payload['external_execution_receipt_template_hash'] = MissionCanonicalHash::sha256($payload);
 
         if ($blockers === []) {
+            File::ensureDirectoryExists(dirname($target));
+            File::put($target, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function applyManifestPatch(string $evidenceDirectory, string $patchPath, ?string $outputPath = null): array
+    {
+        $directory = $this->evidenceDirectory($evidenceDirectory);
+        $patchPath = trim($patchPath);
+        $target = trim((string) $outputPath);
+        $blockers = [];
+
+        if ($patchPath === '') {
+            $blockers[] = 'patch_path_required';
+        } elseif (! File::isFile($patchPath)) {
+            $blockers[] = 'patch_file_missing';
+        }
+
+        $patch = [];
+        if ($blockers === []) {
+            $decoded = json_decode((string) File::get($patchPath), true);
+            if (! is_array($decoded)) {
+                $blockers[] = 'patch_json_invalid';
+            } else {
+                $patch = $decoded;
+            }
+        }
+
+        $schema = (string) ($patch['schema_version'] ?? '');
+        $allowedSchemas = [
+            self::SCORE_ATTESTATION_TEMPLATE_SCHEMA_VERSION,
+            self::EXTERNAL_EXECUTION_RECEIPT_TEMPLATE_SCHEMA_VERSION,
+        ];
+        if ($blockers === [] && ! in_array($schema, $allowedSchemas, true)) {
+            $blockers[] = 'unsupported_manifest_patch_schema';
+        }
+
+        $manifestRef = $this->safeManifestRef((string) ($patch['manifest_ref'] ?? ''));
+        if ($blockers === [] && $manifestRef === '') {
+            $blockers[] = 'manifest_ref_required';
+        }
+
+        $manifestPath = $manifestRef !== '' ? $directory.'/'.$manifestRef : '';
+        if ($blockers === [] && ! File::isFile($manifestPath)) {
+            $blockers[] = 'manifest_missing';
+        }
+
+        $manifest = [];
+        if ($blockers === []) {
+            $decoded = json_decode((string) File::get($manifestPath), true);
+            if (! is_array($decoded)) {
+                $blockers[] = 'manifest_json_invalid';
+            } else {
+                $manifest = $decoded;
+            }
+        }
+
+        $currentManifestHash = $manifestPath !== '' && File::isFile($manifestPath) ? hash_file('sha256', $manifestPath) : null;
+        if ($blockers === [] && ! hash_equals((string) ($patch['manifest_hash'] ?? ''), (string) $currentManifestHash)) {
+            $blockers[] = 'manifest_hash_mismatch';
+        }
+
+        $manifestPatch = is_array($patch['manifest_patch'] ?? null) ? (array) $patch['manifest_patch'] : [];
+        if ($blockers === [] && $manifestPatch === []) {
+            $blockers[] = 'manifest_patch_required';
+        }
+
+        $allowedPatchKeys = match ($schema) {
+            self::SCORE_ATTESTATION_TEMPLATE_SCHEMA_VERSION => ['score_attestation'],
+            self::EXTERNAL_EXECUTION_RECEIPT_TEMPLATE_SCHEMA_VERSION => ['external_execution_receipt'],
+            default => [],
+        };
+        $appliedKeys = array_values(array_intersect(array_keys($manifestPatch), $allowedPatchKeys));
+        if ($blockers === [] && $appliedKeys === []) {
+            $blockers[] = 'manifest_patch_has_no_supported_keys';
+        }
+        if ($blockers === [] && array_diff(array_keys($manifestPatch), $allowedPatchKeys) !== []) {
+            $blockers[] = 'manifest_patch_contains_unsupported_keys';
+        }
+        if ($blockers === [] && $this->hasForbiddenRawFields($manifestPatch)) {
+            $blockers[] = 'manifest_patch_forbidden_raw_prompt_or_source_field_present';
+        }
+
+        $caseId = (string) ($manifest['case_id'] ?? $patch['case_id'] ?? '');
+        $system = (string) ($manifest['system'] ?? $patch['system'] ?? '');
+        $candidate = $manifest;
+        foreach ($appliedKeys as $key) {
+            $candidate[$key] = $manifestPatch[$key];
+        }
+
+        $patchIssues = [];
+        if ($blockers === []) {
+            $evidencePack = $this->validateEvidencePackRef($candidate, $manifestPath, $caseId, $system);
+            $evidencePackHash = $evidencePack['verification_hash'] ?? null;
+            if (($evidencePack['issues'] ?? []) !== []) {
+                $patchIssues = array_merge($patchIssues, (array) $evidencePack['issues']);
+            }
+            if (in_array('external_execution_receipt', $appliedKeys, true)) {
+                if ($system === 'atlas_frontend') {
+                    $patchIssues[] = 'external_rival_system_required';
+                }
+                $patchIssues = array_merge($patchIssues, $this->validateExternalExecutionReceipt($candidate, $caseId, $system, $evidencePackHash));
+            }
+            if (in_array('score_attestation', $appliedKeys, true)) {
+                $patchIssues = array_merge($patchIssues, $this->validateScoreAttestation($candidate, $caseId, $system, $evidencePackHash));
+            }
+        }
+
+        if ($patchIssues !== []) {
+            $blockers = array_values(array_unique(array_merge($blockers, $patchIssues)));
+        }
+
+        $writePerformed = $blockers === [];
+        if ($writePerformed) {
+            File::put($manifestPath, json_encode($candidate, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+        }
+
+        $postApplyRun = $manifestPath !== '' && File::isFile($manifestPath)
+            ? $this->inspectManifest($manifestPath, $caseId, $system, $this->requiredManifestFields())
+            : null;
+
+        $payload = [
+            'schema_version' => self::MANIFEST_PATCH_APPLICATION_SCHEMA_VERSION,
+            'status' => $writePerformed ? 'applied' : 'blocked',
+            'source' => self::class,
+            'patch_schema_version' => $schema ?: null,
+            'evidence_directory_hash' => hash('sha256', $directory),
+            'patch_path_hash' => $patchPath !== '' ? hash('sha256', $patchPath) : null,
+            'manifest_ref' => $manifestRef ?: null,
+            'previous_manifest_hash' => $currentManifestHash,
+            'applied_manifest_hash' => $writePerformed ? hash_file('sha256', $manifestPath) : null,
+            'applied_keys' => $appliedKeys,
+            'post_apply_run_status' => is_array($postApplyRun) ? ($postApplyRun['status'] ?? null) : null,
+            'post_apply_run_issues' => is_array($postApplyRun) ? (array) ($postApplyRun['issues'] ?? []) : [],
+            'blockers' => $blockers,
+            'warnings' => $writePerformed && is_array($postApplyRun) && ($postApplyRun['status'] ?? null) !== 'complete'
+                ? ['manifest_patch_applied_but_run_still_incomplete']
+                : [],
+            'write_performed' => $writePerformed,
+            'claim_policy' => [
+                'manifest_patch_application_is_not_world_best_evidence' => true,
+                'world_best_claim_forbidden_until_replay_inspect_passes' => true,
+                'raw_prompts_customer_source_tokens_urls_or_provider_secrets_forbidden' => true,
+                'manifest_hash_must_match_before_patch' => true,
+            ],
+        ];
+        $payload['manifest_patch_application_hash'] = MissionCanonicalHash::sha256($payload);
+
+        if ($target !== '') {
             File::ensureDirectoryExists(dirname($target));
             File::put($target, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
         }
@@ -1859,6 +2412,95 @@ final class AtlasFrontendRivalReplayHarnessService
             : $directory.'/replay-evidence-worklist.json';
     }
 
+    private function proofContractOutputPath(string $directory, ?string $outputPath): string
+    {
+        $outputPath = trim((string) $outputPath);
+
+        return $outputPath !== ''
+            ? $outputPath
+            : $directory.'/replay-competitive-proof-contract.json';
+    }
+
+    private function operatorPacketOutputPath(string $directory, ?string $outputPath): string
+    {
+        $outputPath = trim((string) $outputPath);
+
+        return $outputPath !== ''
+            ? $outputPath
+            : $directory.'/replay-operator-packet.json';
+    }
+
+    private function proofBundleOutputPath(string $directory, ?string $outputPath): string
+    {
+        $outputPath = trim((string) $outputPath);
+
+        return $outputPath !== ''
+            ? $outputPath
+            : $directory.'/replay-competitive-proof-bundle.json';
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function readJsonFile(string $path): ?array
+    {
+        if (! File::isFile($path)) {
+            return null;
+        }
+
+        $decoded = json_decode((string) File::get($path), true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function embeddedHashMatches(array $payload, string $hashField): bool
+    {
+        $hash = $payload[$hashField] ?? null;
+        if (! is_string($hash) || ! preg_match('/\A[a-f0-9]{64}\z/', $hash)) {
+            return false;
+        }
+
+        $candidate = $payload;
+        unset($candidate[$hashField]);
+
+        return hash_equals($hash, MissionCanonicalHash::sha256($candidate));
+    }
+
+    /**
+     * @param  array<string,mixed>  $packet
+     * @param  array<string,mixed>  $referencedPayload
+     */
+    private function referencedHashMatches(array $packet, string $packetField, array $referencedPayload, string $referencedHashField): bool
+    {
+        $packetHash = $packet[$packetField] ?? null;
+        $referencedHash = $referencedPayload[$referencedHashField] ?? null;
+
+        return is_string($packetHash)
+            && is_string($referencedHash)
+            && preg_match('/\A[a-f0-9]{64}\z/', $packetHash)
+            && hash_equals($packetHash, $referencedHash)
+            && $this->embeddedHashMatches($referencedPayload, $referencedHashField);
+    }
+
+    /**
+     * @param  array<string,mixed>  $packet
+     */
+    private function packetUsesReplayEvidencePlaceholder(array $packet): bool
+    {
+        $encoded = json_encode($packet, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '';
+
+        return str_contains($encoded, '${ATLAS_FRONTEND_REPLAY_EVIDENCE}')
+            && str_contains((string) data_get($packet, 'commands.inspect', ''), '${ATLAS_FRONTEND_REPLAY_EVIDENCE}')
+            && collect((array) ($packet['external_runs'] ?? []))->every(
+                fn (mixed $run): bool => is_array($run)
+                    && str_contains((string) data_get($run, 'commands.external_receipt_template', ''), '${ATLAS_FRONTEND_REPLAY_EVIDENCE}')
+                    && str_contains((string) data_get($run, 'commands.score_template', ''), '${ATLAS_FRONTEND_REPLAY_EVIDENCE}'),
+            );
+    }
+
     private function scoreAttestationOutputPath(string $directory, string $caseId, string $system, ?string $outputPath): string
     {
         $outputPath = trim((string) $outputPath);
@@ -1875,5 +2517,17 @@ final class AtlasFrontendRivalReplayHarnessService
         return $outputPath !== ''
             ? $outputPath
             : $directory.'/'.$caseId.'/'.$system.'/external-execution-receipt-template.json';
+    }
+
+    private function safeManifestRef(string $ref): string
+    {
+        $ref = trim(str_replace('\\', '/', $ref));
+        if ($ref === '' || str_starts_with($ref, '/') || str_contains($ref, '..')) {
+            return '';
+        }
+
+        $ref = implode('/', array_filter(explode('/', $ref), fn (string $part): bool => $part !== ''));
+
+        return str_ends_with($ref, '/manifest.json') ? $ref : '';
     }
 }

@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 final class AtlasCodeRealityCommand extends Command
 {
     protected $signature = 'atlas:code-reality
-        {action=classify : classify|usage-map|reachability|anti-duplicate|dead-code-candidates|deletion-preflight|reality-audit|context-pack}
+        {action=classify : classify|usage-map|reachability|anti-duplicate|dead-code-candidates|deletion-preflight|reality-audit|global-duplication-audit|status-drift-audit|context-pack}
         {--target= : Path, symbol or runtime target}
         {--feature= : Feature name for anti-duplicate}
         {--task= : Task text for provider-safe context pack}
@@ -30,12 +30,14 @@ final class AtlasCodeRealityCommand extends Command
             'dead-code-candidates' => $service->deadCodeCandidates(),
             'deletion-preflight' => $service->deletionPreflight((string) ($this->option('target') ?: '')),
             'reality-audit' => $service->realityAudit(),
+            'global-duplication-audit' => $service->globalDuplicationAudit(),
+            'status-drift-audit' => $service->statusDriftAudit(),
             'context-pack' => $service->contextPack((string) ($this->option('task') ?: $this->option('feature') ?: $this->option('target') ?: '')),
             default => null,
         };
 
         if ($payload === null) {
-            $this->error('Unknown action. Expected classify, usage-map, reachability, anti-duplicate, dead-code-candidates, deletion-preflight, reality-audit or context-pack.');
+            $this->error('Unknown action. Expected classify, usage-map, reachability, anti-duplicate, dead-code-candidates, deletion-preflight, reality-audit, global-duplication-audit, status-drift-audit or context-pack.');
 
             return self::FAILURE;
         }

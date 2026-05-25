@@ -24,6 +24,10 @@ class AtlasFrontendRivalReplayHarnessServiceTest extends TestCase
         $this->assertCount(15, $payload['runs']);
         $this->assertSame('pending', data_get($payload, 'evidence_pack_readiness.status'));
         $this->assertSame(15, data_get($payload, 'evidence_pack_readiness.summary.missing'));
+        $this->assertSame('atlas.frontend.rival_replay_competitive_proof_contract.v1', data_get($payload, 'competitive_proof_contract.schema_version'));
+        $this->assertSame('evidence_packs_required', data_get($payload, 'competitive_proof_contract.status'));
+        $this->assertFalse((bool) data_get($payload, 'competitive_proof_contract.claim_policy.may_claim_world_best_frontend_system'));
+        $this->assertContains('fill_and_hash_missing_rival_replay_evidence_packs', data_get($payload, 'competitive_proof_contract.next_minimum_actions'));
         $this->assertContains('external_rival_replay_artifacts_required_for_world_best_claim', $payload['remaining_gaps']);
         $this->assertContains('rival_replay_evidence_packs_incomplete', $payload['remaining_gaps']);
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['replay_hash']);
@@ -130,6 +134,110 @@ class AtlasFrontendRivalReplayHarnessServiceTest extends TestCase
         $this->assertContains('mirror_required_hashes_into_run_manifest', data_get($payload, 'work_items.0.completion_steps'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.worklist_is_not_evidence'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['worklist_hash']);
+    }
+
+    public function test_competitive_proof_contract_file_captures_replay_claim_state_without_authorizing_claims(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-proof-contract-'.bin2hex(random_bytes(4));
+        $service = app(AtlasFrontendRivalReplayHarnessService::class);
+        $service->writeRunnerKit($dir);
+
+        $payload = $service->writeCompetitiveProofContract($dir);
+
+        $this->assertSame('atlas.frontend.rival_replay_competitive_proof_contract_file.v1', $payload['schema_version']);
+        $this->assertSame('evidence_packs_required', $payload['status']);
+        $this->assertTrue(File::isFile($dir.'/replay-competitive-proof-contract.json'));
+        $this->assertSame('atlas.frontend.rival_replay_competitive_proof_contract.v1', data_get($payload, 'competitive_proof_contract.schema_version'));
+        $this->assertContains('fill_and_hash_missing_rival_replay_evidence_packs', data_get($payload, 'competitive_proof_contract.next_minimum_actions'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.proof_contract_file_is_not_the_underlying_evidence'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['proof_contract_file_hash']);
+    }
+
+    public function test_operator_packet_materializes_external_replay_run_order_without_dispatching_rivals(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-operator-packet-'.bin2hex(random_bytes(4));
+
+        $payload = app(AtlasFrontendRivalReplayHarnessService::class)->writeOperatorPacket($dir);
+
+        $this->assertSame('atlas.frontend.rival_replay_operator_packet.v1', $payload['schema_version']);
+        $this->assertSame('ready_for_external_operator_replay', $payload['status']);
+        $this->assertSame(10, $payload['external_run_count']);
+        $this->assertTrue(File::isFile($dir.'/replay-operator-packet.json'));
+        $this->assertTrue(File::isFile($dir.'/replay-runner-kit.json'));
+        $this->assertTrue(File::isFile($dir.'/replay-evidence-worklist.json'));
+        $this->assertTrue(File::isFile($dir.'/replay-competitive-proof-contract.json'));
+        $this->assertSame('run_saas_dashboard_repair_pbakaus_impeccable', data_get($payload, 'external_runs.0.id'));
+        $this->assertSame('pbakaus_impeccable', data_get($payload, 'external_runs.0.system'));
+        $this->assertSame('saas_dashboard_repair/task-spec.json', data_get($payload, 'external_runs.0.task_spec_ref'));
+        $this->assertSame(false, data_get($payload, 'execution_environment.raw_absolute_path_embedded'));
+        $this->assertStringContainsString('${ATLAS_FRONTEND_REPLAY_EVIDENCE}', data_get($payload, 'commands.inspect'));
+        $this->assertStringContainsString('external-receipt-template', data_get($payload, 'external_runs.0.commands.external_receipt_template'));
+        $this->assertStringContainsString('${ATLAS_FRONTEND_REPLAY_EVIDENCE}', data_get($payload, 'external_runs.0.commands.external_receipt_template'));
+        $this->assertStringContainsString('score-template', data_get($payload, 'external_runs.0.commands.score_template'));
+        $this->assertContains('export ATLAS_FRONTEND_REPLAY_EVIDENCE_to_the_local_replay_directory', $payload['operator_sequence']);
+        $this->assertContains('rerun_replay_inspect_and_proof_contract', $payload['operator_sequence']);
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.operator_packet_is_not_replay_evidence'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.external_provider_dispatch_not_performed_by_atlas'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.raw_absolute_path_embedded'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['operator_packet_hash']);
+        $this->assertStringNotContainsString($dir, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_operator_packet_verification_passes_only_when_hashes_and_placeholders_are_intact(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-operator-packet-verify-'.bin2hex(random_bytes(4));
+        $service = app(AtlasFrontendRivalReplayHarnessService::class);
+        $service->writeOperatorPacket($dir);
+
+        $payload = $service->verifyOperatorPacket($dir);
+
+        $this->assertSame('atlas.frontend.rival_replay_operator_packet_verification.v1', $payload['schema_version']);
+        $this->assertSame('passed', $payload['status']);
+        $this->assertTrue((bool) data_get($payload, 'checks.operator_packet_hash_valid'));
+        $this->assertTrue((bool) data_get($payload, 'checks.runner_kit_hash_matches'));
+        $this->assertTrue((bool) data_get($payload, 'checks.worklist_hash_matches'));
+        $this->assertTrue((bool) data_get($payload, 'checks.proof_contract_file_hash_matches'));
+        $this->assertTrue((bool) data_get($payload, 'checks.uses_replay_evidence_env_placeholder'));
+        $this->assertTrue((bool) data_get($payload, 'checks.raw_absolute_path_not_embedded'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['operator_packet_verification_hash']);
+
+        $packetPath = $dir.'/replay-operator-packet.json';
+        $packet = json_decode(File::get($packetPath), true);
+        $packet['commands']['inspect'] = 'php artisan atlas:frontend:replay inspect --evidence='.$dir.' --json';
+        File::put($packetPath, json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $tampered = $service->verifyOperatorPacket($dir);
+
+        $this->assertSame('blocked', $tampered['status']);
+        $this->assertContains('operator_packet_hash_valid_failed', $tampered['blockers']);
+        $this->assertContains('uses_replay_evidence_env_placeholder_failed', $tampered['blockers']);
+        $this->assertContains('raw_absolute_path_not_embedded_failed', $tampered['blockers']);
+    }
+
+    public function test_competitive_proof_bundle_indexes_replay_proof_without_faking_external_receipts(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-proof-bundle-'.bin2hex(random_bytes(4));
+        $service = app(AtlasFrontendRivalReplayHarnessService::class);
+
+        $payload = $service->writeCompetitiveProofBundle($dir);
+
+        $this->assertSame('atlas.frontend.rival_replay_competitive_proof_bundle.v1', $payload['schema_version']);
+        $this->assertSame('pending_external_replay_evidence', $payload['status']);
+        $this->assertTrue(File::isFile($dir.'/replay-competitive-proof-bundle.json'));
+        $this->assertTrue(File::isFile($dir.'/replay-operator-packet.json'));
+        $this->assertSame('passed', data_get($payload, 'operator_packet_verification.status'));
+        $this->assertSame('pending', data_get($payload, 'readiness.evidence_pack_status'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.external_provider_dispatch_performed'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.may_claim_external_replay_completed'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.may_claim_world_best_replay_proof'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.public_distribution_receipt_still_required_for_product_claim'));
+        $this->assertContains('fill_and_hash_missing_rival_replay_evidence_packs', $payload['required_next_actions']);
+        $this->assertCount(15, $payload['run_manifest_index']);
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['proof_bundle_hash']);
+        $this->assertStringNotContainsString($dir, json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
     public function test_evidence_worklist_turns_missing_score_attestation_into_actionable_work_item(): void
@@ -379,6 +487,71 @@ class AtlasFrontendRivalReplayHarnessServiceTest extends TestCase
         $this->assertFalse(File::isFile($dir.'/saas_dashboard_repair/atlas_frontend/external-execution-receipt-template.json'));
     }
 
+    public function test_manifest_patch_application_applies_verified_external_receipt_and_score_attestation(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-manifest-patch-'.bin2hex(random_bytes(4));
+        $service = app(AtlasFrontendRivalReplayHarnessService::class);
+        $service->writeTemplate($dir);
+        $taskSpecHash = $this->taskSpecHash($dir, 'saas_dashboard_repair');
+        $hashes = $this->writeEvidencePack($dir, 'saas_dashboard_repair', 'pbakaus_impeccable', $taskSpecHash);
+        $breakdown = $this->scoreBreakdown(9);
+
+        File::put($dir.'/saas_dashboard_repair/pbakaus_impeccable/manifest.json', json_encode([
+            'case_id' => 'saas_dashboard_repair',
+            'system' => 'pbakaus_impeccable',
+            'status' => 'complete',
+            'run_id' => 'saas_dashboard_repair-pbakaus_impeccable',
+            'task_spec_hash' => $taskSpecHash,
+            'task_spec_ref' => '../task-spec.json',
+            'evidence_pack_ref' => 'evidence/evidence-pack.json',
+            'output_artifact_ref' => 'artifact://saas_dashboard_repair/pbakaus_impeccable',
+            'output_artifact_hash' => $hashes['output_artifact'],
+            'screenshot_hashes' => [$hashes['screenshot_set']],
+            'anti_slop_report_hash' => $hashes['anti_slop_report'],
+            'verification_hashes' => [$hashes['verification_report']],
+            'score_breakdown' => $breakdown,
+            'score_total' => 9,
+            'score_max' => 100,
+            'completed_at' => '2026-05-25T00:00:00Z',
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $externalTemplate = $service->writeExternalExecutionReceiptTemplate($dir, 'saas_dashboard_repair', 'pbakaus_impeccable');
+        $externalTemplate['manifest_patch']['external_execution_receipt']['status'] = 'verified';
+        $externalTemplate['manifest_patch']['external_execution_receipt']['captured_at'] = '2026-05-25T00:00:00Z';
+        $externalTemplate['manifest_patch']['external_execution_receipt']['operator_approved'] = true;
+        File::put($dir.'/external-patch.json', json_encode($externalTemplate, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $externalApply = $service->applyManifestPatch($dir, $dir.'/external-patch.json');
+
+        $this->assertSame(AtlasFrontendRivalReplayHarnessService::MANIFEST_PATCH_APPLICATION_SCHEMA_VERSION, $externalApply['schema_version']);
+        $this->assertSame('applied', $externalApply['status']);
+        $this->assertSame(['external_execution_receipt'], $externalApply['applied_keys']);
+        $this->assertContains('manifest_patch_applied_but_run_still_incomplete', $externalApply['warnings']);
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $externalApply['manifest_patch_application_hash']);
+
+        $scoreTemplate = $service->writeScoreAttestationTemplate(
+            $dir,
+            'saas_dashboard_repair',
+            'pbakaus_impeccable',
+            null,
+            hash('sha256', 'reviewer-ref'),
+        );
+        $scoreTemplate['manifest_patch']['score_attestation']['status'] = 'verified';
+        $scoreTemplate['manifest_patch']['score_attestation']['reviewed_at'] = '2026-05-25T00:00:00Z';
+        $scoreTemplate['manifest_patch']['score_attestation']['operator_approved'] = true;
+        File::put($dir.'/score-patch.json', json_encode($scoreTemplate, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $scoreApply = $service->applyManifestPatch($dir, $dir.'/score-patch.json');
+        $manifest = json_decode(File::get($dir.'/saas_dashboard_repair/pbakaus_impeccable/manifest.json'), true);
+
+        $this->assertSame('applied', $scoreApply['status']);
+        $this->assertSame('complete', $scoreApply['post_apply_run_status']);
+        $this->assertSame([], $scoreApply['post_apply_run_issues']);
+        $this->assertSame('verified', data_get($manifest, 'external_execution_receipt.status'));
+        $this->assertSame('verified', data_get($manifest, 'score_attestation.status'));
+        $this->assertTrue((bool) data_get($scoreApply, 'claim_policy.manifest_patch_application_is_not_world_best_evidence'));
+    }
+
     public function test_complete_manifest_is_invalid_without_competitive_score_breakdown(): void
     {
         $dir = sys_get_temp_dir().'/atlas-frontend-replay-invalid-'.bin2hex(random_bytes(4));
@@ -454,6 +627,10 @@ class AtlasFrontendRivalReplayHarnessServiceTest extends TestCase
         $this->assertSame(15, data_get($payload, 'evidence_pack_readiness.summary.passed'));
         $this->assertSame('passed', data_get($payload, 'fairness.status'));
         $this->assertFalse((bool) data_get($payload, 'claim_policy.may_claim_world_best_frontend_system'));
+        $this->assertSame('atlas_improvement_required', data_get($payload, 'competitive_proof_contract.status'));
+        $this->assertTrue((bool) data_get($payload, 'competitive_proof_contract.gates.external_rival_execution_receipts_verified'));
+        $this->assertFalse((bool) data_get($payload, 'competitive_proof_contract.gates.atlas_decisively_leads_every_case'));
+        $this->assertContains('improve_atlas_frontend_case_until_decisive_lead', data_get($payload, 'competitive_proof_contract.next_minimum_actions'));
         $this->assertContains('atlas_does_not_win_every_complete_case', $payload['remaining_gaps']);
         $this->assertSame('atlas_needs_improvement', data_get($payload, 'competitive_diagnostics.status'));
         $this->assertSame(1, data_get($payload, 'competitive_diagnostics.losing_case_count'));
@@ -663,6 +840,54 @@ class AtlasFrontendRivalReplayHarnessServiceTest extends TestCase
         $this->assertSame(11, data_get($case, 'dimension_gaps.0.target_score_to_lead'));
         $this->assertSame('improve_atlas_frontend_case_until_dimension_lead', $case['next_action']);
         $this->assertTrue((bool) data_get($payload, 'competitive_diagnostics.claim_policy.world_best_requires_no_dimension_gaps_against_best_rival'));
+    }
+
+    public function test_complete_manifests_allow_world_best_only_when_proof_contract_is_ready(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-replay-world-best-ready-'.bin2hex(random_bytes(4));
+        $service = app(AtlasFrontendRivalReplayHarnessService::class);
+        $service->writeTemplate($dir);
+
+        foreach (['saas_dashboard_repair', 'ecommerce_product_page', 'mobile_app_onboarding', 'design_system_migration', 'live_mode_repair_loop'] as $case) {
+            $taskSpecHash = $this->taskSpecHash($dir, $case);
+            foreach (['atlas_frontend', 'pbakaus_impeccable', 'claude_design_plugin'] as $system) {
+                $score = $system === 'atlas_frontend' ? 12 : 9;
+                $breakdown = $this->scoreBreakdown($score);
+                $hashes = $this->writeEvidencePack($dir, $case, $system, $taskSpecHash);
+                File::put($dir.'/'.$case.'/'.$system.'/manifest.json', json_encode([
+                    'case_id' => $case,
+                    'system' => $system,
+                    'status' => 'complete',
+                    'run_id' => $case.'-'.$system,
+                    'task_spec_hash' => $taskSpecHash,
+                    'task_spec_ref' => '../task-spec.json',
+                    'evidence_pack_ref' => 'evidence/evidence-pack.json',
+                    'output_artifact_ref' => 'artifact://'.$case.'/'.$system,
+                    'output_artifact_hash' => $hashes['output_artifact'],
+                    'screenshot_hashes' => [$hashes['screenshot_set']],
+                    'anti_slop_report_hash' => $hashes['anti_slop_report'],
+                    'verification_hashes' => [$hashes['verification_report']],
+                    'external_execution_receipt' => $system !== 'atlas_frontend' ? $this->externalExecutionReceipt($case, $system, $hashes) : null,
+                    'score_breakdown' => $breakdown,
+                    'score_total' => $score,
+                    'score_max' => 100,
+                    'score_attestation' => $this->scoreAttestation($dir, $case, $system, $breakdown, $score),
+                    'completed_at' => '2026-05-25T00:00:00Z',
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+            }
+        }
+
+        $payload = $service->inspect($dir);
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.may_claim_world_best_frontend_system'));
+        $this->assertSame('world_best_proof_ready', data_get($payload, 'competitive_proof_contract.status'));
+        $this->assertTrue((bool) data_get($payload, 'competitive_proof_contract.gates.evidence_packs_verified'));
+        $this->assertTrue((bool) data_get($payload, 'competitive_proof_contract.gates.external_rival_execution_receipts_verified'));
+        $this->assertTrue((bool) data_get($payload, 'competitive_proof_contract.gates.atlas_decisively_leads_every_case'));
+        $this->assertTrue((bool) data_get($payload, 'competitive_proof_contract.claim_policy.may_claim_world_best_frontend_system'));
+        $this->assertContains('preserve_verified_replay_evidence_and_publish_world_best_proof_packet', data_get($payload, 'competitive_proof_contract.next_minimum_actions'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'competitive_proof_contract.proof_contract_hash'));
     }
 
     public function test_external_rival_complete_manifest_requires_verified_execution_receipt(): void

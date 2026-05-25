@@ -66,6 +66,8 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('documentation_enforcement', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_anti_duplicate', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reality_audit', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_global_duplication_audit', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_status_drift_audit', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reachability', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_deletion_preflight', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('universal_reality_cartography_navigation_slice', data_get($payload, 'architecture_operations.operation_ids'));
@@ -94,6 +96,8 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:documentation-reality score --strict --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:code-reality global-duplication-audit --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:code-reality status-drift-audit --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:code-reality reachability --target="<target>" --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:universal-reality-cartography navigation-slice --strict --json', data_get($payload, 'required_validation'));
         $this->assertContains('review_owner_docs', data_get($payload, 'session_gate.required_before_code'));
@@ -245,6 +249,8 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('documentation_enforcement', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_anti_duplicate', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reality_audit', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_global_duplication_audit', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('code_reality_status_drift_audit', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reachability', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_deletion_preflight', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('universal_reality_cartography_navigation_slice', data_get($payload, 'architecture_operations.operation_ids'));
@@ -261,6 +267,8 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:documentation-reality score --strict --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:code-reality global-duplication-audit --json', data_get($payload, 'required_validation'));
+        $this->assertContains('php artisan atlas:code-reality status-drift-audit --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:code-reality reachability --target="<target>" --json', data_get($payload, 'required_validation'));
         $this->assertContains('app/Services/Ai/Surface', data_get($payload, 'implementation_contract.allowed_write_scopes'));
         $this->assertContains('surface_must_collect_input_and_render_output_only', data_get($payload, 'implementation_contract.forbidden_write_scopes'));

@@ -34,13 +34,14 @@ decisions:
 maintenance:
   - Manter abaixo de 520 linhas.
   - Atualizar snapshot apos mudancas relevantes em docs, ACRUI ou ADER.
-  - Rodar ADER strict, docs-health, docs-authority-audit e ACRUI reality-audit apos alteracoes.
+  - Rodar ADER strict, docs-health, docs-authority-audit, ACRUI reality-audit e ACRUI global-duplication-audit apos alteracoes amplas.
 related_paths:
   - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
   - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
   - docs/engineering-knowledge-base/atlas-documentation-enforcement-runtime.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md
   - app/Services/Engineering/EngineeringDocumentationAuthorityAuditService.php
   - app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php
@@ -89,6 +90,7 @@ evidence:
 required_tests:
   - "php artisan atlas:ai:docs-authority-audit --json"
   - "php artisan atlas:code-reality reality-audit --json"
+  - "php artisan atlas:code-reality global-duplication-audit --json"
   - "php artisan atlas:documentation:enforce --task=\"<task>\" --feature=\"<feature>\" --strict --json"
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true
@@ -114,9 +116,10 @@ observability_signals:
   - docs-authority duplicate group counts
   - ACRUI anti-duplicate match_count
   - ACRUI reality-audit unknown_or_unused_count
+  - ACRUI global-duplication-audit duplicate_class_group_count and legacy_signal_count
   - ADER status and score
 next_actions:
-  - Evoluir ACRUI para relatorio global de duplicate feature candidates por simbolo, rota, comando, capability e owner doc.
+  - Triar os candidatos do ACRUI global-duplication-audit por owner antes de qualquer merge, supersede ou quarantine.
 ---
 # Atlas Duplication Reality Governance
 ## Resumo
@@ -176,6 +179,7 @@ php artisan atlas:ai:session-bootstrap --task="<task>" --json
 php artisan atlas:ai:place-feature "<feature>" --json
 php artisan atlas:ai:docs-authority-audit --json
 php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json
+php artisan atlas:code-reality global-duplication-audit --json
 php artisan atlas:code-reality reachability --target="<target>" --json
 ```
 
@@ -202,14 +206,189 @@ Snapshot real em 2026-05-25:
 
 | Gate | Resultado |
 |---|---|
-| `docs-health` | 789 docs, 0 warnings, 0 oversized, 0 frontmatter violations |
-| `docs-authority-audit` | 733 docs canonicos, 0 identity duplicate groups, 0 runtime duplicate groups, 0 capability overlap groups, 0 owner gaps |
+| `docs-health` | 790 docs, 0 warnings, 0 oversized, 0 frontmatter violations |
+| `docs-authority-audit` | 734 docs canonicos, 0 identity duplicate groups, 0 runtime duplicate groups, 0 capability overlap groups, 0 owner gaps |
 | `ACRUI reality-audit` | 6 targets ADRS/ACRUI/AURC, 6 active_runtime, 0 unknown_or_unused, 0 weak_reachability |
 | `ACRUI anti-duplicate` para esta feature | `match_count=0`, `decision=proceed_with_owner_lookup` |
+| `ACRUI global-duplication-audit` | `status=blocked`, 790 docs, 739 docs com `doc_schema`, 0 grupos duplicados de `id`, `graph_id` ou titulo canonico ativo, 7 overlaps de stem de arquivo ativo, 43 archived/source-material, 58 hits topic/source-material em temas criticos, 0 docs nao-canonicos ativos competindo, 3283 classes PHP, 417 comandos Artisan, 540 rotas estaticas, 637 metodo+URI runtime, 65 nomes runtime, 5 grupos de nomes de classe duplicados, 0 comandos Artisan duplicados, 0 duplicatas runtime metodo+URI, 0 nomes runtime duplicados, 30 runtime action aliases, 35 itens na fila de triagem, 225 sinais legado/scaffold |
+| `ACRUI status-drift-audit` | `status=review`, 734 docs canonicos ativos/building/planned/future, 682 `active`, 40 `building`, 5 `planned`, 7 `future`, 3 planned/future com evidencia de codigo existente, 3 com boundary explicado, 189 itens de pressao por linguagem scaffold/implemented misturada, 36 owner groups, 6 area groups |
+| `php artisan route:list --json` | 621 rotas registradas, 0 duplicatas metodo+URI reais, 0 nomes de rota duplicados, 30 actions expostas por multiplas rotas |
 | `session-bootstrap/place-feature` | encontrou overlap contextual e bloqueou ate leitura dos owner docs |
 
-Interpretacao: nao ha duplicacao canonica provada nos gates atuais. Ha overlap
-contextual suficiente para exigir owner lookup, o que e comportamento correto.
+Interpretacao: os gates documentais nao provaram duplicacao canonica por id,
+graph_id, titulo ativo, runtime ou owner. Os 7 overlaps de stem sao nomes de
+familia como `README`, `contracts`, `runbook` e `failure-modes`; eles exigem
+review de boundary, mas nao provam duplicacao semantica. A varredura global de
+codigo encontrou candidatos reais que bloqueiam claim de limpeza global e exigem
+triagem por owner antes de merge, supersede, quarantine ou delecao.
+
+Drift `implemented/planned/scaffold`: o ACRUI agora compara frontmatter e
+linguagem do corpo com evidencias existentes de codigo, testes, migrations e
+comandos. Os 3 planned/future mais concretos agora tem boundary explicado:
+
+| Doc | Status | Interpretacao |
+|---|---|---|
+| `atlas-forge-rivals-intelligence-ledger-v1` | planned | proximo patamar sobre Provider Performance Ledger existente; nao completo |
+| `atlas-cartographic-knowledge-os` | future | alvo visual futuro sobre Vault/Cartografia atuais; nao runtime ativo por si |
+| `atlas-vox-v4-contextual-operator-plan` | planned | paper-only; refs Voice/Vox sao boundary proibido, nao evidencia de V4 |
+
+Isso nao autoriza mudar status automaticamente: owner deve decidir se o status
+continua planejado, vira partial/implemented ou se precisa separar runtime atual
+de trabalho futuro. Os 189 itens restantes sao pressao de linguagem, nao
+violacao comprovada.
+
+Ranking inicial de limpeza por owner:
+
+| Owner | Itens | Prioridade |
+|---|---:|---|
+| `atlas-ai` | 63 | separar roadmap/scaffold de runtime ja provado nos docs mae |
+| `programming` | 37 | limpar Forge/TEOS/Programming para reduzir escolha errada de fluxo |
+| `architecture` | 13 | reconciliar inventories/audits com status operacional atual |
+| `programming_rivals` | 12 | distinguir baterias prontas, arena, ledger e proximos patamares |
+| `domains` | 9 | alinhar docs de dominio com maturidade real sem vender produto final |
+
+Ranking por area fisica: `root` concentra 162 itens, `self-construction` 13,
+`domains` 10, `vault` 2, `architecture-audit` 1 e
+`research-self-improvement` 1. A ordem de limpeza deve ser owner primeiro,
+area depois; path root e um lote grande demais para decisao cega.
+
+Pressao por tema critico: RAG/retrieval e o maior foco, com owner canonico
+`atlas-ai-local-performance-memory-strategy.md`, 27 hits em source-material
+arquivado, 596 matches de codigo, 15 familias de fluxo e 9 papeis de codigo.
+As subareas mais sensiveis sao
+`app/Services/Ai/Programming` (126), `app/Services/Ai/SelfConstruction` (70),
+`app/Console/Commands` (68), `app/Http/Controllers` (29), `app/Services/Ai/Kernel`
+(28) e `app/Services/Ai/Context` (24). Isso nao prova fluxo duplicado sozinho;
+prova que qualquer RAG/memory novo deve ler o owner canonico e decidir reuse,
+boundary ou supersede antes de codar.
+
+Fila RAG/retrieval de boundary review:
+
+| Familia | Severidade | Decisao |
+|---|---:|---|
+| `graph_retrieval` | high | decidir boundary entre `Context/AtlasGraphRetrievalNetworkService` e `ProgrammingGraphRagRuntime` |
+| `semantic_embedding` | high | decidir boundary entre `Context/AtlasSemanticEmbeddingFoundationService` e `Semantic/EmbeddingService` |
+| `retrieval_feedback` | medium | garantir owner unico entre Context, Compounding, model e migration |
+| `context_pack` | medium | garantir contrato unico entre builder, value object, store, model e migration |
+| `local_rag` | medium | documentar como benchmark/readiness ou promover a runtime owner |
+| `context_ranking_rerank` | medium | decidir boundary entre ranking de contexto e reranker de Programming |
+| `open_brain` | review | documentar como surface/projection, nao memory paralela |
+| `python_data_retrieval` | review | manter atras de runtime boundary Python e decision receipt |
+
+Reachability manual dos itens principais confirmou: `Context` e o owner canonico
+estao ativos, mas ha adapters/consumers ativos em `Programming`, `Semantic` e
+`Compounding`. Portanto a limpeza segura e boundary/contrato, nao delete:
+`AtlasGraphRetrievalNetworkService` e `AtlasSemanticEmbeddingFoundationService`
+tem command, teste e owner doc; `ProgrammingGraphRagRuntime`,
+`EmbeddingService`, `AtlasRagFeedbackService` e `ProgrammingContextPackStore`
+tambem sao alcancaveis. O risco e IA escolher o runtime errado, nao codigo morto.
+
+Contratos de direcao para limpeza RAG:
+
+| Familia | Owner | Adapter/consumer | Proibido |
+|---|---|---|---|
+| `graph_retrieval` | `Context/AtlasGraphRetrievalNetworkService` | `ProgrammingGraphRagRuntime` | Programming virar segundo owner global |
+| `semantic_embedding` | `Context/AtlasSemanticEmbeddingFoundationService` | `Semantic/EmbeddingService` | Semantic bypassar policy/privacy/context |
+| `retrieval_feedback` | `Context/AtlasRetrievalFeedbackLoopService` | `Compounding/AtlasRagFeedbackService` | Compounding criar schema/owner paralelo |
+| `context_pack` | `AiContextPackBuilder` | `ProgrammingContextPackStore` | Store redefinir contrato base de context pack |
+| `local_rag` | `LocalRagReadinessService` | `LocalRagBenchmarkService` | Benchmark virar runtime canonico por acidente |
+
+Overlaps literais de rota sao sinais de review, nao duplicacao provada, porque a
+varredura regex nao expande `Route::prefix()` ou middleware groups. O
+`route:list` real provou 0 duplicatas metodo+URI e 0 nomes de rota duplicados,
+mas 30 actions com aliases. O ACRUI agora gera `boundary_contract` para cada
+alias: mobile/base e permitido quando payload, auth e resposta sao identicos; se
+houver logica mobile separada, ela precisa de wrapper ou owner doc. O alias de
+`AtlasCodeObservedSessionController@import` fica medium ate owner decidir se
+`import-result` e compatibilidade documentada ou deve ser removido por plano de
+deprecacao.
+
+Contratos de direcao para aliases de rota:
+
+| Alias | Owner | Permitido | Proibido |
+|---|---|---|---|
+| mobile/base API | base controller action | alias mobile quando contrato e identico | logica mobile separada na mesma action sem wrapper/doc |
+| `AtlasCodeObservedSessionController@import` | observed session import | `import-result` como compatibilidade documentada ou deprecada | terceiro endpoint de import sem decisao de owner |
+| outros aliases | owner review | documentar compatibilidade ou merge | criar nova rota antes da revisao |
+
+Fila de triagem inicial gerada pelo ACRUI:
+
+| Item | Severidade | Decisao pendente |
+|---|---:|---|
+| `duplicate_class:operationenvelope` | critical | 3 paths com reachability alta; decidir rename/boundary/merge sem delete |
+| `duplicate_class:verificationcommandrunner` | high | 2 paths com reachability alta; concrete runner AtlasCode vs interface AtlasDev precisa boundary ou rename |
+| `duplicate_class:frontmatterparser` | high | 2 paths com reachability alta; parser Semantic build/validate vs parser Vault read-only precisa boundary ou consolidacao |
+| `duplicate_class:aiexecutionplan` | medium | model Eloquent persistente vs value object de prompt; considerar rename do value object |
+| `route_action_alias:AtlasCodeObservedSessionController@import` | medium | documentar alias `import` vs `import-result` ou unificar contrato |
+| aliases mobile/base de Voice, Telemetry e Constelacao | low | documentar como alias intencional ou criar wrapper mobile |
+
+Conclusao de limpeza: nenhum desses grupos deve ser deletado por ausencia de uso.
+O problema comprovado e clareza de boundary/nome. A ordem segura e:
+`reachability -> owner decision -> rename/boundary doc -> tests -> only then
+merge/supersede/quarantine`.
+
+Hotspots de legado/scaffold no codigo:
+
+| Area | Sinais |
+|---|---:|
+| `app/Services/Ai` | 143 |
+| `app/Console/Commands` | 35 |
+| `app/Http/Controllers` | 12 |
+| `app/Services/Engineering` | 7 |
+| `database` | 7 |
+
+Por tipo: `legacy=102`, `todo=44`, `scaffold=36`, `duplicate=32`,
+`deprecated=9`, `executed_scaffold=1`, `planned_scaffold=1`. Esses sinais sao
+fila de triagem, nao autorizacao de delete.
+
+Dentro de `app/Services/Ai`, o ACRUI contou 2111 arquivos e 143 sinais. Os
+maiores focos por subarea sao:
+
+| Subarea | Arquivos | Sinais |
+|---|---:|---:|
+| `app/Services/Ai/Programming` | 448 | 39 |
+| `app/Services/Ai/SelfConstruction` | 285 | 28 |
+| `app/Services/Ai/Kernel` | 636 | 18 |
+| `app/Services/Ai/Telemetry` | 33 | 11 |
+| `app/Services/Ai/Vox` | 38 | 7 |
+
+Por tema em `app/Services/Ai`: `runtime_orchestration=106` sinais,
+`programming_forge=97`, `memory_rag_retrieval=73`, `self_construction=32`,
+`voice_vox=26`. Isso confirma que a proxima limpeza precisa focar primeiro em
+Programming/Forge, SelfConstruction e Memory/RAG, sempre por reachability.
+
+Grupos de classe com mesmo nome curto encontrados pelo ACRUI:
+
+| Nome curto | Paths |
+|---|---|
+| `aiexecutionplan` | `app/Models/AiExecutionPlan.php`; `app/Services/Ai/ValueObjects/AiExecutionPlan.php` |
+| `verificationcommandrunner` | `app/Services/AtlasCode/VerificationCommandRunner.php`; `app/Services/Ai/Programming/AtlasDev/Gate/VerificationCommandRunner.php` |
+| `operationenvelope` | `app/Services/Ai/Programming/AtlasDev/Schemas/OperationEnvelope.php`; `app/Services/Ai/Programming/Sdd/Pipeline/OperationEnvelope.php`; `app/Services/Ai/Kernel/Envelope/OperationEnvelope.php` |
+| `frontmatterparser` | `app/Services/Semantic/FrontmatterParser.php`; `app/Services/Vault/FrontmatterParser.php` |
+| `smokesubject` | `app/Console/Commands/AtlasDevSeniorLoopAuditCommand.php`; `app/Console/Commands/AtlasDevDesktopRealSmokeCommand.php`; `app/Console/Commands/AtlasDevSeniorLoopRunCommand.php` |
+
+Contratos de direcao para classes duplicadas:
+
+| Classe | Owner | Variante | Proibido |
+|---|---|---|---|
+| `OperationEnvelope` | `Kernel/Envelope` | AtlasDev schema e SDD pipeline | importar variante Programming como contrato Kernel |
+| `VerificationCommandRunner` | `Services/AtlasCode` concrete runner | AtlasDev Gate contract | trocar interface e runner concreto por nome curto |
+| `FrontmatterParser` | `Services/Semantic` docs parser | `Services/Vault` note parser | usar parser Vault como parser canonico de engineering docs |
+| `AiExecutionPlan` | `app/Models` database model | AI value object | typehint do value object onde model persistente e requerido |
+| `SmokeSubject` | fixture gerado | comandos smoke | tratar como classe de dominio/producao |
+
+Ordem segura de limpeza para classes com mesmo nome curto:
+
+| Prioridade | Grupo | Decisao segura |
+|---:|---|---|
+| 1 | `OperationEnvelope` | manter fronteiras e documentar/renomear variantes Programming somente com plano de adapter |
+| 2 | `FrontmatterParser` | provar contratos Semantic vs Vault com testes antes de qualquer consolidacao |
+| 3 | `VerificationCommandRunner` | preferir renomear interface AtlasDev Gate ou documentar boundary de interface |
+| 4 | `AiExecutionPlan` | preservar model Eloquent; renomear value object so junto do prompt builder/static scanner |
+| 5 | `SmokeSubject` | manter como fixture gerado ou excluir da pressao de duplicacao de producao |
+
+Em todos os grupos acima, `delete_allowed=false` ate reachability, owner doc,
+testes e decisao humana provarem merge, rename ou quarantine.
 
 ## Dependencias
 - `EngineeringDocumentationAuthorityAuditService`
@@ -224,13 +403,16 @@ Comandos usados para este snapshot:
 ```bash
 php artisan atlas:ai:docs-authority-audit --json
 php artisan atlas:code-reality reality-audit --json
+php artisan atlas:code-reality global-duplication-audit --json
+php artisan atlas:code-reality status-drift-audit --json
+php artisan route:list --json
 php artisan atlas:code-reality anti-duplicate --feature="documentation and code duplication governance audit" --json
 php artisan atlas:engineering:knowledge docs-health --json
 ```
 
 ## Riscos
-- ACRUI ainda nao tem contador global exaustivo de features duplicadas por
-  semantica; hoje o gate e por feature/alvo e por autoridade documental.
+- ACRUI global-duplication-audit e candidato conservador; ele nao decide que
+  codigo e morto, nao autoriza delecao e nao prova equivalencia semantica final.
 - Read models podem ficar stale se `sync --prune` e `index-code --prune` nao
   rodarem depois de alteracoes.
 - Source material arquivado pode parecer duplicado, mas nao e canonico.
@@ -251,7 +433,19 @@ antes de usar a doc como contexto para outra IA
 ```
 
 ## Proximas Acoes
-1. Adicionar relatorio ACRUI global de duplicacao por feature/capability.
-2. Fazer ADER consumir esse relatorio quando existir.
-3. Expor contador de drift implemented-vs-scaffold por owner doc.
-4. Atualizar KB e Code Intelligence apos merge desta politica.
+1. Triar os 5 grupos de nomes de classe duplicados por owner e decidir reuse,
+   namespace boundary, supersede ou merge.
+2. Revisar os 7 overlaps de stem de doc ativo para separar indices/familias
+   intencionais de docs concorrentes.
+3. Confirmar os 30 runtime action aliases com `php artisan route:list`,
+   decidindo se cada um e alias intencional, wrapper mobile ou fluxo paralelo
+   confuso.
+4. Triar RAG/retrieval primeiro: 27 source-material hits, 596 code matches e 15
+   familias precisam ser separados em owner canonico, read model, legacy,
+   runtime governado ou surface alias.
+5. Revisar os 225 sinais legado/scaffold com reachability antes de qualquer
+   cleanup claim.
+6. Fazer ADER consumir o global-duplication-audit quando a politica de bloqueio
+   global estiver aceita pelo operador.
+7. Triar os 3 docs `planned/future` com evidencia de codigo existente e reduzir
+   a fila de 189 pressoes de linguagem por owner doc.

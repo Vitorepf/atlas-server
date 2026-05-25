@@ -6,9 +6,12 @@ namespace App\Http\Controllers;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendCompanyPortfolioService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendControlPlaneService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDeliveryHandoffService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendEvidenceKitService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendProviderInstructionPacketService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendPublicationVerifierService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendRivalReplayHarnessService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendRunCertificationService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendSelectedWorkspaceService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendWorkspaceRuntimeProjectionService;
@@ -114,6 +117,50 @@ final class AtlasFrontendWorkspaceController extends Controller
                 'selected_repository_is_primary_workspace' => true,
                 'frontend_app_is_subscope_only' => true,
                 'space_runtime_required' => false,
+            ],
+        ], ($report['status'] ?? null) === 'blocked' ? 422 : 200);
+    }
+
+    public function controlPlane(Request $request, AtlasFrontendControlPlaneService $controlPlane): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['required', 'string', 'max:4000'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'surface' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'acceptance_criteria' => ['sometimes', 'boolean'],
+            'asset_context' => ['sometimes', 'boolean'],
+            'company_profile_ready' => ['sometimes', 'boolean'],
+            'prototype' => ['sometimes', 'boolean'],
+            'live' => ['sometimes', 'boolean'],
+            'test_plan' => ['sometimes', 'boolean'],
+            'visual_quality_plan' => ['sometimes', 'boolean'],
+            'evidence_plan' => ['sometimes', 'boolean'],
+            'senior_design_review' => ['sometimes', 'boolean'],
+            'benchmark_run' => ['sometimes', 'boolean'],
+            'rival_evidence' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'bundle' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'publication_receipt' => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
+
+        $report = $controlPlane->snapshot($payload + [
+            'surface' => 'programming.frontend',
+        ]);
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.control_plane.v1',
+            'surface' => 'atlas_code_frontend_control_plane',
+            'control_plane' => $report,
+            'meta' => [
+                'execution_allowed' => (bool) data_get($report, 'claim_policy.provider_dispatch_allowed', false),
+                'provider_dispatch_allowed' => (bool) data_get($report, 'claim_policy.provider_dispatch_allowed', false),
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => (bool) data_get($report, 'claim_policy.premium_frontend_claim_allowed', false),
+                'customer_handoff_allowed' => (bool) data_get($report, 'claim_policy.public_distribution_claim_allowed', false),
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => (bool) data_get($report, 'claim_policy.world_best_claim_allowed', false),
             ],
         ], ($report['status'] ?? null) === 'blocked' ? 422 : 200);
     }
@@ -284,5 +331,479 @@ final class AtlasFrontendWorkspaceController extends Controller
                 'world_best_claim_allowed' => false,
             ],
         ], ($report['status'] ?? null) === 'ready' ? 200 : 422);
+    }
+
+    public function prepareRivalReplay(Request $request, AtlasFrontendRivalReplayHarnessService $replay): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['required', 'string', 'max:4000'],
+            'output' => ['required', 'string', 'max:1000'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $directory = rtrim((string) $payload['output'], DIRECTORY_SEPARATOR);
+        $operatorPacket = $replay->writeOperatorPacket($directory);
+        $operatorPacketVerification = $replay->verifyOperatorPacket($directory);
+        $runnerKit = File::isFile($directory.'/replay-runner-kit.json')
+            ? (json_decode((string) File::get($directory.'/replay-runner-kit.json'), true) ?: [])
+            : [];
+        $worklist = $replay->compileEvidenceWorklist($directory);
+        $inspect = $replay->inspect($directory);
+        $proofContractFile = File::isFile($directory.'/replay-competitive-proof-contract.json')
+            ? (json_decode((string) File::get($directory.'/replay-competitive-proof-contract.json'), true) ?: [])
+            : [];
+
+        $caseIds = collect((array) ($inspect['cases'] ?? []))
+            ->pluck('id')
+            ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
+            ->values()
+            ->all();
+        $systemIds = collect((array) ($inspect['systems'] ?? []))
+            ->pluck('id')
+            ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
+            ->values()
+            ->all();
+        $workItems = $this->rivalReplayWorkItems($worklist);
+
+        $report = [
+            'schema_version' => 'atlas.frontend.workspace_rival_replay_preparation.v1',
+            'status' => 'ready_for_external_rival_replay',
+            'preparation_type' => 'selected_repo_external_rival_replay_runner_kit',
+            'evidence_directory_hash' => hash('sha256', $directory),
+            'runner_kit_schema_version' => AtlasFrontendRivalReplayHarnessService::RUNNER_KIT_SCHEMA_VERSION,
+            'runner_kit_hash' => $runnerKit['runner_kit_hash'] ?? null,
+            'replay_hash' => $inspect['replay_hash'] ?? null,
+            'worklist_schema_version' => AtlasFrontendRivalReplayHarnessService::EVIDENCE_WORKLIST_SCHEMA_VERSION,
+            'worklist_hash' => $worklist['worklist_hash'] ?? null,
+            'proof_contract_schema_version' => AtlasFrontendRivalReplayHarnessService::PROOF_CONTRACT_FILE_SCHEMA_VERSION,
+            'proof_contract_file_hash' => $proofContractFile['proof_contract_file_hash'] ?? null,
+            'operator_packet_schema_version' => AtlasFrontendRivalReplayHarnessService::OPERATOR_PACKET_SCHEMA_VERSION,
+            'operator_packet_hash' => $operatorPacket['operator_packet_hash'] ?? null,
+            'operator_packet_status' => $operatorPacket['status'] ?? 'unknown',
+            'operator_packet_verification_schema_version' => AtlasFrontendRivalReplayHarnessService::OPERATOR_PACKET_VERIFICATION_SCHEMA_VERSION,
+            'operator_packet_verification_status' => $operatorPacketVerification['status'] ?? 'unknown',
+            'operator_packet_verification_hash' => $operatorPacketVerification['operator_packet_verification_hash'] ?? null,
+            'external_operator_run_count' => (int) ($operatorPacket['external_run_count'] ?? 0),
+            'run_packet_count' => (int) ($runnerKit['run_packet_count'] ?? 0),
+            'work_item_count' => (int) ($worklist['work_item_count'] ?? 0),
+            'action_queue' => [
+                'schema_version' => data_get($worklist, 'schema_version'),
+                'status' => data_get($worklist, 'status'),
+                'worklist_hash' => data_get($worklist, 'worklist_hash'),
+                'work_item_count' => (int) data_get($worklist, 'work_item_count', 0),
+                'work_items' => $workItems,
+                'next_actions' => $this->rivalReplayNextActions($workItems),
+                'raw_absolute_path_returned' => false,
+            ],
+            'case_ids' => $caseIds,
+            'system_ids' => $systemIds,
+            'artifact_refs' => [
+                'runner_kit' => [
+                    'relative_name' => 'rival-replay/replay-runner-kit.json',
+                    'sha256' => File::isFile($directory.'/replay-runner-kit.json') ? hash_file('sha256', $directory.'/replay-runner-kit.json') : null,
+                ],
+                'worklist' => [
+                    'relative_name' => 'rival-replay/replay-evidence-worklist.json',
+                    'sha256' => File::isFile($directory.'/replay-evidence-worklist.json') ? hash_file('sha256', $directory.'/replay-evidence-worklist.json') : null,
+                ],
+                'proof_contract' => [
+                    'relative_name' => 'rival-replay/replay-competitive-proof-contract.json',
+                    'sha256' => File::isFile($directory.'/replay-competitive-proof-contract.json') ? hash_file('sha256', $directory.'/replay-competitive-proof-contract.json') : null,
+                ],
+                'operator_packet' => [
+                    'relative_name' => 'rival-replay/replay-operator-packet.json',
+                    'sha256' => File::isFile($directory.'/replay-operator-packet.json') ? hash_file('sha256', $directory.'/replay-operator-packet.json') : null,
+                ],
+            ],
+            'required_next_actions' => [
+                'open_replay_operator_packet',
+                'run_external_rivals_against_unchanged_task_specs',
+                'fill_external_execution_receipts_and_score_attestations',
+                'verify_rival_evidence_packs',
+                'rerun_atlas_frontend_replay_inspect',
+                'rerun_atlas_frontend_world_best_plan',
+            ],
+            'claim_policy' => [
+                'runner_kit_is_not_replay_evidence' => true,
+                'worklist_is_not_replay_evidence' => true,
+                'operator_packet_is_not_replay_evidence' => true,
+                'operator_packet_verification_is_not_replay_evidence' => true,
+                'external_rival_replay_receipts_required' => true,
+                'frontend_completion_claim_allowed' => false,
+                'world_best_claim_allowed' => false,
+                'raw_absolute_path_returned' => false,
+                'raw_customer_source_returned' => false,
+                'selected_repository_remains_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+            ],
+            'blockers' => ['external_rival_replay_receipts_missing'],
+            'warnings' => ['prepared_runner_kit_does_not_authorize_market_claims'],
+        ];
+        $report['rival_replay_preparation_hash'] = MissionCanonicalHash::sha256($report);
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.prepare_rival_replay.v1',
+            'surface' => 'atlas_code_frontend_rival_replay_preparation',
+            'rival_replay_preparation' => $report,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ]);
+    }
+
+    public function inspectRivalReplay(Request $request, AtlasFrontendRivalReplayHarnessService $replay): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['required', 'string', 'max:4000'],
+            'evidence' => ['required', 'string', 'max:1000'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $directory = rtrim((string) $payload['evidence'], DIRECTORY_SEPARATOR);
+        $inspect = $replay->inspect($directory);
+        $worklist = $replay->compileEvidenceWorklist($directory);
+        $worldBestAllowed = (bool) data_get($inspect, 'competitive_proof_contract.claim_policy.may_claim_world_best_frontend_system', false)
+            && (bool) data_get($inspect, 'claim_policy.may_claim_world_best_frontend_system', false);
+        $externalReplayCompleted = (bool) data_get($inspect, 'summary.external_replay_completed', false);
+        $runs = collect((array) ($inspect['runs'] ?? []))
+            ->map(fn (array $run): array => [
+                'case_id' => (string) ($run['case_id'] ?? ''),
+                'system' => (string) ($run['system'] ?? ''),
+                'status' => (string) ($run['status'] ?? 'unknown'),
+                'score_total' => $run['score_total'] ?? null,
+                'run_packet_hash' => $run['run_packet_hash'] ?? null,
+                'blockers' => array_values(array_filter((array) ($run['blockers'] ?? []), 'is_string')),
+                'warnings' => array_values(array_filter((array) ($run['warnings'] ?? []), 'is_string')),
+            ])
+            ->values()
+            ->all();
+        $workItems = $this->rivalReplayWorkItems($worklist);
+
+        $report = [
+            'schema_version' => 'atlas.frontend.workspace_rival_replay_inspection.v1',
+            'status' => $inspect['status'] ?? 'unknown',
+            'inspection_type' => 'selected_repo_external_rival_replay_evidence_inspection',
+            'evidence_directory_hash' => hash('sha256', $directory),
+            'replay_hash' => $inspect['replay_hash'] ?? null,
+            'summary' => $inspect['summary'] ?? [],
+            'scoreboard' => $inspect['scoreboard'] ?? [],
+            'fairness' => $inspect['fairness'] ?? [],
+            'evidence_pack_readiness' => [
+                'status' => data_get($inspect, 'evidence_pack_readiness.status'),
+                'summary' => data_get($inspect, 'evidence_pack_readiness.summary'),
+                'required_artifact_kinds' => data_get($inspect, 'evidence_pack_readiness.required_artifact_kinds', []),
+            ],
+            'competitive_diagnostics' => $inspect['competitive_diagnostics'] ?? [],
+            'competitive_proof_contract' => $inspect['competitive_proof_contract'] ?? [],
+            'runs' => $runs,
+            'action_queue' => [
+                'schema_version' => data_get($worklist, 'schema_version'),
+                'status' => data_get($worklist, 'status'),
+                'worklist_hash' => data_get($worklist, 'worklist_hash'),
+                'work_item_count' => (int) data_get($worklist, 'work_item_count', 0),
+                'work_items' => $workItems,
+                'next_actions' => $this->rivalReplayNextActions($workItems),
+                'raw_absolute_path_returned' => false,
+            ],
+            'remaining_gaps' => array_values(array_filter((array) ($inspect['remaining_gaps'] ?? []), 'is_string')),
+            'claim_policy' => [
+                'may_claim_external_replay_completed' => $externalReplayCompleted,
+                'may_claim_world_best_frontend_system' => $worldBestAllowed,
+                'world_best_requires_external_execution_receipts' => true,
+                'world_best_requires_no_tied_cases' => true,
+                'world_best_requires_no_dimension_gaps_against_best_rival' => true,
+                'documentation_only_claim_forbidden' => true,
+                'raw_absolute_path_returned' => false,
+                'raw_customer_source_returned' => false,
+                'selected_repository_remains_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+            ],
+            'blockers' => $worldBestAllowed ? [] : ['external_rival_replay_receipts_or_decisive_lead_missing'],
+            'warnings' => $externalReplayCompleted ? [] : ['external_rival_replay_not_complete'],
+        ];
+        $report['rival_replay_inspection_hash'] = MissionCanonicalHash::sha256($report);
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.inspect_rival_replay.v1',
+            'surface' => 'atlas_code_frontend_rival_replay_inspection',
+            'rival_replay_inspection' => $report,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => $worldBestAllowed,
+            ],
+        ]);
+    }
+
+    public function proofBundle(Request $request, AtlasFrontendRivalReplayHarnessService $replay): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['required', 'string', 'max:4000'],
+            'evidence' => ['required', 'string', 'max:1000'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $directory = rtrim((string) $payload['evidence'], DIRECTORY_SEPARATOR);
+        $bundle = $replay->writeCompetitiveProofBundle($directory);
+        $worldBestAllowed = (bool) data_get($bundle, 'claim_policy.may_claim_world_best_frontend_system', false);
+
+        $report = [
+            'schema_version' => 'atlas.frontend.workspace_competitive_proof_bundle.v1',
+            'status' => $bundle['status'] ?? 'unknown',
+            'bundle_type' => 'selected_repo_provider_safe_competitive_replay_proof_index',
+            'evidence_directory_hash' => hash('sha256', $directory),
+            'proof_bundle_schema_version' => AtlasFrontendRivalReplayHarnessService::PROOF_BUNDLE_SCHEMA_VERSION,
+            'proof_bundle_hash' => $bundle['proof_bundle_hash'] ?? null,
+            'replay_hash' => $bundle['replay_hash'] ?? null,
+            'operator_packet_verification_hash' => $bundle['operator_packet_verification_hash'] ?? null,
+            'operator_packet_verification_status' => data_get($bundle, 'operator_packet_verification.status', 'unknown'),
+            'proof_contract_hash' => $bundle['proof_contract_hash'] ?? null,
+            'readiness' => $bundle['readiness'] ?? [],
+            'run_manifest_count' => count((array) ($bundle['run_manifest_index'] ?? [])),
+            'scoreboard' => $bundle['scoreboard'] ?? [],
+            'artifact_refs' => [
+                'proof_bundle' => [
+                    'relative_name' => 'rival-replay/replay-competitive-proof-bundle.json',
+                    'sha256' => File::isFile($directory.'/replay-competitive-proof-bundle.json')
+                        ? hash_file('sha256', $directory.'/replay-competitive-proof-bundle.json')
+                        : null,
+                ],
+            ],
+            'required_next_actions' => array_values(array_filter((array) ($bundle['required_next_actions'] ?? []), 'is_string')),
+            'claim_policy' => [
+                'proof_bundle_is_not_raw_artifact_storage' => true,
+                'external_provider_dispatch_performed' => false,
+                'may_claim_external_replay_completed' => (bool) data_get($bundle, 'claim_policy.may_claim_external_replay_completed', false),
+                'may_claim_world_best_replay_proof' => (bool) data_get($bundle, 'claim_policy.may_claim_world_best_replay_proof', false),
+                'may_claim_world_best_frontend_system' => $worldBestAllowed,
+                'public_distribution_receipt_still_required_for_product_claim' => true,
+                'raw_absolute_path_returned' => false,
+                'raw_customer_source_returned' => false,
+                'selected_repository_remains_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+            ],
+            'blockers' => $worldBestAllowed ? [] : ['external_rival_replay_receipts_or_decisive_lead_missing'],
+            'warnings' => $worldBestAllowed ? ['public_distribution_receipt_still_required_for_product_claim'] : ['proof_bundle_pending_external_replay_evidence'],
+        ];
+        $report['competitive_proof_bundle_hash'] = MissionCanonicalHash::sha256($report);
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.proof_bundle.v1',
+            'surface' => 'atlas_code_frontend_competitive_proof_bundle',
+            'rival_replay_proof_bundle' => $report,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => $worldBestAllowed,
+            ],
+        ]);
+    }
+
+    public function verifyPublication(Request $request, AtlasFrontendPublicationVerifierService $publication): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['required', 'string', 'max:4000'],
+            'bundle' => ['required', 'string', 'max:1000'],
+            'receipt' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $report = $publication->verify(
+            (string) $payload['bundle'],
+            trim((string) ($payload['receipt'] ?? '')) !== '' ? (string) $payload['receipt'] : null,
+        );
+        $publicVerified = (bool) data_get($report, 'claim_policy.public_distribution_claim_allowed', false);
+        $localReady = (bool) data_get($report, 'claim_policy.local_bundle_claim_allowed', false);
+
+        $summary = [
+            'schema_version' => 'atlas.frontend.workspace_publication_verification.v1',
+            'status' => $report['status'] ?? 'unknown',
+            'verification_type' => 'selected_repo_product_proof_publication',
+            'publication_schema_version' => AtlasFrontendPublicationVerifierService::SCHEMA_VERSION,
+            'publication_hash' => $report['publication_hash'] ?? null,
+            'bundle_directory_hash' => $report['bundle_directory_hash'] ?? null,
+            'bundle_manifest_hash' => $report['bundle_manifest_hash'] ?? null,
+            'bundle_hash' => $report['bundle_hash'] ?? null,
+            'frontend_app_scope' => $report['frontend_app_scope'] ?? [],
+            'product_site_assets' => $report['product_site_assets'] ?? null,
+            'public_receipt_status' => data_get($report, 'public_receipt.status', 'unknown'),
+            'public_receipt_hash' => data_get($report, 'public_receipt.receipt_hash'),
+            'required_next_actions' => $publicVerified
+                ? []
+                : ($localReady
+                    ? ['fill_operator_approved_publication_receipt', 'rerun_atlas_frontend_publication_verify', 'attach_publication_report_to_handoff']
+                    : ['repair_product_proof_bundle_and_rerun_publication_verify']),
+            'claim_policy' => [
+                'local_bundle_claim_allowed' => $localReady,
+                'public_distribution_claim_allowed' => $publicVerified,
+                'world_best_claim_allowed' => false,
+                'public_distribution_requires_verified_receipt' => true,
+                'public_distribution_requires_matching_frontend_app_scope' => true,
+                'raw_absolute_path_returned' => false,
+                'raw_customer_source_returned' => false,
+                'selected_repository_remains_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+            ],
+            'blockers' => array_values(array_filter((array) ($report['blockers'] ?? []), 'is_string')),
+            'warnings' => array_values(array_filter((array) ($report['warnings'] ?? []), 'is_string')),
+        ];
+        $summary['publication_verification_hash'] = MissionCanonicalHash::sha256($summary);
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.publication_verify.v1',
+            'surface' => 'atlas_code_frontend_publication_verification',
+            'publication_verification' => $summary,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => $publicVerified,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ], ($summary['status'] ?? null) === 'blocked' ? 422 : 200);
+    }
+
+    public function publicationReceiptTemplate(Request $request, AtlasFrontendPublicationVerifierService $publication): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['required', 'string', 'max:4000'],
+            'output' => ['required', 'string', 'max:1000'],
+            'bundle' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $template = $publication->writeReceiptTemplate(
+            (string) $payload['output'],
+            trim((string) ($payload['bundle'] ?? '')) !== '' ? (string) $payload['bundle'] : null,
+        );
+
+        $report = [
+            'schema_version' => 'atlas.frontend.workspace_publication_receipt_template.v1',
+            'status' => $template['status'] ?? 'unknown',
+            'template_schema_version' => AtlasFrontendPublicationVerifierService::TEMPLATE_SCHEMA_VERSION,
+            'template_hash' => $template['template_hash'] ?? null,
+            'receipt_path_hash' => $template['receipt_path_hash'] ?? null,
+            'bundle_context' => $template['bundle_context'] ?? [],
+            'artifact_refs' => [
+                'publication_receipt' => [
+                    'relative_name' => 'publication-receipt.json',
+                    'sha256' => File::isFile(rtrim((string) $payload['output'], DIRECTORY_SEPARATOR).'/publication-receipt.json')
+                        ? hash_file('sha256', rtrim((string) $payload['output'], DIRECTORY_SEPARATOR).'/publication-receipt.json')
+                        : null,
+                ],
+            ],
+            'claim_policy' => [
+                'template_is_not_public_verification' => true,
+                'operator_approval_required' => true,
+                'bundle_hash_match_required' => true,
+                'raw_absolute_path_returned' => false,
+                'selected_repository_remains_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+            'blockers' => array_values(array_filter((array) ($template['blockers'] ?? []), 'is_string')),
+            'warnings' => array_values(array_filter((array) ($template['warnings'] ?? []), 'is_string')),
+        ];
+        $report['publication_receipt_template_hash'] = MissionCanonicalHash::sha256($report);
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.publication_receipt_template.v1',
+            'surface' => 'atlas_code_frontend_publication_receipt_template',
+            'publication_receipt_template' => $report,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ], ($report['status'] ?? null) === 'blocked' ? 422 : 200);
+    }
+
+    /**
+     * @param  array<string,mixed>  $worklist
+     * @return array<int,array<string,mixed>>
+     */
+    private function rivalReplayWorkItems(array $worklist): array
+    {
+        return collect((array) ($worklist['work_items'] ?? []))
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->map(fn (array $item): array => [
+                'id' => (string) ($item['id'] ?? ''),
+                'case_id' => (string) ($item['case_id'] ?? ''),
+                'system' => (string) ($item['system'] ?? ''),
+                'status' => (string) ($item['status'] ?? 'unknown'),
+                'blockers' => array_values(array_filter((array) ($item['blockers'] ?? []), 'is_string')),
+                'pack_manifest_ref' => (string) ($item['pack_manifest_ref'] ?? ''),
+                'run_manifest_ref' => (string) ($item['run_manifest_ref'] ?? ''),
+                'task_spec_ref' => (string) ($item['task_spec_ref'] ?? ''),
+                'completion_steps' => array_values(array_filter((array) ($item['completion_steps'] ?? []), 'is_string')),
+                'requires_score_attestation' => isset($item['score_attestation_schema_version']),
+                'requires_external_execution_receipt' => isset($item['external_execution_receipt_schema_version']),
+                'requires_evidence_pack' => str_starts_with((string) ($item['id'] ?? ''), 'fill_evidence_pack_'),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $workItems
+     * @return array<int,string>
+     */
+    private function rivalReplayNextActions(array $workItems): array
+    {
+        $items = collect($workItems);
+        $actions = [];
+
+        if ($items->contains(fn (array $item): bool => (bool) ($item['requires_evidence_pack'] ?? false))) {
+            $actions[] = 'fill_and_hash_missing_rival_replay_evidence_packs';
+        }
+        if ($items->contains(fn (array $item): bool => (bool) ($item['requires_external_execution_receipt'] ?? false))) {
+            $actions[] = 'run_external_rivals_and_embed_execution_receipts';
+        }
+        if ($items->contains(fn (array $item): bool => (bool) ($item['requires_score_attestation'] ?? false))) {
+            $actions[] = 'review_scores_and_embed_score_attestations';
+        }
+        $actions[] = 'rerun_atlas_frontend_rival_replay_inspection';
+
+        return array_values(array_unique($actions));
     }
 }
