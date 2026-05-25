@@ -18,6 +18,14 @@ final class AtlasFrontendRivalReplayHarnessService
 
     public const EVIDENCE_WORKLIST_SCHEMA_VERSION = 'atlas.frontend.rival_replay_evidence_worklist.v1';
 
+    public const EXTERNAL_EXECUTION_RECEIPT_SCHEMA_VERSION = 'atlas.frontend.rival_replay.external_execution_receipt.v1';
+
+    public const EXTERNAL_EXECUTION_RECEIPT_TEMPLATE_SCHEMA_VERSION = 'atlas.frontend.rival_replay.external_execution_receipt_template.v1';
+
+    public const SCORE_ATTESTATION_SCHEMA_VERSION = 'atlas.frontend.rival_replay.score_attestation.v1';
+
+    public const SCORE_ATTESTATION_TEMPLATE_SCHEMA_VERSION = 'atlas.frontend.rival_replay.score_attestation_template.v1';
+
     /**
      * @return array<string,mixed>
      */
@@ -84,6 +92,7 @@ final class AtlasFrontendRivalReplayHarnessService
                 'world_best_requires_all_rival_runs_complete' => true,
                 'world_best_requires_atlas_to_win_each_complete_case' => true,
                 'world_best_requires_same_task_spec_hash_per_case' => true,
+                'world_best_requires_external_execution_receipts' => true,
                 'documentation_only_claim_forbidden' => true,
                 'raw_customer_source_or_prompt_forbidden' => true,
             ],
@@ -248,6 +257,8 @@ final class AtlasFrontendRivalReplayHarnessService
                         'complete_only_after_manifest_fields_are_filled' => true,
                         'evidence_pack_must_verify_before_complete_manifest' => true,
                         'same_task_spec_hash_required_across_systems_in_case' => true,
+                        'external_rival_runs_require_execution_receipt' => true,
+                        'score_attestation_must_verify_manifest_score' => true,
                         'raw_prompts_customer_source_tokens_or_cookies_forbidden' => true,
                     ],
                 ];
@@ -306,11 +317,252 @@ final class AtlasFrontendRivalReplayHarnessService
     /**
      * @return array<string,mixed>
      */
+    public function writeScoreAttestationTemplate(
+        string $evidenceDirectory,
+        string $caseId,
+        string $system,
+        ?string $outputPath = null,
+        ?string $reviewerRefHash = null,
+        ?string $scoringSurface = null,
+    ): array {
+        $directory = $this->evidenceDirectory($evidenceDirectory);
+        $caseId = trim($caseId);
+        $system = trim($system);
+        $target = $this->scoreAttestationOutputPath($directory, $caseId, $system, $outputPath);
+        $rubric = app(AtlasFrontendCompetitiveRubricService::class)->rubric();
+        $manifestPath = $directory.'/'.$caseId.'/'.$system.'/manifest.json';
+        $blockers = [];
+        $knownCaseIds = array_column($this->cases(), 'id');
+        $knownSystemIds = array_column($this->systems(), 'id');
+
+        if ($caseId === '') {
+            $blockers[] = 'case_id_required';
+        } elseif (! in_array($caseId, $knownCaseIds, true)) {
+            $blockers[] = 'unknown_case_id';
+        }
+        if ($system === '') {
+            $blockers[] = 'system_required';
+        } elseif (! in_array($system, $knownSystemIds, true)) {
+            $blockers[] = 'unknown_system_id';
+        }
+        if ($caseId !== '' && $system !== '' && ! File::isFile($manifestPath)) {
+            $blockers[] = 'manifest_missing';
+        }
+
+        $manifest = [];
+        if ($blockers === []) {
+            $decoded = json_decode(File::get($manifestPath), true);
+            if (! is_array($decoded)) {
+                $blockers[] = 'manifest_json_invalid';
+            } else {
+                $manifest = $decoded;
+            }
+        }
+
+        $scoreBreakdown = is_array($manifest['score_breakdown'] ?? null) ? $manifest['score_breakdown'] : [];
+        $scoreTotal = is_numeric($manifest['score_total'] ?? null) ? (int) $manifest['score_total'] : null;
+        $scoreMax = is_numeric($manifest['score_max'] ?? null) ? (int) $manifest['score_max'] : null;
+
+        if ($blockers === [] && $scoreBreakdown === []) {
+            $blockers[] = 'score_breakdown_required';
+        }
+        if ($blockers === [] && ($scoreTotal === null || $scoreMax === null)) {
+            $blockers[] = 'score_total_and_score_max_required';
+        }
+
+        $evidencePack = ['issues' => ['manifest_unavailable']];
+        if ($blockers === []) {
+            $evidencePack = $this->validateEvidencePackRef($manifest, $manifestPath, $caseId, $system);
+            if (($evidencePack['issues'] ?? []) !== []) {
+                $blockers = array_values(array_unique(array_merge($blockers, (array) $evidencePack['issues'])));
+            }
+        }
+
+        $reviewerRefHash = trim((string) $reviewerRefHash);
+        $reviewerRefHash = preg_match('/\A[a-f0-9]{64}\z/', $reviewerRefHash) ? $reviewerRefHash : null;
+        $scoringSurface = trim((string) $scoringSurface);
+        $scoringSurface = in_array($scoringSurface, ['manual_competitive_review', 'independent_review_panel', 'atlas_review_panel'], true)
+            ? $scoringSurface
+            : 'manual_competitive_review';
+
+        $attestation = [
+            'schema_version' => self::SCORE_ATTESTATION_SCHEMA_VERSION,
+            'status' => 'pending_operator_approval',
+            'case_id' => $caseId !== '' ? $caseId : null,
+            'system' => $system !== '' ? $system : null,
+            'scoring_surface' => $scoringSurface,
+            'reviewer_ref_hash' => $reviewerRefHash,
+            'reviewed_at' => null,
+            'operator_approved' => false,
+            'rubric_hash' => $rubric['rubric_hash'] ?? null,
+            'score_breakdown_hash' => $scoreBreakdown !== [] ? MissionCanonicalHash::sha256($scoreBreakdown) : null,
+            'score_total' => $scoreTotal,
+            'score_max' => $scoreMax,
+            'evidence_pack_verification_hash' => $evidencePack['verification_hash'] ?? null,
+            'notes' => 'Set status=verified, reviewed_at and operator_approved=true only after reviewing artifact refs against the rubric. Do not include raw prompts, customer source, cookies, tokens or reviewer identity.',
+        ];
+
+        $payload = [
+            'schema_version' => self::SCORE_ATTESTATION_TEMPLATE_SCHEMA_VERSION,
+            'status' => $blockers === [] ? 'ready' : 'blocked',
+            'template_type' => 'provider_safe_score_attestation_patch',
+            'source' => self::class,
+            'evidence_directory_hash' => hash('sha256', $directory),
+            'case_id' => $caseId,
+            'system' => $system,
+            'manifest_ref' => $caseId.'/'.$system.'/manifest.json',
+            'manifest_hash' => File::isFile($manifestPath) ? hash_file('sha256', $manifestPath) : null,
+            'score_attestation' => $attestation,
+            'manifest_patch' => [
+                'score_attestation' => $attestation,
+            ],
+            'blockers' => $blockers,
+            'required_next_actions' => $blockers === []
+                ? ['review_artifact_refs_against_rubric', 'set_verified_reviewed_at_and_operator_approval', 'embed_manifest_patch_score_attestation', 'rerun_replay_inspect']
+                : ['fix_blockers_before_score_attestation'],
+            'output_ref_hash' => hash('sha256', $target),
+            'write_performed' => $blockers === [],
+            'claim_policy' => [
+                'score_template_is_not_evidence' => true,
+                'operator_approval_required_before_complete_manifest' => true,
+                'raw_prompts_customer_source_tokens_or_reviewer_identity_forbidden' => true,
+                'world_best_claim_forbidden_until_inspect_passes' => true,
+            ],
+        ];
+        $payload['score_attestation_template_hash'] = MissionCanonicalHash::sha256($payload);
+
+        if ($blockers === []) {
+            File::ensureDirectoryExists(dirname($target));
+            File::put($target, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function writeExternalExecutionReceiptTemplate(
+        string $evidenceDirectory,
+        string $caseId,
+        string $system,
+        ?string $outputPath = null,
+        ?string $executionSurface = null,
+    ): array {
+        $directory = $this->evidenceDirectory($evidenceDirectory);
+        $caseId = trim($caseId);
+        $system = trim($system);
+        $target = $this->externalReceiptOutputPath($directory, $caseId, $system, $outputPath);
+        $manifestPath = $directory.'/'.$caseId.'/'.$system.'/manifest.json';
+        $knownCaseIds = array_column($this->cases(), 'id');
+        $knownSystemIds = array_column($this->systems(), 'id');
+        $blockers = [];
+
+        if ($caseId === '') {
+            $blockers[] = 'case_id_required';
+        } elseif (! in_array($caseId, $knownCaseIds, true)) {
+            $blockers[] = 'unknown_case_id';
+        }
+        if ($system === '') {
+            $blockers[] = 'system_required';
+        } elseif (! in_array($system, $knownSystemIds, true)) {
+            $blockers[] = 'unknown_system_id';
+        } elseif ($system === 'atlas_frontend') {
+            $blockers[] = 'external_rival_system_required';
+        }
+        if ($caseId !== '' && $system !== '' && ! File::isFile($manifestPath)) {
+            $blockers[] = 'manifest_missing';
+        }
+
+        $manifest = [];
+        if ($blockers === []) {
+            $decoded = json_decode(File::get($manifestPath), true);
+            if (! is_array($decoded)) {
+                $blockers[] = 'manifest_json_invalid';
+            } else {
+                $manifest = $decoded;
+            }
+        }
+
+        $evidencePack = ['issues' => ['manifest_unavailable']];
+        if ($blockers === []) {
+            $evidencePack = $this->validateEvidencePackRef($manifest, $manifestPath, $caseId, $system);
+            if (($evidencePack['issues'] ?? []) !== []) {
+                $blockers = array_values(array_unique(array_merge($blockers, (array) $evidencePack['issues'])));
+            }
+        }
+
+        $executionSurface = trim((string) $executionSurface);
+        $executionSurface = in_array($executionSurface, ['external_rival_system', 'manual_external_replay'], true)
+            ? $executionSurface
+            : 'external_rival_system';
+
+        $receipt = [
+            'schema_version' => self::EXTERNAL_EXECUTION_RECEIPT_SCHEMA_VERSION,
+            'status' => 'pending_operator_approval',
+            'case_id' => $caseId !== '' ? $caseId : null,
+            'system' => $system !== '' ? $system : null,
+            'execution_surface' => $executionSurface,
+            'captured_at' => null,
+            'operator_approved' => false,
+            'manifest_hashes' => [
+                'output_artifact_hash' => is_string($manifest['output_artifact_hash'] ?? null) ? (string) $manifest['output_artifact_hash'] : null,
+                'screenshot_hashes' => is_array($manifest['screenshot_hashes'] ?? null) ? array_values($manifest['screenshot_hashes']) : [],
+                'anti_slop_report_hash' => is_string($manifest['anti_slop_report_hash'] ?? null) ? (string) $manifest['anti_slop_report_hash'] : null,
+                'verification_hashes' => is_array($manifest['verification_hashes'] ?? null) ? array_values($manifest['verification_hashes']) : [],
+                'evidence_pack_verification_hash' => $evidencePack['verification_hash'] ?? null,
+            ],
+            'notes' => 'Set status=verified, captured_at and operator_approved=true only after running the external rival on the unchanged task spec and verifying artifact hashes. Do not include raw prompts, customer source, cookies, tokens, URLs or provider secrets.',
+        ];
+
+        $payload = [
+            'schema_version' => self::EXTERNAL_EXECUTION_RECEIPT_TEMPLATE_SCHEMA_VERSION,
+            'status' => $blockers === [] ? 'ready' : 'blocked',
+            'template_type' => 'provider_safe_external_execution_receipt_patch',
+            'source' => self::class,
+            'evidence_directory_hash' => hash('sha256', $directory),
+            'case_id' => $caseId,
+            'system' => $system,
+            'manifest_ref' => $caseId.'/'.$system.'/manifest.json',
+            'manifest_hash' => File::isFile($manifestPath) ? hash_file('sha256', $manifestPath) : null,
+            'external_execution_receipt' => $receipt,
+            'manifest_patch' => [
+                'external_execution_receipt' => $receipt,
+            ],
+            'blockers' => $blockers,
+            'required_next_actions' => $blockers === []
+                ? ['run_external_rival_against_unchanged_task_spec', 'verify_manifest_hashes_match_artifacts', 'set_verified_captured_at_and_operator_approval', 'embed_manifest_patch_external_execution_receipt', 'rerun_replay_inspect']
+                : ['fix_blockers_before_external_execution_receipt'],
+            'output_ref_hash' => hash('sha256', $target),
+            'write_performed' => $blockers === [],
+            'claim_policy' => [
+                'external_receipt_template_is_not_evidence' => true,
+                'operator_approval_required_before_complete_manifest' => true,
+                'raw_prompts_customer_source_tokens_urls_or_provider_secrets_forbidden' => true,
+                'world_best_claim_forbidden_until_inspect_passes' => true,
+            ],
+        ];
+        $payload['external_execution_receipt_template_hash'] = MissionCanonicalHash::sha256($payload);
+
+        if ($blockers === []) {
+            File::ensureDirectoryExists(dirname($target));
+            File::put($target, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function evidenceWorklist(string $directory, ?string $target = null): array
     {
         $inspect = $this->inspect($directory);
         $requiredKinds = app(AtlasFrontendEvidencePackVerifierService::class)->requiredArtifactKinds();
         $workItems = [];
+        $packsByRun = collect((array) data_get($inspect, 'evidence_pack_readiness.packs', []))
+            ->filter(fn (mixed $pack): bool => is_array($pack))
+            ->keyBy(fn (array $pack): string => ($pack['case_id'] ?? '').'|'.($pack['system'] ?? ''));
 
         foreach ((array) data_get($inspect, 'evidence_pack_readiness.packs', []) as $pack) {
             $caseId = (string) ($pack['case_id'] ?? '');
@@ -340,15 +592,140 @@ final class AtlasFrontendRivalReplayHarnessService
                     'screenshot_hashes[]' => 'sha256(screenshot_set)',
                     'anti_slop_report_hash' => 'sha256(anti_slop_report)',
                     'verification_hashes[]' => 'sha256(verification_report)',
+                    'score_attestation.score_breakdown_hash' => 'canonical_sha256(score_breakdown)',
                 ],
                 'completion_steps' => [
                     'capture_real_artifact_files_under_artifact_refs',
                     'update_evidence_pack_sha256_values_from_hash_command',
                     'mirror_required_hashes_into_run_manifest',
-                    'fill_run_id_score_breakdown_score_total_completed_at',
+                    'fill_run_id_score_breakdown_score_total_score_attestation_completed_at',
                     'rerun_php_artisan_atlas_frontend_replay_inspect',
                 ],
             ];
+        }
+
+        foreach ((array) ($inspect['runs'] ?? []) as $run) {
+            if (! is_array($run) || ($run['status'] ?? null) === 'complete') {
+                continue;
+            }
+
+            $scoreIssues = array_values(array_filter(
+                (array) ($run['issues'] ?? []),
+                fn (mixed $issue): bool => is_string($issue) && str_starts_with($issue, 'score_attestation_'),
+            ));
+            $externalReceiptIssues = array_values(array_filter(
+                (array) ($run['issues'] ?? []),
+                fn (mixed $issue): bool => is_string($issue) && str_starts_with($issue, 'external_execution_receipt_'),
+            ));
+            if ($scoreIssues === [] && $externalReceiptIssues === []) {
+                continue;
+            }
+
+            $caseId = (string) ($run['case_id'] ?? '');
+            $system = (string) ($run['system'] ?? '');
+            $pack = (array) ($packsByRun->get($caseId.'|'.$system) ?? []);
+            if (($pack['status'] ?? null) !== 'passed') {
+                continue;
+            }
+
+            $root = $caseId.'/'.$system;
+            if ($externalReceiptIssues !== [] && $system !== 'atlas_frontend') {
+                $workItems[] = [
+                    'id' => 'fill_external_execution_receipt_'.$caseId.'_'.$system,
+                    'case_id' => $caseId,
+                    'system' => $system,
+                    'status' => $run['status'] ?? 'invalid',
+                    'blockers' => $externalReceiptIssues,
+                    'pack_manifest_ref' => $root.'/evidence/evidence-pack.json',
+                    'run_manifest_ref' => $root.'/manifest.json',
+                    'task_spec_ref' => $caseId.'/task-spec.json',
+                    'external_execution_receipt_schema_version' => self::EXTERNAL_EXECUTION_RECEIPT_SCHEMA_VERSION,
+                    'external_execution_receipt_fields' => [
+                        'schema_version',
+                        'status',
+                        'case_id',
+                        'system',
+                        'execution_surface',
+                        'captured_at',
+                        'operator_approved',
+                        'manifest_hashes',
+                    ],
+                    'external_execution_receipt_hash_mapping' => [
+                        'output_artifact_hash' => 'manifest.output_artifact_hash',
+                        'screenshot_hashes' => 'manifest.screenshot_hashes',
+                        'anti_slop_report_hash' => 'manifest.anti_slop_report_hash',
+                        'verification_hashes' => 'manifest.verification_hashes',
+                        'evidence_pack_verification_hash' => $pack['verification_hash'] ?? null,
+                    ],
+                    'allowed_execution_surfaces' => [
+                        'external_rival_system',
+                        'manual_external_replay',
+                    ],
+                    'completion_steps' => [
+                        'verify_evidence_pack_passed_before_receipt',
+                        'run_external_rival_against_unchanged_task_spec',
+                        'run_external_receipt_template_command_for_provider_safe_manifest_patch',
+                        'fill_external_execution_receipt_without_raw_prompt_source_tokens_urls_or_provider_secrets',
+                        'rerun_php_artisan_atlas_frontend_replay_inspect',
+                    ],
+                    'commands' => [
+                        'write_external_receipt_template' => 'php artisan atlas:frontend:replay external-receipt-template --evidence='.$directory.' --case='.$caseId.' --system='.$system.' --json',
+                    ],
+                ];
+            }
+
+            if ($scoreIssues !== []) {
+                $workItems[] = [
+                    'id' => 'fill_score_attestation_'.$caseId.'_'.$system,
+                    'case_id' => $caseId,
+                    'system' => $system,
+                    'status' => $run['status'] ?? 'invalid',
+                    'blockers' => $scoreIssues,
+                    'pack_manifest_ref' => $root.'/evidence/evidence-pack.json',
+                    'run_manifest_ref' => $root.'/manifest.json',
+                    'task_spec_ref' => $caseId.'/task-spec.json',
+                    'score_attestation_schema_version' => self::SCORE_ATTESTATION_SCHEMA_VERSION,
+                    'score_attestation_fields' => [
+                        'schema_version',
+                        'status',
+                        'case_id',
+                        'system',
+                        'scoring_surface',
+                        'reviewer_ref_hash',
+                        'reviewed_at',
+                        'operator_approved',
+                        'rubric_hash',
+                        'score_breakdown_hash',
+                        'score_total',
+                        'score_max',
+                        'evidence_pack_verification_hash',
+                    ],
+                    'score_attestation_hash_mapping' => [
+                        'rubric_hash' => data_get($inspect, 'competitive_rubric.rubric_hash'),
+                        'score_breakdown_hash' => 'canonical_sha256(manifest.score_breakdown)',
+                        'score_total' => 'manifest.score_total',
+                        'score_max' => 'manifest.score_max',
+                        'evidence_pack_verification_hash' => $pack['verification_hash'] ?? null,
+                        'reviewer_ref_hash' => 'sha256(provider_safe_reviewer_ref)',
+                    ],
+                    'allowed_scoring_surfaces' => [
+                        'manual_competitive_review',
+                        'independent_review_panel',
+                        'atlas_review_panel',
+                    ],
+                    'completion_steps' => [
+                        'verify_evidence_pack_passed_before_scoring',
+                        'review_artifact_refs_against_competitive_rubric',
+                        'run_score_template_command_for_provider_safe_manifest_patch',
+                        'compute_score_breakdown_hash_from_manifest_score_breakdown',
+                        'fill_score_attestation_without_raw_prompt_source_or_reviewer_identity',
+                        'rerun_php_artisan_atlas_frontend_replay_inspect',
+                    ],
+                    'commands' => [
+                        'write_score_template' => 'php artisan atlas:frontend:replay score-template --evidence='.$directory.' --case='.$caseId.' --system='.$system.' --json',
+                    ],
+                ];
+            }
         }
 
         $payload = [
@@ -478,6 +855,7 @@ final class AtlasFrontendRivalReplayHarnessService
             'score_breakdown',
             'score_total',
             'score_max',
+            'score_attestation',
             'completed_at',
         ];
     }
@@ -517,6 +895,7 @@ final class AtlasFrontendRivalReplayHarnessService
         $issues = array_merge($issues, $this->validateTaskSpecRef($manifest, $manifestPath, $caseId));
         $evidencePack = $this->validateEvidencePackRef($manifest, $manifestPath, $caseId, $system);
         $issues = array_merge($issues, $evidencePack['issues']);
+        $issues = array_merge($issues, $this->validateExternalExecutionReceipt($manifest, $caseId, $system, $evidencePack['verification_hash'] ?? null));
         if (! is_array($manifest['screenshot_hashes'] ?? null) || $manifest['screenshot_hashes'] === []) {
             $issues[] = 'screenshot_hashes_required';
         }
@@ -538,6 +917,7 @@ final class AtlasFrontendRivalReplayHarnessService
                 (int) $manifest['score_max'],
             ));
         }
+        $issues = array_merge($issues, $this->validateScoreAttestation($manifest, $caseId, $system, $evidencePack['verification_hash'] ?? null));
 
         $status = $issues === [] ? 'complete' : (in_array('status_not_complete', $issues, true) ? 'pending' : 'invalid');
 
@@ -547,6 +927,12 @@ final class AtlasFrontendRivalReplayHarnessService
             'task_spec_ref' => is_string($manifest['task_spec_ref'] ?? null) ? (string) $manifest['task_spec_ref'] : null,
             'evidence_pack_ref' => is_string($manifest['evidence_pack_ref'] ?? null) ? (string) $manifest['evidence_pack_ref'] : null,
             'evidence_pack_verification_hash' => $evidencePack['verification_hash'] ?? null,
+            'external_execution_receipt_hash' => is_array($manifest['external_execution_receipt'] ?? null)
+                ? MissionCanonicalHash::sha256((array) $manifest['external_execution_receipt'])
+                : null,
+            'score_attestation_hash' => is_array($manifest['score_attestation'] ?? null)
+                ? MissionCanonicalHash::sha256((array) $manifest['score_attestation'])
+                : null,
             'score_total' => is_numeric($manifest['score_total'] ?? null) ? (int) $manifest['score_total'] : null,
             'score_max' => is_numeric($manifest['score_max'] ?? null) ? (int) $manifest['score_max'] : null,
             'score_breakdown' => is_array($manifest['score_breakdown'] ?? null) ? $manifest['score_breakdown'] : null,
@@ -572,6 +958,7 @@ final class AtlasFrontendRivalReplayHarnessService
             'task_spec_ref' => $extra['task_spec_ref'] ?? null,
             'evidence_pack_ref' => $extra['evidence_pack_ref'] ?? null,
             'evidence_pack_verification_hash' => $extra['evidence_pack_verification_hash'] ?? null,
+            'score_attestation_hash' => $extra['score_attestation_hash'] ?? null,
             'score_total' => $extra['score_total'] ?? null,
             'score_max' => $extra['score_max'] ?? null,
             'score_breakdown' => $extra['score_breakdown'] ?? null,
@@ -809,6 +1196,7 @@ final class AtlasFrontendRivalReplayHarnessService
                 'same_task_spec_hash_required_across_systems' => true,
                 'same_rubric_required_across_systems' => true,
                 'provider_brand_is_not_a_score_dimension' => true,
+                'score_attestation_required_for_each_complete_run' => true,
             ],
             'cases' => $cases,
         ];
@@ -952,6 +1340,127 @@ final class AtlasFrontendRivalReplayHarnessService
 
     /**
      * @param  array<string,mixed>  $manifest
+     * @return array<int,string>
+     */
+    private function validateExternalExecutionReceipt(array $manifest, string $caseId, string $system, ?string $evidencePackVerificationHash): array
+    {
+        $isExternalRival = $system !== 'atlas_frontend';
+        $receipt = $manifest['external_execution_receipt'] ?? null;
+
+        if (! is_array($receipt)) {
+            return $isExternalRival ? ['external_execution_receipt_required'] : [];
+        }
+
+        $issues = [];
+        if (($receipt['schema_version'] ?? null) !== self::EXTERNAL_EXECUTION_RECEIPT_SCHEMA_VERSION) {
+            $issues[] = 'external_execution_receipt_schema_invalid';
+        }
+        if (($receipt['status'] ?? null) !== 'verified') {
+            $issues[] = 'external_execution_receipt_status_not_verified';
+        }
+        if (($receipt['case_id'] ?? null) !== $caseId) {
+            $issues[] = 'external_execution_receipt_case_mismatch';
+        }
+        if (($receipt['system'] ?? null) !== $system) {
+            $issues[] = 'external_execution_receipt_system_mismatch';
+        }
+        if ((bool) ($receipt['operator_approved'] ?? false) !== true) {
+            $issues[] = 'external_execution_receipt_operator_approval_missing';
+        }
+        if (! is_string($receipt['captured_at'] ?? null) || trim((string) $receipt['captured_at']) === '') {
+            $issues[] = 'external_execution_receipt_captured_at_missing';
+        }
+        if (! in_array((string) ($receipt['execution_surface'] ?? ''), ['external_rival_system', 'manual_external_replay'], true)) {
+            $issues[] = 'external_execution_receipt_surface_invalid';
+        }
+        if ($this->hasForbiddenRawFields($receipt)) {
+            $issues[] = 'external_execution_receipt_forbidden_raw_prompt_or_source_field_present';
+        }
+
+        $receiptHashes = (array) ($receipt['manifest_hashes'] ?? []);
+        if (($receiptHashes['output_artifact_hash'] ?? null) !== ($manifest['output_artifact_hash'] ?? null)) {
+            $issues[] = 'external_execution_receipt_output_artifact_hash_mismatch';
+        }
+        if (($receiptHashes['anti_slop_report_hash'] ?? null) !== ($manifest['anti_slop_report_hash'] ?? null)) {
+            $issues[] = 'external_execution_receipt_anti_slop_hash_mismatch';
+        }
+        if ((array) ($receiptHashes['screenshot_hashes'] ?? []) !== (array) ($manifest['screenshot_hashes'] ?? [])) {
+            $issues[] = 'external_execution_receipt_screenshot_hashes_mismatch';
+        }
+        if ((array) ($receiptHashes['verification_hashes'] ?? []) !== (array) ($manifest['verification_hashes'] ?? [])) {
+            $issues[] = 'external_execution_receipt_verification_hashes_mismatch';
+        }
+        if (($receiptHashes['evidence_pack_verification_hash'] ?? null) !== $evidencePackVerificationHash) {
+            $issues[] = 'external_execution_receipt_evidence_pack_verification_hash_mismatch';
+        }
+
+        return $issues;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<int,string>
+     */
+    private function validateScoreAttestation(array $manifest, string $caseId, string $system, ?string $evidencePackVerificationHash): array
+    {
+        $attestation = $manifest['score_attestation'] ?? null;
+        if (! is_array($attestation)) {
+            return ['score_attestation_required'];
+        }
+
+        $issues = [];
+        $rubric = app(AtlasFrontendCompetitiveRubricService::class)->rubric();
+        $scoreBreakdown = is_array($manifest['score_breakdown'] ?? null) ? $manifest['score_breakdown'] : [];
+        $scoreBreakdownHash = MissionCanonicalHash::sha256($scoreBreakdown);
+
+        if (($attestation['schema_version'] ?? null) !== self::SCORE_ATTESTATION_SCHEMA_VERSION) {
+            $issues[] = 'score_attestation_schema_invalid';
+        }
+        if (($attestation['status'] ?? null) !== 'verified') {
+            $issues[] = 'score_attestation_status_not_verified';
+        }
+        if (($attestation['case_id'] ?? null) !== $caseId) {
+            $issues[] = 'score_attestation_case_mismatch';
+        }
+        if (($attestation['system'] ?? null) !== $system) {
+            $issues[] = 'score_attestation_system_mismatch';
+        }
+        if (($attestation['rubric_hash'] ?? null) !== ($rubric['rubric_hash'] ?? null)) {
+            $issues[] = 'score_attestation_rubric_hash_mismatch';
+        }
+        if (($attestation['score_breakdown_hash'] ?? null) !== $scoreBreakdownHash) {
+            $issues[] = 'score_attestation_breakdown_hash_mismatch';
+        }
+        if (($attestation['score_total'] ?? null) !== ($manifest['score_total'] ?? null)) {
+            $issues[] = 'score_attestation_total_mismatch';
+        }
+        if (($attestation['score_max'] ?? null) !== ($manifest['score_max'] ?? null)) {
+            $issues[] = 'score_attestation_max_mismatch';
+        }
+        if (($attestation['evidence_pack_verification_hash'] ?? null) !== $evidencePackVerificationHash) {
+            $issues[] = 'score_attestation_evidence_pack_verification_hash_mismatch';
+        }
+        if ((bool) ($attestation['operator_approved'] ?? false) !== true) {
+            $issues[] = 'score_attestation_operator_approval_missing';
+        }
+        if (! is_string($attestation['reviewer_ref_hash'] ?? null) || ! preg_match('/\A[a-f0-9]{64}\z/', (string) $attestation['reviewer_ref_hash'])) {
+            $issues[] = 'score_attestation_reviewer_ref_hash_invalid';
+        }
+        if (! is_string($attestation['reviewed_at'] ?? null) || trim((string) $attestation['reviewed_at']) === '') {
+            $issues[] = 'score_attestation_reviewed_at_missing';
+        }
+        if (! in_array((string) ($attestation['scoring_surface'] ?? ''), ['manual_competitive_review', 'independent_review_panel', 'atlas_review_panel'], true)) {
+            $issues[] = 'score_attestation_surface_invalid';
+        }
+        if ($this->hasForbiddenRawFields($attestation)) {
+            $issues[] = 'score_attestation_forbidden_raw_prompt_or_source_field_present';
+        }
+
+        return $issues;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
      */
     private function hasForbiddenRawFields(array $manifest): bool
     {
@@ -996,9 +1505,41 @@ final class AtlasFrontendRivalReplayHarnessService
             'screenshot_hashes' => [],
             'anti_slop_report_hash' => null,
             'verification_hashes' => [],
+            'external_execution_receipt' => $system !== 'atlas_frontend' ? [
+                'schema_version' => self::EXTERNAL_EXECUTION_RECEIPT_SCHEMA_VERSION,
+                'status' => 'pending',
+                'case_id' => $caseId,
+                'system' => $system,
+                'execution_surface' => 'external_rival_system',
+                'captured_at' => null,
+                'operator_approved' => false,
+                'manifest_hashes' => [
+                    'output_artifact_hash' => null,
+                    'screenshot_hashes' => [],
+                    'anti_slop_report_hash' => null,
+                    'verification_hashes' => [],
+                ],
+                'notes' => 'Fill with verified external execution metadata only. Do not include raw prompts, customer source, cookies, tokens or provider secrets.',
+            ] : null,
             'score_breakdown' => $this->pendingScoreBreakdown(),
             'score_total' => null,
             'score_max' => app(AtlasFrontendCompetitiveRubricService::class)->rubric()['score_max'],
+            'score_attestation' => [
+                'schema_version' => self::SCORE_ATTESTATION_SCHEMA_VERSION,
+                'status' => 'pending',
+                'case_id' => $caseId,
+                'system' => $system,
+                'scoring_surface' => 'manual_competitive_review',
+                'reviewer_ref_hash' => null,
+                'reviewed_at' => null,
+                'operator_approved' => false,
+                'rubric_hash' => app(AtlasFrontendCompetitiveRubricService::class)->rubric()['rubric_hash'],
+                'score_breakdown_hash' => null,
+                'score_total' => null,
+                'score_max' => app(AtlasFrontendCompetitiveRubricService::class)->rubric()['score_max'],
+                'evidence_pack_verification_hash' => null,
+                'notes' => 'Fill after reviewing evidence against the shared rubric. Do not include raw prompts, customer source, cookies, tokens or provider secrets.',
+            ],
             'completed_at' => null,
             'notes' => 'Do not store raw prompts, raw customer source, cookies, tokens or provider secrets in this manifest.',
         ];
@@ -1027,11 +1568,13 @@ final class AtlasFrontendRivalReplayHarnessService
                 'anti_slop_report_hash',
                 'verification_hashes',
                 'competitive_score_breakdown',
+                'verified_score_attestation',
             ],
             'fairness_policy' => [
                 'same_task_spec_hash_required_for_all_systems' => true,
                 'same_rubric_required_for_all_systems' => true,
                 'provider_brand_is_not_a_score_dimension' => true,
+                'score_attestation_required_for_all_complete_runs' => true,
                 'raw_prompts_customer_source_tokens_or_cookies_forbidden' => true,
             ],
         ];
@@ -1113,6 +1656,7 @@ final class AtlasFrontendRivalReplayHarnessService
         return [
             'task_spec_hash_matches_case_task_spec',
             'evidence_pack_ref_verified',
+            'external_rival_execution_receipt_verified',
             'output_artifact_ref_present',
             'output_artifact_hash_present',
             'screenshot_hashes_present',
@@ -1148,5 +1692,23 @@ final class AtlasFrontendRivalReplayHarnessService
         return $outputPath !== ''
             ? $outputPath
             : $directory.'/replay-evidence-worklist.json';
+    }
+
+    private function scoreAttestationOutputPath(string $directory, string $caseId, string $system, ?string $outputPath): string
+    {
+        $outputPath = trim((string) $outputPath);
+
+        return $outputPath !== ''
+            ? $outputPath
+            : $directory.'/'.$caseId.'/'.$system.'/score-attestation-template.json';
+    }
+
+    private function externalReceiptOutputPath(string $directory, string $caseId, string $system, ?string $outputPath): string
+    {
+        $outputPath = trim((string) $outputPath);
+
+        return $outputPath !== ''
+            ? $outputPath
+            : $directory.'/'.$caseId.'/'.$system.'/external-execution-receipt-template.json';
     }
 }

@@ -12,12 +12,15 @@ final class AtlasFrontendBenchmarkRuntimeService
     /**
      * @return array<string,mixed>
      */
-    public function run(): array
+    public function run(?string $rivalEvidenceDirectory = null): array
     {
         $scenarios = $this->scenarios();
         $systems = ['atlas_frontend', 'pbakaus_impeccable', 'claude_design_plugin'];
         $totals = [];
-        $replay = app(AtlasFrontendRivalReplayHarnessService::class)->inspect();
+        $rivalEvidenceDirectory = is_string($rivalEvidenceDirectory) && trim($rivalEvidenceDirectory) !== ''
+            ? trim($rivalEvidenceDirectory)
+            : null;
+        $replay = app(AtlasFrontendRivalReplayHarnessService::class)->inspect($rivalEvidenceDirectory);
 
         foreach ($systems as $system) {
             $totals[$system] = [
@@ -34,6 +37,8 @@ final class AtlasFrontendBenchmarkRuntimeService
             'source' => self::class,
             'scope' => [
                 'uses_live_external_rival_execution' => false,
+                'rival_evidence_directory_supplied' => $rivalEvidenceDirectory !== null,
+                'rival_evidence_directory_hash' => $rivalEvidenceDirectory !== null ? hash('sha256', $rivalEvidenceDirectory) : null,
                 'rival_replay_harness_present' => true,
                 'external_rival_replay_completed' => (bool) data_get($replay, 'summary.external_replay_completed'),
                 'uses_paid_provider_accounts' => false,

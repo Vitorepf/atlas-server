@@ -17,6 +17,8 @@ class AtlasFrontendControlPlaneCommandTest extends TestCase
         $this->assertStringContainsString('atlas.frontend.control_plane.v1', $output);
         $this->assertStringContainsString('world_best_claim_allowed', $output);
         $this->assertStringContainsString('external_rival_replay_not_completed', $output);
+        $this->assertStringContainsString('publication_attestation', $output);
+        $this->assertStringContainsString('local_bundle_is_not_public_distribution', $output);
     }
 
     public function test_control_plane_strict_fails_when_market_proof_is_not_ready(): void

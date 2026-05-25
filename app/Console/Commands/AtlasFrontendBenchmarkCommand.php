@@ -8,13 +8,14 @@ use Illuminate\Console\Command;
 class AtlasFrontendBenchmarkCommand extends Command
 {
     protected $signature = 'atlas:frontend:benchmark
+        {--rival-evidence= : Directory containing external rival replay evidence manifests}
         {--json : Emit canonical JSON payload}';
 
     protected $description = 'Run the Atlas Frontend competitive benchmark matrix.';
 
     public function handle(AtlasFrontendBenchmarkRuntimeService $benchmark): int
     {
-        $payload = $benchmark->run();
+        $payload = $benchmark->run((string) ($this->option('rival-evidence') ?? ''));
 
         if ((bool) $this->option('json')) {
             $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

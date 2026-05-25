@@ -27,6 +27,7 @@ class AtlasFrontendCompanyPortfolioCommandTest extends TestCase
         $this->assertStringContainsString('local_company_frontend_repo_portfolio', $output);
         $this->assertStringContainsString('optional_repository_discovery_only', $output);
         $this->assertStringContainsString('operator_selected_repository_workspace', $output);
+        $this->assertStringContainsString('portfolio_root_is_not_selected_workspace', $output);
         $this->assertStringContainsString('selection_brief', $output);
         $this->assertStringContainsString('ready_for_operator_choice', $output);
         $this->assertStringContainsString('task_bound_for_candidate_ranking', $output);

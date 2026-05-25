@@ -36,7 +36,15 @@ class AtlasFrontendExecutionRunbookServiceTest extends TestCase
         $this->assertStringContainsString('pnpm run typecheck', $commands);
         $this->assertStringContainsString('atlas:frontend:evidence-kit', $commands);
         $this->assertStringContainsString('atlas:frontend:run-certify', $commands);
+        $this->assertStringContainsString('atlas:frontend:publish attest --bundle=<bundle>', $commands);
+        $this->assertStringContainsString('atlas:frontend:world-best-plan', $commands);
+        $this->assertContains('public_distribution_proof', collect($payload['runbook_steps'])->pluck('id')->all());
+        $publicStep = collect($payload['runbook_steps'])->firstWhere('id', 'public_distribution_proof');
+        $this->assertContains('product_proof_bundle_hash', $publicStep['required_evidence']);
         $this->assertTrue((bool) data_get($payload, 'claim_policy.runbook_is_not_execution_evidence'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.public_distribution_requires_publication_attestation'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.public_distribution_claim_requires_verified_receipt'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.public_distribution_step_is_not_required_for_customer_handoff'));
         $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
         $this->assertFileExists($evidence.'/evidence-kit-manifest.json');
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['runbook_hash']);

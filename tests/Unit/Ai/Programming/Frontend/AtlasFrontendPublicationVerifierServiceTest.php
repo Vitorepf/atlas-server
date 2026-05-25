@@ -157,6 +157,63 @@ class AtlasFrontendPublicationVerifierServiceTest extends TestCase
         $this->assertContains('index_hash_mismatch', $payload['blockers']);
     }
 
+    public function test_verifier_validates_product_site_assets_and_download_manifest(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-publication-product-assets-'.bin2hex(random_bytes(4));
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle);
+
+        $payload = app(AtlasFrontendPublicationVerifierService::class)->verify($bundle);
+
+        $this->assertSame('local_ready', $payload['status']);
+        $this->assertSame('atlas.frontend.product_proof_site_assets.v1', data_get($payload, 'product_site_assets.schema_version'));
+        $this->assertSame('local_ready_publication_pending', data_get($payload, 'product_site_assets.status'));
+        $this->assertTrue((bool) data_get($payload, 'product_site_assets.downloads_manifest_present'));
+        $this->assertGreaterThan(0, (int) data_get($payload, 'product_site_assets.download_count'));
+    }
+
+    public function test_verifier_blocks_tampered_product_site_tutorial(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-publication-tutorial-tamper-'.bin2hex(random_bytes(4));
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle);
+        File::put($bundle.'/getting-started.html', 'tampered');
+
+        $payload = app(AtlasFrontendPublicationVerifierService::class)->verify($bundle);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertContains('product_site_asset_tutorial_hash_mismatch', $payload['blockers']);
+    }
+
+    public function test_verifier_blocks_tampered_downloads_manifest(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-publication-downloads-tamper-'.bin2hex(random_bytes(4));
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle);
+        File::put($bundle.'/downloads.json', json_encode([
+            'schema_version' => 'atlas.frontend.product_proof_downloads.v1',
+            'status' => 'local_ready_publication_pending',
+            'downloads' => [],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $payload = app(AtlasFrontendPublicationVerifierService::class)->verify($bundle);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertContains('product_site_asset_downloads_manifest_hash_mismatch', $payload['blockers']);
+        $this->assertContains('product_site_downloads_missing', $payload['blockers']);
+    }
+
+    public function test_verifier_blocks_tampered_manifest_bundle_hash(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-publication-manifest-tamper-'.bin2hex(random_bytes(4));
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle);
+        $manifest = json_decode(File::get($bundle.'/manifest.json'), true);
+        $manifest['publication_policy']['external_hosting_verified'] = true;
+        File::put($bundle.'/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $payload = app(AtlasFrontendPublicationVerifierService::class)->verify($bundle);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertContains('bundle_hash_mismatch', $payload['blockers']);
+    }
+
     public function test_receipt_template_is_not_public_verification(): void
     {
         $dir = sys_get_temp_dir().'/atlas-frontend-publication-template-'.bin2hex(random_bytes(4));

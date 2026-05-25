@@ -12,6 +12,8 @@ final class AtlasFrontendDeliveryHandoffService
 
     public const TEMPLATE_SCHEMA_VERSION = 'atlas.frontend.delivery_handoff_template.v1';
 
+    public const PUBLICATION_ATTESTATION_SCHEMA_VERSION = 'atlas.frontend.delivery_handoff_publication_attestation.v1';
+
     /**
      * @return array<string,mixed>
      */
@@ -70,6 +72,9 @@ final class AtlasFrontendDeliveryHandoffService
 
         $publicVerified = ($publication['status'] ?? null) === 'public_verified'
             && (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed') === true;
+        $publicationAttestation = app(AtlasFrontendPublicationAttestationService::class)->attest($publication, [
+            'rerun_action' => 'rerun_atlas_frontend_publish_verify_with_receipt',
+        ]);
         $status = $blockers === [] ? 'ready' : 'blocked';
 
         $payload = [
@@ -90,6 +95,7 @@ final class AtlasFrontendDeliveryHandoffService
                 'public_distribution' => $publicVerified,
                 'world_best_frontend_system' => false,
             ],
+            'publication_attestation' => $publicationAttestation,
             'handoff_sections' => [
                 'task_spec_hash',
                 'run_certification',
@@ -111,6 +117,7 @@ final class AtlasFrontendDeliveryHandoffService
                 'requires_run_certification_hash' => true,
                 'requires_matching_task_spec_hash' => true,
                 'requires_matching_frontend_app_scope' => true,
+                'local_publication_report_is_not_public_distribution' => true,
                 'public_distribution_requires_matching_frontend_app_scope' => true,
                 'public_distribution_requires_verified_publication_report' => true,
                 'world_best_claim_allowed' => false,

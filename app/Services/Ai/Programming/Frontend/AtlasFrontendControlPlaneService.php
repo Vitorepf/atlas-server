@@ -15,11 +15,14 @@ final class AtlasFrontendControlPlaneService
     public function snapshot(array $input = []): array
     {
         $certification = app(AtlasFrontendDesignRuntimeService::class)->certify();
-        $benchmark = app(AtlasFrontendBenchmarkRuntimeService::class)->run();
+        $benchmark = app(AtlasFrontendBenchmarkRuntimeService::class)->run($this->nullableString($input['rival_evidence'] ?? null));
         $replay = app(AtlasFrontendRivalReplayHarnessService::class)->inspect($this->nullableString($input['rival_evidence'] ?? null));
         $proof = app(AtlasFrontendProductProofRuntimeService::class)->catalog();
         $publication = $this->publication($input);
         $gauntlet = $this->gauntlet($input);
+        $publicationAttestation = app(AtlasFrontendPublicationAttestationService::class)->attest($publication, [
+            'rerun_action' => 'rerun_atlas_frontend_control_plane',
+        ]);
 
         $readiness = [
             'runtime_contract_ready' => ($certification['status'] ?? null) === 'ready',
@@ -29,6 +32,7 @@ final class AtlasFrontendControlPlaneService
             'external_replay_ready' => (bool) data_get($replay, 'summary.external_replay_completed'),
             'product_proof_catalog_ready' => ($proof['status'] ?? null) === 'ready',
             'public_distribution_ready' => (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed'),
+            'publication_attestation_status' => $publicationAttestation['status'],
             'world_best_claim_ready' => (bool) data_get($replay, 'claim_policy.may_claim_world_best_frontend_system')
                 && (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed'),
         ];
@@ -71,6 +75,7 @@ final class AtlasFrontendControlPlaneService
                     'schema_version' => AtlasFrontendBenchmarkRuntimeService::SCHEMA_VERSION,
                     'status' => $benchmark['status'] ?? null,
                     'benchmark_hash' => $benchmark['benchmark_hash'] ?? null,
+                    'scope' => $benchmark['scope'] ?? [],
                     'claims' => $benchmark['claims'] ?? [],
                 ],
                 'rival_replay' => [
@@ -92,6 +97,7 @@ final class AtlasFrontendControlPlaneService
                     'claim_policy' => $publication['claim_policy'] ?? [],
                     'publication_hash' => $publication['publication_hash'] ?? null,
                 ],
+                'publication_attestation' => $publicationAttestation,
             ],
             'claim_policy' => [
                 'provider_dispatch_allowed' => $status !== 'blocked'
@@ -103,6 +109,7 @@ final class AtlasFrontendControlPlaneService
                 'public_distribution_claim_allowed' => $readiness['public_distribution_ready'],
                 'world_best_claim_allowed' => $readiness['world_best_claim_ready'],
                 'world_best_requires_real_rival_replay_and_public_distribution' => true,
+                'local_publication_report_is_not_public_distribution' => true,
                 'documentation_only_claim_forbidden' => true,
                 'honest_claim_boundary' => $readiness['world_best_claim_ready']
                     ? 'World-best frontend claim is allowed by this control plane.'

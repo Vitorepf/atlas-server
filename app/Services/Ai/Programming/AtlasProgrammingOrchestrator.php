@@ -803,6 +803,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
                 'selected_workspace_status' => $selectedWorkspace['status'] ?? 'not_evaluated',
                 'selected_workspace_dispatch_readiness_status' => data_get($selectedWorkspace, 'dispatch_readiness.status', 'not_evaluated'),
                 'runtime_projection_allowed' => (bool) data_get($selectedWorkspace, 'dispatch_readiness.runtime_projection_allowed', false),
+                'runtime_projection_status' => data_get($selectedWorkspace, 'frontend_runtime_projection.status', 'not_evaluated'),
                 'frontend_app_candidate_status' => data_get($selectedWorkspace, 'frontend_app_candidates.status', 'not_evaluated'),
                 'frontend_app_candidate_count' => (int) data_get($selectedWorkspace, 'frontend_app_candidates.candidate_count', 0),
                 'frontend_app_primary_candidate_ref' => data_get($selectedWorkspace, 'frontend_app_candidates.primary_candidate_ref'),
@@ -832,6 +833,8 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
                     'raw_customer_source_returned' => false,
                 ],
                 'hash_refs' => [
+                    'selected_workspace_hash' => $selectedWorkspace['selected_workspace_hash'] ?? null,
+                    'runtime_projection_hash' => data_get($selectedWorkspace, 'frontend_runtime_projection.runtime_projection_hash'),
                     'enterprise_bootstrap_hash' => $enterpriseBootstrap['enterprise_bootstrap_hash'] ?? null,
                     'company_repo_onboarding_hash' => $companyRepoOnboarding['onboarding_hash'] ?? null,
                     'runbook_hash' => $executionRunbook['runbook_hash'] ?? null,

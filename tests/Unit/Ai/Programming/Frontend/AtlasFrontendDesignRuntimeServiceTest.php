@@ -73,7 +73,9 @@ class AtlasFrontendDesignRuntimeServiceTest extends TestCase
         $this->assertTrue((bool) data_get($contract, 'run_certification_contract.claim_policy.frontend_completion_claim_requires_outcome_memory'));
         $this->assertSame('required_for_customer_or_enterprise_handoff', data_get($contract, 'delivery_handoff_contract.status'));
         $this->assertContains('known_limitations', data_get($contract, 'delivery_handoff_contract.required_evidence'));
+        $this->assertContains('publication_attestation', data_get($contract, 'delivery_handoff_contract.required_evidence'));
         $this->assertTrue((bool) data_get($contract, 'delivery_handoff_contract.claim_policy.customer_handoff_requires_matching_task_spec_hash'));
+        $this->assertTrue((bool) data_get($contract, 'delivery_handoff_contract.claim_policy.local_publication_report_is_not_public_distribution'));
         $this->assertSame('required_after_execution', data_get($contract, 'outcome_memory_contract.status'));
         $this->assertTrue((bool) data_get($contract, 'outcome_memory_contract.claim_policy.frontend_learning_requires_outcome_record'));
         $this->assertContains('mobile', data_get($contract, 'visual_quality_gate_contract.required_viewports'));

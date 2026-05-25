@@ -115,6 +115,7 @@ final class ForgeSpecialistWorkcellRouterService
                 'selected_workspace_status' => $atlasFrontendSelectedWorkspace['status'] ?? 'not_evaluated',
                 'selected_workspace_dispatch_readiness_status' => data_get($atlasFrontendSelectedWorkspace, 'dispatch_readiness.status', 'not_evaluated'),
                 'runtime_projection_allowed' => (bool) data_get($atlasFrontendSelectedWorkspace, 'dispatch_readiness.runtime_projection_allowed', false),
+                'runtime_projection_status' => data_get($atlasFrontendSelectedWorkspace, 'frontend_runtime_projection.status', 'not_evaluated'),
                 'frontend_app_candidate_status' => data_get($atlasFrontendSelectedWorkspace, 'frontend_app_candidates.status', 'not_evaluated'),
                 'frontend_app_candidate_count' => (int) data_get($atlasFrontendSelectedWorkspace, 'frontend_app_candidates.candidate_count', 0),
                 'frontend_app_primary_candidate_ref' => data_get($atlasFrontendSelectedWorkspace, 'frontend_app_candidates.primary_candidate_ref'),
@@ -138,6 +139,8 @@ final class ForgeSpecialistWorkcellRouterService
                 'premium_frontend_claim_allowed' => (bool) data_get($atlasFrontendEnterpriseBootstrap, 'readiness.premium_frontend_claim_allowed') && ($atlasFrontendExecutionRunbook['status'] ?? null) === 'ready',
                 'world_best_claim_allowed' => false,
                 'hash_refs' => [
+                    'selected_workspace_hash' => $atlasFrontendSelectedWorkspace['selected_workspace_hash'] ?? null,
+                    'runtime_projection_hash' => data_get($atlasFrontendSelectedWorkspace, 'frontend_runtime_projection.runtime_projection_hash'),
                     'enterprise_bootstrap_hash' => $atlasFrontendEnterpriseBootstrap['enterprise_bootstrap_hash'] ?? null,
                     'company_repo_onboarding_hash' => $atlasFrontendCompanyRepoOnboarding['onboarding_hash'] ?? null,
                     'runbook_hash' => $atlasFrontendExecutionRunbook['runbook_hash'] ?? null,

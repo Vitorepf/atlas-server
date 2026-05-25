@@ -2,6 +2,9 @@
 
 namespace Tests\Unit\Ai\Programming\Frontend;
 
+use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendCompetitiveRubricService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendEvidencePackVerifierService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendProductProofRuntimeService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendPublicationVerifierService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendRivalReplayHarnessService;
@@ -19,6 +22,7 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertSame('ready_for_execution', $payload['status']);
         $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
         $this->assertFalse((bool) data_get($payload, 'readiness.external_rival_replay_completed'));
+        $this->assertSame('not_requested', data_get($payload, 'readiness.publication_attestation_status'));
         $this->assertSame('pending', data_get($payload, 'readiness.evidence_pack_readiness.status'));
         $this->assertSame(15, data_get($payload, 'readiness.evidence_pack_readiness.summary.missing'));
         $this->assertSame('pending', data_get($payload, 'workstreams.0.evidence_pack_readiness.status'));
@@ -31,14 +35,24 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertCount(15, data_get($payload, 'workstreams.0.work_items'));
         $this->assertContains('php artisan atlas:frontend:replay runner-kit --output=<dir> --json', data_get($payload, 'workstreams.0.commands'));
         $this->assertContains('php artisan atlas:frontend:replay evidence-worklist --evidence=<dir> --output=<worklist.json> --json', data_get($payload, 'workstreams.0.commands'));
+        $this->assertContains('php artisan atlas:frontend:publish attest --bundle=<bundle> --receipt=<receipt> --json', data_get($payload, 'workstreams.1.work_items.0.commands'));
         $this->assertContains('task_spec_ref', data_get($payload, 'workstreams.0.work_items.0.required_manifest_fields'));
         $this->assertContains('evidence_pack_ref', data_get($payload, 'workstreams.0.work_items.0.required_manifest_fields'));
+        $this->assertContains('score_attestation', data_get($payload, 'workstreams.0.required_artifacts'));
+        $this->assertContains('external_rival_execution_receipts', data_get($payload, 'workstreams.0.required_artifacts'));
+        $this->assertContains('score_attestation', data_get($payload, 'workstreams.0.work_items.0.required_manifest_fields'));
+        $this->assertContains('score_attestation', data_get($payload, 'workstreams.0.work_items.0.required_receipts'));
+        $this->assertContains('external_execution_receipt', data_get($payload, 'workstreams.0.work_items.1.required_manifest_fields'));
+        $this->assertContains('external_execution_receipt', data_get($payload, 'workstreams.0.work_items.1.required_receipts'));
         $this->assertSame('missing', data_get($payload, 'workstreams.0.work_items.0.evidence_pack_status'));
         $this->assertContains('evidence_pack_missing', data_get($payload, 'workstreams.0.work_items.0.evidence_pack_blockers'));
         $this->assertContains('generate_rival_replay_runner_kit', $payload['required_next_actions']);
         $this->assertContains('complete_external_rival_replay_manifests', $payload['required_next_actions']);
         $this->assertContains('fill_and_verify_rival_replay_evidence_packs', $payload['required_next_actions']);
         $this->assertContains('verify_public_product_proof_distribution', $payload['required_next_actions']);
+        $this->assertSame('not_requested', data_get($payload, 'workstreams.1.publication_attestation.status'));
+        $this->assertTrue((bool) data_get($payload, 'workstreams.1.publication_attestation.claim_policy.local_bundle_is_not_public_distribution'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'evidence_hashes.publication_attestation_hash'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['proof_plan_hash']);
     }
 
@@ -69,8 +83,31 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertTrue((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
         $this->assertTrue((bool) data_get($payload, 'readiness.external_rival_replay_completed'));
         $this->assertTrue((bool) data_get($payload, 'readiness.public_distribution_verified'));
+        $this->assertSame('public_verified', data_get($payload, 'readiness.publication_attestation_status'));
+        $this->assertSame('public_verified', data_get($payload, 'workstreams.1.publication_attestation.status'));
+        $this->assertTrue((bool) data_get($payload, 'workstreams.1.publication_attestation.claim_policy.public_distribution_claim_allowed'));
+        $this->assertNull(data_get($payload, 'workstreams.1.publication_attestation.public_url'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'workstreams.1.publication_attestation.public_url_hash'));
         $this->assertSame([], data_get($payload, 'workstreams.0.work_items'));
         $this->assertSame(['claim_world_best_only_with_attached_proof_plan_hash'], $payload['required_next_actions']);
+    }
+
+    public function test_plan_attests_local_publication_bundle_as_pending_public_distribution(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-world-best-local-bundle-'.bin2hex(random_bytes(4));
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle);
+
+        $payload = app(AtlasFrontendWorldBestProofPlanService::class)->plan([
+            'bundle' => $bundle,
+        ]);
+
+        $this->assertSame('ready_for_execution', $payload['status']);
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.local_publication_report_is_not_public_distribution'));
+        $this->assertSame('local_bundle_ready_publication_pending', data_get($payload, 'readiness.publication_attestation_status'));
+        $this->assertSame('local_bundle_ready_publication_pending', data_get($payload, 'workstreams.1.publication_attestation.status'));
+        $this->assertFalse((bool) data_get($payload, 'workstreams.1.publication_attestation.claim_policy.public_distribution_claim_allowed'));
+        $this->assertContains('provide_operator_approved_publication_receipt', data_get($payload, 'workstreams.1.publication_attestation.required_next_actions'));
     }
 
     public function test_plan_turns_completed_losing_replay_into_improvement_actions(): void
@@ -131,9 +168,11 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
                     'screenshot_hashes' => [$hashes['screenshot_set']],
                     'anti_slop_report_hash' => $hashes['anti_slop_report'],
                     'verification_hashes' => [$hashes['verification_report']],
+                    'external_execution_receipt' => $system !== 'atlas_frontend' ? $this->externalExecutionReceipt($case, $system, $hashes) : null,
                     'score_breakdown' => $this->scoreBreakdown($score),
                     'score_total' => $score,
                     'score_max' => 100,
+                    'score_attestation' => $this->scoreAttestation($dir, $case, $system, $this->scoreBreakdown($score), $score),
                     'completed_at' => '2026-05-25T00:00:00Z',
                 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
             }
@@ -173,6 +212,56 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
             'performance_and_runtime_budget' => 6,
             'anti_slop_originality_and_brand_fit' => 0,
             'evidence_completeness' => 0,
+        ];
+    }
+
+    /**
+     * @param  array<string,string>  $hashes
+     * @return array<string,mixed>
+     */
+    private function externalExecutionReceipt(string $case, string $system, array $hashes): array
+    {
+        return [
+            'schema_version' => AtlasFrontendRivalReplayHarnessService::EXTERNAL_EXECUTION_RECEIPT_SCHEMA_VERSION,
+            'status' => 'verified',
+            'case_id' => $case,
+            'system' => $system,
+            'execution_surface' => 'external_rival_system',
+            'captured_at' => '2026-05-25T00:00:00Z',
+            'operator_approved' => true,
+            'manifest_hashes' => [
+                'output_artifact_hash' => $hashes['output_artifact'],
+                'screenshot_hashes' => [$hashes['screenshot_set']],
+                'anti_slop_report_hash' => $hashes['anti_slop_report'],
+                'verification_hashes' => [$hashes['verification_report']],
+                'evidence_pack_verification_hash' => $hashes['evidence_pack_verification'],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,int>  $breakdown
+     * @return array<string,mixed>
+     */
+    private function scoreAttestation(string $dir, string $case, string $system, array $breakdown, int $score): array
+    {
+        $verification = app(AtlasFrontendEvidencePackVerifierService::class)
+            ->verify($dir.'/'.$case.'/'.$system.'/evidence/evidence-pack.json');
+
+        return [
+            'schema_version' => AtlasFrontendRivalReplayHarnessService::SCORE_ATTESTATION_SCHEMA_VERSION,
+            'status' => 'verified',
+            'case_id' => $case,
+            'system' => $system,
+            'scoring_surface' => 'manual_competitive_review',
+            'reviewer_ref_hash' => hash('sha256', 'world-best-reviewer-'.$case.'-'.$system),
+            'reviewed_at' => '2026-05-25T00:00:00Z',
+            'operator_approved' => true,
+            'rubric_hash' => app(AtlasFrontendCompetitiveRubricService::class)->rubric()['rubric_hash'],
+            'score_breakdown_hash' => MissionCanonicalHash::sha256($breakdown),
+            'score_total' => $score,
+            'score_max' => 100,
+            'evidence_pack_verification_hash' => $verification['verification_hash'] ?? null,
         ];
     }
 
@@ -219,6 +308,10 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
                 'sha256' => $hashes[$kind],
             ], array_keys($hashes)),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $verification = app(AtlasFrontendEvidencePackVerifierService::class)
+            ->verify($root.'/evidence/evidence-pack.json');
+        $hashes['evidence_pack_verification'] = (string) ($verification['verification_hash'] ?? '');
 
         return $hashes;
     }

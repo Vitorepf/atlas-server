@@ -791,11 +791,35 @@ class AtlasHyperflowEntryService
             return $payload['persistent_context'];
         }
 
+        $surfaceId = $this->stringValue(data_get($payload, 'surface_id')) ?? $this->stringValue(data_get($payload, 'app_surface'));
+        $isDesktopInteraction = $surfaceId === 'atlas_desktop_ai'
+            && ($this->stringValue($data['source_type'] ?? null) ?? '') === 'app';
+        $explicitPersistentContext = (bool) data_get($payload, 'enable_persistent_context_runtime', false);
+        if ($isDesktopInteraction && ! $explicitPersistentContext) {
+            $hashPayload = [
+                'schema_version' => AtlasPersistentContextRuntimeService::SCHEMA_VERSION,
+                'status' => AtlasPersistentContextRuntimeService::STATUS_DEGRADED,
+                'mode' => 'deferred_interactive_request',
+                'surface_id' => $surfaceId,
+                'prompt_hash' => hash('sha256', $rawInput),
+            ];
+
+            return [
+                ...$hashPayload,
+                'persistent_context_hash' => hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)),
+                'deferred_reason' => 'desktop_interaction_must_enqueue_before_heavy_context_bootstrap',
+                'claim_policy' => [
+                    'provider_calls_made' => false,
+                    'writes' => false,
+                ],
+            ];
+        }
+
         try {
             return ($this->persistentContext ?? app(AtlasPersistentContextRuntimeService::class))->build([
                 'prompt' => $rawInput,
                 'workspace' => $this->stringValue(data_get($payload, 'workspace')) ?? base_path(),
-                'surface_id' => $this->stringValue(data_get($payload, 'surface_id')) ?? $this->stringValue(data_get($payload, 'app_surface')),
+                'surface_id' => $surfaceId,
                 'domain' => $this->stringValue(data_get($payload, 'routing_domain')) ?? $this->stringValue(data_get($payload, 'atlas_mode')) ?? 'atlas',
                 'flow_id' => $this->stringValue(data_get($payload, 'flow_id')) ?? $this->stringValue(data_get($payload, 'routing_task')),
                 'provider' => $this->stringValue($data['provider'] ?? null) ?? $this->stringValue(data_get($payload, 'provider')),

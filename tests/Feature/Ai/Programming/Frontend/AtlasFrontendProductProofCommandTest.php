@@ -35,6 +35,7 @@ class AtlasFrontendProductProofCommandTest extends TestCase
         $this->assertStringContainsString('atlas.frontend.product_proof_bundle.v1', $output);
         $this->assertStringContainsString('publication_workflow', $output);
         $this->assertStringContainsString('receipt-template --bundle=<bundle>', $output);
+        $this->assertStringContainsString('publish attest --bundle=<bundle>', $output);
         $this->assertFileExists($outputPath.'/index.html');
         $this->assertFileExists($outputPath.'/manifest.json');
     }

@@ -77,6 +77,12 @@ class AtlasFrontendSelectedWorkspaceServiceTest extends TestCase
         $this->assertSame(90, data_get($payload, 'next_best_action.priority'));
         $this->assertStringContainsString('atlas:frontend:selected-workspace', (string) data_get($payload, 'next_best_action.command'));
         $this->assertFalse((bool) data_get($payload, 'next_best_action.writes_only_when_command_is_explicit'));
+        $this->assertSame('atlas.frontend.selected_workspace.runtime_projection.v1', data_get($payload, 'frontend_runtime_projection.schema_version'));
+        $this->assertSame('blocked', data_get($payload, 'frontend_runtime_projection.status'));
+        $this->assertContains('frontend_task_or_user_intent_required', data_get($payload, 'frontend_runtime_projection.blockers'));
+        $this->assertTrue((bool) data_get($payload, 'frontend_runtime_projection.claim_policy.runtime_projection_is_not_execution_evidence'));
+        $this->assertFalse((bool) data_get($payload, 'frontend_runtime_projection.provider_dispatch_allowed'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'frontend_runtime_projection.runtime_projection_hash'));
         $this->assertSame('complete_frontend_context', data_get($payload, 'operator_start_panel.primary_action'));
         $this->assertContains('provider_dispatch', data_get($payload, 'operator_start_panel.disabled_actions'));
         $this->assertContains('design_context', data_get($payload, 'operator_start_panel.missing_capabilities'));
@@ -93,6 +99,7 @@ class AtlasFrontendSelectedWorkspaceServiceTest extends TestCase
         $this->assertStringContainsString('atlas:frontend:evidence-kit prepare', $commands);
         $this->assertTrue((bool) data_get($payload, 'readiness.portfolio_scan_is_optional_inventory_only'));
         $this->assertFalse((bool) data_get($payload, 'readiness.atlas_frontend_runtime_projection_allowed'));
+        $this->assertSame('blocked', data_get($payload, 'readiness.frontend_runtime_projection_status'));
         $this->assertSame('partial', data_get($payload, 'readiness.capability_readiness_status'));
         $this->assertSame('needs_context', data_get($payload, 'readiness.operator_start_panel_status'));
         $this->assertSame('bind_task_to_selected_repository', data_get($payload, 'readiness.next_best_action_id'));
@@ -156,6 +163,8 @@ class AtlasFrontendSelectedWorkspaceServiceTest extends TestCase
         $this->assertSame('open_frontend_runtime_projection', data_get($payload, 'operator_start_panel.primary_action'));
         $this->assertSame('bind_task_to_selected_repository', data_get($payload, 'next_best_action.id'));
         $this->assertContains('provider_dispatch_until_gate_onboarding_packet_and_runbook_pass', data_get($payload, 'operator_start_panel.disabled_actions'));
+        $this->assertSame('blocked', data_get($payload, 'frontend_runtime_projection.status'));
+        $this->assertContains('frontend_task_or_user_intent_required', data_get($payload, 'frontend_runtime_projection.blockers'));
     }
 
     public function test_selected_repository_binds_task_without_returning_raw_task_text(): void
@@ -177,6 +186,16 @@ class AtlasFrontendSelectedWorkspaceServiceTest extends TestCase
         $this->assertSame(70, data_get($payload, 'next_best_action.priority'));
         $this->assertStringContainsString('atlas:frontend:gauntlet', (string) data_get($payload, 'next_best_action.command'));
         $this->assertTrue((bool) data_get($payload, 'next_best_action.claim_policy.provider_dispatch_not_authorized_by_next_best_action'));
+        $this->assertSame('ready', data_get($payload, 'frontend_runtime_projection.status'));
+        $this->assertTrue((bool) data_get($payload, 'frontend_runtime_projection.runtime_projection_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'frontend_runtime_projection.provider_dispatch_allowed'));
+        $this->assertContains('pre_execution_gate_passed', data_get($payload, 'frontend_runtime_projection.required_before_provider_dispatch'));
+        $projectionCommands = implode("\n", collect(data_get($payload, 'frontend_runtime_projection.projected_components'))->pluck('command')->all());
+        $this->assertStringContainsString('atlas:frontend:gauntlet', $projectionCommands);
+        $this->assertStringContainsString('atlas:frontend:provider-packet', $projectionCommands);
+        $this->assertStringContainsString('atlas:frontend:runbook', $projectionCommands);
+        $this->assertTrue((bool) data_get($payload, 'frontend_runtime_projection.claim_policy.read_only_projection_does_not_write_files'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'frontend_runtime_projection.runtime_projection_hash'));
         $this->assertStringNotContainsString($task, json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
@@ -264,11 +283,15 @@ class AtlasFrontendSelectedWorkspaceServiceTest extends TestCase
         $this->assertSame('subscope_selected', data_get($payload, 'confirmed_frontend_app_scope.status'));
         $this->assertSame('apps/web', data_get($payload, 'confirmed_frontend_app_scope.relative_name'));
         $this->assertTrue((bool) data_get($payload, 'confirmed_frontend_app_scope.claim_policy.selected_repository_remains_primary_workspace'));
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_runtime_projection.frontend_app_scope.status'));
+        $this->assertSame('apps/web', data_get($payload, 'frontend_runtime_projection.frontend_app_scope.relative_name'));
         $commands = implode("\n", collect($payload['recommended_command_sequence'])->pluck('command')->all());
         $this->assertStringContainsString('atlas:frontend:onboard --task="<intent>" --workspace=<local-company-repo> --frontend-app=apps/web', $commands);
         $this->assertStringContainsString('atlas:frontend:provider-packet --task="<intent>" --workspace=<local-company-repo> --frontend-app=apps/web', $commands);
         $this->assertStringContainsString('atlas:frontend:runbook --task="<intent>" --workspace=<local-company-repo> --frontend-app=apps/web', $commands);
         $this->assertStringContainsString('atlas:frontend:evidence-kit prepare --task="<intent>" --workspace=<local-company-repo> --frontend-app=apps/web', $commands);
+        $projectionCommands = implode("\n", collect(data_get($payload, 'frontend_runtime_projection.projected_components'))->pluck('command')->all());
+        $this->assertStringContainsString('--frontend-app=apps/web', $projectionCommands);
         $this->assertSame('complete_frontend_context', data_get($payload, 'next_best_action.id'));
         $this->assertStringContainsString('atlas:frontend:onboard --task="<intent>" --workspace=<local-company-repo> --frontend-app=apps/web', (string) data_get($payload, 'next_best_action.command'));
         $this->assertStringNotContainsString($workspace.'/apps/web', json_encode($payload, JSON_THROW_ON_ERROR));
@@ -317,6 +340,8 @@ class AtlasFrontendSelectedWorkspaceServiceTest extends TestCase
         $this->assertSame('choose_valid_frontend_app_subscope_inside_selected_repo', data_get($payload, 'dispatch_readiness.next_action'));
         $this->assertTrue((bool) data_get($payload, 'readiness.frontend_app_candidate_invalid'));
         $this->assertFalse((bool) data_get($payload, 'readiness.atlas_frontend_runtime_projection_allowed'));
+        $this->assertSame('blocked', data_get($payload, 'frontend_runtime_projection.status'));
+        $this->assertContains('requested_frontend_app_subscope_not_found', data_get($payload, 'frontend_runtime_projection.blockers'));
         $this->assertSame('choose_valid_frontend_app_subscope_inside_selected_repo', data_get($payload, 'next_best_action.id'));
         $this->assertSame(95, data_get($payload, 'next_best_action.priority'));
         $this->assertStringContainsString('--workspace=<selected-repo> --frontend-app=apps/web', (string) data_get($payload, 'next_best_action.command'));

@@ -24,6 +24,12 @@ final class AtlasCodeRealityUsageIntelligenceService
      */
     private const SEARCH_ROOTS = ['app', 'routes', 'config', 'database', 'tests', 'docs/engineering-knowledge-base'];
 
+    private const MAX_SCAN_FILES = 2500;
+
+    private const MAX_SCAN_SECONDS = 2.5;
+
+    private const MAX_FILE_SCAN_BYTES = 768_000;
+
     /**
      * @var array<int,string>
      */
@@ -340,7 +346,13 @@ final class AtlasCodeRealityUsageIntelligenceService
             return $target;
         }
 
+        $startedAt = microtime(true);
+        $visited = 0;
         foreach ($this->allFiles() as $file) {
+            $visited++;
+            if ($visited > self::MAX_SCAN_FILES || microtime(true) - $startedAt > self::MAX_SCAN_SECONDS) {
+                break;
+            }
             $relative = $this->relativePath($file->getPathname());
             if (str_ends_with($relative, $target) || basename($relative) === $target) {
                 return $relative;
@@ -519,7 +531,13 @@ final class AtlasCodeRealityUsageIntelligenceService
         }
 
         $matches = [];
+        $startedAt = microtime(true);
+        $visited = 0;
         foreach ($this->allFiles($roots) as $file) {
+            $visited++;
+            if ($visited > self::MAX_SCAN_FILES || microtime(true) - $startedAt > self::MAX_SCAN_SECONDS) {
+                break;
+            }
             $path = $file->getPathname();
             if (! $this->isTextFile($path)) {
                 continue;
@@ -564,19 +582,31 @@ final class AtlasCodeRealityUsageIntelligenceService
      */
     private function fileContainsAny(string $path, array $terms): bool
     {
+        $size = @filesize($path);
+        if ($size !== false && $size > self::MAX_FILE_SCAN_BYTES) {
+            return false;
+        }
+
         $handle = fopen($path, 'rb');
         if ($handle === false) {
             return false;
         }
 
         try {
+            $bytesRead = 0;
             while (($line = fgets($handle)) !== false) {
+                $bytesRead += strlen($line);
+                if ($bytesRead > self::MAX_FILE_SCAN_BYTES) {
+                    return false;
+                }
                 foreach ($terms as $term) {
                     if (str_contains($line, $term)) {
                         return true;
                     }
                 }
             }
+        } catch (\Throwable) {
+            return false;
         } finally {
             fclose($handle);
         }

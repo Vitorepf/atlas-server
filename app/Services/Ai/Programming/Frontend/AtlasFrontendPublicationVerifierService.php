@@ -13,6 +13,11 @@ final class AtlasFrontendPublicationVerifierService
 
     public const TEMPLATE_SCHEMA_VERSION = 'atlas.frontend.publication_receipt_template.v1';
 
+    private const PRODUCT_SITE_ASSET_HASH_BLOCKERS = [
+        'product_site_asset_tutorial_hash_mismatch',
+        'product_site_asset_downloads_manifest_hash_mismatch',
+    ];
+
     /**
      * @return array<string,mixed>
      */
@@ -69,6 +74,7 @@ final class AtlasFrontendPublicationVerifierService
             'bundle_manifest_hash' => File::isFile($manifestPath) ? hash_file('sha256', $manifestPath) : null,
             'bundle_hash' => is_array($bundle) ? ($bundle['bundle_hash'] ?? null) : null,
             'frontend_app_scope' => $this->frontendAppScope(is_array($bundle) ? (array) ($bundle['frontend_app_scope'] ?? []) : []),
+            'product_site_assets' => is_array($bundle) ? $this->productSiteAssetsSummary($bundle, $bundleDirectory) : null,
             'public_receipt' => $publicReceipt,
             'blockers' => array_values(array_unique($blockers)),
             'warnings' => array_values(array_unique($warnings)),
@@ -202,6 +208,8 @@ final class AtlasFrontendPublicationVerifierService
         }
         if (! is_string($bundle['bundle_hash'] ?? null) || preg_match('/^[a-f0-9]{64}$/', (string) $bundle['bundle_hash']) !== 1) {
             $blockers[] = 'bundle_hash_invalid';
+        } elseif (! $this->bundleHashMatchesManifest($bundle)) {
+            $blockers[] = 'bundle_hash_mismatch';
         }
 
         $indexPath = (string) data_get($bundle, 'index.path', '');
@@ -221,8 +229,134 @@ final class AtlasFrontendPublicationVerifierService
                 $blockers = array_merge($blockers, $this->fileHashBlockers('asset', $bundleDirectory, (string) ($asset['path'] ?? ''), (string) ($asset['hash'] ?? '')));
             }
         }
+        $blockers = array_merge($blockers, $this->productSiteAssetBlockers($bundle, $bundleDirectory));
 
         return $blockers;
+    }
+
+    /**
+     * @param  array<string,mixed>  $bundle
+     */
+    private function bundleHashMatchesManifest(array $bundle): bool
+    {
+        $declaredHash = (string) ($bundle['bundle_hash'] ?? '');
+        unset($bundle['bundle_hash']);
+
+        return MissionCanonicalHash::sha256($bundle) === $declaredHash;
+    }
+
+    /**
+     * @param  array<string,mixed>  $bundle
+     * @return array<int,string>
+     */
+    private function productSiteAssetBlockers(array $bundle, string $bundleDirectory): array
+    {
+        $blockers = [];
+        $siteAssets = $bundle['product_site_assets'] ?? null;
+        if (! is_array($siteAssets)) {
+            return ['product_site_assets_missing'];
+        }
+        if (($siteAssets['schema_version'] ?? null) !== 'atlas.frontend.product_proof_site_assets.v1') {
+            $blockers[] = 'product_site_assets_schema_invalid';
+        }
+        if (($siteAssets['status'] ?? null) !== 'local_ready_publication_pending') {
+            $blockers[] = 'product_site_assets_status_invalid';
+        }
+
+        $blockers = array_merge($blockers, $this->fileHashBlockers(
+            'product_site_asset_tutorial',
+            $bundleDirectory,
+            (string) data_get($siteAssets, 'tutorial.path', ''),
+            (string) data_get($siteAssets, 'tutorial.hash', ''),
+        ));
+        $downloadsPath = (string) data_get($siteAssets, 'downloads_manifest.path', '');
+        $blockers = array_merge($blockers, $this->fileHashBlockers(
+            'product_site_asset_downloads_manifest',
+            $bundleDirectory,
+            $downloadsPath,
+            (string) data_get($siteAssets, 'downloads_manifest.hash', ''),
+        ));
+
+        $absoluteDownloadsPath = $downloadsPath !== '' && ! str_starts_with($downloadsPath, '/') && ! str_contains($downloadsPath, '..')
+            ? $bundleDirectory.'/'.$downloadsPath
+            : '';
+        if ($absoluteDownloadsPath !== '' && File::isFile($absoluteDownloadsPath)) {
+            $downloads = $this->readJson($absoluteDownloadsPath);
+            if (! is_array($downloads)) {
+                $blockers[] = 'product_site_downloads_json_invalid';
+            } else {
+                $blockers = array_merge($blockers, $this->downloadsManifestBlockers(
+                    $downloads,
+                    $bundleDirectory,
+                    (int) data_get($siteAssets, 'downloads_manifest.download_count', 0),
+                ));
+            }
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * @param  array<string,mixed>  $downloads
+     * @return array<int,string>
+     */
+    private function downloadsManifestBlockers(array $downloads, string $bundleDirectory, int $expectedCount): array
+    {
+        $blockers = [];
+        if (($downloads['schema_version'] ?? null) !== 'atlas.frontend.product_proof_downloads.v1') {
+            $blockers[] = 'product_site_downloads_schema_invalid';
+        }
+        if (($downloads['status'] ?? null) !== 'local_ready_publication_pending') {
+            $blockers[] = 'product_site_downloads_status_invalid';
+        }
+        $items = $downloads['downloads'] ?? null;
+        if (! is_array($items) || $items === []) {
+            return [...$blockers, 'product_site_downloads_missing'];
+        }
+        if ($expectedCount > 0 && count($items) !== $expectedCount) {
+            $blockers[] = 'product_site_downloads_count_mismatch';
+        }
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                $blockers[] = 'product_site_download_entry_invalid';
+
+                continue;
+            }
+            $blockers = array_merge($blockers, $this->fileHashBlockers(
+                'product_site_download',
+                $bundleDirectory,
+                (string) ($item['path'] ?? ''),
+                (string) ($item['hash'] ?? ''),
+            ));
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * @param  array<string,mixed>  $bundle
+     * @return array<string,mixed>
+     */
+    private function productSiteAssetsSummary(array $bundle, string $bundleDirectory): array
+    {
+        $siteAssets = is_array($bundle['product_site_assets'] ?? null) ? (array) $bundle['product_site_assets'] : [];
+        $downloadsPath = (string) data_get($siteAssets, 'downloads_manifest.path', '');
+        $downloadsAbsolute = $downloadsPath !== '' && ! str_starts_with($downloadsPath, '/') && ! str_contains($downloadsPath, '..')
+            ? $bundleDirectory.'/'.$downloadsPath
+            : '';
+
+        return [
+            'schema_version' => data_get($siteAssets, 'schema_version'),
+            'status' => data_get($siteAssets, 'status', 'missing'),
+            'tutorial_hash' => data_get($siteAssets, 'tutorial.hash'),
+            'downloads_manifest_hash' => data_get($siteAssets, 'downloads_manifest.hash'),
+            'download_count' => (int) data_get($siteAssets, 'downloads_manifest.download_count', 0),
+            'downloads_manifest_present' => $downloadsAbsolute !== '' && File::isFile($downloadsAbsolute),
+            'claim_policy' => [
+                'local_product_site_assets_are_not_public_distribution' => true,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
     }
 
     /**

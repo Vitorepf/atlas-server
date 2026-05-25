@@ -32,6 +32,7 @@ final class AtlasFrontendSelectedWorkspaceService
         $operatorStartPanel = $this->operatorStartPanel($selected, $operatingSummary, $dispatchReadiness, $capabilityReadiness);
         $taskBinding = $this->taskBinding($task, $selected);
         $nextBestAction = $this->nextBestAction($selected, $dispatchReadiness, $capabilityReadiness, $operatorStartPanel, $taskBinding, $frontendAppCandidates, $confirmedFrontendApp);
+        $runtimeProjection = $this->runtimeProjection($selected, $dispatchReadiness, $taskBinding, $frontendAppCandidates, $confirmedFrontendApp);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -66,6 +67,7 @@ final class AtlasFrontendSelectedWorkspaceService
             'operator_start_panel' => $operatorStartPanel,
             'task_binding' => $taskBinding,
             'next_best_action' => $nextBestAction,
+            'frontend_runtime_projection' => $runtimeProjection,
             'attachable_runtime_components' => [
                 'selected_workspace_contract',
                 'enterprise_bootstrap',
@@ -90,6 +92,7 @@ final class AtlasFrontendSelectedWorkspaceService
                 'capability_readiness_status' => $capabilityReadiness['status'] ?? 'not_evaluated',
                 'operator_start_panel_status' => $operatorStartPanel['status'] ?? 'not_evaluated',
                 'next_best_action_id' => $nextBestAction['id'] ?? 'not_evaluated',
+                'frontend_runtime_projection_status' => $runtimeProjection['status'] ?? 'not_evaluated',
                 'frontend_app_candidate_status' => $frontendAppCandidates['status'] ?? 'not_evaluated',
                 'frontend_app_candidate_count' => (int) ($frontendAppCandidates['candidate_count'] ?? 0),
                 'frontend_app_candidate_invalid' => (bool) ($frontendAppCandidates['requested_candidate_invalid'] ?? false),
@@ -671,6 +674,84 @@ final class AtlasFrontendSelectedWorkspaceService
                 'raw_workspace_path_returned' => false,
                 'raw_task_text_returned' => false,
             ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runtimeProjection(bool $selected, array $dispatchReadiness, array $taskBinding, array $frontendAppCandidates, ?string $confirmedFrontendApp): array
+    {
+        $runtimeProjectionAllowed = (bool) ($dispatchReadiness['runtime_projection_allowed'] ?? false);
+        $taskBound = (bool) ($taskBinding['task_present'] ?? false) && ($taskBinding['status'] ?? null) === 'bound';
+        $frontendAppInvalid = ($frontendAppCandidates['status'] ?? null) === 'requested_frontend_app_subscope_invalid';
+        $frontendAppArg = $confirmedFrontendApp !== null ? ' --frontend-app='.$confirmedFrontendApp : '';
+        $blockers = array_values(array_filter([
+            ! $selected ? 'selected_repository_workspace_required' : null,
+            $frontendAppInvalid ? 'requested_frontend_app_subscope_not_found' : null,
+            ! $taskBound ? 'frontend_task_or_user_intent_required' : null,
+            ! $runtimeProjectionAllowed ? 'runtime_projection_not_ready' : null,
+        ], 'is_string'));
+
+        $payload = [
+            'schema_version' => 'atlas.frontend.selected_workspace.runtime_projection.v1',
+            'status' => $blockers === [] ? 'ready' : 'blocked',
+            'projection_type' => 'read_only_selected_repo_frontend_runtime_bundle',
+            'runtime_projection_allowed' => $runtimeProjectionAllowed && $blockers === [],
+            'provider_dispatch_allowed' => false,
+            'frontend_app_scope' => $confirmedFrontendApp !== null ? [
+                'status' => 'subscope_selected',
+                'relative_name' => $confirmedFrontendApp,
+                'relative_name_hash' => hash('sha256', $confirmedFrontendApp),
+                'selected_repository_remains_primary_workspace' => true,
+            ] : [
+                'status' => 'repo_root_or_unconfirmed',
+                'relative_name' => null,
+                'relative_name_hash' => null,
+                'selected_repository_remains_primary_workspace' => true,
+            ],
+            'projected_components' => [
+                $this->projectionComponent('gauntlet', 'php artisan atlas:frontend:gauntlet --task="<intent>" --workspace=<selected-repo>'.$frontendAppArg.' --json --strict', true),
+                $this->projectionComponent('company_repo_onboarding_read_only', 'php artisan atlas:frontend:onboard --task="<intent>" --workspace=<selected-repo>'.$frontendAppArg.' --json --strict', false),
+                $this->projectionComponent('provider_instruction_packet_read_only', 'php artisan atlas:frontend:provider-packet --task="<intent>" --workspace=<selected-repo>'.$frontendAppArg.' --provider=<provider> --json --strict', true),
+                $this->projectionComponent('execution_runbook_read_only', 'php artisan atlas:frontend:runbook --task="<intent>" --workspace=<selected-repo>'.$frontendAppArg.' --json --strict', true),
+                $this->projectionComponent('evidence_kit_explicit_prepare', 'php artisan atlas:frontend:evidence-kit prepare --task="<intent>" --workspace=<selected-repo>'.$frontendAppArg.' --output=<evidence-dir> --json --strict', false),
+                $this->projectionComponent('run_certification', 'php artisan atlas:frontend:run-certify --visual-report=<report> --design-review-report=<report> --quality-budget-report=<report> --evidence-manifest=<manifest> --outcome-store=<jsonl> --json --strict', false),
+            ],
+            'required_before_provider_dispatch' => [
+                'task_bound_to_selected_repo',
+                'valid_frontend_app_subscope_when_monorepo',
+                'company_repo_onboarding_ready',
+                'pre_execution_gate_passed',
+                'provider_instruction_packet_ready',
+                'execution_runbook_ready',
+            ],
+            'blockers' => $blockers,
+            'claim_policy' => [
+                'runtime_projection_is_not_execution_evidence' => true,
+                'read_only_projection_does_not_write_files' => true,
+                'provider_dispatch_not_authorized_by_projection' => true,
+                'selected_repository_remains_primary_workspace' => true,
+                'frontend_app_scope_is_subdirectory_not_workspace' => true,
+                'raw_workspace_path_returned' => false,
+                'raw_task_text_returned' => false,
+            ],
+        ];
+        $payload['runtime_projection_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function projectionComponent(string $id, string $command, bool $readOnly): array
+    {
+        return [
+            'id' => $id,
+            'command' => $command,
+            'read_only_projection' => $readOnly,
+            'command_hash' => hash('sha256', $command),
         ];
     }
 

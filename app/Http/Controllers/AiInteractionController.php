@@ -28,6 +28,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -69,7 +70,16 @@ class AiInteractionController extends Controller
         AtlasAiAssistedExecutionQualityService $assistedExecutionQuality,
         AtlasAutonomousProductDeliveryRuntimeService $productDeliveryRuntime,
     ): JsonResponse {
+        $debugStartedAt = microtime(true);
+        $debugStage = static function (string $stage) use (&$debugStartedAt): void {
+            Log::debug('ai_interaction_store_stage', [
+                'stage' => $stage,
+                'elapsed_ms' => (int) round((microtime(true) - $debugStartedAt) * 1000),
+            ]);
+        };
+        $debugStage('start');
         $data = $request->validated();
+        $debugStage('validated');
         $uploadedImages = $this->uploadedImageFiles($request->file('images', []));
         $uploadedDocuments = $this->uploadedDocumentFiles($request->file('documents', []));
         $uploadedImageIds = array_values((array) ($data['uploaded_images'] ?? []));
@@ -113,19 +123,26 @@ class AiInteractionController extends Controller
         }
 
         $data = $this->applyThreadRuntimePolicy($data);
+        $debugStage('thread_runtime_policy');
         $data = $this->applySurfaceDomainCatalogSelection($data, $domainSelection);
+        $debugStage('surface_domain_catalog');
         // Canonical RouterRuntime / Hyperflow entry runs BEFORE the legacy
         // AtlasAiRouterService so non-programming intents (research / finance /
         // marketing / cyber / automation / strategy / personal_development)
         // get a full intent → domain → flow → dispatch → receipt envelope on
         // every interaction. Legacy router still runs after, for back-compat.
         $data = $hyperflowEntry->run($data);
+        $debugStage('hyperflow_entry');
         $data = $this->applyAtlasAiRouterDecision($data, $router);
+        $debugStage('legacy_router_decision');
         $data = $this->applyProductDeliveryRuntime($data, $productDeliveryRuntime);
+        $debugStage('product_delivery_runtime');
         $data = $this->applyAssistedExecutionQuality($data, $assistedExecutionQuality);
+        $debugStage('assisted_execution_quality');
 
         try {
             $data = $devRuntime->apply($data);
+            $debugStage('dev_runtime');
         } catch (RuntimeException $exception) {
             return response()->json([
                 'message' => $exception->getMessage(),
@@ -137,11 +154,15 @@ class AiInteractionController extends Controller
         }
 
         $data = $specialistFlowRuntime->apply($data);
+        $debugStage('specialist_flow_runtime');
         $data = $specialistFlowExecution->apply($data);
+        $debugStage('specialist_flow_execution');
         $data = $this->applyAtlasCodeForgeObraBinding($data);
+        $debugStage('obra_binding');
 
         try {
             $trace = $gateway->enqueueInteraction((string) $data['input_text'], $data);
+            $debugStage('gateway_enqueue');
         } catch (RuntimeException $exception) {
             return response()->json([
                 'message' => $exception->getMessage(),

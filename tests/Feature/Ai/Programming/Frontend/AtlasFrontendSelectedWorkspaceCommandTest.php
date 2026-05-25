@@ -47,6 +47,9 @@ class AtlasFrontendSelectedWorkspaceCommandTest extends TestCase
         $this->assertStringContainsString('operator_start_panel', $output);
         $this->assertStringContainsString('task_binding', $output);
         $this->assertStringContainsString('next_best_action', $output);
+        $this->assertStringContainsString('frontend_runtime_projection', $output);
+        $this->assertStringContainsString('read_only_selected_repo_frontend_runtime_bundle', $output);
+        $this->assertStringContainsString('runtime_projection_hash', $output);
         $this->assertStringContainsString('bound', $output);
         $this->assertStringNotContainsString('Refinar dashboard premium', $output);
         $this->assertStringContainsString('complete_frontend_context', $output);
@@ -56,6 +59,9 @@ class AtlasFrontendSelectedWorkspaceCommandTest extends TestCase
         $this->assertStringContainsString('pnpm', $output);
         $this->assertStringContainsString('vite', $output);
         $this->assertStringContainsString('atlas:frontend:onboard', $output);
+        $this->assertStringContainsString('atlas:frontend:gauntlet', $output);
+        $this->assertStringContainsString('atlas:frontend:provider-packet', $output);
+        $this->assertStringContainsString('atlas:frontend:runbook', $output);
         $this->assertStringContainsString('provider_instruction_packet_read_only_projection', $output);
         $this->assertStringNotContainsString($workspace, $output);
     }

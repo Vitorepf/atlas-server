@@ -76,6 +76,10 @@ final class AtlasFrontendProductProofRuntimeService
         }
 
         File::put($outputDirectory.'/index.html', $this->indexHtml((array) $catalog['demos']));
+        File::put($outputDirectory.'/getting-started.html', $this->gettingStartedHtml());
+        $indexHash = hash('sha256', File::get($outputDirectory.'/index.html'));
+        $downloads = $this->downloadsManifest($assets, $frontendAppScope, $indexHash);
+        File::put($outputDirectory.'/downloads.json', json_encode($downloads, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         $manifest = [
             'schema_version' => self::BUNDLE_SCHEMA_VERSION,
             'status' => 'ready',
@@ -84,7 +88,25 @@ final class AtlasFrontendProductProofRuntimeService
             'frontend_app_scope' => $frontendAppScope,
             'index' => [
                 'path' => 'index.html',
-                'hash' => hash('sha256', File::get($outputDirectory.'/index.html')),
+                'hash' => $indexHash,
+            ],
+            'product_site_assets' => [
+                'schema_version' => 'atlas.frontend.product_proof_site_assets.v1',
+                'status' => 'local_ready_publication_pending',
+                'tutorial' => [
+                    'path' => 'getting-started.html',
+                    'hash' => hash('sha256', File::get($outputDirectory.'/getting-started.html')),
+                ],
+                'downloads_manifest' => [
+                    'path' => 'downloads.json',
+                    'hash' => hash('sha256', File::get($outputDirectory.'/downloads.json')),
+                    'download_count' => count((array) ($downloads['downloads'] ?? [])),
+                ],
+                'claim_policy' => [
+                    'local_product_site_assets_are_not_public_distribution' => true,
+                    'download_manifest_requires_public_receipt_before_distribution_claim' => true,
+                    'raw_customer_source_returned' => false,
+                ],
             ],
             'assets' => $assets,
             'publication_workflow' => [
@@ -93,6 +115,7 @@ final class AtlasFrontendProductProofRuntimeService
                 'receipt_schema_version' => AtlasFrontendPublicationVerifierService::RECEIPT_SCHEMA_VERSION,
                 'commands' => [
                     'php artisan atlas:frontend:publish receipt-template --bundle=<bundle> --output=<bundle> --json',
+                    'php artisan atlas:frontend:publish attest --bundle=<bundle> --receipt=<receipt> --json',
                     'php artisan atlas:frontend:publish verify --bundle=<bundle> --receipt=<receipt> --json --strict',
                     'php artisan atlas:frontend:world-best-plan --rival-evidence=<dir> --bundle=<bundle> --publication-receipt=<receipt> --json --strict',
                 ],
@@ -116,6 +139,7 @@ final class AtlasFrontendProductProofRuntimeService
                 'external_hosting_verified' => false,
                 'public_url_present' => false,
                 'frontend_app_scope_from_bundle_manifest' => true,
+                'product_site_assets_present' => true,
                 'raw_customer_source_returned' => false,
             ],
         ];
@@ -413,6 +437,80 @@ final class AtlasFrontendProductProofRuntimeService
             <section class="panel">
               <h2>Claim Boundary</h2>
               <p>This local static proof is publishable, but public distribution claims require hosted URL verification and rival replay.</p>
+            </section>
+          </main>
+        </body>
+        </html>
+        HTML;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $assets
+     * @param  array<string,mixed>  $frontendAppScope
+     * @return array<string,mixed>
+     */
+    private function downloadsManifest(array $assets, array $frontendAppScope, string $indexHash): array
+    {
+        $downloads = array_map(fn (array $asset): array => [
+            'id' => (string) ($asset['id'] ?? 'unknown'),
+            'path' => (string) ($asset['path'] ?? ''),
+            'hash' => (string) ($asset['hash'] ?? ''),
+            'kind' => 'demo_page',
+            'public_distribution_ready' => false,
+        ], $assets);
+
+        array_unshift($downloads, [
+            'id' => 'product_proof_index',
+            'path' => 'index.html',
+            'hash' => $indexHash,
+            'kind' => 'site_index',
+            'public_distribution_ready' => false,
+        ]);
+
+        return [
+            'schema_version' => 'atlas.frontend.product_proof_downloads.v1',
+            'status' => 'local_ready_publication_pending',
+            'frontend_app_scope' => $frontendAppScope,
+            'downloads' => $downloads,
+            'claim_policy' => [
+                'downloads_manifest_is_not_public_distribution' => true,
+                'public_download_claim_requires_publication_receipt' => true,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+    }
+
+    private function gettingStartedHtml(): string
+    {
+        return <<<'HTML'
+        <!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Atlas Frontend Product Proof - Getting Started</title>
+          <style>
+            body{font-family:ui-sans-serif,system-ui,sans-serif;margin:0;color:#17202a;background:#f8fafc}
+            main{max-width:920px;margin:0 auto;padding:48px 24px}
+            section{margin-top:24px;border:1px solid #d7dde5;border-radius:8px;padding:20px;background:white}
+            code{background:#e8edf3;padding:2px 6px;border-radius:4px}
+          </style>
+        </head>
+        <body>
+          <main>
+            <p><a href="./index.html">Atlas Frontend Product Proof</a></p>
+            <h1>Getting Started</h1>
+            <section>
+              <h2>Inspect The Local Bundle</h2>
+              <p>Open <code>index.html</code>, review every demo page, then verify hashes through <code>manifest.json</code> and <code>downloads.json</code>.</p>
+            </section>
+            <section>
+              <h2>Publish Honestly</h2>
+              <p>Run receipt-template, attest, and verify before making any public distribution claim.</p>
+            </section>
+            <section>
+              <h2>Claim Boundary</h2>
+              <p>This tutorial is a local product-site asset. Public proof still requires HTTPS hosting, HTTP 200 verification, matching bundle hashes and operator approval.</p>
             </section>
           </main>
         </body>

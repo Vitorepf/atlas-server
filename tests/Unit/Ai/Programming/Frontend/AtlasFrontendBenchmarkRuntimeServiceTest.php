@@ -3,6 +3,7 @@
 namespace Tests\Unit\Ai\Programming\Frontend;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendBenchmarkRuntimeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendRivalReplayHarnessService;
 use Tests\TestCase;
 
 class AtlasFrontendBenchmarkRuntimeServiceTest extends TestCase
@@ -14,6 +15,7 @@ class AtlasFrontendBenchmarkRuntimeServiceTest extends TestCase
         $this->assertSame('atlas.frontend.benchmark_runtime.v1', $payload['schema_version']);
         $this->assertSame('documentation_backed_static_runtime_matrix', $payload['benchmark_type']);
         $this->assertFalse((bool) data_get($payload, 'scope.uses_live_external_rival_execution'));
+        $this->assertFalse((bool) data_get($payload, 'scope.rival_evidence_directory_supplied'));
         $this->assertTrue((bool) data_get($payload, 'claims.atlas_more_complete_than_impeccable_on_governed_delivery_contract'));
         $this->assertTrue((bool) data_get($payload, 'claims.atlas_more_complete_than_claude_design_plugin_on_governed_delivery_contract'));
         $this->assertFalse((bool) data_get($payload, 'claims.atlas_live_mode_superior_to_impeccable'));
@@ -25,6 +27,20 @@ class AtlasFrontendBenchmarkRuntimeServiceTest extends TestCase
         $this->assertContains('external_rival_replay_artifacts_required_for_world_best_claim', $payload['remaining_gaps']);
         $this->assertGreaterThan(data_get($payload, 'totals.pbakaus_impeccable.score'), data_get($payload, 'totals.atlas_frontend.score'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['benchmark_hash']);
+    }
+
+    public function test_benchmark_uses_supplied_rival_evidence_directory_for_replay_signal(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-benchmark-rival-evidence-'.bin2hex(random_bytes(4));
+        app(AtlasFrontendRivalReplayHarnessService::class)->writeTemplate($dir);
+
+        $payload = app(AtlasFrontendBenchmarkRuntimeService::class)->run($dir);
+
+        $this->assertTrue((bool) data_get($payload, 'scope.rival_evidence_directory_supplied'));
+        $this->assertSame(hash('sha256', $dir), data_get($payload, 'scope.rival_evidence_directory_hash'));
+        $this->assertSame('ready_for_replay', data_get($payload, 'rival_replay.status'));
+        $this->assertSame(15, data_get($payload, 'rival_replay.summary.missing_or_pending'));
+        $this->assertFalse((bool) data_get($payload, 'claims.atlas_world_best_frontend_system'));
     }
 
     public function test_benchmark_carries_runtime_evidence_hashes(): void

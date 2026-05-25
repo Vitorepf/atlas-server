@@ -39,11 +39,24 @@ class AtlasFrontendProductProofRuntimeServiceTest extends TestCase
         $this->assertFalse((bool) data_get($payload, 'publication_policy.external_hosting_verified'));
         $this->assertSame('atlas.frontend.product_proof_publication_workflow.v1', data_get($payload, 'publication_workflow.schema_version'));
         $this->assertSame('local_bundle_ready_publication_pending', data_get($payload, 'publication_workflow.status'));
+        $this->assertSame('atlas.frontend.product_proof_site_assets.v1', data_get($payload, 'product_site_assets.schema_version'));
+        $this->assertSame('getting-started.html', data_get($payload, 'product_site_assets.tutorial.path'));
+        $this->assertSame('downloads.json', data_get($payload, 'product_site_assets.downloads_manifest.path'));
+        $this->assertSame(6, data_get($payload, 'product_site_assets.downloads_manifest.download_count'));
+        $this->assertTrue((bool) data_get($payload, 'product_site_assets.claim_policy.local_product_site_assets_are_not_public_distribution'));
+        $this->assertTrue((bool) data_get($payload, 'publication_policy.product_site_assets_present'));
         $this->assertContains('php artisan atlas:frontend:publish receipt-template --bundle=<bundle> --output=<bundle> --json', data_get($payload, 'publication_workflow.commands'));
+        $this->assertContains('php artisan atlas:frontend:publish attest --bundle=<bundle> --receipt=<receipt> --json', data_get($payload, 'publication_workflow.commands'));
         $this->assertContains('matching_frontend_app_scope_when_subscope_selected', data_get($payload, 'publication_workflow.required_public_evidence'));
         $this->assertTrue((bool) data_get($payload, 'publication_workflow.claim_policy.local_bundle_is_not_public_distribution'));
         $this->assertFileExists($output.'/index.html');
+        $this->assertFileExists($output.'/getting-started.html');
+        $this->assertFileExists($output.'/downloads.json');
         $this->assertFileExists($output.'/manifest.json');
+        $downloads = json_decode(File::get($output.'/downloads.json'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.frontend.product_proof_downloads.v1', $downloads['schema_version']);
+        $this->assertSame('product_proof_index', data_get($downloads, 'downloads.0.id'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($downloads, 'downloads.0.hash'));
         $this->assertCount(5, $payload['assets']);
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['bundle_hash']);
     }

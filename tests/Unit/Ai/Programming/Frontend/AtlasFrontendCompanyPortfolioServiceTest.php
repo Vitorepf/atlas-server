@@ -44,6 +44,7 @@ class AtlasFrontendCompanyPortfolioServiceTest extends TestCase
         $this->assertSame('local_folder_with_multiple_repositories', data_get($payload, 'scan_policy.discovery_model'));
         $this->assertContains('package.json', data_get($payload, 'scan_policy.repo_root_markers'));
         $this->assertContains('pnpm-workspace.yaml', data_get($payload, 'scan_policy.repo_root_markers'));
+        $this->assertTrue((bool) data_get($payload, 'scan_policy.portfolio_root_is_not_selected_workspace'));
         $this->assertFalse((bool) data_get($payload, 'scan_policy.portfolio_scan_required_for_frontend_dispatch'));
         $this->assertTrue((bool) data_get($payload, 'scan_policy.selected_workspace_required_for_frontend_dispatch'));
         $this->assertSame('atlas.frontend.company_portfolio.selection_brief.v1', data_get($payload, 'selection_brief.schema_version'));
@@ -64,8 +65,9 @@ class AtlasFrontendCompanyPortfolioServiceTest extends TestCase
         $this->assertSame('candidate_ready_for_operator_selection', data_get($payload, 'selection_handoff.status'));
         $this->assertSame('atlas.frontend.selected_workspace.v1', data_get($payload, 'selection_handoff.selected_workspace_schema'));
         $this->assertStringContainsString('atlas:frontend:selected-workspace', (string) data_get($payload, 'selection_handoff.next_command'));
-        $this->assertTrue((bool) data_get($payload, 'selection_handoff.claim_policy.portfolio_scan_does_not_create_space_runtime'));
+        $this->assertTrue((bool) data_get($payload, 'selection_handoff.claim_policy.portfolio_scan_only_discovers_repository_candidates'));
         $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.portfolio_root_is_not_selected_workspace'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.portfolio_candidate_is_not_selected_workspace'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.provider_dispatch_requires_selected_workspace_contract'));
 
@@ -140,6 +142,30 @@ class AtlasFrontendCompanyPortfolioServiceTest extends TestCase
         $this->assertSame('blocked', data_get($payload, 'repositories.0.status'));
         $this->assertFalse((bool) data_get($payload, 'repositories.0.dispatch_policy.provider_dispatch_allowed'));
         $this->assertContains('confirm_frontend_workspace_or_create_package_manifest', data_get($payload, 'repositories.0.recommended_next_actions'));
+    }
+
+    public function test_portfolio_scan_does_not_treat_root_project_as_selected_workspace(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-portfolio-root-project-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($root);
+        File::put($root.'/package.json', json_encode([
+            'scripts' => ['dev' => 'vite', 'test' => 'vitest run', 'build' => 'vite build'],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+
+        $payload = app(AtlasFrontendCompanyPortfolioService::class)->scan([
+            'root' => $root,
+            'task' => 'Refinar frontend do repo aberto',
+            'max_depth' => 2,
+        ]);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame(0, data_get($payload, 'summary.candidate_repo_count'));
+        $this->assertContains('no_package_json_candidates_found', $payload['blockers']);
+        $this->assertTrue((bool) data_get($payload, 'scan_policy.portfolio_root_is_not_selected_workspace'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.portfolio_root_is_not_selected_workspace'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.provider_dispatch_requires_selected_workspace_contract'));
+        $this->assertSame('operator_selected_repository_workspace', $payload['primary_runtime_entrypoint']);
     }
 
     public function test_blocks_missing_portfolio_root(): void

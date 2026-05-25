@@ -27,5 +27,8 @@ class AtlasFrontendWorldBestProofPlanCommandTest extends TestCase
         $this->assertStringContainsString('evidence_worklist', $output);
         $this->assertStringContainsString('write_performed', $output);
         $this->assertStringContainsString('fill_and_verify_rival_replay_evidence_packs', $output);
+        $this->assertStringContainsString('publication_attestation', $output);
+        $this->assertStringContainsString('local_bundle_is_not_public_distribution', $output);
+        $this->assertStringContainsString('publish attest --bundle=<bundle>', $output);
     }
 }

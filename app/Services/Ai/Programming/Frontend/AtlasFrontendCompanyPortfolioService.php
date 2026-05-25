@@ -55,6 +55,7 @@ final class AtlasFrontendCompanyPortfolioService
                 'repo_root_markers' => $this->repoRootMarkers(),
                 'max_depth' => $maxDepth,
                 'max_repos' => $maxRepos,
+                'portfolio_root_is_not_selected_workspace' => true,
                 'raw_source_returned' => false,
                 'absolute_paths_returned' => false,
                 'invokes_provider' => false,
@@ -69,6 +70,7 @@ final class AtlasFrontendCompanyPortfolioService
             'recommended_next_actions' => $this->nextActions($repositories),
             'claim_policy' => [
                 'portfolio_scan_is_not_execution_evidence' => true,
+                'portfolio_root_is_not_selected_workspace' => true,
                 'portfolio_candidate_is_not_selected_workspace' => true,
                 'provider_dispatch_requires_selected_workspace_contract' => true,
                 'onboarding_required_before_provider_dispatch' => true,
@@ -101,6 +103,7 @@ final class AtlasFrontendCompanyPortfolioService
             'scan_policy' => [
                 'discovery_model' => 'local_folder_with_multiple_repositories',
                 'repo_root_markers' => $this->repoRootMarkers(),
+                'portfolio_root_is_not_selected_workspace' => true,
                 'raw_source_returned' => false,
                 'absolute_paths_returned' => false,
                 'invokes_provider' => false,
@@ -123,6 +126,7 @@ final class AtlasFrontendCompanyPortfolioService
             'recommended_next_actions' => ['provide_existing_portfolio_root'],
             'claim_policy' => [
                 'portfolio_scan_is_not_execution_evidence' => true,
+                'portfolio_root_is_not_selected_workspace' => true,
                 'portfolio_candidate_is_not_selected_workspace' => true,
                 'provider_dispatch_requires_selected_workspace_contract' => true,
                 'raw_customer_source_returned' => false,
@@ -152,7 +156,7 @@ final class AtlasFrontendCompanyPortfolioService
             }
 
             $markers = $this->projectMarkers($directory);
-            if ($markers !== [] && ! isset($seen[$directory])) {
+            if ($depth > 0 && $markers !== [] && ! isset($seen[$directory])) {
                 $seen[$directory] = true;
                 $found[] = [
                     'workspace' => $directory,
@@ -389,7 +393,7 @@ final class AtlasFrontendCompanyPortfolioService
             'next_command' => 'php artisan atlas:frontend:selected-workspace --task="<intent>" --workspace=<chosen-local-company-repo> --json --strict',
             'claim_policy' => [
                 'handoff_selects_one_repo_before_runtime' => true,
-                'portfolio_scan_does_not_create_space_runtime' => true,
+                'portfolio_scan_only_discovers_repository_candidates' => true,
                 'raw_absolute_path_returned' => false,
             ],
         ];

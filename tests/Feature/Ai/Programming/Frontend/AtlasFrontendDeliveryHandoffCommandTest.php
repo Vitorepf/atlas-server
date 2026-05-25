@@ -33,6 +33,8 @@ class AtlasFrontendDeliveryHandoffCommandTest extends TestCase
         $this->assertSame(AtlasFrontendDeliveryHandoffService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('ready', $payload['status']);
         $this->assertTrue((bool) data_get($payload, 'claim_policy.customer_handoff_allowed'));
+        $this->assertSame('missing_report', data_get($payload, 'publication_attestation.status'));
+        $this->assertTrue((bool) data_get($payload, 'publication_attestation.claim_policy.local_bundle_is_not_public_distribution'));
     }
 
     public function test_handoff_template_command_writes_inputs(): void

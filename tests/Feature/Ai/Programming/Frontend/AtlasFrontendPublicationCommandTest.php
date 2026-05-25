@@ -42,6 +42,43 @@ class AtlasFrontendPublicationCommandTest extends TestCase
         $this->assertStringContainsString('local_ready', Artisan::output());
     }
 
+    public function test_publish_attest_command_emits_canonical_publication_attestation(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-publish-command-attest-'.bin2hex(random_bytes(4));
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle, 'apps/web');
+
+        $exitCode = Artisan::call('atlas:frontend:publish', [
+            'action' => 'attest',
+            '--bundle' => $bundle,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exitCode);
+        $this->assertSame('atlas.frontend.delivery_handoff_publication_attestation.v1', $payload['schema_version']);
+        $this->assertSame('local_bundle_ready_publication_pending', $payload['status']);
+        $this->assertSame('subscope_selected', data_get($payload, 'frontend_app_scope.status'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'frontend_app_scope.relative_name_hash'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.local_bundle_is_not_public_distribution'));
+        $this->assertContains('rerun_atlas_frontend_publish_attest', $payload['required_next_actions']);
+    }
+
+    public function test_publish_attest_strict_requires_public_distribution(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-publish-command-attest-strict-'.bin2hex(random_bytes(4));
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle);
+
+        $exitCode = Artisan::call('atlas:frontend:publish', [
+            'action' => 'attest',
+            '--bundle' => $bundle,
+            '--strict' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString('local_bundle_ready_publication_pending', Artisan::output());
+    }
+
     public function test_publish_receipt_template_command_writes_receipt(): void
     {
         $dir = sys_get_temp_dir().'/atlas-frontend-publish-command-template-'.bin2hex(random_bytes(4));

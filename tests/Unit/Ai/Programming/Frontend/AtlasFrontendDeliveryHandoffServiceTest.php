@@ -30,7 +30,62 @@ class AtlasFrontendDeliveryHandoffServiceTest extends TestCase
         $this->assertTrue((bool) data_get($payload, 'delivery_claims.frontend_completion'));
         $this->assertFalse((bool) data_get($payload, 'delivery_claims.world_best_frontend_system'));
         $this->assertContains('public_distribution_not_verified', $payload['known_limitations']);
+        $this->assertSame('missing_report', data_get($payload, 'publication_attestation.status'));
+        $this->assertTrue((bool) data_get($payload, 'publication_attestation.claim_policy.local_bundle_is_not_public_distribution'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['handoff_hash']);
+    }
+
+    public function test_handoff_attests_local_publication_report_without_public_distribution_claim(): void
+    {
+        $dir = $this->fixtureDir();
+
+        $payload = app(AtlasFrontendDeliveryHandoffService::class)->compile(
+            $dir.'/run-certification.json',
+            $dir.'/evidence/evidence-pack.json',
+            $dir.'/publication-report.json',
+        );
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertFalse((bool) data_get($payload, 'delivery_claims.public_distribution'));
+        $this->assertSame('local_bundle_ready_publication_pending', data_get($payload, 'publication_attestation.status'));
+        $this->assertSame('local_ready', data_get($payload, 'publication_attestation.publication_report_status'));
+        $this->assertContains('provide_operator_approved_publication_receipt', data_get($payload, 'publication_attestation.required_next_actions'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.local_publication_report_is_not_public_distribution'));
+    }
+
+    public function test_handoff_attests_verified_publication_without_returning_public_url(): void
+    {
+        $dir = $this->fixtureDir($this->frontendAppScope('apps/web'));
+        $manifest = json_decode((string) File::get($dir.'/bundle/manifest.json'), true);
+        $receiptPath = $dir.'/publication-receipt.json';
+        File::put($receiptPath, json_encode([
+            'schema_version' => AtlasFrontendPublicationVerifierService::RECEIPT_SCHEMA_VERSION,
+            'status' => 'verified',
+            'public_url' => 'https://example.com/atlas-frontend/apps-web/',
+            'bundle_hash' => $manifest['bundle_hash'],
+            'index_content_hash' => data_get($manifest, 'index.hash'),
+            'local_index_hash' => data_get($manifest, 'index.hash'),
+            'frontend_app_scope' => $this->frontendAppScope('apps/web'),
+            'http_status' => 200,
+            'checked_at' => '2026-05-25T12:00:00Z',
+            'operator_approved' => true,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $publication = app(AtlasFrontendPublicationVerifierService::class)->verify($dir.'/bundle', $receiptPath);
+        File::put($dir.'/publication-report.json', json_encode($publication, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        $payload = app(AtlasFrontendDeliveryHandoffService::class)->compile(
+            $dir.'/run-certification.json',
+            $dir.'/evidence/evidence-pack.json',
+            $dir.'/publication-report.json',
+        );
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertTrue((bool) data_get($payload, 'delivery_claims.public_distribution'));
+        $this->assertSame('public_verified', data_get($payload, 'publication_attestation.status'));
+        $this->assertSame('verified', data_get($payload, 'publication_attestation.public_receipt_status'));
+        $this->assertNull(data_get($payload, 'publication_attestation.public_url'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'publication_attestation.public_url_hash'));
+        $this->assertSame([], data_get($payload, 'publication_attestation.required_next_actions'));
     }
 
     public function test_blocks_handoff_when_evidence_manifest_hash_does_not_match_run(): void

@@ -33,6 +33,10 @@ final class AtlasFrontendWorldBestProofPlanService
         $publicationWorkItems = $this->publicationWorkItems($publication);
         $worldBestClaimAllowed = (bool) data_get($replay, 'claim_policy.may_claim_world_best_frontend_system')
             && (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed');
+        $publicationAttestation = app(AtlasFrontendPublicationAttestationService::class)->attest($publication, [
+            'rerun_action' => 'rerun_atlas_frontend_world_best_plan',
+            'world_best_claim_allowed' => $worldBestClaimAllowed,
+        ]);
 
         $blockers = $this->blockers($replay, $publication);
         $status = $worldBestClaimAllowed
@@ -64,6 +68,7 @@ final class AtlasFrontendWorldBestProofPlanService
                 'atlas_wins_replay' => (bool) data_get($replay, 'claim_policy.may_claim_world_best_frontend_system'),
                 'product_proof_catalog_ready' => ($proof['status'] ?? null) === 'ready',
                 'public_distribution_verified' => (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed'),
+                'publication_attestation_status' => $publicationAttestation['status'],
                 'world_best_claim_allowed' => $worldBestClaimAllowed,
             ],
             'workstreams' => [
@@ -79,6 +84,8 @@ final class AtlasFrontendWorldBestProofPlanService
                         'anti_slop_report_hash',
                         'verification_hashes',
                         'competitive_score_breakdown',
+                        'score_attestation',
+                        'external_rival_execution_receipts',
                     ],
                     'evidence_pack_readiness' => $evidencePackReadinessSummary,
                     'evidence_worklist' => [
@@ -108,8 +115,10 @@ final class AtlasFrontendWorldBestProofPlanService
                         'public_https_url',
                         'http_200_receipt',
                         'bundle_hash_match',
+                        'publication_attestation',
                         'operator_approval',
                     ],
+                    'publication_attestation' => $publicationAttestation,
                     'work_items' => $publicationWorkItems,
                     'command' => 'php artisan atlas:frontend:publish verify --bundle=<bundle> --receipt=<receipt> --json',
                 ],
@@ -134,6 +143,7 @@ final class AtlasFrontendWorldBestProofPlanService
                 'world_best_claim_allowed' => $worldBestClaimAllowed,
                 'world_best_requires_external_rival_replay' => true,
                 'world_best_requires_public_distribution_receipt' => true,
+                'local_publication_report_is_not_public_distribution' => true,
                 'world_best_requires_provider_safe_hash_refs' => true,
                 'documentation_only_claim_forbidden' => true,
                 'raw_prompt_source_customer_data_forbidden' => true,
@@ -147,6 +157,7 @@ final class AtlasFrontendWorldBestProofPlanService
                 'evidence_worklist_hash' => $evidenceWorklist['worklist_hash'] ?? null,
                 'product_proof_hash' => $proof['product_proof_hash'] ?? null,
                 'publication_hash' => $publication['publication_hash'] ?? null,
+                'publication_attestation_hash' => $publicationAttestation['attestation_hash'] ?? null,
                 'control_plane_hash' => $controlPlane['control_plane_hash'] ?? null,
             ],
         ];
@@ -201,28 +212,46 @@ final class AtlasFrontendWorldBestProofPlanService
                     'evidence_pack_status' => $pack['status'] ?? 'missing',
                     'evidence_pack_blockers' => $pack['blockers'] ?? ['evidence_pack_missing'],
                     'evidence_pack_warnings' => $pack['warnings'] ?? [],
-                    'required_manifest_fields' => [
-                        'case_id',
-                        'system',
-                        'status',
-                        'run_id',
-                        'task_spec_hash',
-                        'task_spec_ref',
-                        'evidence_pack_ref',
-                        'output_artifact_ref',
-                        'output_artifact_hash',
-                        'screenshot_hashes',
-                        'anti_slop_report_hash',
-                        'verification_hashes',
-                        'score_breakdown',
-                        'score_total',
-                        'score_max',
-                        'completed_at',
-                    ],
+                    'required_manifest_fields' => $this->requiredReplayManifestFields($system),
+                    'required_receipts' => $system === 'atlas_frontend'
+                        ? ['score_attestation']
+                        : ['score_attestation', 'external_execution_receipt'],
                 ];
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function requiredReplayManifestFields(string $system): array
+    {
+        $fields = [
+            'case_id',
+            'system',
+            'status',
+            'run_id',
+            'task_spec_hash',
+            'task_spec_ref',
+            'evidence_pack_ref',
+            'output_artifact_ref',
+            'output_artifact_hash',
+            'screenshot_hashes',
+            'anti_slop_report_hash',
+            'verification_hashes',
+            'score_breakdown',
+            'score_total',
+            'score_max',
+            'score_attestation',
+            'completed_at',
+        ];
+
+        if ($system !== 'atlas_frontend') {
+            $fields[] = 'external_execution_receipt';
+        }
+
+        return $fields;
     }
 
     /**
@@ -244,6 +273,7 @@ final class AtlasFrontendWorldBestProofPlanService
                 'commands' => [
                     'php artisan atlas:frontend:proof build --output=<bundle> --json',
                     'php artisan atlas:frontend:publish receipt-template --bundle=<bundle> --output=<bundle> --json',
+                    'php artisan atlas:frontend:publish attest --bundle=<bundle> --receipt=<receipt> --json',
                     'php artisan atlas:frontend:publish verify --bundle=<bundle> --receipt=<receipt> --json',
                 ],
             ],

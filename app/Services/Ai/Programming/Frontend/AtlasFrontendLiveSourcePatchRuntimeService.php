@@ -51,6 +51,7 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
                 'raw_original_returned' => false,
                 'raw_variants_returned' => false,
                 'absolute_path_returned' => false,
+                'private_session_integrity_verified_before_patch' => true,
             ],
             'journal' => [
                 $this->event('prepared', ['variant_count' => count($variants), 'target_count' => $targetCount]),
@@ -58,6 +59,7 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
             'accepted_variant_id' => null,
             'original' => $target,
         ];
+        $session['private_integrity_hash'] = $this->privateIntegrityHash($session);
         $session['session_hash'] = MissionCanonicalHash::sha256($this->publicSession($session));
         $this->writeSession($workspace, $session);
 
@@ -94,6 +96,7 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
         $session['accepted_variant_hash'] = hash('sha256', (string) $variant['content']);
         $session['accepted_diff_hash'] = hash('sha256', $original."\n---atlas-variant---\n".(string) $variant['content']);
         $session['journal'][] = $this->event('accepted', ['variant_id' => $variantId]);
+        $session['private_integrity_hash'] = $this->privateIntegrityHash($session);
         $session['session_hash'] = MissionCanonicalHash::sha256($this->publicSession($session));
         $this->writeSession($workspace, $session);
 
@@ -110,6 +113,7 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
         $this->assertStatus($session, ['prepared']);
         $session['status'] = 'discarded';
         $session['journal'][] = $this->event('discarded');
+        $session['private_integrity_hash'] = $this->privateIntegrityHash($session);
         $session['session_hash'] = MissionCanonicalHash::sha256($this->publicSession($session));
         $this->writeSession($workspace, $session);
 
@@ -139,6 +143,7 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
         $session['status'] = 'recovered';
         $session['recovered_file_hash'] = hash('sha256', $recovered);
         $session['journal'][] = $this->event('recovered', ['variant_id' => (string) $session['accepted_variant_id']]);
+        $session['private_integrity_hash'] = $this->privateIntegrityHash($session);
         $session['session_hash'] = MissionCanonicalHash::sha256($this->publicSession($session));
         $this->writeSession($workspace, $session);
 
@@ -238,6 +243,10 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
             'session' => $this->publicSession($session),
             'session_ref' => 'atlas_frontend_live:'.$session['session_id'],
             'journal_path_hash' => hash('sha256', $this->sessionPath($workspace, (string) $session['session_id'])),
+            'integrity_policy' => [
+                'private_session_integrity_hash_required' => true,
+                'raw_original_or_variants_returned' => false,
+            ],
         ];
         $payload['result_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -254,6 +263,16 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
         unset($public['original'], $public['variant_payloads']);
 
         return $public;
+    }
+
+    /**
+     * @param  array<string,mixed>  $session
+     */
+    private function privateIntegrityHash(array $session): string
+    {
+        unset($session['session_hash'], $session['private_integrity_hash']);
+
+        return MissionCanonicalHash::sha256($session);
     }
 
     /**
@@ -291,6 +310,12 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
         $decoded = json_decode(File::get($path), true);
         if (! is_array($decoded)) {
             throw new RuntimeException('session_corrupt');
+        }
+        if (! is_string($decoded['private_integrity_hash'] ?? null)) {
+            throw new RuntimeException('session_integrity_missing');
+        }
+        if (! hash_equals((string) $decoded['private_integrity_hash'], $this->privateIntegrityHash($decoded))) {
+            throw new RuntimeException('session_integrity_mismatch');
         }
 
         return $decoded;

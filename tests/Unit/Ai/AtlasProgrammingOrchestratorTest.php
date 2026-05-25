@@ -185,6 +185,9 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertSame('selected', data_get($contract, 'enterprise_operating_contract.selected_workspace_status'));
         $this->assertSame('ready_for_runtime_projection', data_get($contract, 'enterprise_operating_contract.selected_workspace_dispatch_readiness_status'));
         $this->assertTrue((bool) data_get($contract, 'enterprise_operating_contract.runtime_projection_allowed'));
+        $this->assertSame('ready', data_get($contract, 'enterprise_operating_contract.runtime_projection_status'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($contract, 'enterprise_operating_contract.hash_refs.selected_workspace_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($contract, 'enterprise_operating_contract.hash_refs.runtime_projection_hash'));
         $this->assertSame('nested_frontend_app_candidate_recommended', data_get($contract, 'enterprise_operating_contract.frontend_app_candidate_status'));
         $this->assertSame(2, data_get($contract, 'enterprise_operating_contract.frontend_app_candidate_count'));
         $this->assertFalse((bool) data_get($contract, 'enterprise_operating_contract.frontend_app_candidate_confirmation_required'));
@@ -215,6 +218,11 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertTrue((bool) data_get($contract, 'selected_workspace.frontend_app_candidates.requested_candidate_selected'));
         $this->assertSame('bound', data_get($contract, 'selected_workspace.task_binding.status'));
         $this->assertSame('open_frontend_runtime_projection', data_get($contract, 'selected_workspace.next_best_action.id'));
+        $this->assertSame('ready', data_get($contract, 'selected_workspace.frontend_runtime_projection.status'));
+        $this->assertSame(
+            data_get($contract, 'selected_workspace.frontend_runtime_projection.runtime_projection_hash'),
+            data_get($contract, 'enterprise_operating_contract.hash_refs.runtime_projection_hash')
+        );
         $this->assertFalse((bool) data_get($contract, 'selected_workspace.portfolio_scan_required'));
         $this->assertFalse((bool) data_get($contract, 'selected_workspace.parallel_project_runtime_required'));
         $this->assertArrayNotHasKey('space_runtime'.'_required', $contract['selected_workspace']);
