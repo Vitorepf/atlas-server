@@ -106,6 +106,9 @@ final class AtlasForgeRivalsBatteryReportV2Test extends TestCase
         $this->assertArrayHasKey('separation_analysis', $envelope);
         $this->assertSame('atlas.forge.rivals.separation_analysis.v1', $envelope['separation_analysis']['schema_version']);
         $this->assertContains('extreme-differentiator', $envelope['separation_analysis']['recommended_case_sets']);
+        $this->assertSame('atlas.forge.rivals.per_level_tie_escalation.v1', $envelope['per_level_tie_escalation']['schema_version']);
+        $this->assertFalse($envelope['per_level_tie_escalation']['should_cancel_current_battery']);
+        $this->assertSame([], $envelope['per_level_tie_escalation']['levels_exceeding_tie_budget']);
         $this->assertArrayHasKey('extreme_measurement_plan', $envelope);
         $this->assertSame('atlas.forge.rivals.extreme_measurement_plan.v1', $envelope['extreme_measurement_plan']['schema_version']);
         $this->assertTrue($envelope['extreme_measurement_plan']['advisory_only']);
@@ -236,6 +239,11 @@ final class AtlasForgeRivalsBatteryReportV2Test extends TestCase
         $this->assertTrue($envelope['extreme_measurement_plan']['requires_harder_followup']);
         $this->assertTrue($envelope['extreme_measurement_plan']['tie_is_diagnostic_not_claim']);
         $this->assertSame('none', $envelope['extreme_measurement_plan']['routing_effect']);
+        $this->assertTrue($envelope['per_level_tie_escalation']['should_cancel_current_battery']);
+        $this->assertSame(['L1', 'L2', 'L3', 'L4', 'L5'], $envelope['per_level_tie_escalation']['levels_exceeding_tie_budget']);
+        $this->assertSame(0.55, $envelope['per_level_tie_escalation']['max_allowed_technical_tie_rate']);
+        $this->assertContains('difficulty_level_tie_rate_above_55_percent:L1', $envelope['separation_analysis']['reasons']);
+        $this->assertContains('reinforce_difficulty_level_above_55_percent_tie_rate:L5', $envelope['extreme_measurement_plan']['reasons']);
         $this->assertContains('global_delta_inside_tie_threshold', $envelope['extreme_measurement_plan']['reasons']);
         $matchupIds = array_column($envelope['extreme_measurement_plan']['required_matchups'], 'id');
         $this->assertContains('atlas_forge_vs_claude_sonnet', $matchupIds);
@@ -263,7 +271,58 @@ final class AtlasForgeRivalsBatteryReportV2Test extends TestCase
         ));
         $md = (string) file_get_contents($envelope['report_path']);
         $this->assertStringContainsString('## Plano Extremo 360', $md);
+        $this->assertStringContainsString('Política adaptativa por dificuldade', $md);
         $this->assertStringContainsString('composer_2_5_vs_codex_gpt_5_5', $md);
+    }
+
+    public function test_per_level_tie_policy_stops_only_the_over_tied_difficulty_level(): void
+    {
+        $runId = $this->newRunId('l1-over-tied');
+        $cases = array_values(array_filter(
+            $this->synthesise40CasesAcrossCanon(),
+            static fn (array $case): bool => in_array($case['difficulty_level'], ['L1', 'L2'], true),
+        ));
+        $this->battery->initialize($runId, $this->context(), $cases);
+        $this->finishAllAsCompleted($runId, $cases);
+
+        foreach ($cases as $case) {
+            $level = (string) $case['difficulty_level'];
+            if ($level === 'L1') {
+                $this->writeScorecard($runId, $case, atlas: 82.0, rival: 82.0, winner: AtlasForgeRivalsAdjudicatorService::WINNER_TIE);
+            } else {
+                $winner = ((int) substr((string) $case['id'], -1)) % 2 === 0
+                    ? AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS
+                    : AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL;
+                $this->writeScorecard(
+                    $runId,
+                    $case,
+                    atlas: $winner === AtlasForgeRivalsAdjudicatorService::WINNER_ATLAS ? 90.0 : 70.0,
+                    rival: $winner === AtlasForgeRivalsAdjudicatorService::WINNER_RIVAL ? 90.0 : 70.0,
+                    winner: $winner,
+                );
+            }
+        }
+        $this->battery->finalize($runId, [
+            'aggregate_verdict' => 'comparable',
+            'claim_ready' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+        ]);
+
+        $envelope = $this->report->render(['run_id' => $runId]);
+        $policy = $envelope['per_level_tie_escalation'];
+
+        $this->assertTrue($policy['should_cancel_current_battery']);
+        $this->assertSame(['L1'], $policy['levels_exceeding_tie_budget']);
+        $l1 = collect($policy['rows'])->firstWhere('level', 'L1');
+        $this->assertSame(8, $l1['valid_cases']);
+        $this->assertSame(8, $l1['technical_tie_count']);
+        $this->assertSame(1.0, $l1['technical_tie_rate']);
+        $this->assertSame('stop_this_level_and_increase_complexity_functions_and_capability_measurement', $l1['required_action']);
+        $this->assertFalse($policy['provider_call']);
+        $this->assertFalse($policy['tokens_spent']);
+        $this->assertTrue($policy['advisory_only']);
+        $this->assertSame('none', $policy['routing_effect']);
     }
 
     public function test_winner_per_category_is_identified(): void

@@ -71,6 +71,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
 
     /** @var list<string> Canonical task categories. */
     public const TASK_CATEGORIES = [
+        'planning',
         'frontend',
         'backend',
         'bugfix',

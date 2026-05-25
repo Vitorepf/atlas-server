@@ -1,0 +1,33 @@
+<?php
+
+namespace Tests\Feature\Ai\Programming\Frontend;
+
+use Tests\TestCase;
+
+class AtlasFrontendLivePreviewRelayCommandTest extends TestCase
+{
+    public function test_relay_command_injects_and_removes_script(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-relay-command-'.bin2hex(random_bytes(4));
+        mkdir($workspace);
+        file_put_contents($workspace.'/index.html', '<html><body><main>App</main></body></html>');
+
+        $this->artisan('atlas:frontend:relay', [
+            'action' => 'inject',
+            '--workspace' => $workspace,
+            '--file' => 'index.html',
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $this->assertStringContainsString('__ATLAS_FRONTEND_LIVE_PREVIEW_RELAY__', file_get_contents($workspace.'/index.html'));
+
+        $this->artisan('atlas:frontend:relay', [
+            'action' => 'remove',
+            '--workspace' => $workspace,
+            '--file' => 'index.html',
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $this->assertStringNotContainsString('__ATLAS_FRONTEND_LIVE_PREVIEW_RELAY__', file_get_contents($workspace.'/index.html'));
+    }
+}

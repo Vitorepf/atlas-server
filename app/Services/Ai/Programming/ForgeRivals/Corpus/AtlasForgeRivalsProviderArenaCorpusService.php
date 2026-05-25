@@ -277,9 +277,9 @@ final class AtlasForgeRivalsProviderArenaCorpusService
      *   medium -> L3 (multi-file, semantic correctness, integration scope)
      *   hard   -> L5 (architectural impact, cross-module reasoning)
      *
-     * L2 and L4 are reserved for future corpus expansion and adjudicator
-     * fine-grained banding; today no case uses them, but battery.json and the
-     * report aggregator accept them.
+     * The release matrix now uses all five levels. Each level must carry
+     * enough multi-capability pressure that a 100% technical-tie level is a
+     * corpus failure signal, not an acceptable result.
      */
     public const DIFFICULTY_LEVEL_L1 = 'L1';
 
@@ -344,6 +344,17 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         self::DIFFICULTY_LEVEL_L3 => 3.0,
         self::DIFFICULTY_LEVEL_L4 => 4.0,
         self::DIFFICULTY_LEVEL_L5 => 5.0,
+    ];
+
+    public const MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL = 0.55;
+
+    /** @var array<string,int> */
+    public const MIN_MEASURED_DIMENSIONS_BY_DIFFICULTY_LEVEL = [
+        self::DIFFICULTY_LEVEL_L1 => 8,
+        self::DIFFICULTY_LEVEL_L2 => 9,
+        self::DIFFICULTY_LEVEL_L3 => 10,
+        self::DIFFICULTY_LEVEL_L4 => 11,
+        self::DIFFICULTY_LEVEL_L5 => 12,
     ];
 
     /**
@@ -965,7 +976,13 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         $adapted['measurement_tags'] = array_values(array_unique(array_merge(
             (array) ($case['measurement_tags'] ?? []),
             ['human_prompt', 'long_context', 'ambiguity_handling', 'assumption_probe', 'scope_boundary_probe'],
+            (array) data_get($adapted, 'context_profile.complexity_profile.measured_dimensions', []),
         )));
+        $adapted['anti_tie_pressure'] = (array) data_get(
+            $adapted,
+            'context_profile.complexity_profile.anti_tie_pressure',
+            $this->antiTiePressureForCase($adapted),
+        );
         $adapted['human_prompt_probe'] = is_array($case['human_prompt_probe'] ?? null)
             ? (array) $case['human_prompt_probe']
             : $this->humanPromptProbeForCase($adapted);
@@ -1115,6 +1132,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             + ($reasoningDepth * 300)
             + ($ambiguityScore * 250)
             + ($riskScore * 180);
+        $measuredDimensions = $this->measuredDimensionsForCase($level, $domains, $requiresRollbackPlan);
 
         return [
             'schema_version' => 'atlas.forge.rivals.case_complexity_profile.v1',
@@ -1130,14 +1148,80 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'requires_multi_step_plan' => true,
             'requires_rollback_plan' => $requiresRollbackPlan,
             'requires_evidence_matrix' => true,
-            'measured_dimensions' => [
-                'long_context_retention',
-                'ambiguous_human_prompt_handling',
-                'multi_step_reasoning',
-                'scope_boundary_discipline',
-                'replayable_evidence_quality',
-                'honest_blocker_behavior',
-            ],
+            'measured_dimensions' => $measuredDimensions,
+            'anti_tie_pressure' => $this->antiTiePressureForCase(array_replace($case, [
+                'difficulty_level' => $level,
+                'industrial_domains' => $domains,
+                'measured_dimensions' => $measuredDimensions,
+            ])),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $domains
+     * @return list<string>
+     */
+    private function measuredDimensionsForCase(string $level, array $domains, bool $requiresRollbackPlan): array
+    {
+        $dimensions = [
+            'long_context_retention',
+            'ambiguous_human_prompt_handling',
+            'multi_step_reasoning',
+            'scope_boundary_discipline',
+            'replayable_evidence_quality',
+            'honest_blocker_behavior',
+            'deterministic_acceptance_quality',
+            'non_obvious_regression_detection',
+        ];
+
+        if (in_array($level, [self::DIFFICULTY_LEVEL_L2, self::DIFFICULTY_LEVEL_L3, self::DIFFICULTY_LEVEL_L4, self::DIFFICULTY_LEVEL_L5], true)) {
+            $dimensions[] = 'edge_case_reasoning';
+            $dimensions[] = 'state_transition_correctness';
+        }
+        if (in_array($level, [self::DIFFICULTY_LEVEL_L3, self::DIFFICULTY_LEVEL_L4, self::DIFFICULTY_LEVEL_L5], true)) {
+            $dimensions[] = 'cross_module_contract_reasoning';
+            $dimensions[] = 'data_flow_integrity';
+        }
+        if (in_array($level, [self::DIFFICULTY_LEVEL_L4, self::DIFFICULTY_LEVEL_L5], true)) {
+            $dimensions[] = 'backward_compatibility_strategy';
+            $dimensions[] = 'operational_observability';
+        }
+        if ($level === self::DIFFICULTY_LEVEL_L5) {
+            $dimensions[] = 'phased_migration_strategy';
+            $dimensions[] = 'blast_radius_quantification';
+        }
+        if ($requiresRollbackPlan) {
+            $dimensions[] = 'rollback_safety';
+        }
+        foreach ($domains as $domain) {
+            $dimensions[] = 'domain_pressure_'.$domain;
+        }
+
+        return array_values(array_unique($dimensions));
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     * @return array<string,mixed>
+     */
+    private function antiTiePressureForCase(array $case): array
+    {
+        $level = (string) ($case['difficulty_level'] ?? self::DIFFICULTY_LEVEL_L3);
+        $dimensions = (array) ($case['measured_dimensions'] ?? data_get($case, 'context_profile.complexity_profile.measured_dimensions', []));
+        $minDimensions = self::MIN_MEASURED_DIMENSIONS_BY_DIFFICULTY_LEVEL[$level]
+            ?? self::MIN_MEASURED_DIMENSIONS_BY_DIFFICULTY_LEVEL[self::DIFFICULTY_LEVEL_L3];
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.anti_tie_pressure.v1',
+            'difficulty_level' => $level,
+            'max_technical_tie_rate' => self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL,
+            'min_measured_dimensions' => $minDimensions,
+            'measured_dimension_count' => count($dimensions),
+            'must_cancel_and_reinforce_when_exceeded' => true,
+            'reinforcement_action' => 'increase_complexity_functions_and_capability_measurement_for_this_level',
+            'winner_excludes_cost_time_efficiency' => true,
+            'cost_token_efficiency_is_telemetry_only' => true,
+            'requires_multi_capability_case_design' => true,
         ];
     }
 

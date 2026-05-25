@@ -30,13 +30,14 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertArrayHasKey('summary', $report);
         $this->assertArrayHasKey('assisted_execution_scorecard', $report);
         $this->assertArrayHasKey('agentic_workforce_scorecard', $report);
+        $this->assertArrayHasKey('frontend_operational_scorecard', $report);
         $this->assertArrayHasKey('checks', $report);
         $this->assertArrayHasKey('remaining_blockers', $report);
         $this->assertArrayHasKey('evidence_refs', $report);
         $this->assertArrayHasKey('claims', $report);
         $this->assertArrayHasKey('certification_hash', $report);
         $this->assertSame(64, strlen((string) $report['certification_hash']));
-        $this->assertSame(27, count($report['checks']));
+        $this->assertSame(28, count($report['checks']));
         $this->assertFalse($report['writes']);
     }
 
@@ -58,6 +59,7 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($report['claims']['covers_capability_usage_evolution']);
         $this->assertTrue($report['claims']['covers_code_intelligence_automatic_gate']);
         $this->assertTrue($report['claims']['covers_verified_context_execution_loop']);
+        $this->assertTrue($report['claims']['covers_frontend_operational_understanding']);
         $this->assertTrue($report['claims']['covers_assisted_execution_quality']);
         $this->assertTrue($report['claims']['covers_execution_doctrine_product_delivery_system']);
         $this->assertTrue($report['claims']['covers_context_memory_quality']);
@@ -135,6 +137,38 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($scorecard['claim_policy']['human_signature_required_for_high_risk']);
     }
 
+    public function test_frontend_operational_scorecard_rates_atlas_frontend_understanding(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $scorecard = $report['frontend_operational_scorecard'];
+
+        $this->assertSame('atlas.ai.frontend_operational_scorecard.v1', $scorecard['schema_version']);
+        $this->assertSame('ready', $scorecard['status']);
+        $this->assertSame(10.0, $scorecard['overall_score']);
+
+        $expectedAreas = [
+            'surface_map',
+            'interaction_flow',
+            'operator_context_audit',
+            'frontend_specialist_harness',
+            'frontend_evidence_rules',
+            'frontend_product_certification',
+        ];
+
+        foreach ($expectedAreas as $areaId) {
+            $this->assertArrayHasKey($areaId, $scorecard['areas']);
+            $this->assertSame('ready', $scorecard['areas'][$areaId]['status']);
+            $this->assertSame(10.0, $scorecard['areas'][$areaId]['score']);
+            $this->assertNotEmpty($scorecard['areas'][$areaId]['check_ids']);
+        }
+
+        $this->assertTrue($scorecard['claim_policy']['local_certification_scope_only']);
+        $this->assertSame('operational_contract_and_wiring', $scorecard['claim_policy']['frontend_understanding_claim']);
+        $this->assertFalse($scorecard['claim_policy']['visual_screenshot_alone_sufficient']);
+        $this->assertFalse($scorecard['claim_policy']['provider_hardcoding_allowed']);
+        $this->assertTrue($scorecard['claim_policy']['requires_visual_a11y_perf_or_reason']);
+    }
+
     public function test_certification_hash_is_deterministic_across_runs(): void
     {
         $service = app(AtlasAiProductCertificationService::class);
@@ -178,6 +212,7 @@ class AtlasAiProductCertificationServiceTest extends TestCase
             'capability_usage_and_evolution_loop',
             'code_intelligence_automatic_gate',
             'verified_context_execution_loop',
+            'frontend_operational_understanding',
             'assisted_execution_quality',
             'execution_doctrine_product_delivery_system',
             'context_memory_quality',
@@ -407,6 +442,24 @@ class AtlasAiProductCertificationServiceTest extends TestCase
         $this->assertTrue($evidence['commands_present']);
         $this->assertTrue($evidence['tests_cover_runtime_and_certification']);
         $this->assertTrue($evidence['canonical_doc_present']);
+    }
+
+    public function test_evidence_proves_frontend_operational_understanding(): void
+    {
+        $report = app(AtlasAiProductCertificationService::class)->certify();
+        $byId = [];
+        foreach ($report['checks'] as $check) {
+            $byId[$check['id']] = $check;
+        }
+
+        $evidence = $byId['frontend_operational_understanding']['evidence'];
+        $this->assertTrue($evidence['frontend_profile_routed']);
+        $this->assertTrue($evidence['harness_requires_real_frontend_evidence']);
+        $this->assertTrue($evidence['tests_cover_frontend_contract']);
+        $this->assertTrue($evidence['canonical_frontend_doc_present']);
+        $this->assertTrue($evidence['desktop_trip_proves_user_flow']);
+        $this->assertTrue($evidence['presentation_contract_shared_desktop_mobile']);
+        $this->assertTrue($evidence['context_surfaces_consume_runtime_readiness']);
     }
 
     public function test_evidence_proves_internal_autonomous_company_claim_gate(): void

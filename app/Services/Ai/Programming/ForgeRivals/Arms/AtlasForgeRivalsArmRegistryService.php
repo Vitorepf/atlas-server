@@ -104,6 +104,7 @@ final class AtlasForgeRivalsArmRegistryService
 
     /** @var list<string> */
     public const TASK_CATEGORIES = [
+        'planning',
         'frontend',
         'backend',
         'bugfix',
@@ -262,7 +263,7 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_test_log' => true,
             'capabilities' => $this->capabilities(realProvider: true),
             'allowed_modes' => $this->allowedModes(),
-            'allowed_task_categories' => ['frontend', 'backend', 'bugfix', 'tests', 'refactor', 'docs'],
+            'allowed_task_categories' => ['planning', 'frontend', 'backend', 'bugfix', 'tests', 'refactor', 'docs'],
             'safety_contract' => $this->safety(realProvider: true) + [
                 'escalates_to_forge_on_high_risk' => true,
                 'forbids_enterprise_claim_without_forge_escalation' => true,
@@ -441,7 +442,7 @@ final class AtlasForgeRivalsArmRegistryService
             'supports_test_log' => true,
             'capabilities' => $this->capabilities(realProvider: false, supportsExplicitModel: false, supportsJsonOutput: false, supportsStreamingLogs: false),
             'allowed_modes' => $this->allowedModes(localOnly: true),
-            'allowed_task_categories' => ['tests', 'refactor', 'bugfix', 'docs'],
+            'allowed_task_categories' => ['planning', 'tests', 'refactor', 'bugfix', 'docs'],
             'safety_contract' => $this->safety(realProvider: false, scriptedOrManual: true),
             'status' => self::STATUS_NOT_YET_EXECUTABLE,
             'not_executable_reason' => 'scripted_runner_protocol_v1_pending',

@@ -169,6 +169,10 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertSame('atlas', $split['execution']['leader']);
         $this->assertSame(AtlasForgeRivalsMatrixReportService::PLANNING_DIMENSIONS, $split['planning']['dimensions']);
         $this->assertSame(AtlasForgeRivalsMatrixReportService::EXECUTION_DIMENSIONS, $split['execution']['dimensions']);
+        $this->assertSame(['cost_time_efficiency'], $split['telemetry_only']['dimensions']);
+        $this->assertTrue($split['telemetry_only']['excluded_from_winner']);
+        $this->assertFalse($result['matrix_report']['score_decision_policy']['winner_uses_cost_time_efficiency']);
+        $this->assertSame(['cost_time_efficiency'], $result['matrix_report']['score_decision_policy']['telemetry_only_dimensions']);
     }
 
     public function test_matrix_report_emits_capability_ranking_for_360_diagnosis(): void
@@ -275,10 +279,17 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertSame('none', $report['differentiation']['routing_effect']);
         $this->assertSame('run_extreme_differentiator_cases_targeting_required_tied_or_insufficient_capabilities', $report['differentiation']['next_action']);
         $this->assertSame('atlas.forge.rivals.tie_pressure_diagnosis.v1', $report['tie_pressure_diagnosis']['schema_version']);
-        $this->assertSame('l5_tie_pressure_unresolved', $report['tie_pressure_diagnosis']['status']);
+        $this->assertSame('per_level_tie_escalation_cancel_and_increase_complexity', $report['tie_pressure_diagnosis']['status']);
         $this->assertSame(1.0, $report['tie_pressure_diagnosis']['tie_rate']);
         $this->assertSame(1.0, $report['tie_pressure_diagnosis']['l5_tie_rate']);
         $this->assertTrue($report['tie_pressure_diagnosis']['requires_harder_followup']);
+        $this->assertTrue($report['tie_pressure_diagnosis']['tie_escalation_policy']['should_cancel_current_battery']);
+        $this->assertSame(10, $report['tie_pressure_diagnosis']['tie_escalation_policy']['cancel_after_tie_count']);
+        $this->assertSame(0.55, $report['tie_pressure_diagnosis']['tie_escalation_policy']['max_technical_tie_rate_per_difficulty_level']);
+        $this->assertSame(['L5'], $report['tie_pressure_diagnosis']['tie_escalation_policy']['levels_to_reinforce']);
+        $this->assertSame(['L5'], $report['tie_pressure_diagnosis']['per_level_tie_escalation']['levels_exceeding_tie_budget']);
+        $this->assertTrue($report['tie_pressure_diagnosis']['per_level_tie_escalation']['should_cancel_current_battery']);
+        $this->assertSame('telemetry_only_excluded_from_winner', $report['tie_pressure_diagnosis']['tie_escalation_policy']['cost_efficiency_role']);
         $this->assertSame($required, $report['tie_pressure_diagnosis']['target_capabilities']);
         $this->assertFalse($report['tie_pressure_diagnosis']['provider_call']);
         $this->assertFalse($report['tie_pressure_diagnosis']['tokens_spent']);
@@ -295,6 +306,70 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertStringContainsString('Diagnóstico de diferenciação', $md);
         $this->assertStringContainsString('Pressao de empate', $md);
         $this->assertStringContainsString('low_differentiation', $md);
+    }
+
+    public function test_matrix_report_cancels_battery_after_ten_ties_and_demands_harder_baseline(): void
+    {
+        $required = AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES;
+        $cases = [];
+        foreach (range(1, 10) as $i) {
+            $cases[] = $this->case(
+                'tie-cancel-'.$i,
+                'security',
+                'hard',
+                'comparable',
+                atlas: 88,
+                rival: 88,
+                capabilities: $required,
+            );
+        }
+
+        $runId = $this->seedBattery($cases);
+        $report = $this->matrix->render(['run_ids' => [$runId]])['matrix_report'];
+        $policy = $report['tie_pressure_diagnosis']['tie_escalation_policy'];
+
+        $this->assertSame('per_level_tie_escalation_cancel_and_increase_complexity', $report['tie_pressure_diagnosis']['status']);
+        $this->assertSame(10, $report['tie_pressure_diagnosis']['tie_count']);
+        $this->assertTrue($report['tie_pressure_diagnosis']['requires_harder_followup']);
+        $this->assertTrue($policy['should_cancel_current_battery']);
+        $this->assertSame('cancel_current_battery_and_raise_complexity_for_over_tied_levels', $policy['required_action']);
+        $this->assertSame('multi_capability_composite_l5_plus_plus', $policy['next_baseline_complexity']);
+        $this->assertSame(['L5'], $policy['levels_to_reinforce']);
+        $this->assertTrue($policy['must_metric_more_capabilities']);
+        $this->assertSame('telemetry_only_excluded_from_winner', $policy['cost_efficiency_role']);
+        $this->assertFalse($report['tie_pressure_diagnosis']['provider_call']);
+        $this->assertFalse($report['tie_pressure_diagnosis']['tokens_spent']);
+        $this->assertTrue($report['tie_pressure_diagnosis']['advisory_only']);
+        $this->assertSame('none', $report['tie_pressure_diagnosis']['routing_effect']);
+    }
+
+    public function test_matrix_report_stops_any_difficulty_level_above_fifty_five_percent_technical_ties(): void
+    {
+        $runId = $this->seedBattery([
+            $this->case('l1-tie-1', 'docs', 'easy', 'comparable', atlas: 80, rival: 80),
+            $this->case('l1-tie-2', 'docs', 'easy', 'comparable', atlas: 81, rival: 81),
+            $this->case('l1-atlas-1', 'docs', 'easy', 'comparable', atlas: 90, rival: 75),
+            $this->case('l2-atlas-1', 'bugfix', 'medium', 'comparable', atlas: 90, rival: 75),
+            $this->case('l2-rival-1', 'bugfix', 'medium', 'comparable', atlas: 75, rival: 90),
+        ]);
+
+        $report = $this->matrix->render(['run_ids' => [$runId]])['matrix_report'];
+        $perLevel = $report['tie_pressure_diagnosis']['per_level_tie_escalation'];
+
+        $this->assertSame('per_level_tie_escalation_cancel_and_increase_complexity', $report['tie_pressure_diagnosis']['status']);
+        $this->assertSame(['L1'], $perLevel['levels_exceeding_tie_budget']);
+        $this->assertTrue($perLevel['should_cancel_current_battery']);
+        $this->assertSame(0.55, $perLevel['max_allowed_technical_tie_rate']);
+        $l1 = collect($perLevel['rows'])->firstWhere('level', 'L1');
+        $this->assertSame(3, $l1['case_count']);
+        $this->assertSame(2, $l1['technical_tie_count']);
+        $this->assertSame(0.6667, $l1['technical_tie_rate']);
+        $this->assertTrue($l1['exceeds_tie_budget']);
+        $this->assertSame('stop_this_level_and_increase_complexity_functions_and_capability_measurement', $l1['required_action']);
+        $this->assertFalse($perLevel['provider_call']);
+        $this->assertFalse($perLevel['tokens_spent']);
+        $this->assertTrue($perLevel['advisory_only']);
+        $this->assertSame('none', $perLevel['routing_effect']);
     }
 
     public function test_matrix_report_does_not_call_one_win_inside_many_ties_differentiated(): void
@@ -398,6 +473,8 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $plan = $matrix['next_measurement_plan'];
         $this->assertSame('atlas.forge.rivals.ceiling_360_marker_next_measurement_plan.v1', $plan['schema_version']);
         $this->assertSame('needs_more_marker_pressure', $plan['status']);
+        $this->assertSame('multi_capability_composite_pressure', $plan['planning_mode']);
+        $this->assertTrue($plan['single_marker_plan_is_advisory']);
         $this->assertTrue($plan['dry_run_ready']);
         $this->assertContains($plan['real_run_ready'], [true, false], 'real readiness depends on local disk guard');
         $this->assertArrayHasKey('evidence_disk_status', $plan);
@@ -424,6 +501,20 @@ final class AtlasForgeRivalsMatrixReportV1Test extends TestCase
         $this->assertFalse($requirementsByMarker['facts_assumptions_decisions_split']['battle_matrix'][0]['provider_call']);
         $this->assertFalse($requirementsByMarker['facts_assumptions_decisions_split']['battle_matrix'][0]['tokens_spent']);
         $this->assertSame('none', $requirementsByMarker['facts_assumptions_decisions_split']['battle_matrix'][0]['routing_effect']);
+        $compositePlan = $plan['composite_next_measurement_plan'];
+        $this->assertSame('atlas.forge.rivals.ceiling_360_composite_next_measurement_plan.v1', $compositePlan['schema_version']);
+        $this->assertSame('needs_multi_capability_pressure', $compositePlan['status']);
+        $this->assertNotEmpty($compositePlan['candidate_cases']);
+        $this->assertNotEmpty($compositePlan['recommended_dry_run_commands']['atlas_dev_vs_claude_sonnet']);
+        $this->assertStringContainsString('--arm-a=atlas_dev', $compositePlan['recommended_dry_run_commands']['atlas_dev_vs_claude_sonnet'][0]);
+        $this->assertStringContainsString('--arm-b=claude_code', $compositePlan['recommended_dry_run_commands']['atlas_dev_vs_claude_sonnet'][0]);
+        $this->assertFalse($compositePlan['provider_call']);
+        $this->assertFalse($compositePlan['tokens_spent']);
+        $this->assertTrue($compositePlan['advisory_only']);
+        $this->assertFalse($compositePlan['should_update_provider_topology']);
+        $this->assertTrue($compositePlan['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $compositePlan['owner_of_model_routing']);
+        $this->assertSame('none', $compositePlan['routing_effect']);
         $this->assertTrue($matrix['advisory_only']);
         $this->assertFalse($matrix['should_update_provider_topology']);
         $this->assertTrue($matrix['never_changes_atlas_decide_topology']);

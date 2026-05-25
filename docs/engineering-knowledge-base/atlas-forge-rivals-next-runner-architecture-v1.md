@@ -391,12 +391,28 @@ Cursor e Composer exigem contrato adicional de evidence quando saem do dry-run:
   para responder "quem e bom em que".
 - `provider_performance_signal.difficulty_pressure`
   (`atlas.forge.rivals.difficulty_pressure.v1`) detecta quando a matriz de 40
-  casos ou L5 ainda esta facil demais: sem amostra valida emite
-  `needs_valid_difficulty_sample`; L5 valido empatado emite
-  `l5_tied_needs_extreme_pressure`. Ambos preservam advisory-only invariants,
-  `requires_harder_followup=true`, `difficulty_ceiling_reached=false` e
-  recomendam `ceiling-360`, `extreme-differentiator`,
-  `meta-provider-stress` e `statistical-repeat`.
+  casos ou qualquer faixa L1-L5 ainda esta facil demais: sem amostra valida
+  emite `needs_valid_difficulty_sample`; faixa com empate tecnico acima de 55%
+  emite `per_level_tie_escalation_cancel_and_increase_complexity`; L5 valido
+  empatado emite `l5_tied_needs_extreme_pressure`. Ambos preservam
+  advisory-only invariants, `requires_harder_followup=true`,
+  `difficulty_ceiling_reached=false` e recomendam `ceiling-360`,
+  `extreme-differentiator`, `meta-provider-stress` e `statistical-repeat`.
+  A cada 10 empates agregados, ou acima de 55% em qualquer L1, L2, L3, L4 ou
+  L5, o report deve marcar `should_cancel_current_battery=true`, listar
+  `levels_to_reinforce` e exigir mais capacidades simultaneas no proximo piso.
+- `cost_time_efficiency` e dimensoes equivalentes sao telemetria somente:
+  aparecem no scorecard/report, mas `winner_decision_weights` deve manter peso
+  `0.0` e `winner_decision_excluded_dimensions` deve impedir que custo, tokens
+  ou latencia decidam vencedor. Atlas normalmente nao ganha por custo; Rivals
+  mede esse dado para auditoria, nao para ranking.
+- O corpus release tambem materializa `anti_tie_pressure` por caso:
+  `max_technical_tie_rate=0.55`, `must_cancel_and_reinforce_when_exceeded=true`,
+  `winner_excludes_cost_time_efficiency=true` e dimensoes minimas por nivel.
+  Esse contrato faz o limite anti-empate existir antes do report: L1 ja mede
+  acceptance deterministica, regressao nao obvia, escopo, evidencia e prompt
+  humano; L2-L5 adicionam estado, contratos, data-flow, compatibilidade,
+  observabilidade, rollback, blast radius e estrategia faseada.
 - `ceiling-360`, perfil `L5+`, `execution_ladder`, cobertura observada,
   complexity coverage e meta-provider claim floor sao detalhados em
   `atlas-forge-rivals-ceiling-360-execution-ladder-v1.md`. A arquitetura aqui

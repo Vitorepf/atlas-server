@@ -335,6 +335,28 @@ final class AtlasForgeRivalsProviderArenaCorpusServiceTest extends TestCase
         }
     }
 
+    public function test_release_cases_carry_per_level_anti_tie_pressure_and_multi_capability_dimensions(): void
+    {
+        foreach ($this->corpus->casesForCaseSet('release') as $case) {
+            $level = (string) $case['difficulty_level'];
+            $profile = (array) ($case['context_profile']['complexity_profile'] ?? []);
+            $dimensions = (array) ($profile['measured_dimensions'] ?? []);
+            $antiTie = (array) ($case['anti_tie_pressure'] ?? []);
+            $minDimensions = AtlasForgeRivalsProviderArenaCorpusService::MIN_MEASURED_DIMENSIONS_BY_DIFFICULTY_LEVEL[$level] ?? 999;
+
+            $this->assertSame('atlas.forge.rivals.anti_tie_pressure.v1', $antiTie['schema_version'] ?? null);
+            $this->assertSame($level, $antiTie['difficulty_level'] ?? null);
+            $this->assertSame(0.55, $antiTie['max_technical_tie_rate'] ?? null);
+            $this->assertTrue((bool) ($antiTie['must_cancel_and_reinforce_when_exceeded'] ?? false));
+            $this->assertTrue((bool) ($antiTie['winner_excludes_cost_time_efficiency'] ?? false));
+            $this->assertTrue((bool) ($antiTie['cost_token_efficiency_is_telemetry_only'] ?? false));
+            $this->assertGreaterThanOrEqual($minDimensions, count($dimensions), 'weak measured_dimensions for '.$case['case_id']);
+            $this->assertSame(count($dimensions), $antiTie['measured_dimension_count'] ?? null);
+            $this->assertContains('deterministic_acceptance_quality', $dimensions);
+            $this->assertContains('non_obvious_regression_detection', $dimensions);
+        }
+    }
+
     public function test_meta_provider_stress_case_set_targets_cursor_and_composer_surfaces(): void
     {
         $cases = $this->corpus->casesForCaseSet('meta-provider-stress');

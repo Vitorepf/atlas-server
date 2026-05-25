@@ -72,6 +72,8 @@ final class AtlasForgeRivalsPreflightService
         $presetCaseSet = $caseSet !== '' ? $caseSet : $this->presetCaseSet($preset);
         $isIndustrialCaseSet = is_string($presetCaseSet)
             && in_array($presetCaseSet, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true);
+        $bypassesLegacyProtocol = $isIndustrialCaseSet
+            || $presetCaseSet === AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE;
         if ($presetCaseSet !== null) {
             try {
                 $cases = $this->corpus->casesForCaseSet($presetCaseSet);
@@ -129,7 +131,7 @@ final class AtlasForgeRivalsPreflightService
 
         // Industrial case sets use the industrial execution/readiness contract
         // instead of the legacy forge-native single-case protocol manifest.
-        $protocolReport = $isIndustrialCaseSet
+        $protocolReport = $bypassesLegacyProtocol
             ? $this->industrialProtocolBypass((string) $presetCaseSet, $cases, $workspace, $baselineWorkspace, $modeDef)
             : $this->protocolPreflight->preflight([
                 'workspace' => $workspace,
@@ -174,6 +176,7 @@ final class AtlasForgeRivalsPreflightService
             'blockers' => $blockers,
             'protocol_report' => $protocolReport,
             'industrial_protocol_bypass' => $isIndustrialCaseSet,
+            'provider_arena_protocol_bypass' => $bypassesLegacyProtocol,
             'next_command' => $status === 'ok'
                 ? sprintf(
                     'php artisan atlas:forge:rivals dry-run --mode=%s --atlas-model=%s --rival=%s --preset=%s%s%s --json',

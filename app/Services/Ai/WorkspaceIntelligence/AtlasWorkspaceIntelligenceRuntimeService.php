@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\WorkspaceIntelligence;
 
+use App\Models\AiForgeOutcomeMemory;
+use App\Models\AiForgeWorkPacket;
+use App\Models\AiTestResult;
+use App\Models\AtlasDevOutcomeMemory;
+use App\Models\AtlasEngineeringTestRun;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\AtlasCode\GitWorkspaceInspector;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Atlas Workspace Intelligence System runtime.
@@ -60,6 +66,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $evolution = $this->evolution($profile, $twin);
         $nextSessionBrain = $this->workspaceNextSessionBrain($profile, $task, $workspaceReport, $twin, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap);
         $learningLoop = $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $nextSessionBrain);
+        $learningSnapshot = $this->workspaceLearningSnapshot($profile, $workspaceReport, $repositoryInventory, $changeMemory, $focusMap, $nextSessionBrain, $learningLoop, $twin);
+        $nextSessionBrain = $this->attachLearningSnapshotToNextSessionBrain($nextSessionBrain, $learningSnapshot);
+        $learningLoop = $this->workspaceLearningLoop($profile, $task, $continuity, $artifacts, $artifactIntelligence, $contracts, $evolution, $changeMemory, $focusMap, $nextSessionBrain);
+        $learningSnapshot = $this->workspaceLearningSnapshot($profile, $workspaceReport, $repositoryInventory, $changeMemory, $focusMap, $nextSessionBrain, $learningLoop, $twin);
         $executionBoundaries = $this->executionBoundarySummary($this->boundaryAudit->audit());
         $registryEditing = $this->registryEditingSummary();
         $surfaceContracts = $this->surfaceContractSummary();
@@ -77,6 +87,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'workspace_change_memory' => $changeMemory,
             'workspace_focus_map' => $focusMap,
             'workspace_next_session_brain' => $nextSessionBrain,
+            'workspace_learning_snapshot' => $learningSnapshot,
             'awtr' => $twin,
             'acios' => $continuity,
             'awaf' => $artifacts,
@@ -109,6 +120,11 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'workspace_next_session_brain_provider_safe' => data_get($nextSessionBrain, 'source_policy.raw_file_content_returned') === false
                     && data_get($nextSessionBrain, 'source_policy.raw_conversation_returned') === false
                     && data_get($nextSessionBrain, 'source_policy.absolute_workspace_path_returned') === false,
+                'workspace_learning_snapshot_provider_safe' => data_get($learningSnapshot, 'source_policy.raw_file_content_returned') === false
+                    && data_get($learningSnapshot, 'source_policy.raw_diff_returned') === false
+                    && data_get($learningSnapshot, 'source_policy.raw_log_returned') === false
+                    && data_get($learningSnapshot, 'source_policy.raw_provider_text_returned') === false
+                    && data_get($learningSnapshot, 'source_policy.absolute_workspace_path_returned') === false,
             ],
         ];
 
@@ -773,6 +789,67 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     }
 
     /**
+     * @param  array<string,mixed>  $repositoryInventory
+     * @return array<string,array<int,string>>
+     */
+    private function repositoryStackIndex(array $repositoryInventory): array
+    {
+        $index = [];
+        foreach ((array) ($repositoryInventory['repositories'] ?? []) as $repository) {
+            if (! is_array($repository)) {
+                continue;
+            }
+            $repoKey = trim((string) ($repository['repo_key'] ?? ''));
+            if ($repoKey === '') {
+                continue;
+            }
+            $stack = array_values(array_unique(array_filter(
+                (array) ($repository['stack'] ?? []),
+                'is_string',
+            )));
+            sort($stack);
+            $index[$repoKey] = $stack;
+        }
+
+        uksort($index, static fn (string $left, string $right): int => strlen($right) <=> strlen($left));
+
+        return $index;
+    }
+
+    /**
+     * @param  array<int,string>  $changedFiles
+     * @param  array<string,array<int,string>>  $repositoryStackIndex
+     * @return array<int,string>
+     */
+    private function stacksForCommandAndFiles(string $command, array $changedFiles, array $repositoryStackIndex): array
+    {
+        $stacks = [];
+        foreach ($repositoryStackIndex as $repoKey => $repoStacks) {
+            if ($repoKey !== '.' && preg_match('/(?:^|\s)cd\s+'.preg_quote($repoKey, '/').'(?:\s|$|&&|;)/', $command) === 1) {
+                $stacks = array_merge($stacks, $repoStacks);
+            }
+        }
+
+        foreach ($changedFiles as $file) {
+            if (! is_string($file)) {
+                continue;
+            }
+            $file = trim(str_replace('\\', '/', $file), '/');
+            foreach ($repositoryStackIndex as $repoKey => $repoStacks) {
+                if ($repoKey === '.') {
+                    continue;
+                }
+                if ($file === $repoKey || str_starts_with($file, $repoKey.'/')) {
+                    $stacks = array_merge($stacks, $repoStacks);
+                    break;
+                }
+            }
+        }
+
+        return array_slice(array_values(array_unique(array_filter($stacks, 'is_string'))), 0, 12);
+    }
+
+    /**
      * @param  array<string,mixed>|null  $profile
      * @param  array<string,mixed>  $twin
      * @param  array<string,mixed>  $changeMemory
@@ -864,6 +941,11 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $focusedCommands,
             array_values((array) ($profile['test_commands'] ?? [])),
         )));
+        $focusedCommands = $this->rankCommandsByOutcome(
+            $focusedCommands,
+            (array) data_get($twin, 'test_command_intelligence.outcome_memory.command_outcome_index', []),
+            $focusedAreas,
+        );
 
         $payload = [
             'schema_version' => 'atlas.awis.workspace_focus_map.v1',
@@ -947,11 +1029,14 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         ];
         $livingCodeMap['code_map_hash'] = MissionCanonicalHash::sha256($livingCodeMap);
 
+        $outcomeCommandMemory = $this->workspaceOutcomeCommandMemory($profile, $commands, $repositoryInventory);
+
         $commandRegistry = [
             'schema_version' => 'atlas.workspace_command_registry.v1',
             'commands' => $commands,
             'command_count' => count($commands),
             'has_test_entrypoint' => (array) ($profile['test_commands'] ?? []) !== [],
+            'outcome_memory_hash' => $outcomeCommandMemory['outcome_memory_hash'] ?? null,
         ];
         $commandRegistry['command_registry_hash'] = MissionCanonicalHash::sha256($commandRegistry);
 
@@ -973,9 +1058,13 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             ],
             'test_command_intelligence' => [
                 'schema_version' => 'atlas.workspace_test_command_intelligence.v1',
-                'commands' => array_values((array) ($profile['test_commands'] ?? [])),
+                'commands' => $this->rankCommandsByOutcome(
+                    array_values((array) ($profile['test_commands'] ?? [])),
+                    (array) ($outcomeCommandMemory['command_outcome_index'] ?? []),
+                ),
                 'has_focused_entrypoint' => (array) ($profile['test_commands'] ?? []) !== [],
                 'fallback_policy' => 'block_or_request_operator_test_command_when_missing',
+                'outcome_memory' => $outcomeCommandMemory,
             ],
             'command_registry' => $commandRegistry,
             'risk_fragility_map' => $riskMap,
@@ -996,6 +1085,1166 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $payload['twin_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * Provider-safe memory that turns Dev/Forge outcomes into command ranking
+     * signals. It returns command strings and hashes only; no raw logs, no raw
+     * diffs and no model/provider text.
+     *
+     * @param  array<string,mixed>|null  $profile
+     * @param  array<int,string>  $candidateCommands
+     * @param  array<string,mixed>  $repositoryInventory
+     * @return array<string,mixed>
+     */
+    private function workspaceOutcomeCommandMemory(?array $profile, array $candidateCommands, array $repositoryInventory = []): array
+    {
+        $base = [
+            'schema_version' => 'atlas.workspace_outcome_command_memory.v1',
+            'status' => 'limited',
+            'workspace_id' => $profile['slug'] ?? null,
+            'observed_command_count' => 0,
+            'ranked_commands' => [],
+            'avoid_commands' => [],
+            'command_outcome_index' => [],
+            'evidence_window' => [
+                'max_dev_outcomes' => 80,
+                'max_forge_outcomes' => 80,
+                'max_engineering_test_runs' => 120,
+                'max_certified_test_results' => 120,
+                'raw_outcome_body_returned' => false,
+            ],
+            'source_policy' => [
+                'raw_log_returned' => false,
+                'raw_diff_returned' => false,
+                'raw_provider_text_returned' => false,
+                'absolute_workspace_path_returned' => false,
+                'provider_prompt_unit' => 'command_strings_status_counts_duration_buckets_and_outcome_hash_refs_only',
+            ],
+        ];
+
+        if ($profile === null) {
+            $base['blocker_reason'] = 'workspace_not_registered';
+            $base['outcome_memory_hash'] = MissionCanonicalHash::sha256($base);
+
+            return $base;
+        }
+
+        $workspaceSlug = (string) ($profile['slug'] ?? '');
+        $repositoryStackIndex = $this->repositoryStackIndex($repositoryInventory);
+        $stats = [];
+        foreach ($candidateCommands as $command) {
+            $command = trim((string) $command);
+            if ($command !== '') {
+                $stats[$command] = $this->emptyCommandOutcomeStats($command);
+            }
+        }
+
+        if (Schema::hasTable('atlas_dev_outcome_memories') && Schema::hasTable('atlas_dev_task_packets')) {
+            $devOutcomes = AtlasDevOutcomeMemory::query()
+                ->with('taskPacket')
+                ->whereHas('taskPacket', function ($query) use ($workspaceSlug): void {
+                    $query->where('workspace_slug', $workspaceSlug);
+                })
+                ->latest()
+                ->limit(80)
+                ->get();
+
+            foreach ($devOutcomes as $outcome) {
+                $commands = array_values(array_unique(array_filter(array_merge(
+                    (array) ($outcome->selected_tests ?? []),
+                    (array) ($outcome->taskPacket?->suggested_tests ?? []),
+                ), 'is_string')));
+                $changedFiles = array_values(array_unique(array_filter(array_merge(
+                    (array) ($outcome->changed_files ?? []),
+                    (array) ($outcome->taskPacket?->expected_files ?? []),
+                ), 'is_string')));
+                $contextRefs = (array) ($outcome->taskPacket?->context_refs ?? []);
+                $policyRefs = $this->executionPolicyRefs($contextRefs);
+                foreach ($commands as $command) {
+                    $stacks = $this->stacksForCommandAndFiles((string) $command, $changedFiles, $repositoryStackIndex);
+                    $this->recordCommandOutcome(
+                        $stats,
+                        $command,
+                        (string) $outcome->outcome_status,
+                        'dev',
+                        (string) $outcome->outcome_memory_hash,
+                        $changedFiles,
+                        $stacks,
+                        null,
+                        $outcome->created_at?->toISOString(),
+                        $policyRefs,
+                        $this->executionRouteRefs($contextRefs, (string) $command),
+                        $contextRefs,
+                    );
+                }
+            }
+        }
+
+        if (Schema::hasTable('ai_forge_outcome_memories') && Schema::hasTable('ai_forge_work_packets') && Schema::hasTable('ai_forge_intakes')) {
+            $forgeOutcomes = AiForgeOutcomeMemory::query()
+                ->latest()
+                ->limit(80)
+                ->get();
+            $packetIds = array_values(array_unique(array_filter(
+                $forgeOutcomes->pluck('work_packet_id')->all(),
+                'is_string',
+            )));
+            $packets = AiForgeWorkPacket::query()
+                ->with('intake')
+                ->whereIn('id', $packetIds)
+                ->whereHas('intake', function ($query) use ($workspaceSlug): void {
+                    $query->where('workspace_slug', $workspaceSlug);
+                })
+                ->get()
+                ->keyBy('id');
+
+            foreach ($forgeOutcomes as $outcome) {
+                $packet = $packets->get($outcome->work_packet_id);
+                if ($packet === null) {
+                    continue;
+                }
+                $changedFiles = array_values(array_filter((array) ($packet->expected_files ?? []), 'is_string'));
+                $contextRefs = (array) ($packet->intake?->context_refs ?? []);
+                $policyRefs = $this->executionPolicyRefs($contextRefs);
+                foreach (array_values((array) ($packet->suggested_tests ?? [])) as $command) {
+                    $stacks = $this->stacksForCommandAndFiles((string) $command, $changedFiles, $repositoryStackIndex);
+                    $this->recordCommandOutcome(
+                        $stats,
+                        $command,
+                        (string) $outcome->outcome_status,
+                        'forge',
+                        (string) $outcome->outcome_memory_hash,
+                        $changedFiles,
+                        $stacks,
+                        null,
+                        $outcome->created_at?->toISOString(),
+                        $policyRefs,
+                        $this->executionRouteRefs($contextRefs, (string) $command),
+                        $contextRefs,
+                    );
+                }
+            }
+        }
+
+        if (Schema::hasTable('atlas_engineering_test_runs') && Schema::hasTable('atlas_engineering_runs')) {
+            $workspaceNames = array_values(array_unique(array_filter([
+                $workspaceSlug,
+                isset($profile['name']) && is_string($profile['name']) ? (string) $profile['name'] : null,
+            ], 'is_string')));
+            $engineeringRuns = AtlasEngineeringTestRun::query()
+                ->with('run')
+                ->whereNotNull('command')
+                ->whereHas('run', function ($query) use ($workspaceNames): void {
+                    $query->whereIn('workspace_label', $workspaceNames);
+                })
+                ->latest()
+                ->limit(120)
+                ->get();
+
+            foreach ($engineeringRuns as $testRun) {
+                $metadata = (array) ($testRun->metadata ?? []);
+                $changedFiles = array_values(array_filter(array_merge(
+                    (array) ($metadata['changed_files'] ?? []),
+                    (array) ($metadata['expected_files'] ?? []),
+                    (array) ($metadata['files'] ?? []),
+                ), 'is_string'));
+                $this->recordCommandOutcome(
+                    $stats,
+                    (string) $testRun->command,
+                    (string) $testRun->status,
+                    'engineering_test',
+                    (string) ($metadata['evidence_hash'] ?? ''),
+                    $changedFiles,
+                    $this->stacksForCommandAndFiles((string) $testRun->command, $changedFiles, $repositoryStackIndex),
+                    is_numeric($testRun->duration_ms) ? (int) $testRun->duration_ms : null,
+                    $testRun->created_at?->toISOString(),
+                );
+            }
+        }
+
+        if (Schema::hasTable('ai_test_results')) {
+            $testResults = AiTestResult::query()
+                ->whereNotNull('command')
+                ->latest()
+                ->limit(120)
+                ->get();
+
+            foreach ($testResults as $testResult) {
+                $metadata = (array) ($testResult->metadata ?? []);
+                $resultWorkspace = trim((string) ($metadata['workspace_slug'] ?? $metadata['workspace'] ?? ''));
+                if ($resultWorkspace !== '' && $resultWorkspace !== $workspaceSlug) {
+                    continue;
+                }
+                if ($resultWorkspace === '' && $workspaceSlug !== '') {
+                    continue;
+                }
+                $changedFiles = array_values(array_filter(array_merge(
+                    (array) ($metadata['changed_files'] ?? []),
+                    (array) ($metadata['expected_files'] ?? []),
+                    (array) ($metadata['files'] ?? []),
+                ), 'is_string'));
+                $durationMs = $this->durationMsFromMetadata($metadata);
+                $this->recordCommandOutcome(
+                    $stats,
+                    (string) $testResult->command,
+                    (string) $testResult->status,
+                    'test_result',
+                    (string) ($testResult->output_hash ?? ''),
+                    $changedFiles,
+                    $this->stacksForCommandAndFiles((string) $testResult->command, $changedFiles, $repositoryStackIndex),
+                    $durationMs,
+                    $testResult->created_at?->toISOString(),
+                );
+            }
+        }
+
+        $observed = array_values(array_filter(
+            $stats,
+            static fn (array $item): bool => (int) $item['total_count'] > 0,
+        ));
+        usort($observed, static fn (array $left, array $right): int => ((int) $right['effective_score'] <=> (int) $left['effective_score'])
+            ?: ((int) $right['success_count'] <=> (int) $left['success_count'])
+            ?: ((int) ($left['duration_ms_avg'] ?? PHP_INT_MAX) <=> (int) ($right['duration_ms_avg'] ?? PHP_INT_MAX))
+            ?: ((string) $left['command'] <=> (string) $right['command']));
+
+        $index = [];
+        foreach ($observed as $item) {
+            $index[(string) $item['command']] = $item;
+        }
+
+        $payload = array_merge($base, [
+            'status' => $observed === [] ? 'limited' : 'ready',
+            'observed_command_count' => count($observed),
+            'ranked_commands' => array_slice(array_map(
+                static fn (array $item): string => (string) $item['command'],
+                array_values(array_filter($observed, static fn (array $item): bool => (int) $item['score'] >= 0)),
+            ), 0, 12),
+            'flaky_commands' => array_slice(array_map(
+                static fn (array $item): string => (string) $item['command'],
+                array_values(array_filter($observed, static fn (array $item): bool => ($item['stability'] ?? null) === 'mixed')),
+            ), 0, 8),
+            'slow_commands' => array_slice(array_map(
+                static fn (array $item): string => (string) $item['command'],
+                array_values(array_filter($observed, static fn (array $item): bool => ($item['performance_grade'] ?? null) === 'slow')),
+            ), 0, 8),
+            'performance_histogram' => $this->workspaceCommandPerformanceHistogram($observed),
+            'area_performance_index' => $this->workspaceScopedPerformanceIndex($observed, 'area_performance', 'atlas.workspace_area_performance_index.v1'),
+            'stack_performance_index' => $this->workspaceScopedPerformanceIndex($observed, 'stack_performance', 'atlas.workspace_stack_performance_index.v1'),
+            'execution_policy_effectiveness_index' => $this->workspaceExecutionPolicyEffectivenessIndex($observed),
+            'execution_route_effectiveness_index' => $this->workspaceExecutionRouteEffectivenessIndex($observed),
+            'validation_tier_effectiveness_index' => $this->workspaceValidationTierEffectivenessIndex($observed),
+            'avoid_commands' => array_slice(array_map(
+                static fn (array $item): string => (string) $item['command'],
+                array_values(array_filter($observed, static fn (array $item): bool => (int) $item['score'] < 0 || ($item['performance_grade'] ?? null) === 'slow')),
+            ), 0, 8),
+            'command_outcome_index' => $index,
+            'blocker_reason' => $observed === [] ? 'no_workspace_outcome_commands_observed' : null,
+        ]);
+        $payload['outcome_memory_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function emptyCommandOutcomeStats(string $command): array
+    {
+        return [
+            'command' => $command,
+            'score' => 0,
+            'effective_score' => 0,
+            'success_count' => 0,
+            'failure_count' => 0,
+            'neutral_count' => 0,
+            'total_count' => 0,
+            'performance_observed_count' => 0,
+            'duration_ms_total' => 0,
+            'duration_ms_samples' => [],
+            'duration_ms_avg' => null,
+            'duration_ms_min' => null,
+            'duration_ms_max' => null,
+            'duration_ms_p95' => null,
+            'duration_bucket_counts' => [
+                'under_10s' => 0,
+                '10s_to_60s' => 0,
+                '1m_to_5m' => 0,
+                '5m_to_15m' => 0,
+                'over_15m' => 0,
+            ],
+            'performance_grade' => 'unknown',
+            'performance_score' => 0,
+            'recency_score' => 0,
+            'last_observed_at' => null,
+            'last_outcome_status' => null,
+            'sources' => [],
+            'evidence_refs' => [],
+            'area_affinity' => [],
+            'stack_affinity' => [],
+            'area_performance' => [],
+            'stack_performance' => [],
+            'execution_policy_refs' => [],
+            'execution_route_refs' => [],
+            'validation_tier_refs' => [],
+            'stability' => 'unknown',
+            'confidence' => 0.0,
+        ];
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $stats
+     */
+    private function recordCommandOutcome(
+        array &$stats,
+        mixed $command,
+        string $status,
+        string $source,
+        string $outcomeHash,
+        array $changedFiles = [],
+        array $stacks = [],
+        ?int $durationMs = null,
+        ?string $observedAt = null,
+        array $executionPolicyRefs = [],
+        array $executionRouteRefs = [],
+        array $validationTierRefs = [],
+    ): void
+    {
+        $command = trim((string) $command);
+        if ($command === '') {
+            return;
+        }
+
+        $stats[$command] ??= $this->emptyCommandOutcomeStats($command);
+        $polarity = $this->outcomePolarity($status);
+        $stats[$command]['total_count'] = (int) $stats[$command]['total_count'] + 1;
+        $stats[$command]['last_outcome_status'] = $status;
+        $stats[$command]['last_observed_at'] = $this->latestIsoTimestamp(
+            (string) ($stats[$command]['last_observed_at'] ?? ''),
+            $observedAt,
+        );
+        $stats[$command]['sources'] = array_slice(array_values(array_unique(array_merge(
+            (array) $stats[$command]['sources'],
+            [$source],
+        ))), 0, 4);
+
+        if ($outcomeHash !== '') {
+            $stats[$command]['evidence_refs'] = array_slice(array_values(array_unique(array_merge(
+                (array) $stats[$command]['evidence_refs'],
+                [$source.'_outcome:'.$outcomeHash],
+            ))), 0, 8);
+        }
+
+        foreach ($this->executionPolicyRefs($executionPolicyRefs) as $policyRef) {
+            $stats[$command]['execution_policy_refs'][$policyRef] ??= [
+                'policy_ref' => $policyRef,
+                'success_count' => 0,
+                'failure_count' => 0,
+                'neutral_count' => 0,
+                'total_count' => 0,
+                'score' => 0,
+            ];
+            $stats[$command]['execution_policy_refs'][$policyRef]['total_count']++;
+            if ($polarity > 0) {
+                $stats[$command]['execution_policy_refs'][$policyRef]['success_count']++;
+                $stats[$command]['execution_policy_refs'][$policyRef]['score'] += 3;
+            } elseif ($polarity < 0) {
+                $stats[$command]['execution_policy_refs'][$policyRef]['failure_count']++;
+                $stats[$command]['execution_policy_refs'][$policyRef]['score'] -= 2;
+            } else {
+                $stats[$command]['execution_policy_refs'][$policyRef]['neutral_count']++;
+                $stats[$command]['execution_policy_refs'][$policyRef]['score'] += 1;
+            }
+        }
+
+        foreach ($this->executionRouteRefs($executionRouteRefs, $command) as $routeRef) {
+            $stats[$command]['execution_route_refs'][$routeRef] ??= [
+                'route_ref' => $routeRef,
+                'success_count' => 0,
+                'failure_count' => 0,
+                'neutral_count' => 0,
+                'total_count' => 0,
+                'score' => 0,
+            ];
+            $stats[$command]['execution_route_refs'][$routeRef]['total_count']++;
+            if ($polarity > 0) {
+                $stats[$command]['execution_route_refs'][$routeRef]['success_count']++;
+                $stats[$command]['execution_route_refs'][$routeRef]['score'] += 3;
+            } elseif ($polarity < 0) {
+                $stats[$command]['execution_route_refs'][$routeRef]['failure_count']++;
+                $stats[$command]['execution_route_refs'][$routeRef]['score'] -= 2;
+            } else {
+                $stats[$command]['execution_route_refs'][$routeRef]['neutral_count']++;
+                $stats[$command]['execution_route_refs'][$routeRef]['score'] += 1;
+            }
+        }
+
+        foreach ($this->validationTierRefs($validationTierRefs) as $tierRef) {
+            $stats[$command]['validation_tier_refs'][$tierRef] ??= [
+                'tier_ref' => $tierRef,
+                'success_count' => 0,
+                'failure_count' => 0,
+                'neutral_count' => 0,
+                'total_count' => 0,
+                'score' => 0,
+            ];
+            $stats[$command]['validation_tier_refs'][$tierRef]['total_count']++;
+            if ($polarity > 0) {
+                $stats[$command]['validation_tier_refs'][$tierRef]['success_count']++;
+                $stats[$command]['validation_tier_refs'][$tierRef]['score'] += 3;
+            } elseif ($polarity < 0) {
+                $stats[$command]['validation_tier_refs'][$tierRef]['failure_count']++;
+                $stats[$command]['validation_tier_refs'][$tierRef]['score'] -= 2;
+            } else {
+                $stats[$command]['validation_tier_refs'][$tierRef]['neutral_count']++;
+                $stats[$command]['validation_tier_refs'][$tierRef]['score'] += 1;
+            }
+        }
+
+        if ($durationMs !== null && $durationMs > 0) {
+            $stats[$command]['performance_observed_count'] = (int) $stats[$command]['performance_observed_count'] + 1;
+            $stats[$command]['duration_ms_total'] = (int) $stats[$command]['duration_ms_total'] + $durationMs;
+            $stats[$command]['duration_ms_samples'] = $this->cappedDurationSamples(
+                (array) ($stats[$command]['duration_ms_samples'] ?? []),
+                $durationMs,
+            );
+            $stats[$command]['duration_ms_avg'] = (int) round(
+                (int) $stats[$command]['duration_ms_total'] / max((int) $stats[$command]['performance_observed_count'], 1),
+            );
+            $stats[$command]['duration_ms_min'] = $stats[$command]['duration_ms_min'] === null
+                ? $durationMs
+                : min((int) $stats[$command]['duration_ms_min'], $durationMs);
+            $stats[$command]['duration_ms_max'] = $stats[$command]['duration_ms_max'] === null
+                ? $durationMs
+                : max((int) $stats[$command]['duration_ms_max'], $durationMs);
+            $stats[$command]['duration_ms_p95'] = $this->durationPercentile(
+                (array) ($stats[$command]['duration_ms_samples'] ?? []),
+                0.95,
+            );
+            $bucket = $this->durationBucket($durationMs);
+            $stats[$command]['duration_bucket_counts'][$bucket] = (int) ($stats[$command]['duration_bucket_counts'][$bucket] ?? 0) + 1;
+        }
+
+        if ($polarity > 0) {
+            $stats[$command]['success_count'] = (int) $stats[$command]['success_count'] + 1;
+            $stats[$command]['score'] = (int) $stats[$command]['score'] + 3;
+        } elseif ($polarity < 0) {
+            $stats[$command]['failure_count'] = (int) $stats[$command]['failure_count'] + 1;
+            $stats[$command]['score'] = (int) $stats[$command]['score'] - 2;
+        } else {
+            $stats[$command]['neutral_count'] = (int) $stats[$command]['neutral_count'] + 1;
+            $stats[$command]['score'] = (int) $stats[$command]['score'] + 1;
+        }
+
+        $areas = [];
+        foreach ($changedFiles as $file) {
+            $area = $this->areaKey($file);
+            if ($area !== null) {
+                $areas[] = $area;
+            }
+        }
+        foreach (array_values(array_unique($areas)) as $area) {
+            $stats[$command]['area_affinity'][$area] = (int) ($stats[$command]['area_affinity'][$area] ?? 0) + max($polarity, 1);
+            if ($durationMs !== null && $durationMs > 0) {
+                $this->recordPerformanceProfile($stats[$command]['area_performance'], $area, $durationMs);
+            }
+        }
+        arsort($stats[$command]['area_affinity']);
+        $stats[$command]['area_affinity'] = array_slice($stats[$command]['area_affinity'], 0, 12, true);
+        foreach (array_values(array_unique(array_filter($stacks, 'is_string'))) as $stack) {
+            $stack = trim($stack);
+            if ($stack === '') {
+                continue;
+            }
+            $stats[$command]['stack_affinity'][$stack] = (int) ($stats[$command]['stack_affinity'][$stack] ?? 0) + max($polarity, 1);
+            if ($durationMs !== null && $durationMs > 0) {
+                $this->recordPerformanceProfile($stats[$command]['stack_performance'], $stack, $durationMs);
+            }
+        }
+        arsort($stats[$command]['stack_affinity']);
+        $stats[$command]['stack_affinity'] = array_slice($stats[$command]['stack_affinity'], 0, 12, true);
+        $stats[$command]['stability'] = (int) $stats[$command]['success_count'] > 0 && (int) $stats[$command]['failure_count'] > 0
+            ? 'mixed'
+            : ((int) $stats[$command]['failure_count'] > 0 ? 'failing' : ((int) $stats[$command]['success_count'] > 0 ? 'stable' : 'unknown'));
+        $stats[$command]['performance_score'] = $this->commandPerformanceScore($stats[$command]);
+        $stats[$command]['performance_grade'] = $this->commandPerformanceGrade($stats[$command]);
+        $stats[$command]['recency_score'] = $this->commandRecencyScore((string) ($stats[$command]['last_observed_at'] ?? ''));
+        $stats[$command]['effective_score'] = (int) $stats[$command]['score']
+            + (int) $stats[$command]['performance_score']
+            + ((int) $stats[$command]['performance_score'] < 0 ? 0 : (int) $stats[$command]['recency_score']);
+        $stats[$command]['confidence'] = round(min(0.95, (int) $stats[$command]['total_count'] / 5), 2);
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     */
+    private function durationMsFromMetadata(array $metadata): ?int
+    {
+        foreach (['duration_ms', 'elapsed_ms', 'runtime_ms'] as $key) {
+            if (isset($metadata[$key]) && is_numeric($metadata[$key])) {
+                return max(1, (int) $metadata[$key]);
+            }
+        }
+
+        foreach (['duration_sec', 'elapsed_sec', 'runtime_sec'] as $key) {
+            if (isset($metadata[$key]) && is_numeric($metadata[$key])) {
+                return max(1, (int) round(((float) $metadata[$key]) * 1000));
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int,mixed>  $samples
+     * @return array<int,int>
+     */
+    private function cappedDurationSamples(array $samples, int $durationMs, int $limit = 24): array
+    {
+        $samples = array_values(array_filter(array_map(
+            static fn (mixed $sample): int => is_numeric($sample) ? max(1, (int) $sample) : 0,
+            $samples,
+        ), static fn (int $sample): bool => $sample > 0));
+        $samples[] = max(1, $durationMs);
+
+        return array_slice($samples, max(0, count($samples) - $limit));
+    }
+
+    /**
+     * @param  array<int,mixed>  $samples
+     */
+    private function durationPercentile(array $samples, float $percentile): ?int
+    {
+        $samples = array_values(array_filter(array_map(
+            static fn (mixed $sample): int => is_numeric($sample) ? max(1, (int) $sample) : 0,
+            $samples,
+        ), static fn (int $sample): bool => $sample > 0));
+        if ($samples === []) {
+            return null;
+        }
+
+        sort($samples);
+        $index = (int) ceil(max(0.0, min(1.0, $percentile)) * count($samples)) - 1;
+
+        return $samples[max(0, min(count($samples) - 1, $index))];
+    }
+
+    private function durationBucket(int $durationMs): string
+    {
+        return match (true) {
+            $durationMs <= 10_000 => 'under_10s',
+            $durationMs <= 60_000 => '10s_to_60s',
+            $durationMs <= 300_000 => '1m_to_5m',
+            $durationMs <= 900_000 => '5m_to_15m',
+            default => 'over_15m',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $profiles
+     */
+    private function recordPerformanceProfile(array &$profiles, string $key, int $durationMs): void
+    {
+        $key = trim($key);
+        if ($key === '' || $durationMs <= 0) {
+            return;
+        }
+
+        $profiles[$key] ??= $this->emptyPerformanceProfile($key);
+        $profiles[$key]['observed_count'] = (int) $profiles[$key]['observed_count'] + 1;
+        $profiles[$key]['duration_ms_total'] = (int) $profiles[$key]['duration_ms_total'] + $durationMs;
+        $profiles[$key]['duration_ms_samples'] = $this->cappedDurationSamples(
+            (array) ($profiles[$key]['duration_ms_samples'] ?? []),
+            $durationMs,
+        );
+        $profiles[$key]['duration_ms_avg'] = (int) round(
+            (int) $profiles[$key]['duration_ms_total'] / max((int) $profiles[$key]['observed_count'], 1),
+        );
+        $profiles[$key]['duration_ms_min'] = $profiles[$key]['duration_ms_min'] === null
+            ? $durationMs
+            : min((int) $profiles[$key]['duration_ms_min'], $durationMs);
+        $profiles[$key]['duration_ms_max'] = $profiles[$key]['duration_ms_max'] === null
+            ? $durationMs
+            : max((int) $profiles[$key]['duration_ms_max'], $durationMs);
+        $profiles[$key]['duration_ms_p95'] = $this->durationPercentile((array) $profiles[$key]['duration_ms_samples'], 0.95);
+        $bucket = $this->durationBucket($durationMs);
+        $profiles[$key]['duration_bucket_counts'][$bucket] = (int) ($profiles[$key]['duration_bucket_counts'][$bucket] ?? 0) + 1;
+        $profiles[$key]['performance_grade'] = $this->commandPerformanceGrade([
+            'duration_ms_p95' => $profiles[$key]['duration_ms_p95'],
+            'duration_ms_avg' => $profiles[$key]['duration_ms_avg'],
+        ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function emptyPerformanceProfile(string $key): array
+    {
+        return [
+            'key' => $key,
+            'observed_count' => 0,
+            'duration_ms_total' => 0,
+            'duration_ms_samples' => [],
+            'duration_ms_avg' => null,
+            'duration_ms_min' => null,
+            'duration_ms_max' => null,
+            'duration_ms_p95' => null,
+            'duration_bucket_counts' => [
+                'under_10s' => 0,
+                '10s_to_60s' => 0,
+                '1m_to_5m' => 0,
+                '5m_to_15m' => 0,
+                'over_15m' => 0,
+            ],
+            'performance_grade' => 'unknown',
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $observed
+     * @return array<string,mixed>
+     */
+    private function workspaceScopedPerformanceIndex(array $observed, string $field, string $schemaVersion): array
+    {
+        $profiles = [];
+        foreach ($observed as $commandStats) {
+            $command = (string) ($commandStats['command'] ?? '');
+            foreach ((array) ($commandStats[$field] ?? []) as $key => $profile) {
+                if (! is_string($key) || ! is_array($profile)) {
+                    continue;
+                }
+                foreach ((array) ($profile['duration_ms_samples'] ?? []) as $sample) {
+                    if (is_numeric($sample)) {
+                        $this->recordPerformanceProfile($profiles, $key, (int) $sample);
+                    }
+                }
+                if ($command !== '') {
+                    $profiles[$key]['commands'] = array_slice(array_values(array_unique(array_merge(
+                        (array) ($profiles[$key]['commands'] ?? []),
+                        [$command],
+                    ))), 0, 8);
+                }
+            }
+        }
+
+        uasort($profiles, static fn (array $left, array $right): int => ((int) ($right['observed_count'] ?? 0) <=> (int) ($left['observed_count'] ?? 0))
+            ?: ((int) ($left['duration_ms_p95'] ?? PHP_INT_MAX) <=> (int) ($right['duration_ms_p95'] ?? PHP_INT_MAX))
+            ?: ((string) ($left['key'] ?? '') <=> (string) ($right['key'] ?? '')));
+
+        $profiles = array_slice($profiles, 0, 16, true);
+        $payload = [
+            'schema_version' => $schemaVersion,
+            'scope_count' => count($profiles),
+            'profiles' => array_values($profiles),
+            'source_policy' => [
+                'raw_logs_returned' => false,
+                'raw_file_content_returned' => false,
+                'absolute_workspace_path_returned' => false,
+            ],
+        ];
+        $payload['index_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $observed
+     * @return array<string,mixed>
+     */
+    private function workspaceCommandPerformanceHistogram(array $observed): array
+    {
+        $payload = [
+            'schema_version' => 'atlas.workspace_command_performance_histogram.v1',
+            'observed_command_count' => count($observed),
+            'performance_observed_command_count' => 0,
+            'bucket_counts' => [
+                'under_10s' => 0,
+                '10s_to_60s' => 0,
+                '1m_to_5m' => 0,
+                '5m_to_15m' => 0,
+                'over_15m' => 0,
+            ],
+            'fast_commands' => [],
+            'heavy_commands' => [],
+            'slow_commands' => [],
+            'source_policy' => [
+                'raw_logs_returned' => false,
+                'command_output_returned' => false,
+            ],
+        ];
+
+        foreach ($observed as $item) {
+            if ((int) ($item['performance_observed_count'] ?? 0) <= 0) {
+                continue;
+            }
+            $payload['performance_observed_command_count']++;
+            foreach ((array) ($item['duration_bucket_counts'] ?? []) as $bucket => $count) {
+                if (isset($payload['bucket_counts'][$bucket])) {
+                    $payload['bucket_counts'][$bucket] += (int) $count;
+                }
+            }
+
+            $command = (string) ($item['command'] ?? '');
+            $grade = (string) ($item['performance_grade'] ?? 'unknown');
+            if ($command === '') {
+                continue;
+            }
+            if ($grade === 'fast') {
+                $payload['fast_commands'][] = $command;
+            } elseif ($grade === 'heavy') {
+                $payload['heavy_commands'][] = $command;
+            } elseif ($grade === 'slow') {
+                $payload['slow_commands'][] = $command;
+            }
+        }
+
+        $payload['fast_commands'] = array_slice(array_values(array_unique($payload['fast_commands'])), 0, 8);
+        $payload['heavy_commands'] = array_slice(array_values(array_unique($payload['heavy_commands'])), 0, 8);
+        $payload['slow_commands'] = array_slice(array_values(array_unique($payload['slow_commands'])), 0, 8);
+        $payload['histogram_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $observed
+     * @return array<string,mixed>
+     */
+    private function workspaceExecutionPolicyEffectivenessIndex(array $observed): array
+    {
+        $policies = [];
+        foreach ($observed as $commandStats) {
+            $command = (string) ($commandStats['command'] ?? '');
+            foreach ((array) ($commandStats['execution_policy_refs'] ?? []) as $policyRef => $policyStats) {
+                if (! is_string($policyRef) || ! is_array($policyStats)) {
+                    continue;
+                }
+                $policies[$policyRef] ??= [
+                    'policy_ref' => $policyRef,
+                    'success_count' => 0,
+                    'failure_count' => 0,
+                    'neutral_count' => 0,
+                    'total_count' => 0,
+                    'score' => 0,
+                    'commands' => [],
+                ];
+                foreach (['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'] as $key) {
+                    $policies[$policyRef][$key] = (int) $policies[$policyRef][$key] + (int) ($policyStats[$key] ?? 0);
+                }
+                if ($command !== '') {
+                    $policies[$policyRef]['commands'] = array_slice(array_values(array_unique(array_merge(
+                        (array) ($policies[$policyRef]['commands'] ?? []),
+                        [$command],
+                    ))), 0, 8);
+                }
+            }
+        }
+
+        foreach ($policies as $policyRef => $policy) {
+            $total = max((int) ($policy['total_count'] ?? 0), 1);
+            $policies[$policyRef]['success_rate'] = round((int) ($policy['success_count'] ?? 0) / $total, 2);
+            $policies[$policyRef]['effectiveness'] = match (true) {
+                (int) ($policy['failure_count'] ?? 0) > 0 && (int) ($policy['success_count'] ?? 0) > 0 => 'mixed',
+                (int) ($policy['failure_count'] ?? 0) > 0 => 'failing',
+                (int) ($policy['success_count'] ?? 0) > 0 => 'effective',
+                default => 'unknown',
+            };
+        }
+
+        uasort($policies, static fn (array $left, array $right): int => ((int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0))
+            ?: ((int) ($right['total_count'] ?? 0) <=> (int) ($left['total_count'] ?? 0))
+            ?: ((string) ($left['policy_ref'] ?? '') <=> (string) ($right['policy_ref'] ?? '')));
+
+        $payload = [
+            'schema_version' => 'atlas.workspace_execution_policy_effectiveness_index.v1',
+            'policy_count' => count($policies),
+            'policies' => array_slice(array_values($policies), 0, 16),
+            'source_policy' => [
+                'raw_logs_returned' => false,
+                'raw_provider_text_returned' => false,
+                'raw_file_content_returned' => false,
+                'absolute_workspace_path_returned' => false,
+            ],
+        ];
+        $payload['index_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function executionPolicyRefs(array $refs): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static function (mixed $ref): string {
+                $ref = trim((string) $ref);
+                if (preg_match('/^execution_optimization_policy:[a-f0-9]{64}$/', $ref) === 1) {
+                    return $ref;
+                }
+                if (! str_starts_with($ref, 'awis_cache:execution_optimization_policy:')) {
+                    return '';
+                }
+
+                $hash = substr($ref, strlen('awis_cache:execution_optimization_policy:'));
+
+                return preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? 'execution_optimization_policy:'.$hash : '';
+            },
+            $refs,
+        ), static fn (string $ref): bool => $ref !== '')));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $observed
+     * @return array<string,mixed>
+     */
+    private function workspaceExecutionRouteEffectivenessIndex(array $observed): array
+    {
+        $routes = [];
+        foreach ($observed as $commandStats) {
+            $command = (string) ($commandStats['command'] ?? '');
+            foreach ((array) ($commandStats['execution_route_refs'] ?? []) as $routeRef => $routeStats) {
+                if (! is_string($routeRef) || ! is_array($routeStats)) {
+                    continue;
+                }
+                $routes[$routeRef] ??= [
+                    'route_ref' => $routeRef,
+                    'success_count' => 0,
+                    'failure_count' => 0,
+                    'neutral_count' => 0,
+                    'total_count' => 0,
+                    'score' => 0,
+                    'commands' => [],
+                ];
+                foreach (['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'] as $key) {
+                    $routes[$routeRef][$key] = (int) $routes[$routeRef][$key] + (int) ($routeStats[$key] ?? 0);
+                }
+                if ($command !== '') {
+                    $routes[$routeRef]['commands'] = array_slice(array_values(array_unique(array_merge(
+                        (array) ($routes[$routeRef]['commands'] ?? []),
+                        [$command],
+                    ))), 0, 8);
+                }
+            }
+        }
+
+        foreach ($routes as $routeRef => $route) {
+            $total = max((int) ($route['total_count'] ?? 0), 1);
+            $routes[$routeRef]['success_rate'] = round((int) ($route['success_count'] ?? 0) / $total, 2);
+            $routes[$routeRef]['effectiveness'] = match (true) {
+                (int) ($route['failure_count'] ?? 0) > 0 && (int) ($route['success_count'] ?? 0) > 0 => 'mixed',
+                (int) ($route['failure_count'] ?? 0) > 0 => 'failing',
+                (int) ($route['success_count'] ?? 0) > 0 => 'effective',
+                default => 'unknown',
+            };
+        }
+
+        uasort($routes, static fn (array $left, array $right): int => ((int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0))
+            ?: ((int) ($right['total_count'] ?? 0) <=> (int) ($left['total_count'] ?? 0))
+            ?: ((string) ($left['route_ref'] ?? '') <=> (string) ($right['route_ref'] ?? '')));
+
+        $payload = [
+            'schema_version' => 'atlas.workspace_execution_route_effectiveness_index.v1',
+            'route_count' => count($routes),
+            'routes' => array_slice(array_values($routes), 0, 16),
+            'source_policy' => [
+                'raw_logs_returned' => false,
+                'raw_provider_text_returned' => false,
+                'raw_file_content_returned' => false,
+                'absolute_workspace_path_returned' => false,
+            ],
+        ];
+        $payload['index_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function executionRouteRefs(array $refs, string $command): array
+    {
+        $commandHash = hash('sha256', $command);
+
+        return array_values(array_unique(array_filter(array_map(
+            static function (mixed $ref) use ($commandHash): string {
+                $ref = trim((string) $ref);
+                if (preg_match('/^(area|stack):[a-f0-9]{64}$/', $ref) === 1) {
+                    return $ref;
+                }
+                if (preg_match('/^awis_execution_route_command:([a-f0-9]{64}):(area|stack):([a-f0-9]{64})$/', $ref, $matches) !== 1) {
+                    return '';
+                }
+
+                return $matches[1] === $commandHash ? $matches[2].':'.$matches[3] : '';
+            },
+            $refs,
+        ), static fn (string $ref): bool => $ref !== '')));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $observed
+     * @return array<string,mixed>
+     */
+    private function workspaceValidationTierEffectivenessIndex(array $observed): array
+    {
+        $tiers = [];
+        foreach ($observed as $commandStats) {
+            $command = (string) ($commandStats['command'] ?? '');
+            foreach ((array) ($commandStats['validation_tier_refs'] ?? []) as $tierRef => $tierStats) {
+                if (! is_string($tierRef) || ! is_array($tierStats)) {
+                    continue;
+                }
+                $tiers[$tierRef] ??= [
+                    'tier_ref' => $tierRef,
+                    'tier' => str_starts_with($tierRef, 'tier:') ? substr($tierRef, strlen('tier:')) : $tierRef,
+                    'success_count' => 0,
+                    'failure_count' => 0,
+                    'neutral_count' => 0,
+                    'total_count' => 0,
+                    'score' => 0,
+                    'commands' => [],
+                ];
+                foreach (['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'] as $key) {
+                    $tiers[$tierRef][$key] = (int) $tiers[$tierRef][$key] + (int) ($tierStats[$key] ?? 0);
+                }
+                if ($command !== '') {
+                    $tiers[$tierRef]['commands'] = array_slice(array_values(array_unique(array_merge(
+                        (array) ($tiers[$tierRef]['commands'] ?? []),
+                        [$command],
+                    ))), 0, 8);
+                }
+            }
+        }
+
+        foreach ($tiers as $tierRef => $tier) {
+            $total = max((int) ($tier['total_count'] ?? 0), 1);
+            $tiers[$tierRef]['success_rate'] = round((int) ($tier['success_count'] ?? 0) / $total, 2);
+            $tiers[$tierRef]['effectiveness'] = match (true) {
+                (int) ($tier['failure_count'] ?? 0) > 0 && (int) ($tier['success_count'] ?? 0) > 0 => 'mixed',
+                (int) ($tier['failure_count'] ?? 0) > 0 => 'failing',
+                (int) ($tier['success_count'] ?? 0) > 0 => 'effective',
+                default => 'unknown',
+            };
+        }
+
+        uasort($tiers, static fn (array $left, array $right): int => ((int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0))
+            ?: ((int) ($right['total_count'] ?? 0) <=> (int) ($left['total_count'] ?? 0))
+            ?: ((string) ($left['tier_ref'] ?? '') <=> (string) ($right['tier_ref'] ?? '')));
+
+        $payload = [
+            'schema_version' => 'atlas.workspace_validation_tier_effectiveness_index.v1',
+            'tier_count' => count($tiers),
+            'tiers' => array_slice(array_values($tiers), 0, 8),
+            'source_policy' => [
+                'raw_logs_returned' => false,
+                'raw_provider_text_returned' => false,
+                'raw_file_content_returned' => false,
+                'absolute_workspace_path_returned' => false,
+            ],
+        ];
+        $payload['index_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function validationTierRefs(array $refs): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static function (mixed $ref): string {
+                $ref = trim((string) $ref);
+                if (preg_match('/^tier:(instant|standard|deep)$/', $ref) === 1) {
+                    return $ref;
+                }
+                if (preg_match('/^awis_validation_tier:(instant|standard|deep)$/', $ref, $matches) !== 1) {
+                    return '';
+                }
+
+                return 'tier:'.$matches[1];
+            },
+            $refs,
+        ), static fn (string $ref): bool => $ref !== '')));
+    }
+
+    /**
+     * @param  array<string,mixed>  $stats
+     */
+    private function commandPerformanceScore(array $stats): int
+    {
+        $duration = $stats['duration_ms_p95'] ?? $stats['duration_ms_avg'] ?? null;
+        if (! is_numeric($duration) || (int) $duration <= 0) {
+            return 0;
+        }
+
+        $duration = (int) $duration;
+
+        return match (true) {
+            $duration <= 10_000 => 2,
+            $duration <= 60_000 => 1,
+            $duration <= 300_000 => 0,
+            $duration <= 900_000 => -1,
+            default => -3,
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $stats
+     */
+    private function commandPerformanceGrade(array $stats): string
+    {
+        $duration = $stats['duration_ms_p95'] ?? $stats['duration_ms_avg'] ?? null;
+        if (! is_numeric($duration) || (int) $duration <= 0) {
+            return 'unknown';
+        }
+
+        $duration = (int) $duration;
+
+        return match (true) {
+            $duration <= 10_000 => 'fast',
+            $duration <= 60_000 => 'normal',
+            $duration <= 300_000 => 'heavy',
+            default => 'slow',
+        };
+    }
+
+    private function commandRecencyScore(string $observedAt): int
+    {
+        if ($observedAt === '') {
+            return 0;
+        }
+
+        try {
+            $days = Carbon::parse($observedAt)->diffInDays(Carbon::now());
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        return match (true) {
+            $days <= 2 => 2,
+            $days <= 14 => 1,
+            $days >= 90 => -1,
+            default => 0,
+        };
+    }
+
+    private function latestIsoTimestamp(string $current, ?string $candidate): ?string
+    {
+        $candidate = is_string($candidate) ? trim($candidate) : '';
+        if ($candidate === '') {
+            return $current !== '' ? $current : null;
+        }
+        if ($current === '') {
+            return $candidate;
+        }
+
+        try {
+            return Carbon::parse($candidate)->greaterThan(Carbon::parse($current))
+                ? $candidate
+                : $current;
+        } catch (\Throwable) {
+            return $current;
+        }
+    }
+
+    private function areaKey(mixed $path): ?string
+    {
+        if (! is_string($path)) {
+            return null;
+        }
+
+        $path = trim(str_replace('\\', '/', $path), '/');
+        if ($path === '' || str_starts_with($path, '..')) {
+            return null;
+        }
+
+        $parts = array_values(array_filter(explode('/', $path), static fn (string $part): bool => $part !== ''));
+        if ($parts === []) {
+            return null;
+        }
+
+        return implode('/', array_slice($parts, 0, min(2, count($parts))));
+    }
+
+    private function outcomePolarity(string $status): int
+    {
+        $status = mb_strtolower(trim($status));
+        if (in_array($status, ['success', 'succeeded', 'passed', 'completed', 'approved', 'healthy', 'ready'], true)) {
+            return 1;
+        }
+        if (in_array($status, ['failed', 'failure', 'blocked', 'error', 'rejected', 'cancelled', 'canceled'], true)) {
+            return -1;
+        }
+
+        return 0;
+    }
+
+    /**
+     * @param  array<int,string>  $commands
+     * @param  array<string,array<string,mixed>>  $outcomeIndex
+     * @return array<int,string>
+     */
+    private function rankCommandsByOutcome(array $commands, array $outcomeIndex, array $areas = []): array
+    {
+        $commands = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $command): string => trim((string) $command),
+            $commands,
+        ), static fn (string $command): bool => $command !== '')));
+        $positions = array_flip($commands);
+
+        $areaKeys = array_values(array_unique(array_filter(array_map(
+            fn (mixed $area): ?string => $this->areaKey($area),
+            $areas,
+        ))));
+
+        usort($commands, function (string $left, string $right) use ($outcomeIndex, $positions, $areaKeys): int {
+            $leftStats = (array) ($outcomeIndex[$left] ?? []);
+            $rightStats = (array) ($outcomeIndex[$right] ?? []);
+            $leftObserved = (int) ($leftStats['total_count'] ?? 0) > 0;
+            $rightObserved = (int) ($rightStats['total_count'] ?? 0) > 0;
+
+            if ($leftObserved !== $rightObserved) {
+                return $leftObserved ? -1 : 1;
+            }
+
+            $leftScore = (int) ($leftStats['effective_score'] ?? $leftStats['score'] ?? 0) + $this->commandAreaScore($leftStats, $areaKeys);
+            $rightScore = (int) ($rightStats['effective_score'] ?? $rightStats['score'] ?? 0) + $this->commandAreaScore($rightStats, $areaKeys);
+
+            return ($rightScore <=> $leftScore)
+                ?: ((int) ($rightStats['success_count'] ?? 0) <=> (int) ($leftStats['success_count'] ?? 0))
+                ?: ((int) ($leftStats['duration_ms_avg'] ?? PHP_INT_MAX) <=> (int) ($rightStats['duration_ms_avg'] ?? PHP_INT_MAX))
+                ?: (($positions[$left] ?? 0) <=> ($positions[$right] ?? 0));
+        });
+
+        return $commands;
+    }
+
+    /**
+     * @param  array<string,mixed>  $stats
+     * @param  array<int,string>  $areaKeys
+     */
+    private function commandAreaScore(array $stats, array $areaKeys): int
+    {
+        if ($areaKeys === []) {
+            return 0;
+        }
+
+        $affinity = (array) ($stats['area_affinity'] ?? []);
+        $score = 0;
+        foreach ($areaKeys as $area) {
+            foreach ($affinity as $knownArea => $weight) {
+                if (! is_string($knownArea)) {
+                    continue;
+                }
+                if ($knownArea === $area || str_starts_with($knownArea, $area.'/') || str_starts_with($area, $knownArea.'/')) {
+                    $score += (int) $weight;
+                }
+            }
+        }
+
+        return $score;
     }
 
     /**
@@ -1543,6 +2792,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $contextUnits = array_values((array) data_get($focusMap, 'context_units', []));
         $criticalChanges = array_values((array) data_get($changeMemory, 'critical_areas_touched', []));
         $repositoryInventory = (array) data_get($twin, 'repository_inventory', []);
+        $outcomeCommandMemory = (array) data_get($twin, 'test_command_intelligence.outcome_memory', []);
+        $outcomeIndex = (array) ($outcomeCommandMemory['command_outcome_index'] ?? []);
+        $outcomeRankedCommands = array_values((array) ($outcomeCommandMemory['ranked_commands'] ?? []));
+        $outcomeAvoidCommands = array_values((array) ($outcomeCommandMemory['avoid_commands'] ?? []));
         $repositories = array_values(array_filter(
             (array) data_get($repositoryInventory, 'repositories', []),
             'is_array',
@@ -1610,6 +2863,16 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'contract_hash:'.(string) data_get($contracts, 'contract_hash', ''),
             data_get($evolution, 'evolution_hash') !== null ? 'evolution_hash:'.(string) data_get($evolution, 'evolution_hash') : null,
         ], static fn (?string $value): bool => is_string($value) && ! str_ends_with($value, ':')));
+        $workspaceWorkingSet = $this->workspaceWorkingSet(
+            $workspaceId,
+            $focusedRepositories,
+            $focusedAreas,
+            $focusedCommands,
+            $contextUnits,
+            $repositoryInventory,
+            $outcomeCommandMemory,
+            $changeMemory,
+        );
 
         $payload = [
             'schema_version' => 'atlas.awis.workspace_next_session_brain.v1',
@@ -1646,15 +2909,64 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'mode' => 'folder_first_provider_safe_resume',
                 'repository_inventory_hash' => data_get($repositoryInventory, 'inventory_hash'),
                 'repository_count' => (int) data_get($repositoryInventory, 'repository_count', 0),
+                'working_set_hash' => $workspaceWorkingSet['working_set_hash'],
+                'workspace_working_set' => $workspaceWorkingSet,
                 'stack_tags' => array_slice(array_values((array) data_get($repositoryInventory, 'stack', [])), 0, 16),
                 'focused_manifest_refs' => array_slice($focusedManifestRefs, 0, 6),
-                'command_hints' => array_slice(array_values((array) data_get($repositoryInventory, 'command_hints', [])), 0, 10),
+                'command_hints' => array_slice($this->rankCommandsByOutcome(
+                    array_values((array) data_get($repositoryInventory, 'command_hints', [])),
+                    $outcomeIndex,
+                    $focusedAreas,
+                ), 0, 10),
+                'outcome_ranked_commands' => array_slice($outcomeRankedCommands, 0, 12),
+                'area_ranked_commands' => array_slice($this->rankCommandsByOutcome(
+                    array_values(array_unique(array_merge($focusedCommands, $outcomeRankedCommands))),
+                    $outcomeIndex,
+                    $focusedAreas,
+                ), 0, 12),
+                'flaky_commands' => array_slice(array_values((array) ($outcomeCommandMemory['flaky_commands'] ?? [])), 0, 8),
+                'slow_commands' => array_slice(array_values((array) ($outcomeCommandMemory['slow_commands'] ?? [])), 0, 8),
+                'avoid_commands' => array_slice($outcomeAvoidCommands, 0, 8),
+                'outcome_command_memory_hash' => $outcomeCommandMemory['outcome_memory_hash'] ?? null,
+                'command_performance_policy' => [
+                    'prefer_recent_stable_fast_commands' => true,
+                    'slow_command_threshold_ms' => 300_000,
+                    'uses_duration_p95' => true,
+                    'uses_duration_buckets' => true,
+                    'raw_logs_returned' => false,
+                ],
+                'command_performance_histogram_hash' => data_get($outcomeCommandMemory, 'performance_histogram.histogram_hash'),
+                'area_performance_index_hash' => data_get($outcomeCommandMemory, 'area_performance_index.index_hash'),
+                'stack_performance_index_hash' => data_get($outcomeCommandMemory, 'stack_performance_index.index_hash'),
+                'execution_policy_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'execution_policy_effectiveness_index.index_hash'),
+                'execution_policy_effectiveness_profiles' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'execution_policy_effectiveness_index.policies', [])), 0, 8),
+                'execution_route_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'execution_route_effectiveness_index.index_hash'),
+                'execution_route_effectiveness_profiles' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'execution_route_effectiveness_index.routes', [])), 0, 8),
+                'validation_tier_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'validation_tier_effectiveness_index.index_hash'),
+                'validation_tier_effectiveness_profiles' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'validation_tier_effectiveness_index.tiers', [])), 0, 8),
+                'command_performance_histogram' => [
+                    'bucket_counts' => (array) data_get($outcomeCommandMemory, 'performance_histogram.bucket_counts', []),
+                    'fast_commands' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'performance_histogram.fast_commands', [])), 0, 6),
+                    'heavy_commands' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'performance_histogram.heavy_commands', [])), 0, 6),
+                    'slow_commands' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'performance_histogram.slow_commands', [])), 0, 6),
+                    'raw_logs_returned' => false,
+                ],
+                'area_performance_profiles' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'area_performance_index.profiles', [])), 0, 8),
+                'stack_performance_profiles' => array_slice(array_values((array) data_get($outcomeCommandMemory, 'stack_performance_index.profiles', [])), 0, 8),
                 'cache_keys' => [
                     'workspace_hash' => data_get($workspaceReport, 'workspace_hash'),
                     'repository_inventory_hash' => data_get($repositoryInventory, 'inventory_hash'),
+                    'workspace_working_set_hash' => $workspaceWorkingSet['working_set_hash'],
                     'workspace_change_hash' => data_get($changeMemory, 'change_hash'),
                     'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
                     'command_registry_hash' => data_get($twin, 'command_registry.command_registry_hash'),
+                    'outcome_command_memory_hash' => $outcomeCommandMemory['outcome_memory_hash'] ?? null,
+                    'command_performance_histogram_hash' => data_get($outcomeCommandMemory, 'performance_histogram.histogram_hash'),
+                    'area_performance_index_hash' => data_get($outcomeCommandMemory, 'area_performance_index.index_hash'),
+                    'stack_performance_index_hash' => data_get($outcomeCommandMemory, 'stack_performance_index.index_hash'),
+                    'execution_policy_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'execution_policy_effectiveness_index.index_hash'),
+                    'execution_route_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'execution_route_effectiveness_index.index_hash'),
+                    'validation_tier_effectiveness_index_hash' => data_get($outcomeCommandMemory, 'validation_tier_effectiveness_index.index_hash'),
                 ],
                 'refresh_triggers' => [
                     'workspace_hash_changed',
@@ -1686,11 +2998,16 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'uses_repository_inventory' => true,
                 'uses_git_status_only_for_change_memory' => true,
                 'uses_manifest_names_only_for_folder_context' => true,
+                'uses_outcome_command_memory' => true,
+                'uses_command_performance_memory' => true,
                 'uses_hash_cache_keys_for_resume' => true,
+                'uses_workspace_working_set' => true,
                 'raw_file_scan_required_for_provider_prompt' => false,
                 'max_focused_repositories' => 4,
                 'max_focused_commands' => 10,
                 'max_manifest_refs' => 6,
+                'max_hot_areas' => 8,
+                'max_hot_commands' => 10,
             ],
             'source_policy' => [
                 'raw_file_content_returned' => false,
@@ -1701,9 +3018,640 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'provider_prompt_unit' => 'hash_refs_focus_map_artifact_refs_and_command_names_only',
             ],
         ];
+        $optimizationPolicy = $this->workspaceExecutionOptimizationPolicy((array) $payload['context_loading_plan']);
+        $payload['context_loading_plan']['execution_optimization_policy'] = $optimizationPolicy;
+        $payload['context_loading_plan']['execution_optimization_policy_hash'] = $optimizationPolicy['policy_hash'];
+        $payload['context_loading_plan']['cache_keys']['execution_optimization_policy_hash'] = $optimizationPolicy['policy_hash'];
+        $payload['performance_budget']['uses_execution_optimization_policy'] = true;
+        $payload['performance_budget']['execution_optimization_policy_hash'] = $optimizationPolicy['policy_hash'];
         $payload['brain_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * Provider-safe hot context plan for the next session. This is the AWIS
+     * working set: what should be kept warm without loading raw file content.
+     *
+     * @param  array<int,mixed>  $focusedRepositories
+     * @param  array<int,mixed>  $focusedAreas
+     * @param  array<int,mixed>  $focusedCommands
+     * @param  array<int,mixed>  $contextUnits
+     * @param  array<string,mixed>  $repositoryInventory
+     * @param  array<string,mixed>  $outcomeCommandMemory
+     * @param  array<string,mixed>  $changeMemory
+     * @return array<string,mixed>
+     */
+    private function workspaceWorkingSet(
+        mixed $workspaceId,
+        array $focusedRepositories,
+        array $focusedAreas,
+        array $focusedCommands,
+        array $contextUnits,
+        array $repositoryInventory,
+        array $outcomeCommandMemory,
+        array $changeMemory,
+    ): array {
+        $hotRepositories = array_slice(array_values(array_filter(array_map(
+            static fn (mixed $repo): array => is_array($repo) ? [
+                'repo_key' => (string) ($repo['repo_key'] ?? ''),
+                'score' => (int) ($repo['score'] ?? 0),
+                'stack' => array_slice(array_values((array) ($repo['stack'] ?? [])), 0, 6),
+            ] : [],
+            $focusedRepositories,
+        ), static fn (array $repo): bool => ($repo['repo_key'] ?? '') !== '')), 0, 4);
+
+        $areaProfileKeys = array_values(array_filter(array_map(
+            static fn (mixed $profile): string => is_array($profile) ? (string) ($profile['key'] ?? '') : '',
+            (array) data_get($outcomeCommandMemory, 'area_performance_index.profiles', []),
+        ), static fn (string $key): bool => $key !== ''));
+        $hotAreas = array_slice(array_values(array_unique(array_filter(array_merge(
+            array_map(static fn (mixed $area): string => is_string($area) ? $area : (is_array($area) ? (string) ($area['key'] ?? '') : ''), $focusedAreas),
+            (array) data_get($changeMemory, 'critical_areas_touched', []),
+            $areaProfileKeys,
+        ), static fn (string $area): bool => trim($area) !== ''))), 0, 8);
+
+        $stackProfileKeys = array_values(array_filter(array_map(
+            static fn (mixed $profile): string => is_array($profile) ? (string) ($profile['key'] ?? '') : '',
+            (array) data_get($outcomeCommandMemory, 'stack_performance_index.profiles', []),
+        ), static fn (string $key): bool => $key !== ''));
+        $hotStacks = array_slice(array_values(array_unique(array_filter(array_merge(
+            (array) data_get($repositoryInventory, 'stack', []),
+            $stackProfileKeys,
+        ), 'is_string'))), 0, 12);
+
+        $hotCommands = array_slice($this->rankCommandsByOutcome(array_values(array_unique(array_merge(
+            array_values(array_filter($focusedCommands, 'is_string')),
+            (array) data_get($outcomeCommandMemory, 'performance_histogram.fast_commands', []),
+            (array) data_get($outcomeCommandMemory, 'ranked_commands', []),
+        ))), (array) data_get($outcomeCommandMemory, 'command_outcome_index', []), $hotAreas), 0, 10);
+
+        $cacheRefs = array_values(array_filter([
+            data_get($repositoryInventory, 'inventory_hash') !== null ? 'awis_cache:repository_inventory:'.data_get($repositoryInventory, 'inventory_hash') : null,
+            data_get($outcomeCommandMemory, 'outcome_memory_hash') !== null ? 'awis_cache:outcome_command_memory:'.data_get($outcomeCommandMemory, 'outcome_memory_hash') : null,
+            data_get($outcomeCommandMemory, 'performance_histogram.histogram_hash') !== null ? 'awis_cache:command_performance_histogram:'.data_get($outcomeCommandMemory, 'performance_histogram.histogram_hash') : null,
+            data_get($outcomeCommandMemory, 'area_performance_index.index_hash') !== null ? 'awis_cache:area_performance_index:'.data_get($outcomeCommandMemory, 'area_performance_index.index_hash') : null,
+            data_get($outcomeCommandMemory, 'stack_performance_index.index_hash') !== null ? 'awis_cache:stack_performance_index:'.data_get($outcomeCommandMemory, 'stack_performance_index.index_hash') : null,
+        ], 'is_string'));
+
+        $payload = [
+            'schema_version' => 'atlas.awis.workspace_working_set.v1',
+            'workspace_id' => is_string($workspaceId) ? $workspaceId : null,
+            'status' => $hotRepositories !== [] || $hotAreas !== [] || $hotCommands !== [] ? 'ready' : 'limited',
+            'mode' => 'provider_safe_hot_context_set',
+            'hot_repositories' => $hotRepositories,
+            'hot_areas' => $hotAreas,
+            'hot_stacks' => $hotStacks,
+            'hot_commands' => $hotCommands,
+            'hot_context_units' => array_slice(array_values(array_unique(array_filter($contextUnits, 'is_string'))), 0, 10),
+            'cache_refs' => array_slice($cacheRefs, 0, 12),
+            'prewarm_plan' => [
+                'load_cache_refs_first' => true,
+                'load_manifest_names_only' => true,
+                'load_recent_outcome_indexes' => true,
+                'load_raw_file_content' => false,
+                'max_hot_repositories' => 4,
+                'max_hot_areas' => 8,
+                'max_hot_commands' => 10,
+            ],
+            'source_policy' => [
+                'raw_file_content_returned' => false,
+                'raw_diff_returned' => false,
+                'raw_manifest_returned' => false,
+                'script_bodies_returned' => false,
+                'absolute_workspace_path_returned' => false,
+            ],
+        ];
+        $payload['working_set_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * Turns learned command outcomes into a small execution policy for Dev and
+     * Forge. The payload is provider-safe: command strings, buckets and hashes
+     * only, no output, logs or file content.
+     *
+     * @param  array<string,mixed>  $contextLoadingPlan
+     * @return array<string,mixed>
+     */
+    private function workspaceExecutionOptimizationPolicy(array $contextLoadingPlan): array
+    {
+        $avoidCommands = $this->providerSafeStringList($contextLoadingPlan['avoid_commands'] ?? []);
+        $slowCommands = $this->providerSafeStringList($contextLoadingPlan['slow_commands'] ?? []);
+        $flakyCommands = $this->providerSafeStringList($contextLoadingPlan['flaky_commands'] ?? []);
+        $fastCommands = $this->providerSafeStringList(data_get($contextLoadingPlan, 'command_performance_histogram.fast_commands', []));
+        $heavyCommands = $this->providerSafeStringList(data_get($contextLoadingPlan, 'command_performance_histogram.heavy_commands', []));
+        $rankedCandidates = $this->providerSafeStringList(array_merge(
+            (array) ($contextLoadingPlan['area_ranked_commands'] ?? []),
+            (array) ($contextLoadingPlan['outcome_ranked_commands'] ?? []),
+            (array) ($contextLoadingPlan['command_hints'] ?? []),
+        ));
+        $blocked = array_values(array_unique(array_merge($avoidCommands, $slowCommands)));
+        $deferred = array_values(array_unique(array_merge(
+            $heavyCommands,
+            $slowCommands,
+            $flakyCommands,
+        )));
+
+        $preferred = array_values(array_filter(
+            array_values(array_unique(array_merge($fastCommands, $rankedCandidates))),
+            static fn (string $command): bool => ! in_array($command, $blocked, true)
+                && ($fastCommands === [] || in_array($command, $fastCommands, true)),
+        ));
+        if ($preferred === []) {
+            $preferred = array_values(array_filter(
+                $rankedCandidates,
+                static fn (string $command): bool => ! in_array($command, $blocked, true)
+                    && ! in_array($command, $deferred, true),
+            ));
+        }
+        $standard = array_values(array_filter(
+            $rankedCandidates,
+            static fn (string $command): bool => ! in_array($command, $blocked, true)
+                && ! in_array($command, $preferred, true)
+                && ! in_array($command, $deferred, true),
+        ));
+        $policyProfiles = array_values(array_filter(
+            (array) ($contextLoadingPlan['execution_policy_effectiveness_profiles'] ?? []),
+            'is_array',
+        ));
+        $effectivePolicyRefs = [];
+        $mixedPolicyRefs = [];
+        $failingPolicyRefs = [];
+        foreach ($policyProfiles as $profile) {
+            $policyRef = (string) ($profile['policy_ref'] ?? '');
+            if ($policyRef === '') {
+                continue;
+            }
+
+            match ((string) ($profile['effectiveness'] ?? 'unknown')) {
+                'effective' => $effectivePolicyRefs[] = $policyRef,
+                'mixed' => $mixedPolicyRefs[] = $policyRef,
+                'failing' => $failingPolicyRefs[] = $policyRef,
+                default => null,
+            };
+        }
+        $needsTighterPolicy = $failingPolicyRefs !== [] || $mixedPolicyRefs !== [];
+        $standardCommandLimit = $needsTighterPolicy ? 4 : 8;
+        $deepRequiresOperator = true;
+        $nextAdjustment = 'collect_policy_outcome_feedback';
+        if ($needsTighterPolicy) {
+            $nextAdjustment = 'tighten_default_to_preferred_fast_commands';
+        } elseif ($effectivePolicyRefs !== []) {
+            $nextAdjustment = 'reuse_effective_policy_shape';
+        }
+        $areaRoutes = $this->scopedExecutionRoutes(
+            (array) ($contextLoadingPlan['area_performance_profiles'] ?? []),
+            $blocked,
+            $deferred,
+            $this->routeEffectivenessFeedback((array) ($contextLoadingPlan['execution_route_effectiveness_profiles'] ?? []), 'area'),
+            $this->validationTierEffectivenessFeedback((array) ($contextLoadingPlan['validation_tier_effectiveness_profiles'] ?? [])),
+            'area',
+        );
+        $stackRoutes = $this->scopedExecutionRoutes(
+            (array) ($contextLoadingPlan['stack_performance_profiles'] ?? []),
+            $blocked,
+            $deferred,
+            $this->routeEffectivenessFeedback((array) ($contextLoadingPlan['execution_route_effectiveness_profiles'] ?? []), 'stack'),
+            $this->validationTierEffectivenessFeedback((array) ($contextLoadingPlan['validation_tier_effectiveness_profiles'] ?? [])),
+            'stack',
+        );
+        $validationTierRouting = $this->validationTierRoutingSummary(
+            $areaRoutes,
+            $stackRoutes,
+            $this->validationTierEffectivenessFeedback((array) ($contextLoadingPlan['validation_tier_effectiveness_profiles'] ?? [])),
+        );
+
+        $payload = [
+            'schema_version' => 'atlas.awis.execution_optimization_policy.v1',
+            'mode' => 'prefer_fast_stable_area_relevant_commands',
+            'preferred_commands' => array_slice($preferred, 0, 6),
+            'standard_commands' => array_slice($standard, 0, $standardCommandLimit),
+            'deferred_commands' => array_slice(array_values(array_diff($deferred, $blocked)), 0, 8),
+            'blocked_commands' => array_slice($blocked, 0, 8),
+            'policy_feedback' => [
+                'enabled' => true,
+                'observed_policy_count' => count($policyProfiles),
+                'effective_policy_refs' => array_slice(array_values(array_unique($effectivePolicyRefs)), 0, 6),
+                'mixed_policy_refs' => array_slice(array_values(array_unique($mixedPolicyRefs)), 0, 6),
+                'failing_policy_refs' => array_slice(array_values(array_unique($failingPolicyRefs)), 0, 6),
+                'next_adjustment' => $nextAdjustment,
+                'standard_command_limit' => $standardCommandLimit,
+                'raw_logs_returned' => false,
+            ],
+            'scope_routing' => [
+                'schema_version' => 'atlas.awis.execution_scope_routing.v1',
+                'area_routes' => $areaRoutes,
+                'stack_routes' => $stackRoutes,
+                'route_count' => count($areaRoutes) + count($stackRoutes),
+                'route_policy' => 'prefer_scope_specific_commands_before_global_ranked_commands',
+                'feedback' => [
+                    'enabled' => true,
+                    'observed_route_count' => count((array) ($contextLoadingPlan['execution_route_effectiveness_profiles'] ?? [])),
+                    'effective_routes_reused' => count(array_filter(
+                        array_merge($areaRoutes, $stackRoutes),
+                        static fn (array $route): bool => ($route['feedback_effectiveness'] ?? null) === 'effective',
+                    )),
+                    'guarded_routes' => count(array_filter(
+                        array_merge($areaRoutes, $stackRoutes),
+                        static fn (array $route): bool => in_array(($route['feedback_effectiveness'] ?? null), ['mixed', 'failing'], true),
+                    )),
+                    'raw_logs_returned' => false,
+                ],
+                'raw_logs_returned' => false,
+            ],
+            'validation_tiers' => [
+                'instant' => [
+                    'max_command_count' => 2,
+                    'prefer_performance_grade' => 'fast',
+                    'max_expected_duration_ms' => 60_000,
+                    'requires_effective_or_fast_route' => true,
+                ],
+                'standard' => [
+                    'max_command_count' => 4,
+                    'allow_performance_grades' => ['fast', 'normal', 'heavy'],
+                    'max_expected_duration_ms' => 300_000,
+                    'default_for_unknown_routes' => true,
+                ],
+                'deep' => [
+                    'requires_operator_or_high_risk_context' => $deepRequiresOperator,
+                    'allow_deferred_commands' => true,
+                    'max_expected_duration_ms' => 900_000,
+                    'required_for_mixed_or_failing_routes' => true,
+                ],
+            ],
+            'validation_tier_routing' => $validationTierRouting,
+            'selection_policy' => [
+                'prepend_preferred_commands_to_task_packets' => true,
+                'exclude_blocked_commands_from_default_packets' => true,
+                'defer_heavy_or_flaky_commands_until_risk_requires_them' => true,
+                'area_relevance_beats_manifest_order' => true,
+                'scope_routes_override_global_order_when_present' => true,
+                'route_feedback_controls_validation_depth' => true,
+                'raw_logs_returned' => false,
+            ],
+            'source_hashes' => [
+                'outcome_command_memory_hash' => $contextLoadingPlan['outcome_command_memory_hash'] ?? null,
+                'command_performance_histogram_hash' => $contextLoadingPlan['command_performance_histogram_hash'] ?? null,
+                'area_performance_index_hash' => $contextLoadingPlan['area_performance_index_hash'] ?? null,
+                'stack_performance_index_hash' => $contextLoadingPlan['stack_performance_index_hash'] ?? null,
+                'execution_policy_effectiveness_index_hash' => $contextLoadingPlan['execution_policy_effectiveness_index_hash'] ?? null,
+                'execution_route_effectiveness_index_hash' => $contextLoadingPlan['execution_route_effectiveness_index_hash'] ?? null,
+                'validation_tier_effectiveness_index_hash' => $contextLoadingPlan['validation_tier_effectiveness_index_hash'] ?? null,
+            ],
+            'source_policy' => [
+                'raw_logs_returned' => false,
+                'raw_diff_returned' => false,
+                'raw_file_content_returned' => false,
+                'absolute_workspace_path_returned' => false,
+            ],
+        ];
+        $payload['policy_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<int,mixed>  $profiles
+     * @param  array<int,string>  $blocked
+     * @param  array<int,string>  $deferred
+     * @param  array<string,string>  $routeFeedback
+     * @param  array<string,string>  $tierFeedback
+     * @return array<int,array<string,mixed>>
+     */
+    private function scopedExecutionRoutes(array $profiles, array $blocked, array $deferred, array $routeFeedback, array $tierFeedback, string $routeKind): array
+    {
+        $routes = [];
+        foreach ($profiles as $profile) {
+            if (! is_array($profile)) {
+                continue;
+            }
+            $key = trim((string) ($profile['key'] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+
+            $commands = $this->providerSafeStringList($profile['commands'] ?? []);
+            $blockedCommands = array_values(array_intersect($commands, $blocked));
+            $deferredCommands = array_values(array_diff(array_intersect($commands, $deferred), $blockedCommands));
+            $preferredCommands = array_values(array_diff($commands, $blockedCommands, $deferredCommands));
+            $routeRef = $routeKind.':'.hash('sha256', $key);
+            $feedbackEffectiveness = $routeFeedback[$routeRef] ?? null;
+            if (in_array($feedbackEffectiveness, ['mixed', 'failing'], true)) {
+                $deferredCommands = array_values(array_unique(array_merge($deferredCommands, $preferredCommands)));
+                $preferredCommands = [];
+            }
+            $routeMode = $preferredCommands !== []
+                ? 'prefer_scope_commands'
+                : ($deferredCommands !== [] || $blockedCommands !== [] ? 'deep_validation_only' : 'observe_more');
+            $validationTier = $this->validationTierForExecutionRoute(
+                $feedbackEffectiveness ?? 'unknown',
+                (string) ($profile['performance_grade'] ?? 'unknown'),
+                $routeMode,
+                $preferredCommands,
+                $deferredCommands,
+                $blockedCommands,
+                $tierFeedback,
+            );
+            $routes[] = [
+                'key' => $key,
+                'route_ref' => $routeRef,
+                'observed_count' => (int) ($profile['observed_count'] ?? 0),
+                'performance_grade' => (string) ($profile['performance_grade'] ?? 'unknown'),
+                'duration_ms_p95' => is_numeric($profile['duration_ms_p95'] ?? null) ? (int) $profile['duration_ms_p95'] : null,
+                'preferred_commands' => array_slice($preferredCommands, 0, 4),
+                'deferred_commands' => array_slice($deferredCommands, 0, 4),
+                'blocked_commands' => array_slice($blockedCommands, 0, 4),
+                'feedback_effectiveness' => $feedbackEffectiveness ?? 'unknown',
+                'route_mode' => $routeMode,
+                'recommended_validation_tier' => $validationTier['tier'],
+                'validation_reason' => $validationTier['reason'],
+            ];
+        }
+
+        return array_slice($routes, 0, 8);
+    }
+
+    /**
+     * @param  array<int,string>  $preferredCommands
+     * @param  array<int,string>  $deferredCommands
+     * @param  array<int,string>  $blockedCommands
+     * @param  array<string,string>  $tierFeedback
+     * @return array{tier:string,reason:string}
+     */
+    private function validationTierForExecutionRoute(
+        string $feedbackEffectiveness,
+        string $performanceGrade,
+        string $routeMode,
+        array $preferredCommands,
+        array $deferredCommands,
+        array $blockedCommands,
+        array $tierFeedback = [],
+    ): array {
+        if (in_array($feedbackEffectiveness, ['mixed', 'failing'], true)) {
+            return ['tier' => 'deep', 'reason' => 'route_feedback_requires_guarded_validation'];
+        }
+
+        if ($routeMode === 'deep_validation_only' || $blockedCommands !== []) {
+            return ['tier' => 'deep', 'reason' => 'scope_contains_blocked_or_slow_commands'];
+        }
+
+        if ($feedbackEffectiveness === 'effective' && $performanceGrade === 'fast' && $preferredCommands !== []) {
+            if (in_array(($tierFeedback['tier:instant'] ?? 'unknown'), ['mixed', 'failing'], true)) {
+                return ['tier' => 'standard', 'reason' => 'instant_tier_feedback_guarded'];
+            }
+
+            return ['tier' => 'instant', 'reason' => 'effective_fast_scope_route'];
+        }
+
+        if ($preferredCommands !== [] && $deferredCommands === []) {
+            return ['tier' => 'standard', 'reason' => 'scope_has_stable_preferred_commands'];
+        }
+
+        return ['tier' => 'standard', 'reason' => 'observe_route_until_feedback_is_stronger'];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $areaRoutes
+     * @param  array<int,array<string,mixed>>  $stackRoutes
+     * @param  array<string,string>  $tierFeedback
+     * @return array<string,mixed>
+     */
+    private function validationTierRoutingSummary(array $areaRoutes, array $stackRoutes, array $tierFeedback = []): array
+    {
+        $routes = array_merge($areaRoutes, $stackRoutes);
+        $tierCounts = ['instant' => 0, 'standard' => 0, 'deep' => 0];
+        foreach ($routes as $route) {
+            $tier = (string) ($route['recommended_validation_tier'] ?? 'standard');
+            if (! array_key_exists($tier, $tierCounts)) {
+                $tier = 'standard';
+            }
+            $tierCounts[$tier]++;
+        }
+
+        return [
+            'schema_version' => 'atlas.awis.validation_tier_routing.v1',
+            'mode' => 'route_and_risk_aware_validation_depth',
+            'default_tier' => 'standard',
+            'instant_route_count' => $tierCounts['instant'],
+            'standard_route_count' => $tierCounts['standard'],
+            'deep_route_count' => $tierCounts['deep'],
+            'route_count' => count($routes),
+            'tier_feedback' => [
+                'enabled' => true,
+                'instant_effectiveness' => $tierFeedback['tier:instant'] ?? 'unknown',
+                'standard_effectiveness' => $tierFeedback['tier:standard'] ?? 'unknown',
+                'deep_effectiveness' => $tierFeedback['tier:deep'] ?? 'unknown',
+                'instant_guarded' => in_array(($tierFeedback['tier:instant'] ?? 'unknown'), ['mixed', 'failing'], true),
+                'raw_logs_returned' => false,
+            ],
+            'selection_policy' => [
+                'effective_fast_routes_use_instant_validation' => true,
+                'unknown_routes_use_standard_validation' => true,
+                'mixed_or_failing_routes_use_deep_validation' => true,
+                'raw_logs_returned' => false,
+            ],
+            'raw_logs_returned' => false,
+        ];
+    }
+
+    /**
+     * @param  array<int,mixed>  $profiles
+     * @return array<string,string>
+     */
+    private function routeEffectivenessFeedback(array $profiles, string $routeKind): array
+    {
+        $feedback = [];
+        foreach ($profiles as $profile) {
+            if (! is_array($profile)) {
+                continue;
+            }
+            $routeRef = (string) ($profile['route_ref'] ?? '');
+            if (! str_starts_with($routeRef, $routeKind.':')) {
+                continue;
+            }
+            $effectiveness = (string) ($profile['effectiveness'] ?? 'unknown');
+            if (in_array($effectiveness, ['effective', 'mixed', 'failing'], true)) {
+                $feedback[$routeRef] = $effectiveness;
+            }
+        }
+
+        return $feedback;
+    }
+
+    /**
+     * @param  array<int,mixed>  $profiles
+     * @return array<string,string>
+     */
+    private function validationTierEffectivenessFeedback(array $profiles): array
+    {
+        $feedback = [];
+        foreach ($profiles as $profile) {
+            if (! is_array($profile)) {
+                continue;
+            }
+            $tierRef = (string) ($profile['tier_ref'] ?? '');
+            if (preg_match('/^tier:(instant|standard|deep)$/', $tierRef) !== 1) {
+                continue;
+            }
+            $effectiveness = (string) ($profile['effectiveness'] ?? 'unknown');
+            if (in_array($effectiveness, ['effective', 'mixed', 'failing'], true)) {
+                $feedback[$tierRef] = $effectiveness;
+            }
+        }
+
+        return $feedback;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function providerSafeStringList(mixed $values): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static fn (mixed $value): string => trim((string) $value),
+            (array) $values,
+        ), static fn (string $value): bool => $value !== '' && ! str_contains($value, "\n"))));
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $profile
+     * @param  array<string,mixed>  $workspaceReport
+     * @param  array<string,mixed>  $repositoryInventory
+     * @param  array<string,mixed>  $changeMemory
+     * @param  array<string,mixed>  $focusMap
+     * @param  array<string,mixed>  $nextSessionBrain
+     * @param  array<string,mixed>  $learningLoop
+     * @param  array<string,mixed>  $twin
+     * @return array<string,mixed>
+     */
+    private function workspaceLearningSnapshot(
+        ?array $profile,
+        array $workspaceReport,
+        array $repositoryInventory,
+        array $changeMemory,
+        array $focusMap,
+        array $nextSessionBrain,
+        array $learningLoop,
+        array $twin,
+    ): array {
+        $outcomeMemory = (array) data_get($twin, 'test_command_intelligence.outcome_memory', []);
+        $histogram = (array) data_get($outcomeMemory, 'performance_histogram', []);
+        $areaIndex = (array) data_get($outcomeMemory, 'area_performance_index', []);
+        $stackIndex = (array) data_get($outcomeMemory, 'stack_performance_index', []);
+        $policyEffectivenessIndex = (array) data_get($outcomeMemory, 'execution_policy_effectiveness_index', []);
+        $routeEffectivenessIndex = (array) data_get($outcomeMemory, 'execution_route_effectiveness_index', []);
+        $validationTierEffectivenessIndex = (array) data_get($outcomeMemory, 'validation_tier_effectiveness_index', []);
+        $workingSet = (array) data_get($nextSessionBrain, 'context_loading_plan.workspace_working_set', []);
+        $bucketCounts = (array) ($histogram['bucket_counts'] ?? []);
+
+        $payload = [
+            'schema_version' => 'atlas.awis.workspace_learning_snapshot.v1',
+            'status' => data_get($learningLoop, 'status') === 'ready' ? 'ready' : 'limited',
+            'workspace_id' => $profile['slug'] ?? data_get($workspaceReport, 'workspace_id'),
+            'workspace_hash' => data_get($workspaceReport, 'workspace_hash'),
+            'learning_score' => (float) data_get($learningLoop, 'evidence_learning.learning_score', 0.0),
+            'readiness_score' => (float) data_get($nextSessionBrain, 'readiness_score', 0.0),
+            'workspace_state' => [
+                'workspace_ready' => data_get($workspaceReport, 'readiness_status') === 'ready',
+                'workspace_path_exists' => data_get($workspaceReport, 'workspace_path_exists') === true,
+                'repository_inventory_status' => data_get($repositoryInventory, 'status'),
+                'change_memory_status' => data_get($changeMemory, 'status'),
+                'focus_map_status' => data_get($focusMap, 'status'),
+                'next_session_brain_status' => data_get($nextSessionBrain, 'status'),
+                'learning_loop_closed' => data_get($learningLoop, 'closed_loop.loop_closed') === true,
+            ],
+            'component_hashes' => [
+                'repository_inventory_hash' => data_get($repositoryInventory, 'inventory_hash'),
+                'workspace_working_set_hash' => data_get($workingSet, 'working_set_hash'),
+                'workspace_change_hash' => data_get($changeMemory, 'change_hash'),
+                'workspace_focus_hash' => data_get($focusMap, 'focus_hash'),
+                'outcome_command_memory_hash' => data_get($outcomeMemory, 'outcome_memory_hash'),
+                'command_performance_histogram_hash' => data_get($histogram, 'histogram_hash'),
+                'area_performance_index_hash' => data_get($areaIndex, 'index_hash'),
+                'stack_performance_index_hash' => data_get($stackIndex, 'index_hash'),
+                'execution_policy_effectiveness_index_hash' => data_get($policyEffectivenessIndex, 'index_hash'),
+                'execution_route_effectiveness_index_hash' => data_get($routeEffectivenessIndex, 'index_hash'),
+                'validation_tier_effectiveness_index_hash' => data_get($validationTierEffectivenessIndex, 'index_hash'),
+            ],
+            'learned_signal_counts' => [
+                'repository_count' => (int) data_get($repositoryInventory, 'repository_count', 0),
+                'working_set_hot_area_count' => count((array) data_get($workingSet, 'hot_areas', [])),
+                'working_set_hot_command_count' => count((array) data_get($workingSet, 'hot_commands', [])),
+                'changed_file_count' => (int) data_get($changeMemory, 'changed_file_count', 0),
+                'focused_repository_count' => count((array) data_get($focusMap, 'focused_repositories', [])),
+                'focused_area_count' => count((array) data_get($focusMap, 'focused_areas', [])),
+                'observed_command_count' => (int) data_get($outcomeMemory, 'observed_command_count', 0),
+                'ranked_command_count' => count((array) data_get($outcomeMemory, 'ranked_commands', [])),
+                'flaky_command_count' => count((array) data_get($outcomeMemory, 'flaky_commands', [])),
+                'slow_command_count' => count((array) data_get($outcomeMemory, 'slow_commands', [])),
+                'avoid_command_count' => count((array) data_get($outcomeMemory, 'avoid_commands', [])),
+                'fast_command_count' => count((array) data_get($histogram, 'fast_commands', [])),
+                'heavy_command_count' => count((array) data_get($histogram, 'heavy_commands', [])),
+                'area_performance_profile_count' => count((array) data_get($areaIndex, 'profiles', [])),
+                'stack_performance_profile_count' => count((array) data_get($stackIndex, 'profiles', [])),
+                'execution_policy_profile_count' => count((array) data_get($policyEffectivenessIndex, 'policies', [])),
+                'execution_route_profile_count' => count((array) data_get($routeEffectivenessIndex, 'routes', [])),
+                'validation_tier_profile_count' => count((array) data_get($validationTierEffectivenessIndex, 'tiers', [])),
+            ],
+            'performance_memory' => [
+                'bucket_counts' => [
+                    'under_10s' => (int) ($bucketCounts['under_10s'] ?? 0),
+                    '10s_to_60s' => (int) ($bucketCounts['10s_to_60s'] ?? 0),
+                    '1m_to_5m' => (int) ($bucketCounts['1m_to_5m'] ?? 0),
+                    '5m_to_15m' => (int) ($bucketCounts['5m_to_15m'] ?? 0),
+                    'over_15m' => (int) ($bucketCounts['over_15m'] ?? 0),
+                ],
+                'uses_duration_p95' => true,
+                'uses_duration_buckets' => true,
+                'raw_logs_returned' => false,
+            ],
+            'persistence_policy' => [
+                'stored_with_awis_snapshot' => true,
+                'replay_scope' => 'same_workspace_hash_or_latest_workspace_review',
+                'auto_promotes_memory' => false,
+                'cross_workspace_learning_allowed' => false,
+                'canonical_doc_rewrite_allowed' => false,
+            ],
+            'source_policy' => [
+                'raw_file_content_returned' => false,
+                'raw_diff_returned' => false,
+                'raw_log_returned' => false,
+                'raw_provider_text_returned' => false,
+                'raw_conversation_returned' => false,
+                'absolute_workspace_path_returned' => false,
+                'provider_prompt_unit' => 'workspace_hashes_scores_counts_and_cache_refs_only',
+            ],
+        ];
+        $payload['snapshot_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $nextSessionBrain
+     * @param  array<string,mixed>  $learningSnapshot
+     * @return array<string,mixed>
+     */
+    private function attachLearningSnapshotToNextSessionBrain(array $nextSessionBrain, array $learningSnapshot): array
+    {
+        $snapshotHash = data_get($learningSnapshot, 'snapshot_hash');
+        if (! is_string($snapshotHash) || $snapshotHash === '') {
+            return $nextSessionBrain;
+        }
+
+        data_set($nextSessionBrain, 'context_loading_plan.learning_snapshot_hash', $snapshotHash);
+        data_set($nextSessionBrain, 'context_loading_plan.learning_score', data_get($learningSnapshot, 'learning_score', 0.0));
+        data_set($nextSessionBrain, 'context_loading_plan.cache_keys.workspace_learning_snapshot_hash', $snapshotHash);
+        $refreshTriggers = array_values((array) data_get($nextSessionBrain, 'context_loading_plan.refresh_triggers', []));
+        $refreshTriggers[] = 'workspace_learning_snapshot_hash_changed';
+        data_set($nextSessionBrain, 'context_loading_plan.refresh_triggers', array_values(array_unique($refreshTriggers)));
+
+        unset($nextSessionBrain['brain_hash']);
+        $nextSessionBrain['brain_hash'] = MissionCanonicalHash::sha256($nextSessionBrain);
+
+        return $nextSessionBrain;
     }
 
     /**

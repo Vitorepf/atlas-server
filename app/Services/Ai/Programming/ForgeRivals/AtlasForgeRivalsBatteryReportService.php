@@ -81,6 +81,8 @@ final class AtlasForgeRivalsBatteryReportService
     /** Tie threshold reused from the adjudicator (informational here). */
     public const TIE_THRESHOLD = 5.0;
 
+    public const MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL = 0.55;
+
     /** Trusted battery floors. */
     public const TRUSTED_MIN_CASES = 12;
 
@@ -296,6 +298,7 @@ final class AtlasForgeRivalsBatteryReportService
             'winner_reason' => $winnerDecision['reasons'],
             'confidence' => $confidence,
             'separation_analysis' => $separationAnalysis,
+            'per_level_tie_escalation' => $separationAnalysis['per_level_tie_escalation'] ?? null,
             'extreme_measurement_plan' => $extremeMeasurementPlan,
             'cases_total' => $counters['cases_total'],
             'cases_valid' => $counters['cases_valid'],
@@ -982,6 +985,7 @@ final class AtlasForgeRivalsBatteryReportService
         $tieRate = $validCount > 0 ? round($tieCount / $validCount, 4) : null;
         $lowSeparationThreshold = self::TIE_THRESHOLD;
         $suspiciousTieRateThreshold = 0.60;
+        $perLevelTieEscalation = $this->computePerLevelTieEscalation($difficultyBands);
         $reasons = [];
         if ($validCount === 0) {
             $reasons[] = 'no_valid_cases';
@@ -1011,6 +1015,9 @@ final class AtlasForgeRivalsBatteryReportService
         if (count($difficultyDeltas) >= 2 && max($difficultyDeltas) === min($difficultyDeltas)) {
             $reasons[] = 'difficulty_deltas_flat';
         }
+        foreach ((array) ($perLevelTieEscalation['levels_exceeding_tie_budget'] ?? []) as $level) {
+            $reasons[] = 'difficulty_level_tie_rate_above_55_percent:'.$level;
+        }
 
         return [
             'schema_version' => 'atlas.forge.rivals.separation_analysis.v1',
@@ -1023,6 +1030,7 @@ final class AtlasForgeRivalsBatteryReportService
             'global_delta' => $globalAverages['delta'],
             'low_separation_threshold' => $lowSeparationThreshold,
             'suspicious_tie_rate_threshold' => $suspiciousTieRateThreshold,
+            'per_level_tie_escalation' => $perLevelTieEscalation,
             'low_discrimination' => $reasons !== [],
             'reasons' => array_values(array_unique($reasons)),
             'recommended_case_sets' => [
@@ -1033,6 +1041,68 @@ final class AtlasForgeRivalsBatteryReportService
             ],
             'advisory_only' => true,
             'routing_effect' => 'none',
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $difficultyBands
+     * @return array<string,mixed>
+     */
+    private function computePerLevelTieEscalation(array $difficultyBands): array
+    {
+        $byLevel = [];
+        foreach ($difficultyBands as $band) {
+            if (! is_array($band)) {
+                continue;
+            }
+            $level = strtoupper(trim((string) ($band['level'] ?? '')));
+            if ($level !== '') {
+                $byLevel[$level] = $band;
+            }
+        }
+
+        $rows = [];
+        $levelsExceeding = [];
+        foreach (AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVELS as $level) {
+            $band = $byLevel[$level] ?? [];
+            $validCases = (int) ($band['valid_cases'] ?? 0);
+            $ties = (int) ($band['ties'] ?? 0);
+            $tieRate = $validCases > 0 ? round($ties / $validCases, 4) : null;
+            $exceeds = $tieRate !== null && $tieRate > self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL;
+            if ($exceeds) {
+                $levelsExceeding[] = $level;
+            }
+            $rows[] = [
+                'level' => $level,
+                'valid_cases' => $validCases,
+                'technical_tie_count' => $ties,
+                'technical_tie_rate' => $tieRate,
+                'max_allowed_technical_tie_rate' => self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL,
+                'exceeds_tie_budget' => $exceeds,
+                'required_action' => $exceeds
+                    ? 'stop_this_level_and_increase_complexity_functions_and_capability_measurement'
+                    : ($validCases === 0 ? 'collect_level_sample' : 'continue_measuring'),
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.per_level_tie_escalation.v1',
+            'purpose' => 'keep L1-L5 difficulty adaptive as models improve by stopping levels with too many technical ties',
+            'max_allowed_technical_tie_rate' => self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL,
+            'levels_exceeding_tie_budget' => $levelsExceeding,
+            'should_cancel_current_battery' => $levelsExceeding !== [],
+            'required_action' => $levelsExceeding === []
+                ? 'continue_current_level_mix'
+                : 'cancel_current_battery_and_reinforce_over_tied_levels',
+            'rows' => $rows,
+            'provider_call' => false,
+            'tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
         ];
     }
 
@@ -1056,6 +1126,10 @@ final class AtlasForgeRivalsBatteryReportService
         array $globalAverages,
     ): array {
         $lowDiscrimination = (bool) ($separationAnalysis['low_discrimination'] ?? false);
+        $perLevelTieEscalation = is_array($separationAnalysis['per_level_tie_escalation'] ?? null)
+            ? (array) $separationAnalysis['per_level_tie_escalation']
+            : [];
+        $levelsExceedingTieBudget = $this->stringList($perLevelTieEscalation['levels_exceeding_tie_budget'] ?? []);
         $tieRate = $separationAnalysis['tie_rate'] ?? null;
         $globalDelta = $globalAverages['delta'];
         $nearGlobalTie = $globalDelta === null || abs((float) $globalDelta) < self::TIE_THRESHOLD;
@@ -1063,7 +1137,7 @@ final class AtlasForgeRivalsBatteryReportService
         $l5Tied = $l5 !== null
             && (int) ($l5['valid_cases'] ?? 0) > 0
             && ($l5['winner'] ?? null) === AtlasForgeRivalsAdjudicatorService::WINNER_TIE;
-        $needsFollowup = $lowDiscrimination || $nearGlobalTie || $l5Tied;
+        $needsFollowup = $lowDiscrimination || $nearGlobalTie || $l5Tied || $levelsExceedingTieBudget !== [];
 
         $categoryRows = [];
         foreach ($categories as $category) {
@@ -1103,6 +1177,10 @@ final class AtlasForgeRivalsBatteryReportService
                 (array) ($separationAnalysis['reasons'] ?? []),
                 $nearGlobalTie ? ['global_delta_inside_tie_threshold'] : [],
                 $l5Tied ? ['l5_tie_requires_harder_cases'] : [],
+                array_map(
+                    static fn (string $level): string => 'reinforce_difficulty_level_above_55_percent_tie_rate:'.$level,
+                    $levelsExceedingTieBudget,
+                ),
             ))),
             'current_signal' => [
                 'valid_cases' => (int) ($separationAnalysis['valid_cases'] ?? 0),
@@ -1113,6 +1191,7 @@ final class AtlasForgeRivalsBatteryReportService
                 'l5_winner' => $l5['winner'] ?? null,
                 'routing_effect' => 'none',
             ],
+            'per_level_tie_escalation' => $perLevelTieEscalation,
             'category_slices' => $categoryRows,
             'capability_slices' => $capabilityRows,
             'required_matchups' => $this->extremeRequiredMatchups(),
@@ -2288,6 +2367,9 @@ final class AtlasForgeRivalsBatteryReportService
         $lines[] = '| median_abs_delta | '.$this->fmtScore($separationAnalysis['median_abs_delta'] ?? null).' |';
         $lines[] = '| max_abs_delta | '.$this->fmtScore($separationAnalysis['max_abs_delta'] ?? null).' |';
         $lines[] = '| low_discrimination | '.(($separationAnalysis['low_discrimination'] ?? false) ? '**true**' : 'false').' |';
+        $perLevelTie = (array) ($separationAnalysis['per_level_tie_escalation'] ?? []);
+        $lines[] = '| max_tie_rate_por_L1_L5 | '.number_format((float) ($perLevelTie['max_allowed_technical_tie_rate'] ?? self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL), 2).' |';
+        $lines[] = '| niveis_acima_do_teto_de_empate | `'.implode('`, `', $this->stringList($perLevelTie['levels_exceeding_tie_budget'] ?? [])).'` |';
         if (($separationAnalysis['reasons'] ?? []) !== []) {
             $lines[] = '';
             $lines[] = 'Sinais de baixa separação:';
@@ -2299,6 +2381,23 @@ final class AtlasForgeRivalsBatteryReportService
         } else {
             $lines[] = '';
             $lines[] = '_A bateria apresentou separação suficiente para análise por categoria/dificuldade._';
+        }
+        $lines[] = '';
+
+        $lines[] = '### Política adaptativa por dificuldade';
+        $lines[] = '';
+        $lines[] = '| Nível | Casos válidos | Empates técnicos | Tie rate | Ação |';
+        $lines[] = '| --- | --- | --- | --- | --- |';
+        foreach ((array) ($perLevelTie['rows'] ?? []) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $tieRate = $row['technical_tie_rate'] ?? null;
+            $lines[] = '| '.$row['level']
+                .' | '.((int) ($row['valid_cases'] ?? 0))
+                .' | '.((int) ($row['technical_tie_count'] ?? 0))
+                .' | '.($tieRate === null ? '—' : number_format((float) $tieRate, 2))
+                .' | `'.($row['required_action'] ?? 'continue_measuring').'` |';
         }
         $lines[] = '';
 
@@ -2589,5 +2688,20 @@ final class AtlasForgeRivalsBatteryReportService
     private function nowIso(): string
     {
         return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map(static fn ($item): string => trim((string) $item), $value),
+            static fn (string $item): bool => $item !== '',
+        ));
     }
 }

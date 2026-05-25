@@ -21,7 +21,8 @@ use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArena
  *     adjudicator quality dimensions; planning =
  *     {objective_alignment, scope_discipline, evidence_quality};
  *     execution = {patch_focus, implementation_complexity, test_quality,
- *     maintainability, risk_surface, cost_time_efficiency}),
+ *     maintainability, risk_surface, ceiling_360_contract};
+ *     telemetry-only = {cost_time_efficiency}),
  *   - invalid_cases vs suspicious_cases (each with an explicit reason),
  *   - "atlas_better_in" / "rival_better_in" per (category, L1-L5) cell,
  *   - Atlas Decide recommendation per category (advisory),
@@ -58,9 +59,11 @@ final class AtlasForgeRivalsMatrixReportService
         'test_quality',
         'maintainability',
         'risk_surface',
-        'cost_time_efficiency',
         'ceiling_360_contract',
     ];
+
+    /** @var list<string> */
+    public const TELEMETRY_ONLY_DIMENSIONS = ['cost_time_efficiency'];
 
     public const WINNER_ATLAS = 'atlas';
 
@@ -73,6 +76,10 @@ final class AtlasForgeRivalsMatrixReportService
     private const MIN_DIFFERENTIATED_CAPABILITIES_FOR_STRONG_SIGNAL = 3;
 
     private const HIGH_TIE_RATE_THRESHOLD = 0.6;
+
+    private const MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL = 0.55;
+
+    private const TIE_ESCALATION_CANCEL_AFTER_TIES = 10;
 
     /** @var array<string,list<string>> */
     private const CEILING_360_MARKER_CAPABILITY_MAP = [
@@ -249,6 +256,11 @@ final class AtlasForgeRivalsMatrixReportService
             'difficulty_ranking' => $difficultyRanking,
             'heatmap' => $heatmap,
             'planning_vs_execution' => $planningExecution,
+            'score_decision_policy' => [
+                'winner_uses_cost_time_efficiency' => false,
+                'telemetry_only_dimensions' => self::TELEMETRY_ONLY_DIMENSIONS,
+                'note' => 'Cost/token/time/efficiency are measured for operations analysis but excluded from round winners.',
+            ],
             'capability_ranking' => $capabilityRanking,
             'differentiation' => $differentiation,
             'ceiling_360_contract_matrix' => $ceiling360ContractMatrix,
@@ -431,6 +443,7 @@ final class AtlasForgeRivalsMatrixReportService
             'reason' => $reason,
             'planning' => $planningExecution['planning'],
             'execution' => $planningExecution['execution'],
+            'telemetry' => $planningExecution['telemetry'],
             'measured_capabilities' => $this->capabilityKeysFromCase($case),
             'ceiling_360_contract' => $this->ceiling360ContractFromScorecard($scorecard),
             'battle' => $battle,
@@ -494,7 +507,8 @@ final class AtlasForgeRivalsMatrixReportService
      * @param  array<string,mixed>  $scorecard
      * @return array{
      *   planning: array{atlas:?float,rival:?float,dimensions:list<string>},
-     *   execution: array{atlas:?float,rival:?float,dimensions:list<string>}
+     *   execution: array{atlas:?float,rival:?float,dimensions:list<string>},
+     *   telemetry: array{atlas:?float,rival:?float,dimensions:list<string>}
      * }
      */
     private function splitPlanningExecutionFromScorecard(array $scorecard): array
@@ -502,14 +516,16 @@ final class AtlasForgeRivalsMatrixReportService
         $dims = is_array($scorecard['quality_dimensions'] ?? null) ? $scorecard['quality_dimensions'] : null;
         $planning = ['atlas' => null, 'rival' => null, 'dimensions' => self::PLANNING_DIMENSIONS];
         $execution = ['atlas' => null, 'rival' => null, 'dimensions' => self::EXECUTION_DIMENSIONS];
+        $telemetry = ['atlas' => null, 'rival' => null, 'dimensions' => self::TELEMETRY_ONLY_DIMENSIONS];
         if ($dims === null) {
-            return ['planning' => $planning, 'execution' => $execution];
+            return ['planning' => $planning, 'execution' => $execution, 'telemetry' => $telemetry];
         }
 
         $planning = $this->averageDimensions($dims, self::PLANNING_DIMENSIONS, self::PLANNING_DIMENSIONS);
         $execution = $this->averageDimensions($dims, self::EXECUTION_DIMENSIONS, self::EXECUTION_DIMENSIONS);
+        $telemetry = $this->averageDimensions($dims, self::TELEMETRY_ONLY_DIMENSIONS, self::TELEMETRY_ONLY_DIMENSIONS);
 
-        return ['planning' => $planning, 'execution' => $execution];
+        return ['planning' => $planning, 'execution' => $execution, 'telemetry' => $telemetry];
     }
 
     /**
@@ -767,6 +783,9 @@ final class AtlasForgeRivalsMatrixReportService
         $executionAtlas = 0.0;
         $executionRival = 0.0;
         $executionCount = 0;
+        $telemetryAtlas = 0.0;
+        $telemetryRival = 0.0;
+        $telemetryCount = 0;
         foreach ($cases as $case) {
             $planning = $case['planning'] ?? null;
             if (is_array($planning) && is_numeric($planning['atlas']) && is_numeric($planning['rival'])) {
@@ -779,6 +798,12 @@ final class AtlasForgeRivalsMatrixReportService
                 $executionAtlas += (float) $execution['atlas'];
                 $executionRival += (float) $execution['rival'];
                 $executionCount++;
+            }
+            $telemetry = $case['telemetry'] ?? null;
+            if (is_array($telemetry) && is_numeric($telemetry['atlas']) && is_numeric($telemetry['rival'])) {
+                $telemetryAtlas += (float) $telemetry['atlas'];
+                $telemetryRival += (float) $telemetry['rival'];
+                $telemetryCount++;
             }
         }
 
@@ -808,6 +833,21 @@ final class AtlasForgeRivalsMatrixReportService
                 'leader' => $this->pairLeader($executionAtlas, $executionRival),
                 'sample_size' => $executionCount,
                 'dimensions' => self::EXECUTION_DIMENSIONS,
+            ],
+            'telemetry_only' => $telemetryCount === 0 ? [
+                'atlas' => null,
+                'rival' => null,
+                'leader' => null,
+                'sample_size' => 0,
+                'dimensions' => self::TELEMETRY_ONLY_DIMENSIONS,
+                'excluded_from_winner' => true,
+            ] : [
+                'atlas' => round($telemetryAtlas / $telemetryCount, 2),
+                'rival' => round($telemetryRival / $telemetryCount, 2),
+                'leader' => $this->pairLeader($telemetryAtlas, $telemetryRival),
+                'sample_size' => $telemetryCount,
+                'dimensions' => self::TELEMETRY_ONLY_DIMENSIONS,
+                'excluded_from_winner' => true,
             ],
         ];
     }
@@ -1299,6 +1339,10 @@ final class AtlasForgeRivalsMatrixReportService
         $marginSum = 0.0;
         $maxMargin = 0.0;
         $tiedCaseIds = [];
+        $levelTieBuckets = [];
+        foreach (AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVELS as $level) {
+            $levelTieBuckets[$level] = ['level' => $level, 'cases' => 0, 'ties' => 0];
+        }
 
         foreach ($cases as $case) {
             $winner = (string) ($case['winner'] ?? '');
@@ -1316,6 +1360,14 @@ final class AtlasForgeRivalsMatrixReportService
                 $l5Cases++;
                 if ($isTie) {
                     $l5Ties++;
+                }
+            }
+
+            $level = (string) ($case['difficulty_level'] ?? '');
+            if (isset($levelTieBuckets[$level])) {
+                $levelTieBuckets[$level]['cases']++;
+                if ($isTie) {
+                    $levelTieBuckets[$level]['ties']++;
                 }
             }
         }
@@ -1341,10 +1393,17 @@ final class AtlasForgeRivalsMatrixReportService
         }
         $followupCommands = array_values(array_unique(array_filter($followupCommands)));
 
-        $requiresHarderFollowup = $total > 0
-            && ($tieRate >= 0.6 || ($l5Cases > 0 && $l5TieRate >= 0.6));
+        $perLevelTieEscalation = $this->buildPerLevelTieEscalation($levelTieBuckets);
+        $levelsExceedingTieBudget = $this->stringList($perLevelTieEscalation['levels_exceeding_tie_budget'] ?? []);
+        $shouldCancelCurrentBattery = $ties >= self::TIE_ESCALATION_CANCEL_AFTER_TIES || $levelsExceedingTieBudget !== [];
+        $requiresHarderFollowup = $shouldCancelCurrentBattery || (
+            $total > 0
+            && ($tieRate >= self::HIGH_TIE_RATE_THRESHOLD || ($l5Cases > 0 && $l5TieRate >= self::HIGH_TIE_RATE_THRESHOLD))
+        );
         $status = match (true) {
             $total === 0 => 'no_comparable_cases',
+            $levelsExceedingTieBudget !== [] => 'per_level_tie_escalation_cancel_and_increase_complexity',
+            $shouldCancelCurrentBattery => 'tie_escalation_cancel_and_increase_baseline_complexity',
             $requiresHarderFollowup && $l5Cases > 0 => 'l5_tie_pressure_unresolved',
             $requiresHarderFollowup => 'high_tie_rate_needs_extreme_pressure',
             default => 'differentiating_enough_for_current_sample',
@@ -1363,6 +1422,22 @@ final class AtlasForgeRivalsMatrixReportService
             'average_abs_margin' => $avgMargin,
             'max_abs_margin' => round($maxMargin, 2),
             'high_tie_rate_threshold' => self::HIGH_TIE_RATE_THRESHOLD,
+            'per_level_tie_escalation' => $perLevelTieEscalation,
+            'tie_escalation_policy' => [
+                'schema_version' => 'atlas.forge.rivals.tie_escalation_policy.v1',
+                'cancel_after_tie_count' => self::TIE_ESCALATION_CANCEL_AFTER_TIES,
+                'max_technical_tie_rate_per_difficulty_level' => self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL,
+                'should_cancel_current_battery' => $shouldCancelCurrentBattery,
+                'required_action' => $shouldCancelCurrentBattery
+                    ? 'cancel_current_battery_and_raise_complexity_for_over_tied_levels'
+                    : 'continue_until_cancel_threshold_or_sufficient_differentiation',
+                'next_baseline_complexity' => $shouldCancelCurrentBattery
+                    ? 'multi_capability_composite_l5_plus_plus'
+                    : 'current_or_targeted_extreme_followup',
+                'levels_to_reinforce' => $levelsExceedingTieBudget,
+                'must_metric_more_capabilities' => $shouldCancelCurrentBattery,
+                'cost_efficiency_role' => 'telemetry_only_excluded_from_winner',
+            ],
             'requires_harder_followup' => $requiresHarderFollowup,
             'target_capabilities' => $targetCapabilities,
             'candidate_cases' => array_values(array_filter($candidateCases)),
@@ -1374,6 +1449,57 @@ final class AtlasForgeRivalsMatrixReportService
             ],
             'recommended_dry_run_commands' => array_slice($followupCommands, 0, 6),
             'tie_is_diagnostic_not_claim' => true,
+            'provider_call' => false,
+            'tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    /**
+     * @param  array<string,array{level:string,cases:int,ties:int}>  $levelTieBuckets
+     * @return array<string,mixed>
+     */
+    private function buildPerLevelTieEscalation(array $levelTieBuckets): array
+    {
+        $rows = [];
+        $levelsExceeding = [];
+        foreach (AtlasForgeRivalsProviderArenaCorpusService::DIFFICULTY_LEVELS as $level) {
+            $bucket = $levelTieBuckets[$level] ?? ['level' => $level, 'cases' => 0, 'ties' => 0];
+            $cases = (int) ($bucket['cases'] ?? 0);
+            $ties = (int) ($bucket['ties'] ?? 0);
+            $tieRate = $cases > 0 ? round($ties / $cases, 4) : null;
+            $exceeds = $tieRate !== null && $tieRate > self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL;
+            if ($exceeds) {
+                $levelsExceeding[] = $level;
+            }
+            $rows[] = [
+                'level' => $level,
+                'case_count' => $cases,
+                'technical_tie_count' => $ties,
+                'technical_tie_rate' => $tieRate,
+                'max_allowed_technical_tie_rate' => self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL,
+                'exceeds_tie_budget' => $exceeds,
+                'required_action' => $exceeds
+                    ? 'stop_this_level_and_increase_complexity_functions_and_capability_measurement'
+                    : ($cases === 0 ? 'collect_level_sample' : 'continue_measuring'),
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.per_level_tie_escalation.v1',
+            'purpose' => 'keep L1-L5 difficulty adaptive as models improve by stopping levels with too many technical ties',
+            'max_allowed_technical_tie_rate' => self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL,
+            'levels_exceeding_tie_budget' => $levelsExceeding,
+            'should_cancel_current_battery' => $levelsExceeding !== [],
+            'required_action' => $levelsExceeding === []
+                ? 'continue_current_level_mix'
+                : 'cancel_current_battery_and_reinforce_over_tied_levels',
+            'rows' => $rows,
             'provider_call' => false,
             'tokens_spent' => false,
             'advisory_only' => true,
@@ -1521,11 +1647,18 @@ final class AtlasForgeRivalsMatrixReportService
                 ?: ((int) ($b['missing_count'] ?? 0) <=> (int) ($a['missing_count'] ?? 0))
                 ?: strcmp((string) ($a['marker'] ?? ''), (string) ($b['marker'] ?? ''));
         });
+        $compositePlan = $this->buildCeiling360CompositeNextMeasurementPlan(
+            requirements: $requirements,
+            observedCaseIds: $observedCaseIds,
+        );
 
         return [
             'schema_version' => 'atlas.forge.rivals.ceiling_360_marker_next_measurement_plan.v1',
             'status' => $requirements === [] ? 'complete' : 'needs_more_marker_pressure',
+            'planning_mode' => 'multi_capability_composite_pressure',
+            'single_marker_plan_is_advisory' => true,
             'requirements' => $requirements,
+            'composite_next_measurement_plan' => $compositePlan,
             'dry_run_ready' => true,
             'real_run_ready' => $requirements !== [] && $realRunReady,
             'real_run_blockers' => $realRunReady ? [] : $this->stringList($evidenceDiskStatus['blockers'] ?? []),
@@ -1540,6 +1673,164 @@ final class AtlasForgeRivalsMatrixReportService
             'routing_effect' => 'none',
             'note' => 'Dry-run marker pressure only; real provider calls still require confirmations and disk guard.',
         ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $requirements
+     * @param  list<string>  $observedCaseIds
+     * @return array<string,mixed>
+     */
+    private function buildCeiling360CompositeNextMeasurementPlan(array $requirements, array $observedCaseIds): array
+    {
+        $targetMarkers = [];
+        $targetCapabilities = [];
+        foreach ($requirements as $requirement) {
+            $marker = (string) ($requirement['marker'] ?? '');
+            if ($marker !== '') {
+                $targetMarkers[] = $marker;
+            }
+            $targetCapabilities = array_merge(
+                $targetCapabilities,
+                $this->stringList($requirement['target_capabilities'] ?? []),
+            );
+        }
+        $targetMarkers = array_values(array_unique($targetMarkers));
+        $targetCapabilities = array_values(array_unique($targetCapabilities));
+
+        $candidates = $this->candidateCasesForCompositeCeilingPressure(
+            targetMarkers: $targetMarkers,
+            targetCapabilities: $targetCapabilities,
+            excludeCaseIds: $observedCaseIds,
+            limit: 5,
+        );
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.ceiling_360_composite_next_measurement_plan.v1',
+            'status' => $candidates === [] ? 'complete' : 'needs_multi_capability_pressure',
+            'purpose' => 'avoid single-marker batteries by selecting cases that pressure several L5++ capabilities at once',
+            'target_markers' => $targetMarkers,
+            'target_capabilities' => $targetCapabilities,
+            'candidate_cases' => $candidates,
+            'recommended_dry_run_commands' => [
+                'atlas_dev_vs_claude_sonnet' => array_values(array_map(
+                    fn (array $case): string => $this->arenaDryRunCommandForCase($case, 'atlas_dev', 'sonnet', 'claude_code', 'sonnet'),
+                    $candidates,
+                )),
+                'atlas_forge_vs_claude_sonnet' => array_values(array_map(
+                    fn (array $case): string => $this->arenaDryRunCommandForCase($case, 'atlas_forge', 'sonnet', 'claude_code', 'sonnet'),
+                    $candidates,
+                )),
+                'atlas_dev_vs_atlas_forge' => array_values(array_map(
+                    fn (array $case): string => $this->arenaDryRunCommandForCase($case, 'atlas_dev', 'sonnet', 'atlas_forge', 'sonnet'),
+                    $candidates,
+                )),
+            ],
+            'recommended_real_run_commands_when_ready' => [
+                'atlas_dev_vs_claude_sonnet' => array_values(array_map(
+                    fn (array $case): string => $this->arenaRealRunCommand(
+                        $this->arenaDryRunCommandForCase($case, 'atlas_dev', 'sonnet', 'claude_code', 'sonnet'),
+                    ),
+                    $candidates,
+                )),
+                'atlas_forge_vs_claude_sonnet' => array_values(array_map(
+                    fn (array $case): string => $this->arenaRealRunCommand(
+                        $this->arenaDryRunCommandForCase($case, 'atlas_forge', 'sonnet', 'claude_code', 'sonnet'),
+                    ),
+                    $candidates,
+                )),
+                'atlas_dev_vs_atlas_forge' => array_values(array_map(
+                    fn (array $case): string => $this->arenaRealRunCommand(
+                        $this->arenaDryRunCommandForCase($case, 'atlas_dev', 'sonnet', 'atlas_forge', 'sonnet'),
+                    ),
+                    $candidates,
+                )),
+            ],
+            'provider_call' => false,
+            'tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'note' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    /**
+     * @param  list<string>  $targetMarkers
+     * @param  list<string>  $targetCapabilities
+     * @param  list<string>  $excludeCaseIds
+     * @return list<array<string,mixed>>
+     */
+    private function candidateCasesForCompositeCeilingPressure(
+        array $targetMarkers,
+        array $targetCapabilities,
+        array $excludeCaseIds,
+        int $limit,
+    ): array {
+        $pool = [];
+        foreach ([
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_EXTREME_DIFFERENTIATOR,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_META_PROVIDER_STRESS,
+            AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_STATISTICAL_REPEAT,
+        ] as $caseSet) {
+            try {
+                $pool = array_merge($pool, $this->corpus->casesForCaseSet($caseSet));
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        $candidates = [];
+        foreach ($pool as $case) {
+            if (! is_array($case)) {
+                continue;
+            }
+            $caseId = (string) ($case['case_id'] ?? '');
+            if ($caseId === '' || in_array($caseId, $excludeCaseIds, true)) {
+                continue;
+            }
+
+            $caseCapabilities = $this->capabilityKeysFromCase($case);
+            $matchedCapabilities = array_values(array_intersect($targetCapabilities, $caseCapabilities));
+            if ($targetCapabilities !== [] && $matchedCapabilities === []) {
+                continue;
+            }
+
+            $pressure = is_array($case['ceiling_pressure_profile'] ?? null) ? (array) $case['ceiling_pressure_profile'] : [];
+            $requiredSections = $this->stringList($pressure['required_sections'] ?? []);
+            $matchedMarkers = array_values(array_intersect($targetMarkers, $requiredSections));
+            $compositeScore = count($matchedCapabilities) + count($matchedMarkers);
+
+            $candidates[$caseId] = [
+                'case_id' => $caseId,
+                'case_set' => $case['industrial_case_set'] ?? $case['case_set'] ?? AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
+                'task_category' => $case['task_category'] ?? null,
+                'difficulty_level' => $case['difficulty_level'] ?? null,
+                'ambiguity_level' => $case['ambiguity_level'] ?? null,
+                'risk_level' => $case['risk_level'] ?? null,
+                'composite_score' => $compositeScore,
+                'target_markers' => $matchedMarkers,
+                'target_capabilities' => $matchedCapabilities,
+                'measured_capabilities' => $caseCapabilities,
+            ];
+        }
+
+        $candidates = array_values($candidates);
+        usort($candidates, static function (array $a, array $b): int {
+            $levelScore = ['L5' => 5, 'L4' => 4, 'L3' => 3, 'L2' => 2, 'L1' => 1];
+            $riskScore = ['critical' => 4, 'high' => 3, 'medium' => 2, 'low' => 1];
+            $ambiguityScore = ['high' => 3, 'medium' => 2, 'low' => 1];
+
+            return ((int) ($b['composite_score'] ?? 0) <=> (int) ($a['composite_score'] ?? 0))
+                ?: (($levelScore[(string) ($b['difficulty_level'] ?? '')] ?? 0) <=> ($levelScore[(string) ($a['difficulty_level'] ?? '')] ?? 0))
+                ?: (($riskScore[(string) ($b['risk_level'] ?? '')] ?? 0) <=> ($riskScore[(string) ($a['risk_level'] ?? '')] ?? 0))
+                ?: (($ambiguityScore[(string) ($b['ambiguity_level'] ?? '')] ?? 0) <=> ($ambiguityScore[(string) ($a['ambiguity_level'] ?? '')] ?? 0))
+                ?: strcmp((string) ($a['case_id'] ?? ''), (string) ($b['case_id'] ?? ''));
+        });
+
+        return array_slice($candidates, 0, $limit);
     }
 
     /**
@@ -1930,11 +2221,24 @@ final class AtlasForgeRivalsMatrixReportService
      */
     private function recommendedDryRunCommand(array $case): string
     {
+        return $this->arenaDryRunCommandForCase($case, 'atlas_forge', 'sonnet', 'claude_code', 'sonnet');
+    }
+
+    /**
+     * @param  array<string,mixed>  $case
+     */
+    private function arenaDryRunCommandForCase(
+        array $case,
+        string $armA,
+        string $armAModel,
+        string $armB,
+        string $armBModel,
+    ): string {
         return $this->arenaDryRunCommand(
-            armA: 'atlas_forge',
-            armAModel: 'sonnet',
-            armB: 'claude_code',
-            armBModel: 'sonnet',
+            armA: $armA,
+            armAModel: $armAModel,
+            armB: $armB,
+            armBModel: $armBModel,
             mode: 'provider_arena',
             taskCategory: (string) ($case['task_category'] ?? 'bugfix'),
             caseId: (string) ($case['case_id'] ?? ''),
@@ -2416,12 +2720,15 @@ final class AtlasForgeRivalsMatrixReportService
         $pve = (array) ($matrix['planning_vs_execution'] ?? []);
         $planning = (array) ($pve['planning'] ?? []);
         $execution = (array) ($pve['execution'] ?? []);
+        $telemetryOnly = (array) ($pve['telemetry_only'] ?? []);
         $lines[] = '## planning_score vs execution_score';
         $lines[] = '';
-        $lines[] = '| Eixo | Atlas | Rival | Leader | Amostra | Dimensões |';
-        $lines[] = '|---|---:|---:|---|---:|---|';
-        $lines[] = '| planning | '.($planning['atlas'] ?? '—').' | '.($planning['rival'] ?? '—').' | **'.$this->humanWinner($planning['leader'] ?? null).'** | '.((int) ($planning['sample_size'] ?? 0)).' | '.implode(', ', (array) ($planning['dimensions'] ?? [])).' |';
-        $lines[] = '| execution | '.($execution['atlas'] ?? '—').' | '.($execution['rival'] ?? '—').' | **'.$this->humanWinner($execution['leader'] ?? null).'** | '.((int) ($execution['sample_size'] ?? 0)).' | '.implode(', ', (array) ($execution['dimensions'] ?? [])).' |';
+        $lines[] = '| Eixo | Atlas | Rival | Leader | Amostra | Dimensões | Policy |';
+        $lines[] = '|---|---:|---:|---|---:|---|---|';
+        $lines[] = '| planning | '.($planning['atlas'] ?? '—').' | '.($planning['rival'] ?? '—').' | **'.$this->humanWinner($planning['leader'] ?? null).'** | '.((int) ($planning['sample_size'] ?? 0)).' | '.implode(', ', (array) ($planning['dimensions'] ?? [])).' | winner signal |';
+        $lines[] = '| execution | '.($execution['atlas'] ?? '—').' | '.($execution['rival'] ?? '—').' | **'.$this->humanWinner($execution['leader'] ?? null).'** | '.((int) ($execution['sample_size'] ?? 0)).' | '.implode(', ', (array) ($execution['dimensions'] ?? [])).' | winner signal |';
+        $lines[] = '| telemetry_only | '.($telemetryOnly['atlas'] ?? '—').' | '.($telemetryOnly['rival'] ?? '—').' | **'.$this->humanWinner($telemetryOnly['leader'] ?? null).'** | '.((int) ($telemetryOnly['sample_size'] ?? 0)).' | '.implode(', ', (array) ($telemetryOnly['dimensions'] ?? [])).' | excluded_from_winner |';
+        $lines[] = '- **Cost/token/time/efficiency:** measured as telemetry, excluded from round winners.';
         $lines[] = '';
 
         $capabilityRanking = (array) ($matrix['capability_ranking'] ?? []);
@@ -2465,6 +2772,12 @@ final class AtlasForgeRivalsMatrixReportService
         $lines[] = '- **Status:** `'.($tiePressure['status'] ?? 'no_comparable_cases').'`';
         $lines[] = '- **Tie rate / L5 tie rate:** `'.($tiePressure['tie_rate'] ?? 0).'` / `'.($tiePressure['l5_tie_rate'] ?? 0).'`';
         $lines[] = '- **Requires harder followup:** `'.((bool) ($tiePressure['requires_harder_followup'] ?? false) ? 'true' : 'false').'`';
+        $perLevelTie = (array) ($tiePressure['per_level_tie_escalation'] ?? []);
+        $lines[] = '- **Max technical tie rate per L1-L5:** `'.($perLevelTie['max_allowed_technical_tie_rate'] ?? self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL).'`';
+        $lines[] = '- **Levels over tie budget:** '.$this->joinOrDash(array_map('strval', (array) ($perLevelTie['levels_exceeding_tie_budget'] ?? [])));
+        $tieEscalation = (array) ($tiePressure['tie_escalation_policy'] ?? []);
+        $lines[] = '- **Cancel after ties / cancel now:** `'.((int) ($tieEscalation['cancel_after_tie_count'] ?? self::TIE_ESCALATION_CANCEL_AFTER_TIES)).'` / `'.((bool) ($tieEscalation['should_cancel_current_battery'] ?? false) ? 'true' : 'false').'`';
+        $lines[] = '- **Cost efficiency role:** `'.($tieEscalation['cost_efficiency_role'] ?? 'telemetry_only_excluded_from_winner').'`';
         $lines[] = '- **Target capabilities:** '.$this->joinOrDash(array_map('strval', (array) ($tiePressure['target_capabilities'] ?? [])));
         $lines[] = '- Rivals emits measured evidence; Atlas Decide decides model routing.';
         $lines[] = '';
@@ -2740,6 +3053,12 @@ final class AtlasForgeRivalsMatrixReportService
             'planning_vs_execution' => [
                 'planning' => ['atlas' => null, 'rival' => null, 'leader' => null, 'sample_size' => 0, 'dimensions' => self::PLANNING_DIMENSIONS],
                 'execution' => ['atlas' => null, 'rival' => null, 'leader' => null, 'sample_size' => 0, 'dimensions' => self::EXECUTION_DIMENSIONS],
+                'telemetry_only' => ['atlas' => null, 'rival' => null, 'leader' => null, 'sample_size' => 0, 'dimensions' => self::TELEMETRY_ONLY_DIMENSIONS, 'excluded_from_winner' => true],
+            ],
+            'score_decision_policy' => [
+                'winner_uses_cost_time_efficiency' => false,
+                'telemetry_only_dimensions' => self::TELEMETRY_ONLY_DIMENSIONS,
+                'note' => 'Cost/token/time/efficiency are measured for operations analysis but excluded from round winners.',
             ],
             'capability_ranking' => [
                 'schema_version' => 'atlas.forge.rivals.matrix_capability_ranking.v1',

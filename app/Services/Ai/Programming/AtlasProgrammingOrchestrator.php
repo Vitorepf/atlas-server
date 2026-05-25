@@ -9,6 +9,8 @@ use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
 use App\Services\Ai\Kernel\Provider\AgentBehaviorContract;
 use App\Services\Ai\Kernel\Repair\RepairStrategy;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignRuntimeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionGateService;
 use App\Services\Engineering\EngineeringHarnessExecutionService;
 use Illuminate\Support\Str;
 use Throwable;
@@ -665,6 +667,21 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         }
 
         $planId = (string) (data_get($programmingMessagePlan, 'plan_id') ?: Str::orderedUuid());
+        $atlasFrontendRuntime = app(AtlasFrontendDesignRuntimeService::class)->contract([
+            'task' => $task,
+            'surface' => 'programming.frontend',
+            'workspace' => (string) data_get($programmingMessagePlan, 'workspace', ''),
+        ]);
+        $preExecutionGate = app(AtlasFrontendExecutionGateService::class)->evaluate([
+            'task' => $task,
+            'surface' => 'programming.frontend',
+            'workspace' => (string) data_get($programmingMessagePlan, 'workspace', ''),
+            'acceptance_criteria' => (bool) ($options['acceptance_criteria'] ?? $options['frontend_acceptance'] ?? false),
+            'test_plan' => (bool) ($options['test_plan'] ?? $options['frontend_test_plan'] ?? false),
+            'visual_quality_plan' => (bool) ($options['visual_quality_plan'] ?? $options['frontend_visual_quality_plan'] ?? false),
+            'evidence_plan' => (bool) ($options['evidence_plan'] ?? $options['frontend_evidence_plan'] ?? false),
+            'senior_design_review' => (bool) ($options['senior_design_review'] ?? $options['frontend_senior_design_review'] ?? false),
+        ]);
 
         return [
             'schema_version' => 'atlas.programming.frontend_design_harness.v1',
@@ -727,6 +744,8 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
                 'human_review_required_for_broad_visual_change' => true,
                 'may_not_declare_enterprise_harness_complete_without_gate_receipts' => true,
             ],
+            'atlas_frontend_runtime' => $atlasFrontendRuntime,
+            'pre_execution_gate' => $preExecutionGate,
         ];
     }
 

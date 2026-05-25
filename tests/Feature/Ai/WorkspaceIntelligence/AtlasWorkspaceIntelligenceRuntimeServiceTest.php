@@ -7,6 +7,10 @@ namespace Tests\Feature\Ai\WorkspaceIntelligence;
 use App\Models\AtlasAemorExecutionEpisode;
 use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasAemorOutcome;
+use App\Models\AtlasDevOutcomeMemory;
+use App\Models\AtlasDevTaskPacket;
+use App\Models\AtlasEngineeringRun;
+use App\Models\AtlasEngineeringTestRun;
 use App\Models\AtlasWorkspaceArtifactGraphSnapshot;
 use App\Models\AtlasWorkspaceArtifactLakeEntry;
 use App\Models\AtlasWorkspaceArtifactRetirementProposal;
@@ -21,6 +25,7 @@ use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeServi
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Tests\Concerns\CreatesAemorTables;
 use Tests\TestCase;
@@ -38,6 +43,8 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->createArtifactIntelligenceTables();
         $this->createArtifactOperatingTables();
         $this->createRuntimeProjectionTable();
+        $this->createDevRuntimeOutcomeTables();
+        $this->createEngineeringRuntimeTables();
     }
 
     public function test_default_atlas_workspace_certifies_full_awis_family(): void
@@ -158,6 +165,34 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertFalse($report['awis_learning_loop']['claim_policy']['auto_promotes_memory']);
         $this->assertFalse($report['awis_learning_loop']['claim_policy']['cross_workspace_learning_allowed']);
         $this->assertSame(64, strlen((string) $report['awis_learning_loop']['loop_hash']));
+        $this->assertSame('atlas.awis.workspace_learning_snapshot.v1', $report['workspace_learning_snapshot']['schema_version']);
+        $this->assertSame('ready', $report['workspace_learning_snapshot']['status']);
+        $this->assertSame('atlas', $report['workspace_learning_snapshot']['workspace_id']);
+        $this->assertSame(0.98, $report['workspace_learning_snapshot']['learning_score']);
+        $this->assertSame($report['workspace']['workspace_hash'], $report['workspace_learning_snapshot']['workspace_hash']);
+        $this->assertSame($report['repository_inventory']['inventory_hash'], $report['workspace_learning_snapshot']['component_hashes']['repository_inventory_hash']);
+        $this->assertSame($report['workspace_change_memory']['change_hash'], $report['workspace_learning_snapshot']['component_hashes']['workspace_change_hash']);
+        $this->assertSame($report['workspace_focus_map']['focus_hash'], $report['workspace_learning_snapshot']['component_hashes']['workspace_focus_hash']);
+        $this->assertTrue($report['workspace_learning_snapshot']['workspace_state']['learning_loop_closed']);
+        $this->assertFalse($report['workspace_learning_snapshot']['persistence_policy']['auto_promotes_memory']);
+        $this->assertFalse($report['workspace_learning_snapshot']['persistence_policy']['cross_workspace_learning_allowed']);
+        $this->assertFalse($report['workspace_learning_snapshot']['source_policy']['raw_file_content_returned']);
+        $this->assertFalse($report['workspace_learning_snapshot']['source_policy']['raw_diff_returned']);
+        $this->assertFalse($report['workspace_learning_snapshot']['source_policy']['raw_log_returned']);
+        $this->assertFalse($report['workspace_learning_snapshot']['source_policy']['raw_provider_text_returned']);
+        $this->assertSame(64, strlen((string) $report['workspace_learning_snapshot']['snapshot_hash']));
+        $this->assertSame(
+            $report['workspace_learning_snapshot']['snapshot_hash'],
+            $report['workspace_next_session_brain']['context_loading_plan']['learning_snapshot_hash'],
+        );
+        $this->assertSame(
+            $report['workspace_learning_snapshot']['snapshot_hash'],
+            $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['workspace_learning_snapshot_hash'],
+        );
+        $this->assertContains(
+            'workspace_learning_snapshot_hash_changed',
+            $report['workspace_next_session_brain']['context_loading_plan']['refresh_triggers'],
+        );
         $this->assertSame('ready', $report['execution_boundaries']['status']);
         $this->assertGreaterThanOrEqual(17, $report['execution_boundaries']['guarded_boundaries_total']);
         $this->assertGreaterThanOrEqual(20, $report['execution_boundaries']['process_inventory_total']);
@@ -174,7 +209,317 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertTrue($report['claim_policy']['workspace_change_memory_provider_safe']);
         $this->assertTrue($report['claim_policy']['workspace_focus_map_provider_safe']);
         $this->assertTrue($report['claim_policy']['workspace_next_session_brain_provider_safe']);
+        $this->assertTrue($report['claim_policy']['workspace_learning_snapshot_provider_safe']);
         $this->assertSame(64, strlen((string) $report['runtime_hash']));
+    }
+
+    public function test_workspace_outcome_memory_ranks_commands_from_real_dev_outcomes(): void
+    {
+        $preferred = '/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json';
+        $failing = '/opt/homebrew/bin/php artisan test';
+        $flaky = 'php artisan test --filter=FlakyArea';
+        $slow = 'cd atlas-server && php artisan test --filter=SlowIntegration';
+        $policyRef = 'awis_cache:execution_optimization_policy:'.str_repeat('a', 64);
+        $instantTierRef = 'awis_validation_tier:instant';
+        $docsRouteRef = 'area:'.hash('sha256', 'docs/engineering-knowledge-base');
+        $routeRef = 'awis_execution_route_command:'.hash('sha256', $preferred).':'.$docsRouteRef;
+
+        $goodPacket = AtlasDevTaskPacket::query()->create([
+            'schema_version' => 'atlas.dev.task_packet.v1',
+            'uuid' => (string) Str::uuid(),
+            'run_id' => 'awis-outcome-good',
+            'task_id' => 'task-good',
+            'objective' => 'prove docs health command ranking',
+            'task_class' => 'verification',
+            'risk_band' => 'low',
+            'workspace_slug' => 'atlas',
+            'allowed_files' => [],
+            'forbidden_files' => [],
+            'context_refs' => [$policyRef, $routeRef, $instantTierRef],
+            'expected_files' => ['docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md'],
+            'suggested_tests' => [$preferred],
+            'acceptance_criteria' => ['docs health passes'],
+            'required_evidence' => ['outcome_memory'],
+            'source' => 'test',
+            'task_packet_hash' => hash('sha256', 'awis-outcome-good'),
+        ]);
+        AtlasDevOutcomeMemory::query()->create([
+            'schema_version' => 'atlas.dev.outcome_memory.v1',
+            'uuid' => (string) Str::uuid(),
+            'run_id' => 'awis-outcome-good',
+            'task_id' => 'task-good',
+            'task_packet_id' => $goodPacket->id,
+            'failure_capsule_id' => null,
+            'outcome_status' => 'success',
+            'evidence_kinds' => ['docs_health'],
+            'selected_tests' => [$preferred],
+            'changed_files' => ['docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md'],
+            'learning_candidates' => [],
+            'should_promote_to_aemor' => true,
+            'human_review_required' => false,
+            'outcome_memory_hash' => hash('sha256', 'awis-outcome-good-memory'),
+        ]);
+
+        $badPacket = AtlasDevTaskPacket::query()->create([
+            'schema_version' => 'atlas.dev.task_packet.v1',
+            'uuid' => (string) Str::uuid(),
+            'run_id' => 'awis-outcome-bad',
+            'task_id' => 'task-bad',
+            'objective' => 'record failing broad test command',
+            'task_class' => 'verification',
+            'risk_band' => 'medium',
+            'workspace_slug' => 'atlas',
+            'allowed_files' => [],
+            'forbidden_files' => [],
+            'context_refs' => [$policyRef, $instantTierRef],
+            'expected_files' => ['atlas-server/app/Services/Ai/LegacyBroadTest.php'],
+            'suggested_tests' => [$failing],
+            'acceptance_criteria' => ['broad test command observed'],
+            'required_evidence' => ['outcome_memory'],
+            'source' => 'test',
+            'task_packet_hash' => hash('sha256', 'awis-outcome-bad'),
+        ]);
+        AtlasDevOutcomeMemory::query()->create([
+            'schema_version' => 'atlas.dev.outcome_memory.v1',
+            'uuid' => (string) Str::uuid(),
+            'run_id' => 'awis-outcome-bad',
+            'task_id' => 'task-bad',
+            'task_packet_id' => $badPacket->id,
+            'failure_capsule_id' => null,
+            'outcome_status' => 'failed',
+            'evidence_kinds' => ['test'],
+            'selected_tests' => [$failing],
+            'changed_files' => ['atlas-server/app/Services/Ai/LegacyBroadTest.php'],
+            'learning_candidates' => [],
+            'should_promote_to_aemor' => true,
+            'human_review_required' => true,
+            'outcome_memory_hash' => hash('sha256', 'awis-outcome-bad-memory'),
+        ]);
+
+        $flakyPacket = AtlasDevTaskPacket::query()->create([
+            'schema_version' => 'atlas.dev.task_packet.v1',
+            'uuid' => (string) Str::uuid(),
+            'run_id' => 'awis-outcome-flaky',
+            'task_id' => 'task-flaky',
+            'objective' => 'record mixed command history for area ranking',
+            'task_class' => 'verification',
+            'risk_band' => 'medium',
+            'workspace_slug' => 'atlas',
+            'allowed_files' => [],
+            'forbidden_files' => [],
+            'context_refs' => [],
+            'expected_files' => ['docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md'],
+            'suggested_tests' => [$flaky],
+            'acceptance_criteria' => ['flaky command observed'],
+            'required_evidence' => ['outcome_memory'],
+            'source' => 'test',
+            'task_packet_hash' => hash('sha256', 'awis-outcome-flaky'),
+        ]);
+        foreach (['success', 'failed'] as $index => $status) {
+            AtlasDevOutcomeMemory::query()->create([
+                'schema_version' => 'atlas.dev.outcome_memory.v1',
+                'uuid' => (string) Str::uuid(),
+                'run_id' => 'awis-outcome-flaky-'.$index,
+                'task_id' => 'task-flaky-'.$index,
+                'task_packet_id' => $flakyPacket->id,
+                'failure_capsule_id' => null,
+                'outcome_status' => $status,
+                'evidence_kinds' => ['test'],
+                'selected_tests' => [$flaky],
+                'changed_files' => ['docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md'],
+                'learning_candidates' => [],
+                'should_promote_to_aemor' => true,
+                'human_review_required' => $status !== 'success',
+                'outcome_memory_hash' => hash('sha256', 'awis-outcome-flaky-memory-'.$index),
+            ]);
+        }
+
+        $engineeringRun = AtlasEngineeringRun::query()->create([
+            'task_id' => (string) Str::uuid(),
+            'workspace_path_hash' => hash('sha256', 'atlas-workspace-path'),
+            'workspace_label' => 'atlas',
+            'provider_strategy_json' => [],
+            'context_pack_hash' => hash('sha256', 'awis-context-pack'),
+            'status' => 'completed',
+            'decision' => 'accepted',
+            'max_attempts' => 1,
+            'attempt_count' => 1,
+            'metadata' => ['workspace_slug' => 'atlas'],
+        ]);
+        AtlasEngineeringTestRun::query()->create([
+            'engineering_run_id' => $engineeringRun->id,
+            'command' => $preferred,
+            'exit_code' => 0,
+            'status' => 'passed',
+            'duration_ms' => 7_500,
+            'metadata' => [
+                'expected_files' => ['docs/engineering-knowledge-base/atlas-workspace-twin-runtime.md'],
+                'evidence_hash' => hash('sha256', 'awis-fast-engineering-run'),
+            ],
+        ]);
+        AtlasEngineeringTestRun::query()->create([
+            'engineering_run_id' => $engineeringRun->id,
+            'command' => $slow,
+            'exit_code' => 0,
+            'status' => 'passed',
+            'duration_ms' => 420_000,
+            'metadata' => [
+                'expected_files' => ['atlas-server/app/Services/Ai/SlowIntegration.php'],
+                'evidence_hash' => hash('sha256', 'awis-slow-engineering-run'),
+            ],
+        ]);
+
+        $report = app(AtlasWorkspaceIntelligenceRuntimeService::class)->certify(
+            workspace: 'atlas',
+            task: 'validar docs e testes do AWIS',
+        );
+
+        $memory = $report['awtr']['test_command_intelligence']['outcome_memory'];
+
+        $this->assertSame('atlas.workspace_outcome_command_memory.v1', $memory['schema_version']);
+        $this->assertSame('ready', $memory['status']);
+        $this->assertSame(4, $memory['observed_command_count']);
+        $this->assertContains($preferred, $memory['ranked_commands']);
+        $this->assertContains($flaky, $memory['flaky_commands']);
+        $this->assertContains($slow, $memory['slow_commands']);
+        $this->assertContains($failing, $memory['avoid_commands']);
+        $this->assertContains($slow, $memory['avoid_commands']);
+        $this->assertSame(2, $memory['command_outcome_index'][$preferred]['success_count']);
+        $this->assertSame(2, $memory['command_outcome_index'][$preferred]['total_count']);
+        $this->assertSame(1, $memory['command_outcome_index'][$failing]['failure_count']);
+        $this->assertSame('stable', $memory['command_outcome_index'][$preferred]['stability']);
+        $this->assertSame('mixed', $memory['command_outcome_index'][$flaky]['stability']);
+        $this->assertSame('fast', $memory['command_outcome_index'][$preferred]['performance_grade']);
+        $this->assertSame('slow', $memory['command_outcome_index'][$slow]['performance_grade']);
+        $this->assertSame(7500, $memory['command_outcome_index'][$preferred]['duration_ms_avg']);
+        $this->assertSame(7500, $memory['command_outcome_index'][$preferred]['duration_ms_p95']);
+        $this->assertSame(1, $memory['command_outcome_index'][$preferred]['duration_bucket_counts']['under_10s']);
+        $this->assertSame(420000, $memory['command_outcome_index'][$slow]['duration_ms_avg']);
+        $this->assertSame(420000, $memory['command_outcome_index'][$slow]['duration_ms_p95']);
+        $this->assertSame(1, $memory['command_outcome_index'][$slow]['duration_bucket_counts']['5m_to_15m']);
+        $this->assertSame('atlas.workspace_command_performance_histogram.v1', $memory['performance_histogram']['schema_version']);
+        $this->assertSame(2, $memory['performance_histogram']['performance_observed_command_count']);
+        $this->assertSame(1, $memory['performance_histogram']['bucket_counts']['under_10s']);
+        $this->assertSame(1, $memory['performance_histogram']['bucket_counts']['5m_to_15m']);
+        $this->assertContains($preferred, $memory['performance_histogram']['fast_commands']);
+        $this->assertContains($slow, $memory['performance_histogram']['slow_commands']);
+        $this->assertSame('atlas.workspace_execution_policy_effectiveness_index.v1', $memory['execution_policy_effectiveness_index']['schema_version']);
+        $this->assertSame(1, $memory['execution_policy_effectiveness_index']['policy_count']);
+        $this->assertSame('execution_optimization_policy:'.str_repeat('a', 64), $memory['execution_policy_effectiveness_index']['policies'][0]['policy_ref']);
+        $this->assertSame(1, $memory['execution_policy_effectiveness_index']['policies'][0]['success_count']);
+        $this->assertSame(1, $memory['execution_policy_effectiveness_index']['policies'][0]['failure_count']);
+        $this->assertSame('mixed', $memory['execution_policy_effectiveness_index']['policies'][0]['effectiveness']);
+        $this->assertContains($preferred, $memory['execution_policy_effectiveness_index']['policies'][0]['commands']);
+        $this->assertContains($failing, $memory['execution_policy_effectiveness_index']['policies'][0]['commands']);
+        $this->assertFalse($memory['execution_policy_effectiveness_index']['source_policy']['raw_logs_returned']);
+        $this->assertSame(64, strlen((string) $memory['execution_policy_effectiveness_index']['index_hash']));
+        $this->assertSame('atlas.workspace_execution_route_effectiveness_index.v1', $memory['execution_route_effectiveness_index']['schema_version']);
+        $this->assertSame(1, $memory['execution_route_effectiveness_index']['route_count']);
+        $this->assertSame($docsRouteRef, $memory['execution_route_effectiveness_index']['routes'][0]['route_ref']);
+        $this->assertSame('effective', $memory['execution_route_effectiveness_index']['routes'][0]['effectiveness']);
+        $this->assertContains($preferred, $memory['execution_route_effectiveness_index']['routes'][0]['commands']);
+        $this->assertFalse($memory['execution_route_effectiveness_index']['source_policy']['raw_logs_returned']);
+        $this->assertSame('atlas.workspace_validation_tier_effectiveness_index.v1', $memory['validation_tier_effectiveness_index']['schema_version']);
+        $this->assertSame(1, $memory['validation_tier_effectiveness_index']['tier_count']);
+        $this->assertSame('tier:instant', $memory['validation_tier_effectiveness_index']['tiers'][0]['tier_ref']);
+        $this->assertSame('mixed', $memory['validation_tier_effectiveness_index']['tiers'][0]['effectiveness']);
+        $this->assertSame(1, $memory['validation_tier_effectiveness_index']['tiers'][0]['success_count']);
+        $this->assertSame(1, $memory['validation_tier_effectiveness_index']['tiers'][0]['failure_count']);
+        $this->assertFalse($memory['validation_tier_effectiveness_index']['source_policy']['raw_logs_returned']);
+        $this->assertSame('atlas.workspace_area_performance_index.v1', $memory['area_performance_index']['schema_version']);
+        $this->assertSame('atlas.workspace_stack_performance_index.v1', $memory['stack_performance_index']['schema_version']);
+        $this->assertContains('laravel', array_column($memory['stack_performance_index']['profiles'], 'key'));
+        $this->assertContains('php', array_column($memory['stack_performance_index']['profiles'], 'key'));
+        $this->assertContains('atlas-server/app', array_column($memory['area_performance_index']['profiles'], 'key'));
+        $this->assertSame(1, $memory['command_outcome_index'][$slow]['stack_performance']['laravel']['observed_count']);
+        $this->assertSame(420000, $memory['command_outcome_index'][$slow]['stack_performance']['laravel']['duration_ms_p95']);
+        $this->assertSame(1, $memory['command_outcome_index'][$slow]['area_performance']['atlas-server/app']['observed_count']);
+        $this->assertGreaterThan(
+            $memory['command_outcome_index'][$preferred]['score'],
+            $memory['command_outcome_index'][$preferred]['effective_score'],
+        );
+        $this->assertLessThan(
+            $memory['command_outcome_index'][$slow]['score'],
+            $memory['command_outcome_index'][$slow]['effective_score'],
+        );
+        $this->assertSame(2, $memory['command_outcome_index'][$preferred]['area_affinity']['docs/engineering-knowledge-base']);
+        $this->assertSame(2, $memory['command_outcome_index'][$flaky]['area_affinity']['docs/engineering-knowledge-base']);
+        $this->assertFalse($memory['source_policy']['raw_log_returned']);
+        $this->assertFalse($memory['source_policy']['raw_provider_text_returned']);
+        $this->assertSame($preferred, $report['awtr']['test_command_intelligence']['commands'][0]);
+        $this->assertSame($preferred, $report['workspace_focus_map']['focused_commands'][0]);
+        $this->assertSame($preferred, $report['workspace_next_session_brain']['execution_priority'][0]['command']);
+        $this->assertSame($memory['outcome_memory_hash'], $report['workspace_next_session_brain']['context_loading_plan']['outcome_command_memory_hash']);
+        $this->assertContains($preferred, $report['workspace_next_session_brain']['context_loading_plan']['outcome_ranked_commands']);
+        $this->assertContains($flaky, $report['workspace_next_session_brain']['context_loading_plan']['area_ranked_commands']);
+        $this->assertContains($flaky, $report['workspace_next_session_brain']['context_loading_plan']['flaky_commands']);
+        $this->assertContains($slow, $report['workspace_next_session_brain']['context_loading_plan']['slow_commands']);
+        $this->assertContains($failing, $report['workspace_next_session_brain']['context_loading_plan']['avoid_commands']);
+        $this->assertContains($slow, $report['workspace_next_session_brain']['context_loading_plan']['avoid_commands']);
+        $this->assertTrue($report['workspace_next_session_brain']['context_loading_plan']['command_performance_policy']['prefer_recent_stable_fast_commands']);
+        $this->assertTrue($report['workspace_next_session_brain']['context_loading_plan']['command_performance_policy']['uses_duration_p95']);
+        $this->assertTrue($report['workspace_next_session_brain']['context_loading_plan']['command_performance_policy']['uses_duration_buckets']);
+        $this->assertSame($memory['performance_histogram']['histogram_hash'], $report['workspace_next_session_brain']['context_loading_plan']['command_performance_histogram_hash']);
+        $this->assertSame($memory['area_performance_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['area_performance_index_hash']);
+        $this->assertSame($memory['stack_performance_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['stack_performance_index_hash']);
+        $this->assertSame($memory['execution_policy_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['execution_policy_effectiveness_index_hash']);
+        $this->assertSame($memory['execution_route_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['execution_route_effectiveness_index_hash']);
+        $this->assertSame($memory['validation_tier_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['validation_tier_effectiveness_index_hash']);
+        $this->assertSame('mixed', $report['workspace_next_session_brain']['context_loading_plan']['execution_policy_effectiveness_profiles'][0]['effectiveness']);
+        $this->assertSame('effective', $report['workspace_next_session_brain']['context_loading_plan']['execution_route_effectiveness_profiles'][0]['effectiveness']);
+        $this->assertSame('mixed', $report['workspace_next_session_brain']['context_loading_plan']['validation_tier_effectiveness_profiles'][0]['effectiveness']);
+        $optimizationPolicy = $report['workspace_next_session_brain']['context_loading_plan']['execution_optimization_policy'];
+        $this->assertSame('atlas.awis.execution_optimization_policy.v1', $optimizationPolicy['schema_version']);
+        $this->assertSame('prefer_fast_stable_area_relevant_commands', $optimizationPolicy['mode']);
+        $this->assertContains($preferred, $optimizationPolicy['preferred_commands']);
+        $this->assertContains($slow, $optimizationPolicy['blocked_commands']);
+        $this->assertContains($failing, $optimizationPolicy['blocked_commands']);
+        $this->assertSame(1, $optimizationPolicy['policy_feedback']['observed_policy_count']);
+        $this->assertContains('execution_optimization_policy:'.str_repeat('a', 64), $optimizationPolicy['policy_feedback']['mixed_policy_refs']);
+        $this->assertSame('tighten_default_to_preferred_fast_commands', $optimizationPolicy['policy_feedback']['next_adjustment']);
+        $this->assertSame(4, $optimizationPolicy['policy_feedback']['standard_command_limit']);
+        $this->assertSame('atlas.awis.execution_scope_routing.v1', $optimizationPolicy['scope_routing']['schema_version']);
+        $this->assertGreaterThan(0, $optimizationPolicy['scope_routing']['route_count']);
+        $this->assertTrue($optimizationPolicy['selection_policy']['scope_routes_override_global_order_when_present']);
+        $areaRoutes = array_column($optimizationPolicy['scope_routing']['area_routes'], null, 'key');
+        $stackRoutes = array_column($optimizationPolicy['scope_routing']['stack_routes'], null, 'key');
+        $this->assertSame($docsRouteRef, $areaRoutes['docs/engineering-knowledge-base']['route_ref']);
+        $this->assertSame('effective', $areaRoutes['docs/engineering-knowledge-base']['feedback_effectiveness']);
+        $this->assertContains($preferred, $areaRoutes['docs/engineering-knowledge-base']['preferred_commands']);
+        $this->assertSame('standard', $areaRoutes['docs/engineering-knowledge-base']['recommended_validation_tier']);
+        $this->assertSame('instant_tier_feedback_guarded', $areaRoutes['docs/engineering-knowledge-base']['validation_reason']);
+        $this->assertContains($slow, $areaRoutes['atlas-server/app']['blocked_commands']);
+        $this->assertSame('deep_validation_only', $areaRoutes['atlas-server/app']['route_mode']);
+        $this->assertSame('deep', $areaRoutes['atlas-server/app']['recommended_validation_tier']);
+        $this->assertContains($slow, $stackRoutes['laravel']['blocked_commands']);
+        $this->assertTrue($optimizationPolicy['selection_policy']['prepend_preferred_commands_to_task_packets']);
+        $this->assertTrue($optimizationPolicy['selection_policy']['route_feedback_controls_validation_depth']);
+        $this->assertSame('atlas.awis.validation_tier_routing.v1', $optimizationPolicy['validation_tier_routing']['schema_version']);
+        $this->assertSame('route_and_risk_aware_validation_depth', $optimizationPolicy['validation_tier_routing']['mode']);
+        $this->assertGreaterThanOrEqual(1, $optimizationPolicy['validation_tier_routing']['standard_route_count']);
+        $this->assertGreaterThanOrEqual(1, $optimizationPolicy['validation_tier_routing']['deep_route_count']);
+        $this->assertSame('mixed', $optimizationPolicy['validation_tier_routing']['tier_feedback']['instant_effectiveness']);
+        $this->assertTrue($optimizationPolicy['validation_tier_routing']['tier_feedback']['instant_guarded']);
+        $this->assertFalse($optimizationPolicy['validation_tier_routing']['raw_logs_returned']);
+        $this->assertFalse($optimizationPolicy['source_policy']['raw_logs_returned']);
+        $this->assertSame(64, strlen((string) $optimizationPolicy['policy_hash']));
+        $this->assertSame($optimizationPolicy['policy_hash'], $report['workspace_next_session_brain']['context_loading_plan']['execution_optimization_policy_hash']);
+        $this->assertSame(1, $report['workspace_next_session_brain']['context_loading_plan']['command_performance_histogram']['bucket_counts']['under_10s']);
+        $this->assertSame(1, $report['workspace_next_session_brain']['context_loading_plan']['command_performance_histogram']['bucket_counts']['5m_to_15m']);
+        $this->assertContains('atlas-server/app', array_column($report['workspace_next_session_brain']['context_loading_plan']['area_performance_profiles'], 'key'));
+        $this->assertContains('laravel', array_column($report['workspace_next_session_brain']['context_loading_plan']['stack_performance_profiles'], 'key'));
+        $this->assertSame($memory['outcome_memory_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['outcome_command_memory_hash']);
+        $this->assertSame($memory['performance_histogram']['histogram_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['command_performance_histogram_hash']);
+        $this->assertSame($memory['area_performance_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['area_performance_index_hash']);
+        $this->assertSame($memory['stack_performance_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['stack_performance_index_hash']);
+        $this->assertSame($memory['execution_policy_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['execution_policy_effectiveness_index_hash']);
+        $this->assertSame($memory['execution_route_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['execution_route_effectiveness_index_hash']);
+        $this->assertSame($memory['validation_tier_effectiveness_index']['index_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['validation_tier_effectiveness_index_hash']);
+        $this->assertSame($optimizationPolicy['policy_hash'], $report['workspace_next_session_brain']['context_loading_plan']['cache_keys']['execution_optimization_policy_hash']);
+        $this->assertTrue($report['workspace_next_session_brain']['performance_budget']['uses_outcome_command_memory']);
+        $this->assertTrue($report['workspace_next_session_brain']['performance_budget']['uses_command_performance_memory']);
+        $this->assertTrue($report['workspace_next_session_brain']['performance_budget']['uses_execution_optimization_policy']);
+        $this->assertSame($optimizationPolicy['policy_hash'], $report['workspace_next_session_brain']['performance_budget']['execution_optimization_policy_hash']);
     }
 
     public function test_workspace_handoff_pack_projects_provider_safe_context(): void
@@ -1227,6 +1572,16 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
             ->firstOrFail();
         $this->assertSame('ready', $snapshot->family_status['AWAIR'] ?? null);
         $this->assertSame('atlas.workspace_artifact_intelligence.v1', data_get($snapshot->payload, 'awair.schema_version'));
+        $this->assertSame('atlas.awis.workspace_learning_snapshot.v1', data_get($snapshot->payload, 'workspace_learning_snapshot.schema_version'));
+        $this->assertSame($decoded['workspace_learning_snapshot']['snapshot_hash'], data_get($snapshot->payload, 'workspace_learning_snapshot.snapshot_hash'));
+        $this->assertSame(
+            $decoded['workspace_learning_snapshot']['snapshot_hash'],
+            data_get($snapshot->payload, 'workspace_next_session_brain.context_loading_plan.cache_keys.workspace_learning_snapshot_hash'),
+        );
+        $this->assertFalse((bool) data_get($snapshot->payload, 'workspace_learning_snapshot.source_policy.raw_file_content_returned'));
+        $this->assertFalse((bool) data_get($snapshot->payload, 'workspace_learning_snapshot.source_policy.raw_diff_returned'));
+        $this->assertFalse((bool) data_get($snapshot->payload, 'workspace_learning_snapshot.source_policy.raw_log_returned'));
+        $this->assertFalse((bool) data_get($snapshot->payload, 'workspace_learning_snapshot.source_policy.raw_provider_text_returned'));
 
         $graph = AtlasWorkspaceArtifactGraphSnapshot::query()
             ->where('runtime_hash', $decoded['runtime_hash'])
@@ -1720,6 +2075,10 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertContains('workspace_change_memory', $brain['load_order']);
         $this->assertSame('atlas.awis.context_loading_plan.v1', $brain['context_loading_plan']['schema_version']);
         $this->assertSame(64, strlen((string) $brain['context_loading_plan']['repository_inventory_hash']));
+        $this->assertSame(64, strlen((string) $brain['context_loading_plan']['outcome_command_memory_hash']));
+        $this->assertSame(64, strlen((string) $brain['context_loading_plan']['command_performance_histogram_hash']));
+        $this->assertSame(64, strlen((string) $brain['context_loading_plan']['area_performance_index_hash']));
+        $this->assertSame(64, strlen((string) $brain['context_loading_plan']['stack_performance_index_hash']));
         $this->assertFalse($brain['context_loading_plan']['provider_policy']['raw_manifest_returned']);
         $this->assertFalse($brain['context_loading_plan']['provider_policy']['script_bodies_returned']);
         $this->assertTrue($brain['provider_safe']);
@@ -1729,9 +2088,35 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertSame('atlas.dev_runtime.awis_context_selection.v1', $selection['schema_version']);
         $this->assertTrue($selection['provider_safe']);
         $this->assertSame(64, strlen((string) $selection['repository_inventory_hash']));
+        $this->assertSame(64, strlen((string) $selection['outcome_command_memory_hash']));
+        $this->assertSame(64, strlen((string) $selection['command_performance_histogram_hash']));
+        $this->assertSame(64, strlen((string) $selection['area_performance_index_hash']));
+        $this->assertSame(64, strlen((string) $selection['stack_performance_index_hash']));
+        $this->assertSame(64, strlen((string) $selection['workspace_learning_snapshot_hash']));
+        $this->assertSame(64, strlen((string) $selection['execution_optimization_policy_hash']));
+        $this->assertSame(64, strlen((string) $selection['execution_policy_effectiveness_index_hash']));
+        $this->assertSame('atlas.awis.validation_depth_decision.v1', data_get($selection, 'validation_depth_decision.schema_version'));
+        $this->assertContains(data_get($selection, 'validation_depth_decision.tier'), ['instant', 'standard', 'deep']);
+        $this->assertFalse(data_get($selection, 'validation_depth_decision.raw_logs_returned'));
         $this->assertContains('awis_cache:repository_inventory:'.$selection['repository_inventory_hash'], $selection['context_refs']);
+        $this->assertContains('awis_cache:outcome_command_memory:'.$selection['outcome_command_memory_hash'], $selection['context_refs']);
+        $this->assertContains('awis_cache:command_performance_histogram:'.$selection['command_performance_histogram_hash'], $selection['context_refs']);
+        $this->assertContains('awis_cache:area_performance_index:'.$selection['area_performance_index_hash'], $selection['context_refs']);
+        $this->assertContains('awis_cache:stack_performance_index:'.$selection['stack_performance_index_hash'], $selection['context_refs']);
+        $this->assertContains('awis_cache:workspace_learning_snapshot:'.$selection['workspace_learning_snapshot_hash'], $selection['context_refs']);
+        $this->assertContains('awis_cache:execution_optimization_policy:'.$selection['execution_optimization_policy_hash'], $selection['context_refs']);
+        $this->assertContains('awis_cache:execution_policy_effectiveness:'.$selection['execution_policy_effectiveness_index_hash'], $selection['context_refs']);
+        $this->assertContains('awis_validation_tier:'.data_get($selection, 'validation_depth_decision.tier'), $selection['context_refs']);
         $preview = data_get($data, 'payload.atlas_dev_runtime_intelligence');
         $this->assertContains('awis_cache:repository_inventory:'.$selection['repository_inventory_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:outcome_command_memory:'.$selection['outcome_command_memory_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:command_performance_histogram:'.$selection['command_performance_histogram_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:area_performance_index:'.$selection['area_performance_index_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:stack_performance_index:'.$selection['stack_performance_index_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:workspace_learning_snapshot:'.$selection['workspace_learning_snapshot_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:execution_optimization_policy:'.$selection['execution_optimization_policy_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:execution_policy_effectiveness:'.$selection['execution_policy_effectiveness_index_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_validation_tier:'.data_get($selection, 'validation_depth_decision.tier'), data_get($preview, 'task_packet.context_refs'));
         foreach ($selection['suggested_tests'] as $suggestedTest) {
             $this->assertContains($suggestedTest, data_get($preview, 'task_packet.suggested_tests'));
         }
@@ -1792,6 +2177,9 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertIsArray($selection);
         $this->assertSame('atlas.dev_runtime.awis_context_selection.v1', $selection['schema_version']);
         $this->assertContains('awis_cache:repository_inventory:'.$selection['repository_inventory_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:workspace_learning_snapshot:'.$selection['workspace_learning_snapshot_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:execution_optimization_policy:'.$selection['execution_optimization_policy_hash'], data_get($preview, 'task_packet.context_refs'));
+        $this->assertContains('awis_cache:execution_policy_effectiveness:'.$selection['execution_policy_effectiveness_index_hash'], data_get($preview, 'task_packet.context_refs'));
         $this->assertContains('aedpds_context:owner_or_relevant_context', data_get($preview, 'task_packet.context_refs'));
         $this->assertContains('aedpds_context:acceptance_criteria', data_get($preview, 'task_packet.context_refs'));
         foreach ($packet['test_plan'] as $testCommand) {
@@ -2032,6 +2420,106 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
             $table->timestamps();
 
             $table->unique(['runtime_hash', 'family']);
+        });
+    }
+
+    private function createDevRuntimeOutcomeTables(): void
+    {
+        if (! Schema::hasTable('atlas_dev_task_packets')) {
+            Schema::create('atlas_dev_task_packets', function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+                $table->string('schema_version', 120)->default('atlas.dev.task_packet.v1');
+                $table->string('uuid', 64)->unique();
+                $table->string('run_id', 120)->index();
+                $table->string('task_id', 120)->index();
+                $table->text('objective');
+                $table->string('task_class', 80)->index();
+                $table->string('risk_band', 40)->index();
+                $table->string('workspace_slug', 160)->nullable()->index();
+                $table->json('allowed_files');
+                $table->json('forbidden_files');
+                $table->json('context_refs');
+                $table->json('expected_files');
+                $table->json('suggested_tests');
+                $table->json('acceptance_criteria');
+                $table->json('required_evidence');
+                $table->string('source', 120)->nullable()->index();
+                $table->string('task_packet_hash', 64)->unique();
+                $table->timestamps();
+            });
+        }
+
+        if (Schema::hasTable('atlas_dev_outcome_memories')) {
+            return;
+        }
+
+        Schema::create('atlas_dev_outcome_memories', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('schema_version', 120)->default('atlas.dev.outcome_memory.v1');
+            $table->string('uuid', 64)->unique();
+            $table->string('run_id', 120)->index();
+            $table->string('task_id', 120)->index();
+            $table->uuid('task_packet_id')->nullable()->index();
+            $table->uuid('failure_capsule_id')->nullable()->index();
+            $table->string('outcome_status', 40)->index();
+            $table->json('evidence_kinds');
+            $table->json('selected_tests');
+            $table->json('changed_files');
+            $table->json('learning_candidates');
+            $table->boolean('should_promote_to_aemor')->default(true)->index();
+            $table->boolean('human_review_required')->default(false)->index();
+            $table->string('outcome_memory_hash', 64)->unique();
+            $table->timestamps();
+        });
+    }
+
+    private function createEngineeringRuntimeTables(): void
+    {
+        if (! Schema::hasTable('atlas_engineering_runs')) {
+            Schema::create('atlas_engineering_runs', function (Blueprint $table): void {
+                $table->uuid('id')->primary();
+                $table->uuid('task_id')->index();
+                $table->uuid('project_id')->nullable()->index();
+                $table->uuid('project_step_id')->nullable()->index();
+                $table->uuid('blueprint_snapshot_id')->nullable()->index();
+                $table->string('blueprint_id', 120)->nullable()->index();
+                $table->uuid('trace_id')->nullable()->index();
+                $table->uuid('context_pack_id')->nullable()->index();
+                $table->string('workspace_path_hash', 64);
+                $table->string('workspace_label', 180);
+                $table->json('provider_strategy_json')->default('{}');
+                $table->string('context_pack_hash', 64)->nullable()->index();
+                $table->unsignedSmallInteger('harnessability_score')->nullable();
+                $table->string('status', 32)->default('queued')->index();
+                $table->string('decision', 32)->nullable()->index();
+                $table->unsignedSmallInteger('score')->nullable();
+                $table->unsignedSmallInteger('max_attempts')->default(1);
+                $table->unsignedSmallInteger('attempt_count')->default(0);
+                $table->timestamp('started_at')->nullable();
+                $table->timestamp('finished_at')->nullable();
+                $table->json('metadata')->default('{}');
+                $table->timestamps();
+            });
+        }
+
+        if (Schema::hasTable('atlas_engineering_test_runs')) {
+            return;
+        }
+
+        Schema::create('atlas_engineering_test_runs', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('engineering_run_id')->index();
+            $table->uuid('attempt_id')->nullable()->index();
+            $table->uuid('test_case_id')->nullable()->index();
+            $table->string('command', 500)->nullable();
+            $table->integer('exit_code')->nullable();
+            $table->string('status', 32)->index();
+            $table->integer('duration_ms')->default(0);
+            $table->text('stdout_excerpt')->nullable();
+            $table->text('stderr_excerpt')->nullable();
+            $table->text('artifact_path')->nullable();
+            $table->json('metadata')->default('{}');
+            $table->timestamps();
         });
     }
 }

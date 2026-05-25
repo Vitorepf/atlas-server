@@ -1425,6 +1425,69 @@ class AtlasAiProductCertificationService
         ]);
     }
 
+    private function frontendOperationalUnderstandingCheck(): array
+    {
+        $orchestratorSource = $this->source($this->repoPath(self::PATH_PROGRAMMING_ORCHESTRATOR));
+        $orchestratorTestSource = $this->source($this->repoPath(self::PATH_PROGRAMMING_ORCHESTRATOR_TEST));
+        $frontendDocSource = $this->source($this->repoPath(self::PATH_PROGRAMMING_FRONTEND_DOC));
+        $desktopTripSource = $this->source($this->repoPath(self::PATH_DESKTOP_PRODUCT_TRIP_TEST));
+        $desktopPresentationSource = $this->source($this->repoPath(self::PATH_DESKTOP_PRESENTATION));
+        $mobilePresentationSource = $this->source($this->repoPath(self::PATH_MOBILE_PRESENTATION));
+        $desktopContextPanelSource = $this->source($this->repoPath(self::PATH_DESKTOP_CONTEXT_PANEL));
+        $mobileContextSheetSource = $this->source($this->repoPath(self::PATH_MOBILE_CONTEXT_SHEET));
+
+        $frontendProfileRouted = str_contains($orchestratorSource, 'frontendDesignHarnessContract')
+            && str_contains($orchestratorSource, 'programming.frontend')
+            && str_contains($orchestratorSource, 'atlas.programming.frontend_design_harness.v1');
+        $harnessRequiresRealFrontendEvidence = str_contains($orchestratorSource, 'visual_smoke_multi_viewport')
+            && str_contains($orchestratorSource, 'asset_provenance_check')
+            && str_contains($orchestratorSource, 'design_5d_review')
+            && str_contains($orchestratorSource, 'screenshot_alone_is_insufficient')
+            && str_contains($orchestratorSource, 'visual_a11y_perf_state_required_or_reason');
+        $testsCoverFrontendContract = str_contains($orchestratorTestSource, 'implemente layout frontend mobile com design system')
+            && str_contains($orchestratorTestSource, 'frontend_design_harness_contract.schema_version')
+            && str_contains($orchestratorTestSource, 'visual_smoke_multi_viewport')
+            && str_contains($orchestratorTestSource, 'asset_provenance_check')
+            && str_contains($orchestratorTestSource, 'screenshot_alone_is_insufficient');
+        $frontendDocsPresent = str_contains($frontendDocSource, 'programming.frontend')
+            && str_contains($frontendDocSource, 'frontend_design_harness')
+            && str_contains($frontendDocSource, 'visual/a11y/perf')
+            && str_contains($frontendDocSource, 'screenshot');
+        $desktopTripProvesUserFlow = str_contains($desktopTripSource, 'composer payload')
+            && str_contains($desktopTripSource, 'Hyperflow V2 request')
+            && str_contains($desktopTripSource, 'Hyperflow V2 response view-model')
+            && str_contains($desktopTripSource, 'Response Presentation Contract');
+        $presentationContractShared = str_contains($desktopPresentationSource, 'projectPresentation')
+            && str_contains($desktopPresentationSource, 'sections: Record<string, string[]>')
+            && str_contains($desktopPresentationSource, 'metadata: { sections')
+            && str_contains($mobilePresentationSource, 'projectPresentation')
+            && str_contains($mobilePresentationSource, 'sections: Record<string, string[]>')
+            && str_contains($mobilePresentationSource, 'metadata: { sections');
+        $contextSurfacesConsumeRuntime = str_contains($desktopContextPanelSource, 'useHyperflowRuntime')
+            && str_contains($desktopContextPanelSource, 'useRuntimeReadiness')
+            && str_contains($mobileContextSheetSource, 'useRuntimeReadiness')
+            && str_contains($mobileContextSheetSource, 'assistedExecution');
+
+        $passed = $frontendProfileRouted && $harnessRequiresRealFrontendEvidence
+            && $testsCoverFrontendContract && $frontendDocsPresent
+            && $desktopTripProvesUserFlow && $presentationContractShared
+            && $contextSurfacesConsumeRuntime;
+
+        return $this->check('frontend_operational_understanding', $passed, 'critical', [
+            'frontend_profile_routed' => $frontendProfileRouted,
+            'harness_requires_real_frontend_evidence' => $harnessRequiresRealFrontendEvidence,
+            'tests_cover_frontend_contract' => $testsCoverFrontendContract,
+            'canonical_frontend_doc_present' => $frontendDocsPresent,
+            'desktop_trip_proves_user_flow' => $desktopTripProvesUserFlow,
+            'presentation_contract_shared_desktop_mobile' => $presentationContractShared,
+            'context_surfaces_consume_runtime_readiness' => $contextSurfacesConsumeRuntime,
+            'orchestrator_path' => self::PATH_PROGRAMMING_ORCHESTRATOR,
+            'orchestrator_test_path' => self::PATH_PROGRAMMING_ORCHESTRATOR_TEST,
+            'frontend_doc_path' => self::PATH_PROGRAMMING_FRONTEND_DOC,
+            'desktop_trip_test_path' => self::PATH_DESKTOP_PRODUCT_TRIP_TEST,
+        ]);
+    }
+
     private function assistedExecutionQualityCheck(): array
     {
         $serviceSource = $this->source($this->repoPath(self::PATH_ASSISTED_EXECUTION_SERVICE));
@@ -2035,6 +2098,9 @@ class AtlasAiProductCertificationService
             'server:'.self::PATH_CODE_INTELLIGENCE_GATE_SERVICE,
             'test:'.self::PATH_CODE_INTELLIGENCE_GATE_TEST,
             'server:'.self::PATH_CODE_INTELLIGENCE_DOC,
+            'server:'.self::PATH_PROGRAMMING_ORCHESTRATOR,
+            'test:'.self::PATH_PROGRAMMING_ORCHESTRATOR_TEST,
+            'server:'.self::PATH_PROGRAMMING_FRONTEND_DOC,
             'server:'.self::PATH_AVCEL_SERVICE,
             'server:'.self::PATH_AVCEL_COMMAND,
             'test:'.self::PATH_AVCEL_TEST,

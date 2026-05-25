@@ -317,6 +317,43 @@ final class AtlasForgeRivalsAdjudicatorScoringSanityV1Test extends TestCase
         ]);
     }
 
+    public function test_cost_time_efficiency_is_reported_but_excluded_from_winner_decision(): void
+    {
+        $runId = $this->newRunId('cost-telemetry-only');
+        $this->seedRun(
+            $runId,
+            mode: 'fair',
+            atlas: [
+                'stdout_bytes' => 900_000,
+                'finished_at' => '2026-05-16T12:20:00+00:00',
+            ],
+            rival: [
+                'stdout_bytes' => 2_000,
+                'finished_at' => '2026-05-16T12:01:00+00:00',
+            ],
+        );
+
+        $scorecard = $this->adjudicator->adjudicate(['run_id' => $runId])['scorecard'];
+
+        $this->assertSame(
+            AtlasForgeRivalsAdjudicatorService::WINNER_TIE,
+            $scorecard['winner'],
+            'Cost/time cannot break an otherwise equal quality round.',
+        );
+        $this->assertSame(['cost_time_efficiency'], $scorecard['telemetry_only_dimensions']);
+        $this->assertSame(['cost_time_efficiency'], $scorecard['winner_decision_excluded_dimensions']);
+        $this->assertSame(0.0, $scorecard['winner_decision_weights']['cost_time_efficiency']);
+        $this->assertSame('measured_but_excluded_from_winner', $scorecard['cost_efficiency_decision_policy']);
+        $this->assertLessThan(
+            $scorecard['quality_dimensions']['cost_time_efficiency']['rival'],
+            $scorecard['quality_dimensions']['cost_time_efficiency']['atlas'],
+        );
+        $this->assertContains(
+            'telemetry_only_cost_time_hint:rival_faster',
+            $scorecard['winner_reason'],
+        );
+    }
+
     public function test_confidence_levels_constant_is_canonical_five_level_ladder(): void
     {
         $this->assertSame(

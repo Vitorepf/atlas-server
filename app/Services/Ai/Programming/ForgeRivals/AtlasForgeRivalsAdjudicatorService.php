@@ -51,11 +51,13 @@ namespace App\Services\Ai\Programming\ForgeRivals;
  *   - risk_surface             (10%) fewer touched files outside test scope
  *   - scope_discipline         (15%) zero out-of-scope, zero bytecode
  *   - evidence_quality         (10%) all artifacts present + hashed
- *   - cost_time_efficiency     ( 8%) provider stdout bytes / wall time proxies
+ *   - cost_time_efficiency     ( 6%) provider stdout bytes / wall time proxies
+ *                                TELEMETRY ONLY: measured and reported, but
+ *                                excluded from winner selection.
  *
  * Tie semantics: if |atlas_score - rival_score| < TIE_THRESHOLD (default 5),
- * winner = `human_review_required_tie`. Cost/time can only break a tie; it
- * never overrides a non-tie quality outcome.
+ * winner = `human_review_required_tie`. Cost/time remains telemetry only and
+ * never breaks or overrides a quality outcome.
  *
  * Schema: atlas.forge.rivals.adjudication.v1
  */
@@ -163,6 +165,14 @@ final class AtlasForgeRivalsAdjudicatorService
         'cost_time_efficiency' => 0.06,
         'ceiling_360_contract' => 0.12,
     ];
+
+    /** @var list<string> */
+    public const TELEMETRY_ONLY_DIMENSIONS = [
+        'cost_time_efficiency',
+    ];
+
+    /** @var list<string> */
+    public const WINNER_DECISION_EXCLUDED_DIMENSIONS = self::TELEMETRY_ONLY_DIMENSIONS;
 
     private readonly AtlasForgeRivalsAdjudicatorV2Service $v2;
 
@@ -410,10 +420,9 @@ final class AtlasForgeRivalsAdjudicatorService
             $humanReviewRequired = true;
             $winnerReason[] = sprintf('|atlas-rival|=%.2f < threshold=%.1f', $absDiff, $threshold);
             $winnerReason[] = 'human_review_required_tie';
-            // Cost/time tiebreaker — informational only. Never overrides quality outcome.
-            $tiebreaker = $this->costTimeTiebreaker($atlasReceipt, $rivalReceipt);
-            if ($tiebreaker !== null) {
-                $winnerReason[] = 'tiebreaker_hint:'.$tiebreaker;
+            $telemetryHint = $this->costTimeTelemetryHint($atlasReceipt, $rivalReceipt);
+            if ($telemetryHint !== null) {
+                $winnerReason[] = 'telemetry_only_cost_time_hint:'.$telemetryHint;
             }
         } else {
             $winner = $diff > 0 ? self::WINNER_ATLAS : self::WINNER_RIVAL;
@@ -435,6 +444,10 @@ final class AtlasForgeRivalsAdjudicatorService
             'hard_failures' => [],
             'quality_dimensions' => $quality['dimensions'],
             'weights' => self::WEIGHTS,
+            'winner_decision_weights' => $quality['winner_decision_weights'],
+            'winner_decision_excluded_dimensions' => self::WINNER_DECISION_EXCLUDED_DIMENSIONS,
+            'telemetry_only_dimensions' => self::TELEMETRY_ONLY_DIMENSIONS,
+            'cost_efficiency_decision_policy' => 'measured_but_excluded_from_winner',
             'replay_passes' => $replayPasses,
             'claim_ready' => $winner === self::WINNER_ATLAS || $winner === self::WINNER_RIVAL,
             'human_review_required' => $humanReviewRequired,
@@ -714,7 +727,8 @@ final class AtlasForgeRivalsAdjudicatorService
      * @return array{
      *   atlas_total:float,
      *   rival_total:float,
-     *   dimensions:array<string,array{atlas:float,rival:float,explanation:string}>
+     *   dimensions:array<string,array{atlas:float,rival:float,explanation:string>>,
+     *   winner_decision_weights:array<string,float>
      * }
      */
     private function evaluateQuality(
@@ -738,8 +752,9 @@ final class AtlasForgeRivalsAdjudicatorService
 
         $atlasTotal = 0.0;
         $rivalTotal = 0.0;
+        $decisionWeights = $this->winnerDecisionWeights();
         foreach ($dimensions as $key => $d) {
-            $weight = self::WEIGHTS[$key] ?? 0.0;
+            $weight = $decisionWeights[$key] ?? 0.0;
             $atlasTotal += $weight * (float) $d['atlas'];
             $rivalTotal += $weight * (float) $d['rival'];
         }
@@ -748,7 +763,31 @@ final class AtlasForgeRivalsAdjudicatorService
             'atlas_total' => $atlasTotal,
             'rival_total' => $rivalTotal,
             'dimensions' => $dimensions,
+            'winner_decision_weights' => $decisionWeights,
         ];
+    }
+
+    /**
+     * @return array<string,float>
+     */
+    private function winnerDecisionWeights(): array
+    {
+        $includedTotal = 0.0;
+        foreach (self::WEIGHTS as $dimension => $weight) {
+            if (in_array($dimension, self::WINNER_DECISION_EXCLUDED_DIMENSIONS, true)) {
+                continue;
+            }
+            $includedTotal += $weight;
+        }
+
+        $decisionWeights = [];
+        foreach (self::WEIGHTS as $dimension => $weight) {
+            $decisionWeights[$dimension] = in_array($dimension, self::WINNER_DECISION_EXCLUDED_DIMENSIONS, true)
+                ? 0.0
+                : round($weight / max(0.0001, $includedTotal), 6);
+        }
+
+        return $decisionWeights;
     }
 
     /**
@@ -1336,7 +1375,7 @@ final class AtlasForgeRivalsAdjudicatorService
      * @param  array<string,mixed>  $atlasReceipt
      * @param  array<string,mixed>  $rivalReceipt
      */
-    private function costTimeTiebreaker(array $atlasReceipt, array $rivalReceipt): ?string
+    private function costTimeTelemetryHint(array $atlasReceipt, array $rivalReceipt): ?string
     {
         $atlasElapsed = $this->elapsedSeconds(
             (string) ($atlasReceipt['started_at'] ?? ''),
@@ -1371,6 +1410,9 @@ final class AtlasForgeRivalsAdjudicatorService
             $diff,
         );
         foreach ($quality['dimensions'] as $name => $d) {
+            if (in_array($name, self::TELEMETRY_ONLY_DIMENSIONS, true)) {
+                continue;
+            }
             $dDiff = ($d['atlas'] ?? 0) - ($d['rival'] ?? 0);
             if (abs($dDiff) >= 5.0) {
                 $bullets[] = sprintf('%s:%s_leads_by_%.1f', $name, $dDiff > 0 ? 'atlas' : 'rival', abs($dDiff));

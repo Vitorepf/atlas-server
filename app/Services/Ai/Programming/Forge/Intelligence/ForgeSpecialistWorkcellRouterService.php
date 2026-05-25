@@ -7,6 +7,8 @@ use App\Models\AiForgeWorkPacket;
 use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Models\AiForgeWorkPacketWorkcellRoute;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignRuntimeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionGateService;
 use Illuminate\Support\Str;
 
 final class ForgeSpecialistWorkcellRouterService
@@ -36,6 +38,24 @@ final class ForgeSpecialistWorkcellRouterService
             $route = 'architecture';
         }
 
+        $atlasFrontendRuntime = $route === 'surface_ui'
+            ? app(AtlasFrontendDesignRuntimeService::class)->contract([
+                'task' => trim($text),
+                'surface' => 'atlas_forge',
+            ])
+            : null;
+        $atlasFrontendGate = $route === 'surface_ui'
+            ? app(AtlasFrontendExecutionGateService::class)->evaluate([
+                'task' => trim($text),
+                'surface' => 'atlas_forge',
+                'acceptance_criteria' => false,
+                'test_plan' => false,
+                'visual_quality_plan' => false,
+                'evidence_plan' => false,
+                'senior_design_review' => in_array((string) $packet->risk_band, ['high', 'critical'], true),
+            ])
+            : null;
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'packet_id' => (string) $packet->packet_id,
@@ -45,6 +65,12 @@ final class ForgeSpecialistWorkcellRouterService
             'requires_human_review' => in_array((string) $packet->risk_band, ['high', 'critical'], true),
             'route_reasons' => ['objective_keyword_match', 'risk_band:'.(string) $packet->risk_band],
         ];
+        if ($atlasFrontendRuntime !== null) {
+            $payload['atlas_frontend_runtime'] = $atlasFrontendRuntime;
+            $payload['atlas_frontend_pre_execution_gate'] = $atlasFrontendGate;
+            $payload['route_reasons'][] = 'atlas_frontend_runtime_contract_attached';
+            $payload['route_reasons'][] = 'atlas_frontend_pre_execution_gate_attached';
+        }
         $payload['route_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;

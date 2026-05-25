@@ -40,6 +40,8 @@ final class AtlasForgeRivalsDryRunService
         $presetCaseSet = $caseSet !== '' ? $caseSet : $this->presetCaseSet($preset);
         $isIndustrialCaseSet = is_string($presetCaseSet)
             && in_array($presetCaseSet, AtlasForgeRivalsProviderArenaCorpusService::INDUSTRIAL_CASE_SETS, true);
+        $bypassesLegacyProtocol = $isIndustrialCaseSet
+            || $presetCaseSet === AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_RELEASE;
         if ($presetCaseSet !== null) {
             try {
                 $cases = $this->corpus->casesForCaseSet($presetCaseSet);
@@ -76,7 +78,7 @@ final class AtlasForgeRivalsDryRunService
 
         $caseId = $cases[0]['id'] ?? null;
 
-        $report = $isIndustrialCaseSet
+        $report = $bypassesLegacyProtocol
             ? $this->industrialDryRunPlan((string) $presetCaseSet, $cases, $workspace, $baselineWorkspace)
             : $this->protocolDryRun->dryRun([
                 'case_id' => $caseId,
@@ -108,6 +110,7 @@ final class AtlasForgeRivalsDryRunService
             'planned_case_id' => $caseId,
             'protocol_status' => $protocolStatus,
             'industrial_protocol_bypass' => $isIndustrialCaseSet,
+            'provider_arena_protocol_bypass' => $bypassesLegacyProtocol,
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
             'advisory_only' => true,

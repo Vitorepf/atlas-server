@@ -143,6 +143,7 @@ final class AtlasForgeRivalsCorpusPlannerService
                     (array) ($c['measurement_tags'] ?? []),
                 )),
                 'human_prompt_probe' => $c['human_prompt_probe'] ?? null,
+                'anti_tie_pressure' => $c['anti_tie_pressure'] ?? null,
                 'meta_provider_stress' => $c['meta_provider_stress'] ?? null,
                 'extreme_differentiator' => $c['extreme_differentiator'] ?? null,
                 'ceiling_360' => $c['ceiling_360'] ?? null,

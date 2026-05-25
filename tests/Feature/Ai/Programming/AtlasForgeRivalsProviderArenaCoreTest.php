@@ -1909,7 +1909,8 @@ final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
         $this->assertSame('arms', $response['action']);
         $this->assertSame('atlas.forge.rivals.runner_registry.v1', $response['schema_version']);
         $this->assertSame(10, $response['arm_count']);
-        $this->assertCount(9, $response['task_categories']);
+        $this->assertCount(10, $response['task_categories']);
+        $this->assertContains('planning', $response['task_categories']);
     }
 
     public function test_runners_alias_exposes_registry_snapshot_with_advisory_only_invariants(): void

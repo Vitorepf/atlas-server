@@ -155,8 +155,9 @@ assistida e workforce agentivo:
 
 - `atlas.ai.assisted_execution_scorecard.v1`
 - `atlas.ai.agentic_workforce_scorecard.v1`
+- `atlas.ai.frontend_operational_scorecard.v1`
 
-### 27 checks canônicos (cada um carrega evidence: paths + booleans)
+### 28 checks canônicos (cada um carrega evidence: paths + booleans)
 
 | # | id | severity | invariante |
 |---|---|---|---|
@@ -180,13 +181,14 @@ assistida e workforce agentivo:
 | 18 | `capability_usage_and_evolution_loop` | critical | Control Plane, AEMOR e Intelligence Factory conectam capability used events, outcome, evolution candidates e certification registry |
 | 19 | `code_intelligence_automatic_gate` | critical | Code Intelligence vira gate automático antes de contexto de programação pesado |
 | 20 | `verified_context_execution_loop` | critical | AVCEL valida contexto antes da execução e produz loop/certificado sem provider |
-| 21 | `assisted_execution_quality` | critical | AAEQ envelope conecta AEDPDS, AUCRI/ACMF, AREG e feedback AEMOR |
-| 22 | `execution_doctrine_product_delivery_system` | critical | AEDPDS/APDR runtime, gate, Dev/Forge, receipts e outcome memory certificados |
-| 23 | `context_memory_quality` | critical | AUCRI/ACMF certifica qualidade de contexto, 18 blocos, corpus e memory fabric |
-| 24 | `runtime_efficiency_governor` | critical | AREG governa fast/standard/forge/blocked paths, budgets, outcomes e replay |
-| 25 | `aemor_runtime` | critical | AEMOR registra episódios, outcomes, judgment, replay e aprendizado com evidência |
-| 26 | `runtime_ux_operational` | critical | Runtime UX expõe AEDPDS, contexto, AREG e AEMOR sem vazar prompt cru |
-| 27 | `autonomous_evolution_loop` | critical | AAEL integra bridge de execução assistida, promoção governada e claim policy |
+| 21 | `frontend_operational_understanding` | critical | Atlas entende o frontend como fluxo operacional: surfaces desktop/mobile, presentation/context/audit, `programming.frontend`, harness visual/a11y/perf e regra de evidência |
+| 22 | `assisted_execution_quality` | critical | AAEQ envelope conecta AEDPDS, AUCRI/ACMF, AREG e feedback AEMOR |
+| 23 | `execution_doctrine_product_delivery_system` | critical | AEDPDS/APDR runtime, gate, Dev/Forge, receipts e outcome memory certificados |
+| 24 | `context_memory_quality` | critical | AUCRI/ACMF certifica qualidade de contexto, 18 blocos, corpus e memory fabric |
+| 25 | `runtime_efficiency_governor` | critical | AREG governa fast/standard/forge/blocked paths, budgets, outcomes e replay |
+| 26 | `aemor_runtime` | critical | AEMOR registra episódios, outcomes, judgment, replay e aprendizado com evidência |
+| 27 | `runtime_ux_operational` | critical | Runtime UX expõe AEDPDS, contexto, AREG e AEMOR sem vazar prompt cru |
+| 28 | `autonomous_evolution_loop` | critical | AAEL integra bridge de execução assistida, promoção governada e claim policy |
 
 ## Como rodar
 
@@ -211,7 +213,7 @@ vendor/bin/phpunit tests/Feature/Ai/Product/
 
 | status | quando | exit em `--strict` |
 |---|---|---|
-| `ready`   | todos os 27 checks `passed` | 0 |
+| `ready`   | todos os 28 checks `passed` | 0 |
 | `partial` | algum check `warn` falhou, mas nenhum `critical` | 1 |
 | `blocked` | algum check `critical` falhou | 1 |
 
@@ -248,6 +250,7 @@ Esta cert **não roda** cenários — ela aponta para os testes que rodam, em `e
 Esta certificação agora cobre a fase atual da evolução do Atlas:
 
 - Desktop UX operacional via Control Plane runtime governance;
+- Frontend operacional compreendido por contrato (`frontend_operational_scorecard`), surfaces desktop/mobile, presentation/audit, `programming.frontend` e harness visual/a11y/perf;
 - Agent Control Plane como base governada para subagentes/metagentes;
 - Agentic Workcell como roster operacional/topologias/organização agentiva;
 - execução externa governada, sem free-run;

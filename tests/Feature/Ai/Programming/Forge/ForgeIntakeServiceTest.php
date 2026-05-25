@@ -138,6 +138,7 @@ class ForgeIntakeServiceTest extends TestCase
                 'workspace_slug' => 'atlas',
                 'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
                 'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
+                'expected_files' => ['app/Services/Ai/Programming/Forge/ForgeIntakeService.php'],
             ],
         );
 
@@ -148,12 +149,54 @@ class ForgeIntakeServiceTest extends TestCase
         $this->assertSame('atlas', data_get($intake->workspace_execution_gate, 'workspace_id'));
         $this->assertTrue((bool) data_get($intake->workspace_execution_gate, 'required_contracts.awco_execution_readiness'));
         $inventoryHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.repository_inventory_hash');
+        $outcomeCommandMemoryHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.outcome_command_memory_hash');
+        $performanceHistogramHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.command_performance_histogram_hash');
+        $areaPerformanceIndexHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.area_performance_index_hash');
+        $stackPerformanceIndexHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.stack_performance_index_hash');
+        $learningSnapshotHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.learning_snapshot_hash');
+        $executionOptimizationPolicyHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.execution_optimization_policy_hash');
+        $executionPolicyEffectivenessIndexHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.execution_policy_effectiveness_index_hash');
+        $executionRouteEffectivenessIndexHash = data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.execution_route_effectiveness_index_hash');
         $this->assertSame(64, strlen((string) $inventoryHash));
+        $this->assertSame(64, strlen((string) $outcomeCommandMemoryHash));
+        $this->assertSame(64, strlen((string) $performanceHistogramHash));
+        $this->assertSame(64, strlen((string) $areaPerformanceIndexHash));
+        $this->assertSame(64, strlen((string) $stackPerformanceIndexHash));
+        $this->assertSame(64, strlen((string) $learningSnapshotHash));
+        $this->assertSame(64, strlen((string) $executionOptimizationPolicyHash));
+        $this->assertSame(64, strlen((string) $executionPolicyEffectivenessIndexHash));
+        $this->assertSame(64, strlen((string) $executionRouteEffectivenessIndexHash));
         $this->assertContains('awis_cache:repository_inventory:'.$inventoryHash, $intake->context_refs);
+        $this->assertContains('awis_cache:outcome_command_memory:'.$outcomeCommandMemoryHash, $intake->context_refs);
+        $this->assertContains('awis_cache:command_performance_histogram:'.$performanceHistogramHash, $intake->context_refs);
+        $this->assertContains('awis_cache:area_performance_index:'.$areaPerformanceIndexHash, $intake->context_refs);
+        $this->assertContains('awis_cache:stack_performance_index:'.$stackPerformanceIndexHash, $intake->context_refs);
+        $this->assertContains('awis_cache:workspace_learning_snapshot:'.$learningSnapshotHash, $intake->context_refs);
+        $this->assertContains('awis_cache:execution_optimization_policy:'.$executionOptimizationPolicyHash, $intake->context_refs);
+        $this->assertContains('awis_cache:execution_policy_effectiveness:'.$executionPolicyEffectivenessIndexHash, $intake->context_refs);
+        $this->assertContains('awis_cache:execution_route_effectiveness:'.$executionRouteEffectivenessIndexHash, $intake->context_refs);
+        $this->assertContains('awis_validation_tier:standard', $intake->context_refs);
+        $this->assertContains('awis_validation_route:area:'.hash('sha256', 'app/Services/Ai/Programming/Forge'), $intake->context_refs);
+        $this->assertSame(
+            'standard',
+            data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.execution_optimization_policy.validation_tier_routing.default_tier'),
+        );
+        $this->assertContains(
+            'awis_execution_route_command:'.hash('sha256', 'php artisan test tests/Feature/Ai/Programming/Forge/ScopedForgeRouteTest.php').':area:'.hash('sha256', 'app/Services/Ai/Programming/Forge'),
+            $intake->context_refs,
+        );
         $this->assertContains('awis_repo:atlas-server', $intake->context_refs);
         $this->assertContains('awis_manifest:atlas-server:composer.json', $intake->context_refs);
         $packet = $intake->workPackets()->firstOrFail();
+        $this->assertSame('atlas.awis.validation_depth_decision.v1', data_get($intake->workspace_execution_gate, 'execution_context.validation_depth_decision.schema_version'));
+        $this->assertSame('standard', data_get($intake->workspace_execution_gate, 'execution_context.validation_depth_decision.tier'));
+        $this->assertSame('risk_band_upgraded_instant_to_standard', data_get($intake->workspace_execution_gate, 'execution_context.validation_depth_decision.reason'));
+        $this->assertSame('area', data_get($intake->workspace_execution_gate, 'execution_context.validation_depth_decision.route_kind'));
+        $this->assertFalse(data_get($intake->workspace_execution_gate, 'execution_context.validation_depth_decision.raw_logs_returned'));
+        $this->assertSame('php artisan test tests/Feature/Ai/Programming/Forge/ScopedForgeRouteTest.php', $packet->suggested_tests[0]);
+        $this->assertContains('php artisan test tests/Feature/Ai/Programming/Forge/ScopedForgeRouteTest.php', $packet->suggested_tests);
         $this->assertContains('php artisan test tests/Feature/Ai/Programming/Forge/ForgeIntakeServiceTest.php', $packet->suggested_tests);
+        $this->assertContains('php artisan test tests/Feature/Ai/Programming/Forge/OutcomeRankedTest.php', $packet->suggested_tests);
     }
 
     public function test_forge_intake_blocks_without_awis_workspace(): void
@@ -168,6 +211,29 @@ class ForgeIntakeServiceTest extends TestCase
         $this->assertNull($intake->workspace_execution_gate);
         $this->assertSame(0, $intake->workPackets()->count(), 'AWIS-blocked intake must not produce executable work packets.');
         $this->assertCount(5, $intake->milestones()->get(), 'Blocked intake still keeps milestone audit visibility.');
+    }
+
+    public function test_forge_intake_falls_back_to_stack_route_when_area_route_does_not_match(): void
+    {
+        $intake = app(ForgeIntakeService::class)->intakeFromPrompt(
+            'Criar service novo com testes de integração e plano de rollback',
+            [
+                'workspace_slug' => 'atlas',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
+                'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
+                'expected_files' => ['app/Services/Ai/Programming/NewForgeWorker.php'],
+            ],
+        );
+
+        $packet = $intake->workPackets()->firstOrFail();
+        $this->assertContains(
+            'awis_execution_route_command:'.hash('sha256', 'php artisan test tests/Feature/Ai/Programming/Forge/StackLaravelRouteTest.php').':stack:'.hash('sha256', 'laravel'),
+            $intake->context_refs,
+        );
+        $this->assertContains('awis_validation_route:stack:'.hash('sha256', 'laravel'), $intake->context_refs);
+        $this->assertSame('php artisan test tests/Feature/Ai/Programming/Forge/StackLaravelRouteTest.php', $packet->suggested_tests[0]);
+        $this->assertContains('php artisan test tests/Feature/Ai/Programming/Forge/StackLaravelRouteTest.php', $packet->suggested_tests);
+        $this->assertContains('php artisan test tests/Feature/Ai/Programming/Forge/ForgeIntakeServiceTest.php', $packet->suggested_tests);
     }
 
     public function test_direct_intake_persists_canonical_rich_input_payload_without_raw_text(): void
@@ -483,6 +549,66 @@ class ForgeIntakeServiceTest extends TestCase
                         'script_names' => ['composer:test'],
                     ]],
                     'command_hints' => ['php artisan test tests/Feature/Ai/Programming/Forge/ForgeIntakeServiceTest.php'],
+                    'outcome_ranked_commands' => ['php artisan test tests/Feature/Ai/Programming/Forge/OutcomeRankedTest.php'],
+                    'avoid_commands' => ['php artisan test tests/Feature/Ai/Programming/Forge/FlakyTest.php'],
+                    'outcome_command_memory_hash' => str_repeat('c', 64),
+                    'command_performance_histogram_hash' => str_repeat('d', 64),
+                    'area_performance_index_hash' => str_repeat('e', 64),
+                    'stack_performance_index_hash' => str_repeat('f', 64),
+                    'learning_snapshot_hash' => str_repeat('a', 64),
+                    'execution_optimization_policy_hash' => str_repeat('9', 64),
+                    'execution_policy_effectiveness_index_hash' => str_repeat('8', 64),
+                    'execution_route_effectiveness_index_hash' => str_repeat('7', 64),
+                    'cache_keys' => [
+                        'workspace_learning_snapshot_hash' => str_repeat('a', 64),
+                        'execution_optimization_policy_hash' => str_repeat('9', 64),
+                        'execution_policy_effectiveness_index_hash' => str_repeat('8', 64),
+                        'execution_route_effectiveness_index_hash' => str_repeat('7', 64),
+                    ],
+                    'execution_optimization_policy' => [
+                        'schema_version' => 'atlas.awis.execution_optimization_policy.v1',
+                        'preferred_commands' => ['php artisan test tests/Feature/Ai/Programming/Forge/ForgeIntakeServiceTest.php'],
+                        'standard_commands' => ['php artisan test tests/Feature/Ai/Programming/Forge/OutcomeRankedTest.php'],
+                        'blocked_commands' => ['php artisan test tests/Feature/Ai/Programming/Forge/FlakyTest.php'],
+                        'scope_routing' => [
+                            'schema_version' => 'atlas.awis.execution_scope_routing.v1',
+                            'area_routes' => [[
+                                'key' => 'app/Services/Ai/Programming/Forge',
+                                'route_ref' => 'area:'.hash('sha256', 'app/Services/Ai/Programming/Forge'),
+                                'preferred_commands' => ['php artisan test tests/Feature/Ai/Programming/Forge/ScopedForgeRouteTest.php'],
+                                'deferred_commands' => [],
+                                'blocked_commands' => [],
+                                'route_mode' => 'prefer_scope_commands',
+                                'recommended_validation_tier' => 'instant',
+                                'validation_reason' => 'effective_fast_scope_route',
+                                'feedback_effectiveness' => 'effective',
+                            ]],
+                            'stack_routes' => [[
+                                'key' => 'laravel',
+                                'route_ref' => 'stack:'.hash('sha256', 'laravel'),
+                                'preferred_commands' => ['php artisan test tests/Feature/Ai/Programming/Forge/StackLaravelRouteTest.php'],
+                                'deferred_commands' => [],
+                                'blocked_commands' => [],
+                                'route_mode' => 'prefer_scope_commands',
+                                'recommended_validation_tier' => 'instant',
+                                'validation_reason' => 'effective_fast_scope_route',
+                                'feedback_effectiveness' => 'effective',
+                            ]],
+                            'route_count' => 2,
+                        ],
+                        'validation_tier_routing' => [
+                            'schema_version' => 'atlas.awis.validation_tier_routing.v1',
+                            'default_tier' => 'standard',
+                            'raw_logs_returned' => false,
+                        ],
+                    ],
+                    'command_performance_histogram' => [
+                        'bucket_counts' => ['under_10s' => 1, '5m_to_15m' => 0],
+                        'fast_commands' => ['php artisan test tests/Feature/Ai/Programming/Forge/ForgeIntakeServiceTest.php'],
+                        'heavy_commands' => [],
+                        'slow_commands' => [],
+                        'raw_logs_returned' => false,
+                    ],
                     'provider_policy' => [
                         'raw_manifest_returned' => false,
                         'script_bodies_returned' => false,

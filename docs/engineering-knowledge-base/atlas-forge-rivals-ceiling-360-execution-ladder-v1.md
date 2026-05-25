@@ -329,11 +329,14 @@ explicitos para o operador.
 
 `matrix_report.tie_pressure_diagnosis`
 (`atlas.forge.rivals.tie_pressure_diagnosis.v1`) torna empate um sinal
-diagnostico, nao conclusivo. Quando `tie_rate` ou `l5_tie_rate` passa o limiar
-de pressao, o bloco marca `requires_harder_followup=true`, conserva todos os
-invariantes advisory-only e recomenda `ceiling-360`, `extreme-differentiator`,
-`meta-provider-stress` e `statistical-repeat` para descobrir onde cada runner
-realmente separa.
+diagnostico, nao conclusivo. Quando `tie_rate`, `l5_tie_rate` ou qualquer taxa
+por nivel L1-L5 passa o limiar de pressao, o bloco marca
+`requires_harder_followup=true`, conserva todos os invariantes advisory-only e
+recomenda `ceiling-360`, `extreme-differentiator`, `meta-provider-stress` e
+`statistical-repeat` para descobrir onde cada runner realmente separa. O
+limiar canonico por nivel e 55% de empate tecnico; acima disso o report emite
+`per_level_tie_escalation`, cancela a bateria atual para os niveis afetados e
+exige mais capacidades simultaneas no proximo piso.
 
 ## Separacao de Capacidades
 
@@ -356,10 +359,13 @@ O signal nunca converte empate em claim. Ele aponta quais eixos precisam de
 
 `provider_performance_signal.difficulty_pressure`
 (`atlas.forge.rivals.difficulty_pressure.v1`) detecta quando a matriz de 40
-casos ou L5 ainda esta facil demais:
+casos ou qualquer faixa L1-L5 ainda esta facil demais:
 
 - sem amostra valida: `needs_valid_difficulty_sample`
 - L5 valido empatado: `l5_tied_needs_extreme_pressure`
+- L1-L5 acima de 55% de empate tecnico:
+  `per_level_tie_escalation_cancel_and_increase_complexity`
+- 10 empates agregados: `tie_escalation_cancel_and_increase_baseline_complexity`
 
 Ambos preservam advisory-only invariants e recomendam mais medicao, nao routing.
 

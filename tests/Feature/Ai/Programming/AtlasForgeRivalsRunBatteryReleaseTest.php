@@ -544,6 +544,36 @@ final class AtlasForgeRivalsRunBatteryReleaseTest extends TestCase
         $this->assertFalse($response['provider_tokens_spent'] ?? true);
     }
 
+    public function test_run_battery_release_dry_run_uses_provider_arena_corpus_without_legacy_manifest_blocker(): void
+    {
+        $response = $this->dispatchRunBattery([
+            'mode' => 'local_fake',
+            'atlas_model' => 'claude_sonnet',
+            'rival' => 'claude_sonnet',
+            'preset' => 'release',
+            'dry_run' => true,
+            'confirmations' => [
+                'runbook_reviewed' => false,
+                'provider_cost' => false,
+                'real_provider_call' => false,
+            ],
+        ]);
+
+        $this->assertSame('ok', $response['status']);
+        $this->assertSame('dry_run_planned', $response['verdict']);
+        $this->assertFalse($response['external_provider_call']);
+        $this->assertFalse($response['provider_tokens_spent']);
+        $this->assertFalse($response['claim_ready']);
+        $this->assertNull($response['winner']);
+        $this->assertNull($response['scorecard']);
+
+        $blockers = implode('|', array_map('strval', $response['blockers'] ?? []));
+        $this->assertStringNotContainsString('case_manifest_invalid', $blockers);
+        $this->assertStringNotContainsString('atlas_arm_not_forge', $blockers);
+        $this->assertContains('preflight', array_column($response['phases'], 'phase'));
+        $this->assertContains('plan-real', array_column($response['phases'], 'phase'));
+    }
+
     public function test_runtime_aggregate_receipt_worst_of_propagates_failures_through_hard_gates(): void
     {
         // Confirm the worst-of aggregation contract: if any case has a non-zero

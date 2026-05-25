@@ -142,7 +142,12 @@ class AtlasDevRuntimeService
                 ?? $this->stringValue($payload['prompt'] ?? null)
                 ?? $flowId,
         );
-        $workspaceContextSelection = $this->workspaceContextSelection($workspaceGate);
+        $expectedFiles = $this->arrayOfStrings($payload['expected_files'] ?? []);
+        $workspaceContextSelection = $this->workspaceContextSelection(
+            $workspaceGate,
+            $expectedFiles,
+            $this->stringValue($payload['risk_band'] ?? null),
+        );
         $payload['atlas_dev_runtime']['workspace_context_selection'] = $workspaceContextSelection;
 
         $runtimeIntelligence = (new DevRuntimeIntelligenceService)->preview([
@@ -162,7 +167,7 @@ class AtlasDevRuntimeService
                 $this->arrayOfStrings(data_get($artifactAgentPacket, 'context_refs', $payload['context_refs'] ?? [])),
                 (array) ($workspaceContextSelection['context_refs'] ?? []),
             ),
-            'expected_files' => $this->arrayOfStrings($payload['expected_files'] ?? []),
+            'expected_files' => $expectedFiles,
             'suggested_tests' => $this->mergeStrings(
                 $this->arrayOfStrings(data_get($artifactAgentPacket, 'test_plan', $payload['suggested_tests'] ?? [])),
                 (array) ($workspaceContextSelection['suggested_tests'] ?? []),
@@ -223,7 +228,7 @@ class AtlasDevRuntimeService
      * @param  array<string,mixed>|null  $workspaceGate
      * @return array<string,mixed>
      */
-    private function workspaceContextSelection(?array $workspaceGate): array
+    private function workspaceContextSelection(?array $workspaceGate, array $expectedFiles = [], ?string $riskBand = null): array
     {
         $contextLoadingPlan = (array) data_get($workspaceGate, 'execution_context.context_loading_plan', []);
         $contextRefs = [];
@@ -258,8 +263,50 @@ class AtlasDevRuntimeService
         if ($repositoryInventoryHash !== null) {
             $contextRefs[] = 'awis_cache:repository_inventory:'.$repositoryInventoryHash;
         }
+        $workspaceWorkingSetHash = $this->stringValue($contextLoadingPlan['working_set_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.workspace_working_set_hash'));
+        if ($workspaceWorkingSetHash !== null) {
+            $contextRefs[] = 'awis_cache:workspace_working_set:'.$workspaceWorkingSetHash;
+        }
+        $outcomeCommandMemoryHash = $this->stringValue($contextLoadingPlan['outcome_command_memory_hash'] ?? null);
+        if ($outcomeCommandMemoryHash !== null) {
+            $contextRefs[] = 'awis_cache:outcome_command_memory:'.$outcomeCommandMemoryHash;
+        }
+        $performanceHistogramHash = $this->stringValue($contextLoadingPlan['command_performance_histogram_hash'] ?? null);
+        if ($performanceHistogramHash !== null) {
+            $contextRefs[] = 'awis_cache:command_performance_histogram:'.$performanceHistogramHash;
+        }
+        $areaPerformanceIndexHash = $this->stringValue($contextLoadingPlan['area_performance_index_hash'] ?? null);
+        if ($areaPerformanceIndexHash !== null) {
+            $contextRefs[] = 'awis_cache:area_performance_index:'.$areaPerformanceIndexHash;
+        }
+        $stackPerformanceIndexHash = $this->stringValue($contextLoadingPlan['stack_performance_index_hash'] ?? null);
+        if ($stackPerformanceIndexHash !== null) {
+            $contextRefs[] = 'awis_cache:stack_performance_index:'.$stackPerformanceIndexHash;
+        }
+        $workspaceLearningSnapshotHash = $this->stringValue($contextLoadingPlan['learning_snapshot_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.workspace_learning_snapshot_hash'));
+        if ($workspaceLearningSnapshotHash !== null) {
+            $contextRefs[] = 'awis_cache:workspace_learning_snapshot:'.$workspaceLearningSnapshotHash;
+        }
+        $executionOptimizationPolicyHash = $this->stringValue($contextLoadingPlan['execution_optimization_policy_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_optimization_policy_hash'));
+        if ($executionOptimizationPolicyHash !== null) {
+            $contextRefs[] = 'awis_cache:execution_optimization_policy:'.$executionOptimizationPolicyHash;
+        }
+        $executionPolicyEffectivenessIndexHash = $this->stringValue($contextLoadingPlan['execution_policy_effectiveness_index_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_policy_effectiveness_index_hash'));
+        if ($executionPolicyEffectivenessIndexHash !== null) {
+            $contextRefs[] = 'awis_cache:execution_policy_effectiveness:'.$executionPolicyEffectivenessIndexHash;
+        }
+        $executionRouteEffectivenessIndexHash = $this->stringValue($contextLoadingPlan['execution_route_effectiveness_index_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_route_effectiveness_index_hash'));
+        if ($executionRouteEffectivenessIndexHash !== null) {
+            $contextRefs[] = 'awis_cache:execution_route_effectiveness:'.$executionRouteEffectivenessIndexHash;
+        }
+        $validationDepthDecision = $this->validationDepthDecision(
+            $contextLoadingPlan,
+            $expectedFiles,
+            $riskBand ?? $this->stringValue(data_get($workspaceGate, 'risk_band')),
+        );
+        $contextRefs = $this->mergeStrings($contextRefs, $this->validationDepthContextRefs($validationDepthDecision));
 
-        $suggestedTests = [];
+        $suggestedTests = $this->scopeRouteSuggestedTests($contextLoadingPlan, $expectedFiles);
         foreach ((array) data_get($workspaceGate, 'execution_context.execution_priority', []) as $priority) {
             if (! is_array($priority)) {
                 continue;
@@ -269,20 +316,267 @@ class AtlasDevRuntimeService
                 $suggestedTests[] = $command;
             }
         }
+        $suggestedTests = $this->mergeStrings($this->arrayOfStrings(data_get($contextLoadingPlan, 'execution_optimization_policy.preferred_commands', [])), $suggestedTests);
+        $suggestedTests = $this->mergeStrings($suggestedTests, $this->arrayOfStrings(data_get($contextLoadingPlan, 'execution_optimization_policy.standard_commands', [])));
+        $suggestedTests = $this->mergeStrings($suggestedTests, $this->arrayOfStrings($contextLoadingPlan['area_ranked_commands'] ?? []));
+        $suggestedTests = $this->mergeStrings($suggestedTests, $this->arrayOfStrings($contextLoadingPlan['outcome_ranked_commands'] ?? []));
         $suggestedTests = $this->mergeStrings($suggestedTests, $this->arrayOfStrings($contextLoadingPlan['command_hints'] ?? []));
+        $avoidTests = $this->mergeStrings(
+            $this->arrayOfStrings($contextLoadingPlan['avoid_commands'] ?? []),
+            $this->arrayOfStrings($contextLoadingPlan['slow_commands'] ?? []),
+            $this->arrayOfStrings(data_get($contextLoadingPlan, 'execution_optimization_policy.blocked_commands', [])),
+        );
+        $suggestedTests = array_values(array_filter(
+            $suggestedTests,
+            static fn (string $command): bool => ! in_array($command, $avoidTests, true),
+        ));
+        $contextRefs = $this->mergeStrings(
+            $contextRefs,
+            $this->scopeRouteSelectionRefs($contextLoadingPlan, $expectedFiles, $suggestedTests),
+        );
 
         return [
             'schema_version' => 'atlas.dev_runtime.awis_context_selection.v1',
             'source' => 'workspace_next_session_brain.context_loading_plan',
-            'context_refs' => array_slice($this->mergeStrings([], $contextRefs), 0, 24),
+            'context_refs' => array_slice($this->mergeStrings([], $contextRefs), 0, 32),
             'suggested_tests' => array_slice($this->mergeStrings([], $suggestedTests), 0, 12),
             'repository_inventory_hash' => $repositoryInventoryHash,
+            'workspace_working_set_hash' => $workspaceWorkingSetHash,
+            'outcome_command_memory_hash' => $outcomeCommandMemoryHash,
+            'command_performance_histogram_hash' => $performanceHistogramHash,
+            'area_performance_index_hash' => $areaPerformanceIndexHash,
+            'stack_performance_index_hash' => $stackPerformanceIndexHash,
+            'workspace_learning_snapshot_hash' => $workspaceLearningSnapshotHash,
+            'execution_optimization_policy_hash' => $executionOptimizationPolicyHash,
+            'execution_policy_effectiveness_index_hash' => $executionPolicyEffectivenessIndexHash,
+            'execution_route_effectiveness_index_hash' => $executionRouteEffectivenessIndexHash,
+            'validation_depth_decision' => $validationDepthDecision,
             'provider_safe' => data_get($workspaceGate, 'execution_context.provider_safe') === true
                 && data_get($workspaceGate, 'execution_context.context_loading_plan.provider_policy.raw_manifest_returned') === false
                 && data_get($workspaceGate, 'execution_context.context_loading_plan.provider_policy.script_bodies_returned') === false
                 && data_get($workspaceGate, 'execution_context.context_loading_plan.provider_policy.absolute_workspace_path_returned') === false,
             'raw_content_returned' => false,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $contextLoadingPlan
+     * @param  array<int,string>  $expectedFiles
+     * @return array<int,string>
+     */
+    private function scopeRouteSuggestedTests(array $contextLoadingPlan, array $expectedFiles): array
+    {
+        if ($expectedFiles === []) {
+            return [];
+        }
+
+        $commands = [];
+        foreach ((array) data_get($contextLoadingPlan, 'execution_optimization_policy.scope_routing.area_routes', []) as $route) {
+            if (! is_array($route)) {
+                continue;
+            }
+            $key = $this->stringValue($route['key'] ?? null);
+            if ($key === null || ! $this->filesMatchScope($expectedFiles, $key)) {
+                continue;
+            }
+            $commands = $this->mergeStrings($commands, $this->arrayOfStrings($route['preferred_commands'] ?? []));
+        }
+        if ($commands !== []) {
+            return $commands;
+        }
+
+        $stacks = $this->stacksForExpectedFiles($contextLoadingPlan, $expectedFiles);
+        foreach ((array) data_get($contextLoadingPlan, 'execution_optimization_policy.scope_routing.stack_routes', []) as $route) {
+            if (! is_array($route)) {
+                continue;
+            }
+            $key = $this->stringValue($route['key'] ?? null);
+            if ($key === null || ! in_array($key, $stacks, true)) {
+                continue;
+            }
+            $commands = $this->mergeStrings($commands, $this->arrayOfStrings($route['preferred_commands'] ?? []));
+        }
+
+        return $commands;
+    }
+
+    /**
+     * @param  array<string,mixed>  $contextLoadingPlan
+     * @param  array<int,string>  $expectedFiles
+     * @param  array<int,string>  $suggestedTests
+     * @return array<int,string>
+     */
+    private function scopeRouteSelectionRefs(array $contextLoadingPlan, array $expectedFiles, array $suggestedTests): array
+    {
+        $selected = $this->matchingScopeRoute($contextLoadingPlan, $expectedFiles);
+        if ($selected === null) {
+            return [];
+        }
+
+        $refs = [];
+        foreach ($this->arrayOfStrings($selected['commands'] ?? []) as $command) {
+            if (! in_array($command, $suggestedTests, true)) {
+                continue;
+            }
+            $refs[] = 'awis_execution_route_command:'.hash('sha256', $command).':'
+                .$selected['kind'].':'.hash('sha256', (string) $selected['key']);
+        }
+
+        return $refs;
+    }
+
+    /**
+     * @param  array<string,mixed>  $contextLoadingPlan
+     * @param  array<int,string>  $expectedFiles
+     * @return array<string,mixed>|null
+     */
+    private function matchingScopeRoute(array $contextLoadingPlan, array $expectedFiles): ?array
+    {
+        if ($expectedFiles === []) {
+            return null;
+        }
+
+        foreach ((array) data_get($contextLoadingPlan, 'execution_optimization_policy.scope_routing.area_routes', []) as $route) {
+            if (! is_array($route)) {
+                continue;
+            }
+            $key = $this->stringValue($route['key'] ?? null);
+            if ($key !== null && $this->filesMatchScope($expectedFiles, $key)) {
+                return [
+                    'kind' => 'area',
+                    'key' => $key,
+                    'route_ref' => $this->stringValue($route['route_ref'] ?? null) ?? 'area:'.hash('sha256', $key),
+                    'commands' => $this->arrayOfStrings($route['preferred_commands'] ?? []),
+                    'recommended_validation_tier' => $this->stringValue($route['recommended_validation_tier'] ?? null),
+                    'validation_reason' => $this->stringValue($route['validation_reason'] ?? null),
+                    'route_mode' => $this->stringValue($route['route_mode'] ?? null),
+                    'feedback_effectiveness' => $this->stringValue($route['feedback_effectiveness'] ?? null),
+                ];
+            }
+        }
+
+        $stacks = $this->stacksForExpectedFiles($contextLoadingPlan, $expectedFiles);
+        foreach ((array) data_get($contextLoadingPlan, 'execution_optimization_policy.scope_routing.stack_routes', []) as $route) {
+            if (! is_array($route)) {
+                continue;
+            }
+            $key = $this->stringValue($route['key'] ?? null);
+            if ($key !== null && in_array($key, $stacks, true)) {
+                return [
+                    'kind' => 'stack',
+                    'key' => $key,
+                    'route_ref' => $this->stringValue($route['route_ref'] ?? null) ?? 'stack:'.hash('sha256', $key),
+                    'commands' => $this->arrayOfStrings($route['preferred_commands'] ?? []),
+                    'recommended_validation_tier' => $this->stringValue($route['recommended_validation_tier'] ?? null),
+                    'validation_reason' => $this->stringValue($route['validation_reason'] ?? null),
+                    'route_mode' => $this->stringValue($route['route_mode'] ?? null),
+                    'feedback_effectiveness' => $this->stringValue($route['feedback_effectiveness'] ?? null),
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $contextLoadingPlan
+     * @param  array<int,string>  $expectedFiles
+     * @return array<string,mixed>
+     */
+    private function validationDepthDecision(array $contextLoadingPlan, array $expectedFiles, ?string $riskBand = null): array
+    {
+        $route = $this->matchingScopeRoute($contextLoadingPlan, $expectedFiles);
+        $tier = $this->stringValue(data_get($route, 'recommended_validation_tier'))
+            ?? $this->stringValue(data_get($contextLoadingPlan, 'execution_optimization_policy.validation_tier_routing.default_tier'))
+            ?? 'standard';
+        if (! in_array($tier, ['instant', 'standard', 'deep'], true)) {
+            $tier = 'standard';
+        }
+
+        $reason = $this->stringValue(data_get($route, 'validation_reason')) ?? 'default_validation_depth';
+        $risk = $riskBand !== null ? strtolower($riskBand) : 'unknown';
+        if (in_array($risk, ['high', 'critical'], true) && $tier === 'instant') {
+            $tier = 'standard';
+            $reason = 'risk_band_upgraded_instant_to_standard';
+        }
+
+        return [
+            'schema_version' => 'atlas.awis.validation_depth_decision.v1',
+            'tier' => $tier,
+            'reason' => $reason,
+            'risk_band' => $risk,
+            'route_kind' => $this->stringValue(data_get($route, 'kind')) ?? 'global',
+            'route_ref' => $this->stringValue(data_get($route, 'route_ref')),
+            'route_mode' => $this->stringValue(data_get($route, 'route_mode')) ?? 'global_default',
+            'feedback_effectiveness' => $this->stringValue(data_get($route, 'feedback_effectiveness')) ?? 'unknown',
+            'raw_logs_returned' => false,
+            'raw_content_returned' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $decision
+     * @return array<int,string>
+     */
+    private function validationDepthContextRefs(array $decision): array
+    {
+        $tier = $this->stringValue($decision['tier'] ?? null);
+        if ($tier === null) {
+            return [];
+        }
+
+        $refs = ['awis_validation_tier:'.$tier];
+        $routeRef = $this->stringValue($decision['route_ref'] ?? null);
+        if ($routeRef !== null) {
+            $refs[] = 'awis_validation_route:'.$routeRef;
+        }
+
+        return $refs;
+    }
+
+    /**
+     * @param  array<string,mixed>  $contextLoadingPlan
+     * @param  array<int,string>  $expectedFiles
+     * @return array<int,string>
+     */
+    private function stacksForExpectedFiles(array $contextLoadingPlan, array $expectedFiles): array
+    {
+        $manifestRefs = array_values(array_filter(
+            (array) ($contextLoadingPlan['focused_manifest_refs'] ?? []),
+            'is_array',
+        ));
+        $stacks = [];
+        foreach ($manifestRefs as $manifestRef) {
+            $repoKey = $this->stringValue($manifestRef['repo_key'] ?? null);
+            if ($repoKey === null) {
+                continue;
+            }
+            if (count($manifestRefs) === 1 || $this->filesMatchScope($expectedFiles, $repoKey)) {
+                $stacks = $this->mergeStrings($stacks, $this->arrayOfStrings($manifestRef['stack'] ?? []));
+            }
+        }
+
+        return $this->mergeStrings($stacks, $this->arrayOfStrings($contextLoadingPlan['stack_tags'] ?? []));
+    }
+
+    /**
+     * @param  array<int,string>  $files
+     */
+    private function filesMatchScope(array $files, string $scope): bool
+    {
+        $scope = trim(str_replace('\\', '/', $scope), '/');
+        if ($scope === '') {
+            return false;
+        }
+
+        foreach ($files as $file) {
+            $file = trim(str_replace('\\', '/', $file), '/');
+            if ($file === $scope || str_starts_with($file, $scope.'/')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

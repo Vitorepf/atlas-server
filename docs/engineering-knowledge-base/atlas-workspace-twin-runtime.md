@@ -119,8 +119,8 @@ observability_signals:
   - risk_map_hash
 next_actions:
   - Persistir twin dedicado quando houver refresh daemon.
-  - Conectar Context Autopilot ao Atlas Dev.
-  - Conectar Test Command Intelligence ao Forge.
+  - Ampliar evidence receipts do Context Autopilot em Dev e Forge.
+  - Evoluir ranking de testes com correlacao de duracao por stack, area e comando.
 ---
 # Atlas Workspace Twin Runtime
 
@@ -327,6 +327,94 @@ refs provider-safe (`awis_repo`, `awis_manifest`, `awis_stack`,
 `atlas_dev_runtime_intelligence.task_packet`. Assim o plano deixa de ser apenas
 metadado de retomada e passa a influenciar a selecao real de contexto/testes
 antes do prompt de provider.
+Forge tambem consome o mesmo plano no intake: `context_refs` ganha refs AWIS
+provider-safe e os work packets recebem `suggested_tests` derivados de
+`execution_priority` e `context_loading_plan.command_hints`. Assim Obras
+nascem com a mesma memoria de pasta, stack e comandos que Dev usa, sem depender
+de prompt manual ou de varredura bruta de repositorio.
+AWTR tambem publica `workspace_outcome_command_memory` dentro de
+`test_command_intelligence`. Essa memoria le outcomes reais de Dev, Forge,
+Engineering Test Runs e resultados certificados de teste, resume sucesso/falha
+por comando, calcula afinidade por area afetada, incorpora recencia e duracao,
+marca estabilidade (`stable`, `mixed`, `failing`) e classifica performance
+(`fast`, `normal`, `heavy`, `slow`) usando amostras capadas, buckets e p95 de
+duracao. Tambem correlaciona duracao por area e por stack usando o inventario
+de repositorio, sem abrir conteudo bruto. Comandos lentos ou instaveis entram
+em `slow_commands`, `flaky_commands` e `avoid_commands`. O contrato retorna
+apenas comando, contadores, buckets de duracao, p95, area/stack agregadas e
+refs hashadas de outcome/evidencia; nao retorna log bruto, diff, texto de
+provider ou caminho absoluto.
+`workspace_focus_map` e `workspace_next_session_brain.execution_priority`
+consomem esse ranking, entao a proxima sessao nasce com testes ordenados por
+evidencia real, area tocada e estabilidade, nao so por heuristica de manifest.
+O `context_loading_plan` tambem carrega `outcome_command_memory_hash`,
+`outcome_ranked_commands`, `area_ranked_commands`, `flaky_commands`,
+`slow_commands`, `avoid_commands`, `command_performance_policy` e
+`command_performance_histogram`, alem dos indices
+`area_performance_index_hash` e `stack_performance_index_hash`. Dev e Forge
+transformam esses hashes em refs cache provider-safe
+(`awis_cache:outcome_command_memory`,
+`awis_cache:command_performance_histogram`,
+`awis_cache:area_performance_index` e
+`awis_cache:stack_performance_index`), mesclam comandos rankeados aos testes
+sugeridos e filtram comandos evitaveis/lentos antes de montar task packets ou
+work packets.
+AWIS tambem publica `workspace_learning_snapshot`, uma foto provider-safe do
+aprendizado do workspace. Ela persiste junto ao snapshot AWIS completo e guarda
+apenas scores, contagens e hashes: `learning_score`, `readiness_score`, hashes
+de inventario, mudanca, foco, outcome memory, histograma de performance e
+indices area/stack. Esse snapshot nao promove memoria sozinho, nao reescreve
+docs canonicos e nao transfere aprendizado bruto entre workspaces. O
+`context_loading_plan` inclui `learning_snapshot_hash` e
+`cache_keys.workspace_learning_snapshot_hash`, permitindo que a proxima sessao
+reaproveite a evolucao validada do workspace sem reler log, diff, arquivo,
+conversa ou texto de provider. Dev e Forge propagam esse hash como
+`awis_cache:workspace_learning_snapshot:<hash>` nos context refs, entao task
+packets e work packets recebem a memoria de aprendizado validada como cache
+ref, nao como conteudo bruto.
+O mesmo plano publica `execution_optimization_policy`, derivada de outcome
+memory e performance memory. Essa politica separa comandos em preferidos,
+padrao, adiados e bloqueados, define tiers `instant`, `standard` e `deep`, e
+tambem e propagada como
+`awis_cache:execution_optimization_policy:<hash>`. Dev e Forge usam essa
+politica para prepend de comandos rapidos/estaveis e para excluir comandos
+lentos, falhos ou bloqueados do pacote default, mantendo validacao profunda
+para contextos de risco sem transformar o caminho feliz em execucao pesada.
+A policy tambem publica `scope_routing`: rotas provider-safe por area e stack
+com comandos preferidos, adiados e bloqueados para aquele escopo. Quando uma
+mudanca toca uma area conhecida, o AWIS pode preferir a rota especifica da
+area/stack antes do ranking global, reduzindo custo e aumentando precisao.
+Atlas Dev e Forge consomem essas rotas ao montar `suggested_tests`: se os
+`expected_files` batem com uma area conhecida, os comandos preferidos daquela
+rota entram antes de `execution_priority`, comandos globais e hints. Se nao
+houver rota de area compativel, os consumidores inferem stacks pelos
+`focused_manifest_refs` e usam `stack_routes` como fallback antes do ranking
+global. A rota usada tambem e anexada como ref provider-safe por comando
+(`awis_execution_route_command:<command_hash>:area|stack:<scope_hash>`),
+permitindo que AWTR agregue `execution_route_effectiveness_index` e aprenda
+qual estrategia de selecao funcionou sem expor caminhos, logs ou conteudo.
+Esse indice volta para a proxima `execution_optimization_policy`: rotas
+efetivas sao reutilizadas, enquanto rotas mistas ou falhas sao rebaixadas
+para validacao profunda antes de voltarem ao caminho preferido.
+A mesma policy publica `validation_tier_routing`, que transforma feedback de
+rota em profundidade de validacao: rotas efetivas e rapidas podem usar tier
+`instant`, rotas desconhecidas ficam em `standard`, e rotas mistas, falhas,
+lentas ou bloqueadas exigem `deep`. Assim o AWIS aprende tambem quao fundo
+validar cada escopo, nao apenas qual comando sugerir. Atlas Dev e Forge
+consomem isso como `validation_depth_decision` e refs
+`awis_validation_tier:*` / `awis_validation_route:*`, mantendo a decisao
+provider-safe e acoplada ao task/work packet. Outcomes posteriores agregam
+`validation_tier_effectiveness_index`, permitindo que tiers mistos ou falhos
+sejam guardados na proxima policy sem expor logs, prompts ou conteudo bruto.
+Quando Dev ou Forge produzem outcomes com esse cache ref, AWTR agrega
+`execution_policy_effectiveness_index`: sucesso, falha, comandos e score por
+policy hash. Isso fecha o loop de aprendizado da propria politica: o AWIS
+passa a aprender quais escolhas de validacao funcionaram no workspace sem
+armazenar logs, prompts, diffs ou conteudo bruto. A proxima
+`execution_optimization_policy` consome esse indice como
+`policy_feedback`: policies efetivas podem ser reutilizadas como formato de
+execucao, enquanto policies mistas ou falhas apertam o caminho default para
+comandos rapidos/preferidos e deixam validacoes amplas para tiers profundos.
 O Atlas AI Control Plane considera a familia AWIS operacional somente quando
 as projections persistidas incluem `AWTR`, `AWCO`, `AWEF`, `AWIL` e `AWNSB`.
 Se um workspace tiver projection parcial, o Control Plane emite

@@ -1,0 +1,897 @@
+<?php
+
+namespace App\Services\Ai\Programming\Frontend;
+
+use App\Services\Ai\Mission\MissionCanonicalHash;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+
+final class AtlasFrontendDesignRuntimeService
+{
+    public const CONTRACT_SCHEMA_VERSION = 'atlas.frontend.design_runtime_contract.v1';
+
+    public const CERTIFICATION_SCHEMA_VERSION = 'atlas.frontend.design_runtime_certification.v1';
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    public function contract(array $options = []): array
+    {
+        $task = trim((string) ($options['task'] ?? ''));
+        $surface = trim((string) ($options['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
+        $workspace = trim((string) ($options['workspace'] ?? ''));
+        $haystack = Str::ascii(strtolower($task.' '.$surface.' '.implode(' ', array_filter((array) ($options['hints'] ?? []), 'is_string'))));
+
+        $signals = $this->signals($haystack, $options);
+        $outputTypes = $this->outputTypes($signals);
+        $capabilities = $this->capabilities($signals, $outputTypes);
+        $requiredGates = $this->requiredGates($signals, $outputTypes);
+        $requiredEvidence = $this->requiredEvidence($signals, $outputTypes);
+        $scorecard = $this->competitiveScorecard($capabilities, $requiredGates, $requiredEvidence);
+        $blockers = $this->blockers($signals, $options);
+        $warnings = $this->warnings($signals, $options);
+
+        $contract = [
+            'schema_version' => self::CONTRACT_SCHEMA_VERSION,
+            'status' => $blockers === [] ? 'ready' : 'blocked',
+            'surface' => $surface,
+            'workspace_hash' => $workspace !== '' ? hash('sha256', $workspace) : null,
+            'task_hash' => $task !== '' ? hash('sha256', $task) : null,
+            'specialist_profile' => 'programming.frontend',
+            'source' => self::class,
+            'signals' => $signals,
+            'output_types' => $outputTypes,
+            'required_capabilities' => $capabilities,
+            'required_gates' => $requiredGates,
+            'required_evidence' => $requiredEvidence,
+            'task_spec_contract' => $this->taskSpecContract(),
+            'execution_gate_contract' => $this->executionGateContract(),
+            'repair_planner_contract' => $this->repairPlannerContract(),
+            'run_certification_contract' => $this->runCertificationContract(),
+            'delivery_handoff_contract' => $this->deliveryHandoffContract(),
+            'outcome_memory_contract' => $this->outcomeMemoryContract(),
+            'design_quality_rule_registry' => $this->designQualityRules(),
+            'design_review_contract' => $this->designReviewContract(),
+            'visual_quality_gate_contract' => $this->visualQualityGateContract(),
+            'design_system_inventory_contract' => $this->designSystemInventoryContract($signals),
+            'design_system_drift_gate_contract' => $this->designSystemDriftGateContract($signals),
+            'asset_pack_contract' => $this->assetPackContract($signals),
+            'company_design_profile_contract' => $this->companyDesignProfileContract($signals),
+            'design_direction_advisor_contract' => $this->designDirectionAdvisorContract($signals),
+            'variant_strategy' => $this->variantStrategy($signals),
+            'live_iteration_contract' => $this->liveIterationContract($signals),
+            'provider_policy' => [
+                'provider_neutral' => true,
+                'atlas_decide_required' => true,
+                'benchmark_by_task_not_brand' => true,
+                'external_skill_code_copy_forbidden' => true,
+                'paid_external_tool_required' => false,
+                'documentation_only_claim_forbidden' => true,
+            ],
+            'completion_rules' => [
+                'screenshot_alone_is_insufficient' => true,
+                'no_driver_claim_without_evidence' => true,
+                'multi_viewport_required_or_reason' => true,
+                'state_console_a11y_perf_required_or_reason' => true,
+                'design_critique_required' => true,
+                'human_review_required_for_broad_visual_change' => (bool) ($signals['broad_visual_change'] ?? false),
+            ],
+            'competitive_scorecard' => $scorecard,
+            'blockers' => $blockers,
+            'warnings' => $warnings,
+        ];
+        $contract['contract_hash'] = MissionCanonicalHash::sha256($contract);
+
+        return $contract;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function certify(): array
+    {
+        $checks = [
+            $this->fileCheck('frontend_domain_doc_present', 'docs/engineering-knowledge-base/domains/programming-frontend-superpower.md', ['frontend_design_harness', 'programming.frontend']),
+            $this->fileCheck('impeccable_teardown_present', 'docs/engineering-knowledge-base/domains/programming-frontend-impeccable-coverage-audit.md', ['pbakaus/impeccable', 'covered']),
+            $this->fileCheck('runtime_service_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignRuntimeService.php', [self::CONTRACT_SCHEMA_VERSION, 'competitive_scorecard']),
+            $this->fileCheck('orchestrator_integration_present', 'app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php', ['AtlasFrontendDesignRuntimeService', 'AtlasFrontendExecutionGateService', 'pre_execution_gate']),
+            $this->fileCheck('forge_integration_present', 'app/Services/Ai/Programming/Forge/Intelligence/ForgeSpecialistWorkcellRouterService.php', ['AtlasFrontendDesignRuntimeService', 'AtlasFrontendExecutionGateService', 'atlas_frontend_pre_execution_gate']),
+            $this->fileCheck('visual_smoke_runtime_present', 'app/Console/Commands/AtlasEngineeringVisualSmokeCommand.php', ['atlas:engineering:visual-smoke', 'atlas_visual_smoke']),
+            $this->fileCheck('visual_driver_present', 'app/Console/Commands/AtlasEngineeringVisualDriverCommand.php', ['atlas:engineering:visual-driver', 'Playwright']),
+            $this->fileCheck('anti_slop_detector_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendAntiSlopDetectorService.php', [AtlasFrontendAntiSlopDetectorService::SCHEMA_VERSION, 'inspectPath']),
+            $this->fileCheck('benchmark_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendBenchmarkRuntimeService.php', [AtlasFrontendBenchmarkRuntimeService::SCHEMA_VERSION, 'atlas_world_best_frontend_system']),
+            $this->fileCheck('task_spec_compiler_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendTaskSpecCompilerService.php', [AtlasFrontendTaskSpecCompilerService::SCHEMA_VERSION, 'canonicalSections']),
+            $this->fileCheck('browser_bridge_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendBrowserBridgeService.php', [AtlasFrontendBrowserBridgeService::SCHEMA_VERSION, 'atlas:frontend:pick']),
+            $this->fileCheck('framework_adapter_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendFrameworkAdapterRuntimeService.php', [AtlasFrontendFrameworkAdapterRuntimeService::SCHEMA_VERSION, 'hmr_supported']),
+            $this->fileCheck('design_system_inventory_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignSystemInventoryService.php', [AtlasFrontendDesignSystemInventoryService::SCHEMA_VERSION, 'raw_source_returned']),
+            $this->fileCheck('execution_gate_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendExecutionGateService.php', [AtlasFrontendExecutionGateService::SCHEMA_VERSION, 'provider_dispatch_allowed']),
+            $this->fileCheck('repair_planner_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRepairPlannerService.php', [AtlasFrontendRepairPlannerService::SCHEMA_VERSION, 'knownSignals']),
+            $this->fileCheck('run_certification_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRunCertificationService.php', [AtlasFrontendRunCertificationService::SCHEMA_VERSION, 'frontend_completion_claim_allowed', 'frontend_completion_claim_requires_outcome_memory']),
+            $this->fileCheck('run_certification_task_spec_hash_consistency_enforced', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRunCertificationService.php', ['task_spec_hash_consistent', 'taskSpecHashes']),
+            $this->fileCheck('delivery_handoff_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDeliveryHandoffService.php', [AtlasFrontendDeliveryHandoffService::SCHEMA_VERSION, 'customer_handoff_allowed']),
+            $this->fileCheck('live_preview_relay_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendLivePreviewRelayService.php', [AtlasFrontendLivePreviewRelayService::SCHEMA_VERSION, 'atlas:frontend:preview-css']),
+            $this->fileCheck('live_source_patch_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendLiveSourcePatchRuntimeService.php', [AtlasFrontendLiveSourcePatchRuntimeService::SESSION_SCHEMA_VERSION, 'recover']),
+            $this->fileCheck('product_proof_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendProductProofRuntimeService.php', [AtlasFrontendProductProofRuntimeService::SCHEMA_VERSION, AtlasFrontendProductProofRuntimeService::BUNDLE_SCHEMA_VERSION, 'buildStaticBundle']),
+            $this->fileCheck('company_design_profile_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendCompanyDesignProfileService.php', [AtlasFrontendCompanyDesignProfileService::SCHEMA_VERSION, 'multi_company_frontend_design_context']),
+            $this->fileCheck('design_direction_advisor_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignDirectionAdvisorService.php', [AtlasFrontendDesignDirectionAdvisorService::SCHEMA_VERSION, 'selection_requires_reason']),
+            $this->fileCheck('asset_pack_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendAssetPackService.php', [AtlasFrontendAssetPackService::SCHEMA_VERSION, 'placeholder_or_unlicensed_assets_block_claim']),
+            $this->fileCheck('design_review_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignReviewService.php', [AtlasFrontendDesignReviewService::SCHEMA_VERSION, 'frontend_design_5d_review']),
+            $this->fileCheck('visual_quality_gate_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendVisualQualityGateService.php', [AtlasFrontendVisualQualityGateService::SCHEMA_VERSION, 'screenshot_alone_is_insufficient']),
+            $this->fileCheck('design_system_drift_gate_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendDesignSystemDriftGateService.php', [AtlasFrontendDesignSystemDriftGateService::SCHEMA_VERSION, 'unapproved_new_tokens_or_components_block_claim']),
+            $this->fileCheck('publication_verifier_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendPublicationVerifierService.php', [AtlasFrontendPublicationVerifierService::SCHEMA_VERSION, 'public_distribution_claim_allowed']),
+            $this->fileCheck('evidence_pack_verifier_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendEvidencePackVerifierService.php', [AtlasFrontendEvidencePackVerifierService::SCHEMA_VERSION, 'requiredArtifactKinds']),
+            $this->fileCheck('outcome_memory_runtime_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendOutcomeMemoryService.php', [AtlasFrontendOutcomeMemoryService::SCHEMA_VERSION, 'safe_for_aemor_projection']),
+            $this->fileCheck('competitive_rubric_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendCompetitiveRubricService.php', [AtlasFrontendCompetitiveRubricService::SCHEMA_VERSION, 'product_intent_fit']),
+            $this->fileCheck('rival_replay_harness_present', 'app/Services/Ai/Programming/Frontend/AtlasFrontendRivalReplayHarnessService.php', [AtlasFrontendRivalReplayHarnessService::SCHEMA_VERSION, 'external_rival_replay_artifacts_required_for_world_best_claim']),
+            $this->fileCheck('command_surface_present', 'app/Console/Commands/AtlasFrontendDesignRuntimePlanCommand.php', ['atlas:frontend:plan']),
+            $this->fileCheck('anti_slop_command_present', 'app/Console/Commands/AtlasFrontendAntiSlopDetectCommand.php', ['atlas:frontend:detect', 'anti-AI-slop']),
+            $this->fileCheck('benchmark_command_present', 'app/Console/Commands/AtlasFrontendBenchmarkCommand.php', ['atlas:frontend:benchmark']),
+            $this->fileCheck('task_spec_command_present', 'app/Console/Commands/AtlasFrontendTaskSpecCommand.php', ['atlas:frontend:spec', 'deterministic Atlas Frontend task spec']),
+            $this->fileCheck('browser_bridge_command_present', 'app/Console/Commands/AtlasFrontendBrowserBridgeCommand.php', ['atlas:frontend:bridge', 'script, inject or remove']),
+            $this->fileCheck('framework_adapter_command_present', 'app/Console/Commands/AtlasFrontendFrameworkAdapterCommand.php', ['atlas:frontend:adapters', 'Inspect frontend framework adapter']),
+            $this->fileCheck('design_system_inventory_command_present', 'app/Console/Commands/AtlasFrontendDesignSystemInventoryCommand.php', ['atlas:frontend:inventory', 'design-system tokens']),
+            $this->fileCheck('execution_gate_command_present', 'app/Console/Commands/AtlasFrontendExecutionGateCommand.php', ['atlas:frontend:gate', 'pre-execution gate']),
+            $this->fileCheck('repair_planner_command_present', 'app/Console/Commands/AtlasFrontendRepairPlanCommand.php', ['atlas:frontend:repair-plan', 'deterministic Atlas Frontend repair plan']),
+            $this->fileCheck('run_certification_command_present', 'app/Console/Commands/AtlasFrontendRunCertifyCommand.php', ['atlas:frontend:run-certify', 'real evidence artifacts']),
+            $this->fileCheck('delivery_handoff_command_present', 'app/Console/Commands/AtlasFrontendDeliveryHandoffCommand.php', ['atlas:frontend:handoff', 'enterprise Atlas Frontend delivery handoff']),
+            $this->fileCheck('live_preview_relay_command_present', 'app/Console/Commands/AtlasFrontendLivePreviewRelayCommand.php', ['atlas:frontend:relay', 'script, inject or remove']),
+            $this->fileCheck('live_source_patch_command_present', 'app/Console/Commands/AtlasFrontendLiveSourcePatchCommand.php', ['atlas:frontend:live', 'prepare, accept, discard, recover']),
+            $this->fileCheck('product_proof_command_present', 'app/Console/Commands/AtlasFrontendProductProofCommand.php', ['atlas:frontend:proof', 'catalog or build']),
+            $this->fileCheck('company_design_profile_command_present', 'app/Console/Commands/AtlasFrontendCompanyDesignProfileCommand.php', ['atlas:frontend:company-profile', 'inspect or template']),
+            $this->fileCheck('design_direction_advisor_command_present', 'app/Console/Commands/AtlasFrontendDesignDirectionCommand.php', ['atlas:frontend:directions', 'Design Directions']),
+            $this->fileCheck('asset_pack_command_present', 'app/Console/Commands/AtlasFrontendAssetPackCommand.php', ['atlas:frontend:assets', 'inspect or template']),
+            $this->fileCheck('design_review_command_present', 'app/Console/Commands/AtlasFrontendDesignReviewCommand.php', ['atlas:frontend:review', '5D design review']),
+            $this->fileCheck('visual_quality_gate_command_present', 'app/Console/Commands/AtlasFrontendVisualQualityGateCommand.php', ['atlas:frontend:visual-quality', 'inspect or template']),
+            $this->fileCheck('design_system_drift_gate_command_present', 'app/Console/Commands/AtlasFrontendDesignSystemDriftCommand.php', ['atlas:frontend:design-system-drift', 'inspect or template']),
+            $this->fileCheck('publication_command_present', 'app/Console/Commands/AtlasFrontendPublicationCommand.php', ['atlas:frontend:publish', 'receipt-template']),
+            $this->fileCheck('evidence_pack_command_present', 'app/Console/Commands/AtlasFrontendEvidencePackCommand.php', ['atlas:frontend:evidence', 'verify or template']),
+            $this->fileCheck('outcome_memory_command_present', 'app/Console/Commands/AtlasFrontendOutcomeMemoryCommand.php', ['atlas:frontend:outcomes', 'outcome memory']),
+            $this->fileCheck('competitive_rubric_command_present', 'app/Console/Commands/AtlasFrontendCompetitiveRubricCommand.php', ['atlas:frontend:rubric']),
+            $this->fileCheck('rival_replay_command_present', 'app/Console/Commands/AtlasFrontendRivalReplayCommand.php', ['atlas:frontend:replay', 'inspect or template']),
+            $this->fileCheck('certification_command_present', 'app/Console/Commands/AtlasFrontendDesignRuntimeCertifyCommand.php', ['atlas:frontend:certify']),
+            $this->fileCheck('unit_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDesignRuntimeServiceTest.php', ['market_leading_contract', 'certification']),
+            $this->fileCheck('anti_slop_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendAntiSlopDetectorServiceTest.php', ['gradient_text', 'provider_safe']),
+            $this->fileCheck('benchmark_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendBenchmarkRuntimeServiceTest.php', ['contract_superiority', 'world_best_claim']),
+            $this->fileCheck('task_spec_compiler_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendTaskSpecCompilerServiceTest.php', ['saas_dashboard_task_spec', 'raw_task_returned']),
+            $this->fileCheck('browser_bridge_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendBrowserBridgeServiceTest.php', ['emits_pick_event_contract', 'inject_is_idempotent']),
+            $this->fileCheck('framework_adapter_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendFrameworkAdapterRuntimeServiceTest.php', ['detects_vite_workspace', 'fake_ready']),
+            $this->fileCheck('design_system_inventory_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDesignSystemInventoryServiceTest.php', ['tokens_components', 'fake_ready']),
+            $this->fileCheck('execution_gate_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendExecutionGateServiceTest.php', ['pre_execution_evidence', 'company_design_profile_required']),
+            $this->fileCheck('repair_planner_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendRepairPlannerServiceTest.php', ['visual_quality_loop', 'task_spec_hash_mismatch']),
+            $this->fileCheck('run_certification_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendRunCertificationServiceTest.php', ['certifies_run_with_real_artifacts', 'blocks_missing_evidence', 'blocks_mismatched_task_spec_hash_across_evidence_chain']),
+            $this->fileCheck('delivery_handoff_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDeliveryHandoffServiceTest.php', ['compiles_customer_safe_handoff', 'evidence_manifest_task_spec_hash_mismatch']),
+            $this->fileCheck('live_preview_relay_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendLivePreviewRelayServiceTest.php', ['emits_preview_event_contract', 'inject_is_idempotent']),
+            $this->fileCheck('live_source_patch_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendLiveSourcePatchRuntimeServiceTest.php', ['prepare_accept_and_recover', 'source_changed_since_prepare']),
+            $this->fileCheck('product_proof_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendProductProofRuntimeServiceTest.php', ['multi_company_demo_proofs', 'build_static_bundle']),
+            $this->fileCheck('company_design_profile_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendCompanyDesignProfileServiceTest.php', ['ready_profile', 'raw_prompt']),
+            $this->fileCheck('design_direction_advisor_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDesignDirectionAdvisorServiceTest.php', ['three_governed_directions', 'task_missing']),
+            $this->fileCheck('asset_pack_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendAssetPackServiceTest.php', ['valid_asset_pack_passes', 'placeholder_or_unlicensed']),
+            $this->fileCheck('design_review_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDesignReviewServiceTest.php', ['valid_review_passes', 'score_below_threshold']),
+            $this->fileCheck('visual_quality_gate_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendVisualQualityGateServiceTest.php', ['valid_report_passes', 'raw_prompt']),
+            $this->fileCheck('design_system_drift_gate_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendDesignSystemDriftGateServiceTest.php', ['valid_report_passes', 'unapproved_new_token']),
+            $this->fileCheck('publication_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendPublicationVerifierServiceTest.php', ['local_ready', 'public_verified']),
+            $this->fileCheck('evidence_pack_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendEvidencePackVerifierServiceTest.php', ['matching_hashes', 'raw_prompt']),
+            $this->fileCheck('outcome_memory_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendOutcomeMemoryServiceTest.php', ['failed_gate_counts', 'provider_safe']),
+            $this->fileCheck('competitive_rubric_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendCompetitiveRubricServiceTest.php', ['validates_score_breakdown', 'score_max']),
+            $this->fileCheck('rival_replay_tests_present', 'tests/Unit/Ai/Programming/Frontend/AtlasFrontendRivalReplayHarnessServiceTest.php', ['ready_for_replay', 'world_best']),
+            $this->fileCheck('command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDesignRuntimeCommandTest.php', ['atlas:frontend:plan', 'atlas:frontend:certify']),
+            $this->fileCheck('anti_slop_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendAntiSlopDetectCommandTest.php', ['atlas:frontend:detect', 'fails_strict']),
+            $this->fileCheck('benchmark_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendBenchmarkCommandTest.php', ['atlas:frontend:benchmark', 'competitive_matrix']),
+            $this->fileCheck('task_spec_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendTaskSpecCommandTest.php', ['atlas:frontend:spec', 'task_spec_hash']),
+            $this->fileCheck('browser_bridge_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendBrowserBridgeCommandTest.php', ['atlas:frontend:bridge', 'injects_and_removes']),
+            $this->fileCheck('framework_adapter_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendFrameworkAdapterCommandTest.php', ['atlas:frontend:adapters', 'framework_contract']),
+            $this->fileCheck('design_system_inventory_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDesignSystemInventoryCommandTest.php', ['atlas:frontend:inventory', 'design_system_inventory']),
+            $this->fileCheck('execution_gate_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendExecutionGateCommandTest.php', ['atlas:frontend:gate', 'execution_allowed']),
+            $this->fileCheck('repair_planner_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendRepairPlanCommandTest.php', ['atlas:frontend:repair-plan', 'repair_plan_hash']),
+            $this->fileCheck('run_certification_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendRunCertifyCommandTest.php', ['atlas:frontend:run-certify', 'run_certification_hash', 'certifies_real_evidence_bundle']),
+            $this->fileCheck('delivery_handoff_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDeliveryHandoffCommandTest.php', ['atlas:frontend:handoff', 'customer_handoff_allowed']),
+            $this->fileCheck('live_preview_relay_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendLivePreviewRelayCommandTest.php', ['atlas:frontend:relay', 'injects_and_removes']),
+            $this->fileCheck('live_source_patch_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendLiveSourcePatchCommandTest.php', ['atlas:frontend:live', 'recovers_patch']),
+            $this->fileCheck('product_proof_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendProductProofCommandTest.php', ['atlas:frontend:proof', 'builds_static_bundle']),
+            $this->fileCheck('company_design_profile_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendCompanyDesignProfileCommandTest.php', ['atlas:frontend:company-profile', 'template']),
+            $this->fileCheck('design_direction_advisor_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDesignDirectionCommandTest.php', ['atlas:frontend:directions', 'brand_product_depth']),
+            $this->fileCheck('asset_pack_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendAssetPackCommandTest.php', ['atlas:frontend:assets', 'template']),
+            $this->fileCheck('design_review_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDesignReviewCommandTest.php', ['atlas:frontend:review', 'design_review_report']),
+            $this->fileCheck('visual_quality_gate_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendVisualQualityGateCommandTest.php', ['atlas:frontend:visual-quality', 'template']),
+            $this->fileCheck('design_system_drift_gate_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendDesignSystemDriftCommandTest.php', ['atlas:frontend:design-system-drift', 'template']),
+            $this->fileCheck('publication_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendPublicationCommandTest.php', ['atlas:frontend:publish', 'receipt-template']),
+            $this->fileCheck('evidence_pack_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendEvidencePackCommandTest.php', ['atlas:frontend:evidence', 'template']),
+            $this->fileCheck('outcome_memory_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendOutcomeMemoryCommandTest.php', ['atlas:frontend:outcomes', 'frontend_execution_gate']),
+            $this->fileCheck('competitive_rubric_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendCompetitiveRubricCommandTest.php', ['atlas:frontend:rubric']),
+            $this->fileCheck('rival_replay_command_tests_present', 'tests/Feature/Ai/Programming/Frontend/AtlasFrontendRivalReplayCommandTest.php', ['atlas:frontend:replay', 'template']),
+            $this->fileCheck('forge_tests_present', 'tests/Feature/Ai/Programming/Forge/ForgeFrontendWorkcellRuntimeTest.php', ['surface_ui', 'atlas_frontend_runtime']),
+            $this->fileCheck('orchestrator_tests_present', 'tests/Unit/Ai/AtlasProgrammingOrchestratorTest.php', ['atlas_frontend_runtime', self::CONTRACT_SCHEMA_VERSION]),
+            $this->capabilityCheck('multi_output_contract_present', ['production_ui_patch', 'clickable_prototype', 'motion_design_asset', 'deck_infographic']),
+            $this->capabilityCheck('evidence_gates_exceed_impeccable', ['visual_smoke_multi_viewport', 'design_5d_review', 'anti_ai_slop_detector', 'competitive_benchmark_scorecard']),
+            $this->capabilityCheck('honest_not_doc_only_claim', ['evidence_receipts', 'visual_smoke_multi_viewport', 'documentation_only_claim_forbidden']),
+        ];
+
+        $failedCritical = collect($checks)->contains(fn (array $check): bool => $check['status'] === 'fail' && $check['severity'] === 'critical');
+        $failedWarn = collect($checks)->contains(fn (array $check): bool => $check['status'] === 'fail' && $check['severity'] === 'warn');
+        $status = $failedCritical ? 'blocked' : ($failedWarn ? 'partial' : 'ready');
+
+        $payload = [
+            'schema_version' => self::CERTIFICATION_SCHEMA_VERSION,
+            'status' => $status,
+            'market_claim_policy' => [
+                'may_claim_more_complete_than_impeccable' => $status === 'ready',
+                'may_claim_more_complete_than_claude_design_plugin' => $status === 'ready',
+                'may_claim_world_best_frontend_system' => false,
+                'world_best_requires_real_benchmark_runs' => true,
+                'documentation_only_claim_forbidden' => true,
+            ],
+            'summary' => [
+                'total' => count($checks),
+                'pass' => collect($checks)->where('status', 'pass')->count(),
+                'fail' => collect($checks)->where('status', 'fail')->count(),
+            ],
+            'checks' => $checks,
+            'blockers' => array_values(array_filter($checks, fn (array $check): bool => $check['status'] === 'fail' && $check['severity'] === 'critical')),
+            'warnings' => array_values(array_filter($checks, fn (array $check): bool => $check['status'] === 'fail' && $check['severity'] === 'warn')),
+        ];
+        $payload['certification_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,bool|string>
+     */
+    private function signals(string $haystack, array $options): array
+    {
+        return [
+            'ui_change' => $this->containsAny($haystack, ['frontend', 'ui', 'layout', 'screen', 'tela', 'component', 'css', 'design', 'mobile', 'desktop']),
+            'production_code' => (bool) ($options['code_changes'] ?? true),
+            'prototype_requested' => (bool) ($options['prototype'] ?? false) || $this->containsAny($haystack, ['prototype', 'prototipo', 'wireframe', 'variant', 'variante']),
+            'live_iteration_requested' => (bool) ($options['live'] ?? false) || $this->containsAny($haystack, ['live', 'browser', 'selecionar elemento', 'accept', 'discard']),
+            'asset_heavy' => $this->containsAny($haystack, ['logo', 'brand', 'marca', 'image', 'asset', 'hero', 'photo', 'video']),
+            'motion_or_deck' => $this->containsAny($haystack, ['motion', 'animation', 'animacao', 'deck', 'slides', 'ppt', 'infographic']),
+            'enterprise_multi_company' => $this->containsAny($haystack, ['empresa', 'enterprise', 'saas', 'ecommerce', 'multiempresa', 'client', 'cliente']),
+            'broad_visual_change' => $this->containsAny($haystack, ['design system', 'redesign', 'todas as telas', 'produto inteiro', 'inumeras empresas']),
+            'performance_sensitive' => $this->containsAny($haystack, ['performance', 'lighthouse', 'latencia', 'bundle', 'custo', 'cache']),
+            'accessibility_sensitive' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @return array<int,string>
+     */
+    private function outputTypes(array $signals): array
+    {
+        $types = ['production_ui_patch'];
+        if ($signals['prototype_requested'] || $signals['enterprise_multi_company']) {
+            $types[] = 'clickable_prototype';
+        }
+        if ($signals['motion_or_deck']) {
+            $types[] = 'motion_design_asset';
+            $types[] = 'deck_infographic';
+        }
+        if ($signals['live_iteration_requested']) {
+            $types[] = 'live_visual_iteration';
+        }
+
+        return array_values(array_unique($types));
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @param  array<int,string>  $outputTypes
+     * @return array<int,string>
+     */
+    private function capabilities(array $signals, array $outputTypes): array
+    {
+        $capabilities = [
+            'design_context_pack',
+            'deterministic_frontend_task_spec_compiler',
+            'design_direction_advisor',
+            'framework_route_component_discovery',
+            'design_token_and_component_inventory',
+            'design_system_drift_gate',
+            'frontend_asset_pack_verifier',
+            'asset_provenance_and_quality_gate',
+            'anti_ai_slop_detector',
+            'multi_viewport_visual_smoke',
+            'a11y_state_console_performance_gates',
+            'frontend_visual_quality_gate',
+            'design_5d_critique',
+            'repair_loop_from_visual_evidence',
+            'evidence_receipts',
+            'outcome_memory',
+            'competitive_benchmark_scorecard',
+        ];
+
+        if (in_array('clickable_prototype', $outputTypes, true)) {
+            $capabilities[] = 'interactive_prototype_generation';
+        }
+        if (in_array('live_visual_iteration', $outputTypes, true)) {
+            $capabilities[] = 'live_element_pick_variant_accept_discard_contract';
+            $capabilities[] = 'live_css_preview_relay';
+        }
+        if ($signals['enterprise_multi_company']) {
+            $capabilities[] = 'multi_company_design_system_adaptation';
+            $capabilities[] = 'brand_context_without_vendor_lockin';
+        }
+
+        return array_values(array_unique($capabilities));
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @param  array<int,string>  $outputTypes
+     * @return array<int,string>
+     */
+    private function requiredGates(array $signals, array $outputTypes): array
+    {
+        $gates = [
+            'context_pack_hash',
+            'typescript_or_reason',
+            'eslint_or_biome_or_reason',
+            'console_error_check',
+            'frontend_visual_quality_gate',
+            'visual_smoke_multi_viewport',
+            'no_text_overlap',
+            'responsive_check',
+            'a11y_check_or_reason',
+            'state_transition_check',
+            'design_system_inventory_or_profile',
+            'asset_provenance_check',
+            'anti_ai_slop_detector',
+            'design_5d_review',
+            'performance_budget_or_reason',
+            'evidence_receipt_required',
+        ];
+        if ($signals['broad_visual_change'] || $signals['enterprise_multi_company']) {
+            $gates[] = 'senior_design_review';
+            $gates[] = 'design_system_drift_check';
+        }
+        if (in_array('live_visual_iteration', $outputTypes, true)) {
+            $gates[] = 'source_patch_boundary_check';
+            $gates[] = 'accept_discard_recovery_check';
+        }
+
+        return array_values(array_unique($gates));
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @param  array<int,string>  $outputTypes
+     * @return array<int,string>
+     */
+    private function requiredEvidence(array $signals, array $outputTypes): array
+    {
+        $evidence = [
+            'frontend_context_pack',
+            'frontend_task_spec',
+            'selected_design_direction_or_reason',
+            'design_system_inventory',
+            'changed_files_or_prototype_artifacts',
+            'frontend_asset_pack',
+            'tool_run_receipts',
+            'visual_smoke_manifest',
+            'visual_quality_report',
+            'design_system_drift_report',
+            'screenshots_or_reason',
+            'console_network_check',
+            'a11y_perf_state_results_or_reason',
+            'design_5d_review_summary',
+            'anti_slop_findings',
+            'anti_slop_detector_report',
+            'completion_hash',
+        ];
+        if (in_array('live_visual_iteration', $outputTypes, true)) {
+            $evidence[] = 'live_iteration_event_journal';
+            $evidence[] = 'preview_variant_event';
+            $evidence[] = 'accepted_variant_diff';
+        }
+
+        return $evidence;
+    }
+
+    /**
+     * @param  array<int,string>  $capabilities
+     * @param  array<int,string>  $requiredGates
+     * @param  array<int,string>  $requiredEvidence
+     * @return array<string,mixed>
+     */
+    private function competitiveScorecard(array $capabilities, array $requiredGates, array $requiredEvidence): array
+    {
+        $atlasAdvantages = [
+            'provider_neutral_runtime_governance',
+            'repo_native_production_patch_and_prototype_modes',
+            'visual_a11y_perf_state_evidence_required',
+            'anti_ai_slop_rule_registry',
+            'outcome_memory_and_receipts',
+            'multi_company_design_system_context',
+            'honest_certification_blocks_doc_only_ready',
+        ];
+
+        return [
+            'schema_version' => 'atlas.frontend.competitive_scorecard.v1',
+            'benchmarks' => [
+                'pbakaus_impeccable' => [
+                    'matched' => ['skill_command_flow', 'detector_contract', 'browser_element_picker_bridge', 'framework_hmr_adapter_contract', 'live_css_preview_relay', 'live_iteration_contract', 'multi_provider_distribution_awareness', 'competitive_benchmark_matrix', 'product_proof_catalog'],
+                    'exceeded_by' => $atlasAdvantages,
+                    'remaining_gap' => 'real_rival_replay_and_hosted_public_product_proof_still_required_before world-best claim',
+                ],
+                'claude_design_plugin' => [
+                    'matched' => ['design_skill_contract', 'visual_iteration_intent', 'artifact_review'],
+                    'exceeded_by' => ['provider_neutrality', 'Atlas evidence ledger', 'Dev/Forge integration contract', 'multi_company readiness'],
+                    'remaining_gap' => 'external plugin behavior must be re-benchmarked periodically',
+                ],
+            ],
+            'capability_count' => count($capabilities),
+            'gate_count' => count($requiredGates),
+            'evidence_count' => count($requiredEvidence),
+        ];
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @param  array<string,mixed>  $options
+     * @return array<int,array<string,string>>
+     */
+    private function blockers(array $signals, array $options): array
+    {
+        $blockers = [];
+        if (($options['acceptance_criteria'] ?? null) === false) {
+            $blockers[] = ['id' => 'acceptance_criteria_missing', 'reason' => 'Frontend work needs acceptance criteria or explicit reason.'];
+        }
+        if (($signals['asset_heavy'] ?? false) && ($options['asset_provenance'] ?? null) === false) {
+            $blockers[] = ['id' => 'asset_provenance_missing', 'reason' => 'Asset-heavy frontend work needs asset provenance or explicit placeholder policy.'];
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @param  array<string,mixed>  $options
+     * @return array<int,array<string,string>>
+     */
+    private function warnings(array $signals, array $options): array
+    {
+        $warnings = [];
+        if (($signals['enterprise_multi_company'] ?? false) && ! (bool) ($options['benchmark_run'] ?? false)) {
+            $warnings[] = ['id' => 'benchmark_not_run', 'reason' => 'Market superiority requires real benchmark runs, not only contract coverage.'];
+        }
+        if (($signals['live_iteration_requested'] ?? false)) {
+            $warnings[] = ['id' => 'live_runtime_contract_only', 'reason' => 'Browser picker bridge, framework adapter contract, CSS preview relay and source patch runtime exist; real rival replay still needs implementation proof.'];
+        }
+
+        return $warnings;
+    }
+
+    /**
+     * @return array<int,array<string,string>>
+     */
+    private function designQualityRules(): array
+    {
+        return [
+            ['id' => 'no_nested_cards', 'severity' => 'medium', 'source' => 'impeccable_teardown'],
+            ['id' => 'no_text_overlap', 'severity' => 'high', 'source' => 'atlas_frontend_gate'],
+            ['id' => 'responsive_stable_dimensions', 'severity' => 'high', 'source' => 'atlas_frontend_gate'],
+            ['id' => 'avoid_one_note_palette', 'severity' => 'medium', 'source' => 'atlas_frontend_gate'],
+            ['id' => 'avoid_generic_ai_gradient_hero', 'severity' => 'medium', 'source' => 'impeccable_teardown'],
+            ['id' => 'use_real_assets_or_provenance', 'severity' => 'high', 'source' => 'atlas_frontend_gate'],
+            ['id' => 'button_text_must_fit', 'severity' => 'high', 'source' => 'atlas_frontend_gate'],
+            ['id' => 'keyboard_and_state_paths_verified', 'severity' => 'high', 'source' => 'atlas_frontend_gate'],
+        ];
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @return array<string,mixed>
+     */
+    private function variantStrategy(array $signals): array
+    {
+        return [
+            'schema_version' => 'atlas.frontend.variant_strategy.v1',
+            'required_when_ambiguous' => true,
+            'default_variant_count' => ($signals['enterprise_multi_company'] ?? false) ? 3 : 2,
+            'modes' => ['safer_production_patch', 'bolder_visual_direction', 'accessibility_first'],
+            'selection_policy' => 'variant_must_be_accepted_with_evidence_before_done',
+        ];
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @return array<string,mixed>
+     */
+    private function designDirectionAdvisorContract(array $signals): array
+    {
+        $advisor = app(AtlasFrontendDesignDirectionAdvisorService::class);
+
+        return [
+            'schema_version' => AtlasFrontendDesignDirectionAdvisorService::SCHEMA_VERSION,
+            'status' => (($signals['enterprise_multi_company'] ?? false) || ($signals['prototype_requested'] ?? false)) ? 'required' : 'available',
+            'runtime' => 'AtlasFrontendDesignDirectionAdvisorService',
+            'command' => 'php artisan atlas:frontend:directions --task="<brief>" --json',
+            'direction_ids' => $advisor->directionIds(),
+            'claim_policy' => [
+                'ambiguous_brief_requires_direction_selection' => true,
+                'selection_requires_reason' => true,
+                'selected_direction_must_feed_visual_quality_gate' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @return array<string,mixed>
+     */
+    private function companyDesignProfileContract(array $signals): array
+    {
+        return [
+            'schema_version' => AtlasFrontendCompanyDesignProfileService::SCHEMA_VERSION,
+            'status' => ($signals['enterprise_multi_company'] ?? false) ? 'required' : 'available',
+            'runtime' => 'AtlasFrontendCompanyDesignProfileService',
+            'command' => 'atlas:frontend:company-profile',
+            'required_for' => [
+                'multi_company_design_system_adaptation',
+                'brand_context_without_vendor_lockin',
+                'public_product_demo_claims',
+            ],
+            'required_sections' => app(AtlasFrontendCompanyDesignProfileService::class)->requiredSections(),
+            'claim_policy' => [
+                'brand_adaptation_claim_requires_ready_profile' => true,
+                'template_is_not_company_context' => true,
+                'raw_customer_source_forbidden' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @return array<string,mixed>
+     */
+    private function designSystemInventoryContract(array $signals): array
+    {
+        return [
+            'schema_version' => AtlasFrontendDesignSystemInventoryService::SCHEMA_VERSION,
+            'status' => ($signals['broad_visual_change'] ?? false) || ($signals['enterprise_multi_company'] ?? false) ? 'required' : 'available',
+            'runtime' => 'AtlasFrontendDesignSystemInventoryService',
+            'command' => 'php artisan atlas:frontend:inventory inspect --workspace=<workspace> --json',
+            'required_for' => [
+                'multi_company_design_system_adaptation',
+                'design_system_drift_gate',
+                'safe_existing_component_reuse',
+            ],
+            'claim_policy' => [
+                'broad_visual_work_requires_inventory_or_ready_company_profile' => true,
+                'inventory_returns_hashes_and_refs_not_raw_source' => true,
+                'sparse_inventory_blocks_brand_adaptation_claim_without_profile' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function designReviewContract(): array
+    {
+        $review = app(AtlasFrontendDesignReviewService::class);
+
+        return [
+            'schema_version' => AtlasFrontendDesignReviewService::SCHEMA_VERSION,
+            'status' => 'required',
+            'runtime' => 'AtlasFrontendDesignReviewService',
+            'command' => 'php artisan atlas:frontend:review inspect --report=<design-review-report.json> --json',
+            'template_command' => 'php artisan atlas:frontend:review template --output=<dir> --json',
+            'required_dimensions' => $review->requiredDimensions(),
+            'minimum_overall_score' => 8.0,
+            'claim_policy' => [
+                'visual_completion_requires_passed_5d_review' => true,
+                'score_below_threshold_blocks_claim' => true,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function visualQualityGateContract(): array
+    {
+        $gate = app(AtlasFrontendVisualQualityGateService::class);
+
+        return [
+            'schema_version' => AtlasFrontendVisualQualityGateService::SCHEMA_VERSION,
+            'status' => 'required',
+            'runtime' => 'AtlasFrontendVisualQualityGateService',
+            'command' => 'php artisan atlas:frontend:visual-quality inspect --report=<visual-quality-report.json> --json',
+            'template_command' => 'php artisan atlas:frontend:visual-quality template --output=<dir> --json',
+            'required_viewports' => $gate->requiredViewports(),
+            'required_checks' => $gate->requiredChecks(),
+            'required_artifact_kinds' => $gate->requiredArtifactKinds(),
+            'claim_policy' => [
+                'screenshot_alone_is_insufficient' => true,
+                'visual_completion_claim_requires_gate_pass' => true,
+                'multi_viewport_state_console_a11y_perf_and_anti_slop_required' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function taskSpecContract(): array
+    {
+        $compiler = app(AtlasFrontendTaskSpecCompilerService::class);
+
+        return [
+            'schema_version' => AtlasFrontendTaskSpecCompilerService::SCHEMA_VERSION,
+            'status' => 'required_before_execution_gate',
+            'runtime' => 'AtlasFrontendTaskSpecCompilerService',
+            'command' => 'php artisan atlas:frontend:spec --task="<brief>" --workspace=<workspace> --acceptance --json',
+            'canonical_sections' => $compiler->canonicalSections(),
+            'compiles' => [
+                'task_types',
+                'routes',
+                'viewports',
+                'states',
+                'user_journeys',
+                'acceptance_criteria',
+                'required_gates',
+                'required_tests',
+            ],
+            'claim_policy' => [
+                'frontend_execution_requires_task_spec_hash' => true,
+                'raw_customer_task_returned' => false,
+                'ambiguous_or_broad_work_blocks_without_acceptance_context' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function executionGateContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendExecutionGateService::SCHEMA_VERSION,
+            'status' => 'required',
+            'runtime' => 'AtlasFrontendExecutionGateService',
+            'command' => 'php artisan atlas:frontend:gate --task="<intent>" --task-spec-hash=<hash> --workspace=<workspace> --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'blocks_provider_dispatch_when_missing' => [
+                'task',
+                'matching_task_spec_hash_when_declared',
+                'acceptance_criteria',
+                'test_plan',
+                'visual_quality_plan',
+                'evidence_plan',
+                'design_system_inventory_or_company_profile_for_broad_work',
+                'senior_design_review_for_broad_work',
+            ],
+            'claim_policy' => [
+                'provider_dispatch_requires_gate_not_blocked' => true,
+                'provider_dispatch_requires_matching_task_spec_hash' => true,
+                'completion_claim_still_requires_evidence_gates' => true,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function repairPlannerContract(): array
+    {
+        $planner = app(AtlasFrontendRepairPlannerService::class);
+
+        return [
+            'schema_version' => AtlasFrontendRepairPlannerService::SCHEMA_VERSION,
+            'status' => 'available_after_failed_gate',
+            'runtime' => 'AtlasFrontendRepairPlannerService',
+            'command' => 'php artisan atlas:frontend:repair-plan --blocker=<id> --failed-gate=<gate> --json',
+            'known_signals' => $planner->knownSignals(),
+            'claim_policy' => [
+                'repair_plan_is_not_completion_evidence' => true,
+                'completion_requires_rerun_gates_passed' => true,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runCertificationContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendRunCertificationService::SCHEMA_VERSION,
+            'status' => 'required_before_completion_claim',
+            'runtime' => 'AtlasFrontendRunCertificationService',
+            'command' => 'php artisan atlas:frontend:run-certify --visual-report=<report> --design-review-report=<report> --evidence-manifest=<manifest> --json --strict',
+            'required_evidence' => [
+                'visual_quality_report',
+                'design_5d_review',
+                'evidence_pack',
+                'artifact_hashes',
+                'outcome_memory_record',
+            ],
+            'claim_policy' => [
+                'frontend_completion_claim_requires_run_certification' => true,
+                'frontend_completion_claim_requires_outcome_memory' => true,
+                'public_distribution_claim_requires_publication_receipt' => true,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function deliveryHandoffContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendDeliveryHandoffService::SCHEMA_VERSION,
+            'status' => 'required_for_customer_or_enterprise_handoff',
+            'runtime' => 'AtlasFrontendDeliveryHandoffService',
+            'command' => 'php artisan atlas:frontend:handoff compile --run-certification=<report> --evidence-manifest=<manifest> --json --strict',
+            'required_evidence' => [
+                'run_certification_hash',
+                'task_spec_hash',
+                'evidence_manifest',
+                'claim_policy',
+                'known_limitations',
+            ],
+            'claim_policy' => [
+                'customer_handoff_requires_run_certification' => true,
+                'customer_handoff_requires_matching_task_spec_hash' => true,
+                'public_distribution_requires_verified_publication_report' => true,
+                'world_best_claim_allowed' => false,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function outcomeMemoryContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendOutcomeMemoryService::SCHEMA_VERSION,
+            'status' => 'required_after_execution',
+            'runtime' => 'AtlasFrontendOutcomeMemoryService',
+            'command' => 'php artisan atlas:frontend:outcomes record --status=<passed|failed|blocked> --driver=<driver> --gate=<gate> --evidence-ref=<ref> --json',
+            'records' => [
+                'selected_drivers',
+                'gates',
+                'failed_gates',
+                'evidence_refs',
+                'doctrine_effectiveness',
+                'safe_aemor_projection',
+            ],
+            'claim_policy' => [
+                'frontend_learning_requires_outcome_record' => true,
+                'policy_change_requires_human_review' => true,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @return array<string,mixed>
+     */
+    private function assetPackContract(array $signals): array
+    {
+        $assets = app(AtlasFrontendAssetPackService::class);
+
+        return [
+            'schema_version' => AtlasFrontendAssetPackService::SCHEMA_VERSION,
+            'status' => ($signals['asset_heavy'] ?? false) ? 'required' : 'available',
+            'runtime' => 'AtlasFrontendAssetPackService',
+            'command' => 'php artisan atlas:frontend:assets inspect --pack=<frontend-asset-pack.json> --json',
+            'template_command' => 'php artisan atlas:frontend:assets template --output=<dir> --json',
+            'allowed_asset_kinds' => $assets->allowedAssetKinds(),
+            'recommended_asset_kinds' => $assets->recommendedAssetKinds(),
+            'claim_policy' => [
+                'asset_provenance_claim_requires_passed_inspection' => true,
+                'placeholder_or_unlicensed_assets_block_claim' => true,
+                'critical_assets_require_dimensions' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @return array<string,mixed>
+     */
+    private function designSystemDriftGateContract(array $signals): array
+    {
+        $gate = app(AtlasFrontendDesignSystemDriftGateService::class);
+
+        return [
+            'schema_version' => AtlasFrontendDesignSystemDriftGateService::SCHEMA_VERSION,
+            'status' => (($signals['enterprise_multi_company'] ?? false) || ($signals['broad_visual_change'] ?? false)) ? 'required' : 'available',
+            'runtime' => 'AtlasFrontendDesignSystemDriftGateService',
+            'command' => 'php artisan atlas:frontend:design-system-drift inspect --report=<design-system-drift-report.json> --json',
+            'template_command' => 'php artisan atlas:frontend:design-system-drift template --output=<dir> --json',
+            'required_token_categories' => $gate->requiredTokenCategories(),
+            'required_artifact_kinds' => $gate->requiredArtifactKinds(),
+            'claim_policy' => [
+                'design_system_adaptation_claim_requires_gate_pass' => true,
+                'unapproved_new_tokens_or_components_block_claim' => true,
+                'token_component_refs_must_be_hashed' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,bool|string>  $signals
+     * @return array<string,mixed>
+     */
+    private function liveIterationContract(array $signals): array
+    {
+        return [
+            'schema_version' => 'atlas.frontend.live_iteration_contract.v1',
+            'status' => ($signals['live_iteration_requested'] ?? false) ? 'required' : 'available',
+            'events' => ['select_element', 'generate_variants', 'preview_variant', 'accept_variant', 'discard_variant', 'recover_session'],
+            'mutation_policy' => 'source_patch_only_with_boundary_and_recovery',
+            'browser_bridge_runtime' => 'AtlasFrontendBrowserBridgeService',
+            'framework_adapter_runtime' => 'AtlasFrontendFrameworkAdapterRuntimeService',
+            'live_preview_relay_runtime' => 'AtlasFrontendLivePreviewRelayService',
+            'local_source_patch_runtime' => 'AtlasFrontendLiveSourcePatchRuntimeService',
+            'browser_bridge_command' => 'php artisan atlas:frontend:bridge script|inject|remove --json',
+            'framework_adapter_command' => 'php artisan atlas:frontend:adapters inspect --workspace=<workspace> --json',
+            'live_preview_relay_command' => 'php artisan atlas:frontend:relay script|inject|remove --json',
+            'command' => 'php artisan atlas:frontend:live prepare|accept|discard|recover|status --json',
+            'browser_pick_event_schema' => 'atlas.frontend.browser_pick_event.v1',
+            'live_preview_event_schema' => 'atlas.frontend.live_preview_event.v1',
+            'evidence_required' => ['event_journal', 'selected_element_fingerprint', 'preview_variant_event', 'accepted_variant_diff', 'visual_smoke_after_accept'],
+        ];
+    }
+
+    private function containsAny(string $haystack, array $needles): bool
+    {
+        foreach ($needles as $needle) {
+            if (str_contains($haystack, Str::ascii(strtolower((string) $needle)))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int,string>  $needles
+     * @return array<string,mixed>
+     */
+    private function fileCheck(string $id, string $path, array $needles, string $severity = 'critical'): array
+    {
+        $absolute = base_path($path);
+        $source = File::isFile($absolute) ? File::get($absolute) : '';
+        $missing = array_values(array_filter($needles, static fn (string $needle): bool => ! str_contains($source, $needle)));
+        $passed = $source !== '' && $missing === [];
+
+        return [
+            'id' => $id,
+            'status' => $passed ? 'pass' : 'fail',
+            'severity' => $severity,
+            'path' => $path,
+            'missing' => $missing,
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $requiredTerms
+     * @return array<string,mixed>
+     */
+    private function capabilityCheck(string $id, array $requiredTerms): array
+    {
+        $contract = json_encode($this->contract(['task' => 'enterprise frontend ui live prototype design system motion deck infographic']), JSON_UNESCAPED_SLASHES) ?: '';
+        $missing = array_values(array_filter($requiredTerms, static fn (string $term): bool => ! str_contains($contract, $term)));
+
+        return [
+            'id' => $id,
+            'status' => $missing === [] ? 'pass' : 'fail',
+            'severity' => 'critical',
+            'missing' => $missing,
+        ];
+    }
+}

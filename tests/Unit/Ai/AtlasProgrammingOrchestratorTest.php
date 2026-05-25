@@ -151,6 +151,12 @@ class AtlasProgrammingOrchestratorTest extends TestCase
         $this->assertContains('asset_provenance_check', data_get($frontend, 'frontend_design_harness_contract.required_gates', []));
         $this->assertContains('design_5d_review', data_get($frontend, 'frontend_design_harness_contract.required_gates', []));
         $this->assertSame('programming.visual_smoke', data_get($frontend, 'frontend_design_harness_contract.evidence_contract.visual_smoke_tool'));
+        $this->assertSame('atlas.frontend.design_runtime_contract.v1', data_get($frontend, 'frontend_design_harness_contract.atlas_frontend_runtime.schema_version'));
+        $this->assertSame('atlas.frontend.execution_gate.v1', data_get($frontend, 'frontend_design_harness_contract.pre_execution_gate.schema_version'));
+        $this->assertSame('blocked', data_get($frontend, 'frontend_design_harness_contract.pre_execution_gate.status'));
+        $this->assertFalse((bool) data_get($frontend, 'frontend_design_harness_contract.pre_execution_gate.claim_policy.provider_dispatch_allowed'));
+        $this->assertContains('anti_ai_slop_detector', data_get($frontend, 'frontend_design_harness_contract.atlas_frontend_runtime.required_gates', []));
+        $this->assertTrue((bool) data_get($frontend, 'frontend_design_harness_contract.atlas_frontend_runtime.provider_policy.provider_neutral'));
     }
 
     public function test_dispatch_contract_records_selected_execution_path(): void
@@ -240,6 +246,8 @@ class AtlasProgrammingOrchestratorTest extends TestCase
             data_get($frontendDispatch, 'frontend_design_harness_contract.plan_id'),
         );
         $this->assertTrue((bool) data_get($frontendDispatch, 'frontend_design_harness_contract.completion_rules.screenshot_alone_is_insufficient'));
+        $this->assertSame('atlas.frontend.design_runtime_contract.v1', data_get($frontendDispatch, 'frontend_design_harness_contract.atlas_frontend_runtime.schema_version'));
+        $this->assertSame('atlas.frontend.execution_gate.v1', data_get($frontendDispatch, 'frontend_design_harness_contract.pre_execution_gate.schema_version'));
     }
 
     public function test_harness_completion_contract_projects_evidence_and_score(): void

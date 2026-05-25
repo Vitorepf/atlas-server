@@ -243,6 +243,25 @@ Todo resultado serio deve mostrar:
 - provider/modelo;
 - modo de prompt;
 - categoria;
+- taxa de empate tecnico por nivel L1-L5;
+- custos, tokens e eficiencia como telemetria somente.
+
+Politica adaptativa anti-empate:
+
+- Cada nivel L1, L2, L3, L4 e L5 tem orcamento maximo de 55% de empate
+  tecnico.
+- Cada caso deve carregar `anti_tie_pressure` com `max_technical_tie_rate=0.55`
+  e minimo de dimensoes medidas por nivel: L1 >= 8, L2 >= 9, L3 >= 10,
+  L4 >= 11, L5 >= 12. O corpus pode exceder esses minimos.
+- Se qualquer nivel passar de 55%, a bateria atual deve parar para aquele
+  nivel e emitir `per_level_tie_escalation` com os niveis afetados.
+- A proxima bateria deve aumentar complexidade do nivel afetado, misturando
+  mais capacidades no mesmo caso: planejamento, implementacao, teste,
+  evidencia, rollback, compatibilidade, risco, docs e debugging.
+- A cada 10 empates tecnicos agregados, a bateria tambem deve cancelar e
+  elevar o piso basico, mesmo que o empate esteja espalhado entre niveis.
+- Custo, tokens, latencia e eficiencia aparecem no relatorio para auditoria,
+  mas nao podem decidir vencedor nem servir como desempate.
 - evidence/replay status.
 
 ## Baterias canônicas
