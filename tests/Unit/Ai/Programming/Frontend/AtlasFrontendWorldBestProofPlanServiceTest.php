@@ -38,6 +38,8 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertContains('php artisan atlas:frontend:publish attest --bundle=<bundle> --receipt=<receipt> --json', data_get($payload, 'workstreams.1.work_items.0.commands'));
         $this->assertContains('task_spec_ref', data_get($payload, 'workstreams.0.work_items.0.required_manifest_fields'));
         $this->assertContains('evidence_pack_ref', data_get($payload, 'workstreams.0.work_items.0.required_manifest_fields'));
+        $this->assertContains('run_packet_hash', data_get($payload, 'workstreams.0.required_artifacts'));
+        $this->assertContains('run_packet_hash', data_get($payload, 'workstreams.0.work_items.0.required_manifest_fields'));
         $this->assertContains('score_attestation', data_get($payload, 'workstreams.0.required_artifacts'));
         $this->assertContains('external_rival_execution_receipts', data_get($payload, 'workstreams.0.required_artifacts'));
         $this->assertContains('score_attestation', data_get($payload, 'workstreams.0.work_items.0.required_manifest_fields'));
@@ -132,6 +134,42 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertContains('improve_atlas_frontend_until_replay_wins_every_case', $payload['required_next_actions']);
     }
 
+    public function test_plan_turns_completed_tied_replay_into_decisive_lead_actions(): void
+    {
+        $payload = app(AtlasFrontendWorldBestProofPlanService::class)->plan([
+            'rival_evidence' => $this->tiedReplayDirectory(),
+        ]);
+
+        $this->assertSame('ready_for_execution', $payload['status']);
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
+        $this->assertTrue((bool) data_get($payload, 'readiness.external_rival_replay_completed'));
+        $this->assertSame('atlas_needs_decisive_lead', data_get($payload, 'readiness.competitive_diagnostics_status'));
+        $this->assertSame(0, data_get($payload, 'readiness.competitive_losing_case_count'));
+        $this->assertSame(5, data_get($payload, 'readiness.competitive_tied_case_count'));
+        $this->assertSame('atlas_needs_decisive_lead', data_get($payload, 'workstreams.0.competitive_diagnostics.status'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.world_best_requires_no_tied_cases'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.world_best_requires_decisive_lead_each_case'));
+        $this->assertContains('atlas_does_not_lead_every_complete_case', $payload['warnings']);
+        $this->assertContains('improve_atlas_frontend_until_replay_leads_every_case', $payload['required_next_actions']);
+    }
+
+    public function test_plan_turns_total_win_with_dimension_gap_into_dimension_repair_actions(): void
+    {
+        $payload = app(AtlasFrontendWorldBestProofPlanService::class)->plan([
+            'rival_evidence' => $this->dimensionGapReplayDirectory(),
+        ]);
+
+        $this->assertSame('ready_for_execution', $payload['status']);
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
+        $this->assertTrue((bool) data_get($payload, 'readiness.external_rival_replay_completed'));
+        $this->assertSame('atlas_needs_dimension_lead', data_get($payload, 'readiness.competitive_diagnostics_status'));
+        $this->assertSame(1, data_get($payload, 'readiness.competitive_dimension_gap_case_count'));
+        $this->assertSame('atlas_needs_dimension_lead', data_get($payload, 'workstreams.0.competitive_diagnostics.status'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.world_best_requires_no_dimension_gaps_against_best_rival'));
+        $this->assertContains('atlas_has_dimension_gaps_against_best_rival', $payload['warnings']);
+        $this->assertContains('improve_atlas_frontend_until_replay_closes_dimension_gaps', $payload['required_next_actions']);
+    }
+
     private function winningReplayDirectory(): string
     {
         return $this->replayDirectory(atlasScore: 90, rivalScore: 80);
@@ -142,7 +180,17 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         return $this->replayDirectory(atlasScore: 80, rivalScore: 90, losingCase: 'live_mode_repair_loop');
     }
 
-    private function replayDirectory(int $atlasScore, int $rivalScore, ?string $losingCase = null): string
+    private function tiedReplayDirectory(): string
+    {
+        return $this->replayDirectory(atlasScore: 80, rivalScore: 80);
+    }
+
+    private function dimensionGapReplayDirectory(): string
+    {
+        return $this->replayDirectory(atlasScore: 90, rivalScore: 89, dimensionGapCase: 'live_mode_repair_loop');
+    }
+
+    private function replayDirectory(int $atlasScore, int $rivalScore, ?string $losingCase = null, ?string $dimensionGapCase = null): string
     {
         $dir = sys_get_temp_dir().'/atlas-frontend-world-best-replay-'.bin2hex(random_bytes(4));
         app(AtlasFrontendRivalReplayHarnessService::class)->writeTemplate($dir);
@@ -151,9 +199,8 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
             $taskSpec = json_decode(File::get($dir.'/'.$case.'/task-spec.json'), true);
             $taskSpecHash = (string) $taskSpec['task_spec_hash'];
             foreach (['atlas_frontend', 'pbakaus_impeccable', 'claude_design_plugin'] as $system) {
-                $score = $system === 'atlas_frontend'
-                    ? $atlasScore
-                    : ($case === $losingCase && $system === 'pbakaus_impeccable' ? $rivalScore : 80);
+                $breakdown = $this->breakdownForRun($system, $case, $atlasScore, $rivalScore, $losingCase, $dimensionGapCase);
+                $score = array_sum($breakdown);
                 $hashes = $this->writeEvidencePack($dir, $case, $system, $taskSpecHash);
                 File::put($dir.'/'.$case.'/'.$system.'/manifest.json', json_encode([
                     'case_id' => $case,
@@ -169,16 +216,58 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
                     'anti_slop_report_hash' => $hashes['anti_slop_report'],
                     'verification_hashes' => [$hashes['verification_report']],
                     'external_execution_receipt' => $system !== 'atlas_frontend' ? $this->externalExecutionReceipt($case, $system, $hashes) : null,
-                    'score_breakdown' => $this->scoreBreakdown($score),
+                    'score_breakdown' => $breakdown,
                     'score_total' => $score,
                     'score_max' => 100,
-                    'score_attestation' => $this->scoreAttestation($dir, $case, $system, $this->scoreBreakdown($score), $score),
+                    'score_attestation' => $this->scoreAttestation($case, $system, $hashes, $breakdown, $score),
                     'completed_at' => '2026-05-25T00:00:00Z',
                 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
             }
         }
 
         return $dir;
+    }
+
+    /**
+     * @return array<string,int>
+     */
+    private function breakdownForRun(string $system, string $case, int $atlasScore, int $rivalScore, ?string $losingCase, ?string $dimensionGapCase): array
+    {
+        if ($case === $dimensionGapCase && $system === 'atlas_frontend') {
+            return [
+                'product_intent_fit' => 9,
+                'visual_hierarchy_and_information_architecture' => 12,
+                'composition_layout_and_spacing' => 10,
+                'interaction_states_and_workflow_ergonomics' => 10,
+                'responsive_multi_viewport_quality' => 10,
+                'accessibility_and_semantics' => 10,
+                'implementation_integrity' => 10,
+                'performance_and_runtime_budget' => 8,
+                'anti_slop_originality_and_brand_fit' => 8,
+                'evidence_completeness' => 3,
+            ];
+        }
+
+        if ($case === $dimensionGapCase && $system === 'pbakaus_impeccable') {
+            return [
+                'product_intent_fit' => 10,
+                'visual_hierarchy_and_information_architecture' => 12,
+                'composition_layout_and_spacing' => 10,
+                'interaction_states_and_workflow_ergonomics' => 10,
+                'responsive_multi_viewport_quality' => 10,
+                'accessibility_and_semantics' => 10,
+                'implementation_integrity' => 10,
+                'performance_and_runtime_budget' => 8,
+                'anti_slop_originality_and_brand_fit' => 8,
+                'evidence_completeness' => 1,
+            ];
+        }
+
+        $score = $system === 'atlas_frontend'
+            ? $atlasScore
+            : ($case === $losingCase && $system === 'pbakaus_impeccable' ? $rivalScore : 80);
+
+        return $this->scoreBreakdown($score);
     }
 
     /**
@@ -240,14 +329,12 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
     }
 
     /**
+     * @param  array<string,string>  $hashes
      * @param  array<string,int>  $breakdown
      * @return array<string,mixed>
      */
-    private function scoreAttestation(string $dir, string $case, string $system, array $breakdown, int $score): array
+    private function scoreAttestation(string $case, string $system, array $hashes, array $breakdown, int $score): array
     {
-        $verification = app(AtlasFrontendEvidencePackVerifierService::class)
-            ->verify($dir.'/'.$case.'/'.$system.'/evidence/evidence-pack.json');
-
         return [
             'schema_version' => AtlasFrontendRivalReplayHarnessService::SCORE_ATTESTATION_SCHEMA_VERSION,
             'status' => 'verified',
@@ -261,7 +348,15 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
             'score_breakdown_hash' => MissionCanonicalHash::sha256($breakdown),
             'score_total' => $score,
             'score_max' => 100,
-            'evidence_pack_verification_hash' => $verification['verification_hash'] ?? null,
+            'evidence_pack_verification_hash' => $hashes['evidence_pack_verification'],
+            'reviewed_manifest_hashes' => [
+                'output_artifact_hash' => $hashes['output_artifact'],
+                'screenshot_hashes' => [$hashes['screenshot_set']],
+                'anti_slop_report_hash' => $hashes['anti_slop_report'],
+                'verification_hashes' => [$hashes['verification_report']],
+                'run_packet_hash' => null,
+                'evidence_pack_verification_hash' => $hashes['evidence_pack_verification'],
+            ],
         ];
     }
 
@@ -275,18 +370,7 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         File::ensureDirectoryExists($artifactDir);
         $hashes = [];
 
-        foreach ([
-            'output_artifact',
-            'screenshot_set',
-            'design_5d_review',
-            'quality_budget_report',
-            'anti_slop_report',
-            'verification_report',
-            'console_report',
-            'a11y_or_reason',
-            'performance_or_reason',
-            'receipt',
-        ] as $kind) {
+        foreach (app(AtlasFrontendEvidencePackVerifierService::class)->requiredArtifactKinds() as $kind) {
             $path = $artifactDir.'/'.$kind.'.json';
             File::put($path, json_encode([
                 'kind' => $kind,

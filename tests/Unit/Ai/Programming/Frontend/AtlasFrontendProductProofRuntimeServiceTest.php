@@ -40,10 +40,14 @@ class AtlasFrontendProductProofRuntimeServiceTest extends TestCase
         $this->assertSame('atlas.frontend.product_proof_publication_workflow.v1', data_get($payload, 'publication_workflow.schema_version'));
         $this->assertSame('local_bundle_ready_publication_pending', data_get($payload, 'publication_workflow.status'));
         $this->assertSame('atlas.frontend.product_proof_site_assets.v1', data_get($payload, 'product_site_assets.schema_version'));
+        $this->assertSame(AtlasFrontendProductProofRuntimeService::DEMO_MANIFEST_SCHEMA_VERSION, data_get($payload, 'product_site_assets.demo_manifests.schema_version'));
+        $this->assertSame(5, data_get($payload, 'product_site_assets.demo_manifests.count'));
+        $this->assertSame('saas_dashboard_repair', data_get($payload, 'product_site_assets.demo_manifests.items.0.id'));
         $this->assertSame('getting-started.html', data_get($payload, 'product_site_assets.tutorial.path'));
         $this->assertSame('downloads.json', data_get($payload, 'product_site_assets.downloads_manifest.path'));
         $this->assertSame(6, data_get($payload, 'product_site_assets.downloads_manifest.download_count'));
         $this->assertTrue((bool) data_get($payload, 'product_site_assets.claim_policy.local_product_site_assets_are_not_public_distribution'));
+        $this->assertTrue((bool) data_get($payload, 'product_site_assets.claim_policy.each_demo_requires_manifest_with_page_hash_evidence_and_claim_boundary'));
         $this->assertTrue((bool) data_get($payload, 'publication_policy.product_site_assets_present'));
         $this->assertContains('php artisan atlas:frontend:publish receipt-template --bundle=<bundle> --output=<bundle> --json', data_get($payload, 'publication_workflow.commands'));
         $this->assertContains('php artisan atlas:frontend:publish attest --bundle=<bundle> --receipt=<receipt> --json', data_get($payload, 'publication_workflow.commands'));
@@ -53,6 +57,13 @@ class AtlasFrontendProductProofRuntimeServiceTest extends TestCase
         $this->assertFileExists($output.'/getting-started.html');
         $this->assertFileExists($output.'/downloads.json');
         $this->assertFileExists($output.'/manifest.json');
+        $this->assertFileExists($output.'/demo-manifests/saas_dashboard_repair.json');
+        $demoManifest = json_decode(File::get($output.'/demo-manifests/saas_dashboard_repair.json'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(AtlasFrontendProductProofRuntimeService::DEMO_MANIFEST_SCHEMA_VERSION, $demoManifest['schema_version']);
+        $this->assertSame('saas_dashboard_repair', $demoManifest['demo_id']);
+        $this->assertSame('saas_dashboard_repair.html', data_get($demoManifest, 'page.path'));
+        $this->assertContains('visual_smoke', $demoManifest['required_evidence']);
+        $this->assertTrue((bool) data_get($demoManifest, 'claim_policy.demo_manifest_is_not_public_distribution'));
         $downloads = json_decode(File::get($output.'/downloads.json'), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame('atlas.frontend.product_proof_downloads.v1', $downloads['schema_version']);
         $this->assertSame('product_proof_index', data_get($downloads, 'downloads.0.id'));

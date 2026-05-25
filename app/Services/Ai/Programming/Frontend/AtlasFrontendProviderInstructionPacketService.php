@@ -8,6 +8,8 @@ final class AtlasFrontendProviderInstructionPacketService
 {
     public const SCHEMA_VERSION = 'atlas.frontend.provider_instruction_packet.v1';
 
+    public const EXECUTION_GUARDRAILS_SCHEMA_VERSION = 'atlas.frontend.provider_execution_guardrails.v1';
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -71,6 +73,8 @@ final class AtlasFrontendProviderInstructionPacketService
                 'preserve_repo_design_system_and_product_intent',
                 'make_smallest_product_correct_ui_change_or_prototype',
                 'run_repo_native_quality_tests_build_or_record_reason',
+                'run_browser_and_static_anti_slop_detectors_or_record_blocker',
+                'preserve_selected_repo_as_workspace_and_frontend_app_as_subscope',
                 'collect_visual_quality_budget_review_and_evidence_pack',
                 'record_outcome_memory_before_handoff_claim',
                 'never_claim_world_best_or_done_without_certified_evidence',
@@ -82,7 +86,9 @@ final class AtlasFrontendProviderInstructionPacketService
                 'raw_customer_source_or_prompt_exfiltration',
                 'design_system_drift_without_report',
                 'world_best_claim_without_external_replay_receipts',
+                'treating_frontend_app_subscope_as_selected_workspace_or_space',
             ],
+            'provider_execution_guardrails' => $this->providerExecutionGuardrails($runbook),
             'execution_sequence' => $this->executionSequence($runbook),
             'required_evidence' => array_values(array_unique(array_merge(
                 (array) data_get($gate, 'required_evidence', []),
@@ -101,6 +107,7 @@ final class AtlasFrontendProviderInstructionPacketService
                 'read_only_packet_does_not_write_evidence_kit' => ! (bool) ($runbook['write_evidence_kit'] ?? true),
                 'provider_must_return_receipts_not_claims' => true,
                 'completion_requires_run_certification_handoff_and_outcome' => true,
+                'completion_claim_requires_guardrail_receipts' => true,
                 'raw_customer_source_returned' => false,
                 'world_best_claim_allowed' => false,
             ],
@@ -114,6 +121,67 @@ final class AtlasFrontendProviderInstructionPacketService
         $payload['provider_instruction_packet_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $runbook
+     * @return array<string,mixed>
+     */
+    private function providerExecutionGuardrails(array $runbook): array
+    {
+        $frontendAppScope = (array) data_get($runbook, 'frontend_app_scope', []);
+
+        return [
+            'schema_version' => self::EXECUTION_GUARDRAILS_SCHEMA_VERSION,
+            'selected_workspace_contract' => [
+                'selected_repository_remains_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'frontend_app_scope_status' => (string) ($frontendAppScope['status'] ?? 'repo_root'),
+                'frontend_app_relative_name_hash' => $frontendAppScope['relative_name_hash'] ?? null,
+                'space_runtime_required' => false,
+                'raw_absolute_path_returned' => false,
+            ],
+            'mandatory_runtime_receipts' => [
+                'pre_execution_gate_hash',
+                'work_order_hash',
+                'runbook_hash',
+                'visual_quality_report',
+                'quality_budget_report',
+                'design_review_report',
+                'evidence_pack_hash',
+                'run_certification_hash',
+                'outcome_memory_hash',
+                'handoff_hash',
+            ],
+            'mandatory_detector_receipts' => [
+                'atlas_frontend_static_anti_slop_detector',
+                'atlas_frontend_browser_detector_event',
+                'design_system_drift_gate',
+            ],
+            'forbidden_claims_until_receipts_exist' => [
+                'delivery_done',
+                'premium_refinement_done',
+                'public_distribution',
+                'best_in_market',
+                'world_best_frontend_system',
+            ],
+            'world_best_claim_gate' => [
+                'requires_verified_external_rival_replay' => true,
+                'requires_decisive_lead_each_complete_case' => true,
+                'minimum_decisive_lead_points' => AtlasFrontendRivalReplayHarnessService::DECISIVE_LEAD_MINIMUM_POINTS,
+                'requires_no_tied_cases' => true,
+                'requires_no_dimension_gaps_against_best_rival' => true,
+                'requires_verified_publication_receipt' => true,
+            ],
+            'provider_return_contract' => [
+                'return_receipt_refs_not_raw_private_source' => true,
+                'return_changed_files_summary' => true,
+                'return_tests_and_build_receipts_or_blocker_reasons' => true,
+                'return_detector_findings_and_repairs' => true,
+                'return_known_limitations' => true,
+                'return_outcome_memory_payload' => true,
+            ],
+        ];
     }
 
     /**

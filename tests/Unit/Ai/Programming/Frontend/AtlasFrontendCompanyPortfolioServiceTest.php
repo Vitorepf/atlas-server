@@ -58,6 +58,9 @@ class AtlasFrontendCompanyPortfolioServiceTest extends TestCase
         $this->assertSame('matched', data_get($payload, 'selection_brief.ranked_candidates.0.task_fit_status'));
         $this->assertGreaterThan(0, data_get($payload, 'selection_brief.ranked_candidates.0.task_fit_score'));
         $this->assertGreaterThan(0, data_get($payload, 'selection_brief.ranked_candidates.0.task_fit_signal_count'));
+        $this->assertSame('root_frontend_app_candidate', data_get($payload, 'selection_brief.ranked_candidates.0.frontend_app_candidate_status'));
+        $this->assertSame(1, data_get($payload, 'selection_brief.ranked_candidates.0.frontend_app_candidate_count'));
+        $this->assertFalse((bool) data_get($payload, 'selection_brief.ranked_candidates.0.frontend_app_operator_confirmation_required'));
         $this->assertSame('candidate_not_selected', data_get($payload, 'selection_brief.ranked_candidates.0.selection_state'));
         $this->assertContains('ready_frontend_context_and_skill_pack', data_get($payload, 'selection_brief.ranked_candidates.0.decision_reasons'));
         $this->assertContains('run_selected_workspace_contract', data_get($payload, 'selection_brief.ranked_candidates.0.must_do_before_execution'));
@@ -76,6 +79,12 @@ class AtlasFrontendCompanyPortfolioServiceTest extends TestCase
         $this->assertSame('ready_for_operator_execution', data_get($repos->get('blackink-web'), 'status'));
         $this->assertSame('candidate_not_selected', data_get($repos->get('blackink-web'), 'selection_state'));
         $this->assertSame('matched', data_get($repos->get('blackink-web'), 'task_fit.status'));
+        $this->assertSame('atlas.frontend.company_portfolio.frontend_app_candidate_summary.v1', data_get($repos->get('blackink-web'), 'frontend_app_candidate_summary.schema_version'));
+        $this->assertSame('root_frontend_app_candidate', data_get($repos->get('blackink-web'), 'frontend_app_candidate_summary.status'));
+        $this->assertSame(1, data_get($repos->get('blackink-web'), 'frontend_app_candidate_summary.candidate_count'));
+        $this->assertSame(hash('sha256', '.'), data_get($repos->get('blackink-web'), 'frontend_app_candidate_summary.primary_candidate_relative_name_hash'));
+        $this->assertTrue((bool) data_get($repos->get('blackink-web'), 'frontend_app_candidate_summary.claim_policy.frontend_app_candidate_is_subscope_not_repo'));
+        $this->assertFalse((bool) data_get($repos->get('blackink-web'), 'frontend_app_candidate_summary.claim_policy.raw_relative_names_returned'));
         $this->assertSame(hash('sha256', 'Melhorar dashboard BlackInk'), data_get($repos->get('blackink-web'), 'task_fit.task_hash'));
         $this->assertFalse((bool) data_get($repos->get('blackink-web'), 'task_fit.raw_task_returned'));
         $this->assertGreaterThan(data_get($repos->get('raw-saas'), 'candidate_score'), data_get($repos->get('blackink-web'), 'candidate_score'));
@@ -116,6 +125,16 @@ class AtlasFrontendCompanyPortfolioServiceTest extends TestCase
         $this->assertContains('pnpm-workspace.yaml', data_get($payload, 'repositories.0.repo_ref.project_markers'));
         $this->assertSame('candidate_not_selected', data_get($payload, 'repositories.0.selection_state'));
         $this->assertStringNotContainsString('apps/web', json_encode(data_get($payload, 'selection_brief.ranked_candidates'), JSON_THROW_ON_ERROR));
+        $this->assertSame('nested_frontend_app_candidate_recommended', data_get($payload, 'repositories.0.frontend_app_candidate_summary.status'));
+        $this->assertSame(2, data_get($payload, 'repositories.0.frontend_app_candidate_summary.candidate_count'));
+        $this->assertTrue((bool) data_get($payload, 'repositories.0.frontend_app_candidate_summary.monorepo_like'));
+        $this->assertTrue((bool) data_get($payload, 'repositories.0.frontend_app_candidate_summary.operator_confirmation_required'));
+        $this->assertSame('confirm_frontend_app_candidate_inside_selected_repo', data_get($payload, 'repositories.0.frontend_app_candidate_summary.operator_action'));
+        $this->assertSame(hash('sha256', 'apps/web'), data_get($payload, 'repositories.0.frontend_app_candidate_summary.primary_candidate_relative_name_hash'));
+        $this->assertSame('nested_frontend_app_candidate_recommended', data_get($payload, 'selection_brief.ranked_candidates.0.frontend_app_candidate_status'));
+        $this->assertSame(2, data_get($payload, 'selection_brief.ranked_candidates.0.frontend_app_candidate_count'));
+        $this->assertTrue((bool) data_get($payload, 'selection_brief.ranked_candidates.0.frontend_app_operator_confirmation_required'));
+        $this->assertStringNotContainsString('apps/web', json_encode(data_get($payload, 'repositories.0.frontend_app_candidate_summary'), JSON_THROW_ON_ERROR));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.portfolio_candidate_is_not_selected_workspace'));
         $this->assertTrue((bool) data_get($payload, 'selection_handoff.claim_policy.handoff_selects_one_repo_before_runtime'));
     }

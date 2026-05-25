@@ -227,18 +227,7 @@ class AtlasFrontendRivalReplayCommandTest extends TestCase
         File::ensureDirectoryExists($artifactDir);
         $hashes = [];
 
-        foreach ([
-            'output_artifact',
-            'screenshot_set',
-            'design_5d_review',
-            'quality_budget_report',
-            'anti_slop_report',
-            'verification_report',
-            'console_report',
-            'a11y_or_reason',
-            'performance_or_reason',
-            'receipt',
-        ] as $kind) {
+        foreach (app(AtlasFrontendEvidencePackVerifierService::class)->requiredArtifactKinds() as $kind) {
             $path = $artifactDir.'/'.$kind.'.json';
             File::put($path, json_encode([
                 'kind' => $kind,

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai\Programming\Frontend;
 
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 class AtlasFrontendLiveSourcePatchCommandTest extends TestCase
@@ -22,14 +23,20 @@ class AtlasFrontendLiveSourcePatchCommandTest extends TestCase
             '--json' => true,
         ])->assertExitCode(0);
 
-        $this->artisan('atlas:frontend:live', [
+        $exitCode = Artisan::call('atlas:frontend:live', [
             'action' => 'accept',
             '--workspace' => $workspace,
             '--session' => 'session-cli',
             '--accept-variant' => 'v1',
             '--json' => true,
-        ])->assertExitCode(0);
+        ]);
+        $output = Artisan::output();
 
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('atlas.frontend.live_source_patch_decision_receipt.v1', $output);
+        $this->assertStringContainsString('decision_receipt_hash', $output);
+        $this->assertStringContainsString('visual_quality_gate', $output);
+        $this->assertStringContainsString('live_patch_decision_is_not_delivery_evidence', $output);
         $this->assertSame('<button class="primary">Save</button>', file_get_contents($workspace.'/Card.html'));
 
         $this->artisan('atlas:frontend:live', [

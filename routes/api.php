@@ -100,6 +100,7 @@ use App\Http\Controllers\AtlasDev\RunController;
 use App\Http\Controllers\AtlasDev\ShowController;
 use App\Http\Controllers\AtlasDev\StreamController;
 use App\Http\Controllers\AtlasDomainController;
+use App\Http\Controllers\AtlasFrontendWorkspaceController;
 use App\Http\Controllers\AtlasMemoryController;
 use App\Http\Controllers\AtlasMemoryMaintenanceController;
 use App\Http\Controllers\AtlasMemoryRecallController;
@@ -571,6 +572,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/workspaces/{workspace}/conversation-fusion', [AiThreadController::class, 'workspaceConversationFusion']);
     Route::post('/ai/threads', [AiThreadController::class, 'store']);
     Route::get('/ai/threads/{thread}/state', [AiThreadController::class, 'state']);
+    Route::get('/ai/threads/{thread}/messages', [AiThreadController::class, 'messages']);
     Route::post('/ai/threads/{thread}/compact', [AiThreadController::class, 'compact']);
     Route::post('/ai/threads/{thread}/switch-provider', [AiThreadController::class, 'switchProvider']);
     Route::get('/ai/threads/{thread}/snapshots', [AiThreadController::class, 'snapshots']);
@@ -676,6 +678,12 @@ Route::prefix('atlas-code')->group(function () {
     Route::get('/projects/workspaces/{slug}', [AtlasCodeWorkspaceController::class, 'show']);
     Route::patch('/projects/workspaces/{slug}', [AtlasCodeWorkspaceController::class, 'update']);
     Route::delete('/projects/workspaces/{slug}', [AtlasCodeWorkspaceController::class, 'destroy']);
+    Route::get('/frontend/portfolio', [AtlasFrontendWorkspaceController::class, 'portfolio']);
+    Route::post('/frontend/selected-workspace', [AtlasFrontendWorkspaceController::class, 'selected']);
+    Route::post('/frontend/runtime-projection', [AtlasFrontendWorkspaceController::class, 'runtimeProjection']);
+    Route::post('/frontend/prepare-evidence', [AtlasFrontendWorkspaceController::class, 'prepareEvidence']);
+    Route::post('/frontend/run-certification', [AtlasFrontendWorkspaceController::class, 'runCertification']);
+    Route::post('/frontend/handoff', [AtlasFrontendWorkspaceController::class, 'handoff']);
     Route::get('/workspace-intelligence', [AtlasWorkspaceIntelligenceController::class, 'show']);
     Route::get('/workspace-intelligence/twin', [AtlasWorkspaceIntelligenceController::class, 'twin']);
     Route::get('/workspace-intelligence/artifacts', [AtlasWorkspaceIntelligenceController::class, 'artifacts']);

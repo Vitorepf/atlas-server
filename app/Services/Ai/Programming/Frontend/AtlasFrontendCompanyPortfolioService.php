@@ -234,6 +234,7 @@ final class AtlasFrontendCompanyPortfolioService
             default => 'blocked',
         };
         $taskFit = $this->taskFit($task, $relative, $intake);
+        $frontendAppCandidateSummary = $this->frontendAppCandidateSummary($workspace, $task);
         $score = $this->candidateScore($status, $skillInstalled, $onboardingReceipt, $intake, $taskFit);
 
         return [
@@ -246,6 +247,7 @@ final class AtlasFrontendCompanyPortfolioService
             'status' => $status,
             'candidate_score' => $score,
             'task_fit' => $taskFit,
+            'frontend_app_candidate_summary' => $frontendAppCandidateSummary,
             'selection_state' => 'candidate_not_selected',
             'package_manager' => $intake['package_manager'] ?? 'unknown',
             'framework' => data_get($intake, 'framework.primary'),
@@ -271,6 +273,51 @@ final class AtlasFrontendCompanyPortfolioService
                     $skillInstalled ? [] : ['run_atlas_frontend_onboard_for_repo'],
                     (array) ($intake['recommended_next_actions'] ?? []),
                 ))),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function frontendAppCandidateSummary(string $workspace, string $task): array
+    {
+        $selectedWorkspace = app(AtlasFrontendSelectedWorkspaceService::class)->resolve([
+            'workspace' => $workspace,
+            'task' => $task,
+            'selection_source' => 'portfolio_scan_projection',
+        ]);
+        $candidates = (array) data_get($selectedWorkspace, 'frontend_app_candidates.candidates', []);
+
+        return [
+            'schema_version' => 'atlas.frontend.company_portfolio.frontend_app_candidate_summary.v1',
+            'status' => data_get($selectedWorkspace, 'frontend_app_candidates.status', 'not_evaluated'),
+            'candidate_count' => (int) data_get($selectedWorkspace, 'frontend_app_candidates.candidate_count', 0),
+            'monorepo_like' => (bool) data_get($selectedWorkspace, 'frontend_app_candidates.monorepo_like', false),
+            'primary_candidate_ref' => data_get($selectedWorkspace, 'frontend_app_candidates.primary_candidate_ref'),
+            'primary_candidate_relative_name_hash' => data_get($selectedWorkspace, 'frontend_app_candidates.primary_candidate_relative_name') !== null
+                ? hash('sha256', (string) data_get($selectedWorkspace, 'frontend_app_candidates.primary_candidate_relative_name'))
+                : null,
+            'operator_confirmation_required' => (bool) data_get($selectedWorkspace, 'frontend_app_candidates.operator_decision.required', false),
+            'operator_action' => data_get($selectedWorkspace, 'frontend_app_candidates.operator_decision.action'),
+            'top_candidates' => collect($candidates)
+                ->take(3)
+                ->map(fn (array $candidate): array => [
+                    'app_ref' => $candidate['app_ref'] ?? null,
+                    'relative_name_hash' => isset($candidate['relative_name']) ? hash('sha256', (string) $candidate['relative_name']) : null,
+                    'score' => (int) ($candidate['score'] ?? 0),
+                    'framework_signals' => $candidate['framework_signals'] ?? [],
+                    'command_inventory' => $candidate['command_inventory'] ?? [],
+                    'selection_state' => $candidate['selection_state'] ?? 'frontend_app_candidate_not_selected',
+                ])
+                ->values()
+                ->all(),
+            'claim_policy' => [
+                'portfolio_still_requires_selected_workspace_contract' => true,
+                'frontend_app_candidate_is_subscope_not_repo' => true,
+                'raw_relative_names_returned' => false,
+                'raw_absolute_paths_returned' => false,
+                'provider_dispatch_allowed' => false,
+            ],
         ];
     }
 
@@ -428,6 +475,10 @@ final class AtlasFrontendCompanyPortfolioService
                     'task_fit_status' => data_get($repo, 'task_fit.status', 'not_provided'),
                     'task_fit_score' => (int) data_get($repo, 'task_fit.score', 0),
                     'task_fit_signal_count' => (int) data_get($repo, 'task_fit.matched_signal_count', 0),
+                    'frontend_app_candidate_status' => data_get($repo, 'frontend_app_candidate_summary.status', 'not_evaluated'),
+                    'frontend_app_candidate_count' => (int) data_get($repo, 'frontend_app_candidate_summary.candidate_count', 0),
+                    'frontend_app_primary_candidate_ref' => data_get($repo, 'frontend_app_candidate_summary.primary_candidate_ref'),
+                    'frontend_app_operator_confirmation_required' => (bool) data_get($repo, 'frontend_app_candidate_summary.operator_confirmation_required', false),
                     'selection_state' => $repo['selection_state'] ?? 'candidate_not_selected',
                     'decision_reasons' => $this->decisionReasons($repo),
                     'must_do_before_execution' => $this->mustDoBeforeExecution($repo),

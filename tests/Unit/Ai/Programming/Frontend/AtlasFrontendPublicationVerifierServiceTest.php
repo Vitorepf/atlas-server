@@ -167,8 +167,11 @@ class AtlasFrontendPublicationVerifierServiceTest extends TestCase
         $this->assertSame('local_ready', $payload['status']);
         $this->assertSame('atlas.frontend.product_proof_site_assets.v1', data_get($payload, 'product_site_assets.schema_version'));
         $this->assertSame('local_ready_publication_pending', data_get($payload, 'product_site_assets.status'));
+        $this->assertTrue((bool) data_get($payload, 'product_site_assets.demo_manifests_present'));
+        $this->assertSame(5, data_get($payload, 'product_site_assets.demo_manifest_count'));
         $this->assertTrue((bool) data_get($payload, 'product_site_assets.downloads_manifest_present'));
         $this->assertGreaterThan(0, (int) data_get($payload, 'product_site_assets.download_count'));
+        $this->assertTrue((bool) data_get($payload, 'product_site_assets.claim_policy.each_demo_requires_manifest_with_page_hash_evidence_and_claim_boundary'));
     }
 
     public function test_verifier_blocks_tampered_product_site_tutorial(): void
@@ -198,6 +201,32 @@ class AtlasFrontendPublicationVerifierServiceTest extends TestCase
         $this->assertSame('blocked', $payload['status']);
         $this->assertContains('product_site_asset_downloads_manifest_hash_mismatch', $payload['blockers']);
         $this->assertContains('product_site_downloads_missing', $payload['blockers']);
+    }
+
+    public function test_verifier_blocks_tampered_demo_manifest(): void
+    {
+        $bundle = sys_get_temp_dir().'/atlas-frontend-publication-demo-manifest-tamper-'.bin2hex(random_bytes(4));
+        app(AtlasFrontendProductProofRuntimeService::class)->buildStaticBundle($bundle);
+        File::put($bundle.'/demo-manifests/saas_dashboard_repair.json', json_encode([
+            'schema_version' => AtlasFrontendProductProofRuntimeService::DEMO_MANIFEST_SCHEMA_VERSION,
+            'status' => 'local_ready_publication_pending',
+            'demo_id' => 'saas_dashboard_repair',
+            'page' => [
+                'path' => 'saas_dashboard_repair.html',
+                'hash' => str_repeat('a', 64),
+            ],
+            'required_viewports' => ['desktop'],
+            'required_evidence' => ['visual_smoke'],
+            'claim_policy' => [
+                'demo_manifest_is_not_public_distribution' => true,
+            ],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $payload = app(AtlasFrontendPublicationVerifierService::class)->verify($bundle);
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertContains('product_site_demo_manifest_hash_mismatch', $payload['blockers']);
+        $this->assertContains('product_site_demo_manifest_page_hash_mismatch', $payload['blockers']);
     }
 
     public function test_verifier_blocks_tampered_manifest_bundle_hash(): void

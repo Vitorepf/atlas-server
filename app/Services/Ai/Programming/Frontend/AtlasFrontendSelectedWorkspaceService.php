@@ -716,7 +716,7 @@ final class AtlasFrontendSelectedWorkspaceService
                 $this->projectionComponent('provider_instruction_packet_read_only', 'php artisan atlas:frontend:provider-packet --task="<intent>" --workspace=<selected-repo>'.$frontendAppArg.' --provider=<provider> --json --strict', true),
                 $this->projectionComponent('execution_runbook_read_only', 'php artisan atlas:frontend:runbook --task="<intent>" --workspace=<selected-repo>'.$frontendAppArg.' --json --strict', true),
                 $this->projectionComponent('evidence_kit_explicit_prepare', 'php artisan atlas:frontend:evidence-kit prepare --task="<intent>" --workspace=<selected-repo>'.$frontendAppArg.' --output=<evidence-dir> --json --strict', false),
-                $this->projectionComponent('run_certification', 'php artisan atlas:frontend:run-certify --visual-report=<report> --design-review-report=<report> --quality-budget-report=<report> --evidence-manifest=<manifest> --outcome-store=<jsonl> --json --strict', false),
+                $this->projectionComponent('run_certification', 'php artisan atlas:frontend:run-certify --provider-packet=<provider-packet> --visual-report=<report> --design-review-report=<report> --quality-budget-report=<report> --evidence-manifest=<manifest> --outcome-store=<jsonl> --json --strict', false),
             ],
             'required_before_provider_dispatch' => [
                 'task_bound_to_selected_repo',
@@ -808,7 +808,7 @@ final class AtlasFrontendSelectedWorkspaceService
             [
                 'id' => 'evidence_and_certification',
                 'required' => true,
-                'command' => 'php artisan atlas:frontend:evidence-kit prepare --task="<intent>" --workspace=<local-company-repo>'.$frontendAppArg.' --output=<evidence-dir> --json --strict && php artisan atlas:frontend:run-certify --json --strict',
+                'command' => 'php artisan atlas:frontend:evidence-kit prepare --task="<intent>" --workspace=<local-company-repo>'.$frontendAppArg.' --output=<evidence-dir> --json --strict && php artisan atlas:frontend:provider-packet --task="<intent>" --workspace=<local-company-repo>'.$frontendAppArg.' --json --strict > <provider-packet> && php artisan atlas:frontend:run-certify --provider-packet=<provider-packet> --json --strict',
                 'completion_claim_requires_measured_receipts' => true,
             ],
         ];

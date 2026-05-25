@@ -11,6 +11,8 @@ final class AtlasFrontendProductProofRuntimeService
 
     public const BUNDLE_SCHEMA_VERSION = 'atlas.frontend.product_proof_bundle.v1';
 
+    public const DEMO_MANIFEST_SCHEMA_VERSION = 'atlas.frontend.product_proof_demo_manifest.v1';
+
     public const PILOT_DOSSIER_SCHEMA_VERSION = 'atlas.frontend.company_repo_proof_dossier.v1';
 
     /**
@@ -59,8 +61,10 @@ final class AtlasFrontendProductProofRuntimeService
         $outputDirectory = $outputDirectory ?: storage_path('app/atlas/frontend-product-proof');
         $frontendAppScope = $this->frontendAppScope($frontendApp);
         File::ensureDirectoryExists($outputDirectory);
+        File::ensureDirectoryExists($outputDirectory.'/demo-manifests');
 
         $assets = [];
+        $demoManifests = [];
         foreach ((array) $catalog['demos'] as $demo) {
             if (! is_array($demo)) {
                 continue;
@@ -68,10 +72,21 @@ final class AtlasFrontendProductProofRuntimeService
             $slug = (string) $demo['id'];
             $file = $slug.'.html';
             File::put($outputDirectory.'/'.$file, $this->demoHtml($demo));
+            $pageHash = hash('sha256', File::get($outputDirectory.'/'.$file));
             $assets[] = [
                 'id' => $slug,
                 'path' => $file,
-                'hash' => hash('sha256', File::get($outputDirectory.'/'.$file)),
+                'hash' => $pageHash,
+            ];
+            $demoManifest = $this->demoManifest($demo, $file, $pageHash, $frontendAppScope);
+            $demoManifestPath = 'demo-manifests/'.$slug.'.json';
+            File::put($outputDirectory.'/'.$demoManifestPath, json_encode($demoManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $demoManifests[] = [
+                'id' => $slug,
+                'path' => $demoManifestPath,
+                'hash' => hash('sha256', File::get($outputDirectory.'/'.$demoManifestPath)),
+                'page_path' => $file,
+                'page_hash' => $pageHash,
             ];
         }
 
@@ -93,6 +108,12 @@ final class AtlasFrontendProductProofRuntimeService
             'product_site_assets' => [
                 'schema_version' => 'atlas.frontend.product_proof_site_assets.v1',
                 'status' => 'local_ready_publication_pending',
+                'demo_manifests' => [
+                    'schema_version' => self::DEMO_MANIFEST_SCHEMA_VERSION,
+                    'directory' => 'demo-manifests',
+                    'count' => count($demoManifests),
+                    'items' => $demoManifests,
+                ],
                 'tutorial' => [
                     'path' => 'getting-started.html',
                     'hash' => hash('sha256', File::get($outputDirectory.'/getting-started.html')),
@@ -104,6 +125,7 @@ final class AtlasFrontendProductProofRuntimeService
                 ],
                 'claim_policy' => [
                     'local_product_site_assets_are_not_public_distribution' => true,
+                    'each_demo_requires_manifest_with_page_hash_evidence_and_claim_boundary' => true,
                     'download_manifest_requires_public_receipt_before_distribution_claim' => true,
                     'raw_customer_source_returned' => false,
                 ],
@@ -315,6 +337,37 @@ final class AtlasFrontendProductProofRuntimeService
             'artifact_manifest_path' => 'docs/engineering-knowledge-base/domains/programming-frontend-product-proof-'.$id.'.md',
             'minimum_claim' => 'demonstrates_atlas_frontend_capability_when_artifact_manifest_exists',
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $demo
+     * @param  array<string,mixed>  $frontendAppScope
+     * @return array<string,mixed>
+     */
+    private function demoManifest(array $demo, string $pagePath, string $pageHash, array $frontendAppScope): array
+    {
+        $payload = [
+            'schema_version' => self::DEMO_MANIFEST_SCHEMA_VERSION,
+            'status' => 'local_ready_publication_pending',
+            'demo_id' => (string) $demo['id'],
+            'frontend_app_scope' => $frontendAppScope,
+            'page' => [
+                'path' => $pagePath,
+                'hash' => $pageHash,
+            ],
+            'required_viewports' => array_values((array) ($demo['required_viewports'] ?? [])),
+            'required_evidence' => array_values((array) ($demo['required_evidence'] ?? [])),
+            'artifact_manifest_path_hash' => hash('sha256', (string) ($demo['artifact_manifest_path'] ?? '')),
+            'claim_policy' => [
+                'demo_manifest_is_not_public_distribution' => true,
+                'demo_page_hash_must_match_bundle_asset' => true,
+                'measured_evidence_required_before_delivery_claim' => true,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+        $payload['demo_manifest_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
     }
 
     /**

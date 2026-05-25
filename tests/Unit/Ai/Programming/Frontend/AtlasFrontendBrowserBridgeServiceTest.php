@@ -14,8 +14,15 @@ class AtlasFrontendBrowserBridgeServiceTest extends TestCase
         $this->assertSame('atlas.frontend.browser_bridge.v1', $payload['schema_version']);
         $this->assertSame('alt_click_picker', $payload['mode']);
         $this->assertSame('atlas.frontend.browser_pick_event.v1', $payload['event_schema']);
+        $this->assertSame(AtlasFrontendBrowserBridgeService::BROWSER_DETECTOR_EVENT_SCHEMA_VERSION, $payload['detector_event_schema']);
+        $this->assertContains('atlas:frontend:browser-detect', $payload['output_events']);
+        $this->assertContains('browser_icon_button_without_accessible_name', $payload['detector_rules']);
         $this->assertStringContainsString('window.__ATLAS_FRONTEND_PICK_EVENTS__', $payload['script']);
+        $this->assertStringContainsString('window.__ATLAS_FRONTEND_BROWSER_DETECTOR_EVENTS__', $payload['script']);
         $this->assertStringContainsString('atlas:frontend:pick', $payload['script']);
+        $this->assertStringContainsString('atlas:frontend:browser-detect', $payload['script']);
+        $this->assertStringContainsString('browser_small_interactive_target', $payload['script']);
+        $this->assertStringContainsString('browser_detector_event_is_not_final_design_proof', $payload['script']);
         $this->assertStringContainsString('window.atlasFrontendPath(el)', $payload['script']);
         $this->assertStringNotContainsString('fetch(', $payload['script']);
         $this->assertStringNotContainsString('localStorage', $payload['script']);

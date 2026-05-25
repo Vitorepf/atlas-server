@@ -216,7 +216,7 @@ final class AtlasFrontendGauntletService
             'php artisan atlas:frontend:evidence-kit prepare --task="<brief>" '.$workspaceArg.$frontendAppArg.' --acceptance --output=<evidence-dir> --json --strict',
             'php artisan atlas:frontend:visual-quality template --output=<evidence-dir> --json',
             'php artisan atlas:frontend:quality-budget template --output=<evidence-dir> --json',
-            'php artisan atlas:frontend:run-certify --visual-report=<report> --design-review-report=<report> --quality-budget-report=<report> --evidence-manifest=<manifest> --outcome-store=<jsonl> --json --strict',
+            'php artisan atlas:frontend:run-certify --provider-packet=<provider-packet> --visual-report=<report> --design-review-report=<report> --quality-budget-report=<report> --evidence-manifest=<manifest> --outcome-store=<jsonl> --json --strict',
         ];
     }
 

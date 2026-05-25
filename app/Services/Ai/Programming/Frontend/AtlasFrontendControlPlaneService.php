@@ -17,6 +17,13 @@ final class AtlasFrontendControlPlaneService
         $certification = app(AtlasFrontendDesignRuntimeService::class)->certify();
         $benchmark = app(AtlasFrontendBenchmarkRuntimeService::class)->run($this->nullableString($input['rival_evidence'] ?? null));
         $replay = app(AtlasFrontendRivalReplayHarnessService::class)->inspect($this->nullableString($input['rival_evidence'] ?? null));
+        $competitiveDimensionGaps = $this->competitiveDimensionGaps((array) data_get($replay, 'competitive_diagnostics.cases', []));
+        $competitiveRepairPlan = $competitiveDimensionGaps !== []
+            ? app(AtlasFrontendRepairPlannerService::class)->plan([
+                'blockers' => ['competitive_dimension_gap'],
+                'dimension_gaps' => $competitiveDimensionGaps,
+            ])
+            : null;
         $proof = app(AtlasFrontendProductProofRuntimeService::class)->catalog();
         $publication = $this->publication($input);
         $gauntlet = $this->gauntlet($input);
@@ -30,6 +37,10 @@ final class AtlasFrontendControlPlaneService
             'competitive_contract_claim_ready' => (bool) data_get($benchmark, 'claims.atlas_more_complete_than_impeccable_on_governed_delivery_contract')
                 && (bool) data_get($benchmark, 'claims.atlas_more_complete_than_claude_design_plugin_on_governed_delivery_contract'),
             'external_replay_ready' => (bool) data_get($replay, 'summary.external_replay_completed'),
+            'competitive_diagnostics_status' => data_get($replay, 'competitive_diagnostics.status', 'not_evaluated'),
+            'competitive_tied_case_count' => (int) data_get($replay, 'competitive_diagnostics.tied_case_count', 0),
+            'competitive_dimension_gap_case_count' => (int) data_get($replay, 'competitive_diagnostics.dimension_gap_case_count', 0),
+            'competitive_decisive_lead_ready' => (bool) data_get($replay, 'claim_policy.may_claim_world_best_frontend_system'),
             'product_proof_catalog_ready' => ($proof['status'] ?? null) === 'ready',
             'public_distribution_ready' => (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed'),
             'publication_attestation_status' => $publicationAttestation['status'],
@@ -83,8 +94,10 @@ final class AtlasFrontendControlPlaneService
                     'status' => $replay['status'] ?? null,
                     'summary' => $replay['summary'] ?? [],
                     'claim_policy' => $replay['claim_policy'] ?? [],
+                    'competitive_diagnostics' => $replay['competitive_diagnostics'] ?? [],
                     'replay_hash' => $replay['replay_hash'] ?? null,
                 ],
+                'competitive_repair_plan' => $competitiveRepairPlan,
                 'product_proof' => [
                     'schema_version' => AtlasFrontendProductProofRuntimeService::SCHEMA_VERSION,
                     'status' => $proof['status'] ?? null,
@@ -99,6 +112,9 @@ final class AtlasFrontendControlPlaneService
                 ],
                 'publication_attestation' => $publicationAttestation,
             ],
+            'evidence_hashes' => [
+                'competitive_repair_plan_hash' => $competitiveRepairPlan['repair_plan_hash'] ?? null,
+            ],
             'claim_policy' => [
                 'provider_dispatch_allowed' => $status !== 'blocked'
                     && (($gauntlet['status'] ?? null) === 'not_requested' || (bool) data_get($gauntlet, 'claim_policy.provider_dispatch_allowed')),
@@ -109,6 +125,9 @@ final class AtlasFrontendControlPlaneService
                 'public_distribution_claim_allowed' => $readiness['public_distribution_ready'],
                 'world_best_claim_allowed' => $readiness['world_best_claim_ready'],
                 'world_best_requires_real_rival_replay_and_public_distribution' => true,
+                'world_best_requires_decisive_lead_each_replay_case' => true,
+                'world_best_requires_no_tied_replay_cases' => true,
+                'world_best_requires_no_dimension_gaps_against_best_rival' => true,
                 'local_publication_report_is_not_public_distribution' => true,
                 'documentation_only_claim_forbidden' => true,
                 'honest_claim_boundary' => $readiness['world_best_claim_ready']
@@ -122,6 +141,26 @@ final class AtlasFrontendControlPlaneService
         $payload['control_plane_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<int,mixed>  $cases
+     * @return array<int,array<string,mixed>>
+     */
+    private function competitiveDimensionGaps(array $cases): array
+    {
+        return collect($cases)
+            ->filter(fn (mixed $case): bool => is_array($case))
+            ->flatMap(fn (array $case): array => array_map(
+                fn (array $gap): array => [
+                    ...$gap,
+                    'case_id' => $case['case_id'] ?? null,
+                    'best_rival_system' => $case['best_rival_system'] ?? null,
+                ],
+                array_filter((array) ($case['dimension_gaps'] ?? []), 'is_array'),
+            ))
+            ->values()
+            ->all();
     }
 
     /**
@@ -282,6 +321,12 @@ final class AtlasFrontendControlPlaneService
         }
         if (in_array('world_best_claim_not_allowed', $warnings, true)) {
             $actions[] = 'do_not_claim_world_best_until_replay_and_public_distribution_are_verified';
+        }
+        if (in_array('atlas_does_not_lead_every_complete_case', $warnings, true)) {
+            $actions[] = 'improve_atlas_frontend_until_replay_leads_every_case';
+        }
+        if (in_array('atlas_has_dimension_gaps_against_best_rival', $warnings, true)) {
+            $actions[] = 'improve_atlas_frontend_until_replay_closes_dimension_gaps';
         }
 
         return array_values(array_unique($actions));

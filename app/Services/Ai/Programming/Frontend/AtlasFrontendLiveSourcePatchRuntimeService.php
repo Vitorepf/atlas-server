@@ -13,6 +13,8 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
 
     public const RESULT_SCHEMA_VERSION = 'atlas.frontend.live_source_patch_result.v1';
 
+    public const DECISION_RECEIPT_SCHEMA_VERSION = 'atlas.frontend.live_source_patch_decision_receipt.v1';
+
     /**
      * @param  array<int,array{id:string,content:string}>  $variants
      * @return array<string,mixed>
@@ -243,14 +245,74 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
             'session' => $this->publicSession($session),
             'session_ref' => 'atlas_frontend_live:'.$session['session_id'],
             'journal_path_hash' => hash('sha256', $this->sessionPath($workspace, (string) $session['session_id'])),
+            'decision_receipt' => $this->decisionReceipt($operation, $session),
             'integrity_policy' => [
                 'private_session_integrity_hash_required' => true,
                 'raw_original_or_variants_returned' => false,
+            ],
+            'claim_policy' => [
+                'live_patch_decision_is_not_delivery_evidence' => true,
+                'accepted_live_patch_requires_visual_quality_gate' => true,
+                'accepted_live_patch_requires_run_certification_before_completion_claim' => true,
+                'discard_or_recover_preserves_reversibility_evidence' => true,
             ],
         ];
         $payload['result_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $session
+     * @return array<string,mixed>
+     */
+    private function decisionReceipt(string $operation, array $session): array
+    {
+        $receipt = [
+            'schema_version' => self::DECISION_RECEIPT_SCHEMA_VERSION,
+            'operation' => $operation,
+            'session_id_hash' => hash('sha256', (string) ($session['session_id'] ?? '')),
+            'session_hash' => $session['session_hash'] ?? null,
+            'status' => $session['status'] ?? 'unknown',
+            'file_hash' => isset($session['file']) ? hash('sha256', (string) $session['file']) : null,
+            'original_hash' => $session['original_hash'] ?? null,
+            'original_file_hash' => $session['original_file_hash'] ?? null,
+            'accepted_variant_id_hash' => isset($session['accepted_variant_id']) && $session['accepted_variant_id'] !== null
+                ? hash('sha256', (string) $session['accepted_variant_id'])
+                : null,
+            'accepted_variant_hash' => $session['accepted_variant_hash'] ?? null,
+            'accepted_diff_hash' => $session['accepted_diff_hash'] ?? null,
+            'accepted_file_hash' => $session['accepted_file_hash'] ?? null,
+            'recovered_file_hash' => $session['recovered_file_hash'] ?? null,
+            'journal_event_count' => count((array) ($session['journal'] ?? [])),
+            'required_next_gates' => $this->requiredNextGates((string) ($session['status'] ?? 'unknown')),
+            'source_policy' => [
+                'raw_original_or_variants_returned' => false,
+                'absolute_path_returned' => false,
+                'decision_receipt_is_provider_safe' => true,
+            ],
+            'claim_policy' => [
+                'receipt_is_decision_evidence_not_delivery_completion' => true,
+                'frontend_done_requires_visual_quality_and_run_certification' => true,
+                'recovery_supported_before_final_claim' => true,
+            ],
+        ];
+        $receipt['decision_receipt_hash'] = MissionCanonicalHash::sha256($receipt);
+
+        return $receipt;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function requiredNextGates(string $status): array
+    {
+        return match ($status) {
+            'accepted' => ['visual_quality_gate', 'design_review_or_reason', 'evidence_pack_verifier', 'run_certification'],
+            'discarded' => ['no_delivery_claim_from_discarded_live_patch'],
+            'recovered' => ['confirm_workspace_restored_or_prepare_new_live_patch'],
+            default => ['accept_discard_or_recover_before_delivery_claim'],
+        };
     }
 
     /**

@@ -19,6 +19,7 @@ decisions:
 maintenance:
   - Atualizar quando checks de produto, rich input, presentation contract, Control Plane, Company Runtime ou capability evolution mudarem.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/ap/AP-695-product-runtime-governance-certification-contract.md
   - docs/engineering-knowledge-base/atlas-ai-runtime-readiness.md
   - docs/engineering-knowledge-base/atlas-ai-evolution-lineage-and-target-state.md

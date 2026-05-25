@@ -187,9 +187,15 @@ final class AtlasFrontendRepairPlannerService
                         'dimension' => $dimension,
                         'case_id' => (string) ($gap['case_id'] ?? ''),
                         'best_rival_system' => (string) ($gap['best_rival_system'] ?? ''),
+                        'atlas_score' => (int) ($gap['atlas_score'] ?? 0),
                         'points_to_match' => $points,
+                        'points_to_lead' => (int) ($gap['points_to_lead'] ?? ($points + 1)),
+                        'target_score_to_match' => (int) ($gap['target_score_to_match'] ?? ($gap['best_rival_score'] ?? 0)),
+                        'target_score_to_lead' => (int) ($gap['target_score_to_lead'] ?? (($gap['best_rival_score'] ?? 0) + 1)),
                         'delta_vs_best_rival' => (int) ($gap['delta_vs_best_rival'] ?? 0),
                         'best_rival_score' => (int) ($gap['best_rival_score'] ?? 0),
+                        'dimension_weight' => (int) ($gap['dimension_weight'] ?? 0),
+                        'lead_possible_within_rubric' => (bool) ($gap['lead_possible_within_rubric'] ?? false),
                     ],
                 ];
             })
@@ -215,7 +221,7 @@ final class AtlasFrontendRepairPlannerService
         };
 
         return $points > 0
-            ? $verb.' Close at least '.$points.' point(s) versus the best rival before claiming market leadership.'
+            ? $verb.' Close at least '.$points.' point(s) versus the best rival, and lead the dimension when rubric capacity allows, before claiming market leadership.'
             : $verb;
     }
 
@@ -329,11 +335,23 @@ final class AtlasFrontendRepairPlannerService
                 continue;
             }
 
+            $dimensionWeight = max(0, (int) ($value['dimension_weight'] ?? 0));
+            if ($dimensionWeight === 0) {
+                $dimensionWeight = $this->dimensionWeight($dimension);
+            }
+            $bestRivalScore = max(0, (int) ($value['best_rival_score'] ?? 0));
+
             $valid[] = [
                 'dimension' => $dimension,
+                'atlas_score' => max(0, (int) ($value['atlas_score'] ?? 0)),
                 'points_to_match' => max(0, (int) ($value['points_to_match'] ?? 0)),
+                'points_to_lead' => max(0, (int) ($value['points_to_lead'] ?? (((int) ($value['points_to_match'] ?? 0)) + 1))),
+                'target_score_to_match' => max(0, (int) ($value['target_score_to_match'] ?? $bestRivalScore)),
+                'target_score_to_lead' => max(0, (int) ($value['target_score_to_lead'] ?? ($bestRivalScore + 1))),
                 'delta_vs_best_rival' => (int) ($value['delta_vs_best_rival'] ?? 0),
-                'best_rival_score' => max(0, (int) ($value['best_rival_score'] ?? 0)),
+                'best_rival_score' => $bestRivalScore,
+                'dimension_weight' => $dimensionWeight,
+                'lead_possible_within_rubric' => (bool) ($value['lead_possible_within_rubric'] ?? ($bestRivalScore < $dimensionWeight)),
                 'case_id' => $this->slug((string) ($value['case_id'] ?? '')),
                 'best_rival_system' => $this->slug((string) ($value['best_rival_system'] ?? '')),
             ];
@@ -355,6 +373,14 @@ final class AtlasFrontendRepairPlannerService
             ->filter()
             ->values()
             ->all();
+    }
+
+    private function dimensionWeight(string $dimensionId): int
+    {
+        $dimension = collect((array) $this->competitiveRubric->rubric()['dimensions'])
+            ->first(fn (mixed $dimension): bool => is_array($dimension) && ($dimension['id'] ?? null) === $dimensionId);
+
+        return is_array($dimension) ? (int) ($dimension['weight'] ?? 0) : 0;
     }
 
     /**

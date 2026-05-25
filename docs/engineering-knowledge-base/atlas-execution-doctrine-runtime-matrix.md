@@ -18,7 +18,7 @@ canonical_name: Atlas Execution Doctrine Runtime Matrix
 technical_name: atlas-execution-doctrine-runtime-matrix
 product_name: Atlas Execution Doctrine Runtime Matrix
 internal_product_name: AEDPDS Runtime Map
-technical_runtime: AtlasAutonomousProductDeliveryRuntimeService
+technical_runtime: AtlasExecutionDoctrineRuntimeMatrixDocument
 runtime_acronym: AEDPDS-MATRIX
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-execution-doctrine-runtime-matrix.md

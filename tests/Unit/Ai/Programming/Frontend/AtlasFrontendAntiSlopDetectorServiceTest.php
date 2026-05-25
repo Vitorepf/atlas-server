@@ -32,6 +32,46 @@ class AtlasFrontendAntiSlopDetectorServiceTest extends TestCase
         $this->assertContains('icon_buttons_without_accessible_name', $ruleIds);
     }
 
+    public function test_detector_projects_findings_into_repair_gates_and_competitive_dimensions(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-detector-projection-'.bin2hex(random_bytes(4));
+        mkdir($dir);
+        file_put_contents($dir.'/bad.html', '<section class="card rounded shadow card rounded shadow card rounded shadow"><img src="placeholder.png"><div class="absolute top-0 left-0"></div></section>');
+
+        $report = app(AtlasFrontendAntiSlopDetectorService::class)->inspectPath($dir, strict: true);
+
+        $this->assertSame('atlas.frontend.detector_findings.v1', $report['findings_schema_version']);
+        $this->assertSame('atlas.frontend.anti_slop_rule_registry.v1', data_get($report, 'rule_registry.schema_version'));
+        $this->assertSame('atlas.frontend.anti_slop_repair_projection.v1', data_get($report, 'repair_projection.schema_version'));
+        $this->assertSame('blocked', data_get($report, 'repair_projection.status'));
+        $this->assertContains('anti_ai_slop_detector', data_get($report, 'repair_projection.failed_gates'));
+        $this->assertContains('visual_quality_gate', data_get($report, 'repair_projection.rerun_gates'));
+        $this->assertContains('anti_slop_report', data_get($report, 'repair_projection.evidence_required'));
+        $this->assertSame('php artisan atlas:frontend:repair-plan --failed-gate=anti_ai_slop_detector --json', data_get($report, 'repair_projection.recommended_repair_plan_command'));
+        $this->assertFalse((bool) data_get($report, 'claim_policy.visual_completion_claim_allowed'));
+
+        $finding = collect($report['findings'])->firstWhere('rule_id', 'nested_card_surface');
+        $this->assertSame('anti_ai_slop_detector', data_get($finding, 'gate_signal'));
+        $this->assertSame('visual_hierarchy_and_information_architecture', data_get($finding, 'competitive_rubric_dimension'));
+        $this->assertSame('information_architecture', data_get($finding, 'repair_target'));
+        $this->assertContains('design_5d_review', data_get($finding, 'rerun_gates'));
+        $this->assertNotEmpty(data_get($finding, 'false_positive_policy'));
+    }
+
+    public function test_clean_detector_report_allows_visual_claim_projection_only_when_no_findings(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-frontend-detector-clean-projection-'.bin2hex(random_bytes(4));
+        mkdir($dir);
+        file_put_contents($dir.'/clean.html', '<main><h1>Invoice approvals</h1><button aria-label="Save invoice">Save</button></main>');
+
+        $report = app(AtlasFrontendAntiSlopDetectorService::class)->inspectPath($dir, strict: true);
+
+        $this->assertSame('passed', $report['status']);
+        $this->assertSame('clean', data_get($report, 'repair_projection.status'));
+        $this->assertSame([], data_get($report, 'repair_projection.failed_gates'));
+        $this->assertTrue((bool) data_get($report, 'claim_policy.visual_completion_claim_allowed'));
+    }
+
     public function test_detector_report_is_provider_safe_and_strict_fails_on_high_findings(): void
     {
         $dir = sys_get_temp_dir().'/atlas-frontend-detector-'.bin2hex(random_bytes(4));

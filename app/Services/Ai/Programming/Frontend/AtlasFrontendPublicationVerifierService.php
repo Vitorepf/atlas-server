@@ -16,6 +16,7 @@ final class AtlasFrontendPublicationVerifierService
     private const PRODUCT_SITE_ASSET_HASH_BLOCKERS = [
         'product_site_asset_tutorial_hash_mismatch',
         'product_site_asset_downloads_manifest_hash_mismatch',
+        'product_site_demo_manifest_hash_mismatch',
     ];
 
     /**
@@ -262,6 +263,10 @@ final class AtlasFrontendPublicationVerifierService
         if (($siteAssets['status'] ?? null) !== 'local_ready_publication_pending') {
             $blockers[] = 'product_site_assets_status_invalid';
         }
+        $blockers = array_merge($blockers, $this->demoManifestBlockers(
+            is_array($siteAssets['demo_manifests'] ?? null) ? (array) $siteAssets['demo_manifests'] : [],
+            $bundleDirectory,
+        ));
 
         $blockers = array_merge($blockers, $this->fileHashBlockers(
             'product_site_asset_tutorial',
@@ -291,6 +296,101 @@ final class AtlasFrontendPublicationVerifierService
                     (int) data_get($siteAssets, 'downloads_manifest.download_count', 0),
                 ));
             }
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * @param  array<string,mixed>  $demoManifests
+     * @return array<int,string>
+     */
+    private function demoManifestBlockers(array $demoManifests, string $bundleDirectory): array
+    {
+        $blockers = [];
+        if ($demoManifests === []) {
+            return ['product_site_demo_manifests_missing'];
+        }
+        if (($demoManifests['schema_version'] ?? null) !== AtlasFrontendProductProofRuntimeService::DEMO_MANIFEST_SCHEMA_VERSION) {
+            $blockers[] = 'product_site_demo_manifests_schema_invalid';
+        }
+        $items = $demoManifests['items'] ?? null;
+        if (! is_array($items) || $items === []) {
+            return [...$blockers, 'product_site_demo_manifests_items_missing'];
+        }
+        $expectedCount = (int) ($demoManifests['count'] ?? 0);
+        if ($expectedCount > 0 && count($items) !== $expectedCount) {
+            $blockers[] = 'product_site_demo_manifests_count_mismatch';
+        }
+
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                $blockers[] = 'product_site_demo_manifest_entry_invalid';
+
+                continue;
+            }
+            $manifestPath = (string) ($item['path'] ?? '');
+            $blockers = array_merge($blockers, $this->fileHashBlockers(
+                'product_site_demo_manifest',
+                $bundleDirectory,
+                $manifestPath,
+                (string) ($item['hash'] ?? ''),
+            ));
+            $absoluteManifest = $manifestPath !== '' && ! str_starts_with($manifestPath, '/') && ! str_contains($manifestPath, '..')
+                ? $bundleDirectory.'/'.$manifestPath
+                : '';
+            if ($absoluteManifest === '' || ! File::isFile($absoluteManifest)) {
+                continue;
+            }
+            $manifest = $this->readJson($absoluteManifest);
+            if (! is_array($manifest)) {
+                $blockers[] = 'product_site_demo_manifest_json_invalid';
+
+                continue;
+            }
+            $blockers = array_merge($blockers, $this->singleDemoManifestBlockers($manifest, $bundleDirectory, $item));
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @param  array<string,mixed>  $item
+     * @return array<int,string>
+     */
+    private function singleDemoManifestBlockers(array $manifest, string $bundleDirectory, array $item): array
+    {
+        $blockers = [];
+        if (($manifest['schema_version'] ?? null) !== AtlasFrontendProductProofRuntimeService::DEMO_MANIFEST_SCHEMA_VERSION) {
+            $blockers[] = 'product_site_demo_manifest_schema_invalid';
+        }
+        if (($manifest['status'] ?? null) !== 'local_ready_publication_pending') {
+            $blockers[] = 'product_site_demo_manifest_status_invalid';
+        }
+        if (($manifest['demo_id'] ?? null) !== ($item['id'] ?? null)) {
+            $blockers[] = 'product_site_demo_manifest_id_mismatch';
+        }
+        $blockers = array_merge($blockers, $this->fileHashBlockers(
+            'product_site_demo_manifest_page',
+            $bundleDirectory,
+            (string) data_get($manifest, 'page.path', ''),
+            (string) data_get($manifest, 'page.hash', ''),
+        ));
+        if ((string) data_get($manifest, 'page.path', '') !== (string) ($item['page_path'] ?? '')) {
+            $blockers[] = 'product_site_demo_manifest_page_path_mismatch';
+        }
+        if ((string) data_get($manifest, 'page.hash', '') !== (string) ($item['page_hash'] ?? '')) {
+            $blockers[] = 'product_site_demo_manifest_page_hash_mismatch';
+        }
+        if ((array) ($manifest['required_viewports'] ?? []) === []) {
+            $blockers[] = 'product_site_demo_manifest_required_viewports_missing';
+        }
+        if ((array) ($manifest['required_evidence'] ?? []) === []) {
+            $blockers[] = 'product_site_demo_manifest_required_evidence_missing';
+        }
+        if ((bool) data_get($manifest, 'claim_policy.demo_manifest_is_not_public_distribution') !== true) {
+            $blockers[] = 'product_site_demo_manifest_claim_policy_missing';
         }
 
         return $blockers;
@@ -349,11 +449,14 @@ final class AtlasFrontendPublicationVerifierService
             'schema_version' => data_get($siteAssets, 'schema_version'),
             'status' => data_get($siteAssets, 'status', 'missing'),
             'tutorial_hash' => data_get($siteAssets, 'tutorial.hash'),
+            'demo_manifest_count' => (int) data_get($siteAssets, 'demo_manifests.count', 0),
             'downloads_manifest_hash' => data_get($siteAssets, 'downloads_manifest.hash'),
             'download_count' => (int) data_get($siteAssets, 'downloads_manifest.download_count', 0),
+            'demo_manifests_present' => data_get($siteAssets, 'demo_manifests.count', 0) > 0,
             'downloads_manifest_present' => $downloadsAbsolute !== '' && File::isFile($downloadsAbsolute),
             'claim_policy' => [
                 'local_product_site_assets_are_not_public_distribution' => true,
+                'each_demo_requires_manifest_with_page_hash_evidence_and_claim_boundary' => true,
                 'raw_customer_source_returned' => false,
             ],
         ];

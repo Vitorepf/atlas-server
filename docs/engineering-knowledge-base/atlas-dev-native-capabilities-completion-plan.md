@@ -50,7 +50,7 @@ canonical_name: Atlas Dev Native Capabilities Completion Plan
 technical_name: atlas-dev-native-capabilities-completion-plan
 product_name: Atlas Dev Native Capabilities Completion Plan
 internal_product_name: Atlas Dev Completion Backlog
-technical_runtime: DevRuntimeIntelligenceService
+technical_runtime: AtlasDevNativeCapabilitiesCompletionPlanDocument
 runtime_acronym: ADNCP
 cartography_type: implementation_plan
 canonical_source: docs/engineering-knowledge-base/atlas-dev-native-capabilities-completion-plan.md

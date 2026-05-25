@@ -26,6 +26,8 @@ final class AtlasFrontendRivalReplayHarnessService
 
     public const SCORE_ATTESTATION_TEMPLATE_SCHEMA_VERSION = 'atlas.frontend.rival_replay.score_attestation_template.v1';
 
+    public const DECISIVE_LEAD_MINIMUM_POINTS = 2;
+
     /**
      * @return array<string,mixed>
      */
@@ -91,6 +93,10 @@ final class AtlasFrontendRivalReplayHarnessService
                 'may_claim_world_best_frontend_system' => $allRunsCompleted && $atlasWinsAllCompleteCases,
                 'world_best_requires_all_rival_runs_complete' => true,
                 'world_best_requires_atlas_to_win_each_complete_case' => true,
+                'world_best_requires_atlas_to_lead_each_complete_case' => true,
+                'world_best_requires_minimum_decisive_lead_points' => self::DECISIVE_LEAD_MINIMUM_POINTS,
+                'world_best_requires_no_tied_cases' => true,
+                'world_best_requires_no_dimension_gaps_against_best_rival' => true,
                 'world_best_requires_same_task_spec_hash_per_case' => true,
                 'world_best_requires_external_execution_receipts' => true,
                 'documentation_only_claim_forbidden' => true,
@@ -103,7 +109,7 @@ final class AtlasFrontendRivalReplayHarnessService
                 'raw_prompts_or_customer_source_returned' => false,
                 'external_system_names_are_comparison_labels_not_runtime_dependencies' => true,
             ],
-            'remaining_gaps' => $this->remainingGaps($allRunsCompleted, $atlasWinsAllCompleteCases, $evidencePackReadiness),
+            'remaining_gaps' => $this->remainingGaps($allRunsCompleted, $atlasWinsAllCompleteCases, $evidencePackReadiness, $competitiveDiagnostics),
         ];
         $payload['replay_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -237,7 +243,7 @@ final class AtlasFrontendRivalReplayHarnessService
                     $createdEvidencePackRefs[] = $evidencePackRef;
                 }
 
-                $packets[] = [
+                $packet = [
                     'id' => 'run_'.$case['id'].'_'.$system['id'],
                     'case_id' => $case['id'],
                     'system' => $system['id'],
@@ -262,6 +268,9 @@ final class AtlasFrontendRivalReplayHarnessService
                         'raw_prompts_customer_source_tokens_or_cookies_forbidden' => true,
                     ],
                 ];
+                $packet['run_packet_hash'] = MissionCanonicalHash::sha256($packet);
+                $this->writeRunPacketHashToManifest($directory, $case['id'], $system['id'], $packet['run_packet_hash']);
+                $packets[] = $packet;
             }
         }
 
@@ -399,6 +408,7 @@ final class AtlasFrontendRivalReplayHarnessService
             'score_total' => $scoreTotal,
             'score_max' => $scoreMax,
             'evidence_pack_verification_hash' => $evidencePack['verification_hash'] ?? null,
+            'reviewed_manifest_hashes' => $this->scoreReviewedManifestHashes($manifest, $evidencePack['verification_hash'] ?? null),
             'notes' => 'Set status=verified, reviewed_at and operator_approved=true only after reviewing artifact refs against the rubric. Do not include raw prompts, customer source, cookies, tokens or reviewer identity.',
         ];
 
@@ -592,11 +602,13 @@ final class AtlasFrontendRivalReplayHarnessService
                     'screenshot_hashes[]' => 'sha256(screenshot_set)',
                     'anti_slop_report_hash' => 'sha256(anti_slop_report)',
                     'verification_hashes[]' => 'sha256(verification_report)',
+                    'run_packet_hash' => 'runner_kit.run_packets[] where case_id+system match',
                     'score_attestation.score_breakdown_hash' => 'canonical_sha256(score_breakdown)',
                 ],
                 'completion_steps' => [
                     'capture_real_artifact_files_under_artifact_refs',
                     'update_evidence_pack_sha256_values_from_hash_command',
+                    'preserve_or_fill_run_packet_hash_from_runner_kit',
                     'mirror_required_hashes_into_run_manifest',
                     'fill_run_id_score_breakdown_score_total_score_attestation_completed_at',
                     'rerun_php_artisan_atlas_frontend_replay_inspect',
@@ -639,6 +651,8 @@ final class AtlasFrontendRivalReplayHarnessService
                     'pack_manifest_ref' => $root.'/evidence/evidence-pack.json',
                     'run_manifest_ref' => $root.'/manifest.json',
                     'task_spec_ref' => $caseId.'/task-spec.json',
+                    'run_packet_hash' => is_string($run['run_packet_hash'] ?? null) ? (string) $run['run_packet_hash'] : null,
+                    'run_packet_hash_mapping' => 'manifest.run_packet_hash verified against runner_kit.run_packets[] when runner kit exists',
                     'external_execution_receipt_schema_version' => self::EXTERNAL_EXECUTION_RECEIPT_SCHEMA_VERSION,
                     'external_execution_receipt_fields' => [
                         'schema_version',
@@ -663,6 +677,7 @@ final class AtlasFrontendRivalReplayHarnessService
                     ],
                     'completion_steps' => [
                         'verify_evidence_pack_passed_before_receipt',
+                        'verify_run_packet_hash_matches_runner_kit_when_present',
                         'run_external_rival_against_unchanged_task_spec',
                         'run_external_receipt_template_command_for_provider_safe_manifest_patch',
                         'fill_external_execution_receipt_without_raw_prompt_source_tokens_urls_or_provider_secrets',
@@ -684,6 +699,8 @@ final class AtlasFrontendRivalReplayHarnessService
                     'pack_manifest_ref' => $root.'/evidence/evidence-pack.json',
                     'run_manifest_ref' => $root.'/manifest.json',
                     'task_spec_ref' => $caseId.'/task-spec.json',
+                    'run_packet_hash' => is_string($run['run_packet_hash'] ?? null) ? (string) $run['run_packet_hash'] : null,
+                    'run_packet_hash_mapping' => 'manifest.run_packet_hash verified against runner_kit.run_packets[] when runner kit exists',
                     'score_attestation_schema_version' => self::SCORE_ATTESTATION_SCHEMA_VERSION,
                     'score_attestation_fields' => [
                         'schema_version',
@@ -699,6 +716,7 @@ final class AtlasFrontendRivalReplayHarnessService
                         'score_total',
                         'score_max',
                         'evidence_pack_verification_hash',
+                        'reviewed_manifest_hashes',
                     ],
                     'score_attestation_hash_mapping' => [
                         'rubric_hash' => data_get($inspect, 'competitive_rubric.rubric_hash'),
@@ -706,6 +724,7 @@ final class AtlasFrontendRivalReplayHarnessService
                         'score_total' => 'manifest.score_total',
                         'score_max' => 'manifest.score_max',
                         'evidence_pack_verification_hash' => $pack['verification_hash'] ?? null,
+                        'reviewed_manifest_hashes' => 'manifest output/screenshot/anti_slop/verification/run_packet/evidence_pack hashes',
                         'reviewer_ref_hash' => 'sha256(provider_safe_reviewer_ref)',
                     ],
                     'allowed_scoring_surfaces' => [
@@ -715,6 +734,7 @@ final class AtlasFrontendRivalReplayHarnessService
                     ],
                     'completion_steps' => [
                         'verify_evidence_pack_passed_before_scoring',
+                        'verify_run_packet_hash_matches_runner_kit_when_present',
                         'review_artifact_refs_against_competitive_rubric',
                         'run_score_template_command_for_provider_safe_manifest_patch',
                         'compute_score_breakdown_hash_from_manifest_score_breakdown',
@@ -808,6 +828,27 @@ final class AtlasFrontendRivalReplayHarnessService
         return true;
     }
 
+    private function writeRunPacketHashToManifest(string $directory, string $caseId, string $system, string $runPacketHash): void
+    {
+        $manifestPath = $directory.'/'.$caseId.'/'.$system.'/manifest.json';
+        if (! File::isFile($manifestPath)) {
+            return;
+        }
+
+        $manifest = json_decode(File::get($manifestPath), true);
+        if (! is_array($manifest)) {
+            return;
+        }
+
+        $manifest['run_packet_hash'] = $runPacketHash;
+        File::put($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+    }
+
+    private function runnerKitPathForManifest(string $manifestPath): string
+    {
+        return dirname($manifestPath, 3).'/replay-runner-kit.json';
+    }
+
     /**
      * @return array<int,array<string,string>>
      */
@@ -893,6 +934,7 @@ final class AtlasFrontendRivalReplayHarnessService
             $issues[] = 'status_not_complete';
         }
         $issues = array_merge($issues, $this->validateTaskSpecRef($manifest, $manifestPath, $caseId));
+        $issues = array_merge($issues, $this->validateRunPacketHash($manifest, $manifestPath, $caseId, $system));
         $evidencePack = $this->validateEvidencePackRef($manifest, $manifestPath, $caseId, $system);
         $issues = array_merge($issues, $evidencePack['issues']);
         $issues = array_merge($issues, $this->validateExternalExecutionReceipt($manifest, $caseId, $system, $evidencePack['verification_hash'] ?? null));
@@ -924,6 +966,7 @@ final class AtlasFrontendRivalReplayHarnessService
         return $this->runPayload($caseId, $system, $status, $issues, hash('sha256', $raw), [
             'run_id_hash' => isset($manifest['run_id']) ? hash('sha256', (string) $manifest['run_id']) : null,
             'task_spec_hash' => is_string($manifest['task_spec_hash'] ?? null) ? (string) $manifest['task_spec_hash'] : null,
+            'run_packet_hash' => is_string($manifest['run_packet_hash'] ?? null) ? (string) $manifest['run_packet_hash'] : null,
             'task_spec_ref' => is_string($manifest['task_spec_ref'] ?? null) ? (string) $manifest['task_spec_ref'] : null,
             'evidence_pack_ref' => is_string($manifest['evidence_pack_ref'] ?? null) ? (string) $manifest['evidence_pack_ref'] : null,
             'evidence_pack_verification_hash' => $evidencePack['verification_hash'] ?? null,
@@ -955,9 +998,11 @@ final class AtlasFrontendRivalReplayHarnessService
             'issues' => $issues,
             'run_id_hash' => $extra['run_id_hash'] ?? null,
             'task_spec_hash' => $extra['task_spec_hash'] ?? null,
+            'run_packet_hash' => $extra['run_packet_hash'] ?? null,
             'task_spec_ref' => $extra['task_spec_ref'] ?? null,
             'evidence_pack_ref' => $extra['evidence_pack_ref'] ?? null,
             'evidence_pack_verification_hash' => $extra['evidence_pack_verification_hash'] ?? null,
+            'external_execution_receipt_hash' => $extra['external_execution_receipt_hash'] ?? null,
             'score_attestation_hash' => $extra['score_attestation_hash'] ?? null,
             'score_total' => $extra['score_total'] ?? null,
             'score_max' => $extra['score_max'] ?? null,
@@ -994,6 +1039,7 @@ final class AtlasFrontendRivalReplayHarnessService
             $atlasScore = (int) data_get($atlas, 'score_total', 0);
             $bestRivalScore = (int) data_get($bestRival, 'score_total', 0);
             $delta = $atlasScore - $bestRivalScore;
+            $hasDecisiveMargin = $delta >= self::DECISIVE_LEAD_MINIMUM_POINTS;
             $dimensionGaps = $this->dimensionGaps(
                 is_array($atlas['score_breakdown'] ?? null) ? $atlas['score_breakdown'] : [],
                 is_array($bestRival['score_breakdown'] ?? null) ? $bestRival['score_breakdown'] : [],
@@ -1004,7 +1050,9 @@ final class AtlasFrontendRivalReplayHarnessService
             $cases[] = [
                 'case_id' => $case['id'],
                 'status' => match (true) {
-                    $delta > 0 => 'atlas_leads',
+                    $hasDecisiveMargin && $dimensionGaps === [] => 'atlas_leads',
+                    $delta > 0 && $dimensionGaps === [] => 'atlas_leads_without_decisive_margin',
+                    $delta > 0 => 'atlas_leads_with_dimension_gaps',
                     $delta === 0 => 'atlas_tied_best',
                     default => 'atlas_loses',
                 },
@@ -1014,29 +1062,53 @@ final class AtlasFrontendRivalReplayHarnessService
                 'atlas_delta_vs_best_rival' => $delta,
                 'minimum_points_to_match_best_rival' => max(0, $bestRivalScore - $atlasScore),
                 'minimum_points_to_lead_best_rival' => max(0, $bestRivalScore - $atlasScore + 1),
+                'minimum_decisive_lead_points' => self::DECISIVE_LEAD_MINIMUM_POINTS,
+                'minimum_points_to_decisive_lead' => max(0, self::DECISIVE_LEAD_MINIMUM_POINTS - $delta),
                 'dimension_gap_count' => count($dimensionGaps),
                 'dimension_gaps' => $dimensionGaps,
                 'recommended_repair_plan_commands' => array_values(array_filter(array_map(
                     fn (array $gap): ?string => is_string($gap['repair_plan_command'] ?? null) ? (string) $gap['repair_plan_command'] : null,
                     $dimensionGaps,
                 ))),
-                'next_action' => $delta < 0 ? 'improve_atlas_frontend_case_and_rerun_replay' : 'preserve_case_evidence',
+                'next_action' => match (true) {
+                    $delta <= 0 => 'improve_atlas_frontend_case_until_decisive_lead',
+                    $dimensionGaps !== [] => 'improve_atlas_frontend_case_until_dimension_lead',
+                    ! $hasDecisiveMargin => 'improve_atlas_frontend_case_until_minimum_decisive_margin',
+                    default => 'preserve_case_evidence',
+                },
             ];
         }
 
         $losing = collect($cases)->where('status', 'atlas_loses')->count();
+        $tied = collect($cases)->where('status', 'atlas_tied_best')->count();
+        $weakLead = collect($cases)->where('status', 'atlas_leads_without_decisive_margin')->count();
+        $dimensionGapCases = collect($cases)->where('status', 'atlas_leads_with_dimension_gaps')->count();
         $pending = collect($cases)->where('status', 'pending')->count();
 
         return [
             'schema_version' => 'atlas.frontend.rival_replay_competitive_diagnostics.v1',
-            'status' => $losing > 0 ? 'atlas_needs_improvement' : ($pending > 0 ? 'pending_replay' : 'atlas_matches_or_beats_all_complete_cases'),
+            'status' => match (true) {
+                $losing > 0 => 'atlas_needs_improvement',
+                $tied > 0 => 'atlas_needs_decisive_lead',
+                $dimensionGapCases > 0 => 'atlas_needs_dimension_lead',
+                $weakLead > 0 => 'atlas_needs_decisive_margin',
+                $pending > 0 => 'pending_replay',
+                default => 'atlas_leads_all_complete_cases',
+            },
             'case_count' => count($cases),
             'losing_case_count' => $losing,
+            'tied_case_count' => $tied,
+            'weak_lead_case_count' => $weakLead,
+            'dimension_gap_case_count' => $dimensionGapCases,
             'pending_case_count' => $pending,
             'cases' => $cases,
             'claim_policy' => [
                 'diagnostics_are_not_market_claim_evidence' => true,
                 'world_best_requires_no_losing_cases' => true,
+                'world_best_requires_no_tied_cases' => true,
+                'world_best_requires_decisive_lead_each_case' => true,
+                'world_best_requires_minimum_decisive_lead_points' => self::DECISIVE_LEAD_MINIMUM_POINTS,
+                'world_best_requires_no_dimension_gaps_against_best_rival' => true,
             ],
         ];
     }
@@ -1068,16 +1140,22 @@ final class AtlasFrontendRivalReplayHarnessService
                 'best_rival_score' => $rival,
                 'delta_vs_best_rival' => $delta,
                 'points_to_match' => abs($delta),
+                'points_to_lead' => abs($delta) + 1,
+                'target_score_to_match' => $rival,
+                'target_score_to_lead' => $rival + 1,
                 'weight' => (int) ($dimension['weight'] ?? 0),
+                'lead_possible_within_rubric' => $rival < (int) ($dimension['weight'] ?? 0),
                 'next_action' => 'improve_'.$id,
                 'repair_plan_command' => sprintf(
-                    'php artisan atlas:frontend:repair-plan --dimension-gap=%s:%d:%d:%d:%s:%s --json',
+                    'php artisan atlas:frontend:repair-plan --dimension-gap=%s:%d:%d:%d:%s:%s:%d:%d --json',
                     $id,
                     abs($delta),
                     $delta,
                     $rival,
                     $caseId,
                     $bestRivalSystem,
+                    $atlas,
+                    (int) ($dimension['weight'] ?? 0),
                 ),
             ];
         }
@@ -1213,12 +1291,26 @@ final class AtlasFrontendRivalReplayHarnessService
                 return false;
             }
 
-            $atlas = (int) data_get($caseRuns->firstWhere('system', 'atlas_frontend'), 'score_total', -1);
-            $bestRival = $caseRuns
+            $atlasRun = $caseRuns->firstWhere('system', 'atlas_frontend');
+            $atlas = (int) data_get($atlasRun, 'score_total', -1);
+            $bestRivalRun = $caseRuns
                 ->reject(fn (array $run): bool => $run['system'] === 'atlas_frontend')
-                ->max(fn (array $run): int => (int) ($run['score_total'] ?? -1));
+                ->sortByDesc(fn (array $run): int => (int) ($run['score_total'] ?? -1))
+                ->first();
+            $bestRival = (int) data_get($bestRivalRun, 'score_total', -1);
 
-            if ($atlas < $bestRival) {
+            if (($atlas - $bestRival) < self::DECISIVE_LEAD_MINIMUM_POINTS) {
+                return false;
+            }
+
+            $dimensionGaps = $this->dimensionGaps(
+                is_array($atlasRun['score_breakdown'] ?? null) ? $atlasRun['score_breakdown'] : [],
+                is_array($bestRivalRun['score_breakdown'] ?? null) ? $bestRivalRun['score_breakdown'] : [],
+                $case['id'],
+                (string) ($bestRivalRun['system'] ?? ''),
+            );
+
+            if ($dimensionGaps !== []) {
                 return false;
             }
         }
@@ -1230,7 +1322,7 @@ final class AtlasFrontendRivalReplayHarnessService
      * @param  array<string,mixed>  $evidencePackReadiness
      * @return array<int,string>
      */
-    private function remainingGaps(bool $allRunsCompleted, bool $atlasWinsAllCompleteCases, array $evidencePackReadiness): array
+    private function remainingGaps(bool $allRunsCompleted, bool $atlasWinsAllCompleteCases, array $evidencePackReadiness, array $competitiveDiagnostics): array
     {
         if (! $allRunsCompleted) {
             return [
@@ -1239,7 +1331,16 @@ final class AtlasFrontendRivalReplayHarnessService
             ];
         }
 
-        return $atlasWinsAllCompleteCases ? [] : ['atlas_does_not_win_every_complete_case'];
+        if ($atlasWinsAllCompleteCases) {
+            return [];
+        }
+
+        return array_values(array_filter([
+            ((int) ($competitiveDiagnostics['losing_case_count'] ?? 0)) > 0 ? 'atlas_does_not_win_every_complete_case' : null,
+            ((int) ($competitiveDiagnostics['tied_case_count'] ?? 0)) > 0 ? 'atlas_does_not_lead_every_complete_case' : null,
+            ((int) ($competitiveDiagnostics['weak_lead_case_count'] ?? 0)) > 0 ? 'atlas_lead_margin_below_decisive_threshold' : null,
+            ((int) ($competitiveDiagnostics['dimension_gap_case_count'] ?? 0)) > 0 ? 'atlas_has_dimension_gaps_against_best_rival' : null,
+        ]));
     }
 
     /**
@@ -1278,6 +1379,43 @@ final class AtlasFrontendRivalReplayHarnessService
         }
 
         return $issues;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<int,string>
+     */
+    private function validateRunPacketHash(array $manifest, string $manifestPath, string $caseId, string $system): array
+    {
+        $runnerKitPath = $this->runnerKitPathForManifest($manifestPath);
+        if (! File::isFile($runnerKitPath)) {
+            return [];
+        }
+
+        $runnerKit = json_decode(File::get($runnerKitPath), true);
+        if (! is_array($runnerKit)) {
+            return ['runner_kit_json_invalid'];
+        }
+
+        $packet = collect((array) ($runnerKit['run_packets'] ?? []))
+            ->first(fn (mixed $candidate): bool => is_array($candidate)
+                && ($candidate['case_id'] ?? null) === $caseId
+                && ($candidate['system'] ?? null) === $system);
+
+        if (! is_array($packet)) {
+            return ['run_packet_missing_from_runner_kit'];
+        }
+
+        $expected = is_string($packet['run_packet_hash'] ?? null) ? (string) $packet['run_packet_hash'] : null;
+        if ($expected === null || ! preg_match('/\A[a-f0-9]{64}\z/', $expected)) {
+            return ['run_packet_hash_missing_from_runner_kit'];
+        }
+
+        if (($manifest['run_packet_hash'] ?? null) !== $expected) {
+            return ['run_packet_hash_mismatch'];
+        }
+
+        return [];
     }
 
     /**
@@ -1440,6 +1578,9 @@ final class AtlasFrontendRivalReplayHarnessService
         if (($attestation['evidence_pack_verification_hash'] ?? null) !== $evidencePackVerificationHash) {
             $issues[] = 'score_attestation_evidence_pack_verification_hash_mismatch';
         }
+        if (($attestation['reviewed_manifest_hashes'] ?? null) !== $this->scoreReviewedManifestHashes($manifest, $evidencePackVerificationHash)) {
+            $issues[] = 'score_attestation_reviewed_manifest_hashes_mismatch';
+        }
         if ((bool) ($attestation['operator_approved'] ?? false) !== true) {
             $issues[] = 'score_attestation_operator_approval_missing';
         }
@@ -1457,6 +1598,22 @@ final class AtlasFrontendRivalReplayHarnessService
         }
 
         return $issues;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function scoreReviewedManifestHashes(array $manifest, ?string $evidencePackVerificationHash): array
+    {
+        return [
+            'output_artifact_hash' => is_string($manifest['output_artifact_hash'] ?? null) ? (string) $manifest['output_artifact_hash'] : null,
+            'screenshot_hashes' => array_values((array) ($manifest['screenshot_hashes'] ?? [])),
+            'anti_slop_report_hash' => is_string($manifest['anti_slop_report_hash'] ?? null) ? (string) $manifest['anti_slop_report_hash'] : null,
+            'verification_hashes' => array_values((array) ($manifest['verification_hashes'] ?? [])),
+            'run_packet_hash' => is_string($manifest['run_packet_hash'] ?? null) ? (string) $manifest['run_packet_hash'] : null,
+            'evidence_pack_verification_hash' => $evidencePackVerificationHash,
+        ];
     }
 
     /**
@@ -1538,6 +1695,14 @@ final class AtlasFrontendRivalReplayHarnessService
                 'score_total' => null,
                 'score_max' => app(AtlasFrontendCompetitiveRubricService::class)->rubric()['score_max'],
                 'evidence_pack_verification_hash' => null,
+                'reviewed_manifest_hashes' => [
+                    'output_artifact_hash' => null,
+                    'screenshot_hashes' => [],
+                    'anti_slop_report_hash' => null,
+                    'verification_hashes' => [],
+                    'run_packet_hash' => null,
+                    'evidence_pack_verification_hash' => null,
+                ],
                 'notes' => 'Fill after reviewing evidence against the shared rubric. Do not include raw prompts, customer source, cookies, tokens or provider secrets.',
             ],
             'completed_at' => null,

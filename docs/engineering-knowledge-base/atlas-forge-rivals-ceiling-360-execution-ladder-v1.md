@@ -516,6 +516,4 @@ matriz 360 de Provider Arena com dry-runs e templates reais confirmados. Todos
 os dry-runs declaram `external_provider_call=false`, `provider_tokens_spent=false`
 e `routing_effect=none`; templates reais exigem:
 
-- `confirm-runbook-reviewed`
-- `confirm-provider-cost`
-- `confirm-real-provider-call`
+- `confirm-runbook-reviewed`, `confirm-provider-cost`, `confirm-real-provider-call`

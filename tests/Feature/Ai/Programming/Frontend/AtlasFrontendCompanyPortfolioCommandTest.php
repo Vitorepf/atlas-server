@@ -32,11 +32,49 @@ class AtlasFrontendCompanyPortfolioCommandTest extends TestCase
         $this->assertStringContainsString('ready_for_operator_choice', $output);
         $this->assertStringContainsString('task_bound_for_candidate_ranking', $output);
         $this->assertStringContainsString('task_fit_status', $output);
+        $this->assertStringContainsString('frontend_app_candidate_summary', $output);
+        $this->assertStringContainsString('frontend_app_candidate_status', $output);
+        $this->assertStringContainsString('frontend_app_candidate_is_subscope_not_repo', $output);
         $this->assertStringContainsString('selection_handoff', $output);
         $this->assertStringContainsString('atlas:frontend:selected-workspace', $output);
         $this->assertStringContainsString('refinar-web', $output);
         $this->assertStringNotContainsString('Melhorar dashboard Refinar', $output);
         $this->assertStringNotContainsString($root, $output);
+    }
+
+    public function test_portfolio_command_projects_monorepo_frontend_app_summary_without_selecting_subscope(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-portfolio-command-monorepo-'.bin2hex(random_bytes(4));
+        $workspace = $root.'/atlas-commerce';
+        File::ensureDirectoryExists($workspace.'/apps/web/src/pages');
+        File::put($workspace.'/package.json', json_encode([
+            'private' => true,
+            'workspaces' => ['apps/*'],
+        ], JSON_THROW_ON_ERROR));
+        File::put($workspace.'/pnpm-workspace.yaml', 'packages: ["apps/*"]');
+        File::put($workspace.'/apps/web/package.json', json_encode([
+            'scripts' => ['dev' => 'vite', 'test' => 'vitest run', 'build' => 'vite build'],
+            'dependencies' => ['react' => '^latest', 'vite' => '^latest'],
+        ], JSON_THROW_ON_ERROR));
+        File::put($workspace.'/apps/web/src/pages/Home.tsx', 'export function Home() { return <main />; }');
+
+        $exitCode = Artisan::call('atlas:frontend:portfolio', [
+            '--root' => $root,
+            '--task' => 'Melhorar checkout ecommerce',
+            '--max-depth' => 4,
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('frontend_app_candidate_summary', $output);
+        $this->assertStringContainsString('nested_frontend_app_candidate_recommended', $output);
+        $this->assertStringContainsString('frontend_app_candidate_is_subscope_not_repo', $output);
+        $this->assertStringContainsString('operator_confirmation_required', $output);
+        $this->assertStringContainsString(hash('sha256', 'apps/web'), $output);
+        $this->assertStringNotContainsString('apps/web', $output);
+        $this->assertStringNotContainsString($workspace.'/apps/web', $output);
     }
 
     public function test_portfolio_command_strict_fails_missing_root(): void

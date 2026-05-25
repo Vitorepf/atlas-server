@@ -48,6 +48,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
+  - docs/engineering-knowledge-base/atlas-duplication-reality-governance.md
   - docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/code-intelligence.md

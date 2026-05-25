@@ -38,7 +38,7 @@ class AtlasFrontendRepairPlanCommandTest extends TestCase
     public function test_repair_plan_command_accepts_competitive_dimension_gap(): void
     {
         $exitCode = Artisan::call('atlas:frontend:repair-plan', [
-            '--dimension-gap' => ['product_intent_fit:2:-2:12:live_mode_repair_loop:pbakaus_impeccable'],
+            '--dimension-gap' => ['product_intent_fit:2:-2:12:live_mode_repair_loop:pbakaus_impeccable:10:12'],
             '--json' => true,
         ]);
         $output = Artisan::output();
@@ -48,6 +48,9 @@ class AtlasFrontendRepairPlanCommandTest extends TestCase
         $this->assertStringContainsString('repair_competitive_dimension_product_intent_fit', $output);
         $this->assertStringContainsString('live_mode_repair_loop', $output);
         $this->assertStringContainsString('pbakaus_impeccable', $output);
+        $this->assertStringContainsString('points_to_lead', $output);
+        $this->assertStringContainsString('target_score_to_lead', $output);
+        $this->assertStringContainsString('lead_possible_within_rubric', $output);
         $this->assertStringContainsString('dimension_improvement_receipt', $output);
     }
 

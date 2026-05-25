@@ -240,7 +240,7 @@ final class AtlasFrontendEvidenceKitService
             'php artisan atlas:frontend:quality-budget inspect --report='.$outputArg.'/quality-budget-report.json --json --strict',
             'php artisan atlas:frontend:review inspect --report='.$outputArg.'/design-review-report.json --json --strict',
             'php artisan atlas:frontend:evidence verify --manifest='.$outputArg.'/evidence/evidence-pack.json --root='.$outputArg.'/evidence --json',
-            'php artisan atlas:frontend:run-certify --visual-report='.$outputArg.'/visual-quality-report.json --design-review-report='.$outputArg.'/design-review-report.json --quality-budget-report='.$outputArg.'/quality-budget-report.json --evidence-manifest='.$outputArg.'/evidence/evidence-pack.json --outcome-store='.$outputArg.'/outcomes.jsonl --json --strict',
+            'php artisan atlas:frontend:run-certify --provider-packet=<provider-packet> --visual-report='.$outputArg.'/visual-quality-report.json --design-review-report='.$outputArg.'/design-review-report.json --quality-budget-report='.$outputArg.'/quality-budget-report.json --evidence-manifest='.$outputArg.'/evidence/evidence-pack.json --outcome-store='.$outputArg.'/outcomes.jsonl --json --strict',
         ];
     }
 

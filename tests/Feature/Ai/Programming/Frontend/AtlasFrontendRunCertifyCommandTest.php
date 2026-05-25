@@ -2,11 +2,14 @@
 
 namespace Tests\Feature\Ai\Programming\Frontend;
 
+use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignReviewService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendEvidencePackVerifierService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendOutcomeMemoryService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendProductProofRuntimeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendProviderInstructionPacketService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendQualityBudgetGateService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendRivalReplayHarnessService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendRunCertificationService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendVisualQualityGateService;
 use Illuminate\Support\Facades\Artisan;
@@ -42,6 +45,7 @@ class AtlasFrontendRunCertifyCommandTest extends TestCase
         ], $outcomeStore);
 
         $exitCode = Artisan::call('atlas:frontend:run-certify', [
+            '--provider-packet' => $dir.'/provider-instruction-packet.json',
             '--visual-report' => $dir.'/visual-quality-report.json',
             '--design-review-report' => $dir.'/design-review-report.json',
             '--quality-budget-report' => $dir.'/quality-budget-report.json',
@@ -58,6 +62,7 @@ class AtlasFrontendRunCertifyCommandTest extends TestCase
         $this->assertSame(AtlasFrontendRunCertificationService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('certified', $payload['status']);
         $this->assertSame(str_repeat('a', 64), $payload['task_spec_hash']);
+        $this->assertSame('pass', collect($payload['checks'])->firstWhere('id', 'provider_execution_guardrails_present')['status']);
         $this->assertTrue((bool) data_get($payload, 'claim_policy.frontend_completion_claim_allowed'));
     }
 
@@ -70,6 +75,8 @@ class AtlasFrontendRunCertifyCommandTest extends TestCase
         $reviewGate = app(AtlasFrontendDesignReviewService::class);
         $qualityBudgetGate = app(AtlasFrontendQualityBudgetGateService::class);
         $evidenceGate = app(AtlasFrontendEvidencePackVerifierService::class);
+
+        File::put($dir.'/provider-instruction-packet.json', json_encode($this->providerPacket(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         File::put($dir.'/visual-quality-report.json', json_encode([
             'schema_version' => AtlasFrontendVisualQualityGateService::REPORT_SCHEMA_VERSION,
@@ -122,5 +129,53 @@ class AtlasFrontendRunCertifyCommandTest extends TestCase
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         return $dir;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function providerPacket(): array
+    {
+        $packet = [
+            'schema_version' => AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION,
+            'status' => 'ready',
+            'packet_type' => 'provider_safe_frontend_execution_instruction_packet',
+            'frontend_app_scope' => ['status' => 'repo_root', 'relative_name_hash' => null],
+            'provider_execution_guardrails' => [
+                'schema_version' => AtlasFrontendProviderInstructionPacketService::EXECUTION_GUARDRAILS_SCHEMA_VERSION,
+                'selected_workspace_contract' => [
+                    'selected_repository_remains_primary_workspace' => true,
+                    'frontend_app_is_subscope_only' => true,
+                    'frontend_app_scope_status' => 'repo_root',
+                    'frontend_app_relative_name_hash' => null,
+                    'space_runtime_required' => false,
+                    'raw_absolute_path_returned' => false,
+                ],
+                'mandatory_runtime_receipts' => [
+                    'pre_execution_gate_hash',
+                    'work_order_hash',
+                    'runbook_hash',
+                    'visual_quality_report',
+                    'quality_budget_report',
+                    'design_review_report',
+                    'evidence_pack_hash',
+                    'run_certification_hash',
+                    'outcome_memory_hash',
+                    'handoff_hash',
+                ],
+                'mandatory_detector_receipts' => [
+                    'atlas_frontend_static_anti_slop_detector',
+                    'atlas_frontend_browser_detector_event',
+                    'design_system_drift_gate',
+                ],
+                'world_best_claim_gate' => [
+                    'requires_decisive_lead_each_complete_case' => true,
+                    'minimum_decisive_lead_points' => AtlasFrontendRivalReplayHarnessService::DECISIVE_LEAD_MINIMUM_POINTS,
+                ],
+            ],
+        ];
+        $packet['provider_instruction_packet_hash'] = MissionCanonicalHash::sha256($packet);
+
+        return $packet;
     }
 }

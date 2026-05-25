@@ -63,6 +63,7 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('feature_placement', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_reality_score', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('documentation_enforcement', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_anti_duplicate', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reality_audit', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reachability', data_get($payload, 'architecture_operations.operation_ids'));
@@ -89,6 +90,7 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
             data_get($payload, 'architecture_operations.owner_layer_operations.runtime.operation_ids'),
         );
         $this->assertTrue(data_get($payload, 'architecture_operations.owner_layer_operations.runtime.commands.0.pre_implementation_gate'));
+        $this->assertContains('php artisan atlas:documentation:enforce --task="<task>" --feature="<feature>" --strict --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:documentation-reality score --strict --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json', data_get($payload, 'required_validation'));
@@ -240,6 +242,7 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains('session_bootstrap', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_split_plan', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('documentation_reality_score', data_get($payload, 'architecture_operations.operation_ids'));
+        $this->assertContains('documentation_enforcement', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_anti_duplicate', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reality_audit', data_get($payload, 'architecture_operations.operation_ids'));
         $this->assertContains('code_reality_reachability', data_get($payload, 'architecture_operations.operation_ids'));
@@ -254,6 +257,7 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
             collect(data_get($payload, 'architecture_operations.commands', []))
                 ->firstWhere('id', 'voice_realtime_dependencies')['python_binary_policy']['environment_variable'] ?? null,
         );
+        $this->assertContains('php artisan atlas:documentation:enforce --task="<task>" --feature="<feature>" --strict --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:documentation-reality score --strict --json', data_get($payload, 'required_validation'));
         $this->assertContains('php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json', data_get($payload, 'required_validation'));

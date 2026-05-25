@@ -57,6 +57,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
+  - docs/engineering-knowledge-base/atlas-duplication-reality-governance.md
   - docs/engineering-knowledge-base/atlas-universal-reality-cartography.md
   - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
   - docs/engineering-knowledge-base/atlas-software-twin-verified-evolution-runtime.md
@@ -478,7 +479,6 @@ ACRUI e AURC estao completos como produto final.
 | Context Packs | entrega minima para provider |
 
 ## Evidencias
-
 Evidencia minima para ADRS:
 
 ```bash

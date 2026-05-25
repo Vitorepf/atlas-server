@@ -11,6 +11,8 @@ final class AtlasFrontendSkillPackService
 
     public const INSTALL_SCHEMA_VERSION = 'atlas.frontend.skill_pack_install.v1';
 
+    public const RUNTIME_GUARDRAILS_SCHEMA_VERSION = 'atlas.frontend.skill_pack_runtime_guardrails.v1';
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -80,6 +82,7 @@ final class AtlasFrontendSkillPackService
                 'raw_customer_source_returned' => false,
                 'world_best_claim_allowed' => false,
             ],
+            'runtime_guardrails' => $this->runtimeGuardrails(),
             'required_next_actions' => $blockers === []
                 ? ['install_or_attach_skill_pack_to_provider_then_run_provider_packet_or_proof_pilot']
                 : ['fix_frontend_runtime_certification_before_exporting_skill_pack'],
@@ -137,6 +140,8 @@ final class AtlasFrontendSkillPackService
                 'skill_path' => '.atlas/skills/atlas-frontend/SKILL.md',
                 'provider_should_read_before_frontend_edits' => true,
                 'runtime_commands_remain_authoritative' => true,
+                'provider_packet_required_before_frontend_edits' => true,
+                'selected_repo_is_workspace_frontend_app_is_subscope' => true,
             ],
             'claim_policy' => [
                 'install_is_not_execution_evidence' => true,
@@ -159,6 +164,57 @@ final class AtlasFrontendSkillPackService
         return $payload;
     }
 
+    /**
+     * @return array<string,mixed>
+     */
+    private function runtimeGuardrails(): array
+    {
+        return [
+            'schema_version' => self::RUNTIME_GUARDRAILS_SCHEMA_VERSION,
+            'selected_workspace_contract' => [
+                'scan_folder_for_repositories_before_selection' => true,
+                'operator_selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_optional_subscope_not_space' => true,
+                'space_runtime_required' => false,
+                'raw_absolute_path_returned' => false,
+            ],
+            'provider_packet_required' => true,
+            'authoritative_runtime_commands' => [
+                'atlas:frontend:onboard',
+                'atlas:frontend:provider-packet',
+                'atlas:frontend:gate',
+                'atlas:frontend:evidence-kit',
+                'atlas:frontend:detect',
+                'atlas:frontend:run-certify',
+                'atlas:frontend:handoff',
+                'atlas:frontend:replay',
+                'atlas:frontend:world-best-plan',
+            ],
+            'mandatory_receipts_before_done_claim' => [
+                'pre_execution_gate_hash',
+                'provider_instruction_packet_hash',
+                'visual_quality_report',
+                'quality_budget_report',
+                'design_review_report',
+                'evidence_pack_hash',
+                'run_certification_hash',
+                'outcome_memory_hash',
+                'handoff_hash',
+            ],
+            'mandatory_detector_receipts' => [
+                'atlas_frontend_static_anti_slop_detector',
+                'atlas_frontend_browser_detector_event',
+                'design_system_drift_gate',
+            ],
+            'claim_boundary' => [
+                'skill_pack_install_is_not_delivery_evidence' => true,
+                'completion_claim_requires_run_certification_handoff_and_outcome' => true,
+                'world_best_requires_external_rival_replay_decisive_lead_and_public_receipts' => true,
+                'minimum_decisive_lead_points' => AtlasFrontendRivalReplayHarnessService::DECISIVE_LEAD_MINIMUM_POINTS,
+            ],
+        ];
+    }
+
     private function skillMarkdown(): string
     {
         return <<<'MD'
@@ -168,9 +224,12 @@ final class AtlasFrontendSkillPackService
 
         ## Operating Rule
         - Treat Atlas runtime commands as authoritative. This skill is a portable instruction surface, not the source of truth.
+        - Atlas AI/Atlas Code first scans a local folder of repositories; the operator-selected repository is the workspace.
+        - `frontend_app` is only an optional sub-scope such as `apps/web`, never a Space or separate selected workspace.
         - Before editing, run or request `atlas:frontend:proof pilot`, `atlas:frontend:provider-packet`, or `atlas:frontend:work-order` for the target repo.
         - Preserve the repository product intent, design system, UX journeys, brand rules, routes, tests, and release constraints.
         - Prefer small, product-correct patches with measurable evidence over decorative redesigns.
+        - Run static anti-slop detection, browser-side detector events, and design-system drift checks or return exact blocker reasons.
         - Never claim delivery is done without run certification, evidence pack, quality budget, design review, outcome memory, and handoff.
         - Never claim world-best or market superiority without external rival replay and verified public receipts.
 
@@ -228,7 +287,7 @@ final class AtlasFrontendSkillPackService
         php artisan atlas:frontend:quality-budget inspect --report=<evidence-dir>/quality-budget-report.json --json --strict
         php artisan atlas:frontend:review inspect --report=<evidence-dir>/design-review-report.json --json --strict
         php artisan atlas:frontend:evidence verify --manifest=<evidence-dir>/evidence/evidence-pack.json --root=<evidence-dir>/evidence --json
-        php artisan atlas:frontend:run-certify --visual-report=<evidence-dir>/visual-quality-report.json --design-review-report=<evidence-dir>/design-review-report.json --quality-budget-report=<evidence-dir>/quality-budget-report.json --evidence-manifest=<evidence-dir>/evidence/evidence-pack.json --outcome-store=<evidence-dir>/outcomes.jsonl --json --strict
+        php artisan atlas:frontend:run-certify --provider-packet=<provider-packet> --visual-report=<evidence-dir>/visual-quality-report.json --design-review-report=<evidence-dir>/design-review-report.json --quality-budget-report=<evidence-dir>/quality-budget-report.json --evidence-manifest=<evidence-dir>/evidence/evidence-pack.json --outcome-store=<evidence-dir>/outcomes.jsonl --json --strict
         php artisan atlas:frontend:handoff compile --run-certification=<run-certification-report> --evidence-manifest=<evidence-dir>/evidence/evidence-pack.json --json --strict
         ```
 

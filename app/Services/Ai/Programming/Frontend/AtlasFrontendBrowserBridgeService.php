@@ -10,6 +10,8 @@ final class AtlasFrontendBrowserBridgeService
 {
     public const SCHEMA_VERSION = 'atlas.frontend.browser_bridge.v1';
 
+    public const BROWSER_DETECTOR_EVENT_SCHEMA_VERSION = 'atlas.frontend.browser_detector_event.v1';
+
     private const START = '<!-- atlas-frontend-browser-bridge:start -->';
 
     private const END = '<!-- atlas-frontend-browser-bridge:end -->';
@@ -24,11 +26,13 @@ final class AtlasFrontendBrowserBridgeService
           if (window.__ATLAS_FRONTEND_BRIDGE_ACTIVE__) return;
           window.__ATLAS_FRONTEND_BRIDGE_ACTIVE__ = true;
           window.__ATLAS_FRONTEND_PICK_EVENTS__ = window.__ATLAS_FRONTEND_PICK_EVENTS__ || [];
+          window.__ATLAS_FRONTEND_BROWSER_DETECTOR_EVENTS__ = window.__ATLAS_FRONTEND_BROWSER_DETECTOR_EVENTS__ || [];
           const style = document.createElement('style');
           style.dataset.atlasFrontendBridge = 'style';
           style.textContent = '[data-atlas-frontend-hover="true"]{outline:2px solid #2563eb!important;outline-offset:2px!important}';
           document.head.appendChild(style);
           let hover = null;
+          const hash = (value) => String(value || '').split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0).toString(16);
           const fingerprint = (el) => {
             const rect = el.getBoundingClientRect();
             const text = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 160);
@@ -36,9 +40,61 @@ final class AtlasFrontendBrowserBridgeService
               tag: el.tagName.toLowerCase(),
               id: el.id || null,
               classes: Array.from(el.classList || []).slice(0, 12),
-              textHash: text ? String(text.length) + ':' + Array.from(text).reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0) : null,
+              textHash: text ? String(text.length) + ':' + hash(text) : null,
               rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
               path: window.atlasFrontendPath(el)
+            };
+          };
+          const finding = (ruleId, severity, message, el, extra) => ({
+            rule_id: ruleId,
+            severity,
+            message,
+            target_path: window.atlasFrontendPath(el),
+            target_hash: hash(window.atlasFrontendPath(el)),
+            competitive_rubric_dimension: extra && extra.dimension ? extra.dimension : 'visual_hierarchy_and_information_architecture',
+            rerun_gates: ['browser_detector_overlay', 'anti_ai_slop_detector', 'visual_quality_gate'],
+            evidence_required: ['browser_detector_event', 'anti_slop_report', 'visual_quality_report']
+          });
+          const inspectElement = (el, fp) => {
+            const computed = window.getComputedStyle(el);
+            const rect = el.getBoundingClientRect();
+            const text = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 160);
+            const findings = [];
+            const role = (el.getAttribute('role') || '').toLowerCase();
+            const label = (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || el.getAttribute('title') || '').trim();
+            if ((el.tagName.toLowerCase() === 'button' || role === 'button') && !label && el.querySelector('svg') && text.length < 2) {
+              findings.push(finding('browser_icon_button_without_accessible_name', 'high', 'Selected icon button needs an accessible name.', el, { dimension: 'accessibility_and_semantics' }));
+            }
+            if (Number.parseFloat(computed.fontSize || '16') < 12) {
+              findings.push(finding('browser_tiny_text', 'medium', 'Selected element has tiny rendered text.', el, { dimension: 'accessibility_and_semantics' }));
+            }
+            if ((el.tagName.toLowerCase() === 'button' || el.tagName.toLowerCase() === 'a' || role === 'button') && (rect.width < 32 || rect.height < 32)) {
+              findings.push(finding('browser_small_interactive_target', 'high', 'Selected interactive target is smaller than the minimum touch/click target.', el, { dimension: 'interaction_states_and_workflow_ergonomics' }));
+            }
+            if ((computed.position === 'absolute' || computed.position === 'fixed') && (rect.width > 0 || rect.height > 0)) {
+              findings.push(finding('browser_absolute_overlap_risk', 'medium', 'Selected element uses absolute/fixed positioning and needs overlap proof.', el, { dimension: 'composition_layout_and_spacing' }));
+            }
+            if (/\b(unlock|seamless|beautiful|powerful|revolutionary|next-gen|supercharge)\b/i.test(text)) {
+              findings.push(finding('browser_generic_copy', 'medium', 'Selected text uses generic product copy.', el, { dimension: 'product_intent_fit' }));
+            }
+            return {
+              schema_version: 'atlas.frontend.browser_detector_event.v1',
+              status: findings.length ? 'findings_present' : 'clean',
+              captured_at: new Date().toISOString(),
+              target_hash: hash(JSON.stringify(fp)),
+              finding_count: findings.length,
+              findings,
+              source_policy: {
+                raw_dom_returned: false,
+                raw_text_returned: false,
+                text_is_hashed: true,
+                cookies_storage_or_network_accessed: false
+              },
+              claim_policy: {
+                browser_detector_event_is_not_final_design_proof: true,
+                findings_require_repair_or_false_positive_reason: findings.length > 0,
+                completion_requires_visual_quality_gate: true
+              }
             };
           };
           const clear = () => {
@@ -60,9 +116,13 @@ final class AtlasFrontendBrowserBridgeService
             const el = event.target;
             if (!(el instanceof Element)) return;
             const picked = { schema_version: 'atlas.frontend.browser_pick_event.v1', captured_at: new Date().toISOString(), fingerprint: fingerprint(el) };
+            const detectorEvent = inspectElement(el, picked.fingerprint);
             window.__ATLAS_FRONTEND_LAST_PICK__ = picked;
+            window.__ATLAS_FRONTEND_LAST_BROWSER_DETECTOR_EVENT__ = detectorEvent;
             window.__ATLAS_FRONTEND_PICK_EVENTS__.push(picked);
+            window.__ATLAS_FRONTEND_BROWSER_DETECTOR_EVENTS__.push(detectorEvent);
             window.dispatchEvent(new CustomEvent('atlas:frontend:pick', { detail: picked }));
+            window.dispatchEvent(new CustomEvent('atlas:frontend:browser-detect', { detail: detectorEvent }));
           };
           window.atlasFrontendPath = window.atlasFrontendPath || function atlasFrontendPath(el) {
             const parts = [];
@@ -92,6 +152,15 @@ final class AtlasFrontendBrowserBridgeService
             'mode' => 'alt_click_picker',
             'script_hash' => hash('sha256', $source),
             'event_schema' => 'atlas.frontend.browser_pick_event.v1',
+            'detector_event_schema' => self::BROWSER_DETECTOR_EVENT_SCHEMA_VERSION,
+            'output_events' => ['atlas:frontend:pick', 'atlas:frontend:browser-detect'],
+            'detector_rules' => [
+                'browser_icon_button_without_accessible_name',
+                'browser_tiny_text',
+                'browser_small_interactive_target',
+                'browser_absolute_overlap_risk',
+                'browser_generic_copy',
+            ],
             'source_policy' => [
                 'raw_dom_returned' => false,
                 'text_is_hashed' => true,

@@ -29,6 +29,8 @@ class AtlasFrontendAntiSlopDetectCommandTest extends TestCase
             '--path' => $dir,
             '--strict' => true,
             '--json' => true,
-        ])->assertExitCode(1);
+        ])
+            ->expectsOutputToContain('"repair_projection"')
+            ->assertExitCode(1);
     }
 }

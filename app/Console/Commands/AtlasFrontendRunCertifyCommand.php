@@ -9,6 +9,7 @@ class AtlasFrontendRunCertifyCommand extends Command
 {
     protected $signature = 'atlas:frontend:run-certify
         {--visual-report= : Visual quality report JSON}
+        {--provider-packet= : Provider instruction packet JSON}
         {--design-review-report= : 5D design review report JSON}
         {--quality-budget-report= : Objective frontend quality budget report JSON}
         {--evidence-manifest= : Evidence pack manifest JSON}
@@ -24,6 +25,7 @@ class AtlasFrontendRunCertifyCommand extends Command
     public function handle(AtlasFrontendRunCertificationService $certification): int
     {
         $payload = $certification->certify([
+            'provider_packet' => (string) ($this->option('provider-packet') ?: ''),
             'visual_report' => (string) ($this->option('visual-report') ?: ''),
             'design_review_report' => (string) ($this->option('design-review-report') ?: ''),
             'quality_budget_report' => (string) ($this->option('quality-budget-report') ?: ''),

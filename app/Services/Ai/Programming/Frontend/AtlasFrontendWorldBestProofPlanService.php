@@ -65,6 +65,8 @@ final class AtlasFrontendWorldBestProofPlanService
                 'evidence_pack_readiness' => $evidencePackReadinessSummary,
                 'competitive_diagnostics_status' => data_get($replay, 'competitive_diagnostics.status', 'not_evaluated'),
                 'competitive_losing_case_count' => (int) data_get($replay, 'competitive_diagnostics.losing_case_count', 0),
+                'competitive_tied_case_count' => (int) data_get($replay, 'competitive_diagnostics.tied_case_count', 0),
+                'competitive_dimension_gap_case_count' => (int) data_get($replay, 'competitive_diagnostics.dimension_gap_case_count', 0),
                 'atlas_wins_replay' => (bool) data_get($replay, 'claim_policy.may_claim_world_best_frontend_system'),
                 'product_proof_catalog_ready' => ($proof['status'] ?? null) === 'ready',
                 'public_distribution_verified' => (bool) data_get($publication, 'claim_policy.public_distribution_claim_allowed'),
@@ -79,6 +81,7 @@ final class AtlasFrontendWorldBestProofPlanService
                     'required_artifacts' => [
                         'manifest.json_per_case_system',
                         'evidence_pack_ref',
+                        'run_packet_hash',
                         'output_artifact_hash',
                         'screenshot_hashes',
                         'anti_slop_report_hash',
@@ -143,6 +146,9 @@ final class AtlasFrontendWorldBestProofPlanService
                 'world_best_claim_allowed' => $worldBestClaimAllowed,
                 'world_best_requires_external_rival_replay' => true,
                 'world_best_requires_public_distribution_receipt' => true,
+                'world_best_requires_decisive_lead_each_case' => true,
+                'world_best_requires_no_tied_cases' => true,
+                'world_best_requires_no_dimension_gaps_against_best_rival' => true,
                 'local_publication_report_is_not_public_distribution' => true,
                 'world_best_requires_provider_safe_hash_refs' => true,
                 'documentation_only_claim_forbidden' => true,
@@ -232,6 +238,7 @@ final class AtlasFrontendWorldBestProofPlanService
             'system',
             'status',
             'run_id',
+            'run_packet_hash',
             'task_spec_hash',
             'task_spec_ref',
             'evidence_pack_ref',
@@ -360,6 +367,12 @@ final class AtlasFrontendWorldBestProofPlanService
         }
         if ((int) ($competitiveDiagnostics['losing_case_count'] ?? 0) > 0) {
             $actions[] = 'improve_atlas_frontend_until_replay_wins_every_case';
+        }
+        if ((int) ($competitiveDiagnostics['tied_case_count'] ?? 0) > 0) {
+            $actions[] = 'improve_atlas_frontend_until_replay_leads_every_case';
+        }
+        if ((int) ($competitiveDiagnostics['dimension_gap_case_count'] ?? 0) > 0) {
+            $actions[] = 'improve_atlas_frontend_until_replay_closes_dimension_gaps';
         }
         if ($publicationWorkItems !== []) {
             $actions[] = 'verify_public_product_proof_distribution';

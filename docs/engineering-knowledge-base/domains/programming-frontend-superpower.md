@@ -26,6 +26,7 @@ maintenance:
   - Manter abaixo de 260 linhas.
   - Atualizar antes de implementar `programming.frontend`, design harness, skill import, visual QA ou provider benchmark frontend.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/domains/programming-frontend-impeccable-competitive-teardown.md
@@ -184,475 +185,74 @@ Input
 ```
 
 Estado backend atual: `programming.frontend` e flow governado do Programming
-Domain. `AtlasProgrammingOrchestrator` emite
-`atlas.programming.frontend_design_harness.v1` em planos, dispatch e completion
-quando a tarefa envolve frontend/design. O contrato exige context pack frontend,
-gates de visual/a11y/perf/state, asset provenance, 5D critique e receipts antes
-de qualquer claim de done. O craft visual final pode ser delegado a Claude ou
-outro provider, mas a autoridade de fluxo, gates e evidencia fica no Atlas.
-Runtime atual: `AtlasFrontendDesignRuntimeService` emite
-`atlas.frontend.design_runtime_contract.v1` e fica embutido no bloco
-`frontend_design_harness_contract.atlas_frontend_runtime`. Ele seleciona
-capabilities, output types, gates, evidencia, anti-AI-slop rules, variant
-strategy, live iteration contract e competitive scorecard de forma
-deterministica e provider-neutral. Comandos operacionais:
-```text
-php artisan atlas:frontend:plan --task="<intent>" --json
-php artisan atlas:frontend:portfolio --root=<folder-with-company-repos> --task="<intent>" --json --strict
-php artisan atlas:frontend:gauntlet --task="<intent>" --workspace=<local-company-repo> --json --strict
-php artisan atlas:frontend:selected-workspace --task="<intent>" --workspace=<local-company-repo> --json --strict
-php artisan atlas:frontend:selected-workspace --task="<intent>" --workspace=<local-company-repo> --frontend-app=apps/web --json --strict
-php artisan atlas:frontend:onboard --task="<intent>" --workspace=<local-company-repo> --write-docs --json --strict
-php artisan atlas:frontend:work-order --task="<intent>" --workspace=<local-company-repo> --json --strict
-php artisan atlas:frontend:runbook --task="<intent>" --workspace=<local-company-repo> --frontend-app=apps/web --json --strict
-php artisan atlas:frontend:provider-packet --task="<intent>" --workspace=<local-company-repo> --frontend-app=apps/web --provider=<provider> --json --strict
-php artisan atlas:frontend:skill-pack export --output=<skill-dir> --json --strict
-php artisan atlas:frontend:skill-pack install --workspace=<local-company-repo> --json --strict
-php artisan atlas:frontend:enterprise-bootstrap inspect|write --task="<intent>" --workspace=<local-company-repo> --json
-php artisan atlas:frontend:intake --workspace=<local-company-repo> --json --strict
-php artisan atlas:frontend:blueprint generate|write --task="<intent>" --workspace=<local-company-repo> --json
-php artisan atlas:frontend:spec --task="<brief>" --json
-php artisan atlas:frontend:scenarios --task="<brief>" --json --strict
-php artisan atlas:frontend:benchmark --rival-evidence=<dir> --json
-php artisan atlas:frontend:rubric --json
-php artisan atlas:frontend:control-plane --json --strict
-php artisan atlas:frontend:gate --task="<intent>" --json --strict
-php artisan atlas:frontend:repair-plan --blocker=<id> --dimension-gap=product_intent_fit:2:-2:12:live_mode_repair_loop:pbakaus_impeccable --json
-php artisan atlas:frontend:design-dossier template|inspect --workspace=<local-company-repo> --json
-php artisan atlas:frontend:company-profile template|inspect --json
-php artisan atlas:frontend:directions --task="<brief>" --json
-php artisan atlas:frontend:inventory inspect --json
-php artisan atlas:frontend:assets template|inspect --json
-php artisan atlas:frontend:review template|inspect --json
-php artisan atlas:frontend:visual-quality template|inspect --json
-php artisan atlas:frontend:quality-budget template|inspect --json
-php artisan atlas:frontend:design-system-drift template|inspect --json
-php artisan atlas:frontend:evidence-kit prepare --task="<intent>" --workspace=<local-company-repo> --frontend-app=apps/web --output=<evidence-dir> --json
-php artisan atlas:frontend:evidence template|verify --json
-php artisan atlas:frontend:outcomes summary|record|template --json
-php artisan atlas:frontend:handoff compile|template --json
-php artisan atlas:frontend:replay inspect|template|runner-kit|evidence-worklist|score-template|external-receipt-template --json
-php artisan atlas:frontend:proof catalog|build|pilot --json
-php artisan atlas:frontend:publish verify|attest|receipt-template --json
-php artisan atlas:frontend:world-best-plan --json --strict
-php artisan atlas:frontend:detect --path=<frontend-file-or-workspace> --strict --json
-php artisan atlas:frontend:adapters inspect --json
-php artisan atlas:frontend:bridge inject|remove --json
-php artisan atlas:frontend:relay inject|remove --json
-php artisan atlas:frontend:live prepare|accept|recover --json
-php artisan atlas:frontend:run-certify|certify --json --strict
-```
-Fluxo primario de uso: Atlas AI / Atlas Code recebem um repositorio escolhido
-pelo operador e passam esse `workspace` explicitamente para o Atlas Frontend. A
-partir desse repo selecionado, Atlas Frontend roda onboarding, gauntlet,
-provider packet, proof pilot, runbook, evidence kit e certificacao. O Atlas nao
-depende de varrer uma pasta de repos para iniciar trabalho; qualquer varredura
-de portfolio e apenas uma ferramenta opcional de inventario/triagem para o
-operador enxergar varios repos locais. `AtlasFrontendSelectedWorkspaceService`
-emite `atlas.frontend.selected_workspace.v1` para provar esse contrato:
-`primary_entrypoint=selected_repository`, `portfolio_scan_required=false` e
-`parallel_project_runtime_required=false`. O Atlas Frontend nao introduz uma
-entidade "Space" entre o operador e o repo: o workspace runtime e sempre o
-repositorio selecionado, e `frontend_app_scope` e apenas subescopo auditavel
-dentro dele. Em planos/rotas automaticas, o
-onboarding anexado ao envelope e read-only: ele projeta readiness do workspace
-selecionado, mas nao instala skill, nao escreve docs e nao grava receipt sem
-acao explicita do operador. Escrita no repo so ocorre em comandos intencionais
-como `atlas:frontend:onboard --write-docs` ou
-`atlas:frontend:skill-pack install`. O contrato de workspace selecionado tambem
-retorna `recommended_command_sequence` e `attachable_runtime_components` para
-Atlas AI/Code exibirem a trilha curta: selected-workspace, onboard,
-provider-packet, runbook, evidence-kit prepare e run-certify. Ele tambem anexa
-`frontend_runtime_projection` (`atlas.frontend.selected_workspace.runtime_projection.v1`),
-um bundle read-only com comandos/hashes para gauntlet, onboarding, provider
-packet, runbook, evidence kit e run certification; esse bundle so fica `ready`
-quando ha repo selecionado, task amarrada e subescopo valido, nunca autoriza
-provider dispatch, nunca conta como evidencia de execucao e carrega
-`runtime_projection_hash` proprio para receipt/auditoria. Quando o repo
-selecionado tem mapa frontend legivel, o mesmo contrato anexa
-`repo_operating_summary` provider-safe com package manager, framework, URL
-padrao, contagem de comandos de teste/build/qualidade e status de contexto de
-design, sem retornar fonte bruta nem paths absolutos. Para monorepos, o contrato
-tambem emite `frontend_app_candidates`, ranqueando apps internos como
-`apps/web` por sinais de framework e scripts. O repo selecionado continua sendo
-o workspace primario; app candidate e apenas subescopo de frontend, nunca um
-projeto paralelo nem autorizacao de dispatch. Se um app interno for candidato
-melhor que a raiz, `next_best_action` vira
-`confirm_frontend_app_candidate_inside_selected_repo` e o comando sugerido usa
-`--workspace=<selected-repo> --frontend-app=apps/web`, nunca
-`--workspace=<selected-repo>/apps/web`, antes da projecao runtime.
-Se o operador passar um subescopo inexistente, o contrato marca
-`requested_frontend_app_subscope_invalid`, exige
-`choose_valid_frontend_app_subscope_inside_selected_repo` e o CLI em `--strict`
-falha com `requested_frontend_app_subscope_not_found`. Nesse caso
-`dispatch_readiness.runtime_projection_allowed=false`, readiness expõe
-`frontend_app_candidate_invalid=true` e o Atlas não transforma o app invalido em
-workspace.
-Atlas Dev e Forge propagam esse status no `enterprise_operating_contract` com
-`frontend_app_candidate_status`, contagem, ref primaria e flag de confirmacao,
-para que work packets e planos nao ignorem monorepos. Quando o operador passa
-`frontend_app` no Atlas Dev, ou quando Forge recebe `expected_files` em
-`apps/<app>/...`, o subescopo segue para runbook/provider packet como
-`frontend_app_scope`. Quando o operador confirma `--frontend-app=apps/web`, o
-selected-workspace payload expõe `confirmed_frontend_app_scope=subscope_selected`
-e a `recommended_command_sequence` passa a incluir `--frontend-app=apps/web` nos
-comandos `atlas:frontend:provider-packet`, `atlas:frontend:runbook` e
-`atlas:frontend:evidence-kit prepare`, preservando o subescopo confirmado até a
-instrução do provider e a coleta de evidência.
-Ele tambem emite
-`dispatch_readiness`: selecao de repo pode permitir projecao read-only do
-runtime, mas nunca libera provider dispatch sozinha; dispatch exige onboarding,
-gate, provider packet e runbook prontos. O mesmo payload traz
-`capability_readiness`, um checklist deterministico de preview local, testes,
-build, qualidade, contexto de design, candidato a live mode e evidencia medida.
-`measured_evidence` fica missing ate execucao real de evidence-kit/run-certify,
-impedindo claim visual por simples selecao de repo. Para a UI do Atlas AI/Code,
-`operator_start_panel` resume essa decisao em badges, acao primaria e acoes
-bloqueadas, permitindo mostrar o estado inicial do repo sem inventar readiness.
-`task_binding` amarra a intencao ao repo selecionado por hash seguro; provider
-dispatch exige task binding e nunca retorna texto bruto da tarefa nesse contrato.
-`next_best_action` transforma repo, task binding, capabilities e dispatch
-readiness em uma acao priorizada para a UI: escolher repo, vincular tarefa,
-completar contexto, abrir projecao runtime ou reparar o mapa operacional. Essa
-acao e navegacao/comando recomendado, nao evidencia de execucao nem autorizacao
-de dispatch.
-Inventario multi-repo: `AtlasFrontendCompanyPortfolioService` /
-`atlas:frontend:portfolio` emite `atlas.frontend.company_portfolio.v1` apenas
-para descoberta opcional. O contrato marca
-`inventory_role=optional_repository_discovery_only`,
-`primary_runtime_entrypoint=operator_selected_repository_workspace`,
-`portfolio_dispatch_allowed=false` e `selected_workspace_handoff_required=true`.
-O scanner usa `discovery_model=local_folder_with_multiple_repositories` e
-descobre raizes de repos por marcadores como `.git`, `package.json`,
-`pnpm-workspace.yaml`, `composer.json`, `artisan`, `pyproject.toml`, `go.mod` e
-`Package.swift`. A pasta raiz passada para portfolio e sempre tratada como
-container de inventario (`portfolio_root_is_not_selected_workspace=true`), mesmo
-que tenha marcadores de projeto; se o operador quer executar nesse proprio repo,
-deve chamar `atlas:frontend:selected-workspace --workspace=<repo>`. Quando
-encontra uma raiz de repo filha, ele nao desce para promover
-`apps/web` ou outro package interno a candidato separado; apps internos so
-entram depois, no contrato `selected_workspace`, como `frontend_app`/subescopo.
-Cada candidato fica `candidate_not_selected`, recebe score/ranking,
-`project_markers` e um `selection_handoff` para
-`atlas:frontend:selected-workspace`; nenhum candidate autoriza provider dispatch
-ate o operador escolher exatamente um repo.
-O mesmo payload inclui `selection_brief`, uma matriz curta para Atlas AI/Code
-comparar candidatos por score, status, framework, package manager, ajuste com a
-tarefa, motivos de decisao e pendencias antes da execucao. Quando `--task` e
-informado, `task_binding` e `task_fit` usam hash/sinais derivados para ranquear
-repos sem retornar o texto bruto da tarefa. Esse brief ajuda o operador a
-escolher o repo correto, mas continua sem criar escopo runtime nem evidencia de
-entrega.
-Politica honesta: Atlas pode declarar contrato frontend mais completo que Impeccable/Claude Design somente quando `atlas:frontend:certify` estiver `ready`; claim "melhor do mundo" exige benchmark real, visual smoke, evidencia e replay contra rivais.
-Control plane: `AtlasFrontendControlPlaneService` / `atlas:frontend:control-plane` emite `atlas.frontend.control_plane.v1`, agregando certificacao, gauntlet de repo local, benchmark, rival replay, product proof e publicacao. Em monorepo, `--frontend-app=apps/web` entra no `input_scope` como hash e no sinal de gauntlet como `frontend_app_scope`, sem retornar path absoluto nem transformar o subapp em workspace. O sinal `publication_attestation` vem de `AtlasFrontendPublicationAttestationService`, diferencia publicacao nao solicitada, bundle local pendente e publicacao verificada usando apenas hashes/estado, e declara `local_publication_report_is_not_public_distribution=true`. Pode retornar `warning` com runtime certificado quando a prova de mercado ainda falta; claims de runtime governado ficam permitidos, mas `world_best_claim_allowed=false` ate existir replay externo completo e receipt publico verificado.
-World-best proof plan: `AtlasFrontendWorldBestProofPlanService` / `atlas:frontend:world-best-plan` emite `atlas.frontend.world_best_proof_plan.v1` e transforma a lacuna de mercado em workstreams executaveis: replay externo, publicacao publica e claim audit. O plano consome `evidence_pack_readiness` do replay, projeta status/resumo no workstream competitivo e tambem anexa `evidence_worklist` provider-safe em memoria, sem escrever arquivo, para mostrar quantos packs precisam de artefatos reais, hashes e espelhamento no manifest. A escrita dessa fila continua sendo comando explicito: `atlas:frontend:replay evidence-worklist --evidence=<dir> --output=<worklist.json> --json`. Manifests pendentes ja declaram `score_attestation` como receipt obrigatorio para todo run e `external_execution_receipt` como receipt obrigatorio para rivais externos, evitando que um replay ausente pareca completo so com hashes de artifact. O workstream de publicacao tambem carrega `publication_attestation` usando `AtlasFrontendPublicationAttestationService` / `atlas.frontend.delivery_handoff_publication_attestation.v1`, para diferenciar bundle local, receipt pendente e publicacao verificada sem expor URL bruta. O proof plan cria a acao `fill_and_verify_rival_replay_evidence_packs` quando algum pack ainda nao tem artefatos/hash refs verificaveis. So retorna `ready` quando o Atlas vence todos os casos completos contra rivais e o product proof tem receipt publico verificado; ate la, `--strict` falha e lista exatamente quais manifests, packs, hashes e receipts faltam.
-Gauntlet: `AtlasFrontendGauntletService` / `atlas:frontend:gauntlet` e o entrypoint recomendado para repo local de empresa. Ele compoe runtime contract, task spec, execution gate, design dossier, product blueprint, repo intake, inventory e certificacao, retornando bloqueios, next actions e sequencia de comandos antes de dispatch provider. Em monorepo, `--frontend-app=apps/web` tambem entra no gauntlet como `frontend_app_scope`; comandos de blueprint, task spec, gate, scenario matrix e evidence kit gerados pelo gauntlet preservam esse subescopo para impedir modelagem, gate ou evidencia do pacote errado.
-Company repo onboarding: `AtlasFrontendCompanyRepoOnboardingService` / `atlas:frontend:onboard` emite `atlas.frontend.company_repo_onboarding.v1` e prepara um repo local de empresa em uma chamada explicita: instala o skill pack em `.atlas/skills/atlas-frontend`, roda enterprise bootstrap, gera proof pilot, grava `.atlas/frontend/onboarding-receipt.json` e classifica `ready_for_operator_execution`, `prepared_needs_context` ou `blocked`. Para monorepo, `--frontend-app=apps/web` tambem entra no onboarding e no proof pilot gerado por ele, mantendo o repo escolhido como workspace primario e o app como subescopo auditavel. Para repos BlackInk/Refinar/SaaS ja documentados, status pronto libera dispatch com provider packet/runbook; para repo cru, `--write-docs` cria templates e retorna `prepared_needs_context`, sem autorizar provider dispatch ate o operador preencher contexto real. Quando Atlas Dev/Forge apenas avaliam um workspace ja selecionado, usam o mesmo service em modo read-only para nao fazer escrita surpresa, preservando o `frontend_app_scope` projetado. Onboarding nunca conta como evidencia de entrega, mantem `measured_evidence_present=false` e `world_best_claim_allowed=false`.
-Enterprise bootstrap: `AtlasFrontendEnterpriseBootstrapService` / `atlas:frontend:enterprise-bootstrap` e o botao operacional para BlackInk, Refinar, repos locais de empresa e SaaS novo. Em `write`, cria templates de dossier e blueprint sem declarar contexto pronto; em `inspect`, agrega dossier, intake, gauntlet e work-order para decidir se provider dispatch e design premium podem comecar. Em monorepo, o bootstrap tambem carrega `frontend_app_scope` e propaga `--frontend-app=apps/web` para o work-order recomendado.
-Work order: `AtlasFrontendWorkOrderService` / `atlas:frontend:work-order` transforma task + repo local em pacotes executaveis: context lock, patch/prototype, verificacao visual e handoff certificado. Em monorepo, o work-order carrega o `frontend_app_scope` vindo do gauntlet e injeta `--frontend-app=apps/web` nos pacotes de evidence-kit e scenarios, preservando repo selecionado como workspace primario e app como subescopo. Runbook: `AtlasFrontendExecutionRunbookService` / `atlas:frontend:runbook` converte repo intake, work-order e evidence-kit em sequencia repo-native de install/dev/test/build/evidence/certify/handoff e tambem projeta `public_distribution_proof` com proof bundle, receipt template, `publish attest`, verify e world-best-plan quando houver claim publico/competitivo. Essa etapa publica nao e requisito para handoff comum de cliente; ela e requisito para declarar distribuicao publica ou comparacao world-best, e exige attestation + receipt publico verificado. Em envelopes automaticos de Atlas Dev/Forge, o runbook roda com `write_evidence_kit=false`: projeta comandos, gates e hashes, mas nao cria manifest, templates ou evidence pack no workspace selecionado. Escrita do evidence kit so ocorre quando o operador chama explicitamente `atlas:frontend:evidence-kit prepare` ou um comando que peça escrita. Provider packet: `AtlasFrontendProviderInstructionPacketService` / `atlas:frontend:provider-packet` transforma gate, work-order e runbook em mandatos provider-safe antes de Codex/Claude/Gemini editar e declara quando esta em modo read-only para nao confundir readiness com evidencia real.
-Quando um monorepo exige subapp, `--frontend-app=apps/web` define apenas um
-subescopo relativo: o workspace primario continua sendo o repo escolhido, mas os
-comandos repo-native do runbook usam `cd apps/web && ...`. O provider packet
-carrega `frontend_app_scope` para evitar patch no pacote errado sem vazar path
-absoluto. Subescopos invalidos, inexistentes ou sem `package.json` bloqueiam o
-runbook antes de provider dispatch.
-Skill pack: `AtlasFrontendSkillPackService` / `atlas:frontend:skill-pack export` emite `atlas.frontend.skill_pack.v1` e escreve um pacote portavel com `SKILL.md`, `reference/commands.md`, `reference/evidence.md`, `reference/claim-policy.md`, `reference/provider-handoff.md` e `manifest.json`. `atlas:frontend:skill-pack install --workspace=<local-company-repo>` emite `atlas.frontend.skill_pack_install.v1`, instala o pacote em `.atlas/skills/atlas-frontend` no repo da empresa e grava `install-receipt.json`. Ele existe para dar aos providers uma superficie operacional superior ao modelo `skill/SKILL.md` do Impeccable, mas sem transformar skill em fonte de verdade: o runtime Atlas, o provider packet, o proof pilot e os gates continuam autoritativos. O skill pack nunca conta como evidencia de execucao, nao retorna fonte bruta e mantem `world_best_claim_allowed=false`.
-Scenario matrix: `AtlasFrontendScenarioMatrixService` / `atlas:frontend:scenarios` transforma task spec em matriz rota x viewport x estado, com checks obrigatorios por cenario antes de visual-quality.
-Evidence kit: `AtlasFrontendEvidenceKitService` / `atlas:frontend:evidence-kit` prepara scenario matrix, reports, evidence pack, outcome template e comando run-certify sem declarar evidência real. Em monorepo, `--frontend-app=apps/web` também entra no `frontend_app_scope`, no manifest, nos templates de visual-quality, quality-budget, design-review, evidence-pack e nos comandos de coleta para que screenshots, reports e receipts provem o app certo, não apenas o repo raiz.
-Repo intake: `AtlasFrontendRepoIntakeService` / `atlas:frontend:intake` emite `atlas.frontend.repo_intake.v1` como mapa operacional do repositorio local: package manager, framework adapter, entrypoints, rotas candidatas, comandos de teste/build/qualidade, status do dossier e inventario. Ele nao retorna fonte bruta nem paths absolutos e bloqueia dispatch quando o repo nao tem mapa minimo de execucao.
-Blueprint: `AtlasFrontendProductBlueprintService` / `atlas:frontend:blueprint` transforma tarefa em modelo de produto, UX success, telas, estados, direcao visual, aceite e mapa de evidencias. Em monorepo, recebe `--frontend-app=apps/web`, compila task spec com esse subescopo e carrega `frontend_app_scope` no blueprint sem trocar o workspace primario. Run certification: `AtlasFrontendRunCertificationService` / `atlas:frontend:run-certify` decide se uma entrega pode declarar frontend done a partir de visual-quality, 5D review, quality budget medido, evidence pack, publicacao e outcome. O check `task_spec_hash_consistent` exige que visual-quality, 5D review, quality budget e evidence pack provem o mesmo `task_spec_hash`; se a cadeia divergir, a certificacao bloqueia a conclusao. O check `frontend_app_scope_consistent` exige que esses mesmos artefatos provem o mesmo subapp de monorepo: uma entrega em `apps/web` nao pode ser certificada com evidence pack de `apps/admin` nem com reports sem scope quando um subescopo foi selecionado. `outcome_memory_available` e `quality_budget_passed` sao criticos: o Atlas nao declara entrega frontend concluida sem outcome memory provider-safe e budgets objetivos para auditoria e aprendizado AEMOR. Task spec compiler: `AtlasFrontendTaskSpecCompilerService` / `atlas:frontend:spec` emite `atlas.frontend.task_spec.v1` antes do gate, sem texto bruto do cliente, com task types, rotas, viewports, estados, jornadas, aceite, gates, testes, evidencias e hash canonico. Em monorepo, `--frontend-app=apps/web` e registrado como `frontend_app_scope`, mantendo `repo_workspace_remains_primary=true` e bloqueando subescopos absolutos, inexistentes ou fora do repo.
-Benchmark competitivo: `AtlasFrontendBenchmarkRuntimeService` /
-`atlas:frontend:benchmark` emite `atlas.frontend.benchmark_runtime.v1`, matriz
-provider-safe contra Atlas Frontend, Impeccable e Claude Design Plugin. Mede
-governanca, detector, live mode, evidencia, multiempresa, portabilidade,
-distribuicao/proof e outcome memory, mas mantem
-`atlas_world_best_frontend_system=false` sem replay externo e demos publicas.
-Quando `--rival-evidence=<dir>` e fornecido, o benchmark passa esse diretorio
-ao `AtlasFrontendRivalReplayHarnessService`, registra
-`rival_evidence_directory_hash` e reflete `external_rival_replay_completed` a
-partir do replay real; sem isso, a matriz continua sendo apenas contrato
-estatico documentado, nao prova de execucao rival.
-Company design profile: `AtlasFrontendCompanyDesignProfileService` e `atlas:frontend:company-profile` emitem `atlas.frontend.company_design_profile.v1`, impedindo o Atlas Frontend de tratar empresas diferentes como uma mesma landing genérica. O perfil exige contexto da empresa, audiência/jobs, brand system, refs de design system com hashes, constraints frontend e quality policy. Para SaaS, ecommerce, enterprise ou multiempresa, `AtlasFrontendDesignRuntimeService` marca esse contrato como `required`. Template nao conta como contexto real, raw prompt/source/customer data sao bloqueados, e claim de brand adaptation depende de perfil `ready`.
-Design dossier: `AtlasFrontendDesignDossierService` / `atlas:frontend:design-dossier` trata repo local de empresa do operador como modo padrao. Ele audita ou cria `docs/design/product-experience-brief.md`, `brand-system.md`, `ux-journeys.md`, `design-system.md` e `frontend-quality-policy.md`. Para refinamento premium, BlackInk-like local repo ou novo SaaS, missing docs viram blocker/context action antes de claim visual; template nao conta como contexto preenchido.
-Design direction advisor: `AtlasFrontendDesignDirectionAdvisorService` / `atlas:frontend:directions` gera tres direcoes governadas com gates e riscos. Design 5D review: `AtlasFrontendDesignReviewService` / `atlas:frontend:review` verifica filosofia, hierarquia, craft, clareza funcional e originalidade com score minimo 8, evidence refs e bloqueio contra raw prompt/source.
-Design system inventory: `AtlasFrontendDesignSystemInventoryService` / `atlas:frontend:inventory` escaneia workspace e emite `atlas.frontend.design_system_inventory.v1` com tokens, componentes, bibliotecas e config refs hashados, sem retornar fonte bruta ou paths absolutos.
-Execution gate: `AtlasFrontendExecutionGateService` / `atlas:frontend:gate` compila/resume task spec, verifica `--task-spec-hash` quando declarado e bloqueia dispatch sem tarefa, aceite, plano de teste, plano visual, plano de evidencia, contexto de design system/perfil quando amplo e senior review quando necessario. Em monorepo, o gate aceita `--frontend-app=apps/web`, inclui o `frontend_app_scope` no resumo do task spec e no payload top-level, e portanto bloqueios/warnings se referem ao subapp escolhido dentro do repo selecionado. Atlas Dev projeta isso em `frontend_design_harness_contract.pre_execution_gate`; para repo local selecionado pelo operador tambem anexa `enterprise_operating_contract`, `selected_workspace`, `company_repo_onboarding`, bootstrap, runbook e provider packet. O resumo `enterprise_operating_contract.hash_refs` carrega `selected_workspace_hash` e `runtime_projection_hash` para auditar qual bundle read-only foi apresentado antes de qualquer dispatch. Forge projeta `atlas_frontend_pre_execution_gate` por work packet `surface_ui` e, quando o workspace local e conhecido, anexa `atlas_frontend_enterprise_operating_contract`, `atlas_frontend_selected_workspace`, `atlas_frontend_company_repo_onboarding`, bootstrap, runbook e provider packet, tambem propagando `runtime_projection_hash` no resumo operacional.
-Repair planner: `AtlasFrontendRepairPlannerService` / `atlas:frontend:repair-plan` transforma blockers, warnings e failed gates em plano deterministico de reparo, rerun gates e evidencias. Outcome memory: `AtlasFrontendOutcomeMemoryService` / `atlas:frontend:outcomes` registra outcomes provider-safe por drivers, gates, failed gates e evidence refs, alimentando AEMOR sem texto bruto de cliente.
-Delivery handoff: `AtlasFrontendDeliveryHandoffService` / `atlas:frontend:handoff` compila um pacote empresarial provider-safe para cliente/equipe a partir de run certification e evidence manifest. O handoff exige `run_certification_hash`, `task_spec_hash`, evidence manifest com hash compatível, `frontend_app_scope` compatível, `publication_attestation`, claim policy e known limitations. Em monorepo, um handoff de `apps/web` bloqueia se o evidence manifest ou publication report entregue pertencer a outro subapp ou ao repo raiz sem o mesmo scope. A attestation vem de `AtlasFrontendPublicationAttestationService` / `atlas.frontend.delivery_handoff_publication_attestation.v1`, diferencia explicitamente `missing_report`, `local_bundle_ready_publication_pending` e `public_verified`, carrega apenas hashes/estado do receipt publico e declara `local_publication_report_is_not_public_distribution=true`. Ele permite declarar handoff de entrega frontend, mas nao autoriza distribuicao publica sem publication report verificado e nunca autoriza claim "world best".
-Asset pack: `AtlasFrontendAssetPackService` / `atlas:frontend:assets` emitem
-`atlas.frontend.asset_pack_verifier.v1`; placeholder, asset sem proveniencia,
-licenca invalida ou dimensoes criticas ausentes bloqueiam claim visual final.
-Rival replay: `AtlasFrontendRivalReplayHarnessService` e
-`atlas:frontend:replay` transformam a pergunta "Atlas superou Impeccable,
-Claude Design e similares?" em matriz de evidencia. O comando `template` cria
-cinco task specs canonicos `atlas.frontend.rival_replay_task_spec.v1` e
-15 manifests pendentes para cinco casos de produto contra tres sistemas
-(`atlas_frontend`, `pbakaus_impeccable`, `claude_design_plugin`). O comando
-`inspect` exige hashes/ref de artefatos, screenshots, anti-slop report,
-verificacoes, score breakdown, score por run e `score_attestation`
-(`atlas.frontend.rival_replay.score_attestation.v1`). Templates pendentes nao contam
-como replay real, manifest com prompt/source bruto e invalido, inclusive quando
-o dado proibido aparece aninhado em `metadata`, `debug` ou outro objeto, e o claim
-`world_best` so pode ser verdadeiro quando todos os rivais tiverem runs
-completos, o Atlas vencer cada caso completo e todos os sistemas comparados
-usarem o mesmo `task_spec_hash` por caso. Cada manifest gerado ja aponta para
-`../task-spec.json`, reduzindo risco de o operador executar Atlas, Impeccable e
-Claude Design contra escopos diferentes. O `inspect` valida essa referencia
-canonica: o manifest precisa declarar `task_spec_ref=../task-spec.json`, o arquivo
-precisa existir, ter schema/case corretos e o `task_spec_hash` do manifest precisa
-bater com o hash do task spec referenciado. Replay completo tambem exige
-`evidence_pack_ref=evidence/evidence-pack.json`; esse pack e verificado por
-`AtlasFrontendEvidencePackVerifierService`, precisa conter arquivos reais com
-hashes correspondentes e precisa bater case/system/task spec com o manifest. O
-manifest so fica complete quando `output_artifact_hash`, `screenshot_hashes`,
-`anti_slop_report_hash` e `verification_hashes` tambem aparecem no pack
-verificado. Para runs de rivais externos, o manifest tambem precisa carregar
-`external_execution_receipt`
-(`atlas.frontend.rival_replay.external_execution_receipt.v1`) com status
-`verified`, case/system iguais, aprovacao do operador, superficie externa e os
-mesmos hashes de output, screenshots, anti-slop e verificacao declarados no
-manifest, alem do `evidence_pack_verification_hash` do pack verificado. Sem esse
-receipt, ou se esse hash divergir, um manifest de Impeccable/Claude Design nao
-pode ficar complete nem sustentar claim externo/world-best. O verifier tambem varre
-os artefatos JSON do pack de forma recursiva
-e bloqueia `artifact_forbidden_raw_prompt_or_source_field_present` quando prompt,
-source, dados de cliente, tokens ou segredos aparecem escondidos dentro da
-evidencia. A `score_attestation` impede placar auto-declarado: cada manifest
-complete precisa de status `verified`, case/system, `rubric_hash`,
-`score_breakdown_hash`, `score_total`, `score_max`, `reviewer_ref_hash`,
-aprovacao do operador, superficie de scoring permitida e
-`evidence_pack_verification_hash` batendo com o evidence pack verificado. Se a
-attestation nao bater com o manifest ou com a evidencia, o run fica invalid e o
-world-best claim continua bloqueado. Quando todos os replays estao completos mas o Atlas perde algum caso,
-o harness nao deixa `remaining_gaps` vazio: emite
-`atlas_does_not_win_every_complete_case` e anexa
-`competitive_diagnostics` com caso, melhor rival, delta de pontos e proxima acao
-`improve_atlas_frontend_case_and_rerun_replay`. Esse diagnostico compara tambem
-o `score_breakdown` do Atlas contra o melhor rival e emite `dimension_gaps` por
-dimensao da rubrica (`product_intent_fit`, hierarquia, responsividade,
-performance, evidencia etc.), com pontos para empatar e acao `improve_<dimension>`.
-Assim o replay perdido vira plano de melhoria por dimensao, nao apenas placar
-agregado. O repair planner tambem aceita esses `dimension_gaps` e compila uma
-estrategia `competitive_replay_repair`, com passos como
-`repair_competitive_dimension_product_intent_fit`, gates de rerun
-(`rival_replay_inspect`, `competitive_rubric`, `visual_quality_gate`) e
-evidencias esperadas (`rival_replay_manifest`, `score_breakdown`,
-`dimension_improvement_receipt`). O comando tambem aceita gaps competitivos
-direto via `--dimension-gap=<dimension:points_to_match:delta_vs_best_rival:best_rival_score[:case_id[:best_rival_system]]>`,
-permitindo que Atlas AI/Code ou um operador transforme uma derrota no replay em
-repair plan sem transportar texto bruto de prompt, fonte ou cliente. A dimensao
-precisa ser um id canonico da rubrica competitiva; se o operador ou o replay
-emitir `not_a_rubric_dimension`, o planner bloqueia em modo strict com
-`invalid_competitive_dimension_gap` / `dimension_not_in_competitive_rubric`, nao
-gera `repair_competitive_dimension_*` falso e registra apenas slug/hash
-provider-safe do valor invalido. Para reduzir
-friccao operacional, cada `dimension_gap` do replay ja inclui
-`case_id`, `best_rival_system` e `repair_plan_command`, e cada caso perdido
-agrega `recommended_repair_plan_commands`; a UI do Atlas AI/Code pode transformar essas
-strings em acoes sem reconstituir prompt, fonte ou path sensivel. O world-best proof plan consome
-esse diagnostico e adiciona
-`competitive_repair_plan` ao workstream de replay, alem da acao
-`improve_atlas_frontend_until_replay_wins_every_case`, transformando benchmark
-perdido em ciclo de reparo mensuravel, nao em claim silenciosamente negado. O comando
-`runner-kit` emite
-`atlas.frontend.rival_replay_runner_kit.v1` e escreve `replay-runner-kit.json`
-com 15 run packets, passos de execucao, checklist de evidencias, politica de
-score, exigencia de attestation de scoring e comandos de inspeção/world-best plan. Ele tambem prepara um
-`evidence/evidence-pack.json` por run com `case_id`, `system` e `task_spec_hash`
-preenchidos, mais os artifacts obrigatorios do evidence-pack verifier. O `inspect`
-emite `evidence_pack_readiness` com total/present/passed/blocked/missing e blockers
-por run, para mostrar exatamente quais arquivos/hash refs ainda faltam antes de
-qualquer claim competitivo. O comando `evidence-worklist` gera
-`atlas.frontend.rival_replay_evidence_worklist.v1` e escreve
-`replay-evidence-worklist.json`: uma fila provider-safe por caso/sistema com
-`pack_manifest_ref`, `run_manifest_ref`, slots de artefato, comando `shasum` por
-arquivo e `manifest_hash_mapping` para espelhar `output_artifact`,
-`screenshot_set`, `anti_slop_report` e `verification_report` no manifest. Quando
-o evidence pack ja passou mas um run de rival externo ainda falha por
-`external_execution_receipt_*`, a mesma fila cria
-`fill_external_execution_receipt_<case>_<system>` com schema, campos obrigatorios,
-hash mapping, superficies permitidas e comando `external-receipt-template`.
-Quando o run falha por `score_attestation_*`, cria
-`fill_score_attestation_<case>_<system>` com schema, campos obrigatorios,
-`rubric_hash`, `canonical_sha256(manifest.score_breakdown)`,
-`evidence_pack_verification_hash`, superficies de scoring permitidas e passos
-para rodar o `score-template`, preencher a attestation sem prompt bruto, fonte de
-cliente ou identidade real do reviewer e voltar ao `inspect`. Essa worklist
-tambem nao e evidencia; ela reduz ambiguidade operacional para coletar artefatos
-reais, provar execution receipt/scoring e voltar ao `inspect`.
-Para reduzir erro manual em rivais externos,
-`atlas:frontend:replay external-receipt-template --evidence=<dir> --case=<case>
---system=<external-rival> --json` le o manifest e o evidence pack verificado,
-preenche `manifest_hashes` com output, screenshots, anti-slop, verificacao e
-`evidence_pack_verification_hash`, e escreve
-`external-execution-receipt-template.json` com
-`manifest_patch.external_execution_receipt`. Esse template fica
-`pending_operator_approval`, nao e evidencia, nao autoriza claim e so vira receipt
-valido quando o operador marcar `status=verified`, `operator_approved=true` e
-`captured_at` depois de executar o rival externo contra o task spec imutavel. O
-comando bloqueia `external_rival_system_required` para impedir receipt externo no
-run interno do Atlas.
-Para reduzir erro manual, `atlas:frontend:replay score-template --evidence=<dir>
---case=<case> --system=<system> --reviewer-ref-hash=<sha256> --json` le o
-manifest e o evidence pack verificado, preenche `rubric_hash`,
-`score_breakdown_hash`, `score_total`, `score_max` e
-`evidence_pack_verification_hash`, e escreve
-`score-attestation-template.json` com `manifest_patch.score_attestation`. Esse
-template fica `pending_operator_approval`, nao e evidencia, nao autoriza claim e
-so vira attestation valida quando o operador marcar `status=verified`,
-`operator_approved=true` e `reviewed_at` apos revisar os artefatos contra a
-rubrica. O comando bloqueia `unknown_case_id` e `unknown_system_id` para impedir
-attestation solta fora da matriz canonica de replay. Runner kit
-nao e evidencia de replay; ele e a fila operacional provider-neutral para coletar
-a evidencia correta. Se os sistemas forem avaliados contra tarefas diferentes, o harness marca
-`task_spec_hash_mismatch_across_systems` e invalida o replay. Isso fecha a
-lacuna de processo: o Atlas agora sabe exatamente qual prova falta antes de
-alegar superioridade mundial e impede benchmark injusto por escopo divergente.
-Competitive rubric: `AtlasFrontendCompetitiveRubricService` e
-`atlas:frontend:rubric` emitem `atlas.frontend.competitive_rubric.v1`, a regua
-canonica de 100 pontos usada por replay. Ela pesa produto, hierarquia visual,
-layout/spacing, workflow, responsividade, acessibilidade, integridade de
-implementacao, performance, originalidade anti-slop/brand fit e completude de
-evidencia. Nenhum sistema pode vencer por numero solto: `score_total` precisa
-bater com o `score_breakdown`, todos os sistemas usam a mesma rubrica e o score
-maximo precisa ser o mesmo.
-Visual gates: `AtlasFrontendVisualQualityGateService` /
-`atlas:frontend:visual-quality` emitem `atlas.frontend.visual_quality_gate.v1`
-para viewports, console, a11y/perf, overlap, state, anti-slop e hashes.
-`AtlasFrontendQualityBudgetGateService` / `atlas:frontend:quality-budget`
-emitem `atlas.frontend.quality_budget_gate.v1` com budgets medidos para LCP,
-INP, CLS, JS KB, a11y critica, contraste, overflow, text overlap e console.
-`AtlasFrontendDesignSystemDriftGateService` /
-`atlas:frontend:design-system-drift` emitem
-`atlas.frontend.design_system_drift_gate.v1` para tokens, componentes, refs e
-excecoes aprovadas. Screenshot, token novo ou componente novo sem evidencia nao
-autoriza claim de frontend pronto nem de adaptacao ao design system da empresa.
-Evidence pack verifier: `AtlasFrontendEvidencePackVerifierService` e
-`atlas:frontend:evidence` emitem `atlas.frontend.evidence_pack_verifier.v1` e
-fecham uma lacuna importante do replay: hashes precisam corresponder a arquivos
-reais. O pack exige artefato de output, screenshot set, anti-slop report,
-verification report, console report, a11y/reason, performance/reason e receipt.
-O verificador bloqueia caminho absoluto, path traversal, hash invalido,
-hash mismatch, arquivo ausente e campos como raw prompt/source/customer data.
-Um pack `passed` pode sustentar um replay manifest, mas ainda nao prova
-hospedagem publica.
+Domain. Esta doc e a doc-mae: ela declara fronteira, invariantes e
+responsabilidades. Detalhes de gauntlet, selected workspace, onboarding,
+runbook, provider packet, skill pack, scenario matrix, evidence kit, replay,
+proof, publish, live mode, browser bridge, adapters e benchmarking ficam nos
+services e docs filhas listados em `related_paths`.
 
-Product proof: `AtlasFrontendProductProofRuntimeService` e
-`atlas:frontend:proof` emitem `atlas.frontend.product_proof_runtime.v1`, um
-catalogo local das demos obrigatorias para provar Atlas Frontend multiempresa:
-SaaS dashboard repair, ecommerce product page, mobile onboarding, design system
-migration e live mode repair loop. Cada demo declara viewports, evidencias e
-manifest esperado. `atlas:frontend:proof build` emite
-`atlas.frontend.product_proof_bundle.v1` com `index.html`, paginas por demo e
-`manifest.json` em um bundle estatico local publicavel. O bundle tambem inclui
-`product_site_assets` (`atlas.frontend.product_proof_site_assets.v1`) com
-`getting-started.html`, `downloads.json`, hashes e contagem de downloads para
-site/docs/downloads locais; esses assets continuam sendo prova local e nao
-autorizam distribuicao publica sem receipt verificado. Em monorepo,
-`--frontend-app=apps/web` grava `frontend_app_scope` no manifest do bundle para
-que publication verifier e handoff provem que o site publicado corresponde ao
-mesmo subapp certificado. O manifest tambem inclui
-`publication_workflow` (`atlas.frontend.product_proof_publication_workflow.v1`)
-com comandos provider-safe para criar receipt template a partir do bundle,
-emitir attestation canonica, verificar publicacao e rerodar o proof plan world-best, alem das evidencias
-externas exigidas (`public_https_url`, HTTP 200, hash match, approval e scope
-compativel). O bundle melhora a
-prontidao de produto, mas nao autoriza claim de distribuicao publica enquanto
-nao houver hospedagem externa verificada. `atlas:frontend:proof pilot --task
-"<intent>" --workspace=<local-company-repo> --provider=<provider> --output=<dir>
---acceptance --test-plan --visual-quality-plan --evidence-plan
---senior-design-review --json --strict` emite
-`atlas.frontend.company_repo_proof_dossier.v1`, o dossie pre-execucao para
-BlackInk, Refinar ou qualquer repo local de empresa. Ele agrega enterprise
-bootstrap, provider instruction packet, runbook, evidence kit, certificacao do
-runtime e product proof em um unico artefato auditavel (`pilot-dossier.json`).
-Em monorepo, `--frontend-app=apps/web` tambem entra no proof pilot: o dossie
-carrega `frontend_app_scope`, o runbook opera no subapp, o provider packet recebe
-o mesmo escopo e os comandos de collection/evidence kit mantem `--frontend-app`
-ate a certificacao e handoff.
-Status `ready_for_operator_execution` significa que o provider pode ser
-despachado com mandatos e comandos corretos; nao significa entrega concluida.
-O dossie sempre marca `measured_evidence_present=false`,
-`rival_replay_present=false` e `world_best_claim_allowed=false` ate que a
-execucao real substitua templates por evidencias medidas, rode
-`atlas:frontend:run-certify`, gere handoff e complete replay externo contra
-rivais.
+Contrato operacional resumido:
 
-Publication verifier: `AtlasFrontendPublicationVerifierService` e
-`atlas:frontend:publish` emitem `atlas.frontend.publication_verifier.v1`. O
-verificador checa se o bundle local gerado por `atlas:frontend:proof build`
-continua integro (`local_ready`) validando `manifest.json`, `bundle_hash`,
-`index.html`, assets, `product_site_assets`, `getting-started.html`,
-`downloads.json`, entradas do manifest de downloads e hashes. Se alguem editar
-o tutorial, o manifest de downloads ou o proprio manifest depois da geracao, o
-verificador bloqueia com hash mismatch antes de qualquer claim publico. O claim
-publico so muda para `public_verified` quando existe receipt
-`atlas.frontend.publication_receipt.v1` com URL HTTPS, status HTTP 200, hash do
-bundle correspondente, `index_content_hash` igual ao hash real do `index.html`
-local, `frontend_app_scope` compatível quando o bundle veio de subapp de
-monorepo, e aprovacao do operador. `atlas:frontend:publish verify --strict` falha
-sem receipt publico verificado. `atlas:frontend:publish attest --bundle=<bundle>
---receipt=<receipt> --json` emite a attestation canonica
-`atlas.frontend.delivery_handoff_publication_attestation.v1`, usando o mesmo
-service consumido por handoff, control-plane e world-best-plan, para inspecionar
-bundle local/publicacao publica sem abrir outro fluxo. Para reduzir erro manual no ultimo passo,
-`atlas:frontend:publish receipt-template --bundle=<bundle> --output=<bundle>
---json` preenche `bundle_hash`, `index_content_hash`, `local_index_hash` e
-`frontend_app_scope` diretamente do manifest local, mas o payload mantem
-`template_is_not_public_verification=true` e
-`prefilled_bundle_hash_is_not_public_verification=true`: template preenchido
-nao e prova publica, apenas prepara o receipt que ainda precisa de URL HTTPS,
-HTTP 200 e aprovacao do operador.
-enquanto a distribuicao publica nao estiver verificada. Recibo template nao
-autoriza claim publico; ele apenas diz exatamente que prova externa precisa ser
-anexada.
+1. `AtlasProgrammingOrchestrator` projeta o harness em planos, dispatch e
+   completion.
+2. `AtlasFrontendDesignRuntimeService` seleciona capabilities, output types,
+   gates, evidencia, anti-slop, variantes e competitive scorecard.
+3. Repo selecionado pelo operador e o workspace primario; `frontend_app` e
+   subescopo auditavel, nao workspace paralelo.
+   Quando Atlas AI/Code varre uma pasta com muitos repos, o portfolio scan
+   apenas ranqueia candidatos e projeta `frontend_app_candidate_summary`
+   provider-safe por repo. Esse resumo pode mostrar contagem, hashes e se ha
+   candidato `apps/web`/subapp exigindo confirmacao, mas nao devolve path bruto
+   nem autoriza dispatch. A execucao continua exigindo o contrato
+   `selected_workspace` do repo selecionado; so depois disso o Atlas pode
+   projetar `frontend_runtime_projection` com `runtime_projection_hash`.
+4. Dispatch provider exige task spec, gate, provider packet, runbook e plano de
+   evidencia; selected workspace/onboarding read-only nao contam como evidence
+   de entrega.
+5. Claims de superioridade/world-best exigem replay externo completo, evidence
+   packs, score attestation, publication receipt verificado e margem decisiva
+   minima por caso. Vencer por 1 ponto nao basta para claim world-best.
+6. Live mode `accept`/`discard`/`recover` emite
+   `atlas.frontend.live_source_patch_decision_receipt.v1` com hashes de decisao,
+   diff e variante, mas `live_patch_decision_is_not_delivery_evidence=true`;
+   patch aceito ainda precisa de `visual_quality_gate`, evidence pack e
+   run-certification antes de claim de conclusao.
+7. Product proof local gera site estatico auditavel, mas cada demo precisa de
+   `atlas.frontend.product_proof_demo_manifest.v1` ligando pagina, hash,
+   viewports, evidencias e claim boundary. `downloads.json`, demo manifests e
+   publication receipt sao verificados antes de qualquer claim publico.
+8. Browser bridge nao e so picker: `AtlasFrontendBrowserBridgeService` emite
+   `atlas.frontend.browser_detector_event.v1` via `atlas:frontend:browser-detect`
+   para achados provider-safe no elemento selecionado, como alvo pequeno, botao
+   icon-only sem nome, texto minusculo, copy generica e risco de overlap.
+9. Escritas em repo so ocorrem por comandos explicitos como
+   `atlas:frontend:onboard --write-docs`, `atlas:frontend:skill-pack install`
+   e `atlas:frontend:evidence-kit prepare`.
 
-Integração Forge: `ForgeSpecialistWorkcellRouterService` anexa o mesmo contrato
-`atlas_frontend_runtime` a work packets roteados para `surface_ui`, garantindo
-que Obras frontend recebam gates/evidencia equivalentes aos fluxos Dev.
+Comandos de entrada ficam resumidos no owner runtime:
+`atlas:frontend:gauntlet`, `atlas:frontend:selected-workspace`,
+`atlas:frontend:provider-packet`, `atlas:frontend:runbook`,
+`atlas:frontend:evidence-kit`, `atlas:frontend:run-certify`,
+`atlas:frontend:replay`, `atlas:frontend:proof` e
+`atlas:frontend:publish`.
 
-Detector executavel: `AtlasFrontendAntiSlopDetectorService` e
-`atlas:frontend:detect` materializam `anti_ai_slop_detector` sem LLM no core.
-Ele varre HTML/CSS/JS/JSX/TSX/Vue/Svelte/Astro/Blade e emite
-`atlas.frontend.anti_slop_detector.v1` com findings provider-safe para padrões
-como gradient text generico, paleta roxa/pink one-note, nested cards,
-placeholder assets, hero copy generico, glow blobs, tiny text, absolute overlap
-risk e icon buttons sem accessible name.
+Detector anti-slop e quality nao e checklist decorativo. O runtime atual
+`AtlasFrontendAntiSlopDetectorService` emite:
 
-Live source patch: `AtlasFrontendLiveSourcePatchRuntimeService` e
-`atlas:frontend:live` implementam o nucleo que o Live Mode do Impeccable prova
-ser valioso: preparar variantes, aceitar uma variante no source real, descartar
-sem mutacao e recuperar o original por session journal. A mutacao exige target
-exato unico, hash de precondicao do arquivo e `private_integrity_hash` da sessao
-completa, bloqueando source drift e adulteracao local de
-`.atlas/frontend-live/sessions/*.json` antes de `accept`/`recover`. O payload
-publico continua sem retornar source original ou variantes brutas; a integridade
-privada prova que o patch aceito e o mesmo preparado. Ainda faltam replay rival
-real e product proof publico para claim de live mode superior ao mercado inteiro.
+- `atlas.frontend.detector_findings.v1` para findings provider-safe;
+- `atlas.frontend.anti_slop_rule_registry.v1` para catalogo deterministico;
+- `atlas.frontend.anti_slop_repair_projection.v1` para transformar achados em
+  `failed_gates`, `blockers`, `rerun_gates`, evidencia requerida e comando
+  `atlas:frontend:repair-plan`.
 
-Framework adapters: `AtlasFrontendFrameworkAdapterRuntimeService` e
-`atlas:frontend:adapters inspect` detectam Vite, Next, Nuxt, Astro, SvelteKit,
-Remix, Angular, Expo, React, Vue e Svelte a partir de `package.json` e arquivos
-de config. O adapter retorna dev commands, URL local default, candidatos de root
-document e estrategia de acoplamento bridge/relay/source-patch sem expor
-`package.json` bruto nem caminhos absolutos. Quando o framework nao e
-identificado, o status fica `partial`, nao falso-ready.
+Todo finding deve mapear regra -> impacto -> gate -> alvo de reparo -> dimensao
+da rubrica competitiva. Achado sem reparo/evidencia nao pode sustentar claim de
+frontend pronto; report limpo tambem nao substitui browser/visual scan quando o
+risco for layout real, overlap, responsivo ou contraste por pixel.
 
-Browser bridge: `AtlasFrontendBrowserBridgeService` e `atlas:frontend:bridge`
-geram/injetam/removem uma ponte local em HTML para selecionar elementos no
-browser com Alt+click. A ponte emite `atlas.frontend.browser_pick_event.v1`,
-inclui fingerprint provider-safe do elemento selecionado, hash de texto em vez
-de texto bruto, retangulo, path CSS curto e journal em `window` sem acessar
-cookies, storage ou rede. Esse dado alimenta o Live Mode sem transformar a tela
-em screenshot solto nem depender de extensao proprietaria.
-
-Live preview relay: `AtlasFrontendLivePreviewRelayService` e
-`atlas:frontend:relay` geram/injetam/removem uma camada de preview CSS via
-eventos locais. O browser aceita `atlas:frontend:preview-css`, aplica a variante
-em uma tag `<style>` temporaria, emite `atlas.frontend.live_preview_event.v1` e
-limpa via `atlas:frontend:clear-preview`. O relay nao acessa cookies, storage
-ou rede, nao persiste o CSS da variante e separa preview visual de patch aceito
-no source.
+Para implementar, a IA deve abrir primeiro o service/doc filho especifico em
+`related_paths`; esta doc governa fronteira e invariantes, nao carrega o
+manual completo de cada runtime.
 
 O harness deve entender quatro entregas diferentes:
 

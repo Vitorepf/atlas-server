@@ -22,7 +22,12 @@ class AtlasFrontendBenchmarkRuntimeServiceTest extends TestCase
         $this->assertFalse((bool) data_get($payload, 'claims.atlas_world_best_frontend_system'));
         $this->assertTrue((bool) data_get($payload, 'scope.rival_replay_harness_present'));
         $this->assertFalse((bool) data_get($payload, 'scope.external_rival_replay_completed'));
+        $this->assertSame('pending_replay', data_get($payload, 'scope.rival_replay_competitive_diagnostics_status'));
+        $this->assertSame(0, data_get($payload, 'scope.rival_replay_tied_case_count'));
+        $this->assertSame(0, data_get($payload, 'scope.rival_replay_dimension_gap_case_count'));
+        $this->assertFalse((bool) data_get($payload, 'scope.rival_replay_decisive_lead_ready'));
         $this->assertSame('atlas.frontend.rival_replay_harness.v1', data_get($payload, 'rival_replay.schema_version'));
+        $this->assertSame('pending_replay', data_get($payload, 'rival_replay.competitive_diagnostics.status'));
         $this->assertNotContains('framework_hmr_adapters_required_for_live_mode_superiority', $payload['remaining_gaps']);
         $this->assertContains('external_rival_replay_artifacts_required_for_world_best_claim', $payload['remaining_gaps']);
         $this->assertGreaterThan(data_get($payload, 'totals.pbakaus_impeccable.score'), data_get($payload, 'totals.atlas_frontend.score'));
@@ -39,8 +44,10 @@ class AtlasFrontendBenchmarkRuntimeServiceTest extends TestCase
         $this->assertTrue((bool) data_get($payload, 'scope.rival_evidence_directory_supplied'));
         $this->assertSame(hash('sha256', $dir), data_get($payload, 'scope.rival_evidence_directory_hash'));
         $this->assertSame('ready_for_replay', data_get($payload, 'rival_replay.status'));
+        $this->assertSame('pending_replay', data_get($payload, 'rival_replay.competitive_diagnostics.status'));
         $this->assertSame(15, data_get($payload, 'rival_replay.summary.missing_or_pending'));
         $this->assertFalse((bool) data_get($payload, 'claims.atlas_world_best_frontend_system'));
+        $this->assertFalse((bool) data_get($payload, 'claims.atlas_decisively_leads_verified_rival_replay'));
     }
 
     public function test_benchmark_carries_runtime_evidence_hashes(): void

@@ -23,6 +23,7 @@ class AtlasFrontendProviderInstructionPacketCommandTest extends TestCase
         $this->assertSame(1, $exitCode);
         $this->assertStringContainsString(AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION, $output);
         $this->assertStringContainsString('frontend_app_scope', $output);
+        $this->assertStringContainsString('provider_execution_guardrails', $output);
         $this->assertStringContainsString('provider_instruction_packet_hash', $output);
         $this->assertStringContainsString('work_order_phase_blocked_pre_execution_gate', $output);
         $this->assertStringContainsString('runbook_repo_workspace_not_found', $output);

@@ -14,6 +14,7 @@ final class AtlasFrontendRunCertificationService
      */
     public function certify(array $input): array
     {
+        $providerPacket = $this->providerPacket((string) ($input['provider_packet'] ?? ''));
         $visual = $this->visual((string) ($input['visual_report'] ?? ''));
         $review = $this->review((string) ($input['design_review_report'] ?? ''));
         $qualityBudget = $this->qualityBudget((string) ($input['quality_budget_report'] ?? ''));
@@ -22,6 +23,7 @@ final class AtlasFrontendRunCertificationService
         $outcome = $this->outcome((string) ($input['outcome_store'] ?? ''));
         $taskSpecHashes = $this->taskSpecHashes($visual, $review, $qualityBudget, $evidence);
         $frontendAppScope = $this->frontendAppScopeConsistency([
+            'provider_instruction_packet' => $providerPacket,
             'visual_quality' => $visual,
             'design_review' => $review,
             'quality_budget' => $qualityBudget,
@@ -29,6 +31,11 @@ final class AtlasFrontendRunCertificationService
         ]);
 
         $checks = [
+            $this->check('provider_instruction_packet_ready', ($providerPacket['status'] ?? null) === 'ready', $providerPacket['status'] ?? 'missing'),
+            $this->check('provider_execution_guardrails_present', $this->providerGuardrailsPresent($providerPacket), data_get($providerPacket, 'provider_execution_guardrails.schema_version', 'missing')),
+            $this->check('provider_guardrail_detector_receipts_declared', $this->providerDetectorReceiptsDeclared($providerPacket), implode(',', (array) data_get($providerPacket, 'provider_execution_guardrails.mandatory_detector_receipts', []))),
+            $this->check('provider_guardrail_runtime_receipts_declared', $this->providerRuntimeReceiptsDeclared($providerPacket), implode(',', (array) data_get($providerPacket, 'provider_execution_guardrails.mandatory_runtime_receipts', []))),
+            $this->check('provider_guardrail_detector_receipts_evidenced', $this->providerDetectorReceiptsEvidenced($evidence), implode(',', $this->presentEvidenceKinds($evidence))),
             $this->check('visual_quality_passed', in_array($visual['status'] ?? null, ['passed', 'warning'], true), $visual['status'] ?? 'missing'),
             $this->check('design_5d_review_passed', in_array($review['status'] ?? null, ['passed', 'warning'], true), $review['status'] ?? 'missing'),
             $this->check('quality_budget_passed', in_array($qualityBudget['status'] ?? null, ['passed', 'warning'], true), $qualityBudget['status'] ?? 'missing'),
@@ -51,6 +58,7 @@ final class AtlasFrontendRunCertificationService
             'frontend_app_scope' => $frontendAppScope,
             'checks' => $checks,
             'artifacts' => [
+                'provider_instruction_packet' => $this->summary($providerPacket, 'provider_instruction_packet_hash'),
                 'visual_quality' => $this->summary($visual, 'gate_hash'),
                 'design_review' => $this->summary($review, 'review_hash'),
                 'quality_budget' => $this->summary($qualityBudget, 'quality_budget_hash'),
@@ -63,6 +71,9 @@ final class AtlasFrontendRunCertificationService
                 'frontend_completion_claim_requires_outcome_memory' => true,
                 'frontend_completion_claim_requires_quality_budget' => true,
                 'frontend_completion_claim_requires_frontend_app_scope_consistency' => true,
+                'frontend_completion_claim_requires_provider_instruction_packet' => true,
+                'frontend_completion_claim_requires_provider_execution_guardrails' => true,
+                'frontend_completion_claim_requires_guardrail_detector_evidence' => true,
                 'public_distribution_claim_allowed' => ($publication['status'] ?? null) === 'public_verified',
                 'world_best_claim_allowed' => false,
                 'requires_real_artifact_hashes' => true,
@@ -74,6 +85,43 @@ final class AtlasFrontendRunCertificationService
         $payload['run_certification_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function providerPacket(string $path): array
+    {
+        if ($path === '') {
+            return ['status' => 'missing'];
+        }
+
+        if (! is_file($path)) {
+            return ['status' => 'missing', 'blockers' => ['provider_instruction_packet_missing']];
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+        if (! is_array($decoded)) {
+            return ['status' => 'blocked', 'blockers' => ['provider_instruction_packet_json_invalid']];
+        }
+
+        if (($decoded['schema_version'] ?? null) !== AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION) {
+            $decoded['status'] = 'blocked';
+            $decoded['blockers'] = array_values(array_unique(array_merge(
+                (array) ($decoded['blockers'] ?? []),
+                ['provider_instruction_packet_schema_invalid'],
+            )));
+        }
+
+        if (! is_string($decoded['provider_instruction_packet_hash'] ?? null) || ! preg_match('/^[a-f0-9]{64}$/', (string) $decoded['provider_instruction_packet_hash'])) {
+            $decoded['status'] = 'blocked';
+            $decoded['blockers'] = array_values(array_unique(array_merge(
+                (array) ($decoded['blockers'] ?? []),
+                ['provider_instruction_packet_hash_invalid'],
+            )));
+        }
+
+        return $decoded;
     }
 
     /**
@@ -122,6 +170,90 @@ final class AtlasFrontendRunCertificationService
     private function outcome(string $store): array
     {
         return $store !== '' ? app(AtlasFrontendOutcomeMemoryService::class)->summarize($store) : ['status' => 'missing'];
+    }
+
+    /**
+     * @param  array<string,mixed>  $providerPacket
+     */
+    private function providerGuardrailsPresent(array $providerPacket): bool
+    {
+        return ($providerPacket['schema_version'] ?? null) === AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION
+            && ($providerPacket['status'] ?? null) === 'ready'
+            && data_get($providerPacket, 'provider_execution_guardrails.schema_version') === AtlasFrontendProviderInstructionPacketService::EXECUTION_GUARDRAILS_SCHEMA_VERSION
+            && (bool) data_get($providerPacket, 'provider_execution_guardrails.selected_workspace_contract.selected_repository_remains_primary_workspace') === true
+            && (bool) data_get($providerPacket, 'provider_execution_guardrails.selected_workspace_contract.frontend_app_is_subscope_only') === true
+            && (bool) data_get($providerPacket, 'provider_execution_guardrails.selected_workspace_contract.space_runtime_required') === false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $providerPacket
+     */
+    private function providerDetectorReceiptsDeclared(array $providerPacket): bool
+    {
+        $declared = (array) data_get($providerPacket, 'provider_execution_guardrails.mandatory_detector_receipts', []);
+        $required = [
+            'atlas_frontend_static_anti_slop_detector',
+            'atlas_frontend_browser_detector_event',
+            'design_system_drift_gate',
+        ];
+
+        return collect($required)->every(fn (string $receipt): bool => in_array($receipt, $declared, true));
+    }
+
+    /**
+     * @param  array<string,mixed>  $providerPacket
+     */
+    private function providerRuntimeReceiptsDeclared(array $providerPacket): bool
+    {
+        $declared = (array) data_get($providerPacket, 'provider_execution_guardrails.mandatory_runtime_receipts', []);
+        $required = [
+            'pre_execution_gate_hash',
+            'work_order_hash',
+            'runbook_hash',
+            'visual_quality_report',
+            'quality_budget_report',
+            'design_review_report',
+            'evidence_pack_hash',
+            'run_certification_hash',
+            'outcome_memory_hash',
+            'handoff_hash',
+        ];
+
+        return collect($required)->every(fn (string $receipt): bool => in_array($receipt, $declared, true));
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidence
+     */
+    private function providerDetectorReceiptsEvidenced(array $evidence): bool
+    {
+        if (($evidence['status'] ?? null) !== 'passed') {
+            return false;
+        }
+
+        $present = $this->presentEvidenceKinds($evidence);
+        $required = [
+            'anti_slop_report',
+            'browser_detector_event',
+            'design_system_drift_report',
+        ];
+
+        return collect($required)->every(fn (string $kind): bool => in_array($kind, $present, true));
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidence
+     * @return array<int,string>
+     */
+    private function presentEvidenceKinds(array $evidence): array
+    {
+        return collect((array) ($evidence['artifact_results'] ?? []))
+            ->filter(fn (mixed $artifact): bool => is_array($artifact) && ($artifact['status'] ?? null) === 'present')
+            ->map(fn (array $artifact): string => (string) ($artifact['kind'] ?? ''))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

@@ -41,6 +41,8 @@ class AtlasFrontendEvidencePackVerifierServiceTest extends TestCase
         $this->assertSame('passed', $payload['status']);
         $this->assertTrue((bool) data_get($payload, 'claim_policy.passed_pack_can_support_replay_manifest'));
         $this->assertCount(count($service->requiredArtifactKinds()), $payload['artifact_results']);
+        $this->assertContains('browser_detector_event', collect($payload['artifact_results'])->pluck('kind')->all());
+        $this->assertContains('design_system_drift_report', collect($payload['artifact_results'])->pluck('kind')->all());
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['verification_hash']);
     }
 
@@ -170,5 +172,7 @@ class AtlasFrontendEvidencePackVerifierServiceTest extends TestCase
         $this->assertTrue(File::isFile($dir.'/evidence-pack.json'));
         $this->assertContains('screenshot_set', $payload['required_artifact_kinds']);
         $this->assertContains('quality_budget_report', $payload['required_artifact_kinds']);
+        $this->assertContains('browser_detector_event', $payload['required_artifact_kinds']);
+        $this->assertContains('design_system_drift_report', $payload['required_artifact_kinds']);
     }
 }

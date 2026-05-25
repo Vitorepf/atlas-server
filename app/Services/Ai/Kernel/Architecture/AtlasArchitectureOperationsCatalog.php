@@ -138,6 +138,16 @@ final class AtlasArchitectureOperationsCatalog
                 'pre_implementation_gate' => true,
             ],
             [
+                'id' => 'documentation_enforcement',
+                'command' => 'php artisan atlas:documentation:enforce --task="<task>" --feature="<feature>" --strict --json',
+                'description' => 'Agrega docs-health, authority audit, ADRS, ACRUI, anti-duplicacao e Cartografia em um hard gate curto antes de qualquer IA implementar.',
+                'surface' => 'cli',
+                'kind' => 'governance_gate',
+                'output' => 'json',
+                'doc' => 'docs/engineering-knowledge-base/atlas-documentation-enforcement-runtime.md',
+                'pre_implementation_gate' => true,
+            ],
+            [
                 'id' => 'code_reality_anti_duplicate',
                 'command' => 'php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json',
                 'description' => 'Executa ACRUI anti-duplicacao provider-safe antes de criar novo runtime, doc macro, surface ou fluxo.',

@@ -50,6 +50,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
+  - docs/engineering-knowledge-base/atlas-duplication-reality-governance.md
   - docs/engineering-knowledge-base/START_HERE.md
   - docs/engineering-knowledge-base/README.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md

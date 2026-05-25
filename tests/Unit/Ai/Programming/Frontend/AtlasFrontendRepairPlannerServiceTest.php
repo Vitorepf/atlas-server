@@ -49,6 +49,7 @@ class AtlasFrontendRepairPlannerServiceTest extends TestCase
                     'points_to_match' => 2,
                     'delta_vs_best_rival' => -2,
                     'best_rival_score' => 12,
+                    'atlas_score' => 10,
                     'case_id' => 'live_mode_repair_loop',
                     'best_rival_system' => 'pbakaus_impeccable',
                 ],
@@ -63,6 +64,13 @@ class AtlasFrontendRepairPlannerServiceTest extends TestCase
         $this->assertSame('repair_competitive_dimension_product_intent_fit', data_get($plan, 'repair_steps.1.id'));
         $this->assertSame('competitive_rubric.product_intent_fit', data_get($plan, 'repair_steps.1.target'));
         $this->assertStringContainsString('Close at least 2 point(s)', data_get($plan, 'repair_steps.1.action'));
+        $this->assertStringContainsString('lead the dimension when rubric capacity allows', data_get($plan, 'repair_steps.1.action'));
+        $this->assertSame(10, data_get($plan, 'repair_steps.1.competitive_gap.atlas_score'));
+        $this->assertSame(3, data_get($plan, 'repair_steps.1.competitive_gap.points_to_lead'));
+        $this->assertSame(12, data_get($plan, 'repair_steps.1.competitive_gap.target_score_to_match'));
+        $this->assertSame(13, data_get($plan, 'repair_steps.1.competitive_gap.target_score_to_lead'));
+        $this->assertSame(12, data_get($plan, 'repair_steps.1.competitive_gap.dimension_weight'));
+        $this->assertFalse((bool) data_get($plan, 'repair_steps.1.competitive_gap.lead_possible_within_rubric'));
         $this->assertSame(-2, data_get($plan, 'repair_steps.1.competitive_gap.delta_vs_best_rival'));
         $this->assertSame('live_mode_repair_loop', data_get($plan, 'repair_steps.1.competitive_gap.case_id'));
         $this->assertSame('pbakaus_impeccable', data_get($plan, 'repair_steps.1.competitive_gap.best_rival_system'));

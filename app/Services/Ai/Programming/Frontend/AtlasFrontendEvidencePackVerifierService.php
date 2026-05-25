@@ -139,6 +139,8 @@ final class AtlasFrontendEvidencePackVerifierService
             'design_5d_review',
             'quality_budget_report',
             'anti_slop_report',
+            'browser_detector_event',
+            'design_system_drift_report',
             'verification_report',
             'console_report',
             'a11y_or_reason',

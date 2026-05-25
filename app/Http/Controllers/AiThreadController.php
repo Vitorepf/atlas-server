@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\AiCompactionResource;
 use App\Http\Resources\AiContextSnapshotResource;
+use App\Http\Resources\AiMessageResource;
 use App\Http\Resources\AiProviderHandoffResource;
 use App\Http\Resources\AiSessionStateResource;
 use App\Http\Resources\AiThreadResource;
@@ -130,10 +131,61 @@ class AiThreadController extends Controller
         ], 201);
     }
 
-    public function show(AiThread $thread): JsonResponse
+    public function show(Request $request, AiThread $thread): JsonResponse
     {
+        $data = $request->validate([
+            'lean' => ['nullable', 'boolean'],
+            'message_limit' => ['nullable', 'integer', 'between:1,200'],
+        ]);
+        $messageLimit = (int) ($data['message_limit'] ?? 6);
+
+        $relations = [
+            'messages' => fn ($messages) => $messages
+                ->reorder()
+                ->orderByDesc('position')
+                ->limit($messageLimit),
+            'lastTrace',
+        ];
+        if (! ($data['lean'] ?? false)) {
+            $relations[] = 'activeSession';
+            $relations[] = 'activeState';
+            $relations[] = 'latestCompaction';
+            $relations[] = 'latestProviderHandoff';
+        }
+
         return response()->json([
-            'thread' => (new AiThreadResource($thread->load(['messages', 'lastTrace', 'activeSession', 'activeState', 'latestCompaction', 'latestProviderHandoff'])))->resolve(),
+            'thread' => (new AiThreadResource($thread->load($relations)))->resolve(),
+        ]);
+    }
+
+    public function messages(Request $request, AiThread $thread): JsonResponse
+    {
+        $data = $request->validate([
+            'before_position' => ['nullable', 'integer', 'min:0'],
+            'limit' => ['nullable', 'integer', 'between:1,100'],
+        ]);
+        $limit = (int) ($data['limit'] ?? 12);
+        $beforePosition = $data['before_position'] ?? null;
+
+        $messages = $thread->messages()
+            ->reorder()
+            ->when($beforePosition !== null, fn ($query) => $query->where('position', '<', $beforePosition))
+            ->orderByDesc('position')
+            ->limit($limit + 1)
+            ->get();
+
+        $hasMore = $messages->count() > $limit;
+        $window = $messages->take($limit)->sortBy('position')->values();
+        $oldest = $window->first();
+
+        return response()->json([
+            'messages' => AiMessageResource::collection($window)->resolve(),
+            'pagination' => [
+                'limit' => $limit,
+                'has_more_before' => $hasMore,
+                'oldest_position' => $oldest?->position,
+                'next_before_position' => $hasMore ? $oldest?->position : null,
+            ],
         ]);
     }
 

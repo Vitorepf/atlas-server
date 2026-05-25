@@ -29,12 +29,24 @@ class AtlasFrontendLiveSourcePatchRuntimeServiceTest extends TestCase
         $this->assertSame('accepted', $accepted['status']);
         $this->assertStringContainsString('compact elevated', file_get_contents($workspace.'/Card.tsx'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($accepted, 'session.accepted_diff_hash'));
+        $this->assertSame(AtlasFrontendLiveSourcePatchRuntimeService::DECISION_RECEIPT_SCHEMA_VERSION, data_get($accepted, 'decision_receipt.schema_version'));
+        $this->assertSame('accepted', data_get($accepted, 'decision_receipt.status'));
+        $this->assertSame(hash('sha256', 'bolder'), data_get($accepted, 'decision_receipt.accepted_variant_id_hash'));
+        $this->assertSame(data_get($accepted, 'session.accepted_diff_hash'), data_get($accepted, 'decision_receipt.accepted_diff_hash'));
+        $this->assertContains('visual_quality_gate', data_get($accepted, 'decision_receipt.required_next_gates'));
+        $this->assertContains('run_certification', data_get($accepted, 'decision_receipt.required_next_gates'));
+        $this->assertTrue((bool) data_get($accepted, 'claim_policy.live_patch_decision_is_not_delivery_evidence'));
+        $this->assertTrue((bool) data_get($accepted, 'decision_receipt.claim_policy.receipt_is_decision_evidence_not_delivery_completion'));
+        $this->assertFalse((bool) data_get($accepted, 'decision_receipt.source_policy.raw_original_or_variants_returned'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($accepted, 'decision_receipt.decision_receipt_hash'));
 
         $recovered = $runtime->recover($workspace, 'session-1');
 
         $this->assertSame('recovered', $recovered['status']);
         $this->assertSame('<button className="compact">Save</button>', file_get_contents($workspace.'/Card.tsx'));
         $this->assertCount(3, data_get($recovered, 'session.journal'));
+        $this->assertSame('recovered', data_get($recovered, 'decision_receipt.status'));
+        $this->assertContains('confirm_workspace_restored_or_prepare_new_live_patch', data_get($recovered, 'decision_receipt.required_next_gates'));
     }
 
     public function test_accept_blocks_tampered_private_session_payload(): void

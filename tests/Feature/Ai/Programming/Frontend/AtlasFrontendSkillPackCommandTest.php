@@ -24,6 +24,7 @@ class AtlasFrontendSkillPackCommandTest extends TestCase
         $this->assertSame(0, $exitCode);
         $this->assertStringContainsString(AtlasFrontendSkillPackService::SCHEMA_VERSION, $text);
         $this->assertStringContainsString('provider_safe_atlas_frontend_operating_skill', $text);
+        $this->assertStringContainsString('runtime_guardrails', $text);
         $this->assertStringContainsString('world_best_claim_allowed', $text);
         $this->assertFileExists($output.'/SKILL.md');
         $this->assertFileExists($output.'/manifest.json');

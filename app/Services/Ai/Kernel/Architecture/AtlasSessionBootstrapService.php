@@ -121,6 +121,7 @@ class AtlasSessionBootstrapService
             'architecture_operations' => $this->sessionOperations($placement['placement'] ?? []),
             'required_validation' => [
                 'git diff --check',
+                'php artisan atlas:documentation:enforce --task="<task>" --feature="<feature>" --strict --json',
                 'atlas engineering knowledge docs-health',
                 'php artisan atlas:documentation-reality score --strict --json',
                 'php artisan atlas:documentation-reality acceptance --strict --json',
@@ -243,6 +244,7 @@ class AtlasSessionBootstrapService
             'documentation_split_plan',
             'documentation_reality_score',
             'documentation_reality_acceptance_matrix',
+            'documentation_enforcement',
             'code_reality_anti_duplicate',
             'code_reality_reality_audit',
             'code_reality_reachability',

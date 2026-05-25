@@ -13,7 +13,7 @@ class AtlasFrontendRepairPlanCommand extends Command
         {--blocker=* : Gate blocker id}
         {--warning=* : Gate warning id}
         {--failed-gate=* : Failed gate id}
-        {--dimension-gap=* : Competitive dimension gap as dimension:points_to_match:delta_vs_best_rival:best_rival_score[:case_id[:best_rival_system]]}
+        {--dimension-gap=* : Competitive dimension gap as dimension:points_to_match:delta_vs_best_rival:best_rival_score[:case_id[:best_rival_system[:atlas_score[:dimension_weight]]]]}
         {--json : Emit canonical JSON payload}
         {--strict : Exit non-zero when no repair signal is provided}';
 
@@ -59,6 +59,8 @@ class AtlasFrontendRepairPlanCommand extends Command
                     'best_rival_score' => (int) ($parts[3] ?? 0),
                     'case_id' => $parts[4] ?? null,
                     'best_rival_system' => $parts[5] ?? null,
+                    'atlas_score' => (int) ($parts[6] ?? 0),
+                    'dimension_weight' => (int) ($parts[7] ?? 0),
                 ];
             })
             ->values()
