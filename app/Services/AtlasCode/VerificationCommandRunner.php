@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\AtlasCode;
 
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -36,9 +35,8 @@ final class VerificationCommandRunner
     public const SCHEMA_VERSION = 'atlas.code.verification_run.v1';
 
     public function __construct(
-        private readonly HumanDecisionReceiptSigner $signer = new HumanDecisionReceiptSigner()
-    ) {
-    }
+        private readonly HumanDecisionReceiptSigner $signer = new HumanDecisionReceiptSigner
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -195,6 +193,7 @@ final class VerificationCommandRunner
             (string) ($b['started_at'] ?? ''),
             (string) ($a['started_at'] ?? '')
         ));
+
         return $runs;
     }
 
@@ -206,6 +205,7 @@ final class VerificationCommandRunner
     {
         $result['finished_at'] = now()->toJSON();
         $this->persistEvidence($result);
+
         return $result;
     }
 
@@ -238,6 +238,7 @@ final class VerificationCommandRunner
                 return $pattern;
             }
         }
+
         return null;
     }
 
@@ -251,6 +252,7 @@ final class VerificationCommandRunner
     private function splitToArgv(string $command): array
     {
         $tokens = str_getcsv($command, ' ', '"', '\\');
+
         return array_values(array_filter(array_map(
             static fn ($t): string => is_string($t) ? trim($t) : '',
             $tokens
@@ -262,6 +264,7 @@ final class VerificationCommandRunner
         if (strlen($s) <= $max) {
             return $s;
         }
+
         return mb_substr($s, 0, $max)."\n…[truncated]";
     }
 }

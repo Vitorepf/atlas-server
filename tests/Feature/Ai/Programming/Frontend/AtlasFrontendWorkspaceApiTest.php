@@ -41,6 +41,11 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
             ->assertJsonPath('portfolio.scan_policy.discovery_model', 'local_folder_with_multiple_repositories')
             ->assertJsonPath('portfolio.summary.candidate_repo_count', 1)
             ->assertJsonPath('portfolio.summary.portfolio_dispatch_allowed', false)
+            ->assertJsonPath('portfolio.operator_flow.schema_version', 'atlas.frontend.company_portfolio.operator_flow.v1')
+            ->assertJsonPath('portfolio.operator_flow.status', 'ready_for_repository_choice')
+            ->assertJsonPath('portfolio.operator_flow.invariants.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('portfolio.operator_flow.invariants.frontend_app_is_relative_subscope_only', true)
+            ->assertJsonPath('portfolio.operator_flow.invariants.space_runtime_required', false)
             ->assertJsonPath('meta.execution_allowed', false)
             ->assertJsonPath('meta.provider_dispatch_allowed', false)
             ->assertJsonPath('meta.next_required_contract', 'atlas.frontend.selected_workspace.v1')
@@ -328,7 +333,8 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
             ->assertJsonPath('control_plane.readiness_levels.runtime_contract_ready', true)
             ->assertJsonPath('control_plane.readiness_levels.external_replay_ready', false)
             ->assertJsonPath('control_plane.readiness_levels.public_distribution_ready', false)
-            ->assertJsonPath('control_plane.claim_policy.may_claim_more_complete_than_impeccable', true)
+            ->assertJsonPath('control_plane.claim_policy.may_claim_more_complete_than_impeccable', false)
+            ->assertJsonPath('control_plane.claim_policy.private_benchmark_for_internal_improvement_only', true)
             ->assertJsonPath('control_plane.claim_policy.world_best_claim_allowed', false)
             ->assertJsonPath('control_plane.claim_policy.documentation_only_claim_forbidden', true)
             ->assertJsonPath('control_plane.signals.rival_replay.status', 'ready_for_replay')
@@ -906,6 +912,334 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
         $this->assertStringNotContainsString($output, json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
+    public function test_competitive_benchmark_plan_api_exposes_improvement_action_queue_without_claim_or_paths(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-competitive-benchmark-plan-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        $output = $repo.'/.atlas/frontend-evidence/apps-web/rival-replay';
+        $bundle = $repo.'/.atlas/frontend-evidence/apps-web/product-proof';
+
+        app(AtlasFrontendRivalReplayHarnessService::class)->writeRunnerKit($output);
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/competitive-benchmark-plan', [
+            'workspace' => $repo,
+            'frontend_app' => 'apps/web',
+            'task' => 'Planejar benchmark competitivo',
+            'rival_evidence' => $output,
+            'bundle' => $bundle,
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.competitive_benchmark_plan.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_competitive_benchmark_plan')
+            ->assertJsonPath('competitive_benchmark_plan.schema_version', 'atlas.frontend.competitive_benchmark_plan.v1')
+            ->assertJsonPath('competitive_benchmark_plan.plan_type', 'private_competitive_benchmark_and_improvement_loop')
+            ->assertJsonPath('competitive_benchmark_plan.intent.primary_rival', 'pbakaus_impeccable')
+            ->assertJsonPath('competitive_benchmark_plan.private_policy.public_claims_disabled', true)
+            ->assertJsonPath('competitive_benchmark_plan.private_policy.world_best_claim_allowed', false)
+            ->assertJsonPath('competitive_benchmark_plan.next_private_improvement_action.id', 'improve_live_visual_iteration')
+            ->assertJsonPath('competitive_benchmark_plan.next_private_work_packet.schema_version', 'atlas.frontend.private_improvement_work_packet.v1')
+            ->assertJsonPath('competitive_benchmark_plan.next_private_work_packet.target_scenario_id', 'live_visual_iteration')
+            ->assertJsonPath('competitive_benchmark_plan.next_private_work_packet.claim_policy.public_claims_disabled', true)
+            ->assertJsonPath('meta.provider_dispatch_performed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $payload = $response->json();
+        $this->assertContains('private_rival_replay_evidence_incomplete', data_get($payload, 'competitive_benchmark_plan.blockers'));
+        $this->assertContains('complete_private_rival_replay_evidence', data_get($payload, 'competitive_benchmark_plan.required_next_actions'));
+        $this->assertContains('php artisan atlas:frontend:live prepare --workspace=<repo> --file=<relative-file> --target=<exact-snippet> --variant=<id:path> --json', data_get($payload, 'competitive_benchmark_plan.next_private_work_packet.safe_execution_commands'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'competitive_benchmark_plan.competitive_benchmark_plan_hash'));
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($output, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($bundle, json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_live_source_patch_api_prepares_and_accepts_workspace_scoped_variant_file(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-live-source-patch-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        File::ensureDirectoryExists($repo.'/src/components');
+        File::put($repo.'/src/components/Hero.tsx', "export function Hero() {\n  return <button>Checkout</button>;\n}\n");
+        File::ensureDirectoryExists($repo.'/.atlas/frontend-live/variants');
+        File::put($repo.'/.atlas/frontend-live/variants/hero-premium.tsx', 'return <button className="premium">Checkout seguro</button>;');
+
+        $prepare = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/live-source-patch', [
+            'workspace' => $repo,
+            'action' => 'prepare',
+            'file' => 'src/components/Hero.tsx',
+            'target' => 'return <button>Checkout</button>;',
+            'variants' => [
+                ['id' => 'premium', 'path' => '.atlas/frontend-live/variants/hero-premium.tsx'],
+            ],
+            'visual_selection' => [
+                'route' => '/checkout',
+                'selector' => '[data-testid="checkout-cta"]',
+                'text_excerpt' => 'Checkout private cart draft',
+                'component_hint' => 'CheckoutHeroCta',
+                'screenshot_hash' => str_repeat('b', 64),
+                'confidence' => 0.94,
+                'bounding_box' => ['x' => 32, 'y' => 128, 'width' => 220, 'height' => 48],
+                'viewport' => ['width' => 1440, 'height' => 900],
+            ],
+            'session' => 'hero-premium-session',
+        ]);
+
+        $prepare
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.live_source_patch.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_live_source_patch')
+            ->assertJsonPath('live_source_patch.schema_version', 'atlas.frontend.live_source_patch_result.v1')
+            ->assertJsonPath('live_source_patch.operation', 'prepared')
+            ->assertJsonPath('live_source_patch.status', 'prepared')
+            ->assertJsonPath('live_source_patch.session.variant_count', 1)
+            ->assertJsonPath('live_source_patch.session.variants.0.id', 'premium')
+            ->assertJsonPath('live_source_patch.session.visual_selection.status', 'provided')
+            ->assertJsonPath('live_source_patch.session.visual_selection.bounding_box.width', 220)
+            ->assertJsonPath('live_source_patch.session.visual_selection.viewport.height', 900)
+            ->assertJsonPath('live_source_patch.session.visual_selection.policy.raw_text_returned', false)
+            ->assertJsonPath('live_source_patch.decision_receipt.schema_version', 'atlas.frontend.live_source_patch_decision_receipt.v1')
+            ->assertJsonPath('live_source_patch.decision_receipt.visual_selection_status', 'provided')
+            ->assertJsonPath('live_source_patch.decision_receipt.claim_policy.receipt_is_decision_evidence_not_delivery_completion', true)
+            ->assertJsonPath('live_source_patch.decision_receipt.claim_policy.visual_selection_is_not_visual_quality_proof', true)
+            ->assertJsonPath('meta.provider_dispatch_allowed', false)
+            ->assertJsonPath('meta.frontend_completion_claim_allowed', false)
+            ->assertJsonPath('meta.selected_repository_is_primary_workspace', true)
+            ->assertJsonPath('meta.frontend_app_is_subscope_only', true)
+            ->assertJsonPath('meta.space_runtime_required', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $preparePayload = $prepare->json();
+        $prepareJson = json_encode($preparePayload, JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString('Checkout seguro', $prepareJson);
+        $this->assertStringNotContainsString('[data-testid="checkout-cta"]', $prepareJson);
+        $this->assertStringNotContainsString('Checkout private cart draft', $prepareJson);
+        $this->assertStringNotContainsString('CheckoutHeroCta', $prepareJson);
+        $this->assertStringNotContainsString('/checkout', $prepareJson);
+        $this->assertStringNotContainsString($repo, $prepareJson);
+        $this->assertStringNotContainsString($root, $prepareJson);
+        $this->assertStringNotContainsString($repo.'/.atlas/frontend-live/variants/hero-premium.tsx', $prepareJson);
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($preparePayload, 'live_source_patch.result_hash'));
+
+        $accept = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/live-source-patch', [
+            'workspace' => $repo,
+            'action' => 'accept',
+            'session' => 'hero-premium-session',
+            'accept_variant' => 'premium',
+        ]);
+
+        $accept
+            ->assertOk()
+            ->assertJsonPath('live_source_patch.operation', 'accepted')
+            ->assertJsonPath('live_source_patch.status', 'accepted')
+            ->assertJsonPath('live_source_patch.decision_receipt.status', 'accepted')
+            ->assertJsonPath('live_source_patch.decision_receipt.source_policy.raw_original_or_variants_returned', false)
+            ->assertJsonPath('live_source_patch.claim_policy.accepted_live_patch_requires_visual_quality_gate', true)
+            ->assertJsonPath('live_source_patch.claim_policy.accepted_live_patch_requires_run_certification_before_completion_claim', true)
+            ->assertJsonPath('meta.frontend_completion_claim_allowed', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $this->assertStringContainsString('Checkout seguro', File::get($repo.'/src/components/Hero.tsx'));
+    }
+
+    public function test_live_source_patch_api_rejects_variant_file_outside_workspace(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-live-source-patch-outside-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        File::ensureDirectoryExists($repo.'/src/components');
+        File::put($repo.'/src/components/Hero.tsx', "export function Hero() {\n  return <button>Checkout</button>;\n}\n");
+        $outside = sys_get_temp_dir().'/atlas-live-source-outside-'.bin2hex(random_bytes(4)).'.tsx';
+        File::put($outside, 'return <button>Outside</button>;');
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/live-source-patch', [
+            'workspace' => $repo,
+            'action' => 'prepare',
+            'file' => 'src/components/Hero.tsx',
+            'target' => 'return <button>Checkout</button>;',
+            'variants' => [
+                ['id' => 'outside', 'path' => $outside],
+            ],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.live_source_patch.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_live_source_patch')
+            ->assertJsonPath('live_source_patch.status', 'failed')
+            ->assertJsonPath('live_source_patch.error', 'variant_file_outside_workspace')
+            ->assertJsonPath('meta.provider_dispatch_allowed', false)
+            ->assertJsonPath('meta.frontend_completion_claim_allowed', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $payloadJson = json_encode($response->json(), JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString($repo, $payloadJson);
+        $this->assertStringNotContainsString($root, $payloadJson);
+        $this->assertStringNotContainsString($outside, $payloadJson);
+    }
+
+    public function test_live_source_patch_api_accepts_browser_bridge_prehashed_visual_selection(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-live-source-patch-browser-selection-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        File::ensureDirectoryExists($repo.'/src/components');
+        File::put($repo.'/src/components/Hero.tsx', "export function Hero() {\n  return <button>Checkout</button>;\n}\n");
+        File::ensureDirectoryExists($repo.'/.atlas/frontend-live/variants');
+        File::put($repo.'/.atlas/frontend-live/variants/hero-premium.tsx', 'return <button class="premium">Checkout seguro</button>;');
+        $selectorHash = str_repeat('c', 64);
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/live-source-patch', [
+            'workspace' => $repo,
+            'action' => 'prepare',
+            'file' => 'src/components/Hero.tsx',
+            'target' => 'return <button>Checkout</button>;',
+            'variants' => [
+                ['id' => 'premium', 'path' => '.atlas/frontend-live/variants/hero-premium.tsx'],
+            ],
+            'visual_selection' => [
+                'route_hash' => str_repeat('b', 64),
+                'selector_hash' => $selectorHash,
+                'text_excerpt_hash' => str_repeat('d', 64),
+                'component_hint_hash' => str_repeat('e', 64),
+                'bounding_box' => ['x' => 21, 'y' => 45, 'width' => 180, 'height' => 44],
+                'viewport' => ['width' => 1280, 'height' => 720],
+                'confidence' => 0.82,
+            ],
+            'session' => 'hero-browser-selection-session',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('live_source_patch.status', 'prepared')
+            ->assertJsonPath('live_source_patch.session.visual_selection.status', 'provided')
+            ->assertJsonPath('live_source_patch.session.visual_selection.selector_hash', $selectorHash)
+            ->assertJsonPath('live_source_patch.session.visual_selection.bounding_box.width', 180)
+            ->assertJsonPath('live_source_patch.decision_receipt.visual_selection_status', 'provided')
+            ->assertJsonPath('live_source_patch.decision_receipt.claim_policy.visual_selection_is_not_visual_quality_proof', true)
+            ->assertJsonPath('meta.frontend_completion_claim_allowed', false);
+
+        $payloadJson = json_encode($response->json(), JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString($repo, $payloadJson);
+        $this->assertStringNotContainsString($root, $payloadJson);
+    }
+
+    public function test_live_visual_selection_api_records_and_recovers_provider_safe_session_inbox(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-live-visual-selection-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        $selectorHash = str_repeat('a', 64);
+
+        $record = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/live-visual-selection', [
+            'workspace' => $repo,
+            'action' => 'record',
+            'session' => 'checkout-session',
+            'selection' => [
+                'route' => '/checkout/private',
+                'selector_hash' => $selectorHash,
+                'text_excerpt' => 'Checkout private cart draft',
+                'component_hint' => 'CheckoutHeroCta',
+                'screenshot_hash' => str_repeat('b', 64),
+                'confidence' => 0.88,
+                'bounding_box' => ['x' => 14, 'y' => 40, 'width' => 180, 'height' => 44],
+                'viewport' => ['width' => 1280, 'height' => 720],
+            ],
+        ]);
+
+        $record
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.live_visual_selection.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_live_visual_selection')
+            ->assertJsonPath('live_visual_selection.schema_version', 'atlas.frontend.live_visual_selection_inbox.v1')
+            ->assertJsonPath('live_visual_selection.status', 'recorded')
+            ->assertJsonPath('live_visual_selection.selection.schema_version', 'atlas.frontend.live_visual_selection.v1')
+            ->assertJsonPath('live_visual_selection.selection.selector_hash', $selectorHash)
+            ->assertJsonPath('live_visual_selection.selection.bounding_box.width', 180)
+            ->assertJsonPath('live_visual_selection.selection.viewport.height', 720)
+            ->assertJsonPath('live_visual_selection.selection.policy.raw_text_returned', false)
+            ->assertJsonPath('live_visual_selection.source_policy.provider_safe_only', true)
+            ->assertJsonPath('live_visual_selection.source_policy.selection_is_not_visual_quality_proof', true)
+            ->assertJsonPath('meta.provider_dispatch_allowed', false)
+            ->assertJsonPath('meta.frontend_completion_claim_allowed', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $latest = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/live-visual-selection', [
+            'workspace' => $repo,
+            'action' => 'latest',
+            'session' => 'checkout-session',
+        ]);
+
+        $latest
+            ->assertOk()
+            ->assertJsonPath('live_visual_selection.status', 'found')
+            ->assertJsonPath('live_visual_selection.selection.selector_hash', $selectorHash)
+            ->assertJsonPath('live_visual_selection.source_policy.absolute_path_returned', false);
+
+        $payloadJson = json_encode($latest->json(), JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString('/checkout/private', $payloadJson);
+        $this->assertStringNotContainsString('Checkout private cart draft', $payloadJson);
+        $this->assertStringNotContainsString('CheckoutHeroCta', $payloadJson);
+        $this->assertStringNotContainsString($repo, $payloadJson);
+        $this->assertStringNotContainsString($root, $payloadJson);
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($latest->json(), 'live_visual_selection.inbox_hash'));
+    }
+
+    public function test_live_target_suggestions_api_finds_operator_local_patch_target_without_absolute_paths(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-live-target-suggestions-'.bin2hex(random_bytes(4));
+        $repo = $this->frontendRepo($root, 'atlas-shop');
+        File::ensureDirectoryExists($repo.'/src/components');
+        File::put($repo.'/src/components/CheckoutHeroCta.tsx', <<<'TSX'
+export function CheckoutHeroCta() {
+  return <button data-testid="checkout-cta">Checkout private cart draft</button>
+}
+TSX);
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/frontend/live-target-suggestions', [
+            'workspace' => $repo,
+            'session' => 'checkout-session',
+            'file_hint' => 'CheckoutHeroCta',
+            'max_candidates' => 3,
+            'visual_selection' => [
+                'selector' => 'checkout-cta',
+                'text_excerpt' => 'Checkout private cart draft',
+                'component_hint' => 'CheckoutHeroCta',
+                'confidence' => 0.92,
+                'bounding_box' => ['x' => 14, 'y' => 40, 'width' => 180, 'height' => 44],
+                'viewport' => ['width' => 1280, 'height' => 720],
+            ],
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.frontend.workspace_api.live_target_suggestions.v1')
+            ->assertJsonPath('surface', 'atlas_code_frontend_live_target_suggestions')
+            ->assertJsonPath('live_target_suggestions.schema_version', 'atlas.frontend.live_target_suggestions.v1')
+            ->assertJsonPath('live_target_suggestions.status', 'suggested')
+            ->assertJsonPath('live_target_suggestions.candidate_count', 1)
+            ->assertJsonPath('live_target_suggestions.candidates.0.file', 'src/components/CheckoutHeroCta.tsx')
+            ->assertJsonPath('live_target_suggestions.candidates.0.target_occurrence_count', 1)
+            ->assertJsonPath('live_target_suggestions.candidates.0.can_prepare_directly', true)
+            ->assertJsonPath('live_target_suggestions.candidates.0.operator_local', true)
+            ->assertJsonPath('live_target_suggestions.candidates.0.target_snippet_is_not_provider_safe', true)
+            ->assertJsonPath('live_target_suggestions.policy.operator_local_target_snippet_returned', true)
+            ->assertJsonPath('live_target_suggestions.policy.target_snippet_is_not_provider_safe', true)
+            ->assertJsonPath('live_target_suggestions.policy.provider_dispatch_allowed', false)
+            ->assertJsonPath('live_target_suggestions.policy.absolute_path_returned', false)
+            ->assertJsonPath('live_target_suggestions.policy.suggestion_is_not_delivery_evidence', true)
+            ->assertJsonPath('meta.provider_dispatch_allowed', false)
+            ->assertJsonPath('meta.frontend_completion_claim_allowed', false)
+            ->assertJsonPath('meta.world_best_claim_allowed', false);
+
+        $payload = $response->json();
+        $this->assertStringContainsString('<button data-testid="checkout-cta">Checkout private cart draft</button>', (string) data_get($payload, 'live_target_suggestions.candidates.0.target_snippet'));
+        $this->assertStringNotContainsString($repo, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($root, json_encode($payload, JSON_THROW_ON_ERROR));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'live_target_suggestions.suggestions_hash'));
+    }
+
     public function test_publication_receipt_template_api_writes_operator_template_without_returning_paths(): void
     {
         $root = sys_get_temp_dir().'/atlas-frontend-workspace-api-publication-template-'.bin2hex(random_bytes(4));
@@ -1002,11 +1336,14 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
     private function frontendRepo(string $root, string $name): string
     {
         $workspace = $root.'/'.$name;
+        File::ensureDirectoryExists($workspace.'/src/components/ui');
         File::ensureDirectoryExists($workspace.'/src/pages');
         File::put($workspace.'/pnpm-lock.yaml', 'lockfileVersion: 9.0');
         File::put($workspace.'/index.html', '<div id="root"></div>');
         File::put($workspace.'/src/main.tsx', 'import React from "react";');
         File::put($workspace.'/src/pages/Dashboard.tsx', 'export function Dashboard() { return <main />; }');
+        File::put($workspace.'/src/components/ui/Button.tsx', 'export function Button() { return <button className="bg-primary text-white" />; }');
+        File::put($workspace.'/src/styles.css', ':root { --color-primary: #123456; --space-2: 8px; }');
         File::put($workspace.'/package.json', json_encode([
             'scripts' => [
                 'dev' => 'vite --host 127.0.0.1',
@@ -1017,6 +1354,7 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
             'dependencies' => [
                 'react' => '^latest',
                 'vite' => '^latest',
+                'tailwindcss' => '^latest',
             ],
         ], JSON_THROW_ON_ERROR));
 
@@ -1183,10 +1521,10 @@ class AtlasFrontendWorkspaceApiTest extends TestCase
      */
     private function filledDocument(string $title, array $sections): string
     {
-        $body = ['# '.$title, '', 'Status: filled'];
+        $body = ['# '.$title, '', 'Status: canonical'];
         foreach ($sections as $section) {
             $body[] = '## '.$section;
-            $body[] = 'Concrete company-specific context for '.$section.'.';
+            $body[] = 'Approved design context for premium company frontend work, including product goals, UX constraints, visual quality bars, interaction states, accessibility expectations, responsive behavior, and measurable evidence required before delivery.';
         }
 
         return implode("\n\n", $body)."\n";

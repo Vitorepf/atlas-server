@@ -2,7 +2,7 @@
 id: atlas-super-tool-runtime-core
 type: engineering_knowledge
 title: Atlas Super Tool Runtime Core
-status: active
+status: source_material
 category: architecture
 priority: 98
 summary: Fundacao transversal para registrar, governar, executar, normalizar e persistir evidencias de ferramentas locais ou project-local usadas pelo Atlas.

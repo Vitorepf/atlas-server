@@ -269,24 +269,6 @@ Hash determinstico via `CyberCanonicalHash::sha256(...)` em cada artifact
 (`engagement_hash`, `rules_hash`, `review_hash`, `mapping_hash`, `plan_hash`,
 `intake_hash`, `entry_hash`).
 
-## Fluxo
-
-1. `CyberEngagementIntakeService::intake()` cria engagement e valida
-   authorization para authorized_bug_bounty.
-2. `CyberScopeRulesOfEngagementService::define()` documenta in/out of scope,
-   allowed/forbidden techniques, escalation contacts.
-3. `AppSecReviewService::review()` registra OWASP + findings + risk_score.
-4. `GRCMappingService::map()` mapeia controle de framework GRC.
-5. `RemediationPlanService::propose()` exige findings_refs, actions, owners,
-   timeline.
-6. `DefensiveSecurityReviewService::review()` registra revisao defensiva.
-7. `AuthorizedBugBountyIntakeService::intake()` aplica os 5 gates de
-   autorizacao.
-8. `CyberEvidenceChainService::append()` registra cada passo na chain SHA-256
-   encadeada.
-9. `CyberRuntimeService::driveDefensiveReview()` orquestra o ciclo e chama
-   `CertificationRuntimeService::certify()` quando Meta 4 esta presente.
-
 ## Refusal Matrix (offensive verbs blocked)
 
 `CyberRuntimeService::FORBIDDEN_OFFENSIVE_VERBS`:
@@ -333,7 +315,7 @@ Kinds suportados: `authorization`, `scope`, `roe`, `legal_review`,
 `privacy_review`, `appsec_review`, `grc_evidence`, `defensive_review`,
 `remediation`, `bug_bounty_intake`, `operator_decision`.
 
-## Fluxo Canonico
+## Fluxo
 
 1. `CyberEngagementIntakeService::intake()` cria engagement; bloqueia
    `authorized_bug_bounty` sem authorization_present.
@@ -379,7 +361,7 @@ operacao externa autorizada com infra propria.
 - `CyberDomainSmokeTest`: chain completo -> engagement=authorized,
   bounty=authorized, evidence_chain_integrity=true, certification=passed.
 - `CyberDomainOffensiveGuardsTest`: refusal matrix bloqueia execute_*.
-- `CyberDomainBugBountyIntakeTest`: 5 gates aplicados; falta de qualquer um
+- `CyberDomainBugBountyIntakeTest`: 5 gates aplicados; qualquer gate ausente
   bloqueia.
 - `CyberDomainEvidenceChainTest`: chain encadeado + verify.
 

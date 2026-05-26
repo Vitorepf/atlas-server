@@ -39,16 +39,27 @@ class AtlasSelfImprovementClosedLoopService
     // operator's CURRENT stage (the furthest completed) and reports it
     // alongside the full stage map so the UI can render a pipeline.
     public const STAGE_PROPOSAL_CAPTURED = 'proposal_captured';
+
     public const STAGE_POWER_GATE_EVALUATED = 'power_gate_evaluated';
+
     public const STAGE_HUMAN_APPROVED = 'human_approved';
+
     public const STAGE_ACTIVATION_CREATED = 'activation_created';
+
     public const STAGE_OBRA_CREATED = 'obra_created';
+
     public const STAGE_FORGE_EXECUTED = 'forge_executed';
+
     public const STAGE_EVIDENCE_COLLECTED = 'evidence_collected';
+
     public const STAGE_HUMAN_REVIEWED = 'human_reviewed';
+
     public const STAGE_DELTA_MEASURED = 'delta_measured';
+
     public const STAGE_TRUST_UPDATED = 'trust_updated';
+
     public const STAGE_LEARNING_RECORDED = 'learning_recorded';
+
     public const STAGE_NEXT_CYCLE_RECOMMENDED = 'next_cycle_recommended';
 
     /** @var list<string> */

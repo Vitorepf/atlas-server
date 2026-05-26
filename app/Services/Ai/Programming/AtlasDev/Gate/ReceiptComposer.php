@@ -6,13 +6,13 @@ namespace App\Services\Ai\Programming\AtlasDev\Gate;
 
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CostSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\EscalationSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\EvidenceRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GateOutcome;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\RepairSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
@@ -27,7 +27,7 @@ final class ReceiptComposer
 {
     /**
      * @param  array<string, string>  $fileHashes  optional precomputed file_hashes
-     * @param  list<EvidenceRef>      $extraEvidenceRefs  extra refs (e.g. diff artifact)
+     * @param  list<EvidenceRef>  $extraEvidenceRefs  extra refs (e.g. diff artifact)
      */
     public function compose(
         OperationEnvelope $envelope,

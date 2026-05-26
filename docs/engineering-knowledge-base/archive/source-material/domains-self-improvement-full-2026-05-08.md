@@ -2,7 +2,7 @@
 id: atlas-ai-self-improvement-domain
 type: engineering_knowledge
 title: Atlas AI Self-Improvement Domain
-status: active
+status: source_material
 category: architecture
 priority: 96
 summary: Spec canonica do dominio implemented/ready self_improvement para auditoria, aprendizado operacional, proposals e melhoria continua do Atlas.

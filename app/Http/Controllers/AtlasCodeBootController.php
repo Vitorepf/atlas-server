@@ -8,6 +8,7 @@ use App\Services\Ai\AtlasOpenBrainMcpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Atlas Code · unified boot snapshot.
@@ -69,8 +70,8 @@ final class AtlasCodeBootController extends Controller
         $storageWritable = false;
         $storagePath = (string) config('atlas.storage_path');
         try {
-            $disk = \Illuminate\Support\Facades\Storage::disk('atlas');
-            $probe = '.boot/' . now()->format('YmdHisv') . '-' . bin2hex(random_bytes(3)) . '.txt';
+            $disk = Storage::disk('atlas');
+            $probe = '.boot/'.now()->format('YmdHisv').'-'.bin2hex(random_bytes(3)).'.txt';
             $disk->put($probe, 'ok');
             $storageWritable = $disk->exists($probe);
             $disk->delete($probe);
@@ -105,6 +106,7 @@ final class AtlasCodeBootController extends Controller
                 // table exists but schema mismatch — leave zeros, anti-mock canon
             }
         }
+
         return [
             'available' => $available,
             'degraded' => $degraded,
@@ -116,6 +118,7 @@ final class AtlasCodeBootController extends Controller
     private function mcp(): array
     {
         $enabled = (bool) config('atlas.open_brain.mcp.http_enabled', true);
+
         return [
             'server' => 'atlas-open-brain',
             'protocol_version' => AtlasOpenBrainMcpService::PROTOCOL_VERSION,
@@ -143,9 +146,10 @@ final class AtlasCodeBootController extends Controller
     private function workspace(): array
     {
         $cwd = (string) getcwd();
+
         return [
             'cwd' => $cwd,
-            'is_git' => is_dir($cwd . '/.git'),
+            'is_git' => is_dir($cwd.'/.git'),
         ];
     }
 
@@ -169,6 +173,7 @@ final class AtlasCodeBootController extends Controller
                 $failed = 0;
             }
         }
+
         return [
             'connection' => $connection,
             'pending' => $pending,

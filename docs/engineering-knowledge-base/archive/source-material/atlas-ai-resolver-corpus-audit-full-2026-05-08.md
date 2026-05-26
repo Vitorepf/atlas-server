@@ -2,7 +2,7 @@
 id: atlas-ai-resolver-corpus-audit
 type: engineering_knowledge
 title: Atlas AI Resolver Corpus Audit
-status: active
+status: source_material
 category: architecture
 priority: 99
 summary: Auditoria do corpus resolver-o-que-vale-a-pena, separando documentos que devem virar autoridade canonica, material de referencia e ideias futuras para a arquitetura mae do Atlas AI.

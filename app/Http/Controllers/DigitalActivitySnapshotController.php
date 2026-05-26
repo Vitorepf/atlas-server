@@ -7,8 +7,8 @@ use App\Http\Requests\StoreDigitalActivitySnapshotRequest;
 use App\Http\Requests\UpdateDigitalActivitySnapshotRequest;
 use App\Http\Resources\DigitalActivitySnapshotResource;
 use App\Models\DigitalActivitySnapshot;
-use App\Services\Digital\DigitalActivitySnapshotBuilder;
 use App\Services\Digital\DigitalActivityQuality;
+use App\Services\Digital\DigitalActivitySnapshotBuilder;
 use App\Support\Metadata;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -16,9 +16,7 @@ use Illuminate\Http\Request;
 
 class DigitalActivitySnapshotController extends Controller
 {
-    public function __construct(private readonly DigitalActivityQuality $quality)
-    {
-    }
+    public function __construct(private readonly DigitalActivityQuality $quality) {}
 
     public function rebuild(Request $request, DigitalActivitySnapshotBuilder $builder): JsonResponse
     {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\AtlasVoxRivalsCase;
 use App\Services\Ai\Vox\Audit\VoxV3HardeningAuditService;
 use App\Services\Ai\Vox\Gate\VoxV3CertificationPackService;
 use App\Services\Ai\Vox\Gate\VoxV3PromotionGateService;
@@ -80,7 +81,7 @@ final class AtlasAiVoxMetricsController extends Controller
             throw ValidationException::withMessages(['rivals' => $e->getMessage()]);
         }
 
-        /** @var \App\Models\AtlasVoxRivalsCase $case */
+        /** @var AtlasVoxRivalsCase $case */
         $case = $result['case'];
 
         return response()->json([

@@ -6,7 +6,6 @@ use App\Models\AiThread;
 use App\Models\AtlasProject;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /**
  * Atlas Code · sessions for an obra.
@@ -105,6 +104,7 @@ class AtlasCodeSessionController extends Controller
     private function guessOrigin(AiThread $thread): string
     {
         $surface = (string) ($thread->surface ?? '');
+
         return match (true) {
             str_contains($surface, 'voice') => 'voice',
             str_contains($surface, 'cli') => 'cli',

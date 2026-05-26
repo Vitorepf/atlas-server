@@ -35,11 +35,15 @@ class AtlasSelfImprovementRegressionSentinelService
     public const SCHEMA_VERSION = 'atlas.self_improvement.regression_sentinel.v1';
 
     public const STATUS_CLEAR = 'clear';
+
     public const STATUS_FINDINGS = 'findings';
+
     public const STATUS_BLOCKED = 'blocked';
 
     public const SEVERITY_INFO = 'info';
+
     public const SEVERITY_WARN = 'warn';
+
     public const SEVERITY_SEVERE = 'severe';
 
     /**

@@ -6,6 +6,8 @@ status: active
 category: atlas-ai
 priority: 100
 summary: Estado vivo e auditavel do Autonomous Intelligence OS, mostrando missoes, dominios, ferramentas, custos, safety gates, evidencias, blockers, outcomes, next actions e certificacoes. Meta 9 backend (aggregate read-model + REST + CLI) implementada 2026-05-18.
+implementation_status: active_backend_read_model
+implementation_boundary: cli_api_services_routes_tests_ready_frontend_surface_future
 tags:
   - atlas-ai
   - control-plane
@@ -106,7 +108,8 @@ observability_signals:
   - cost_total
   - certifications
 next_actions:
-  - Criar read model JSON.
+  - Manter parity entre CLI/API e services quando novos runtimes entrarem.
+  - Criar tela visual depois do backend sem duplicar regras do read model.
 line_limit: 520
 ---
 # Atlas Autonomous Control Plane
@@ -133,6 +136,17 @@ Meta 9 backend entregue 2026-05-18 como read-model agregador tolerante.
 - 8 feature tests em `tests/Feature/Ai/ControlPlane/` (25 testes / 108
   asserções verdes) cobrindo readiness/snapshot/blockers/next-actions/mission/
   api/tolerance/smoke.
+
+Status de autoridade vs implementacao:
+
+- `status: active` significa que este doc governa o backend Control Plane
+  ja implementado: services, CLI, API, rotas e testes.
+- `implementation_status: active_backend_read_model` significa que o
+  read model backend esta operacional; tela visual/produto pode evoluir,
+  mas nao pode criar regra paralela fora dos services canônicos.
+- A lista de estados abaixo e vocabulario runtime canonico de mission/control
+  plane, nao roadmap documental nem permissao para IA tratar `planned` como
+  doc antiga.
 
 Tolerancia: cada per-runtime service usa `Schema::hasTable()` + verificacao de
 classe + try/catch. Runtime ausente vira `component.status = missing|degraded`,
@@ -241,12 +255,16 @@ campanhas, custos, analytics, blockers, evidencias e proxima acao.
 
 ## Proximas Acoes
 
-1. Criar schema de control plane.
-2. Criar command JSON.
-3. Criar tela depois do backend.
+1. Manter CLI/API/services em parity quando novos runtimes entrarem no
+   snapshot.
+2. Adicionar tela visual ou surface Desktop consumindo o backend existente,
+   sem duplicar regras de readiness, blockers ou next-actions.
+3. Expandir action `runtime` e `snapshot` conforme novos receipts reais
+   chegarem ao Evidence Ledger.
 
 ## Definition of Done
 
-Esta pronto quando qualquer IA consegue ler o control plane e saber o que esta
-rodando, o que bloqueou, quais evidencias existem e qual a proxima acao.
-
+Backend Control Plane esta pronto quando qualquer IA consegue ler CLI/API e
+saber o que esta rodando, o que bloqueou, quais evidencias existem e qual a
+proxima acao. A surface visual e melhoria de produto sobre o backend, nao
+condicao para chamar o read model backend de ativo.

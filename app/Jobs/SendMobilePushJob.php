@@ -23,8 +23,7 @@ class SendMobilePushJob implements ShouldQueue
         public readonly string $deliveryId,
         public readonly string $deviceId,
         public readonly array $payload,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<int,int>

@@ -11,7 +11,9 @@ class AtlasProjectBlocker extends Model
     use HasUuids;
 
     public const STATUSES = ['open', 'resolved', 'cancelled'];
+
     public const SEVERITIES = ['low', 'medium', 'high'];
+
     public const REASON_CODES = [
         'unclear',
         'too_large',

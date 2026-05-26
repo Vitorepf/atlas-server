@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 
 /**
  * Deterministic R0..R5 risk scorer.
@@ -22,10 +22,15 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 class RiskLevelScorer
 {
     public const R0 = 'R0';
+
     public const R1 = 'R1';
+
     public const R2 = 'R2';
+
     public const R3 = 'R3';
+
     public const R4 = 'R4';
+
     public const R5 = 'R5';
 
     public const LEVELS = [self::R0, self::R1, self::R2, self::R3, self::R4, self::R5];

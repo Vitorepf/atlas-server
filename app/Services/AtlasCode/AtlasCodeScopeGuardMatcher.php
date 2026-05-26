@@ -78,6 +78,7 @@ final class AtlasCodeScopeGuardMatcher
                 $out[] = ['file' => $this->normalizePath($raw), 'reason' => $decision['reason']];
             }
         }
+
         return $out;
     }
 
@@ -110,6 +111,7 @@ final class AtlasCodeScopeGuardMatcher
                 $matched = ! $negated;
             }
         }
+
         return $matched;
     }
 
@@ -119,6 +121,7 @@ final class AtlasCodeScopeGuardMatcher
         // NOT support `**`. We pre-translate `**` to a regex slot, then run
         // the comparison via regex.
         $regex = $this->patternToRegex($pattern);
+
         return preg_match($regex, $path) === 1;
     }
 
@@ -138,16 +141,19 @@ final class AtlasCodeScopeGuardMatcher
                     $out .= '/?';
                     $i++;
                 }
+
                 continue;
             }
             if ($c === '*') {
                 $out .= '[^/]*';
                 $i++;
+
                 continue;
             }
             if ($c === '?') {
                 $out .= '[^/]';
                 $i++;
+
                 continue;
             }
             if ($c === '[') {
@@ -159,12 +165,14 @@ final class AtlasCodeScopeGuardMatcher
                 if ($j < $len) {
                     $out .= '['.substr($pattern, $i + 1, $j - $i - 1).']';
                     $i = $j + 1;
+
                     continue;
                 }
             }
             $out .= preg_quote($c, '#');
             $i++;
         }
+
         return '#^'.$out.'$#u';
     }
 
@@ -181,6 +189,7 @@ final class AtlasCodeScopeGuardMatcher
         $clean = str_replace('\\', '/', $clean);
         // Collapse duplicate slashes
         $clean = preg_replace('#/+#', '/', $clean) ?? $clean;
+
         return $clean;
     }
 
@@ -194,6 +203,7 @@ final class AtlasCodeScopeGuardMatcher
         if (str_ends_with($pattern, '/')) {
             $pattern .= '**';
         }
+
         return $pattern;
     }
 }

@@ -13,9 +13,8 @@ namespace App\Services\Vault;
 final class RepoVaultReader
 {
     public function __construct(
-        private readonly FrontmatterParser $parser
-    ) {
-    }
+        private readonly VaultNoteFrontmatterParser $parser
+    ) {}
 
     /**
      * Walk the repo docs directory and build an index keyed by frontmatter

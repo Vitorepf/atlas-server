@@ -7,10 +7,10 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\Pipeline;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\IntakeNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\TaskClassification;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\TaskClassifier;
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use PHPUnit\Framework\TestCase;
 
 final class TaskClassifierTest extends TestCase

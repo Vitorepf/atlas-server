@@ -31,20 +31,31 @@ use Throwable;
 class AtlasSelfImprovementHumanTrustLedgerService
 {
     public const SCHEMA_VERSION = 'atlas.self_improvement.human_trust_ledger.v1';
+
     public const ENTRY_SCHEMA_VERSION = 'atlas.self_improvement.human_trust_ledger_entry.v1';
 
     public const METADATA_KEY = 'atlas_self_improvement_human_trust_ledger';
+
     public const MAX_ENTRIES = 100;
+
     public const DEDUPE_WINDOW_SECONDS = 30;
 
     public const OUTCOME_PROPOSAL_APPROVED = 'proposal_approved';
+
     public const OUTCOME_PROPOSAL_REJECTED = 'proposal_rejected';
+
     public const OUTCOME_PROPOSAL_REVISED = 'proposal_revised';
+
     public const OUTCOME_AUTOPROMOTION_ACCEPTED = 'autopromotion_accepted';
+
     public const OUTCOME_AUTOPROMOTION_REVERTED = 'autopromotion_reverted';
+
     public const OUTCOME_OVERREACH_FLAGGED = 'overreach_flagged';
+
     public const OUTCOME_OVER_CONSERVATIVE_FLAGGED = 'over_conservative_flagged';
+
     public const OUTCOME_PROPOSAL_ACCEPTED_FOR_FORGE = 'proposal_accepted_for_forge';
+
     public const OUTCOME_PROPOSAL_REJECTED_FOR_FORGE = 'proposal_rejected_for_forge';
 
     /*
@@ -55,9 +66,13 @@ class AtlasSelfImprovementHumanTrustLedgerService
      * completion claim and NEVER call a provider.
      */
     public const OUTCOME_SELF_IMPROVEMENT_MAJOR_IMPROVEMENT = 'self_improvement_major_improvement';
+
     public const OUTCOME_SELF_IMPROVEMENT_IMPROVED = 'self_improvement_improved';
+
     public const OUTCOME_SELF_IMPROVEMENT_NEUTRAL = 'self_improvement_neutral';
+
     public const OUTCOME_SELF_IMPROVEMENT_REGRESSED = 'self_improvement_regressed';
+
     public const OUTCOME_SELF_IMPROVEMENT_INVALID_EVIDENCE = 'self_improvement_invalid_evidence';
 
     /** @var list<string> */

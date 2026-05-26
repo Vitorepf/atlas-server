@@ -34,7 +34,9 @@ class AtlasSelfImprovementProposalPacketService
     public const SCHEMA_VERSION = 'atlas.self_improvement.proposal_packet.v1';
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_READY = 'ready';
+
     public const STATUS_BLOCKED = 'blocked';
 
     public const RISK_LEVELS = ['low', 'medium', 'high', 'critical'];

@@ -7,7 +7,6 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 

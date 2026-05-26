@@ -26,8 +26,8 @@ final class AgentValidationGateRepairRecommendationBuilder
 
     /**
      * @param  array<string, mixed>  $classification  output of AgentValidationGateFailureClassifier::classify()
-     * @param  array<string, mixed>  $gateResult      original evaluator result for the same gate
-     * @param  array<string, mixed>  $context         allowed_files, forbidden_files, focused_filter
+     * @param  array<string, mixed>  $gateResult  original evaluator result for the same gate
+     * @param  array<string, mixed>  $context  allowed_files, forbidden_files, focused_filter
      * @return array<string, mixed>
      */
     public function recommend(array $classification, array $gateResult, array $context = []): array

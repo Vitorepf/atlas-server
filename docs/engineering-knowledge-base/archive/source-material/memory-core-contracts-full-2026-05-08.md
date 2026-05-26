@@ -2,7 +2,7 @@
 id: atlas-memory-core-contracts
 type: engineering_knowledge
 title: Atlas Memory Core Contracts
-status: active
+status: source_material
 category: architecture
 priority: 98
 summary: Contratos formais de tabelas, refs, APIs, CLI e configuracao do Memory Core, Knowledge Base e Code Intelligence.

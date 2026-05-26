@@ -2,7 +2,7 @@
 id: atlas-ai-evolution-roadmap
 type: engineering_knowledge
 title: Atlas AI Evolution Roadmap
-status: active
+status: source_material
 category: roadmap
 priority: 95
 summary: Roadmap governado de evolucao do Atlas AI, promovido de EVOLUCAO_ATLAS.md, com foco em contexto hibrido, provider performance, self-improvement e evolucao sem subsistemas paralelos.

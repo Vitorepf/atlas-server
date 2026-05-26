@@ -13,9 +13,8 @@ namespace App\Services\Vault;
 final class ObsidianVaultReader
 {
     public function __construct(
-        private readonly FrontmatterParser $parser
-    ) {
-    }
+        private readonly VaultNoteFrontmatterParser $parser
+    ) {}
 
     /**
      * @return array<string, array{path: string, relative_path: string, frontmatter: array<string, mixed>, mtime: int, exists: true}>

@@ -24,9 +24,8 @@ decisions:
   - Esta doc consolida e referencia atlas-architecture-critical-judgment-report.md e atlas-dev-forge-relationship-critical-audit.md; nao os substitui.
   - Visao futura valida (Sovereign OS, Epistemic OS, Cartographic Knowledge OS, Next Patamar) PERMANECE intocada — `status: future` aqui significa "tese estrategica ainda nao construida", nao "obsoleta".
 maintenance:
-  - Regenerar quando integracao AiWorker -> Kernel canonico estiver entregue.
-  - Atualizar quando uma das 8 docs em "status duvidoso" for reconciliada.
-  - Atualizar quando um cluster de service-overlap for consolidado.
+  - Atualizar snapshot ACRUI quando `global-duplication-audit` ou `status-drift-audit` mudarem.
+  - Marcar contagens antigas como historicas e atualizar quando status, overlap ou legado forem reconciliados.
 related_paths:
   - docs/engineering-knowledge-base/atlas-architecture-critical-judgment-report.md
   - docs/engineering-knowledge-base/atlas-dev-forge-relationship-critical-audit.md
@@ -49,6 +48,8 @@ graph_layer: system
 graph_kind: index
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
+implementation_status: active_inventory_with_historical_snapshot_and_acrui_live_queue
+implementation_boundary: historical_2026_05_18_inventory_plus_current_acrui_read_only_cleanup_queues
 graph_source: repo
 human_name: Atlas Canonical Cleanup Inventory
 canonical_name: Atlas Canonical Cleanup Inventory
@@ -109,14 +110,14 @@ line_limit: 540
 ---
 # Atlas Canonical Cleanup Inventory
 ## Resumo
-Atlas hoje tem **601 docs canonicos** em `docs/engineering-knowledge-base/`,
-**~700+ services** em `app/Services/Ai/**`, e duas auditorias profundas
-recentes (`atlas-architecture-critical-judgment-report.md` e
-`atlas-dev-forge-relationship-critical-audit.md`, ambas de 2026-05-18) que
-ja diagnosticaram os maiores riscos.
+Atlas hoje tem **791 docs** em `docs/engineering-knowledge-base/`, sendo
+**739 canonicos** segundo ACRUI, e **2119 arquivos** em `app/Services/Ai/**`.
+As auditorias de 2026-05-18 (`atlas-architecture-critical-judgment-report.md`
+e `atlas-dev-forge-relationship-critical-audit.md`) continuam uteis, mas suas
+contagens sao snapshot historico, nao fila viva.
 Esta doc **consolida** esses diagnosticos e **adiciona inventario filesystem**
 de naming clusters e service overlaps em forma classificada e auditavel.
-Estado real (verificado por `grep`/`find` em 2026-05-18):
+Estado historico (verificado por `grep`/`find` em 2026-05-18):
 - **169 docs `active`**, **10 docs `future`**, **4 `building`**, **4
   `deprecated`**, **3 `scaffold`**, **2 `split_required`**, **4 `draft`**,
   **2 `archived`**, mais 4 entradas raras (`source_material`, `proposed`,
@@ -132,6 +133,11 @@ Estado real (verificado por `grep`/`find` em 2026-05-18):
   tambem ja implementado (3 arquivos em `app/Services/Ai/Programming/AtlasDev/Escalation/`
   e `Schemas/EscalationPacket.php`) — corrige claim original do audit
   Dev/Forge `:111-112` que dizia "0 matches".
+Snapshot vivo ACRUI em 2026-05-25: 7 stem groups, 44 archived/source-material,
+59 source-material criticos, 3288 classes, 418 comandos, 647 rotas runtime,
+5 duplicate-class groups, 30 aliases, 117 status drift, 50 legacy cleanup,
+15 RAG, 5 frontend e 39 AI confusion. Estes numeros governam a fila atual; os
+blocos abaixo explicam contexto e prioridade, nao autorizam delete automatico.
 Esta missao **NAO apaga**, **NAO move**, **NAO renomeia**. Apenas inventaria
 e propoe sequencia segura.
 ## Papel no Atlas
@@ -456,9 +462,9 @@ So **documentacao**, sem codigo. Reduz "achei que nao tinha mas tinha":
 
 ## Escopo De Implementacao
 
-Esta missao terminou quando esta doc existe + os 2 gates passam. Nenhum
-codigo de producao alterado. Nenhuma doc canonica alterada exceto este
-arquivo recem-criado.
+Este inventario e uma superficie read-only de planejamento. Ele pode atualizar
+contagens, snapshots e boundaries, mas nao implementa cleanup de codigo, nao
+remove docs e nao substitui ACRUI/global-duplication-audit como fila viva.
 
 ## Dependencias
 
@@ -473,22 +479,17 @@ arquivo recem-criado.
 Comandos usados para gerar este inventario:
 
 ```bash
-grep -h "^status: " docs/engineering-knowledge-base/*.md | sort | uniq -c | sort -rn
-grep -lE "^status: (future|planned|building|superseded|deprecated|historical|scaffold|draft)" docs/engineering-knowledge-base/*.md
-find app/Services -type f -name "*Router*.php" | sort
-find app/Services -type f -name "*Certification*Service.php" | sort
-ls app/Services/Ai/SelfConstruction/ | wc -l   # 286
-ls app/Services/Ai/Programming/ForgeRivals/ | wc -l   # 46
-grep -rln "MissionFactoryService\|FlowRouterService" app/Http app/Filament routes   # vazio
-grep -rln 'atlas\.dev_to_forge\.escalation_packet\.v1' app/   # 3 files
-grep -rln 'atlas\.dual_core\.route_decision\.v1' app/   # 3 files
+php artisan atlas:code-reality global-duplication-audit --json
+php artisan atlas:code-reality status-drift-audit --json
+find app/Services -type f -name "*Router*.php" -o -name "*Certification*Service.php"
+grep -rln 'atlas\.dev_to_forge\.escalation_packet\.v1' app/
 ```
 
 ## Riscos
 
 1. Deletar visao futura — mitigado por "Nunca Remover".
 2. Cleanup gera regressao — mitigado priorizando P1 (so doc) antes de P3 (codigo).
-3. Audit Phase 2 envelhece — regenerar este doc apos cada P0 entregue.
+3. Audit Phase 2 envelhece — atualizar snapshot ACRUI apos cada P0/P1 entregue.
 4. Naming consolidation muda imports — exige teste verde + grep de callers.
 
 ## Exemplos
@@ -513,4 +514,4 @@ Operador escolhe item P0/P1 para abrir AP individual. Cada AP completada
 - Lista "Nunca Remover" explicita (✅).
 - `docs-health --json` sem violacao para este arquivo (✅).
 - `git diff --check` passa (✅).
-- Nenhuma doc existente alterada (✅).
+- Snapshot ACRUI atual documentado sem autorizar delete automatico (✅).

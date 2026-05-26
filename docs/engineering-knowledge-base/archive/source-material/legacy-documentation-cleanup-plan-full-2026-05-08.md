@@ -2,7 +2,7 @@
 id: legacy-documentation-cleanup-plan
 type: engineering_knowledge
 title: Legacy Documentation Cleanup Plan
-status: active
+status: source_material
 category: documentation-governance
 priority: 90
 summary: Plano seguro e estado atual das ondas de promocao, merge, arquivo e eventual remocao de documentacao legacy do Atlas.

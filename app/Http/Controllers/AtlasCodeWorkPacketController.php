@@ -22,9 +22,7 @@ use Throwable;
  */
 final class AtlasCodeWorkPacketController extends Controller
 {
-    public function __construct(private readonly AtlasCodeWorkPacketService $packets)
-    {
-    }
+    public function __construct(private readonly AtlasCodeWorkPacketService $packets) {}
 
     public function index(AtlasProject $project): JsonResponse
     {
@@ -61,6 +59,7 @@ final class AtlasCodeWorkPacketController extends Controller
         ]);
 
         $packet = $this->packets->create($project, $data);
+
         return response()->json(['packet' => $packet], 201);
     }
 
@@ -70,6 +69,7 @@ final class AtlasCodeWorkPacketController extends Controller
         if ($row === null) {
             return response()->json(['error' => 'work_packet_not_found', 'packet' => $packet], 404);
         }
+
         return response()->json(['packet' => $row]);
     }
 
@@ -88,6 +88,7 @@ final class AtlasCodeWorkPacketController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+
         return response()->json([
             'packet' => $result['packet'],
             'prompt' => $result['prompt'],

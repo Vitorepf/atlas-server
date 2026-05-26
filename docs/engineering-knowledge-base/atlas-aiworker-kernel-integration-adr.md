@@ -5,7 +5,9 @@ title: Atlas AiWorker to Kernel Integration ADR
 status: active
 category: architecture
 priority: 99
-summary: ADR ativo que governa a integracao do path real de prompts HTTP (AiInteractionController -> AiGatewayService -> AiJob -> AiWorker -> AiProviderManager -> AtlasProgrammingOrchestrator) ao Kernel canonico. Phase 1 persiste payload.kernel; Phase 4 registra PermissionGate warn-only; Phase 5 anexa evidence ao Mission; Phase 6 roda certification gate e completa Mission somente com evidence/certification passed.
+summary: ADR ativo que governa a integracao do path real de prompts HTTP (AiInteractionController -> AiGatewayService -> AiJob -> AiWorker -> AiProviderManager -> AtlasProgrammingOrchestrator) ao Kernel canonico. Autoridade documental esta ativa; implementacao runtime esta parcial por fases. Phase 1 persiste payload.kernel; Phases 4-6 permanecem como rollout controlado ate PermissionGate, Evidence e Certification serem consumidos pelo AiWorker com teste E2E.
+implementation_status: partial
+implementation_boundary: active_adr_phase_1_gateway_bridge_shipped_worker_phases_4_6_pending
 tags:
   - atlas-ai
   - adr
@@ -110,7 +112,8 @@ risk_level: high
 ai_entrypoints:
   - Leia Resumo, Onde Se Encaixa, Contratos, Fluxo, Escopo de Implementacao e Riscos antes de abrir AP de fase.
 ai_usage_notes:
-  - Este ADR e design only. Implementacao real abre AP dedicado por fase.
+  - Este ADR e autoridade ativa de arquitetura, nao prova de que todas as fases runtime estao completas.
+  - Phase 1 esta implementada no gateway; Phases 4-6 exigem AP dedicado, evidence e teste E2E antes de claim completed/enforced.
 quality_gates:
   - aigateway-mission-recorded
   - aiworker-permission-gate-consulted
@@ -140,6 +143,17 @@ AI sera plugado ao **Kernel canonico** (Meta 1 Mission, Meta 2 Domain
 Runtime, Meta 3 Policy, Meta 4 Evidence/Certification, Meta 6 Router
 Runtime, Meta 7 Programming Adapter) sem refatorar runtime de producao,
 sem fundir Atlas Dev e Atlas Forge e sem promover dominio novo.
+
+Status de autoridade vs implementacao:
+
+- `status: active` significa que este ADR governa o boundary e as regras
+  para qualquer alteracao no caminho HTTP -> AiWorker -> Kernel.
+- `implementation_status: partial` significa que a Phase 1 do gateway
+  esta implementada e testada, mas o AiWorker ainda precisa consumir
+  PermissionGate/Evidence/Certification nas Phases 4-6 antes de qualquer
+  claim `completed` ou `enforced`.
+- Linguagem de fase neste documento e roadmap controlado do ADR, nao
+  permissao para IA declarar a espinha HTTP completamente resolvida.
 
 O problema diagnosticado em `atlas-architecture-critical-judgment-report.md`
 e dual-architecture: o Kernel existe com 200+ testes proprios, mas o
@@ -386,7 +400,8 @@ Estado pre-integracao (fonte do diagnostico):
 - `ToolReceiptService.php:64` `'reason' => 'evidence_runtime_unavailable'`
   confirma fallback silencioso (gap critico #2).
 
-Evidencias requeridas para promover a `status: active`:
+Evidencias requeridas para promover a integracao runtime a
+`completed/enforced`:
 
 - Teste Feature E2E HTTP em `tests/Feature/Ai/Kernel/` cobrindo Phase 6
   completo (mission via `POST /ai/interactions`, worker roda, mission
@@ -464,8 +479,8 @@ nao inflacionar `ai_missions` com pings.
    evidence pack de erro e work order corretiva.
 4. Manter `docs-health`, `programming-runtime` e suites DualCore verdes
    como gates de regressao da integracao.
-   `AiWorkerKernelIntegrationE2ETest`; promover este ADR a
-   `status: active` apos gates verdes.
+   `AiWorkerKernelIntegrationE2ETest`; promover a integracao runtime a
+   `completed/enforced` apos gates verdes.
 8. **AP-Phase-7 (futuro, fora deste ADR)**: deprecar
    `AtlasAiRouterService`, `AiPermissionEngine`, `AtlasEvidenceLedger`
    (Kernel/Evidence) legacy; promover `mission_id` para coluna FK em
@@ -473,7 +488,8 @@ nao inflacionar `ai_missions` com pings.
 
 ## Definition of Done
 
-`active` quando todas estas condicoes forem verdadeiras:
+Integracao runtime `completed/enforced` quando todas estas condicoes forem
+verdadeiras:
 
 - Phase 6 em CI verde com teste Feature E2E HTTP -> Mission completed
   via Kernel.

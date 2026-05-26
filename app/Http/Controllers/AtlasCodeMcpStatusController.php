@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -68,6 +69,7 @@ final class AtlasCodeMcpStatusController extends Controller
             if (! is_array($response) || ! isset($response['result']['tools']) || ! is_array($response['result']['tools'])) {
                 return [];
             }
+
             return array_values(array_filter(array_map(
                 static fn ($tool): ?array => is_array($tool) && isset($tool['name'])
                     ? [
@@ -88,7 +90,7 @@ final class AtlasCodeMcpStatusController extends Controller
             return 0;
         }
         try {
-            return (int) \Illuminate\Support\Facades\DB::table('engineering_knowledge_documents')->count();
+            return (int) DB::table('engineering_knowledge_documents')->count();
         } catch (\Throwable) {
             return 0;
         }
@@ -100,7 +102,7 @@ final class AtlasCodeMcpStatusController extends Controller
             return 0;
         }
         try {
-            return (int) \Illuminate\Support\Facades\DB::table('engineering_code_symbols')->count();
+            return (int) DB::table('engineering_code_symbols')->count();
         } catch (\Throwable) {
             return 0;
         }
@@ -122,6 +124,7 @@ final class AtlasCodeMcpStatusController extends Controller
             if (! $row) {
                 return null;
             }
+
             return [
                 'tool' => (string) ($row->tool ?? ''),
                 'operator_id' => (string) ($row->operator_id ?? ''),

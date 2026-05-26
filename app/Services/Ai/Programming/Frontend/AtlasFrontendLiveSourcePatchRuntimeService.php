@@ -17,9 +17,10 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
 
     /**
      * @param  array<int,array{id:string,content:string}>  $variants
+     * @param  array<string,mixed>|null  $visualSelection
      * @return array<string,mixed>
      */
-    public function prepare(string $workspace, string $file, string $target, array $variants, ?string $sessionId = null): array
+    public function prepare(string $workspace, string $file, string $target, array $variants, ?string $sessionId = null, ?array $visualSelection = null): array
     {
         $workspace = $this->workspace($workspace);
         $filePath = $this->filePath($workspace, $file);
@@ -43,6 +44,7 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
             'original_hash' => hash('sha256', $target),
             'original_file_hash' => hash('sha256', $source),
             'variant_count' => count($variants),
+            'visual_selection' => $this->visualSelection($visualSelection),
             'variants' => array_map(fn (array $variant): array => [
                 'id' => $variant['id'],
                 'content_hash' => hash('sha256', $variant['content']),
@@ -52,11 +54,17 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
             'source_policy' => [
                 'raw_original_returned' => false,
                 'raw_variants_returned' => false,
+                'raw_visual_selection_text_returned' => false,
                 'absolute_path_returned' => false,
                 'private_session_integrity_verified_before_patch' => true,
+                'visual_selection_is_sanitized' => true,
             ],
             'journal' => [
-                $this->event('prepared', ['variant_count' => count($variants), 'target_count' => $targetCount]),
+                $this->event('prepared', [
+                    'variant_count' => count($variants),
+                    'target_count' => $targetCount,
+                    'visual_selection_present' => $visualSelection !== null,
+                ]),
             ],
             'accepted_variant_id' => null,
             'original' => $target,
@@ -208,6 +216,109 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
     }
 
     /**
+     * @param  array<string,mixed>|null  $selection
+     * @return array<string,mixed>
+     */
+    private function visualSelection(?array $selection): array
+    {
+        if ($selection === null || $selection === []) {
+            return [
+                'schema_version' => 'atlas.frontend.live_visual_selection.v1',
+                'status' => 'not_provided',
+                'selection_hash' => null,
+                'policy' => [
+                    'raw_selector_returned' => false,
+                    'raw_text_returned' => false,
+                    'raw_screenshot_returned' => false,
+                    'absolute_path_returned' => false,
+                ],
+            ];
+        }
+
+        $route = trim((string) ($selection['route'] ?? ''));
+        $selector = trim((string) ($selection['selector'] ?? ''));
+        $textExcerpt = trim((string) ($selection['text_excerpt'] ?? ''));
+        $componentHint = trim((string) ($selection['component_hint'] ?? ''));
+        $routeHash = $this->hashOrNull($selection['route_hash'] ?? null);
+        $selectorHash = $this->hashOrNull($selection['selector_hash'] ?? null);
+        $textExcerptHash = $this->hashOrNull($selection['text_excerpt_hash'] ?? null);
+        $componentHintHash = $this->hashOrNull($selection['component_hint_hash'] ?? null);
+        $screenshotHash = strtolower(trim((string) ($selection['screenshot_hash'] ?? '')));
+        if ($screenshotHash !== '' && preg_match('/\A[a-f0-9]{64}\z/', $screenshotHash) !== 1) {
+            throw new RuntimeException('visual_selection_screenshot_hash_invalid');
+        }
+
+        $payload = [
+            'schema_version' => 'atlas.frontend.live_visual_selection.v1',
+            'status' => 'provided',
+            'route_hash' => $routeHash ?? ($route !== '' ? hash('sha256', $route) : null),
+            'selector_hash' => $selectorHash ?? ($selector !== '' ? hash('sha256', $selector) : null),
+            'text_excerpt_hash' => $textExcerptHash ?? ($textExcerpt !== '' ? hash('sha256', Str::limit($textExcerpt, 500, '')) : null),
+            'component_hint_hash' => $componentHintHash ?? ($componentHint !== '' ? hash('sha256', Str::limit($componentHint, 240, '')) : null),
+            'bounding_box' => $this->visualSelectionBox((array) ($selection['bounding_box'] ?? [])),
+            'viewport' => $this->visualSelectionViewport((array) ($selection['viewport'] ?? [])),
+            'screenshot_hash' => $screenshotHash !== '' ? $screenshotHash : null,
+            'confidence' => max(0.0, min(1.0, (float) ($selection['confidence'] ?? 0.0))),
+            'policy' => [
+                'raw_selector_returned' => false,
+                'raw_text_returned' => false,
+                'raw_screenshot_returned' => false,
+                'absolute_path_returned' => false,
+                'selection_can_guide_patch_but_not_replace_visual_gate' => true,
+            ],
+        ];
+        $payload['selection_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    private function hashOrNull(mixed $value): ?string
+    {
+        $hash = strtolower(trim((string) $value));
+        if ($hash === '') {
+            return null;
+        }
+        if (preg_match('/\A[a-f0-9]{64}\z/', $hash) !== 1) {
+            throw new RuntimeException('visual_selection_hash_invalid');
+        }
+
+        return $hash;
+    }
+
+    /**
+     * @param  array<string,mixed>  $box
+     * @return array{x:int|float,y:int|float,width:int|float,height:int|float}
+     */
+    private function visualSelectionBox(array $box): array
+    {
+        return [
+            'x' => $this->stableNumber(max(0.0, (float) ($box['x'] ?? 0.0))),
+            'y' => $this->stableNumber(max(0.0, (float) ($box['y'] ?? 0.0))),
+            'width' => $this->stableNumber(max(0.0, (float) ($box['width'] ?? 0.0))),
+            'height' => $this->stableNumber(max(0.0, (float) ($box['height'] ?? 0.0))),
+        ];
+    }
+
+    private function stableNumber(float $value): int|float
+    {
+        $rounded = round($value, 3);
+
+        return floor($rounded) === $rounded ? (int) $rounded : $rounded;
+    }
+
+    /**
+     * @param  array<string,mixed>  $viewport
+     * @return array{width:int,height:int}
+     */
+    private function visualSelectionViewport(array $viewport): array
+    {
+        return [
+            'width' => max(0, (int) ($viewport['width'] ?? 0)),
+            'height' => max(0, (int) ($viewport['height'] ?? 0)),
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $session
      * @return array{id:string,content:string}
      */
@@ -284,16 +395,20 @@ final class AtlasFrontendLiveSourcePatchRuntimeService
             'accepted_diff_hash' => $session['accepted_diff_hash'] ?? null,
             'accepted_file_hash' => $session['accepted_file_hash'] ?? null,
             'recovered_file_hash' => $session['recovered_file_hash'] ?? null,
+            'visual_selection_hash' => data_get($session, 'visual_selection.selection_hash'),
+            'visual_selection_status' => data_get($session, 'visual_selection.status', 'not_provided'),
             'journal_event_count' => count((array) ($session['journal'] ?? [])),
             'required_next_gates' => $this->requiredNextGates((string) ($session['status'] ?? 'unknown')),
             'source_policy' => [
                 'raw_original_or_variants_returned' => false,
+                'raw_visual_selection_text_returned' => false,
                 'absolute_path_returned' => false,
                 'decision_receipt_is_provider_safe' => true,
             ],
             'claim_policy' => [
                 'receipt_is_decision_evidence_not_delivery_completion' => true,
                 'frontend_done_requires_visual_quality_and_run_certification' => true,
+                'visual_selection_is_not_visual_quality_proof' => true,
                 'recovery_supported_before_final_claim' => true,
             ],
         ];

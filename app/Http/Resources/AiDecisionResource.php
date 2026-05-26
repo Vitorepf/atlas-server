@@ -57,7 +57,7 @@ class AiDecisionResource extends JsonResource
             // existing snake_case keys above for Laravel/admin clients while
             // exposing the cockpit-friendly shape.
             'obraId' => data_get($this->signals, 'obra_id') ?? data_get($this->task_profile, 'obra_id'),
-            'primary' => $this->selected_provider . ($this->selected_model ? ' · ' . $this->selected_model : ''),
+            'primary' => $this->selected_provider.($this->selected_model ? ' · '.$this->selected_model : ''),
             'confidence' => $this->normaliseConfidence((float) ($this->confidence_score ?? 0)),
             'confidenceScore' => (float) ($this->confidence_score ?? 0),
             'fallbackChain' => $this->resolveFallbackChain(),
@@ -94,6 +94,7 @@ class AiDecisionResource extends JsonResource
         if ($explicit && $explicit !== $this->selected_provider) {
             return [$explicit];
         }
+
         return [];
     }
 }

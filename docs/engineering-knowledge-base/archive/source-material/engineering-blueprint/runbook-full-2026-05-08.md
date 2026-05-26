@@ -2,7 +2,7 @@
 id: atlas-engineering-blueprint-runbook
 type: engineering_knowledge
 title: Atlas Engineering Blueprint Runbook
-status: active
+status: source_material
 category: runbook
 priority: 96
 summary: Operacao diaria para preparar blueprint, congelar contrato, executar Harness, registrar evidencias, revisar gates e sincronizar a Knowledge Base.

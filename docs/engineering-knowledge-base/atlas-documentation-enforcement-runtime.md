@@ -3,6 +3,8 @@ id: atlas-documentation-enforcement-runtime
 type: engineering_knowledge
 title: Atlas Documentation Enforcement Runtime
 status: active
+implementation_status: active_local_hard_gate_certified
+implementation_boundary: ADER is implemented as a read-only pre-implementation hard gate, exposed in Architecture Operations, session-bootstrap and required validation; it aggregates canonical truth but does not create a new truth source, mutate docs/code or prove every Atlas feature complete.
 category: documentation-governance
 priority: 100
 summary: Gate unificado que agrega docs-health, authority audit, ADRS, ACRUI e Cartografia antes de qualquer IA implementar, duplicar, deletar ou declarar capacidade documental.
@@ -136,8 +138,8 @@ observability_signals:
   - warnings_count
   - certification_hash
 next_actions:
-  - Integrar ADER como primeiro comando recomendado no session-bootstrap e nos prompts de handoff.
-  - Reduzir warnings e oversized docs para elevar status de review para ready.
+  - Adicionar receipt de execucao ADER em runs Dev/Forge.
+  - Manter Architecture Operations, session-bootstrap e feature-placement sincronizados quando o comando mudar.
 ---
 # Atlas Documentation Enforcement Runtime
 ## Resumo
@@ -151,6 +153,18 @@ em uma area sem owner doc?
 
 ADER nao substitui a documentacao. Ele agrega as fontes canonicas existentes e
 materializa uma decisao unica: `ready`, `review` ou `blocked`.
+
+## Boundary Atual
+Em 2026-05-25, ADER esta ativo como hard gate local read-only. O comando
+`atlas:documentation:enforce --strict --json` retorna `ready`, `score=10` e
+`grade=elite` quando docs-health, authority audit, ADRS, ACRUI, Cartografia,
+session-bootstrap e feature-placement estao limpos. Architecture Operations e
+session-bootstrap ja publicam ADER como operacao/validacao obrigatoria.
+
+ADER nao vira fonte primaria: docs canonicas continuam autorais; codigo,
+migrations e testes provam implementacao; Evidence Ledger prova runtime; KB,
+Code Intelligence, Obsidian e provider projections sao read models/superficies.
+ADER tambem nao prova que todas as features do Atlas existem ou estao prontas.
 
 ## Papel no Atlas
 O Atlas e construido por multiplas IAs. Isso cria risco real de:
@@ -299,7 +313,6 @@ php artisan atlas:documentation:enforce \
 ```
 
 ## Proximas Acoes
-- Integrar ADER no session-bootstrap como primeiro comando de enforcement.
-- Reduzir docs oversized e warnings para elevar o status para `ready`.
-- Expor ADER na Cartografia como "pode codar / precisa revisar / bloqueado".
 - Adicionar receipt de execucao ADER em runs Dev/Forge.
+- Manter Architecture Operations, session-bootstrap e feature-placement
+  sincronizados quando o contrato do comando mudar.

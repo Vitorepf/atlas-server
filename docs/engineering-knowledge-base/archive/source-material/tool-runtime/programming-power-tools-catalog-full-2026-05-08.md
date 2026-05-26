@@ -2,7 +2,7 @@
 id: atlas-programming-power-tools-catalog
 type: engineering_knowledge
 title: Atlas Programming Power Tools Catalog
-status: active
+status: source_material
 category: tool_runtime
 priority: 97
 summary: Catalogo operacional das ferramentas que tornam o Atlas forte para programacao pesada, com tiers, autoridade, status real, lacunas e backlog de implementacao.

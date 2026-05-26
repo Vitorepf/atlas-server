@@ -56,6 +56,48 @@ Se em dúvida se a tarefa cai em exceção: **não cai. Consulta.**
 
 ### Notas locais (não-imperativas)
 Adicionar abaixo. Atlas preserva todo o bloco entre os marcadores.
+
+### Tese canônica do Atlas (não esquecer, não diminuir)
+
+**Atlas é pessoal e somente do operador (Vitor), rodando local no MacBook.** Ecossistema de IA mais robusto que existe, projetado para **executar de forma empresarial em múltiplas áreas**: engenharia de software completa (sistema operacional, ecommerce ponta-a-ponta com anúncios e vendas), empresa de marketing inteira, cyber security, finanças, trading, e qualquer função/empresa que humano executa.
+
+**Providers (Claude Code, Codex, Cursor, Antigravity, Composer 2.5, Gemini, MiniMax self-host futuro) são MOTOR APENAS.** Atlas é o cérebro; providers são músculos contratados via meta-provider + Atlas Decide + Forge Provider Topology.
+
+**Interface**: linguagem humana natural (Mobile + Desktop Mac). Atlas faz só as perguntas estritamente necessárias para desambiguar e entrega o resultado completo.
+
+**Antifragilidade composta** (equação operacional): quando provider salta N× (ex.: Claude shipa modelo 100× capacidade), Atlas captura N× automaticamente via wrapper governance E adiciona próprios M× (memória governada, evidence, compounding, self-construction) → resultado N×M. Provider externo nunca destrava sozinho; Atlas sempre multiplica.
+
+**Self-Construction OS é central, não opcional**: quando ferramenta externa não atende, Atlas constrói a própria.
+
+**Substitui produtos externos** (Claude Code/Cursor/Codex como **produtos**) — não concorre. O operador usa Atlas; Atlas usa providers por baixo.
+
+#### Vocabulário proibido (zero tolerância)
+
+- **NÃO usar "Jarvis"** em nenhum contexto. Foi referência cultural usada apenas para calibrar nível de ambição. Atlas não é homenagem a Jarvis; é arquitetura maior.
+- **NÃO dizer "Atlas concorre com Claude Code/Codex"**. Sempre: "Atlas substitui esses produtos como produto; usa eles como engine".
+- **NÃO chamar Atlas de "wrapper de IA", "ferramenta de produtividade", "sistema de memória"**. Atlas é **substrato de soberania pessoal sobre AI generativa**.
+- **NÃO usar palavra "Rivals", "benchmark", "superiority", "concurrent"** ao criar/modificar código ou doc (equipe Criação ≠ equipe Medicao).
+
+#### Filtro de 5 perguntas para qualquer proposta técnica
+
+1. Aumenta o wrapper multiplicador composto ou só otimiza ponto isolado?
+2. É antifrágil (cresce com chaos/mudança) ou frágil (quebra)?
+3. Aproxima da execução fim-a-fim em linguagem natural ou afasta?
+4. Destrava substituir uma função/empresa ou é polish incremental?
+5. Preserva soberania local-first ou cria dependência externa?
+
+#### Coluna vertebral (tratar como fundação, não features)
+
+- **Forge OS** — Obras grandes multi-agente, governance pesada
+- **Mission Foundation + Mission Mode + Follow-Through** — pedido humano → decomposição → execução governada
+- **AWIS (Workspace Intelligence System)** — workspace certificado como primitivo obrigatório
+- **APCR + AEMOR** — par operacional: contexto antes, outcome+learning depois
+- **Memory Core + Cognitive Immune (G0-G8)** — quarentena por default, promoção governada
+- **Evidence Ledger + Decision Receipt v2** — audit append-only
+- **Self-Construction OS** — Atlas constrói Atlas
+- **Self-Improvement L7 + Compounding** — outcomes alimentam próximo ciclo
+- **15 Domains** — cobertura para substituir qualquer função humana profissional
+- **Local-first + soberania** — Mac MBP; classes sensitive/secret/cyber não saem da máquina
 <!-- atlas:manual:end -->
 
 ## Atlas Pointers

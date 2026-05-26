@@ -135,18 +135,23 @@ class AiThreadController extends Controller
     {
         $data = $request->validate([
             'lean' => ['nullable', 'boolean'],
+            'include_trace' => ['nullable', 'boolean'],
             'message_limit' => ['nullable', 'integer', 'between:1,200'],
         ]);
         $messageLimit = (int) ($data['message_limit'] ?? 6);
+        $lean = $request->boolean('lean');
+        $includeTrace = $request->boolean('include_trace');
 
         $relations = [
             'messages' => fn ($messages) => $messages
                 ->reorder()
                 ->orderByDesc('position')
                 ->limit($messageLimit),
-            'lastTrace',
         ];
-        if (! ($data['lean'] ?? false)) {
+        if (! $lean || $includeTrace) {
+            $relations[] = 'lastTrace';
+        }
+        if (! $lean) {
             $relations[] = 'activeSession';
             $relations[] = 'activeState';
             $relations[] = 'latestCompaction';

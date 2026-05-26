@@ -321,6 +321,7 @@ final class AtlasCodeProviderGovernanceService
         if (! in_array($clean, self::POLICIES, true)) {
             return 'test_only';
         }
+
         return $clean;
     }
 
@@ -334,6 +335,7 @@ final class AtlasCodeProviderGovernanceService
         if ($ts === false) {
             return null;
         }
+
         return date('Y-m-d', $ts);
     }
 
@@ -346,6 +348,7 @@ final class AtlasCodeProviderGovernanceService
         if ($ts === false) {
             return false;
         }
+
         return time() > $ts;
     }
 
@@ -371,6 +374,7 @@ final class AtlasCodeProviderGovernanceService
                 $out[] = trim($item);
             }
         }
+
         return array_values($out);
     }
 }

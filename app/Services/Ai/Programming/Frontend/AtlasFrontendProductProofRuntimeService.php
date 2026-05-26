@@ -139,6 +139,7 @@ final class AtlasFrontendProductProofRuntimeService
                     'php artisan atlas:frontend:publish receipt-template --bundle=<bundle> --output=<bundle> --json',
                     'php artisan atlas:frontend:publish attest --bundle=<bundle> --receipt=<receipt> --json',
                     'php artisan atlas:frontend:publish verify --bundle=<bundle> --receipt=<receipt> --json --strict',
+                    'php artisan atlas:frontend:private-benchmark-plan --rival-evidence=<dir> --bundle=<bundle> --publication-receipt=<receipt> --json --strict',
                     'php artisan atlas:frontend:world-best-plan --rival-evidence=<dir> --bundle=<bundle> --publication-receipt=<receipt> --json --strict',
                 ],
                 'required_public_evidence' => [

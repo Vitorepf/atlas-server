@@ -9,7 +9,7 @@ use App\Models\AtlasSddTask;
 use App\Models\AtlasSpec;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Ai\Programming\Sdd\AtlasSddPipeline;
-use App\Services\Ai\Programming\Sdd\Pipeline\OperationEnvelope;
+use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use Tests\Concerns\CreatesAtlasSddTables;
 use Tests\TestCase;

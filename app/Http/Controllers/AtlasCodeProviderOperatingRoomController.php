@@ -19,9 +19,7 @@ use Illuminate\Http\JsonResponse;
  */
 final class AtlasCodeProviderOperatingRoomController extends Controller
 {
-    public function __construct(private readonly AtlasCodeProviderOperatingRoomService $service)
-    {
-    }
+    public function __construct(private readonly AtlasCodeProviderOperatingRoomService $service) {}
 
     public function show(AtlasProject $project): JsonResponse
     {

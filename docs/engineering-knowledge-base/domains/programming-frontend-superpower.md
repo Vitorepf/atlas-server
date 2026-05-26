@@ -205,7 +205,12 @@ Contrato operacional resumido:
    candidato `apps/web`/subapp exigindo confirmacao, mas nao devolve path bruto
    nem autoriza dispatch. A execucao continua exigindo o contrato
    `selected_workspace` do repo selecionado; so depois disso o Atlas pode
-   projetar `frontend_runtime_projection` com `runtime_projection_hash`.
+   projetar `frontend_runtime_projection` com `runtime_projection_hash`. O scan
+   tambem emite `atlas.frontend.company_portfolio.operator_flow.v1`, que fixa o
+   caminho operacional: pasta com repos -> escolher um repositorio -> confirmar
+   `frontend_app` como subscope relativo -> ativar projeto no Atlas Code ->
+   abrir o cockpit de runtime frontend -> preparar evidence/provider packet.
+   Esse fluxo e orientacao operacional, nao evidence de entrega.
 4. Dispatch provider exige task spec, gate, provider packet, runbook e plano de
    evidencia; selected workspace/onboarding read-only nao contam como evidence
    de entrega.
@@ -229,11 +234,15 @@ Contrato operacional resumido:
    --evidence=<dir> --json` emite
    `atlas.frontend.rival_replay_operator_packet_verification.v1` e valida se
    hashes, placeholders e policy ainda estao intactos; ele tambem nao executa
-   providers nem autoriza claim. O `atlas:frontend:world-best-plan` consome
-   essa verificacao como gate: se um diretorio de replay for informado e o
-   operator packet estiver ausente, stale, adulterado ou com path bruto, o plano
-   bloqueia claim com `operator_packet_verification_blocked`. Depois do operador
-   preencher evidence packs, execution receipts e score attestations,
+   providers nem autoriza claim. O caminho canônico privado é
+   `atlas:frontend:private-benchmark-plan`: ele consome essa verificacao como
+   gate para o loop interno de melhoria do Atlas, sem claim publico de
+   superioridade. O comando legado `atlas:frontend:world-best-plan` permanece
+   apenas como compatibilidade para contratos antigos de prova/publicacao. Se um
+   diretorio de replay for informado e o operator packet estiver ausente, stale,
+   adulterado ou com path bruto, o plano bloqueia com
+   `operator_packet_verification_blocked`. Depois do operador preencher evidence
+   packs, execution receipts e score attestations,
    `atlas:frontend:replay apply-patch --evidence=<dir> --patch=<filled-template.json> --json`
    aplica somente patches provider-safe gerados pelos templates de receipt/score
    quando o `manifest_hash` ainda bate com o manifesto atual. O apply-patch
@@ -267,7 +276,11 @@ Contrato operacional resumido:
    `atlas.frontend.live_source_patch_decision_receipt.v1` com hashes de decisao,
    diff e variante, mas `live_patch_decision_is_not_delivery_evidence=true`;
    patch aceito ainda precisa de `visual_quality_gate`, evidence pack e
-   run-certification antes de claim de conclusao.
+   run-certification antes de claim de conclusao. O prepare tambem pode receber
+   `atlas.frontend.live_visual_selection.v1` pelo cockpit/API: route, selector,
+   texto, componente, bbox, viewport e screenshot sao sanitizados em hashes ou
+   coordenadas numericas antes do receipt. Essa selecao visual guia o patch e
+   melhora o loop live, mas nao substitui prova visual nem autoriza entrega.
 7. Product proof local gera site estatico auditavel, mas cada demo precisa de
    `atlas.frontend.product_proof_demo_manifest.v1` ligando pagina, hash,
    viewports, evidencias e claim boundary. `downloads.json`, demo manifests e
@@ -275,8 +288,32 @@ Contrato operacional resumido:
 8. Browser bridge nao e so picker: `AtlasFrontendBrowserBridgeService` emite
    `atlas.frontend.browser_detector_event.v1` via `atlas:frontend:browser-detect`
    para achados provider-safe no elemento selecionado, como alvo pequeno, botao
-   icon-only sem nome, texto minusculo, copy generica e risco de overlap.
-9. Escritas em repo so ocorrem por comandos explicitos como
+   icon-only sem nome, texto minusculo, copy generica e risco de overlap. O
+   mesmo alt-click tambem emite `atlas:frontend:live-visual-selection` com
+   `atlas.frontend.live_visual_selection.v1` ja sanitizado. O bridge publica a
+   selecao por evento de janela, `BroadcastChannel`, localStorage sanitizado
+   (`__ATLAS_FRONTEND_LAST_LIVE_VISUAL_SELECTION__`) e `postMessage` sanitizado
+   (`atlas.frontend.live_visual_selection_message.v1`) para atravessar
+   abas/janelas/iframes controlados pelo Atlas sem expor DOM/texto bruto. Quando
+   o preview compartilha canal ou relacao `parent`/`opener` com o cockpit, o
+   painel captura automaticamente como `last browser selection`; quando nao
+   compartilha, o cockpit chama `/atlas-code/frontend/live-visual-selection`
+   para gravar/buscar a ultima selecao por workspace e `live session` em
+   `atlas.frontend.live_visual_selection_inbox.v1`. O inbox e provider-safe:
+   persiste apenas hashes, bbox, viewport, confidence e hash de screenshot; nao
+   retorna seletor, texto, screenshot bruto nem path absoluto. Em ambos os casos
+   a selecao liga o elemento visto no browser ao patch reversivel, mas continua
+   marcada como `selection_is_not_visual_quality_proof`.
+9. O alvo de codigo do Live Mode pode ser sugerido localmente por
+   `AtlasFrontendLiveTargetSuggestionService` e pela rota
+   `/atlas-code/frontend/live-target-suggestions`. O contrato
+   `atlas.frontend.live_target_suggestions.v1` varre somente o repo
+   selecionado, ignora `node_modules`, `vendor`, build outputs e `.atlas`, e
+   devolve caminhos relativos com `target_snippet` para o cockpit preencher
+   `live file` e `target snippet`. Esse snippet e `operator_local`: nao e
+   provider-safe, nao e enviado como evidence, nao autoriza despacho de provider
+   e sempre carrega `suggestion_is_not_delivery_evidence`.
+10. Escritas em repo so ocorrem por comandos explicitos como
    `atlas:frontend:onboard --write-docs`, `atlas:frontend:skill-pack install`
    e `atlas:frontend:evidence-kit prepare`.
 

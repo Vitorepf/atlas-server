@@ -188,6 +188,7 @@ class AtlasAiPolicyService
                         : null,
                     $catalog,
                 ))));
+
                 continue;
             }
 

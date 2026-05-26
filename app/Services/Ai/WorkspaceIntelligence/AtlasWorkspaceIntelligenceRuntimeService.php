@@ -207,6 +207,16 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    public function liveExecutionMemory(?string $workspace = null, string $task = ''): array
+    {
+        $report = $this->certify(workspace: $workspace, task: $task, conversationTexts: []);
+
+        return (array) ($report['workspace_live_execution_memory'] ?? []);
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
     private function resolveProfile(?string $workspace): ?array
@@ -2682,6 +2692,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             ],
         ];
         $payload['live_memory_hash'] = MissionCanonicalHash::sha256($payload);
+        $payload['startup_packet']['validate_before_trust'][] = 'workspace_live_execution_memory_hash';
+        $payload['cache_keys']['workspace_live_execution_memory_hash'] = $payload['live_memory_hash'];
 
         return $payload;
     }

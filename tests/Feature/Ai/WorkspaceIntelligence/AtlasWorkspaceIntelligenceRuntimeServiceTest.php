@@ -623,11 +623,31 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
         $this->assertFalse($pack['next_session_brain']['context_loading_plan']['provider_policy']['raw_manifest_returned']);
         $this->assertFalse($pack['next_session_brain']['context_loading_plan']['provider_policy']['script_bodies_returned']);
         $this->assertFalse($pack['next_session_brain']['raw_content_returned']);
+        $this->assertSame('atlas.awis.workspace_live_execution_memory.v1', $pack['live_execution_memory']['schema_version']);
+        $this->assertSame('ready', $pack['live_execution_memory']['status']);
+        $this->assertSame(64, strlen((string) $pack['live_execution_memory']['live_memory_hash']));
+        $this->assertContains('workspace_live_execution_memory', $pack['live_execution_memory']['startup_packet']['load_first']);
+        $this->assertContains('workspace_live_execution_memory_hash', $pack['live_execution_memory']['startup_packet']['validate_before_trust']);
+        $this->assertSame(
+            $pack['live_execution_memory']['live_memory_hash'],
+            $pack['next_session_brain']['context_loading_plan']['live_execution_memory_hash'],
+        );
+        $this->assertSame(
+            $pack['live_execution_memory']['live_memory_hash'],
+            $pack['live_execution_memory']['cache_keys']['workspace_live_execution_memory_hash'],
+        );
+        $this->assertSame('workspace_runbook.body.live_execution_memory', $pack['live_execution_memory']['persistence_contract']['embedded_in_artifact_lake']);
+        $this->assertFalse($pack['live_execution_memory']['source_policy']['raw_file_content_returned']);
+        $this->assertFalse($pack['live_execution_memory']['source_policy']['raw_diff_returned']);
+        $this->assertFalse($pack['live_execution_memory']['source_policy']['raw_conversation_returned']);
+        $this->assertFalse($pack['live_execution_memory']['source_policy']['absolute_workspace_path_returned']);
         $this->assertNotEmpty($pack['scope_guard']['owner_docs']);
         $this->assertNotEmpty($pack['test_contract']['focused_tests']);
         $this->assertTrue($pack['claim_policy']['safe_for_provider_prompt']);
         $this->assertTrue($pack['claim_policy']['next_session_brain_provider_safe']);
+        $this->assertTrue($pack['claim_policy']['live_execution_memory_provider_safe']);
         $this->assertFalse($pack['claim_policy']['raw_conversation_returned']);
+        $this->assertStringNotContainsString('/Users/', json_encode($pack, JSON_THROW_ON_ERROR));
         $this->assertSame(64, strlen((string) $pack['handoff_hash']));
     }
 
@@ -1148,6 +1168,50 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
             ->assertJsonMissingPath('awtr');
 
         $this->assertSame(64, strlen((string) $response->json('brain_hash')));
+    }
+
+    public function test_workspace_live_execution_memory_command_and_api_emit_same_contract(): void
+    {
+        $exit = Artisan::call('atlas:workspace-intelligence', [
+            'action' => 'live-execution-memory',
+            '--workspace' => 'atlas',
+            '--task' => 'retomar AWIS sem nascer zerado',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $cli = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.awis.workspace_live_execution_memory.v1', $cli['schema_version']);
+        $this->assertSame('ready', $cli['status']);
+        $this->assertSame('atlas', $cli['workspace_id']);
+        $this->assertContains('workspace_live_execution_memory', $cli['startup_packet']['load_first']);
+        $this->assertContains('workspace_live_execution_memory_hash', $cli['startup_packet']['validate_before_trust']);
+        $this->assertFalse($cli['source_policy']['raw_file_content_returned']);
+        $this->assertFalse($cli['source_policy']['raw_diff_returned']);
+        $this->assertFalse($cli['source_policy']['raw_conversation_returned']);
+        $this->assertFalse($cli['source_policy']['absolute_workspace_path_returned']);
+        $this->assertSame($cli['live_memory_hash'], $cli['cache_keys']['workspace_live_execution_memory_hash']);
+        $this->assertSame(64, strlen((string) $cli['live_memory_hash']));
+
+        $response = $this->withHeaders($this->headers())->getJson(
+            '/atlas-code/workspace-intelligence/live-execution-memory?workspace=atlas&task='.urlencode('retomar AWIS sem nascer zerado'),
+        );
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.awis.workspace_live_execution_memory.v1')
+            ->assertJsonPath('status', 'ready')
+            ->assertJsonPath('workspace_id', 'atlas')
+            ->assertJsonPath('source_policy.raw_file_content_returned', false)
+            ->assertJsonPath('source_policy.raw_diff_returned', false)
+            ->assertJsonPath('source_policy.raw_conversation_returned', false)
+            ->assertJsonPath('source_policy.absolute_workspace_path_returned', false)
+            ->assertJsonMissingPath('awaf')
+            ->assertJsonMissingPath('awtr');
+
+        $this->assertSame(64, strlen((string) $response->json('live_memory_hash')));
+        $this->assertSame($response->json('live_memory_hash'), $response->json('cache_keys.workspace_live_execution_memory_hash'));
     }
 
     public function test_api_artifact_intelligence_endpoint_returns_awair_projection_only(): void

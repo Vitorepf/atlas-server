@@ -37,19 +37,29 @@ final class PromotionSignalDetector
     public const SCHEMA_VERSION = 'atlas.code.dev_to_forge.signal_report.v1';
 
     public const TARGET_QUICK_INTERVENTION = 'quick_intervention';
+
     public const TARGET_OBRA_CANDIDATE = 'obra_candidate';
+
     public const TARGET_FORGE_OBRA = 'forge_obra';
+
     public const TARGET_NONE = 'none';
 
     // Tunable thresholds. Defaults chosen so the unit tests document the
     // exact boundary — change here, not in service code.
     private const MESSAGE_DENSITY_OBRA = 12;     // ≥12 msgs sem convergir
+
     private const MESSAGE_DENSITY_FORGE = 24;
+
     private const CONTEXT_CHARS_OBRA = 12000;
+
     private const CONTEXT_CHARS_FORGE = 40000;
+
     private const FILE_BREADTH_OBRA = 3;
+
     private const FILE_BREADTH_FORGE = 6;
+
     private const FAILURE_REPEAT_OBRA = 2;
+
     private const FAILURE_REPEAT_FORGE = 4;
 
     private const ARCHITECTURE_KEYWORDS = [
@@ -77,9 +87,9 @@ final class PromotionSignalDetector
     ];
 
     /**
-     * @param  array<string,mixed>  $thread     Subset of AiThread row data
-     * @param  array<int, array<string,mixed>>  $messages   Ordered messages (asc)
-     * @param  array<int, array<string,mixed>>  $traces     Optional trace rows
+     * @param  array<string,mixed>  $thread  Subset of AiThread row data
+     * @param  array<int, array<string,mixed>>  $messages  Ordered messages (asc)
+     * @param  array<int, array<string,mixed>>  $traces  Optional trace rows
      * @return array<string,mixed>
      */
     public function analyse(array $thread, array $messages, array $traces = []): array
@@ -292,6 +302,7 @@ final class PromotionSignalDetector
                 return true;
             }
         }
+
         return false;
     }
 
@@ -314,6 +325,7 @@ final class PromotionSignalDetector
                 }
             }
         }
+
         return $count;
     }
 
@@ -343,6 +355,7 @@ final class PromotionSignalDetector
                 }
             }
         }
+
         return array_keys($out);
     }
 

@@ -188,6 +188,7 @@ final class AtlasFrontendSkillPackService
                 'atlas:frontend:run-certify',
                 'atlas:frontend:handoff',
                 'atlas:frontend:replay',
+                'atlas:frontend:private-benchmark-plan',
                 'atlas:frontend:world-best-plan',
             ],
             'mandatory_receipts_before_done_claim' => [
@@ -291,12 +292,13 @@ final class AtlasFrontendSkillPackService
         php artisan atlas:frontend:handoff compile --run-certification=<run-certification-report> --evidence-manifest=<evidence-dir>/evidence/evidence-pack.json --json --strict
         ```
 
-        ## Market Proof
+        ## Private Benchmark Proof
         ```bash
         php artisan atlas:frontend:proof catalog --json
         php artisan atlas:frontend:proof build --output=<bundle-dir> --json
         php artisan atlas:frontend:replay runner-kit --output=<replay-dir> --json
         php artisan atlas:frontend:replay inspect --manifest-dir=<replay-dir> --json --strict
+        php artisan atlas:frontend:private-benchmark-plan --rival-evidence=<replay-dir> --bundle=<bundle-dir> --publication-receipt=<receipt.json> --json --strict
         php artisan atlas:frontend:world-best-plan --rival-evidence=<replay-dir> --bundle=<bundle-dir> --publication-receipt=<receipt.json> --json --strict
         ```
         MD;

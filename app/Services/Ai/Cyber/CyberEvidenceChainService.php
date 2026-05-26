@@ -72,7 +72,7 @@ class CyberEvidenceChainService
 
         $previous = AiCyberEvidenceChainEntry::query()
             ->where('engagement_id', $engagement->id)
-            ->latest('created_at')
+            ->latest('id')
             ->first();
         $previousHash = $previous?->entry_hash;
 
@@ -108,7 +108,7 @@ class CyberEvidenceChainService
     {
         $entries = AiCyberEvidenceChainEntry::query()
             ->where('engagement_id', $engagement->id)
-            ->orderBy('created_at')
+            ->orderBy('id')
             ->get();
 
         $expectedPrev = null;

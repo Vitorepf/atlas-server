@@ -28,9 +28,7 @@ use Throwable;
  */
 final class AtlasCodeDevToForgePromotionController extends Controller
 {
-    public function __construct(private readonly DevToForgePromotionService $service)
-    {
-    }
+    public function __construct(private readonly DevToForgePromotionService $service) {}
 
     public function preview(Request $request, string $thread): JsonResponse
     {
@@ -42,6 +40,7 @@ final class AtlasCodeDevToForgePromotionController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 404);
         }
+
         return response()->json(['preview' => $payload]);
     }
 
@@ -74,6 +73,7 @@ final class AtlasCodeDevToForgePromotionController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+
         return response()->json(['candidate' => $candidate], 201);
     }
 
@@ -83,6 +83,7 @@ final class AtlasCodeDevToForgePromotionController extends Controller
             'workspace' => ['nullable', 'string', 'max:120'],
         ]);
         $items = $this->service->listCandidates($data['workspace'] ?? null);
+
         return response()->json([
             'schema_version' => DevToForgePromotionService::SCHEMA_VERSION,
             'data' => $items,
@@ -99,6 +100,7 @@ final class AtlasCodeDevToForgePromotionController extends Controller
         if ($row === null) {
             return response()->json(['error' => 'dev_to_forge_candidate_not_found'], 404);
         }
+
         return response()->json(['candidate' => $row]);
     }
 
@@ -112,6 +114,7 @@ final class AtlasCodeDevToForgePromotionController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 404);
         }
+
         return response()->json(['candidate' => $row]);
     }
 }

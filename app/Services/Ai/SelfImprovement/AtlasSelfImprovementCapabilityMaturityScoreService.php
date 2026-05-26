@@ -130,7 +130,7 @@ class AtlasSelfImprovementCapabilityMaturityScoreService
     }
 
     /**
-     * @param array<string,mixed> $d
+     * @param  array<string,mixed>  $d
      * @return array{passed: bool, reason: ?string}
      */
     private function checkLevel0(array $d, string $workspace): array
@@ -258,8 +258,8 @@ class AtlasSelfImprovementCapabilityMaturityScoreService
     }
 
     /**
-     * @param array<string,mixed> $d
-     * @param array<string,mixed> $audit
+     * @param  array<string,mixed>  $d
+     * @param  array<string,mixed>  $audit
      */
     private function checkLevel7(array $d, array $audit): array
     {

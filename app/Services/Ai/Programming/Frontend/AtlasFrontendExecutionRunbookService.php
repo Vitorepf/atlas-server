@@ -217,13 +217,13 @@ final class AtlasFrontendExecutionRunbookService
                 'php artisan atlas:frontend:run-certify --provider-packet=<provider-packet> --visual-report='.$this->quote($evidenceOutput.'/visual-quality-report.json').' --design-review-report='.$this->quote($evidenceOutput.'/design-review-report.json').' --quality-budget-report='.$this->quote($evidenceOutput.'/quality-budget-report.json').' --evidence-manifest='.$this->quote($evidenceOutput.'/evidence/evidence-pack.json').' --outcome-store='.$this->quote($evidenceOutput.'/outcomes.jsonl').' --json --strict',
                 'php artisan atlas:frontend:handoff compile --run-certification=<run-certification-report> --evidence-manifest='.$this->quote($evidenceOutput.'/evidence/evidence-pack.json').' --json --strict',
             ], ['run_certification_hash', 'handoff_hash']),
-            $this->step('public_distribution_proof', 60, 'Prepare public product proof only when a public or world-best claim is requested.', [
+            $this->step('private_benchmark_and_optional_publication_proof', 60, 'Prepare private competitive benchmark proof; publication receipt is optional audit evidence and does not authorize public superiority claims.', [
                 'php artisan atlas:frontend:proof build --output=<bundle> --json',
                 'php artisan atlas:frontend:publish receipt-template --bundle=<bundle> --output=<bundle> --json',
                 'php artisan atlas:frontend:publish attest --bundle=<bundle> --receipt=<receipt> --json',
                 'php artisan atlas:frontend:publish verify --bundle=<bundle> --receipt=<receipt> --json --strict',
-                'php artisan atlas:frontend:world-best-plan --rival-evidence=<dir> --bundle=<bundle> --publication-receipt=<receipt> --json --strict',
-            ], ['product_proof_bundle_hash', 'publication_attestation_hash', 'public_distribution_receipt', 'world_best_proof_plan_hash']),
+                'php artisan atlas:frontend:private-benchmark-plan --rival-evidence=<dir> --bundle=<bundle> --publication-receipt=<receipt> --json --strict',
+            ], ['product_proof_bundle_hash', 'publication_attestation_hash', 'optional_publication_receipt', 'private_benchmark_plan_hash']),
         ];
     }
 

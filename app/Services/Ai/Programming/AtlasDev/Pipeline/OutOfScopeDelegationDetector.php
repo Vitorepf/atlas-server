@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 
 /**
  * Detects intents that fall outside Atlas Dev's charter and suggests which

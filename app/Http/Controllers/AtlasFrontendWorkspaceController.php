@@ -6,9 +6,13 @@ namespace App\Http\Controllers;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendCompanyPortfolioService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendCompetitiveBenchmarkPlanService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendControlPlaneService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDeliveryHandoffService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendEvidenceKitService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendLiveSourcePatchRuntimeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendLiveTargetSuggestionService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendLiveVisualSelectionInboxService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendProviderInstructionPacketService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendPublicationVerifierService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendRivalReplayHarnessService;
@@ -21,6 +25,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 
 final class AtlasFrontendWorkspaceController extends Controller
 {
@@ -327,6 +332,278 @@ final class AtlasFrontendWorkspaceController extends Controller
         ], ($report['status'] ?? null) === 'blocked' ? 422 : 200);
     }
 
+    public function competitiveBenchmarkPlan(Request $request, AtlasFrontendCompetitiveBenchmarkPlanService $benchmarkPlan): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'task' => ['required', 'string', 'max:4000'],
+            'frontend_app' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'rival_evidence' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'bundle' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'publication_receipt' => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
+
+        $report = $benchmarkPlan->plan([
+            'rival_evidence' => (string) ($payload['rival_evidence'] ?? ''),
+            'bundle' => (string) ($payload['bundle'] ?? ''),
+            'publication_receipt' => (string) ($payload['publication_receipt'] ?? ''),
+        ]);
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.competitive_benchmark_plan.v1',
+            'surface' => 'atlas_code_frontend_competitive_benchmark_plan',
+            'competitive_benchmark_plan' => $report,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ], ($report['status'] ?? null) === 'blocked' ? 422 : 200);
+    }
+
+    public function liveSourcePatch(Request $request, AtlasFrontendLiveSourcePatchRuntimeService $live): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'action' => ['required', 'string', 'in:prepare,accept,discard,recover,status'],
+            'file' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'target' => ['sometimes', 'nullable', 'string', 'max:20000'],
+            'variants' => ['sometimes', 'array', 'max:20'],
+            'variants.*.id' => ['required_with:variants', 'string', 'max:120'],
+            'variants.*.content' => ['sometimes', 'nullable', 'string', 'max:20000'],
+            'variants.*.path' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'visual_selection' => ['sometimes', 'array'],
+            'visual_selection.route' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'visual_selection.route_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'visual_selection.selector' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'visual_selection.selector_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'visual_selection.text_excerpt' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'visual_selection.text_excerpt_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'visual_selection.component_hint' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'visual_selection.component_hint_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'visual_selection.screenshot_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'visual_selection.confidence' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:1'],
+            'visual_selection.bounding_box' => ['sometimes', 'array'],
+            'visual_selection.bounding_box.x' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'visual_selection.bounding_box.y' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'visual_selection.bounding_box.width' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'visual_selection.bounding_box.height' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'visual_selection.viewport' => ['sometimes', 'array'],
+            'visual_selection.viewport.width' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'visual_selection.viewport.height' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'session' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'accept_variant' => ['sometimes', 'nullable', 'string', 'max:120'],
+        ]);
+
+        try {
+            $action = (string) $payload['action'];
+            $workspace = (string) $payload['workspace'];
+            $report = match ($action) {
+                'prepare' => $live->prepare(
+                    $workspace,
+                    (string) ($payload['file'] ?? ''),
+                    (string) ($payload['target'] ?? ''),
+                    $this->liveVariants($workspace, (array) ($payload['variants'] ?? [])),
+                    is_string($payload['session'] ?? null) ? trim((string) $payload['session']) ?: null : null,
+                    is_array($payload['visual_selection'] ?? null) ? $this->liveVisualSelectionPayload((array) $payload['visual_selection']) : null,
+                ),
+                'accept' => $live->accept($workspace, (string) ($payload['session'] ?? ''), (string) ($payload['accept_variant'] ?? '')),
+                'discard' => $live->discard($workspace, (string) ($payload['session'] ?? '')),
+                'recover' => $live->recover($workspace, (string) ($payload['session'] ?? '')),
+                'status' => $live->status($workspace, (string) ($payload['session'] ?? '')),
+            };
+        } catch (RuntimeException $exception) {
+            $report = [
+                'schema_version' => AtlasFrontendLiveSourcePatchRuntimeService::RESULT_SCHEMA_VERSION,
+                'operation' => (string) ($payload['action'] ?? 'unknown'),
+                'status' => 'failed',
+                'error' => $exception->getMessage(),
+                'claim_policy' => [
+                    'live_patch_decision_is_not_delivery_evidence' => true,
+                    'frontend_completion_claim_allowed' => false,
+                    'world_best_claim_allowed' => false,
+                ],
+            ];
+        }
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.live_source_patch.v1',
+            'surface' => 'atlas_code_frontend_live_source_patch',
+            'live_source_patch' => $report,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ], ($report['status'] ?? null) === 'failed' ? 422 : 200);
+    }
+
+    public function liveVisualSelection(Request $request, AtlasFrontendLiveVisualSelectionInboxService $inbox): JsonResponse
+    {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'action' => ['required', 'string', 'in:record,latest'],
+            'session' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'selection' => ['sometimes', 'array'],
+            'selection.detail' => ['sometimes', 'array'],
+            'selection.route' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'selection.route_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'selection.selector' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'selection.selector_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'selection.text_excerpt' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'selection.text_excerpt_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'selection.component_hint' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'selection.component_hint_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'selection.screenshot_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'selection.confidence' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:1'],
+            'selection.bounding_box' => ['sometimes', 'array'],
+            'selection.bounding_box.x' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'selection.bounding_box.y' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'selection.bounding_box.width' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'selection.bounding_box.height' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'selection.viewport' => ['sometimes', 'array'],
+            'selection.viewport.width' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'selection.viewport.height' => ['sometimes', 'nullable', 'integer', 'min:0'],
+        ]);
+
+        try {
+            $action = (string) $payload['action'];
+            $report = $action === 'record'
+                ? $inbox->record(
+                    (string) $payload['workspace'],
+                    (string) ($payload['session'] ?? 'atlas-live-session'),
+                    is_array($payload['selection'] ?? null) ? (array) $payload['selection'] : [],
+                )
+                : $inbox->latest((string) $payload['workspace'], (string) ($payload['session'] ?? 'atlas-live-session'));
+        } catch (RuntimeException $exception) {
+            $report = [
+                'schema_version' => AtlasFrontendLiveVisualSelectionInboxService::SCHEMA_VERSION,
+                'status' => 'failed',
+                'session' => (string) ($payload['session'] ?? 'atlas-live-session'),
+                'error' => $exception->getMessage(),
+                'source_policy' => [
+                    'provider_safe_only' => true,
+                    'raw_selector_returned' => false,
+                    'raw_text_returned' => false,
+                    'raw_screenshot_returned' => false,
+                    'absolute_path_returned' => false,
+                    'selection_is_not_visual_quality_proof' => true,
+                ],
+            ];
+            $report['inbox_hash'] = MissionCanonicalHash::sha256($report);
+        }
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.live_visual_selection.v1',
+            'surface' => 'atlas_code_frontend_live_visual_selection',
+            'live_visual_selection' => $report,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ], ($report['status'] ?? null) === 'failed' ? 422 : 200);
+    }
+
+    public function liveTargetSuggestions(
+        Request $request,
+        AtlasFrontendLiveTargetSuggestionService $suggestions,
+        AtlasFrontendLiveVisualSelectionInboxService $inbox,
+    ): JsonResponse {
+        $payload = $request->validate([
+            'workspace' => ['required', 'string', 'max:1000'],
+            'session' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'file_hint' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'max_candidates' => ['sometimes', 'integer', 'min:1', 'max:20'],
+            'visual_selection' => ['sometimes', 'array'],
+            'visual_selection.route' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'visual_selection.route_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'visual_selection.selector' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'visual_selection.selector_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'visual_selection.text_excerpt' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'visual_selection.text_excerpt_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'visual_selection.component_hint' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'visual_selection.component_hint_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'visual_selection.screenshot_hash' => ['sometimes', 'nullable', 'string', 'size:64'],
+            'visual_selection.confidence' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:1'],
+            'visual_selection.bounding_box' => ['sometimes', 'array'],
+            'visual_selection.bounding_box.x' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'visual_selection.bounding_box.y' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'visual_selection.bounding_box.width' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'visual_selection.bounding_box.height' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'visual_selection.viewport' => ['sometimes', 'array'],
+            'visual_selection.viewport.width' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'visual_selection.viewport.height' => ['sometimes', 'nullable', 'integer', 'min:0'],
+        ]);
+
+        try {
+            $selection = is_array($payload['visual_selection'] ?? null)
+                ? $this->liveVisualSelectionPayload((array) $payload['visual_selection'])
+                : $this->selectionFromInbox($inbox, (string) $payload['workspace'], (string) ($payload['session'] ?? 'atlas-live-session'));
+            $report = $suggestions->suggest([
+                'workspace' => (string) $payload['workspace'],
+                'session' => (string) ($payload['session'] ?? 'atlas-live-session'),
+                'file_hint' => (string) ($payload['file_hint'] ?? ''),
+                'max_candidates' => (int) ($payload['max_candidates'] ?? 5),
+                'visual_selection' => $selection,
+            ]);
+        } catch (RuntimeException $exception) {
+            $report = [
+                'schema_version' => AtlasFrontendLiveTargetSuggestionService::SCHEMA_VERSION,
+                'status' => 'failed',
+                'error' => $exception->getMessage(),
+                'policy' => [
+                    'operator_local_target_snippet_returned' => false,
+                    'target_snippet_is_not_provider_safe' => true,
+                    'provider_dispatch_allowed' => false,
+                    'raw_customer_source_returned_to_provider' => false,
+                    'absolute_path_returned' => false,
+                    'suggestion_is_not_delivery_evidence' => true,
+                    'selected_repository_is_primary_workspace' => true,
+                    'frontend_app_is_subscope_only' => true,
+                    'space_runtime_required' => false,
+                    'world_best_claim_allowed' => false,
+                ],
+            ];
+            $report['suggestions_hash'] = MissionCanonicalHash::sha256($report);
+        }
+
+        return response()->json([
+            'schema_version' => 'atlas.frontend.workspace_api.live_target_suggestions.v1',
+            'surface' => 'atlas_code_frontend_live_target_suggestions',
+            'live_target_suggestions' => $report,
+            'meta' => [
+                'execution_allowed' => false,
+                'provider_dispatch_allowed' => false,
+                'provider_dispatch_performed' => false,
+                'frontend_completion_claim_allowed' => false,
+                'customer_handoff_allowed' => false,
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_subscope_only' => true,
+                'space_runtime_required' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ], ($report['status'] ?? null) === 'failed' ? 422 : 200);
+    }
+
     public function runCertification(Request $request, AtlasFrontendRunCertificationService $certification): JsonResponse
     {
         $payload = $request->validate([
@@ -358,6 +635,97 @@ final class AtlasFrontendWorkspaceController extends Controller
                 'world_best_claim_allowed' => false,
             ],
         ], ($report['status'] ?? null) === 'blocked' ? 422 : 200);
+    }
+
+    /**
+     * @param  array<int,mixed>  $variants
+     * @return array<int,array{id:string,content:string}>
+     */
+    private function liveVariants(string $workspace, array $variants): array
+    {
+        $normalized = [];
+        $workspaceReal = realpath($workspace);
+        if ($workspaceReal === false || ! File::isDirectory($workspaceReal)) {
+            throw new RuntimeException('workspace_not_found');
+        }
+
+        foreach ($variants as $variant) {
+            if (! is_array($variant)) {
+                continue;
+            }
+
+            $id = trim((string) ($variant['id'] ?? ''));
+            $content = (string) ($variant['content'] ?? '');
+            $path = trim((string) ($variant['path'] ?? ''));
+            if ($id === '') {
+                continue;
+            }
+            if ($content === '' && $path !== '') {
+                $content = $this->liveVariantFileContent($workspaceReal, $path);
+            }
+            $normalized[] = ['id' => $id, 'content' => $content];
+        }
+
+        return $normalized;
+    }
+
+    private function liveVariantFileContent(string $workspaceReal, string $path): string
+    {
+        $candidate = str_starts_with($path, DIRECTORY_SEPARATOR)
+            ? $path
+            : $workspaceReal.'/'.ltrim($path, DIRECTORY_SEPARATOR);
+        $real = realpath($candidate);
+        if ($real === false || ! File::isFile($real)) {
+            throw new RuntimeException('variant_file_not_found');
+        }
+
+        $workspacePrefix = rtrim($workspaceReal, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+        if (! str_starts_with($real, $workspacePrefix)) {
+            throw new RuntimeException('variant_file_outside_workspace');
+        }
+
+        return File::get($real);
+    }
+
+    /**
+     * @param  array<string,mixed>  $selection
+     * @return array<string,mixed>
+     */
+    private function liveVisualSelectionPayload(array $selection): array
+    {
+        return [
+            'route' => trim((string) ($selection['route'] ?? '')),
+            'route_hash' => trim((string) ($selection['route_hash'] ?? '')),
+            'selector' => trim((string) ($selection['selector'] ?? '')),
+            'selector_hash' => trim((string) ($selection['selector_hash'] ?? '')),
+            'text_excerpt' => trim((string) ($selection['text_excerpt'] ?? '')),
+            'text_excerpt_hash' => trim((string) ($selection['text_excerpt_hash'] ?? '')),
+            'component_hint' => trim((string) ($selection['component_hint'] ?? '')),
+            'component_hint_hash' => trim((string) ($selection['component_hint_hash'] ?? '')),
+            'screenshot_hash' => trim((string) ($selection['screenshot_hash'] ?? '')),
+            'confidence' => (float) ($selection['confidence'] ?? 0.0),
+            'bounding_box' => [
+                'x' => (float) data_get($selection, 'bounding_box.x', 0.0),
+                'y' => (float) data_get($selection, 'bounding_box.y', 0.0),
+                'width' => (float) data_get($selection, 'bounding_box.width', 0.0),
+                'height' => (float) data_get($selection, 'bounding_box.height', 0.0),
+            ],
+            'viewport' => [
+                'width' => (int) data_get($selection, 'viewport.width', 0),
+                'height' => (int) data_get($selection, 'viewport.height', 0),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function selectionFromInbox(AtlasFrontendLiveVisualSelectionInboxService $inbox, string $workspace, string $session): array
+    {
+        $latest = $inbox->latest($workspace, $session);
+        $selection = data_get($latest, 'selection');
+
+        return is_array($selection) ? $selection : [];
     }
 
     public function prepareEvidence(
@@ -584,7 +952,7 @@ final class AtlasFrontendWorkspaceController extends Controller
                 'fill_external_execution_receipts_and_score_attestations',
                 'verify_rival_evidence_packs',
                 'rerun_atlas_frontend_replay_inspect',
-                'rerun_atlas_frontend_world_best_plan',
+                'rerun_atlas_frontend_competitive_benchmark_plan',
             ],
             'claim_policy' => [
                 'runner_kit_is_not_replay_evidence' => true,

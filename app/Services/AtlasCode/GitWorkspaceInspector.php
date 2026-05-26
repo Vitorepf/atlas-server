@@ -30,12 +30,12 @@ final class GitWorkspaceInspector
     public const SCHEMA_VERSION = 'atlas.code.git_workspace_snapshot.v1';
 
     private const DEFAULT_TIMEOUT_SECONDS = 30;
+
     private const MAX_FILES_LISTED = 500;
+
     private const MAX_DIFF_EXCERPT_BYTES = 32768;
 
-    public function __construct(private readonly int $timeoutSeconds = self::DEFAULT_TIMEOUT_SECONDS)
-    {
-    }
+    public function __construct(private readonly int $timeoutSeconds = self::DEFAULT_TIMEOUT_SECONDS) {}
 
     /**
      * @return array{
@@ -222,6 +222,7 @@ final class GitWorkspaceInspector
         }
         try {
             $out = $this->run($workspacePath, ['git', 'rev-parse', '--is-inside-work-tree']);
+
             return trim($out) === 'true';
         } catch (Throwable) {
             return false;
@@ -238,6 +239,7 @@ final class GitWorkspaceInspector
         if (! $process->isSuccessful()) {
             throw new ProcessFailedException($process);
         }
+
         return $process->getOutput();
     }
 
@@ -263,6 +265,7 @@ final class GitWorkspaceInspector
                 $files[] = trim($rest);
             }
         }
+
         return array_values(array_unique(array_filter($files, static fn (string $f): bool => $f !== '')));
     }
 }

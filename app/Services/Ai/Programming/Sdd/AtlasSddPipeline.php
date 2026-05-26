@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Sdd;
 
 use App\Models\AtlasPlan;
+use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasSddTask;
 use App\Models\AtlasSpec;
 use App\Services\Ai\Programming\Governance\ProgrammingSpecCompiler;
@@ -12,7 +13,8 @@ use App\Services\Ai\Programming\Sdd\Compilers\TaskCompiler;
 use App\Services\Ai\Programming\Sdd\Enums\AutonomyLevel;
 use App\Services\Ai\Programming\Sdd\Enums\SpecStatus;
 use App\Services\Ai\Programming\Sdd\Pipeline\AtlasSddOutput;
-use App\Services\Ai\Programming\Sdd\Pipeline\OperationEnvelope;
+use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
+use Illuminate\Support\Str;
 
 /**
  * Master SDD orchestrator. Mirrors data-model-and-services.md:227-273.
@@ -172,10 +174,10 @@ class AtlasSddPipeline
      * existing ProgrammingSpecCompiler. We do not persist this — the pipeline
      * persists the canonical AtlasSpec directly.
      */
-    private function workItemFromEnvelope(OperationEnvelope $envelope, $intent): \App\Models\AtlasProgrammingWorkItem
+    private function workItemFromEnvelope(OperationEnvelope $envelope, $intent): AtlasProgrammingWorkItem
     {
-        $item = new \App\Models\AtlasProgrammingWorkItem();
-        $item->id = (string) \Illuminate\Support\Str::uuid();
+        $item = new AtlasProgrammingWorkItem;
+        $item->id = (string) Str::uuid();
         $item->code = 'SDD-'.strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
         $item->intent_text = $envelope->rawInput;
         $item->intent_type = $intent->type;

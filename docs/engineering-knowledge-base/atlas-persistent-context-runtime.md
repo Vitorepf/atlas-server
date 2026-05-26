@@ -3,6 +3,8 @@ id: atlas-persistent-context-runtime
 type: engineering_knowledge
 title: Atlas Persistent Context Runtime
 status: active
+implementation_status: active_local_runtime_certified
+implementation_boundary: APCR default context bootstrap, persistence, sufficiency gate, provider handoff, prompt projection, Hyperflow, Atlas Dev, Forge, Control Plane and memory-update guard are certified locally; external provider execution, benchmark/rivals, UI rendering and live production traffic are outside this certification.
 category: intelligence-runtime
 priority: 98
 summary: Camada obrigatoria de contexto persistente do Atlas. Antes de Hyperflow, Atlas Dev, Atlas Forge ou qualquer provider executar, APCR recupera contexto, gera context pack, valida suficiencia, monta must-know ledger, cria handoff auditavel e registra candidatos de memoria pos-execucao com evidencia.
@@ -115,6 +117,15 @@ next_actions:
 APCR elimina o problema de cada sessao nascer zerada. Ele roda antes do provider e entrega um pacote canonico com contexto recuperado, decisoes que nao podem sumir, fontes usadas, suficiencia do contexto e regras de handoff.
 
 O objetivo nao e colocar mais texto no prompt. O objetivo e impedir que Claude, Codex, Gemini ou qualquer executor trabalhe sem saber o estado real do Atlas.
+
+## Boundary Atual
+
+Em 2026-05-25, `php artisan atlas:persistent-context:certify --json --strict`
+certifica APCR com 14/14 checks: runtime smoke, persistencia, Hyperflow,
+Gateway, PromptBuilder, Atlas Dev, Forge, Control Plane, guard de memoria,
+testes e claim policy. As proximas acoes abaixo sao manutencao e expansao de
+observabilidade de runtime ativo, nao backlog paralelo nem indicacao de doc
+antiga.
 
 ## Papel no Atlas
 

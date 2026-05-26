@@ -64,7 +64,7 @@ class CaptureInboxPipelineContractBackfill
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int,array<string,mixed>>
+     * @return Collection<int,array<string,mixed>>
      */
     private function captures(CarbonImmutable $since): Collection
     {
@@ -102,7 +102,7 @@ class CaptureInboxPipelineContractBackfill
     }
 
     /**
-     * @return \Illuminate\Support\Collection<string,array<string,mixed>>
+     * @return Collection<string,array<string,mixed>>
      */
     private function proposalsByCaptureId(CarbonImmutable $since): Collection
     {

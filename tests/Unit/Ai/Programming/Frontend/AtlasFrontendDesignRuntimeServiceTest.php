@@ -105,6 +105,13 @@ class AtlasFrontendDesignRuntimeServiceTest extends TestCase
         $this->assertTrue((bool) data_get($contract, 'design_system_inventory_contract.claim_policy.inventory_returns_hashes_and_refs_not_raw_source'));
         $this->assertSame('required', data_get($contract, 'design_direction_advisor_contract.status'));
         $this->assertContains('operational_clarity', data_get($contract, 'design_direction_advisor_contract.direction_ids'));
+        $this->assertSame('required_for_private_competitive_improvement_loop', data_get($contract, 'private_benchmark_proof_plan_contract.status'));
+        $this->assertSame('AtlasFrontendPrivateBenchmarkProofPlanService', data_get($contract, 'private_benchmark_proof_plan_contract.runtime'));
+        $this->assertTrue((bool) data_get($contract, 'private_benchmark_proof_plan_contract.claim_policy.private_benchmark_for_internal_improvement_only'));
+        $this->assertTrue((bool) data_get($contract, 'private_benchmark_proof_plan_contract.claim_policy.public_superiority_claims_disabled'));
+        $this->assertFalse((bool) data_get($contract, 'private_benchmark_proof_plan_contract.claim_policy.world_best_claim_allowed'));
+        $this->assertSame('legacy_compatibility_only_not_operator_default', data_get($contract, 'world_best_proof_plan_contract.status'));
+        $this->assertSame('private_benchmark_proof_plan_contract', data_get($contract, 'world_best_proof_plan_contract.canonical_replacement'));
         $this->assertSame('real_rival_replay_and_hosted_public_product_proof_still_required_before world-best claim', data_get($contract, 'competitive_scorecard.benchmarks.pbakaus_impeccable.remaining_gap'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $contract['contract_hash']);
     }

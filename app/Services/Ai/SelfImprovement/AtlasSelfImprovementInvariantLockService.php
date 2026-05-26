@@ -32,6 +32,7 @@ class AtlasSelfImprovementInvariantLockService
     public const SCHEMA_VERSION = 'atlas.self_improvement.invariant_lock.v1';
 
     public const STATUS_PASSED = 'passed';
+
     public const STATUS_BLOCKED = 'blocked';
 
     /** @var list<string> Canonical invariant identifiers. */
@@ -49,9 +50,9 @@ class AtlasSelfImprovementInvariantLockService
     /**
      * Evaluate the invariant lock against the post-implementation snapshot.
      *
-     * @param  array<string,mixed>  $afterSnapshot      Audit blocks, command outputs, etc.
-     * @param  array<string,mixed>  $implementationDiff Description of files / behaviour changed.
-     * @param  array<string,mixed>  $proposal           Original proposal packet (for risk_classification).
+     * @param  array<string,mixed>  $afterSnapshot  Audit blocks, command outputs, etc.
+     * @param  array<string,mixed>  $implementationDiff  Description of files / behaviour changed.
+     * @param  array<string,mixed>  $proposal  Original proposal packet (for risk_classification).
      * @return array<string,mixed>
      */
     public function evaluate(

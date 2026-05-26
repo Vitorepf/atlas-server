@@ -44,12 +44,16 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
 
     private array $headers = ['X-Atlas-Token' => 'test-token-with-enough-length-123'];
 
+    private string $workspacePath;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->createRouterRuntimeTables();
         $this->createRuntimeEfficiencyTables();
         config()->set('atlas.token', 'test-token-with-enough-length-123');
+
+        $this->workspacePath = base_path('..');
     }
 
     protected function tearDown(): void
@@ -65,7 +69,12 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
             input: 'corrija o bug do provider router e atualize os testes em /repos/atlas',
             payload: [
                 'app_surface' => 'atlas_app',
-                'workspace' => '/repos/atlas',
+                'workspace' => $this->workspacePath,
+                'context_refs' => ['docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md'],
+                'expected_files' => ['app/Services/Ai/Router/AtlasAiRouterService.php'],
+                'suggested_tests' => ['php artisan test tests/Feature/Ai/RouterRuntime/AtlasAiInteractionHyperflowEntryTest.php'],
+                'acceptance_criteria' => ['hyperflow programming handoff remains provider-safe'],
+                'review_refs' => ['senior_review:router-runtime-fixture'],
             ],
         );
 
@@ -365,7 +374,12 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
                 'routing_task' => 'debug',
                 'flow_id' => 'programming.repair',
                 'domain_id' => 'programming',
-                'workspace' => '/tmp/atlas-workspace',
+                'workspace' => $this->workspacePath,
+                'context_refs' => ['docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md'],
+                'expected_files' => ['app/Http/Controllers/AiInteractionController.php'],
+                'suggested_tests' => ['php artisan test tests/Feature/Ai/RouterRuntime/AtlasAiInteractionHyperflowEntryTest.php'],
+                'acceptance_criteria' => ['explicit desktop programming repair handoff remains provider-safe'],
+                'review_refs' => ['senior_review:desktop-programming-fixture'],
             ],
         );
 
@@ -624,7 +638,7 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
                 ->andReturn($this->trace($clientId));
         });
 
-        $this->withHeaders($this->headers)
+        $response = $this->withHeaders($this->headers)
             ->postJson('/ai/interactions', [
                 'input_text' => $input,
                 'client_id' => $clientId,
@@ -633,8 +647,9 @@ class AtlasAiInteractionHyperflowEntryTest extends TestCase
                 'provider' => 'codex_cli',
                 'source_type' => 'app',
                 'payload' => $payload,
-            ])
-            ->assertAccepted();
+            ]);
+
+        $this->assertSame(202, $response->getStatusCode(), $response->getContent());
 
         $this->assertIsArray($captured, 'gateway must have been called with options');
 

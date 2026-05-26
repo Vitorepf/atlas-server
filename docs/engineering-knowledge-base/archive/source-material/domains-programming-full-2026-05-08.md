@@ -2,7 +2,7 @@
 id: atlas-ai-programming-domain
 type: engineering_knowledge
 title: Atlas AI Programming Domain
-status: active
+status: source_material
 category: architecture
 priority: 98
 summary: Spec canonica do dominio implemented/ready Programming para dev, repair, review, refactor, QA, security, database, visual, forge e specialist profiles internos.

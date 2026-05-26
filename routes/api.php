@@ -684,6 +684,10 @@ Route::prefix('atlas-code')->group(function () {
     Route::post('/frontend/project-activation', [AtlasFrontendWorkspaceController::class, 'activateProjectWorkspace']);
     Route::post('/frontend/runtime-projection', [AtlasFrontendWorkspaceController::class, 'runtimeProjection']);
     Route::post('/frontend/control-plane', [AtlasFrontendWorkspaceController::class, 'controlPlane']);
+    Route::post('/frontend/competitive-benchmark-plan', [AtlasFrontendWorkspaceController::class, 'competitiveBenchmarkPlan']);
+    Route::post('/frontend/live-source-patch', [AtlasFrontendWorkspaceController::class, 'liveSourcePatch']);
+    Route::post('/frontend/live-visual-selection', [AtlasFrontendWorkspaceController::class, 'liveVisualSelection']);
+    Route::post('/frontend/live-target-suggestions', [AtlasFrontendWorkspaceController::class, 'liveTargetSuggestions']);
     Route::post('/frontend/prepare-evidence', [AtlasFrontendWorkspaceController::class, 'prepareEvidence']);
     Route::post('/frontend/prepare-rival-replay', [AtlasFrontendWorkspaceController::class, 'prepareRivalReplay']);
     Route::post('/frontend/inspect-rival-replay', [AtlasFrontendWorkspaceController::class, 'inspectRivalReplay']);
@@ -701,6 +705,7 @@ Route::prefix('atlas-code')->group(function () {
     Route::get('/workspace-intelligence/contracts', [AtlasWorkspaceIntelligenceController::class, 'contracts']);
     Route::get('/workspace-intelligence/evolution', [AtlasWorkspaceIntelligenceController::class, 'evolution']);
     Route::get('/workspace-intelligence/learning-loop', [AtlasWorkspaceIntelligenceController::class, 'learningLoop']);
+    Route::get('/workspace-intelligence/live-execution-memory', [AtlasWorkspaceIntelligenceController::class, 'liveExecutionMemory']);
     Route::get('/workspace-intelligence/next-session-brain', [AtlasWorkspaceIntelligenceController::class, 'nextSessionBrain']);
     Route::get('/workspace-intelligence/artifact-intelligence', [AtlasWorkspaceIntelligenceController::class, 'artifactIntelligence']);
     Route::get('/workspace-intelligence/artifact-lake', [AtlasWorkspaceIntelligenceController::class, 'artifactLake']);

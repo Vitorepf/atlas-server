@@ -12,7 +12,7 @@ use App\Services\Ai\Programming\Sdd\Enums\ConfidenceClass;
 use App\Services\Ai\Programming\Sdd\Gates\SddClarificationGate;
 use App\Services\Ai\Programming\Sdd\Pipeline\ContextPack;
 use App\Services\Ai\Programming\Sdd\Pipeline\Intent;
-use App\Services\Ai\Programming\Sdd\Pipeline\OperationEnvelope;
+use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
 use Tests\Concerns\CreatesAtlasSddTables;
 use Tests\TestCase;
 
@@ -36,7 +36,7 @@ class DecisionEngineTest extends TestCase
     {
         [$envelope, $intent, $op, $spec, $plan, $tasks, $ctx] = $this->scaffold();
 
-        $receipt = (new DecisionEngine())->createReceipt($envelope, $op, $spec, $plan, $tasks, $ctx, $intent);
+        $receipt = (new DecisionEngine)->createReceipt($envelope, $op, $spec, $plan, $tasks, $ctx, $intent);
 
         $this->assertTrue($receipt->isActive());
         $this->assertSame(AutonomyLevel::L2AutoPatch->value, $receipt->autonomy_level);
@@ -55,7 +55,7 @@ class DecisionEngineTest extends TestCase
         [$envelope, , $op, $spec, $plan, $tasks, $ctx] = $this->scaffold();
         $intent = new Intent('feature', 'programming', 'medium', ConfidenceClass::BlockingAmbiguity, false);
 
-        $receipt = (new DecisionEngine())->createReceipt($envelope, $op, $spec, $plan, $tasks, $ctx, $intent);
+        $receipt = (new DecisionEngine)->createReceipt($envelope, $op, $spec, $plan, $tasks, $ctx, $intent);
 
         $this->assertSame(AutonomyLevel::L0Manual->value, $receipt->autonomy_level);
         $this->assertNotContains('write_allowed_files', (array) $receipt->allowed_actions_json);
@@ -65,7 +65,7 @@ class DecisionEngineTest extends TestCase
     public function test_authorize_file_write_respects_allowed_and_forbidden(): void
     {
         [$envelope, $intent, $op, $spec, $plan, $tasks, $ctx] = $this->scaffold();
-        $engine = new DecisionEngine();
+        $engine = new DecisionEngine;
         $receipt = $engine->createReceipt($envelope, $op, $spec, $plan, $tasks, $ctx, $intent);
 
         $this->assertTrue($engine->authorizesFileWrite($receipt, 'app/Foo.php'));
@@ -76,7 +76,7 @@ class DecisionEngineTest extends TestCase
     public function test_revoked_receipt_does_not_authorize(): void
     {
         [$envelope, $intent, $op, $spec, $plan, $tasks, $ctx] = $this->scaffold();
-        $engine = new DecisionEngine();
+        $engine = new DecisionEngine;
         $receipt = $engine->createReceipt($envelope, $op, $spec, $plan, $tasks, $ctx, $intent);
 
         $engine->revoke($receipt, 'compromised');
@@ -87,7 +87,7 @@ class DecisionEngineTest extends TestCase
     public function test_clarification_gate_blocks_when_blocking_assumption_exists(): void
     {
         [$envelope, $intent, $op, $spec, $plan, $tasks, $ctx] = $this->scaffold();
-        $ledger = new AssumptionLedger();
+        $ledger = new AssumptionLedger;
         $ledger->record($spec, [
             'text' => 'Is the export endpoint authenticated?',
             'confidence_class' => 'blocking_ambiguity',
@@ -104,7 +104,7 @@ class DecisionEngineTest extends TestCase
     public function test_resolved_assumption_unblocks_gate(): void
     {
         [$envelope, $intent, $op, $spec, $plan, $tasks, $ctx] = $this->scaffold();
-        $ledger = new AssumptionLedger();
+        $ledger = new AssumptionLedger;
         $a = $ledger->record($spec, [
             'text' => 'unsure',
             'confidence_class' => 'blocking_ambiguity',

@@ -47,17 +47,29 @@ class AtlasSelfImprovementProposalBacklogService
     public const DECISION_SCHEMA_VERSION = 'atlas.self_improvement.proposal_priority_decision.v1';
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_EVALUATING = 'evaluating';
+
     public const STATUS_NEEDS_REVISION = 'needs_revision';
+
     public const STATUS_PENDING_HUMAN_REVIEW = 'pending_human_review';
+
     public const STATUS_APPROVED_FOR_ACTIVATION = 'approved_for_activation';
+
     public const STATUS_ACTIVATED = 'activated';
+
     public const STATUS_OBRA_CREATED = 'obra_created';
+
     public const STATUS_FORGE_RUNNING = 'forge_running';
+
     public const STATUS_AWAITING_REVIEW = 'awaiting_review';
+
     public const STATUS_MEASURING_DELTA = 'measuring_delta';
+
     public const STATUS_LEARNED = 'learned';
+
     public const STATUS_REJECTED = 'rejected';
+
     public const STATUS_ARCHIVED = 'archived';
 
     /** @var list<string> */

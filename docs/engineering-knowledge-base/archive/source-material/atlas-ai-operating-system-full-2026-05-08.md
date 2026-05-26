@@ -2,7 +2,7 @@
 id: atlas-ai-operating-system
 type: engineering_knowledge
 title: Atlas AI Operating System
-status: active
+status: source_material
 category: architecture
 priority: 100
 summary: Arquitetura macro do Atlas AI como sistema operacional de orquestracao, com dominios, pipeline comum, regras anti-duplicacao e fronteiras entre dev, forge, decide, memoria, tools e evolucao automatica.

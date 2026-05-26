@@ -26,7 +26,7 @@ class Metadata
 
     public static function listForResponse(mixed $value): array
     {
-        if (!is_array($value)) {
+        if (! is_array($value)) {
             return [];
         }
 

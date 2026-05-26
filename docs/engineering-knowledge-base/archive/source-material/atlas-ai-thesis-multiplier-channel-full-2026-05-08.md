@@ -2,7 +2,7 @@
 id: atlas-ai-thesis-multiplier-channel
 type: engineering_knowledge
 title: Atlas AI — Tese Central do Multiplicador / Canal Soberano
-status: active
+status: source_material
 category: constitutional
 priority: 100
 summary: Tese central definitiva do Atlas AI. Atlas e canal multiplicador entre Vitor e qualquer provider de IA que existir agora ou no futuro. Nao compete com providers — usa todos. Cada melhoria de provider e insumo, nao ameaca. Antifragil por construcao.

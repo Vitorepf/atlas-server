@@ -45,7 +45,7 @@ class AtlasCodeEvidenceController extends Controller
 
         foreach ($runs as $run) {
             $items->push([
-                'id' => 'run:' . $run->id,
+                'id' => 'run:'.$run->id,
                 'obraId' => (string) $project->getKey(),
                 'kind' => 'engineering_run',
                 'summary' => sprintf(
@@ -59,10 +59,10 @@ class AtlasCodeEvidenceController extends Controller
 
         foreach ($evidences as $ev) {
             $items->push([
-                'id' => 'evidence:' . $ev->id,
+                'id' => 'evidence:'.$ev->id,
                 'obraId' => (string) $project->getKey(),
                 'kind' => (string) ($ev->evidence_type ?? 'evidence'),
-                'summary' => (string) ($ev->summary ?? $ev->output_excerpt ?? 'evidence ' . $ev->id),
+                'summary' => (string) ($ev->summary ?? $ev->output_excerpt ?? 'evidence '.$ev->id),
                 'createdAt' => ($ev->recorded_at ?? $ev->created_at)?->toJSON(),
             ]);
         }

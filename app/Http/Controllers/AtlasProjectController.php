@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Resources\AtlasProjectResource;
 use App\Http\Resources\AtlasProjectEventResource;
+use App\Http\Resources\AtlasProjectResource;
 use App\Http\Resources\AtlasProjectStepResource;
 use App\Http\Resources\AtlasTaskResource;
 use App\Models\AtlasProject;
@@ -161,7 +161,7 @@ class AtlasProjectController extends Controller
             // immediately request the receipt for this obra. The Kernel mints
             // the actual decision asynchronously; this is the placeholder ID
             // the UI uses until the real receipt arrives via stream.
-            'receipt_id' => 'pending:' . $project->getKey(),
+            'receipt_id' => 'pending:'.$project->getKey(),
         ], 201);
     }
 

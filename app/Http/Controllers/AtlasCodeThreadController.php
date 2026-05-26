@@ -67,8 +67,10 @@ final class AtlasCodeThreadController extends Controller
             if (isset($content['text']) && is_string($content['text'])) {
                 return $content['text'];
             }
+
             return (string) json_encode($content, JSON_UNESCAPED_UNICODE);
         }
+
         return '';
     }
 }

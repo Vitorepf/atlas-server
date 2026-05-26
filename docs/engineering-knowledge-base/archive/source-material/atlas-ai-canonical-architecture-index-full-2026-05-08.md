@@ -2,7 +2,7 @@
 id: atlas-ai-canonical-architecture-index
 type: engineering_knowledge
 title: Atlas AI Canonical Architecture Index
-status: active
+status: source_material
 category: architecture
 priority: 100
 summary: Indice canonico que define a hierarquia oficial entre Constituicao, Kernel, Master Architecture, Runtime Boundaries, Native Mac Agent, Human Knowledge Surface, Pipeline e Domain Specs.

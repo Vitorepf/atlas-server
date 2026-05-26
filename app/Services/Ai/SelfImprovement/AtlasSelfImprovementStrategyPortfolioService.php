@@ -29,12 +29,19 @@ class AtlasSelfImprovementStrategyPortfolioService
     public const SCHEMA_VERSION = 'atlas.self_improvement.strategy_portfolio.v1';
 
     public const BUCKET_QUICK_WINS = 'quick_wins';
+
     public const BUCKET_CORE_RUNTIME = 'core_runtime';
+
     public const BUCKET_ENTERPRISE_RELIABILITY = 'enterprise_reliability';
+
     public const BUCKET_PROVIDER_INTELLIGENCE = 'provider_intelligence';
+
     public const BUCKET_OPERATOR_EXPERIENCE = 'operator_experience';
+
     public const BUCKET_RIVALS_EVALUATION = 'rivals_evaluation';
+
     public const BUCKET_SELF_CONSTRUCTION = 'self_construction';
+
     public const BUCKET_SECURITY_GOVERNANCE = 'security_governance';
 
     /** @var list<string> 8 canonical buckets. */

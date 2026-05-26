@@ -11,13 +11,13 @@ use App\Services\Ai\Programming\AtlasDev\Pipeline\RoutingDecision;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\SpecialistFlowDecision;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\SpecialistFlowRouter;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\TaskClassification;
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextBudget;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use PHPUnit\Framework\TestCase;
 
 final class SpecialistFlowRouterTest extends TestCase

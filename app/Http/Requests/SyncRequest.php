@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Http\Requests\Concerns\ValidatesAtlasDomain;
 use App\Http\Requests\Concerns\RejectsFutureCheckinRecordedAt;
+use App\Http\Requests\Concerns\ValidatesAtlasDomain;
 use App\Services\AtlasDomainRegistry;
 use App\Support\BehaviorCategories;
 use App\Support\BehaviorLifecycle;
@@ -13,8 +13,8 @@ use Illuminate\Validation\Rule;
 
 class SyncRequest extends FormRequest
 {
-    use ValidatesAtlasDomain;
     use RejectsFutureCheckinRecordedAt;
+    use ValidatesAtlasDomain;
 
     public function authorize(): bool
     {

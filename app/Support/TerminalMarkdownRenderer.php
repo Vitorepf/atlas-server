@@ -53,12 +53,14 @@ class TerminalMarkdownRenderer
                     $codeBuffer = [];
                 }
                 $i++;
+
                 continue;
             }
 
             if ($inCode) {
                 $codeBuffer[] = $line;
                 $i++;
+
                 continue;
             }
 
@@ -71,6 +73,7 @@ class TerminalMarkdownRenderer
                     $rendered[] = $tableLine;
                 }
                 $i += $consumed;
+
                 continue;
             }
 
@@ -81,6 +84,7 @@ class TerminalMarkdownRenderer
                     $rendered[] = $headerLine;
                 }
                 $i++;
+
                 continue;
             }
 
@@ -88,6 +92,7 @@ class TerminalMarkdownRenderer
                 $body = $this->renderInline((string) $match[1], $decorated);
                 $rendered[] = $decorated ? $this->ansi('90', '| ').$body : '| '.$body;
                 $i++;
+
                 continue;
             }
 
@@ -97,6 +102,7 @@ class TerminalMarkdownRenderer
                 $body = $this->renderInline((string) $match[3], $decorated);
                 $rendered[] = $prefix.($decorated ? $this->ansi('36', $marker) : $marker).' '.$body;
                 $i++;
+
                 continue;
             }
 
@@ -105,6 +111,7 @@ class TerminalMarkdownRenderer
                 $bullet = $decorated ? $this->ansi('36', '-') : '-';
                 $rendered[] = $prefix.$bullet.' '.$this->renderInline((string) $match[2], $decorated);
                 $i++;
+
                 continue;
             }
 
@@ -112,6 +119,7 @@ class TerminalMarkdownRenderer
                 $rule = str_repeat('-', 56);
                 $rendered[] = $decorated ? $this->ansi('90', $rule) : $rule;
                 $i++;
+
                 continue;
             }
 

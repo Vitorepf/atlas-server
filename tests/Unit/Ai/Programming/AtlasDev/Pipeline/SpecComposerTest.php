@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\AtlasDev\Pipeline\IntakeNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\RiskLevelScorer;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\SpecComposer;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\TaskClassification;
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CodeCandidate;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
@@ -15,7 +16,6 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use PHPUnit\Framework\TestCase;
 
 final class SpecComposerTest extends TestCase

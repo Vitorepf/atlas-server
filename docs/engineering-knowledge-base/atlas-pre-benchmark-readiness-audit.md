@@ -5,7 +5,7 @@ title: Atlas Pre-Benchmark Readiness Audit
 status: active
 category: programming
 priority: 90
-summary: Gate READ-ONLY de pre-prontidao para benchmark externo contra Claude Code/Codex. Atualizacao 2026-05-20 — produto/runtime/TEOS/suite estao prontos, mas a execucao real esta BLOCKED ate existir workspace Atlas limpo e baseline separado limpo. Benchmark NAO foi rodado e NAO sera rodado por esta missao.
+summary: Gate READ-ONLY de pre-prontidao para benchmark externo contra Claude Code/Codex. Atualizacao 2026-05-25 — produto/runtime/TEOS/suite estao prontos, mas a execucao real segue BLOCKED ate existir workspace Atlas limpo, baseline separado limpo e aprovacao de custo/provider. Benchmark NAO foi rodado e NAO sera rodado por esta missao.
 tags:
   - atlas-ai
   - benchmark
@@ -24,10 +24,8 @@ decisions:
   - READY_TO_REQUEST_AUTHORIZATION exige Product Cert ready, Runtime Release Gate sem blockers criticos, TEOS Final Cert ready, BenchmarkReadiness validate passed, benchmark_status=benchmark_not_run e preflight de execucao com workspaces limpos.
   - Telemetry, Control Plane, Compounding feedback loop e Learning Proposal proposal-only ja prontos como infraestrutura nao bloqueante.
 maintenance:
-  - Regenerar quando AiWorker process consumir Kernel envelope (Phases 4-6 do ADR).
-  - Regenerar quando ATLAS_AI_TOOL_RUNTIME_STRICT=true em producao com receipts.
-  - Regenerar quando Phase 2 do plano de consolidacao Dev->Forge entregar (route_decision.v1 em Mechanism 4).
-  - Regenerar quando E2E HTTP real cobrir POST /ai/interactions ate certification.
+  - Regenerar quando `atlas:programming:pre-benchmark-readiness --json --strict` mudar status, blockers ou dirty_count.
+  - Regenerar quando houver clean Atlas workspace, separate clean baseline workspace e autorizacao humana de custo/provider.
 related_paths:
   - docs/engineering-knowledge-base/atlas-programming-superiority-architecture.md
   - docs/engineering-knowledge-base/atlas-programming-superiority-contracts.md
@@ -46,6 +44,8 @@ graph_layer: system
 graph_kind: module
 graph_parent: atlas-programming-superiority-architecture
 graph_status: active
+implementation_status: active_pre_benchmark_gate_blocked_for_external_execution
+implementation_boundary: internal_readiness_ready_external_benchmark_not_run_workspace_and_operator_approval_blocked
 graph_source: repo
 human_name: Atlas Pre-Benchmark Readiness Audit
 canonical_name: Atlas Pre-Benchmark Readiness Audit
@@ -107,7 +107,7 @@ line_limit: 520
 
 ## Resumo
 
-**Veredicto executivo atualizado (2026-05-20):**
+**Veredicto executivo atualizado (2026-05-25):**
 `BLOCKED_FOR_EXECUTION_PREFLIGHT`. Produto, runtime, TEOS e suite canonica
 estao prontos, mas a bateria real ainda nao deve ser autorizada porque o
 workspace atual esta sujo e o baseline precisa ser um workspace separado e
@@ -146,7 +146,7 @@ limpa e baseline separado. Quando esse preflight ficar verde, a proxima acao
 sera pedir autorizacao humana explicita.
 
 Nao reclassifica nem substitui:
-- `atlas-runtime-spine-completion-audit.md` (audit operacional 15 requisitos);
+- `atlas-runtime-spine-completion-audit.md` (runtime spine readiness green no escopo auditado);
 - `atlas-programming-superiority-architecture.md` (Top 15 gaps estrategicos);
 - `atlas-dev-forge-relationship-critical-audit.md` (estado 4 mecanismos);
 - `atlas-programming-superiority-roadmap.md` (M1-M10).
@@ -160,7 +160,7 @@ Layer 0.72 Programming. Filho de
 Comparison Methodology obrigatoria). Cruza com:
 
 - `atlas-runtime-spine-completion-audit.md` (estado real da spine).
-- `atlas-aiworker-kernel-integration-adr.md` (Phases 1-6 do worker).
+- `atlas-aiworker-kernel-integration-adr.md` (historico do worker; estado atual vem do runtime spine readiness).
 - `atlas-dev-forge-escalation-consolidation-plan.md` (Fases 1-4).
 - `atlas-compounding-engineering-intelligence.md` (16 checks verdes).
 - `atlas-evidence-certification-runtime.md` (gramatica de evidence).
@@ -215,9 +215,9 @@ comparacao, ou declarar superioridade externa.
 ## Dependencias
 
 - `atlas-programming-superiority-architecture.md` (`Honest Comparison Methodology` define os 4 requisitos para qualquer claim externo).
-- `atlas-runtime-spine-completion-audit.md` (8 PASS, 5 PARTIAL, 2 FAIL no momento da escrita).
+- `atlas-runtime-spine-completion-audit.md` (spine green no readiness atual; nao implica benchmark externo).
 - `atlas-dev-forge-relationship-critical-audit.md` (gap dos 4 mecanismos paralelos).
-- `atlas-aiworker-kernel-integration-adr.md` (Phase 1 entregue; Phases 2-6 pendentes).
+- `atlas-aiworker-kernel-integration-adr.md` (historico de integracao; checar estado atual via runtime spine readiness).
 - `atlas-compounding-engineering-intelligence.md` + readiness service (16/16 verde).
 - `atlas-evidence-certification-runtime.md` (gramatica de receipts).
 
@@ -241,7 +241,7 @@ $ php artisan atlas:programming:pre-benchmark-readiness --json --strict
   status: blocked
   checks: 5/6 pass
   blocker: rivals_execution_preflight
-  blocker detail: current_workspace_ready_for_provider_battery=false, dirty_count=55
+  blocker detail: current_workspace_ready_for_provider_battery=false, dirty_count=93
   accepted_warnings: [control_plane_runtime]
   claim_policy: benchmark_not_run=true, rivals_compared=false, provider_calls_made=false
 
@@ -259,7 +259,7 @@ $ php artisan atlas:programming:benchmark-readiness validate --json
 Nenhum desses comandos executa benchmark, chama Claude/Codex ou compara
 rivals. Todos sao read-only ou readiness.
 
-### Gate final agregado (2026-05-20)
+### Gate final agregado (2026-05-25)
 
 Comando canonico:
 
@@ -326,7 +326,7 @@ BLOCKED_FOR_EXECUTION_PREFLIGHT
 - Runtime Release Gate: partial com warning aceito control_plane_runtime
 - TEOS Final Cert: ready
 - BenchmarkReadiness: validate passed, benchmark_not_run
-- Rivals Execution Preflight: blocked porque workspace atual esta dirty
+- Rivals Execution Preflight: blocked porque workspace atual esta dirty e exige aprovacao de custo/provider
 - Proximo passo: criar worktrees limpas e baseline separado
 ```
 

@@ -28,7 +28,7 @@ decisions:
   - Tool execution emite receipt; domain delivery exige certification; mission completion exige evidence pack + certification.
 maintenance:
   - Atualize este doc antes de mudar EvidencePack, Receipt, Claim, Certification, Blocker ou AuditEvent.
-  - Nao implementar models/services/migrations a partir deste pack sem coordenar com Meta 1, Meta 2 e Meta 3.
+  - Nao criar nova familia Evidence/Certification paralela; estenda os models, services e migrations listados em `repo_paths`.
   - Nao relaxe evidence_refs, certification_hash ou claim_verification_status para acelerar release.
 related_paths:
   - docs/engineering-knowledge-base/atlas-evidence-truth-layer.md
@@ -166,7 +166,7 @@ observability_signals:
 next_actions:
   - Coordenar com Meta 1 para fixar mission_id como chave de referencia.
   - Definir interface EvidencePackBuilder global e adapter por dominio.
-  - Criar migrations e models quando Meta 1/2/3 entrarem em building.
+  - Integrar os models/services ativos com Meta 1/2/3 conforme os lifecycles amadurecerem.
 line_limit: 620
 ---
 # Atlas Evidence Certification Runtime
@@ -199,10 +199,10 @@ Ele impede tres falhas estruturais: resposta convincente sem base, falso
 completo e claim sem evidencia. Toda meta, missao, work order, domain delivery,
 tool run, handoff e operator decision deve emitir evidencia auditavel e passar
 por certification antes de virar `completed`.
-Este pack e design only. Ele declara contratos para que Meta 1 Mission
-Foundation, Meta 2 Domain Runtime, Meta 3 Policy e o Control Plane implementem
-consistente sob a mesma verdade operacional. Nao cria migrations, models ou
-services nesta sessao.
+Este doc agora governa o backend ativo de Evidence/Certification. Meta 4
+entregou migrations, models, services, comando e testes; Meta 1 Mission
+Foundation, Meta 2 Domain Runtime, Meta 3 Policy e Control Plane devem integrar
+por esses contratos, sem criar runtime paralelo ou rebaixar os gates de prova.
 
 ## Papel No Atlas
 
@@ -472,10 +472,11 @@ docs-health limpo.
 
 ## Evidencias
 
-Este doc registra contrato. Evidencias futuras incluem migrations criadas e
-testadas, contratos JSON `atlas.ai.evidence.*.v1` versionados, testes de aceite
-descritos em Escopo de Implementacao, e relatorios de Certification atestando
-integridade do hash chain.
+Este doc registra contrato e runtime ativo. Evidencias atuais ficam em
+`repo_paths`, no comando `atlas:ai:evidence` e nos testes `EvidenceRuntime`.
+Evidencias futuras devem ampliar esses contratos JSON
+`atlas.ai.evidence.*.v1` e relatorios de Certification sem substituir o backend
+existente.
 
 ## Riscos
 

@@ -25,7 +25,8 @@ class AtlasFrontendDesignRuntimeCommandTest extends TestCase
         $payload = app(AtlasFrontendDesignRuntimeService::class)->certify();
 
         $this->assertSame('ready', $payload['status']);
-        $this->assertTrue((bool) data_get($payload, 'market_claim_policy.may_claim_more_complete_than_impeccable'));
+        $this->assertFalse((bool) data_get($payload, 'market_claim_policy.may_claim_more_complete_than_impeccable'));
+        $this->assertTrue((bool) data_get($payload, 'market_claim_policy.private_benchmark_for_internal_improvement_only'));
         $this->assertFalse((bool) data_get($payload, 'market_claim_policy.may_claim_world_best_frontend_system'));
     }
 }

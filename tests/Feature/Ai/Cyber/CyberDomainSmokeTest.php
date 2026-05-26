@@ -9,6 +9,7 @@ use App\Models\AiCyberEvidenceChainEntry;
 use App\Models\AiDefensiveSecurityReview;
 use App\Services\Ai\Cyber\AuthorizedBugBountyIntakeService;
 use App\Services\Ai\Cyber\CyberEngagementIntakeService;
+use App\Services\Ai\Cyber\CyberEvidenceChainService;
 use Tests\Concerns\CreatesCyberRuntimeTables;
 use Tests\Concerns\CreatesEvidenceRuntimeTables;
 use Tests\TestCase;
@@ -49,6 +50,9 @@ class CyberDomainSmokeTest extends TestCase
 
         $engagement = AiCyberEngagement::query()->latest('created_at')->first();
         $this->assertSame(CyberEngagementIntakeService::STATUS_AUTHORIZED, $engagement->status);
+        $verification = app(CyberEvidenceChainService::class)->verify($engagement);
+        $this->assertTrue($verification['integrity_ok']);
+        $this->assertSame(8, $verification['entry_count']);
 
         $bounty = AiBugBountyIntake::query()->latest('created_at')->first();
         $this->assertSame(AuthorizedBugBountyIntakeService::STATUS_AUTHORIZED, $bounty->status);

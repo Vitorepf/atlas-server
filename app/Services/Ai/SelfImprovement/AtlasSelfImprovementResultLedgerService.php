@@ -46,9 +46,13 @@ class AtlasSelfImprovementResultLedgerService
     public const LEARNING_SCHEMA_VERSION = 'atlas.self_improvement.learning_packet.v1';
 
     public const GRADE_REGRESSED = 'regressed';
+
     public const GRADE_NEUTRAL = 'neutral';
+
     public const GRADE_IMPROVED = 'improved';
+
     public const GRADE_MAJOR_IMPROVEMENT = 'major_improvement';
+
     public const GRADE_INVALID = 'invalid';
 
     /** @var list<string> */

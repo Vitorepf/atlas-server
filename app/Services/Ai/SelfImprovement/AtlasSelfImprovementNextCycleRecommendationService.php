@@ -29,11 +29,17 @@ class AtlasSelfImprovementNextCycleRecommendationService
     public const SCHEMA_VERSION = 'atlas.self_improvement.next_cycle_recommendation.v1';
 
     public const REC_CONTINUE_SAME_CAPABILITY = 'continue_same_capability';
+
     public const REC_BROADEN_SCOPE = 'broaden_scope';
+
     public const REC_REPAIR_REGRESSION = 'repair_regression';
+
     public const REC_GATHER_MORE_EVIDENCE = 'gather_more_evidence';
+
     public const REC_ARCHIVE_LOW_VALUE = 'archive_low_value';
+
     public const REC_PROMOTE_RULE_CANDIDATE = 'promote_rule_candidate';
+
     public const REC_CREATE_FOLLOWUP_PROPOSAL = 'create_followup_proposal';
 
     public function __construct(
@@ -45,8 +51,8 @@ class AtlasSelfImprovementNextCycleRecommendationService
      *
      * @param  array<string,mixed>|null  $resultEntry  Output of
      *                                                 ResultLedgerService::record
-     * @param  array<string,mixed>|null  $proposalItem Output of
-     *                                                 ProposalBacklogService::getProposal
+     * @param  array<string,mixed>|null  $proposalItem  Output of
+     *                                                  ProposalBacklogService::getProposal
      * @return array<string,mixed>
      */
     public function recommend(?array $resultEntry, ?array $proposalItem): array

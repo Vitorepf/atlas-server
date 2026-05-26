@@ -36,6 +36,10 @@ class AtlasFrontendCompanyPortfolioCommandTest extends TestCase
         $this->assertStringContainsString('frontend_app_candidate_status', $output);
         $this->assertStringContainsString('frontend_app_candidate_is_subscope_not_repo', $output);
         $this->assertStringContainsString('selection_handoff', $output);
+        $this->assertStringContainsString('operator_flow', $output);
+        $this->assertStringContainsString('drive_atlas_ai_or_atlas_code_from_parent_folder_to_selected_repo_frontend_runtime', $output);
+        $this->assertStringContainsString('activate_atlas_code_project_workspace', $output);
+        $this->assertStringContainsString('open_frontend_runtime_cockpit', $output);
         $this->assertStringContainsString('atlas:frontend:selected-workspace', $output);
         $this->assertStringContainsString('refinar-web', $output);
         $this->assertStringNotContainsString('Melhorar dashboard Refinar', $output);
@@ -72,6 +76,7 @@ class AtlasFrontendCompanyPortfolioCommandTest extends TestCase
         $this->assertStringContainsString('nested_frontend_app_candidate_recommended', $output);
         $this->assertStringContainsString('frontend_app_candidate_is_subscope_not_repo', $output);
         $this->assertStringContainsString('operator_confirmation_required', $output);
+        $this->assertStringContainsString('requires_operator_confirmation', $output);
         $this->assertStringContainsString(hash('sha256', 'apps/web'), $output);
         $this->assertStringNotContainsString('apps/web', $output);
         $this->assertStringNotContainsString($workspace.'/apps/web', $output);

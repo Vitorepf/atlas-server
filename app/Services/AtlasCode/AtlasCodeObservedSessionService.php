@@ -80,11 +80,10 @@ final class AtlasCodeObservedSessionService
     public function __construct(
         private readonly AtlasCodeWorkPacketService $packets,
         private readonly AtlasCodeProviderGovernanceService $governance,
-        private readonly AtlasCodeScopeGuardMatcher $scopeMatcher = new AtlasCodeScopeGuardMatcher(),
-        private readonly GitWorkspaceInspector $git = new GitWorkspaceInspector(),
-        private readonly HumanDecisionReceiptSigner $signer = new HumanDecisionReceiptSigner()
-    ) {
-    }
+        private readonly AtlasCodeScopeGuardMatcher $scopeMatcher = new AtlasCodeScopeGuardMatcher,
+        private readonly GitWorkspaceInspector $git = new GitWorkspaceInspector,
+        private readonly HumanDecisionReceiptSigner $signer = new HumanDecisionReceiptSigner
+    ) {}
 
     /**
      * @return array<int, array<string, mixed>>
@@ -121,6 +120,7 @@ final class AtlasCodeObservedSessionService
             (string) ($b['created_at'] ?? ''),
             (string) ($a['created_at'] ?? '')
         ));
+
         return $sessions;
     }
 
@@ -131,6 +131,7 @@ final class AtlasCodeObservedSessionService
                 ->where('obra_id', $obraId)
                 ->where('id', $sessionId)
                 ->first();
+
             return $row ? $this->shape($this->modelToArray($row)) : null;
         }
         $path = $this->sessionPath($obraId, $sessionId);
@@ -145,6 +146,7 @@ final class AtlasCodeObservedSessionService
         if (! is_array($decoded)) {
             return null;
         }
+
         return $this->shape($decoded);
     }
 
@@ -164,6 +166,7 @@ final class AtlasCodeObservedSessionService
     {
         $arr = $m->toArray();
         $arr['schema_version'] = self::SCHEMA_VERSION;
+
         return $arr;
     }
 
@@ -279,6 +282,7 @@ final class AtlasCodeObservedSessionService
         ];
 
         $this->persist($session);
+
         return $this->shape($session);
     }
 
@@ -298,6 +302,7 @@ final class AtlasCodeObservedSessionService
     {
         $packet = $this->packets->create($obra, $packetPayload);
         $session = $this->open($obra, (string) $packet['id'], $providerId);
+
         return ['session' => $session, 'packet' => $packet];
     }
 
@@ -389,6 +394,7 @@ final class AtlasCodeObservedSessionService
             $existing = $this->find($obraId, $sessionId) ?? $existing;
             $existing['blocker_reason'] = 'scope_violation_detected: '.$scopeGuard['summary'];
             $this->persistRaw($existing);
+
             return $this->transition($obraId, $sessionId, 'blocked', [], 'scope_violation_detected');
         }
 
@@ -431,6 +437,7 @@ final class AtlasCodeObservedSessionService
             ]];
             $session['gates_summary'] = ['total' => 1, 'passed' => 0, 'failed' => 1, 'pending' => 0, 'unsupported' => 1];
             $this->persistRaw($session);
+
             return $this->transition($obraId, $sessionId, 'gates_failed', [], 'gates_packet_missing');
         }
 
@@ -520,6 +527,7 @@ final class AtlasCodeObservedSessionService
         $this->persistRaw($session);
 
         $next = $hasFailure ? 'gates_failed' : 'gates_passed';
+
         return $this->transition($obraId, $sessionId, $next, [], 'gates_'.$next);
     }
 
@@ -555,6 +563,7 @@ final class AtlasCodeObservedSessionService
                 'violations' => [],
             ];
         }
+
         return [
             'status' => 'passed',
             'summary' => 'no scope violations detected',
@@ -611,6 +620,7 @@ final class AtlasCodeObservedSessionService
             $session['blocker_reason'] = $cleanedReason ?? 'operator_blocked_without_reason';
         }
         $this->persistRaw($session);
+
         return $this->transition($obraId, $sessionId, $next, [], 'human_'.$action);
     }
 
@@ -628,6 +638,7 @@ final class AtlasCodeObservedSessionService
             // Idempotent: same state, just refresh updated_at.
             $session['updated_at'] = now()->toJSON();
             $this->persistRaw($session);
+
             return $this->shape($session);
         }
         $allowed = self::TRANSITIONS[$current] ?? [];
@@ -645,6 +656,7 @@ final class AtlasCodeObservedSessionService
             -32 // keep last 32 transitions
         );
         $this->persistRaw($session);
+
         return $this->shape($session);
     }
 
@@ -669,6 +681,7 @@ final class AtlasCodeObservedSessionService
     private function terminalCommandHint(array $provider): ?string
     {
         $bin = $provider['binary_hint'] ?? null;
+
         return is_string($bin) && $bin !== '' ? $bin : null;
     }
 
@@ -734,6 +747,7 @@ final class AtlasCodeObservedSessionService
                 'governance' => $session['governance'] ?? null,
             ];
             AtlasCodeObservedSession::query()->updateOrCreate(['id' => $sessionId], $attrs);
+
             return;
         }
 
@@ -825,6 +839,7 @@ final class AtlasCodeObservedSessionService
         if ($clean === '') {
             throw new RuntimeException('observed_session_unsafe_id');
         }
+
         return $clean;
     }
 }

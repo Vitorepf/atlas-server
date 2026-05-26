@@ -113,6 +113,7 @@ next_actions:
 | Model selection and AP-99 | `atlas-ai-model-selection-strategy.md`, telemetry/performance docs, AP-146/AP-147 |
 | Memory/Open Brain | `atlas-ai-memory-context-core-open-brain.md` + `memory/*.md` |
 | Memory noise immunity, capture quarantine and promotion gates | `memory/cognitive-immune-learning-kernel.md` |
+| External pattern absorption roadmap (claude-mem/engram/mem0) | `atlas-external-memory-pattern-absorptions-v1.md` |
 | Code Intelligence and external graph candidates | `code-intelligence.md` + `code-intelligence/external-graph-harness.md` |
 | AtlasVault/Obsidian | `obsidian-atlas-vault.md` + `vault/*.md` |
 | Mobile | `atlas-ai-mobile-surface-gateway.md` |

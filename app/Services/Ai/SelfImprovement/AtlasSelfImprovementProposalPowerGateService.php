@@ -30,8 +30,11 @@ class AtlasSelfImprovementProposalPowerGateService
     public const SCHEMA_VERSION = 'atlas.self_improvement.proposal_power_gate.v1';
 
     public const OUTCOME_APPROVED = 'approved';
+
     public const OUTCOME_NEEDS_REVISION = 'needs_revision';
+
     public const OUTCOME_REJECTED = 'rejected';
+
     public const OUTCOME_HUMAN_REVIEW_REQUIRED = 'human_review_required';
 
     /** @var list<string> Canonical hard fails — any of these blocks promotion. */

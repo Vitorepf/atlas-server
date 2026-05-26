@@ -187,6 +187,7 @@ class ClaudeCliProvider implements AiProvider
                     ],
                     'channel' => 'assistant',
                 ];
+
                 continue;
             }
 
@@ -245,6 +246,7 @@ class ClaudeCliProvider implements AiProvider
         if ($kind !== 'thinking_delta' && is_string($delta['thinking'] ?? null)) {
             return $delta['thinking'];
         }
+
         return '';
     }
 

@@ -8,7 +8,7 @@ use App\Services\Ai\Programming\Governance\ProgrammingWorkItemClassifier;
 use App\Services\Ai\Programming\Sdd\ContextBuilder;
 use App\Services\Ai\Programming\Sdd\Enums\ConfidenceClass;
 use App\Services\Ai\Programming\Sdd\IntentRouter;
-use App\Services\Ai\Programming\Sdd\Pipeline\OperationEnvelope;
+use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use Tests\Concerns\CreatesAtlasSddTables;
 use Tests\TestCase;

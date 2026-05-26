@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\AtlasDev\PromptProjection;
 
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use RuntimeException;
 
 /**

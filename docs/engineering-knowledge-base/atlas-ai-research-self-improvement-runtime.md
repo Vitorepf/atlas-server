@@ -88,6 +88,8 @@ graph_kind: policy
 graph_parent: atlas-ai-canonical-architecture-index
 
 graph_status: active
+implementation_status: active_meta_8a_research_company_runtime
+implementation_boundary: implemented_local_research_domain_runtime_no_external_fetch_or_auto_promotion
 
 graph_source: repo
 human_name: Atlas AI Research Intelligence And Self-Improvement Runtime
@@ -120,9 +122,15 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
+  - database/migrations/2026_05_18_040000_create_ai_research_domain_tables.php
+  - app/Services/Ai/ResearchDomain/ResearchRuntimeService.php
+  - app/Console/Commands/AtlasAiResearchDomainCommand.php
+  - tests/Feature/Ai/ResearchDomain/
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan test tests/Feature/Ai/ResearchDomain"
+  - "php artisan atlas:ai:research-domain --action=readiness --json"
 
 requires_evidence: true
 
@@ -153,6 +161,8 @@ next_actions:
 ---
 # Atlas AI Research Intelligence And Self-Improvement Runtime
 
+## Resumo
+
 Esta e a lei canonica para o Atlas evoluir em velocidade exponencial sem
 perder qualidade, seguranca, memoria, governanca ou capacidade de auditoria.
 
@@ -161,27 +171,36 @@ fontes melhores, sintetizar melhor, transformar descoberta em documentacao
 canonica, planejar com precisao, implementar com testes e corrigir com base em
 evidencia.
 
-## North Star
+## Papel no Atlas
 
-Atlas deve virar um sistema que melhora a si mesmo por um ciclo governado:
+Governa como pesquisa vira source-quality, sintese, documentacao canonica,
+plano/AP, implementacao validada e proposta de self-improvement.
+
+## Onde Se Encaixa
+
+Filho do Atlas AI canonical architecture index e da sequencia multi-domain.
+Meta 8A implementa o Research Company Runtime local; Tool Runtime, promocao
+automatica e fetch externo continuam fora deste boundary.
+
+## Contratos
+
+Contratos principais: `atlas.ai.research_run.v1`,
+`atlas.ai.research_source.v1`, `atlas.ai.research_claim.v1`,
+`atlas.ai.research_synthesis.v1` e readiness
+`atlas.ai.research_domain.readiness.v1`.
+
+## Fluxo
 
 ```text
-Research Intelligence
--> Source Quality
--> Evidence Synthesis
--> Documentation Law
--> Planning / AP
--> Implementation
--> Validation
--> Evidence
--> Self-Improvement Proposal
--> Promotion / Rollback
+Research Intelligence -> Source Quality -> Evidence Synthesis
+-> Documentation Law -> Planning / AP -> Implementation -> Validation
+-> Evidence -> Self-Improvement Proposal -> Promotion / Rollback
 ```
 
-Esse ciclo existe para impedir dois extremos ruins:
+## Regras para IA
 
-- implementar sem pesquisa suficiente;
-- pesquisar sem virar plano, doc, codigo validado e melhoria real.
+Fonte primaria, evidencia, doc canonica, AP/plano, teste/replay e proposta
+revisavel vencem opiniao, conversa e autoaplicacao invisivel.
 
 ## Non-Negotiable Laws
 
@@ -271,19 +290,8 @@ authority.
 ## Research-To-Implementation Ratio
 
 For major evolution fronts, default effort should bias toward research,
-documentation and planning before implementation.
-
-Recommended ratio:
-
-```text
-40% research and source validation
-25% documentation and AP/planning
-25% implementation
-10% validation, correction and promotion
-```
-
-The ratio can shrink only for tiny cold tests, bug fixes with known cause, or
-mechanical follow-through from an already approved AP.
+documentation and planning before implementation; shrink only for tiny fixes
+or mechanical follow-through from an approved AP.
 
 ## Automation Boundary
 
@@ -359,6 +367,11 @@ Meta 8A do Multi-Domain Implementation Sequence entrega o **Research Company
 Runtime** como primeiro Domain Company Runtime focado em pesquisa: source
 plan, source quality, claims com attribution obrigatoria, contradiction
 check, synthesis e evidence pack auditavel.
+
+Boundary atual: runtime local implementado e testado para planejamento,
+qualidade de fontes, attribution, contradiction check, synthesis, readiness,
+smoke e control-plane projection. Nao faz fetch externo, scraping, promocao
+automatica para docs canonicos nem autoaplica mudanca estrutural.
 
 Esta camada NUNCA realiza scraping ou fetch externo direto — o futuro Tool
 Runtime (Meta 5) executara web.search/web.fetch e devolvera factors
@@ -447,50 +460,39 @@ Fora de escopo de Meta 8A (continua em Metas seguintes):
 - Promotion automatica de brief para docs canonicos — `research-to-docs-promotion`
   doc continua governando.
 
-## Resumo
-
-Contrato canonico para pesquisa de maximo nivel, promocao para documentacao, planejamento, implementacao validada e autoaprimoramento governado do Atlas.
-
-## Papel no Atlas
-
-Define a responsabilidade desta peca dentro da arquitetura Atlas.
-
-## Onde Se Encaixa
-
-Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
-
-## Contratos
-
-Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
-
-## Fluxo
-
-Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
-
-## Regras para IA
-
-Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
-
 ## Escopo de Implementacao
 
-Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+Implementado localmente: migrations, models, services, command, readiness,
+smoke, source quality, claims, contradiction check, synthesis, evidence pack
+e control-plane projection. Fora do escopo atual: fetch externo, scraping,
+LLM claim classification e promocao automatica para docs canonicos.
 
 ## Dependencias
 
-Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+Depende dos docs `research-self-improvement/*`,
+`atlas-self-improvement-governance-ladder.md`, `domains/self-improvement.md`,
+Tool Runtime futuro para fetch externo e Evidence/Mission bridges quando
+presentes.
 
 ## Evidencias
 
-Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+Evidencias atuais: `php artisan atlas:ai:research-domain --action=readiness
+--json` com 19/19 checks passed, `php artisan test
+tests/Feature/Ai/ResearchDomain`, migration `create_ai_research_domain_tables`
+e services em `app/Services/Ai/ResearchDomain`.
 
 ## Riscos
 
-Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+Risco principal: IA confundir runtime local de pesquisa com crawler externo,
+auto-promocao de docs ou self-improvement autônomo. Esses caminhos continuam
+bloqueados por source gate, docs promotion law e review.
 
 ## Exemplos
 
-Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+Correto: criar research packet com fontes, claims e synthesis antes de um AP.
+Proibido: usar resumo de provider sem fonte como memoria, policy ou codigo.
 
 ## Proximas Acoes
 
-Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+Manter readiness e testes ResearchDomain verdes; quando Tool Runtime entregar
+fetch externo, atualizar este doc com novo boundary e provas.

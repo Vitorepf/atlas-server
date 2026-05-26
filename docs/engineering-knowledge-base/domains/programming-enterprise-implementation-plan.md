@@ -6,6 +6,8 @@ status: active
 category: architecture
 priority: 99
 summary: Plano canonico dos oito saltos enterprise para programacao: Agentic RAG, Semantic Code Graph, receipts/resume, action manifests, patch verifier, test impact, sandbox, repair executor e learning loop.
+implementation_status: active_local_runtime_external_rivals_blocked
+implementation_boundary: local_enterprise_runtime_ready_completion_claim_blocked_until_real_rivals_battery
 tags:
   - atlas-ai
   - programming
@@ -116,6 +118,7 @@ next_actions:
   - Expor fila de Learning Loop em UI/API quando a surface de review humano for priorizada.
   - Triar bateria Rivals real invalida antes de nova execucao paga contra providers.
   - Criar worktrees limpos para Atlas arm e baseline antes de nova bateria real.
+  - Manter completion-audit bloqueando claim profissional completo ate Rivals real provider-safe estar pronto.
 requires_evidence: true
 risk_level: medium
 ---
@@ -127,6 +130,19 @@ Este documento estrutura a implementacao dos maiores saltos do Atlas em
 programacao. A meta e sair de um fluxo governado por contratos para um runtime
 enterprise que entende o sistema, executa com evidencia, retoma tarefas
 quebradas e aprende sem gerar ruido.
+
+Status de autoridade vs implementacao:
+
+- `status: active` significa que este doc governa a frente de runtime
+  enterprise local de programacao.
+- `implementation_status: active_local_runtime_external_rivals_blocked`
+  significa que os blocos locais listados em "Status de Implementacao" estao
+  implementados e testados, mas o claim profissional/comparavel global segue
+  bloqueado por `atlas:programming:completion-audit` ate haver bateria real
+  Rivals com providers/custo aprovados.
+- Linguagem de fase abaixo e historico/roteiro de implementacao local. Ela nao
+  autoriza IA a recriar blocos paralelos nem a declarar a frente completa sem
+  `completion-audit` e `rivals-readiness`.
 
 Fluxo alvo:
 
@@ -313,13 +329,18 @@ php artisan atlas:ai:architecture-validate --json
 
 ## Escopo de Implementacao
 
+Escopo local: as fases abaixo descrevem o escopo que foi implementado. Para
+mudar qualquer contrato, use os services atuais como owner runtime e rode os
+gates em `required_tests`. Nao recrie classes paralelas com nomes equivalentes.
+
 ### Fase 1 - Agentic RAG + Code Graph
 
-- Criar `ProgrammingRetrievalPlanner`.
-- Criar `ProgrammingRetrievalExecutor`.
-- Evoluir Code Intelligence para nodes/edges.
-- Adicionar sufficiency gate para required sources.
-- Incluir `agentic_rag_plan` no plan de programacao.
+- Owner runtime: `ProgrammingRetrievalPlanner`, `ProgrammingRetrievalExecutor`,
+  `ProgrammingSemanticCodeGraphService`, `ProgrammingPythonRuntimeContract`,
+  `ProgrammingPythonRuntimeExecutor` e
+  `ProgrammingPythonRuntimeGraphProjector`.
+- Estado: implementado localmente; ampliar parsers/graph e qualidade de
+  retrieval deve evoluir esses owners, nao criar segundo RAG.
 
 DoD:
 
@@ -329,10 +350,11 @@ DoD:
 
 ### Fase 2 - Receipts + Resume
 
-- Criar `ProgrammingStageReceiptStore`.
-- Criar `ProgrammingStageReceiptValidator`.
-- Criar `ProgrammingResumeService`.
-- Projetar timeline por `plan_id`.
+- Owner runtime: `ProgrammingStageReceiptStore`,
+  `ProgrammingStageReceiptValidator`, `ProgrammingResumeService` e comando
+  `atlas:programming:resume`.
+- Estado: implementado localmente; qualquer replay/resume visual deve consumir
+  os receipts existentes.
 
 DoD:
 
@@ -342,10 +364,11 @@ DoD:
 
 ### Fase 3 - Manifests + Verifier + Test Impact
 
-- Criar `ProgrammingActionManifest`.
-- Emitir manifest nos tools de programacao.
-- Criar `ProgrammingPatchVerifier`.
-- Criar `TestImpactAnalyzer`.
+- Owner runtime: `ProgrammingActionManifestFactory`,
+  `ProgrammingActionManifestStore`, `ProgrammingPatchVerifier`,
+  `ProgrammingTestImpactAnalyzer` e benchmarks locais correspondentes.
+- Estado: implementado localmente; claims de patch/test continuam sujeitos aos
+  manifests e ao verifier.
 
 DoD:
 
@@ -355,11 +378,11 @@ DoD:
 
 ### Fase 4 - Sandbox + Repair + Learning
 
-- Criar `ProgrammingSandboxManager`.
-- Criar `ProgrammingRepairExecutor`.
-- Criar `RepairAttemptStore`.
-- Criar `ProgrammingLearningCandidateProjector`.
-- Criar `ProgrammingLearningPromotionGate`.
+- Owner runtime: `ProgrammingSandboxManager`, `ProgrammingRepairExecutor`,
+  `ProgrammingRepairAttemptStore`, `ProgrammingLearningCandidateProjector`,
+  `ProgrammingLearningCandidateStore` e `ProgrammingLearningPromotionGate`.
+- Estado: implementado localmente; learning segue fila curada, dedupe,
+  expiracao e review humano antes de promocao.
 
 DoD:
 

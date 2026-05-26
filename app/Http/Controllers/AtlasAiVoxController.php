@@ -231,8 +231,7 @@ final class AtlasAiVoxController extends Controller
                         ],
                     );
                     throw ValidationException::withMessages([
-                        "context_snapshot.privacy.{$forbidden}" =>
-                            "Flag {$forbidden}=true é proibida — Vox V4 nunca aceita áudio bruto, captura de tela ou clipboard.",
+                        "context_snapshot.privacy.{$forbidden}" => "Flag {$forbidden}=true é proibida — Vox V4 nunca aceita áudio bruto, captura de tela ou clipboard.",
                     ]);
                 }
             }

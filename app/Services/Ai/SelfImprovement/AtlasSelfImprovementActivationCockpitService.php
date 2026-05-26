@@ -611,7 +611,7 @@ class AtlasSelfImprovementActivationCockpitService
             return 'Reescrever proposta ou encerrar — nada virou Obra.';
         }
         if ($status === AtlasSelfImprovementForgeActivationService::STATUS_BLOCKED) {
-            return 'Resolver blockers (' . implode(', ', $blockers) . ') antes de replanejar.';
+            return 'Resolver blockers ('.implode(', ', $blockers).') antes de replanejar.';
         }
         if ($status === AtlasSelfImprovementForgeActivationService::STATUS_DRY_RUN) {
             return 'Replanejar sem dry-run para registrar a activation.';

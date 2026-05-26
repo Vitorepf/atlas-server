@@ -15,19 +15,35 @@ class AtlasFrontendBrowserBridgeServiceTest extends TestCase
         $this->assertSame('alt_click_picker', $payload['mode']);
         $this->assertSame('atlas.frontend.browser_pick_event.v1', $payload['event_schema']);
         $this->assertSame(AtlasFrontendBrowserBridgeService::BROWSER_DETECTOR_EVENT_SCHEMA_VERSION, $payload['detector_event_schema']);
+        $this->assertSame('atlas.frontend.live_visual_selection.v1', $payload['live_visual_selection_schema']);
         $this->assertContains('atlas:frontend:browser-detect', $payload['output_events']);
+        $this->assertContains('atlas:frontend:live-visual-selection', $payload['output_events']);
         $this->assertContains('browser_icon_button_without_accessible_name', $payload['detector_rules']);
         $this->assertStringContainsString('window.__ATLAS_FRONTEND_PICK_EVENTS__', $payload['script']);
         $this->assertStringContainsString('window.__ATLAS_FRONTEND_BROWSER_DETECTOR_EVENTS__', $payload['script']);
+        $this->assertStringContainsString('window.__ATLAS_FRONTEND_LIVE_VISUAL_SELECTION_EVENTS__', $payload['script']);
         $this->assertStringContainsString('atlas:frontend:pick', $payload['script']);
         $this->assertStringContainsString('atlas:frontend:browser-detect', $payload['script']);
+        $this->assertStringContainsString('atlas:frontend:live-visual-selection', $payload['script']);
+        $this->assertStringContainsString('atlas.frontend.live_visual_selection.v1', $payload['script']);
+        $this->assertStringContainsString('BroadcastChannel', $payload['script']);
+        $this->assertStringContainsString('__ATLAS_FRONTEND_LAST_LIVE_VISUAL_SELECTION__', $payload['script']);
+        $this->assertStringContainsString('localStorage.setItem', $payload['script']);
+        $this->assertStringContainsString('atlas.frontend.live_visual_selection_message.v1', $payload['script']);
+        $this->assertStringContainsString('window.parent.postMessage', $payload['script']);
+        $this->assertStringContainsString('window.opener.postMessage', $payload['script']);
+        $this->assertStringContainsString('post_message_contains_sanitized_selection_only', $payload['script']);
+        $this->assertStringContainsString('selection_can_guide_patch_but_not_replace_visual_gate', $payload['script']);
         $this->assertStringContainsString('browser_small_interactive_target', $payload['script']);
         $this->assertStringContainsString('browser_detector_event_is_not_final_design_proof', $payload['script']);
         $this->assertStringContainsString('window.atlasFrontendPath(el)', $payload['script']);
         $this->assertStringNotContainsString('fetch(', $payload['script']);
-        $this->assertStringNotContainsString('localStorage', $payload['script']);
         $this->assertStringNotContainsString('document.cookie', $payload['script']);
         $this->assertTrue((bool) data_get($payload, 'source_policy.text_is_hashed'));
+        $this->assertTrue((bool) data_get($payload, 'source_policy.live_visual_selection_is_hashed'));
+        $this->assertTrue((bool) data_get($payload, 'source_policy.live_visual_selection_broadcast_channel'));
+        $this->assertTrue((bool) data_get($payload, 'source_policy.live_visual_selection_local_storage_is_sanitized'));
+        $this->assertTrue((bool) data_get($payload, 'source_policy.live_visual_selection_post_message_is_sanitized'));
         $this->assertFalse((bool) data_get($payload, 'source_policy.cookies_storage_or_network_accessed'));
     }
 

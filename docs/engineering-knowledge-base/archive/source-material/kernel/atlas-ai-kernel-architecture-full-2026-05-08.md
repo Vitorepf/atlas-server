@@ -2,7 +2,7 @@
 id: atlas-ai-kernel-architecture
 type: engineering_knowledge
 title: Atlas AI Kernel Architecture - The Mother Specification
-status: active
+status: source_material
 category: architecture
 priority: 100
 summary: Especificacao kernel formal e enterprise do Atlas AI. Define contratos tipados, maquinas de estado, evidence ledger event-sourced, capability registry executavel, SDKs de dominio/surface/provider, SLOs operacionais, taxonomia de falha, versionamento, multi-tenancy e doutrina como teste arquitetural. Esta e a arquitetura mae do Atlas AI; topology docs (vision, pipeline, core-vs-domain, operating-system, architecture-audit) sao especializacoes desta especificacao.

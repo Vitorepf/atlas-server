@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Gate;
 
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeBaseline;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeContractView;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeFileDiff;
@@ -12,7 +13,6 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeObserved;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopePreExistingChange;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeViolation;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 
 /**
@@ -85,6 +85,7 @@ final class ScopeGuard
                     path: $path,
                     detail: "diff touches watched path '{$path}' — operator review required.",
                 );
+
                 continue;
             }
             if (! $this->matchesAny($path, $taskContract->allowedFiles)) {
@@ -125,6 +126,7 @@ final class ScopeGuard
                     path: $change->path,
                     detail: "pre-existing user change at '{$change->path}' was NOT preserved.",
                 );
+
                 continue;
             }
             // Even when preserved, if the diff also touches the path the
@@ -196,6 +198,7 @@ final class ScopeGuard
         foreach (preg_split('/\n/', $diff) ?: [] as $line) {
             if (preg_match('/^\+\+\+\s+(?:b\/)?(\S+)/', $line, $m)) {
                 $inTarget = ($m[1] === $path);
+
                 continue;
             }
             if (! $inTarget) {

@@ -288,6 +288,7 @@ class AiInteractionController extends Controller
             'suggested_tests' => $this->arrayOfStrings($payload['suggested_tests'] ?? []),
             'acceptance_criteria' => $this->arrayOfStrings($payload['acceptance_criteria'] ?? []),
             'required_evidence' => $this->arrayOfStrings($payload['required_evidence'] ?? []),
+            'review_refs' => $this->arrayOfStrings($payload['review_refs'] ?? []),
             'risk_band' => $this->stringValue($payload['risk_band'] ?? null),
         ];
 

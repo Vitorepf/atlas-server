@@ -9,7 +9,7 @@ use App\Models\AtlasSpec;
 use App\Services\Ai\Programming\Sdd\Enums\AutonomyLevel;
 use App\Services\Ai\Programming\Sdd\Pipeline\ContextPack;
 use App\Services\Ai\Programming\Sdd\Pipeline\Intent;
-use App\Services\Ai\Programming\Sdd\Pipeline\OperationEnvelope;
+use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
 use Illuminate\Support\Str;
 
 /**

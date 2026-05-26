@@ -32,7 +32,7 @@ final class HumanDecisionReceiptSigner
     public const SCHEMA_VERSION = 'atlas.code.human_decision_receipt.v1';
 
     /**
-     * @param  array<string, mixed>  $payload   Canonical fields to sign (session_id, packet_id, action, …).
+     * @param  array<string, mixed>  $payload  Canonical fields to sign (session_id, packet_id, action, …).
      * @return array{
      *   schema_version: string,
      *   signed_at: string,
@@ -65,6 +65,7 @@ final class HumanDecisionReceiptSigner
         if ($keypairBase64 === '') {
             $receipt = array_merge($base, ['signing_status' => 'unavailable']);
             $this->appendAuditLog($receipt, $canonical);
+
             return $receipt;
         }
 
@@ -93,6 +94,7 @@ final class HumanDecisionReceiptSigner
             'public_key' => base64_encode($public),
         ]);
         $this->appendAuditLog($receipt, $canonical);
+
         return $receipt;
     }
 
@@ -107,6 +109,7 @@ final class HumanDecisionReceiptSigner
             if ($sig === false || $pub === false) {
                 return false;
             }
+
             return sodium_crypto_sign_verify_detached($sig, $canonicalPayload, $pub);
         } catch (Throwable) {
             return false;
@@ -125,13 +128,10 @@ final class HumanDecisionReceiptSigner
         if ($encoded === false) {
             throw new RuntimeException('canonical_json_encode_failed');
         }
+
         return $encoded;
     }
 
-    /**
-     * @param  mixed  $value
-     * @return mixed
-     */
     private function sortKeys(mixed $value): mixed
     {
         if (! is_array($value)) {
@@ -143,6 +143,7 @@ final class HumanDecisionReceiptSigner
             return $mapped;
         }
         ksort($mapped);
+
         return $mapped;
     }
 

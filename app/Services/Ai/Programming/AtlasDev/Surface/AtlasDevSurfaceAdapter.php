@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Surface;
 
 use App\Services\Ai\Programming\AtlasDev\Pipeline\PlanOnlyResult;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 
 /**
  * Surface translator between a native client payload (Desktop / CLI / App /

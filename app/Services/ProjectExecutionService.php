@@ -10,8 +10,8 @@ use App\Models\AtlasTask;
 use App\Models\Capture;
 use App\Support\ProjectExecutionHealth;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -93,7 +93,7 @@ class ProjectExecutionService
         $wasRecentlyCreated = false;
 
         if (! $task) {
-            $task = new AtlasTask();
+            $task = new AtlasTask;
             $wasRecentlyCreated = true;
         }
 

@@ -38,9 +38,7 @@ final class AtlasCodeWorkPacketService
 {
     public const SCHEMA_VERSION = 'atlas.code.work_packet.v1';
 
-    public function __construct(private readonly AtlasCodeWorkspaceProfileService $profiles)
-    {
-    }
+    public function __construct(private readonly AtlasCodeWorkspaceProfileService $profiles) {}
 
     /**
      * @return array<int, array<string, mixed>>
@@ -78,6 +76,7 @@ final class AtlasCodeWorkPacketService
             (string) ($b['created_at'] ?? ''),
             (string) ($a['created_at'] ?? '')
         ));
+
         return $packets;
     }
 
@@ -88,6 +87,7 @@ final class AtlasCodeWorkPacketService
                 ->where('obra_id', $obraId)
                 ->where('id', $packetId)
                 ->first();
+
             return $row ? $this->shape($this->modelToArray($row)) : null;
         }
         $path = $this->packetPath($obraId, $packetId);
@@ -102,6 +102,7 @@ final class AtlasCodeWorkPacketService
         if (! is_array($decoded)) {
             return null;
         }
+
         return $this->shape($decoded);
     }
 
@@ -123,6 +124,7 @@ final class AtlasCodeWorkPacketService
         // schema_version is not a column; inject the canonical value so
         // shape() preserves the contract identically to filesystem mode.
         $arr['schema_version'] = self::SCHEMA_VERSION;
+
         return $arr;
     }
 
@@ -178,6 +180,7 @@ final class AtlasCodeWorkPacketService
         }
 
         $this->persist($packet);
+
         return $this->shape($packet);
     }
 
@@ -335,6 +338,7 @@ PROMPT;
             if ($items === []) {
                 return '_'.$emptyMsg.'_';
             }
+
             return '- '.implode("\n- ", array_map(static fn ($x): string => (string) $x, $items));
         };
 
@@ -457,6 +461,7 @@ MD;
                 'prompt_hash' => $packet['prompt_hash'] ?? null,
             ];
             AtlasCodeWorkPacket::query()->updateOrCreate(['id' => $packetId], $attrs);
+
             return;
         }
 
@@ -512,7 +517,6 @@ MD;
     }
 
     /**
-     * @param  mixed  $raw
      * @return array<int, string>
      */
     private function stringList(mixed $raw): array
@@ -526,6 +530,7 @@ MD;
                 $out[] = trim($item);
             }
         }
+
         return array_values($out);
     }
 
@@ -535,6 +540,7 @@ MD;
         if ($clean === '') {
             throw new RuntimeException('work_packet_unsafe_id');
         }
+
         return $clean;
     }
 }

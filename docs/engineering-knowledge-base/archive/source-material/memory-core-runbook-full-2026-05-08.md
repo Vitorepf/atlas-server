@@ -2,7 +2,7 @@
 id: atlas-memory-core-runbook
 type: engineering_knowledge
 title: Atlas Memory Core Runbook
-status: active
+status: source_material
 category: maintenance
 priority: 99
 summary: Runbook operacional para validar, sincronizar, auditar e recuperar o sistema de memoria, knowledge base e code intelligence do Atlas.

@@ -7,10 +7,10 @@ use App\Models\AtlasProjectPlanProposal;
 use App\Models\AtlasTask;
 use App\Models\Capture;
 use App\Models\CaptureLink;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class ProjectPlanningService

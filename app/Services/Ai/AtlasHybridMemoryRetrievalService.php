@@ -7,7 +7,6 @@ use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use App\Services\Semantic\SemanticSearchService;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -314,5 +313,4 @@ class AtlasHybridMemoryRetrievalService
             'user_id' => $context['user_id'] ?? null,
         ], fn (mixed $value): bool => $value !== null && $value !== '');
     }
-
 }

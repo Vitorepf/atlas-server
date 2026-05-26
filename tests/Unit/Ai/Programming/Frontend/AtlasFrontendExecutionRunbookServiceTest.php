@@ -37,10 +37,12 @@ class AtlasFrontendExecutionRunbookServiceTest extends TestCase
         $this->assertStringContainsString('atlas:frontend:evidence-kit', $commands);
         $this->assertStringContainsString('atlas:frontend:run-certify', $commands);
         $this->assertStringContainsString('atlas:frontend:publish attest --bundle=<bundle>', $commands);
-        $this->assertStringContainsString('atlas:frontend:world-best-plan', $commands);
-        $this->assertContains('public_distribution_proof', collect($payload['runbook_steps'])->pluck('id')->all());
-        $publicStep = collect($payload['runbook_steps'])->firstWhere('id', 'public_distribution_proof');
-        $this->assertContains('product_proof_bundle_hash', $publicStep['required_evidence']);
+        $this->assertStringContainsString('atlas:frontend:private-benchmark-plan', $commands);
+        $this->assertStringNotContainsString('atlas:frontend:world-best-plan', $commands);
+        $this->assertContains('private_benchmark_and_optional_publication_proof', collect($payload['runbook_steps'])->pluck('id')->all());
+        $benchmarkStep = collect($payload['runbook_steps'])->firstWhere('id', 'private_benchmark_and_optional_publication_proof');
+        $this->assertContains('product_proof_bundle_hash', $benchmarkStep['required_evidence']);
+        $this->assertContains('private_benchmark_plan_hash', $benchmarkStep['required_evidence']);
         $this->assertTrue((bool) data_get($payload, 'claim_policy.runbook_is_not_execution_evidence'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.public_distribution_requires_publication_attestation'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.public_distribution_claim_requires_verified_receipt'));

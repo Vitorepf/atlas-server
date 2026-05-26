@@ -48,4 +48,62 @@ class AtlasFrontendLiveSourcePatchCommandTest extends TestCase
 
         $this->assertSame('<button>Save</button>', file_get_contents($workspace.'/Card.html'));
     }
+
+    public function test_live_command_accepts_variant_from_workspace_relative_file(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-live-command-file-'.bin2hex(random_bytes(4));
+        mkdir($workspace);
+        mkdir($workspace.'/variants');
+        file_put_contents($workspace.'/Card.html', '<button>Save</button>');
+        file_put_contents($workspace.'/variants/primary.html', '<button class="primary">Save</button>');
+
+        $exitCode = Artisan::call('atlas:frontend:live', [
+            'action' => 'prepare',
+            '--workspace' => $workspace,
+            '--file' => 'Card.html',
+            '--target' => '<button>Save</button>',
+            '--variant' => ['v1:variants/primary.html'],
+            '--session' => 'session-file',
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('prepared', $output);
+        $this->assertStringContainsString('raw_variants_returned', $output);
+        $this->assertStringNotContainsString('primary.html', $output);
+
+        $this->artisan('atlas:frontend:live', [
+            'action' => 'accept',
+            '--workspace' => $workspace,
+            '--session' => 'session-file',
+            '--accept-variant' => 'v1',
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $this->assertSame('<button class="primary">Save</button>', file_get_contents($workspace.'/Card.html'));
+    }
+
+    public function test_live_command_blocks_variant_file_outside_workspace(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-frontend-live-command-outside-'.bin2hex(random_bytes(4));
+        mkdir($workspace);
+        $outside = sys_get_temp_dir().'/atlas-frontend-live-outside-'.bin2hex(random_bytes(4)).'.html';
+        file_put_contents($workspace.'/Card.html', '<button>Save</button>');
+        file_put_contents($outside, '<button class="primary">Save</button>');
+
+        $exitCode = Artisan::call('atlas:frontend:live', [
+            'action' => 'prepare',
+            '--workspace' => $workspace,
+            '--file' => 'Card.html',
+            '--target' => '<button>Save</button>',
+            '--variant' => ['v1:'.$outside],
+            '--session' => 'session-outside',
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString('variant_file_outside_workspace', $output);
+    }
 }

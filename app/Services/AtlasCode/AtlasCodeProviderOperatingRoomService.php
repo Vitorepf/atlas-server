@@ -34,8 +34,7 @@ final class AtlasCodeProviderOperatingRoomService
         private readonly AtlasCodeWorkPacketService $packets,
         private readonly AtlasCodeObservedSessionService $sessions,
         private readonly AtlasCodeWorkspaceProfileService $profiles
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -172,6 +171,7 @@ final class AtlasCodeProviderOperatingRoomService
                 )),
             ];
         }
+
         return $board;
     }
 
@@ -299,6 +299,7 @@ final class AtlasCodeProviderOperatingRoomService
         $readyPackets = array_filter($packets, static fn (array $p): bool => $p['status'] === 'ready');
         if ($readyPackets !== [] && $sessions === []) {
             $first = array_values($readyPackets)[0];
+
             return [
                 'kind' => 'ready_to_open_provider',
                 'severity' => 'low',
@@ -310,6 +311,7 @@ final class AtlasCodeProviderOperatingRoomService
                 'target_packet_id' => (string) $first['id'],
             ];
         }
+
         return [
             'kind' => 'idle',
             'severity' => 'none',
@@ -399,6 +401,7 @@ final class AtlasCodeProviderOperatingRoomService
         if ($readyPackets !== []) {
             $actions[] = 'open_observed_provider';
         }
+
         // Per-session actions are derived from session.state in the UI.
         return $actions;
     }

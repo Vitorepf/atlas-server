@@ -424,6 +424,26 @@ final class AtlasWorkspaceIntelligenceController extends Controller
         return response()->json($payload, ($payload['status'] ?? null) === 'blocked' ? 422 : 200);
     }
 
+    public function liveExecutionMemory(
+        Request $request,
+        AtlasWorkspaceIntelligenceRuntimeService $runtime,
+        AtlasWorkspaceIntelligenceSnapshotRepository $snapshots,
+    ): JsonResponse {
+        if ($request->boolean('latest')) {
+            $latest = $snapshots->latest($this->stringQuery($request, 'workspace') ?? 'atlas');
+            if ($latest !== null) {
+                return response()->json(data_get($latest->payload, 'workspace_live_execution_memory', []));
+            }
+        }
+
+        $payload = $runtime->liveExecutionMemory(
+            workspace: $this->stringQuery($request, 'workspace'),
+            task: $this->stringQuery($request, 'task') ?? '',
+        );
+
+        return response()->json($payload, ($payload['status'] ?? null) === 'blocked' ? 422 : 200);
+    }
+
     public function gate(
         Request $request,
         AtlasWorkspaceIntelligenceExecutionGateService $gate,

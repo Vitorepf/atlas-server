@@ -38,7 +38,9 @@ final class AtlasCodeReceiptShowController extends Controller
 
         $fallback = [];
         foreach ($candidates as $cand) {
-            if (! is_array($cand)) continue;
+            if (! is_array($cand)) {
+                continue;
+            }
             $name = $cand['provider'] ?? $cand['name'] ?? null;
             if (is_string($name) && $name !== ($decision->selected_provider ?? null)) {
                 $fallback[] = (string) $name;

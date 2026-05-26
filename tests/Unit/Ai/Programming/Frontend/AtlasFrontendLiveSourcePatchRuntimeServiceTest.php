@@ -82,6 +82,104 @@ class AtlasFrontendLiveSourcePatchRuntimeServiceTest extends TestCase
         ]);
     }
 
+    public function test_prepare_records_sanitized_visual_selection_without_raw_selector_or_text(): void
+    {
+        $workspace = $this->workspace();
+        file_put_contents($workspace.'/Card.html', '<button data-testid="save">Save</button>');
+
+        $prepared = app(AtlasFrontendLiveSourcePatchRuntimeService::class)->prepare(
+            $workspace,
+            'Card.html',
+            '<button data-testid="save">Save</button>',
+            [
+                ['id' => 'v1', 'content' => '<button data-testid="save" class="primary">Save</button>'],
+            ],
+            'session-visual',
+            [
+                'route' => '/checkout',
+                'selector' => '[data-testid="save"]',
+                'text_excerpt' => 'Save private customer draft',
+                'component_hint' => 'CheckoutSaveButton',
+                'screenshot_hash' => str_repeat('a', 64),
+                'confidence' => 0.91,
+                'bounding_box' => ['x' => 12, 'y' => 24, 'width' => 144, 'height' => 38],
+                'viewport' => ['width' => 1440, 'height' => 900],
+            ],
+        );
+
+        $this->assertSame('provided', data_get($prepared, 'session.visual_selection.status'));
+        $this->assertSame(12, data_get($prepared, 'session.visual_selection.bounding_box.x'));
+        $this->assertSame(1440, data_get($prepared, 'session.visual_selection.viewport.width'));
+        $this->assertSame(str_repeat('a', 64), data_get($prepared, 'session.visual_selection.screenshot_hash'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($prepared, 'session.visual_selection.selection_hash'));
+        $this->assertSame(data_get($prepared, 'session.visual_selection.selection_hash'), data_get($prepared, 'decision_receipt.visual_selection_hash'));
+        $this->assertSame('provided', data_get($prepared, 'decision_receipt.visual_selection_status'));
+        $this->assertTrue((bool) data_get($prepared, 'decision_receipt.claim_policy.visual_selection_is_not_visual_quality_proof'));
+
+        $json = json_encode($prepared, JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString('[data-testid="save"]', $json);
+        $this->assertStringNotContainsString('Save private customer draft', $json);
+        $this->assertStringNotContainsString('CheckoutSaveButton', $json);
+        $this->assertStringNotContainsString('/checkout', $json);
+    }
+
+    public function test_prepare_blocks_invalid_visual_selection_screenshot_hash(): void
+    {
+        $workspace = $this->workspace();
+        file_put_contents($workspace.'/Card.html', '<button>Save</button>');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('visual_selection_screenshot_hash_invalid');
+
+        app(AtlasFrontendLiveSourcePatchRuntimeService::class)->prepare(
+            $workspace,
+            'Card.html',
+            '<button>Save</button>',
+            [
+                ['id' => 'v1', 'content' => '<button class="primary">Save</button>'],
+            ],
+            'session-invalid-visual',
+            ['screenshot_hash' => 'not-a-valid-hash'],
+        );
+    }
+
+    public function test_prepare_accepts_prehashed_browser_bridge_visual_selection(): void
+    {
+        $workspace = $this->workspace();
+        file_put_contents($workspace.'/Card.html', '<button>Save</button>');
+        $routeHash = str_repeat('b', 64);
+        $selectorHash = str_repeat('c', 64);
+
+        $prepared = app(AtlasFrontendLiveSourcePatchRuntimeService::class)->prepare(
+            $workspace,
+            'Card.html',
+            '<button>Save</button>',
+            [
+                ['id' => 'v1', 'content' => '<button class="primary">Save</button>'],
+            ],
+            'session-browser-visual',
+            [
+                'route_hash' => $routeHash,
+                'selector_hash' => $selectorHash,
+                'text_excerpt_hash' => str_repeat('d', 64),
+                'component_hint_hash' => str_repeat('e', 64),
+                'bounding_box' => ['x' => 8, 'y' => 13, 'width' => 89, 'height' => 34],
+                'viewport' => ['width' => 1280, 'height' => 720],
+                'confidence' => 0.82,
+            ],
+        );
+
+        $this->assertSame($routeHash, data_get($prepared, 'session.visual_selection.route_hash'));
+        $this->assertSame($selectorHash, data_get($prepared, 'session.visual_selection.selector_hash'));
+        $this->assertSame(89, data_get($prepared, 'session.visual_selection.bounding_box.width'));
+        $this->assertSame('provided', data_get($prepared, 'decision_receipt.visual_selection_status'));
+
+        $accepted = app(AtlasFrontendLiveSourcePatchRuntimeService::class)->accept($workspace, 'session-browser-visual', 'v1');
+
+        $this->assertSame('accepted', $accepted['status']);
+        $this->assertSame(data_get($prepared, 'session.visual_selection.selection_hash'), data_get($accepted, 'decision_receipt.visual_selection_hash'));
+    }
+
     public function test_accept_blocks_when_source_changed_after_prepare(): void
     {
         $workspace = $this->workspace();

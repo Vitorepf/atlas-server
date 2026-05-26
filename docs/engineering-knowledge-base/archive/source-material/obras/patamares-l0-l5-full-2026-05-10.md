@@ -2,7 +2,7 @@
 id: atlas-ai-obras-patamares-l0-l5
 type: engineering_knowledge
 title: Atlas Obras - Patamares L0 To L5
-status: active
+status: source_material
 category: architecture
 priority: 100
 summary: Full maturity ladder for Obras from a basic screen to Atlas Sovereign OS.

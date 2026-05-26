@@ -12,7 +12,9 @@ use Illuminate\Database\Eloquent\Model;
 class AtlasCodeWorkPacket extends Model
 {
     public $incrementing = false;
+
     protected $keyType = 'string';
+
     protected $table = 'atlas_code_work_packets';
 
     protected $fillable = [

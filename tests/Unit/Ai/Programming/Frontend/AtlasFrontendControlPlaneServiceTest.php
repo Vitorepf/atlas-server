@@ -20,8 +20,9 @@ class AtlasFrontendControlPlaneServiceTest extends TestCase
         $this->assertSame(AtlasFrontendControlPlaneService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('warning', $payload['status']);
         $this->assertTrue((bool) data_get($payload, 'readiness_levels.runtime_contract_ready'));
-        $this->assertTrue((bool) data_get($payload, 'claim_policy.may_claim_more_complete_than_impeccable'));
-        $this->assertTrue((bool) data_get($payload, 'claim_policy.may_claim_more_complete_than_claude_design_plugin'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.may_claim_more_complete_than_impeccable'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.may_claim_more_complete_than_claude_design_plugin'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.private_benchmark_for_internal_improvement_only'));
         $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.local_publication_report_is_not_public_distribution'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.world_best_requires_decisive_lead_each_replay_case'));

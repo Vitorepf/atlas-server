@@ -2,7 +2,7 @@
 id: atlas-ai-master-architecture
 type: engineering_knowledge
 title: Atlas AI Master Architecture
-status: active
+status: source_material
 category: architecture
 priority: 100
 summary: Especificacao enterprise da arquitetura-mae do Atlas AI, definindo a inteligencia central, autoridade operacional, contratos canonicos, dominios, runtimes, evidence, learning, governanca e estrategia para superar Claude Code.

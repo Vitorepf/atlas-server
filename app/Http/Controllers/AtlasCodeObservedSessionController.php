@@ -31,9 +31,8 @@ final class AtlasCodeObservedSessionController extends Controller
 {
     public function __construct(
         private readonly AtlasCodeObservedSessionService $sessions,
-        private readonly VerificationCommandRunner $verifier = new VerificationCommandRunner()
-    ) {
-    }
+        private readonly VerificationCommandRunner $verifier = new VerificationCommandRunner
+    ) {}
 
     public function index(AtlasProject $project): JsonResponse
     {
@@ -54,6 +53,7 @@ final class AtlasCodeObservedSessionController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+
         return response()->json(['session' => $session], 201);
     }
 
@@ -63,6 +63,7 @@ final class AtlasCodeObservedSessionController extends Controller
         if ($row === null) {
             return response()->json(['error' => 'observed_session_not_found', 'session' => $session], 404);
         }
+
         return response()->json(['session' => $row]);
     }
 
@@ -79,6 +80,7 @@ final class AtlasCodeObservedSessionController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+
         return response()->json(['session' => $row]);
     }
 
@@ -95,6 +97,7 @@ final class AtlasCodeObservedSessionController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+
         return response()->json(['session' => $row]);
     }
 
@@ -109,6 +112,7 @@ final class AtlasCodeObservedSessionController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+
         return response()->json(['session' => $row]);
     }
 
@@ -128,6 +132,7 @@ final class AtlasCodeObservedSessionController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+
         return response()->json(['session' => $row]);
     }
 
@@ -139,6 +144,7 @@ final class AtlasCodeObservedSessionController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+
         return response()->json(['session' => $row]);
     }
 
@@ -181,12 +187,14 @@ final class AtlasCodeObservedSessionController extends Controller
             (string) ($data['mode'] ?? 'dry_run'),
             isset($data['operator_override_token']) ? (string) $data['operator_override_token'] : null
         );
+
         return response()->json(['verification_run' => $result], 200);
     }
 
     public function verificationRunIndex(AtlasProject $project, string $session): JsonResponse
     {
         $runs = $this->verifier->listForSession((string) $project->getKey(), $session);
+
         return response()->json([
             'schema_version' => VerificationCommandRunner::SCHEMA_VERSION,
             'data' => $runs,
@@ -217,6 +225,7 @@ final class AtlasCodeObservedSessionController extends Controller
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+
         return response()->json($result, 201);
     }
 }

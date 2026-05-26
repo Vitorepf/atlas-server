@@ -128,7 +128,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Discovery;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\ContextRetrievalPlan;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 
 final class DocContextTierSelector
 {
@@ -268,4 +268,3 @@ Garantir que, ao chegar na Fatia 3 (provider real), exista **fundacao operaciona
 - Persistencia local de receipts.
 
 Isto **nao** e medicao competitiva — e engenharia de runtime auditavel.
-

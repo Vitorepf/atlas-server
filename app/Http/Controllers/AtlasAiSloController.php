@@ -43,5 +43,4 @@ class AtlasAiSloController extends Controller
             'kernel_slo' => $report,
         ], ($report['available'] ?? false) ? 200 : 503);
     }
-
 }

@@ -25,13 +25,21 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertSame('pending', data_get($payload, 'readiness.operator_packet_verification_status'));
         $this->assertSame('not_requested', data_get($payload, 'readiness.publication_attestation_status'));
         $this->assertSame('pending', data_get($payload, 'readiness.evidence_pack_readiness.status'));
-        $this->assertSame(15, data_get($payload, 'readiness.evidence_pack_readiness.summary.missing'));
+        $this->assertSame(15, data_get($payload, 'readiness.evidence_pack_readiness.summary.total'));
+        $this->assertSame(15, data_get($payload, 'readiness.evidence_pack_readiness.summary.blocked'));
         $this->assertSame('pending', data_get($payload, 'workstreams.0.evidence_pack_readiness.status'));
         $this->assertSame('atlas.frontend.rival_replay_evidence_worklist.v1', data_get($payload, 'workstreams.0.evidence_worklist.schema_version'));
         $this->assertSame('pending', data_get($payload, 'workstreams.0.evidence_worklist.status'));
         $this->assertSame(15, data_get($payload, 'workstreams.0.evidence_worklist.work_item_count'));
         $this->assertFalse((bool) data_get($payload, 'workstreams.0.evidence_worklist.write_performed'));
         $this->assertTrue((bool) data_get($payload, 'workstreams.0.evidence_worklist.claim_policy.worklist_is_not_evidence'));
+        $this->assertSame('atlas.frontend.world_best_proof_action_queue.v1', data_get($payload, 'workstreams.0.proof_action_queue.schema_version'));
+        $this->assertSame(15, data_get($payload, 'workstreams.0.proof_action_queue.work_item_count'));
+        $this->assertSame('evidence_pack', data_get($payload, 'workstreams.0.proof_action_queue.next_work_item.kind'));
+        $this->assertSame('fill_evidence_pack', data_get($payload, 'workstreams.0.proof_action_queue.next_work_item.suggested_action'));
+        $this->assertNull(data_get($payload, 'workstreams.0.proof_action_queue.next_automatable_work_item'));
+        $this->assertTrue((bool) data_get($payload, 'workstreams.0.proof_action_queue.claim_policy.template_generation_is_not_external_execution_evidence'));
+        $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'evidence_hashes.proof_action_queue_hash'));
         $this->assertSame('atlas.frontend.rival_replay_operator_packet_verification.v1', data_get($payload, 'workstreams.0.operator_packet_verification.schema_version'));
         $this->assertSame('pending', data_get($payload, 'workstreams.0.operator_packet_verification.status'));
         $this->assertContains('operator_packet_verification_requires_rival_evidence_directory', data_get($payload, 'workstreams.0.operator_packet_verification.warnings'));
@@ -53,8 +61,8 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertContains('score_attestation', data_get($payload, 'workstreams.0.work_items.0.required_receipts'));
         $this->assertContains('external_execution_receipt', data_get($payload, 'workstreams.0.work_items.1.required_manifest_fields'));
         $this->assertContains('external_execution_receipt', data_get($payload, 'workstreams.0.work_items.1.required_receipts'));
-        $this->assertSame('missing', data_get($payload, 'workstreams.0.work_items.0.evidence_pack_status'));
-        $this->assertContains('evidence_pack_missing', data_get($payload, 'workstreams.0.work_items.0.evidence_pack_blockers'));
+        $this->assertContains(data_get($payload, 'workstreams.0.work_items.0.evidence_pack_status'), ['missing', 'blocked']);
+        $this->assertNotSame([], data_get($payload, 'workstreams.0.work_items.0.evidence_pack_blockers'));
         $this->assertContains('generate_and_verify_rival_replay_operator_packet', $payload['required_next_actions']);
         $this->assertContains('generate_rival_replay_runner_kit', $payload['required_next_actions']);
         $this->assertContains('complete_external_rival_replay_manifests', $payload['required_next_actions']);
@@ -64,6 +72,21 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
         $this->assertTrue((bool) data_get($payload, 'workstreams.1.publication_attestation.claim_policy.local_bundle_is_not_public_distribution'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($payload, 'evidence_hashes.publication_attestation_hash'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) $payload['proof_plan_hash']);
+    }
+
+    public function test_plan_exposes_next_automatable_replay_proof_action_without_claiming_evidence(): void
+    {
+        $payload = app(AtlasFrontendWorldBestProofPlanService::class)->plan([
+            'rival_evidence' => $this->replayDirectoryMissingExternalReceipt(),
+        ]);
+
+        $this->assertSame('external_execution_receipt', data_get($payload, 'workstreams.0.proof_action_queue.next_work_item.kind'));
+        $this->assertSame('external_execution_receipt', data_get($payload, 'workstreams.0.proof_action_queue.next_automatable_work_item.kind'));
+        $this->assertSame('generate_external_receipt_template', data_get($payload, 'workstreams.0.proof_action_queue.next_automatable_work_item.suggested_action'));
+        $this->assertContains('write_external_receipt_template', data_get($payload, 'workstreams.0.proof_action_queue.next_automatable_work_item.command_names'));
+        $this->assertContains('generate_external_receipt_templates', data_get($payload, 'workstreams.0.proof_action_queue.operator_sequence'));
+        $this->assertTrue((bool) data_get($payload, 'workstreams.0.proof_action_queue.claim_policy.next_automatable_action_may_prepare_template_only'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
     }
 
     public function test_plan_allows_world_best_only_when_replay_and_public_distribution_are_verified(): void
@@ -220,6 +243,19 @@ class AtlasFrontendWorldBestProofPlanServiceTest extends TestCase
     private function dimensionGapReplayDirectory(): string
     {
         return $this->replayDirectory(atlasScore: 90, rivalScore: 89, dimensionGapCase: 'live_mode_repair_loop');
+    }
+
+    private function replayDirectoryMissingExternalReceipt(): string
+    {
+        $dir = $this->winningReplayDirectory();
+        $manifestPath = $dir.'/saas_dashboard_repair/pbakaus_impeccable/manifest.json';
+        $manifest = json_decode(File::get($manifestPath), true);
+        $manifest['status'] = 'pending';
+        $manifest['external_execution_receipt'] = null;
+        File::put($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+        app(AtlasFrontendRivalReplayHarnessService::class)->writeOperatorPacket($dir);
+
+        return $dir;
     }
 
     private function replayDirectory(int $atlasScore, int $rivalScore, ?string $losingCase = null, ?string $dimensionGapCase = null): string

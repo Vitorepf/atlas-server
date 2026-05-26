@@ -27,12 +27,38 @@ final class AtlasFrontendBrowserBridgeService
           window.__ATLAS_FRONTEND_BRIDGE_ACTIVE__ = true;
           window.__ATLAS_FRONTEND_PICK_EVENTS__ = window.__ATLAS_FRONTEND_PICK_EVENTS__ || [];
           window.__ATLAS_FRONTEND_BROWSER_DETECTOR_EVENTS__ = window.__ATLAS_FRONTEND_BROWSER_DETECTOR_EVENTS__ || [];
+          window.__ATLAS_FRONTEND_LIVE_VISUAL_SELECTION_EVENTS__ = window.__ATLAS_FRONTEND_LIVE_VISUAL_SELECTION_EVENTS__ || [];
+          const liveVisualSelectionChannelName = 'atlas:frontend:live-visual-selection';
+          const liveVisualSelectionStorageKey = '__ATLAS_FRONTEND_LAST_LIVE_VISUAL_SELECTION__';
+          const liveVisualSelectionChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel(liveVisualSelectionChannelName) : null;
+          const relayLiveVisualSelection = (visualSelection) => {
+            const message = {
+              schema_version: 'atlas.frontend.live_visual_selection_message.v1',
+              source: 'atlas_frontend_browser_bridge',
+              detail: visualSelection,
+              policy: {
+                raw_dom_returned: false,
+                raw_text_returned: false,
+                raw_screenshot_returned: false,
+                post_message_contains_sanitized_selection_only: true
+              }
+            };
+            try { if (window.parent && window.parent !== window) window.parent.postMessage(message, '*'); } catch (_) {}
+            try { if (window.opener && !window.opener.closed) window.opener.postMessage(message, '*'); } catch (_) {}
+          };
           const style = document.createElement('style');
           style.dataset.atlasFrontendBridge = 'style';
           style.textContent = '[data-atlas-frontend-hover="true"]{outline:2px solid #2563eb!important;outline-offset:2px!important}';
           document.head.appendChild(style);
           let hover = null;
           const hash = (value) => String(value || '').split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0).toString(16);
+          const sha256 = async (value) => {
+            const input = String(value || '');
+            if (!input || !window.crypto || !window.crypto.subtle) return null;
+            const bytes = new TextEncoder().encode(input);
+            const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+            return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+          };
           const fingerprint = (el) => {
             const rect = el.getBoundingClientRect();
             const text = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 160);
@@ -97,6 +123,34 @@ final class AtlasFrontendBrowserBridgeService
               }
             };
           };
+          const liveVisualSelection = async (el, fp) => {
+            const text = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 500);
+            const selector = window.atlasFrontendPath(el);
+            const componentHint = el.getAttribute('data-component') || el.getAttribute('data-testid') || el.getAttribute('aria-label') || el.tagName.toLowerCase();
+            const selection = {
+              schema_version: 'atlas.frontend.live_visual_selection.v1',
+              status: 'provided',
+              source: 'browser_bridge_alt_click',
+              route_hash: await sha256(window.location.pathname + window.location.search + window.location.hash),
+              selector_hash: await sha256(selector),
+              text_excerpt_hash: await sha256(text),
+              component_hint_hash: await sha256(componentHint),
+              bounding_box: fp.rect,
+              viewport: { width: Math.max(0, window.innerWidth || 0), height: Math.max(0, window.innerHeight || 0) },
+              screenshot_hash: null,
+              confidence: 0.82,
+              policy: {
+                raw_route_returned: false,
+                raw_selector_returned: false,
+                raw_text_returned: false,
+                raw_screenshot_returned: false,
+                cookies_storage_or_network_accessed: false,
+                selection_can_guide_patch_but_not_replace_visual_gate: true
+              }
+            };
+            selection.selection_hash = await sha256(JSON.stringify(selection));
+            return selection;
+          };
           const clear = () => {
             if (hover) hover.removeAttribute('data-atlas-frontend-hover');
             hover = null;
@@ -109,7 +163,7 @@ final class AtlasFrontendBrowserBridgeService
             hover = el;
             hover.setAttribute('data-atlas-frontend-hover', 'true');
           };
-          const onClick = (event) => {
+          const onClick = async (event) => {
             if (!event.altKey) return;
             event.preventDefault();
             event.stopPropagation();
@@ -117,12 +171,19 @@ final class AtlasFrontendBrowserBridgeService
             if (!(el instanceof Element)) return;
             const picked = { schema_version: 'atlas.frontend.browser_pick_event.v1', captured_at: new Date().toISOString(), fingerprint: fingerprint(el) };
             const detectorEvent = inspectElement(el, picked.fingerprint);
+            const visualSelection = await liveVisualSelection(el, picked.fingerprint);
             window.__ATLAS_FRONTEND_LAST_PICK__ = picked;
             window.__ATLAS_FRONTEND_LAST_BROWSER_DETECTOR_EVENT__ = detectorEvent;
+            window.__ATLAS_FRONTEND_LAST_LIVE_VISUAL_SELECTION__ = visualSelection;
             window.__ATLAS_FRONTEND_PICK_EVENTS__.push(picked);
             window.__ATLAS_FRONTEND_BROWSER_DETECTOR_EVENTS__.push(detectorEvent);
+            window.__ATLAS_FRONTEND_LIVE_VISUAL_SELECTION_EVENTS__.push(visualSelection);
+            if (liveVisualSelectionChannel) liveVisualSelectionChannel.postMessage(visualSelection);
+            try { window.localStorage.setItem(liveVisualSelectionStorageKey, JSON.stringify(visualSelection)); } catch (_) {}
+            relayLiveVisualSelection(visualSelection);
             window.dispatchEvent(new CustomEvent('atlas:frontend:pick', { detail: picked }));
             window.dispatchEvent(new CustomEvent('atlas:frontend:browser-detect', { detail: detectorEvent }));
+            window.dispatchEvent(new CustomEvent('atlas:frontend:live-visual-selection', { detail: visualSelection }));
           };
           window.atlasFrontendPath = window.atlasFrontendPath || function atlasFrontendPath(el) {
             const parts = [];
@@ -143,7 +204,7 @@ final class AtlasFrontendBrowserBridgeService
           };
           window.addEventListener('mousemove', onMove, true);
           window.addEventListener('click', onClick, true);
-          window.__ATLAS_FRONTEND_BRIDGE__ = { version: 'v1', mode: 'alt_click_picker', dispose: () => { clear(); window.removeEventListener('mousemove', onMove, true); window.removeEventListener('click', onClick, true); style.remove(); window.__ATLAS_FRONTEND_BRIDGE_ACTIVE__ = false; } };
+          window.__ATLAS_FRONTEND_BRIDGE__ = { version: 'v1', mode: 'alt_click_picker', dispose: () => { clear(); window.removeEventListener('mousemove', onMove, true); window.removeEventListener('click', onClick, true); if (liveVisualSelectionChannel) liveVisualSelectionChannel.close(); style.remove(); window.__ATLAS_FRONTEND_BRIDGE_ACTIVE__ = false; } };
         })();
         JS;
 
@@ -153,7 +214,8 @@ final class AtlasFrontendBrowserBridgeService
             'script_hash' => hash('sha256', $source),
             'event_schema' => 'atlas.frontend.browser_pick_event.v1',
             'detector_event_schema' => self::BROWSER_DETECTOR_EVENT_SCHEMA_VERSION,
-            'output_events' => ['atlas:frontend:pick', 'atlas:frontend:browser-detect'],
+            'live_visual_selection_schema' => 'atlas.frontend.live_visual_selection.v1',
+            'output_events' => ['atlas:frontend:pick', 'atlas:frontend:browser-detect', 'atlas:frontend:live-visual-selection'],
             'detector_rules' => [
                 'browser_icon_button_without_accessible_name',
                 'browser_tiny_text',
@@ -164,6 +226,10 @@ final class AtlasFrontendBrowserBridgeService
             'source_policy' => [
                 'raw_dom_returned' => false,
                 'text_is_hashed' => true,
+                'live_visual_selection_is_hashed' => true,
+                'live_visual_selection_broadcast_channel' => true,
+                'live_visual_selection_local_storage_is_sanitized' => true,
+                'live_visual_selection_post_message_is_sanitized' => true,
                 'absolute_paths_returned' => false,
                 'cookies_storage_or_network_accessed' => false,
             ],

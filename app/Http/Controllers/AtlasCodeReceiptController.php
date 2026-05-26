@@ -116,6 +116,7 @@ class AtlasCodeReceiptController extends Controller
     private function b64decode(string $input): ?string
     {
         $decoded = base64_decode(strtr($input, '-_', '+/'), true);
+
         return is_string($decoded) ? $decoded : null;
     }
 

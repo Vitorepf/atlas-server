@@ -34,6 +34,7 @@ final class AtlasFrontendWorldBestProofPlanService
             : null;
         $evidenceWorklist = app(AtlasFrontendRivalReplayHarnessService::class)
             ->compileEvidenceWorklist($rivalEvidence);
+        $proofActionQueue = $this->proofActionQueue($evidenceWorklist);
         $replayWorkItems = $this->replayWorkItems((array) ($replay['runs'] ?? []), $evidencePackReadiness);
         $publicationWorkItems = $this->publicationWorkItems($publication);
         $operatorPacketVerified = ($operatorPacketVerification['status'] ?? null) === 'passed';
@@ -108,6 +109,7 @@ final class AtlasFrontendWorldBestProofPlanService
                         'commands' => $evidenceWorklist['commands'] ?? [],
                         'claim_policy' => $evidenceWorklist['claim_policy'] ?? [],
                     ],
+                    'proof_action_queue' => $proofActionQueue,
                     'operator_packet_verification' => [
                         'schema_version' => $operatorPacketVerification['schema_version'] ?? AtlasFrontendRivalReplayHarnessService::OPERATOR_PACKET_VERIFICATION_SCHEMA_VERSION,
                         'status' => $operatorPacketVerification['status'] ?? 'blocked',
@@ -182,6 +184,7 @@ final class AtlasFrontendWorldBestProofPlanService
                 'operator_packet_verification_hash' => $operatorPacketVerification['operator_packet_verification_hash'] ?? null,
                 'competitive_repair_plan_hash' => $competitiveRepairPlan['repair_plan_hash'] ?? null,
                 'evidence_worklist_hash' => $evidenceWorklist['worklist_hash'] ?? null,
+                'proof_action_queue_hash' => $proofActionQueue['proof_action_queue_hash'] ?? null,
                 'product_proof_hash' => $proof['product_proof_hash'] ?? null,
                 'publication_hash' => $publication['publication_hash'] ?? null,
                 'publication_attestation_hash' => $publicationAttestation['attestation_hash'] ?? null,
@@ -306,6 +309,134 @@ final class AtlasFrontendWorldBestProofPlanService
                 ],
             ],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidenceWorklist
+     * @return array<string,mixed>
+     */
+    private function proofActionQueue(array $evidenceWorklist): array
+    {
+        $workItems = collect((array) ($evidenceWorklist['work_items'] ?? []))
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->map(function (array $item): array {
+                $kind = $this->proofWorkItemKind($item);
+
+                return [
+                    'id' => (string) ($item['id'] ?? ''),
+                    'case_id' => (string) ($item['case_id'] ?? ''),
+                    'system' => (string) ($item['system'] ?? ''),
+                    'kind' => $kind,
+                    'suggested_action' => $this->suggestedProofAction($kind),
+                    'blockers' => array_values(array_filter((array) ($item['blockers'] ?? []), 'is_string')),
+                    'completion_steps' => array_values(array_filter((array) ($item['completion_steps'] ?? []), 'is_string')),
+                    'command_names' => array_keys(array_filter((array) ($item['commands'] ?? []), 'is_string')),
+                    'pack_manifest_ref_hash' => $this->hashNullable($item['pack_manifest_ref'] ?? null),
+                    'run_manifest_ref_hash' => $this->hashNullable($item['run_manifest_ref'] ?? null),
+                    'task_spec_ref_hash' => $this->hashNullable($item['task_spec_ref'] ?? null),
+                ];
+            })
+            ->filter(fn (array $item): bool => $item['id'] !== '')
+            ->values();
+
+        $priority = ['evidence_pack', 'external_execution_receipt', 'score_attestation', 'unknown'];
+        $nextWorkItem = $workItems
+            ->sortBy(function (array $item) use ($priority): int {
+                $index = array_search($item['kind'], $priority, true);
+
+                return is_int($index) ? $index : 99;
+            })
+            ->first();
+        $nextAutomatableWorkItem = $workItems
+            ->filter(fn (array $item): bool => in_array($item['kind'], ['external_execution_receipt', 'score_attestation'], true))
+            ->sortBy(function (array $item) use ($priority): int {
+                $index = array_search($item['kind'], $priority, true);
+
+                return is_int($index) ? $index : 99;
+            })
+            ->first();
+
+        $payload = [
+            'schema_version' => 'atlas.frontend.world_best_proof_action_queue.v1',
+            'status' => ($evidenceWorklist['status'] ?? null) === 'ready' ? 'ready' : 'pending',
+            'work_item_count' => $workItems->count(),
+            'evidence_pack_items' => $workItems->where('kind', 'evidence_pack')->count(),
+            'external_execution_receipt_items' => $workItems->where('kind', 'external_execution_receipt')->count(),
+            'score_attestation_items' => $workItems->where('kind', 'score_attestation')->count(),
+            'next_work_item' => $nextWorkItem ?: null,
+            'next_automatable_work_item' => $nextAutomatableWorkItem ?: null,
+            'automatable_action_registry' => [
+                'generate_external_receipt_template',
+                'generate_score_attestation_template',
+            ],
+            'operator_sequence' => $this->proofOperatorSequence($workItems->all()),
+            'claim_policy' => [
+                'proof_action_queue_is_not_replay_evidence' => true,
+                'next_automatable_action_may_prepare_template_only' => true,
+                'template_generation_is_not_external_execution_evidence' => true,
+                'raw_absolute_path_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+        $payload['proof_action_queue_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     */
+    private function proofWorkItemKind(array $item): string
+    {
+        $id = (string) ($item['id'] ?? '');
+        if (($item['requires_evidence_pack'] ?? false) === true || str_starts_with($id, 'fill_evidence_pack_') || (array) ($item['artifact_slots'] ?? []) !== []) {
+            return 'evidence_pack';
+        }
+        if (($item['requires_external_execution_receipt'] ?? false) === true || str_starts_with($id, 'fill_external_execution_receipt_') || (string) ($item['external_execution_receipt_schema_version'] ?? '') !== '') {
+            return 'external_execution_receipt';
+        }
+        if (($item['requires_score_attestation'] ?? false) === true || str_starts_with($id, 'fill_score_attestation_') || (string) ($item['score_attestation_schema_version'] ?? '') !== '') {
+            return 'score_attestation';
+        }
+
+        return 'unknown';
+    }
+
+    private function suggestedProofAction(string $kind): string
+    {
+        return match ($kind) {
+            'evidence_pack' => 'fill_evidence_pack',
+            'external_execution_receipt' => 'generate_external_receipt_template',
+            'score_attestation' => 'generate_score_attestation_template',
+            default => 'inspect_work_item',
+        };
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $workItems
+     * @return array<int,string>
+     */
+    private function proofOperatorSequence(array $workItems): array
+    {
+        $kinds = collect($workItems)->pluck('kind')->all();
+        $steps = [];
+        if (in_array('evidence_pack', $kinds, true)) {
+            $steps[] = 'fill_and_verify_evidence_packs';
+        }
+        if (in_array('external_execution_receipt', $kinds, true)) {
+            $steps[] = 'generate_external_receipt_templates';
+            $steps[] = 'run_external_rivals_against_unchanged_task_specs';
+        }
+        if (in_array('score_attestation', $kinds, true)) {
+            $steps[] = 'generate_score_attestation_templates';
+            $steps[] = 'review_artifacts_against_competitive_rubric';
+        }
+        if ($steps !== []) {
+            $steps[] = 'apply_provider_safe_manifest_patches';
+            $steps[] = 'rerun_world_best_proof_plan_and_control_plane';
+        }
+
+        return array_values(array_unique($steps));
     }
 
     /**

@@ -2,7 +2,7 @@
 id: atlas-ai-memory-context-core-open-brain
 type: engineering_knowledge
 title: Atlas AI Memory Context Core - Open Brain
-status: active
+status: source_material
 category: architecture
 priority: 99
 summary: Documento mestre versionado da arquitetura de memoria, contexto, recall, Knowledge Base, Code Intelligence e Open Brain futuro do Atlas AI.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\AtlasVoxDogfoodSession;
 use App\Services\Ai\Vox\Dogfood\VoxDogfoodService;
 use App\Services\Ai\Vox\VoxSchema;
 use Illuminate\Http\JsonResponse;
@@ -87,7 +88,7 @@ final class AtlasAiVoxDogfoodController extends Controller
             throw ValidationException::withMessages(['dogfood' => $e->getMessage()]);
         }
 
-        /** @var \App\Models\AtlasVoxDogfoodSession $session */
+        /** @var AtlasVoxDogfoodSession $session */
         $session = $result['session'];
 
         return response()->json([
@@ -136,6 +137,7 @@ final class AtlasAiVoxDogfoodController extends Controller
                 'message' => "dogfood session '{$dogfoodSessionId}' not found",
             ], 404);
         }
+
         return response()->json([
             'schema' => VoxDogfoodService::SCHEMA_SESSION,
             'status' => 'ok',

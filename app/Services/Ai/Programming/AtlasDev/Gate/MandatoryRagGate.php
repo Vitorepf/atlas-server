@@ -6,9 +6,9 @@ namespace App\Services\Ai\Programming\AtlasDev\Gate;
 
 use App\Services\Ai\Programming\AtlasDev\Pipeline\RoutingDecision;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\TaskClassification;
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ContextRetrievalPlan;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Carbon;
 

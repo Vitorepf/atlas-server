@@ -69,6 +69,16 @@ class AtlasFrontendCompanyPortfolioServiceTest extends TestCase
         $this->assertSame('atlas.frontend.selected_workspace.v1', data_get($payload, 'selection_handoff.selected_workspace_schema'));
         $this->assertStringContainsString('atlas:frontend:selected-workspace', (string) data_get($payload, 'selection_handoff.next_command'));
         $this->assertTrue((bool) data_get($payload, 'selection_handoff.claim_policy.portfolio_scan_only_discovers_repository_candidates'));
+        $this->assertSame('atlas.frontend.company_portfolio.operator_flow.v1', data_get($payload, 'operator_flow.schema_version'));
+        $this->assertSame('ready_for_repository_choice', data_get($payload, 'operator_flow.status'));
+        $this->assertSame('drive_atlas_ai_or_atlas_code_from_parent_folder_to_selected_repo_frontend_runtime', data_get($payload, 'operator_flow.purpose'));
+        $this->assertContains('choose_one_repository', collect(data_get($payload, 'operator_flow.stages'))->pluck('id')->all());
+        $this->assertContains('activate_atlas_code_project_workspace', collect(data_get($payload, 'operator_flow.stages'))->pluck('id')->all());
+        $this->assertContains('open_frontend_runtime_cockpit', collect(data_get($payload, 'operator_flow.stages'))->pluck('id')->all());
+        $this->assertTrue((bool) data_get($payload, 'operator_flow.invariants.selected_repository_is_primary_workspace'));
+        $this->assertTrue((bool) data_get($payload, 'operator_flow.invariants.frontend_app_is_relative_subscope_only'));
+        $this->assertFalse((bool) data_get($payload, 'operator_flow.invariants.space_runtime_required'));
+        $this->assertFalse((bool) data_get($payload, 'operator_flow.claim_policy.provider_dispatch_allowed'));
         $this->assertFalse((bool) data_get($payload, 'claim_policy.world_best_claim_allowed'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.portfolio_root_is_not_selected_workspace'));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.portfolio_candidate_is_not_selected_workspace'));
@@ -134,6 +144,7 @@ class AtlasFrontendCompanyPortfolioServiceTest extends TestCase
         $this->assertSame('nested_frontend_app_candidate_recommended', data_get($payload, 'selection_brief.ranked_candidates.0.frontend_app_candidate_status'));
         $this->assertSame(2, data_get($payload, 'selection_brief.ranked_candidates.0.frontend_app_candidate_count'));
         $this->assertTrue((bool) data_get($payload, 'selection_brief.ranked_candidates.0.frontend_app_operator_confirmation_required'));
+        $this->assertSame('requires_operator_confirmation', data_get($payload, 'operator_flow.stages.2.status'));
         $this->assertStringNotContainsString('apps/web', json_encode(data_get($payload, 'repositories.0.frontend_app_candidate_summary'), JSON_THROW_ON_ERROR));
         $this->assertTrue((bool) data_get($payload, 'claim_policy.portfolio_candidate_is_not_selected_workspace'));
         $this->assertTrue((bool) data_get($payload, 'selection_handoff.claim_policy.handoff_selects_one_repo_before_runtime'));
@@ -200,6 +211,8 @@ class AtlasFrontendCompanyPortfolioServiceTest extends TestCase
         $this->assertFalse((bool) data_get($payload, 'summary.portfolio_dispatch_allowed'));
         $this->assertSame('no_candidates', data_get($payload, 'selection_brief.status'));
         $this->assertSame('no_candidates', data_get($payload, 'selection_handoff.status'));
+        $this->assertSame('waiting_for_portfolio_root', data_get($payload, 'operator_flow.status'));
+        $this->assertSame('blocked', data_get($payload, 'operator_flow.stages.1.status'));
         $this->assertContains('root_not_found', $payload['blockers']);
     }
 

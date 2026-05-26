@@ -2,7 +2,7 @@
 id: atlas-open-brain-context-injection
 type: engineering_knowledge
 title: Atlas Open Brain Context Injection
-status: active
+status: source_material
 category: architecture
 priority: 99
 summary: Arquitetura canonica para o Atlas CLI e o Atlas AI App usarem Open Brain automaticamente em dev, continue, chat, programming, review e debug.

@@ -2,7 +2,7 @@
 id: atlas-engineering-blueprint-contracts
 type: engineering_knowledge
 title: Atlas Engineering Blueprint Contracts
-status: active
+status: source_material
 category: contracts
 priority: 97
 summary: Contratos canonicos de blueprint, task contract, inventory, scenarios, evidencias, review findings e Postgres gates do Atlas Engineering Blueprint System.

@@ -51,5 +51,4 @@ class AtlasProjectResource extends JsonResource
             'deleted_at' => $this->deleted_at?->toJSON(),
         ];
     }
-
 }

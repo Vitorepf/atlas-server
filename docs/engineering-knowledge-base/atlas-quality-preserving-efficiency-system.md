@@ -4,6 +4,8 @@ type: engineering_knowledge
 title: Atlas Quality-Preserving Efficiency System
 status: building
 implementation_state: v6_avcel_shadow_active; AQPES service/command/shadow/resource policy implemented, ACCCR and ALVE read-only active, AVCEL connects context, token economy, local verification, repair strategy and AEMOR candidate.
+implementation_status: active_shadow_certification_runtime_not_default_enforcement
+implementation_boundary: AQPES certify/shadow/resources runtime is active and ready; Dev/Forge default enforcement, persisted receipts and rollout promotion remain blocked until real shadow runs and operator-reviewed receipts exist.
 blocker: Dev/Forge ainda precisam de shadow receipts reais, opt-in progressivo, rollback e enforcement parcial antes de AQPES virar default.
 category: intelligence-runtime
 priority: 100
@@ -57,7 +59,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: system
 graph_parent: atlas-unified-context-retrieval-intelligence
-graph_status: planned
+graph_status: building
 graph_source: repo
 human_name: Sistema de Eficiencia com Qualidade Preservada
 canonical_name: Atlas Quality-Preserving Efficiency System
@@ -145,6 +147,16 @@ O Atlas nao deve tentar vencer Claude/Codex/Gemini apenas com prompt. Ele deve
 usar o ambiente ao redor do modelo: contexto canonico, cache, CPU, RAM, testes,
 indexacao, verificacao, failure capsules e receipts. AQPES coordena essa area
 para Atlas AI, Dev, Forge, Research e futuros flows.
+
+## Boundary Atual
+
+Em 2026-05-25, AQPES tem runtime local ativo para certificacao, shadow e
+politica de recursos via `atlas:efficiency {certify|shadow|resources}`. Ele
+prova integracao read-only com AREG, ACCCR, compilador, token economy, memoria
+cognitiva e ALVE, sem provider externo e sem escrita. AQPES ainda nao e default
+em Atlas Dev/Forge: faltam receipts reais, rollout opt-in, rollback provado e
+enforcement parcial. Linguagem de fase aqui e matriz de rollout, nao drift nem
+permissao para remover baseline.
 
 ## Onde Se Encaixa
 
@@ -474,7 +486,7 @@ Regra: AQPES nunca pode virar motivo para o Forge entregar menos evidencia.
 - Otimizacao local gerar latencia maior que economia pratica.
 - Variante boa em task simples e ruim em Forge high-risk.
 
-## Comandos Planejados
+## Comandos Ativos e Planejados
 
 - `php artisan atlas:efficiency {certify|shadow|resources} --json` (ativo);
 - `php artisan atlas:context:cache-warm --workspace=...`;
@@ -483,24 +495,15 @@ Regra: AQPES nunca pode virar motivo para o Forge entregar menos evidencia.
 
 ## Criterios de Pronto
 
-AQPES so vira fluxo padrao quando:
+AQPES so vira fluxo padrao com 50 shadow runs reais cobrindo Dev/Forge/docs,
+zero regressao high-risk, economia media comprovada por flow/provider, cache
+hit real, CPU/RAM dentro do budget, Dev/Forge em opt-in e receipts persistidos
+com rollback.
 
-- shadow verde por pelo menos 50 runs reais cobrindo Dev, Forge e docs;
-- zero regressao de qualidade em golden set e runs high-risk;
-- economia media comprovada por flow e por provider;
-- cache hit real medido, nao estimado;
-- CPU/RAM dentro do budget e com 3GB reservados ao operador;
-- Atlas Dev e Atlas Forge integrados primeiro em opt-in;
-- receipts persistidos com rollback.
-
-Done tecnico:
-
-- ACCCR e ALVE possuem docs filhas, service read-only, command e testes;
-- shadow report compara baseline vs variante por flow;
-- Dev/Forge usam AQPES em opt-in sem quebrar caminho legado;
-- enforcement parcial bloqueia apenas hard gates objetivos;
-- AEMOR registra outcome e ACPFR decide promocao/reversao;
-- cartografia mostra status, economia real, risco e evidencia.
+Done tecnico exige ACCCR/ALVE com docs filhas, service read-only, command e
+testes; shadow report baseline vs variante; Dev/Forge opt-in sem quebrar
+baseline; enforcement parcial apenas para hard gates; AEMOR/ACPFR decidindo
+promocao/reversao; cartografia com status, economia real, risco e evidencia.
 
 Limite tecnico honesto:
 
@@ -511,9 +514,6 @@ Limite tecnico honesto:
   isso como economia de token de provider externo.
 
 ## Exemplos
-Dev/Forge usam shadow primeiro: contexto cacheavel, delta, budget local e
-failure capsule; se qualquer gate falhar, voltam ao baseline sem economia.
-
+Dev/Forge usam shadow primeiro; se qualquer gate falhar, voltam ao baseline.
 ## Proximas Acoes
-1. Persistir receipts AQPES/ALVE para runs reais.
-2. Rodar shadow no Dev/Forge antes de enforcement parcial.
+Persistir receipts AQPES/ALVE; rodar shadow Dev/Forge antes de enforcement.

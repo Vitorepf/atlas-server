@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class AtlasFrontendExecutionRunbookCommandTest extends TestCase
 {
-    public function test_runbook_command_emits_ready_selected_repo_subscope_and_public_distribution_proof(): void
+    public function test_runbook_command_emits_ready_selected_repo_subscope_and_private_benchmark_proof(): void
     {
         $workspace = $this->readyWorkspace();
         $evidence = sys_get_temp_dir().'/atlas-frontend-runbook-command-evidence-'.bin2hex(random_bytes(4));
@@ -40,7 +40,8 @@ class AtlasFrontendExecutionRunbookCommandTest extends TestCase
         $this->assertTrue((bool) data_get($payload, 'frontend_app_scope.repo_workspace_remains_primary'));
         $this->assertStringContainsString("cd 'apps/web' && pnpm install --frozen-lockfile", $commands);
         $this->assertStringContainsString('atlas:frontend:publish attest --bundle=<bundle>', $commands);
-        $this->assertContains('public_distribution_proof', collect($payload['runbook_steps'])->pluck('id')->all());
+        $this->assertStringContainsString('atlas:frontend:private-benchmark-plan', $commands);
+        $this->assertContains('private_benchmark_and_optional_publication_proof', collect($payload['runbook_steps'])->pluck('id')->all());
         $this->assertTrue((bool) data_get($payload, 'claim_policy.public_distribution_step_is_not_required_for_customer_handoff'));
         $this->assertStringNotContainsString('space_runtime_required', Artisan::output());
     }

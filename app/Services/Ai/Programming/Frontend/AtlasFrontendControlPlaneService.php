@@ -119,8 +119,9 @@ final class AtlasFrontendControlPlaneService
                 'provider_dispatch_allowed' => $status !== 'blocked'
                     && (($gauntlet['status'] ?? null) === 'not_requested' || (bool) data_get($gauntlet, 'claim_policy.provider_dispatch_allowed')),
                 'premium_frontend_claim_allowed' => $readiness['runtime_contract_ready'] && $readiness['competitive_contract_claim_ready'],
-                'may_claim_more_complete_than_impeccable' => $readiness['runtime_contract_ready'] && $readiness['competitive_contract_claim_ready'],
-                'may_claim_more_complete_than_claude_design_plugin' => $readiness['runtime_contract_ready'] && $readiness['competitive_contract_claim_ready'],
+                'may_claim_more_complete_than_impeccable' => false,
+                'may_claim_more_complete_than_claude_design_plugin' => false,
+                'private_benchmark_for_internal_improvement_only' => true,
                 'external_replay_claim_allowed' => $readiness['external_replay_ready'],
                 'public_distribution_claim_allowed' => $readiness['public_distribution_ready'],
                 'world_best_claim_allowed' => $readiness['world_best_claim_ready'],
@@ -131,8 +132,8 @@ final class AtlasFrontendControlPlaneService
                 'local_publication_report_is_not_public_distribution' => true,
                 'documentation_only_claim_forbidden' => true,
                 'honest_claim_boundary' => $readiness['world_best_claim_ready']
-                    ? 'World-best frontend claim is allowed by this control plane.'
-                    : 'Atlas Frontend can claim governed runtime superiority when certification passes, but not world-best/public superiority until external replay and public distribution receipts are verified.',
+                    ? 'Private benchmark evidence is complete; public superiority claims remain disabled for this operator-owned Atlas runtime.'
+                    : 'Atlas Frontend can use private benchmarks to drive improvements, but public superiority claims remain disabled.',
             ],
             'blockers' => $blockers,
             'warnings' => $warnings,

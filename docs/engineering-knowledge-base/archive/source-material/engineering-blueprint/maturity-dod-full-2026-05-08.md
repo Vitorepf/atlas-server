@@ -2,7 +2,7 @@
 id: atlas-engineering-blueprint-maturity-dod
 type: engineering_knowledge
 title: Atlas Engineering Blueprint Maturity And DoD
-status: active
+status: source_material
 category: maturity
 priority: 96
 summary: Estado real, plano de implementacao e Definition of Done final para os 7 itens do Atlas Engineering Blueprint System.

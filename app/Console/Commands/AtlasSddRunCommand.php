@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\Sdd\AtlasSddPipeline;
 use App\Services\Ai\Programming\Sdd\Enums\AutonomyLevel;
-use App\Services\Ai\Programming\Sdd\Pipeline\OperationEnvelope;
+use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
 use Illuminate\Console\Command;
 use Throwable;
 

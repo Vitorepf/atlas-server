@@ -10,7 +10,7 @@ use App\Services\Ai\Programming\Sdd\DecisionEngine;
 use App\Services\Ai\Programming\Sdd\Enums\ConfidenceClass;
 use App\Services\Ai\Programming\Sdd\Pipeline\ContextPack;
 use App\Services\Ai\Programming\Sdd\Pipeline\Intent;
-use App\Services\Ai\Programming\Sdd\Pipeline\OperationEnvelope;
+use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\Sdd\RepairLoop;
 use App\Services\Ai\Programming\Sdd\RuntimeExecutor;
 use Tests\Concerns\CreatesAtlasSddTables;
@@ -40,7 +40,7 @@ class RuntimeExecutorAndRepairLoopTest extends TestCase
     public function test_executor_writes_allowed_file_and_records_evidence(): void
     {
         $receipt = $this->makeReceipt();
-        $exec = new RuntimeExecutor(new DecisionEngine());
+        $exec = new RuntimeExecutor(new DecisionEngine);
 
         $result = $exec->execute(
             receipt: $receipt,
@@ -59,7 +59,7 @@ class RuntimeExecutorAndRepairLoopTest extends TestCase
     public function test_executor_rejects_out_of_scope_write(): void
     {
         $receipt = $this->makeReceipt();
-        $exec = new RuntimeExecutor(new DecisionEngine());
+        $exec = new RuntimeExecutor(new DecisionEngine);
 
         $result = $exec->execute(
             receipt: $receipt,
@@ -79,8 +79,8 @@ class RuntimeExecutorAndRepairLoopTest extends TestCase
     public function test_executor_rejects_inactive_receipt(): void
     {
         $receipt = $this->makeReceipt();
-        (new DecisionEngine())->revoke($receipt, 'leaked');
-        $exec = new RuntimeExecutor(new DecisionEngine());
+        (new DecisionEngine)->revoke($receipt, 'leaked');
+        $exec = new RuntimeExecutor(new DecisionEngine);
 
         $result = $exec->execute(
             receipt: $receipt->refresh(),
@@ -95,7 +95,7 @@ class RuntimeExecutorAndRepairLoopTest extends TestCase
     public function test_repair_loop_succeeds_when_command_eventually_passes(): void
     {
         $receipt = $this->makeReceipt();
-        $engine = new DecisionEngine();
+        $engine = new DecisionEngine;
         $exec = new RuntimeExecutor($engine);
         $loop = new RepairLoop($exec);
 
@@ -122,7 +122,7 @@ class RuntimeExecutorAndRepairLoopTest extends TestCase
     public function test_repair_loop_does_nothing_when_already_ok(): void
     {
         $receipt = $this->makeReceipt();
-        $exec = new RuntimeExecutor(new DecisionEngine());
+        $exec = new RuntimeExecutor(new DecisionEngine);
         $loop = new RepairLoop($exec);
 
         $previous = $exec->execute(
@@ -157,7 +157,7 @@ class RuntimeExecutorAndRepairLoopTest extends TestCase
         ]);
         $ctx = new ContextPack('kernel-programming', ['atlas.base.v1'], [], str_repeat('c', 64));
 
-        return (new DecisionEngine())->createReceipt($envelope, $op, $spec, $plan, [
+        return (new DecisionEngine)->createReceipt($envelope, $op, $spec, $plan, [
             ['code' => 'T-01-SERV', 'allowed_files' => ['app/Foo.php']],
         ], $ctx, $intent);
     }

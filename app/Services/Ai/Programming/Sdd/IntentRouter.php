@@ -7,7 +7,7 @@ use App\Services\Ai\Programming\Governance\ProgrammingScopeMode;
 use App\Services\Ai\Programming\Governance\ProgrammingWorkItemClassifier;
 use App\Services\Ai\Programming\Sdd\Enums\ConfidenceClass;
 use App\Services\Ai\Programming\Sdd\Pipeline\Intent;
-use App\Services\Ai\Programming\Sdd\Pipeline\OperationEnvelope;
+use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
 
 /**
  * IntentRouter classifies an OperationEnvelope into an Intent record and

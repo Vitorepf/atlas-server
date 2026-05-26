@@ -67,6 +67,7 @@ final class AtlasFrontendCompanyPortfolioService
             'repositories' => $repositories,
             'selection_brief' => $this->selectionBrief($repositories),
             'selection_handoff' => $this->selectionHandoff($repositories),
+            'operator_flow' => $this->operatorFlow($repositories),
             'recommended_next_actions' => $this->nextActions($repositories),
             'claim_policy' => [
                 'portfolio_scan_is_not_execution_evidence' => true,
@@ -123,6 +124,7 @@ final class AtlasFrontendCompanyPortfolioService
             'repositories' => [],
             'selection_brief' => $this->selectionBrief([]),
             'selection_handoff' => $this->selectionHandoff([]),
+            'operator_flow' => $this->operatorFlow([]),
             'recommended_next_actions' => ['provide_existing_portfolio_root'],
             'claim_policy' => [
                 'portfolio_scan_is_not_execution_evidence' => true,
@@ -494,6 +496,92 @@ final class AtlasFrontendCompanyPortfolioService
                 'selection_brief_is_not_execution_evidence' => true,
                 'raw_absolute_paths_returned' => false,
                 'provider_dispatch_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $repositories
+     * @return array<string,mixed>
+     */
+    private function operatorFlow(array $repositories): array
+    {
+        $primaryCandidate = collect($repositories)
+            ->sortByDesc(fn (array $repo): int => (int) ($repo['candidate_score'] ?? 0))
+            ->first();
+        $hasCandidate = is_array($primaryCandidate);
+        $frontendAppNeedsConfirmation = $hasCandidate
+            && (bool) data_get($primaryCandidate, 'frontend_app_candidate_summary.operator_confirmation_required', false);
+
+        return [
+            'schema_version' => 'atlas.frontend.company_portfolio.operator_flow.v1',
+            'status' => $hasCandidate ? 'ready_for_repository_choice' : 'waiting_for_portfolio_root',
+            'purpose' => 'drive_atlas_ai_or_atlas_code_from_parent_folder_to_selected_repo_frontend_runtime',
+            'primary_candidate_ref' => $hasCandidate ? data_get($primaryCandidate, 'repo_ref.relative_name_hash') : null,
+            'stages' => [
+                [
+                    'id' => 'scan_parent_folder',
+                    'status' => 'completed',
+                    'surface' => 'atlas_ai_or_atlas_code',
+                    'contract' => self::SCHEMA_VERSION,
+                    'command' => 'php artisan atlas:frontend:portfolio --root=<folder-with-repos> --task="<intent>" --json',
+                    'execution_allowed' => false,
+                ],
+                [
+                    'id' => 'choose_one_repository',
+                    'status' => $hasCandidate ? 'ready' : 'blocked',
+                    'surface' => 'operator_choice',
+                    'contract' => AtlasFrontendSelectedWorkspaceService::SCHEMA_VERSION,
+                    'command' => 'php artisan atlas:frontend:selected-workspace --workspace=<chosen-repo> --task="<intent>" --json --strict',
+                    'execution_allowed' => false,
+                ],
+                [
+                    'id' => 'confirm_frontend_app_subscope',
+                    'status' => $frontendAppNeedsConfirmation ? 'requires_operator_confirmation' : ($hasCandidate ? 'auto_or_root_candidate_available' : 'blocked'),
+                    'surface' => 'atlas_frontend_runtime_panel',
+                    'contract' => 'atlas.frontend.selected_workspace.app_candidates.v1',
+                    'command' => 'php artisan atlas:frontend:selected-workspace --workspace=<chosen-repo> --frontend-app=<relative-subscope> --task="<intent>" --json --strict',
+                    'execution_allowed' => false,
+                ],
+                [
+                    'id' => 'activate_atlas_code_project_workspace',
+                    'status' => $hasCandidate ? 'ready_after_repository_selection' : 'blocked',
+                    'surface' => 'atlas_code',
+                    'contract' => 'atlas.frontend.selected_workspace.project_activation.v1',
+                    'endpoint' => '/atlas-code/frontend/project-activation',
+                    'execution_allowed' => false,
+                ],
+                [
+                    'id' => 'open_frontend_runtime_cockpit',
+                    'status' => $hasCandidate ? 'ready_after_project_activation' : 'blocked',
+                    'surface' => 'atlas_code_frontend',
+                    'contract' => 'atlas.frontend.workspace_api.runtime_projection.v1',
+                    'endpoint' => '/atlas-code/frontend/runtime-projection',
+                    'execution_allowed' => false,
+                ],
+                [
+                    'id' => 'prepare_evidence_and_provider_packet',
+                    'status' => $hasCandidate ? 'ready_after_runtime_projection' : 'blocked',
+                    'surface' => 'atlas_code_frontend',
+                    'contract' => 'atlas.frontend.workspace_api.prepare_evidence.v1',
+                    'endpoint' => '/atlas-code/frontend/prepare-evidence',
+                    'execution_allowed' => false,
+                ],
+            ],
+            'invariants' => [
+                'selected_repository_is_primary_workspace' => true,
+                'frontend_app_is_relative_subscope_only' => true,
+                'portfolio_root_is_inventory_only' => true,
+                'provider_dispatch_requires_pre_execution_gate' => true,
+                'selection_or_activation_is_not_delivery_evidence' => true,
+                'space_runtime_required' => false,
+                'public_superiority_claims_disabled' => true,
+            ],
+            'claim_policy' => [
+                'operator_flow_is_not_execution_evidence' => true,
+                'raw_absolute_paths_returned' => false,
+                'provider_dispatch_allowed' => false,
+                'world_best_claim_allowed' => false,
             ],
         ];
     }

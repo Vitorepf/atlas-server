@@ -30,8 +30,11 @@ class AtlasSelfImprovementDeltaScorecardService
     public const SCHEMA_VERSION = 'atlas.self_improvement.before_after_delta_scorecard.v1';
 
     public const RECOMMEND_PROMOTE = 'promote';
+
     public const RECOMMEND_PROMOTE_WITH_REVIEW = 'promote_with_review';
+
     public const RECOMMEND_HOLD = 'hold';
+
     public const RECOMMEND_ROLLBACK = 'rollback';
 
     /** @var list<string> 13 canonical metrics, weights total 100. */
@@ -80,8 +83,8 @@ class AtlasSelfImprovementDeltaScorecardService
      * Compute the canonical delta between before/after snapshots.
      *
      * @param  array<string,mixed>  $before  Each metric mapped to a 0..10 score.
-     * @param  array<string,mixed>  $after   Same keys.
-     * @param  array<string,mixed>  $context proposal_id, expected_power_gain, …
+     * @param  array<string,mixed>  $after  Same keys.
+     * @param  array<string,mixed>  $context  proposal_id, expected_power_gain, …
      * @return array<string,mixed>
      */
     public function compute(array $before, array $after, array $context = []): array

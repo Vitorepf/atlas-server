@@ -2,7 +2,7 @@
 id: atlas-ai-qualitative-levels-roadmap
 type: engineering_knowledge
 title: Atlas AI Qualitative Levels Roadmap
-status: active
+status: source_material
 category: roadmap
 priority: 96
 summary: Roadmap canonico curto dos patamares qualitativos do Atlas AI, subordinado a tese do multiplicador e usado para transformar visao de longo prazo em fila governada de implementacao.

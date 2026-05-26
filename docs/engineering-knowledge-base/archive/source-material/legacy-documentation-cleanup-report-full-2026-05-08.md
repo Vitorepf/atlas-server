@@ -2,7 +2,7 @@
 id: legacy-documentation-cleanup-report
 type: engineering_knowledge
 title: Legacy Documentation Cleanup Report
-status: active
+status: source_material
 category: documentation-governance
 priority: 90
 summary: Inventario e registro profissional da limpeza de documentacao canonica, legacy, duplicada e orfa do Atlas, com promocoes canonicas, redirects e pendencias residuais.

@@ -2,7 +2,7 @@
 id: atlas-ai-architecture-audit
 type: engineering_knowledge
 title: Atlas AI Architecture Audit
-status: active
+status: source_material
 category: architecture
 priority: 99
 summary: Analise rigorosa da documentacao canonica do Atlas AI, identificando capacidades existentes, verdades concorrentes, duplicacoes, lacunas de orquestracao e plano para reorganizar o sistema em pipelines bem definidos.

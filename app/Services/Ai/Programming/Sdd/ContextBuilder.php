@@ -5,7 +5,7 @@ namespace App\Services\Ai\Programming\Sdd;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Ai\Programming\Sdd\Pipeline\ContextPack;
 use App\Services\Ai\Programming\Sdd\Pipeline\Intent;
-use App\Services\Ai\Programming\Sdd\Pipeline\OperationEnvelope;
+use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use Throwable;
 

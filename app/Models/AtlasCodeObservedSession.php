@@ -12,7 +12,9 @@ use Illuminate\Database\Eloquent\Model;
 class AtlasCodeObservedSession extends Model
 {
     public $incrementing = false;
+
     protected $keyType = 'string';
+
     protected $table = 'atlas_code_observed_sessions';
 
     protected $fillable = [

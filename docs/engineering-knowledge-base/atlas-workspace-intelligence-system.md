@@ -69,7 +69,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: system
 graph_parent: atlas-code-multi-project-workspace-os
-graph_status: planned
+graph_status: building
 graph_source: repo
 macro_layer: true
 product_name: Atlas Workspace Intelligence System
@@ -198,8 +198,8 @@ Esse ciclo e exposto por `awis_learning_loop` no runtime completo, pelo comando
 O runtime tambem emite `workspace_live_execution_memory`
 (`atlas.awis.workspace_live_execution_memory.v1`): boot vivo que carrega
 workspace, repos, mudancas, focus map e context units; revalida por hash;
-bloqueia replay cru/path absoluto/promocao automatica; e persiste via
-`context_pack` + `workspace_runbook.body.live_execution_memory`.
+bloqueia replay cru/path absoluto/promocao automatica; e persiste via `context_pack`,
+`workspace_runbook.body.live_execution_memory` e `workspace_handoff_pack.live_execution_memory`.
 
 Esta e a documentacao mae do espaco de trabalho do Atlas. Ela governa
 workspace obrigatorio, memoria/contexto por projeto, fusao de conversas longas,
@@ -422,6 +422,7 @@ php artisan atlas:workspace-intelligence register --workspace=cliente --path=/re
 php artisan atlas:workspace-intelligence list --json
 php artisan atlas:workspace-intelligence certify --workspace=atlas --persist --json
 php artisan atlas:workspace-intelligence learning-loop --workspace=atlas --json
+php artisan atlas:workspace-intelligence live-execution-memory --workspace=atlas --json
 php artisan atlas:workspace-intelligence artifact-intelligence --workspace=atlas --json
 php artisan atlas:workspace-intelligence conversation-fusion --workspace=atlas --json
 php artisan atlas:workspace-intelligence handoff-pack --workspace=atlas --consumer=atlas_dev --json

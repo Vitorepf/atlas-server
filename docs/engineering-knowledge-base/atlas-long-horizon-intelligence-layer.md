@@ -5,7 +5,7 @@ title: Atlas Long-Horizon Intelligence Layer
 status: active
 category: programming
 priority: 95
-summary: Camada canônica que permite Atlas Dev sustentar contexto de semanas e Atlas Forge operar Obras de meses por compactação auditável, continuation packs, decision/evidence timeline, drift detection, recovery planner e memory promotion. Cita 15+ modelos/serviços JÁ implementados (Forge long-horizon, Dev continuation, evidence ledger) e marca gaps greenfield. benchmark_not_run, sem claim numérico.
+summary: Camada canônica que permite Atlas Dev sustentar contexto de semanas e Atlas Forge operar Obras de meses por compactação auditável, continuation packs, decision/evidence timeline, drift detection, recovery planner e memory promotion. Cita modelos/serviços implementados, separa backlog de superfície e mantém benchmark_not_run, sem claim numérico.
 tags:
   - atlas-dev
   - atlas-forge
@@ -24,12 +24,12 @@ capabilities:
   - operator_review_points
 decisions:
   - "long_horizon" entra no glossário canônico — termo já em uso por `AiForgeLongHorizonState` shipped.
-  - Schemas novos `atlas.long_horizon.continuation_pack.v1` e `atlas.long_horizon.compaction_receipt.v1` são abstrações canônicas; especializações existentes (`atlas.programming.continuation_packet.v1`, `atlas.forge.long_horizon_state.v1`) mantêm-se.
+  - Schema `atlas.long_horizon.continuation_pack.v2` e `atlas.long_horizon.compaction_receipt.v1` são abstrações canônicas; especializações existentes (`atlas.programming.continuation_packet.v1`, `atlas.forge.long_horizon_state.v1`) mantêm-se.
   - Dev e Forge preservam identidade; continuity layer respeita boundary.
-  - Recovery Planner e Context Freshness Gate são greenfield; demais 11 componentes têm base parcial em código.
+  - Recovery Planner, Context Freshness Gate e memory guard existem como runtime local; benchmark externo continua não executado.
   - benchmark_not_run — esta camada é pré-requisito para benchmark, não o benchmark.
 maintenance:
-  - Atualizar quando schemas long_horizon.* shiparem.
+  - Atualizar quando schemas long_horizon.* mudarem em `AtlasLongHorizonCanon`.
   - Sincronizar com `atlas-canonical-glossary-and-naming.md` quando entry `long_horizon` for adicionada.
   - Atualizar quando AtlasMemoryEntry ganhar scopes `obra` / `long_horizon`.
 related_paths:
@@ -57,6 +57,8 @@ graph_kind: system
 graph_parent: atlas-programming-superiority-architecture
 
 graph_status: active
+implementation_status: partial_teos_i1_runtime_ready_external_claim_not_claimed
+implementation_boundary: teos_i1_long_horizon_runtime_ready_for_local_readiness_certification_benchmark_not_run
 
 graph_source: repo
 human_name: Atlas Long-Horizon Intelligence Layer
@@ -133,11 +135,8 @@ risk_level: high
 
 next_actions:
   - Adicionar entry `long_horizon` ao `atlas-canonical-glossary-and-naming.md`.
-  - Implementar `atlas.long_horizon.continuation_pack.v1` (abstração unificada Dev + Forge).
-  - Implementar `atlas.long_horizon.compaction_receipt.v1` com must_keep_coverage enforcement.
-  - Implementar `LongHorizonRecoveryPlannerService` (greenfield).
-  - Implementar `LongHorizonContextFreshnessGate` (greenfield).
-  - Adicionar scopes `obra` e `long_horizon` em `AtlasMemoryEntry::SCOPES`.
+  - Manter `AtlasTeosReadinessCertificationService` como gate local antes de qualquer claim externo.
+  - Expandir cobertura E2E antes de declarar benchmark ou superioridade numérica.
 
 ---
 # Atlas Long-Horizon Intelligence Layer
@@ -149,17 +148,33 @@ pack, superior compaction, decision ledger, evidence timeline, SDD evolution
 log, work packet history, drift detector, recovery planner, context freshness
 gate, memory promotion, operator review points, next best action).
 
-**Veredicto (2026-05-18)**: **não é greenfield**. 7 componentes `WIRED`, 4
-`PARTIAL/ADJACENT`, 2 `GREENFIELD` (Recovery Planner, Context Freshness Gate).
+**Veredicto (2026-05-18)**: **não é greenfield**. O runtime local avançou para
+TEOS-I1 readiness com certification services, recovery, freshness e memory guard.
 Forge long-horizon sólido (`AiForgeLongHorizonState` + `Service` + `Milestone`
 + `WorkPacket` + `WorkPacketExecutionCycle` cycle_position monotônico). Dev
 continuity em nível de run via `ProgrammingResumeService::continuationPacket`
 + `ReceiptStorage` atomic monotonic + `AtlasDevRunIndex`.
 
-**Gap principal**: faltam **2 schemas canônicos unificadores** —
-`atlas.long_horizon.continuation_pack.v1` e
-`atlas.long_horizon.compaction_receipt.v1` — para cross-scope (session → run →
-mission → workstream → milestone → obra) homogêneo. **benchmark_not_run: true**.
+**Boundary atual**: o runtime local TEOS-I1 existe e é certificado por
+`AtlasTeosReadinessCertificationService`; esta doc ainda conserva roadmap para
+trabalho posterior. **benchmark_not_run: true** e nenhum claim numérico externo
+está autorizado.
+
+## Status de Autoridade vs Implementacao
+Esta doc é autoridade canônica da camada long-horizon, mas não transforma
+backlog em implementação. O código atual prova runtime local parcial/forte:
+`AtlasLongHorizonCanon`, `AtlasTeosReadinessCertificationService`,
+`LongHorizonRecoveryPlannerService`, `LongHorizonMemoryPromotionGuard`,
+certificações de continuidade, replay, freshness, world model e smoke tests.
+
+O estado correto é:
+- **Implementado/local**: canon long-horizon, continuation pack v2, compaction
+  receipt v1, readiness certification, recovery/freshness/memory guard e testes
+  de TEOS/long-horizon.
+- **Backlog/expansao**: benchmark externo, claim de superioridade numérica,
+  UX final e integrações amplas fora do runtime local certificado.
+- **Proibido**: usar existência de serviços long-horizon como prova de que TEOS
+  completo ou benchmark externo foi executado.
 
 ## Papel no Atlas
 Resolve 3 problemas concretos: (1) **Atlas Dev** sustentar contexto de
@@ -192,8 +207,8 @@ Layer 0.72 Programming. Filho de `atlas-programming-superiority-architecture`.
 | 6 | SDD Evolution Log | ADJACENT | `AtlasSpec.version`, `AtlasAssumption.resolved_at`, `AtlasSddDriftReport`; sem agregador |
 | 7 | Work Packet History | WIRED | `AiForgeWorkPacketExecutionCycle` (cycle_position monotônico) |
 | 8 | Drift Detector | PARTIAL (SDD) | `SpecDriftDetector.php`; sem state drift |
-| 9 | Recovery Planner | **GREENFIELD** | nenhum código |
-| 10 | Context Freshness Gate | **GREENFIELD** | nenhum código |
+| 9 | Recovery Planner | WIRED (local) | `LongHorizonRecoveryPlannerService.php` |
+| 10 | Context Freshness Gate | WIRED (local) | `LongHorizonContextFreshnessGateTest.php` |
 | 11 | Memory Promotion | PARTIAL | `AiMemoryDeltaProposer`; sem scope `obra/long_horizon` |
 | 12 | Operator Review Points | PARTIAL | Self-Construction gates; sem lifecycle long-horizon |
 | 13 | Next Best Action | PARTIAL | `ForgeLongHorizonStateCanon::NEXT_ACTION_*` + `AtlasControlPlaneNextActionService`; sem cross-component sequencing |
@@ -202,9 +217,9 @@ Boundary dual-core preservado: Dev e Forge têm continuity próprias; long_horiz
 abstrai contratos sem fundir runtimes.
 
 ## Contratos
-### Schemas canônicos propostos (novos)
+### Schemas canônicos
 
-**`atlas.long_horizon.continuation_pack.v1`** — abstração unificada acima de
+**`atlas.long_horizon.continuation_pack.v2`** — abstração unificada acima de
 `atlas.programming.continuation_packet.v1` (Dev) e
 `atlas.forge.long_horizon_state.v1` (Forge):
 - `pack_id` (uuid), `schema_version`, `pack_hash` (sha256).
@@ -252,34 +267,13 @@ compactação:
 - `atlas.ai.compounding.{outcome,learning_candidate,memory,heuristic_update}.v1` (11 services em `Compounding/`).
 - `atlas.programming.stage_receipt.v1` (`AtlasProgrammingStageReceipt`) — per-stage receipt.
 
-### Persistence / Data Models
+### Persistence / Commands / APIs
 
-**Obrigatório agora (M1):**
-- Tabela `ai_long_horizon_continuation_packs` (PK pack_id; indexes scope_type, scope_id, stale_after).
-- Tabela `ai_long_horizon_compaction_receipts` (PK receipt_id; FK ai_long_horizon_continuation_packs).
-- Adicionar scopes `obra` e `long_horizon` em `AtlasMemoryEntry::SCOPES`.
-
-**Fase 2:**
-- Tabela `ai_long_horizon_decision_ledger_entries` (agregador queryable acima de AiAuditEvent/AiRouterDecision/AtlasDecisionReceipt por scope_id).
-- Tabela `ai_long_horizon_drift_findings` (estende SpecDriftDetector).
-- Tabela `ai_long_horizon_recovery_plans` (greenfield).
-- Tabela `ai_long_horizon_evidence_timeline_events` (proxy queryable acima de AtlasLedgerEvent filtrado por scope).
-- Tabela `ai_long_horizon_memory_promotion_candidates` (estende AiMemoryDelta).
-- Tabela `ai_long_horizon_operator_review_points`.
-
-**Futuro:**
-- Tabela `ai_long_horizon_sdd_evolution_snapshots` (agregador AtlasSpec + AtlasAssumption + AtlasSddDriftReport por Obra).
-- Tabela `ai_long_horizon_next_action_chains` (multi-step lookahead).
-
-### Commands / APIs canônicos propostos
-
-- `atlas:long-horizon:compact` — emite `compaction_receipt.v1` para scope.
-- `atlas:long-horizon:continue` — carrega `continuation_pack.v1`, valida freshness, retorna next_best_action.
-- `atlas:long-horizon:status` — relatório agregado por scope.
-- `atlas:long-horizon:drift-check` — roda Drift Detector ampliado.
-- `atlas:long-horizon:recovery-plan` — emite plano de recovery (greenfield).
-- `atlas:long-horizon:certify` — valida invariantes da camada antes de declaração ready.
-- `atlas:long-horizon:freshness-gate` — checa stale_after e bloqueia se expired (greenfield).
+O runtime local já tem modelos, migrations, serviços e testes long-horizon/TEOS.
+Novas tabelas, comandos ou APIs só podem reutilizar os schemas em
+`AtlasLongHorizonCanon` e manter Dev/Forge como runtimes separados. Nomes de
+comandos listados nesta doc são backlog de superfície, não prova automática de
+implementação presente.
 
 ## Fluxo
 ### Atlas Dev Long-Context Runtime (semanas)
@@ -289,14 +283,14 @@ compactação:
 2. `AtlasDevFastPathOrchestrator` cria/recupera `run_id`; `AtlasDevRunIndex`
    indexa por `thread_id`/`workspace_hash`.
 3. `ReceiptStorage` persiste artifacts (`atomic` write + monotonic versioning).
-4. **NOVO (M3):** ao final de cada run, `LongHorizonContinuationPackBuilder`
-   produz `continuation_pack.v1` com `scope_type=dev_workstream`
+4. Ao final de cada run, o runtime long-horizon pode produzir
+   `continuation_pack.v2` com `scope_type=dev_workstream`
    (workstream = união de runs por `thread_id` ou `workspace_hash`).
 5. Quando contexto exceder budget (definido por `AiCompaction` rules),
    `LongHorizonCompactionEngine` compacta: emite `compaction_receipt.v1`
    com `must_keep_coverage=1.0` (decisions e blockers nunca descartáveis).
 6. `ProgrammingResumeService` em `atlas:cli:continue` carrega
-   `continuation_pack` + valida `stale_after` via Freshness Gate (M5).
+   `continuation_pack` + valida `stale_after` via Freshness Gate.
 7. Se stale → bloqueia resume, exige operator decision ou re-retrieval.
 8. Se workstream cresce → `EscalationDecisionEngine` pode escalar para Forge
    via `atlas.dev_to_forge.escalation_packet.v1`.
@@ -312,12 +306,12 @@ compactação:
    (cycle_position monotônico, schema `atlas.forge.work_packet_execution_cycle.v1`).
 6. `ForgeMilestoneGateRunner` aplica gates; `MissionCertificationService`
    certifica milestone.
-7. **NOVO (M4):** `LongHorizonContinuationPackBuilder` produz `continuation_pack.v1`
+7. `LongHorizonContinuationPackBuilder` produz `continuation_pack.v2`
    com `scope_type=forge_obra` semanalmente (ou ao final de milestone).
 8. `ForgeLongHorizonStateService::recordCycle()` atualiza `cycle_count` e
    `last_cycle_summary`.
 9. Compactação obra-scoped emite `compaction_receipt.v1`.
-10. Drift Detector (M5) compara `AtlasSpec.version[t]` vs `version[t-Δ]`
+10. Drift Detector compara `AtlasSpec.version[t]` vs `version[t-Δ]`
     + work packet completion vs DoD declarado.
 11. Operator Review Points (M7): a cada milestone, operator confirm via
     `AtlasOperatorDecision`.
@@ -343,7 +337,7 @@ function compact(scope_id, scope_type, source_refs[]):
 ### Recovery Planner — fluxo
 1. `LongHorizonRecoveryPlannerService::plan(scope_id)`.
 2. Carrega `continuation_pack` mais recente.
-3. Valida freshness (M5 gate).
+3. Valida freshness gate.
 4. Compara repo state (HEAD vs `pack.context_pack_hash`).
 5. Identifica missing context (refs que mudaram entre pack e HEAD).
 6. Retrieva missing context via `ProgrammingRetrievalPlanner`.
@@ -366,38 +360,29 @@ function compact(scope_id, scope_type, source_refs[]):
    = violação de governança.
 10. **Decision Ledger é append-only**; nunca update/delete de decision.
 11. **benchmark_not_run: true** até `atlas-pre-benchmark-readiness-audit.md`
-    P0/P1 verdes E M1-M8 desta camada shipped.
+    P0/P1 verdes e operator autorizar execução externa.
 12. **Resume com `stale_after < now`** = bloqueia; exige re-retrieval.
 
 ### Quality Gates
 - No `continuation_pack` without `evidence_refs ≥ 1`.
 - No `compact()` without emitting `compaction_receipt`.
-- No `resume` if `stale_after < now` (Freshness Gate, M5).
+- No `resume` if `stale_after < now` (Freshness Gate).
 - No `mission.transition(completed)` without certification (existente).
 - No memory_promotion to scope `obra|long_horizon` without operator_decision.
 - No `next_best_action` execution without operator confirmation (Forge).
 - No `recovery_plan` without `drift_finding_id` ou explicit recovery trigger.
 
 ## Escopo de Implementacao
-Cobre design + contratos + roadmap. **Não** implementa código nem benchmark.
+Cobre runtime local long-horizon/TEOS, contratos, gates e roadmap. Não cobre
+benchmark externo nem claim de superioridade numérica.
 
-**Cobre:**
-- 2 schemas novos canônicos (continuation_pack, compaction_receipt).
-- Reuse explícito de 7 schemas existentes.
-- 13 componentes arquiteturais com estado classificado.
-- 9 tabelas (3 obrigatórias agora, 6 fase 2).
-- 7 comandos CLI canônicos.
-- 8 quality gates.
-- 8 testes obrigatórios.
-- 8 métricas operacionais.
-- 8-fase roadmap.
-- 10 missões priorizadas.
+**Cobre hoje:** canon service, continuation pack v2, compaction receipt v1,
+readiness certification, recovery planner, freshness gate, memory promotion
+guard, replay/continuity certification, world model e smoke tests.
 
-**Não cobre:**
-- Driver real de provider (decisão de produto separada).
-- Benchmark execution (`atlas-pre-benchmark-readiness-audit.md` é gate).
-- UX Desktop (out of scope deste layer; integração via existing Cockpit).
-- Multi-agent scheduler dedicado (M8 da `superiority-roadmap.md`).
+**Ainda backlog:** superfícies CLI/API completas, UX Desktop, scheduler
+multi-agent dedicado, benchmark execution e integração ampla fora dos gates
+locais já testados.
 
 ## Dependencias
 Canon dependencies: `atlas-canonical-glossary-and-naming.md` (entry
@@ -437,7 +422,7 @@ está em `atlas-pre-benchmark-readiness-audit.md` M10.
 ### Anti-patterns proibidos + riscos arquiteturais
 1. Summary solto sem receipt; compactar só texto final descartando decisions/blockers; esconder descartes (`discarded_items=[]` mentiroso).
 2. "Continua" sem freshness check; memória sem evidência; Forge sem milestone ledger.
-3. Atlas Dev sustentar workstream >1 mês (deveria escalar para Forge); benchmark antes M1-M8 shipped.
+3. Atlas Dev sustentar workstream >1 mês (deveria escalar para Forge); benchmark antes de gate externo autorizado.
 4. Naming proliferation (`WorkstreamState` paralelo a `AiForgeLongHorizonState` em vez de estender).
 5. Compaction loss silenciosa (sem `must_keep_coverage=1.0` enforce).
 6. Drift false-positives (heurística ruim) → fadiga operator; recovery loop infinito (plan sempre falha freshness).
@@ -446,9 +431,9 @@ está em `atlas-pre-benchmark-readiness-audit.md` M10.
 9. Operator fatigue (review points excessivos → carimba sem ler); scope creep (`long_horizon` virar guarda-chuva).
 
 ## Exemplos
-**Trace Dev workstream (alvo M3+M5):** Day 1 → 3 runs sobre feature X →
+**Trace Dev workstream:** Day 1 → 3 runs sobre feature X →
 `ReceiptStorage` 3 pastas + `AtlasDevRunIndex` agrega por `thread_id`.
-End-of-day → `LongHorizonContinuationPackBuilder` emite `continuation_pack.v1`
+End-of-day → `LongHorizonContinuationPackBuilder` emite `continuation_pack.v2`
 (`scope_type=dev_workstream`, decisions=[d1-d3], open=[t4,t5],
 `stale_after=now+7d`). Day 4 → `atlas:cli:continue --thread=X` → Freshness Gate ✅
 → Recovery Planner compara HEAD vs `pack.context_pack_hash` → 2 files mudaram →
@@ -458,8 +443,8 @@ retrieva delta → `next_best_action="implementar t5 considerando file A"`.
 `AiForgeIntake` + `AiForgeLongHorizonState` (status=active). Milestone 1: 3
 work packets via `AiForgeWorkPacketExecutionCycle` (cycle_position 1-3) →
 `recordCycle()` → `advanceMilestone()`. Semana 2 pausa; semana 4 retoma.
-**NOVO (M4)** Builder produz `continuation_pack.v1` scope=forge_obra; Freshness
-Gate (M5) valida; Recovery Planner identifica drift via SpecDriftDetector
+Builder produz `continuation_pack.v2` scope=forge_obra; Freshness
+Gate valida; Recovery Planner identifica drift via SpecDriftDetector
 ampliado; Obra continua milestone 2/5.
 
 ## Proximas Acoes
@@ -471,7 +456,7 @@ ampliado; Obra continua milestone 2/5.
 | M2 | Compaction engine | LongHorizonCompactionEngine + must_keep_coverage enforce + 4 tests | 12-16h |
 | M3 | Dev continuity | LongHorizonContinuationPackBuilder cross-run + cmd `atlas:long-horizon:continue` Dev | 16-20h |
 | M4 | Forge continuity | Builder cross-milestone + integração `ForgeLongHorizonStateService` | 12-16h |
-| M5 | Drift + Recovery | RecoveryPlannerService + FreshnessGate (greenfield) + drift detector ampliado | 24-32h |
+| M5 | Drift + Recovery | RecoveryPlannerService + FreshnessGate + drift detector ampliado | 24-32h |
 | M6 | Memory promotion | Scopes `obra`/`long_horizon` em AtlasMemoryEntry + promotion gate operator-reviewed | 10-14h |
 | M7 | Certification + Control Plane | long_horizon invariants em MissionCertificationService + snapshotHistory | 14-18h |
 | M8 | Benchmark readiness | (não executa benchmark) — só prepara substrate; aguarda M10 da superiority-roadmap | depende |
@@ -488,19 +473,19 @@ ampliado; Obra continua milestone 2/5.
 | L4 | P1 | `LongHorizonCompactionEngine` com must_keep_coverage invariant | 12-16h | paralelo L3 |
 | L5 | P1 | Integrar Dev: builder cross-run via `AtlasDevRunIndex` + cmd `atlas:long-horizon:continue` | 8-12h | depende L3+L4 |
 | L6 | P1 | Integrar Forge: builder cross-milestone via `ForgeLongHorizonStateService` | 8-12h | paralelo L5 (área diferente) |
-| L7 | P1 | `LongHorizonContextFreshnessGate` (greenfield) + cmd `freshness-gate` | 6-10h | depende L2 |
-| L8 | P2 | `LongHorizonRecoveryPlannerService` (greenfield) + cmd `recovery-plan` | 16-24h | depende L7 |
+| L7 | P1 | `LongHorizonContextFreshnessGate` + cmd `freshness-gate` | 6-10h | depende L2 |
+| L8 | P2 | `LongHorizonRecoveryPlannerService` + cmd `recovery-plan` | 16-24h | depende L7 |
 | L9 | P2 | Estender drift detector além SDD (state staleness, decision-evidence mismatch) | 10-14h | paralelo L8 (mesmo arquivo, sequencial) |
 | L10 | P2 | Adicionar scopes `obra`/`long_horizon` em `AtlasMemoryEntry::SCOPES` + promotion gate operator-reviewed | 6-8h | paralelo L8/L9 |
 
 **Paralelização segura:** L3+L4 (diferentes services); L5+L6 (Dev vs Forge);
-L8+L10 (greenfield diferentes).
+L8+L10 (serviços diferentes).
 
 ### Definition of Done — Atlas Long-Horizon Intelligence Layer
 
 A camada é **implementada** quando TODOS verdes simultaneamente:
 (1) Entry `long_horizon` no glossário canônico.
-(2) Schemas `continuation_pack.v1` + `compaction_receipt.v1` shipped (tabelas + models + tests).
+(2) Schemas `continuation_pack.v2` + `compaction_receipt.v1` shipped (tabelas + models + tests).
 (3) `LongHorizonContinuationPackBuilder` cross-Dev e cross-Forge em E2E.
 (4) `LongHorizonCompactionEngine` enforça `must_keep_coverage == 1.0` (test).
 (5) `LongHorizonContextFreshnessGate` bloqueia resume com pack stale.

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\PromptProjection;
 
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\PromptSections;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
-use App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope;
 
 /**
  * Maps the validated upstream artifacts into the 13 prompt sections required by

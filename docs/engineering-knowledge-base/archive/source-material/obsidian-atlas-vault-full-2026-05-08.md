@@ -2,7 +2,7 @@
 id: atlas-obsidian-atlas-vault
 type: engineering_knowledge
 title: Atlas Obsidian And AtlasVault Architecture
-status: active
+status: source_material
 category: architecture
 priority: 97
 summary: Contrato canonico para o Atlas usar Obsidian/AtlasVault como Human Knowledge Surface / Personal Knowledge Workspace, sem transformar notas soltas em fonte operacional primaria.
