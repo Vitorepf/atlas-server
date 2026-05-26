@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — this controller is Programming-adjacent.
+// route_decision.v1 emission to be wired per AP per family.
+// Schema: atlas.dual_core.route_decision.v1
+// Canon: docs/engineering-knowledge-base/atlas-dev-forge-escalation-consolidation-plan.md
+
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasForgeProviderCapacityService;
 use App\Services\Ai\Programming\AtlasForgeProviderFailureMemoryService;
@@ -124,7 +129,8 @@ final class AtlasCodeForgeProviderCapacityController extends Controller
             'failure_memory' => $updatedMemory,
             'external_provider_call' => false,
             'separated_from' => 'external_rivals_certification',
-        ], 201);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_forge_provider_capacity_controller'),
+    ], 201);
     }
 
     /**

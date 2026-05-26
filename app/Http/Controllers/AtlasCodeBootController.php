@@ -52,7 +52,8 @@ final class AtlasCodeBootController extends Controller
             'cartography' => $carto,
             'workspace' => $workspace,
             'queue' => $queue,
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_boot_controller'),
+    ]);
     }
 
     /** @return array<string, mixed> */

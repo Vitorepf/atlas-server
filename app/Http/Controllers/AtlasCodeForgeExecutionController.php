@@ -193,7 +193,8 @@ final class AtlasCodeForgeExecutionController extends Controller
             'snapshot' => $snapshot,
             'snapshot_available' => $snapshot !== null,
             'review' => $this->reviewForHistoryId($project, $historyId),
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_forge_execution_controller'),
+    ]);
     }
 
     public function executeAsyncJob(

@@ -76,6 +76,49 @@ class AtlasCodeWorkRichInputTest extends TestCase
             ->assertJsonMissingPath('work.metadata.context_refs');
     }
 
+    /**
+     * Gap3.F4 — Company Runtime promotion handshake.
+     *
+     * When the flag is off (default), the legacy response omits the
+     * promotion envelope entirely — proves the addition is a no-op for
+     * existing clients. When the flag is shadow/on/default, the envelope
+     * is present, carries the canonical schema_version, and the legacy
+     * path is still served (no semantic change).
+     */
+    public function test_company_runtime_handshake_absent_when_flag_off(): void
+    {
+        config()->set('atlas.http_company_runtime.mode', 'off');
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/works', [
+            'intent' => 'plain text',
+            'objective' => 'no envelope expected',
+            'domain' => 'programming',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonMissingPath('company_runtime_routing');
+    }
+
+    public function test_company_runtime_handshake_envelope_present_when_flag_shadow(): void
+    {
+        config()->set('atlas.http_company_runtime.mode', 'shadow');
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/works', [
+            'intent' => 'plain text',
+            'objective' => 'envelope expected',
+            'domain' => 'programming',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath(
+                'company_runtime_routing.schema_version',
+                'atlas.ai.engineering_company.http_entry_response.v1',
+            )
+            ->assertJsonPath('company_runtime_routing.flag_mode', 'shadow')
+            // Legacy work is still returned — proves cutover is honest.
+            ->assertJsonPath('work.objective', 'envelope expected');
+    }
+
     public function test_obra_creation_with_pdf_url_and_text_block_persists_rich_input(): void
     {
         $payload = [

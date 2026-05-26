@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — this controller is Programming-adjacent.
+// route_decision.v1 emission to be wired per AP per family.
+// Schema: atlas.dual_core.route_decision.v1
+// Canon: docs/engineering-knowledge-base/atlas-dev-forge-escalation-consolidation-plan.md
+
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasCodeAttentionControlPlaneService;
 use Illuminate\Http\JsonResponse;
@@ -84,6 +89,7 @@ final class AtlasCodeAttentionControlPlaneController extends Controller
         return response()->json([
             'receipt' => $receipt,
             'snapshot' => $snapshot,
-        ], 200);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_attention_control_plane_controller'),
+    ], 200);
     }
 }

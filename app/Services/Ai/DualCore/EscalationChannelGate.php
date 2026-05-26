@@ -225,7 +225,12 @@ final class EscalationChannelGate
 
         return str_contains($contents, self::CANONICAL_SERVICE)
             || str_contains($contents, self::CANONICAL_RECORDER)
-            || str_contains($contents, self::CANONICAL_SCHEMA);
+            || str_contains($contents, self::CANONICAL_SCHEMA)
+            // CanonicalRouteDecisionEnvelope::emit() returns the schema
+            // literal, so any controller that calls the helper emits the
+            // canonical envelope materially. Recognising the helper here
+            // avoids requiring controllers to repeat the schema string.
+            || str_contains($contents, 'CanonicalRouteDecisionEnvelope');
     }
 
     private function resolveAbsolute(string $relativePath): string

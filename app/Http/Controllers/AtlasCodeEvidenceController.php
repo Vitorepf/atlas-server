@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+
 use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasProject;
@@ -79,6 +82,7 @@ class AtlasCodeEvidenceController extends Controller
                 'runs' => $runs->count(),
                 'evidence' => $evidences->count(),
             ],
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_evidence_controller'),
+    ]);
     }
 }

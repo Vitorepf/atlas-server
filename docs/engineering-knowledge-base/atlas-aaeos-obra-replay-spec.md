@@ -33,7 +33,7 @@ graph_id: atlas-aaeos-obra-replay-spec
 graph_title: Atlas AAEOS Obra Replay Spec
 graph_world: atlas
 graph_layer: system
-graph_kind: spec
+graph_kind: contract
 graph_parent: atlas-agentic-engineering-os
 graph_status: active
 graph_source: repo
@@ -43,6 +43,8 @@ technical_name: atlas-aaeos-obra-replay-spec
 cartography_type: spec
 canonical_source: docs/engineering-knowledge-base/atlas-aaeos-obra-replay-spec.md
 owner: atlas-ai
+product_name: Atlas AAEOS Obra Replay Spec
+internal_product_name: AAEOS Obra Replay
 runtime_acronym: AAEOS-OR
 technical_runtime: atlas.aaeos.obra_replay
 repo_paths:

@@ -135,7 +135,8 @@ class AtlasProgrammingGovernanceController extends Controller
             'work_item' => $item->code,
             'compiled' => $compiled,
             'critique' => $critique,
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_programming_governance_controller'),
+    ]);
     }
 
     /**

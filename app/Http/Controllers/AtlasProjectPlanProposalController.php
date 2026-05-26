@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+// Method-level emission to be wired per AP per family.
+
 use App\Http\Resources\AtlasProjectPlanProposalResource;
 use App\Http\Resources\AtlasProjectResource;
 use App\Http\Resources\AtlasTaskResource;
@@ -129,7 +133,8 @@ class AtlasProjectPlanProposalController extends Controller
             'proposal' => (new AtlasProjectPlanProposalResource($result['proposal']->load(['project', 'sourceCapture'])))->resolve(),
             'project' => (new AtlasProjectResource($result['project']->load(['activeNextTask', 'currentStep'])->loadCount(['tasks', 'steps'])))->resolve(),
             'active_next_task' => (new AtlasTaskResource($result['active_next_task']->load(['project', 'projectStep'])))->resolve(),
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_project_plan_proposal_controller'),
+    ]);
     }
 
     private function proposalData(Request $request, AtlasDomainRegistry $domains): array

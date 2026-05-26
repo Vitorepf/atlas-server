@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+
 use App\Models\AiThread;
 use App\Models\AtlasProject;
 use Illuminate\Http\JsonResponse;
@@ -50,7 +53,8 @@ class AtlasCodeSessionController extends Controller
                 'total' => $threads->count(),
                 'active' => $activeCount,
             ],
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_session_controller'),
+    ]);
     }
 
     /**

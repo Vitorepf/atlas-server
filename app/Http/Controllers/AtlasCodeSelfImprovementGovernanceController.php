@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+// Method-level emission to be wired per AP per family.
+
 use App\Models\AtlasProject;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementCapabilityMaturityScoreService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementDeltaScorecardService;
@@ -189,7 +193,8 @@ final class AtlasCodeSelfImprovementGovernanceController extends Controller
             'snapshot' => $service->snapshot($project->refresh()),
             'external_provider_call' => false,
             'separated_from' => 'external_rivals_certification',
-        ], 201);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_self_improvement_governance_controller'),
+    ], 201);
     }
 
     /**

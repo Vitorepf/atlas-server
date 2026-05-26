@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — this controller is Programming-adjacent.
+// route_decision.v1 emission to be wired per AP per family.
+// Schema: atlas.dual_core.route_decision.v1
+// Canon: docs/engineering-knowledge-base/atlas-dev-forge-escalation-consolidation-plan.md
+
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
@@ -126,7 +131,8 @@ final class AtlasCodeForgeProviderInvocationController extends Controller
             'driver_plan' => $driverPlan,
             'external_provider_call' => false,
             'note' => 'Plan-only packet · no provider runtime was contacted.',
-        ], 200);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_forge_provider_invocation_controller'),
+    ], 200);
     }
 
     /**

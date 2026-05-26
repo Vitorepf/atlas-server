@@ -7,6 +7,10 @@
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
+            <!-- Gap5.F3 — Mecanismo 1 orphan files moved to _legacy per
+                 atlas-dev-forge-escalation-consolidation-plan.md. Tests
+                 retained for historical reference but excluded from suite. -->
+            <exclude>tests/Unit/Ai/Programming/AtlasDev/Escalation/_legacy</exclude>
         </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>

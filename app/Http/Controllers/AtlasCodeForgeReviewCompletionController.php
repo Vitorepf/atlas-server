@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService;
 use Illuminate\Http\JsonResponse;
@@ -110,6 +113,7 @@ final class AtlasCodeForgeReviewCompletionController extends Controller
             'rollback' => $result['rollback'] ?? null,
             'review_packet' => $result['packet'] ?? null,
             'completion_claim' => $result['completion_claim'] ?? null,
-        ], $statusCode);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_forge_review_completion_controller'),
+    ], $statusCode);
     }
 }

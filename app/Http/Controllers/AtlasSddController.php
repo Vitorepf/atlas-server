@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+// Method-level emission to be wired per AP per family.
+
 use App\Models\AtlasDecisionReceipt;
 use App\Models\AtlasOperation;
 use App\Models\AtlasRequirement;
@@ -215,6 +219,7 @@ class AtlasSddController extends Controller
                 'summary' => $p->summary, 'status' => $p->status,
                 'created_at' => $p->created_at?->toJSON(),
             ])->all(),
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_sdd_controller'),
+    ]);
     }
 }

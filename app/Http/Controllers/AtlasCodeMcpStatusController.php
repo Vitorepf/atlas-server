@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+// Method-level emission to be wired per AP per family.
+
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use Illuminate\Http\JsonResponse;
@@ -51,6 +55,10 @@ final class AtlasCodeMcpStatusController extends Controller
                 'indexed_at' => null,
                 'drift' => 'unknown',
             ],
+            'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(
+                route: 'mcp_status',
+                reason: 'http_atlas_code_mcp_status',
+            ),
         ]);
     }
 

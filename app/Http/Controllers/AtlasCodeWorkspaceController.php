@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -131,6 +134,7 @@ final class AtlasCodeWorkspaceController extends Controller
                 'execution_allowed' => (bool) data_get($profile, 'safety.execution_allowed', false),
                 'execution_blocked_reason' => data_get($profile, 'safety.execution_blocked_reason'),
             ],
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_workspace_controller'),
+    ]);
     }
 }

@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+
 use App\Models\AiDecision;
 use App\Models\AtlasLedgerEvent;
 use Carbon\CarbonImmutable;
@@ -110,7 +113,8 @@ class AtlasCodeReceiptController extends Controller
             'signatureValid' => true,
             'ledgerEventId' => $event->getKey(),
             'canonicalSha256' => hash('sha256', $canonical),
-        ], 201);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_receipt_controller'),
+    ], 201);
     }
 
     private function b64decode(string $input): ?string

@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — this controller is Programming-adjacent.
+// route_decision.v1 emission to be wired per AP per family.
+// Schema: atlas.dual_core.route_decision.v1
+// Canon: docs/engineering-knowledge-base/atlas-dev-forge-escalation-consolidation-plan.md
+
 use App\Models\AiDecision;
 use App\Models\AiThread;
 use App\Models\AiTrace;
@@ -44,7 +49,8 @@ final class AtlasCodeCheckpointController extends Controller
                 'engineering_evidence_id' => $evidence?->id,
                 'engineering_evidence_persisted' => $evidence !== null,
             ],
-        ], 201);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_checkpoint_controller'),
+    ], 201);
     }
 
     /**

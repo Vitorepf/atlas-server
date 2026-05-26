@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+
 use App\Http\Resources\AtlasProjectEventResource;
 use App\Http\Resources\AtlasProjectResource;
 use App\Http\Resources\AtlasProjectStepResource;
@@ -429,7 +432,8 @@ class AtlasProjectController extends Controller
         return response()->json([
             'project' => (new AtlasProjectResource($project->refresh()->load($this->projectRelations())->loadCount(['tasks', 'steps'])))->resolve(),
             'task' => (new AtlasTaskResource($task->load(['project', 'projectStep'])))->resolve(),
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_project_controller'),
+    ]);
     }
 
     private function rules(AtlasDomainRegistry $domains, bool $creating): array

@@ -132,13 +132,6 @@ class AtlasAiArchitectureValidationService
                     'drift' => $ledgerProjectionDriftReport,
                 ],
                 'static_scan' => $staticScanPayload,
-                // Gap1.F5 — kernel_routed coverage over rolling 7d window.
-                // Provider-safe: emits aggregate counts only, never trace ids
-                // or operator input. Honest about wall-clock domain:
-                // returns status=pending_data when window is empty or when
-                // the underlying table is not reachable (test envs, fresh
-                // installs). Never blocks the broader gate.
-                'kernel_routing' => $this->safeKernelRoutingSnapshot(),
             ],
             'capabilities' => [
                 'valid' => $capabilitiesValid,

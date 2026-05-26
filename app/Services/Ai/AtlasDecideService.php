@@ -634,6 +634,14 @@ class AtlasDecideService
                 'legacy_decision_id' => $decisionId,
                 'decision_policy_version' => 'atlas-decide-v2',
                 'kernel_contracts' => $kernelContracts,
+                // Gap1.F2 + Gap1.F4 — kernel_routed tracer embedded in
+                // Decision Receipt v2 metadata so downstream gates (the
+                // KernelRoutingCoverageReport over 7d window) can compute
+                // coverage by reading the persisted receipt without
+                // reaching into AiTrace.metadata.kernel.
+                // Reads canonical config(`atlas_ai.aiworker_kernel_routed`)
+                // backed by env `ATLAS_AIWORKER_KERNEL_ROUTED`.
+                'kernel_routed' => (bool) config('atlas_ai.aiworker_kernel_routed', false),
             ],
         ])->toArray(), [
             'tenant_id' => $envelope->operator->tenantId,

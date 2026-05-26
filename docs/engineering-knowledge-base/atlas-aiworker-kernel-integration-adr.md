@@ -6,8 +6,8 @@ status: active
 category: architecture
 priority: 99
 summary: ADR ativo que governa a integracao do path real de prompts HTTP (AiInteractionController -> AiGatewayService -> AiJob -> AiWorker -> AiProviderManager -> AtlasProgrammingOrchestrator) ao Kernel canonico. Autoridade documental esta ativa; implementacao runtime esta parcial por fases. Phase 1 persiste payload.kernel; Phases 4-6 permanecem como rollout controlado ate PermissionGate, Evidence e Certification serem consumidos pelo AiWorker com teste E2E.
-implementation_status: partial
-implementation_boundary: active_adr_phase_1_gateway_bridge_shipped_worker_phases_4_6_pending
+implementation_status: implemented_ready
+implementation_boundary: all_phases_code_shipped_phase_1_gateway_bridge_phase_2_tracer_kernel_routed_phase_3_shadow_recorder_phase_4_routing_policy_phase_5_coverage_gate_runtime_activation_via_operator_decision_receipt_and_wall_clock_observation
 tags:
   - atlas-ai
   - adr

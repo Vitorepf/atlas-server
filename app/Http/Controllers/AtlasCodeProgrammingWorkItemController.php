@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+// Method-level emission to be wired per AP per family.
+
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
@@ -50,7 +54,8 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
                 'created' => false,
                 'status' => 'blocked',
                 'error' => 'programming_intent_required',
-            ], 422);
+            'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_programming_work_item_controller'),
+        ], 422);
         }
 
         $workspace = trim((string) data_get($project->metadata, 'workspace_path', ''));

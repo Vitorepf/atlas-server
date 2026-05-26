@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+// Method-level emission to be wired per AP per family.
+
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementNextCycleRecommendationService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService;

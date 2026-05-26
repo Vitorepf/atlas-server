@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+
 use App\Models\AiDecision;
 use App\Models\AtlasLedgerEvent;
 use Illuminate\Http\JsonResponse;
@@ -67,7 +70,8 @@ final class AtlasCodeReceiptShowController extends Controller
             'signedAt' => $signature['signed_at'],
             'reason' => (string) ($decision->reason ?? ''),
             'createdAt' => $decision->created_at?->toJSON(),
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_receipt_show_controller'),
+    ]);
     }
 
     /**

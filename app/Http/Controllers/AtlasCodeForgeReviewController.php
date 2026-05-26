@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+// Gap5.F2 wiring marker — Programming-adjacent controller.
+// Canonical route_decision schema: atlas.dual_core.route_decision.v1
+
 use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasForgeGovernedPromotionService;
@@ -133,7 +136,8 @@ final class AtlasCodeForgeReviewController extends Controller
                 'project_metadata_persisted' => true,
                 'programming_evidence_persisted' => (bool) data_get($rollback, 'evidence.persisted', false),
             ],
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_forge_review_controller'),
+    ]);
     }
 
     /**

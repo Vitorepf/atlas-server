@@ -208,9 +208,23 @@ final class AtlasCodeWorkController extends Controller
             ], static fn ($v): bool => $v !== null && $v !== ''),
         ]);
 
-        return response()->json([
+        // Gap3.F4 — Company Runtime HTTP promotion handshake.
+        $companyRuntimeFlag = (string) config('atlas.http_company_runtime.mode', 'off');
+        $companyRoutingEnvelope = $companyRuntimeFlag === 'off' ? null : [
+            'schema_version' => 'atlas.ai.engineering_company.http_entry_response.v1',
+            'flag_mode' => $companyRuntimeFlag,
+            'detail' => 'Legacy path served this request. Company Runtime promotion is gated by flag + ADR PRE-REQ (Gap1 F4 cutover).',
+            'next_action' => 'POST /atlas-code/work/company for new endpoint',
+        ];
+
+        return response()->json(array_filter([
             'work' => $this->shape($project, withDetail: true),
-        ], 201);
+            'company_runtime_routing' => $companyRoutingEnvelope,
+            'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(
+                route: 'programming',
+                reason: 'http_atlas_code_work_store',
+            ),
+        ], static fn ($v): bool => $v !== null), 201);
     }
 
     /**
@@ -465,7 +479,8 @@ final class AtlasCodeWorkController extends Controller
             'repair' => [],
             'learning_proposals' => [],
             'generated_at' => now()->toJSON(),
-        ]);
+        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_work_controller'),
+    ]);
     }
 
     /**

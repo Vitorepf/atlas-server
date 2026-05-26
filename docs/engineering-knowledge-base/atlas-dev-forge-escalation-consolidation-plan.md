@@ -489,7 +489,7 @@ billing engine"`:
 
 ### Status Phase 2 (snapshot 2026-05-26)
 
-Phase 2 declarada como `phase_2_in_progress_gate_shipped_44_controllers_pending`. `EscalationChannelGate` standalone shipped (13 unit tests) + schema `atlas.dual_core.escalation_channel_gate.v1` + audit Phase 2 HTTP coverage. Pendente: mover Mecanismo 1 (`EscalationDecisionEngine`/`ForgePromotionPreviewBuilder`) com ACRUI reachability + receipt; Mecanismo 2 (`DevToForgePromotionService`) e NOT-A-FIT (produção ativa); Mecanismo 4 exige wire de 27 rotas Forge. `phase_2_implemented_ready` so e legitimo com coverage=100% + Mecanismos 1/4 wired ou removidos via ACRUI dead-code + Decision Receipt operador + E2E HTTP verde. Honesto > claim inflada.
+Phase 2 declarada como `phase_2_in_progress_gate_shipped_mechanism_1_active_with_tests`. `EscalationChannelGate` standalone shipped (13 unit tests) + schema `atlas.dual_core.escalation_channel_gate.v1` + audit Phase 2 HTTP coverage (47/47 = 100%). **Tentativa anterior de mover Mecanismo 1 para `_legacy/` revertida em 2026-05-26**: ACRUI prova reachability `active_runtime` porque testes E2E (`EndToEndRepairDecisionTest`) consomem `EscalationDecisionEngine` materialmente. O doc anterior afirmava "nenhum caller produção" mas omitia testes; honesto é tratar testes como callers canon. Mecanismo 1 permanece runtime-ativo até AP dedicado migrar os testes para o canal canonical. Mecanismo 2 (`DevToForgePromotionService`) e NOT-A-FIT (produção ativa); Mecanismo 4 exige wire de 27 rotas Forge. `phase_2_implemented_ready` so e legitimo com coverage=100% materialmente + Mecanismo 1 callers migrados + Mecanismo 4 wired + E2E HTTP verde. Honesto > claim inflada.
 
 ## Definition of Done
 
