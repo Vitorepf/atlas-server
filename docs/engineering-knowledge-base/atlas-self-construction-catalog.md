@@ -5,9 +5,9 @@ title: Atlas Self-Construction OS Catalog and Naming Policy
 status: building
 category: architecture
 priority: 92
-summary: Catalogo canonico de `app/Services/Ai/SelfConstruction/` (290 arquivos, ACRUI=active_runtime, 616 references, 33 owner docs). Inclui inventario por familia de naming, estatisticas reais de comprimento de identificador, conclusao honesta (zero dead code confirmado nesta auditoria, problema central e naming sprawl) e a naming policy `<=50 chars` que Atlas Self-Construction OS adota para arquivos novos. Catalogo NAO autoriza delecao; quarentena exige ACRUI `reachability=dead` E `last_used_at > 90d` por arquivo individual, com Decision Receipt v2 do operador.
-implementation_status: partial
-implementation_boundary: catalog_shipped_naming_policy_active_for_new_files_existing_files_grandfathered_until_per_file_acrui_dead_proof
+summary: Catalogo canonico de `app/Services/Ai/SelfConstruction/` (292 arquivos PHP em contagem local 2026-05-26; snapshot ACRUI anterior=active_runtime, 616 references, 33 owner docs). Inclui inventario por familia de naming, conclusao honesta (zero dead code confirmado nesta auditoria, problema central e naming/runtime-readiness sprawl), naming policy `<=50 chars` para arquivos novos e regra de reuso para Self-Directed Evolution. Catalogo NAO autoriza delecao; quarentena exige ACRUI `reachability=dead` E `last_used_at > 90d` por arquivo individual, com Decision Receipt v2 do operador.
+implementation_status: active_catalog_stale_metrics_partially_corrected
+implementation_boundary: catalog_shipped_naming_policy_active_for_new_files_existing_files_grandfathered_until_per_file_acrui_dead_proof_current_count_292_reaudit_required_for_length_distribution
 tags:
   - atlas-ai
   - self-construction
@@ -23,20 +23,22 @@ capabilities:
   - self_construction_dead_code_evidence_gate
   - self_construction_command_decomposition_blueprint
 decisions:
-  - O diretorio `app/Services/Ai/SelfConstruction/` (290 arquivos) sera tratado como `active_runtime` ate prova ACRUI individual em contrario; auditoria atual nao encontrou dead code consolidado.
+  - O diretorio `app/Services/Ai/SelfConstruction/` (292 arquivos PHP em contagem local 2026-05-26) sera tratado como `active_runtime` ate prova ACRUI individual em contrario; auditoria atual nao encontrou dead code consolidado.
   - Naming policy `<=50 chars` por nome de classe entra em vigor para arquivos novos; 193 arquivos existentes (66%) ficam grandfathered ate refator dedicado com Decision Receipt v2 do operador.
-  - Refator do `AtlasAiSelfConstructionCommand` (13.790 linhas, 1.5 MB) e tarefa Gap4.F5; quebra em <=10 sub-commands via Laravel command grouping, sem alterar contratos publicos.
+  - O `AtlasAiSelfConstructionCommand` ja foi reduzido para wrapper curto; o maior sprawl runtime atual esta em `AtlasSelfConstructionReadinessService.php` (104.610 linhas em contagem local 2026-05-26) e nas familias de nomes longos.
+  - `AtlasSelfConstructionSubsystemBuilderService` ja implementa detect/propose/approve/list para subsystem proposals; Self-Directed Evolution deve reusar esse primitive antes de criar qualquer detector/proposal novo.
   - Suffix `ApXxx` (ex: `Ap374HandoffPacket`) so e admitido quando o servico emite materialmente schema `atlas.self_construction.handoff_packet.v1`; AP-number standalone como naming hint e proibido para novos arquivos.
   - Quarentena automatica e proibida. Mover arquivo para `_quarantine/` exige ACRUI `reachability=dead` E `last_used_at > 90d` E Decision Receipt v2 do operador citando o arquivo individual.
 maintenance:
   - Re-rodar `php artisan atlas:code-reality classify --target=app/Services/Ai/SelfConstruction --json` semanalmente; atualizar contagens e reference_count nesta doc se variarem >5%.
-  - Quando AtlasAiSelfConstructionCommand for refatorado (Gap4.F5), atualizar a secao "Comando-Mae" desta doc com o novo layout de sub-commands.
+  - Reauditar ACRUI e comprimento de classes quando o diretorio mudar >5 arquivos ou quando novos services Self-Directed Evolution forem propostos.
+  - Quando `AtlasSelfConstructionReadinessService.php` for compactado, atualizar a secao "Runtime Readiness Sprawl" desta doc com o novo layout.
   - Toda violacao nova da naming policy (>50 chars) deve ser fail-fast no `atlas:engineering:knowledge code-gate --strict` (wiring dessa regra e Gap4.F3 sub-tarefa pendente).
 next_actions:
   - Wire da naming policy `<=50 chars` como gate fail-fast em `atlas:engineering:knowledge code-gate --strict` (Gap4.F3).
-  - Abrir AP dedicado para refator do comando-mae em <=10 sub-commands (Gap4.F5), comecando pelo sub-command `status` (read-only, zero risco).
-  - Investigar dead code candidato individual via `atlas:code-reality reachability --target=<file> --json` para os 28 arquivos com nome `>100 chars` da familia `AgentAutomaticDispatch`, sem mover nenhum sem Decision Receipt v2.
-  - Reaudito ACRUI semanal agendado para manter o snapshot fresco; comparar com baseline `count=290 avg=62 max=112 files_over_50=193`.
+  - Abrir AP dedicado para compactar `AtlasSelfConstructionReadinessService.php` em families/read-models menores, preservando schemas e testes.
+  - Investigar dead code candidato individual via `atlas:code-reality reachability --target=<file> --json` para arquivos com nome `>100 chars`, sem mover nenhum sem Decision Receipt v2.
+  - Reaudito ACRUI semanal agendado para manter o snapshot fresco; comparar com baseline atual `count=292` e atualizar distribuicao de comprimento somente com script/ACRUI dedicado.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
@@ -69,7 +71,7 @@ repo_paths:
 allowed_changes:
   - Atualizar contagens, evidencia ACRUI, family clusters, owner docs e references quando reaudito for executado.
   - Estender naming policy com novos clusters de violacao quando detectados.
-  - Adicionar entries na tabela "Comando-Mae Decomposition Blueprint" quando sub-commands forem definidos.
+  - Adicionar entries na tabela "Runtime Readiness Compaction Blueprint" quando services filhos forem definidos.
 forbidden_changes:
   - Marcar arquivos como `dead` ou `duplicate_of:X` sem evidencia ACRUI individual com `reachability=dead` E `last_used_at > 90d`.
   - Mover arquivos para `_quarantine/` ou deleta-los sem Decision Receipt v2 do operador citando arquivo individual.
@@ -91,6 +93,8 @@ governs:
   - atlas_ai.self_construction.dead_code_proof_gate
 evidence:
   - app/Services/Ai/SelfConstruction/
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderService.php
   - app/Console/Commands/AtlasAiSelfConstructionCommand.php
   - tests/Feature/Ai/AtlasAiSelfConstruction*Test.php
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
@@ -108,7 +112,8 @@ ai_usage_notes:
 quality_gates:
   - acrui-classification-snapshot-fresh
   - naming-policy-code-gate-wired
-  - command-decomposition-blueprint-published
+  - readiness-service-compaction-blueprint-published
+  - self-directed-evolution-reuse-subsystem-builder
 claim_policy:
   benchmark: false
   rivals: false
@@ -125,16 +130,17 @@ claim_policy:
 
 ## Resumo
 
-`app/Services/Ai/SelfConstruction/` e a maior subarvore do dominio `Ai` no Atlas: **290 arquivos PHP**. Esta doc e o catalogo canonico e a primeira evidencia oficial de que o diretorio nao e dead code consolidado. ACRUI (Atlas Code Reality Usage Intelligence) classifica o diretorio como `active_runtime`, com **616 references** entrantes vindas de 5 outros subsistemas (`Cognition`, `ControlPlane`, `EngineeringCompany`, `Product`, `Programming/Forge`) e **33 owner docs** apontando para artefatos internos.
+`app/Services/Ai/SelfConstruction/` e a maior subarvore do dominio `Ai` no Atlas: **292 arquivos PHP** em contagem local de 2026-05-26. Esta doc e o catalogo canonico e a primeira evidencia oficial de que o diretorio nao e dead code consolidado. O snapshot ACRUI anterior classificou o diretorio como `active_runtime`, com **616 references** entrantes vindas de 5 outros subsistemas (`Cognition`, `ControlPlane`, `EngineeringCompany`, `Product`, `Programming/Forge`) e **33 owner docs** apontando para artefatos internos.
 
-O problema real, validado por estatistica de naming, e **sprawl de identificador**: 193 arquivos (66%) excedem 50 chars de comprimento de classe, 56 arquivos excedem 80 chars, 28 arquivos excedem 100 chars e o nome mais longo tem **112 chars**. Quatro familias de naming concentram **82% do diretorio**. Alem disso, o `AtlasAiSelfConstructionCommand` orquestrador tem 13.790 linhas e 1.5 MB num unico arquivo PHP.
+O problema real continua sendo **sprawl de identificador e runtime readiness sprawl**. A distribuicao de naming publicada abaixo vem do baseline anterior (290 arquivos) e deve ser reaudita antes de qualquer refator mecanico. A contagem local atual mostra que o `AtlasAiSelfConstructionCommand` ja virou wrapper curto; o maior arquivo operacional agora e `AtlasSelfConstructionReadinessService.php` com **104.610 linhas**, que concentra projection/readiness/template logic demais em uma unica classe.
 
 Esta doc:
 
 - Publica o snapshot quantitativo verificavel via ACRUI.
 - Define naming policy `<=50 chars` por nome de classe para arquivos novos a partir desta data.
 - Reserva quarentena para casos com prova ACRUI individual `reachability=dead` E `last_used_at > 90d`.
-- Esboca o blueprint de decomposicao do comando-mae em <=10 sub-commands via Laravel command grouping.
+- Registra que `AtlasSelfConstructionSubsystemBuilderService` ja e o primitive canonico para detect/propose/approve/list de subsystem proposals.
+- Redireciona a proxima compactacao para `AtlasSelfConstructionReadinessService.php`, nao para um comando-mae que ja foi reduzido.
 
 ## Papel no Atlas
 
@@ -142,7 +148,8 @@ Este catalogo cumpre tres funcoes no grafo canonico:
 
 1. **Evidencia anti-duplicacao** — provedor unico de verdade quantitativa sobre o diretorio `SelfConstruction/`, consumido por ACRUI duplicate-detection antes de qualquer agente criar novo arquivo na arvore.
 2. **Naming policy autoritativa** — declara a regra `<=50 chars` que Self-Construction OS adota para arquivos novos; gates de docs-health e code-gate consumiram esta regra a partir desta versao.
-3. **Blueprint de decomposicao** — registra a proposta concreta de quebra do comando-mae em <=10 sub-commands, consumida pelo AP dedicado de Gap4.F5.
+3. **Reuse gate para Self-Directed Evolution** — impede que IA crie novo detector/proposal runtime ignorando `AtlasSelfConstructionSubsystemBuilderService`.
+4. **Blueprint de compactacao runtime** — registra que a proxima compactacao relevante e `AtlasSelfConstructionReadinessService.php`.
 
 Nao e source-of-truth de comportamento runtime de Self-Construction (isso e responsabilidade do parent `atlas-ai-self-construction-os.md`); e snapshot read-only de inventario, naming e blueprint de refator.
 
@@ -158,7 +165,8 @@ Esta doc e filha de `atlas-ai-self-construction-os.md` (parent canonico de Self-
 Alimenta:
 
 - Naming policy gate em `atlas:engineering:knowledge code-gate --strict` (wiring concreto e Gap4.F3 sub-task).
-- Blueprint de Gap4.F5 (refator do comando-mae) que AP irmao consumira.
+- Blueprint de compactacao de `AtlasSelfConstructionReadinessService.php` que AP irmao consumira.
+- Self-Directed Evolution Layer, que deve reusar Subsystem Builder antes de propor novo detector/proposal runtime.
 - Decisao operacional canonica de quando ACRUI marca arquivo individual como `dead` em SelfConstruction.
 
 ## Contratos
@@ -203,7 +211,7 @@ Delecao da quarentena exige novo Decision Receipt v2 com gap minimo de 30 dias.
 ```
 [agente]
   -> php artisan atlas:code-reality classify --target=app/Services/Ai/SelfConstruction --json
-  -> compara com baseline (count=290 avg=62 max=112 files_over_50=193)
+  -> compara com baseline atual (count=292; naming distribution precisa reaudito)
   -> se delta >5% em reference_count ou classification != active_runtime
      -> abre investigacao antes de qualquer refator
   -> senao
@@ -256,16 +264,17 @@ Delecao da quarentena exige novo Decision Receipt v2 com gap minimo de 30 dias.
 
 | Item | Status | Evidencia |
 |---|---|---|
-| Snapshot ACRUI (290 arquivos, active_runtime, 616 refs) | done | `atlas:code-reality classify --target=app/Services/Ai/SelfConstruction --json` |
-| Family clustering (12 familias, top 4 = 82%) | done | secao Exemplos abaixo |
+| Snapshot ACRUI anterior (290 arquivos, active_runtime, 616 refs) | historical | `atlas:code-reality classify --target=app/Services/Ai/SelfConstruction --json` |
+| Contagem local 2026-05-26 (292 PHP files) | current | `find app/Services/Ai/SelfConstruction -type f -name '*.php' | wc -l` |
+| Family clustering (12 familias, top 4 = 82%) | historical | secao Exemplos abaixo; reauditar antes de refator |
 | Naming policy `<=50 chars` declarada | done | secao Contratos / Contrato 2 |
 | Naming policy wired em `code-gate --strict` | **pending** | Gap4.F3 sub-task |
-| Comando-mae decomposition blueprint | done (proposta) | secao Exemplos / blueprint |
-| Comando-mae sub-commands implementados | **pending** | Gap4.F5 |
+| Subsystem proposal primitive | implemented | `AtlasSelfConstructionSubsystemBuilderService` |
+| Runtime readiness compaction | **pending** | `AtlasSelfConstructionReadinessService.php` |
 | Quarentena `_quarantine/` policy declarada | done | secao Contratos / Contrato 3 + Fluxo 3 |
 | Arquivos movidos para `_quarantine/` neste commit | **zero (correto: nenhum candidato dead identificado)** | secao Dependencias |
 
-Esta doc nao reivindica "self-construction limpo". Reivindica: "agora ha catalogo verificavel, naming policy canonica em vigor para arquivos novos, blueprint publicado para Gap4.F5."
+Esta doc nao reivindica "self-construction limpo". Reivindica: "agora ha catalogo verificavel, naming policy canonica em vigor para arquivos novos, primitive de subsystem proposal identificado e proxima compactacao apontada para o runtime correto."
 
 ## Dependencias
 
@@ -286,14 +295,16 @@ Esta doc nao reivindica "self-construction limpo". Reivindica: "agora ha catalog
 
 **Servicos e arquivos referenciados:**
 
-- `app/Services/Ai/SelfConstruction/**` (todo o diretorio, 290 arquivos)
-- `app/Console/Commands/AtlasAiSelfConstructionCommand.php` (comando-mae, 13.790 linhas)
+- `app/Services/Ai/SelfConstruction/**` (todo o diretorio, 292 arquivos PHP em contagem local)
+- `app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php` (104.610 linhas, principal sprawl runtime atual)
+- `app/Services/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderService.php` (primitive detect/propose/approve/list)
+- `app/Console/Commands/AtlasAiSelfConstructionCommand.php` (wrapper curto atual)
 - `app/Models/AtlasSelfConstructionAgent*` (8 models)
 - `app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php` (ACRUI service)
 
 ## Evidencias
 
-### Evidencia 1: ACRUI snapshot baseline (2026-05-26)
+### Evidencia 1: ACRUI snapshot baseline anterior (2026-05-26)
 
 ```json
 {
@@ -315,7 +326,11 @@ Esta doc nao reivindica "self-construction limpo". Reivindica: "agora ha catalog
 }
 ```
 
-### Evidencia 2: Distribuicao de comprimento de identificador (baseline 2026-05-26)
+### Evidencia 2: Distribuicao de comprimento de identificador (baseline historico 2026-05-26)
+
+Esta distribuicao e historica para 290 arquivos. Use-a como alerta de sprawl,
+nao como numero atual exato. Antes de refator de naming, reexecute ACRUI/script
+de comprimento e atualize esta tabela.
 
 | Metrica | Chars |
 |---|---|
@@ -350,12 +365,14 @@ Esta doc nao reivindica "self-construction limpo". Reivindica: "agora ha catalog
 
 As 4 maiores familias cobrem **237/290 = 82%** do diretorio.
 
-### Evidencia 4: AtlasAiSelfConstructionCommand size
+### Evidencia 4: Runtime readiness sprawl atual
 
 ```
-13.790 linhas
-1.512.301 bytes (1.5 MB)
-arquivo unico em app/Console/Commands/
+wc -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php
+104.610 linhas
+
+wc -l app/Console/Commands/AtlasAiSelfConstructionCommand.php
+42 linhas
 ```
 
 ## Riscos
@@ -363,7 +380,8 @@ arquivo unico em app/Console/Commands/
 | Risco | Severidade | Mitigacao |
 |---|---|---|
 | Refator de naming quebra symlinks/PSR-4/autoload | Alto | AP dedicado por familia, teste de regressao antes e depois, KB sync imediato |
-| Quebra de `AtlasAiSelfConstructionCommand` perde comandos em uso | Alto | Sub-command novo coexiste com action antiga por 14 dias, deprecation log, ACRUI valida reachability antes de remover |
+| Quebra de `AtlasSelfConstructionReadinessService.php` altera schemas/read-models usados | Alto | Compactar por adapter/family, manter snapshots, rodar testes SelfConstruction antes de remover metodo antigo |
+| IA cria Self-Directed Evolution runtime paralelo | Alto | Reuse obrigatorio de `AtlasSelfConstructionSubsystemBuilderService`, Self-Improvement e AAEL antes de novo service |
 | `AgentAutomaticDispatch` family (90-112 chars) e refator de risco maior | Alto | Comecar pelo sub-command `status` (read-only), nunca pelo dispatch |
 | ACRUI snapshot fica stale | Medio | Reaudito semanal listado em `maintenance:` |
 | Operador autoriza quarentena de arquivo ainda usado | Medio | Procedimento exige reachability=dead AND last_used >90d AND receipt; tres provas independentes |
@@ -371,28 +389,42 @@ arquivo unico em app/Console/Commands/
 
 ## Exemplos
 
-### Exemplo 1: Comando-Mae Decomposition Blueprint
+### Exemplo 1: Reuse de Subsystem Builder pelo Self-Directed Evolution
 
-Proposta de quebra de `AtlasAiSelfConstructionCommand` em <=10 sub-commands `atlas:ai:self-construction:*`:
+Correto:
 
-| Sub-command | Responsabilidade | Familias absorvidas | Linhas estim. |
-|---|---|---|---:|
-| `atlas:ai:self-construction:status` | Snapshot read-only (scorecard, gap matrix, completion) | n/a (consome todas) | ~400 |
-| `atlas:ai:self-construction:validation` | `AgentValidationGate` | 7 arquivos | ~300 |
-| `atlas:ai:self-construction:merge-review` | `AgentMergeReview` | 7 arquivos | ~300 |
-| `atlas:ai:self-construction:dispatch-planner` | `AgentDispatchPlanner` + `AgentDispatchExecutor` | 17 arquivos | ~500 |
-| `atlas:ai:self-construction:runtime` | `AgentRuntime`, `AgentRuntimeRegistry`, `AgentRuntimeEvidence` | 28 arquivos | ~700 |
-| `atlas:ai:self-construction:provider` | `AgentProviderAdapter` | 2 arquivos | ~150 |
-| `atlas:ai:self-construction:codex` | `AgentCodex*` (Real + Codex + Process + External) | 60 arquivos | ~1.500 |
-| `atlas:ai:self-construction:control-plane` | `AgentControlPlane` | 56 arquivos | ~1.200 |
-| `atlas:ai:self-construction:dispatch` | `AgentAutomaticDispatch` | 64 arquivos | ~1.500 |
-| `atlas:ai:self-construction:core` | `AtlasSelfConstructionCore` (cross-family) | 69 arquivos | ~1.500 |
+```text
+SelfDirectedEvolutionGapReadModelService
+  -> le AtlasSelfConstructionSubsystemBuilderService::detectGaps()
+  -> normaliza para atlas.evolution.gap_candidate.v1
+  -> envia proposta para Operator Curation Inbox
+```
 
-Soma estimada: ~8.050 linhas distribuidas + ~500 linhas de orquestracao compartilhada = **~8.500 linhas**, vs. 13.790 atuais. Reducao de ~38% via eliminacao de boilerplate replicado (cada action atual tem ~50 linhas de validacao defensiva).
+Errado:
 
-Ordem de quebra recomendada (risco crescente): `status` -> `validation` -> `merge-review` -> `dispatch-planner` -> `runtime` -> `provider` -> `codex` -> `control-plane` -> `dispatch` -> `core`.
+```text
+NewCanonicalGapDetectorService
+  -> ignora SubsystemBuilder
+  -> cria registry paralelo de proposals
+  -> marca proposal como aprovada
+```
 
-### Exemplo 2: Naming policy aplicada
+### Exemplo 2: Runtime Readiness Compaction Blueprint
+
+Proposta de compactacao de `AtlasSelfConstructionReadinessService.php` em
+families/read-models menores:
+
+| Family | Responsabilidade | Regra |
+|---|---|---|
+| `ReadinessStatus` | readiness digest, governance scorecard, integrity manifest | read-only, schema snapshot first |
+| `PacketProjection` | meta-SDD, implementation packet, packet queue, runbook, evidence report | preserve packet hashes |
+| `ReservationProjection` | durable reservation, collision, lease, readiness, blueprints | no ledger write |
+| `AgentProjection` | ACP, run sync, heartbeat, liveness, cost, work products | no provider start |
+| `DispatchProjection` | preflight, receipt templates, executor release, launch/start packet | no dispatch |
+| `ReviewMergeProjection` | review, decision, receipt, signature, merge authorization | no approval |
+| `PersistenceProjection` | receipt persistence templates, fresh authorization, disable/new-cycle chains | no ledger write |
+
+### Exemplo 3: Naming policy aplicada
 
 ```
 # ANTES (proibido para arquivo novo):
@@ -405,7 +437,7 @@ final class AuthorizationGate { ... }
 (15 chars de classe, hierarquia clara via namespace)
 ```
 
-### Exemplo 3: Dead code investigation honesta
+### Exemplo 4: Dead code investigation honesta
 
 ```
 $ php artisan atlas:code-reality reachability \
@@ -423,7 +455,7 @@ $ php artisan atlas:code-reality reachability \
 ## Proximas Acoes
 
 1. **Wire da naming policy `<=50 chars` em `atlas:engineering:knowledge code-gate --strict`** (Gap4.F3 sub-task). Quando shipped, atualizar `quality_gate` `naming-policy-code-gate-wired` para `done`.
-2. **AP dedicado para Gap4.F5** (refator do comando-mae): comecar pelo sub-command `status` (read-only). Cada quebra exige teste de regressao da familia + smoke do comando antigo + smoke do comando novo verde.
+2. **AP dedicado para compactar `AtlasSelfConstructionReadinessService.php`**: comecar por `ReadinessStatus` read-only. Cada extracao exige teste de regressao da familia + smoke do comando que consome o metodo antigo.
 3. **Investigacao individual de reachability** para os 28 arquivos com nome `>100 chars` da familia `AgentAutomaticDispatch`: rodar `atlas:code-reality reachability --target=<each> --json`, persistir resultados em `evidence/self-construction-reachability-2026-05-26.json`, sem mover nenhum sem Decision Receipt v2.
-4. **Reaudito ACRUI semanal** agendado para manter o snapshot fresco; comparar com baseline `count=290 avg=62 max=112 files_over_50=193 pct=66`.
-5. **Quando Gap4.F5 entregar** (refator completo): atualizar secao "Exemplos / Comando-Mae Decomposition Blueprint" com numeros reais de linhas pos-refator e status `done`.
+4. **Reaudito ACRUI semanal** agendado para manter o snapshot fresco; comparar com baseline `count=292` e atualizar distribuicao de naming com evidencia nova.
+5. **Quando a compactacao entregar**: atualizar secao "Exemplos / Runtime Readiness Compaction Blueprint" com numeros reais de linhas pos-refator e status `done`.

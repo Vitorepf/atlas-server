@@ -200,7 +200,8 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | New AI session bootstrap | `atlas-ai-session-bootstrap.md` |
 | Documentation governance | `atlas-ai-documentation-operating-system.md` |
 | Next patamar operating systems / Sovereign + Epistemic + Cartographic as one set | `atlas-next-patamar-operating-systems.md` |
-| Autonomous Company OS Genesis Initiative / bridge manifest mapping civilization vision to existing canonical owners, opens only 3 child docs | `atlas-autonomous-company-os-genesis-initiative.md` |
+| Holding To World Action Hardening Initiative / corrected compatibility bridge: Genesis is not an OS; maps factory concepts to Holding, Domain Runtime, Evidence/ASRE and Self-Construction owners | `atlas-autonomous-company-os-genesis-initiative.md` |
+| Self-Directed Evolution Layer / Atlas detects gaps, proposes specs, forecasts roadmap, routes domain/architecture proposals and lets operator curate before implementation | `atlas-self-directed-evolution-layer.md` |
 | Sovereign OS / purpose, identity, autonomy, priority and self-modification | `atlas-sovereign-operating-system.md` |
 | Epistemic OS / truth, confidence, drift and autonomous knowledge permissions | `atlas-epistemic-operating-system.md` |
 | Cartographic Knowledge OS / visual truth map, semantic zoom and human navigation | `atlas-cartographic-knowledge-os.md` |
@@ -218,11 +219,11 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Agentic Engineering OS / software engineering organization operated by AI | `atlas-agentic-engineering-os.md` |
 | Atlas Kernel Mission Foundation / universal Mission/Objective/WorkOrder with lifecycle, evidence and certification (Meta 1) | `atlas-kernel-mission-foundation.md` |
 | Domain Company Runtimes / enterprise domain companies | `atlas-domain-company-runtimes.md` |
-| Domain Runtime Creation Gate / governed birth of new domain or department (proposal envelope, sandbox, shadow, L0/L1 promotion, dual signature, historical replay, sovereignty lock) | `atlas-domain-runtime-creation-gate.md` |
+| Domain Runtime Creation Gate / strict extension of existing Domain Routing Governance + Domain Runtime Contract; no parallel registry, manifest, maturity or department authority | `atlas-domain-runtime-creation-gate.md` |
 | Domain Routing Governance / prompt-to-domain matrix, flow-vs-domain and domain creation gate | `domains/domain-routing-governance.md` |
 | Domain Runtime Contract / DomainManifest, Registry, Capability Catalog, Handoff, Maturity (Meta 2 entregue) | `atlas-domain-runtime-contract.md` |
 | Evidence/Certification Runtime / EvidencePack, Receipt, Claim, Certification, Blocker, AuditEvent universais | `atlas-evidence-certification-runtime.md` |
-| Reality Outcome Gates / 15 reality gates complementing the 15 universal AAEOS gates (business outcome, security posture, regret minimization, compounding intelligence delta) | `atlas-reality-outcome-gates.md` |
+| Reality Outcome Gates / 15 outcome gates feeding Evidence, ASRE, Mission Control and Holding scorecards; not a local L7->L8 promotion authority | `atlas-reality-outcome-gates.md` |
 | Multi-Domain Implementation Sequence / build order, parallelism, anti-collision between Claudes/Codex | `atlas-ai-multi-domain-implementation-sequence.md` |
 | Autonomous Software Company Runtime / programming domain company | `atlas-autonomous-software-company-runtime.md` |
 | Programming Domain Adapter Integration Plan / Meta 7 bridges (Manifest, Dev Mission Adapter, Forge Handoff, Evidence/Policy/Tool/Control Plane bridges) | `atlas-programming-domain-adapter-integration-plan.md` |

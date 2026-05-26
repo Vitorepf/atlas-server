@@ -19,7 +19,7 @@ tags:
   - self-construction-os
   - architecture-evolution
   - structural-redesign
-  - genesis-initiative
+  - structural-governance
   - governance
   - autonomy-l13
 capabilities:
@@ -45,7 +45,7 @@ maintenance:
   - Sincronize com `atlas-autonomy-ladder-promotion-runbook.md` para regras L13+.
   - Rodar docs-health + sync apos qualquer alteracao.
 related_paths:
-  - docs/engineering-knowledge-base/atlas-autonomous-company-os-genesis-initiative.md
+  - docs/engineering-knowledge-base/atlas-next-patamar-operating-systems.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-multi-agent-unified-architecture.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
@@ -76,8 +76,7 @@ canonical_source: docs/engineering-knowledge-base/atlas-architecture-evolution-p
 owner: atlas-ai
 patamar_after:
   - atlas-ai-self-construction-os
-patamar_next:
-  - atlas-sovereign-operating-system
+patamar_next: []
 versions: []
 repo_paths:
   - docs/engineering-knowledge-base/atlas-architecture-evolution-proposal-runtime.md
@@ -91,7 +90,6 @@ forbidden_changes:
   - Permitir replay com Obras sinteticas no lugar de Obras reais.
   - Permitir mudanca em camada de soberania sem revisor humano independente.
 depends_on:
-  - atlas-autonomous-company-os-genesis-initiative
   - atlas-ai-self-construction-os
   - atlas-evidence-certification-runtime
   - atlas-trust-ledger-canonical
@@ -116,7 +114,7 @@ visual_tags:
   - runbook
   - architecture
   - self-evolution
-  - genesis
+  - self-evolution
 ai_entrypoints:
   - Leia Distincao Feature x Estrutural antes de propor qualquer redesign.
   - Leia Camadas de Soberania antes de propor redesign que toque sovereign/epistemic/evidence/trust.
@@ -383,7 +381,7 @@ Dependencias canonicas declaradas em `depends_on`. Resumo:
 - `atlas-trust-ledger-canonical` (registra learning capsules).
 - `atlas-sovereign-operating-system` e `atlas-epistemic-operating-system` (camadas de soberania protegidas).
 - `atlas-cartography-nomenclature-contract` e `atlas-canonical-glossary-and-naming` (preservacao de nomenclatura quando schema raiz muda).
-- `atlas-autonomous-company-os-genesis-initiative` (manifesto que abre este doc).
+- `atlas-ai-self-construction-os` (owner canonico; este runbook nao depende de Genesis).
 
 ## Evidencias
 

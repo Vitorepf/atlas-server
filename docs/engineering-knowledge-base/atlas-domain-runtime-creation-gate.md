@@ -6,7 +6,7 @@ status: future
 category: atlas-ai
 priority: 99
 implementation_state: future_target_not_current_runtime
-summary: Gate canonico de governanca que governa o nascimento de qualquer Domain Company Runtime novo ou qualquer departamento AAEOS novo dentro do Atlas. Define o envelope de proposal, o fluxo proposal -> sandbox -> shadow -> L0 -> L1, os criterios de promocao com dual signature operador, replay deterministico contra intents historicas, bloco obrigatorio de safety/sovereignty para dominios sensiveis e schema canonico do receipt de criacao. Substitui criacao ad-hoc de domain ou departamento por processo governado.
+summary: Extensao estrita do Domain Creation Gate ja definido em Domain Routing Governance e Domain Runtime Contract. Governa proposal, sandbox, shadow e promocao de Domain Company Runtime novo ou departamento AAEOS novo sem criar autoridade paralela a registry, manifest, maturity assessment, department contract ou routing governance existentes.
 human_summary: Portao oficial pelo qual nasce qualquer nova area autonoma do Atlas (novo domain ou novo departamento) com governanca e evidencia.
 human_what: Gate de governanca para proposal, sandbox e promocao de Domain Runtime ou Departamento AAEOS novo.
 human_purpose: Impedir que IA ou operador crie dominio/departamento como prompt solto, namespace duplicado ou shortcut sem evidencia.
@@ -18,7 +18,7 @@ tags:
   - atlas-ai
   - domain-runtime
   - department-contract
-  - genesis-initiative
+  - domain-routing-governance
   - governance
   - creation-gate
   - sandbox
@@ -32,7 +32,8 @@ capabilities:
   - sensitive_domain_safety_block_enforcement
   - creation_receipt_canonical_schema
 decisions:
-  - Nenhum Domain Runtime ou Departamento AAEOS pode nascer sem passar por este gate.
+  - Nenhum Domain Runtime ou Departamento AAEOS pode nascer sem passar pelo Domain Creation Gate existente em Domain Routing Governance e por esta extensao estrita.
+  - Esta doc nao cria registry, manifest, maturity assessment, router ou department contract paralelos; ela compoe os owners canonicos existentes.
   - Proposal exige envelope canonico `atlas.domain.creation_proposal.v1` preenchido.
   - Sandbox isolado obrigatorio antes de shadow mode; shadow mode obrigatorio antes de L0; L0 obrigatorio antes de L1.
   - Promocao para L0 exige dual signature: operador + um Architect agent independente.
@@ -45,7 +46,7 @@ maintenance:
   - Sincronize com `atlas-domain-company-runtimes.md` (parent canonico) e `atlas-agentic-engineering-os-department-contract.md` (parent de departamento).
   - Rodar docs-health + sync apos qualquer alteracao.
 related_paths:
-  - docs/engineering-knowledge-base/atlas-autonomous-company-os-genesis-initiative.md
+  - docs/engineering-knowledge-base/domains/domain-routing-governance.md
   - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
   - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-department-contract.md
@@ -69,12 +70,11 @@ canonical_name: Atlas Domain Runtime Creation Gate
 technical_name: atlas-domain-runtime-creation-gate
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-domain-runtime-creation-gate.md
-owner: atlas-ai
+owner: domains
 patamar_after:
   - atlas-domain-company-runtimes
   - atlas-agentic-engineering-os-department-contract
-patamar_next:
-  - atlas-autonomous-software-company-runtime
+patamar_next: []
 versions: []
 repo_paths:
   - docs/engineering-knowledge-base/atlas-domain-runtime-creation-gate.md
@@ -88,8 +88,8 @@ forbidden_changes:
   - Permitir dominio sensivel ser promovido sem bloco safety/sovereignty.
   - Permitir promocao para L1 sem replay deterministico de intents historicas.
 depends_on:
-  - atlas-autonomous-company-os-genesis-initiative
   - atlas-domain-company-runtimes
+  - atlas-ai-domain-routing-governance
   - atlas-agentic-engineering-os-department-contract
   - atlas-evidence-certification-runtime
   - atlas-trust-ledger-canonical
@@ -114,7 +114,7 @@ visual_tags:
   - gate
   - governance
   - creation
-  - genesis
+  - domains
 ai_entrypoints:
   - Leia Fluxo Canonico e Envelope de Proposal antes de propor dominio ou departamento novo.
   - Leia Bloco Safety / Sovereignty antes de propor dominio sensivel.
@@ -145,7 +145,7 @@ observability_signals:
   - sensitive_domain_creation_attempts_count
   - replay_historico_avg_intents_count
 next_actions:
-  - Implementar `AtlasDomainRuntimeCreationGateService`.
+  - Implementar apenas como wrapper/validator dos owners existentes: Domain Routing Governance, Domain Runtime Contract, DomainManifestRegistryService e DepartmentContractRuntime.
   - Registrar schemas `atlas.domain.creation_proposal.v1` e `atlas.domain.creation_receipt.v1` no Contract Schema Registry.
   - Cross-link com `atlas-aaeos-department-maturity-matrix` para promocao L0 -> L1 padrao.
 ---
@@ -381,9 +381,9 @@ flowchart LR
 
 ## Escopo de Implementacao
 
-- `AtlasDomainRuntimeCreationGateService` (novo) em `App\Services\Ai\AgenticEngineeringOs\DomainCreation`.
+- Extensao de runtime deve compor `DomainManifestRegistryService`, `DomainRuntimeSelectionService`, `DomainMaturityAssessmentService` e `DepartmentContractRuntime`; nao criar authority paralela.
 - Schemas `atlas.domain.creation_proposal.v1` e `atlas.domain.creation_receipt.v1` registrados em `atlas-contract-schema-registry`.
-- CLI: `php artisan atlas:domain:proposal --json`, `atlas:domain:promote --to=L0|L1 --json`, `atlas:domain:status --json`.
+- CLI futura deve preferir extender `atlas:ai:domain-runtime` e comandos AAEOS existentes antes de criar namespace novo.
 - Cross-link runtime com `atlas-aaeos-department-maturity-matrix` para departamento e `atlas-autonomy-ladder-promotion-runbook` para domain runtime.
 - Sandbox runtime usa container isolado sem rede producao; shadow usa intent stream real em modo dry-run.
 
@@ -397,7 +397,7 @@ Dependencias canonicas declaradas em `depends_on`. Resumo:
 - `atlas-trust-ledger-canonical` (registra learning capsules da proposal).
 - `atlas-canonical-glossary-and-naming` (validador de colisao de nome).
 - `atlas-cartography-nomenclature-contract` (respeito patamar/versao/camada).
-- `atlas-autonomous-company-os-genesis-initiative` (manifesto que abre este doc).
+- `domains/domain-routing-governance.md` (Domain Creation Gate canonico existente).
 
 ## Evidencias
 

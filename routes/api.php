@@ -108,6 +108,7 @@ use App\Http\Controllers\AtlasMobilePushReplayController;
 use App\Http\Controllers\AtlasOpenBrainController;
 use App\Http\Controllers\AtlasOpenBrainMcpController;
 use App\Http\Controllers\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitController;
+use App\Http\Controllers\Ai\AtlasObraReplayController;
 use App\Http\Controllers\Ai\Programming\AtlasDevPlanVisibleController;
 use App\Http\Controllers\AtlasProgrammingGovernanceController;
 use App\Http\Controllers\AtlasProjectBlockerController;
@@ -874,6 +875,9 @@ Route::prefix('atlas-code')->group(function () {
 
         // AAEOS Mission Control Cockpit baseline snapshot (AP-702).
         Route::get('/aaeos/cockpit', [AtlasMissionControlCockpitController::class, 'show']);
+
+        // Atlas Obra Deterministic Replay HTTP read model (AP-705).
+        Route::get('/obras/{trace}/replay', [AtlasObraReplayController::class, 'show']);
 
         // SDD · read-only surface for specs, requirements, decision receipts, traceability, drift, learning
         Route::get('/sdd/operations', [AtlasSddController::class, 'operations']);

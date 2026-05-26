@@ -64,6 +64,7 @@ final class AtlasAaeosHttpPathFacadeService
         private readonly AtlasFeaturePlacementService $placement,
         private readonly ?MissionDetectionService $missionDetection,
         private readonly CacheRepository $cache,
+        private readonly ?AaeosDeferredPhaseDispatcherService $deferredDispatcher = null,
     ) {}
 
     /**
@@ -252,6 +253,19 @@ final class AtlasAaeosHttpPathFacadeService
             $envelopes[] = $this->emitSpecEnvelope($intentId, $intentHash, $riskBand);
             $envelopes[] = $this->emitTasksEnvelope($intentId, $intentHash, $riskBand);
             $envelopes[] = $this->emitReceiptEnvelope($intentId, $intentHash, $riskBand);
+        }
+
+        // Auto-enqueue every deferred envelope so the "synchronous_invocation:
+        // deferred" markers from Phase 3/4 are durably persisted into the
+        // AAEOS deferred queue. Async workers claim and execute them.
+        // This closes the "deferred = caller responsibility" caveat.
+        if ($this->deferredDispatcher !== null) {
+            $this->deferredDispatcher->enqueueFromFacadeResult(
+                envelopes: array_map(
+                    static fn (array $e) => array_merge($e, ['intent_id' => $envelopes[0]['intent_id'] ?? '']),
+                    $envelopes,
+                ),
+            );
         }
 
         $this->incrementCounter(self::TELEMETRY_KEY_CANONICAL);

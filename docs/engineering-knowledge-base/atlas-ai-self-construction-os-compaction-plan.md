@@ -5,7 +5,7 @@ title: Atlas AI Self-Construction OS Compaction Plan
 status: active
 category: atlas-ai
 priority: 102
-summary: Plano canonico de compactacao do Self-Construction OS atual, que acumulou sprawl extremo (comandos com nomes de 200+ caracteres em serie e tabela monstruosa em `atlas-ai-self-construction-os.md`). Define refatoracao em 8 famílias de comandos hierarquicos, criacao de 5 docs filhos, reducao da doc-mae para indice <=280 linhas e estabelecimento de gate `command-name-max-80-chars` permanente.
+summary: Plano canonico de compactacao do Self-Construction OS. O diagnostico original mirava command sprawl; a leitura atual mostra que `AtlasAiSelfConstructionCommand` ja virou wrapper curto e que o maior problema restante e runtime readiness sprawl em `AtlasSelfConstructionReadinessService.php` (104.610 linhas) + naming sprawl em SelfConstruction services. O plano fica reorientado para compactar read-model/projection families, preservar as 7 invariantes de seguranca e manter gate de naming para novos arquivos.
 tags:
   - atlas-ai
   - self-construction
@@ -16,18 +16,19 @@ tags:
   - hierarchical-commands
 capabilities:
   - self_construction_command_compaction
+  - self_construction_readiness_runtime_compaction
   - hierarchical_command_taxonomy
   - command_name_length_governance
   - doc_sprawl_remediation
   - safety_invariant_preservation
 decisions:
-  - O Self-Construction OS atual tem dívida documental critica: comandos como `agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-...` excedem 200 caracteres e quebram qualquer ferramenta CLI sensata.
-  - Sprawl veio de ausencia de Multi-Agent Unified Architecture (T1.3); refator do ACP precisa preservar as 7 invariantes de seguranca e ainda assim entregar nomes <=80 chars.
+  - O diagnostico de command sprawl continua valido historicamente, mas o comando-mae atual foi reduzido; a divida operacional dominante agora e `AtlasSelfConstructionReadinessService.php` com 104.610 linhas.
+  - Sprawl veio de ausencia historica de Multi-Agent Unified Architecture (T1.3); refator do ACP/readiness precisa preservar as 7 invariantes de seguranca e ainda assim entregar names/commands curtos.
   - Compactacao acontece em refator nao destrutivo: comandos antigos viram aliases deprecated por 90 dias, e novas familias se tornam canonicas.
-  - Doc-mae `atlas-ai-self-construction-os.md` deve ser reduzida para indice <=280 linhas; conteudo migra para 5 docs filhos.
+  - Doc-mae `atlas-ai-self-construction-os.md` deve virar indice legivel; runtime readiness deve sair de classe monolitica para read-model services com snapshots de compatibilidade.
 maintenance:
   - Atualize este doc antes de iniciar refator, mudar familias ou alterar invariantes preservadas.
-  - Apos compactacao, validar que todos os comandos batem `command-name-max-80-chars`.
+  - Apos compactacao, validar que todos os comandos batem `command-name-max-80-chars` e que nenhum novo service SelfConstruction excede `<=50 chars`.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md
@@ -108,74 +109,79 @@ observability_signals:
   - scos_invariant_violation_count
 next_actions:
   - Implementar gate `command-name-max-80-chars` no docs-health v2 (T5.2).
-  - Criar 5 docs filhos antes de tocar codigo.
-  - Aliases deprecated por 90 dias antes de remover comandos antigos.
+  - Criar AP de compactacao de `AtlasSelfConstructionReadinessService.php` antes de extrair services.
+  - Preservar snapshots/testes de todo metodo publico extraido antes de remover metodo antigo.
 ---
 # Atlas AI Self-Construction OS Compaction Plan
 
 ## Resumo
 
-Plano canonico para compactar o sprawl extremo do Self-Construction OS (comandos com 200+ caracteres em serie + tabela monstruosa em `atlas-ai-self-construction-os.md`). Define refator em 8 familias hierarquicas de comandos, 5 docs filhos novos, reducao da doc-mae para <=280 linhas e gate `command-name-max-80-chars` permanente. Preserva as 7 invariantes de seguranca do Self-Construction OS atual.
+Plano canonico para compactar o sprawl extremo do Self-Construction OS. O
+diagnostico original mirava comandos gigantes; a realidade atual mudou: o
+`AtlasAiSelfConstructionCommand` ja virou wrapper curto, enquanto
+`AtlasSelfConstructionReadinessService.php` concentra **104.610 linhas** de
+readiness/projection/template logic. Este plano agora governa a compactacao
+desse runtime monolitico, a naming policy para novos services e a preservacao
+das 7 invariantes de seguranca.
 
 ## Papel no Atlas
 
-O Self-Construction OS e canonico, mas sua representacao atual quebra ergonomia, ferramentas CLI e leitura por IA. Comandos como `--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-...` (visto na leitura do doc) tem **mais de 250 caracteres**. Este doc e o plano de fix governado.
+O Self-Construction OS e canonico, mas sua representacao atual ainda quebra
+ergonomia e leitura por IA. O command sprawl foi parcialmente absorvido por
+subcommands/wrappers; o problema que permanece e a classe de readiness
+monolitica e as familias de services com nomes muito longos. Este doc e o plano
+de fix governado para isso.
 
 ## Onde Se Encaixa
 
 ```text
-atlas-ai-self-construction-os               (autoridade-mae)
-  +-- atlas-ai-self-construction-os-compaction-plan  (este doc)
-       +-- 5 docs filhos novos (lifecycle, dispatch, review, merge, persistence)
-       +-- mapping comando-antigo -> comando-novo
-       +-- gate command-name-max-80-chars
+atlas-ai-self-construction-os                     (autoridade-mae)
+  +-- atlas-self-construction-catalog              (inventario + naming)
+  +-- atlas-ai-self-construction-os-compaction-plan (este doc)
+       +-- compactacao do ReadinessService
+       +-- aliases/compatibilidade quando houver comando antigo
+       +-- gates command-name-max-80 + service-name-max-50
 ```
 
 ## Contratos
 
-### Diagnostico do sprawl atual (medido no doc lido)
+### Diagnostico atual
 
-- Doc-mae: 439 linhas (acima do limite recomendado de 520, ainda OK, mas sintoma de sobrecarga)
-- Comandos: 100+ comandos em UMA tabela
-- Comando mais longo: ~250+ caracteres em UMA string
-- Hierarquia: zero (todos no mesmo nivel)
-- Doc readability score (estimado): 2/10 — proibitivo para humano e IA
-- Familias implicitas: ~8 distintas misturadas
+- `AtlasAiSelfConstructionCommand.php`: 42 linhas em contagem local; nao e mais o gargalo principal.
+- `AtlasSelfConstructionReadinessService.php`: 104.610 linhas; gargalo principal de leitura, revisao e risco.
+- `app/Services/Ai/SelfConstruction/`: 292 arquivos PHP em contagem local.
+- Naming sprawl historico: baseline anterior mostrou 193 arquivos acima de 50 chars.
+- Self-Directed Evolution deve reutilizar `AtlasSelfConstructionSubsystemBuilderService`; nao criar detector/proposal paralelo.
 
-### As 8 familias canonicas propostas
+### Familias canonicas propostas para extrair do ReadinessService
 
-| # | Familia | Prefixo curto | Owner | Doc filho |
-|---|---------|---------------|-------|-----------|
-| 1 | Session bootstrap & ownership | `scos.session.*` | Self-Construction OS | `self-construction/scos-session.md` |
-| 2 | Packet lifecycle | `scos.packet.*` | Self-Construction OS | `self-construction/scos-packet.md` |
-| 3 | Reservation ledger durable | `scos.reservation.*` | Multi-Agent Unified | `self-construction/scos-reservation.md` |
-| 4 | Agent lifecycle (ACP) | `scos.agent.*` | Multi-Agent Unified ACP | `self-construction/scos-agent.md` |
-| 5 | Dispatch | `scos.dispatch.*` | Multi-Agent Unified ACP | `self-construction/scos-agent.md` (subsection) |
-| 6 | Review | `scos.review.*` | Review department | `self-construction/scos-review.md` |
-| 7 | Merge | `scos.merge.*` | Forge department | `self-construction/scos-review.md` (subsection) |
-| 8 | Persistence (receipts, ledger writes) | `scos.persistence.*` | Evidence Cert Runtime | `self-construction/scos-persistence.md` |
+| # | Familia | Owner | Regra |
+|---|---------|-------|-------|
+| 1 | Readiness Status | Self-Construction OS | read-only, schema snapshot first |
+| 2 | Packet Projection | Self-Construction OS | preserve packet hashes |
+| 3 | Reservation Projection | Multi-Agent Unified | no ledger write |
+| 4 | Agent Projection | Agent Control Plane | no provider start |
+| 5 | Dispatch Projection | Agent Control Plane | no dispatch |
+| 6 | Review/Merge Projection | Review/Forge | no approval |
+| 7 | Persistence Projection | Evidence Runtime | no ledger write |
+| 8 | Proposal Primitives | Subsystem Builder | reuse existing detect/propose/approve |
 
-### Mapping comando-antigo -> comando-novo (amostra)
+### Mapping legado -> destino atual
 
-| Antigo (sprawl) | Novo (compacto) |
+| Legado/monolito | Destino |
 |-----------------|-----------------|
-| `atlas:ai:self-construction --json` | `atlas:scos:status --json` |
-| `atlas:ai:self-construction --meta-sdd --json` | `atlas:scos:meta-sdd --json` |
-| `atlas:ai:self-construction --receipt-preview --json` | `atlas:scos:receipt --preview --json` |
-| `atlas:ai:self-construction --traceability --json` | `atlas:scos:trace --json` |
-| `atlas:ai:self-construction --promotion-gate --json` | `atlas:scos:promote --gate --json` |
-| `atlas:ai:self-construction --execution-candidate --json` | `atlas:scos:exec --candidate --json` |
-| `atlas:ai:self-construction --approval-packet --json` | `atlas:scos:approve --packet --json` |
-| `atlas:ai:self-construction --signature-request --json` | `atlas:scos:sign --request --json` |
-| `atlas:ai:self-construction --execution-runbook --json` | `atlas:scos:exec --runbook --json` |
-| `atlas:ai:self-construction --evidence-packet --json` | `atlas:scos:evidence --packet --json` |
-| `atlas:ai:self-construction --agent-control-plane --json` | `atlas:scos:agent --status --json` |
-| `atlas:ai:self-construction --agent-launch-plan --json` | `atlas:scos:agent --launch-plan --json` |
-| `atlas:ai:self-construction --agent-dispatch-preflight --json` | `atlas:scos:dispatch --preflight --json` |
-| `atlas:ai:self-construction --agent-review-merge-action-template --json` | `atlas:scos:merge --action-template --json` |
-| `atlas:ai:self-construction --agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-...` | `atlas:scos:persistence --writer-release --cycle=new --kind=disable --stage=<n> --json` |
+| `AtlasSelfConstructionReadinessService::snapshot` family | `ReadinessStatusProjection` |
+| packet/meta-SDD/receipt methods | `PacketProjection` |
+| reservation/collision/lease methods | `ReservationProjection` |
+| agent control plane/liveness/work product methods | `AgentProjection` |
+| dispatch/release/start packet methods | `DispatchProjection` |
+| review/merge/signature methods | `ReviewMergeProjection` |
+| receipt persistence/fresh authorization chains | `PersistenceProjection` |
+| subsystem detect/propose/approve | keep in `AtlasSelfConstructionSubsystemBuilderService` |
 
-A logica: o que ficou serializado em string (`...-...-...-...`) vira **flags estruturadas** (`--cycle`, `--kind`, `--stage`).
+A logica: o que ficou serializado em uma classe de 104k linhas vira projection
+services pequenos, com metodo antigo preservado ate teste de compatibilidade
+provar equivalencia.
 
 ### As 7 invariantes de seguranca preservadas
 
@@ -205,7 +211,7 @@ Cada invariante vira teste de regressao no novo CLI.
 }
 ```
 
-### Os 5 docs filhos novos (a criar em fase 2)
+### Docs filhos/sections
 
 | # | Doc | Conteudo |
 |---|-----|----------|
@@ -216,17 +222,18 @@ Cada invariante vira teste de regressao no novo CLI.
 | 5 | `self-construction/scos-review.md` | review, merge, post-merge action chain (subsection: merge) |
 | 6 | `self-construction/scos-persistence.md` | receipt writers, append-only ledger, fresh authorization cycles |
 
-(Sao 6, nao 5; ajuste do plano original para refletir limite de 280 linhas por doc filho.)
+Esses docs continuam uteis como split documental. O codigo, porem, deve mirar
+primeiro a compactacao do `AtlasSelfConstructionReadinessService.php`.
 
 ## Fluxo
 
 ```mermaid
 flowchart TD
-  Today[Today: 100+ commands sprawl, doc 439 lines]
-  Phase1[Phase 1: criar 6 docs filhos]
-  Phase2[Phase 2: implementar nova taxonomia atlas:scos:*]
-  Phase3[Phase 3: aliases deprecated por 90 dias]
-  Phase4[Phase 4: remover aliases, sealing]
+  Today[Today: ReadinessService 104k lines + naming sprawl]
+  Phase1[Phase 1: snapshot tests + AP de compactacao]
+  Phase2[Phase 2: extrair projection families]
+  Phase3[Phase 3: manter metodo antigo como adapter]
+  Phase4[Phase 4: remover adapter apos compat proof]
 
   Today --> Phase1 --> Phase2 --> Phase3 --> Phase4
 
@@ -239,25 +246,27 @@ flowchart TD
 
 | Fase | Duracao | Saida | Bloqueio |
 |------|---------|-------|----------|
-| 1 docs | 1 ciclo doc | 6 docs filhos + reducao da doc-mae | nao bloqueia codigo |
-| 2 commands | implementacao | comandos novos + aliases | bloqueia se invariante quebra |
-| 3 deprecation | 90 dias | aliases gerando warning | externos migram |
-| 4 sealing | 1 ciclo | aliases removidos | gate `command-name-max-80-chars` ativo |
+| 1 AP/snapshots | 1 ciclo | AP + fixtures de equivalencia dos metodos publicos | bloqueia extracao sem snapshot |
+| 2 projections | implementacao | services menores por familia | bloqueia se schema/hash mudar |
+| 3 adapters | transicao | metodo antigo delega para service novo | comandos continuam funcionando |
+| 4 sealing | 1 ciclo | adapter removido quando reachability/testes permitirem | gate de naming ativo |
 
 ## Regras para IA
 
-- Nunca criar comando atlas dot scos com nome >80 chars.
-- Comandos antigos durante fase 3 emitem warning mas funcionam.
-- Toda renomeacao registra `command_alias.v1` no registry.
-- Antes de fase 2, **NAO** mexer em codigo do CLI.
+- Nunca criar comando Atlas com nome >80 chars.
+- Nunca criar service novo em `SelfConstruction/**` com classe >50 chars.
+- Metodo antigo extraido deve delegar para service novo ate prova de compatibilidade.
+- Antes de fase 2, **NAO** mexer em codigo sem AP + snapshot tests.
 - Refator de servicos PHP segue Multi-Agent Unified (T1.3) — ACP nao decide provider, etc.
+- Self-Directed Evolution deve reusar Subsystem Builder; compactacao nao autoriza detector paralelo.
 
 ## Escopo de Implementacao
 
 Servicos afetados:
-- `app/Console/Commands/Atlas/Ai/SelfConstruction/*` (renomeados/agrupados)
-- `AtlasAgentControlPlane*` (refator boundary com Multi-Agent Unified)
-- `AtlasSelfConstruction*` (refator interno)
+- `app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php`
+- `app/Services/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderService.php` (somente como dependency/reuse, nao refator inicial)
+- `AtlasAgentControlPlane*` (quando projection family tocar ACP)
+- `AtlasSelfConstruction*` (refator interno com snapshots)
 
 Docs afetadas:
 - `atlas-ai-self-construction-os.md` (reduzir para indice <=280 linhas)

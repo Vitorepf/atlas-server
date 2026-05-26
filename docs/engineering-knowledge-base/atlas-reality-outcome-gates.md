@@ -20,7 +20,8 @@ tags:
   - outcome-governance
   - evidence-certification
   - asre
-  - genesis-initiative
+  - autonomous-holding
+  - world-action-readiness
   - antifragility
 capabilities:
   - reality_outcome_gate_catalogue
@@ -35,14 +36,14 @@ decisions:
   - Cada reality gate tem severity declarada (critical, high, medium, low) e threshold canonico mensuravel.
   - Reality gate runtime opera sobre evidencia ja registrada no Evidence Ledger ou ASRE; nao consome dados crus de fora.
   - Reality gate em dominio sensivel (legal, healthcare, finance, trading, cyber) exige bloco safety/sovereignty canonico aplicado antes de avaliacao.
-  - Promocao L7 AAEOS -> L8 Autonomous Company OS exige reality gate pass rate minimo de 0.90 em janela mavel de 30 dias.
+  - Reality gates alimentam Evidence/ASRE, Mission Control e scorecards da Holding; nao promovem AAEOS diretamente para Autonomous Company OS.
 maintenance:
   - Atualizar antes de adicionar/remover gate de realidade, alterar severity, threshold ou owner.
   - Sincronizar com `atlas-evidence-certification-runtime.md` quando schema de evidencia mudar.
   - Sincronizar com `atlas-strategic-reality-engine.md` quando ASRE mudar contratos de medicao.
   - Rodar docs-health + sync apos qualquer alteracao.
 related_paths:
-  - docs/engineering-knowledge-base/atlas-autonomous-company-os-genesis-initiative.md
+  - docs/engineering-knowledge-base/atlas-ai-autonomous-holding-operating-system.md
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
   - docs/engineering-knowledge-base/atlas-strategic-reality-engine.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
@@ -70,8 +71,7 @@ owner: atlas-ai
 patamar_after:
   - atlas-evidence-certification-runtime
   - atlas-strategic-reality-engine
-patamar_next:
-  - atlas-autonomous-software-company-runtime
+patamar_next: []
 versions: []
 repo_paths:
   - docs/engineering-knowledge-base/atlas-reality-outcome-gates.md
@@ -85,10 +85,10 @@ forbidden_changes:
   - Permitir promocao de Obra sensivel ignorando reality gate vermelho.
   - Tratar reality gate como opcional em dominios sensiveis.
 depends_on:
-  - atlas-autonomous-company-os-genesis-initiative
   - atlas-evidence-certification-runtime
   - atlas-strategic-reality-engine
   - atlas-trust-ledger-canonical
+  - atlas-ai-autonomous-holding-operating-system
 flows_to:
   - atlas-mission-control-cockpit-spec
   - atlas-autonomy-ladder-promotion-runbook
@@ -111,7 +111,7 @@ visual_tags:
   - gates
   - outcome
   - reality
-  - genesis
+  - holding
 ai_entrypoints:
   - Leia Catalogo dos 15 Reality Gates antes de propor promocao de Obra com impacto observavel no mundo real.
   - Leia Bloco Safety / Sovereignty antes de aplicar reality gate em dominio sensivel.
@@ -142,7 +142,7 @@ next_actions:
   - Implementar `AtlasRealityOutcomeGatesEvaluatorService` que consome `atlas.reality.signals.v1` e emite `atlas.reality.gate_report.v1`.
   - Implementar schema `atlas.reality.gate_report.v1` no Contract Schema Registry.
   - Adicionar zona "Reality Outcome" ao Mission Control Cockpit.
-  - Implementar gate de promocao L7 -> L8 exigindo pass rate >= 0.90 em 30 dias.
+  - Integrar reality outcome status aos scorecards da Holding e ao Mission Control, sem criar promocao paralela de AAEOS para Autonomous Company OS.
 ---
 # Atlas Reality Outcome Gates
 
@@ -192,7 +192,7 @@ flowchart LR
 - Skip de reality gate exige `atlas.reality.gate_skip_receipt.v1` valido com operator signature.
 - Reality gate vermelho em dominio sensivel NUNCA pode ser skipped via Operator Decision Receipt unilateral; exige dual signature + revisor humano licenciado.
 - Schema canonico do report e `atlas.reality.gate_report.v1`; do skip receipt e `atlas.reality.gate_skip_receipt.v1`.
-- Promocao L7 -> L8 exige reality pass rate >= 0.90 em janela mavel de 30 dias.
+- Promocao macro deve ser decidida pela linha evolutiva e pela Holding; este doc so fornece reality pass rate e blockers de outcome.
 
 ## Fluxo
 
@@ -364,9 +364,9 @@ liability_carrier_documented_required: true
 - `AtlasRealityOutcomeGatesEvaluatorService` (novo) carrega `atlas.reality.signals.v1`, avalia os 15 gates e emite `atlas.reality.gate_report.v1`.
 - Schemas `atlas.reality.gate_report.v1` e `atlas.reality.gate_skip_receipt.v1` registrados em `atlas-contract-schema-registry`.
 - Zona "Reality Outcome" adicionada ao Mission Control Cockpit como 13a zona.
-- Gate de promocao L7 -> L8 dependente de reality pass rate >= 0.90 em janela 30 dias.
+- Alimentador de outcome scorecards da Holding e de future World Action readiness; nao e gate local de promocao de AAEOS para Autonomous Company OS.
 - Cross-link com `atlas-universal-failure-mode-catalog` adicionando coluna `reality_gate_relacionado`.
-- Implementacao em hot scope sob `App\Services\Ai\AgenticEngineeringOs\RealityOutcomeGates` (a criar).
+- Implementacao deve consumir Evidence/ASRE e publicar status para Holding/Mission Control; evitar namespace paralelo de promocao AAEOS.
 
 ## Dependencias
 
@@ -376,7 +376,7 @@ Dependencias canonicas declaradas em `depends_on`. Resumo:
 - `atlas-strategic-reality-engine` (source de outcome signals).
 - `atlas-trust-ledger-canonical` (registra learning capsules emitidas pelos gates).
 - `atlas-agentic-engineering-os-runbook` (consome reality gates no decision de promocao).
-- `atlas-autonomous-company-os-genesis-initiative` (manifesto que abre este doc).
+- `atlas-ai-autonomous-holding-operating-system` (consome outcome scorecards para readiness e World Action hardening).
 
 ## Evidencias
 
@@ -412,6 +412,6 @@ Dependencias canonicas declaradas em `depends_on`. Resumo:
 1. Implementar `AtlasRealityOutcomeGatesEvaluatorService`.
 2. Registrar `atlas.reality.gate_report.v1` e `atlas.reality.gate_skip_receipt.v1` no Contract Schema Registry.
 3. Adicionar zona "Reality Outcome" ao Mission Control Cockpit como 13a zona.
-4. Implementar gate de promocao L7 -> L8 dependente de reality pass rate >= 0.90 em janela 30 dias.
+4. Integrar reality gate pass rate aos scorecards da Holding e a future World Action readiness, sem promover AAEOS para Autonomous Company OS localmente.
 5. Cross-link com `atlas-universal-failure-mode-catalog.md` adicionando coluna reality_gate_relacionado.
 6. Cross-link com `atlas-autonomy-ladder-promotion-runbook.md` adicionando regra de reality pass rate por nivel L.

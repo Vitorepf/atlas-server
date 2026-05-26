@@ -27,6 +27,7 @@ decisions:
   - Atlas Code e surface humana; nao e o sistema inteiro, nao e provider e nao e Obra.
   - Self-Construction OS e a lei-mae para Atlas construir Atlas.
   - Self-Programming OS e o patamar/conjunto de safety contracts para auto-modificacao governada; ainda nao deve ser tratado como runtime livre.
+  - Self-Directed Evolution Layer e camada de composicao/curadoria acima de Self-Construction, Self-Improvement, AAEL e Spec OS; nao e OS novo nem substitui qualquer owner.
   - Agent Control Plane, Work Splitter, Packet Contract, Scope Validator e Multi-Provider Orchestration sao contratos operacionais abaixo de Self-Construction OS e Forge.
 maintenance:
   - Atualize este mapa antes de renomear qualquer doc-mae de Atlas Code, Forge Continuum, Self-Construction OS, Self-Programming OS, Agent Control Plane ou multi-provider.
@@ -77,6 +78,7 @@ forbidden_changes:
   - Declarar que Atlas Code e o sistema inteiro.
   - Declarar que Forge Continuum substitui Self-Construction OS.
   - Declarar que Self-Programming OS esta liberado para autoexecucao sem safety contracts, receipts e gates.
+  - Criar Self-Directed Evolution como runtime paralelo quando Subsystem Builder, Self-Improvement, AAEL, Spec OS ou Forge ja cobrem o owner.
   - Criar doc-mae paralela para programacao pesada quando Forge Continuum OS ja cobre esse papel.
 depends_on:
   - atlas-forge-continuum-os
@@ -170,6 +172,7 @@ Contratos canonicos que este mapa organiza:
 - `atlas-forge-continuum-os.md`
 - `atlas-code-programming-obras-operating-system.md`
 - `self-construction/multi-provider-agent-orchestration-contract.md`
+- `atlas-self-directed-evolution-layer.md`
 
 ## Fluxo
 
@@ -191,6 +194,10 @@ Programming Obra
 
 Providers
   = executores substituiveis, nunca donos da arquitetura.
+
+Self-Directed Evolution Layer
+  = inbox/read-model de propostas de evolucao; compoe Subsystem Builder,
+    Self-Improvement, AAEL, Spec OS, TEOS/ASRE e Evidence.
 ```
 
 ## Regras para IA
@@ -200,6 +207,8 @@ Providers
 - Nao crie OS paralelo se o papel ja estiver em Forge Continuum.
 - Nunca trate provider como papel fixo.
 - Nunca declare Self-Programming OS como runtime livre.
+- Nunca implemente Self-Directed Evolution criando detector/proposal runtime
+  paralelo aos owners existentes.
 
 ## Escopo de Implementacao
 
@@ -259,6 +268,7 @@ Atlas Sovereign / Kernel / Spec / Documentation laws
 |---|---|---|
 | Self-Construction OS | Como Atlas evolui Atlas com docs, SDD, packets, gates, evidence e learning | Tela de programacao |
 | Self-Programming OS | Patamar de auto-modificacao governada com safety contracts | Runtime livre ou permissao para autoeditar tudo |
+| Self-Directed Evolution Layer | Camada de gap/proposal/roadmap/curadoria sobre owners existentes | OS novo, builder novo ou autoaprovador |
 | Forge Continuum OS | Sistema completo de programacao pesada: Obra, Forge Workspace, Atlas Decide, providers, fallback, review, repair, evidence | Apenas provider router ou prompt |
 | Programming Forge Flow | Mapa/taxonomia do fluxo inteiro de programacao pesada | Executor |
 | Atlas Code | Surface desktop humana para operar Programming Obras | O sistema inteiro |
@@ -279,9 +289,10 @@ Para pergunta sobre Atlas construindo Atlas:
 
 1. Este doc.
 2. `atlas-ai-self-construction-os.md`.
-3. `self-construction/self-programming-safety-contract.md`.
-4. `self-construction/agent-control-plane-contract.md`.
-5. `self-construction/multi-provider-agent-orchestration-contract.md`.
+3. `atlas-self-directed-evolution-layer.md`, se a pergunta envolver Atlas propondo gaps/specs/roadmap.
+4. `self-construction/self-programming-safety-contract.md`.
+5. `self-construction/agent-control-plane-contract.md`.
+6. `self-construction/multi-provider-agent-orchestration-contract.md`.
 
 Para pergunta sobre varios providers na mesma Obra:
 
@@ -296,6 +307,7 @@ Para pergunta sobre varios providers na mesma Obra:
 - Atlas Code nao programa sozinho; Atlas Code mostra e governa a operacao humana.
 - Forge Continuum OS nao substitui Self-Construction OS; ele especializa programacao pesada.
 - Self-Programming OS nao esta liberado como autonomia irrestrita; ele exige safety, receipts, gates e evidence.
+- Self-Directed Evolution nao e permissao para criar outro Self-Construction; ele normaliza propostas e passa por curadoria humana.
 - Providers nao sao cargos fixos. Claude, Codex, Gemini e local podem trocar de papel conforme Atlas Decide, evidencia, capacidade, risco e decisao humana.
 - Obra nao nasce de qualquer chat. Obra nasce quando ha unidade produtiva persistente com objetivo, escopo, contexto, acceptance, gates e evidence.
 
@@ -305,12 +317,14 @@ Para pergunta sobre varios providers na mesma Obra:
 Atlas Code e a surface. Forge Continuum OS e o sistema operacional de
 programacao pesada. Self-Construction OS e a lei-mae de evolucao do Atlas.
 Self-Programming OS e o patamar de auto-modificacao governada. Providers sao
-executores substituiveis, e Obras sao as unidades produtivas.
+executores substituiveis, Obras sao as unidades produtivas, e Self-Directed
+Evolution e a inbox governada de propostas sobre owners ja existentes.
 ```
 
 ## Dependencias
 
 - `atlas-ai-self-construction-os.md`
+- `atlas-self-directed-evolution-layer.md`
 - `atlas-programming-forge-flow.md`
 - `atlas-forge-continuum-os.md`
 - `atlas-code-programming-obras-operating-system.md`

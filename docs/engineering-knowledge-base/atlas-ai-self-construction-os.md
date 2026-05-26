@@ -21,11 +21,19 @@ decisions:
   - Any AI must be able to continue Atlas construction from canonical docs without relying on chat history.
   - The most powerful form is research -> docs -> spec -> implementation -> tests -> evidence -> learning.
   - Self-improvement claims must pass the Self-Improvement Governance Ladder: strong proposal, before/after delta, invariant lock, regression sentinel and promotion policy.
+  - Self-Directed Evolution Layer is a composition/read-model layer above this OS; it must reuse Self-Construction proposal primitives instead of creating a new self-construction authority.
+  - `AtlasSelfConstructionSubsystemBuilderService` is the existing owner for subsystem gap detection, subsystem proposal, approval/rejection receipt and scaffold skeletons.
+  - Self-Programming OS remains a maturity/safety patamar, not a free runtime; command surfaces and tests must keep self-programming blocked unless safety contracts, receipts, gates and operator approval explicitly promote it.
 maintenance:
   - Read before changing Atlas core, self-improvement, SDD runtime, memory, research automation, autonomous coding or governance.
   - Update when a new self-programming loop, maturity level, build dependency or core safety gate is promoted.
 related_paths:
   - docs/engineering-knowledge-base/atlas-self-construction-catalog.md
+  - docs/engineering-knowledge-base/atlas-self-directed-evolution-layer.md
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderService.php
+  - app/Console/Commands/AtlasSelfConstructionDetectGapsCommand.php
+  - app/Console/Commands/AtlasSelfConstructionProposeSubsystemCommand.php
+  - app/Console/Commands/AtlasSelfConstructionApproveProposalCommand.php
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - app/Console/Commands/AtlasAiSelfConstructionCommand.php
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php
@@ -166,6 +174,8 @@ quality_gates:
 
 failure_modes:
   - Contexto desatualizado entre doc, codigo, teste e evidencia.
+  - IA cria novo detector/proposal runtime para evolucao do Atlas ignorando `AtlasSelfConstructionSubsystemBuilderService`.
+  - IA interpreta Self-Directed Evolution como OS novo ou como permissao de autoaprovacao.
 
 observability_signals:
   - docs-health status ok
@@ -209,6 +219,29 @@ Self-Construction OS:
   system gap -> research -> docs -> meta-spec -> phased build -> validation
   -> drift -> learning -> maturity promotion
 ```
+
+## Existing Proposal Primitives
+
+Antes de criar qualquer novo runtime de "Atlas detecta gap" ou "Atlas escreve
+spec sozinho", IA deve verificar os primitivos ja existentes:
+
+| Primitive | Runtime/comando atual | Autoridade |
+|---|---|---|
+| Detectar gaps de subsystem | `AtlasSelfConstructionSubsystemBuilderService::detectGaps()` / `atlas:self-construction:detect-gaps` | Self-Construction OS |
+| Propor subsystem/capability | `AtlasSelfConstructionSubsystemBuilderService::propose()` / `atlas:self-construction:propose-subsystem` | Self-Construction OS |
+| Aprovar/rejeitar proposta | `AtlasSelfConstructionSubsystemBuilderService::approve()` / `atlas:self-construction:approve-proposal` | operador via receipt append-only |
+| Staging de scaffold aprovado | `AtlasSelfConstructionScaffoldStagingExecutorService` / `atlas:scaffold:stage` | staging, nao producao |
+| Promocao de scaffold | `atlas:scaffold:promote` | dry-run/operator promotion, nao auto-merge |
+
+Self-Directed Evolution pode compor esses primitivos em uma inbox de curadoria,
+mas nao pode substitui-los. Se a proposta for spec/AP/doc, routeie para Spec OS
+e Documentation Governance; se for subsystem, use o Subsystem Builder; se for
+portfolio de evolucao, use AAEL; se for melhoria com delta, use Self-Improvement.
+
+Regra anti-duplicacao: novo detector/proposal service so e permitido como
+adapter/read-model quando declara quais primitives existentes consome e quais
+owners preserva.
+
 ## The Highest Form
 The most advanced Atlas is not merely self-coding. The highest form is governed self-construction:
 ```text
