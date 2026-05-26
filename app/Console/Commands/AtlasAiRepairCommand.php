@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Failure\FailureClassification;
 use App\Services\Ai\Kernel\Failure\FailureDomain;
-use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Repair\AtlasRepairOrchestrator;
 use App\Services\Ai\Kernel\Repair\RepairPolicy;
 use App\Services\Ai\Kernel\Repair\RepairRequest;
@@ -24,10 +24,10 @@ class AtlasAiRepairCommand extends Command
         {--policy-enabled=1 : Whether the repair policy is enabled}
         {--strategy=* : Allowed repair strategy; repeatable. Defaults to all strategies}
         {--evidence=* : Evidence references available to the repair planner}
-        {--attempt-repair : Return scaffold attempt result instead of plan only}
+        {--attempt-repair : Return governed repair attempt result instead of plan only}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Inspect the Atlas AI repair loop scaffold without executing repair actions.';
+    protected $description = 'Inspect the Atlas AI repair loop contract without executing repair actions.';
 
     public function handle(AtlasRepairOrchestrator $repair, AtlasEvidenceLedger $ledger): int
     {

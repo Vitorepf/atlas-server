@@ -13,7 +13,7 @@ class AtlasFrontendAssetPackCommand extends Command
         {--output= : Output directory for template action}
         {--json : Emit canonical JSON payload}';
 
-    protected $description = 'Inspect or scaffold Atlas Frontend asset packs.';
+    protected $description = 'Inspect Atlas Frontend asset packs or write governed templates.';
 
     public function handle(AtlasFrontendAssetPackService $assets): int
     {

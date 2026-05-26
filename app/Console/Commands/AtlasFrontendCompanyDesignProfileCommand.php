@@ -13,7 +13,7 @@ class AtlasFrontendCompanyDesignProfileCommand extends Command
         {--output= : Output directory for template action}
         {--json : Emit canonical JSON payload}';
 
-    protected $description = 'Inspect or scaffold Atlas Frontend company design profiles.';
+    protected $description = 'Inspect Atlas Frontend company design profiles or write governed templates.';
 
     public function handle(AtlasFrontendCompanyDesignProfileService $profiles): int
     {

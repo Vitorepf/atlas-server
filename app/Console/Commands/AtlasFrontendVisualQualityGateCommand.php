@@ -13,7 +13,7 @@ class AtlasFrontendVisualQualityGateCommand extends Command
         {--output= : Output directory for template action}
         {--json : Emit canonical JSON payload}';
 
-    protected $description = 'Inspect or scaffold Atlas Frontend visual quality gate reports.';
+    protected $description = 'Inspect Atlas Frontend visual quality gate reports or write governed templates.';
 
     public function handle(AtlasFrontendVisualQualityGateService $gate): int
     {

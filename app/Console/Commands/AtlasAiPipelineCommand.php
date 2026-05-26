@@ -10,15 +10,15 @@ use Illuminate\Console\Command;
 class AtlasAiPipelineCommand extends Command
 {
     protected $signature = 'atlas:ai:pipeline
-        {text? : Input text to plan through the scaffold pipeline}
+        {text? : Input text to plan through the kernel pipeline contract}
         {--surface=atlas_cli : Surface id for audit metadata}
         {--tenant=atlas-single-tenant : Tenant id for audit metadata}
         {--operator=cli : Operator id for audit metadata}
         {--hint=* : Optional key=value hints}
-        {--execute : Return scaffold stage results instead of plan only}
+        {--execute : Return contract stage results instead of plan only}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Inspect the Atlas AI kernel pipeline scaffold without executing providers or runtime.';
+    protected $description = 'Inspect the Atlas AI kernel pipeline contract without executing providers or runtime.';
 
     public function handle(ScaffoldAtlasKernelPipeline $pipeline, KernelPipelineAuditService $audit): int
     {

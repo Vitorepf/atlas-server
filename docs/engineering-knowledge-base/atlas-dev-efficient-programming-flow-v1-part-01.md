@@ -131,11 +131,13 @@ Documentos irmaos:
 
 Atlas Dev fica **dentro** do Atlas AI, ao lado de outros fluxos como Research, Explain, Debug, Review e Conversation. Forge entra quando o trabalho vira **Obra**: entrega longa, multiagente, persistente, auditavel, com necessidade de maximo poder de fogo.
 
-Boundary anti-duplicacao: `App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope`
-nao substitui `App\Services\Ai\Kernel\Envelope\OperationEnvelope`. O primeiro e
-o DTO canonico do fluxo Atlas Dev (`atlas.dev.operation_envelope.v1`); o segundo
-e o contrato Kernel (`atlas.envelope.v1`). Qualquer ponte entre eles exige
-adapter explicito, testes e owner doc.
+Boundary anti-duplicacao: `App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope`
+e a classe real do DTO canonico do fluxo Atlas Dev
+(`atlas.dev.operation_envelope.v1`). O FQCN antigo
+`App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope` existe apenas
+como alias compat. Nenhum deles substitui
+`App\Services\Ai\Kernel\Envelope\OperationEnvelope` (`atlas.envelope.v1`).
+Qualquer ponte entre eles exige adapter explicito, testes e owner doc.
 
 ### 1.1 Posicionamento No Atlas Kernel Pipeline
 

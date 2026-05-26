@@ -19,7 +19,7 @@ class AtlasFrontendRivalReplayCommand extends Command
         {--execution-surface=external_rival_system : Execution surface for external-receipt-template}
         {--json : Emit canonical JSON payload}';
 
-    protected $description = 'Inspect, scaffold or operationalize Atlas Frontend external rival replay evidence.';
+    protected $description = 'Inspect, template or operationalize Atlas Frontend external rival replay evidence.';
 
     public function handle(AtlasFrontendRivalReplayHarnessService $replay): int
     {

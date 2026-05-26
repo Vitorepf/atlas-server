@@ -13,7 +13,7 @@ class AtlasFrontendDesignSystemDriftCommand extends Command
         {--output= : Output directory for template action}
         {--json : Emit canonical JSON payload}';
 
-    protected $description = 'Inspect or scaffold Atlas Frontend design-system drift reports.';
+    protected $description = 'Inspect Atlas Frontend design-system drift reports or write governed templates.';
 
     public function handle(AtlasFrontendDesignSystemDriftGateService $gate): int
     {

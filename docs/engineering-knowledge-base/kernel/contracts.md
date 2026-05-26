@@ -124,9 +124,12 @@ next_actions:
 
 Boundary anti-duplicacao: o Kernel `Operation Envelope` e o contrato
 `App\Services\Ai\Kernel\Envelope\OperationEnvelope` (`atlas.envelope.v1`).
-Schemas locais como `App\Services\Ai\Programming\AtlasDev\Schemas\OperationEnvelope`
-(`atlas.dev.operation_envelope.v1`) ou DTOs de pipeline SDD nao substituem este
-contrato. Use adapter explicito antes de cruzar a fronteira.
+Schemas locais como `App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope`
+(`atlas.dev.operation_envelope.v1`) ou
+`App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope` nao
+substituem este contrato. Os FQCNs curtos antigos nas variantes Programming
+existem somente como aliases compat. Use adapter explicito antes de cruzar a
+fronteira.
 
 ## State Machines
 

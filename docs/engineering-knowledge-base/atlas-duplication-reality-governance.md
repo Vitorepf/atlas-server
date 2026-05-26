@@ -206,11 +206,11 @@ Snapshot real em 2026-05-25:
 
 | Gate | Resultado |
 |---|---|
-| `docs-health` | 795 docs, 0 warnings, 0 oversized, 0 frontmatter violations |
+| `docs-health` | 798 docs, 0 warnings, 0 oversized, 0 frontmatter violations |
 | `docs-authority-audit` | 734 docs canonicos, 0 identity duplicate groups, 0 runtime duplicate groups, 0 capability overlap groups, 0 owner gaps |
 | `ACRUI reality-audit` | 6 targets ADRS/ACRUI/AURC, 6 active_runtime, 0 unknown_or_unused, 0 weak_reachability |
 | `ACRUI anti-duplicate` para esta feature | `match_count=0`, `decision=proceed_with_owner_lookup` |
-| `ACRUI global-duplication-audit` | `status=blocked`, 795 docs, 742 docs canonicos, 7 overlaps de stem, 44 archived/source-material, 59 source-material em temas criticos, 3302 classes PHP, 420 comandos, 550 rotas estaticas, 647 metodo+URI runtime, 3 grupos de nomes de classe, 2 grupos em `duplicate_class_cleanup_queue`, 1 fixture gerado fora da fila de cleanup de producao, 30 runtime action aliases, 30 itens em `runtime_route_alias_cleanup_queue`, 571 sinais legado/scaffold, 320 sinais exigindo review, 124 falsos positivos/taxonomia, 50 itens priorizados em `legacy_cleanup_queue`, 15 itens RAG, 5 itens frontend, 39 itens em `ai_confusion_cleanup_queue` |
+| `ACRUI global-duplication-audit` | `status=blocked`, 0 grupos em `duplicate_class_cleanup_queue`, 1 grupo de nome de classe restante (`SmokeSubject`) fora da fila de cleanup de producao, runtime action aliases, itens em `runtime_route_alias_cleanup_queue`, 50 itens priorizados em `legacy_cleanup_queue` e 39 itens em `ai_confusion_cleanup_queue` |
 | `ACRUI status-drift-audit` | `status=review`, 734 docs canonicos ativos/building/planned/future, 682 `active`, 40 `building`, 5 `planned`, 7 `future`, 3 planned/future com evidencia de codigo existente, 3 com boundary explicado, 110 itens de pressao por linguagem scaffold/implemented misturada, 26 owner groups, 5 area groups |
 | `php artisan route:list --json` | 647 metodo+URI runtime, 0 duplicatas metodo+URI reais, 0 nomes de rota duplicados, 30 actions expostas por multiplas rotas |
 | `session-bootstrap/place-feature` | encontrou overlap contextual e bloqueou ate leitura dos owner docs |
@@ -332,7 +332,6 @@ Fila de triagem inicial gerada pelo ACRUI:
 
 | Item | Severidade | Decisao pendente |
 |---|---:|---|
-| `duplicate_class:operationenvelope` | critical | 3 paths com reachability alta; decidir rename/boundary/merge sem delete |
 | `route_action_alias:AtlasCodeObservedSessionController@import` | medium | documentar alias `import` vs `import-result` ou unificar contrato |
 | aliases mobile/base de Voice, Telemetry e Constelacao | low | documentar como alias intencional ou criar wrapper mobile |
 
@@ -390,14 +389,13 @@ Grupos de classe com mesmo nome curto encontrados pelo ACRUI:
 
 | Nome curto | Paths |
 |---|---|
-| `operationenvelope` | `app/Services/Ai/Programming/AtlasDev/Schemas/OperationEnvelope.php`; `app/Services/Ai/Programming/Sdd/Pipeline/OperationEnvelope.php`; `app/Services/Ai/Kernel/Envelope/OperationEnvelope.php` |
 | `smokesubject` | `app/Console/Commands/AtlasDevSeniorLoopAuditCommand.php`; `app/Console/Commands/AtlasDevDesktopRealSmokeCommand.php`; `app/Console/Commands/AtlasDevSeniorLoopRunCommand.php` |
 
 Contratos de direcao para classes duplicadas:
 
 | Classe | Owner | Variante | Proibido |
 |---|---|---|---|
-| `OperationEnvelope` | `Kernel/Envelope` | AtlasDev schema e SDD pipeline; tambem sobe para `ai_confusion_cleanup_queue` com boundary e recomendacao | importar variante Programming como contrato Kernel |
+| `OperationEnvelope` | Resolvido como grupo duplicado: `Kernel/Envelope/OperationEnvelope` continua contrato Kernel; AtlasDev e SDD viraram classes reais explicitas com aliases compat | AtlasDev schema e SDD pipeline ficam domain-local | importar variante Programming como contrato Kernel |
 | `FrontmatterParser` | Resolvido como grupo duplicado: `Services/Semantic` continua parser canonico; `Services/Vault/VaultNoteFrontmatterParser` virou classe real e `Services/Vault/FrontmatterParser` ficou alias compat | consolidar so com adapter que preserve erros e listas Vault | usar parser Vault como parser canonico de engineering docs |
 | `SmokeSubject` | fixture gerado em workspace local | comandos smoke/senior-loop; fica fora de `duplicate_class_cleanup_queue` de producao | tratar como classe de dominio/producao |
 
@@ -410,14 +408,15 @@ ficam apenas como aliases compat.
 `AtlasCognitiveMemoryFabricService` preserva runtime AUCRI em `Ai/Context` e renomeia working-set policy para `AtlasCognitiveWorkingSetMemoryService`.
 `AiExecutionPlan` preserva aliases antigos e promove classes reais explicitas: `PersistentAiExecutionPlan` para a tabela `ai_execution_plans` e `AiPromptExecutionPlan` para payload de prompt.
 `VerificationCommandRunner` preserva aliases antigos e promove classes reais explicitas: `AtlasCodeVerificationCommandRunner` para evidence `atlas.code.verification_run.v1` e `AtlasDevVerificationCommandRunnerContract` para o gate AtlasDev.
+`OperationEnvelope` preserva o contrato Kernel real em `Kernel/Envelope/OperationEnvelope` e promove classes reais explicitas para variantes locais: `AtlasDevOperationEnvelope` e `SddPipelineOperationEnvelope`. FQCNs antigos das variantes Programming ficam apenas como aliases compat.
 
 Schemas conhecidos de `OperationEnvelope`:
 
 | Variante | Schema | Regra |
 |---|---|---|
 | Kernel | `atlas.envelope.v1` | contrato Kernel, dono de `kernel/contracts.md` |
-| Atlas Dev | `atlas.dev.operation_envelope.v1` | DTO local; app/tests importam via `AtlasDevOperationEnvelope as OperationEnvelope`; manter FQCN antigo somente como compatibility class |
-| SDD pipeline | DTO local sem schema Kernel | DTO local; app/tests importam via `SddPipelineOperationEnvelope as OperationEnvelope`; manter FQCN antigo somente como compatibility class |
+| Atlas Dev | `atlas.dev.operation_envelope.v1` | DTO local real em `AtlasDevOperationEnvelope`; FQCN antigo `AtlasDev/Schemas/OperationEnvelope` fica somente como compatibility alias |
+| SDD pipeline | DTO local sem schema Kernel | DTO local real em `SddPipelineOperationEnvelope`; FQCN antigo `Sdd/Pipeline/OperationEnvelope` fica somente como compatibility alias |
 
 Contratos conhecidos de `VerificationCommandRunner`:
 
@@ -437,7 +436,7 @@ Ordem segura de limpeza para classes com mesmo nome curto:
 
 | Prioridade | Grupo | Decisao segura |
 |---:|---|---|
-| 1 | `OperationEnvelope` | imports app/tests migrados para aliases explicitos; manter arquivos compatibility e so renomear variantes Programming com plano de adapter |
+| resolvido | `OperationEnvelope` | Kernel preservado como contrato real; variantes Programming viraram classes reais explicitas com aliases compat |
 | resolvido | `FrontmatterParser` | classe Vault renomeada para `VaultNoteFrontmatterParser`; manter alias compat ate nao haver consumers externos |
 | resolvido | `VerificationCommandRunner` | classes reais explicitas; FQCNs antigos viraram aliases compat |
 | resolvido | `AiExecutionPlan` | classes reais explicitas; FQCNs antigos viraram aliases compat |

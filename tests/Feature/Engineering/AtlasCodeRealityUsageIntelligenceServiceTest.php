@@ -355,23 +355,26 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertArrayHasKey('ai_service_hotspots', $payload['code']);
         $this->assertGreaterThan(0, data_get($payload, 'code.ai_service_hotspots.file_count'));
         $this->assertArrayHasKey('legacy_signal_samples', $payload['code']);
-        $this->assertLessThan(
+        $this->assertLessThanOrEqual(
             data_get($payload, 'summary.duplicate_class_group_count'),
             data_get($payload, 'summary.duplicate_class_cleanup_queue_count')
         );
-        $operationEnvelopeCleanup = collect($payload['code']['duplicate_class_cleanup_queue'])->firstWhere('short_name', 'operationenvelope');
-        $this->assertSame('critical', $operationEnvelopeCleanup['severity'] ?? null);
-        $this->assertSame(1, data_get($operationEnvelopeCleanup, 'priority'));
-        $this->assertSame('boundary_doc_then_possible_programming_variant_rename', data_get($operationEnvelopeCleanup, 'cleanup_type'));
-        $this->assertContains('deletion_preflight_for_every_path', data_get($operationEnvelopeCleanup, 'required_before_change'));
-        $this->assertSame('cleanup_queue_is_not_delete_permission', data_get($operationEnvelopeCleanup, 'claim_policy'));
-        $this->assertNotEmpty(data_get($operationEnvelopeCleanup, 'proof_commands'));
-        $this->assertContains('php artisan test --filter=OperationEnvelope', data_get($operationEnvelopeCleanup, 'focused_tests'));
-        $kernelEnvelopeRefs = collect(data_get($operationEnvelopeCleanup, 'exact_references'))
-            ->firstWhere('path', 'app/Services/Ai/Kernel/Envelope/OperationEnvelope.php');
-        $this->assertSame('App\\Services\\Ai\\Kernel\\Envelope\\OperationEnvelope', data_get($kernelEnvelopeRefs, 'fqcn'));
-        $this->assertGreaterThan(0, data_get($kernelEnvelopeRefs, 'reference_count'));
-        $this->assertSame('exact_fqcn_refs_are_stronger_than_short_name_reachability', data_get($kernelEnvelopeRefs, 'claim_policy'));
+        $this->assertNull(
+            collect($payload['code']['duplicate_class_cleanup_queue'])->firstWhere('short_name', 'operationenvelope'),
+            'Programming OperationEnvelope variants now use explicit real classes; only the Kernel keeps OperationEnvelope as the canonical envelope.'
+        );
+        $this->assertTrue(class_exists('App\\Services\\Ai\\Programming\\AtlasDev\\Schemas\\AtlasDevOperationEnvelope'));
+        $this->assertTrue(is_a(
+            'App\\Services\\Ai\\Programming\\AtlasDev\\Schemas\\OperationEnvelope',
+            'App\\Services\\Ai\\Programming\\AtlasDev\\Schemas\\AtlasDevOperationEnvelope',
+            true
+        ));
+        $this->assertTrue(class_exists('App\\Services\\Ai\\Programming\\Sdd\\Pipeline\\SddPipelineOperationEnvelope'));
+        $this->assertTrue(is_a(
+            'App\\Services\\Ai\\Programming\\Sdd\\Pipeline\\OperationEnvelope',
+            'App\\Services\\Ai\\Programming\\Sdd\\Pipeline\\SddPipelineOperationEnvelope',
+            true
+        ));
         $this->assertNull(
             collect($payload['code']['duplicate_class_cleanup_queue'])->firstWhere('short_name', 'frontmatterparser'),
             'Vault frontmatter parser was renamed to VaultNoteFrontmatterParser; old FrontmatterParser remains compatibility alias only.'
@@ -463,49 +466,14 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertGreaterThan(0, data_get($legacyAiConfusion, 'count'));
         $this->assertNotEmpty(collect(data_get($legacyAiConfusion, 'evidence_samples'))->pluck('subtype')->filter()->all());
         $this->assertContains('scaffold_status_or_literal', collect(data_get($legacyAiConfusion, 'evidence_samples'))->pluck('subtype')->all());
-        $operationEnvelopeAiConfusion = collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:duplicate_class:operationenvelope');
-        $this->assertSame('duplication_triage_queue', data_get($operationEnvelopeAiConfusion, 'source'));
-        $this->assertSame('all_three_known_paths_are_high_reachability', data_get($operationEnvelopeAiConfusion, 'current_evidence.reachability'));
-        $this->assertSame('app/Services/Ai/Kernel/Envelope/OperationEnvelope.php', data_get($operationEnvelopeAiConfusion, 'boundary_contract.primary_runtime'));
-        $this->assertSame('do_not_import_specialized_programming_envelope_as_kernel_contract_or_merge_without_adapter_plan', data_get($operationEnvelopeAiConfusion, 'boundary_contract.forbidden'));
-        $this->assertFalse(data_get($operationEnvelopeAiConfusion, 'cleanup_recommendation.delete_allowed'));
-        $this->assertContains('duplicate_class_name', collect($payload['triage_queue'])->pluck('kind')->all());
-        $operationEnvelope = collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:operationenvelope');
-        $this->assertSame('critical', $operationEnvelope['severity'] ?? null);
-        $this->assertSame('do_not_delete; prefer explicit naming or owner doc boundary before merge', data_get($operationEnvelope, 'current_evidence.cleanup_bias'));
-        $this->assertSame('app/Services/Ai/Kernel/Envelope/OperationEnvelope.php', data_get($operationEnvelope, 'boundary_contract.primary_runtime'));
-        $this->assertContains('docs/engineering-knowledge-base/kernel/contracts.md', data_get($operationEnvelope, 'boundary_contract.owner_docs'));
-        $this->assertSame('atlas.envelope.v1', data_get($operationEnvelope, 'boundary_contract.schema_versions.kernel'));
-        $this->assertSame('atlas.dev.operation_envelope.v1', data_get($operationEnvelope, 'boundary_contract.schema_versions.atlas_dev'));
-        $this->assertSame('local_pipeline_dto_without_kernel_schema', data_get($operationEnvelope, 'boundary_contract.schema_versions.sdd_pipeline'));
-        $this->assertContains('keep_kernel_operation_envelope_name_and_schema_stable', data_get($operationEnvelope, 'boundary_contract.cleanup_sequence'));
-        $this->assertSame('AtlasDevOperationEnvelope', data_get($operationEnvelope, 'boundary_contract.proposed_explicit_names.atlas_dev'));
-        $this->assertSame('SddPipelineOperationEnvelope', data_get($operationEnvelope, 'boundary_contract.proposed_explicit_names.sdd_pipeline'));
-        $this->assertContains('keep_app_and_tests_importing_programming_variants_through_explicit_aliases', data_get($operationEnvelope, 'boundary_contract.cleanup_sequence'));
-        $this->assertSame(0, data_get($operationEnvelope, 'boundary_contract.current_migration_state.app_and_tests_direct_programming_imports'));
-        $this->assertSame(48, data_get($operationEnvelope, 'boundary_contract.current_migration_state.atlas_dev_alias_imports'));
-        $this->assertSame(10, data_get($operationEnvelope, 'boundary_contract.current_migration_state.sdd_pipeline_alias_imports'));
-        $this->assertTrue(data_get($operationEnvelope, 'boundary_contract.current_migration_state.remaining_exact_refs_are_boundary_docs_or_compatibility_alias_files'));
-        $this->assertSame('app/Services/Ai/Programming/AtlasDev/Schemas/AtlasDevOperationEnvelope.php', data_get($operationEnvelope, 'boundary_contract.compatibility_aliases.atlas_dev'));
-        $this->assertSame('app/Services/Ai/Programming/Sdd/Pipeline/SddPipelineOperationEnvelope.php', data_get($operationEnvelope, 'boundary_contract.compatibility_aliases.sdd_pipeline'));
-        $this->assertTrue(class_exists('App\\Services\\Ai\\Programming\\AtlasDev\\Schemas\\AtlasDevOperationEnvelope'));
-        $this->assertTrue(is_a(
-            'App\\Services\\Ai\\Programming\\AtlasDev\\Schemas\\AtlasDevOperationEnvelope',
-            'App\\Services\\Ai\\Programming\\AtlasDev\\Schemas\\OperationEnvelope',
-            true
-        ));
-        $this->assertTrue(class_exists('App\\Services\\Ai\\Programming\\Sdd\\Pipeline\\SddPipelineOperationEnvelope'));
-        $this->assertTrue(is_a(
-            'App\\Services\\Ai\\Programming\\Sdd\\Pipeline\\SddPipelineOperationEnvelope',
-            'App\\Services\\Ai\\Programming\\Sdd\\Pipeline\\OperationEnvelope',
-            true
-        ));
-        $this->assertSame('requires_explicit_projection_not_shared_class_name', data_get($operationEnvelope, 'boundary_contract.adapter_boundary.atlas_dev_to_kernel'));
-        $this->assertContains('app/Services/Ai/Programming/Sdd/Pipeline/OperationEnvelope.php', data_get($operationEnvelope, 'boundary_contract.specialized_variants'));
-        $this->assertSame('do_not_import_specialized_programming_envelope_as_kernel_contract_or_merge_without_adapter_plan', data_get($operationEnvelope, 'boundary_contract.forbidden'));
-        $this->assertSame(1, data_get($operationEnvelope, 'cleanup_recommendation.priority'));
-        $this->assertFalse(data_get($operationEnvelope, 'cleanup_recommendation.delete_allowed'));
-        $this->assertSame('programming_variants_only', data_get($operationEnvelope, 'cleanup_recommendation.rename_candidate'));
+        $this->assertNull(
+            collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:duplicate_class:operationenvelope'),
+            'Resolved OperationEnvelope duplicate should not remain in AI confusion cleanup.'
+        );
+        $this->assertNull(
+            collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:operationenvelope'),
+            'Resolved OperationEnvelope duplicate should not remain in duplicate triage.'
+        );
         $this->assertNull(collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:frontmatterparser'));
         $this->assertTrue(class_exists('App\\Services\\Semantic\\CanonicalDocsFrontmatterParser'));
         $this->assertTrue(is_a(

@@ -13,7 +13,7 @@ class AtlasFrontendDesignDossierCommand extends Command
         {--json : Emit canonical JSON payload}
         {--strict : Exit non-zero unless dossier is ready}';
 
-    protected $description = 'Inspect or scaffold the company-owned local repo design dossier required by Atlas Frontend.';
+    protected $description = 'Inspect or write the company-owned local repo design dossier required by Atlas Frontend.';
 
     public function handle(AtlasFrontendDesignDossierService $dossier): int
     {

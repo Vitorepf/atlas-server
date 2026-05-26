@@ -1422,13 +1422,33 @@ final class AtlasCodeRealityUsageIntelligenceService
         $sourceType = (string) ($signal['source_type'] ?? 'unknown');
         $excerpt = strtolower((string) ($signal['excerpt'] ?? ''));
 
-        if ($sourceType === 'string_literal' && preg_match('/(^[\'"]deprecated[\'"],?$|status|statuses|maturity|rule::in|--status|status_deprecated|tool_status)/', $excerpt)) {
+        if ($sourceType === 'string_literal' && preg_match('/(^[\'"]deprecated[\'"],?$|status|statuses|maturity|rule::in|--status|onboarding-status|scaffold_domains|planned_scaffold|executed_scaffold|attempted_scaffold|repair_scaffold|status_deprecated|tool_status)/', $excerpt)) {
             return [
                 'bucket' => 'status_taxonomy_value',
                 'subtype' => 'status_or_filter_value',
                 'cleanup_pressure' => 'none',
                 'ia_confusion_risk' => 'medium',
                 'safe_interpretation' => 'allowed_status_or_filter_value_not_dead_code',
+            ];
+        }
+
+        if ($sourceType === 'code' && preg_match('/^\{--[a-z0-9-]+(?:=|\s|:)/i', $excerpt)) {
+            return [
+                'bucket' => 'status_taxonomy_value',
+                'subtype' => 'cli_filter_or_compatibility_option',
+                'cleanup_pressure' => 'none',
+                'ia_confusion_risk' => 'medium',
+                'safe_interpretation' => 'cli_option_contract_value_not_dead_code',
+            ];
+        }
+
+        if ($type === 'legacy' && $sourceType === 'code' && preg_match('/fromlegacy|\$legacy|legacy:/', $excerpt)) {
+            return [
+                'bucket' => 'compatibility_adapter_code',
+                'subtype' => 'legacy_input_adapter',
+                'cleanup_pressure' => 'review',
+                'ia_confusion_risk' => 'medium',
+                'safe_interpretation' => 'legacy_adapter_may_be_intentional_until_external_callers_are_migrated',
             ];
         }
 

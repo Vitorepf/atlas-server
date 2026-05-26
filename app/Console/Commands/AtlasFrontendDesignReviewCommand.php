@@ -13,7 +13,7 @@ class AtlasFrontendDesignReviewCommand extends Command
         {--output= : Output directory for template action}
         {--json : Emit canonical JSON payload}';
 
-    protected $description = 'Inspect or scaffold Atlas Frontend 5D design review reports.';
+    protected $description = 'Inspect Atlas Frontend 5D design review reports or write governed templates.';
 
     public function handle(AtlasFrontendDesignReviewService $review): int
     {

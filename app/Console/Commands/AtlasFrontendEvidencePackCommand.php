@@ -14,7 +14,7 @@ class AtlasFrontendEvidencePackCommand extends Command
         {--output= : Output directory for template action}
         {--json : Emit canonical JSON payload}';
 
-    protected $description = 'Verify or scaffold Atlas Frontend evidence packs.';
+    protected $description = 'Verify Atlas Frontend evidence packs or write governed templates.';
 
     public function handle(AtlasFrontendEvidencePackVerifierService $verifier): int
     {

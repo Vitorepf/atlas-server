@@ -114,8 +114,10 @@ Atualizar este recorte quando a parte correspondente mudar e rodar docs-health.
 
 Entrada normalizada do intake. Toda execucao comeca aqui.
 
-Boundary anti-duplicacao: este `OperationEnvelope` e o DTO local do Atlas Dev
-e carrega `schema_version: atlas.dev.operation_envelope.v1`. Ele nao e
+Boundary anti-duplicacao: `AtlasDevOperationEnvelope` e a classe real do DTO
+local do Atlas Dev e carrega `schema_version:
+atlas.dev.operation_envelope.v1`. O FQCN curto antigo `OperationEnvelope`
+existe apenas como alias compat. Ele nao e
 `App\Services\Ai\Kernel\Envelope\OperationEnvelope` (`atlas.envelope.v1`) e nao
 deve ser importado como contrato Kernel. Ponte entre Atlas Dev e Kernel exige
 adapter explicito e teste de contrato.
@@ -269,7 +271,7 @@ envelope_hash: "deadbeef..."
 ```php
 namespace App\Services\Ai\Programming\AtlasDev\Schemas;
 
-final class OperationEnvelope
+final class AtlasDevOperationEnvelope
 {
     public function __construct(
         public readonly string $runId,
