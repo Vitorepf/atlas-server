@@ -5,7 +5,7 @@ title: Atlas Agent Control Plane - Agent Runtime Registry v1
 status: active
 category: architecture
 priority: 93
-summary: Persistent local Agent Control Plane layer that represents registered agents, capabilities, heartbeats, availability, task matching, load balancing, quarantine and handoff. Dry-run posture only; never dispatches, never calls providers, never spends tokens.
+summary: Persistent local Agent Control Plane layer that represents registered agents, capabilities, heartbeats, availability, task matching, load balancing, quarantine and handoff. Advisory posture only; this layer never dispatches, never calls providers and never spends tokens.
 tags:
   - atlas-ai
   - self-construction
@@ -27,9 +27,9 @@ capabilities:
   - registry_certification
 decisions:
   - Agent Runtime Registry is a submodule of the Agent Control Plane, not a replacement for Self-Programming OS.
-  - The first implementation is a persistent-local projection over a small storage prefix; provider dispatch remains disabled.
+  - Runtime boundary is a persistent-local projection over the canonical storage prefix; provider dispatch remains disabled.
   - Quarantine blocks availability; release requires reviewer + reason.
-  - Handoff is planned only; handoff_execution_allowed is always false in this stage.
+  - Handoff is advisory only; handoff_execution_allowed is always false in this layer.
   - Certification gates promotion of registry components; no promotion without green invariants.
 maintenance:
   - Update when a new capability, status, kind, policy or invariant is added.
@@ -86,6 +86,7 @@ evidence:
   - docs/engineering-knowledge-base/self-construction/agent-runtime-registry-v1.md
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan test tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryRepositoryTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryCapabilityCatalogTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryHeartbeatRepositoryTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryAvailabilityPlannerTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryTaskMatcherTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryLoadBalancingPolicyTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryQuarantineRepositoryTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryHandoffProtocolBuilderTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryOrchestratorTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryCertificationServiceTest.php"
 requires_evidence: true
 risk_level: high
 visual_tags:
@@ -111,9 +112,9 @@ next_actions:
 
 The Agent Runtime Registry is the persistent-local Agent Control Plane
 layer that represents which agents exist, what they can do, whether
-they are alive, whether they can take a packet, which packet they would
-get, in what order, whether they are quarantined and how a handoff
-between two of them would look.
+they are alive, whether they can take a packet, which packet is the
+best advisory match, in what order candidates rank, whether they are
+quarantined and how a handoff envelope is shaped.
 
 It is a sibling of, not a replacement for, the canonical
 `agent-control-plane-contract.md`. It does not dispatch. It does not
@@ -293,8 +294,8 @@ they are local audit only.
 ## 10. Handoff planning
 
 `HandoffProtocolBuilder::build(fromAgent, toAgent, taskPacket, options)`
-returns a handoff plan. `handoff_execution_allowed` is always false in
-this stage.
+returns a handoff envelope. `handoff_execution_allowed` is always false
+in this layer.
 
 Blockers include:
 - `from_agent_id_missing`, `to_agent_id_missing`,
@@ -351,7 +352,7 @@ Invariants include:
   `no_self_programming`.
 
 The certification surface is the only gate that produces "ready"
-verdicts for promotion out of this stage.
+verdicts for consumers that depend on this registry boundary.
 
 ## 13. Relation to Task Queue and Claim/Lease
 
@@ -368,8 +369,9 @@ The Agent Runtime Registry exposes `planAssignment()` and
 `planHandoff()` outputs that those layers may consume to choose an
 agent. It does not call them and it does not own their state.
 
-Integration is staged and slice-by-slice. This sprint does not bundle
-the Task Queue or Claim/Lease into the registry.
+Integration with Task Queue and Claim/Lease is intentionally separate.
+This registry does not bundle packet storage, reservation ledger or lease
+simulation into the agent registry boundary.
 
 ## 14. Assignment plan vs real dispatch
 
@@ -380,7 +382,7 @@ This is the most important distinction.
   warnings, and stamps a stable hash. It is read-only.
 - A real dispatch creates state in the durable reservation ledger,
   consumes the agent's capacity, starts the agent's runtime path and
-  may eventually consume tokens. It does not exist in this stage.
+  may eventually consume tokens. That behavior is outside this layer.
 
 Any consumer that treats an assignment plan as a dispatch is wrong.
 
@@ -416,9 +418,8 @@ This layer does not:
 - enable self-programming;
 - declare Atlas Self-Construction OS complete.
 
-If any of these would be required to satisfy a consumer's request,
-the consumer must open a separate slice with its own decision
-receipt.
+If a consumer requires any of these behaviors, that consumer must open a
+separate owner slice with its own decision receipt.
 
 ## 17. How to extend safely
 
@@ -455,8 +456,8 @@ nunca dispatches.
 ## Papel no Atlas
 
 Submodulo do Agent Control Plane. Representa agentes e disponibilidade
-para que o Task Queue/Claim-Lease possa, em fase posterior, criar
-dispatches reais sob gates.
+para que Task Queue/Claim-Lease ou outro consumidor com owner proprio
+possa decidir dispatch real sob gates separados.
 
 ## Onde Se Encaixa
 
@@ -494,7 +495,7 @@ Safety Contract, Self-Construction OS law.
 ## Evidencias
 
 Receipts locais com sha256 stable hash, certification batch verde,
-docs-health verde, 165 tests / 545 assertions verdes neste sprint.
+docs-health verde e testes AgentRuntimeRegistry verdes.
 
 ## Riscos
 
@@ -510,5 +511,5 @@ fresh, `planAssignment()` para uma task `dry_run_only=true`, recebe
 ## Proximas Acoes
 
 Manter sincronia com Task Queue/Claim-Lease/Workspace + Work Product
-Manifest sob slices independentes; promover apenas via Runtime Pilot
+Manifest sob owners independentes; promover consumidores apenas com
 Certification verde.

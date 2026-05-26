@@ -44,6 +44,9 @@ governs: [cross_domain_bridge_requests, arptl_veto_decisions, mesh_topology]
 evidence:
   - docs/engineering-knowledge-base/atlas-cross-domain-mesh-arptl.md
   - app/Services/Ai/CrossDomain/AtlasCrossDomainMeshService.php
+  - app/Console/Commands/AtlasCrossDomainBridgeCommand.php
+  - app/Console/Commands/AtlasCrossDomainTopologyCommand.php
+  - app/Console/Commands/AtlasCrossDomainListDecisionsCommand.php
   - tests/Unit/Ai/CrossDomain/AtlasCrossDomainMeshServiceTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
@@ -73,15 +76,14 @@ line_limit: 520
 
 ## 1. Why this exists
 
-Atlas covers 15 professional domains. Today each domain is a silo. Cyber
-intel doesn't inform trading; marketing decisions don't borrow from
-engineering's failure replay. The operator pays the cost of mental context
-switching.
+Atlas covers 15 professional domains. This runtime governs when one domain
+may reference memory or context from another domain without turning private,
+secret or cyber material into leakage.
 
-This subsystem creates a **mesh** between domains, with **ARPTL** (Retrieval
-Privacy Trust Layer) as **border control**. Memory and context cross
-domain boundaries **only when ARPTL approves the crossing for that
-privacy class**. Sensitive / secret / cyber data **never** leaks.
+The subsystem is implemented as a **mesh** between domains, with **ARPTL**
+(Retrieval Privacy Trust Layer) as **border control**. Memory and context cross
+domain boundaries **only when ARPTL approves the crossing for that privacy
+class**. Sensitive, secret and cyber data keep deterministic veto paths.
 
 ## 2. The 15 canonical domains
 
@@ -226,11 +228,13 @@ php artisan atlas:cross-domain:list-decisions --json
  AtlasCrossDomainMeshService::class, 'ready', 'ready']
 ```
 
-## 13. Future evolution
+## 13. Governed Backlog
+
+These items are not active behavior until code, tests and owner decision land:
 
 - **Per-edge cooldowns** — bridge same scope at most N times/day.
-- **Capability negotiation** — receiver advertises what privacy classes it
-  can hold; sender adapts.
+- **Capability negotiation** — receiver advertises what privacy classes it can
+  hold; sender adapts.
 - **Cross-domain delta propagation** — when memory M is bridged, downstream
   changes that depend on M get auto-propagated under ARPTL.
 

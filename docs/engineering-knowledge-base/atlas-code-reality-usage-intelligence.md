@@ -97,10 +97,14 @@ governs:
   - programming-domain
 evidence:
   - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
+  - app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php
+  - app/Console/Commands/AtlasCodeRealityCommand.php
+  - tests/Feature/Engineering/AtlasCodeRealityUsageIntelligenceServiceTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:docs-authority-audit --json"
   - "php artisan atlas:ai:architecture-validate --json"
+  - "php artisan test tests/Feature/Engineering/AtlasCodeRealityUsageIntelligenceServiceTest.php"
 requires_evidence: true
 risk_level: high
 visual_tags:
@@ -111,6 +115,7 @@ ai_entrypoints:
   - Leia Resumo, Contratos, Regras para IA, Classificacao Operacional, Evidencias e Riscos antes de implementar ou apagar codigo.
 ai_usage_notes:
   - ACRUI classifica realidade operacional; nao executa provider, nao roda benchmark e nao deleta arquivos.
+  - Termos como active_runtime, parked_scaffold, legacy_adapter, future e planned sao vocabulario classificador deste runtime quando aparecem nas tabelas/regras ACRUI; nao significam status futuro deste documento.
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:docs-authority-audit --json"
@@ -125,8 +130,7 @@ observability_signals:
   - architecture-validate status
   - code-intelligence index freshness
 next_actions:
-  - Evoluir ACRUI de service read-only para reachability graph integrado com Code Intelligence, Static Scanner, docs-authority e Feature Placement.
-  - Integrar ACRUI como fonte de realidade operacional para ASTR e AVEOR sem autorizar delecao automatica.
+  - Reduzir filas emitidas por ACRUI sem autorizar delecao automatica.
 ---
 # Atlas Code Reality & Usage Intelligence
 ## Resumo
@@ -142,9 +146,7 @@ headless, legado, duplicado, incompleto ou morto?
 ```
 A resposta precisa vir com evidencia, nao com leitura subjetiva.
 ## Papel no Atlas
-ACRUI e infraestrutura de verdade operacional para Atlas Dev, Forge, Atlas AI,
-Code Intelligence, docs-authority, SelfConstruction, APCR, AEMOR, ASEIF, ASRE,
-AREG e futuras IAs externas.
+ACRUI e infraestrutura de verdade operacional para Atlas Dev, Forge, Atlas AI, Code Intelligence, docs-authority, SelfConstruction, APCR, AEMOR, ASEIF, ASRE e AREG.
 Ele nao e uma nova feature isolada. Ele e o gate que impede bagunca
 arquitetural:
 - duplicacao de flows;
@@ -171,7 +173,6 @@ existentes:
 | implemented-vs-scaffold matrix | vocabulario e snapshot diagnostico |
 | Evidence Ledger / traces | uso real quando disponivel |
 | Tests / routes / commands | prova mecanica de reachability |
-ACRUI agrega essas fontes e produz um veredito por alvo.
 ## Contratos
 Nome obrigatorio:
 | Campo | Valor |
@@ -238,8 +239,12 @@ ACRUI nunca deleta. Ele produz plano e blockers.
 9. Sempre preserve paths de rollback e evidence antes de quarantine.
 10. Sempre prefira reusar sistema existente a criar runtime paralelo.
 ## Escopo de Implementacao
+Esta secao descreve capabilities atuais e vocabulario operacional do ACRUI:
+`planned`, `future`, `scaffold`, `legacy` e `active` classificam alvo auditado;
+nao declaram que esta doc esta planejada ou que o runtime ACRUI e futuro.
+
 ### Bloco 1 - Code Usage Graph
-Cria grafo de simbolos:
+Mantem grafo de simbolos:
 - classes;
 - traits;
 - interfaces;
@@ -408,7 +413,7 @@ Todo handoff para outra IA deve incluir:
 - `known_drifts`;
 - `allowed_write_scope`.
 ### Bloco 14 - Architecture Debt Register
-Cria registro read-only de dividas:
+Emite registro read-only de dividas:
 - duplicacao real;
 - doc stale;
 - scaffold esquecido;
@@ -508,11 +513,7 @@ parked/scaffold. O status correto pode ser:
 }
 ```
 ## Proximas Acoes
-1. Expandir reachability para consumir Code Intelligence indexado quando `index-code` estiver corrigido.
-2. Manter comando `atlas:code-reality` como gate provider-safe antes de implementacoes novas.
-3. Adicionar testes com fixtures para YouTube, Voice, DCM e adapter legado.
-4. Manter resumo ACRUI integrado em `session-bootstrap` e `feature-placement`.
-5. Adicionar operation ao Architecture Operations catalog.
-6. Criar context-pack provider-safe para Claude/Codex/Gemini.
-7. Alimentar ASTR com classificacao `active_runtime`, `headless_available`, `parked_scaffold`, `legacy_adapter`, `duplicate_candidate` e quarantine state.
-8. Rodar docs-health, docs-authority-audit e architecture-validate.
+1. Continuar triagem das filas reais emitidas por `global-duplication-audit` e `status-drift-audit`.
+2. Manter `atlas:code-reality` como gate provider-safe antes de implementacoes, delecoes e claims de limpeza.
+3. Ampliar fixtures apenas quando uma fila real exigir nova classificacao ou novo boundary.
+4. Rodar docs-health, docs-authority-audit, architecture-validate e teste ACRUI antes de declarar a area limpa.

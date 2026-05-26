@@ -5,29 +5,29 @@ title: Atlas Dev -> Forge Escalation Consolidation Plan
 status: active
 category: programming
 priority: 90
-summary: Plano cirurgico (planning-only, ZERO codigo) para consolidar os 4+ mecanismos paralelos de escalacao Atlas Dev -> Atlas Forge em um unico path canonico ancorado nos contratos `atlas.dual_core.route_decision.v1` e `atlas.dev_to_forge.escalation_packet.v1`. Preserva identidade dual-core (Dev != Forge mini, Forge != gerente do Dev), proibe fusao de runtimes e define ordem segura de migracao com adapters temporarios e gates de seguranca para nao quebrar producao.
+summary: Registro operacional de consolidacao Atlas Dev -> Atlas Forge. Documenta mecanismos existentes, adapters entregues, pendencias de Router/Forge intake e caminho canonico ancorado em `atlas.dual_core.route_decision.v1` e `atlas.dev_to_forge.escalation_packet.v1`, preservando Dev e Forge como runtimes independentes.
 tags:
   - atlas-dev
   - atlas-forge
   - dual-core
   - escalation
-  - consolidation-plan
+  - consolidation
   - programming
-  - planning-only
+  - operational-record
 capabilities:
-  - escalation_mechanism_consolidation_plan
+  - escalation_mechanism_consolidation
   - dual_core_contract_alignment
   - migration_order_with_adapters
   - regression_risk_inventory
 decisions:
-  - Plano e planning-only. NENHUM codigo, schema, migration ou contrato e tocado por este doc.
+  - Este doc e registro operacional/coordination record; codigo e schemas vivem nos services e testes relacionados.
   - Os 4 mecanismos paralelos identificados convergem para um path unico: Router -> route_decision.v1 -> Dev/Forge -> escalation_packet.v1 (quando aplicavel) -> Forge intake.
-  - Outros agentes podem estar implementando route_decision.v1 e escalation_packet.v1 em paralelo; este plano NAO emite nem altera classes desses contratos.
+  - route_decision.v1 e escalation_packet.v1 sao contratos de codigo relacionados; este doc nao redefine seus shapes.
   - Identidade dual-core preservada: Dev e Forge continuam runtimes independentes; o contrato e o linker auditavel entre eles.
   - Migracao por adapter-first: cada mecanismo legado vira emissor do packet canonico antes de qualquer remocao.
   - Forge nao depende do Dev. Path Forge direto (`/works/{project}/forge/*`) continua valido; ele apenas passa a emitir um `route_decision.v1` proprio antes do dispatch para auditabilidade simetrica.
 maintenance:
-  - Atualizar quando schemas dual-core forem materializados em codigo.
+  - Atualizar quando schemas dual-core, adapters ou Router wire-up mudarem em codigo.
   - Atualizar quando qualquer um dos 4 mecanismos for migrado para emitir packet v1.
   - Atualizar quando feature flag `atlas_dev_efficient_plan_enabled` for promovido em producao.
 related_paths:
@@ -66,7 +66,7 @@ allowed_changes:
   - Refinar ordem de migracao se outros agentes alterarem contratos dual-core canonicos.
   - Adicionar novos mecanismos paralelos descobertos posteriormente.
 forbidden_changes:
-  - Implementar codigo/migration/contrato a partir deste doc.
+  - Implementar codigo/migration/contrato sem confirmar os related_paths e testes de runtime.
   - Editar contratos `atlas.dual_core.route_decision.v1` / `atlas.dev_to_forge.escalation_packet.v1`.
   - Declarar Dev como feature do Forge ou Forge como gerente do Dev.
   - Remover mecanismo legado antes de adapter intermediario emitir packet v1 com paridade.
@@ -88,12 +88,13 @@ evidence:
   - app/Services/AtlasCode/DevToForgePromotionService.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan test tests/Unit/Ai/Programming/AtlasDev/Escalation/EscalationDecisionEngineTest.php tests/Unit/Ai/Programming/AtlasDev/Schemas/Receipt/EscalationPacketTest.php tests/Feature/Ai/Programming/DualCore/DevToForgeCanonicalPathTest.php"
 requires_evidence: true
 risk_level: high
 ai_entrypoints:
-  - Leia Mecanismos Encontrados, Path Unico Recomendado e Ordem de Migracao antes de propor codigo.
+  - Leia Mecanismos Encontrados, Path Unico Recomendado e Ordem de Migracao antes de alterar codigo.
 ai_usage_notes:
-  - Plano e planning-only; nao implementar. Outros agentes podem estar criando os schemas canonicos em paralelo.
+  - Este doc orienta a migracao; antes de alterar runtime, confirme reachability, testes e contrato canonico em codigo.
 quality_gates:
   - all-parallel-mechanisms-listed
   - canonical-path-defined
@@ -101,9 +102,9 @@ quality_gates:
   - regression-risks-listed
   - test-matrix-defined
 failure_modes:
-  - Consolidar prematuramente antes dos schemas canonicos existirem.
+  - Consolidar prematuramente antes de verificar schemas canonicos e testes.
   - Remover mecanismo legado em uso por producao sem adapter intermediario.
-  - Tratar este plano como source-of-truth canonico (ele e plano, nao contrato).
+  - Tratar este registro como source-of-truth dos schemas; contratos de codigo e testes governam runtime.
 observability_signals:
   - count_parallel_mechanisms_emitting_packet_v1
   - count_route_decision_v1_persisted_per_day
@@ -111,7 +112,7 @@ observability_signals:
 next_actions:
   - Fase 1 entregue 2026-05-18 (3/4 mecanismos dual-emit). Iniciar Fase 2 quando Router wire-up estiver pronto.
   - Aguardar Router emitir `route_decision.v1` antes de Mechanism 4 (Forge HTTP direto).
-  - Manter este plano sincronizado com mudancas reais nos 4 mecanismos.
+  - Manter este registro sincronizado com mudancas reais nos 4 mecanismos.
 line_limit: 520
 ---
 # Atlas Dev -> Forge Escalation Consolidation Plan
@@ -120,13 +121,14 @@ line_limit: 520
 
 Auditoria critica (`atlas-dev-forge-relationship-critical-audit.md`) constatou
 que Atlas Dev e Atlas Forge existem como sistemas tecnicos completos e
-independentes, mas a relacao entre eles esta fragmentada em **5 mecanismos
-paralelos com schemas incompativeis**, e os 2 contratos canonicos que
-deveriam governar essa relacao (`atlas.dual_core.route_decision.v1`,
-`atlas.dev_to_forge.escalation_packet.v1`) **nao existem em codigo**
-(0 matches em `app/`, verificado 2026-05-18).
+independentes, mas a relacao entre eles nasceu fragmentada em mecanismos
+paralelos com schemas divergentes. Desde 2026-05-18, os contratos canonicos
+`atlas.dual_core.route_decision.v1` e
+`atlas.dev_to_forge.escalation_packet.v1` existem em codigo, migrations e
+testes relacionados; este documento registra a consolidacao e separa o que ja
+esta entregue do que ainda depende de Router/Forge intake.
 
-Este plano e estritamente **planning-only**. Ele:
+Este registro operacional:
 
 1. Lista cada mecanismo paralelo com arquivo, classe, schema, caller,
    evidence, estado e risco.
@@ -136,17 +138,17 @@ Este plano e estritamente **planning-only**. Ele:
    identidade dual-core e evita fusao incorreta.
 4. Define ordem de migracao com **adapters intermediarios** para que
    producao nunca quebre durante a transicao.
-5. Inventaria riscos, arquivos a tocar na implementacao futura, e testes
+5. Inventaria riscos, arquivos a tocar nas fases restantes, e testes
    obrigatorios.
 
-NAO altera codigo, nao toca contratos canonicos, nao edita os schemas que
-outros agentes podem estar criando em paralelo.
+NAO altera codigo por si so, nao redefine contratos canonicos e nao autoriza
+remocao de mecanismos sem reachability, owner tests e quiescencia.
 
 ## Papel no Atlas
 
-Plano operacional entre o audit critico (READ-ONLY) e a futura implementacao
-dos schemas dual-core. Serve como contrato de coordenacao para Claudes que
-trabalharem em paralelo nesta area.
+Registro operacional entre o audit critico (READ-ONLY), os schemas dual-core
+ja materializados e as fases restantes de Router/Forge intake. Serve como
+contrato de coordenacao para agentes que trabalharem em paralelo nesta area.
 
 ## Onde Se Encaixa
 
@@ -154,32 +156,32 @@ trabalharem em paralelo nesta area.
 atlas-dev-forge-relationship-critical-audit.md  (READ-ONLY veredict)
    |
    v
-atlas-dev-forge-escalation-consolidation-plan.md  (THIS DOC, planning)
+atlas-dev-forge-escalation-consolidation-plan.md  (THIS DOC, operational record)
    |
    v
-[FUTURE] dual-core schemas implementation (other agents)
+dual-core schemas/adapters in code
    |
    v
-[FUTURE] Phase 1..4 migration per this plan
+remaining Router/Forge intake rollout phases
 ```
 
 ## Mecanismos Encontrados
 
 Mapeamento confirmado 2026-05-18 via `grep` em `app/` + `tests/` + `routes/`.
 
-### Mechanism 0 — Canonical schemas (documented, not coded)
+### Mechanism 0 — Canonical schemas (documented, code-backed by adapters)
 
 | Campo | Estado |
 |---|---|
 | **Source** | `atlas-dual-core-engineering-system.md:247-258` e `:279-301` |
 | **Schemas** | `atlas.dual_core.route_decision.v1`, `atlas.dev_to_forge.escalation_packet.v1` |
-| **Classe** | nao existe (`grep "dual_core.route_decision\|escalation_packet" app/` -> 0 matches) |
-| **Tabela** | nao existe |
-| **Teste** | nao existe |
-| **Caller** | nenhum (doc-only) |
-| **Status** | **target/canonical** — outros agentes podem estar implementando agora |
+| **Classe** | Adapters e factories relacionados vivem nos related paths; confirme shape atual via testes antes de alterar |
+| **Tabela** | pode existir por ambiente; adapters toleram ausencia de DB e reportam `recorded=false` |
+| **Teste** | coberto por testes DualCore/DevToForge/Escalation listados neste doc |
+| **Caller** | adapters Dev/Forge e HTTP promotion path |
+| **Status** | **target/canonical em rollout** — 3/4 mecanismos ja dual-emitem |
 
-Este NAO e um mecanismo paralelo: e o destino para onde os outros 4 convergem.
+Este NAO e um mecanismo paralelo: e o destino para onde os outros mecanismos convergem.
 
 ### Mechanism 1 — EscalationDecisionEngine + ForgePromotionPreviewBuilder
 
@@ -306,9 +308,10 @@ Invariantes preservados:
 
 ## Ordem de Migracao
 
-Pre-requisito (P0, FORA do escopo deste plano, outros agentes):
-**Schemas canonicos materializados como classes + tabela + teste smoke.**
-Sem isso, qualquer adapter abaixo emite payload incompleto.
+Pre-requisito P0 entregue:
+**Schemas canonicos materializados como classes, migration/tabela quando
+disponivel no ambiente e testes smoke.** Adapters toleram ausencia local de DB
+e reportam `recorded=false` sem perder o packet canonico.
 
 ### Fase 1 — Adapters paralelos (zero quebra, dual-emit) — **ENTREGUE 2026-05-18**
 
@@ -328,7 +331,7 @@ Tests adicionados:
 
 - `tests/Feature/Ai/Programming/DualCore/DevToForgeCanonicalPathTest.php` (5 tests, kernel adapter)
 - `tests/Feature/AtlasCode/AtlasCodeDevToForgeCanonicalEmissionTest.php` (3 tests, HTTP)
-- `tests/Feature/Ai/Programming/DualCore/AtlasCanonicalRuntimeE2ETest.php` (5 tests, E2E canonico cobrindo Intent -> RouterDecision -> FlowRoute -> Dispatch -> route_decision.v1 -> Adapter -> Mission/WorkOrder -> Evidence -> Certification + caso `dev_to_forge` com escalation_packet.v1 + caso blocked + guard HTTP-Kernel ADR ainda planned)
+- `tests/Feature/Ai/Programming/DualCore/AtlasCanonicalRuntimeE2ETest.php` (5 tests, E2E canonico cobrindo Intent -> RouterDecision -> FlowRoute -> Dispatch -> route_decision.v1 -> Adapter -> Mission/WorkOrder -> Evidence -> Certification + caso `dev_to_forge` com escalation_packet.v1 + caso blocked + guard HTTP-Kernel ADR ainda pendente)
 
 Tolerancia: se `ai_dual_core_route_decisions` nao existir, o adapter retorna
 `route_decision_v1.recorded=false` com detail auditavel; packet v1 continua
@@ -337,12 +340,12 @@ sendo emitido (independe de DB).
 Saida da Fase 1: 3/4 mecanismos emitem packet v1 + route_decision.v1. Mechanism 4
 (Forge HTTP direto) fica para Fase 2 (Router wire-up). **Zero remocao.**
 
-### Fase 2 — Wire-up canonico + paridade
+### Fase 2 — Wire-up canonico + paridade restante
 
-Quando packet v1 ja flui dos 4 lados:
+Quando packet v1 fluir dos quatro lados:
 
 5. **Router canonico** comeca a emitir `route_decision.v1` ANTES dos 4 paths atuais. Hoje nenhum dos 4 paths HTTP/CLI passa por `RouterRuntime/FlowRouterService` — Fase 2 conecta UI ao Router para o caso novo `dev_to_forge`.
-6. **Forge intake centralizado**: criar `ForgeEscalationIntakeService` que aceita `escalation_packet.v1` (independente da origem). Existing Forge services nao mudam; o intake e camada de entrada que normaliza e despacha.
+6. **Forge intake centralizado**: criar ou apontar o owner real que aceita `escalation_packet.v1` independente da origem. Existing Forge services nao mudam; o intake e camada de entrada que normaliza e despacha.
 7. **Teste E2E canonico** `tests/Feature/Ai/Programming/DualCore/DevToForgeCanonicalPathTest.php`: opera prompt -> Router -> route_decision -> Dev -> escalation -> Forge intake -> assert packet v1 persistido + Forge response.
 8. **Adapter audit**: comparar payload v1 produzido por cada mecanismo com payload "canonico esperado" (gerado a partir do mesmo input). Divergencia vira blocker.
 
@@ -379,30 +382,30 @@ Quando todos os callers reais migraram:
 | Mechanism 5 (heuristica `shouldEscalateToForge`) divergente do Mechanism 1 scorer | medium | Fase 3 consolida ou mantem como fallback explicito. Nao bloqueante para Fases 1-2. |
 | Deprecar legacy schema antes que todos os consumidores frontend tenham migrado | high | Fase 3 e soft (warning only). Fase 4 requer instrumentacao de zero emissoes legacy por 2 semanas. |
 
-## Arquivos Que Devem Ser Alterados Na Proxima Implementacao
+## Arquivos de Runtime e Pendencias
 
-**Fase 1 (adicionar dual-emit, nao remover):**
+**Fase 1 entregue/relacionada (dual-emit, nao remover):**
 
-- `app/Services/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilder.php` — adicionar `toEscalationPacketV1()`.
-- `app/Services/Ai/Programming/AtlasDev/Escalation/EscalationDecisionEngine.php` — chamar `toEscalationPacketV1()` quando classe canonica disponivel.
-- `app/Services/AtlasCode/DevToForgePromotionService.php` — emitir packet v1 dentro de `promote()` quando target=`forge_obra`.
-- `app/Services/Ai/Programming/Kernel/AtlasForgeHandoffAdapter.php` — emitir packet v1 ao lado de `AiDomainHandoff`.
+- `app/Services/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilder.php` — mantem preview e integra packet v1 quando aplicavel.
+- `app/Services/Ai/Programming/AtlasDev/Escalation/EscalationDecisionEngine.php` — runtime de decisao reachable/high.
+- `app/Services/AtlasCode/DevToForgePromotionService.php` — emite promocao HTTP e packet v1 quando target=`forge_obra`.
+- `app/Services/Ai/Programming/Kernel/AtlasForgeHandoffAdapter.php` — emite packet v1 ao lado de `AiDomainHandoff`.
 - `app/Services/Ai/Programming/Kernel/ProgrammingDomainKernelCanon.php` — opcional: alias `shouldEscalateToForge` -> `EscalationSignalScorer` para reduzir divergencia heuristica.
 - `app/Http/Controllers/AtlasCodeDevToForgePromotionController.php` — NAO mexer no contrato HTTP; apenas garantir que controller propaga `packet_v1_emitted: bool` em logs.
 
-**Fase 2 (Router + Forge intake):**
+**Fase 2 pendente (Router + Forge intake):**
 
-- (futuro) `app/Services/Ai/RouterRuntime/...RouteDecisionEmitterService` — emite `route_decision.v1` antes do dispatch. Outros agentes podem ja estar criando.
-- (futuro) `app/Services/Ai/Programming/AtlasForge/ForgeEscalationIntakeService` — entrada normalizada (independente da origem). Nome sugerido, nao prescritivo.
+- `app/Services/Ai/RouterRuntime/...RouteDecisionEmitterService` ou owner equivalente — emite `route_decision.v1` antes do dispatch.
+- `app/Services/Ai/Programming/AtlasForge/ForgeEscalationIntakeService` ou owner equivalente — entrada normalizada independente da origem.
 - `tests/Feature/Ai/Programming/DualCore/DevToForgeCanonicalPathTest.php` — novo.
 
 **Fase 3-4 (deprecation + remocao):**
 
 - Mesmos arquivos acima, mais documentacao de migracao em `atlas-dual-core-engineering-system.md` (apos schemas existirem).
 
-## Testes Obrigatorios Para A Proxima Fase
+## Testes Obrigatorios Para Mudancas Futuras
 
-Quando schemas canonicos existirem e Fase 1 comecar, sao **bloqueantes**:
+Para mudar qualquer runtime relacionado, estes testes/contratos sao **bloqueantes** conforme o escopo tocado:
 
 1. `RouteDecisionV1ContractTest` — schema da classe canonica casa com `atlas-dual-core-engineering-system.md:247-258`.
 2. `EscalationPacketV1ContractTest` — schema casa com `:279-301`.
@@ -417,46 +420,45 @@ Quando schemas canonicos existirem e Fase 1 comecar, sao **bloqueantes**:
 
 ## Contratos
 
-Este plano consome (nao define) os contratos canonicos:
+Este registro consome (nao define) os contratos canonicos:
 
 - `atlas.dual_core.route_decision.v1` — outros agentes.
 - `atlas.dev_to_forge.escalation_packet.v1` — outros agentes.
 
-Plano define apenas a **ordem de migracao** entre mecanismos legacy e
+Este documento define apenas a **ordem de migracao** entre mecanismos legacy e
 canonicos. Nao introduz novo schema.
 
 ## Fluxo
 
-1. Aguardar schemas canonicos existirem em codigo.
-2. Iniciar Fase 1 (adapters dual-emit, sem remocao).
+1. Confirmar schemas canonicos e adapters atuais em codigo.
+2. Manter dual-emit sem remocao.
 3. Validar paridade via test #7 acima.
-4. Iniciar Fase 2 (Router + intake normalizado).
+4. Completar Fase 2 (Router + intake normalizado).
 5. Quiescencia 2 semanas; iniciar Fase 3 (deprecation suave).
 6. Quiescencia + zero emissoes legacy; iniciar Fase 4 (remocao).
 
 ## Regras para IA
 
-- NAO implementar codigo a partir deste plano. Plano e planning-only.
-- NAO editar `atlas.dual_core.route_decision.v1` / `atlas.dev_to_forge.escalation_packet.v1` — outros agentes coordenam.
+- NAO alterar codigo so por leitura deste doc; confirme reachability, owner tests e contratos atuais.
+- NAO editar `atlas.dual_core.route_decision.v1` / `atlas.dev_to_forge.escalation_packet.v1` sem owner tests.
 - NAO renomear classes/rotas/comandos durante consolidacao — escopo aqui e schema de output.
 - NAO fundir Dev e Forge em runtime unico mesmo que pareca pratico.
 - Antes de remover mecanismo legacy, ASSEGURAR adapter dual-emit em producao + quiescencia.
 
 ## Escopo de Implementacao
 
-Este doc e estritamente plano. O escopo da implementacao real (Fases 1-4)
-fica para missoes futuras, cada uma com AP/diff revisaveis em isolamento.
+Este doc e registro de consolidacao e limites. O escopo de runtime vive nos services relacionados; qualquer fase restante deve entrar com diff revisavel e testes focados.
 
 ## Dependencias
 
-- `atlas-dev-forge-relationship-critical-audit.md` (audit que motivou este plano).
+- `atlas-dev-forge-relationship-critical-audit.md` (audit que motivou este registro).
 - `atlas-dual-core-engineering-system.md` (contratos canonicos).
-- Implementacao futura dos schemas dual-core por outros agentes.
+- Implementacao atual dos schemas/adapters dual-core nos services relacionados.
 
 ## Evidencias
 
 - 4 mecanismos paralelos identificados e confirmados via `grep` em 2026-05-18 (consultados arquivos `Escalation/*`, `Kernel/AtlasForgeHandoffAdapter`, `AtlasCode/DevToForgePromotionService`, `routes/api.php`).
-- `atlas-dev-forge-relationship-critical-audit.md` cobre o mesmo terreno como ground-truth READ-ONLY.
+- `atlas-dev-forge-relationship-critical-audit.md` cobre o mesmo terreno como audit READ-ONLY.
 
 ## Riscos
 
@@ -464,7 +466,7 @@ Listados em "Riscos de Quebrar Producao" acima.
 
 ## Exemplos
 
-**Trace projetado (pos Fase 2)** — operador roda `atlas:cli:dev "refatora
+**Trace esperado apos Fase 2** — operador roda `atlas:cli:dev "refatora
 billing engine"`:
 
 1. CLI invoca Router canonico.
@@ -477,9 +479,9 @@ billing engine"`:
 
 ## Proximas Acoes
 
-1. Manter este plano sincronizado conforme outros agentes implementam schemas canonicos.
-2. Quando schemas existirem, abrir AP separado para Fase 1.
-3. Coordenar com Claudes paralelos via memoria/log; nao via edicao concorrente deste arquivo.
+1. Manter este registro sincronizado conforme services e schemas canonicos mudam.
+2. Fechar Fase 2 com Router/Forge intake owner real.
+3. Coordenar mudancas por owner docs, testes e evidence, nao por chat.
 
 ## Definition of Done
 

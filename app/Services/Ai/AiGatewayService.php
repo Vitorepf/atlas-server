@@ -30,6 +30,27 @@ use RuntimeException;
 
 class AiGatewayService
 {
+    /**
+     * Opt-in seam (Patamar 4 · TEOS-I4 pre-flight). Wired by AppServiceProvider
+     * resolving callback so unit tests can construct the gateway without
+     * pulling the counterfactual stack.
+     */
+    private ?\App\Services\Ai\Gateway\AtlasGatewayPreflightService $preflight = null;
+
+    public function setPreflight(?\App\Services\Ai\Gateway\AtlasGatewayPreflightService $svc): void
+    {
+        $this->preflight = $svc;
+    }
+
+    /**
+     * Public accessor for tests/CLIs that want to inspect the last preflight
+     * envelope without re-reading the JSONL.
+     */
+    public function lastPreflightEnvelope(): ?array
+    {
+        return $this->preflight?->lastEnvelope();
+    }
+
     private const COUNCIL_PROVIDERS = ['claude_cli', 'codex_cli'];
 
     private const INVOCATION_PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli'];
@@ -178,6 +199,18 @@ class AiGatewayService
                 : ($options['available_at'] ?? $now);
             $atlasExecution = $this->atlasExecutionPayload($scoutGate);
 
+            // Patamar 4 · TEOS-I4 pre-flight (opt-in). Major decisions get
+            // a counterfactual tree projected BEFORE the job is enqueued.
+            // Advisory only — never blocks; envelope is attached to metadata.
+            $preflightEnvelope = null;
+            if ($this->preflight !== null) {
+                try {
+                    $preflightEnvelope = $this->preflight->preflight($input, $provider, $options);
+                } catch (\Throwable $preflightErr) {
+                    $preflightEnvelope = ['verdict' => 'not_projected', 'error' => substr($preflightErr->getMessage(), 0, 160)];
+                }
+            }
+
             $trace = AiTrace::query()->create([
                 'trace_key' => 'trace_'.Str::orderedUuid()->toString(),
                 'thread_id' => $lockedThread->id,
@@ -215,6 +248,7 @@ class AiGatewayService
                     'decision_receipt' => $decisionReceipt,
                     'atlas_decide_execution' => $atlasExecution,
                     'kernel' => $kernelEnvelope,
+                    'preflight' => $preflightEnvelope,
                     // Canonical Atlas AI Hyperflow / RouterRuntime envelope
                     // built by AtlasHyperflowEntryService BEFORE the legacy
                     // router. Surface (Atlas AI Desktop / Mobile) consumes it

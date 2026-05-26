@@ -26,13 +26,15 @@ decisions:
   - Step sem definition registrada deve retornar pending_definition e nunca conta como passed.
   - Execution report so pode retornar pass quando nao houver failed, pending_definition ou skipped.
   - Constitutional Kernel e Autonomy Admission governam execucao de cenarios.
-  - CLI e integracao obrigatoria com ProgrammingCompletionGate permanecem building ate haver comando/teste registrados.
+  - CLI atlas:bdd existe para compile, execute, report e listagens; integracao obrigatoria com ProgrammingCompletionGate permanece building ate haver bridge/teste registrados.
 maintenance:
   - Atualizar quando AtlasBddAcceptanceRuntimeService, CLI atlas:bdd ou ProgrammingCompletionGate mudarem.
   - Nao declarar active enquanto command, tests e completion gate bridge nao estiverem provados.
   - Manter este doc alinhado com Programming Governance, Forge contracts e Execution Doctrine.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - app/Services/Ai/Programming/Bdd/AtlasBddAcceptanceRuntimeService.php
+  - app/Console/Commands/AtlasBddCommand.php
   - app/Services/Ai/Programming/Governance/Gates/ProgrammingCompletionGate.php
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-runbook.md
@@ -51,7 +53,7 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-bdd-acceptance-runtime.md
   - app/Services/Ai/Programming/Bdd/AtlasBddAcceptanceRuntimeService.php
 allowed_changes:
-  - Adicionar command atlas:bdd com testes focados.
+  - Evoluir command atlas:bdd apenas junto com testes focados.
   - Integrar reportFor(workItemId) ao ProgrammingCompletionGate com opt-in documentado.
   - Adicionar step definitions canonicas apenas via registry.
 depends_on:
@@ -76,10 +78,15 @@ governs:
   - acceptance-execution-reports
 evidence:
   - app/Services/Ai/Programming/Bdd/AtlasBddAcceptanceRuntimeService.php
+  - app/Console/Commands/AtlasBddCommand.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test --filter=AtlasBddAcceptanceRuntime"
   - "php artisan atlas:bdd --action=report --json"
+next_actions:
+  - Adicionar testes unitarios para compile, pending_definition, pass honesto e report agregado.
+  - Adicionar teste de command para compile/report/list.
+  - Integrar ProgrammingCompletionGate apenas com contrato opt-in e teste de regressao.
 requires_evidence: true
 schema:
   - atlas.bdd.scenario.v1
@@ -89,11 +96,84 @@ schema:
 
 # Atlas BDD Acceptance Runtime
 
+## Resumo
+
+Atlas BDD Acceptance Runtime canoniza a camada de acceptance executavel para criterios humanos em formato Gherkin. O runtime service e o command `atlas:bdd` ja existem, mas o fluxo permanece `building` ate teste de command e bridge com completion gate estarem provados.
+
+## Papel no Atlas
+
+O papel desta camada e transformar criterios de aceite em cenarios verificaveis sem trocar a fonte de verdade: docs canonicos, task packets, manifests e testes continuam donos dos contratos. BDD aqui e uma ponte de acceptance, nao um segundo runner principal.
+
+## Onde Se Encaixa
+
+Fica dentro de Programming Governance, subordinado a Execution Doctrine e Forge contracts. Ele consome criterios produzidos por SDD/task packets e pode alimentar `ProgrammingCompletionGate` quando o owner exigir acceptance executavel.
+
+## Contratos
+
+- `atlas.bdd.scenario.v1` descreve feature, scenario, tags e steps normalizados.
+- `atlas.bdd.step_result.v1` registra o resultado honesto de cada step.
+- `atlas.bdd.execution_report.v1` agrega o resultado de execucao.
+- `pending_definition` nunca vira `passed`.
+- `overall=pass` exige zero failed, zero pending_definition e zero skipped.
+
+## Fluxo
+
+1. Operador ou SDD fornece criterios em linguagem de negocio.
+2. Compiler converte Gherkin em scenario canonico.
+3. Step registry resolve callbacks permitidos.
+4. Executor consulta Constitutional Kernel e Autonomy Admission.
+5. Report append-only registra pass, fail ou incomplete.
+
+## Regras para IA
+
+- Nao crie step runner paralelo a PHPUnit, Pest, browser tests ou Forge gates.
+- Nao declare BDD ativo enquanto testes de command e completion bridge nao estiverem provados.
+- Nao use BDD para inflar aceite quando houver steps sem definicao.
+- Leia `atlas-canonical-glossary-and-naming.md` antes de introduzir novos nomes de fluxo.
+
+## Escopo de Implementacao
+
+Escopo atual: `AtlasBddAcceptanceRuntimeService` com compile, registerStep, execute, listScenarios, listExecutions e report; command `atlas:bdd` para compile, execute, report e listagens. Fora do escopo atual: UI, auto-geracao por provider e enforcement obrigatorio em todo work item.
+
+## Dependencias
+
+- `AtlasConstitutionalKernelService`
+- `AtlasAutonomyAdmissionService`
+- `ProgrammingCompletionGate`
+- Programming Governance runbook
+- Forge Operating System runbook
+- Execution Doctrine
+
+## Evidencias
+
+- `app/Services/Ai/Programming/Bdd/AtlasBddAcceptanceRuntimeService.php`
+- `app/Console/Commands/AtlasBddCommand.php`
+- Este documento canonico em `docs/engineering-knowledge-base/atlas-bdd-acceptance-runtime.md`
+
+## Riscos
+
+- Uma IA pode tratar BDD como substituto de testes reais.
+- Uma IA pode declarar completion com `pending_definition`.
+- Completion bridge pode ser documentada antes de existir runtime provado.
+- Step definitions genericas demais podem mascarar falha de comportamento.
+
+## Exemplos
+
+Um scenario com step sem definition deve gerar `overall=incomplete`. Um scenario com todos os callbacks retornando `true` pode gerar `overall=pass`, desde que Kernel e Admission nao bloqueiem.
+
+## Proximas Acoes
+
+1. Adicionar teste unitario para compile e envelopes.
+2. Adicionar teste unitario para `pending_definition`.
+3. Adicionar teste unitario para pass honesto com callbacks registrados.
+4. Adicionar teste focado para `AtlasBddCommand`.
+5. So depois integrar `ProgrammingCompletionGate` com report opt-in.
+
 ## Por que existe
 
 `executable_acceptance_layer` esta declarado nos runbooks Atlas (Programming Governance + Forge contracts + Execution Doctrine). O service `AtlasBddAcceptanceRuntimeService` cria o primitivo operacional inicial para compilar Gherkin, executar callbacks registrados e emitir reports honestos.
 
-Este documento ainda esta `building`: ele canoniza o boundary e o service existente, mas nao declara o fluxo completo ativo ate existir comando `atlas:bdd`, testes focados e consumo provado pelo `ProgrammingCompletionGate`.
+Este documento ainda esta `building`: ele canoniza o boundary, o service e o command existente, mas nao declara o fluxo completo ativo ate existir teste de command e consumo provado pelo `ProgrammingCompletionGate`.
 
 ## Princípio de não-duplicação
 
@@ -216,13 +296,14 @@ report(): array                       // aggregate honest counts
 
 ## CLI
 
-Status: planejado ate haver command registrado e teste focado.
+Status: command registrado; teste de command ainda deve ser adicionado antes de promover o fluxo para `active`.
 
 ```
 php artisan atlas:bdd --action=compile --gherkin="..." [--json]
 php artisan atlas:bdd --action=execute --scenario-id=scn_... [--json]
 php artisan atlas:bdd --action=report [--json]
-php artisan atlas:bdd --action=list [--json]
+php artisan atlas:bdd --action=list-scenarios [--json]
+php artisan atlas:bdd --action=list-executions [--json]
 ```
 
 ## Como Programming Governance consome

@@ -5,7 +5,7 @@ title: Atlas Forge Governed Provider Invocation v1
 status: active
 category: programming-forge
 priority: 99
-summary: Camada governada de invocacao de provider do Atlas Forge Continuum OS. Plan-only por padrao; execute exige aprovacao explicita do operador, budget aprovado, runtime dispatch confirmado e driver runtime configurado. Nunca chama provider externo por acidente.
+summary: Camada governada de invocacao de provider do Atlas Forge Continuum OS. Dry-run e o padrao seguro; execute exige aprovacao explicita do operador, budget aprovado, runtime dispatch confirmado e driver runtime configurado. Nunca chama provider externo por acidente.
 tags:
   - atlas
   - forge
@@ -20,7 +20,7 @@ capabilities:
 decisions:
   - Provider real nunca pode ser invocado sem `confirm_provider_call`, `confirm_budget` (quando externo) e `confirm_runtime_dispatch`.
   - Static-policy topologies nunca podem invocar provider.
-  - Runtime dispatch plan precisa estar `dispatch_planned` + `runtime_dispatch_allowed=true` antes da invocacao.
+  - Runtime dispatch precisa estar preparado e com `runtime_dispatch_allowed=true` antes da invocacao.
   - Decision receipt id + hash sao obrigatorios.
   - `provider_driver_missing` bloqueia honestamente; nenhum stdout fake.
   - `atlas-local` tem executor local seguro deterministico que NAO chama provider externo nem gasta token.
@@ -43,6 +43,7 @@ related_paths:
   - app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php
   - app/Services/Ai/Programming/AtlasForgeCursorSdkInvocationDriver.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationPromptBuilder.php
+  - app/Services/Ai/Programming/AtlasForgeProviderInvocationFailureClassifier.php
   - app/Console/Commands/AtlasForgeProviderInvokeCommand.php
   - app/Http/Controllers/AtlasCodeForgeProviderInvocationController.php
   - tests/Feature/Ai/Programming/AtlasForgeProviderInvocationTest.php
@@ -75,6 +76,7 @@ evidence:
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationService.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationPromptBuilder.php
+  - app/Services/Ai/Programming/AtlasForgeProviderInvocationFailureClassifier.php
   - tests/Feature/Ai/Programming/AtlasForgeProviderInvocationTest.php
 allowed_changes:
   - Adicionar runtime drivers governados apenas com policy/receipt/UI/teste cobrindo.
@@ -209,7 +211,7 @@ real.
 | `atlas.forge.provider_invocation.v1` | `AtlasForgeProviderInvocationService` | Cockpit, state projection, audit |
 | `atlas.forge.provider_invocation_receipt.v1` | mesmo | Evidence ledger, replay, audit |
 | `atlas.forge.provider_invocation_prompt.v1` | `AtlasForgeProviderInvocationPromptBuilder` | Driver router |
-| `atlas.forge.provider_invocation_plan.v1` | `AtlasForgeProviderInvocationDriverRouter::plan` | Read-model do plan-only |
+| `atlas.forge.provider_invocation_plan.v1` | `AtlasForgeProviderInvocationDriverRouter::plan` | Read-model de dry-run |
 | `atlas.forge.provider_invocation_driver_result.v1` | Driver runtime | Service finalize |
 
 ## Fluxo
@@ -301,7 +303,7 @@ Testes (19):
 ### Exemplo 1 — Dry-run com dispatch live
 
 `atlas:forge:provider-invoke --obra=<uuid> --role=primary_builder --mode=dry_run --json --strict`
-→ status `planned`, `provider_called=false`, `external_provider_call=false`, receipt persistido.
+→ dry-run preparado, `provider_called=false`, `external_provider_call=false`, receipt persistido.
 
 ### Exemplo 2 — Execute sem confirmations
 

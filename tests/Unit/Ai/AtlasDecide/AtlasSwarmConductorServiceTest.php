@@ -53,11 +53,11 @@ final class StubAdmlForSwarm extends AtlasDecideMetaLearningService
 
 class AtlasSwarmConductorServiceTest extends TestCase
 {
-    private string $kernelLog;
+    private ?string $kernelLog = null;
 
-    private string $admissionLog;
+    private ?string $admissionLog = null;
 
-    private string $dispatchLog;
+    private ?string $dispatchLog = null;
 
     private function buildSvc(string $admlSignal = 'ok'): AtlasSwarmConductorService
     {
@@ -82,9 +82,15 @@ class AtlasSwarmConductorServiceTest extends TestCase
 
     protected function tearDown(): void
     {
-        @unlink($this->kernelLog);
-        @unlink($this->admissionLog);
-        @unlink($this->dispatchLog);
+        if ($this->kernelLog !== null) {
+            @unlink($this->kernelLog);
+        }
+        if ($this->admissionLog !== null) {
+            @unlink($this->admissionLog);
+        }
+        if ($this->dispatchLog !== null) {
+            @unlink($this->dispatchLog);
+        }
         parent::tearDown();
     }
 
@@ -206,5 +212,43 @@ class AtlasSwarmConductorServiceTest extends TestCase
         $env = $svc->dispatch($this->baseWork(['parallelism' => 3]));
         $ids = array_map(static fn ($a) => $a['arm_id'], $env['arms']);
         $this->assertSame(count($ids), count(array_unique($ids)));
+    }
+
+    public function test_elastic_disable_suppresses_local_fallback_arm(): void
+    {
+        $u = uniqid('', true);
+        $kernelLog = sys_get_temp_dir()."/atlas_swarm_kernel_el_{$u}.jsonl";
+        $admissionLog = sys_get_temp_dir()."/atlas_swarm_admission_el_{$u}.jsonl";
+        $elasticLog = sys_get_temp_dir()."/atlas_swarm_elastic_{$u}.jsonl";
+        $dispatchLog = sys_get_temp_dir()."/atlas_swarm_dispatch_el_{$u}.jsonl";
+
+        $kernel = new AtlasConstitutionalKernelService;
+        $kernel->setViolationsLogPathForTesting($kernelLog);
+        $kernel->setElasticStateLogPathForTesting($elasticLog);
+        $kernel->flipElastic(
+            'swarm_local_fallback_enabled',
+            false,
+            'operator',
+            'disable atlas_local fallback for test'
+        );
+
+        $admission = new AtlasAutonomyAdmissionService($kernel);
+        $admission->setTicketsLogPathForTesting($admissionLog);
+        $adml = new StubAdmlForSwarm('ok');
+        $svc = new AtlasSwarmConductorService($adml, $kernel, $admission);
+        $svc->setDispatchesLogPathForTesting($dispatchLog);
+
+        $env = $svc->dispatch($this->baseWork(['parallelism' => 3]));
+
+        // parallelism=3 would normally include the local fallback arm. With
+        // the elastic invariant flipped off, the local fallback must NOT appear.
+        $origins = array_map(static fn ($a) => $a['origin'], $env['arms']);
+        $this->assertNotContains(AtlasSwarmConductorService::ARM_ORIGIN_LOCAL_FALLBACK, $origins);
+        $this->assertSame(2, $env['effective_parallelism']);
+
+        @unlink($kernelLog);
+        @unlink($admissionLog);
+        @unlink($elasticLog);
+        @unlink($dispatchLog);
     }
 }

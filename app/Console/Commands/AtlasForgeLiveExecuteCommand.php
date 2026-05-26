@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
  * verifier -> teste local -> stage receipts -> repair plan -> Evidence Ledger
  * -> rollback. Sem provider externo.
  *
- * Doc: docs/engineering-knowledge-base/atlas-forge-runtime-certification-one-shot.md
+ * Doc: docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md
  */
 class AtlasForgeLiveExecuteCommand extends Command
 {

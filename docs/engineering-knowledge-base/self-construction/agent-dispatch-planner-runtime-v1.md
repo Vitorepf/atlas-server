@@ -78,8 +78,16 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/self-construction/agent-dispatch-planner-runtime-v1.md
+  - app/Services/Ai/SelfConstruction/AgentDispatchPlannerCandidateSelector.php
+  - app/Services/Ai/SelfConstruction/AgentDispatchPlannerEligibilityEvaluator.php
+  - app/Services/Ai/SelfConstruction/AgentDispatchPlannerScopeConflictAnalyzer.php
+  - app/Services/Ai/SelfConstruction/AgentDispatchPlannerGovernancePrecheck.php
+  - app/Services/Ai/SelfConstruction/AgentDispatchPlannerDryRunReceiptBuilder.php
+  - app/Services/Ai/SelfConstruction/AgentDispatchPlannerBatchPlanner.php
+  - app/Services/Ai/SelfConstruction/AgentDispatchPlannerCertificationService.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan test tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerCandidateSelectorTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerEligibilityEvaluatorTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerScopeConflictAnalyzerTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerGovernancePrecheckTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerDryRunReceiptBuilderTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerBatchPlannerTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerCertificationServiceTest.php"
 requires_evidence: true
 risk_level: high
 visual_tags:
@@ -216,8 +224,8 @@ false.
 - `clear_task_count`, `clear_agent_count`.
 - `governance_hash` (sha256, stable). Runtime flags all false.
 
-The governance precheck is a *projection* of what a real governance
-gate would assert at dispatch time. It does not authorize anything.
+The governance precheck is a *projection* of the checks enforced by a
+real governance gate at dispatch time. It does not authorize anything.
 
 ## 7. Dry-Run Receipt Builder
 
@@ -354,11 +362,11 @@ To add a new governance signal:
   honored.
 - Update this doc's section 6 with the canonical signal name.
 
-To promote a slice out of dry-run:
+To create a real-dispatch consumer:
 
-- This is not possible in this stage. Promotion requires Runtime
-  Pilot Certification with a signed decision receipt, defined in a
-  separate doc.
+- This Dispatch Planner layer does not perform that promotion. A
+  real-dispatch consumer requires Runtime Pilot Certification with a
+  signed decision receipt, defined in a separate owner doc.
 
 ## Resumo
 
@@ -370,8 +378,9 @@ Dispatch real bloqueado.
 ## Papel no Atlas
 
 Submodulo do Agent Control Plane. Le upstream (task queue, claim/lease,
-agent registry, quarantine) e emite advisory plans para futura promocao
-sob Runtime Pilot Certification.
+agent registry, quarantine) e emite advisory plans. Runtime Pilot
+Certification governa qualquer consumidor que queira transformar isso
+em dispatch real.
 
 ## Onde Se Encaixa
 
@@ -410,7 +419,7 @@ Agent Runtime Registry, Capability Catalog, Quarantine Repository.
 ## Evidencias
 
 Receipts locais com sha256 stable hash, certification batch verde,
-docs-health verde, 120 tests / 327 assertions verdes neste sprint.
+docs-health verde e testes AgentDispatchPlanner verdes.
 
 ## Riscos
 

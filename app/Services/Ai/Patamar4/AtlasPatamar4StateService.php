@@ -39,6 +39,7 @@ final class AtlasPatamar4StateService
         private readonly AtlasTemporaryDomainCompositionService $tdc,
         private readonly AtlasDecideGatewayConsultationService $gatewayConsult,
         private readonly AtlasAntifragilityCompositionMetricService $antifragility,
+        private readonly ?\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService $liveFeedback = null,
     ) {}
 
     /**
@@ -93,6 +94,7 @@ final class AtlasPatamar4StateService
                 'count' => count($this->gatewayConsult->listConsultations()),
                 'recent' => array_slice($this->gatewayConsult->listConsultations(), -$tail),
             ],
+            'live_outcome_feedback' => $this->liveOutcomeFeedbackSummary($tail),
             'antifragility' => $this->antifragility->measure(),
             'claim_policy' => [
                 'benchmark_claim_allowed' => false,
@@ -103,5 +105,35 @@ final class AtlasPatamar4StateService
                 'provider_safe_only_enforced' => true,
             ],
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function liveOutcomeFeedbackSummary(int $tail): array
+    {
+        if ($this->liveFeedback === null) {
+            return [
+                'wired' => false,
+                'outcome_count' => 0,
+                'recent_outcomes' => [],
+            ];
+        }
+        try {
+            $outcomes = $this->liveFeedback->listOutcomes();
+
+            return [
+                'wired' => true,
+                'outcome_count' => count($outcomes),
+                'recent_outcomes' => array_slice($outcomes, -$tail),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'wired' => true,
+                'outcome_count' => 0,
+                'recent_outcomes' => [],
+                'error' => substr($e->getMessage(), 0, 120),
+            ];
+        }
     }
 }

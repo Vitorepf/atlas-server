@@ -5,7 +5,7 @@ title: Atlas AI Mission Mode Integration
 status: active
 category: runtime
 priority: 91
-summary: Integra Mission Mode ao Hyperflow para detectar objetivos persistentes e criar missions canonicas.
+summary: Runtime ativo que integra Mission Mode ao Hyperflow para detectar objetivos persistentes, criar missions canonicas e injetar mission_id no pipeline sem executar specialist flows.
 tags:
   - atlas-ai
   - mission
@@ -18,6 +18,12 @@ maintenance:
   - Atualizar quando MissionModeService, comandos ou Hyperflow entry mudarem.
 related_paths:
   - docs/engineering-knowledge-base/atlas-kernel-mission-foundation.md
+  - app/Services/Ai/Mission/MissionModeService.php
+  - app/Services/Ai/Mission/MissionDetectionService.php
+  - app/Services/Ai/Mission/MissionSignal.php
+  - app/Services/Ai/Mission/MissionModeResult.php
+  - app/Console/Commands/AtlasAiMissionCommand.php
+  - app/Services/Ai/RouterRuntime/AtlasHyperflowEntryService.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-ai-mission-mode-integration
 graph_title: Atlas AI Mission Mode Integration
@@ -49,12 +55,16 @@ governs:
   - mission-mode
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-mission-mode-integration.md
+  - app/Services/Ai/Mission/MissionModeService.php
+  - app/Console/Commands/AtlasAiMissionCommand.php
+  - tests/Feature/Ai/Mission/MissionModeServiceTest.php
+  - tests/Feature/Ai/Mission/MissionModeHyperflowIntegrationTest.php
 required_tests:
-  - "php artisan test tests/Feature/Ai/Mission"
+  - "php artisan test tests/Feature/Ai/Mission/MissionDetectionServiceTest.php tests/Feature/Ai/Mission/MissionModeServiceTest.php tests/Feature/Ai/Mission/AtlasAiMissionCommandTest.php tests/Feature/Ai/Mission/MissionModeHyperflowIntegrationTest.php"
 requires_evidence: true
 risk_level: medium
 next_actions:
-  - Manter deteccao e lifecycle alinhados ao Hyperflow.
+  - Manter deteccao, lifecycle e Hyperflow injection alinhados aos testes de Mission Mode.
 ---
 # Atlas AI Mission Mode · integração canônica
 
@@ -76,7 +86,7 @@ Cria/plana missions; nao executa provider nem specialist flow.
 
 ## Fluxo
 
-Detecta intent, cria mission, decompoe objectives e transita para planned.
+Detecta intent, cria mission, decompoe objectives e transita para o estado operacional inicial.
 
 ## Regras para IA
 
@@ -121,7 +131,7 @@ Resolve o que o operador hoje força no Codex/Claude via `/goal`: persistência,
 **Sem duplicar nada.** Tudo o que Mission Foundation já cobre (persistência, lifecycle 9-estados, completion gate, 13 checks) continua sendo a fonte da verdade. Mission Mode adiciona apenas:
 
 1. **`MissionDetectionService`** — keyword heuristics determinístico que decide se o prompt deve ativar Mission Mode ou seguir como TRIVIAL/TASK one-shot.
-2. **`MissionModeService`** — orchestrator que conecta detect → create → decompose → plan → transition `draft→planned`, e mais tarde `running → certifying → completed`.
+2. **`MissionModeService`** — orchestrator que conecta detect → create → decompose → transition inicial, e mais tarde `running → certifying → completed`.
 3. **`AtlasAiMissionCommand`** — CLI canônico `atlas:ai:mission {create|show|certify|list|detect}`.
 4. **Ligação ao `AtlasHyperflowEntryService`** — Mission Mode roda **antes** do `IntentKernelService::classify()`. Quando ativa, o `mission_uuid` resultante é injetado no contexto da classificação para que o pipeline downstream (Domain → Flow → Dispatch) consiga ligar trace ↔ mission.
 
@@ -147,22 +157,15 @@ Mission Mode **NUNCA**:
 
 ## Lifecycle
 
-Reusa o canon `MissionLifecycleService::STATUS_*` (9 estados):
-
-```
-draft → planned → running → certifying → completed
-                       ↓         ↓
-                   blocked   repairing → running
-                       ↓
-                   cancelled / failed
-```
+Reusa o canon `MissionLifecycleService::STATUS_*` (9 estados). O texto aqui
+descreve a camada Mission Mode; os nomes exatos dos estados vivem no service.
 
 Mission Mode opera transições:
-- `draft → planned` automaticamente no fim do `processIntent()`
+- estado inicial → estado operacional automaticamente no fim do `processIntent()`
 - `running → certifying → completed` quando `certify()` retorna `PASSED`
 
 Caller (controller / specialist flow / artisan) é responsável por:
-- `planned → running` quando início real
+- estado operacional inicial → `running` quando início real
 - `running → blocked` quando blocker explícito
 - attach evidence_refs ao longo da execução
 
@@ -225,10 +228,10 @@ Frontend Desktop pode consumir os mesmos endpoints sem mudança — Mission Mode
 
 ## Limitações reais
 
-- **Detection é determinístico keyword-based.** Prompts com semantics de persistência mas sem keywords (ex: `"continue trabalhando nisso por uma semana"` sem keywords explícitas) podem ser classificados como TASK. Próxima fatia: expandir keyword set conforme telemetria real, ou adicionar LLM-fallback opt-in com cache.
+- **Detection é determinístico keyword-based.** Prompts com semantics de persistência mas sem keywords (ex: `"continue trabalhando nisso por uma semana"` sem keywords explícitas) podem ser classificados como TASK. Evolução posterior: expandir keyword set conforme telemetria real, ou adicionar LLM-fallback opt-in com cache.
 - **`MissionModeService::processIntent()` cria objectives + work_orders síncronos** dentro da transaction. Para missions grandes (Obra) isso pode demorar — não é problema hoje (decomposer + workOrder factory são deterministic e rápidos), mas pode ser movido para queue se necessário.
 - **`associateTrace()` é idempotency-naive** — chamadas duplicadas geram múltiplos evidence_refs. Caller decide deduplicação se importar.
-- **Não há UI dedicada hoje.** Backend-first. Frontend Desktop consome via Control Plane endpoints. UI dedicada de mission é fatia futura.
+- **Não há UI dedicada hoje.** Backend-first. Frontend Desktop consome via Control Plane endpoints. UI dedicada de mission é evolução posterior.
 
 ## Relação com peças adjacentes
 

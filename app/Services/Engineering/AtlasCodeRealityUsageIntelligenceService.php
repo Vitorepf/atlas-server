@@ -1059,6 +1059,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             'atlas-runtime-spine-completion-audit',
             'atlas-ai-research-self-improvement-runtime',
             'atlas-pre-benchmark-readiness-audit',
+            'atlas-code-reality-usage-intelligence',
             'atlas-documentation-enforcement-runtime',
             'atlas-quality-preserving-efficiency-system',
             'atlas-persistent-context-runtime',
@@ -1068,6 +1069,9 @@ final class AtlasCodeRealityUsageIntelligenceService
             'atlas-autonomous-control-plane',
             'atlas-ai-programming-enterprise-implementation-plan',
             'atlas-long-horizon-intelligence-layer',
+            'atlas-self-construction-agent-dispatch-planner-runtime-v1',
+            'atlas-forge-live-execution-e2e-v1',
+            'atlas-universal-reality-cartography',
         ], true);
     }
 

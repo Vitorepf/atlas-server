@@ -5,7 +5,7 @@ title: Atlas Forge-Native Rivals Protocol v1
 status: active
 category: programming-forge
 priority: 100
-summary: Protocolo canonico que define que toda bateria Rivals do Atlas avalia exclusivamente o runtime Forge contra um rival externo isolado. Atlas arm = Forge obrigatorio; rival arm = baseline puro; dry-run, preflight e bateria real sao planos separados sem confundir claim com plano.
+summary: Protocolo canonico que define que toda bateria Rivals do Atlas avalia exclusivamente o runtime Forge contra um rival externo isolado. Atlas arm = Forge obrigatorio; rival arm = baseline puro; dry-run, preflight e bateria real sao etapas separadas sem confundir claim com validacao preparatoria.
 tags:
   - atlas
   - rivals
@@ -22,6 +22,7 @@ decisions:
   - Atlas arm em Rivals SEMPRE roda atraves do Forge. Atlas runs non-Forge sao invalidos para score Rivals.
   - Rival arm e baseline puro (claude_code_baseline, codex_baseline, external_baseline, manual_baseline) e roda em workspace separado.
   - Dry-run nunca chama provider externo. Preflight nunca chama provider externo. Bateria real exige aprovacao operadora explicita.
+  - Entry point operacional canonico e `php artisan atlas:forge:rivals`; comandos `atlas:programming:rivals-forge-*` sao wrappers deprecated.
   - Forge-Native Rivals certification e separada de external_rivals_certification e nunca promove completion sozinho.
   - Synthetic score nao e admitido. Workspace dirty bloqueia bateria paga.
 maintenance:
@@ -39,6 +40,7 @@ related_paths:
   - app/Services/Ai/Programming/AtlasForgeNativeRivalsCaseManifestService.php
   - app/Services/Ai/Programming/AtlasForgeNativeRivalsPreflightService.php
   - app/Services/Ai/Programming/AtlasForgeNativeRivalsDryRunService.php
+  - app/Console/Commands/AtlasForgeRivalsCommand.php
   - app/Console/Commands/AtlasProgrammingRivalsForgePreflightCommand.php
   - app/Console/Commands/AtlasProgrammingRivalsForgeDryRunCommand.php
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
@@ -85,11 +87,17 @@ governs:
   - rivals_replay_manifest
 evidence:
   - docs/engineering-knowledge-base/atlas-forge-native-rivals-protocol-v1.md
+  - app/Services/Ai/Programming/AtlasForgeNativeRivalsProtocolService.php
+  - app/Services/Ai/Programming/AtlasForgeNativeRivalsCaseManifestService.php
+  - app/Services/Ai/Programming/AtlasForgeNativeRivalsPreflightService.php
+  - app/Services/Ai/Programming/AtlasForgeNativeRivalsDryRunService.php
+  - tests/Feature/Ai/Programming/AtlasForgeNativeRivalsTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:programming:rivals-forge-preflight --json --strict"
-  - "php artisan atlas:programming:rivals-forge-dry-run --json --strict"
+  - "php artisan atlas:forge:rivals preflight --mode=diagnostic --json --strict"
+  - "php artisan atlas:forge:rivals dry-run --mode=diagnostic --json --strict"
   - "php artisan atlas:programming:completion-audit --json"
+  - "php artisan test tests/Feature/Ai/Programming/AtlasForgeNativeRivalsTest.php"
 requires_evidence: true
 risk_level: critical
 visual_tags:
@@ -100,14 +108,14 @@ ai_entrypoints:
   - Antes de propor ou rodar qualquer bateria Rivals, ler este doc.
   - Atlas arm em Rivals = Forge obrigatorio.
 ai_usage_notes:
-  - Dry-run e preflight sao planejamento sem provider. Nunca declarar claim a partir deles.
+  - Dry-run e preflight sao validacao preparatoria sem provider. Nunca declarar claim a partir deles.
   - Bateria real so depois de operator approval explicito.
 quality_gates:
   - docs-health
   - architecture-validate
   - programming-completion-audit
-  - rivals-forge-preflight
-  - rivals-forge-dry-run
+  - forge-rivals-preflight
+  - forge-rivals-dry-run
 failure_modes:
   - Rodar Rivals com Atlas arm fora de Forge.
   - Confundir dry-run com claim.
@@ -119,8 +127,8 @@ observability_signals:
   - forge_native_rivals_dry_run.status
   - case_manifest.atlas_arm_is_forge
 next_actions:
-  - Rodar `php artisan atlas:programming:rivals-forge-preflight --json` antes de qualquer planejamento de bateria.
-  - Rodar `php artisan atlas:programming:rivals-forge-dry-run --case=<id> --json --strict` para validar planejamento sem custo.
+  - Rodar `php artisan atlas:forge:rivals preflight --mode=diagnostic --json` antes de qualquer preparacao de bateria.
+  - Rodar `php artisan atlas:forge:rivals dry-run --mode=diagnostic --case=<id> --json --strict` para validar case sem custo.
   - Apenas com preflight=ready_for_provider_battery e aprovacao operadora, despachar bateria real via runner governado.
 ---
 # Atlas Forge-Native Rivals Protocol v1
@@ -155,7 +163,7 @@ ad-hoc com rival e gerar score falso.
 - Atlas side = sempre Forge.
 - Rivals side = baseline externo/controlado.
 - A bateria mede Atlas Forge contra rival, nao "qualquer Atlas" contra rival.
-- Dry-run, preflight e bateria real sao **planos separados**. Apenas a
+- Dry-run, preflight e bateria real sao **etapas separadas**. Apenas a
   bateria real, com aprovacao operadora, pode gerar evidencia para claim.
 
 ## Contratos
@@ -164,15 +172,15 @@ ad-hoc com rival e gerar score falso.
 |--------|-------------|--------------|
 | `atlas.programming.forge_native_rivals_protocol.v1` | `AtlasForgeNativeRivalsProtocolService` | preflight, dry-run, completion audit |
 | `atlas.programming.forge_native_rivals_case_manifest.v1` | `AtlasForgeNativeRivalsCaseManifestService` | preflight, dry-run |
-| `atlas.programming.forge_native_rivals_preflight.v1` | `AtlasForgeNativeRivalsPreflightService` + `atlas:programming:rivals-forge-preflight` | operador, completion audit |
-| `atlas.programming.forge_native_rivals_dry_run.v1` | `AtlasForgeNativeRivalsDryRunService` + `atlas:programming:rivals-forge-dry-run` | operador, completion audit |
-| `atlas.programming.forge_native_rivals_replay_manifest.v1` | dry-run | bateria real (futuro) |
+| `atlas.programming.forge_native_rivals_preflight.v1` | `AtlasForgeNativeRivalsPreflightService` + `atlas:forge:rivals preflight --mode=diagnostic` | operador, completion audit |
+| `atlas.programming.forge_native_rivals_dry_run.v1` | `AtlasForgeNativeRivalsDryRunService` + `atlas:forge:rivals dry-run --mode=diagnostic` | operador, completion audit |
+| `atlas.programming.forge_native_rivals_replay_manifest.v1` | dry-run | bateria real governada |
 | `atlas.programming.forge_native_rivals_certification.v1` | `ProgrammingProfessionalCompletionAuditService` | `atlas:programming:completion-audit` |
 
 ## Fluxo
 
-1. Operador roda `atlas:programming:rivals-forge-preflight --json --strict`.
-2. Se ready_for_dry_run, roda `atlas:programming:rivals-forge-dry-run --case=<id> --json --strict` para planejar paired case.
+1. Operador roda `atlas:forge:rivals preflight --mode=diagnostic --json --strict`.
+2. Se ready_for_dry_run, roda `atlas:forge:rivals dry-run --mode=diagnostic --case=<id> --json --strict` para validar paired case.
 3. Se intencao for bateria paga, operador cria worktree Atlas limpo +
    baseline limpo separado e roda preflight com
    `--intends-provider-battery --confirm-runbook-reviewed --confirm-provider-cost`.
@@ -220,8 +228,8 @@ Comandos minimos para sustentar este protocolo:
 ```bash
 php artisan atlas:engineering:knowledge docs-health --json
 php artisan atlas:ai:architecture-validate --json
-php artisan atlas:programming:rivals-forge-preflight --json --strict
-php artisan atlas:programming:rivals-forge-dry-run --json --strict
+php artisan atlas:forge:rivals preflight --mode=diagnostic --json --strict
+php artisan atlas:forge:rivals dry-run --mode=diagnostic --json --strict
 php artisan atlas:programming:completion-audit --json
 php artisan test --filter='AtlasForgeNativeRivalsTest'
 ```
@@ -253,7 +261,7 @@ php artisan test --filter='AtlasForgeNativeRivalsTest'
 - `atlas.programming.forge_native_rivals_protocol.v1` — contrato declarativo
 - `atlas.programming.forge_native_rivals_case_manifest.v1` — manifest por case
 - `atlas.programming.forge_native_rivals_preflight.v1` — diagnostico read-only
-- `atlas.programming.forge_native_rivals_dry_run.v1` — plano sem provider
+- `atlas.programming.forge_native_rivals_dry_run.v1` — validacao sem provider
 - `atlas.programming.forge_native_rivals_certification.v1` — eixo do
   completion audit (separado de `external_rivals_certification`)
 - `atlas.programming.forge_native_rivals_replay_manifest.v1` — pacote de replay
@@ -311,7 +319,7 @@ ocorre:
 |----------|-----------|----------|----------------|
 | Protocolo | Retorna o contrato canonico | Nao | Nao |
 | Preflight | Diagnostica estado e bloqueia condicoes invalidas | Nao | Nao |
-| Dry-run | Materializa case + replay manifest planejado | Nao | Nao |
+| Dry-run | Materializa case + replay manifest de dry-run | Nao | Nao |
 | Bateria real | Roda Atlas Forge + rival com evidencia | Sim, com aprovacao | Talvez, somente se caso for valido e comparavel |
 | Claim | Promote completion para Rivals | — | Apenas via `external_rivals_certification` ainda aprovada |
 
@@ -350,10 +358,10 @@ e um caso mal-modelado contamina o ledger. Por isso:
 
 ## Operacao tipica
 
-1. `php artisan atlas:programming:rivals-forge-preflight --json --strict`
+1. `php artisan atlas:forge:rivals preflight --mode=diagnostic --json --strict`
    — confirma estado do workspace, Forge runtime, docs e manifest.
-2. `php artisan atlas:programming:rivals-forge-dry-run --case=<id> --json --strict`
-   — planeja paired case e replay manifest sem provider.
+2. `php artisan atlas:forge:rivals dry-run --mode=diagnostic --case=<id> --json --strict`
+   — valida paired case e replay manifest sem provider.
 3. (Opcional) Cria worktree limpa do Atlas e baseline em diretorio
    separado.
 4. `--intends-provider-battery --confirm-runbook-reviewed --confirm-provider-cost`
@@ -368,7 +376,7 @@ e um caso mal-modelado contamina o ledger. Por isso:
 ### Preflight diagnostico (sem provider)
 
 ```bash
-php artisan atlas:programming:rivals-forge-preflight --json
+php artisan atlas:forge:rivals preflight --mode=diagnostic --json
 ```
 
 Saida (resumida):
@@ -388,7 +396,7 @@ Saida (resumida):
 ### Dry-run de um case (sem provider)
 
 ```bash
-php artisan atlas:programming:rivals-forge-dry-run \
+php artisan atlas:forge:rivals dry-run --mode=diagnostic \
   --case=atlas-fair-claude-baseline-case-01 \
   --json --strict
 ```
@@ -402,14 +410,11 @@ Saida (resumida):
   "external_provider_call": false,
   "provider_tokens_spent": false,
   "atlas_side_must_use_forge": true,
-  "planned": {
-    "replay_manifest": {
-      "schema_version": "atlas.programming.forge_native_rivals_replay_manifest.v1",
-      "state": "planned",
-      "valid": true,
-      "atlas_arm": { "runtime": "forge", "command_template": "php artisan atlas:code:forge-fast-path ..." },
-      "rival_arm": { "runtime": "claude_code_baseline" }
-    }
+  "replay_manifest": {
+    "schema_version": "atlas.programming.forge_native_rivals_replay_manifest.v1",
+    "valid": true,
+    "atlas_arm": { "runtime": "forge", "command_template": "php artisan atlas:code:forge-fast-path ..." },
+    "rival_arm": { "runtime": "claude_code_baseline" }
   }
 }
 ```
@@ -454,8 +459,8 @@ Saida (resumida):
 
 ## Proximas Acoes
 
-1. Manter este protocolo como primeira leitura antes de qualquer planejamento Rivals.
-2. Rodar `atlas:programming:rivals-forge-preflight --json --strict` antes de qualquer plano.
-3. Rodar `atlas:programming:rivals-forge-dry-run --case=<id> --json --strict` para validar paired case sem custo.
+1. Manter este protocolo como primeira leitura antes de qualquer bateria Rivals.
+2. Rodar `atlas:forge:rivals preflight --mode=diagnostic --json --strict` antes de qualquer preparacao.
+3. Rodar `atlas:forge:rivals dry-run --mode=diagnostic --case=<id> --json --strict` para validar paired case sem custo.
 4. Apenas com `--intends-provider-battery --confirm-runbook-reviewed --confirm-provider-cost` e worktrees limpos, despachar bateria real via runner governado.
 5. Atualizar este doc e os tests `AtlasForgeNativeRivalsTest` antes de evoluir cases, runtimes ou gates.

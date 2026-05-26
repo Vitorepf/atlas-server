@@ -107,10 +107,13 @@ evidence:
   - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
   - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
+  - app/Services/Engineering/AtlasUniversalRealityCartographyService.php
+  - app/Console/Commands/AtlasUniversalRealityCartographyCommand.php
+  - tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:ai:docs-authority-audit --json"
-  - "php artisan atlas:ai:architecture-validate --json"
+  - "php artisan test tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php"
+  - "php artisan atlas:universal-reality-cartography human-clarity --strict --json"
 requires_evidence: true
 risk_level: critical
 visual_tags:
@@ -126,9 +129,8 @@ ai_usage_notes:
   - Quando faltar fonte, renderize lacuna explicita e nao invente node.
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:ai:docs-authority-audit --json"
-  - "php artisan atlas:ai:architecture-validate --json"
-  - "future: npm run test:cartografia"
+  - "php artisan test tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php"
+  - "php artisan atlas:universal-reality-cartography navigation-slice --strict --json"
 failure_modes:
   - Mapa bonito sem fonte real.
   - Universo visual grande demais para humano com TDAH localizar fluxo.
@@ -140,10 +142,10 @@ observability_signals:
   - workspace_scope.runtime_projection_replay.status
   - workspace_scope.runtime_projection_replay.stale_families
   - workspace_scope.artifact_graph_replay.status
-  - future: visual coverage percent
-  - future: orphan visual nodes count
-  - future: human task success rate
-  - future: cartography cognitive load score
+  - coverage_audit.visual_completeness_score
+  - human_clarity.score
+  - human_route_map.invalid_route_count
+  - semantic_zoom_scenes.invalid_scene_count
 next_actions:
   - Conectar `visual_scene` e `human_clarity` a surface visual da Cartografia.
   - Expandir task simulator com perguntas canonicas de navegacao humana reais.
@@ -343,7 +345,7 @@ AURC so pode ser tratada como completa quando:
 ## Runtime Atual
 
 O runtime read-only atual ja emite cinco contratos consumiveis por CLI, Atlas Dev,
-Forge, Context Pack e futura UI de Cartografia:
+Forge, Context Pack e UI de Cartografia:
 
 | Contrato | Schema | Uso |
 |---|---|---|
@@ -377,9 +379,9 @@ prova junto do grafo principal. `/human-clarity` retorna o mesmo contrato de
 forma focada: `human_clarity`, `visual_scene`, `human_route_map` e
 `semantic_zoom_scenes`, sem escrita.
 
-Regra: `visual_scene` e contrato de dados, nao UI final. Ele existe para impedir
-que a futura superficie visual invente layout sem source, owner, status,
-semantic zoom e prova.
+Regra: `visual_scene` e contrato de dados, nao fonte primaria. Ele existe para
+impedir que qualquer superficie visual invente layout sem source, owner,
+status, semantic zoom e prova.
 
 `human_clarity` e o contrato que impede a Cartografia de virar apenas grafo
 bonito: a cena precisa ter budget cognitivo, breadcrumb, legenda nao tecnica,
@@ -393,7 +395,6 @@ minima para declarar o acesso humano visual como excelente e `score >= 9.8`.
 | ADRS | autoridade da area e fronteira com ACRUI |
 | ADRS Block Registry | ids, planes, tipos, status, fontes e evaluation refs dos 52 blocos |
 | ACRUI | classificacao operacional do que o mapa mostra |
-| ADRS Block Registry | ids, planes, owners e evaluation refs dos 52 blocos ADRS |
 | Cartographic Knowledge OS | regras visuais gerais |
 | Nomenclature Contract | separacao patamar/versao/camada/fonte |
 | System Graph | hierarquia macro |
@@ -413,17 +414,15 @@ php artisan atlas:universal-reality-cartography human-clarity --strict --json
 php artisan atlas:universal-reality-cartography navigation-slice --strict --json
 php artisan atlas:ai:session-bootstrap --task="<task>" --json
 php artisan atlas:engineering:knowledge docs-health --json
-php artisan atlas:ai:docs-authority-audit --json
-php artisan atlas:ai:architecture-validate --json
 ```
 
-Evidencia futura:
+Backlog governado, ainda nao tratado como evidencia runtime:
 
 ```bash
 npm run test:cartografia
-future: atlas cartography graph validate --json
-future: atlas cartography task-simulator --json
-future: atlas cartography visual-coverage --json
+atlas cartography graph validate --json
+atlas cartography task-simulator --json
+atlas cartography visual-coverage --json
 ```
 
 ## Riscos

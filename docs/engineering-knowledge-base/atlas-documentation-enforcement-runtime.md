@@ -7,14 +7,14 @@ implementation_status: active_local_hard_gate_certified
 implementation_boundary: ADER is implemented as a read-only pre-implementation hard gate, exposed in Architecture Operations, session-bootstrap and required validation; it aggregates canonical truth but does not create a new truth source, mutate docs/code or prove every Atlas feature complete.
 category: documentation-governance
 priority: 100
-summary: Gate unificado que agrega docs-health, authority audit, ADRS, ACRUI e Cartografia antes de qualquer IA implementar, duplicar, deletar ou declarar capacidade documental.
+summary: Gate unificado que agrega docs-health, authority audit, ADRS, ACRUI, Cartografia, session-bootstrap e feature-placement antes de qualquer IA implementar, duplicar, deletar ou declarar capacidade documental.
 human_summary: Um comando curto que diz se uma IA pode comecar a codar ou se precisa parar por documentacao, duplicacao, owner doc, Cartografia ou realidade de codigo.
 human_what: Runtime de enforcement documental pre-implementacao.
 human_purpose: Fazer Codex, Claude, Gemini e subagentes seguirem a documentacao canonica sem depender de memoria de conversa.
 human_input: Tarefa, feature, workspace e alvos opcionais.
-human_output: Status ready/review/blocked, nota, comandos obrigatorios, blockers, warnings, evidencias e hash.
+human_output: Status ready/review/blocked, nota, comandos obrigatorios, probes de bootstrap, blockers, warnings, evidencias e hash.
 human_change_when: Atualize quando mudar docs-health, ADRS, ACRUI, Cartografia, session bootstrap, feature placement ou a politica de gate para IAs.
-human_block_when: Bloqueie quando docs-health falhar, autoridade documental bloquear, ADRS nao estiver pronto, ACRUI detectar duplicacao perigosa ou reachability fraco.
+human_block_when: Bloqueie quando docs-health falhar, autoridade documental bloquear, ADRS nao estiver pronto, ACRUI detectar duplicacao perigosa, reachability fraco, session-bootstrap ou feature-placement nao executarem.
 human_name: Fiscal de Documentacao das IAs
 canonical_name: Atlas Documentation Enforcement Runtime
 technical_name: AtlasDocumentationEnforcementService
@@ -60,6 +60,7 @@ related_paths:
   - app/Services/Engineering/EngineeringDocumentationAuthorityAuditService.php
   - app/Services/Engineering/AtlasDocumentationRealitySystemService.php
   - app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php
+  - app/Services/Engineering/AtlasDocumentationProviderBootstrapProbe.php
   - tests/Feature/Engineering/AtlasDocumentationEnforcementServiceTest.php
   - tests/Feature/Engineering/AtlasDocumentationEnforcementCommandTest.php
 doc_schema: atlas_canonical_module_doc.v1
@@ -102,6 +103,7 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-documentation-enforcement-runtime.md
   - app/Services/Engineering/AtlasDocumentationEnforcementService.php
+  - app/Services/Engineering/AtlasDocumentationProviderBootstrapProbe.php
   - app/Console/Commands/AtlasDocumentationEnforcementCommand.php
 required_tests:
   - "php artisan test --filter=AtlasDocumentationEnforcement"
@@ -163,6 +165,13 @@ Em 2026-05-25, ADER esta ativo como hard gate local read-only. O comando
 session-bootstrap e feature-placement estao limpos. Architecture Operations e
 session-bootstrap ja publicam ADER como operacao/validacao obrigatoria.
 
+Em 2026-05-26, ADER passou a falhar fechado tambem no bootstrap operacional:
+`session-bootstrap` e `place-feature` nao sao apenas listados como comandos
+obrigatorios; eles sao sondados pelo runtime. Se algum deles falhar, retornar
+status nao pronto ou depender de infraestrutura indisponivel, ADER fica
+`blocked` em vez de permitir que a IA use chat, AGENTS.md ou memoria antiga
+como substituto.
+
 ADER nao vira fonte primaria: docs canonicas continuam autorais; codigo,
 migrations e testes provam implementacao; Evidence Ledger prova runtime; KB,
 Code Intelligence, Obsidian e provider projections sao read models/superficies.
@@ -211,6 +220,7 @@ ADER fica acima dos sistemas documentais existentes:
 | ADRS | Mantem a area de documentacao/verdade/Cartografia organizada |
 | ACRUI | Prova realidade de codigo, reachability e duplicacao |
 | AURC | Mantem a fronteira visual humana sem virar fonte primaria |
+| Provider bootstrap probe | Confirma que session-bootstrap e feature-placement executam antes de codigo |
 
 ADER e um agregador read-only. Se uma fonte canonica apontar risco, ADER nao
 maquia o status.
@@ -229,6 +239,7 @@ Status:
 - `ready`: pode implementar.
 - `review`: nao e falha tecnica, mas exige decisao/documentacao antes de claim forte.
 - `blocked`: nao pode codar.
+- `blocked` tambem cobre falha tecnica nos comandos obrigatorios de bootstrap.
 
 ## Fluxo
 Fluxo minimo antes de codigo:
@@ -236,8 +247,8 @@ Fluxo minimo antes de codigo:
 ```text
 task humana
 -> ADER
--> session-bootstrap
--> feature-placement
+-> session-bootstrap executado pelo probe ADER
+-> feature-placement executado pelo probe ADER
 -> owner docs
 -> implementacao
 -> testes
@@ -261,6 +272,8 @@ php artisan atlas:engineering:knowledge docs-health --json
 - Nao crie runtime novo sem `place-feature` e ACRUI anti-duplicate.
 - Nao altere Cartografia como fonte primaria; Cartografia e superficie humana.
 - Nao apague ou deprecie arquivo sem ACRUI reachability/deletion-preflight.
+- Se `session-bootstrap` ou `place-feature` falhar, pare; nao substitua por
+  conversa, projection ou memoria local.
 
 ## Escopo de Implementacao
 ADER cobre:
@@ -270,6 +283,7 @@ ADER cobre:
 - ADRS 52 blocos;
 - ACRUI realidade de codigo;
 - anti-duplicacao por feature;
+- execucao fail-closed de session-bootstrap e feature-placement;
 - comandos obrigatorios antes de codigo;
 - hash deterministico do relatorio.
 
@@ -286,6 +300,7 @@ ADER depende de services existentes:
 - `EngineeringDocumentationAuthorityAuditService`
 - `AtlasDocumentationRealitySystemService`
 - `AtlasCodeRealityUsageIntelligenceService`
+- `AtlasDocumentationProviderBootstrapProbe`
 
 ## Evidencias
 Evidencia minima de saude:
@@ -303,6 +318,7 @@ O relatorio sempre deve expor:
 - `blockers`;
 - `review_items`;
 - `warnings`;
+- `source_status.provider_bootstrap`;
 - `required_before_code`;
 - `certification_hash`.
 
@@ -314,6 +330,7 @@ O relatorio sempre deve expor:
 | Doc antiga vira autoridade | Usa hierarchy e authority audit |
 | Cartografia vira fonte primaria | Declara boundary explicito |
 | Claim sem evidencia | Exige comandos e hash |
+| Bootstrap indisponivel | Bloqueia por `source_status.provider_bootstrap.status=blocked` |
 
 ## Exemplos
 Para avaliar uma tarefa de documentacao:

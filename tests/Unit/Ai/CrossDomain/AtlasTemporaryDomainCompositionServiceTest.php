@@ -202,4 +202,33 @@ class AtlasTemporaryDomainCompositionServiceTest extends TestCase
         $b = $this->svc->compose($this->baseInput());
         $this->assertNotSame($a['capsule_id'], $b['capsule_id']);
     }
+
+    public function test_default_ttl_honors_kernel_runtime_tune(): void
+    {
+        $u = uniqid('', true);
+        $runtimeLog = sys_get_temp_dir()."/atlas_tdc_runtime_{$u}.jsonl";
+
+        // Fresh kernel with runtime ledger override, tune tdc_ttl_window to 600s.
+        $kernel = new AtlasConstitutionalKernelService;
+        $kernel->setViolationsLogPathForTesting($this->kernelLog);
+        $kernel->setRuntimeStateLogPathForTesting($runtimeLog);
+        $kernel->tuneRuntime('tdc_ttl_window', 600, 'operator', 'narrow window for capsules');
+
+        $acdm = new AtlasCrossDomainMeshService;
+        $acdm->setRequestsLogPathForTesting($this->acdmReqs);
+        $acdm->setDecisionsLogPathForTesting($this->acdmDecs);
+        $admission = new AtlasAutonomyAdmissionService($kernel);
+        $admission->setTicketsLogPathForTesting($this->admissionLog);
+
+        $svc = new AtlasTemporaryDomainCompositionService($acdm, $kernel, $admission);
+        $svc->setCapsulesLogPathForTesting($this->capsulesLog);
+
+        // No ttl_seconds in input → should default to tuned value 600 (not 7200).
+        $input = $this->baseInput();
+        unset($input['ttl_seconds']);
+        $capsule = $svc->compose($input);
+        $this->assertSame(600, $capsule['ttl_seconds']);
+
+        @unlink($runtimeLog);
+    }
 }

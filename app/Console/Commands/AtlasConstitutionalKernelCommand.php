@@ -21,9 +21,14 @@ use Illuminate\Console\Command;
 class AtlasConstitutionalKernelCommand extends Command
 {
     protected $signature = 'atlas:constitutional:kernel
-        {--action=list-invariants : list-invariants|validate|list-violations|kernel-hash}
+        {--action=list-invariants : list-invariants|validate|list-violations|kernel-hash|elastic-state|flip-elastic|runtime-state|tune-runtime|runtime-windows}
         {--class= : petreo|elastic|runtime (for list-invariants)}
         {--change-json= : JSON envelope of the proposed change (for validate)}
+        {--invariant= : invariant id (for elastic-state|flip-elastic|runtime-state|tune-runtime)}
+        {--enabled= : true|false (for flip-elastic)}
+        {--value= : new value (for tune-runtime; numeric or string from window)}
+        {--actor= : operator name}
+        {--reason= : human-readable reason}
         {--json : Emit JSON envelope}';
 
     protected $description = 'Atlas Constitutional Kernel — read pétreo invariants and validate proposed autonomous changes.';
@@ -71,6 +76,102 @@ class AtlasConstitutionalKernelCommand extends Command
 
             case 'kernel-hash':
                 return $this->emit(['kernel_hash' => $svc->kernelHash()], $json);
+
+            case 'elastic-state':
+                $id = (string) ($this->option('invariant') ?? '');
+                if ($id === '') {
+                    // Report all elastic invariants effective state.
+                    $rows = [];
+                    foreach ($svc->listInvariants('elastic') as $inv) {
+                        $rows[] = [
+                            'invariant_id' => $inv['id'],
+                            'effective_enabled' => $svc->isElasticEnabled($inv['id']),
+                            'canonical_enabled' => $inv['enabled'],
+                            'statement' => $inv['statement'],
+                        ];
+                    }
+
+                    return $this->emit(['count' => count($rows), 'elastic_state' => $rows], $json);
+                }
+                try {
+                    $state = $svc->isElasticEnabled($id);
+                } catch (\Throwable $e) {
+                    $this->error($e->getMessage());
+
+                    return self::FAILURE;
+                }
+
+                return $this->emit(['invariant_id' => $id, 'effective_enabled' => $state], $json);
+
+            case 'flip-elastic':
+                $id = (string) ($this->option('invariant') ?? '');
+                $enabledRaw = (string) ($this->option('enabled') ?? '');
+                $actor = (string) ($this->option('actor') ?? '');
+                $reason = (string) ($this->option('reason') ?? '');
+                if ($id === '' || $enabledRaw === '' || $actor === '' || $reason === '') {
+                    $this->error('flip-elastic requires --invariant, --enabled, --actor, --reason.');
+
+                    return self::FAILURE;
+                }
+                $enabled = in_array(strtolower($enabledRaw), ['1', 'true', 'on', 'yes'], true);
+                try {
+                    $entry = $svc->flipElastic($id, $enabled, $actor, $reason);
+                } catch (\Throwable $e) {
+                    $this->error($e->getMessage());
+
+                    return self::FAILURE;
+                }
+
+                return $this->emit($entry, $json);
+
+            case 'runtime-windows':
+                return $this->emit(['windows' => $svc->runtimeWindows()], $json);
+
+            case 'runtime-state':
+                $id = (string) ($this->option('invariant') ?? '');
+                if ($id === '') {
+                    $rows = [];
+                    foreach ($svc->listInvariants('runtime') as $inv) {
+                        $rows[] = [
+                            'invariant_id' => $inv['id'],
+                            'current_value' => $svc->currentRuntimeValue($inv['id']),
+                            'window' => $svc->runtimeWindows()[$inv['id']] ?? null,
+                            'statement' => $inv['statement'],
+                        ];
+                    }
+
+                    return $this->emit(['count' => count($rows), 'runtime_state' => $rows], $json);
+                }
+
+                return $this->emit([
+                    'invariant_id' => $id,
+                    'current_value' => $svc->currentRuntimeValue($id),
+                    'window' => $svc->runtimeWindows()[$id] ?? null,
+                ], $json);
+
+            case 'tune-runtime':
+                $id = (string) ($this->option('invariant') ?? '');
+                $valueRaw = (string) ($this->option('value') ?? '');
+                $actor = (string) ($this->option('actor') ?? '');
+                $reason = (string) ($this->option('reason') ?? '');
+                if ($id === '' || $valueRaw === '' || $actor === '' || $reason === '') {
+                    $this->error('tune-runtime requires --invariant, --value, --actor, --reason.');
+
+                    return self::FAILURE;
+                }
+                // Coerce numeric values to int/float for range windows.
+                $value = is_numeric($valueRaw)
+                    ? (str_contains($valueRaw, '.') ? (float) $valueRaw : (int) $valueRaw)
+                    : $valueRaw;
+                try {
+                    $entry = $svc->tuneRuntime($id, $value, $actor, $reason);
+                } catch (\Throwable $e) {
+                    $this->error($e->getMessage());
+
+                    return self::FAILURE;
+                }
+
+                return $this->emit($entry, $json);
 
             default:
                 $this->error("action '{$action}' desconhecida.");

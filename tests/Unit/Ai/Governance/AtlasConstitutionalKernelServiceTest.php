@@ -163,4 +163,154 @@ class AtlasConstitutionalKernelServiceTest extends TestCase
         ]);
         $this->assertSame($this->svc->kernelHash(), $r['kernel_hash']);
     }
+
+    // ---------- Elastic invariant state ----------
+
+    public function test_elastic_invariant_defaults_to_canonical_enabled(): void
+    {
+        $elasticPath = sys_get_temp_dir().'/atlas_elastic_'.uniqid('', true).'.jsonl';
+        $this->svc->setElasticStateLogPathForTesting($elasticPath);
+        try {
+            $this->assertTrue($this->svc->isElasticEnabled('autonomous_self_construction_enabled'));
+            $this->assertTrue($this->svc->isElasticEnabled('teos_meta_projection_enabled'));
+        } finally {
+            @unlink($elasticPath);
+        }
+    }
+
+    public function test_flip_elastic_records_append_only_and_changes_effective_state(): void
+    {
+        $elasticPath = sys_get_temp_dir().'/atlas_elastic_'.uniqid('', true).'.jsonl';
+        $this->svc->setElasticStateLogPathForTesting($elasticPath);
+        try {
+            $entry = $this->svc->flipElastic(
+                'autonomous_self_construction_enabled',
+                false,
+                'operator',
+                'pause autonomous propose during maintenance window'
+            );
+            $this->assertSame(AtlasConstitutionalKernelService::ELASTIC_FLIP_SCHEMA, $entry['schema_version']);
+            $this->assertStringStartsWith('sha256:', $entry['entry_hash']);
+            $this->assertFalse($this->svc->isElasticEnabled('autonomous_self_construction_enabled'));
+
+            // Flip back ON — last flip wins.
+            $this->svc->flipElastic(
+                'autonomous_self_construction_enabled',
+                true,
+                'operator',
+                'resume autonomous propose'
+            );
+            $this->assertTrue($this->svc->isElasticEnabled('autonomous_self_construction_enabled'));
+        } finally {
+            @unlink($elasticPath);
+        }
+    }
+
+    public function test_flip_elastic_refuses_petreo(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->svc->flipElastic('claim_policy_provider_safe', false, 'operator', 'test');
+    }
+
+    public function test_flip_elastic_refuses_runtime_class(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->svc->flipElastic('reconciliation_cadence_window', false, 'operator', 'test');
+    }
+
+    public function test_flip_elastic_refuses_unknown_invariant(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->svc->flipElastic('nonexistent_invariant_id', false, 'operator', 'test');
+    }
+
+    public function test_flip_elastic_requires_actor_and_reason(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->svc->flipElastic('autonomous_self_construction_enabled', false, '', '');
+    }
+
+    // ---------- Runtime tuning ----------
+
+    public function test_runtime_value_defaults_null_until_tuned(): void
+    {
+        $log = sys_get_temp_dir().'/atlas_runtime_'.uniqid('', true).'.jsonl';
+        $this->svc->setRuntimeStateLogPathForTesting($log);
+        try {
+            $this->assertNull($this->svc->currentRuntimeValue('reconciliation_cadence_window'));
+            $this->assertNull($this->svc->currentRuntimeValue('tdc_ttl_window'));
+            $this->assertNull($this->svc->currentRuntimeValue('admission_trust_modifier_window'));
+        } finally {
+            @unlink($log);
+        }
+    }
+
+    public function test_tune_runtime_records_within_enum_window(): void
+    {
+        $log = sys_get_temp_dir().'/atlas_runtime_'.uniqid('', true).'.jsonl';
+        $this->svc->setRuntimeStateLogPathForTesting($log);
+        try {
+            $entry = $this->svc->tuneRuntime(
+                'reconciliation_cadence_window',
+                'thirty',
+                'autonomous_tuner',
+                'demand low — slow cadence to 30 min'
+            );
+            $this->assertSame('thirty', $this->svc->currentRuntimeValue('reconciliation_cadence_window'));
+            $this->assertStringStartsWith('sha256:', $entry['entry_hash']);
+        } finally {
+            @unlink($log);
+        }
+    }
+
+    public function test_tune_runtime_records_within_numeric_range(): void
+    {
+        $log = sys_get_temp_dir().'/atlas_runtime_'.uniqid('', true).'.jsonl';
+        $this->svc->setRuntimeStateLogPathForTesting($log);
+        try {
+            $this->svc->tuneRuntime(
+                'tdc_ttl_window',
+                3600,
+                'operator',
+                'set TDC TTL to 1h'
+            );
+            $this->assertSame(3600, $this->svc->currentRuntimeValue('tdc_ttl_window'));
+        } finally {
+            @unlink($log);
+        }
+    }
+
+    public function test_tune_runtime_rejects_outside_enum_window(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->svc->tuneRuntime(
+            'reconciliation_cadence_window',
+            'daily',
+            'operator',
+            'attempt to set daily cadence outside window'
+        );
+    }
+
+    public function test_tune_runtime_rejects_outside_numeric_range(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->svc->tuneRuntime(
+            'tdc_ttl_window',
+            10,
+            'operator',
+            'attempt 10s TTL below floor'
+        );
+    }
+
+    public function test_tune_runtime_rejects_petreo(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->svc->tuneRuntime('claim_policy_provider_safe', 1, 'operator', 'test');
+    }
+
+    public function test_tune_runtime_rejects_elastic_class(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->svc->tuneRuntime('autonomous_self_construction_enabled', 1, 'operator', 'test');
+    }
 }

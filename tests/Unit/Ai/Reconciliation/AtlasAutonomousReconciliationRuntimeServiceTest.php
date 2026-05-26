@@ -310,4 +310,150 @@ class AtlasAutonomousReconciliationRuntimeServiceTest extends TestCase
         @unlink($ascbProposalLog);
         @unlink($ascbApprovalLog);
     }
+
+    public function test_evidence_health_probe_action_kind_emits_receipt(): void
+    {
+        $tick = $this->svc->tick([
+            'privacy_class' => 'public',
+            'action_kind' => AtlasAutonomousReconciliationRuntimeService::ACTION_KIND_EVIDENCE_HEALTH_PROBE,
+        ]);
+        $this->assertSame(
+            AtlasAutonomousReconciliationRuntimeService::ACTION_KIND_EVIDENCE_HEALTH_PROBE,
+            $tick['step']['step_kind']
+        );
+        $this->assertNotNull($tick['step']['probe_receipt']);
+        $this->assertSame(
+            'evidence_health_probe',
+            $tick['step']['probe_receipt']['probe_kind']
+        );
+        $this->assertStringStartsWith('sha256:', $tick['step']['probe_receipt']['receipt_hash']);
+    }
+
+    public function test_doc_health_probe_action_kind(): void
+    {
+        $tick = $this->svc->tick([
+            'privacy_class' => 'public',
+            'action_kind' => AtlasAutonomousReconciliationRuntimeService::ACTION_KIND_DOC_HEALTH_PROBE,
+        ]);
+        $this->assertSame(
+            'doc_health_probe',
+            $tick['step']['probe_receipt']['probe_kind']
+        );
+        $this->assertIsArray($tick['step']['probe_receipt']['groups_observed']);
+    }
+
+    public function test_telemetry_audit_action_kind(): void
+    {
+        $tick = $this->svc->tick([
+            'privacy_class' => 'public',
+            'action_kind' => AtlasAutonomousReconciliationRuntimeService::ACTION_KIND_TELEMETRY_AUDIT,
+        ]);
+        $this->assertSame(
+            'telemetry_audit',
+            $tick['step']['probe_receipt']['probe_kind']
+        );
+        $this->assertArrayHasKey('aurg_recent_count', $tick['step']['probe_receipt']);
+    }
+
+    public function test_unknown_action_kind_falls_back_to_stabilize_pipeline(): void
+    {
+        $tick = $this->svc->tick([
+            'privacy_class' => 'public',
+            'action_kind' => 'unknown_kind_test',
+        ]);
+        $this->assertSame(
+            AtlasAutonomousReconciliationRuntimeService::ACTION_KIND_STABILIZE_PIPELINE,
+            $tick['step']['step_kind']
+        );
+        $this->assertNull($tick['step']['probe_receipt']);
+    }
+
+    public function test_default_action_kind_remains_stabilize_pipeline(): void
+    {
+        $tick = $this->svc->tick(['privacy_class' => 'public']);
+        $this->assertSame(
+            AtlasAutonomousReconciliationRuntimeService::ACTION_KIND_STABILIZE_PIPELINE,
+            $tick['step']['step_kind']
+        );
+    }
+
+    public function test_elastic_disable_of_reconciliation_cron_returns_disabled_tick(): void
+    {
+        $u = uniqid('', true);
+        $elasticLog = sys_get_temp_dir()."/atlas_recon_cron_elastic_{$u}.jsonl";
+
+        $kernel = new AtlasConstitutionalKernelService;
+        $kernel->setViolationsLogPathForTesting($this->kernelLog);
+        $kernel->setElasticStateLogPathForTesting($elasticLog);
+        $kernel->flipElastic(
+            'reconciliation_cron_enabled',
+            false,
+            'operator',
+            'pause reconciliation cron entirely'
+        );
+
+        $this->svc->setKernelForElasticChecks($kernel);
+        $tick = $this->svc->tick(['privacy_class' => 'public']);
+
+        $this->assertSame(
+            AtlasAutonomousReconciliationRuntimeService::OUTCOME_DISABLED_BY_KERNEL,
+            $tick['outcome']
+        );
+        $this->assertNull($tick['step']);
+        $this->assertNull($tick['selected_group']);
+
+        @unlink($elasticLog);
+    }
+
+    public function test_elastic_disable_suppresses_ascb_propose(): void
+    {
+        $u = uniqid('', true);
+        $elasticLog = sys_get_temp_dir()."/atlas_recon_elastic_{$u}.jsonl";
+        $ascbProposalLog = sys_get_temp_dir()."/atlas_recon_ascb_elastic_{$u}.jsonl";
+        $ascbApprovalLog = sys_get_temp_dir()."/atlas_recon_ascb_elastic_appr_{$u}.jsonl";
+
+        $kernel = new AtlasConstitutionalKernelService;
+        $kernel->setViolationsLogPathForTesting($this->kernelLog);
+        $kernel->setElasticStateLogPathForTesting($elasticLog);
+        // Operator flips off autonomous_self_construction_enabled.
+        $kernel->flipElastic(
+            'autonomous_self_construction_enabled',
+            false,
+            'operator',
+            'pause autonomous propose during test window'
+        );
+
+        $admission = new AtlasAutonomyAdmissionService($kernel);
+        $admission->setTicketsLogPathForTesting($this->admissionLog);
+        $scoreCard = $this->app->make(AtlasCognitionScoreCardService::class);
+        $cfa = new StubCognitiveFunctionAtlasWithGaps($scoreCard, $kernel);
+        $ascb = new AtlasSelfConstructionSubsystemBuilderService($scoreCard);
+        $ascb->setProposalsLogPathForTesting($ascbProposalLog);
+        $ascb->setApprovalsLogPathForTesting($ascbApprovalLog);
+
+        $svc = new AtlasAutonomousReconciliationRuntimeService($cfa, $admission, $this->aurg, $ascb);
+        $svc->setTicksLogPathForTesting($this->reconLog);
+        $svc->setKernelForElasticChecks($kernel);
+
+        $tick = $svc->tick([
+            'privacy_class' => 'public',
+            'requested_autonomy' => \App\Services\Ai\Policy\PolicyCanon::AUTONOMY_AUTONOMOUS,
+        ]);
+
+        // outcome stays auto_applied (Admission still allowed), but ASCB.propose
+        // was suppressed because the elastic invariant is disabled.
+        $this->assertSame(
+            AtlasAutonomousReconciliationRuntimeService::OUTCOME_AUTO_APPLIED,
+            $tick['outcome']
+        );
+        $this->assertNull($tick['step']['ascb_proposal_id']);
+        $this->assertSame(
+            'sha256:suppressed_kernel_elastic_disabled',
+            $tick['step']['ascb_proposal_hash']
+        );
+
+        @unlink($elasticLog);
+        @unlink($ascbProposalLog);
+        @unlink($ascbApprovalLog);
+    }
 }

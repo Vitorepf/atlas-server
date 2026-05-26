@@ -379,6 +379,16 @@ return Application::configure(basePath: dirname(__DIR__))
         // Defaults: every 15 min. Disable via config('atlas.patamar4.reconciliation_enabled', true).
         if (config('atlas.patamar4.reconciliation_enabled', true)) {
             $cadence = (string) config('atlas.patamar4.reconciliation_cadence', 'fifteen');
+            // Auto-tune: Kernel runtime invariant may override config when set.
+            try {
+                $tuned = app(\App\Services\Ai\Governance\AtlasConstitutionalKernelService::class)
+                    ->currentRuntimeValue('reconciliation_cadence_window');
+                if (is_string($tuned) && $tuned !== '') {
+                    $cadence = $tuned;
+                }
+            } catch (\Throwable $e) {
+                // Defensive: scheduler bootstrap stays robust against container issues.
+            }
             $cmd = $schedule->command('atlas:reconciliation --action=tick --privacy=normal --autonomy=execute_with_approval --json')
                 ->withoutOverlapping();
             match ($cadence) {
@@ -389,6 +399,23 @@ return Application::configure(basePath: dirname(__DIR__))
                 'hourly' => $cmd->hourly(),
                 default => $cmd->everyFifteenMinutes(),
             };
+        }
+
+        // Patamar 4 · Nightly counterfactuals — background TEOS-I4 reprojection
+        // sobre decisões majores do dia anterior. 03:00 UTC (madrugada operador).
+        if (config('atlas.patamar4.nightly_counterfactuals_enabled', true)) {
+            $schedule->command('atlas:nightly:counterfactuals --action=run --actor=cron_nightly --json')
+                ->withoutOverlapping()
+                ->dailyAt('03:00');
+        }
+
+        // Patamar 4 · ADML closed feedback loop hourly sweep.
+        // Auto-deactivates active routes whose live success rate falls below
+        // the degradation threshold. Cheap, idempotent, append-only receipt.
+        if (config('atlas.patamar4.adml_sweep_enabled', true)) {
+            $schedule->command('atlas:atlas-decide:live-feedback --action=sweep --actor=autonomous_feedback_loop --json')
+                ->withoutOverlapping()
+                ->hourly();
         }
 
         if (config('atlas_ai.self_improvement.enabled', false)) {

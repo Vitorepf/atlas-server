@@ -24,11 +24,11 @@ decisions:
   - Nome canonico/produto da camada twin: Atlas Software Twin Runtime.
   - Acronimo tecnico da camada twin: ASTR.
   - Nome interno de experiencia/superficie da camada twin: Atlas Living System Twin.
-  - Runtime tecnico alvo da camada twin: AtlasSoftwareTwinRuntimeService.
+  - Runtime tecnico atual da camada twin: AtlasSoftwareTwinRuntimeService.
   - Nome canonico/produto da camada superior: Atlas Verified Evolution Runtime.
   - Acronimo tecnico da camada superior: AVEOR.
   - Nome interno de experiencia/superficie da camada superior: Atlas Change Safety Kernel.
-  - Runtime tecnico alvo da camada superior: AtlasVerifiedEvolutionRuntimeService.
+  - Runtime tecnico atual da camada superior: AtlasVerifiedEvolutionRuntimeService.
   - O acronimo AVER ja pertence a Atlas Verified Execution Runtime; nao reutilizar AVER para Verified Evolution.
   - ASTR entende o sistema vivo; AVEOR decide, limita, simula, verifica e aprende com mudancas.
 maintenance:
@@ -46,8 +46,10 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
   - app/Services/Engineering/AtlasSoftwareTwinRuntimeService.php
   - app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php
+  - app/Services/Engineering/AtlasSoftwareTwinVerifiedEvolutionCertificationService.php
   - app/Console/Commands/AtlasSoftwareTwinCommand.php
   - app/Console/Commands/AtlasVerifiedEvolutionCommand.php
+  - app/Console/Commands/AtlasSoftwareTwinVerifiedEvolutionCertifyCommand.php
   - tests/Feature/Engineering/AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest.php
   - app/Services/Engineering/EngineeringCodeIntelligenceService.php
   - app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php
@@ -70,9 +72,9 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-software-twin-verified-evolution-runtime.md
 allowed_changes:
   - Refinar o limite tecnico superior de ACIR, ASTR e AVEOR.
-  - Dividir esta especificacao em docs filhas quando runtime ou testes forem implementados.
+  - Dividir esta especificacao em docs filhas quando o escopo crescer ou novos runtimes forem extraidos.
 forbidden_changes:
-  - Declarar ASTR ou AVEOR implementado sem runtime, comandos, testes e evidence.
+  - Declarar ASTR ou AVEOR prontos para mutacao autonoma sem boundary, AVER, AEMOR, testes e evidence.
   - Reutilizar o acronimo AVER para Verified Evolution.
   - Permitir mudanca de codigo sem boundary, prova e rollback quando AVEOR estiver ativo.
 depends_on:
@@ -97,8 +99,14 @@ governs:
   - patch-evolution
 evidence:
   - docs/engineering-knowledge-base/atlas-software-twin-verified-evolution-runtime.md
+  - app/Services/Engineering/AtlasSoftwareTwinRuntimeService.php
+  - app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php
+  - app/Services/Engineering/AtlasSoftwareTwinVerifiedEvolutionCertificationService.php
+  - tests/Feature/Engineering/AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan test tests/Feature/Engineering/AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest.php"
+  - "php artisan atlas:software-twin-verified-evolution:certify --json --strict"
 requires_evidence: true
 risk_level: critical
 visual_tags:
@@ -109,9 +117,11 @@ visual_tags:
 ai_entrypoints:
   - Leia este doc antes de transformar ACIR em runtime de software twin, safety kernel ou evolucao verificada.
 ai_usage_notes:
-  - Esta especificacao define estado final e ordem de implementacao; nao declara ASTR/AVEOR como implementados.
+  - ASTR/AVEOR possuem runtime, comandos, testes e certificacao; isso nao autoriza mutacao autonoma fora de boundary, AVER e AEMOR.
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan test tests/Feature/Engineering/AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest.php"
+  - "php artisan atlas:software-twin-verified-evolution:certify --json --strict"
 failure_modes:
   - IA confunde indice de codigo com entendimento causal do sistema.
   - IA usa ASTR como permissao para editar sem proof gate.
@@ -124,22 +134,23 @@ observability_signals:
   - AVER certified execution status
   - AEMOR outcome quality score
 next_actions:
-  - Implementar ACIR produto-final antes de ASTR.
-  - Implementar ASTR read-only antes de AVEOR mutativo.
-  - Integrar AVEOR com AVER, AEMOR e AWEOS apenas quando proof gates existirem.
+  - Manter ASTR read-only como twin vivo com comandos `atlas:software-twin`.
+  - Manter AVEOR como safety kernel que prepara boundary/proof/execution contract sem autorizar mutacao direta.
+  - Integrar evolucoes com AVER, AEMOR e AWEOS apenas por gates certificados.
 ---
 # Atlas Software Twin & Verified Evolution Runtime
 ## Resumo
 Esta e a especificacao do limite tecnico superior da area de inteligencia de
 codigo do Atlas.
-O objetivo nao e apenas indexar codigo. O objetivo final e impedir que uma IA
-entre em uma sessao zerada, entenda errado, edite arquivo errado, duplique fluxo,
-quebre arquitetura ou declare pronto sem prova.
+O objetivo nao e apenas indexar codigo. O runtime atual impede que uma IA entre
+em uma sessao zerada, entenda errado, edite arquivo errado, duplique fluxo,
+quebre arquitetura ou declare pronto sem prova, sempre sem autorizar mutacao
+direta fora de boundary e AVER.
 Camadas:
 | Camada | Nome | Papel |
 |---|---|---|
 | ACIR | Atlas Code Intelligence Runtime | entende codigo, simbolos, rotas, comandos, testes e docs |
-| ACRUI | Atlas Code Reality & Usage Intelligence | prova uso real, scaffold, legado, duplicacao e risco |
+| ACRUI | Atlas Code Reality & Usage Intelligence | prova uso real, estado estacionado, legado, duplicacao e risco |
 | ADRS | Atlas Documentation Reality System | governa fonte de verdade documental |
 | AURC | Atlas Universal Reality Cartography | mostra a verdade visualmente para humano/IA |
 | ASTR | Atlas Software Twin Runtime | cria o gemeo vivo do sistema |
@@ -210,7 +221,7 @@ ACIR em estado final deve entregar:
 - freshness gate;
 - context pack compiler;
 - impact analyzer;
-- duplicate/dead/scaffold detector;
+- duplicate/dead/stationed-code detector;
 - provider-safe projection;
 - cartography projection;
 - quality score.
@@ -226,7 +237,7 @@ Contratos:
 | Nome canonico / produto | Atlas Software Twin Runtime |
 | Acronimo tecnico | ASTR |
 | Nome interno de experiencia / superficie | Atlas Living System Twin |
-| Runtime tecnico alvo | `AtlasSoftwareTwinRuntimeService` |
+| Runtime tecnico atual | `AtlasSoftwareTwinRuntimeService` |
 | Schema alvo | `atlas.software_twin.v1` |
 
 ASTR cria um modelo vivo do software combinando:
@@ -267,7 +278,7 @@ ASTR responde:
 |---:|---|---|
 | 1 | Software Twin Graph | grafo unico de codigo, docs, testes, runtime e evidence |
 | 2 | Causal Dependency Model | relacoes causais alem de import/caller |
-| 3 | Runtime Usage Lens | diferenca entre existe, usado, shadow, scaffold e morto |
+| 3 | Runtime Usage Lens | diferenca entre existe, usado, shadow, estacionado e morto |
 | 4 | Feature Lineage Tracker | origem doc->prompt->patch->teste->runtime |
 | 5 | Ownership & Boundary Resolver | dono real, camada e area permitida |
 | 6 | Test Proof Resolver | quais testes provam qual comportamento |
@@ -289,7 +300,7 @@ Contratos:
 | Nome canonico / produto | Atlas Verified Evolution Runtime |
 | Acronimo tecnico | AVEOR |
 | Nome interno de experiencia / superficie | Atlas Change Safety Kernel |
-| Runtime tecnico alvo | `AtlasVerifiedEvolutionRuntimeService` |
+| Runtime tecnico atual | `AtlasVerifiedEvolutionRuntimeService` |
 | Schema alvo | `atlas.verified_evolution.v1` |
 
 AVEOR fica acima do ASTR. Ele usa o twin para controlar mudanca antes, durante e
@@ -381,7 +392,7 @@ Fora do escopo:
 - editar codigo sem execution bridge;
 - rodar benchmark/rivals;
 - autorizar delete sem ACRUI quarantine;
-- declarar produto pronto sem runtime e testes.
+- declarar mutacao autonoma pronta sem boundary, AVER, AEMOR, testes e evidence.
 
 ## Reducao De Erro
 
@@ -400,8 +411,8 @@ sem prova. Nao prometer 100%; sempre declarar confidence e evidence.
 
 ## Regras Para IA
 
-1. Nunca implementar ASTR antes de ACIR/ACRUI estarem consumiveis.
-2. Nunca implementar AVEOR mutativo antes de ASTR read-only.
+1. Nunca tratar ASTR como autorizacao para patch; ASTR e read-only por padrao.
+2. Nunca tratar AVEOR como executor direto; AVEOR prepara boundary, proof plan e contrato para AVER.
 3. Nunca reutilizar `AVER` para Verified Evolution; use `AVEOR`.
 4. Nunca permitir patch sem `Change Boundary Contract`.
 5. Nunca considerar tarefa pronta sem `Proof Plan Resolver` e AVER quando houver execucao.
@@ -417,7 +428,7 @@ sem prova. Nao prometer 100%; sempre declarar confidence e evidence.
 |---|---|
 | ADRS | fonte de verdade documental e owner docs |
 | ACIR | codigo, simbolos, rotas, comandos, testes e freshness |
-| ACRUI | realidade operacional, scaffold, legado e quarantine |
+| ACRUI | realidade operacional, codigo estacionado, legado e quarantine |
 | AURC | visualizacao humana/IA do twin e dos boundaries |
 | AVER | execucao verificada de comandos, diffs, testes e certificacao |
 | AEMOR | memoria de outcomes, falhas e estrategias |
@@ -432,15 +443,15 @@ php artisan atlas:engineering:knowledge docs-health --json
 php artisan atlas:documentation-reality acceptance --strict --json
 php artisan atlas:code-reality reality-audit --json
 php artisan atlas:aver:certify --json --strict
+php artisan test tests/Feature/Engineering/AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest.php
+php artisan atlas:software-twin-verified-evolution:certify --json --strict
 ```
 
-Evidencia futura para ASTR/AVEOR:
+Evidencia runtime atual para ASTR/AVEOR:
 
-- comandos read-only para twin status e impact;
-- testes de fixture para boundary contract;
-- teste que bloqueia patch fora de escopo;
-- teste que exige proof plan antes de AVER;
-- teste que envia outcome para AEMOR sem vazar texto bruto.
+- `atlas:software-twin` entrega twin, impact, context-envelope, quality-score e snapshot.
+- `atlas:verified-evolution` entrega intent-lock, boundary-contract, proof-plan, execution-contract, drift-watch, patch-simulation, outcome-bridge, quality-score e evolution-envelope.
+- Testes cobrem boundary, proof plan, AVER bridge, drift watch, patch simulation e AEMOR outcome bridge.
 
 ## Riscos
 
@@ -470,18 +481,14 @@ ASTR pode apontar baixa reachability, mas AVEOR nao autoriza delete. O fluxo
 deve ir para ACRUI deletion-preflight e quarantine humano.
 ```
 
-## Ordem De Implementacao
+## Sequencia Operacional
 
-1. ACIR incremental e freshness gate.
-2. ACIR relation graph e test proof resolver.
-3. ACRUI reachability usando ACIR persistido.
-4. ASTR read-only com Software Twin Graph.
-5. ASTR causal/risk model.
-6. AVEOR read-only com Intent Lock e Change Boundary Contract.
-7. AVEOR ligado ao AVER para execucao certificada.
-8. AVEOR ligado ao AEMOR para aprendizado de outcome.
-9. AURC exibindo twin, risco, boundary e prova.
-10. Atlas Dev/Forge usando AVEOR por padrao para tarefas de alto risco.
+1. Consultar ACIR/ACRUI/ADRS/AURC para realidade e owner.
+2. Rodar ASTR `impact` ou `context-envelope` para entender dependencias.
+3. Rodar AVEOR `boundary-contract` e `proof-plan` antes de qualquer patch.
+4. Enviar execucao concreta ao AVER quando houver mudanca.
+5. Enviar outcome ao AEMOR quando houver resultado.
+6. Atualizar docs/ACRUI/AURC somente com evidence.
 
 ## Definition Of Done
 
@@ -508,9 +515,5 @@ AVEOR pronto exige:
 - testes de bloqueio e sucesso.
 
 ## Proximas Acoes
-
-1. Promover ACIR de index batch para runtime incremental.
-2. Criar doc filha especifica de ASTR quando iniciar implementacao.
-3. Criar doc filha especifica de AVEOR quando ASTR read-only estiver verde.
-4. Atualizar ADRS/ACRUI/AURC para navegar e exibir ASTR/AVEOR.
-5. Manter AVER como executor verificado existente, nao como camada de evolucao.
+1. Manter ASTR/AVEOR certificados por teste e comando antes de claims.
+2. Expandir docs filhas somente quando o runtime crescer; manter AVER como executor verificado e Cartografia como projection.

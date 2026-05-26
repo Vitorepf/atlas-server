@@ -10,9 +10,45 @@ use Tests\TestCase;
  */
 class AtlasCognitionScoreCardServiceTest extends TestCase
 {
-    public function test_canonical_subsystem_count_is_52(): void
+    public function test_canonical_subsystem_count_is_62(): void
     {
-        $this->assertSame(52, AtlasCognitionScoreCardService::canonicalSubsystemCount());
+        $this->assertSame(62, AtlasCognitionScoreCardService::canonicalSubsystemCount());
+    }
+
+    public function test_nightly_counterfactuals_present(): void
+    {
+        $acronyms = array_map(fn ($r) => $r['acronym'], (new AtlasCognitionScoreCardService)->build()['subsystems']);
+        $this->assertContains('ANCF', $acronyms);
+    }
+
+    public function test_constitutional_vault_present(): void
+    {
+        $acronyms = array_map(fn ($r) => $r['acronym'], (new AtlasCognitionScoreCardService)->build()['subsystems']);
+        $this->assertContains('ACVS', $acronyms);
+    }
+
+    public function test_trust_budget_service_present(): void
+    {
+        $acronyms = array_map(fn ($r) => $r['acronym'], (new AtlasCognitionScoreCardService)->build()['subsystems']);
+        $this->assertContains('ATBS', $acronyms);
+    }
+
+    public function test_cartography_truth_guard_present(): void
+    {
+        $acronyms = array_map(fn ($r) => $r['acronym'], (new AtlasCognitionScoreCardService)->build()['subsystems']);
+        $this->assertContains('ACTG', $acronyms);
+    }
+
+    public function test_gateway_preflight_present(): void
+    {
+        $acronyms = array_map(fn ($r) => $r['acronym'], (new AtlasCognitionScoreCardService)->build()['subsystems']);
+        $this->assertContains('AGPF', $acronyms);
+    }
+
+    public function test_atlas_decide_live_outcome_feedback_present(): void
+    {
+        $acronyms = array_map(fn ($r) => $r['acronym'], (new AtlasCognitionScoreCardService)->build()['subsystems']);
+        $this->assertContains('ADLF', $acronyms);
     }
 
     public function test_build_returns_canonical_envelope(): void
@@ -20,8 +56,8 @@ class AtlasCognitionScoreCardServiceTest extends TestCase
         $r = (new AtlasCognitionScoreCardService)->build();
 
         $this->assertSame('atlas.cognition.scorecard.v3', $r['schema_version']);
-        $this->assertSame(52, $r['subsystem_count']);
-        $this->assertCount(52, $r['subsystems']);
+        $this->assertSame(62, $r['subsystem_count']);
+        $this->assertCount(62, $r['subsystems']);
         $this->assertArrayHasKey('score', $r);
         $this->assertArrayHasKey('scorecard_hash', $r);
         $this->assertStringStartsWith('sha256:', $r['scorecard_hash']);

@@ -2,10 +2,11 @@
 id: atlas-workspace-artifact-intelligence-runtime
 type: engineering_knowledge
 title: Atlas Workspace Artifact Intelligence Runtime
-status: building
+status: active
 category: workspace-intelligence
 priority: 95
-implementation_state: read_only_runtime_cartography_and_control_plane_shadow_projection_present
+implementation_state: active_runtime_with_building_extensions
+implementation_boundary: AWAIR core is active through AtlasWorkspaceIntelligenceRuntimeService, artifact repository, workspace-artifacts CLI and Cartography nodes. API/workroom/timeline regressions must stay review-visible; marketplace-style reuse and broad artifact retirement automation remain building extensions, not required proof for the active CLI core.
 summary: Camada final de inteligencia de artefatos do AWIS/AWAF, tornando cada workspace executavel por pacotes vivos, versionados, simulaveis, reutilizaveis e explicaveis pela Cartografia.
 tags:
   - atlas
@@ -35,6 +36,8 @@ decisions:
   - Conversa bruta nunca deve ser o estado principal quando existe artefato certificado.
   - Artefato pode ser reutilizado somente com workspace_id, source_hashes, freshness e redaction validos.
   - Cartografia deve mostrar artefatos como mapa vivo, nao como texto longo.
+  - Core AWAIR esta ativo via runtime/CLI; API workroom, timeline e retirement flows exigem testes verdes antes de claim completo.
+  - Extensoes de marketplace, retirement automation ampla e reutilizacao generica continuam building.
 maintenance:
   - Atualizar antes de implementar artifact lake, artifact graph, replay, simulation, marketplace ou Cartografia por artefato.
   - Manter abaixo de 520 linhas.
@@ -55,15 +58,15 @@ graph_world: atlas
 graph_layer: system
 graph_kind: system
 graph_parent: atlas-workspace-artifact-fabric
-graph_status: planned
+graph_status: active
 graph_source: repo
 product_name: Atlas Workspace Artifact Intelligence Runtime
 runtime_acronym: AWAIR
 internal_product_name: Atlas Artifact Command
-technical_runtime: AtlasWorkspaceArtifactIntelligenceRuntime
+technical_runtime: AtlasWorkspaceIntelligenceRuntimeService
 human_name: Atlas Workspace Artifact Intelligence Runtime
 canonical_name: Atlas Workspace Artifact Intelligence Runtime
-technical_name: AtlasWorkspaceArtifactIntelligenceRuntime
+technical_name: AtlasWorkspaceIntelligenceRuntimeService
 cartography_type: runtime
 canonical_source: docs/engineering-knowledge-base/atlas-workspace-artifact-intelligence-runtime.md
 owner: workspace-intelligence
@@ -108,6 +111,9 @@ evidence:
   - tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
+  - php artisan test tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php --filter=test_command_artifact_intelligence_returns_awair_projection_only
+  - php artisan atlas:workspace-intelligence artifact-intelligence --workspace=atlas --json --strict
+  - php artisan atlas:workspace-artifacts graph --workspace=atlas --json --strict
 requires_evidence: true
 risk_level: critical
 visual_tags:
@@ -145,7 +151,12 @@ next_actions:
 **Nome canonico / produto:** Atlas Workspace Artifact Intelligence Runtime  
 **Acronimo tecnico:** AWAIR  
 **Nome interno de experiencia / superficie:** Atlas Artifact Command  
-**Runtime tecnico:** `AtlasWorkspaceArtifactIntelligenceRuntime`
+**Runtime tecnico:** `AtlasWorkspaceIntelligenceRuntimeService`
+
+Status operacional: o core AWAIR esta ativo. Isso significa que artifact
+intelligence, repository, comandos e Cartografia ja possuem runtime verificavel.
+Isso nao significa que API workroom/timeline, artifact marketplace, retirement
+automation ou reuse generico estejam concluidos.
 
 AWAIR e a evolucao maxima da camada de artefatos do AWIS. Ele transforma um
 workspace em um sistema operacional de artefatos: cada decisao, contexto, plano,
@@ -219,45 +230,6 @@ ruim vira ruido institucional.
 O detalhamento operacional desses saltos vive em
 `atlas-workspace-artifact-operating-layer.md`: workroom, timeline, hash diff,
 replay point, artifact route, packet humano e packet seguro para IA.
-
-## Saltos Avancados Com Artefatos
-
-Estes blocos levam AWIS alem de "workspace com contexto" e transformam o
-workspace em uma malha operacional auditavel:
-
-| Bloco | O que faz | Bloqueia |
-|---|---|---|
-| Artifact Merge Room | funde conversas/runs grandes em um pacote coerente | conflito nao resolvido entre fontes |
-| Artifact Memory Lens | mostra quais memorias afetaram a decisao | memoria sem workspace_id ou stale |
-| Artifact Contract Lock | congela criterios antes de provider/subagente | patch sem acceptance/test/risk |
-| Artifact Inbox | fila de artifacts que precisam decisao humana | artifact critico sem dono |
-| Artifact Provenance Map | trilha fonte->artifact->execucao->outcome | fonte canonica ausente |
-| Artifact Minimal Context Proof | prova que o contexto minimo preserva must_keep | economia com perda de qualidade |
-| Artifact Agent Packet | pacote seguro para subagente especialista | prompt bruto ou escopo aberto |
-| Artifact Review Duel | compara reviewer humano/IA/local heuristics | aprovacao sem evidencia |
-| Artifact Retirement Policy | remove artifact stale do caminho ativo | reuse de artifact vencido |
-| Artifact Recovery Point | permite voltar ao ultimo estado confiavel | replay incompleto |
-
-Esses blocos existem para reduzir token sem reduzir qualidade. Se a economia
-remove fonte, teste, risco, contrato ou decisao vigente, o artifact deve falhar
-em shadow e nao pode dirigir Dev/Forge.
-
-## Artifact-Native Workspace
-
-O salto maximo nao e guardar artefatos; e fazer o workspace operar por
-artefatos. Nesse patamar, conversa, docs, testes, outcomes e handoffs viram um
-grafo operacional que pode ser consultado, simulado, compactado e reexecutado.
-
-| Capacidade | Funcao | Resultado |
-|---|---|---|
-| Artifact Operating Graph | grafo executavel de task/context/test/risk/outcome | Atlas sabe qual peca usar antes de chamar modelo |
-| Artifact Delta Context | envia ao provider so o delta desde o ultimo artifact certificado | economia de token sem perder must_keep |
-| Artifact Proof Bundle | junta fonte, hash, teste, diff, receipt e outcome | resposta "pronto" vira verificavel |
-| Artifact Skill Capsule | empacota padrao reutilizavel sem dados do cliente | reuso seguro entre workspaces |
-| Artifact Garbage Collector | retira draft/stale/noise do caminho ativo | contexto menor e menos poluido |
-
-Regra: artefato avancado so entra no caminho ativo se melhorar pelo menos um dos
-quatro eixos: menos token, menos risco, melhor handoff ou melhor prova.
 
 ## Fluxo
 
@@ -449,8 +421,10 @@ quality_score baixo = pode existir como draft, nao pode dirigir execucao.
 
 ## Evidencias
 
-Evidencia atual: especificacao canonica e projecao read-only dentro do runtime
-AWIS. Persistencia dedicada, comandos proprios e UI ainda sao proximas fatias.
+Evidencia atual: `AtlasWorkspaceIntelligenceRuntimeService`,
+`AtlasWorkspaceArtifactIntelligenceRepository`, comandos
+`atlas:workspace-intelligence` e `atlas:workspace-artifacts`, testes feature,
+Control Plane e Cartografia.
 
 ## Riscos
 

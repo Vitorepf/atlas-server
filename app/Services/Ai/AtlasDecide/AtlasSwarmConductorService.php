@@ -295,7 +295,10 @@ final class AtlasSwarmConductorService
         if ($requested >= 2 && $runnerUpProvider !== null) {
             $arms[] = $this->buildArm(2, (string) $runnerUpProvider, (string) ($runnerUpModel ?? ''), self::ARM_ORIGIN_RUNNER_UP, $dispatchId);
         }
-        if ($requested >= 3) {
+        // Elastic invariant gate: operator can flip swarm_local_fallback_enabled=false
+        // to suppress the atlas_local fallback arm. The dispatch still ships with
+        // primary + runner_up but no local fallback.
+        if ($requested >= 3 && $this->kernel->isElasticEnabled('swarm_local_fallback_enabled')) {
             $arms[] = $this->buildArm(count($arms) + 1, self::LOCAL_FALLBACK_PROVIDER, self::LOCAL_FALLBACK_MODEL, self::ARM_ORIGIN_LOCAL_FALLBACK, $dispatchId);
         }
         // K > 3: cap at what we have (no synthetic duplication).

@@ -101,7 +101,18 @@ final class AtlasTemporaryDomainCompositionService
             throw new InvalidArgumentException("unknown privacy_class '{$privacy}'.");
         }
 
-        $ttl = (int) ($input['ttl_seconds'] ?? 7200);
+        // Default TTL: honor the Kernel runtime invariant `tdc_ttl_window` when
+        // tuned by the operator; otherwise fall back to canonical 2h.
+        $defaultTtl = 7200;
+        try {
+            $tuned = $this->kernel->currentRuntimeValue('tdc_ttl_window');
+            if (is_int($tuned)) {
+                $defaultTtl = $tuned;
+            }
+        } catch (\Throwable $e) {
+            // Defensive — keep canonical default if the Kernel API rejects.
+        }
+        $ttl = (int) ($input['ttl_seconds'] ?? $defaultTtl);
         if ($ttl < self::MIN_TTL_SECONDS || $ttl > self::MAX_TTL_SECONDS) {
             throw new InvalidArgumentException(sprintf(
                 'ttl_seconds must be between %d and %d.',

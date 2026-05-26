@@ -6,6 +6,7 @@ namespace App\Services\Ai\Reconciliation;
 
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionAtlasService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
+use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
@@ -46,11 +47,32 @@ class AtlasAutonomousReconciliationRuntimeService
 
     public const OUTCOME_NOOP_NO_GAP = 'noop_no_gap';
 
+    public const OUTCOME_DISABLED_BY_KERNEL = 'disabled_by_kernel_elastic';
+
+    public const ACTION_KIND_STABILIZE_PIPELINE = 'stabilize_pipeline';
+
+    public const ACTION_KIND_EVIDENCE_HEALTH_PROBE = 'evidence_health_probe';
+
+    public const ACTION_KIND_DOC_HEALTH_PROBE = 'doc_health_probe';
+
+    public const ACTION_KIND_TELEMETRY_AUDIT = 'telemetry_audit';
+
+    public const VALID_ACTION_KINDS = [
+        self::ACTION_KIND_STABILIZE_PIPELINE,
+        self::ACTION_KIND_EVIDENCE_HEALTH_PROBE,
+        self::ACTION_KIND_DOC_HEALTH_PROBE,
+        self::ACTION_KIND_TELEMETRY_AUDIT,
+    ];
+
     public const META_PROJECTION_MIN_IMPROVEMENT = 0.05;
 
     private ?string $ticksLogOverride = null;
 
     private ?AtlasTeosI3CounterfactualService $teosI3 = null;
+
+    private ?AtlasConstitutionalKernelService $kernel = null;
+
+    private ?\App\Services\Engineering\EngineeringDocumentationHealthService $docHealth = null;
 
     public function __construct(
         private readonly AtlasCognitiveFunctionAtlasService $cfa,
@@ -58,6 +80,26 @@ class AtlasAutonomousReconciliationRuntimeService
         private readonly AtlasUnifiedRealityGraphTemporalService $aurg,
         private readonly AtlasSelfConstructionSubsystemBuilderService $ascb,
     ) {}
+
+    /**
+     * Optional Kernel seam — when wired, Reconciliation honors elastic
+     * invariants (autonomous_self_construction_enabled, teos_meta_projection_enabled)
+     * before firing ASCB.propose() or TEOS-I3 projection.
+     */
+    public function setKernelForElasticChecks(?AtlasConstitutionalKernelService $kernel): void
+    {
+        $this->kernel = $kernel;
+    }
+
+    /**
+     * Optional doc-health seam — when wired, the doc_health_probe action_kind
+     * pulls real violation/coverage counts from EngineeringDocumentationHealthService.
+     * Default: null → probe falls back to honest "service not wired" payload.
+     */
+    public function setDocHealthService(?\App\Services\Engineering\EngineeringDocumentationHealthService $svc): void
+    {
+        $this->docHealth = $svc;
+    }
 
     /**
      * Optional meta-cognition seam. When wired, Reconciliation projects the
@@ -96,6 +138,23 @@ class AtlasAutonomousReconciliationRuntimeService
     public function tick(?array $context = null): array
     {
         $context = $context ?? [];
+
+        // Elastic invariant gate: operator can pause the loop entirely without
+        // breaking schedule registration. Tick returns a disabled receipt.
+        if ($this->kernel !== null && ! $this->kernel->isElasticEnabled('reconciliation_cron_enabled')) {
+            $at = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+            $tick = $this->buildTick(
+                at: $at,
+                selfModelHash: 'sha256:reconciliation_disabled',
+                selectedGroup: null,
+                gapSize: 0,
+                step: null,
+                outcome: self::OUTCOME_DISABLED_BY_KERNEL,
+            );
+            $this->appendJsonl($this->ticksLogPath(), $tick);
+
+            return $tick;
+        }
 
         $selfModel = $this->cfa->selfModel();
         $selfModelHash = 'sha256:'.hash('sha256', json_encode([
@@ -139,6 +198,11 @@ class AtlasAutonomousReconciliationRuntimeService
         $gapSize = (int) $top['non_ready_pipeline'];
         $privacy = (string) ($context['privacy_class'] ?? 'normal');
 
+        $actionKind = (string) ($context['action_kind'] ?? self::ACTION_KIND_STABILIZE_PIPELINE);
+        if (! in_array($actionKind, self::VALID_ACTION_KINDS, true)) {
+            $actionKind = self::ACTION_KIND_STABILIZE_PIPELINE;
+        }
+
         // Build canonical change proposal.
         $change = [
             'change_kind' => 'reconciliation_step',
@@ -179,7 +243,16 @@ class AtlasAutonomousReconciliationRuntimeService
         $projectionImprovement = null;
         if ($outcome === self::OUTCOME_AUTO_APPLIED) {
             $shouldFire = true;
-            if ($this->teosI3 !== null) {
+            $suppressionReason = 'projection_below_threshold';
+            // Elastic invariant gate: operator can flip
+            // autonomous_self_construction_enabled=false to keep the loop
+            // running while suppressing real ASCB proposals.
+            if ($this->kernel !== null && ! $this->kernel->isElasticEnabled('autonomous_self_construction_enabled')) {
+                $shouldFire = false;
+                $suppressionReason = 'kernel_elastic_disabled';
+            }
+            if ($shouldFire && $this->teosI3 !== null
+                && (! $this->kernel || $this->kernel->isElasticEnabled('teos_meta_projection_enabled'))) {
                 try {
                     $projection = $this->teosI3->branch([
                         'anchor_decision_id' => 'reconciliation_'.$group,
@@ -214,13 +287,22 @@ class AtlasAutonomousReconciliationRuntimeService
                     $ascbProposalHash = 'sha256:propose_failed';
                 }
             } else {
-                $ascbProposalHash = 'sha256:suppressed_projection_below_threshold';
+                $ascbProposalHash = 'sha256:suppressed_'.$suppressionReason;
             }
+        }
+
+        // Probe handlers — alternate action kinds. The pipeline-stabilize path
+        // above is the default; when context.action_kind selects a probe, the
+        // tick still chains through Kernel + Admission + AURG but emits a probe
+        // receipt instead of an ASCB proposal. Probes are READ-ONLY by canon.
+        $probeReceipt = null;
+        if ($actionKind !== self::ACTION_KIND_STABILIZE_PIPELINE) {
+            $probeReceipt = $this->dispatchProbe($actionKind, $group, $gapSize, $selfModel);
         }
 
         $step = [
             'schema_version' => self::STEP_SCHEMA,
-            'step_kind' => 'stabilize_pipeline',
+            'step_kind' => $actionKind,
             'scope' => $change['scope'],
             'admission_envelope' => $admission,
             'aurg_tick_id' => (string) ($aurgTick['tick_id'] ?? ''),
@@ -229,6 +311,7 @@ class AtlasAutonomousReconciliationRuntimeService
             'ascb_proposal_hash' => $ascbProposalHash,
             'projection_branch_id' => $projectionBranchId,
             'projection_improvement_delta' => $projectionImprovement !== null ? round($projectionImprovement, 4) : null,
+            'probe_receipt' => $probeReceipt,
         ];
 
         $tick = $this->buildTick(
@@ -284,6 +367,113 @@ class AtlasAutonomousReconciliationRuntimeService
             'outcomes' => $tally,
             'last_tick_at' => $ticks === [] ? null : (string) ($ticks[count($ticks) - 1]['at'] ?? ''),
         ];
+    }
+
+    /**
+     * Probe dispatch — READ-ONLY canonical handler set for alternate
+     * reconciliation action kinds. Each probe emits a receipt embedded in the
+     * tick step; no external side effects beyond the JSONL trail.
+     *
+     * @param  array<string,mixed>  $selfModel
+     * @return array<string,mixed>
+     */
+    private function dispatchProbe(string $actionKind, string $group, int $gapSize, array $selfModel): array
+    {
+        $base = [
+            'probe_kind' => $actionKind,
+            'group' => $group,
+            'gap_size' => $gapSize,
+        ];
+
+        switch ($actionKind) {
+            case self::ACTION_KIND_EVIDENCE_HEALTH_PROBE:
+                // Honest read: assert the reconciliation log itself is append-only
+                // by counting current tick count + reporting last tick id.
+                $ticks = $this->listTicks();
+                $base['observed_tick_count'] = count($ticks);
+                $base['last_tick_id'] = $ticks === [] ? null : ($ticks[count($ticks) - 1]['tick_id'] ?? null);
+                $base['append_only_assumed'] = true;
+                $base['note'] = 'evidence_ledger_external_check_not_yet_wired';
+                break;
+
+            case self::ACTION_KIND_DOC_HEALTH_PROBE:
+                // Real doc-health read when wired; honest fallback otherwise.
+                if ($this->docHealth !== null) {
+                    try {
+                        $report = $this->docHealth->report();
+                        $summary = (array) ($report['summary'] ?? []);
+                        $violations = (array) ($report['violations'] ?? []);
+                        $warnings = (array) ($report['warnings'] ?? []);
+                        $base['doc_status'] = (string) ($report['status'] ?? 'unknown');
+                        $base['doc_count'] = (int) ($summary['doc_count'] ?? 0);
+                        $base['required_doc_count'] = (int) ($summary['required_doc_count'] ?? 0);
+                        $base['violation_count'] = count($violations);
+                        $base['warning_count'] = count($warnings);
+                        $base['top_violations'] = array_slice(
+                            array_map(static fn ($v) => is_array($v) ? ($v['kind'] ?? $v['type'] ?? 'unspecified') : 'unspecified', $violations),
+                            0, 5
+                        );
+                        $base['note'] = 'doc_health_service_real';
+                    } catch (\Throwable $e) {
+                        $base['note'] = 'doc_health_service_error:'.substr($e->getMessage(), 0, 120);
+                        $shape = (array) ($selfModel['shape'] ?? []);
+                        $base['groups_observed'] = array_keys($shape);
+                        $base['groups_count'] = count($shape);
+                    }
+                } else {
+                    // Fallback honest read: self-model shape only.
+                    $shape = (array) ($selfModel['shape'] ?? []);
+                    $base['groups_observed'] = array_keys($shape);
+                    $base['groups_count'] = count($shape);
+                    $base['note'] = 'doc_health_service_not_wired';
+                }
+                break;
+
+            case self::ACTION_KIND_TELEMETRY_AUDIT:
+                // Aggregate real metrics: AURG temporal ticks, Kernel violations,
+                // reconciliation outcome tally. Provider-safe: counts only, no
+                // claim comparisons emitted.
+                $aurgRecent = method_exists($this->aurg, 'listTicks')
+                    ? (array) $this->aurg->listTicks()
+                    : [];
+                $reconTicks = $this->listTicks();
+                $tally = [
+                    self::OUTCOME_AUTO_APPLIED => 0,
+                    self::OUTCOME_PENDING_APPROVAL => 0,
+                    self::OUTCOME_BLOCKED_BY_KERNEL => 0,
+                    self::OUTCOME_NOOP_NO_GAP => 0,
+                    self::OUTCOME_DISABLED_BY_KERNEL => 0,
+                ];
+                foreach ($reconTicks as $t) {
+                    $o = (string) ($t['outcome'] ?? '');
+                    if (isset($tally[$o])) {
+                        $tally[$o]++;
+                    }
+                }
+                $kernelViolations = 0;
+                if ($this->kernel !== null) {
+                    try {
+                        $kernelViolations = count($this->kernel->listViolations());
+                    } catch (\Throwable $e) {
+                        $kernelViolations = -1; // honest unknown
+                    }
+                }
+                $base['aurg_recent_count'] = count($aurgRecent);
+                $base['reconciliation_tick_count'] = count($reconTicks);
+                $base['reconciliation_outcome_tally'] = $tally;
+                $base['kernel_violation_count'] = $kernelViolations;
+                $base['last_aurg_tick_id'] = $aurgRecent === [] ? null : ($aurgRecent[count($aurgRecent) - 1]['tick_id'] ?? null);
+                $base['note'] = 'telemetry_aggregated_from_runtime_state';
+                break;
+
+            default:
+                $base['note'] = 'unknown_probe_kind';
+                break;
+        }
+
+        $base['receipt_hash'] = 'sha256:'.hash('sha256', json_encode($base, JSON_THROW_ON_ERROR));
+
+        return $base;
     }
 
     // ---------- internals ----------

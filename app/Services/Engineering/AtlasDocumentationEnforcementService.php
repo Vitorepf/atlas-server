@@ -13,6 +13,7 @@ final class AtlasDocumentationEnforcementService
         private readonly EngineeringDocumentationAuthorityAuditService $authorityAudit,
         private readonly AtlasDocumentationRealitySystemService $documentationReality,
         private readonly AtlasCodeRealityUsageIntelligenceService $codeReality,
+        private readonly AtlasDocumentationProviderBootstrapProbe $providerBootstrapProbe,
     ) {}
 
     /**
@@ -26,6 +27,7 @@ final class AtlasDocumentationEnforcementService
         $adrs = $this->documentationReality->report();
         $codeAudit = $this->codeReality->realityAudit();
         $antiDuplicate = trim($feature) === '' ? null : $this->codeReality->antiDuplicate($feature);
+        $providerBootstrap = $this->providerBootstrapProbe->report(trim($task), trim($feature), trim($workspace));
 
         $blockers = array_values(array_merge(
             $this->docsHealthBlockers($docsHealth),
@@ -33,6 +35,7 @@ final class AtlasDocumentationEnforcementService
             $this->documentationRealityBlockers($adrs),
             $this->codeRealityBlockers($codeAudit),
             $this->antiDuplicateBlockers($antiDuplicate),
+            $this->providerBootstrapBlockers($providerBootstrap),
         ));
 
         $reviewItems = array_values(array_merge(
@@ -40,10 +43,11 @@ final class AtlasDocumentationEnforcementService
             $this->authorityReviewItems($authority),
             $this->codeRealityReviewItems($codeAudit),
             $this->antiDuplicateReviewItems($antiDuplicate),
+            $this->providerBootstrapReviewItems($providerBootstrap),
         ));
 
         $warnings = $this->docsHealthWarnings($docsHealth);
-        $subareaScores = $this->subareaScores($docsHealth, $authority, $adrs, $codeAudit, $antiDuplicate);
+        $subareaScores = $this->subareaScores($docsHealth, $authority, $adrs, $codeAudit, $antiDuplicate, $providerBootstrap);
         $score = round(array_sum($subareaScores) / max(1, count($subareaScores)), 2);
         $status = $blockers !== [] ? 'blocked' : (($reviewItems !== [] || $warnings !== []) ? 'review' : 'ready');
 
@@ -64,6 +68,7 @@ final class AtlasDocumentationEnforcementService
                 'documentation_docs_count' => (int) data_get($docsHealth, 'summary.doc_count', 0),
                 'adrs_block_count' => (int) data_get($adrs, 'summary.block_count', 0),
                 'code_reality_target_count' => (int) data_get($codeAudit, 'target_count', 0),
+                'provider_bootstrap_status' => (string) data_get($providerBootstrap, 'status', 'unknown'),
             ],
             'subarea_scores' => $subareaScores,
             'blockers' => $blockers,
@@ -99,6 +104,7 @@ final class AtlasDocumentationEnforcementService
                     'decision' => (string) data_get($antiDuplicate, 'decision', 'unknown'),
                     'match_count' => count((array) data_get($antiDuplicate, 'matches', [])),
                 ],
+                'provider_bootstrap' => $providerBootstrap,
             ],
             'ai_execution_contract' => [
                 'docs_are_authority' => true,
@@ -194,6 +200,23 @@ final class AtlasDocumentationEnforcementService
     }
 
     /**
+     * @param  array<string,mixed>  $providerBootstrap
+     * @return array<int,string>
+     */
+    private function providerBootstrapBlockers(array $providerBootstrap): array
+    {
+        if ((string) data_get($providerBootstrap, 'session_bootstrap.status') === 'blocked') {
+            return ['provider bootstrap gate is blocked: session-bootstrap did not execute successfully'];
+        }
+
+        if ((string) data_get($providerBootstrap, 'feature_placement.status') === 'blocked') {
+            return ['provider bootstrap gate is blocked: feature-placement did not execute successfully'];
+        }
+
+        return [];
+    }
+
+    /**
      * @return array<int,string>
      */
     private function docsHealthReviewItems(array $docsHealth): array
@@ -243,6 +266,25 @@ final class AtlasDocumentationEnforcementService
     }
 
     /**
+     * @param  array<string,mixed>  $providerBootstrap
+     * @return array<int,string>
+     */
+    private function providerBootstrapReviewItems(array $providerBootstrap): array
+    {
+        $reviewItems = [];
+
+        if ((string) data_get($providerBootstrap, 'session_bootstrap.status') === 'review') {
+            $reviewItems[] = 'provider bootstrap gate requires review: session-bootstrap returned review';
+        }
+
+        if ((string) data_get($providerBootstrap, 'feature_placement.status') === 'review') {
+            $reviewItems[] = 'provider bootstrap gate requires review: feature-placement returned review or was skipped';
+        }
+
+        return $reviewItems;
+    }
+
+    /**
      * @return array<int,string>
      */
     private function docsHealthWarnings(array $docsHealth): array
@@ -269,7 +311,7 @@ final class AtlasDocumentationEnforcementService
     /**
      * @return array<string,float>
      */
-    private function subareaScores(array $docsHealth, array $authority, array $adrs, array $codeAudit, ?array $antiDuplicate): array
+    private function subareaScores(array $docsHealth, array $authority, array $adrs, array $codeAudit, ?array $antiDuplicate, array $providerBootstrap): array
     {
         $warningCount = count((array) ($docsHealth['warnings'] ?? []));
         $oversizedCount = count((array) ($docsHealth['oversized_docs'] ?? []));
@@ -287,7 +329,7 @@ final class AtlasDocumentationEnforcementService
             'authority_control' => $this->clamp(10.0 - ($authorityBlockers * 4.0) - min(2.0, $authorityReview * 0.08)),
             'code_reality_alignment' => $this->clamp(10.0 - ($codeUnknown * 3.0) - ($codeWeak * 1.5)),
             'cartography_boundary' => $this->cartographyBoundaryScore($adrs),
-            'provider_bootstrap_enforcement' => $this->providerBootstrapEnforcementScore(),
+            'provider_bootstrap_enforcement' => $this->providerBootstrapEnforcementScore($providerBootstrap),
             'strict_gate_strength' => $this->strictGateStrengthScore(),
             'validation_completeness' => $this->validationCompletenessScore($antiDuplicate, $antiDuplicatePenalty),
         ];
@@ -300,14 +342,19 @@ final class AtlasDocumentationEnforcementService
             : 7.0;
     }
 
-    private function providerBootstrapEnforcementScore(): float
+    private function providerBootstrapEnforcementScore(array $providerBootstrap): float
     {
         $commands = $this->requiredBeforeCode('<task>', '<feature>');
-        $hasBootstrap = in_array('php artisan atlas:ai:session-bootstrap --task="<task>" --json', $commands, true);
-        $hasPlacement = in_array('php artisan atlas:ai:place-feature "<feature>" --json', $commands, true);
+        $hasBootstrap = in_array('php artisan atlas:ai:session-bootstrap --task="<task>" --strict --json', $commands, true);
+        $hasPlacement = in_array('php artisan atlas:ai:place-feature "<feature>" --strict --json', $commands, true);
         $hasDocsHealth = in_array('php artisan atlas:engineering:knowledge docs-health --json', $commands, true);
+        $runtimeReady = (string) data_get($providerBootstrap, 'status') === 'ready';
 
-        return ($hasBootstrap && $hasPlacement && $hasDocsHealth) ? 10.0 : 8.0;
+        if ($hasBootstrap && $hasPlacement && $hasDocsHealth && $runtimeReady) {
+            return 10.0;
+        }
+
+        return $runtimeReady ? 8.0 : 0.0;
     }
 
     private function strictGateStrengthScore(): float
@@ -377,8 +424,8 @@ final class AtlasDocumentationEnforcementService
 
         return [
             'php artisan atlas:documentation:enforce --task="'.$taskValue.'" --feature="'.$featureValue.'" --strict --json',
-            'php artisan atlas:ai:session-bootstrap --task="'.$taskValue.'" --json',
-            'php artisan atlas:ai:place-feature "'.$featureValue.'" --json',
+            'php artisan atlas:ai:session-bootstrap --task="'.$taskValue.'" --strict --json',
+            'php artisan atlas:ai:place-feature "'.$featureValue.'" --strict --json',
             'php artisan atlas:engineering:knowledge docs-health --json',
             'php artisan atlas:documentation-reality score --strict --json',
             'php artisan atlas:documentation-reality acceptance --strict --json',
@@ -404,12 +451,14 @@ final class AtlasDocumentationEnforcementService
                 'blocks_code_when' => 'status != ready',
             ],
             'bootstrap' => [
-                'command' => 'php artisan atlas:ai:session-bootstrap --task="'.$taskValue.'" --json',
+                'command' => 'php artisan atlas:ai:session-bootstrap --task="'.$taskValue.'" --strict --json',
                 'purpose' => 'fresh provider context pack',
+                'blocks_code_when' => 'command fails or status != ready',
             ],
             'placement' => [
-                'command' => 'php artisan atlas:ai:place-feature "'.$featureValue.'" --json',
+                'command' => 'php artisan atlas:ai:place-feature "'.$featureValue.'" --strict --json',
                 'purpose' => 'owner doc and duplication gate',
+                'blocks_code_when' => 'command fails or status != ready',
             ],
             'docs' => [
                 'command' => 'php artisan atlas:engineering:knowledge docs-health --json',

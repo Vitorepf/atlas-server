@@ -45,6 +45,18 @@ class AiWorker
 {
     private const MAC_BACKGROUND_RETRY_DELAY_SECONDS = 300;
 
+    /**
+     * Opt-in seam (Patamar 4 · ADML closed feedback loop). Wired by
+     * AppServiceProvider so unit tests can construct AiWorker without
+     * pulling the live outcome ledger.
+     */
+    private ?\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService $liveOutcomeFeedback = null;
+
+    public function setLiveOutcomeFeedback(?\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService $svc): void
+    {
+        $this->liveOutcomeFeedback = $svc;
+    }
+
     public function __construct(
         private readonly AiProviderManager $providers,
         private readonly AiWorkerLogger $logger,
@@ -412,6 +424,41 @@ class AiWorker
         }
 
         $result = $this->withPermissionMetadata($result, $permission);
+
+        // Patamar 4 · ADML closed feedback loop. Record outcome of this provider
+        // call so the Live Outcome Feedback ledger sees real online signal —
+        // defensive: never throw from telemetry; never block the response.
+        if ($this->liveOutcomeFeedback !== null) {
+            try {
+                $taskCategory = (string) (data_get($job->payload, 'task_category')
+                    ?? data_get($job->payload, 'atlas_decide.task_category')
+                    ?? 'unspecified');
+                $role = (string) (data_get($job->payload, 'council_role')
+                    ?? data_get($job->payload, 'role')
+                    ?? 'primary');
+                $framework = data_get($job->payload, 'framework');
+                if (! is_string($framework) || $framework === '') {
+                    $framework = null;
+                }
+                $resultKind = match (true) {
+                    ($result->errorCode ?? null) === 'provider_timeout' => \App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::RESULT_TIMEOUT,
+                    $result->ok === true => \App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                    default => \App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
+                };
+                $this->liveOutcomeFeedback->record([
+                    'task_category' => $taskCategory,
+                    'role' => $role,
+                    'framework' => $framework,
+                    'provider' => $providerKey,
+                    'model' => $attempt->model ?? null,
+                    'result' => $resultKind,
+                    'latency_ms' => is_int($result->durationMs) ? $result->durationMs : null,
+                    'actor' => 'ai_worker',
+                ]);
+            } catch (\Throwable $e) {
+                // Defensive: ledger failure must never break the worker.
+            }
+        }
 
         return $this->completeAttempt($job, $attempt, $result, $workerId);
     }

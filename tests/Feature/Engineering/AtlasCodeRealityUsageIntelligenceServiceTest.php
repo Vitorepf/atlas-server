@@ -672,6 +672,10 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             'Pre-Benchmark Readiness Audit intentionally mixes internal readiness with external benchmark blockers; benchmark_not_run boundary is not stale implementation drift.'
         );
         $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-code-reality-usage-intelligence'),
+            'ACRUI owns active/scaffold/legacy/future/planned classification vocabulary; its own taxonomy must not be treated as stale implementation drift.'
+        );
+        $this->assertNull(
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-documentation-enforcement-runtime'),
             'ADER owns ready/review/blocked pre-implementation gate language and is integrated into architecture operations/session bootstrap; that contract vocabulary is not stale implementation drift.'
         );
@@ -714,6 +718,18 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertNull(
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-long-horizon-intelligence-layer'),
             'Long Horizon doc is an active local TEOS-I1 runtime authority with explicit benchmark_not_run boundary; roadmap vocabulary is not stale implementation drift.'
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-self-construction-agent-dispatch-planner-runtime-v1'),
+            'Agent Dispatch Planner owns status: planned as a runtime output enum; that enum is not stale future/scaffold documentation language.'
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-forge-live-execution-e2e-v1'),
+            'Forge Live Execution owns canonical stage/plan vocabulary and has active AWIS/AUCRI/live-execute runtime coverage; those terms are not stale future/scaffold drift.'
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-universal-reality-cartography'),
+            'AURC owns visual state vocabulary such as active/scaffold/future/legacy; that legend is not stale implementation status drift.'
         );
         $rivalsLedger = collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-forge-rivals-intelligence-ledger-v1');
         $this->assertSame('planned_next_layer_over_existing_provider_performance_ledger', data_get($rivalsLedger, 'boundary_contract.classification'));

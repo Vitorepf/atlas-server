@@ -55,12 +55,26 @@ class AtlasDecideMetaLearningService
     /** Delta below which we keep the recommendation in shadow even with high confidence. */
     public const CLOSE_RACE_DELTA = 3.0;
 
+    public const AUTO_DEACTIVATION_SCHEMA = 'atlas.atlas_decide.auto_deactivation_sweep.v1';
+
     private ?string $activationLogPathOverride = null;
+
+    private ?AtlasDecideLiveOutcomeFeedbackService $liveFeedback = null;
 
     public function __construct(
         private readonly AtlasForgeRivalsDecideSignalProjectionService $signalProjection,
         private readonly AtlasForgeRivalsProviderPerformanceLedgerService $ledger,
     ) {}
+
+    /**
+     * Opt-in seam wired by AppServiceProvider: when set, ADML can consult
+     * the live outcome feedback ledger and auto-deactivate routes whose
+     * observed success rate drops below the degradation threshold.
+     */
+    public function setLiveOutcomeFeedback(?AtlasDecideLiveOutcomeFeedbackService $svc): void
+    {
+        $this->liveFeedback = $svc;
+    }
 
     /** Test seam: override the activation log path. */
     public function setActivationLogPathForTesting(?string $path): void
@@ -313,6 +327,130 @@ class AtlasDecideMetaLearningService
         }
 
         return null;
+    }
+
+    /**
+     * Sweep all active routes through the live outcome feedback ledger and
+     * auto-deactivate those whose signal is `degrading` or `broken`. Provides
+     * the closed feedback loop: ADML learns offline → activates → live calls
+     * degrade → ADML deactivates without operator intervention.
+     *
+     * Each deactivation goes through {@see self::applyAction()} so the audit
+     * trail is identical to manual operator action (with actor=actor arg).
+     *
+     * @return array<string,mixed> sweep envelope
+     */
+    public function autoDeactivateOnDegradation(string $actor = 'autonomous_feedback_loop'): array
+    {
+        $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+
+        $inspected = [];
+        $deactivated = [];
+        $kept = [];
+        $signalSchema = AtlasDecideLiveOutcomeFeedbackService::SIGNAL_SCHEMA;
+
+        if ($this->liveFeedback === null) {
+            return [
+                'schema_version' => self::AUTO_DEACTIVATION_SCHEMA,
+                'generated_at' => $generatedAt,
+                'feedback_wired' => false,
+                'reason' => 'live_outcome_feedback_not_wired',
+                'inspected' => [],
+                'deactivated' => [],
+                'kept' => [],
+            ];
+        }
+
+        foreach ($this->routingTable()['entries'] ?? [] as $entry) {
+            $task = (string) ($entry['task_category'] ?? '');
+            $role = (string) ($entry['role'] ?? '');
+            $framework = $entry['framework'] ?? null;
+            $provider = (string) ($entry['provider'] ?? '');
+            $model = $entry['model'] ?? null;
+            if ($task === '' || $role === '' || $provider === '') {
+                continue;
+            }
+
+            $signal = $this->liveFeedback->degradationSignal($task, $role, $framework, $provider, $model);
+            $sig = (string) ($signal['signal'] ?? '');
+            $inspected[] = [
+                'task_category' => $task,
+                'role' => $role,
+                'framework' => $framework,
+                'provider' => $provider,
+                'model' => $model,
+                'signal' => $sig,
+                'sample_size' => (int) ($signal['sample_size'] ?? 0),
+                'success_rate' => $signal['success_rate'] ?? null,
+                'envelope_schema' => $signalSchema,
+            ];
+
+            if (in_array($sig, [
+                AtlasDecideLiveOutcomeFeedbackService::SIGNAL_DEGRADING,
+                AtlasDecideLiveOutcomeFeedbackService::SIGNAL_BROKEN,
+            ], true)) {
+                try {
+                    $receipt = $this->applyAction([
+                        'action' => self::ACTION_DEACTIVATE,
+                        'task_category' => $task,
+                        'role' => $role,
+                        'framework' => $framework,
+                        'actor' => $actor,
+                    ]);
+                    $deactivated[] = [
+                        'task_category' => $task,
+                        'role' => $role,
+                        'framework' => $framework,
+                        'provider' => $provider,
+                        'model' => $model,
+                        'signal' => $sig,
+                        'success_rate' => $signal['success_rate'] ?? null,
+                        'activation_receipt_at' => $receipt['at'] ?? null,
+                    ];
+                } catch (\Throwable $e) {
+                    // Honest: deactivation may fail (e.g., already deactivated).
+                    // Record it as kept with an explanatory tag so the sweep is auditable.
+                    $kept[] = [
+                        'task_category' => $task,
+                        'role' => $role,
+                        'framework' => $framework,
+                        'provider' => $provider,
+                        'model' => $model,
+                        'signal' => $sig,
+                        'note' => 'deactivation_failed:'.substr($e->getMessage(), 0, 120),
+                    ];
+                }
+            } else {
+                $kept[] = [
+                    'task_category' => $task,
+                    'role' => $role,
+                    'framework' => $framework,
+                    'provider' => $provider,
+                    'model' => $model,
+                    'signal' => $sig,
+                ];
+            }
+        }
+
+        $envelope = [
+            'schema_version' => self::AUTO_DEACTIVATION_SCHEMA,
+            'generated_at' => $generatedAt,
+            'feedback_wired' => true,
+            'inspected_count' => count($inspected),
+            'deactivated_count' => count($deactivated),
+            'kept_count' => count($kept),
+            'inspected' => $inspected,
+            'deactivated' => $deactivated,
+            'kept' => $kept,
+            'actor' => $actor,
+        ];
+        $envelope['sweep_hash'] = 'sha256:'.hash('sha256', json_encode([
+            'schema' => self::AUTO_DEACTIVATION_SCHEMA,
+            'generated_at' => $generatedAt,
+            'deactivated' => array_map(static fn ($d) => [$d['task_category'], $d['role'], $d['framework'], $d['provider']], $deactivated),
+        ], JSON_THROW_ON_ERROR));
+
+        return $envelope;
     }
 
     // ---------- internals ----------

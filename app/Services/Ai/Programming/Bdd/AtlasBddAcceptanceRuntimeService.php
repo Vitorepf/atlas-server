@@ -146,11 +146,13 @@ class AtlasBddAcceptanceRuntimeService
                         $pendingTags[] = $t;
                     }
                 }
+
                 continue;
             }
 
             if (preg_match('/^Feature:\s*(.+)$/i', $line, $m)) {
                 $feature = trim($m[1]);
+
                 continue;
             }
             if (preg_match('/^Scenario(?: Outline)?:\s*(.+)$/i', $line, $m)) {
@@ -158,6 +160,7 @@ class AtlasBddAcceptanceRuntimeService
                 $tags = $pendingTags;
                 $pendingTags = [];
                 $sawScenario = true;
+
                 continue;
             }
             if (preg_match('/^(Given|When|Then|And|But)\s+(.+)$/i', $line, $m)) {
@@ -169,6 +172,7 @@ class AtlasBddAcceptanceRuntimeService
                     'text' => $text,
                     'step_id' => $stepId,
                 ];
+
                 continue;
             }
         }
@@ -274,6 +278,7 @@ class AtlasBddAcceptanceRuntimeService
             $match = $this->matchStep($step['kind'], $step['text']);
             if ($match === null) {
                 $stepResults[] = $this->buildStepResult($step, self::STATUS_PENDING_DEFINITION, 0, 'no step definition registered for pattern');
+
                 continue;
             }
             try {

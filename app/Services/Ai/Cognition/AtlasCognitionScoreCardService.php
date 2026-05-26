@@ -4,21 +4,31 @@ namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\Cartography\CartographyTruthGuardService;
+use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\AtlasDecide\AtlasDecideTeosI4LookaheadService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
+use App\Services\Ai\Programming\Bdd\AtlasBddAcceptanceRuntimeService;
 use App\Services\Ai\Compounding\AtlasAntifragilityCompositionMetricService;
+use App\Services\Ai\Compounding\AtlasLearningMutationRuntimeService;
 use App\Services\Ai\Compounding\AtlasCompoundingLevel8DistillationService;
+use App\Services\Ai\Programming\Cartography\AtlasProgrammingCartographyPublisherService;
 use App\Services\Ai\Context\AtlasContextObservabilityToRankingReflexiveBridgeService;
 use App\Services\Ai\Knowledge\AtlasKnowledgeIngestionFabricOcrConfidenceService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
 use App\Services\Ai\CrossDomain\AtlasTemporaryDomainCompositionService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Governance\AtlasConstitutionalVaultService;
+use App\Services\Ai\Governance\AtlasTrustBudgetService;
+use App\Services\Ai\Patamar4\AtlasNightlyCounterfactualsService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\ResearchDomain\ResearchRuntimeService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionPromotionPlanService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionScaffoldStagingExecutorService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
@@ -155,9 +165,16 @@ class AtlasCognitionScoreCardService
 
         // Patamar 4 · integration layer
         ['ADGW',    'Atlas Decide Gateway Consultation',   'atlas_decide',      AtlasDecideGatewayConsultationService::class,      'ready', 'ready', 'building'],
+        ['ADLF',    'Atlas Decide Live Outcome Feedback',  'atlas_decide',      AtlasDecideLiveOutcomeFeedbackService::class,      'ready', 'ready', 'building'],
         ['AACM',    'Antifragility Composition Metric',    'compounding',       AtlasAntifragilityCompositionMetricService::class, 'ready', 'ready', 'building'],
         ['ACMF-SE', 'Cognitive Memory Fabric Schema Evolution', 'aucri',         AtlasCognitiveMemoryFabricSchemaEvolutionService::class, 'ready', 'ready', 'building'],
         ['ASCB-EX', 'Self-Construction Scaffold Staging Executor', 'self_construction', AtlasSelfConstructionScaffoldStagingExecutorService::class, 'ready', 'ready', 'building'],
+        ['ASCB-PP', 'Self-Construction Promotion Plan',          'self_construction', AtlasSelfConstructionPromotionPlanService::class,           'ready', 'ready', 'building'],
+        ['ACTG',    'Cartography Truth Guard',                   'cartography',       CartographyTruthGuardService::class,                       'ready', 'ready', 'building'],
+        ['AGPF',    'Atlas Gateway Preflight (TEOS-I4)',         'atlas_decide',      AtlasGatewayPreflightService::class,                       'ready', 'ready', 'building'],
+        ['ACVS',    'Constitutional Vault Service',              'governance',        AtlasConstitutionalVaultService::class,                    'ready', 'ready', 'building'],
+        ['ATBS',    'Trust Budget Service',                      'governance',        AtlasTrustBudgetService::class,                            'ready', 'ready', 'building'],
+        ['ANCF',    'Nightly Counterfactuals',                   'patamar_4',         AtlasNightlyCounterfactualsService::class,                 'ready', 'ready', 'building'],
 
         // Patamar 1/2/3 closures — Reflexivity streaming, OCR confidence, Compounding L8/L9
         ['ACOP-ACRS', 'ACOP→ACRS Reflexive Streaming Bridge', 'aucri',          AtlasContextObservabilityToRankingReflexiveBridgeService::class, 'ready', 'ready', 'building'],
@@ -169,6 +186,9 @@ class AtlasCognitionScoreCardService
 
         // Domain runtimes — Research (review-only, source-grounded)
         ['ARDR',  'Research Domain Runtime',               'research_domain', ResearchRuntimeService::class,                                   'ready', 'ready', 'building'],
+        ['ABDD',  'BDD Acceptance Runtime',                'programming',     AtlasBddAcceptanceRuntimeService::class,                         'ready', 'ready', 'building'],
+        ['ALMR',  'Learning Mutation Runtime',             'compounding',     AtlasLearningMutationRuntimeService::class,                      'ready', 'ready', 'building'],
+        ['APCP',  'Programming Cartography Publisher',     'programming',     AtlasProgrammingCartographyPublisherService::class,              'ready', 'ready', 'building'],
     ];
 
     /**

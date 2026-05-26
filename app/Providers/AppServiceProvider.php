@@ -101,6 +101,74 @@ class AppServiceProvider extends ServiceProvider
         $this->app->resolving(\App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService::class, function ($svc, $app) {
             if ($svc instanceof \App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService) {
                 $svc->setTeosI3ForMetaProjection($app->make(AtlasTeosI3CounterfactualService::class));
+                try {
+                    $svc->setKernelForElasticChecks($app->make(\App\Services\Ai\Governance\AtlasConstitutionalKernelService::class));
+                } catch (\Throwable $e) {
+                    // Defensive: kernel always resolvable in normal envs.
+                }
+                try {
+                    $svc->setDocHealthService($app->make(\App\Services\Engineering\EngineeringDocumentationHealthService::class));
+                } catch (\Throwable $e) {
+                    // Defensive: doc-health probe falls back to honest empty payload.
+                }
+            }
+        });
+
+        // Patamar 4 · AiWorker records every provider call outcome to the
+        // Live Outcome Feedback ledger so ADML auto-deactivation sees real
+        // online signal (not just offline benchmark battery).
+        $this->app->resolving(\App\Services\Ai\AiWorker::class, function ($svc, $app) {
+            if ($svc instanceof \App\Services\Ai\AiWorker) {
+                try {
+                    $svc->setLiveOutcomeFeedback($app->make(\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::class));
+                } catch (\Throwable $e) {
+                    // Defensive — AiWorker stays functional without the ledger.
+                }
+            }
+        });
+
+        // Patamar 4 · TEOS-I4 pre-flight wiring no AiGatewayService.
+        // Counterfactual tree projetada ANTES do job ser enqueued em decisões majores.
+        $this->app->resolving(\App\Services\Ai\AiGatewayService::class, function ($svc, $app) {
+            if ($svc instanceof \App\Services\Ai\AiGatewayService) {
+                try {
+                    $svc->setPreflight($app->make(\App\Services\Ai\Gateway\AtlasGatewayPreflightService::class));
+                } catch (\Throwable $e) {
+                    // Defensive — gateway permanece funcional sem preflight.
+                }
+            }
+        });
+
+        // Patamar 4 · Cartography Truth Guard.
+        // Resolves with kernel + frontmatter parser; default singleton binding
+        // is sufficient — no opt-in setter required.
+        $this->app->singleton(\App\Services\Ai\Cartography\CartographyTruthGuardService::class);
+
+        // Patamar 4 · ADML closed feedback loop. When the live outcome feedback
+        // service is bound, ADML can call autoDeactivateOnDegradation() to drop
+        // active routes whose live success rate falls below threshold.
+        $this->app->resolving(\App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService::class, function ($svc, $app) {
+            if ($svc instanceof \App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService) {
+                try {
+                    $svc->setLiveOutcomeFeedback($app->make(\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::class));
+                } catch (\Throwable $e) {
+                    // Defensive — service is always resolvable but unit tests may bypass.
+                }
+            }
+        });
+
+        // Patamar 4 · AiProviderManager consults ADML before provider resolution.
+        // Opt-in setter pattern: when consultation service is wired, callers
+        // can request a learned route via getRecommended(). Existing get()
+        // callers are untouched — zero break.
+        $this->app->resolving(\App\Services\Ai\AiProviderManager::class, function ($svc, $app) {
+            if ($svc instanceof \App\Services\Ai\AiProviderManager) {
+                try {
+                    $svc->setGatewayConsultation($app->make(\App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService::class));
+                } catch (\Throwable $e) {
+                    // Defensive: consultation service may not be resolvable
+                    // in some test envs; manager stays in default mode.
+                }
             }
         });
 

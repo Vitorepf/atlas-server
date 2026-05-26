@@ -79,9 +79,13 @@ unlocks:
 governs:
   - forge_rivals_battery_evidence_verification_contract
 evidence:
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCollectEvidenceService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReplayVerifierService.php
+  - app/Console/Commands/AtlasForgeRivalsCommand.php
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest.php
 required_tests:
-  - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest.php
+  - "php artisan test tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest.php"
 requires_evidence: true
 risk_level: high
 next_actions:
@@ -193,8 +197,8 @@ Mapping is authoritative:
 | `medium`      | `L3`            |
 | `hard`        | `L5`            |
 
-L2 and L4 are reserved for future corpus expansion; the schemas accept
-them today even though no case uses them.
+L2 and L4 are reserved ladder levels; the schemas accept them even when
+the current corpus has no case assigned to those levels.
 
 `difficulty_level_origin` exposes whether a case's level was declared
 explicitly by the corpus (`corpus`), inferred from the legacy bucket
@@ -408,10 +412,10 @@ Plus the 30 v2 single-case tests in
 
 ## 10. Files of record
 
-- Per-run collector (extended): `app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCollectEvidenceService.php`
+- Per-run collector:            `app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCollectEvidenceService.php`
 - Per-run verifier (v2):       `app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidencePackVerifierService.php`
-- Battery aggregator (new):    `app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceService.php`
-- Battery verifier (new):      `app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReplayVerifierService.php`
+- Battery aggregator:          `app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceService.php`
+- Battery verifier:            `app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReplayVerifierService.php`
 - Dispatcher:                  `app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsActionDispatcher.php`
 - CLI:                         `app/Console/Commands/AtlasForgeRivalsCommand.php`
 - Corpus (L1-L5 source):       `app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsProviderArenaCorpusService.php`
@@ -444,7 +448,7 @@ Nunca aceitar bateria com missing provider receipt, missing patch diff, missing 
 
 ## Escopo de Implementacao
 
-Serviços `AtlasForgeRivalsBatteryEvidenceService` (novo), `AtlasForgeRivalsBatteryReplayVerifierService` (novo), `AtlasForgeRivalsCollectEvidenceService` (extended para multi-case + difficulty surface), `AtlasForgeRivalsRunRealService` (perCase com difficulty), `AtlasForgeRivalsActionDispatcher` (wiring), `AtlasForgeRivalsCommand` (actions `battery-evidence` + `battery-verify-evidence`). Testes em `tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest.php`. Sem mexer em UI, Voice, Cartografia, Self-Construction ou external_rivals.
+Serviços `AtlasForgeRivalsBatteryEvidenceService`, `AtlasForgeRivalsBatteryReplayVerifierService`, `AtlasForgeRivalsCollectEvidenceService` (multi-case + difficulty surface), `AtlasForgeRivalsRunRealService` (perCase com difficulty), `AtlasForgeRivalsActionDispatcher` (wiring), `AtlasForgeRivalsCommand` (actions `battery-evidence` + `battery-verify-evidence`). Testes em `tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest.php`. Sem mexer em UI, Voice, Cartografia, Self-Construction ou external_rivals.
 
 ## Dependencias
 

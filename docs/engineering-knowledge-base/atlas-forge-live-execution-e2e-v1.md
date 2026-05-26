@@ -83,9 +83,12 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md
   - app/Services/Ai/Programming/AtlasForgeLiveExecutionService.php
+  - app/Console/Commands/AtlasForgeLiveExecuteCommand.php
+  - app/Http/Controllers/AtlasCodeForgeExecutionController.php
   - tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php
+  - tests/Feature/AtlasCodeContractTest.php
 required_tests:
-  - "php artisan test --filter AtlasForgeLiveExecutionTest"
+  - "php artisan test tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php"
   - "php artisan atlas:forge:live-execute --obra=<uuid> --json --strict"
 requires_evidence: true
 risk_level: high
@@ -128,6 +131,8 @@ Atlas Code intent
 -> Forge Workspace binding
 -> programming.forge
 -> sandbox real (storage/app/forge-live-exec-tmp)
+-> AWIS workspace execution gate
+-> AUCRI runtime enforcement
 -> action manifest canonico
 -> patch fixture aplicado em disco real
 -> ProgrammingPatchVerifier::verify (real)
@@ -183,7 +188,7 @@ declarados em `programming-professional-rag-operating-standard.md`.
   `available` (artefatos + cobertura presente), `requires_operator_run` (faltam
   metodos de teste canonicos) e `missing_artifacts`. `passed` so e admitido
   apos evidencia recente de operador. Nada disso e bateria provider paga.
-- Nenhum stage canonico pode ser pulado (11 stages obrigatorios com Obra).
+- Nenhum stage canonico pode ser pulado (13 stages obrigatorios com Obra).
 - Sandbox rollback e obrigatorio com workspace cleanup confirmado.
 - `external_provider_call` deve ser `false`.
 - Evidence Ledger grava 4 eventos canonicos quando a tabela existe:
@@ -197,16 +202,18 @@ Stages canonicos do comando:
 | # | Stage | Componente real | Output minimo |
 |---|---|---|---|
 | 1 | `obra_binding` | UUID Obra + forge_workspace binding | obra_id, forge_workspace.* (sem obra: status=blocked, blocker=obra_required) |
-| 2 | `sandbox_provision` | `ProgrammingSandboxManager::provision()` | mode, workspace_hash, execution_workspace |
-| 3 | `context_pack` | retrieval plan + context pack hash | context_pack_hash, retrieval_receipt.receipt_id |
-| 4 | `patch_apply` | `File::put` em sandbox | patch_target_hash, content_hash, changed_files |
-| 5 | `action_manifest` | manifest canonico v1 | manifest_id, stage=patch, rollback.available=true |
-| 6 | `patch_verifier` | `ProgrammingPatchVerifier::verify()` | report.status, blocking_reasons |
-| 7 | `test_run` | Symfony Process real | exit_code, stdout_hash, passed |
-| 8 | `stage_receipts` | `ProgrammingStageReceiptStore::make()` | 2 receipts (patch + test) |
-| 9 | `repair_loop` | `ProgrammingRepairExecutor::attemptPlan()` quando teste falha | plan.status, repair_capsule |
-| 10 | `evidence_ledger` | `AtlasEvidenceLedger::record()` x4 | ledger_event_ids |
-| 11 | `sandbox_rollback` | `rollbackReceipt()` + `File::deleteDirectory` | workspace_cleaned=true |
+| 2 | `workspace_execution_gate` | `AtlasWorkspaceIntelligenceExecutionGateService` | schema `atlas.workspace_intelligence.execution_gate.v1`, allowed/blockers |
+| 3 | `sandbox_provision` | `ProgrammingSandboxManager::provision()` | mode, workspace_hash, execution_workspace |
+| 4 | `context_pack` | retrieval plan + context pack hash | context_pack_hash, retrieval_receipt.receipt_id |
+| 5 | `aucri_runtime_enforcement` | `AtlasAucriRuntimeEnforcementService` | 18 AUCRI blocks executed before provider call |
+| 6 | `patch_apply` | `File::put` em sandbox | patch_target_hash, content_hash, changed_files |
+| 7 | `action_manifest` | manifest canonico v1 | manifest_id, stage=patch, rollback.available=true |
+| 8 | `patch_verifier` | `ProgrammingPatchVerifier::verify()` | report.status, blocking_reasons |
+| 9 | `test_run` | Symfony Process real | exit_code, stdout_hash, passed |
+| 10 | `stage_receipts` | `ProgrammingStageReceiptStore::make()` | 2 receipts (patch + test) |
+| 11 | `repair_loop` | `ProgrammingRepairExecutor::attemptPlan()` quando teste falha | plan.status, repair_capsule |
+| 12 | `evidence_ledger` | `AtlasEvidenceLedger::record()` x4 | ledger_event_ids |
+| 13 | `sandbox_rollback` | `rollbackReceipt()` + `File::deleteDirectory` | workspace_cleaned=true |
 
 ## Regras para IA
 
@@ -260,11 +267,13 @@ Bloco `forge_live_execution_certification` aparece em
 - `ProgrammingRepairExecutor` — plano de repair canonico.
 - `ProgrammingStageReceiptStore` — stage receipts.
 - `AtlasEvidenceLedger` + `LedgerEventType` — eventos.
+- `AtlasWorkspaceIntelligenceExecutionGateService` — gate de workspace antes do sandbox.
+- `AtlasAucriRuntimeEnforcementService` — enforcement AUCRI antes de patch/provider.
 - `AtlasForgeGovernedExecutionService` — WorkItem -> diff/scope/evidence governado.
 
 ## Evidencias
 
-- `tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php` (9 testes).
+- `tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php` prova fail-closed, 13 stages, AWIS, AUCRI, context pack, repair, ledger, sandbox cleanup e processo real.
 - `tests/Feature/AtlasCodeContractTest.php` prova a rota Atlas Code -> Forge Live.
 - O mesmo contrato prova shadow patch sem mutacao e promocao governada apos review humano.
 - `php artisan atlas:forge:live-execute --obra=<uuid> --json --strict` (exit 0).
@@ -289,7 +298,7 @@ Saida tipica passed:
 {
   "forge_live_execution_status": "passed",
   "external_provider_call": false,
-  "stages": ["obra_fixture ... sandbox_rollback (11)"],
+  "stages": ["obra_binding ... sandbox_rollback (13)"],
   "ledger_event_ids": ["<4 ulids>"],
   "evidence_refs": ["<receipt_ids>"],
   "remaining_blockers": []

@@ -61,7 +61,27 @@ final class AtlasConstitutionalKernelService
 
     public const VALID_PRIVACY_CLASSES = ['public', 'normal', 'sensitive', 'secret', 'cyber'];
 
+    public const ELASTIC_FLIP_SCHEMA = 'atlas.constitutional_kernel.elastic_flip.v1';
+
+    public const RUNTIME_TUNE_SCHEMA = 'atlas.constitutional_kernel.runtime_tune.v1';
+
+    /**
+     * Canonical windows for runtime-class invariants. Auto-tune callers MUST
+     * stay within these bounds — the Kernel rejects anything outside.
+     *
+     * @var array<string, array<int, string>|array{min:int|float, max:int|float}>
+     */
+    private const RUNTIME_WINDOWS = [
+        'reconciliation_cadence_window' => ['minute', 'five', 'ten', 'fifteen', 'thirty', 'hourly'],
+        'tdc_ttl_window' => ['min' => 60, 'max' => 86400],
+        'admission_trust_modifier_window' => ['min' => -1, 'max' => 1],
+    ];
+
     private ?string $violationsLogOverride = null;
+
+    private ?string $elasticStateLogOverride = null;
+
+    private ?string $runtimeStateLogOverride = null;
 
     /**
      * Canonical invariant set. Editing this list is the ONLY way to change
@@ -96,6 +116,232 @@ final class AtlasConstitutionalKernelService
     public function setViolationsLogPathForTesting(?string $path): void
     {
         $this->violationsLogOverride = $path;
+    }
+
+    public function setElasticStateLogPathForTesting(?string $path): void
+    {
+        $this->elasticStateLogOverride = $path;
+    }
+
+    public function setRuntimeStateLogPathForTesting(?string $path): void
+    {
+        $this->runtimeStateLogOverride = $path;
+    }
+
+    public function runtimeStateLogPath(): string
+    {
+        if ($this->runtimeStateLogOverride !== null) {
+            return $this->runtimeStateLogOverride;
+        }
+        $base = function_exists('storage_path')
+            ? storage_path('atlas/governance')
+            : sys_get_temp_dir().'/atlas/governance';
+
+        return $base.DIRECTORY_SEPARATOR.'runtime_state.jsonl';
+    }
+
+    /**
+     * Read the current effective value of a runtime-class invariant. Returns
+     * null when the invariant has never been tuned (caller uses canonical
+     * default). Pétreos and elastics throw — only runtime values are tunable.
+     *
+     * @return string|int|float|null
+     */
+    public function currentRuntimeValue(string $invariantId): null|string|int|float
+    {
+        $inv = $this->findInvariant($invariantId);
+        if ($inv === null || $inv['class'] !== self::CLASS_RUNTIME) {
+            return null;
+        }
+        $last = null;
+        foreach ($this->readJsonl($this->runtimeStateLogPath()) as $entry) {
+            if (($entry['invariant_id'] ?? null) === $invariantId) {
+                $last = $entry;
+            }
+        }
+        if ($last === null) {
+            return null;
+        }
+        $value = $last['value'] ?? null;
+        if (is_int($value) || is_float($value) || is_string($value)) {
+            return $value;
+        }
+
+        return null;
+    }
+
+    /**
+     * Tune a runtime-class invariant. The value MUST fall inside the canonical
+     * window declared in self::RUNTIME_WINDOWS — anything else throws.
+     *
+     * @param  string|int|float  $value
+     * @return array<string,mixed> receipt
+     */
+    public function tuneRuntime(string $invariantId, string|int|float $value, string $actor, string $reason): array
+    {
+        $inv = $this->findInvariant($invariantId);
+        if ($inv === null) {
+            throw new InvalidArgumentException("Unknown invariant '{$invariantId}'.");
+        }
+        if ($inv['class'] !== self::CLASS_RUNTIME) {
+            throw new InvalidArgumentException(
+                "Invariant '{$invariantId}' is class '{$inv['class']}' — only 'runtime' is tunable."
+            );
+        }
+        if (trim($actor) === '' || trim($reason) === '') {
+            throw new InvalidArgumentException('tuneRuntime requires non-empty actor and reason.');
+        }
+        if (! array_key_exists($invariantId, self::RUNTIME_WINDOWS)) {
+            throw new InvalidArgumentException("No tuning window declared for '{$invariantId}'.");
+        }
+        $window = self::RUNTIME_WINDOWS[$invariantId];
+
+        // Enum window or numeric range.
+        if (array_is_list($window)) {
+            if (! in_array($value, $window, true)) {
+                throw new InvalidArgumentException(
+                    "Value '{$value}' is outside the canonical window for '{$invariantId}': ".implode('|', $window)
+                );
+            }
+        } else {
+            if (! (is_int($value) || is_float($value))) {
+                throw new InvalidArgumentException("Value must be numeric for '{$invariantId}'.");
+            }
+            if ($value < $window['min'] || $value > $window['max']) {
+                throw new InvalidArgumentException(
+                    "Value {$value} outside range [{$window['min']}..{$window['max']}] for '{$invariantId}'."
+                );
+            }
+        }
+
+        $entry = [
+            'schema_version' => self::RUNTIME_TUNE_SCHEMA,
+            'recorded_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'invariant_id' => $invariantId,
+            'value' => $value,
+            'actor' => $actor,
+            'reason' => $reason,
+            'kernel_hash' => $this->kernelHash(),
+        ];
+        $entry['entry_hash'] = 'sha256:'.hash('sha256', json_encode([
+            'invariant_id' => $invariantId,
+            'value' => $value,
+            'actor' => $actor,
+            'reason' => $reason,
+            'recorded_at' => $entry['recorded_at'],
+            'kernel_hash' => $entry['kernel_hash'],
+        ], JSON_THROW_ON_ERROR));
+
+        $this->appendJsonl($this->runtimeStateLogPath(), $entry);
+
+        return $entry;
+    }
+
+    /**
+     * @return array<string, array<int, string>|array{min:int|float, max:int|float}>
+     */
+    public function runtimeWindows(): array
+    {
+        return self::RUNTIME_WINDOWS;
+    }
+
+    public function elasticStateLogPath(): string
+    {
+        if ($this->elasticStateLogOverride !== null) {
+            return $this->elasticStateLogOverride;
+        }
+        $base = function_exists('storage_path')
+            ? storage_path('atlas/governance')
+            : sys_get_temp_dir().'/atlas/governance';
+
+        return $base.DIRECTORY_SEPARATOR.'elastic_state.jsonl';
+    }
+
+    /**
+     * Read the current effective state of an elastic invariant. Pétreos and
+     * runtime classes return their canonical `enabled` (cannot be flipped via
+     * this API). Elastic invariants honor the last flip event in the ledger.
+     */
+    public function isElasticEnabled(string $invariantId): bool
+    {
+        $inv = $this->findInvariant($invariantId);
+        if ($inv === null) {
+            return false;
+        }
+        if ($inv['class'] !== self::CLASS_ELASTIC) {
+            // Pétreos and runtime return their canonical enabled state —
+            // pétreos cannot be flipped by definition.
+            return (bool) $inv['enabled'];
+        }
+        $lastFlip = null;
+        foreach ($this->readJsonl($this->elasticStateLogPath()) as $entry) {
+            if (($entry['invariant_id'] ?? null) === $invariantId) {
+                $lastFlip = $entry;
+            }
+        }
+        if ($lastFlip === null) {
+            return (bool) $inv['enabled'];
+        }
+
+        return (bool) ($lastFlip['enabled'] ?? $inv['enabled']);
+    }
+
+    /**
+     * Flip an elastic invariant's enabled state. Only ELASTIC class is allowed.
+     * Pétreos throw — they require PR + redeploy to change.
+     *
+     * @return array<string,mixed>
+     */
+    public function flipElastic(string $invariantId, bool $enabled, string $actor, string $reason): array
+    {
+        $inv = $this->findInvariant($invariantId);
+        if ($inv === null) {
+            throw new InvalidArgumentException("Unknown invariant '{$invariantId}'.");
+        }
+        if ($inv['class'] !== self::CLASS_ELASTIC) {
+            throw new InvalidArgumentException(
+                "Invariant '{$invariantId}' is class '{$inv['class']}' — only 'elastic' can be flipped at runtime."
+            );
+        }
+        if (trim($actor) === '' || trim($reason) === '') {
+            throw new InvalidArgumentException('flipElastic requires non-empty actor and reason.');
+        }
+
+        $entry = [
+            'schema_version' => self::ELASTIC_FLIP_SCHEMA,
+            'recorded_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'invariant_id' => $invariantId,
+            'enabled' => $enabled,
+            'actor' => $actor,
+            'reason' => $reason,
+            'kernel_hash' => $this->kernelHash(),
+        ];
+        $entry['entry_hash'] = 'sha256:'.hash('sha256', json_encode([
+            'invariant_id' => $invariantId,
+            'enabled' => $enabled,
+            'actor' => $actor,
+            'reason' => $reason,
+            'recorded_at' => $entry['recorded_at'],
+            'kernel_hash' => $entry['kernel_hash'],
+        ], JSON_THROW_ON_ERROR));
+
+        $this->appendJsonl($this->elasticStateLogPath(), $entry);
+
+        return $entry;
+    }
+
+    /**
+     * @return array{id:string,class:string,statement:string,enabled:bool}|null
+     */
+    private function findInvariant(string $id): ?array
+    {
+        foreach (self::INVARIANTS as $inv) {
+            if ($inv['id'] === $id) {
+                return $inv;
+            }
+        }
+
+        return null;
     }
 
     public function violationsLogPath(): string

@@ -157,7 +157,7 @@ Finance memory uses the `finance` projection with provider-safe defaults and usa
 
 Allowed learning inputs are reviewed research notes, reviewed risk findings, and validated backtest methodology. Portfolio preferences, risk limits, compliance rules, and watchlists require human review before promotion.
 
-Finance memory must never store broker credentials, account secrets, or unredacted personal financial data. Memory may support future analysis, but it must never trigger automatic execution.
+Finance memory must never store broker credentials, account secrets, or unredacted personal financial data. Memory may support later review, but it must never trigger automatic execution.
 
 ## Gates
 
@@ -180,7 +180,7 @@ Malformed plans that bypass the orchestrator are blocked with `blocked_for_finan
 
 Default autonomy is low. Background execution is disabled. Finance output is review-only even when a user asks for a trade thesis or forge packet.
 
-`finance.forge` requires human approval before any downstream integration can consume the packet. Approval does not grant market execution inside this domain; it only authorizes review packet progression in a future integrated surface.
+`finance.forge` requires human approval before any downstream integration can consume the packet. Approval does not grant market execution inside this domain; it only authorizes review packet progression in integrated review surfaces that keep Finance analysis-only.
 
 ## Forbidden Actions
 
@@ -202,7 +202,7 @@ Finance is now centrally registered as a first-class Atlas AI domain.
 
 - `config/atlas_ai.php` maps `AtlasFinanceOrchestrator` to `App\Services\Ai\Finance\AtlasFinanceOrchestrator`.
 - `AtlasDomainProfileRegistry` exposes all 10 Finance flows in static fallback mode.
-- `database/migrations/2026_05_05_080000_expand_finance_domain_contract.php` seeds the active database profiles and removes the legacy `finance.research` scaffold flow.
+- `database/migrations/2026_05_05_080000_expand_finance_domain_contract.php` seeds the active database profiles and retires the old `finance.research` bootstrap flow.
 - `atlas:ai:domains --json` reports Finance as `ready 9/9` with 10 flows.
 - `atlas:ai:architecture-validate --json` includes Finance in the ready domain count.
 - Finance Company Runtime upgrade (2026-05-18) registers manifest `finance` no Domain Runtime com 7 capabilities (research_desk, valuation, portfolio_review, risk_review, compliance, reporting, paper_trading_simulation) sob `app/Services/Ai/Finance/Kernel/`. Bridges seguros para Mission/Domain Runtime/Policy/Evidence; live trading hard-blocked por FinanceDomainCanon::liveTradingBlocked() e FinanceComplianceService::assertNotLiveTrade.
@@ -235,44 +235,44 @@ Spec canonica do dominio implemented/ready Finance para pesquisa, risco, portfol
 
 ## Papel no Atlas
 
-Define a responsabilidade desta peca dentro da arquitetura Atlas.
+Finance isola pesquisa e analise financeira dentro de um dominio review-only. Ele permite research packets, risk notes, thesis review, compliance review e backtest planning sem abrir caminho para ordem de mercado, broker API, rebalanceamento automatico ou recomendacao personalizada executavel.
 
 ## Onde Se Encaixa
 
-Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+Finance fica em `domains`, registrado por `AtlasDomainProfileRegistry` e executado por `AtlasFinanceOrchestrator`/`AtlasFinanceRuntime`. O contrato fonte local e `AtlasFinanceDomainContract`; compliance e safety vivem em `AtlasFinanceComplianceGate` e `AtlasFinanceSafetyPolicy`.
 
 ## Contratos
 
-Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+Entradas aceitas sao contexto financeiro fornecido pelo operador, snapshots read-only, filings, portfolio snapshots aprovados, policy de risco/compliance, calendario macro e manifests de dataset. Saidas aceitas sao analysis/review packets, risk notes, assumptions, scenario outlines e review plans. Saidas proibidas incluem order payloads, broker instructions, money movement, auto rebalance e personalized investment advice automatico.
 
 ## Fluxo
 
-Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+Pedido entra em um dos 10 flows Finance, passa por contract/profile, safety policy, compliance gate e runtime review-only. Se houver intencao de execucao de mercado, o runtime bloqueia com `market_execution_forbidden` e nao emite payload executavel.
 
 ## Regras para IA
 
-Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+IA deve reutilizar `AtlasFinanceDomainContract`, `AtlasFinanceRuntime` e `AtlasFinanceComplianceGate` antes de criar qualquer novo fluxo Finance. Nunca implemente live trading, broker execution, money movement ou auto rebalance dentro deste dominio. Qualquer extensao deve manter `analysis_review_only`.
 
 ## Escopo de Implementacao
 
-Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+Escopo ativo: 10 flows Finance, compliance gate, safety policy, runtime review-only, profile factory, enterprise-analysis package e Finance Company Runtime em `app/Services/Ai/Finance/Kernel/`. Fora do escopo: execucao real de trades, integracao mutativa com broker, custodia, money movement e recomendacao personalizada automatica.
 
 ## Dependencias
 
-Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+Depende de `AtlasFinanceDomainContract`, `AtlasFinanceProfileFactory`, `AtlasFinanceOrchestrator`, `AtlasFinanceRuntime`, `AtlasFinanceComplianceGate`, `AtlasFinanceSafetyPolicy`, Finance Kernel, domain registry e migrations de profile.
 
 ## Evidencias
 
-Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+Evidencias principais: `AtlasFinanceRuntime.php` reachable/high, testes `tests/Feature/Ai/Finance/AtlasFinanceRuntimeTest.php` e `tests/Unit/Ai/Finance/AtlasFinanceOrchestratorTest.php`, comandos `atlas:ai:finance-domain`, migration `2026_05_05_080000_expand_finance_domain_contract.php` e `atlas:ai:domains --json`.
 
 ## Riscos
 
-Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+Risco principal e uma IA confundir review financeiro com execucao financeira. Outros riscos: guardar dado financeiro sensivel em memoria, tratar paper-trading simulation como broker execution, ou criar flow paralelo fora do contract/compliance gate.
 
 ## Exemplos
 
-Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+Permitido: "analise risco de concentracao deste portfolio" ou "monte tese e countercase para este issuer". Bloqueado: "compre 10 acoes", "rebalanceie minha conta", "conecte na corretora" ou "transfira caixa".
 
 ## Proximas Acoes
 
-Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+Manter Finance ativo apenas como analysis/review-only, ampliar coverage de enterprise-analysis quando novos flows forem adicionados e rodar `php artisan atlas:ai:finance-domain --action=readiness --json` junto de testes Finance antes de alterar gates, profile ou Kernel.
