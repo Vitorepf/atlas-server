@@ -2,20 +2,20 @@
 id: atlas-self-construction-subsystem-builder
 type: engineering_knowledge
 title: Atlas Self-Construction Subsystem Builder
-status: planned
-implementation_state: runtime_candidate_not_scorecard_promoted
-blocker: Runtime candidate service and commands exist, but ASCB is not promoted into ACOS scorecard until architecture/gate integration is explicitly approved.
+status: building
+implementation_state: runtime_available_scorecard_registered_pipeline_building
+blocker: ASCB service, commands and tests exist and are registered in ACOS; production self-programming remains blocked because proposals require approval and staging/promotion are separate governed steps.
 category: self-construction
 priority: 86
-summary: Proposta canonica para um builder proposal-only que detecta gaps reais do scorecard Self-Construction, gera envelopes deterministas de proposta e exige aprovacao humana antes de qualquer merge.
+summary: Runtime canonico proposal-only que detecta gaps reais do scorecard Self-Construction, gera envelopes deterministas de proposta e exige aprovacao humana antes de qualquer staging ou merge.
 tags: [atlas-ai, self-construction, proposal-builder, governance, human-approval]
-capabilities: [gap_detection, subsystem_proposal_envelope, proposal_approval_receipt, dry_run_scaffolding]
+capabilities: [gap_detection, subsystem_proposal_envelope, proposal_approval_receipt, dry_run_skeleton_generation]
 decisions:
-  - Self-Construction may propose subsystem scaffolds, but must not merge or enable runtime without operator approval.
+  - Self-Construction may propose subsystem skeletons, but must not merge or enable runtime without operator approval.
   - Gap detection must come from scorecard/runtime evidence, not invented by provider output.
-  - This doc cannot mark ASCB ACOS-ready until owner decision and architecture/readiness integration exist.
+  - ASCB is scorecard-registered as code/doc ready with pipeline still building; this is not permission for autonomous source-tree writes.
 maintenance:
-  - Promote only after owner decision, architecture/readiness integration and scorecard update.
+  - Update when ASCB scorecard row, staging executor, approvals, schemas or command behavior change.
   - Keep proposal generation provider-safe, deterministic and human-approved.
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
@@ -37,13 +37,13 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-ai-self-construction-os
-graph_status: planned
+graph_status: building
 graph_source: repo
 repo_paths:
   - docs/engineering-knowledge-base/atlas-self-construction-subsystem-builder.md
 depends_on: [atlas-ai-self-construction-os, atlas-canonical-cleanup-inventory]
 flows_to: [atlas-ai-self-construction-os]
-unlocks: [self_construction_subsystem_proposals, governed_scaffold_generation]
+unlocks: [self_construction_subsystem_proposals, governed_skeleton_generation]
 governs: [subsystem_proposal_envelopes, subsystem_approval_receipts]
 evidence:
   - docs/engineering-knowledge-base/atlas-self-construction-subsystem-builder.md
@@ -54,13 +54,13 @@ required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderServiceTest.php tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCommandsTest.php"
 next_actions:
-  - Decidir se ASCB deve entrar no ACOS scorecard.
-  - Integrar o runtime candidate ao readiness/architecture gates se aprovado.
+  - Provar pipeline ready no ACOS somente quando proposal -> approval -> staging -> human promotion flow tiver evidence completa.
+  - Integrar ASCB ao readiness/architecture gates sem permitir source-tree write automatico.
   - Manter Doctor 3-Tier, append-only receipts e human approval.
 allowed_changes:
-  - Refine proposal contracts, schemas and safety gates before implementation.
+  - Refine proposal contracts, schemas and safety gates while preserving proposal-only behavior.
 forbidden_changes:
-  - Claim runtime readiness or ACOS scorecard integration without code and tests.
+  - Claim autonomous source-tree write readiness from proposal/staging evidence alone.
   - Let automation merge production code or migrations without operator receipt.
 requires_evidence: true
 risk_level: high
@@ -69,17 +69,17 @@ line_limit: 520
 
 # Atlas Self-Construction — Subsystem Builder
 
-> **Status**: runtime candidate present; not ACOS-promoted
+> **Status**: runtime available; scorecard registered; pipeline building
 > **Authority**: ACOS · Patamar 3 (Sovereign Cognitive Substrate)
 > **Schema**: `atlas.self_construction.subsystem_proposal.v1`
-> **Runtime candidate**: `App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService`
-> **Owner**: this doc is canonical context. Scorecard promotion still requires owner decision and architecture integration.
+> **Runtime**: `App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService`
+> **Owner**: this doc is canonical context. Source-tree mutation still requires separate staging/promotion governance.
 
 ## Resumo
 
-Esta doc transforma uma proposta solta de Self-Construction Subsystem Builder em
-contexto canonico planejado. O objetivo e gerar propostas auditaveis para novos
-subsystems a partir de gaps reais, sem permitir merge automatico de codigo.
+Esta doc descreve o runtime canonico proposal-only do Self-Construction
+Subsystem Builder. O objetivo e gerar propostas auditaveis para novos subsystems
+a partir de gaps reais, sem permitir merge automatico de codigo.
 
 ## Papel no Atlas
 
@@ -107,20 +107,21 @@ Self-Construction scorecard/gaps
 2. Gerar envelope deterministico de proposta.
 3. Registrar proposta em JSONL append-only.
 4. Exigir aprovacao humana antes de qualquer implementacao.
-5. Consumir scaffold apenas por workflow normal de git/testes/gates.
+5. Consumir skeleton artifacts apenas por workflow normal de git/testes/gates.
 
 ## Regras para IA
 
 - Nao declarar ASCB promovido no ACOS scorecard sem owner decision.
-- Nao declarar Self-Construction pronto por existir scaffold.
+- Nao declarar Self-Construction pronto por existir skeleton/staging artifact.
 - Nao inventar gaps sem evidence de scorecard, doc ou operador.
 - Nao gerar merge automatico de codigo de producao.
 
 ## Escopo de Implementacao
 
-Escopo planejado: service proposal-only, comandos detect/propose/approve/list,
+Escopo implementado: service proposal-only, comandos detect/propose/approve/list,
 receipt logs append-only, hash deterministico, Doctor 3-Tier e testes de
-provider-safety, idempotencia e aprovacao humana.
+provider-safety, idempotencia e aprovacao humana. Escopo ainda building: prova
+pipeline-ready completa do fluxo proposal -> approval -> staging -> promocao humana.
 
 ## Dependencias
 
@@ -130,12 +131,13 @@ Evidence Ledger/receipts e politica de aprovacao humana.
 ## Evidencias
 
 Evidencia atual: service proposal-only, comandos detect/propose/approve/list,
-testes unitarios/feature e docs-health limpo. Evidencia ainda exigida antes de
-promover no scorecard: owner decision e integracao architecture/readiness.
+testes unitarios/feature, reachability high e registro no scorecard ACOS.
+Evidencia ainda exigida: pipeline-ready completo e integracao architecture/readiness
+sem source-tree write automatico.
 
 ## Riscos
 
-- Confundir scaffold com implementacao.
+- Confundir skeleton/staging artifact com implementacao.
 - Permitir self-programming sem operador.
 - Criar subsystem paralelo por gap inventado.
 - Declarar scorecard ready sem runtime.
@@ -147,16 +149,16 @@ skeleton e test skeleton. O operador aprova ou rejeita; nada e mergeado sozinho.
 
 ## Proximas Acoes
 
-1. Decidir owner promotion para ACOS scorecard.
-2. Integrar architecture/readiness gates se aprovado.
+1. Fechar pipeline-ready completo com staging/promotion governance.
+2. Integrar architecture/readiness gates.
 3. Manter Doctor 3-Tier e append-only receipts.
 4. Nao habilitar merge automatico.
 
 ## 1. Why this exists
 
-Self-Construction OS exists as scaffold but has never built a new ACOS
+Self-Construction OS had proposal contracts but had not built a new ACOS
 subsystem. This is the **primeira prova** that Atlas constructs Atlas: detect
-gap → propose subsystem → generate scaffolding artifacts → emit canonical
+gap → propose subsystem → generate skeleton artifacts → emit canonical
 proposal envelope → require human approval before any merge.
 
 The service is intentionally **proposal-only**. It never writes production
@@ -210,7 +212,7 @@ A "gap" is one of:
     "doc_path": "docs/engineering-knowledge-base/atlas-newx-subsystem.md",
     "schemas": ["atlas.newx.v1"]
   },
-  "scaffold": {
+  "skeleton": {
     "service_skeleton": "PHP code text — class outline only, no real logic",
     "doc_skeleton": "Markdown text — section headings only",
     "test_skeleton": "PHPUnit class outline"
@@ -244,7 +246,7 @@ A "gap" is one of:
 
 Approval does NOT auto-merge code. It records that the operator endorsed the
 proposal. Actual code generation is a separate operator action via standard
-git workflow consuming the scaffold strings.
+git workflow consuming the skeleton strings.
 
 ## 6. Persistence
 
@@ -280,17 +282,18 @@ php artisan atlas:self-construction:list-proposals --json
 
 ## 9. ACOS scorecard integration
 
-When implemented, it may be registered as:
+Current scorecard row:
 
 ```
 ['ASCB', 'Self-Construction Subsystem Builder', 'self_construction',
- AtlasSelfConstructionSubsystemBuilderService::class, 'ready', 'ready']
+ AtlasSelfConstructionSubsystemBuilderService::class, 'ready', 'ready', 'building']
 ```
 
-Do not update the scorecard until code and tests prove the runtime.
+Pipeline remains `building`; do not claim autonomous self-programming readiness
+until staging, promotion and architecture gates are fully proved.
 
 ## 10. Future evolution
 
-- **Auto-PR generation** — once the operator trusts the proposal pattern, scaffold strings can drive a branch+PR via a separate human-supervised pipeline.
+- **Auto-PR generation** — once the operator trusts the proposal pattern, skeleton strings can drive a branch+PR via a separate human-supervised pipeline.
 - **Proposal critique loop** — second pass that critiques its own proposals using the Cognitive Immune G6 replay machinery.
 - **Cross-proposal coherence** — when multiple proposals overlap, surface conflicts before approval.

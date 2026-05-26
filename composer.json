@@ -43,6 +43,11 @@
             "php artisan serve --host=0.0.0.0 --port=3737"
         ],
         "queue": "php artisan queue:work --queue=transcription,default --tries=3 --timeout=5400",
+        "atlas:docs-gate": [
+            "@php artisan atlas:engineering:knowledge docs-health --json",
+            "@php artisan atlas:documentation:enforce --task=\"composer canonical documentation gate\" --feature=\"canonical documentation and implementation governance\" --strict --json"
+        ],
+        "atlas:install-hooks": "bash scripts/install-git-hooks.sh",
         "test": [
             "@php artisan config:clear --ansi",
             "@php artisan test"

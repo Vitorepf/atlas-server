@@ -422,8 +422,12 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('review', data_get($scaffoldOperationalGroup, 'cleanup_pressure'));
         $this->assertSame('high', data_get($scaffoldOperationalGroup, 'ia_confusion_risk'));
         $this->assertContains('kernel_pipeline_scaffold', collect(data_get($scaffoldOperationalGroup, 'subtypes'))->pluck('value')->all());
-        $this->assertContains('architecture_matrix_reference', collect(data_get($scaffoldOperationalGroup, 'subtypes'))->pluck('value')->all());
         $this->assertContains('runtime_provenance_signature', collect(data_get($scaffoldOperationalGroup, 'subtypes'))->pluck('value')->all());
+        $architectureMatrixReference = collect($payload['code']['legacy_triage_queue'])
+            ->firstWhere('path', 'app/Services/Ai/Kernel/Architecture/AtlasArchitectureReadinessService.php');
+        $this->assertSame('diagnostic_architecture_matrix_reference', data_get($architectureMatrixReference, 'operational_classification.bucket'));
+        $this->assertSame('none', data_get($architectureMatrixReference, 'operational_classification.cleanup_pressure'));
+        $this->assertSame('implemented_vs_scaffold_matrix_is_diagnostic_read_model_not_legacy_runtime', data_get($architectureMatrixReference, 'operational_classification.safe_interpretation'));
         $kernelPipelineScaffold = collect($payload['code']['legacy_triage_queue'])
             ->firstWhere('path', 'app/Services/Ai/Kernel/Pipeline/ScaffoldAtlasKernelPipeline.php');
         $this->assertSame('kernel_pipeline_scaffold', data_get($kernelPipelineScaffold, 'operational_classification.subtype'));
@@ -466,6 +470,37 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertGreaterThan(0, data_get($legacyAiConfusion, 'count'));
         $this->assertNotEmpty(collect(data_get($legacyAiConfusion, 'evidence_samples'))->pluck('subtype')->filter()->all());
         $this->assertContains('scaffold_status_or_literal', collect(data_get($legacyAiConfusion, 'evidence_samples'))->pluck('subtype')->all());
+        $this->assertNull(
+            collect(data_get($payload, 'code.legacy_cleanup_queue'))->firstWhere('id', 'legacy_cleanup:app:Services:Ai:AiSkillStore:php:715:todo'),
+            'Portuguese prose using "todo" must not be treated as a TODO marker or legacy cleanup signal.'
+        );
+        $this->assertNull(
+            collect(data_get($payload, 'code.legacy_cleanup_queue'))->firstWhere('id', 'legacy_cleanup:app:Console:Commands:AtlasScaffoldStageCommand:php:12:scaffold'),
+            'AtlasScaffoldStageCommand is the canonical Self-Construction staging command; scaffold in this name must not be treated as legacy cleanup.'
+        );
+        $scaffoldStageSignal = collect(data_get($payload, 'code.legacy_triage_queue'))
+            ->firstWhere('id', 'legacy_signal:scaffold:app:Console:Commands:AtlasScaffoldStageCommand:php:12');
+        $this->assertSame('canonical_self_construction_scaffold_staging_runtime', data_get($scaffoldStageSignal, 'operational_classification.bucket'));
+        $this->assertSame('none', data_get($scaffoldStageSignal, 'operational_classification.cleanup_pressure'));
+        $this->assertSame(
+            0,
+            collect(data_get($payload, 'code.legacy_cleanup_queue'))
+                ->where('path', 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorService.php')
+                ->count(),
+            'Self-Construction Scaffold Staging Executor is active runtime with command, tests and owner docs; scaffold payload fields are not legacy cleanup.'
+        );
+        $this->assertSame(
+            0,
+            collect(data_get($payload, 'code.legacy_cleanup_queue'))
+                ->where('path', 'app/Services/Ai/Cognition/AtlasCognitiveMemoryFabricSchemaEvolutionService.php')
+                ->where('signal', 'deprecated')
+                ->count(),
+            'ACMF schema evolution uses deprecated_fields as canonical lifecycle payload; it must not be treated as deprecated runtime code.'
+        );
+        $schemaEvolutionDeprecatedSignal = collect(data_get($payload, 'code.legacy_triage_queue'))
+            ->firstWhere('id', 'legacy_signal:deprecated:app:Services:Ai:Cognition:AtlasCognitiveMemoryFabricSchemaEvolutionService:php:177');
+        $this->assertSame('canonical_schema_evolution_field_lifecycle', data_get($schemaEvolutionDeprecatedSignal, 'operational_classification.bucket'));
+        $this->assertSame('none', data_get($schemaEvolutionDeprecatedSignal, 'operational_classification.cleanup_pressure'));
         $this->assertNull(
             collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:duplicate_class:operationenvelope'),
             'Resolved OperationEnvelope duplicate should not remain in AI confusion cleanup.'
@@ -671,6 +706,10 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertNull(
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-ai-programming-enterprise-implementation-plan'),
             'Programming Enterprise plan is active local runtime documentation with an explicit external Rivals completion boundary; phase/blocked vocabulary is not stale implementation drift.'
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-ai-programming-agentic-rag-professional-spec'),
+            'Programming Agentic RAG uses ordinary Portuguese gap language like falta owner; that must not be treated as scaffold drift without explicit scaffold/planned/future status language.'
         );
         $this->assertNull(
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-long-horizon-intelligence-layer'),

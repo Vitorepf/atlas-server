@@ -107,6 +107,7 @@ required_tests:
   - "php artisan test --filter=AtlasDocumentationEnforcement"
   - "php artisan atlas:documentation:enforce --task=\"<task>\" --feature=\"<feature>\" --json"
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "composer atlas:docs-gate"
 requires_evidence: true
 risk_level: high
 product_name: Atlas Documentation Enforcement Runtime
@@ -125,6 +126,7 @@ quality_gates:
   - "php artisan atlas:documentation:enforce --task=\"<task>\" --feature=\"<feature>\" --strict --json"
   - "php artisan atlas:documentation-reality acceptance --strict --json"
   - "php artisan atlas:code-reality reality-audit --json"
+  - "composer atlas:docs-gate"
 failure_modes:
   - IA ignora owner doc por confiar em conversa.
   - IA duplica runtime porque nao rodou anti-duplicate.
@@ -177,6 +179,27 @@ O Atlas e construido por multiplas IAs. Isso cria risco real de:
 
 ADER reduz esse risco criando um preflight unico para Atlas Dev, Forge,
 Cartografia, docs, memoria, contexto e runtimes.
+
+## Enforcement Local
+O comando ADER e o docs-health tambem sao expostos como gate local versionado.
+O operador pode instalar o hook com:
+
+```bash
+composer atlas:install-hooks
+```
+
+Depois disso, qualquer commit com mudancas staged em `app/`, `routes/`,
+`database/`, `config/`, `tests/`, `docs/engineering-knowledge-base/`,
+`composer.json`, `composer.lock` ou `artisan` roda:
+
+```bash
+git diff --cached --check
+php artisan atlas:engineering:knowledge docs-health --json
+php artisan atlas:documentation:enforce --task="pre-commit canonical documentation gate" --feature="canonical documentation and implementation governance" --strict --json
+```
+
+Esse hook nao transforma ADER em fonte da verdade. Ele so torna a obrigacao
+mais dificil de ignorar antes de persistir codigo ou documentacao canonica.
 
 ## Onde Se Encaixa
 ADER fica acima dos sistemas documentais existentes:

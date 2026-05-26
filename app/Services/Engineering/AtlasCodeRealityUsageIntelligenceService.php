@@ -780,7 +780,14 @@ final class AtlasCodeRealityUsageIntelligenceService
         $seen = [];
         $lines = preg_split('/\R/', $content) ?: [];
         foreach ($lines as $index => $line) {
-            if (! preg_match_all('/\b(legacy|deprecated|scaffold|planned_scaffold|executed_scaffold|duplicate|todo|fixme)\b/i', (string) $line, $matches)) {
+            $signals = [];
+            if (preg_match_all('/\b(legacy|deprecated|scaffold|planned_scaffold|executed_scaffold|duplicate)\b/i', (string) $line, $legacyMatches)) {
+                $signals = array_merge($signals, $legacyMatches[1] ?? []);
+            }
+            if (preg_match_all('/(?<![A-Za-z0-9_])(TODO|FIXME)(?![A-Za-z0-9_])/', (string) $line, $todoMatches)) {
+                $signals = array_merge($signals, $todoMatches[1] ?? []);
+            }
+            if ($signals === []) {
                 continue;
             }
 
@@ -788,7 +795,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             if (strlen($excerpt) > 180) {
                 $excerpt = substr($excerpt, 0, 177).'...';
             }
-            foreach ($matches[1] as $match) {
+            foreach ($signals as $match) {
                 $signal = strtolower((string) $match);
                 $dedupeKey = ($index + 1).':'.$signal.':'.$excerpt;
                 if (isset($seen[$dedupeKey])) {
@@ -816,7 +823,8 @@ final class AtlasCodeRealityUsageIntelligenceService
         if (str_starts_with($trimmed, '//') || str_starts_with($trimmed, '#')) {
             return 'comment';
         }
-        if (preg_match('/[\'"][^\'"]*(legacy|deprecated|scaffold|planned_scaffold|executed_scaffold|duplicate|todo|fixme)[^\'"]*[\'"]/i', $line)) {
+        if (preg_match('/[\'"][^\'"]*(legacy|deprecated|scaffold|planned_scaffold|executed_scaffold|duplicate)[^\'"]*[\'"]/i', $line)
+            || preg_match('/[\'"][^\'"]*(TODO|FIXME)[^\'"]*[\'"]/', $line)) {
             return 'string_literal';
         }
 
@@ -1127,7 +1135,7 @@ final class AtlasCodeRealityUsageIntelligenceService
     private function docBodyImplementationLanguage(string $content): array
     {
         $lower = strtolower($content);
-        $scaffoldTerms = ['scaffold', 'planned', 'future', 'not implemented', 'nao implementado', 'falta', 'missing implementation', 'missing runtime'];
+        $scaffoldTerms = ['scaffold', 'planned', 'future', 'not implemented', 'nao implementado', 'falta runtime', 'falta implementacao', 'missing implementation', 'missing runtime'];
         $implementedTerms = ['implemented_ready', 'implemented_partial', 'active_runtime', 'codigo/teste', 'tests existem', 'rotas', 'comando', 'runtime'];
 
         return [
@@ -1419,8 +1427,37 @@ final class AtlasCodeRealityUsageIntelligenceService
      */
     private function legacySignalOperationalClassification(string $type, array $signal): array
     {
+        $path = (string) ($signal['path'] ?? '');
         $sourceType = (string) ($signal['source_type'] ?? 'unknown');
         $excerpt = strtolower((string) ($signal['excerpt'] ?? ''));
+
+        if ($type === 'scaffold'
+            && ($path === 'app/Console/Commands/AtlasScaffoldStageCommand.php'
+                || $path === 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorService.php'
+                || str_contains($excerpt, 'self-construction scaffold staging executor'))) {
+            return [
+                'bucket' => 'canonical_self_construction_scaffold_staging_runtime',
+                'subtype' => 'approved_proposal_staging_runtime',
+                'cleanup_pressure' => 'none',
+                'ia_confusion_risk' => 'low',
+                'safe_interpretation' => 'scaffold_is_canonical_self_construction_staging_term_not_legacy_code',
+            ];
+        }
+
+        if ($type === 'deprecated'
+            && $path === 'app/Services/Ai/Cognition/AtlasCognitiveMemoryFabricSchemaEvolutionService.php'
+            && (str_contains($excerpt, 'deprecatedfields')
+                || str_contains($excerpt, 'deprecated fields')
+                || str_contains($excerpt, '$deprecated')
+                || str_contains($excerpt, 'array $deprecated'))) {
+            return [
+                'bucket' => 'canonical_schema_evolution_field_lifecycle',
+                'subtype' => 'schema_evolution_deprecated_fields_contract',
+                'cleanup_pressure' => 'none',
+                'ia_confusion_risk' => 'low',
+                'safe_interpretation' => 'deprecated_fields_are_schema_lifecycle_payload_not_deprecated_runtime_code',
+            ];
+        }
 
         if ($sourceType === 'string_literal' && preg_match('/(^[\'"]deprecated[\'"],?$|status|statuses|maturity|rule::in|--status|onboarding-status|scaffold_domains|planned_scaffold|executed_scaffold|attempted_scaffold|repair_scaffold|status_deprecated|tool_status)/', $excerpt)) {
             return [
@@ -1469,6 +1506,18 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'cleanup_pressure' => 'none',
                 'ia_confusion_risk' => 'low',
                 'safe_interpretation' => 'code_is_about_detecting_duplicates_not_itself_duplicate_by_keyword',
+            ];
+        }
+
+        if (in_array($type, ['scaffold', 'planned_scaffold', 'executed_scaffold'], true)
+            && $sourceType === 'string_literal'
+            && str_contains($excerpt, 'implemented-vs-scaffold-matrix')) {
+            return [
+                'bucket' => 'diagnostic_architecture_matrix_reference',
+                'subtype' => 'implemented_vs_scaffold_read_model_reference',
+                'cleanup_pressure' => 'none',
+                'ia_confusion_risk' => 'low',
+                'safe_interpretation' => 'implemented_vs_scaffold_matrix_is_diagnostic_read_model_not_legacy_runtime',
             ];
         }
 

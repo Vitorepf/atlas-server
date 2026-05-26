@@ -18,6 +18,7 @@ use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
+use App\Services\Ai\ResearchDomain\ResearchRuntimeService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionScaffoldStagingExecutorService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
@@ -165,6 +166,9 @@ class AtlasCognitionScoreCardService
 
         // Patamar 4 · intelligence boost
         ['ADTI4', 'Atlas Decide TEOS-I4 Lookahead',        'atlas_decide',     AtlasDecideTeosI4LookaheadService::class,                        'ready', 'ready', 'building'],
+
+        // Domain runtimes — Research (review-only, source-grounded)
+        ['ARDR',  'Research Domain Runtime',               'research_domain', ResearchRuntimeService::class,                                   'ready', 'ready', 'building'],
     ];
 
     /**

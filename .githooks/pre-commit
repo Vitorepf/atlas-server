@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+server_dir="$repo_root"
+
+if [[ ! -f "$server_dir/artisan" && -f "$repo_root/atlas-server/artisan" ]]; then
+  server_dir="$repo_root/atlas-server"
+fi
+
+cd "$server_dir"
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+if [[ -z "$staged_files" ]]; then
+  exit 0
+fi
+
+if ! printf '%s\n' "$staged_files" | grep -Eq '^(app|config|database|docs/engineering-knowledge-base|routes|tests)/|^composer\.(json|lock)$|^artisan$'; then
+  git diff --cached --check
+  exit 0
+fi
+
+echo "Atlas canonical gate: checking staged implementation/docs changes..."
+
+git diff --cached --check
+
+php artisan atlas:engineering:knowledge docs-health --json
+
+php artisan atlas:documentation:enforce \
+  --task="pre-commit canonical documentation gate" \
+  --feature="canonical documentation and implementation governance" \
+  --strict \
+  --json
+
