@@ -107,6 +107,8 @@ use App\Http\Controllers\AtlasMemoryRecallController;
 use App\Http\Controllers\AtlasMobilePushReplayController;
 use App\Http\Controllers\AtlasOpenBrainController;
 use App\Http\Controllers\AtlasOpenBrainMcpController;
+use App\Http\Controllers\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitController;
+use App\Http\Controllers\Ai\Programming\AtlasDevPlanVisibleController;
 use App\Http\Controllers\AtlasProgrammingGovernanceController;
 use App\Http\Controllers\AtlasProjectBlockerController;
 use App\Http\Controllers\AtlasProjectController;
@@ -865,6 +867,13 @@ Route::prefix('atlas-code')->group(function () {
         Route::get('/programming/work-items/{code}', [AtlasProgrammingGovernanceController::class, 'show']);
         Route::get('/programming/work-items/{code}/gate-runs', [AtlasProgrammingGovernanceController::class, 'gateRuns']);
         Route::get('/programming/work-items/{code}/spec-compile', [AtlasProgrammingGovernanceController::class, 'compileSpec']);
+
+        // Atlas Dev A2 Plan-Visible HTTP read model (AP-700).
+        Route::get('/programming/plan-visible', [AtlasDevPlanVisibleController::class, 'index']);
+        Route::get('/programming/work-items/{workItem}/plan-visible', [AtlasDevPlanVisibleController::class, 'show']);
+
+        // AAEOS Mission Control Cockpit baseline snapshot (AP-702).
+        Route::get('/aaeos/cockpit', [AtlasMissionControlCockpitController::class, 'show']);
 
         // SDD · read-only surface for specs, requirements, decision receipts, traceability, drift, learning
         Route::get('/sdd/operations', [AtlasSddController::class, 'operations']);

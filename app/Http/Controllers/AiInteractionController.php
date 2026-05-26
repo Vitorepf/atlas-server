@@ -9,6 +9,7 @@ use App\Jobs\ProcessAiAttachmentVisuals;
 use App\Models\AiStreamEvent;
 use App\Models\AiThread;
 use App\Models\AiTrace;
+use App\Services\Ai\AgenticEngineeringOs\AtlasAaeosHttpPathFacadeService;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\Attachments\AiChunkedUploadService;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
@@ -68,6 +69,7 @@ class AiInteractionController extends Controller
         AtlasDevRuntimeService $devRuntime,
         AtlasAiAssistedExecutionQualityService $assistedExecutionQuality,
         AtlasAutonomousProductDeliveryRuntimeService $productDeliveryRuntime,
+        AtlasAaeosHttpPathFacadeService $aaeosHttpPath,
     ): JsonResponse {
         $data = $request->validated();
         $uploadedImages = $this->uploadedImageFiles($request->file('images', []));
@@ -139,6 +141,25 @@ class AiInteractionController extends Controller
         $data = $specialistFlowRuntime->apply($data);
         $data = $specialistFlowExecution->apply($data);
         $data = $this->applyAtlasCodeForgeObraBinding($data);
+
+        // AAEOS HTTP Path Facade (T1.4 Phase 1 / AP-696). Active only when
+        // config('atlas.aaeos.http_path_phase') is in {1,2,3,4}. In legacy
+        // mode (default) this is a no-op and the legacy pipeline runs
+        // unchanged. When active and the placement gate blocks the request,
+        // we surface 422 before any provider call.
+        $aaeosPhase = (string) config('atlas.aaeos.http_path_phase', 'legacy');
+        if (AtlasAaeosHttpPathFacadeService::isActive($aaeosPhase)) {
+            $aaeosResult = $aaeosHttpPath->run($data, $aaeosPhase);
+            if ($aaeosResult['status'] === AtlasAaeosHttpPathFacadeService::RESULT_BLOCKED && $aaeosResult['blocker'] !== null) {
+                return response()->json([
+                    'message' => $aaeosResult['blocker']['reason'],
+                    'code' => $aaeosResult['blocker']['code'],
+                    'blocked_when' => $aaeosResult['blocker']['blocked_when'],
+                    'aaeos_phase_envelopes' => $aaeosResult['envelopes'],
+                ], $aaeosResult['blocker']['http_status']);
+            }
+            $data = $aaeosResult['data'];
+        }
 
         try {
             $trace = $gateway->enqueueInteraction((string) $data['input_text'], $data);

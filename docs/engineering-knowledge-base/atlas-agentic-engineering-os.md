@@ -35,6 +35,7 @@ decisions:
   - Todo claim de pronto precisa de evidence, receipts, testes ou blockers explicitos; narrativa de agente nao e evidencia.
   - O Atlas so pode assumir trabalho enterprise quando conseguir operar produto, arquitetura, implementacao, qualidade, seguranca, delivery, observabilidade, incidentes, documentacao e aprendizado no mesmo ciclo governado.
   - Documentacao canonica e substrato operacional deste OS, porque o Atlas e construido, corrigido, gerenciado e evoluido por IA.
+  - Docs-mae e surfaces do AAEOS devem ter Visual Canon Blocks: diagramas curtos derivados de docs/schemas/evidence, nunca imagens decorativas ou fonte primaria.
 maintenance:
   - Atualize este doc antes de renomear a categoria, criar novo OS de engenharia, alterar Company Runtime, Atlas Dev, Atlas Forge, Atlas Code, Programming Governance ou Self-Construction.
   - Nao adicionar modulo operacional novo sem owner, contrato, entrada, saida, evidence, gates, surface e relacao com os docs filhos.
@@ -164,6 +165,7 @@ quality_gates:
   - qa-security-release-covered
   - observability-and-incident-loop-covered
   - docs-and-cartography-updated
+  - visual-canon-block-derived-from-docs
   - learning-proposal-recorded
   - certification-before-claim
 failure_modes:
@@ -465,6 +467,17 @@ execucao, QA, release, cartography e certification.
 - Manter este doc nos indices canonicos.
 - Evoluir contracts filhos conforme departamentos virarem runtime real.
 - Expor os gates principais no Atlas Code e na Cartografia.
+- Criar Visual Canon Blocks para AAEOS, Dev, Forge, Atlas Code e Cartography.
+
+## Visual Canon Blocks
+Cada doc-mae ou surface critica deve comprimir o sistema em uma visao
+executiva navegavel: poder, mecanismo, gate e evidence.
+Regra: a imagem e projecao da documentacao canonica. Fonte de verdade continua
+sendo frontmatter, contratos, schemas, receipts, tests e Evidence Ledger.
+Padrao minimo:
+```text
+Poder -> mecanismo -> gate -> evidence -> zoom cartografico
+```
 
 ## Definition Of Done
 
@@ -479,7 +492,7 @@ Para uma implementacao de AAEOS ser aceita:
 - Atlas Code mostra estado, plan, verify, evidence, terminal e cartografia.
 - Evidence Certification bloqueia claims fracos.
 - Knowledge Governance sincroniza docs, KB e Code Intelligence.
-- Cartography permite humano entender estrutura por zoom visual.
+- Cartography permite humano entender estrutura por zoom visual derivado de docs.
 - Learning fecha o ciclo e cria propostas verificaveis.
 
 ## Regra Final

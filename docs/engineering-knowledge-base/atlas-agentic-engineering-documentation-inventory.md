@@ -25,6 +25,7 @@ decisions:
   - Docs Rivals/Superiority sao benchmark/estrategia; nao governam runtime sem contrato canonico.
   - Provider dossiers e disseccoes externas sao research/advisory; nao viram drivers, defaults ou arquitetura sem promocao.
   - Atlas Code docs com OS no nome sao escopo local/surface-bound; Atlas Code continua surface.
+  - Visual specs, diagramas e screenshots sao projections de leitura/cartografia; so governam quando apontam para doc canonico, schema e evidence.
 maintenance:
   - Atualize quando nova familia de docs Dev, Forge, Atlas Code, Rivals, TEOS, provider ou research for criada.
   - Se um doc novo nao encaixar em nenhuma familia, registre como gap antes de usa-lo para implementacao.
@@ -156,6 +157,7 @@ Knowledge Governance
 | `contract` | Sim | Define invariantes, schemas, gates e DoD. |
 | `runbook` | Sim, dentro do contrato | Define execucao operacional. |
 | `surface` | Sim para UX | Nao governa runtime-mae. |
+| `visual-projection` | Nao sozinho | Comprime docs/schemas/evidence em imagem ou diagrama; fonte primaria continua no doc canonico. |
 | `benchmark` | Nao para arquitetura | Mede, compara, reporta ou desenha bateria. |
 | `north-star` | Nao como runtime atual | Define alvo futuro. |
 | `research` | Nao | Fonte externa/advisory ate promocao canonica. |
@@ -190,6 +192,7 @@ Knowledge Governance
 | `atlas-forge-work-packet-*` | contract | Forge OS | Capabilities e packets internos. |
 | `atlas-forge-continuum-os-session-handoff-*` | handoff/part | Forge Continuum | Snapshot historico; nunca fonte primaria. |
 | `atlas-code-*.md` | surface/contract | `atlas-desktop-code-surface.md` | Atlas Code e surface/cockpit. |
+| visual blocks, diagrams, screenshots | visual-projection | doc canonico que gerou a imagem | Use para leitura rapida e zoom humano; valide contra frontmatter/schemas/evidence. |
 | `atlas-code-category-evolution.md` | surface-category | Atlas Code + Authority Map | Define categoria de produto/surface EOS; nao nomeia a area inteira. |
 | `atlas-code-*operating-system*.md`, `atlas-code-*workspace-os*.md` | surface-local | Authority Map + doc local | `OS` e escopo local/surface-bound. |
 | `atlas-code-scor-1*.md` | surface/implementation-contract | `atlas-code-long-session-programming-cockpit.md` | Proximo nivel da surface Code. |

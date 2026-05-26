@@ -886,4 +886,32 @@ return [
         'runtime_degradation_auto_tick_enabled' => (bool) env('ATLAS_PATAMAR4_RUNTIME_DEGRADATION_AUTO_TICK_ENABLED', true),
         'runtime_degradation_auto_tick_threshold' => env('ATLAS_PATAMAR4_RUNTIME_DEGRADATION_AUTO_TICK_THRESHOLD', 'high'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AAEOS HTTP Path Integration (T1.4 / AP-696)
+    |--------------------------------------------------------------------------
+    |
+    | Controls the four-phase migration from the legacy productive HTTP path
+    | (AiInteractionController::store -> AiWorker -> AtlasProgrammingOrchestrator)
+    | to the canonical AAEOS Kernel sequence (intent -> placement -> classify
+    | -> policy -> topology -> routing -> spec -> tasks -> receipt -> exec
+    | -> gates -> evidence -> delivery -> human review -> cert -> learning).
+    |
+    | `http_path_phase` accepted values:
+    |   - 'legacy' (default): no facade; current pipeline runs unchanged.
+    |   - '1'  : Phase 1 — Place Feature mandatory; Mission Foundation optional.
+    |   - '2'  : Phase 2 — AI Router + Policy gate mandatory (future).
+    |   - '3'  : Phase 3 — AAWR + Decide mandatory for R3+ (future).
+    |   - '4'  : Phase 4 — Company Runtime + AiWorker thin delegator (future).
+    |
+    | Canonical spec: docs/engineering-knowledge-base/atlas-aaeos-http-path-integration-spec.md
+    | Implementation AP: docs/ap/AP-696-aaeos-http-path-facade-phase-1-contract.md
+    */
+    'aaeos' => [
+        'http_path_phase' => env('ATLAS_AAEOS_HTTP_PATH_PHASE', 'legacy'),
+        'placement_cache_ttl_seconds' => (int) env('ATLAS_AAEOS_PLACEMENT_CACHE_TTL_SECONDS', 300),
+        'telemetry_enabled' => (bool) env('ATLAS_AAEOS_TELEMETRY_ENABLED', true),
+        'mission_foundation_optional_at_phase_1' => (bool) env('ATLAS_AAEOS_MISSION_OPTIONAL_PHASE_1', true),
+    ],
 ];

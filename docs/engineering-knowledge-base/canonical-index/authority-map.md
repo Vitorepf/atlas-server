@@ -128,6 +128,10 @@ next_actions:
 | Business contexts | `atlas-ai-business-contexts.md` |
 | Scenario simulation | `atlas-ai-scenario-simulation-harness.md` |
 | Legacy/resolver corpus | `atlas-ai-resolver-corpus-audit.md`, `legacy-documentation-cleanup-report.md` |
+| **Autonomous Company OS Genesis Initiative — bridge manifest (status=future) mapping civilization vision to existing canonical owners, opens only 3 child docs** | `atlas-autonomous-company-os-genesis-initiative.md` |
+| Reality Outcome Gates (15 gates complementing 15 universal AAEOS gates; business outcome, security posture, regret minimization, compounding intelligence delta) | `atlas-reality-outcome-gates.md` |
+| Domain Runtime Creation Gate (governed birth of new domain or department via proposal envelope, sandbox, shadow, L0/L1 promotion, dual signature, historical replay, sovereignty lock) | `atlas-domain-runtime-creation-gate.md` |
+| Architecture Evolution Proposal Runtime (Atlas-proposed structural self-redesign with dual signature, 100-Obra replay, sovereignty layer protection) | `atlas-architecture-evolution-proposal-runtime.md` |
 
 ## Rule
 

@@ -27,6 +27,7 @@ decisions:
   - Atlas Programming Governance System define a lei de programacao; Forge, Dev e Atlas Code consomem essa lei.
   - Atlas Forge Continuum OS define continuidade, provider topology, fallback, review, evidence e Rivals para programacao pesada; Forge Operating System e a fabrica operacional dentro desse continuum.
   - TEOS e north-star temporal de continuidade; nao substitui Atlas Dev, Forge, Programming Governance ou Agentic Engineering OS.
+  - Visual Canon Blocks sao projections derivadas de docs/schemas/evidence para acelerar leitura humana e IA; nunca substituem docs canonicos.
   - Rivals, Superiority, benchmark e dissection docs sao avaliacao/estrategia/pesquisa; eles nao viram autoridade de arquitetura sem promocao canonica.
   - Docs de handoff, parts, prompts e implementation contracts sao material operacional ou filho; nao podem competir com docs-mae.
 maintenance:
@@ -272,6 +273,7 @@ Fluxo seguro para qualquer IA reorganizar ou usar docs desta area:
 - Use **TEOS** apenas como camada temporal/north-star de continuidade.
 - Use **Rivals/Superiority** apenas como benchmark, avaliacao ou estrategia.
 - Use disseccoes externas apenas como pesquisa.
+- Use diagramas/visual specs como compressao operacional derivada de docs, nao como fonte primaria.
 
 Nao faca:
 
@@ -282,6 +284,7 @@ Nao faca:
 - nao transformar north-star em runtime atual;
 - nao copiar ferramenta externa como se fosse decisao Atlas;
 - nao usar "programacao assistida por IA" como nome da area inteira.
+- nao desenhar imagem que contradiga frontmatter, contracts, schemas, receipts ou evidence.
 
 ## Escopo de Implementacao
 Este doc deve ser consumido por:
@@ -301,6 +304,7 @@ Implementacao ideal futura:
 3. criar check para termos proibidos em docs ativos;
 4. expor este mapa no Atlas Code quando a obra for de programacao;
 5. ligar System Graph e Cartografia aos tiers deste doc.
+6. exigir Visual Canon Block em docs-mae/surfaces criticas quando houver cartografia humana.
 
 ## Dependencias
 - `atlas-ai-knowledge-governance-system.md`
