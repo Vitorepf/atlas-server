@@ -13,8 +13,8 @@ use Illuminate\Console\Command;
  * The single operator-facing CLI for the v2 rivals lockdown. Replaces the
  * old fan-out of `atlas:engineering:benchmark:rivals*`,
  * `atlas:programming:rivals-forge-*` and `atlas:programming:rivals-*`
- * commands. Those continue to exist as deprecated wrappers that reference
- * this entrypoint (forward path enabled in Slice 6).
+ * commands. Those older command surfaces are compatibility aliases that must
+ * forward here; they are not separate owners for provider-arena behavior.
  *
  * Thirteen canonical actions, three operator confirmations gating any
  * real-provider run, five modes, three rival models, replayable evidence

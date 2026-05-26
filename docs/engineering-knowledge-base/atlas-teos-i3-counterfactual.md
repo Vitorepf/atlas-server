@@ -9,7 +9,7 @@ category: teos
 priority: 92
 summary: Runtime TEOS-I3 para branches contrafactuais, recomendacao de replan e separacao explicita entre fato observado e simulacao alternativa.
 tags: [atlas-ai, acos, teos, counterfactual, replanning]
-capabilities: [counterfactual_branching, replan_recommendation, divergence_scoring, human_approval_gate]
+capabilities: [counterfactual_branching, replan_recommendation, divergence_scoring, counterfactual_replan_human_approval_gate]
 decisions:
   - Counterfactual sempre usa is_counterfactual=true e nao vira fato operacional.
   - Replan recommendation exige aprovacao humana antes de influenciar missao.

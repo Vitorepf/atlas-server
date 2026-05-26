@@ -5,10 +5,16 @@ namespace App\Services\Ai\Cognition;
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
+use App\Services\Ai\CrossDomain\AtlasTemporaryDomainCompositionService;
+use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
+use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
+use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
+use App\Services\Ai\Teos\AtlasTeosI4CounterfactualTreeService;
 use App\Services\Ai\AiDecisionReceiptRefreshService;
 use App\Services\Ai\AiMemoryDeltaProposer;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
@@ -129,6 +135,15 @@ class AtlasCognitionScoreCardService
         ['AURG-4D', 'Unified Reality Graph Temporal (4D)', 'reality',           AtlasUnifiedRealityGraphTemporalService::class,    'ready', 'ready', 'building'],
         ['ACDM',    'Cross-Domain Mesh',                   'cross_domain',      AtlasCrossDomainMeshService::class,                'ready', 'ready', 'building'],
         ['TEOS-I3', 'TEOS-I3 Counterfactual Runtime',      'teos',              AtlasTeosI3CounterfactualService::class,           'ready', 'ready', 'building'],
+
+        // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
+        ['ACK',     'Constitutional Kernel',               'governance',        AtlasConstitutionalKernelService::class,           'ready', 'ready', 'building'],
+        ['AAA',     'Autonomy Admission',                  'governance',        AtlasAutonomyAdmissionService::class,              'ready', 'ready', 'building'],
+        ['ACFA',    'Cognitive Function Atlas',            'cognition',         AtlasCognitiveFunctionAtlasService::class,         'ready', 'ready', 'building'],
+        ['AARR',    'Autonomous Reconciliation Runtime',   'autonomy',          AtlasAutonomousReconciliationRuntimeService::class, 'ready', 'ready', 'building'],
+        ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         'teos',              AtlasTeosI4CounterfactualTreeService::class,       'ready', 'ready', 'building'],
+        ['ASWC',    'Swarm Conductor',                     'atlas_decide',      AtlasSwarmConductorService::class,                 'ready', 'ready', 'building'],
+        ['ATDC',    'Temporary Domain Composition',        'cross_domain',      AtlasTemporaryDomainCompositionService::class,     'ready', 'ready', 'building'],
     ];
 
     /**

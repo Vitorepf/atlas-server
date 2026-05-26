@@ -34,7 +34,7 @@ use InvalidArgumentException;
  *   - atlas.atlas_decide.routing_table.v1           (active fold)
  *   - atlas.atlas_decide.routing_activation.v1      (audit receipt)
  */
-final class AtlasDecideMetaLearningService
+class AtlasDecideMetaLearningService
 {
     public const RECOMMENDATION_SCHEMA = 'atlas.atlas_decide.routing_recommendation.v1';
 
@@ -145,7 +145,7 @@ final class AtlasDecideMetaLearningService
      * Apply a routing action and append an audit receipt.
      *
      * @param  array{action:string,task_category?:string,role?:string,framework?:?string,actor?:string}  $input
-     * @return array<string,mixed>  the activation receipt that was written
+     * @return array<string,mixed> the activation receipt that was written
      */
     public function applyAction(array $input): array
     {
