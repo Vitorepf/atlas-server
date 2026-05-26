@@ -2,7 +2,7 @@
 
 namespace App\Services\Engineering;
 
-use App\Services\Semantic\FrontmatterParser;
+use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\File;
 
 class AtlasDocumentationRealitySystemService
@@ -39,7 +39,7 @@ class AtlasDocumentationRealitySystemService
     ];
 
     public function __construct(
-        private readonly FrontmatterParser $frontmatter,
+        private readonly CanonicalDocsFrontmatterParser $frontmatter,
         private readonly AtlasCodeRealityUsageIntelligenceService $codeReality,
         private readonly ?AtlasUniversalRealityCartographyService $cartography = null,
     ) {}

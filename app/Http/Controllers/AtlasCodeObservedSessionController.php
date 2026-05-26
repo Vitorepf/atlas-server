@@ -6,7 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AtlasProject;
 use App\Services\AtlasCode\AtlasCodeObservedSessionService;
-use App\Services\AtlasCode\VerificationCommandRunner;
+use App\Services\AtlasCode\AtlasCodeVerificationCommandRunner as VerificationCommandRunner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Throwable;

@@ -372,14 +372,10 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('App\\Services\\Ai\\Kernel\\Envelope\\OperationEnvelope', data_get($kernelEnvelopeRefs, 'fqcn'));
         $this->assertGreaterThan(0, data_get($kernelEnvelopeRefs, 'reference_count'));
         $this->assertSame('exact_fqcn_refs_are_stronger_than_short_name_reachability', data_get($kernelEnvelopeRefs, 'claim_policy'));
-        $frontmatterParserCleanup = collect($payload['code']['duplicate_class_cleanup_queue'])->firstWhere('short_name', 'frontmatterparser');
-        $vaultParserRefs = collect(data_get($frontmatterParserCleanup, 'exact_references'))
-            ->firstWhere('path', 'app/Services/Vault/FrontmatterParser.php');
-        $this->assertSame('App\\Services\\Vault\\FrontmatterParser', data_get($vaultParserRefs, 'fqcn'));
-        $this->assertSame(0, data_get($vaultParserRefs, 'reference_count'));
-        $this->assertGreaterThan(0, data_get($vaultParserRefs, 'namespace_local_reference_count'));
-        $this->assertContains('app/Services/Vault/VaultNoteFrontmatterParser.php', data_get($vaultParserRefs, 'namespace_local_reference_samples'));
-        $this->assertNotContains('app/Services/Vault/ObsidianVaultReader.php', data_get($vaultParserRefs, 'namespace_local_reference_samples'));
+        $this->assertNull(
+            collect($payload['code']['duplicate_class_cleanup_queue'])->firstWhere('short_name', 'frontmatterparser'),
+            'Vault frontmatter parser was renamed to VaultNoteFrontmatterParser; old FrontmatterParser remains compatibility alias only.'
+        );
         $this->assertStringContainsString(
             'VaultNoteFrontmatterParser $parser',
             File::get(base_path('app/Services/Vault/ObsidianVaultReader.php')),
@@ -396,7 +392,10 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('concrete_service', data_get($verificationRunnerCleanup, 'boundary_contract.contract_features.atlas_code_runner.kind'));
         $this->assertSame('interface_contract', data_get($verificationRunnerCleanup, 'boundary_contract.contract_features.atlas_dev_gate_runner.kind'));
         $this->assertSame('App\\Services\\AtlasCode\\VerificationCommandRunner', data_get($atlasCodeRunnerRefs, 'fqcn'));
-        $this->assertGreaterThan(0, data_get($atlasCodeRunnerRefs, 'reference_count'));
+        $this->assertSame(0, data_get($atlasCodeRunnerRefs, 'reference_count'));
+        $this->assertSame(0, data_get($verificationRunnerCleanup, 'boundary_contract.current_migration_state.app_and_tests_direct_runner_imports'));
+        $this->assertSame(2, data_get($verificationRunnerCleanup, 'boundary_contract.current_migration_state.atlas_code_alias_imports'));
+        $this->assertSame(6, data_get($verificationRunnerCleanup, 'boundary_contract.current_migration_state.atlas_dev_gate_alias_imports'));
         $this->assertSame('App\\Services\\Ai\\Programming\\AtlasDev\\Gate\\VerificationCommandRunner', data_get($atlasDevGateRunnerRefs, 'fqcn'));
         $this->assertGreaterThan(0, data_get($atlasDevGateRunnerRefs, 'namespace_local_reference_count'));
         $this->assertContains('app/Services/Ai/Programming/AtlasDev/Gate/SymfonyProcessCommandRunner.php', data_get($atlasDevGateRunnerRefs, 'namespace_local_reference_samples'));
@@ -409,9 +408,12 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('eloquent_model', data_get($aiExecutionPlanCleanup, 'boundary_contract.contract_features.persistent_model.kind'));
         $this->assertSame('prompt_runtime_value_object', data_get($aiExecutionPlanCleanup, 'boundary_contract.contract_features.prompt_value_object.kind'));
         $this->assertSame('App\\Models\\AiExecutionPlan', data_get($aiExecutionPlanModelRefs, 'fqcn'));
-        $this->assertContains('app/Services/Ai/AutonomousEngineering/AtlasAutonomousEngineeringService.php', data_get($aiExecutionPlanModelRefs, 'reference_samples'));
+        $this->assertSame(0, data_get($aiExecutionPlanModelRefs, 'reference_count'));
+        $this->assertSame(0, data_get($aiExecutionPlanCleanup, 'boundary_contract.current_migration_state.app_and_tests_direct_execution_plan_imports'));
+        $this->assertSame(3, data_get($aiExecutionPlanCleanup, 'boundary_contract.current_migration_state.persistent_model_alias_imports'));
+        $this->assertSame(2, data_get($aiExecutionPlanCleanup, 'boundary_contract.current_migration_state.prompt_value_object_alias_imports'));
         $this->assertSame('App\\Services\\Ai\\ValueObjects\\AiExecutionPlan', data_get($aiExecutionPlanValueObjectRefs, 'fqcn'));
-        $this->assertContains('app/Services/Ai/AiPromptBuilder.php', data_get($aiExecutionPlanValueObjectRefs, 'reference_samples'));
+        $this->assertSame(0, data_get($aiExecutionPlanValueObjectRefs, 'reference_count'));
         $this->assertNull(
             collect($payload['code']['duplicate_class_cleanup_queue'])->firstWhere('short_name', 'smokesubject'),
             'Generated SmokeSubject workspace fixtures are documented in triage, but must not enter production duplicate cleanup.'
@@ -525,19 +527,7 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame(1, data_get($operationEnvelope, 'cleanup_recommendation.priority'));
         $this->assertFalse(data_get($operationEnvelope, 'cleanup_recommendation.delete_allowed'));
         $this->assertSame('programming_variants_only', data_get($operationEnvelope, 'cleanup_recommendation.rename_candidate'));
-        $frontmatterParser = collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:frontmatterparser');
-        $this->assertSame(2, data_get($frontmatterParser, 'cleanup_recommendation.priority'));
-        $this->assertSame('App\\Services\\Vault\\FrontmatterParser', data_get($frontmatterParser, 'cleanup_recommendation.rename_candidate'));
-        $this->assertFalse(data_get($frontmatterParser, 'cleanup_recommendation.merge_allowed_without_owner_decision'));
-        $this->assertContains('docs/engineering-knowledge-base/obsidian-atlas-vault.md', data_get($frontmatterParser, 'boundary_contract.owner_docs'));
-        $this->assertSame('CanonicalDocsFrontmatterParser', data_get($frontmatterParser, 'boundary_contract.proposed_explicit_names.semantic_docs'));
-        $this->assertSame('VaultNoteFrontmatterParser', data_get($frontmatterParser, 'boundary_contract.proposed_explicit_names.vault_notes'));
-        $this->assertSame('app/Services/Semantic/CanonicalDocsFrontmatterParser.php', data_get($frontmatterParser, 'boundary_contract.compatibility_aliases.semantic_docs'));
-        $this->assertSame('app/Services/Vault/VaultNoteFrontmatterParser.php', data_get($frontmatterParser, 'boundary_contract.compatibility_aliases.vault_notes'));
-        $this->assertContains('keep_semantic_parser_as_canonical_docs_health_and_authority_parser', data_get($frontmatterParser, 'boundary_contract.cleanup_sequence'));
-        $this->assertContains('consolidate_only_with_adapter_that_preserves_error_semantics_and_vault_shape_lists', data_get($frontmatterParser, 'boundary_contract.cleanup_sequence'));
-        $this->assertSame('requires_validation_adapter_that_returns_errors_and_enforces_required_fields', data_get($frontmatterParser, 'boundary_contract.adapter_boundary.vault_to_canonical_docs'));
-        $this->assertSame('requires_read_only_shape_adapter_that_preserves_vault_cartography_lists', data_get($frontmatterParser, 'boundary_contract.adapter_boundary.canonical_docs_to_vault'));
+        $this->assertNull(collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:frontmatterparser'));
         $this->assertTrue(class_exists('App\\Services\\Semantic\\CanonicalDocsFrontmatterParser'));
         $this->assertTrue(is_a(
             'App\\Services\\Semantic\\CanonicalDocsFrontmatterParser',
@@ -545,16 +535,7 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             true
         ));
         $this->assertTrue(class_exists('App\\Services\\Vault\\VaultNoteFrontmatterParser'));
-        $this->assertTrue(is_a(
-            'App\\Services\\Vault\\VaultNoteFrontmatterParser',
-            'App\\Services\\Vault\\FrontmatterParser',
-            true
-        ));
-        $this->assertTrue(data_get($frontmatterParser, 'boundary_contract.contract_features.semantic_parser.returns_errors'));
-        $this->assertTrue(data_get($frontmatterParser, 'boundary_contract.contract_features.semantic_parser.builds_markdown'));
-        $this->assertFalse(data_get($frontmatterParser, 'boundary_contract.contract_features.vault_parser.returns_errors'));
-        $this->assertTrue(data_get($frontmatterParser, 'boundary_contract.contract_features.vault_parser.supports_gear_flow_object_lists'));
-        $this->assertSame('do_not_use_vault_parser_as_canonical_engineering_doc_parser', data_get($frontmatterParser, 'boundary_contract.forbidden'));
+        $this->assertTrue(class_exists('App\\Services\\Vault\\FrontmatterParser'));
         $verificationRunner = collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:verificationcommandrunner');
         $this->assertSame('high', $verificationRunner['severity'] ?? null);
         $this->assertSame('atlas.code.verification_run.v1', data_get($verificationRunner, 'boundary_contract.contract_features.atlas_code_runner.schema_version'));
@@ -566,7 +547,12 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('AtlasCodeVerificationCommandRunner', data_get($verificationRunner, 'boundary_contract.proposed_explicit_names.atlas_code'));
         $this->assertSame('AtlasDevVerificationCommandRunnerContract', data_get($verificationRunner, 'boundary_contract.proposed_explicit_names.atlas_dev_gate'));
         $this->assertContains('keep_atlas_code_concrete_runner_schema_and_evidence_contract_stable', data_get($verificationRunner, 'boundary_contract.cleanup_sequence'));
+        $this->assertContains('keep_app_and_tests_importing_runner_variants_through_explicit_aliases', data_get($verificationRunner, 'boundary_contract.cleanup_sequence'));
         $this->assertContains('rename_atlas_dev_gate_interface_only_with_container_binding_and_fake_runner_migration', data_get($verificationRunner, 'boundary_contract.cleanup_sequence'));
+        $this->assertSame(0, data_get($verificationRunner, 'boundary_contract.current_migration_state.app_and_tests_direct_runner_imports'));
+        $this->assertSame(2, data_get($verificationRunner, 'boundary_contract.current_migration_state.atlas_code_alias_imports'));
+        $this->assertSame(6, data_get($verificationRunner, 'boundary_contract.current_migration_state.atlas_dev_gate_alias_imports'));
+        $this->assertTrue(data_get($verificationRunner, 'boundary_contract.current_migration_state.remaining_exact_refs_are_boundary_docs_or_compatibility_alias_files'));
         $this->assertSame('requires_explicit_adapter_not_short_name_typehint_swap', data_get($verificationRunner, 'boundary_contract.adapter_boundary.atlas_code_to_atlas_dev_gate'));
         $this->assertSame('requires_observed_session_evidence_adapter_not_interface_reuse', data_get($verificationRunner, 'boundary_contract.adapter_boundary.atlas_dev_gate_to_atlas_code'));
         $this->assertSame('app/Services/AtlasCode/AtlasCodeVerificationCommandRunner.php', data_get($verificationRunner, 'boundary_contract.compatibility_aliases.atlas_code'));
@@ -595,6 +581,11 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('PersistentAiExecutionPlan', data_get($aiExecutionPlan, 'boundary_contract.proposed_explicit_names.persistent_model'));
         $this->assertSame('AiPromptExecutionPlan', data_get($aiExecutionPlan, 'boundary_contract.proposed_explicit_names.prompt_value_object'));
         $this->assertContains('keep_persistent_model_table_and_schema_stable', data_get($aiExecutionPlan, 'boundary_contract.cleanup_sequence'));
+        $this->assertContains('keep_app_and_tests_importing_execution_plan_variants_through_explicit_aliases', data_get($aiExecutionPlan, 'boundary_contract.cleanup_sequence'));
+        $this->assertSame(0, data_get($aiExecutionPlan, 'boundary_contract.current_migration_state.app_and_tests_direct_execution_plan_imports'));
+        $this->assertSame(3, data_get($aiExecutionPlan, 'boundary_contract.current_migration_state.persistent_model_alias_imports'));
+        $this->assertSame(2, data_get($aiExecutionPlan, 'boundary_contract.current_migration_state.prompt_value_object_alias_imports'));
+        $this->assertTrue(data_get($aiExecutionPlan, 'boundary_contract.current_migration_state.remaining_exact_refs_are_boundary_docs_or_compatibility_alias_files'));
         $this->assertSame('app/Models/PersistentAiExecutionPlan.php', data_get($aiExecutionPlan, 'boundary_contract.compatibility_aliases.persistent_model'));
         $this->assertSame('app/Services/Ai/ValueObjects/AiPromptExecutionPlan.php', data_get($aiExecutionPlan, 'boundary_contract.compatibility_aliases.prompt_value_object'));
         $this->assertSame('requires_explicit_projection_from_persisted_plan_not_direct_type_reuse', data_get($aiExecutionPlan, 'boundary_contract.adapter_boundary.model_to_prompt_value_object'));

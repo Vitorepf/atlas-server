@@ -2,7 +2,7 @@
 
 namespace App\Services\Engineering;
 
-use App\Services\Semantic\FrontmatterParser;
+use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\File;
 use SplFileInfo;
 
@@ -260,7 +260,7 @@ class EngineeringDocumentationHealthService
         'docs/engineering-knowledge-base/START_HERE.md' => 'keep as full reading order; use session bootstrap for new-session context',
     ];
 
-    public function __construct(private readonly FrontmatterParser $frontmatter) {}
+    public function __construct(private readonly CanonicalDocsFrontmatterParser $frontmatter) {}
 
     /**
      * @return array<string,mixed>

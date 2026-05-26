@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\AtlasCode;
 
-use App\Services\AtlasCode\VerificationCommandRunner;
+use App\Services\AtlasCode\AtlasCodeVerificationCommandRunner as VerificationCommandRunner;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -61,7 +61,7 @@ class VerificationCommandRunnerTest extends TestCase
 
     public function test_dry_run_returns_canonical_packet_without_executing(): void
     {
-        $runner = new VerificationCommandRunner();
+        $runner = new VerificationCommandRunner;
         $result = $runner->run('obra-x', 'os-y', 'pnpm test', $this->workspace, 'dry_run');
 
         $this->assertSame('atlas.code.verification_run.v1', $result['schema_version']);
@@ -73,7 +73,7 @@ class VerificationCommandRunnerTest extends TestCase
     public function test_execute_blocked_when_command_not_in_allowlist(): void
     {
         config()->set('atlas_code_verification.execute_enabled', true);
-        $runner = new VerificationCommandRunner();
+        $runner = new VerificationCommandRunner;
         $result = $runner->run('obra-x', 'os-y', 'rm -rf /', $this->workspace, 'execute', 'fake-token');
 
         $this->assertSame('blocked', $result['status']);
@@ -83,7 +83,7 @@ class VerificationCommandRunnerTest extends TestCase
     public function test_execute_blocked_when_execute_flag_off(): void
     {
         config()->set('atlas_code_verification.execute_enabled', false);
-        $runner = new VerificationCommandRunner();
+        $runner = new VerificationCommandRunner;
         $result = $runner->run('obra-x', 'os-y', 'pnpm test', $this->workspace, 'execute', 'token');
 
         $this->assertSame('blocked', $result['status']);
@@ -92,7 +92,7 @@ class VerificationCommandRunnerTest extends TestCase
 
     public function test_execute_blocked_when_workspace_missing(): void
     {
-        $runner = new VerificationCommandRunner();
+        $runner = new VerificationCommandRunner;
         $result = $runner->run('obra-x', 'os-y', 'pnpm test', '/tmp/atlas-nonexistent-'.bin2hex(random_bytes(4)), 'dry_run');
 
         $this->assertSame('blocked', $result['status']);

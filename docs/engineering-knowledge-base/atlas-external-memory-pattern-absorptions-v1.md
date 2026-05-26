@@ -148,7 +148,7 @@ Irmaos canon referenciados: `atlas-context-pareto-frontier-runtime.md`,
   - Parser reverso obrigatorio antes de `DecisionReceiptService::record()`, `AtlasEvidenceLedger::record()` e `AiMemoryDelta` persist.
 - **Caveat critico**: parser reverso e ponto unico de falha. Sem ele, audit trail quebra. Teste obrigatorio: round-trip UUID -> internal_id -> UUID assert equal.
 - **Esforco**: 1-2 dias core + testes de round-trip + integracao em parsers existentes.
-- **Status**: planned.
+- **Status**: **building phase 1** (2026-05-25). Phase 1 shipou: service `AtlasContextIdRemapService` + value object `ContextIdRemap` + model `AtlasContextIdRemap` + migration `2026_05_25_030000_create_atlas_context_id_remaps_table` + unit tests (ContextIdRemapValueObjectTest, AtlasContextIdRemapServiceTest) + feature tests (AtlasContextIdRemapPersistenceTest) + config `atlas.cognition.id_remap.{enabled,ttl_seconds,bracket_style}` + integracao em `AiContextPackBuilder` (persiste mapping por context_pack_id apos pack construido). Schema canon `atlas.context.id_remap.v1` em uso. Phase 2 pendente: forward substitution (UUIDs viram `[N]` em `AiContextPack::toPromptSection()` e Open Brain MCP responses) + parser reverso em todos os pontos de persistencia downstream (Decision Receipt, Evidence Ledger, AiMemoryDelta). Feature flag `ATLAS_COGNITION_ID_REMAP_ENABLED` default false ate phase 2 verde e round-trip validado em producao.
 
 ### Absorcao 2 — Seis Verbos Canonicos de Conflito de Memoria
 
@@ -172,7 +172,7 @@ Irmaos canon referenciados: `atlas-context-pareto-frontier-runtime.md`,
   - `LongHorizonCausalDecisionGraphService` estende `edge_kind` com os seis verbos.
 - **Caveat**: heuristica "ask vs silent" do engram (`confidence < 0.7` OU `verdict in {supersedes, conflicts_with}` E `memory_type in {decision, architecture, policy}` -> escalar para humano) deve ser portada para `AtlasMemoryRegistryService::shouldEscalate()` para evitar promotion silenciosa de conflito de alto risco.
 - **Esforco**: 3-5 dias (migration + service + comando + integracao composer + integracao causal_graph_lite + testes).
-- **Status**: planned. Ja registrado como porting candidate em `MEMORY.md` ([[project_atlas_teos_i2_causal_graph_lite]]).
+- **Status**: **building phase 1** (2026-05-25). Phase 1 shipou: migration `2026_05_25_030500_add_conflict_verbs_to_atlas_memory_entry_relations` (colunas `marked_by_actor`, `marked_by_model`, `judgment_status`, `evidence_refs`, `verdict_schema_version` + indice `idx_atlas_memory_relation_verdict`) + service `AtlasMemoryConflictResolutionService` com 6 verbos canon enum, `judge()`, `shouldEscalate()` (heuristica engram: confidence<0.7 OR visible_verdict+high_risk_type), `latestVerdict()`, `relatedConflicts()` + unit tests `AtlasMemoryConflictResolutionServiceTest` + feature tests `AtlasMemoryConflictResolutionPersistenceTest`. Schema canon `atlas.memory.relation_verdict.v1` em uso. Phase 1 mantem UNIQUE(source,target,relation_type) em DB (back-compat: re-judge upserta row existente). Phase 2 pendente: dropar UNIQUE para multi-actor disagreement, integrar com `AtlasMemoryContextComposer` para suprimir superseded em search, comando CLI `atlas:memory:judge` (combinando com Absorcao 3 modos plan/dry-run/apply), extensao TEOS-I2 `causal_graph_lite` `edge_kind` enum.
 
 ### Absorcao 3 — Doctor + Repair Modes 3-Tier (Plan / Dry-Run / Apply)
 
@@ -191,7 +191,7 @@ Irmaos canon referenciados: `atlas-context-pareto-frontier-runtime.md`,
   - Audit trail registra `mode` usado em `atlas_ledger_events`.
 - **Caveat**: refactor caro de retrofitar todos comandos antigos. Estrategia recomendada: impor padrao em comandos NOVOS e migrar antigos por janelas (alto risco primeiro). Documentar lista de comandos legacy ainda sem padrao.
 - **Esforco**: 1-2 semanas para abstracao base + cinco comandos alto risco. Resto incremental.
-- **Status**: planned.
+- **Status**: **building phase 1** (2026-05-25). Phase 1 shipou: abstract base `AtlasMutativeCommand` em `app/Console/Commands/` com schema canon `atlas.command.three_tier_envelope.v1`, modes `plan|dry-run|apply`, check_code obrigatorio em dry-run/apply, `--confirm` obrigatorio em apply, rollback hint, envelope deterministico (sha256) + tests `tests/Feature/Console/AtlasMutativeCommandTest.php` (9 tests, 21 assertions). Comando concreto `atlas:memory:judge` (`app/Console/Commands/AtlasMemoryJudgeCommand.php`) combina Absorcao 2 + 3: registra verdict canonico entre memories usando os 6 verbos canon + 3 modes. Phase 2 pendente: rollout em 5 comandos alto risco (AEMOR promotion, Self-Improvement L7 ResultLedger, Vault sync, Memory delta promotion, Forge Obra mutations) + hook automatico para persistir envelope em `atlas_ledger_events`.
 
 ### Absorcao 4 — Progressive Disclosure 3-Layer no MCP
 
@@ -214,7 +214,7 @@ Irmaos canon referenciados: `atlas-context-pareto-frontier-runtime.md`,
   - ARCLG (`AtlasRetrievalCostLatencyGovernorService`) tracks tier consumption por flow + budget.
 - **Caveat**: tools legadas continuam funcionando (back-compat); novas chamadas devem preferir tiers. Documentar deprecation graceful.
 - **Esforco**: 1-2 dias (organizacao logica, manifest update, doc do workflow). Reorganizacao, nao codigo pesado.
-- **Status**: planned.
+- **Status**: **building phase 1** (2026-05-25). Phase 1 shipou: service `AtlasMcpTierService` em `app/Services/Ai/Mcp/` com registry canon de 12 tools classificados em 3 tiers (Discovery/Context/Detail) + manifest + savings estimator + 11 unit tests verdes (57 assertions). Schema canon `atlas.mcp.tier.v1` em uso. Phase 2 pendente: reorganizar `AtlasOpenBrainMcpService` em 3 endpoints fisicos (_brief/_timeline/_get_full); wire ACPFR (Pareto) para cost signal; wire ARCLG (Cost Latency Governor) para tier consumption tracking; adicionar tool especial `__atlas_mcp_workflow_hint`.
 
 ## Fluxo
 

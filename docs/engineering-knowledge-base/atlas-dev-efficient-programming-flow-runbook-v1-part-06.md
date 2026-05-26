@@ -215,6 +215,8 @@ app/Services/Ai/Programming/AtlasDev/Gate/VerificationGate.php
 Signature:
 
 ```php
+use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
+
 final class VerificationGate
 {
     public function __construct(
@@ -242,7 +244,7 @@ final class VerificationGateResult
 Comportamento:
 
 - itera `task_contract.validation_commands`;
-- executa cada um via `VerificationCommandRunner` (timeout default 5min, stream stdout para log persistido);
+- executa cada um via `AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner` (timeout default 5min, stream stdout para log persistido);
 - aggregate status:
   - todos ok -> passed;
   - algum failed -> failed;
@@ -383,4 +385,3 @@ DoD do PR 3.6:
 - Comando `atlas:dev:run` testado em **um caso real seguro** (typo em comment, R1) com Sonnet via `claude_cli` real, **com sucesso**.
 - VerificationReceipt persistido + telemetria gravada.
 - **Sem fallback. Sem council. Sem repair (ainda).**
-

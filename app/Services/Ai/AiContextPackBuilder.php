@@ -6,6 +6,7 @@ use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
+use App\Services\Ai\Context\AtlasContextIdRemapService;
 use App\Services\Ai\Context\ContextPackMemoryInput;
 use App\Services\Ai\Context\ContextRetrievalRouter;
 use App\Services\Ai\Context\SemanticContextInput;
@@ -31,6 +32,7 @@ class AiContextPackBuilder
         ?ContextPackMemoryInput $memoryInput = null,
         ?SemanticContextInput $semanticInput = null,
         ?ContextRetrievalRouter $retrievalRouter = null,
+        ?AtlasContextIdRemapService $idRemap = null,
     ) {
         $this->memoryPrivacy = $memoryPrivacy ?? app(AtlasMemoryPrivacyService::class);
         $this->sourcePrivacy = $sourcePrivacy ?? app(AtlasMemorySourcePrivacyPolicy::class);
@@ -40,6 +42,7 @@ class AiContextPackBuilder
         $this->memoryInput = $memoryInput ?? app(ContextPackMemoryInput::class);
         $this->semanticInput = $semanticInput ?? app(SemanticContextInput::class);
         $this->retrievalRouter = $retrievalRouter ?? app(ContextRetrievalRouter::class);
+        $this->idRemap = $idRemap ?? app(AtlasContextIdRemapService::class);
     }
 
     private AtlasMemoryPrivacyService $memoryPrivacy;
@@ -57,6 +60,8 @@ class AiContextPackBuilder
     private SemanticContextInput $semanticInput;
 
     private ContextRetrievalRouter $retrievalRouter;
+
+    private AtlasContextIdRemapService $idRemap;
 
     public function build(string $input, AiTaskRequest $task, array $options = []): AiContextPack
     {
@@ -129,7 +134,7 @@ class AiContextPackBuilder
         $semanticItems = $this->semanticMemory($notes);
         $recallItems = $this->memoryComposer->compose($registryItems, $verbatimItems, $semanticItems, $options);
 
-        return new AiContextPack([
+        $pack = new AiContextPack([
             'schema_version' => 1,
             'task' => [
                 'type' => $taskData['task_type'],
@@ -203,6 +208,25 @@ class AiContextPackBuilder
             'excluded_context' => $this->excludedContext($options),
             'open_questions' => $this->openQuestions($notes, $options),
         ], $contextRefs);
+
+        // Atlas Cognition Operating System — Absorcao 1 (Integer ID Mapping).
+        // Phase 1: persiste mapping internal_id -> real_uuid por context_pack_id.
+        // Phase 2 (2026-05-25): forward substitution — quando feature flag
+        // habilitada e mapping nao vazio, reconstroi AiContextPack passando o
+        // ContextIdRemap como 3o param. Resultado: toPromptSection() renderiza
+        // "[N]" no lugar de UUIDs em source_id fields, expondo provider-safe
+        // labels ao LLM. UUIDs reais ficam apenas internos ao Atlas; parser
+        // reverso recupera para Decision Receipt e Evidence Ledger downstream.
+        $packArray = $pack->toArray();
+        $contextPackId = (string) data_get($packArray, 'manifest.context_pack_id', '');
+        if ($contextPackId !== '') {
+            $remap = $this->idRemap->remap($contextRefs, $contextPackId);
+            if (! $remap->isEmpty()) {
+                $pack = new AiContextPack($packArray, $contextRefs, $remap);
+            }
+        }
+
+        return $pack;
     }
 
     private function registryMemory(array $taskData, array $payload, array $conversation, array $options)

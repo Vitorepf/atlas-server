@@ -6,8 +6,8 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\Http;
 
 use App\Http\Controllers\AtlasDev\Support\CompactSddUnavailableException;
 use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
+use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
-use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;

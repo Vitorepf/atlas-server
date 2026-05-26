@@ -2445,11 +2445,12 @@ final class AtlasCodeRealityUsageIntelligenceService
                 ],
                 'cleanup_sequence' => [
                     'keep_atlas_code_concrete_runner_schema_and_evidence_contract_stable',
-                    'use_explicit_compatibility_aliases_for_new_code',
+                    'keep_app_and_tests_importing_runner_variants_through_explicit_aliases',
                     'add_observed_session_and_atlas_dev_gate_tests_before_any_rename',
                     'rename_atlas_dev_gate_interface_only_with_container_binding_and_fake_runner_migration',
                     'remove_compatibility_alias_only_after_all_exact_references_are_migrated',
                 ],
+                'current_migration_state' => $this->verificationCommandRunnerMigrationState(),
                 'proposed_explicit_names' => [
                     'atlas_code' => 'AtlasCodeVerificationCommandRunner',
                     'atlas_dev_gate' => 'AtlasDevVerificationCommandRunnerContract',
@@ -2507,6 +2508,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                     'consolidate_only_with_adapter_that_preserves_error_semantics_and_vault_shape_lists',
                     'remove_compatibility_alias_only_after_all_exact_references_are_migrated',
                 ],
+                'current_migration_state' => $this->frontmatterParserMigrationState(),
                 'adapter_boundary' => [
                     'vault_to_canonical_docs' => 'requires_validation_adapter_that_returns_errors_and_enforces_required_fields',
                     'canonical_docs_to_vault' => 'requires_read_only_shape_adapter_that_preserves_vault_cartography_lists',
@@ -2542,11 +2544,12 @@ final class AtlasCodeRealityUsageIntelligenceService
                 ],
                 'cleanup_sequence' => [
                     'keep_persistent_model_table_and_schema_stable',
-                    'use_explicit_compatibility_aliases_for_new_code',
+                    'keep_app_and_tests_importing_execution_plan_variants_through_explicit_aliases',
                     'add_prompt_builder_and_autonomous_engineering_tests_before_any_rename',
                     'rename_prompt_value_object_only_with_prompt_builder_and_static_scanner_migration',
                     'remove_compatibility_alias_only_after_all_exact_references_are_migrated',
                 ],
+                'current_migration_state' => $this->aiExecutionPlanMigrationState(),
                 'proposed_explicit_names' => [
                     'persistent_model' => 'PersistentAiExecutionPlan',
                     'prompt_value_object' => 'AiPromptExecutionPlan',
@@ -2638,6 +2641,9 @@ final class AtlasCodeRealityUsageIntelligenceService
                 if ($file->getExtension() !== 'php') {
                     continue;
                 }
+                if (str_ends_with($file->getPathname(), 'app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php')) {
+                    continue;
+                }
 
                 $contents = File::get($file->getPathname());
                 $counts['app_and_tests_direct_programming_imports'] += substr_count($contents, $directAtlasDev);
@@ -2650,6 +2656,124 @@ final class AtlasCodeRealityUsageIntelligenceService
         return [
             ...$counts,
             'remaining_exact_refs_are_boundary_docs_or_compatibility_alias_files' => $counts['app_and_tests_direct_programming_imports'] === 0,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function verificationCommandRunnerMigrationState(): array
+    {
+        $directAtlasCode = 'use App\\Services\\AtlasCode\\VerificationCommandRunner;';
+        $directAtlasDevGate = 'use App\\Services\\Ai\\Programming\\AtlasDev\\Gate\\VerificationCommandRunner;';
+        $aliasAtlasCode = 'use App\\Services\\AtlasCode\\AtlasCodeVerificationCommandRunner as VerificationCommandRunner;';
+        $aliasAtlasDevGate = 'use App\\Services\\Ai\\Programming\\AtlasDev\\Gate\\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;';
+
+        $counts = [
+            'app_and_tests_direct_runner_imports' => 0,
+            'atlas_code_alias_imports' => 0,
+            'atlas_dev_gate_alias_imports' => 0,
+        ];
+
+        foreach (['app', 'tests'] as $root) {
+            foreach (File::allFiles(base_path($root)) as $file) {
+                if ($file->getExtension() !== 'php') {
+                    continue;
+                }
+                if (str_ends_with($file->getPathname(), 'app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php')) {
+                    continue;
+                }
+
+                $contents = File::get($file->getPathname());
+                $counts['app_and_tests_direct_runner_imports'] += substr_count($contents, $directAtlasCode);
+                $counts['app_and_tests_direct_runner_imports'] += substr_count($contents, $directAtlasDevGate);
+                $counts['atlas_code_alias_imports'] += substr_count($contents, $aliasAtlasCode);
+                $counts['atlas_dev_gate_alias_imports'] += substr_count($contents, $aliasAtlasDevGate);
+            }
+        }
+
+        return [
+            ...$counts,
+            'remaining_exact_refs_are_boundary_docs_or_compatibility_alias_files' => $counts['app_and_tests_direct_runner_imports'] === 0,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function frontmatterParserMigrationState(): array
+    {
+        $directSemantic = 'use App\\Services\\Semantic\\FrontmatterParser;';
+        $directVault = 'use App\\Services\\Vault\\FrontmatterParser;';
+        $aliasSemantic = 'use App\\Services\\Semantic\\CanonicalDocsFrontmatterParser;';
+        $aliasVault = 'use App\\Services\\Vault\\VaultNoteFrontmatterParser;';
+
+        $counts = [
+            'app_and_tests_direct_parser_imports' => 0,
+            'canonical_docs_alias_imports' => 0,
+            'vault_note_alias_imports' => 0,
+            'vault_note_local_typehints' => 0,
+        ];
+
+        foreach (['app', 'tests'] as $root) {
+            foreach (File::allFiles(base_path($root)) as $file) {
+                if ($file->getExtension() !== 'php') {
+                    continue;
+                }
+                if (str_ends_with($file->getPathname(), 'app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php')) {
+                    continue;
+                }
+
+                $contents = File::get($file->getPathname());
+                $counts['app_and_tests_direct_parser_imports'] += substr_count($contents, $directSemantic);
+                $counts['app_and_tests_direct_parser_imports'] += substr_count($contents, $directVault);
+                $counts['canonical_docs_alias_imports'] += substr_count($contents, $aliasSemantic);
+                $counts['vault_note_alias_imports'] += substr_count($contents, $aliasVault);
+                if ($root === 'app') {
+                    $counts['vault_note_local_typehints'] += substr_count($contents, 'private readonly VaultNoteFrontmatterParser $parser');
+                }
+            }
+        }
+
+        return [
+            ...$counts,
+            'remaining_exact_refs_are_boundary_docs_or_compatibility_alias_files' => $counts['app_and_tests_direct_parser_imports'] === 0,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function aiExecutionPlanMigrationState(): array
+    {
+        $directModel = 'use App\\Models\\AiExecutionPlan;';
+        $directPromptValueObject = 'use App\\Services\\Ai\\ValueObjects\\AiExecutionPlan;';
+        $aliasModel = 'use App\\Models\\PersistentAiExecutionPlan as AiExecutionPlan;';
+        $aliasPromptValueObject = 'use App\\Services\\Ai\\ValueObjects\\AiPromptExecutionPlan as AiExecutionPlan;';
+
+        $counts = [
+            'app_and_tests_direct_execution_plan_imports' => 0,
+            'persistent_model_alias_imports' => 0,
+            'prompt_value_object_alias_imports' => 0,
+        ];
+
+        foreach (['app', 'tests'] as $root) {
+            foreach (File::allFiles(base_path($root)) as $file) {
+                if ($file->getExtension() !== 'php') {
+                    continue;
+                }
+
+                $contents = File::get($file->getPathname());
+                $counts['app_and_tests_direct_execution_plan_imports'] += substr_count($contents, $directModel);
+                $counts['app_and_tests_direct_execution_plan_imports'] += substr_count($contents, $directPromptValueObject);
+                $counts['persistent_model_alias_imports'] += substr_count($contents, $aliasModel);
+                $counts['prompt_value_object_alias_imports'] += substr_count($contents, $aliasPromptValueObject);
+            }
+        }
+
+        return [
+            ...$counts,
+            'remaining_exact_refs_are_boundary_docs_or_compatibility_alias_files' => $counts['app_and_tests_direct_execution_plan_imports'] === 0,
         ];
     }
 

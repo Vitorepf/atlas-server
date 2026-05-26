@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Runtime;
 
+use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\SymfonyProcessCommandRunner;
-use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\SymfonyClaudeCliGateway;
 use App\Support\AtlasSecurity;

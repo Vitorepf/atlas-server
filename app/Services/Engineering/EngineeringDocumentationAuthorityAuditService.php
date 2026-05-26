@@ -2,7 +2,7 @@
 
 namespace App\Services\Engineering;
 
-use App\Services\Semantic\FrontmatterParser;
+use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\File;
 use SplFileInfo;
 
@@ -23,7 +23,7 @@ class EngineeringDocumentationAuthorityAuditService
         'scaffold',
     ];
 
-    public function __construct(private readonly FrontmatterParser $frontmatter) {}
+    public function __construct(private readonly CanonicalDocsFrontmatterParser $frontmatter) {}
 
     /**
      * @return array<string,mixed>

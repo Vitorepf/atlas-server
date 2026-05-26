@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\AtlasDev\Gate;
 
+use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\UnsafeCommandPolicy;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
-use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandRunner;
 
 /**
  * In-memory runner for VerificationGate tests.

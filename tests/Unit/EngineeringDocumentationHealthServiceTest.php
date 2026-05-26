@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\Engineering\EngineeringDocumentationHealthService;
-use App\Services\Semantic\FrontmatterParser;
+use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Tests\TestCase;
 
 class EngineeringDocumentationHealthServiceTest extends TestCase
@@ -414,7 +414,7 @@ class EngineeringDocumentationHealthServiceTest extends TestCase
 
     private function makeService(): EngineeringDocumentationHealthService
     {
-        return new EngineeringDocumentationHealthService(new FrontmatterParser);
+        return new EngineeringDocumentationHealthService(new CanonicalDocsFrontmatterParser);
     }
 
     /**

@@ -193,6 +193,14 @@ exemplos ✓/✗ · aliases ok/proibidos.
 - ✓ "Atlas AI decide o flow". ✗ "Atlas AI = wrapper de Claude Code".
 - Aliases: ok={Atlas AI, Autonomous Intelligence OS, AI OS}; proibido={Atlas AI = produto isolado de programacao}.
 
+### Atlas Cognition Operating System (ACOS)
+
+- `building`. Autoridade-mae da camada cognitiva: memoria, contexto, retrieval, RAG, graph, ranking, freshness, privacy, embedding, ingestion, compounding e learning.
+- Use: nome canonico da area cognitiva. Nao use como sinonimo de Memory Core ou AUCRI; ambos sao subsistemas.
+- Relacao: filho direto de Atlas; Forge OS, AWIS, Mission, Domains, Vox, Cartografia e Self-Construction OS consomem ACOS, mas nao ficam dentro dele.
+- Goal: 10/10 exige codigo ready + dados reais alimentando AEMOR, L7, trust outcomes e ACOP.
+- Aliases: ok={ACOS, Cognition OS, Atlas Cognition Operating System}; proibido={"sistema de memoria do Atlas" como sinonimo isolado, "wrapper de IA", "ferramenta de produtividade"}.
+
 ### Atlas Dev
 
 - `active`. Nucleo de programacao leve/medio: patch, repair, refactor lite, code-gen, mini-spec, review pequeno, debug.
@@ -496,24 +504,16 @@ Os termos TEOS/Long-Horizon vivem em `docs/engineering-knowledge-base/atlas-cano
 11. **Resposta final cita o termo canonico**, nao alias proibido. Se citar alias legado para esclarecer, marcar `(legado: substituto canonico = X)`.
 
 ## Escopo de Implementacao
-
-Doc nao implementa codigo. Edita-se quando: termo novo entra (P0/P1); audit identifica naming proliferation novo; aliases mudam; termo deprecado descontinuado. Validacao: `docs-health` cobre estrutura + line limit. Conteudo governado por revisao humana.
-
+Doc nao implementa codigo. Edita-se quando termo novo entra, audit identifica naming proliferation, aliases mudam ou termo deprecado descontinua.
 ## Dependencias
-
-`atlas-canonical-cleanup-inventory.md` (clusters), `atlas-ai-canonical-architecture-index.md` (autoridade), `atlas-domain-company-runtimes.md` + `domains/domain-routing-governance.md` (Domain), `atlas-dual-core-engineering-system.md` + `atlas-dev-forge-relationship-critical-audit.md` (Dev/Forge), `atlas-programming-superiority-*` (Dev/Forge atual), `atlas-autonomous-intelligence-operating-system.md` (Atlas AI), `atlas-canonical-module-doc-v1.md` (schema).
-
+`atlas-canonical-cleanup-inventory.md`, `atlas-ai-canonical-architecture-index.md`, domain-routing governance, Dev/Forge docs, Atlas AI OS e `atlas-canonical-module-doc-v1.md`.
 ## Evidencias
-
-Cluster 1-6 em `atlas-canonical-cleanup-inventory.md:209-289`. Dev vs Forge invariantes em `atlas-dual-core-engineering-system.md:166-171` + `atlas-dev-forge-relationship-critical-audit.md:443-446`. Domain Creation Gate em `domains/domain-routing-governance.md`. 5 Routers / 45 Certifications / 4 mecanismos Dev->Forge confirmados via `grep`/`rg` no audit.
-
+Clusters 1-6 em cleanup inventory; Dev/Forge invariantes em dual-core + relationship audit; Domain Creation Gate; routers/certifications/Dev->Forge confirmados via `rg`.
 ## Riscos
-Glossario envelhecer ou termo legado voltar sem contexto; mitigacao: registrar termo novo antes do codigo e manter aliases proibidos com substituto.
-
+Glossario envelhecer ou termo legado voltar; mitigacao: registrar termo novo antes do codigo e manter aliases proibidos com substituto.
 ## Exemplos
-`AtlasCodeForgeFastPathV2` exige checar Cluster 1; "Router decidiu" precisa qualificar qual Router.
-
+`AtlasCodeForgeFastPathV2` exige checar Cluster 1; "Router decidiu" qualifica qual Router.
 ## Proximas Acoes
-Registrar Cluster 7+, linkar futuro disambiguator, atualizar RAG Gate quando Hyperflow virar runtime ativo e mover legacy permission/evidence/router para proibidos quando ADR Phase 7 deprecar.
+Registrar clusters novos, manter RAG Gate/Hyperflow sincronizados e mover aliases legados para proibidos quando ADRs deprecarem.
 ## Definition of Done
-Vivo enquanto termos novos sao checados contra o glossario, termos proibidos nao aparecem em docs active novos e audit confirma reducao de duplicacao por cluster.
+Termos novos checados; proibidos ausentes de docs active novos; audit confirma reducao de duplicacao.

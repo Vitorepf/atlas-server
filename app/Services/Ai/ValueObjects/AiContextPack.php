@@ -8,10 +8,43 @@ class AiContextPack
 
     private readonly array $contextRefs;
 
-    public function __construct(array $data, array $contextRefs)
+    /**
+     * Optional Integer ID Mapping for Absorcao 1 phase 2 (forward substitution).
+     * When provided, toPromptSection() renders provider-safe labels "[N]" instead
+     * of raw UUIDs in source_id fields. Default null preserves legacy behaviour.
+     */
+    private ?ContextIdRemap $idRemap = null;
+
+    public function __construct(array $data, array $contextRefs, ?ContextIdRemap $idRemap = null)
     {
         $this->contextRefs = array_values($contextRefs);
         $this->data = $this->withManifest($data, $this->contextRefs);
+        $this->idRemap = $idRemap;
+    }
+
+    /**
+     * Returns the optional Integer ID Mapping attached to this pack.
+     */
+    public function idRemap(): ?ContextIdRemap
+    {
+        return $this->idRemap;
+    }
+
+    /**
+     * Renders a UUID in provider-safe form using the optional remap. Falls back
+     * to the original UUID when remap is absent or the UUID is not mapped.
+     */
+    private function safeId(?string $rawId): ?string
+    {
+        if ($rawId === null || $rawId === '') {
+            return $rawId;
+        }
+        if ($this->idRemap === null) {
+            return $rawId;
+        }
+        $label = $this->idRemap->internalLabel($rawId);
+
+        return $label ?? $rawId;
     }
 
     public function toArray(): array
@@ -274,7 +307,7 @@ class AiContextPack
                 $lines[] = '- tipo: '.($item['type'] ?? 'n/a');
                 $lines[] = '- escopo: '.($item['scope'] ?? 'n/a');
                 $lines[] = '- prioridade: '.($item['priority'] ?? 'n/a').'; importancia: '.($item['importance'] ?? 'n/a');
-                $lines[] = '- fonte: '.($item['source_type'] ?? 'n/a').(! empty($item['source_id']) ? ':'.$item['source_id'] : '');
+                $lines[] = '- fonte: '.($item['source_type'] ?? 'n/a').(! empty($item['source_id']) ? ':'.$this->safeId((string) $item['source_id']) : '');
                 $lines[] = '- motivo de inclusao: '.($item['reason'] ?? 'memoria relevante');
                 if (! empty($item['summary'])) {
                     $lines[] = '- resumo: '.$item['summary'];
@@ -298,7 +331,7 @@ class AiContextPack
                 $lines[] = '### '.($label ?: 'Recall verbatim sem titulo');
                 $lines[] = '- tipo: '.($item['type'] ?? 'n/a');
                 $lines[] = '- escopo: '.($item['scope'] ?? 'n/a');
-                $lines[] = '- fonte: '.($item['source_type'] ?? 'n/a').(! empty($item['source_id']) ? ':'.$item['source_id'] : '');
+                $lines[] = '- fonte: '.($item['source_type'] ?? 'n/a').(! empty($item['source_id']) ? ':'.$this->safeId((string) $item['source_id']) : '');
                 $lines[] = '- motivo de inclusao: '.($item['reason'] ?? 'recall verbatim relevante');
                 if (! empty($item['summary'])) {
                     $lines[] = '- resumo: '.$item['summary'];

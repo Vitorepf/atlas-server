@@ -88,15 +88,13 @@ Adicionar abaixo. Atlas preserva todo o bloco entre os marcadores.
 
 #### Coluna vertebral (tratar como fundação, não features)
 
-- **Forge OS** — Obras grandes multi-agente, governance pesada
-- **Mission Foundation + Mission Mode + Follow-Through** — pedido humano → decomposição → execução governada
+- **ACOS — Atlas Cognition Operating System** (autoridade-mãe da camada cognitiva: encompasses Memory Core + Cognitive Immune G0-G8 + AUCRI 18 blocks + ACIE + APCR + AEMOR + TEOS-I1 + Open Brain MCP + AVCEL + ACQCG + Compounding + Self-Improvement L7. Goal: 10/10 em código rodando + dados reais alimentando. Doc canon: `atlas-cognition-operating-system.md`)
+- **Forge OS** — Obras grandes multi-agente, governance pesada (consome ACOS)
+- **Mission Foundation + Mission Mode + Follow-Through** — pedido humano → decomposição → execução governada (consome ACOS)
 - **AWIS (Workspace Intelligence System)** — workspace certificado como primitivo obrigatório
-- **APCR + AEMOR** — par operacional: contexto antes, outcome+learning depois
-- **Memory Core + Cognitive Immune (G0-G8)** — quarentena por default, promoção governada
 - **Evidence Ledger + Decision Receipt v2** — audit append-only
 - **Self-Construction OS** — Atlas constrói Atlas
-- **Self-Improvement L7 + Compounding** — outcomes alimentam próximo ciclo
-- **15 Domains** — cobertura para substituir qualquer função humana profissional
+- **15 Domains** — cobertura para substituir qualquer função humana profissional (consomem ACOS)
 - **Local-first + soberania** — Mac MBP; classes sensitive/secret/cyber não saem da máquina
 <!-- atlas:manual:end -->
 

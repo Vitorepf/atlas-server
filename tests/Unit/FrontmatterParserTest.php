@@ -2,14 +2,14 @@
 
 namespace Tests\Unit;
 
-use App\Services\Semantic\FrontmatterParser;
+use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Tests\TestCase;
 
 class FrontmatterParserTest extends TestCase
 {
     public function test_validate_accepts_skill_system_activation_contract(): void
     {
-        $parser = new FrontmatterParser;
+        $parser = new CanonicalDocsFrontmatterParser;
 
         $errors = $parser->validate([
             'id' => 'atlas-skill-example',

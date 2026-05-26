@@ -3,7 +3,7 @@
 namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringKnowledgeItem;
-use App\Services\Semantic\FrontmatterParser;
+use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -14,7 +14,7 @@ use SplFileInfo;
 class EngineeringKnowledgeBaseService
 {
     public function __construct(
-        private readonly FrontmatterParser $frontmatter,
+        private readonly CanonicalDocsFrontmatterParser $frontmatter,
         private readonly ?EngineeringContextIntelligenceInput $input = null,
     ) {}
 

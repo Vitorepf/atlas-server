@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Services\Engineering\EngineeringDocumentationAuthorityAuditService;
-use App\Services\Semantic\FrontmatterParser;
+use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Tests\TestCase;
 
 final class EngineeringDocumentationAuthorityAuditServiceTest extends TestCase
@@ -32,7 +32,7 @@ final class EngineeringDocumentationAuthorityAuditServiceTest extends TestCase
             'capabilities' => ['shared_capability'],
         ]));
 
-        $payload = (new EngineeringDocumentationAuthorityAuditService(new FrontmatterParser))->report($root);
+        $payload = (new EngineeringDocumentationAuthorityAuditService(new CanonicalDocsFrontmatterParser))->report($root);
 
         $this->assertSame('blocked', $payload['status']);
         $this->assertSame(3, $payload['summary']['blocker_count']);
@@ -72,7 +72,7 @@ final class EngineeringDocumentationAuthorityAuditServiceTest extends TestCase
             'capabilities' => ['same_capability'],
         ]));
 
-        $payload = (new EngineeringDocumentationAuthorityAuditService(new FrontmatterParser))->report($root);
+        $payload = (new EngineeringDocumentationAuthorityAuditService(new CanonicalDocsFrontmatterParser))->report($root);
 
         $this->assertSame('review', $payload['status']);
         $this->assertSame(0, $payload['summary']['blocker_count']);
@@ -108,7 +108,7 @@ final class EngineeringDocumentationAuthorityAuditServiceTest extends TestCase
             'capabilities' => ['family_capability'],
         ]));
 
-        $payload = (new EngineeringDocumentationAuthorityAuditService(new FrontmatterParser))->report($root);
+        $payload = (new EngineeringDocumentationAuthorityAuditService(new CanonicalDocsFrontmatterParser))->report($root);
 
         $this->assertSame('ready', $payload['status']);
         $this->assertSame(0, $payload['summary']['capability_overlap_group_count']);
@@ -143,7 +143,7 @@ final class EngineeringDocumentationAuthorityAuditServiceTest extends TestCase
             'capabilities' => ['family_capability'],
         ]));
 
-        $payload = (new EngineeringDocumentationAuthorityAuditService(new FrontmatterParser))->report($root);
+        $payload = (new EngineeringDocumentationAuthorityAuditService(new CanonicalDocsFrontmatterParser))->report($root);
 
         $this->assertSame('ready', $payload['status']);
         $this->assertSame(0, $payload['summary']['capability_overlap_group_count']);

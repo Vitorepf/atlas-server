@@ -111,9 +111,10 @@ next_actions:
 | Master product architecture | `atlas-ai-master-architecture.md` |
 | Pipeline and topology | `atlas-ai-pipeline.md`, `atlas-ai-core-vs-domain.md`, `atlas-ai-operating-system.md` |
 | Model selection and AP-99 | `atlas-ai-model-selection-strategy.md`, telemetry/performance docs, AP-146/AP-147 |
-| Memory/Open Brain | `atlas-ai-memory-context-core-open-brain.md` + `memory/*.md` |
-| Memory noise immunity, capture quarantine and promotion gates | `memory/cognitive-immune-learning-kernel.md` |
-| External pattern absorption roadmap (claude-mem/engram/mem0) | `atlas-external-memory-pattern-absorptions-v1.md` |
+| **Cognition Operating System (ACOS) — macro authority over memory/context/RAG/graph/retrieval/embedding/ranking/freshness/compounding/learning** | `atlas-cognition-operating-system.md` |
+| Memory/Open Brain (ACOS subsystem) | `atlas-ai-memory-context-core-open-brain.md` + `memory/*.md` |
+| Memory noise immunity, capture quarantine and promotion gates (ACOS subsystem) | `memory/cognitive-immune-learning-kernel.md` |
+| External pattern absorption roadmap (claude-mem/engram/mem0, feeds ACOS) | `atlas-external-memory-pattern-absorptions-v1.md` |
 | Code Intelligence and external graph candidates | `code-intelligence.md` + `code-intelligence/external-graph-harness.md` |
 | AtlasVault/Obsidian | `obsidian-atlas-vault.md` + `vault/*.md` |
 | Mobile | `atlas-ai-mobile-surface-gateway.md` |

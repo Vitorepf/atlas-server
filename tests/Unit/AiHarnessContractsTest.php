@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\Ai\ValueObjects\AiContextPack;
-use App\Services\Ai\ValueObjects\AiExecutionPlan;
+use App\Services\Ai\ValueObjects\AiPromptExecutionPlan as AiExecutionPlan;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Tests\TestCase;
 

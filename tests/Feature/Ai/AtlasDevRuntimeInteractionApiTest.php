@@ -262,6 +262,119 @@ class AtlasDevRuntimeInteractionApiTest extends TestCase
         $this->assertNull(data_get($captured, 'payload.atlas_ai_assisted_execution_quality'));
     }
 
+    public function test_awis_runtime_context_survives_interaction_entrypoint_until_gateway(): void
+    {
+        $clientId = (string) Str::uuid();
+        $captured = null;
+
+        $this->mock(AiGatewayService::class, function (MockInterface $mock) use ($clientId, &$captured): void {
+            $mock
+                ->shouldReceive('enqueueInteraction')
+                ->once()
+                ->andReturnUsing(function (string $_input, array $options) use ($clientId, &$captured): AiTrace {
+                    $captured = $options;
+
+                    return $this->stubTrace($clientId, 'continue o AWIS sem nascer frio');
+                });
+        });
+
+        $this
+            ->withHeaders($this->headers)
+            ->postJson('/ai/interactions', [
+                'input_text' => 'continue o AWIS sem nascer frio',
+                'client_id' => $clientId,
+                'new_thread' => true,
+                'source_type' => 'app',
+                'payload' => [
+                    'surface_id' => 'atlas_desktop_ai',
+                    'awis_runtime_context' => [
+                        'schema_version' => 'atlas.awis.runtime_context_hint.v1',
+                        'workspace' => [
+                            'key' => 'atlas',
+                            'name' => 'Atlas',
+                            'root_path_known' => true,
+                        ],
+                        'never_start_cold' => true,
+                        'load_first' => [
+                            'Space pack:AWIS cérebro vivo',
+                            'session-gold:usar memória validada antes de responder',
+                        ],
+                        'use_as_summary' => [
+                            'Space organiza; comparação abre sessões lado a lado.',
+                        ],
+                        'validate_with' => [
+                            'npm run atlas-ai:test',
+                        ],
+                        'working_set' => [
+                            'files' => [
+                                'apps/desktop/src/surfaces/atlas-ai/contract.ts',
+                            ],
+                            'docs' => [
+                                'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
+                            ],
+                            'commands' => [
+                                'npx tsc -b',
+                            ],
+                        ],
+                        'evidence_gate' => [
+                            'verify_before_trust' => [
+                                'validar antes de promover memória',
+                            ],
+                            'human_boundary' => [
+                                'decisão de produto fica com operador',
+                            ],
+                        ],
+                        'space_context' => [
+                            'active_spaces' => ['AWIS cérebro vivo'],
+                            'strongest_spaces' => ['AWIS cérebro vivo'],
+                            'load_first' => ['Space pack:AWIS cérebro vivo'],
+                            'carry_forward' => ['contexto forte do Space'],
+                            'validate_before_use' => ['revalidar Space pack'],
+                            'artifact_refs' => ['artifact-awis-123'],
+                        ],
+                        'artifact_context' => [
+                            'replay_ready' => true,
+                            'latest_artifact_hash' => 'artifact-awis-123',
+                            'load_order' => ['artifact:startup snapshot'],
+                            'validate_with' => ['artifact:revalidar snapshot'],
+                            'reusable_patterns' => ['não nascer frio'],
+                            'strongest_spaces' => ['AWIS cérebro vivo'],
+                        ],
+                        'next_session' => [
+                            'first_load' => [
+                                'carregar Space pack ativo',
+                            ],
+                            'validate_with' => [
+                                'comparar com Evidence Ledger',
+                            ],
+                        ],
+                        'continue_learning' => [
+                            'record_outcome' => true,
+                            'update_memory' => true,
+                            'update_space_pack' => true,
+                            'preserve_artifact_after_success' => true,
+                        ],
+                    ],
+                ],
+            ])
+            ->assertAccepted();
+
+        $context = data_get($captured, 'payload.awis_runtime_context');
+        $this->assertIsArray($context);
+        $this->assertSame('atlas.awis.runtime_context_hint.v1', $context['schema_version']);
+        $this->assertSame('Atlas', data_get($context, 'workspace.name'));
+        $this->assertTrue((bool) data_get($context, 'never_start_cold'));
+        $this->assertContains('Space pack:AWIS cérebro vivo', data_get($context, 'load_first'));
+        $this->assertContains('npm run atlas-ai:test', data_get($context, 'validate_with'));
+        $this->assertContains('AWIS cérebro vivo', data_get($context, 'space_context.active_spaces'));
+        $this->assertContains('Space pack:AWIS cérebro vivo', data_get($context, 'space_context.load_first'));
+        $this->assertSame('artifact-awis-123', data_get($context, 'artifact_context.latest_artifact_hash'));
+        $this->assertContains('não nascer frio', data_get($context, 'artifact_context.reusable_patterns'));
+        $this->assertTrue((bool) data_get($context, 'continue_learning.record_outcome'));
+        $this->assertTrue((bool) data_get($context, 'continue_learning.update_space_pack'));
+        $this->assertSame('atlas.ai.specialist_flow_runtime.v1', data_get($captured, 'payload.specialist_flow_runtime.schema_version'));
+    }
+
     private function stubTrace(string $clientId, string $input): AiTrace
     {
         return tap(new AiTrace, fn (AiTrace $trace) => $trace->forceFill([

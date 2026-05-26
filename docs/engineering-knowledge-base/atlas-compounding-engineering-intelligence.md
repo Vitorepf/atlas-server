@@ -32,6 +32,7 @@ maintenance:
   - Nao transforme conversa, trace bruto ou preferencia isolada em aprendizado canonico sem evidencia, confidence e revalidacao.
   - Use este doc como alvo de implementacao depois que Hyperflow Router Runtime e RAG Spine estiverem funcionais.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-cognition-operating-system.md
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
   - docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md
@@ -47,7 +48,7 @@ graph_title: Atlas Compounding Engineering Intelligence
 graph_world: atlas
 graph_layer: system
 graph_kind: module
-graph_parent: atlas-hyperflow-operation
+graph_parent: atlas-cognition-operating-system
 graph_status: active
 graph_source: repo
 human_name: Atlas Compounding Engineering Intelligence

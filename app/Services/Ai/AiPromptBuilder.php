@@ -8,7 +8,7 @@ use App\Services\Ai\Search\SessionSearchService;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Services\Ai\Skills\SkillManifest;
-use App\Services\Ai\ValueObjects\AiExecutionPlan;
+use App\Services\Ai\ValueObjects\AiPromptExecutionPlan as AiExecutionPlan;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -92,6 +92,7 @@ class AiPromptBuilder
             $attachmentSearchSection,
             $youtubeKnowledgeSection,
             $this->persistentContextPromptSection($options),
+            $this->awisRuntimeContextPromptSection($options),
             $this->contextPackPromptSection($contextPack, $openBrainInjection),
             $executionPlan->toPromptSection(),
             $this->atlasModeInstructions($options),
@@ -228,6 +229,192 @@ TXT,
         $lines[] = 'Nao invente source refs. Se este bloco disser execution_allowed=no ou sufficiency=blocked, declare o bloqueio antes de executar.';
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     */
+    private function awisRuntimeContextPromptSection(array $options): string
+    {
+        $context = data_get($options, 'payload.awis_runtime_context');
+        if (! is_array($context) || ($context['schema_version'] ?? null) !== 'atlas.awis.runtime_context_hint.v1') {
+            return '';
+        }
+
+        $workspaceName = $this->awisPromptScalar(
+            data_get($context, 'workspace.name', data_get($context, 'workspace.key')),
+            'workspace desconhecido',
+        );
+        $neverStartCold = (bool) data_get($context, 'never_start_cold', false);
+        $files = $this->awisPromptList(data_get($context, 'working_set.files', []), 5);
+        $docs = $this->awisPromptList(data_get($context, 'working_set.docs', []), 5);
+        $commands = $this->awisPromptList(data_get($context, 'working_set.commands', []), 5);
+
+        $lines = [
+            '# Atlas Workspace Intelligence System',
+            '',
+            'Use este bloco como contexto operacional compacto do workspace antes de responder. Ele existe para impedir que a sessão nasça fria.',
+            '- Workspace: '.$workspaceName,
+            '- Nunca iniciar frio: '.($neverStartCold ? 'sim' : 'não'),
+        ];
+
+        $lines = [
+            ...$lines,
+            ...$this->awisPromptSectionLines('Carregar primeiro', $this->awisPromptList(data_get($context, 'load_first', []), 8)),
+            ...$this->awisPromptSectionLines('Resumo ouro', $this->awisPromptList(data_get($context, 'use_as_summary', []), 6)),
+            ...$this->awisPromptSectionLines('Validar com', $this->awisPromptList(data_get($context, 'validate_with', []), 6)),
+            ...$this->awisPromptSectionLines('Evitar carregar', $this->awisPromptList(data_get($context, 'avoid_loading', []), 6)),
+        ];
+
+        if ($files !== [] || $docs !== [] || $commands !== []) {
+            $lines[] = '';
+            $lines[] = 'Working set provável:';
+            foreach ($files as $file) {
+                $lines[] = '- arquivo: '.$file;
+            }
+            foreach ($docs as $doc) {
+                $lines[] = '- doc: '.$doc;
+            }
+            foreach ($commands as $command) {
+                $lines[] = '- comando: '.$command;
+            }
+        }
+
+        $verifyBeforeTrust = $this->awisPromptList(data_get($context, 'evidence_gate.verify_before_trust', []), 4);
+        $humanBoundary = $this->awisPromptList(data_get($context, 'evidence_gate.human_boundary', []), 4);
+        if ($verifyBeforeTrust !== [] || $humanBoundary !== []) {
+            $lines[] = '';
+            $lines[] = 'Evidence gate:';
+            foreach ($verifyBeforeTrust as $rule) {
+                $lines[] = '- verificar antes de confiar: '.$rule;
+            }
+            foreach ($humanBoundary as $boundary) {
+                $lines[] = '- fronteira humana: '.$boundary;
+            }
+        }
+
+        $spaceLines = [
+            ...array_map(fn (string $item): string => 'Space ativo: '.$item, $this->awisPromptList(data_get($context, 'space_context.active_spaces', []), 4)),
+            ...array_map(fn (string $item): string => 'Space forte: '.$item, $this->awisPromptList(data_get($context, 'space_context.strongest_spaces', []), 5)),
+            ...array_map(fn (string $item): string => 'carregar: '.$item, $this->awisPromptList(data_get($context, 'space_context.load_first', []), 6)),
+            ...array_map(fn (string $item): string => 'manter: '.$item, $this->awisPromptList(data_get($context, 'space_context.carry_forward', []), 6)),
+            ...array_map(fn (string $item): string => 'validar: '.$item, $this->awisPromptList(data_get($context, 'space_context.validate_before_use', []), 5)),
+            ...array_map(fn (string $item): string => 'limite humano: '.$item, $this->awisPromptList(data_get($context, 'space_context.human_boundary', []), 4)),
+            ...array_map(fn (string $item): string => 'artifact: '.$item, $this->awisPromptList(data_get($context, 'space_context.artifact_refs', []), 4)),
+        ];
+        if ($spaceLines !== []) {
+            $lines = [
+                ...$lines,
+                ...$this->awisPromptSectionLines('Spaces vivos', $spaceLines),
+            ];
+        }
+
+        $artifactLines = [];
+        if ((bool) data_get($context, 'artifact_context.replay_ready', false)) {
+            $artifactLines[] = 'replay pronto';
+        }
+        $latestArtifactHash = $this->awisPromptScalar(data_get($context, 'artifact_context.latest_artifact_hash'), '');
+        if ($latestArtifactHash !== '') {
+            $artifactLines[] = 'artifact recente: '.$latestArtifactHash;
+        }
+        $artifactLines = [
+            ...$artifactLines,
+            ...array_map(fn (string $item): string => 'carregar: '.$item, $this->awisPromptList(data_get($context, 'artifact_context.load_order', []), 5)),
+            ...array_map(fn (string $item): string => 'validar: '.$item, $this->awisPromptList(data_get($context, 'artifact_context.validate_with', []), 4)),
+            ...array_map(fn (string $item): string => 'padrão reutilizável: '.$item, $this->awisPromptList(data_get($context, 'artifact_context.reusable_patterns', []), 5)),
+            ...array_map(fn (string $item): string => 'Space preservado: '.$item, $this->awisPromptList(data_get($context, 'artifact_context.strongest_spaces', []), 4)),
+            ...array_map(fn (string $item): string => 'atenção: '.$item, $this->awisPromptList(data_get($context, 'artifact_context.warnings', []), 4)),
+        ];
+        if ($artifactLines !== []) {
+            $lines = [
+                ...$lines,
+                ...$this->awisPromptSectionLines('Artifacts reutilizáveis', $artifactLines),
+            ];
+        }
+
+        $lines = [
+            ...$lines,
+            ...$this->awisPromptSectionLines('Próxima sessão · carregar', $this->awisPromptList(data_get($context, 'next_session.first_load', []), 6)),
+            ...$this->awisPromptSectionLines('Próxima sessão · validar', $this->awisPromptList(data_get($context, 'next_session.validate_with', []), 5)),
+            ...$this->awisPromptSectionLines('Promover para memória quando', $this->awisPromptList(data_get($context, 'next_session.promote_when', []), 5)),
+            ...$this->awisPromptSectionLines('Rebaixar quando', $this->awisPromptList(data_get($context, 'next_session.demote_when', []), 5)),
+        ];
+
+        $learning = [
+            'record_outcome' => 'registrar resultado real',
+            'update_memory' => 'atualizar memória AWIS',
+            'update_space_pack' => 'atualizar Space pack',
+            'preserve_artifact_after_success' => 'preservar artifact após sucesso',
+        ];
+        $enabledLearning = [];
+        foreach ($learning as $key => $label) {
+            if ((bool) data_get($context, 'continue_learning.'.$key, false)) {
+                $enabledLearning[] = $label;
+            }
+        }
+        if ($enabledLearning !== []) {
+            $lines = [
+                ...$lines,
+                ...$this->awisPromptSectionLines('Aprendizado contínuo', $enabledLearning),
+            ];
+        }
+
+        $lines[] = '';
+        $lines[] = 'Não trate este bloco como conversa bruta. Se algo estiver ausente ou inseguro, declare a lacuna e use contexto verificável.';
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function awisPromptList(mixed $values, int $limit = 6): array
+    {
+        if (! is_array($values)) {
+            return [];
+        }
+
+        return collect($values)
+            ->filter(fn (mixed $value): bool => is_scalar($value))
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->filter(fn (string $value): bool => $value !== '' && ! $this->awisPromptValueIsUnsafe($value))
+            ->unique()
+            ->take($limit)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int,string>  $items
+     * @return array<int,string>
+     */
+    private function awisPromptSectionLines(string $title, array $items): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        return [
+            '',
+            $title.':',
+            ...array_map(fn (string $item): string => '- '.$item, $items),
+        ];
+    }
+
+    private function awisPromptScalar(mixed $value, string $fallback): string
+    {
+        if (! is_scalar($value)) {
+            return $fallback;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' && ! $this->awisPromptValueIsUnsafe($value) ? $value : $fallback;
+    }
+
+    private function awisPromptValueIsUnsafe(string $value): bool
+    {
+        return preg_match('/\/Users\/|thread_id|source_thread_ids|raw_conversation|response_text|operator_input|full_message/i', $value) === 1;
     }
 
     /**

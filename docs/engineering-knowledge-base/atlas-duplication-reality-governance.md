@@ -210,7 +210,7 @@ Snapshot real em 2026-05-25:
 | `docs-authority-audit` | 734 docs canonicos, 0 identity duplicate groups, 0 runtime duplicate groups, 0 capability overlap groups, 0 owner gaps |
 | `ACRUI reality-audit` | 6 targets ADRS/ACRUI/AURC, 6 active_runtime, 0 unknown_or_unused, 0 weak_reachability |
 | `ACRUI anti-duplicate` para esta feature | `match_count=0`, `decision=proceed_with_owner_lookup` |
-| `ACRUI global-duplication-audit` | `status=blocked`, 791 docs, 739 docs com `doc_schema`, 7 overlaps de stem, 44 archived/source-material, 59 source-material em temas criticos, 3288 classes PHP, 418 comandos, 550 rotas estaticas, 647 metodo+URI runtime, 5 grupos de nomes de classe, 4 grupos em `duplicate_class_cleanup_queue`, 1 fixture gerado fora da fila de cleanup de producao, 30 runtime action aliases, 30 itens em `runtime_route_alias_cleanup_queue`, 569 sinais legado/scaffold, 318 sinais exigindo review, 124 falsos positivos/taxonomia, 50 itens priorizados em `legacy_cleanup_queue`, 15 itens RAG, 5 itens frontend, 39 itens em `ai_confusion_cleanup_queue` |
+| `ACRUI global-duplication-audit` | `status=blocked`, 793 docs, 741 docs com `doc_schema`, 7 overlaps de stem, 44 archived/source-material, 59 source-material em temas criticos, 3302 classes PHP, 420 comandos, 550 rotas estaticas, 647 metodo+URI runtime, 4 grupos de nomes de classe, 3 grupos em `duplicate_class_cleanup_queue`, 1 fixture gerado fora da fila de cleanup de producao, 30 runtime action aliases, 30 itens em `runtime_route_alias_cleanup_queue`, 571 sinais legado/scaffold, 320 sinais exigindo review, 124 falsos positivos/taxonomia, 50 itens priorizados em `legacy_cleanup_queue`, 15 itens RAG, 5 itens frontend, 39 itens em `ai_confusion_cleanup_queue` |
 | `ACRUI status-drift-audit` | `status=review`, 734 docs canonicos ativos/building/planned/future, 682 `active`, 40 `building`, 5 `planned`, 7 `future`, 3 planned/future com evidencia de codigo existente, 3 com boundary explicado, 110 itens de pressao por linguagem scaffold/implemented misturada, 26 owner groups, 5 area groups |
 | `php artisan route:list --json` | 647 metodo+URI runtime, 0 duplicatas metodo+URI reais, 0 nomes de rota duplicados, 30 actions expostas por multiplas rotas |
 | `session-bootstrap/place-feature` | encontrou overlap contextual e bloqueou ate leitura dos owner docs |
@@ -396,7 +396,6 @@ Grupos de classe com mesmo nome curto encontrados pelo ACRUI:
 | `aiexecutionplan` | `app/Models/AiExecutionPlan.php`; `app/Services/Ai/ValueObjects/AiExecutionPlan.php` |
 | `verificationcommandrunner` | `app/Services/AtlasCode/VerificationCommandRunner.php`; `app/Services/Ai/Programming/AtlasDev/Gate/VerificationCommandRunner.php` |
 | `operationenvelope` | `app/Services/Ai/Programming/AtlasDev/Schemas/OperationEnvelope.php`; `app/Services/Ai/Programming/Sdd/Pipeline/OperationEnvelope.php`; `app/Services/Ai/Kernel/Envelope/OperationEnvelope.php` |
-| `frontmatterparser` | `app/Services/Semantic/FrontmatterParser.php`; `app/Services/Vault/FrontmatterParser.php` |
 | `smokesubject` | `app/Console/Commands/AtlasDevSeniorLoopAuditCommand.php`; `app/Console/Commands/AtlasDevDesktopRealSmokeCommand.php`; `app/Console/Commands/AtlasDevSeniorLoopRunCommand.php` |
 
 Contratos de direcao para classes duplicadas:
@@ -405,9 +404,19 @@ Contratos de direcao para classes duplicadas:
 |---|---|---|---|
 | `OperationEnvelope` | `Kernel/Envelope` | AtlasDev schema e SDD pipeline; tambem sobe para `ai_confusion_cleanup_queue` com boundary e recomendacao | importar variante Programming como contrato Kernel |
 | `VerificationCommandRunner` | `Services/AtlasCode` concrete runner | AtlasDev Gate contract; rename so com binding/fake-runner migration | trocar interface e runner concreto por nome curto |
-| `FrontmatterParser` | `Services/Semantic` docs parser | `Services/Vault` note parser; consolidar so com adapter que preserve erros e listas Vault | usar parser Vault como parser canonico de engineering docs |
+| `FrontmatterParser` | Resolvido como grupo duplicado: `Services/Semantic` continua parser canonico; `Services/Vault/VaultNoteFrontmatterParser` virou classe real e `Services/Vault/FrontmatterParser` ficou alias compat | consolidar so com adapter que preserve erros e listas Vault | usar parser Vault como parser canonico de engineering docs |
 | `AiExecutionPlan` | `app/Models` database model; alias `PersistentAiExecutionPlan` existe para codigo novo | AI value object; alias `AiPromptExecutionPlan` exige adapter persistencia/prompt | typehint do value object onde model persistente e requerido |
 | `SmokeSubject` | fixture gerado em workspace local | comandos smoke/senior-loop; fica fora de `duplicate_class_cleanup_queue` de producao | tratar como classe de dominio/producao |
+
+Resolvidos: `AtlasKnowledgeIngestionFabricService` preserva runtime AUCRI em
+`Ai/Context` e renomeia persistencia para `AtlasKnowledgeSourcePacketRegistryService`;
+`AtlasTokenEconomyRuntimeService` preserva runtime AUCRI em `Ai/Context` e
+renomeia policy para `AtlasTokenEconomyBudgetPolicyService`. FQCNs antigos
+ficam apenas como aliases compat.
+`AtlasUnifiedRealityGraphService` preserva runtime AUCRI em `Ai/Context` e
+renomeia builder in-memory para `AtlasRealityGraphSnapshotBuilderService`.
+`AtlasCognitiveMemoryFabricService` preserva runtime AUCRI em `Ai/Context` e
+renomeia working-set policy para `AtlasCognitiveWorkingSetMemoryService`.
 
 Schemas conhecidos de `OperationEnvelope`:
 
@@ -417,26 +426,19 @@ Schemas conhecidos de `OperationEnvelope`:
 | Atlas Dev | `atlas.dev.operation_envelope.v1` | DTO local; app/tests importam via `AtlasDevOperationEnvelope as OperationEnvelope`; manter FQCN antigo somente como compatibility class |
 | SDD pipeline | DTO local sem schema Kernel | DTO local; app/tests importam via `SddPipelineOperationEnvelope as OperationEnvelope`; manter FQCN antigo somente como compatibility class |
 
-Contratos conhecidos de `FrontmatterParser`:
-
-| Variante | Uso permitido | Proibido |
-|---|---|---|
-| `Services/Semantic/FrontmatterParser` | parse, validate e build de docs canonicos; alias `CanonicalDocsFrontmatterParser` existe para codigo novo | tratar como parser de shape livre do Vault |
-| `Services/Vault/FrontmatterParser` | leitura read-only de notas Vault/Obsidian; alias `VaultNoteFrontmatterParser` existe para codigo novo | validar docs canonicos ou substituir docs-health/authority audit |
-
 Contratos conhecidos de `VerificationCommandRunner`:
 
 | Variante | Uso permitido | Proibido |
 |---|---|---|
-| `Services/AtlasCode/VerificationCommandRunner` | servico concreto `atlas.code.verification_run.v1`; alias `AtlasCodeVerificationCommandRunner` existe para codigo novo | usar como interface injetavel do gate AtlasDev |
-| `Ai/Programming/AtlasDev/Gate/VerificationCommandRunner` | interface do `VerificationGate`; alias `AtlasDevVerificationCommandRunnerContract` existe para codigo novo | substituir o runner AtlasCode ou escrever evidence AtlasCode diretamente |
+| `Services/AtlasCode/VerificationCommandRunner` | servico concreto `atlas.code.verification_run.v1`; app/tests importam via `AtlasCodeVerificationCommandRunner as VerificationCommandRunner`; manter FQCN antigo somente como compatibility class | usar como interface injetavel do gate AtlasDev |
+| `Ai/Programming/AtlasDev/Gate/VerificationCommandRunner` | interface do `VerificationGate`; app/tests importam via `AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner`; manter FQCN antigo somente como compatibility class | substituir o runner AtlasCode ou escrever evidence AtlasCode diretamente |
 
 Contratos conhecidos de `AiExecutionPlan`:
 
 | Variante | Uso permitido | Proibido |
 |---|---|---|
-| `app/Models/AiExecutionPlan` | model Eloquent da tabela `ai_execution_plans`, usado pelo Autonomous Engineering para plano persistente; alias `PersistentAiExecutionPlan` existe para codigo novo | usar como payload de prompt/provider |
-| `Services/Ai/ValueObjects/AiExecutionPlan` | value object de prompt com `agent_behavior_contract`, `toArray` e `toPromptSection`; alias `AiPromptExecutionPlan` existe para codigo novo | typehint em fluxo que exige model persistente ou tabela |
+| `app/Models/AiExecutionPlan` | model Eloquent da tabela `ai_execution_plans`; app/tests importam via `PersistentAiExecutionPlan as AiExecutionPlan`; manter FQCN antigo somente como compatibility class | usar como payload de prompt/provider |
+| `Services/Ai/ValueObjects/AiExecutionPlan` | value object de prompt com `agent_behavior_contract`; app/tests importam via `AiPromptExecutionPlan as AiExecutionPlan`; manter FQCN antigo somente como compatibility class | typehint em fluxo que exige model persistente ou tabela |
 
 Contratos conhecidos de `SmokeSubject`:
 
@@ -450,9 +452,9 @@ Ordem segura de limpeza para classes com mesmo nome curto:
 | Prioridade | Grupo | Decisao segura |
 |---:|---|---|
 | 1 | `OperationEnvelope` | imports app/tests migrados para aliases explicitos; manter arquivos compatibility e so renomear variantes Programming com plano de adapter |
-| 2 | `FrontmatterParser` | provar contratos Semantic vs Vault com testes antes de qualquer consolidacao |
-| 3 | `VerificationCommandRunner` | preferir renomear interface AtlasDev Gate ou documentar boundary de interface |
-| 4 | `AiExecutionPlan` | preservar model Eloquent; renomear value object so junto do prompt builder/static scanner |
+| resolvido | `FrontmatterParser` | classe Vault renomeada para `VaultNoteFrontmatterParser`; manter alias compat ate nao haver consumers externos |
+| 3 | `VerificationCommandRunner` | imports app/tests migrados para aliases explicitos; manter arquivos compatibility e so renomear interface AtlasDev Gate com binding/fake-runner migration |
+| 4 | `AiExecutionPlan` | imports app/tests migrados para aliases explicitos; preservar model Eloquent e so renomear value object com prompt builder/static scanner migration |
 | fora da cleanup queue | `SmokeSubject` | manter como fixture gerado; extrair template comum so com owner decision AtlasDev |
 
 Em todos os grupos acima, `delete_allowed=false` ate reachability, owner doc,
@@ -501,8 +503,7 @@ antes de usar a doc como contexto para outra IA
 ```
 
 ## Proximas Acoes
-1. Triar os 4 grupos de nomes de classe duplicados de producao por owner e decidir reuse,
-   namespace boundary, supersede ou merge.
+1. Triar os 3 grupos de classes duplicadas por owner: reuse, boundary, supersede ou merge.
 2. Revisar os 7 overlaps de stem de doc ativo para separar indices/familias
    intencionais de docs concorrentes.
 3. Confirmar os 30 runtime action aliases com `php artisan route:list`,

@@ -852,4 +852,19 @@ return [
     // NOTE: Atlas Dev Efficient knobs live in config/atlas_dev.php (canonical
     // source). Reading from `config('atlas.dev.*')` is unsupported and was
     // removed in F-08 cleanup; use `config('atlas_dev.*')` instead.
+
+    // Atlas Cognition Operating System (ACOS) — toggles e budgets canonicos.
+    // Doc canon: docs/engineering-knowledge-base/atlas-cognition-operating-system.md.
+    'cognition' => [
+        // Absorcao 1 (mem0): Integer ID Mapping anti-halucinacao.
+        // Doc: atlas-external-memory-pattern-absorptions-v1.md (Absorcao 1).
+        // Quando habilitado, AiContextPackBuilder remapeia UUIDs em prompts.
+        // Default false ate round-trip tests + integracao verificados em producao.
+        'id_remap' => [
+            'enabled' => (bool) env('ATLAS_COGNITION_ID_REMAP_ENABLED', false),
+            'ttl_seconds' => (int) env('ATLAS_COGNITION_ID_REMAP_TTL_SECONDS', 3600),
+            // Bracket style do label provider-safe. Fixo "square_bracket" em v1.
+            'bracket_style' => env('ATLAS_COGNITION_ID_REMAP_BRACKET_STYLE', 'square_bracket'),
+        ],
+    ],
 ];

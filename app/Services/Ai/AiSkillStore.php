@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai;
 
-use App\Services\Semantic\FrontmatterParser;
+use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Semantic\VaultFileStore;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
@@ -12,7 +12,7 @@ class AiSkillStore
 {
     public function __construct(
         private readonly VaultFileStore $vault,
-        private readonly FrontmatterParser $frontmatter,
+        private readonly CanonicalDocsFrontmatterParser $frontmatter,
     ) {}
 
     /**

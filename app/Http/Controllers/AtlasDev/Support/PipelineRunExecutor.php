@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\AtlasDev\Support;
 
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
+use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplyResult;
 use App\Services\Ai\Programming\AtlasDev\Gate\ReceiptComposer;
 use App\Services\Ai\Programming\AtlasDev\Gate\ScopeGuard;
-use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGateResult;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceInput;
