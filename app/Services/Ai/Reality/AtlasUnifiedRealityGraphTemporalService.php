@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Reality;
 
-use App\Services\Ai\Context\AtlasUnifiedRealityGraphService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -69,7 +68,7 @@ final class AtlasUnifiedRealityGraphTemporalService
     private ?string $logPathOverride = null;
 
     public function __construct(
-        private readonly AtlasUnifiedRealityGraphService $aurg,
+        private readonly AtlasRealityGraphSnapshotBuilderService $aurg,
     ) {}
 
     public function setLogPathForTesting(?string $path): void

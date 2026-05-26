@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Reality;
 
-use App\Services\Ai\Context\AtlasUnifiedRealityGraphService;
+use App\Services\Ai\Reality\AtlasRealityGraphSnapshotBuilderService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use Tests\TestCase;
 
@@ -18,7 +18,7 @@ class AtlasUnifiedRealityGraphTemporalServiceTest extends TestCase
     {
         parent::setUp();
         $this->tmpPath = sys_get_temp_dir().'/atlas_aurg_temporal_'.uniqid('', true).'.jsonl';
-        $this->svc = new AtlasUnifiedRealityGraphTemporalService(new AtlasUnifiedRealityGraphService);
+        $this->svc = new AtlasUnifiedRealityGraphTemporalService(new AtlasRealityGraphSnapshotBuilderService);
         $this->svc->setLogPathForTesting($this->tmpPath);
     }
 

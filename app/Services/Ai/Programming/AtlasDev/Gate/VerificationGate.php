@@ -32,7 +32,9 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 final class VerificationGate
 {
     public const PROFILE_PHP_LARAVEL = 'php_laravel';
+
     public const PROFILE_TS_REACT = 'ts_react';
+
     public const PROFILE_GENERIC_NO_TEST = 'generic_no_test';
 
     public const ALLOWED_PROFILES = [
@@ -42,7 +44,7 @@ final class VerificationGate
     ];
 
     public function __construct(
-        private readonly VerificationCommandRunner $runner,
+        private readonly AtlasDevVerificationCommandRunnerContract $runner,
         private readonly ?ReceiptStorageAdapter $storage = null,
     ) {}
 
@@ -79,6 +81,7 @@ final class VerificationGate
             $commandStr = trim($command);
             if ($commandStr === '') {
                 $honestyFlags[] = 'verification_skipped_empty_command';
+
                 continue;
             }
 
@@ -104,6 +107,7 @@ final class VerificationGate
             if ($result->rejectedReason !== null) {
                 $rejected++;
                 $honestyFlags[] = 'verification_command_rejected:'.$result->rejectedReason;
+
                 continue;
             }
             if ($result->timedOut) {

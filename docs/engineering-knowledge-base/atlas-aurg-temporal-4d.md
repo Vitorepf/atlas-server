@@ -1,3 +1,65 @@
+---
+id: atlas-aurg-temporal-4d
+type: engineering_knowledge
+doc_schema: atlas_canonical_module_doc.v1
+title: AURG Temporal 4D Extension
+status: active
+implementation_state: runtime_scorecard_ready
+category: reality_graph
+priority: 94
+summary: Extensao temporal append-only do AURG para registrar ticks, replay historico e cadeia de hash de snapshots de realidade.
+tags: [atlas-ai, acos, aurg, reality-graph, temporal-replay]
+capabilities: [temporal_tick_recording, timeline_replay, hash_chain_verification, reality_snapshot_history]
+decisions:
+  - AURG Temporal estende o AURG 3D sem substituir o snapshot canonico.
+  - Ticks temporais sao append-only e nao autorizam mutacao retroativa.
+  - Counterfactual e replay devem referenciar hashes/snapshots, nao reescrever fatos.
+maintenance:
+  - Atualizar antes de mudar schema temporal, retention, replay ou integracao TEOS.
+  - Manter scorecard ACOS sincronizado com service e testes reais.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-unified-reality-graph.md
+  - docs/engineering-knowledge-base/atlas-cognition-operating-system.md
+  - app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php
+  - tests/Unit/Ai/Reality/AtlasUnifiedRealityGraphTemporalServiceTest.php
+owner: atlas-ai
+graph_id: atlas-aurg-temporal-4d
+graph_title: AURG Temporal 4D Extension
+graph_world: atlas
+graph_layer: module
+graph_kind: module
+graph_parent: atlas-unified-reality-graph
+graph_status: active
+graph_source: repo
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-aurg-temporal-4d.md
+  - app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php
+depends_on: [atlas-unified-reality-graph, atlas-cognition-operating-system]
+flows_to: [atlas-teos-i3-counterfactual]
+unlocks: [temporal_reality_replay, reality_hash_chain]
+governs: [aurg_temporal_ticks, temporal_snapshot_replay]
+evidence:
+  - docs/engineering-knowledge-base/atlas-aurg-temporal-4d.md
+  - app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php
+  - tests/Unit/Ai/Reality/AtlasUnifiedRealityGraphTemporalServiceTest.php
+required_tests:
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan atlas:cognition:scorecard --strict --json"
+  - "php artisan test tests/Unit/Ai/Reality/AtlasUnifiedRealityGraphTemporalServiceTest.php"
+next_actions:
+  - Manter builder AURG 3D como fonte do snapshot e AURG Temporal como trilha append-only.
+  - Integrar replay temporal com TEOS-I3 somente com testes e owner decision.
+allowed_changes:
+  - Evoluir schema temporal com testes e scorecard.
+  - Integrar replay temporal com TEOS-I3 ou Cartografia com owner decision.
+forbidden_changes:
+  - Substituir AURG 3D ou reescrever ticks historicos.
+  - Declarar counterfactual como fato operacional.
+requires_evidence: true
+risk_level: high
+line_limit: 520
+---
+
 # AURG — Temporal 4D Extension
 
 > **Status**: canonical
@@ -129,3 +191,54 @@ Registered as:
   subsystem is the prerequisite).
 - **Garbage collection** — bounded retention windows per actor.
 - **Replay UI** — Cartografia shows timeline scrubber.
+
+## Resumo
+
+AURG Temporal 4D registra ticks append-only de snapshots AURG para replay historico e cadeia verificavel de hash.
+
+## Papel no Atlas
+
+Ele adiciona tempo ao grafo de realidade sem virar nova fonte de verdade acima do AURG 3D, Evidence Ledger ou docs canonicos.
+
+## Onde Se Encaixa
+
+Fica depois do builder AURG 3D e antes de TEOS-I3, Cartografia temporal e replay cognitivo.
+
+## Contratos
+
+Schemas `atlas.aurg.temporal_tick.v1` e `atlas.aurg.temporal_snapshot.v1`; snapshots continuam vindos do builder AURG.
+
+## Fluxo
+
+Caller fornece nodes/edges, o builder AURG gera snapshot 3D, o runtime temporal grava um tick com `snapshot_hash`.
+
+## Regras para IA
+
+Nao reescrever ticks antigos, nao declarar counterfactual como fato e nao substituir AURG 3D por timeline.
+
+## Escopo de Implementacao
+
+Runtime local, append-only, provider-safe por referencia de hash e coberto por teste unitario real.
+
+## Dependencias
+
+- `AtlasRealityGraphSnapshotBuilderService`
+- `AtlasUnifiedRealityGraphTemporalService`
+- `AtlasTeosI3CounterfactualService`
+
+## Evidencias
+
+- `php artisan test tests/Unit/Ai/Reality/AtlasUnifiedRealityGraphTemporalServiceTest.php`
+- `php artisan atlas:cognition:scorecard --strict --json`
+
+## Riscos
+
+Confundir replay temporal com verdade autoral ou usar branch futura para apagar evidencias passadas.
+
+## Exemplos
+
+Registrar snapshot atual como tick e consultar `stateAt()` para recuperar a linha factual naquele horario.
+
+## Proximas Acoes
+
+Integrar visualizacao temporal e retention somente depois de owner decision e novos testes.

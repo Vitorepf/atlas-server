@@ -8,7 +8,7 @@ use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 /**
- * Production implementation of VerificationCommandRunner.
+ * Production implementation of AtlasDevVerificationCommandRunnerContract.
  *
  * Boundaries:
  *   - workspace must be an existing directory; otherwise we refuse to run
@@ -17,7 +17,7 @@ use Symfony\Component\Process\Process;
  *   - timeout is honoured via Symfony Process; on timeout, the result is
  *     marked timedOut=true and stdout/stderr capture whatever was buffered.
  */
-final class SymfonyProcessCommandRunner implements VerificationCommandRunner
+final class SymfonyProcessCommandRunner implements AtlasDevVerificationCommandRunnerContract
 {
     public function run(string $command, string $workspace, int $timeoutSeconds): VerificationCommandResult
     {

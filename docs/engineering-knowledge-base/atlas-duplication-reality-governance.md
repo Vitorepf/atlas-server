@@ -333,8 +333,6 @@ Fila de triagem inicial gerada pelo ACRUI:
 | Item | Severidade | Decisao pendente |
 |---|---:|---|
 | `duplicate_class:operationenvelope` | critical | 3 paths com reachability alta; decidir rename/boundary/merge sem delete |
-| `duplicate_class:verificationcommandrunner` | high | 2 paths com reachability alta; concrete runner AtlasCode vs interface AtlasDev precisa boundary ou rename |
-| `duplicate_class:frontmatterparser` | high | 2 paths com reachability alta; parser Semantic build/validate vs parser Vault read-only precisa boundary ou consolidacao |
 | `route_action_alias:AtlasCodeObservedSessionController@import` | medium | documentar alias `import` vs `import-result` ou unificar contrato |
 | aliases mobile/base de Voice, Telemetry e Constelacao | low | documentar como alias intencional ou criar wrapper mobile |
 
@@ -392,7 +390,6 @@ Grupos de classe com mesmo nome curto encontrados pelo ACRUI:
 
 | Nome curto | Paths |
 |---|---|
-| `verificationcommandrunner` | `app/Services/AtlasCode/VerificationCommandRunner.php`; `app/Services/Ai/Programming/AtlasDev/Gate/VerificationCommandRunner.php` |
 | `operationenvelope` | `app/Services/Ai/Programming/AtlasDev/Schemas/OperationEnvelope.php`; `app/Services/Ai/Programming/Sdd/Pipeline/OperationEnvelope.php`; `app/Services/Ai/Kernel/Envelope/OperationEnvelope.php` |
 | `smokesubject` | `app/Console/Commands/AtlasDevSeniorLoopAuditCommand.php`; `app/Console/Commands/AtlasDevDesktopRealSmokeCommand.php`; `app/Console/Commands/AtlasDevSeniorLoopRunCommand.php` |
 
@@ -401,7 +398,6 @@ Contratos de direcao para classes duplicadas:
 | Classe | Owner | Variante | Proibido |
 |---|---|---|---|
 | `OperationEnvelope` | `Kernel/Envelope` | AtlasDev schema e SDD pipeline; tambem sobe para `ai_confusion_cleanup_queue` com boundary e recomendacao | importar variante Programming como contrato Kernel |
-| `VerificationCommandRunner` | `Services/AtlasCode` concrete runner | AtlasDev Gate contract; rename so com binding/fake-runner migration | trocar interface e runner concreto por nome curto |
 | `FrontmatterParser` | Resolvido como grupo duplicado: `Services/Semantic` continua parser canonico; `Services/Vault/VaultNoteFrontmatterParser` virou classe real e `Services/Vault/FrontmatterParser` ficou alias compat | consolidar so com adapter que preserve erros e listas Vault | usar parser Vault como parser canonico de engineering docs |
 | `SmokeSubject` | fixture gerado em workspace local | comandos smoke/senior-loop; fica fora de `duplicate_class_cleanup_queue` de producao | tratar como classe de dominio/producao |
 
@@ -413,6 +409,7 @@ ficam apenas como aliases compat.
 `AtlasUnifiedRealityGraphService` preserva runtime AUCRI em `Ai/Context` e renomeia builder in-memory para `AtlasRealityGraphSnapshotBuilderService`.
 `AtlasCognitiveMemoryFabricService` preserva runtime AUCRI em `Ai/Context` e renomeia working-set policy para `AtlasCognitiveWorkingSetMemoryService`.
 `AiExecutionPlan` preserva aliases antigos e promove classes reais explicitas: `PersistentAiExecutionPlan` para a tabela `ai_execution_plans` e `AiPromptExecutionPlan` para payload de prompt.
+`VerificationCommandRunner` preserva aliases antigos e promove classes reais explicitas: `AtlasCodeVerificationCommandRunner` para evidence `atlas.code.verification_run.v1` e `AtlasDevVerificationCommandRunnerContract` para o gate AtlasDev.
 
 Schemas conhecidos de `OperationEnvelope`:
 
@@ -426,8 +423,8 @@ Contratos conhecidos de `VerificationCommandRunner`:
 
 | Variante | Uso permitido | Proibido |
 |---|---|---|
-| `Services/AtlasCode/VerificationCommandRunner` | servico concreto `atlas.code.verification_run.v1`; app/tests importam via `AtlasCodeVerificationCommandRunner as VerificationCommandRunner`; manter FQCN antigo somente como compatibility class | usar como interface injetavel do gate AtlasDev |
-| `Ai/Programming/AtlasDev/Gate/VerificationCommandRunner` | interface do `VerificationGate`; app/tests importam via `AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner`; manter FQCN antigo somente como compatibility class | substituir o runner AtlasCode ou escrever evidence AtlasCode diretamente |
+| `Services/AtlasCode/AtlasCodeVerificationCommandRunner` | servico concreto real `atlas.code.verification_run.v1`; FQCN antigo `Services/AtlasCode/VerificationCommandRunner` fica somente como alias compat | usar como interface injetavel do gate AtlasDev |
+| `Ai/Programming/AtlasDev/Gate/AtlasDevVerificationCommandRunnerContract` | interface real do `VerificationGate`; FQCN antigo `Ai/Programming/AtlasDev/Gate/VerificationCommandRunner` fica somente como alias compat | substituir o runner AtlasCode ou escrever evidence AtlasCode diretamente |
 
 Contratos conhecidos de `SmokeSubject`:
 
@@ -442,7 +439,7 @@ Ordem segura de limpeza para classes com mesmo nome curto:
 |---:|---|---|
 | 1 | `OperationEnvelope` | imports app/tests migrados para aliases explicitos; manter arquivos compatibility e so renomear variantes Programming com plano de adapter |
 | resolvido | `FrontmatterParser` | classe Vault renomeada para `VaultNoteFrontmatterParser`; manter alias compat ate nao haver consumers externos |
-| 3 | `VerificationCommandRunner` | imports app/tests migrados para aliases explicitos; manter arquivos compatibility e so renomear interface AtlasDev Gate com binding/fake-runner migration |
+| resolvido | `VerificationCommandRunner` | classes reais explicitas; FQCNs antigos viraram aliases compat |
 | resolvido | `AiExecutionPlan` | classes reais explicitas; FQCNs antigos viraram aliases compat |
 | fora da cleanup queue | `SmokeSubject` | manter como fixture gerado; extrair template comum so com owner decision AtlasDev |
 

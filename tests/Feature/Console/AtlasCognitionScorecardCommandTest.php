@@ -28,10 +28,13 @@ class AtlasCognitionScorecardCommandTest extends TestCase
         $this->assertStringContainsString('"scorecard_hash"', $text);
         $this->assertStringContainsString('"claim_policy"', $text);
 
-        // Validate it parses as JSON and has 31 subsystems.
+        // Validate it parses as JSON and reports the canonical subsystem count.
         $decoded = json_decode($text, true);
         $this->assertIsArray($decoded);
-        $this->assertSame(31, $decoded['report']['subsystem_count']);
+        $this->assertSame(
+            \App\Services\Ai\Cognition\AtlasCognitionScoreCardService::canonicalSubsystemCount(),
+            $decoded['report']['subsystem_count']
+        );
     }
 
     public function test_strict_flag_exits_zero_when_overall_is_10(): void

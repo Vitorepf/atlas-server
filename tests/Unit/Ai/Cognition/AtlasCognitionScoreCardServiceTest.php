@@ -10,9 +10,9 @@ use Tests\TestCase;
  */
 class AtlasCognitionScoreCardServiceTest extends TestCase
 {
-    public function test_canonical_subsystem_count_is_31(): void
+    public function test_canonical_subsystem_count_is_36(): void
     {
-        $this->assertSame(31, AtlasCognitionScoreCardService::canonicalSubsystemCount());
+        $this->assertSame(36, AtlasCognitionScoreCardService::canonicalSubsystemCount());
     }
 
     public function test_build_returns_canonical_envelope(): void
@@ -20,8 +20,8 @@ class AtlasCognitionScoreCardServiceTest extends TestCase
         $r = (new AtlasCognitionScoreCardService)->build();
 
         $this->assertSame('atlas.cognition.scorecard.v3', $r['schema_version']);
-        $this->assertSame(31, $r['subsystem_count']);
-        $this->assertCount(31, $r['subsystems']);
+        $this->assertSame(36, $r['subsystem_count']);
+        $this->assertCount(36, $r['subsystems']);
         $this->assertArrayHasKey('score', $r);
         $this->assertArrayHasKey('scorecard_hash', $r);
         $this->assertStringStartsWith('sha256:', $r['scorecard_hash']);

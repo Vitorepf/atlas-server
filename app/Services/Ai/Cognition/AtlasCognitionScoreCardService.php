@@ -4,6 +4,11 @@ namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
+use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
+use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use App\Services\Ai\AiDecisionReceiptRefreshService;
 use App\Services\Ai\AiMemoryDeltaProposer;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
@@ -117,6 +122,13 @@ class AtlasCognitionScoreCardService
 
         // Self-Improvement L7 (closed loop)
         ['ASI-L7', 'Self-Improvement Closed Loop L7', 'self_improvement', AtlasSelfImprovementResultLedgerService::class, 'ready', 'ready', 'building'],
+
+        // Patamar 2/3 — meta-learning, self-construction, AURG-4D, cross-domain mesh, TEOS-I3
+        ['ADML',    'Atlas Decide Meta-Learning',          'atlas_decide',      AtlasDecideMetaLearningService::class,            'ready', 'ready', 'building'],
+        ['ASCB',    'Self-Construction Subsystem Builder', 'self_construction', AtlasSelfConstructionSubsystemBuilderService::class, 'ready', 'ready', 'building'],
+        ['AURG-4D', 'Unified Reality Graph Temporal (4D)', 'reality',           AtlasUnifiedRealityGraphTemporalService::class,    'ready', 'ready', 'building'],
+        ['ACDM',    'Cross-Domain Mesh',                   'cross_domain',      AtlasCrossDomainMeshService::class,                'ready', 'ready', 'building'],
+        ['TEOS-I3', 'TEOS-I3 Counterfactual Runtime',      'teos',              AtlasTeosI3CounterfactualService::class,           'ready', 'ready', 'building'],
     ];
 
     /**
