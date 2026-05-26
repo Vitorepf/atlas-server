@@ -148,8 +148,8 @@ para qualquer fluxo operacional de codigo.
 
 Antes de criar feature, remover codigo ou declarar algo legado/morto, o dominio
 deve obedecer `atlas-code-reality-usage-intelligence.md`. ACRUI e o contrato
-que separa runtime ativo, read-only, headless, scaffold, legacy adapter,
-duplicacao, unused candidate e dead code confirmado.
+que separa realidade operacional, compatibilidade, duplicacao, quarantine e
+delete seguro.
 
 O dominio nao substitui o Core. Ele especializa criterio, plano, gates,
 evidencia e execucao para engenharia, consumindo as capacidades horizontais do
@@ -252,7 +252,7 @@ It owns the shared programming office:
 - mother contract and spec;
 - provider-specific context packs;
 - work packets and allowed/forbidden files;
-- artifact bus for Gemini, Claude, Codex, local agents and future providers;
+- artifact bus for Gemini, Claude, Codex and local agents;
 - scope/collision map;
 - integration queue and evidence normalization.
 
@@ -263,7 +263,7 @@ local agents validate through workspace artifacts governed by Atlas.
 ## Specialist Profiles
 
 `programming.visual` existe hoje, mas nao substitui um especialista frontend
-completo. A evolucao correta e manter Programming como dominio unico e adicionar
+completo. A regra operacional e manter Programming como dominio unico e usar
 specialist profiles internos, começando por `programming.frontend`.
 
 Perfis alvo: `programming.frontend`, `programming.backend_api`,
@@ -271,9 +271,10 @@ Perfis alvo: `programming.frontend`, `programming.backend_api`,
 `programming.accessibility`, `programming.testing`, `programming.api_contract`
 e `programming.devops_sre`.
 
-A regra completa vive em `programming-specialist-profiles.md`. Ate existir subflow
-formal, surfaces devem enviar `specialist_profile=programming.frontend` junto de
-`flow_id=programming.visual` ou `programming.dev`, nunca criar `domain_id=frontend`.
+A regra completa vive em `programming-specialist-profiles.md`. Surfaces devem
+enviar `specialist_profile=programming.frontend` junto de
+`flow_id=programming.visual` ou `programming.dev`; nunca criar
+`domain_id=frontend`.
 
 ## Repair Loop Contract
 
@@ -303,48 +304,72 @@ Validation:
 
 ## Resumo
 
-Spec canonica do dominio implemented/ready Programming para dev, repair, review, refactor, QA, security, database, visual, forge e specialist profiles internos.
+Programming e o dominio canônico para trabalho de codigo no Atlas. Ele cobre
+dev, repair, review, refactor, QA, security, database, visual, forge e
+specialist profiles internos sem criar dominios paralelos.
 
 ## Papel no Atlas
 
-Define a responsabilidade desta peca dentro da arquitetura Atlas.
+Centraliza decisao de flow, orchestrator, gates, evidence e surfaces para
+qualquer tarefa de engenharia. Atlas Dev, Atlas Forge, chat dev/review/debug,
+CLI, API, app e MCP entram por `programming.*`.
 
 ## Onde Se Encaixa
 
-Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+Programming consome Core, Open Brain, Code Intelligence, ACRUI, Evidence Ledger,
+Policy e Super Tool Runtime. Forge OS fica acima para obras pesadas; specialist
+profiles ficam dentro de Programming.
 
 ## Contratos
 
-Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+- Entrada operacional: tarefa de codigo com flow, contexto, risco e surface.
+- Saida operacional: plano, patch, review, repair, testes ou evidence packet.
+- Limite: nao criar dominio paralelo para frontend, backend, mobile ou forge.
+- Obrigacao: consultar ACRUI antes de criar feature, remover codigo ou declarar
+  legado/morto.
 
 ## Fluxo
 
-Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+```text
+task -> domain profile programming -> flow programming.* -> orchestrator
+-> context/code reality -> implementation or review -> tests/evidence
+```
 
 ## Regras para IA
 
-Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+- Reusar `AtlasProgrammingOrchestrator` e flows `programming.*`.
+- Nunca criar `domain_id=frontend`, `domain_id=backend` ou runtime forge paralelo.
+- Rodar ACRUI/anti-duplicate antes de implementar fluxo novo.
+- Tratar specialist profile como refinamento interno, nao como novo dominio.
 
 ## Escopo de Implementacao
 
-Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+Mudancas pertencem a `app/Services/Ai/Programming/**`, comandos/surfaces que
+chamam Programming e docs filhos em `docs/engineering-knowledge-base/domains/`.
 
 ## Dependencias
 
-Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+Dependencias canonicas: Core, Atlas Decide, Open Brain, Code Intelligence,
+ACRUI, Evidence Ledger, Engineering Harness, Policy e Forge OS para obras
+pesadas.
 
 ## Evidencias
 
-Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+Evidencia minima: `atlas:ai:domains --json`, `architecture-validate`, testes de
+domain profile e paths runtime listados em `related_paths`.
 
 ## Riscos
 
-Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+- Criar dominio paralelo por especialidade tecnica.
+- Confundir `programming.forge` com produto separado do Programming Domain.
+- Declarar codigo morto sem ACRUI, reachability e quarantine plan.
 
 ## Exemplos
 
-Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+Frontend usa `flow_id=programming.visual` ou `programming.dev` com
+`specialist_profile=programming.frontend`; nao usa `domain_id=frontend`.
 
 ## Proximas Acoes
 
-Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+Manter Programming sincronizado com orchestrator, surfaces, ACRUI, Forge Flow e
+specialist profiles.

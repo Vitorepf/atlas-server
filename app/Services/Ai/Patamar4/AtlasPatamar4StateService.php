@@ -40,6 +40,7 @@ final class AtlasPatamar4StateService
         private readonly AtlasDecideGatewayConsultationService $gatewayConsult,
         private readonly AtlasAntifragilityCompositionMetricService $antifragility,
         private readonly ?\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService $liveFeedback = null,
+        private readonly ?AtlasSchedulerHealthService $schedulerHealth = null,
     ) {}
 
     /**
@@ -94,6 +95,7 @@ final class AtlasPatamar4StateService
                 'count' => count($this->gatewayConsult->listConsultations()),
                 'recent' => array_slice($this->gatewayConsult->listConsultations(), -$tail),
             ],
+            'scheduler' => $this->schedulerStatus(),
             'live_outcome_feedback' => $this->liveOutcomeFeedbackSummary($tail),
             'antifragility' => $this->antifragility->measure(),
             'claim_policy' => [
@@ -105,6 +107,30 @@ final class AtlasPatamar4StateService
                 'provider_safe_only_enforced' => true,
             ],
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function schedulerStatus(): array
+    {
+        if ($this->schedulerHealth === null) {
+            return [
+                'wired' => false,
+                'silent_alarm' => true,
+                'reason' => 'service_not_wired',
+            ];
+        }
+        try {
+            return ['wired' => true] + $this->schedulerHealth->status();
+        } catch (\Throwable $e) {
+            return [
+                'wired' => true,
+                'silent_alarm' => true,
+                'reason' => 'status_error',
+                'error' => substr($e->getMessage(), 0, 120),
+            ];
+        }
     }
 
     /**

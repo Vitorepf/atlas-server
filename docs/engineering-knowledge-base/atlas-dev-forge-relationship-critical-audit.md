@@ -2,10 +2,17 @@
 id: atlas-dev-forge-relationship-critical-audit
 type: engineering_knowledge
 title: Atlas Dev x Atlas Forge Relationship Critical Audit
-status: active
+status: deprecated
+implementation_state: historical_snapshot_deprecated_read_only
+blocker: superseded_by_current_dual_core_runtime_and_programming_readiness
 category: programming
-priority: 90
-summary: Auditoria crítica (READ-ONLY) sobre a relação Atlas Dev ↔ Atlas Forge — identidade canônica vs implementação real. Veredicto principal — os dois núcleos existem e são tecnicamente independentes em código, mas os 2 schemas canônicos do contrato dual-core não estão implementados, e há 4 mecanismos paralelos de escalação Dev→Forge no código que não concordam entre si.
+priority: 40
+summary: Snapshot historico READ-ONLY de auditoria Dev ↔ Forge. Preservado para contexto, mas superseded pelo runtime dual-core atual: route_decision.v1 e escalation_packet.v1 existem em codigo/testes e este relatorio nao governa status atual.
+superseded_by:
+  - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
+  - docs/engineering-knowledge-base/atlas-programming-runtime-final-certification.md
+  - app/Services/Ai/DualCore/DualCoreRouteDecisionService.php
+  - app/Services/Ai/Programming/AtlasDev/Schemas/EscalationPacket.php
 tags:
   - atlas-dev
   - atlas-forge
@@ -19,14 +26,12 @@ capabilities:
   - canonical_contract_vs_code
   - naming_confusion_mapping
 decisions:
-  - Dev e Forge existem como sistemas completos em código (138 files Dev + ~75 files Forge); identidade respeitada no nível de import.
-  - Os 2 schemas canônicos `atlas.dual_core.route_decision.v1` e `atlas.dev_to_forge.escalation_packet.v1` NÃO existem em código.
-  - Há 4 mecanismos paralelos de escalação Dev→Forge que não compartilham schema.
-  - Recomendação principal — implementar os 2 schemas dual-core antes de qualquer outro trabalho na relação Dev↔Forge.
+  - Snapshot historico read-only; nao altera contratos nem status atual.
+  - O veredicto original foi superseded: `atlas.dual_core.route_decision.v1` e `atlas.dev_to_forge.escalation_packet.v1` existem em codigo/testes atuais.
+  - Para estado atual, usar dual-core runtime, programming readiness/certification, ACRUI e testes.
 maintenance:
-  - Regenerar quando schemas dual-core forem implementados.
-  - Atualizar quando o feature flag `atlas_dev_efficient_plan_enabled` for promovido em produção.
-  - Atualizar quando os drivers reais Claude/Codex/Gemini CLI saírem de `provider_driver_missing`.
+  - Nao regenerar este snapshot; criar nova auditoria datada se necessario.
+  - Corrigir apenas links ou boundary que possam induzir IA a usar este doc como verdade atual.
 related_paths:
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
   - docs/engineering-knowledge-base/atlas-dev-index.md
@@ -48,7 +53,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: module
 graph_parent: atlas-dual-core-engineering-system
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: Atlas Dev x Atlas Forge Relationship Critical Audit
 canonical_name: Atlas Dev x Atlas Forge Relationship Critical Audit
@@ -62,8 +67,7 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-dev-forge-relationship-critical-audit.md
 
 allowed_changes:
-  - Atualizar quando schemas dual-core forem implementados em código.
-  - Atualizar quando os 4 mecanismos paralelos de escalação forem consolidados.
+  - Corrigir boundary historico ou apontar sucessores atuais.
 
 forbidden_changes:
   - Declarar Dev como feature interna do Forge.
@@ -106,15 +110,23 @@ requires_evidence: true
 risk_level: high
 
 next_actions:
-  - ✅ 2026-05-18 — schema `atlas.dual_core.route_decision.v1` implementado (`app/Services/Ai/DualCore/DualCoreRouteDecisionService.php` + `AiDualCoreRouteDecision` model + `ai_dual_core_route_decisions` table + 11 testes em `DualCoreRouteDecisionServiceTest`).
-  - Implementar schema `atlas.dev_to_forge.escalation_packet.v1` (atualmente 0 matches).
-  - Consolidar os 4 mecanismos paralelos de escalação em um único path canônico.
-  - Reconciliar doc status `future` em atlas-forge-operating-system{,-contracts,-runbook}.md vs código em produção.
-  - Promover Dev de "fatia 5 em construção" para produção via feature flag `atlas_dev_efficient_plan_enabled`.
-  - Decidir configuração de drivers reais (claude_cli/codex_cli/gemini_cli) ou explicitar que Forge é fixture-only.
+  - Consultar `php artisan atlas:programming:runtime-readiness --json` para estado atual.
+  - Consultar testes DualCore/EscalationPacket antes de qualquer claim Dev↔Forge.
+  - Criar nova auditoria datada se a relacao Dev↔Forge precisar ser reavaliada.
 
 ---
 # Atlas Dev x Atlas Forge Relationship Critical Audit
+
+## Boundary Historico
+
+Este documento e um snapshot de auditoria antigo. Ele nao e fonte de verdade
+operacional atual para Dev↔Forge. O veredicto original de schemas ausentes foi
+superseded: `atlas.dual_core.route_decision.v1` existe em
+`DualCoreRouteDecisionService`/`AiDualCoreRouteDecision`, e
+`atlas.dev_to_forge.escalation_packet.v1` existe em `EscalationPacket` e nos
+fluxos atuais de handoff/promotion. Quando houver conflito, prevalecem
+`atlas-dual-core-engineering-system.md`, codigo, migrations, testes,
+Programming Runtime readiness/certification, ACRUI e Evidence Ledger.
 
 ## Resumo
 **Veredicto curto:** os dois núcleos **existem como sistemas técnicos completos
@@ -485,32 +497,8 @@ Resultado: relação funciona ad-hoc, auditável apenas via 4 tabelas/artifacts.
 Sem 1 query única respondendo "por que foi rota dev_to_forge?".
 
 ## Proximas Acoes
-**Ordem recomendada (próximas 3 sprints):**
 
-**Sprint 1 (P0 — destravar fundação):**
-1. Implementar `atlas.dual_core.route_decision.v1`
-   (item 1 da tabela §Evidencias #13).
-2. Implementar `atlas.dev_to_forge.escalation_packet.v1` (item 2).
-3. Teste de smoke: `atlas:dual-core:route-decision:smoke`.
-
-**Sprint 2 (P1 — consolidar e clarear):**
-4. Consolidar 4 mecanismos paralelos em 1 (item 3).
-5. Reconciliar doc status Forge parents (item 4).
-6. Decisão de produto sobre drivers reais (item 5).
-
-**Sprint 3 (P2 — promover e organizar):**
-7. Mover AtlasForge* para subdir (item 6).
-8. Promover Atlas Dev em produção (item 7).
-9. Wire Atlas AI Router como entrada única HTTP (item 8).
-
-**Backlog (P3):**
-10. Rivals → completion loop (item 9).
-11. E2E canônico (item 10).
-12. Doc desambiguador (item 11).
-13. Evidence cross-reference (item 12).
-
-**Gates de fechamento (2026-05-18):**
-- `php artisan atlas:engineering:knowledge docs-health --json` → confirmar 0
-  violations, este doc abaixo do limite.
-- `git diff --check` no atlas-server.
-- Nenhuma doc canônica alterada por este relatório.
+Nao executar o roadmap historico deste snapshot. Para trabalho atual, rode os
+gates dual-core/programming runtime e crie uma nova auditoria datada com estado
+real de `route_decision.v1`, `escalation_packet.v1`, handoff, promotion e Forge
+intake.

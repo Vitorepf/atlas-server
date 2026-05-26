@@ -5,7 +5,7 @@ title: Atlas Programming Superiority Architecture
 status: active
 category: programming
 priority: 100
-summary: Arquitetura canônica de superioridade programática do Atlas — índice estratégico que explica COMO Atlas Dev + Atlas Forge superam Claude Code/Codex por sistema (RAG mandatório, world model, contratos, evidence, certificação, multi-agent, compounding) e não por prompt. Aponta para contratos e roadmap em docs filhas.
+summary: Arquitetura canônica interna de excelência programática do Atlas — índice estratégico que explica COMO Atlas Dev + Atlas Forge buscam vantagem sistêmica por RAG governado, world model, contratos, evidence, certificação, multi-agent e compounding. Não autoriza claim externo de superioridade sem benchmark auditado.
 tags:
   - atlas-dev
   - atlas-forge
@@ -23,8 +23,9 @@ decisions:
   - Atlas Dev = núcleo rápido diário; Atlas Forge = núcleo pesado de Obras; sem fusão.
   - "10x/30x/100x" só pode ser declarado COM definição de métrica auditada.
   - Runtime hoje ≠ estado-alvo; este doc separa o que está vivo do que é design.
+  - Claim externo contra Claude Code/Codex permanece bloqueado por policy; este doc governa arquitetura interna e backlog.
 maintenance:
-  - Atualizar quando schema `atlas.dev_to_forge.escalation_packet.v1` shipar.
+  - Atualizar quando dual-core route/escalation runtime, Programming readiness ou benchmark policy mudarem.
   - Atualizar quando AiWorker passar a invocar Kernel canônico.
   - Atualizar quando feature flag `atlas_dev_efficient_plan_enabled` ON em produção.
 related_paths:
@@ -110,14 +111,15 @@ evidence:
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan test tests/Feature/Ai/DualCore/DualCoreRouteDecisionServiceTest.php tests/Unit/Ai/Programming/AtlasDev/Schemas/Receipt/EscalationPacketTest.php"
 
 requires_evidence: true
 
 risk_level: high
 
 next_actions:
-  - Implementar schema `atlas.dev_to_forge.escalation_packet.v1` (Schema 2 do dual-core; Schema 1 já entregue 2026-05-18).
-  - Wire `DualCoreRouteDecisionService` em path HTTP de produção (atualmente 0 callers).
+  - Consolidar todos os paths Dev→Forge restantes no `atlas.dev_to_forge.escalation_packet.v1`.
+  - Garantir que route decisions sejam emitidas por todas as entradas relevantes, não apenas promotion/handoff.
   - Endurecer `ToolPolicyBridgeService` e `ToolReceiptService` (remover fallback silencioso).
   - Enriquecer `MissionCertificationService::runChecks` com checks quality-aware (hoje shape-only).
   - Consolidar 4 mecanismos paralelos de escalação Dev→Forge em path único.
@@ -140,9 +142,11 @@ aprenderem com cada uso (`atlas-ai-thesis-multiplier-channel.md:123-149`).
   `ForgeRivals/` / `AtlasCodeForge*` + 11 services Compounding + 7 classes PEVR
   + 8 schemas RAG canônicos + 3 models World Model.
 - **Schema 1 do dual-core (`atlas.dual_core.route_decision.v1`) shipped** —
-  `DualCoreRouteDecisionService` + 11 tests; **ZERO callers em produção** ainda.
+  `DualCoreRouteDecisionService` + testes e callers reais em promotion/handoff.
+- **Schema 2 (`atlas.dev_to_forge.escalation_packet.v1`) shipped** —
+  `EscalationPacket` + factory + handoff/promotion tests.
 - AiWorker continua bypassing Kernel canônico (Phase 2 audit, ainda válido).
-- **Não declaramos superioridade** até benchmark com métrica auditada provar.
+- **Não declaramos superioridade externa** até benchmark com métrica auditada provar.
 
 Este doc é índice. Detalhes contratuais em
 `atlas-programming-superiority-contracts.md`; fases e missões em
@@ -184,8 +188,8 @@ Ver `atlas-programming-superiority-contracts.md` para field shapes completos. Aq
 
 | # | Schema | Status hoje |
 |---|--------|-------------|
-| 1 | `atlas.dual_core.route_decision.v1` | ✅ shipped (zero callers) |
-| 2 | `atlas.dev_to_forge.escalation_packet.v1` | ❌ gap (0 matches code) |
+| 1 | `atlas.dual_core.route_decision.v1` | ✅ shipped + callers em promotion/handoff |
+| 2 | `atlas.dev_to_forge.escalation_packet.v1` | ✅ shipped + factory/handoff/promotion tests |
 | 3 | `atlas.programming.intent_classification.v1` | ⚠️ via Router IntentKernelService |
 | 4 | `atlas.programming.context_pack.professional.v1` | ✅ `ProgrammingRetrievalExecutor:148` |
 | 5 | `atlas.programming.agentic_rag.professional_plan.v1` | ✅ `ProgrammingRetrievalPlanner:104` |
@@ -199,8 +203,9 @@ Ver `atlas-programming-superiority-contracts.md` para field shapes completos. Aq
 | 13 | `atlas.programming.retrieval_eval.v1` | ✅ `ProgrammingRetrievalEvaluator:26` |
 | 14 | `atlas.ai.compounding.{outcome,learning_candidate,memory,heuristic_update,benchmark_case}.v1` | ✅ 11 services em `app/Services/Ai/Compounding/` |
 
-13 de 14 contratos são shipé (com qualificação "computado não enforced"
-em #6 e "zero callers" em #1). O gap crítico é #2 (escalation_packet).
+14 de 14 contratos catalogados possuem implementação observável, com
+qualificação: #6 ainda é computado sem enforcement obrigatório em todos os
+flows, e alguns callers dual-core ainda precisam ser consolidados.
 
 ## Fluxo
 **Fluxo canônico de superioridade** (estado-alvo, não produção hoje):
@@ -351,9 +356,9 @@ Sem isso, qualquer "Nx" é marketing, não engenharia.
 | # | Gap | Severidade | Evidencia |
 |---|-----|-----------|-----------|
 | 1 | AiWorker bypassa Kernel canônico (não invoca Mission/Router/Policy) | P0 | `AiWorker.php` constructor 23 deps, nenhuma kernel |
-| 2 | DualCoreRouteDecisionService com zero callers em produção | P0 | `rg DualCoreRouteDecisionService app/Http app/Console → vazio` |
-| 3 | `atlas.dev_to_forge.escalation_packet.v1` ausente | P0 | 0 matches em `app/` |
-| 4 | 4 mecanismos paralelos de escalação Dev→Forge | P1 | `atlas-dev-forge-relationship-critical-audit.md` |
+| 2 | DualCore route decisions ainda nao cobrem todas as entradas | P0 | callers existem em promotion/handoff; expandir para entradas restantes |
+| 3 | EscalationPacket v1 existe, mas paths paralelos ainda precisam convergir | P0 | `EscalationPacket` + factory + promotion/handoff |
+| 4 | Mecanismos paralelos de escalação Dev→Forge ainda exigem consolidação | P1 | auditorias e readiness de programming |
 | 5 | Mandatory RAG gate computado mas não enforced | P1 | `ProgrammingRetrievalPlanner:137-141` (status retornado, não jogado) |
 | 6 | MissionCertificationService::runChecks shape-only (count>0) | P1 | `MissionCertificationService:94-120` |
 | 7 | Tool Policy/Evidence bridges com fallback silencioso | P1 | `ToolPolicyBridgeService:62-71`, `ToolReceiptService:90-96` |
@@ -369,8 +374,9 @@ Sem isso, qualquer "Nx" é marketing, não engenharia.
 ## Riscos
 1. **Scaffold paralelo vs path legado:** Kernel canônico shipé sem produção cria
    2 fontes de verdade. Cada commit afasta. → Wire AiWorker urgente.
-2. **Schema sem caller:** Schema 1 dual-core shipé, 0 consumidores. Risco
-   de virar schema fantástico (existe mas não serve). → Wire em FlowRouter.
+2. **Schema com cobertura parcial:** Schema 1 dual-core tem consumidores reais,
+   mas ainda precisa cobrir todas as entradas relevantes. → expandir route
+   decision sem criar schema paralelo.
 3. **5º mecanismo de escalação:** novo dev cria 5º path em vez de consolidar.
    → Doc esta proibida (`forbidden_changes`).
 4. **Driver real configurado sem governance:** habilitar Claude/Codex/Gemini CLI
@@ -415,12 +421,11 @@ Sem isso, qualquer "Nx" é marketing, não engenharia.
 Detalhe em `atlas-programming-superiority-roadmap.md`. Resumo das 5 missões
 mais críticas (todas P0/P1, sequencial-mandatórias):
 
-1. **M1 — Wire DualCoreRouteDecisionService em produção.** (4-6h)
-   Tornar `FlowRouterService` chamar `recordFromFlowRoute`. Sem isso, Schema 1
-   é schema fantasma.
-2. **M2 — Implementar `atlas.dev_to_forge.escalation_packet.v1`.** (6-8h)
-   Schema 2 do dual-core. Substitui `atlas.dev.forge_promotion_preview.v1` ou
-   torna-o wrapper interno.
+1. **M1 — Expandir route_decision.v1 para todas as entradas relevantes.**
+   Callers existem em promotion/handoff; falta garantir cobertura completa sem
+   schema paralelo.
+2. **M2 — Consolidar `atlas.dev_to_forge.escalation_packet.v1` como packet único.**
+   Schema 2 existe; paths auxiliares devem virar wrappers/adapters finos.
 3. **M3 — Consolidar 4 mecanismos paralelos de escalação em 1.** (12-18h)
    Eleger `AtlasForgeHandoffAdapter::promote` (Meta 2-based) como canônico;
    deprecar os outros 3 com aviso.

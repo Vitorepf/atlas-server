@@ -2,9 +2,9 @@
 id: atlas-hybrid-retrieval-infrastructure
 type: engineering_knowledge
 title: Atlas Hybrid Retrieval Infrastructure
-status: building
-implementation_state: building_read_only_retrieval_report_runtime
-blocker: AHRI possui runtime read-only para source plan, candidate normalization, ASEF semantic candidates e report; ainda falta executar adapters profundos reais de docs/code/evidence e alimentar ACRS.
+status: active
+implementation_state: ready_read_only_retrieval_report_runtime
+blocker: none_for_read_only_runtime; adapters profundos de docs/code/evidence ainda exigem AP/owner decision antes de substituir os adapters shallow atuais.
 category: intelligence-runtime
 priority: 99
 summary: Doc filha AUCRI para retrieval hibrido: lexical, vector, memory, docs, evidence, code refs, attachments e source adapters sob um contrato unico.
@@ -36,7 +36,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
-graph_status: building
+graph_status: active
 graph_source: repo
 human_name: Atlas Hybrid Retrieval Infrastructure
 canonical_name: Atlas Hybrid Retrieval Infrastructure
@@ -68,7 +68,6 @@ requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Conectar AHRI ao ACRS como entrada de ranking.
   - Trocar candidatos shallow por adapters profundos de docs/code/evidence sem duplicar stores.
 ---
 # Atlas Hybrid Retrieval Infrastructure
@@ -77,18 +76,19 @@ next_actions:
 
 AHRI e o bloco 2 da AUCRI. Ele unifica a coleta de candidatos de contexto:
 lexical, embeddings, memoria, docs canonicos, evidence, code refs, anexos,
-receipts e future graph candidates.
+receipts e candidatos de graph retrieval governados.
 
 ## Papel no Atlas
 
 Ser o motor de coleta. Ele alimenta AARF, ACRS e ACIE com candidatos
 normalizados e auditaveis.
 
-Estado atual: `AtlasHybridRetrievalInfrastructureService` emite
-`atlas.aucri.retrieval_report.v1` read-only com source plan do
+Estado real: `AtlasHybridRetrievalInfrastructureService` emite
+`atlas.aucri.hybrid_retrieval_infrastructure.v1` com
+`atlas.aucri.retrieval_report.v1` read-only. O report inclui source plan do
 `ContextRetrievalRouter`, candidatos ASEF, context refs explicitos, dedupe,
-misses, excluded refs e policy sem provider externo. O comando canonico e
-`php artisan atlas:context:hybrid-retrieval --json`.
+misses, excluded refs, hash e policy sem provider externo/escrita. O comando
+canonico e `php artisan atlas:context:hybrid-retrieval --json`.
 
 ## Onde Se Encaixa
 
@@ -121,9 +121,9 @@ source plan -> adapters -> candidates -> retrieval report -> ACRS
 ## Escopo de Implementacao
 
 Service unificado read-only, normalizador de candidatos, adapters shallow para
-source plan/context refs/ASEF, tests por source e command readiness. Proxima
-fase troca adapters shallow por adapters profundos reais de memory/docs/code e
-evidence.
+source plan/context refs/ASEF, tests por source e command readiness. ACRS ja
+consome AHRI via AARF. Adapters profundos reais de memory/docs/code/evidence
+continuam backlog governado e nao autorizam criar RAG paralelo.
 
 ## Dependencias
 
@@ -143,6 +143,6 @@ Prompt de debug busca arquivos, tests, receipts, known failures e docs.
 
 ## Proximas Acoes
 
-1. Conectar report AHRI ao ACRS.
-2. Criar adapters profundos reuse-first para docs/code/evidence.
-3. Cobrir cross-domain sem quebrar Programming RAG.
+1. Criar adapters profundos reuse-first para docs/code/evidence.
+2. Cobrir cross-domain sem quebrar Programming RAG.
+3. Manter AHRI como coleta read-only; ranking continua em ACRS.

@@ -7,7 +7,7 @@ category: intelligence-runtime
 priority: 98
 summary: AEMOR e a camada de memoria operacional verificavel do Atlas. Enquanto APCR garante contexto antes da execucao, AEMOR registra episodios, outcomes, falhas, reparos, decisoes, handoffs e aprendizados depois/durante a execucao, promovendo memoria somente com evidencia.
 implementation_state: implemented_local_runtime
-blocker: none_for_local_runtime; future hardening may extend depth without changing the canonical contract.
+blocker: none_for_local_runtime; later hardening may extend depth without changing the canonical contract.
 tags:
   - atlas-ai
   - aemor
@@ -44,6 +44,7 @@ decisions:
   - Execution trace, evidence, learning signal, memory, context e decision sao entidades diferentes.
   - Memoria operacional nunca nasce diretamente de resposta de IA, log bruto ou chat.
   - AEMOR nao chama provider, nao roda benchmark e nao altera router/policy automaticamente.
+  - Termos `blocked`, `candidate`, `watch`, `trusted`, `stale`, `deprecated`, `archived` e `tombstoned` sao estados canonicos de outcome/memoria; nao indicam doc futura ou planejamento pendente.
 maintenance:
   - Atualizar quando APCR, Atlas Dev, Atlas Forge, Evidence Runtime ou Compounding mudarem contratos.
   - Nao criar runtime paralelo aos ledgers existentes sem ADR e evidencia de lacuna.
@@ -120,7 +121,7 @@ requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Expandir AEMOR com deeper provider/skill reliability once real execution data accumulates.
+  - Expandir AEMOR com provider/skill reliability mais profundo quando dados reais de execucao acumularem.
   - Add UI/control-plane panels only after backend adoption stabilizes.
   - Keep certification green whenever APCR, Hyperflow, Dev or Forge wiring changes.
 ---
@@ -292,7 +293,7 @@ raw execution log
 -> watch
 -> trusted memory
 -> APCR retrieval
--> future execution
+-> later execution
 -> usage feedback / decay / forgetting
 ```
 

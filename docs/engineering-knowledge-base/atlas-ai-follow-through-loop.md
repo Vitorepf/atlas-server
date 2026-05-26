@@ -14,6 +14,7 @@ capabilities:
   - mission_follow_through
 decisions:
   - Follow-Through executa ciclos seguros sobre Mission Foundation sem duplicar Mission Mode.
+  - Termos `planned`, `running`, `blocked`, `certifying`, `completed`, `simulated`, `handoff_dev` e `handoff_forge` sao estados/eventos canonicos de lifecycle; nao significam doc futura ou scaffold.
 maintenance:
   - Atualizar quando MissionFollowThroughService, comandos ou lifecycle mudarem.
 related_paths:

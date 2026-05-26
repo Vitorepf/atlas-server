@@ -120,16 +120,17 @@ final class AtlasCodeMcpStatusController extends Controller
             $row = AtlasOpenBrainAccessLog::query()
                 ->orderByDesc('created_at')
                 ->limit(1)
-                ->first(['tool', 'operator_id', 'duration_ms', 'created_at']);
+                ->first(['surface', 'requester', 'action', 'status', 'metadata', 'accessed_at', 'created_at']);
             if (! $row) {
                 return null;
             }
 
             return [
-                'tool' => (string) ($row->tool ?? ''),
-                'operator_id' => (string) ($row->operator_id ?? ''),
-                'duration_ms' => (int) ($row->duration_ms ?? 0),
-                'at' => $row->created_at?->toJSON(),
+                'tool' => (string) ($row->action ?? ''),
+                'operator_id' => (string) ($row->requester ?? $row->surface ?? ''),
+                'duration_ms' => (int) data_get($row->metadata, 'duration_ms', 0),
+                'status' => (string) ($row->status ?? ''),
+                'at' => ($row->accessed_at ?? $row->created_at)?->toJSON(),
             ];
         } catch (\Throwable) {
             return null;

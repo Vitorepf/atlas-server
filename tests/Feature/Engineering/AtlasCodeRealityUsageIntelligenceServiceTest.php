@@ -676,6 +676,10 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             'ACRUI owns active/scaffold/legacy/future/planned classification vocabulary; its own taxonomy must not be treated as stale implementation drift.'
         );
         $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-documentation-reality-system'),
+            'ADRS owns documentation lifecycle vocabulary such as active/scaffold/future/legacy/quarantine/deleted; that taxonomy must not be treated as stale implementation drift.'
+        );
+        $this->assertNull(
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-documentation-enforcement-runtime'),
             'ADER owns ready/review/blocked pre-implementation gate language and is integrated into architecture operations/session bootstrap; that contract vocabulary is not stale implementation drift.'
         );
@@ -688,12 +692,20 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             'APCR is locally certified across Hyperflow, Gateway, Dev, Forge, Control Plane and memory guard; next-action vocabulary is maintenance, not stale implementation drift.'
         );
         $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-execution-memory-outcome-runtime'),
+            'AEMOR owns outcome and memory lifecycle states such as blocked/candidate/trusted/stale/archived; that vocabulary is not stale implementation drift.'
+        );
+        $this->assertNull(
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-workspace-intelligence-system'),
             'AWIS has active runtime evidence and graph_status must not remain planned once the runtime gate is ready.'
         );
         $this->assertNull(
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-kernel-mission-foundation'),
             'Mission Foundation owns mission lifecycle enums such as draft/planned/running; lifecycle status vocabulary is not document-level scaffold drift.'
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-ai-follow-through-loop'),
+            'Follow-Through Loop owns mission cycle states such as planned/running/blocked/simulated/handoff; lifecycle vocabulary is not stale implementation drift.'
         );
         $this->assertNull(
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-ai-router-runtime-enterprise-upgrade'),

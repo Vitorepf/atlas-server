@@ -2,10 +2,17 @@
 id: atlas-full-architecture-understanding-report
 type: engineering_knowledge
 title: Atlas Full Architecture Understanding Report
-status: active
+status: deprecated
+implementation_state: historical_snapshot_deprecated_read_only
+blocker: superseded_by_current_operational_gates
 category: architecture
-priority: 85
-summary: Auditoria leitor (READ-ONLY) que cruza 40 docs canônicas com o estado real do backend em /atlas-server. Mapeia o que é o Atlas AI, camadas, domínios, invariantes, gaps e incertezas em 2026-05-18.
+priority: 40
+summary: Snapshot historico READ-ONLY de 2026-05-18 que cruzou 40 docs canonicas com o backend da epoca. Preservado para auditoria, mas nao governa status atual contra ACRUI, ADRS, ACOS, docs-health, testes e codigo.
+superseded_by:
+  - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
+  - docs/engineering-knowledge-base/atlas-documentation-reality-system.md
+  - docs/engineering-knowledge-base/atlas-cognition-operating-system.md
+  - docs/engineering-knowledge-base/atlas-documentation-enforcement-runtime.md
 tags:
   - atlas-ai
   - architecture-audit
@@ -21,9 +28,10 @@ decisions:
   - Relatório de auditoria, não altera contratos.
   - Toda afirmação ancorada em path:linha ou comando.
   - Diferencia documentado / implementado / testado / certificado.
+  - Snapshot historico arquivado: nao deve ser usado por IA como verdade operacional atual.
 maintenance:
-  - Regenerar quando Meta nova for promovida.
-  - Não editar para mudar arquitetura; apenas atualizar leitura.
+  - Nao regenerar este snapshot; criar novo relatorio datado se uma auditoria completa for refeita.
+  - Para status atual, usar ACRUI, ADRS, ACOS, docs-health, testes e codigo.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
@@ -52,7 +60,7 @@ graph_kind: module
 
 graph_parent: atlas-ai-architecture-audit
 
-graph_status: active
+graph_status: deprecated
 
 graph_source: repo
 human_name: Atlas Full Architecture Understanding Report
@@ -67,7 +75,7 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-full-architecture-understanding-report.md
 
 allowed_changes:
-  - Atualizar este relatório quando uma Meta nova for promovida ou um sub-projeto antes não-verificado for inspecionado.
+  - Corrigir boundary historico, links quebrados ou claims que possam induzir IA a tratar o snapshot como verdade atual.
 
 forbidden_changes:
   - Alterar contratos ou refatorar arquitetura a partir deste doc; este relatório só lê.
@@ -98,13 +106,21 @@ requires_evidence: true
 risk_level: low
 
 next_actions:
-  - Verificar via rg presença real do `ProgrammingDomainRuntimeAdapter` e demais bridges Meta 7.
-  - Promover doc Forge OS de `future` para `implemented` ou criar doc gêmea de subspecs.
-  - Desbloquear Local Agent Memory Ingestion (Mission/Policy/Evidence/Tool já verdes).
-  - Consolidar manifesto canônico de Self-Improvement (domain × cockpit × closed-loop).
+  - Usar `php artisan atlas:code-reality status-drift-audit --json` para status atual.
+  - Usar `php artisan atlas:documentation:enforce --strict --json` antes de implementar.
+  - Criar novo snapshot datado se uma auditoria equivalente for refeita.
 
 ---
 # Atlas Full Architecture Understanding Report
+
+## Boundary Historico
+
+Este documento e um snapshot arquivado de 2026-05-18. Ele preserva uma leitura
+historica util, mas nao e fonte de verdade operacional atual. Quando houver
+conflito, prevalecem docs canonicos de owner, codigo, migrations, testes,
+Evidence Ledger, ACRUI, ADRS, ACOS, docs-health e ADER. Uma IA nao deve usar
+este relatorio para concluir que um subsystem atual esta implementado,
+pendente, bloqueado ou obsoleto.
 
 ## Resumo
 Atlas AI é o produto: *Autonomous Intelligence Operating System* multi-domínio.

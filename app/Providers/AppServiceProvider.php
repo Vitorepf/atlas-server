@@ -144,6 +144,106 @@ class AppServiceProvider extends ServiceProvider
         // is sufficient — no opt-in setter required.
         $this->app->singleton(\App\Services\Ai\Cartography\CartographyTruthGuardService::class);
 
+        // Patamar 4 · Scheduler OS heartbeat health service — singleton so the
+        // CLI heartbeat, status command, and state aggregator share a single
+        // instance (and any setLogPathForTesting override stays sticky).
+        $this->app->singleton(\App\Services\Ai\Patamar4\AtlasSchedulerHealthService::class);
+
+        // Patamar 4 · Auto-Rebalance — wire real diagnostic probes for kinds
+        // that have a measurable source service. Unwired kinds emit honest
+        // observed:null + probe_status=unwired. Operator can extend later.
+        $this->app->resolving(\App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService::class, function ($svc, $app) {
+            if (! $svc instanceof \App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService) {
+                return;
+            }
+            // aemor_recompact_advice → AEMOR memory audit (blocked + watch counts).
+            $svc->setProbe(
+                \App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService::KIND_AEMOR_RECOMPACT,
+                function () use ($app): array {
+                    try {
+                        /** @var \App\Services\Ai\Aemor\AtlasAemorRuntimeService $aemor */
+                        $aemor = $app->make(\App\Services\Ai\Aemor\AtlasAemorRuntimeService::class);
+                        $audit = $aemor->memoryAudit();
+                        $total = (int) ($audit['summary']['total'] ?? 0);
+                        $watch = (int) ($audit['summary']['watch'] ?? 0);
+                        $blocked = (int) ($audit['summary']['blocked'] ?? 0);
+                        $redundancy = $total > 0 ? round(($watch + $blocked) / max(1, $total), 4) : 0.0;
+
+                        return [
+                            'observed' => $redundancy,
+                            'source' => 'AtlasAemorRuntimeService.memoryAudit()',
+                            'note' => "candidates total={$total} watch={$watch} blocked={$blocked}",
+                        ];
+                    } catch (\Throwable $e) {
+                        return [
+                            'observed' => null,
+                            'source' => 'AtlasAemorRuntimeService.memoryAudit()',
+                            'note' => 'aemor unreachable: '.substr($e->getMessage(), 0, 90),
+                        ];
+                    }
+                }
+            );
+            // mcp_pool_warmup_advice → manifest cardinality + tier breakdown.
+            $svc->setProbe(
+                \App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService::KIND_MCP_POOL_WARMUP,
+                function () use ($app): array {
+                    try {
+                        /** @var \App\Services\Ai\Mcp\AtlasMcpTierService $mcp */
+                        $mcp = $app->make(\App\Services\Ai\Mcp\AtlasMcpTierService::class);
+                        $manifest = $mcp->tierManifest();
+                        $total = (int) ($manifest['total_tools'] ?? 0);
+                        $detail = isset($manifest['tiers'][3]) ? count($manifest['tiers'][3]) : 0;
+                        // Cold proxy: fraction of detail-tier tools that need warmup.
+                        $coldFraction = $total > 0 ? round($detail / max(1, $total), 4) : 0.0;
+
+                        return [
+                            'observed' => $coldFraction,
+                            'source' => 'AtlasMcpTierService.tierManifest()',
+                            'note' => "total_tools={$total} detail_tier={$detail}",
+                        ];
+                    } catch (\Throwable $e) {
+                        return [
+                            'observed' => null,
+                            'source' => 'AtlasMcpTierService.tierManifest()',
+                            'note' => 'mcp unreachable: '.substr($e->getMessage(), 0, 90),
+                        ];
+                    }
+                }
+            );
+            // cache_compact and agrn_reindex remain honestly unwired — the
+            // probes will report probe_status=unwired until the underlying
+            // services expose canonical size / stale_fraction probes.
+        });
+
+        // Patamar 4 · F2 Swarm Production Resolver — opt-in via flag. When
+        // enabled the executor's resolver becomes a real AiProviderManager
+        // bridge with per-provider circuit breaker. Default OFF so tests
+        // and stubbed environments keep behaving as before.
+        $this->app->singleton(\App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService::class, function ($app) {
+            $threshold = (int) (config('atlas.patamar4.swarm_circuit_threshold', \App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService::DEFAULT_CIRCUIT_THRESHOLD));
+            $cooldown = (int) (config('atlas.patamar4.swarm_circuit_cooldown_seconds', \App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService::DEFAULT_CIRCUIT_COOLDOWN_SECONDS));
+
+            return new \App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService(
+                $app->make(\App\Services\Ai\AiProviderManager::class),
+                $threshold,
+                $cooldown,
+            );
+        });
+        $this->app->resolving(\App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService::class, function ($svc, $app) {
+            if (! $svc instanceof \App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService) {
+                return;
+            }
+            if (! (bool) config('atlas.patamar4.swarm_production_resolver_enabled', false)) {
+                return; // flag OFF — keep stub behaviour.
+            }
+            try {
+                $resolver = $app->make(\App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService::class);
+                $svc->setResolver($resolver->asClosure());
+            } catch (\Throwable $e) {
+                // Defensive: failure to wire never breaks executor unit tests.
+            }
+        });
+
         // Patamar 4 · ADML closed feedback loop. When the live outcome feedback
         // service is bound, ADML can call autoDeactivateOnDegradation() to drop
         // active routes whose live success rate falls below threshold.

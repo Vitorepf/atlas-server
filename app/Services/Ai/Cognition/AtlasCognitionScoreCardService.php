@@ -11,6 +11,8 @@ use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\AtlasDecide\AtlasDecideTeosI4LookaheadService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\Programming\Bdd\AtlasBddAcceptanceRuntimeService;
 use App\Services\Ai\Compounding\AtlasAntifragilityCompositionMetricService;
 use App\Services\Ai\Compounding\AtlasLearningMutationRuntimeService;
@@ -25,6 +27,8 @@ use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Governance\AtlasConstitutionalVaultService;
 use App\Services\Ai\Governance\AtlasTrustBudgetService;
 use App\Services\Ai\Patamar4\AtlasNightlyCounterfactualsService;
+use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
+use App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\ResearchDomain\ResearchRuntimeService;
@@ -161,6 +165,7 @@ class AtlasCognitionScoreCardService
         ['AARR',    'Autonomous Reconciliation Runtime',   'autonomy',          AtlasAutonomousReconciliationRuntimeService::class, 'ready', 'ready', 'building'],
         ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         'teos',              AtlasTeosI4CounterfactualTreeService::class,       'ready', 'ready', 'building'],
         ['ASWC',    'Swarm Conductor',                     'atlas_decide',      AtlasSwarmConductorService::class,                 'ready', 'ready', 'building'],
+        ['ASWE',    'Swarm Executor',                      'atlas_decide',      AtlasSwarmExecutorService::class,                  'ready', 'ready', 'building'],
         ['ATDC',    'Temporary Domain Composition',        'cross_domain',      AtlasTemporaryDomainCompositionService::class,     'ready', 'ready', 'building'],
 
         // Patamar 4 · integration layer
@@ -175,6 +180,9 @@ class AtlasCognitionScoreCardService
         ['ACVS',    'Constitutional Vault Service',              'governance',        AtlasConstitutionalVaultService::class,                    'ready', 'ready', 'building'],
         ['ATBS',    'Trust Budget Service',                      'governance',        AtlasTrustBudgetService::class,                            'ready', 'ready', 'building'],
         ['ANCF',    'Nightly Counterfactuals',                   'patamar_4',         AtlasNightlyCounterfactualsService::class,                 'ready', 'ready', 'building'],
+        ['ASAR',    'Subsystem Auto-Rebalance',                  'patamar_4',         AtlasSubsystemAutoRebalanceService::class,                 'ready', 'ready', 'building'],
+        ['ASOS',    'Atlas Scheduler OS (Cron 24/7)',            'patamar_4',         AtlasSchedulerHealthService::class,                        'ready', 'ready', 'building'],
+        ['ASPR',    'Swarm Production Resolver (real provider)', 'atlas_decide',      AtlasSwarmProductionResolverService::class,                'ready', 'ready', 'building'],
 
         // Patamar 1/2/3 closures — Reflexivity streaming, OCR confidence, Compounding L8/L9
         ['ACOP-ACRS', 'ACOP→ACRS Reflexive Streaming Bridge', 'aucri',          AtlasContextObservabilityToRankingReflexiveBridgeService::class, 'ready', 'ready', 'building'],

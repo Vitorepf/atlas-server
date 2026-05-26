@@ -153,10 +153,10 @@ Base/Open Brain. It excludes Voice/LiveKit experience work.
 | Real memory retrieval benchmark | implemented | `atlas:ai:local-rag-benchmark --json` includes `memory_recall_corpus` plus a hashed golden-set packet; promoted Registry/Verbatim memories are preferred and active governed provider-safe memory is used as fallback when no promoted corpus exists |
 | Longitudinal retrieval snapshots | implemented | `atlas:ai:local-rag-benchmark --record-memory-quality --json` persists benchmark metrics into `atlas_memory_quality_snapshots` with hashes only and returns filtered benchmark history |
 | Scheduled retrieval evaluation | implemented | `atlas:ai:local-rag-benchmark --schedule-plan --json` exposes the opt-in schedule and `bootstrap/app.php` registers it only when schedulable |
-| Retrieval Rivals packet | implemented | `atlas:ai:local-rag-benchmark --json` returns `retrieval_rivals_packet` comparing current governed recall to proposal-only alternatives without executing them |
-| Retrieval Rivals longitudinal comparison | implemented | `atlas:ai:local-rag-benchmark --rivals-report --json` compares latest/previous benchmark snapshots, flags regression and emits proposal-only human review packet |
+| Retrieval Rivals packet | implemented | `atlas:ai:local-rag-benchmark --json` returns `retrieval_rivals_packet` comparing current governed recall to review-only alternatives without executing them |
+| Retrieval Rivals longitudinal comparison | implemented | `atlas:ai:local-rag-benchmark --rivals-report --json` compares latest/previous benchmark snapshots, flags regression and emits review-only human packet |
 | Retrieval Rivals safety contract | implemented | Rivals shadow plans, reports and Inbox projections expose `atlas.retrieval_rivals.safety.v1` with provider/runtime/policy/memory writes and raw content exposure closed |
-| Retrieval Rivals shadow plan | implemented | `atlas:ai:local-rag-benchmark --rivals-shadow-plan --json` publishes AP-693 blocked scope for future shadow comparison without provider/runtime/policy execution |
+| Retrieval Rivals shadow plan | implemented | `atlas:ai:local-rag-benchmark --rivals-shadow-plan --json` publishes AP-693 blocked scope for shadow comparison without provider/runtime/policy execution |
 | Retrieval Rivals shadow case contract | implemented | `atlas:ai:local-rag-benchmark --rivals-shadow-case-contract --json` declares deterministic case, strategy, metric, ledger-event, rollback and runtime-invocation contracts for AP-693 without executing rival retrieval |
 | Retrieval Rivals shadow Inbox review | implemented | `--emit-rivals-shadow-inbox` emits AP-693 scope/case review and `review_retrieval_shadow_scope` records scope review, privacy/provider safety review and deterministic dry decision receipt without runtime, provider or policy mutation |
 | Retrieval Rivals shadow action replay | implemented | Inbox Action CLI/API/MCP replay reports project AP-693 scope decision, reviewed count, receipt count, plan hash and fail-closed runtime/provider/policy markers |
@@ -196,48 +196,69 @@ execution receipt, focused shadow tests and human approval for the actual run.
 
 ## Resumo
 
-Current implementation map for Memory/Context Engine and Knowledge Base/Open Brain foundation.
+Current implementation map for Memory/Context Engine and Knowledge Base/Open
+Brain foundation.
 
 ## Papel no Atlas
 
-Define a responsabilidade desta peca dentro da arquitetura Atlas.
+Mostra quais partes de memoria, recall, context export, capture quarantine,
+retrieval evaluation e Open Brain estao implementadas, parciais ou bloqueadas.
 
 ## Onde Se Encaixa
 
-Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+Fica abaixo do ACOS e acima dos consumidores Forge, Mission, Programming e
+providers. Docs filhos `memory/contracts.md` e `memory/retrieval-and-context.md`
+mantem contratos detalhados.
 
 ## Contratos
 
-Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+- Memory/Open Brain nao exporta raw private content para provider.
+- Recall precisa carregar lineage, freshness e audit metadata.
+- AtlasVault/Obsidian e superficie humana, nao fonte operacional primaria.
+- External vector/RAG segue bloqueado ate receipt, teste focado e aprovacao.
 
 ## Fluxo
 
-Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+```text
+capture/source -> quarantine/review -> memory/verbatim promotion
+-> recall/composer -> provider-safe context pack -> Open Brain export
+```
 
 ## Regras para IA
 
-Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+- Nao tratar source material, Vault ou Obsidian como memoria operacional.
+- Nao executar vector externo/RAG alternativo a partir deste map.
+- Usar context pack provider-safe, com lineage/freshness/audit.
+- Confirmar owner doc antes de criar novo runtime de memoria ou retrieval.
 
 ## Escopo de Implementacao
 
-Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+Mudancas ficam nos services de memoria/contexto listados em `related_paths`,
+docs `memory/**` e comandos de benchmark/review associados.
 
 ## Dependencias
 
-Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+Depende de Memory Registry, Verbatim Store, Capture quarantine, Engineering KB,
+Code Intelligence, Local RAG benchmark, Inbox review e Open Brain services.
 
 ## Evidencias
 
-Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+Evidencias aceitas: `AtlasMemoryRegistryTest`, Local RAG benchmark, memory
+quality snapshots, promotion receipts, inbox action receipts e docs-health.
 
 ## Riscos
 
-Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+- Promover captura crua como memoria sem quarantine.
+- Exportar conteudo privado para provider.
+- Tratar benchmark review-only como execucao de estrategia alternativa.
+- Criar segundo owner de recall/contexto fora do ACOS.
 
 ## Exemplos
 
-Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+AP-693 shadow plan e contrato de caso sao review-only: eles documentam escopo,
+metricas e rollback, mas nao executam rival retrieval nem embeddings externos.
 
 ## Proximas Acoes
 
-Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+Manter o map sincronizado com scorecards de memoria, benchmark local, inbox
+reviews e docs filhos de Memory/Open Brain.

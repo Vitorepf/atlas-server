@@ -139,114 +139,67 @@ dominios com ruido.
 
 ## Status Real Atual
 
-Ja existe base operacional:
+Existe base operacional para captura, clarificacao semantica, proposta
+revisavel e promocao controlada:
 
-1. `captures` para texto, audio, imagem e arquivos;
-2. `ProcessAudioTranscription` com transcricao local via whisper.cpp;
-3. `CaptureSemanticClarifier` para tese, ideias atomicas, densidade e destino;
-4. `semantic_curation_proposals` para propostas revisaveis;
-5. `semantic_notes` como memoria semantica humana/indexada;
-6. triagem de captura para `semantic_note`, `task`, `project` ou `archive`;
-7. privacy gate que bloqueia IA externa para conteudo privado/sensivel;
-8. aceite de proposta com `promote_to_memory=true` promove delta ratificado para
-   Memory Registry com receipt;
-9. `captures.metadata.semantic_curation` liga proposta automatica ao
-   `CaptureResource.review_workflow` sem marcar destino como resolvido;
-10. raw capture quarantine keeps `provider_export_allowed=false`,
-    `open_brain_context_allowed=false` and `raw_content_exposed=false` until
-    human review promotes a safe memory/verbatim artifact.
-11. duplicate capture ingest records `atlas.capture.ingest_replay_receipt.v1`
-    audit evidence with hashes/quarantine flags and no raw content exposure.
-12. `CaptureResource.capture_safety` exposes
-    `atlas.capture.resource_safety.v1` so API consumers can distinguish raw
-    authenticated payload visibility from provider/Open Brain/embedding/memory
-    eligibility.
-13. text/file capture now writes `atlas.capture.content_intelligence.v1` with
-    content type, source refs, destination enum, deterministic quality score,
-    dedupe posture and explicit no-provider/no-embedding/no-memory promotion
-    gates before any Open Brain use.
-14. semantic curation proposals project that contract as
-    `atlas.capture.content_intelligence.proposal.v1`, preserving lineage,
-    quality and destination metadata while keeping raw content quarantined and
-    provider/Open Brain promotion blocked until review.
-15. `atlas:ai:capture-inbox-pipeline-report --hours=720 --json` validates
-    Capture -> proposal -> memory delta -> inbox -> capture link integrity as a
-    read-only gate before Memory/Open Brain promotion. It also publishes
-    `atlas.capture_inbox_pipeline.promotion_gate.v1`, keeping memory writes,
-    context injection, embeddings, provider export and Open Brain context closed
-    by report authority until operator review, lineage backlinks and promotion
-    receipt hash exist.
-16. `atlas:ai:capture-inbox-pipeline-backfill-contracts --hours=720 --write --json`
-    repairs legacy capture metadata conservatively: quarantine, content
-    intelligence and proposal backlink only; it copies no raw content and keeps
-    provider export, Open Brain context, embeddings and memory eligibility
-    closed.
-17. AtlasVault como Human Knowledge Surface, nao fonte operacional crua.
+- `captures`, `ProcessAudioTranscription`, `CaptureSemanticClarifier`,
+  `semantic_curation_proposals`, `semantic_notes` e triagem para
+  `semantic_note`, `task`, `project` ou `archive`;
+- privacy/quarantine gates bloqueiam provider export, Open Brain context,
+  embeddings e memory write ate review humano;
+- `atlas.capture.content_intelligence.v1`,
+  `atlas.capture.content_intelligence.proposal.v1`,
+  `atlas.capture.resource_safety.v1` e
+  `atlas.capture.ingest_replay_receipt.v1` preservam qualidade, lineage,
+  dedupe posture e flags de quarentena sem expor raw content;
+- `atlas:ai:capture-inbox-pipeline-report --hours=720 --json` valida o caminho
+  Capture -> proposal -> memory delta -> inbox -> capture link como gate
+  read-only antes de Memory/Open Brain;
+- `atlas:ai:capture-inbox-pipeline-backfill-contracts --hours=720 --write --json`
+  so repara metadata antiga: quarantine, content intelligence e proposal
+  backlink. Nao copia raw content nem abre provider export, Open Brain,
+  embeddings ou memory eligibility.
 
-Falta transformar isso em Content Intelligence completo para fontes externas,
-source reputation, YouTube global, PDFs, feeds e routing multi-dominio.
+Ainda nao ha runtime completo para ingestao externa geral, YouTube global, PDFs,
+feeds, source reputation e routing multi-dominio. Esses itens sao backlog
+governado por este doc; nao sao autorizacao para IA criar fluxo paralelo.
 
 ## Tipos De Conteudo
 
-| Tipo | Extracao correta | Risco principal |
-|---|---|---|
-| YouTube/video | baixar/transcrever/traduzir, timestamps, tese, momentos-chave | clickbait, enrolacao, idioma, baixa densidade |
-| Podcast/audio | transcricao, speakers, segmentos, actionable ideas | divagacao e repeticao |
-| PDF/paper/livro | metadata, claims, metodos, citacoes, limitações | falsa autoridade, obsolescencia |
-| GitHub/docs/changelog | versoes, API changes, exemplos, breaking changes | tutorial desatualizado |
-| RSS/newsletter/blog/X | tese, fonte, novidade, evidencias | ruido, hype, opiniao reciclada |
-| Screenshot/imagem | OCR, elementos visuais, contexto explicitamente enviado | privacidade |
-| Reuniao/conversa | resumo, decisoes, tasks, riscos | consentimento e sensibilidade |
-| Dados operacionais/logs | sinais, anomalias, metricas | volume alto e falsa correlacao |
-| Mercado/marketing | claims, copy, VSL, hooks, offer structure | dominio Marketing, compliance e scraping |
+Fontes aceitas como candidatas incluem video/audio, PDF/paper/livro,
+GitHub/docs/changelog, RSS/newsletter/blog/X, screenshot/imagem,
+reuniao/conversa, dados operacionais/logs e material de mercado/marketing.
+Cada uma exige extractor, source refs, privacy metadata e risco explicito.
 
-YouTube global e fonte P0 futura porque concentra muito conhecimento oculto em
-ingles, japones, russo e outros idiomas. O Atlas deve extrair ouro com
-transcricao/traducao, nao salvar videos inteiros como memoria.
+YouTube global e fonte P0 candidata porque concentra conhecimento oculto em
+ingles, japones, russo e outros idiomas. O Atlas deve extrair segmentos
+revisaveis com transcricao/traducao, nao salvar videos inteiros como memoria.
 
 ## Quality Gate De Curadoria
 
-Cada candidato deve receber score e explicacao:
-
-1. densidade: ideias novas por tamanho/tempo;
-2. novidade: o que ainda nao esta no Graph RAG/memoria;
-3. veracidade: claims verificaveis, fontes, contraexemplos;
-4. atualidade: versao/data/obsolescencia;
-5. aplicabilidade: vira decisao, skill, modelo mental, AP, task ou benchmark;
-6. autoridade da fonte: historico, reputacao, conflito de interesse;
-7. custo cognitivo: tempo/tokens para aproveitar;
-8. privacidade e permissao;
-9. risco de contaminar memoria com hype, conselho ruim ou pseudociencia.
+Cada candidato deve receber score explicado para densidade, novidade,
+veracidade, atualidade, aplicabilidade, autoridade da fonte, custo cognitivo,
+privacidade/permissao e risco de contaminar memoria com hype, conselho ruim ou
+pseudociencia.
 
 Conteudo de baixa densidade deve ir para `discard` ou `weak_archive`, nao para
 Open Brain.
 
 ## Roteamento De Destino
 
-| Destino | Quando usar |
-|---|---|
-| `discard` | lixo, clickbait, repeticao, erro claro |
-| `weak_archive` | referencia fraca que talvez sirva como historico |
-| `source_blacklist` | fonte recorrente de baixa qualidade ou enganosa |
-| `atlas_vault_note` | aprendizado humano para leitura/revisao do Vitor |
-| `semantic_note` | conhecimento humano estruturado e reutilizavel |
-| `atlas_memory_candidate` | memoria operacional provider-safe apos review |
-| `domain_learning` | aprendizado para Programming, Finance, Marketing etc. |
-| `self_improvement_proposal` | melhoria do proprio Atlas via AP/proposal |
-| `task_or_project` | acao concreta para operador ou dominio |
-| `benchmark_case` | caso util para avaliar provider, tool ou fluxo |
-
-Uma mesma fonte pode gerar varios destinos, mas cada destino precisa de
-evidence, source refs e privacy metadata.
+Destinos validos: `discard`, `weak_archive`, `source_blacklist`,
+`atlas_vault_note`, `semantic_note`, `atlas_memory_candidate`,
+`domain_learning`, `self_improvement_proposal`, `task_or_project` e
+`benchmark_case`. Uma mesma fonte pode gerar varios destinos, mas cada destino
+precisa de evidence, source refs e privacy metadata.
 
 ## Vitor Vs Atlas Vs Dominios
 
-O roteador deve responder:
-
-1. Isso ensina o Vitor? Vai para AtlasVault/semantic note/briefing humano.
-2. Isso ensina o Atlas? Vira proposal, AP, benchmark ou doc canonico candidato.
-3. Isso ensina um dominio? Vai para domain learning com owner explicito.
-4. Isso e so dado bruto? Arquiva com baixa autoridade ou descarta.
+O roteador deve separar aprendizado humano, aprendizado operacional do Atlas,
+aprendizado de dominio e dado bruto. Vitor recebe AtlasVault/semantic
+note/briefing humano; Atlas recebe proposal/AP/benchmark/doc canonico
+candidato; dominios recebem domain learning com owner explicito; dado bruto vai
+para baixa autoridade ou descarte.
 
 Blackink nunca e default. Ela e um Business Context possivel; Marketing, Finance,
 Programming, Personal Development e Strategic Decision sao Atlas AI Domains que
@@ -254,13 +207,9 @@ podem trabalhar sobre esse contexto.
 
 ## Autonomia Permitida
 
-Permitido automaticamente:
-
-1. capturar fonte explicitamente enviada;
-2. extrair texto, transcript, metadata e hashes;
-3. criar proposta de curadoria;
-4. descartar candidato claramente ruim mantendo auditoria minima;
-5. atualizar reputacao de fonte em modo conservador.
+Permitido automaticamente: capturar fonte enviada, extrair texto/transcript,
+metadata e hashes, criar proposta de curadoria, descartar candidato ruim com
+auditoria minima e atualizar reputacao de fonte em modo conservador.
 
 Criacao automatica de proposta deve continuar review-only: ela pode gravar
 `semantic_curation.status=proposal_pending`, atualizar quarantine e expor acoes
@@ -283,75 +232,84 @@ Exige review/approval:
 5. usar captura passiva;
 6. auto-melhorar codigo, prompts, policies ou tools.
 
-## Implementation Roadmap
+## Roadmap Governado
 
-| Fase | Status | Entrega |
-|---|---|---|
-| CI-0 | active | contrato canonico e ligacao com semantic curation existente |
-| CI-1 | active | content source schema + quality score + destination enum in capture metadata/resource safety |
-| CI-2 | future | YouTube URL ingest com transcript/traducao/timestamps |
-| CI-3 | future | source reputation, blacklist e weak archive |
-| CI-4 | future | redundancy check via Graph/Vector RAG |
-| CI-5 | future | domain learning routing e self-improvement proposals |
-| CI-6 | future | feeds/passive monitors opt-in com privacy gates |
+CI-0 e CI-1 estao implemented: contrato canonico, semantic curation existente,
+content source schema, quality score e destination enum em metadata/resource
+safety. CI-2 a CI-6 sao `backlog_requires_ap`: YouTube URL ingest, source
+reputation, redundancy check via Graph/Vector RAG, domain learning routing e
+feeds/passive monitors. Uma IA deve promover por AP/owner decision, nao tratar
+como runtime existente.
 
 ## Definition Of Done
 
-Antes de implementar uma nova fonte ou curadoria:
-
-1. declarar content type, source type e destination enum;
-2. passar por privacy/provider-safety;
-3. produzir quality score explicado;
-4. registrar source refs, hashes, idioma, timestamp e extractor version;
-5. deduplicar contra memoria/Graph RAG;
-6. criar proposal revisavel antes de promover;
-7. provar que Blackink nao e default implicito;
-8. atualizar docs, tests e Code Intelligence.
+Antes de implementar nova fonte ou curadoria, declarar content/source/destination
+enum, passar por privacy/provider-safety, produzir quality score, registrar
+source refs/hashes/idioma/timestamp/extractor version, deduplicar contra
+memoria/Graph RAG, criar proposal revisavel antes de promover, provar que
+Blackink nao e default implicito e atualizar docs, tests e Code Intelligence.
 
 ## Resumo
 
-Contrato canonico para ingestao, avaliacao, descarte, roteamento e promocao de conteudo externo ou humano sem poluir memoria, dominios ou Self-Improvement.
+Content Intelligence governa captura, triagem, quarantine, proposta revisavel e
+promocao controlada de conteudo sem transformar raw capture em verdade.
 
 ## Papel no Atlas
 
-Define a responsabilidade desta peca dentro da arquitetura Atlas.
+E uma capability horizontal de Core/Memory/Learning; nao e dominio Blackink,
+nao substitui Self-Improvement e nao autoriza ingestion externa sem AP.
 
 ## Onde Se Encaixa
 
-Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+Fica entre Capture, Semantic Curation, Memory Registry, Open Brain, AtlasVault,
+dominios e Self-Improvement, mantendo cada destino com owner explicito.
 
 ## Contratos
 
-Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+Raw capture nao e evidencia, memoria, contexto nem decisao. Propostas sao
+review-only ate ratificacao humana e receipt de promocao.
 
 ## Fluxo
 
-Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+Capture normaliza conteudo, aplica quality/privacy/dedupe posture, cria proposta
+revisavel e so promove para memoria/contexto depois de review e receipt.
 
 ## Regras para IA
 
-Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+1. Nunca promover raw capture diretamente para evidencia, memoria, contexto ou
+   decisao.
+2. Nunca tratar AtlasVault, archive/source-material ou proposta de backlog como
+   runtime atual.
+3. Nunca criar ingestion externa, scraping recorrente, YouTube global ou source reputation sem AP/owner decision, privacy gate e testes.
+4. Antes de alterar esta area, rodar docs-health e testes de captura/curadoria
+   que provem quarantine, proposal e promotion gates.
 
 ## Escopo de Implementacao
 
-Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+Mudancas pertencem aos paths de captura, curadoria semantica, metadata de
+quarantine/content intelligence, resources de safety e comandos de pipeline.
 
 ## Dependencias
 
-Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+Depende de Memory/Open Brain contracts, AtlasVault como Human Knowledge Surface,
+ADRS/docs-health e Code Reality para provar runtime antes de claims.
 
 ## Evidencias
 
-Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+Evidencia valida: testes de captura/curadoria, receipts de metadata, comandos de
+pipeline, docs-health, Code Reality e related paths declarados no frontmatter.
 
 ## Riscos
 
-Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+Riscos principais: provider leak, memoria contaminada, Graph/Open Brain com raw
+content, Blackink default implicito e backlog tratado como runtime.
 
 ## Exemplos
 
-Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+Uma captura de texto pode virar `semantic_curation_proposal`; so apos review
+humano ela pode virar memoria operacional ou verbatim store.
 
 ## Proximas Acoes
 
-Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+Promover itens de backlog por AP, um source type por vez, com privacy gate,
+dedupe posture, teste focado e update de Code Intelligence.

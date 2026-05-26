@@ -142,7 +142,7 @@ decisions:
   - External Graph Harness define como usar Graphify e grafos externos como candidatos read-only de Code Intelligence sem criar memoria/contexto/runtime paralelo.
   - Programming Power Tools Catalog define a bancada operacional de ferramentas, tiers, autoridade e lacunas para programacao pesada.
   - Fair Claude e Atlas Supercharged separam prova cientifica com o mesmo Claude do produto real multi-provider.
-  - Cognitive Plane e sub-arquitetura canonica seria para desenvolvimento cognitivo; `cognitive/implementation-briefing.md` governa APs, status, comandos e validacoes para IAs implementarem sem confundir scaffold com runtime.
+  - Cognitive Plane e sub-arquitetura canonica para desenvolvimento cognitivo; `cognitive/implementation-briefing.md` governa APs, status, comandos e validacoes para IAs implementarem sem confundir contrato de planejamento com runtime.
 maintenance:
   - Leia atlas-ai-session-bootstrap.md no inicio de qualquer sessao nova.
   - Leia atlas-ai-provider-evolution-intelligence.md antes de reagir a lancamento de provider, vertical agents, connectors, realtime, model release ou skill pack externo.
@@ -157,7 +157,7 @@ maintenance:
   - Leia atlas-next-patamar-operating-systems.md antes de planejar Sovereign OS, Epistemic OS, Cartographic Knowledge OS ou autoevolucao enterprise por IA.
   - Leia atlas-sovereign-operating-system.md antes de propor mudanca de proposito, identidade, autonomia, prioridade estrategica, self-modification ou qualquer capacidade que possa alterar a direcao do Atlas.
   - Leia atlas-epistemic-operating-system.md antes de transformar conhecimento, evidence, confidence, drift ou maturidade em permissao de escrita por IA.
-  - Leia atlas-documentation-reality-system.md antes de mexer em documentacao real, ACRUI, Cartografia/AURC, mapas humanos, classificacao de legado/scaffold ou consumo de docs de outro projeto.
+  - Leia atlas-documentation-reality-system.md antes de mexer em documentacao real, ACRUI, Cartografia/AURC, mapas humanos, classificacao de legado/planejamento ou consumo de docs de outro projeto.
   - Leia atlas-universal-reality-cartography.md antes de mexer em mapa universal, zoom por empresa/projeto, modal humano, coverage visual ou task simulator da Cartografia.
   - Leia atlas-cartographic-knowledge-os.md antes de alterar Cartografia, zoom semantico, visualizacao de grafo, links visuais ou navegacao humana/IA.
   - Leia atlas-ai-runtime-language-boundaries.md, atlas-native-mac-agent.md, atlas-ai-local-performance-memory-strategy.md, atlas-ai-content-intelligence-curation.md e atlas-ai-scenario-simulation-harness.md antes de propor Python, Go, Swift, microservico, worker externo, daemon, RAG local, cache, modelos locais, uso dos 48GB RAM, YouTube ingestion, feeds, scraping, curadoria de fontes, swarm ou simulacao multiagente.
@@ -541,7 +541,7 @@ detalhe de modulo com docs/testes.
 | `atlas-ai-vision.md` | Documento fundador curto: Atlas AI como inteligencia unica do produto |
 | `atlas-ai-pipeline.md` | Pipeline unico de qualquer requisicao Atlas AI |
 | `atlas-ai-core-vs-domain.md` | Regra de decisao entre Core, Domain e Surface |
-| `domains/README.md` | Indice local das Domain Specs e status implemented/ready vs scaffold |
+| `domains/README.md` | Indice local das Domain Specs e status implemented/ready vs incomplete |
 | `domains/programming.md` | Spec canonica do dominio implemented/ready Programming |
 | `domains/programming-specialist-profiles.md` | Estrutura alvo de especialistas internos de Programming: frontend, backend-api, mobile, architecture, performance, accessibility e outros |
 | `domains/self-improvement.md` | Spec canonica do dominio implemented/ready Self-Improvement |
@@ -668,48 +668,74 @@ de memoria com politica de privacidade.
 
 ## Resumo
 
-Fonte canonica versionada para conhecimento de engenharia do Atlas, sincronizada para Postgres e usada pelo Harness Runner em context packs.
+Fonte canonica versionada para conhecimento de engenharia do Atlas. Este README
+e indice/roteador: aponta o doc dono antes de qualquer IA implementar, limpar,
+arquivar ou promover conhecimento.
 
 ## Papel no Atlas
 
-Define a responsabilidade desta peca dentro da arquitetura Atlas.
+Evita que sessoes novas usem chat, Obsidian, Postgres KB, source material ou
+provider projection como autoridade primaria. A fonte autoral fica em
+`docs/engineering-knowledge-base/`; read models apenas projetam essa verdade.
 
 ## Onde Se Encaixa
 
-Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+Fica abaixo de `START_HERE.md` e do Knowledge Governance System, e acima dos
+docs especializados. Bootstrap, feature placement, Context Pack, ACRUI e
+Cartografia usam este indice para localizar owner docs.
 
 ## Contratos
 
-Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+- Docs canonicos do repo governam autoria.
+- Codigo, migrations, comandos e testes provam implementacao.
+- Evidence Ledger prova eventos runtime.
+- Postgres KB, Code Intelligence, Obsidian, AGENTS/CLAUDE e Cartografia sao
+  read models, superficies ou projections.
+- Chat, prints e source material nao sao fonte de verdade.
 
 ## Fluxo
 
-Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+```text
+task -> START_HERE -> session-bootstrap -> place-feature
+-> owner doc neste indice -> ACRUI/code reality -> implementation/tests
+-> docs-health/sync/index-code -> projections/cartography
+```
 
 ## Regras para IA
 
-Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+- Nao implementar por memoria de conversa.
+- Nao criar doc macro ou runtime sem procurar owner doc neste indice.
+- Nao promover archive/source material sem patch no owner canonico.
+- Nao apagar doc/codigo sem ACRUI, quarantine plan e decisao humana quando houver risco.
 
 ## Escopo de Implementacao
 
-Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+Mudancas neste README devem ser de roteamento, ownership e governanca. Detalhe
+operacional pertence ao doc filho correspondente.
 
 ## Dependencias
 
-Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+Depende de Documentation OS, Knowledge Governance, ADRS, ACRUI, Code
+Intelligence, Context Pack e docs-health.
 
 ## Evidencias
 
-Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+Evidencias aceitas: docs canonicos, comandos artisan, testes, migrations,
+receipts, reports e paths verificaveis.
 
 ## Riscos
 
-Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+- IA escolher doc por titulo solto em vez de owner/path.
+- Source material competir com doc canonico.
+- README virar changelog gigante em vez de indice.
+- Projections serem tratadas como autoria.
 
 ## Exemplos
 
-Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+Uma ideia boa em archive/source-material vira patch no doc dono; ela nao vira
+verdade operacional por existir no archive.
 
 ## Proximas Acoes
 
-Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+Manter este indice curto o bastante para roteamento e empurrar detalhe para
+docs filhos com owner, evidence e required_tests.

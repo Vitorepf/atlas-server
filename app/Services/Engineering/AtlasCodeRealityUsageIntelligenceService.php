@@ -866,7 +866,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             $hasScaffoldLanguage = $bodyState['has_scaffold_language'] === true;
             $hasImplementedLanguage = $bodyState['has_implemented_language'] === true;
 
-            if ($this->allowsMixedStatusMatrixLanguage($docId) && $hasScaffoldLanguage && $hasImplementedLanguage) {
+            if ($this->allowsMixedStatusMatrixLanguage($docId) && ($hasScaffoldLanguage || $isPlannedLikeStatus)) {
                 continue;
             }
 
@@ -1060,10 +1060,13 @@ final class AtlasCodeRealityUsageIntelligenceService
             'atlas-ai-research-self-improvement-runtime',
             'atlas-pre-benchmark-readiness-audit',
             'atlas-code-reality-usage-intelligence',
+            'atlas-documentation-reality-system',
             'atlas-documentation-enforcement-runtime',
             'atlas-quality-preserving-efficiency-system',
             'atlas-persistent-context-runtime',
+            'atlas-execution-memory-outcome-runtime',
             'atlas-kernel-mission-foundation',
+            'atlas-ai-follow-through-loop',
             'atlas-ai-router-runtime-enterprise-upgrade',
             'atlas-aiworker-kernel-integration-adr',
             'atlas-autonomous-control-plane',

@@ -124,6 +124,9 @@ use App\Console\Commands\AtlasProposalScanCommand;
 use App\Console\Commands\AtlasRivalsCommand;
 use App\Console\Commands\AtlasRivalsHarnessCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
+use App\Console\Commands\AtlasSchedulerHeartbeatCommand;
+use App\Console\Commands\AtlasSchedulerInstallLaunchdCommand;
+use App\Console\Commands\AtlasSchedulerStatusCommand;
 use App\Console\Commands\AtlasSchedulerTickCommand;
 use App\Console\Commands\AtlasSelfDiagnosticCommand;
 use App\Console\Commands\AtlasToolsCommand;
@@ -276,6 +279,9 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringVisualDriverCommand::class,
         AtlasEngineeringVisualBaselineCommand::class,
         AtlasEngineeringVisualSmokeCommand::class,
+        AtlasSchedulerHeartbeatCommand::class,
+        AtlasSchedulerInstallLaunchdCommand::class,
+        AtlasSchedulerStatusCommand::class,
         AtlasSchedulerTickCommand::class,
         AtlasSelfDiagnosticCommand::class,
         AtlasToolsCommand::class,
@@ -368,6 +374,14 @@ return Application::configure(basePath: dirname(__DIR__))
 
         if (config('atlas.ai.schedule_worker')) {
             $schedule->command('atlas:ai:work --once --limit=3')
+                ->everyMinute()
+                ->withoutOverlapping();
+        }
+
+        // Patamar 4 · Scheduler OS heartbeat — proves cron is alive 24/7.
+        // Append-only JSONL probe; /atlas/patamar4/state.scheduler shows silent_alarm.
+        if (config('atlas.patamar4.scheduler_heartbeat_enabled', true)) {
+            $schedule->command('atlas:scheduler:heartbeat')
                 ->everyMinute()
                 ->withoutOverlapping();
         }

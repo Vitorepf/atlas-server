@@ -5,7 +5,7 @@ title: Atlas AI Self-Improvement Domain
 status: active
 category: architecture
 priority: 96
-summary: Spec canonica do dominio implemented/ready self_improvement para auditoria, aprendizado operacional, proposals e melhoria continua do Atlas.
+summary: Spec canonica do dominio implemented/ready self_improvement para auditoria, aprendizado operacional, improvement proposals e melhoria continua do Atlas.
 tags:
   - atlas-ai
   - domains
@@ -16,13 +16,13 @@ capabilities:
   - self_improvement_domain
   - docs_drift_review
   - capability_gap_scan
-  - proposal_generation
+  - improvement_proposal_generation
 decisions:
   - Self-Improvement e dominio implemented/ready, nao apenas conceito de curadoria.
   - O dominio opera sobre evidencias, metrics, ledger, KB, code intelligence, tool evidence e benchmark corpus.
   - O dominio pode propor melhorias, mas mudancas estruturais continuam exigindo gates, review e approval humano quando o risco pedir.
   - Pesquisa de alto nivel, source quality e promocao para docs sao governadas por Atlas AI Research Intelligence And Self-Improvement Runtime antes de virarem implementacao.
-  - Curator dedicado e um possivel refinamento futuro; hoje a curadoria operacional implementada vive em self_improvement.
+  - Curadoria operacional implementada vive em self_improvement; curator dedicado exige doc propria e gates antes de virar runtime separado.
 maintenance:
   - Atualize este documento quando flows self_improvement, gates, scheduler, surfaces ou evidence sources mudarem.
   - Leia junto de atlas-ai-master-architecture.md e atlas-ai-kernel-architecture.md antes de alterar runtime de auto-melhoria.
@@ -161,9 +161,12 @@ Resumo canonico:
 - kernel pipeline review;
 - domain learning review;
 - docs drift review;
+- provider release review;
 - provider performance review;
 - agent behavior review;
-- proposal generation.
+- voice realtime review;
+- failure pattern review;
+- improvement proposal generation.
 
 ## Sources
 
@@ -176,11 +179,12 @@ Self-Improvement deve consumir fontes auditaveis:
 - `AtlasLedgerReplayService` (`repairReportForWindow`) para padroes de Repair Loop;
 - `AtlasLedgerReplayService` (`kernelPipelineReportForWindow`) para padroes de Kernel Pipeline;
 - `AtlasAiDomainCatalogService` para scorecards de onboarding de dominios,
-  incluindo dominios `scaffold` e `executable_incomplete`, fases faltantes,
+  incluindo dominios incompletos ou nao executaveis, fases faltantes,
   proximas acoes e contadores por status;
 - `AtlasAiArchitectureValidationService` para architecture validation
   compartilhado por CLI, API, Observability e Open Brain/MCP. Quando algum AP
-  falha, `weekly_architecture_audit` e o review default geram finding/proposal
+  falha, `weekly_architecture_audit` e o review default geram finding e
+  improvement proposal
   provider-safe com `architecture_validation_ap`, failed keys, violation count e
   health de kernel/capabilities/domains/orchestrators;
 - `GET /ai/slo` e `atlas:ai:slo`;
@@ -216,7 +220,7 @@ operacional primaria.
 Self-Improvement esta centrally registered como dominio Atlas AI implemented/ready.
 
 - `AtlasSelfImprovementOrchestrator` resolve flows `self_improvement.*`.
-- `AtlasSelfImprovementRuntime` executa os 13 flows especializados.
+- `AtlasSelfImprovementRuntime` executa os 16 flows especializados.
 - Detalhes de runtime, filtros, schedule, AP42-AP56 e replay vivem em
   `self-improvement-runtime.md`.
 - `atlas:ai:self-improve --list-flows --json` inspeciona flows sem executar.
@@ -228,7 +232,7 @@ Self-Improvement esta centrally registered como dominio Atlas AI implemented/rea
   dedicado `self_improvement.repair_loop_review` no catalogo.
 - `atlas:ai:architecture-validate --json` inclui Self-Improvement no ready
   domain count.
-- `docs_drift_review` tambem abre proposta `proposal_only` para promocao de
+- `docs_drift_review` tambem abre proposta de review humano para promocao de
   Graph RAG/Python quando `atlas:ai:local-rag-benchmark` passa e o unico
   bloqueio restante e review humano/Curator.
 
@@ -243,48 +247,73 @@ Validation:
 
 ## Resumo
 
-Spec canonica do dominio implemented/ready self_improvement para auditoria, aprendizado operacional, proposals e melhoria continua do Atlas.
+Self-Improvement e o dominio canonico para auditoria, aprendizado operacional,
+improvement proposals e melhoria continua do Atlas.
 
 ## Papel no Atlas
 
-Define a responsabilidade desta peca dentro da arquitetura Atlas.
+Transforma evidencias operacionais em findings, metricas e propostas revisaveis
+sem auto-aplicar mudancas estruturais.
 
 ## Onde Se Encaixa
 
-Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+Consome Evidence Ledger, KB, Code Intelligence, architecture validation,
+domain scorecards, memory quality, tool evidence e Research Self-Improvement
+Runtime. Ele reporta melhorias; nao substitui review humano nem gates.
 
 ## Contratos
 
-Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+- Entrada: evidencias, metricas, ledgers, reports e feedback revisado.
+- Saida: findings, risk notes, improvement proposals e planos provider-safe.
+- Limite: nao altera runtime, policy, migrations, config ou docs mae sem fluxo
+  normal de implementacao/review.
+- Obrigacao: todo finding precisa de origem, risco e proximo passo verificavel.
 
 ## Fluxo
 
-Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+```text
+evidence -> self_improvement.* flow -> runtime review -> finding/proposal
+-> human or gate review -> implementation flow separado quando aprovado
+```
 
 ## Regras para IA
 
-Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+- Nao tratar proposta como implementacao aprovada.
+- Nao promover Vault/Obsidian direto para runtime.
+- Nao auto-aplicar refactor ou delete.
+- Usar `atlas:ai:self-improve --plan-only --json` antes de execucao real.
 
 ## Escopo de Implementacao
 
-Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+Mudancas ficam em `app/Services/Ai/SelfImprovement/**`, comandos self-improve,
+docs `domains/self-improvement*` e research-self-improvement quando a frente de
+pesquisa for tocada.
 
 ## Dependencias
 
-Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+Dependencias canonicas: Evidence Ledger, AtlasAiDomainCatalogService,
+Architecture Validation, Code Intelligence, KB, tool evidence, memory quality e
+Research Self-Improvement Runtime.
 
 ## Evidencias
 
-Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+Evidencia minima: `atlas:ai:self-improve --list-flows --json`,
+`atlas:ai:self-improve --schedule-plan --json`, `atlas:ai:domains --json`,
+testes SelfImprovement e docs-health.
 
 ## Riscos
 
-Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+- Proposta virar mudanca sem review.
+- Feedback humano virar verdade operacional sem evidence.
+- Research/source material ser promovido sem owner doc.
+- Auto-melhoria apagar ou reescrever docs/codigo fora do fluxo de implementacao.
 
 ## Exemplos
 
-Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+`docs_drift_review` pode apontar doc desatualizada e sugerir patch; a execucao
+do patch pertence a um fluxo de implementacao separado com testes e docs-health.
 
 ## Proximas Acoes
 
-Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+Manter os 16 flows, schedule plan, domain catalog e Research Self-Improvement
+sincronizados com testes e evidence sources reais.

@@ -139,6 +139,7 @@ ai_entrypoints:
 ai_usage_notes:
   - Esta doc e indice/governanca da area; o runtime integrado read-only materializa score, fontes, blocos, avaliacoes e readiness sem substituir os docs filhos.
   - Se houver conflito entre mapa visual e doc canonico, o doc canonico vence e a Cartografia deve mostrar drift.
+  - Termos active, scaffold, future, headless, legacy, archived, quarantine, deleted e dead candidate sao vocabulario de ciclo de vida governado pelo ADRS; nao declaram drift deste documento.
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:docs-authority-audit --json"
@@ -156,7 +157,7 @@ observability_signals:
   - cartography orphan nodes count
   - code-reality duplicate candidates count
 next_actions:
-  - Elevar filhos ACRUI/AURC e consumidores de Context Pack para integrarem o runtime ADRS L4 ja existente.
+  - Manter filhos ACRUI/AURC e Context Pack sincronizados com o runtime ADRS L4 existente.
 ---
 # Atlas Documentation Reality System
 
@@ -324,10 +325,7 @@ humano percebe confusao visual
 
 ## Escopo de Implementacao
 
-ADRS organiza 52 blocos em 6 planes oficiais. Eles sao contratos da area;
-runtime so nasce quando o bloco tiver owner, evidencia, teste e regra de consumo
-clara. O registro navegavel dos ids, planes, tipos, status, fontes e
-avaliadores vive em `atlas-documentation-reality-block-registry.md`.
+ADRS organiza 52 blocos em 6 planes oficiais. Eles sao contratos da area; runtime so nasce quando o bloco tiver owner, evidencia, teste e regra de consumo clara. O registro navegavel dos ids, planes, tipos, status, fontes e avaliadores vive em `atlas-documentation-reality-block-registry.md`.
 
 ## Planes Oficiais
 

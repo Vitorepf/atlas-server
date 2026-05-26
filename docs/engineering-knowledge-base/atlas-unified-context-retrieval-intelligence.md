@@ -4,7 +4,7 @@ type: engineering_knowledge
 title: Atlas Unified Context Retrieval Intelligence
 status: active
 implementation_state: runtime_surfaces_18_blocks_plus_programming_enforcement_ready
-blocker: none_for_programming_flows; ampliar enforcement para flows nao-programming em fatias futuras.
+blocker: none_for_programming_flows; ampliar enforcement para demais flows em fatias governadas.
 category: intelligence-runtime
 priority: 100
 summary: Documentacao mae da area de contexto, memoria, embeddings, RAG, Graph RAG, ranking, freshness, feedback, Python/data retrieval, cognitive memory, context compiler e token economy.
@@ -19,7 +19,7 @@ tags: [atlas-ai, aucri, context, retrieval, rag, embeddings, graph-rag, memory, 
 capabilities: [unified_context_retrieval, semantic_embedding_retrieval, agentic_rag, graph_rag, context_reranking, context_freshness, cognitive_memory_fabric, context_compiler_runtime, token_economy_runtime]
 decisions:
   - AUCRI e a area-mae de contexto e recuperacao do Atlas; ela organiza ACIE, APCR, RAG, embeddings, memoria, grafo e Python/data runtime sem substituir esses sistemas.
-  - AUCRI deve virar a camada padrao de contexto de Atlas AI, Atlas Dev, Atlas Forge, Research, Finance, Marketing, Strategy e futuros flows.
+  - AUCRI deve virar a camada padrao de contexto de Atlas AI, Atlas Dev, Atlas Forge, Research, Finance, Marketing, Strategy e demais flows governados.
   - Embeddings sao candidate retrieval, nao autoridade; decisoes finais exigem source authority, graph evidence, freshness, privacy e sufficiency gate.
   - Graph RAG global e external vector RAG continuam bloqueados ate AP, review humano, privacy/retention policy, golden-set benchmark e rollback.
   - O objetivo final e nota 10/10 em contexto global: contexto certo, pouco ruido, evidencias, relacoes, freshness e feedback de resultado.
@@ -54,17 +54,19 @@ related_paths:
   - docs/engineering-knowledge-base/memory/retrieval-and-context.md
   - docs/engineering-knowledge-base/atlas-world-model.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - app/Services/Ai/Context/AtlasAucriRuntimeEnforcementService.php
   - app/Services/Ai/Context/LocalRagReadinessService.php
   - app/Services/Ai/Programming/ProgrammingRetrievalPlanner.php
+  - tests/Feature/Ai/Context/ContextQualityCertificationTest.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
 product_name: Atlas Unified Context & Retrieval Intelligence
 runtime_acronym: AUCRI
 internal_product_name: Atlas Memory Graph
-technical_runtime: AtlasUnifiedContextRetrievalIntelligenceService
+technical_runtime: AtlasAucriRuntimeEnforcementService
 human_name: Atlas Unified Context Retrieval Intelligence
 canonical_name: Atlas Unified Context Retrieval Intelligence
-technical_name: AtlasUnifiedContextRetrievalIntelligenceService
+technical_name: AtlasAucriRuntimeEnforcementService
 cartography_type: system
 canonical_source: docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
 graph_id: atlas-unified-context-retrieval-intelligence
@@ -80,7 +82,7 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
 allowed_changes:
   - Adicionar sub-runtimes, fases, gates e contracts quando a implementacao evoluir.
-  - Promover blocos filhos de planned/building para active somente com services, comandos, testes e certificacao.
+  - Promover blocos filhos de design/backlog para active somente com services, comandos, testes e certificacao.
 forbidden_changes:
   - Criar store paralelo de memoria, embeddings, graph ou evidence sem ADR.
   - Declarar Graph RAG global ou external vector RAG como pronto sem gates formais.
@@ -114,13 +116,14 @@ evidence:
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:local-rag-readiness --json"
+  - "php artisan test tests/Feature/Ai/Context/ContextQualityCertificationTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Criar AUCRI-I1 plan com slices implementaveis e reuse-first.
-  - Criar certification service AUCRI antes de qualquer claim de nota 10.
-  - Integrar WorldModelGraphRanker ao retrieval/reranking real quando seguro.
+  - Ampliar enforcement AUCRI para demais flows sem criar stores paralelos.
+  - Manter certification service AUCRI como gate antes de qualquer claim de nota 10.
+  - Evoluir adapters profundos reuse-first com AP/owner decision.
 ---
 
 ## Resumo
@@ -130,9 +133,10 @@ organiza APCR, ACIE, Open Brain, RAG, embeddings, grafo, ranking, freshness,
 feedback, context compiler e token economy sem criar stores paralelos.
 
 Estado real: programacao ja possui enforcement/runtime read-only com 18 blocos
-AUCRI executaveis e certificados localmente. Estado alvo: expandir o mesmo
-padrao para flows nao-programming, Graph RAG global e vector retrieval externo
-somente com AP, privacy, golden set, rollback e receipts.
+AUCRI executaveis e certificados localmente por
+`AtlasAucriRuntimeEnforcementService`. Estado alvo: expandir o mesmo padrao para
+flows nao-programming, Graph RAG global e vector retrieval externo somente com
+AP, privacy, golden set, rollback e receipts.
 
 O problema que ela resolve:
 
@@ -141,8 +145,8 @@ Atlas sabe muita coisa, mas precisa recuperar a coisa certa, no momento certo,
 com evidencia, relacao, frescor, privacidade e baixo ruido.
 ```
 
-Estado atual: programacao tem runtime/enforcement ativo; flows nao-programming
-seguem em expansao governada; alvo final e 10/10 auditavel sem overclaim.
+Estado atual: programacao tem runtime/enforcement ativo; demais flows seguem em
+expansao governada; alvo final e 10/10 auditavel sem overclaim.
 
 ## Papel no Atlas
 
@@ -213,15 +217,14 @@ intent/domain/flow/risk
 -> sufficiency gate
 -> flow execution
 -> outcome feedback
--> memory/graph learning proposal
+-> memory/graph learning candidate
 ```
 
 ## Regras para IA
 
 - Nao criar novo store sem provar que nenhum store existente serve.
 - Nao chamar embedding de verdade; embedding e candidato.
-- Nao declarar Graph RAG global pronto enquanto `graph_retrieval` estiver
-  `future_governed`.
+- Nao declarar Graph RAG global pronto enquanto estiver em backlog governado.
 - Nao enviar dado sensivel para embedding/provider externo sem privacy review.
 - Nao promover memoria automaticamente sem AEMOR/Memory Promotion.
 - Nao entregar contexto bruto quando refs, hashes e summaries bastam.
@@ -267,7 +270,7 @@ Regra de navegacao:
 1. Comece pelo bloco 0.
 2. Nao pule para AURG/AGRN antes de ASEF/AHRI/AARF/ACRS/ACFQ.
 3. Se um bloco nao possui service, command, tests e certification, ele fica
-   `planned` ou `building`, nunca `active`.
+   `design_only` ou `backlog_requires_ap`, nunca `active`.
 4. Cada bloco deve declarar nome canonico/produto, acronimo tecnico, nome
    interno/superficie e runtime tecnico.
 5. Cada implementacao deve atualizar esta matriz quando mudar status real.
@@ -305,7 +308,8 @@ Cada bloco filho precisa entregar:
 - Papel: combinar lexical, vector, memory, docs, evidence, code refs e ASEF
   candidates.
 - Estado atual: service/comando/testes emitem retrieval report read-only
-  cross-domain; falta adapter profundo e ACRS.
+  cross-domain; ACRS consome AHRI via AARF. Adapters profundos seguem backlog
+  governado por AP/owner decision.
 
 ### 3. AARF: Atlas Agentic RAG Framework
 
@@ -316,8 +320,8 @@ Cada bloco filho precisa entregar:
 - Papel: decompor objetivo, iterar busca, criticar lacunas e bloquear contexto
   insuficiente.
 - Estado atual: service/comando/testes read-only sobre AHRI existem; passa,
-  degrada ou bloqueia por required sources e risk fail-closed. Ainda falta
-  virar mandatory gate nos flows depois de ACRS/ACFQ.
+  degrada ou bloqueia por required sources e risk fail-closed. Promocao para
+  mandatory gate fora dos flows atuais exige fatia governada.
 
 ### 4. AGRN: Atlas Graph Retrieval Network
 
@@ -329,7 +333,7 @@ Cada bloco filho precisa entregar:
   codebase graph e reality graph.
 - Estado atual: service/comando/testes read-only sobre Codebase World Model
   existem; emite graph query/evidence/traversal receipt e bloqueia risco alto
-  sem grafo. Graph global/external continua future-governed.
+  sem grafo. Graph global/external continua backlog_requires_ap.
 
 ### 5. AURG: Atlas Unified Reality Graph
 
@@ -341,7 +345,7 @@ Cada bloco filho precisa entregar:
   metas, riscos, resultados e oportunidades.
 - Estado atual: service/comando/testes read-only projetam entidades/edges ASRE
   existentes em snapshot AUCRI com sources, freshness, confidence e fail-closed
-  por risco. Grafo unificado completo ainda evolui por ingestion/trust.
+  por risco. Grafo unificado completo evolui por ingestion/trust governado.
 
 ### 6. ACRS: Atlas Context Ranking System
 
@@ -373,7 +377,7 @@ Cada bloco filho precisa entregar:
 - Acronimo tecnico: ARFL
 - Nome interno/superficie: Atlas Context Learning
 - Runtime tecnico: `AtlasRetrievalFeedbackLoopService`
-- Papel: aprender quais refs ajudaram, quais foram ruido, quais faltaram e qual
+- Papel: aprender quais refs ajudaram, quais foram ruido, quais ficaram ausentes e qual
   contexto reduziu erro.
 - Estado atual: service/comando/testes AUCRI existem sobre ACFQ e
   `AtlasRagFeedbackService`; calcula context ROI, misses/noise e gera candidato
@@ -440,8 +444,6 @@ php artisan atlas:persistent-context:certify --json --strict
 
 ## Riscos
 
-Riscos principais:
-
 - AUCRI virar mais uma camada paralela em vez de organizar as existentes.
 - Graph RAG global ser liberado antes de privacy/retention/delete cascade.
 - Embeddings externos vazarem dados sensiveis.
@@ -449,8 +451,6 @@ Riscos principais:
 - Context pack ficar grande demais e reduzir qualidade.
 - Feedback loop aprender falso positivo.
 - Python runtime virar execucao arbitraria.
-
-Mitigacoes:
 
 - reuse-first;
 - evidence refs;
@@ -501,8 +501,6 @@ Roadmap de longo prazo:
 8. AUCRI-I8: AREBA + ARCLG para eval, benchmark interno, custo e latencia.
 9. AUCRI-I9: ACOP + ARPTL + AKIF para observabilidade, trust e ingestion.
 10. AUCRI-I10-I14: ACMF, ACCR, ATER, ACPFR e certification final com golden sets, replay e Control Plane.
-
-Definition of Done 10/10:
 
 - Atlas Dev e Atlas Forge usam AUCRI por padrao antes de provider/patch/test;
 - os 18 blocos possuem doc filha canonica ou justificativa de bloqueio;

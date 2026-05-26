@@ -150,8 +150,8 @@ next_actions:
 
 Este documento define como o Atlas preserva conhecimento para humanos e IAs.
 Ele existe para impedir que uma sessao nova crie fluxo paralelo, duplique
-capability, confunda scaffold com pronto ou declare inexistente algo que ja foi
-implementado.
+capability, confunda planejamento com pronto ou declare inexistente algo que ja
+foi implementado.
 
 ## Decisao Executiva
 
@@ -164,8 +164,8 @@ sem promocao.
 
 `atlas-documentation-reality-system.md` e o doc mae que organiza a dependencia
 entre documentacao canonica, ACRUI e Cartografia/AURC. Ele deve ser lido quando
-a tarefa envolver documentacao real, codigo legado/scaffold, mapa visual humano
-ou consumo de docs de outro projeto.
+a tarefa envolver documentacao real, codigo legado/planejamento, mapa visual
+humano ou consumo de docs de outro projeto.
 
 Proximo patamar canonico: `atlas-next-patamar-operating-systems.md` fixa o
 conjunto soberano/epistemico/cartografico; `atlas-sovereign-operating-system.md`
@@ -184,7 +184,7 @@ navegavel por humanos e IAs.
 | Obsidian vira runtime | nota humana sem promocao | promote para doc/AP versionado |
 | Postgres stale | sync/index nao rodou | `sync --prune` + `index-code --prune` |
 | provider projection vira lei | AGENTS/CLAUDE envelhece | docs canonicos vencem projection |
-| meio implementado esquecido | sem AP/status/DoD | AP ou doc dono com `scaffold` claro |
+| meio implementado esquecido | sem AP/status/DoD | AP ou doc dono com estado explicito |
 
 ## Camadas De Conhecimento
 
@@ -341,7 +341,7 @@ Obsidian pode ser inbox e espelho; nao e fonte operacional crua.
 Uma mudanca enterprise esta pronta quando:
 
 1. possui owner doc/AP claro;
-2. declara status correto (`active`, `scaffold`, `future`, `implemented`);
+2. declara status correto e estado operacional verificavel;
 3. nao cria fluxo paralelo;
 4. atualiza indices canonicos relevantes;
 5. liga docs a codigo/teste/comando quando afirma implementacao;
@@ -357,55 +357,70 @@ Uma mudanca enterprise esta pronta quando:
 4. Tratar chat, print ou IA externa como decisao canonica.
 5. Colocar decisao operacional so no Obsidian.
 6. Atualizar Postgres manualmente em vez de versionar doc.
-7. Chamar scaffold de implemented.
+7. Chamar planejamento, backlog ou partial de implemented.
 8. Duplicar capability entre `ask`, `dev`, `forge`, mobile ou voice.
 9. Deixar feature parcial sem AP, status e DoD.
 10. Permitir que AGENTS/CLAUDE contradigam a arquitetura.
 
 ## Resumo
 
-Contrato enterprise que conecta docs canonicos no repo, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian/AtlasVault, AGENTS/CLAUDE e bootstrap de sessao para qualquer IA se orientar sem memoria de chat.
+Knowledge Governance define a ordem de autoridade entre docs canonicos, codigo,
+Evidence Ledger, read models, vault humano, projections e chat.
 
 ## Papel no Atlas
 
-Define a responsabilidade desta peca dentro da arquitetura Atlas.
+Impede que IAs novas implementem por memoria de conversa, read model stale ou
+projection curta quando existe doc dono no repo.
 
 ## Onde Se Encaixa
 
-Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+Governa session-bootstrap, feature placement, docs authority, provider
+projections, KB sync, Code Intelligence, Obsidian/Vault e source material.
 
 ## Contratos
 
-Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+Docs do repo sao autoria; codigo/testes/migrations provam implementacao;
+Evidence Ledger prova eventos runtime; KB, Code Intelligence, Vault e
+projections sao leitura/projecao.
 
 ## Fluxo
 
-Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+```text
+task -> bootstrap -> placement -> owner doc -> ACRUI/evidence
+-> implementation/tests -> docs-health/sync/index-code -> projections
+```
 
 ## Regras para IA
 
-Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+Nunca use chat, Obsidian, Postgres KB ou AGENTS/CLAUDE contra doc canonico.
+Sem owner doc e placement, nao programe.
 
 ## Escopo de Implementacao
 
-Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+Este doc muda apenas quando muda autoridade, bootstrap, projection, KB sync,
+Vault boundary ou regra de promocao de conhecimento.
 
 ## Dependencias
 
-Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+Depende de Documentation OS, ADRS, ACRUI, START_HERE, session bootstrap,
+feature placement, docs authority audit, KB e Code Intelligence.
 
 ## Evidencias
 
-Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+Evidencias: docs-health, docs-authority-audit, architecture-validate, sync,
+index-code, comandos bootstrap/placement, codigo e testes associados.
 
 ## Riscos
 
-Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+Riscos centrais: fonte falsa virar verdade, projection envelhecida governar
+implementacao, source material competir com doc dono e IA duplicar runtime.
 
 ## Exemplos
 
-Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+Uma nota boa do Vault vira patch no owner doc ou AP; ela nao governa runtime
+sozinha.
 
 ## Proximas Acoes
 
-Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+Manter este contrato curto, sincronizado com bootstrap, placement, docs-health,
+authority audit, provider projections e read models.

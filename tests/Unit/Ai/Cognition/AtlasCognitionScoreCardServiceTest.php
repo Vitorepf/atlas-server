@@ -10,9 +10,21 @@ use Tests\TestCase;
  */
 class AtlasCognitionScoreCardServiceTest extends TestCase
 {
-    public function test_canonical_subsystem_count_is_62(): void
+    public function test_canonical_subsystem_count_is_66(): void
     {
-        $this->assertSame(62, AtlasCognitionScoreCardService::canonicalSubsystemCount());
+        $this->assertSame(66, AtlasCognitionScoreCardService::canonicalSubsystemCount());
+    }
+
+    public function test_swarm_executor_present(): void
+    {
+        $acronyms = array_map(fn ($r) => $r['acronym'], (new AtlasCognitionScoreCardService)->build()['subsystems']);
+        $this->assertContains('ASWE', $acronyms);
+    }
+
+    public function test_subsystem_auto_rebalance_present(): void
+    {
+        $acronyms = array_map(fn ($r) => $r['acronym'], (new AtlasCognitionScoreCardService)->build()['subsystems']);
+        $this->assertContains('ASAR', $acronyms);
     }
 
     public function test_nightly_counterfactuals_present(): void
@@ -56,8 +68,8 @@ class AtlasCognitionScoreCardServiceTest extends TestCase
         $r = (new AtlasCognitionScoreCardService)->build();
 
         $this->assertSame('atlas.cognition.scorecard.v3', $r['schema_version']);
-        $this->assertSame(62, $r['subsystem_count']);
-        $this->assertCount(62, $r['subsystems']);
+        $this->assertSame(66, $r['subsystem_count']);
+        $this->assertCount(66, $r['subsystems']);
         $this->assertArrayHasKey('score', $r);
         $this->assertArrayHasKey('scorecard_hash', $r);
         $this->assertStringStartsWith('sha256:', $r['scorecard_hash']);
