@@ -50,7 +50,26 @@ final class AtlasSwarmConductorService
 
     public const LOCAL_FALLBACK_MODEL = 'atlas_local_default';
 
+    public const OUTCOME_SCHEMA = 'atlas.swarm_conductor.outcome.v1';
+
+    public const OUTCOME_STATUS_SUCCESS = 'success';
+
+    public const OUTCOME_STATUS_FAILURE = 'failure';
+
+    public const OUTCOME_STATUS_TIMEOUT = 'timeout';
+
+    public const OUTCOME_STATUS_HUMAN_OVERRIDE = 'human_override';
+
+    public const VALID_OUTCOME_STATUSES = [
+        self::OUTCOME_STATUS_SUCCESS,
+        self::OUTCOME_STATUS_FAILURE,
+        self::OUTCOME_STATUS_TIMEOUT,
+        self::OUTCOME_STATUS_HUMAN_OVERRIDE,
+    ];
+
     private ?string $dispatchesLogOverride = null;
+
+    private ?string $outcomesLogOverride = null;
 
     public function __construct(
         private readonly AtlasDecideMetaLearningService $adml,
@@ -63,6 +82,11 @@ final class AtlasSwarmConductorService
         $this->dispatchesLogOverride = $path;
     }
 
+    public function setOutcomesLogPathForTesting(?string $path): void
+    {
+        $this->outcomesLogOverride = $path;
+    }
+
     public function dispatchesLogPath(): string
     {
         if ($this->dispatchesLogOverride !== null) {
@@ -73,6 +97,118 @@ final class AtlasSwarmConductorService
             : sys_get_temp_dir().'/atlas/swarm';
 
         return $base.DIRECTORY_SEPARATOR.'dispatches.jsonl';
+    }
+
+    public function outcomesLogPath(): string
+    {
+        if ($this->outcomesLogOverride !== null) {
+            return $this->outcomesLogOverride;
+        }
+        $base = function_exists('storage_path')
+            ? storage_path('atlas/swarm')
+            : sys_get_temp_dir().'/atlas/swarm';
+
+        return $base.DIRECTORY_SEPARATOR.'outcomes.jsonl';
+    }
+
+    /**
+     * Record an outcome for a previously emitted dispatch arm. Outcomes are
+     * append-only and provider-safe — no aggregate claim, no winner declaration.
+     * Consumer (gateway / runner) records what actually happened so the Swarm
+     * can learn over time which arm/provider/role combos earn honest evidence.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function recordOutcome(array $input): array
+    {
+        $dispatchId = (string) ($input['dispatch_id'] ?? '');
+        $armId = (string) ($input['arm_id'] ?? '');
+        if ($dispatchId === '' || $armId === '') {
+            throw new InvalidArgumentException('dispatch_id and arm_id are required.');
+        }
+        $status = (string) ($input['status'] ?? '');
+        if (! in_array($status, self::VALID_OUTCOME_STATUSES, true)) {
+            throw new InvalidArgumentException("Unknown outcome status '{$status}'.");
+        }
+        $latencyMs = isset($input['latency_ms']) ? (int) $input['latency_ms'] : null;
+        $rationale = (string) ($input['rationale'] ?? '');
+
+        $envelope = [
+            'schema_version' => self::OUTCOME_SCHEMA,
+            'recorded_at' => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format(\DateTimeInterface::ATOM),
+            'dispatch_id' => $dispatchId,
+            'arm_id' => $armId,
+            'status' => $status,
+            'latency_ms' => $latencyMs,
+            'rationale' => $rationale,
+            'claim_policy' => [
+                'aggregate_winner_claim_allowed' => false,
+                'rivals_claim_allowed' => false,
+            ],
+        ];
+        $envelope['outcome_hash'] = 'sha256:'.hash('sha256', json_encode([
+            'schema' => self::OUTCOME_SCHEMA,
+            'dispatch_id' => $dispatchId,
+            'arm_id' => $armId,
+            'status' => $status,
+        ], JSON_THROW_ON_ERROR));
+
+        $this->appendJsonl($this->outcomesLogPath(), $envelope);
+
+        return $envelope;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function listOutcomes(): array
+    {
+        return $this->readJsonl($this->outcomesLogPath());
+    }
+
+    /**
+     * Aggregate counts per (provider × status). Does NOT claim winner.
+     *
+     * @return array<string,mixed>
+     */
+    public function outcomeSummary(): array
+    {
+        $byProviderStatus = [];
+        $dispatchesById = [];
+        foreach ($this->listDispatches() as $d) {
+            $dispatchesById[(string) ($d['dispatch_id'] ?? '')] = $d;
+        }
+        foreach ($this->listOutcomes() as $o) {
+            $dispatch = $dispatchesById[(string) ($o['dispatch_id'] ?? '')] ?? null;
+            if ($dispatch === null) {
+                continue;
+            }
+            $provider = 'unknown';
+            foreach ((array) ($dispatch['arms'] ?? []) as $arm) {
+                if (($arm['arm_id'] ?? null) === ($o['arm_id'] ?? null)) {
+                    $provider = (string) ($arm['provider'] ?? 'unknown');
+                    break;
+                }
+            }
+            $status = (string) ($o['status'] ?? 'unknown');
+            $byProviderStatus[$provider] = $byProviderStatus[$provider] ?? array_fill_keys(self::VALID_OUTCOME_STATUSES, 0);
+            if (isset($byProviderStatus[$provider][$status])) {
+                $byProviderStatus[$provider][$status]++;
+            }
+        }
+
+        return [
+            'schema_version' => 'atlas.swarm_conductor.outcome_summary.v1',
+            'total_outcomes' => count($this->listOutcomes()),
+            'by_provider_status' => $byProviderStatus,
+            'claim_policy' => [
+                'aggregate_winner_claim_allowed' => false,
+                'rivals_claim_allowed' => false,
+                'benchmark_claim_allowed' => false,
+                'superiority_claim_allowed' => false,
+            ],
+        ];
     }
 
     /**

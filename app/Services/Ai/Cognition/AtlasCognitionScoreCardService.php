@@ -4,14 +4,21 @@ namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
+use App\Services\Ai\AtlasDecide\AtlasDecideTeosI4LookaheadService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
+use App\Services\Ai\Compounding\AtlasAntifragilityCompositionMetricService;
+use App\Services\Ai\Compounding\AtlasCompoundingLevel8DistillationService;
+use App\Services\Ai\Context\AtlasContextObservabilityToRankingReflexiveBridgeService;
+use App\Services\Ai\Knowledge\AtlasKnowledgeIngestionFabricOcrConfidenceService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
 use App\Services\Ai\CrossDomain\AtlasTemporaryDomainCompositionService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionScaffoldStagingExecutorService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use App\Services\Ai\Teos\AtlasTeosI4CounterfactualTreeService;
@@ -144,6 +151,20 @@ class AtlasCognitionScoreCardService
         ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         'teos',              AtlasTeosI4CounterfactualTreeService::class,       'ready', 'ready', 'building'],
         ['ASWC',    'Swarm Conductor',                     'atlas_decide',      AtlasSwarmConductorService::class,                 'ready', 'ready', 'building'],
         ['ATDC',    'Temporary Domain Composition',        'cross_domain',      AtlasTemporaryDomainCompositionService::class,     'ready', 'ready', 'building'],
+
+        // Patamar 4 · integration layer
+        ['ADGW',    'Atlas Decide Gateway Consultation',   'atlas_decide',      AtlasDecideGatewayConsultationService::class,      'ready', 'ready', 'building'],
+        ['AACM',    'Antifragility Composition Metric',    'compounding',       AtlasAntifragilityCompositionMetricService::class, 'ready', 'ready', 'building'],
+        ['ACMF-SE', 'Cognitive Memory Fabric Schema Evolution', 'aucri',         AtlasCognitiveMemoryFabricSchemaEvolutionService::class, 'ready', 'ready', 'building'],
+        ['ASCB-EX', 'Self-Construction Scaffold Staging Executor', 'self_construction', AtlasSelfConstructionScaffoldStagingExecutorService::class, 'ready', 'ready', 'building'],
+
+        // Patamar 1/2/3 closures — Reflexivity streaming, OCR confidence, Compounding L8/L9
+        ['ACOP-ACRS', 'ACOP→ACRS Reflexive Streaming Bridge', 'aucri',          AtlasContextObservabilityToRankingReflexiveBridgeService::class, 'ready', 'ready', 'building'],
+        ['AKIF-OCR', 'AKIF OCR Confidence-Scored Ingestion', 'aucri',           AtlasKnowledgeIngestionFabricOcrConfidenceService::class,        'ready', 'ready', 'building'],
+        ['ACL8',    'Compounding Level 8/9 Distillation',   'compounding',     AtlasCompoundingLevel8DistillationService::class,                'ready', 'ready', 'building'],
+
+        // Patamar 4 · intelligence boost
+        ['ADTI4', 'Atlas Decide TEOS-I4 Lookahead',        'atlas_decide',     AtlasDecideTeosI4LookaheadService::class,                        'ready', 'ready', 'building'],
     ];
 
     /**

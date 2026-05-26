@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
+use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Skills\SkillBundleStore;
+use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use App\Services\Ai\Vox\Audit\VoxV3HardeningAuditService;
 use App\Services\Ai\Vox\Confirmation\VoxConfirmationService;
 use App\Services\Ai\Vox\Execution\VoxClaudeCliExecutor;
@@ -64,6 +66,42 @@ class AppServiceProvider extends ServiceProvider
             return new AtlasDevRuntimeService(
                 $app->make(AtlasWorkspaceIntelligenceExecutionGateService::class),
             );
+        });
+
+        // Patamar 4 · TEOS-I3 × AURG-4D auto-chain.
+        // TEOS-I3's `setAurgForChaining()` is an opt-in seam so unit tests can
+        // create branches without writing temporal ticks. Production resolution
+        // MUST wire the chain so every counterfactual branch emits an AURG-4D
+        // tick — closing the Patamar 4 hook between TEOS and Reality Graph.
+        $this->app->resolving(AtlasTeosI3CounterfactualService::class, function ($svc, $app) {
+            if ($svc instanceof AtlasTeosI3CounterfactualService) {
+                $svc->setAurgForChaining($app->make(AtlasUnifiedRealityGraphTemporalService::class));
+            }
+        });
+
+        // Patamar 4 · Autonomy Admission consults Human Trust Ledger.
+        // High operator trust track-record lifts the autonomy cap one tier;
+        // low trust lowers it. Trust ledger requires DB — wiring is in the
+        // resolving callback so unit tests that bypass the container don't pay
+        // the DB cost.
+        $this->app->resolving(\App\Services\Ai\Governance\AtlasAutonomyAdmissionService::class, function ($svc, $app) {
+            if ($svc instanceof \App\Services\Ai\Governance\AtlasAutonomyAdmissionService) {
+                try {
+                    $svc->setTrustLedger($app->make(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::class));
+                } catch (\Throwable $e) {
+                    // Defensive: trust ledger may not be available in some
+                    // environments; service stays in 'unknown' band gracefully.
+                }
+            }
+        });
+
+        // Patamar 4 · Reconciliation meta-cognition via TEOS-I3.
+        // Reconciliation projects expected outcome before firing ASCB.propose().
+        // Sub-threshold projections are suppressed (recorded honestly).
+        $this->app->resolving(\App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService::class, function ($svc, $app) {
+            if ($svc instanceof \App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService) {
+                $svc->setTeosI3ForMetaProjection($app->make(AtlasTeosI3CounterfactualService::class));
+            }
         });
 
         // Vox V3 governed executors. Order is irrelevant — the router keys

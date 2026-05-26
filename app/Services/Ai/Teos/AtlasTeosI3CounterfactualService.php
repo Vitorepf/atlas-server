@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Teos;
 
+use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -31,7 +32,7 @@ use InvalidArgumentException;
  *   - branches append-only;
  *   - recommendation requires_human_approval=true.
  */
-final class AtlasTeosI3CounterfactualService
+class AtlasTeosI3CounterfactualService
 {
     public const BRANCH_SCHEMA = 'atlas.teos_i3.counterfactual_branch.v1';
 
@@ -71,6 +72,17 @@ final class AtlasTeosI3CounterfactualService
     private ?string $branchesLogOverride = null;
 
     private ?string $recommendationsLogOverride = null;
+
+    private ?AtlasUnifiedRealityGraphTemporalService $aurg = null;
+
+    /**
+     * Wire AURG-4D so every branch emits a temporal tick automatically.
+     * Optional — call separately so existing constructors stay back-compat.
+     */
+    public function setAurgForChaining(?AtlasUnifiedRealityGraphTemporalService $aurg): void
+    {
+        $this->aurg = $aurg;
+    }
 
     public function setBranchesLogPathForTesting(?string $path): void
     {
@@ -169,6 +181,31 @@ final class AtlasTeosI3CounterfactualService
         $branch['branch_hash'] = $this->branchHash($branch);
 
         $this->appendJsonl($this->branchesLogPath(), $branch);
+
+        // AURG-4D integration: every counterfactual branch records a tick on the temporal chain.
+        // This closes Patamar 4 hook: TEOS-I3 × AURG-4D. The tick is rationale_event kind
+        // since the branch is hypothetical (is_counterfactual=true).
+        if ($this->aurg !== null) {
+            try {
+                $aurgTick = $this->aurg->recordTick([
+                    'kind' => AtlasUnifiedRealityGraphTemporalService::KIND_RATIONALE_EVENT,
+                    'actor' => 'teos',
+                    'rationale' => sprintf(
+                        'counterfactual_branch %s anchor=%s alt=%s divergence=%.4f',
+                        $branchId,
+                        $anchor,
+                        $altKind,
+                        $divergence
+                    ),
+                ]);
+                $branch['aurg_tick_id'] = (string) ($aurgTick['tick_id'] ?? '');
+                $branch['aurg_tick_hash'] = (string) ($aurgTick['tick_hash'] ?? '');
+            } catch (\Throwable $e) {
+                // Defensive: do not corrupt the branch envelope if AURG write fails.
+                $branch['aurg_tick_id'] = null;
+                $branch['aurg_tick_hash'] = 'sha256:aurg_chain_failed';
+            }
+        }
 
         return $branch;
     }

@@ -888,3 +888,6 @@ Route::prefix('atlas/ai/control-plane')->group(function (): void {
 
 // Atlas AI Runtime Readiness & Release Gate · single-call aggregator
 Route::get('/atlas/ai/runtime-readiness', AtlasAiRuntimeReadinessController::class);
+
+// Atlas Patamar 4 · live aggregator (Kernel · Admission · CFA · Reconciliation · TEOS-I4 · Swarm · TDC)
+Route::get('/atlas/patamar4/state', App\Http\Controllers\AtlasPatamar4StateController::class);

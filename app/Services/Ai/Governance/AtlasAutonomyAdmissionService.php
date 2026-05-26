@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Governance;
 
 use App\Services\Ai\Policy\PolicyCanon;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -82,11 +83,29 @@ final class AtlasAutonomyAdmissionService
         PolicyCanon::AUTONOMY_AUTONOMOUS => 4,
     ];
 
+    public const TRUST_BAND_HIGH = 'high';
+
+    public const TRUST_BAND_MEDIUM = 'medium';
+
+    public const TRUST_BAND_LOW = 'low';
+
     private ?string $ticketsLogOverride = null;
+
+    private ?AtlasSelfImprovementHumanTrustLedgerService $trustLedger = null;
 
     public function __construct(
         private readonly AtlasConstitutionalKernelService $kernel,
     ) {}
+
+    /**
+     * Optional Trust Ledger seam. When wired, Admission factors the operator
+     * trust track-record into autonomy decisions: high trust may unlock
+     * autonomous for low-risk changes; low trust caps to draft regardless.
+     */
+    public function setTrustLedger(?AtlasSelfImprovementHumanTrustLedgerService $ledger): void
+    {
+        $this->trustLedger = $ledger;
+    }
 
     public function setTicketsLogPathForTesting(?string $path): void
     {
@@ -128,6 +147,10 @@ final class AtlasAutonomyAdmissionService
         // 3. Max autonomy permitida pelo risco.
         $maxAutonomy = self::RISK_TO_MAX_AUTONOMY[$riskLevel] ?? PolicyCanon::AUTONOMY_SUGGEST;
 
+        // 3.5 Trust Ledger modifier (when wired).
+        $trustBand = $this->queryTrustBand();
+        $maxAutonomy = $this->applyTrustModifier($maxAutonomy, $trustBand);
+
         // 4. Compor decisão.
         $gaps = [];
         $decision = $this->composeDecision($kernelEnv, $requestedAutonomy, $maxAutonomy, $gaps);
@@ -143,6 +166,7 @@ final class AtlasAutonomyAdmissionService
             'effective_autonomy' => $effectiveAutonomy,
             'risk_level' => $riskLevel,
             'max_autonomy_for_risk' => $maxAutonomy,
+            'trust_band' => $trustBand,
             'kernel_decision' => $kernelEnv['decision'],
             'kernel_violations' => $kernelEnv['violations'] ?? [],
             'kernel_required_approvals' => $kernelEnv['required_approvals'] ?? [],
@@ -166,6 +190,48 @@ final class AtlasAutonomyAdmissionService
     }
 
     // ---------- internals ----------
+
+    /**
+     * Returns 'high'|'medium'|'low'|'unknown' based on the trust ledger snapshot
+     * for the global (no project) bucket. Returns 'unknown' when the ledger is
+     * not wired or the snapshot cannot be computed.
+     */
+    private function queryTrustBand(): string
+    {
+        if ($this->trustLedger === null) {
+            return 'unknown';
+        }
+        try {
+            $snap = $this->trustLedger->snapshot(null);
+            $band = (string) ($snap['summary']['trust_band'] ?? 'unknown');
+            if (in_array($band, [self::TRUST_BAND_HIGH, self::TRUST_BAND_MEDIUM, self::TRUST_BAND_LOW], true)) {
+                return $band;
+            }
+        } catch (\Throwable $e) {
+            // ledger may require DB tables not available in unit tests — gracefully degrade
+        }
+
+        return 'unknown';
+    }
+
+    /**
+     * Apply trust modifier to the max autonomy computed from risk.
+     *  - high trust   : lift cap one tier up (e.g. medium-risk → autonomous allowed)
+     *  - medium/unknown : no change
+     *  - low trust    : lower cap one tier (e.g. low-risk → execute_with_approval cap)
+     */
+    private function applyTrustModifier(string $maxAutonomy, string $trustBand): string
+    {
+        $rank = self::AUTONOMY_RANK[$maxAutonomy] ?? 1;
+        if ($trustBand === self::TRUST_BAND_HIGH) {
+            $rank = min(self::AUTONOMY_RANK[PolicyCanon::AUTONOMY_AUTONOMOUS], $rank + 1);
+        } elseif ($trustBand === self::TRUST_BAND_LOW) {
+            $rank = max(self::AUTONOMY_RANK[PolicyCanon::AUTONOMY_SUGGEST], $rank - 1);
+        }
+        $found = array_search($rank, self::AUTONOMY_RANK, true);
+
+        return $found ?: $maxAutonomy;
+    }
 
     /**
      * Deriva risk_level canon (low/medium/high/critical) a partir do change.

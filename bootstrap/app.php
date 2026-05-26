@@ -372,6 +372,25 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->withoutOverlapping();
         }
 
+        // Patamar 4 — Autonomous Reconciliation Tick.
+        // Each tick reads CognitiveFunctionAtlas → admits via Constitutional Kernel
+        // → emits AURG-4D temporal tick → fires ASCB.propose() when allow_autonomous.
+        // Tick is harmless when registry has no gaps (outcome=noop_no_gap).
+        // Defaults: every 15 min. Disable via config('atlas.patamar4.reconciliation_enabled', true).
+        if (config('atlas.patamar4.reconciliation_enabled', true)) {
+            $cadence = (string) config('atlas.patamar4.reconciliation_cadence', 'fifteen');
+            $cmd = $schedule->command('atlas:reconciliation --action=tick --privacy=normal --autonomy=execute_with_approval --json')
+                ->withoutOverlapping();
+            match ($cadence) {
+                'minute' => $cmd->everyMinute(),
+                'five' => $cmd->everyFiveMinutes(),
+                'ten' => $cmd->everyTenMinutes(),
+                'thirty' => $cmd->everyThirtyMinutes(),
+                'hourly' => $cmd->hourly(),
+                default => $cmd->everyFifteenMinutes(),
+            };
+        }
+
         if (config('atlas_ai.self_improvement.enabled', false)) {
             foreach (app(AtlasSelfImprovementScheduleService::class)->scheduledCommands() as $selfImprovementCommand) {
                 $scheduledEvent = $schedule->command($selfImprovementCommand['command']);

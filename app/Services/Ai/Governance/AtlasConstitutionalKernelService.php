@@ -70,6 +70,7 @@ final class AtlasConstitutionalKernelService
      * @var list<array{id:string, class:string, statement:string, enabled:bool}>
      */
     private const INVARIANTS = [
+        // Pétreos — imutáveis runtime, alteração só por PR + redeploy.
         ['id' => 'claim_policy_provider_safe',          'class' => self::CLASS_PETREO, 'statement' => 'No benchmark/rivals/superiority claims in code, doc or provider output.', 'enabled' => true],
         ['id' => 'sovereignty_local_first',             'class' => self::CLASS_PETREO, 'statement' => 'sensitive/secret/cyber data never leaves the machine.', 'enabled' => true],
         ['id' => 'cognitive_immune_law',                'class' => self::CLASS_PETREO, 'statement' => 'Raw Capture != Evidence != Learning Signal != Memory != Context != Decision.', 'enabled' => true],
@@ -79,6 +80,17 @@ final class AtlasConstitutionalKernelService
         ['id' => 'evidence_append_only',                'class' => self::CLASS_PETREO, 'statement' => 'Evidence Ledger is append-only; no retroactive ops.', 'enabled' => true],
         ['id' => 'human_approval_for_high_risk',        'class' => self::CLASS_PETREO, 'statement' => 'Cross-domain changes touching sensitive/secret/cyber demand operator approval.', 'enabled' => true],
         ['id' => 'no_silent_invariant_mutation',        'class' => self::CLASS_PETREO, 'statement' => 'No invariant mutation without append-only ledger entry.', 'enabled' => true],
+
+        // Elastic — operador pode flipar via --check + --confirm + receipt.
+        ['id' => 'autonomous_self_construction_enabled', 'class' => self::CLASS_ELASTIC, 'statement' => 'Operator can disable ASCB autonomous proposal firing without breaking the loop.', 'enabled' => true],
+        ['id' => 'reconciliation_cron_enabled',         'class' => self::CLASS_ELASTIC, 'statement' => 'Operator can pause the autonomous reconciliation cron.', 'enabled' => true],
+        ['id' => 'teos_meta_projection_enabled',        'class' => self::CLASS_ELASTIC, 'statement' => 'Operator can disable TEOS-I3 meta-projection before ASCB.propose().', 'enabled' => true],
+        ['id' => 'swarm_local_fallback_enabled',        'class' => self::CLASS_ELASTIC, 'statement' => 'Operator can disable the atlas_local fallback arm in Swarm Conductor.', 'enabled' => true],
+
+        // Runtime — auto-tune dentro de range pré-declarado (ADML/Reconciliation com receipt).
+        ['id' => 'reconciliation_cadence_window',       'class' => self::CLASS_RUNTIME, 'statement' => 'Cron cadence may be tuned in {minute|five|ten|fifteen|thirty|hourly} window.', 'enabled' => true],
+        ['id' => 'tdc_ttl_window',                      'class' => self::CLASS_RUNTIME, 'statement' => 'Temporary domain capsule TTL may be tuned in [60s..86400s] window.', 'enabled' => true],
+        ['id' => 'admission_trust_modifier_window',     'class' => self::CLASS_RUNTIME, 'statement' => 'Trust modifier may shift autonomy cap by at most ±1 tier.', 'enabled' => true],
     ];
 
     public function setViolationsLogPathForTesting(?string $path): void

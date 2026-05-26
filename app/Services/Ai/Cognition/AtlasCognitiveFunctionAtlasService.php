@@ -155,6 +155,84 @@ class AtlasCognitiveFunctionAtlasService
         return $count >= $threshold;
     }
 
+    /**
+     * Probe runtime evidence (append-only JSONL existence + size) per subsystem
+     * group to surface groups where declared `pipeline_status=ready` may not
+     * be backed by real activity yet. Returns advisory rows only — does NOT
+     * mutate scorecard. Operator decides if this signals a real gap.
+     *
+     * @return list<array{group:string, declared_ready:int, evidence_files_seen:int, evidence_files_empty:int}>
+     */
+    public function runtimeEvidenceByGroup(?string $storageBase = null): array
+    {
+        $base = $storageBase ?? (function_exists('storage_path') ? storage_path('atlas') : sys_get_temp_dir().'/atlas');
+        // Heuristic mapping of group → expected JSONL roots under storage/atlas/.
+        $groupRoots = [
+            'cognitive_immune' => ['aemor', 'cognitive_immune'],
+            'memory_core' => ['memory'],
+            'aucri' => ['acop_to_acrs', 'akif'],
+            'self_improvement' => ['self_improvement'],
+            'atlas_decide' => ['atlas_decide', 'swarm'],
+            'self_construction' => ['self_construction'],
+            'reality' => ['aurg'],
+            'cross_domain' => ['cross_domain'],
+            'teos' => ['teos_i3', 'teos_i4'],
+            'governance' => ['governance'],
+            'autonomy' => ['reconciliation'],
+            'cognition' => [],
+            'compounding' => ['compounding'],
+        ];
+
+        $subs = (array) ($this->scoreCard->build()['subsystems'] ?? []);
+        $byGroup = [];
+        foreach ($subs as $s) {
+            $g = (string) ($s['group'] ?? '');
+            if ($g === '') {
+                continue;
+            }
+            $byGroup[$g] = $byGroup[$g] ?? ['declared_ready' => 0, 'evidence_files_seen' => 0, 'evidence_files_empty' => 0];
+            if (($s['pipeline_status'] ?? '') === 'ready') {
+                $byGroup[$g]['declared_ready']++;
+            }
+        }
+
+        foreach ($byGroup as $g => &$row) {
+            $roots = $groupRoots[$g] ?? [];
+            foreach ($roots as $r) {
+                $dir = $base.DIRECTORY_SEPARATOR.$r;
+                if (! is_dir($dir)) {
+                    continue;
+                }
+                foreach (glob($dir.'/*.jsonl') ?: [] as $f) {
+                    $row['evidence_files_seen']++;
+                    if (filesize($f) === 0) {
+                        $row['evidence_files_empty']++;
+                    }
+                }
+            }
+        }
+        unset($row);
+
+        $out = [];
+        foreach ($byGroup as $g => $row) {
+            $out[] = [
+                'group' => $g,
+                'declared_ready' => $row['declared_ready'],
+                'evidence_files_seen' => $row['evidence_files_seen'],
+                'evidence_files_empty' => $row['evidence_files_empty'],
+            ];
+        }
+        // Sort: groups with most empty/missing evidence first (advisory gaps).
+        usort($out, static function ($a, $b): int {
+            $a_lack = $a['declared_ready'] - $a['evidence_files_seen'];
+            $b_lack = $b['declared_ready'] - $b['evidence_files_seen'];
+
+            return $b_lack <=> $a_lack;
+        });
+
+        return $out;
+    }
+
     // ---------- internals ----------
 
     /**
