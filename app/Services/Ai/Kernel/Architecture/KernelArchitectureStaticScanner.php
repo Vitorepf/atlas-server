@@ -14446,7 +14446,7 @@ class KernelArchitectureStaticScanner
      */
     private function scanAgentBehaviorExecutionPlan(): array
     {
-        $executionPlanPath = app_path('Services/Ai/ValueObjects/AiExecutionPlan.php');
+        $executionPlanPath = app_path('Services/Ai/ValueObjects/AiPromptExecutionPlan.php');
         $harnessTestPath = base_path('tests/Unit/AiHarnessContractsTest.php');
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-149-agent-behavior-execution-plan.md');
@@ -14465,7 +14465,7 @@ class KernelArchitectureStaticScanner
             "'principles'",
         ] as $token) {
             if (! str_contains($executionPlan, $token)) {
-                $violations[] = "app/Services/Ai/ValueObjects/AiExecutionPlan.php: AP-149 execution plan must carry agent behavior contract [{$token}]";
+                $violations[] = "app/Services/Ai/ValueObjects/AiPromptExecutionPlan.php: AP-149 execution plan must carry agent behavior contract [{$token}]";
             }
         }
 

@@ -25,6 +25,26 @@ class AwisRuntimeContextPromptBuilderTest extends TestCase
                         'root_path_known' => true,
                     ],
                     'never_start_cold' => true,
+                    'startup_contract' => [
+                        'launch_mode' => 'deep',
+                        'context_mode' => 'balanced',
+                        'prefer_summary' => true,
+                        'load_sequence' => [
+                            'load:session-gold',
+                        ],
+                        'revalidate_before_send' => [
+                            'validate:npm run atlas-ai:test',
+                        ],
+                        'human_boundary' => [
+                            'confirmar risco antes de executar',
+                        ],
+                        'readiness' => [
+                            'startup' => 94,
+                            'context_kernel' => 88,
+                            'artifact_replay' => 71,
+                            'next_session_brain' => 96,
+                        ],
+                    ],
                     'load_first' => [
                         'session-gold:Space forte',
                         '/Users/vitorepf/private/should-not-leak',
@@ -119,6 +139,9 @@ class AwisRuntimeContextPromptBuilderTest extends TestCase
                         'update_memory' => true,
                         'update_space_pack' => true,
                         'preserve_artifact_after_success' => true,
+                        'maintenance_recent' => [
+                            'promote_command:succeeded:npm run atlas-ai:test:x2',
+                        ],
                     ],
                 ],
             ],
@@ -127,6 +150,14 @@ class AwisRuntimeContextPromptBuilderTest extends TestCase
         $this->assertStringContainsString('# Atlas Workspace Intelligence System', $section);
         $this->assertStringContainsString('Workspace: Atlas', $section);
         $this->assertStringContainsString('Nunca iniciar frio: sim', $section);
+        $this->assertStringContainsString('Contrato de partida:', $section);
+        $this->assertStringContainsString('modo de partida: deep', $section);
+        $this->assertStringContainsString('modo de contexto: balanced', $section);
+        $this->assertStringContainsString('preferir resumo antes de expandir', $section);
+        $this->assertStringContainsString('readiness partida: 94%', $section);
+        $this->assertStringContainsString('sequência: load:session-gold', $section);
+        $this->assertStringContainsString('revalidar antes de enviar: validate:npm run atlas-ai:test', $section);
+        $this->assertStringContainsString('fronteira humana: confirmar risco antes de executar', $section);
         $this->assertStringContainsString('Carregar primeiro:', $section);
         $this->assertStringContainsString('session-gold:Space forte', $section);
         $this->assertStringContainsString('Resumo ouro:', $section);
@@ -144,6 +175,8 @@ class AwisRuntimeContextPromptBuilderTest extends TestCase
         $this->assertStringContainsString('artifact recente: artifact-awis-123', $section);
         $this->assertStringContainsString('padrão reutilizável: não nascer frio', $section);
         $this->assertStringContainsString('Space preservado: AWIS cérebro vivo', $section);
+        $this->assertStringContainsString('Manutenção recente AWIS:', $section);
+        $this->assertStringContainsString('promote_command:succeeded:npm run atlas-ai:test:x2', $section);
         $this->assertStringContainsString('Próxima sessão · carregar:', $section);
         $this->assertStringContainsString('Aprendizado contínuo:', $section);
         $this->assertStringContainsString('registrar resultado real', $section);

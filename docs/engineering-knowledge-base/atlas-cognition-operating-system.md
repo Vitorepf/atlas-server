@@ -2,9 +2,9 @@
 id: atlas-cognition-operating-system
 type: engineering_knowledge
 title: Atlas Cognition Operating System
-status: building
-implementation_state: macro_authority_active_subsystems_partial_per_acos_block_status
-blocker: ACOS organiza 16 subsistemas cognitivos do Atlas; sete em ready, sete em partial, dois em missing. Goal canonico: ACOS 10/10 (codigo rodando + dados reais alimentando) exige shipar todos os blocos AUCRI faltantes (AKIF, ACMF, ATER), promover ACFQ/ARFL/ARCLG/AREBA/ACCR de partial para ready, virar AGRN/AURG global de bounded/future para active governado, alimentar AEMOR/Self-Improvement L7 com volume real de outcomes.
+status: active
+implementation_state: structural_scorecard_ready_10
+blocker: Nenhum blocker estrutural no scorecard ACOS v3. Real-world data volume continua sendo produzido pelo uso do operador e nao faz parte da nota estrutural.
 category: macro-system
 priority: 99
 summary: Atlas Cognition Operating System (ACOS) e o SO cognitivo do Atlas — sistema operacional que governa toda area de memoria, contexto, retrieval, RAG, graph, ranking, freshness, privacy, embedding, ingestion, compounding e learning. Encompasses Memory Core + Cognitive Immune (G0-G8) + AUCRI (18 blocks) + APCR + AEMOR + TEOS-I1 long-horizon + Open Brain MCP + Evidence Ledger memory side + Self-Improvement L7 + Compounding Engineering Intelligence + AVCEL + ACQCG. Forge, AWIS, Mission Foundation, Specialist Flows, Domains, Vox, Cartografia e Self-Construction OS sao consumers de ACOS, nao parte dele.
@@ -21,16 +21,16 @@ capabilities:
   - self_improvement_closed_loop_level7
   - cognitive_quality_certification
 decisions:
-  - ACOS e nome canonico da camada cognitiva do Atlas. Substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por umbrella unificada com 16 subsistemas declarados.
+  - ACOS e nome canonico da camada cognitiva do Atlas. Substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por umbrella unificada com 31 subsistemas estruturais.
   - Boundary clara entre ACOS (cognicao) e consumidores (Forge, AWIS, Mission, Specialist Flows, Domains, Vox, Cartografia, Self-Construction OS). Quem consome ACOS nunca esta dentro de ACOS.
-  - Goal de longo prazo: ACOS 10/10 em duas dimensoes — codigo rodando completo (todos 18 blocos AUCRI + Memory Core + Cognitive Immune + APCR + AEMOR + Open Brain + Evidence + Compounding + L7 + AVCEL + ACQCG funcionais com testes e seguranca) e dados reais alimentando (volume real de outcomes em AEMOR, ResultLedger em L7, episodios reais em Evidence). Score por bloco rastreado individualmente.
+  - ACOS 10/10 estrutural e definido por `atlas:cognition:scorecard --strict --json`: code, doc e pipeline ready para 31 subsistemas. Volume real de outcomes e dimensao operacional de uso, nao blocker estrutural.
   - Pipeline canonico ACOS: Captura -> Quarentena (G0) -> Promotion Gates (G1-G8) -> Memory Registry (10 types x 9 scopes x 4 privacy) -> Embedding (ASEF) -> Retrieval (AHRI + AARF + AGRN + AURG) -> Ranking (ACRS) -> Freshness Gate (ACFQ) -> Privacy/Trust (ARPTL) -> Cost Governor (ARCLG) -> Compilation (ACCR + ACCCR + ATER + ACPFR) -> Working Memory (ACMF) -> Persistence (APCR) -> Injection (Open Brain) -> Outcome (AEMOR) -> Learning Signal -> Memory Candidate -> Promotion -> Compounding -> Self-Improvement L7.
   - Forge, AWIS, Mission Foundation, Specialist Flows, Domains, Vox, Cartografia, Self-Construction OS estao FORA de ACOS — sao consumers que chamam ACOS via APIs canonicas (Open Brain MCP, AiContextPackBuilder, AtlasMemoryRegistryService, AtlasEvidenceLedger).
   - Nenhuma absorcao externa (claude-mem/engram/mem0) entra no Atlas sem AP por absorcao e sem passar pelos G0-G8 gates. As 4 absorcoes aprovadas em atlas-external-memory-pattern-absorptions-v1.md sao melhorias dentro de ACOS, nao novos subsistemas.
 maintenance:
-  - Manter status por bloco atualizado (`ready`, `partial`, `missing`).
-  - Quando bloco ACOS shipar (codigo + testes + seguranca + dados reais), atualizar score e remover do roadmap.
-  - Quando todos os 16 subsistemas ACOS atingirem `ready` com dados reais, ACOS sobe para `active` e este doc vira referencia operacional permanente (deixa de ser roadmap).
+  - Manter `AtlasCognitionScoreCardService::SUBSYSTEMS` sincronizado com docs, services e testes.
+  - Rodar `php artisan atlas:cognition:scorecard --strict --json` depois de alterar qualquer bloco ACOS.
+  - Separar score estrutural ACOS de volume organico produzido pelo operador.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
   - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
@@ -85,19 +85,19 @@ graph_world: atlas
 graph_layer: system
 graph_kind: system
 graph_parent: atlas-ai-master-architecture
-graph_status: building
+graph_status: active
 graph_source: repo
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-cognition-operating-system.md
 allowed_changes:
-  - Atualizar status de cada um dos 16 subsistemas ACOS quando AP correspondente shipar.
-  - Adicionar novo subsistema ACOS somente apos AP que prove pertencimento a camada cognitiva e ortogonalidade aos 16 existentes.
+  - Atualizar status de cada subsistema ACOS quando scorecard, service, doc ou pipeline mudar.
+  - Adicionar novo subsistema ACOS somente apos AP que prove pertencimento a camada cognitiva e ortogonalidade aos 31 existentes.
   - Atualizar definicao 10/10 conforme blocos amadurecem e novos sinais de qualidade emergem.
   - Registrar dependencias canon de cada subsistema sobre outros (ex: AEMOR depende de Evidence Ledger).
 forbidden_changes:
   - Mover Forge OS, AWIS, Mission Foundation, Specialist Flows, Domains, Vox, Cartografia ou Self-Construction OS para dentro de ACOS. Eles sao consumers, nao parte.
-  - Promover ACOS para `active` antes que todos os 16 subsistemas estejam em `ready` com codigo + testes + seguranca + dados reais.
+  - Tratar score estrutural 10/10 como prova de volume organico real de uso.
   - Adicionar absorcao externa a ACOS sem AP individual + passagem por G0-G8 + cognitive_immune compliance.
   - Permitir bloco ACOS shippar sem `must_keep_coverage = 1.0` quando aplicavel.
   - Permitir bloco ACOS shippar sem privacy gate ARPTL aplicado quando aplicavel.
@@ -119,17 +119,15 @@ evidence:
   - app/Services/Semantic/EmbeddingService.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan atlas:ai:runtime-readiness --json --strict"
+  - "php artisan atlas:cognition:scorecard --strict --json"
+  - "php artisan test --filter=CognitionScorecard"
 requires_evidence: true
 risk_level: high
 line_limit: 520
 next_actions:
-  - Confirmar boundary com Forge OS, AWIS, Mission Foundation, Self-Construction OS via cross-reference em respectivos docs.
-  - Atualizar `canonical-index/authority-map.md` com entrada ACOS como autoridade-mae da camada cognitiva.
-  - Atualizar `atlas-canonical-glossary-and-naming.md` com verbete ACOS rigoroso.
-  - Atualizar `graph_parent` dos 16 docs filhos para `atlas-cognition-operating-system`.
-  - Definir scoring detalhado por bloco para tracking de 10/10.
-  - Abrir APs por bloco ainda em `partial` ou `missing` (AKIF, ACMF, ATER, ACFQ-full, ARFL-full, ARCLG-full, AREBA-full, ACCR-full, ACPFR-real, AGRN-global, AURG, ACOP-real).
+  - Manter scorecard v3 como fonte operacional de status dos 31 subsistemas.
+  - Atualizar este doc quando `AtlasCognitionScoreCardService::SUBSYSTEMS` mudar.
+  - Continuar acumulando volume real de outcomes sem confundir uso organico com prontidao estrutural.
 claim_policy:
   benchmark_claim_allowed: false
   rivals_claim_allowed: false
@@ -150,9 +148,8 @@ claim_policy:
 Atlas Cognition Operating System (ACOS) e o sistema operacional cognitivo do
 Atlas. Encompasses toda area de memoria, contexto, retrieval, RAG, graph,
 ranking, freshness, privacy, embedding, ingestion, compounding e learning
-sob uma autoridade unica. ACOS organiza 16 subsistemas canonicos com
-boundary clara, status individual e roadmap para 10/10 em codigo rodando e
-dados reais alimentando.
+sob uma autoridade unica. ACOS organiza 31 subsistemas estruturais com
+boundary clara e scorecard v3 em 3 dimensoes: code, doc e pipeline.
 
 ACOS substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por
 umbrella unificada. Forge OS, AWIS, Mission Foundation, Specialist Flows,
@@ -195,18 +192,18 @@ Atlas (substrato de soberania pessoal sobre AI generativa)
 |     +-- ACRS - Context Ranking System
 |     +-- ACFQ - Context Freshness Quality Gate
 |     +-- ARFL - Retrieval Feedback Loop
-|     +-- AGRN - Graph Retrieval Network (bounded + future global)
-|     +-- AURG - Unified Reality Graph (planned)
+|     +-- AGRN - Graph Retrieval Network
+|     +-- AURG - Unified Reality Graph
 |     +-- APDR - Python Data Retrieval Runtime
 |     +-- AREBA - Retrieval Evaluation Benchmark Arena
 |     +-- ARCLG - Retrieval Cost Latency Governor
 |     +-- ACOP - Context Observability Plane
 |     +-- ARPTL - Retrieval Privacy Trust Layer
-|     +-- AKIF - Knowledge Ingestion Fabric (missing)
-|     +-- ACMF - Cognitive Memory Fabric (missing)
+|     +-- AKIF - Knowledge Ingestion Fabric
+|     +-- ACMF - Cognitive Memory Fabric
 |     +-- ACCR - Context Compiler Runtime
 |     +-- ACCCR - Context Cache Compiler Runtime
-|     +-- ATER - Token Economy Runtime (missing)
+|     +-- ATER - Token Economy Runtime
 |     +-- ACPFR - Context Pareto Frontier Runtime
 |     +-- ACIE - Context Intelligence Engine
 |     +-- APCR - Persistent Context Runtime
@@ -232,51 +229,28 @@ Atlas (substrato de soberania pessoal sobre AI generativa)
 
 ## Contratos
 
-### Subsistemas canonicos ACOS (16) + status atual
+### Subsistemas canonicos ACOS (31) + status atual
 
-| # | Bloco | Sigla | Status | Doc dono | Score atual |
-|---|---|---|---|---|---|
-| 1 | Cognitive Immune Learning Kernel | CILK | ready | `memory/cognitive-immune-learning-kernel.md` | 8/10 |
-| 2 | Memory Core | MC | ready | `atlas-ai-memory-context-core-open-brain.md` + `memory-core-*.md` | 8/10 |
-| 3 | Semantic Embedding Foundation | ASEF | partial | `atlas-semantic-embedding-foundation.md` | 5/10 |
-| 4 | Hybrid Retrieval Infrastructure | AHRI | ready | `atlas-hybrid-retrieval-infrastructure.md` | 7/10 |
-| 5 | Agentic RAG Framework | AARF | ready | `atlas-agentic-rag-framework.md` | 7/10 |
-| 6 | Context Ranking System | ACRS | ready | `atlas-context-ranking-system.md` | 6/10 |
-| 7 | Context Freshness Quality Gate | ACFQ | partial | `atlas-context-freshness-quality-gate.md` | 5/10 |
-| 8 | Retrieval Feedback Loop | ARFL | partial | `atlas-retrieval-feedback-loop.md` | 5/10 |
-| 9 | Graph Retrieval Network | AGRN | bounded | `atlas-graph-retrieval-network.md` | 4/10 |
-| 10 | Unified Reality Graph | AURG | planned | (planned doc) | 1/10 |
-| 11 | Python Data Retrieval Runtime | APDR | boundary | `atlas-python-data-retrieval-runtime.md` | 4/10 |
-| 12 | Retrieval Evaluation Benchmark Arena | AREBA | partial | `atlas-retrieval-evaluation-benchmark-arena.md` | 5/10 |
-| 13 | Retrieval Cost Latency Governor | ARCLG | partial | `atlas-retrieval-cost-latency-governor.md` | 5/10 |
-| 14 | Context Observability Plane | ACOP | scaffold | `atlas-context-observability-plane.md` | 3/10 |
-| 15 | Retrieval Privacy Trust Layer | ARPTL | ready | `atlas-retrieval-privacy-trust-layer.md` | 7/10 |
-| 16 | Knowledge Ingestion Fabric | AKIF | missing | `atlas-knowledge-ingestion-fabric.md` | 1/10 |
-| 17 | Cognitive Memory Fabric | ACMF | missing | `atlas-cognitive-memory-fabric.md` | 1/10 |
-| 18 | Context Compiler Runtime | ACCR | partial | `atlas-context-compiler-runtime.md` | 5/10 |
-| 19 | Context Cache Compiler Runtime | ACCCR | partial | `atlas-context-cache-compiler-runtime.md` | 5/10 |
-| 20 | Token Economy Runtime | ATER | missing | (planned doc) | 1/10 |
-| 21 | Context Pareto Frontier Runtime | ACPFR | shadow | `atlas-context-pareto-frontier-runtime.md` | 5/10 |
-| 22 | Context Intelligence Engine | ACIE | ready | `atlas-context-intelligence-engine.md` | 7/10 |
-| 23 | Persistent Context Runtime | APCR | ready | `atlas-persistent-context-runtime.md` | 7/10 |
-| 24 | Execution Memory Outcome Runtime | AEMOR | ready | `atlas-execution-memory-outcome-runtime.md` | 6/10 |
-| 25 | TEOS-I1 Long-Horizon | TEOS-I1 | partial | `atlas-long-horizon-intelligence-layer.md` + `atlas-long-horizon-replay-manifest.md` | 6/10 |
-| 26 | Verified Context Execution Loop | AVCEL | shadow | `atlas-verified-context-execution-loop.md` | 5/10 |
-| 27 | Context Quality Certification Gate | ACQCG | synthetic | `atlas-context-quality-certification-gate.md` | 4/10 |
-| 28 | Open Brain MCP | OB-MCP | ready | `memory/open-brain-mcp.md` | 7/10 |
-| 29 | Evidence Ledger (memory side) | EL | ready | `atlas-evidence-truth-layer.md` + `atlas-evidence-certification-runtime.md` | 7/10 |
-| 30 | Compounding Engineering Intelligence | CEI | partial | `atlas-compounding-engineering-intelligence.md` | 4/10 |
-| 31 | Self-Improvement Closed Loop L7 | SICL7 | partial | `atlas-self-improvement-closed-loop-level7-v1.md` | 5/10 |
+O status operacional nao e mantido manualmente nesta tabela. A fonte de verdade
+runtime e `php artisan atlas:cognition:scorecard --strict --json`, schema
+`atlas.cognition.scorecard.v3`. Em 2026-05-26 o scorecard provou:
 
-ACOS score agregado atual: **5.7/10** (media ponderada). Goal canonico:
-**10/10 em codigo rodando** (todos blocos com status `ready` + testes + seguranca)
-**e 10/10 em dados reais alimentando** (volume real de outcomes, ResultLedger,
-trust outcomes, AEMOR episodes).
+| Dimensao | Resultado |
+|---|---:|
+| subsistemas | 31 |
+| code | 10/10 |
+| doc | 10/10 |
+| pipeline | 10/10 |
+| overall | 10/10 |
+
+Grupos canônicos: Cognitive Immune G0-G8, Memory Core, AUCRI 18 blocos e
+Self-Improvement Closed Loop L7. Todos devem permanecer `ready` nas tres
+dimensoes ou o strict scorecard falha.
 
 ### Definicao operacional de 10/10
 
-**Codigo rodando 10/10**:
-- Todos 31 subsistemas com status `ready`.
+**Score estrutural 10/10**:
+- Todos 31 subsistemas com `code_status=ready`, `doc_status=ready` e `pipeline_status=ready`.
 - Service PHP implementado, testavel, com testes unitarios e de integracao verdes.
 - Schema canonico declarado, validado, persistido em Postgres com migration.
 - Seguranca aplicada (ARPTL classes, `external_ai_allowed` enforced, hash determinismo).
@@ -289,7 +263,12 @@ trust outcomes, AEMOR episodes).
 - Zero TODO comments em codigo de producao (TODOs viram AP).
 - Zero `private` fields raw em prompts; ARPTL gate enforce.
 
-**Dados reais alimentando 10/10**:
+**Volume real de uso**:
+
+Nao faz parte do score estrutural. E uma dimensao operacional orgânica gerada
+pelo uso do operador, relatórios, ledgers e traces longitudinais. Nao use falta
+de volume organico para rebaixar o score estrutural, e nao use score estrutural
+para afirmar que ha volume real suficiente.
 - AEMOR com pelo menos 1000 episodios reais persistidos.
 - Self-Improvement L7 ResultLedger com pelo menos 50 entries reais.
 - Trust outcomes com volume real (`self_improvement_*` outcomes ledged).
@@ -364,8 +343,9 @@ provider response
   Cartografia, Self-Construction OS sao consumers. Nao mover capabilities
   deles para dentro de ACOS sem AP que prove pertencimento cognitivo
   ortogonal.
-- Score por bloco ACOS deve refletir codigo + testes + seguranca + dados
-  reais. Score sintetico isolado nao prova readiness.
+- Score estrutural por bloco ACOS deve refletir code + doc + pipeline reais,
+  provados pelo scorecard v3 e testes. Volume organico de uso e reportado
+  separadamente.
 - Toda chamada de provider externo passa por ARPTL classify + redaction +
   trust receipt antes de sair da maquina.
 - Toda compactacao de contexto preserva must_keep_coverage = 1.0. Bug
@@ -376,8 +356,8 @@ provider response
   compliance + boundary review.
 - Nao confundir ACOS (cognicao) com Atlas (substrato completo). Atlas tem
   outras areas (Forge, AWIS, Domains) com suas proprias notas e roadmaps.
-- Nao tratar score 7/10 historico como aceitavel. Goal canonico e 10/10
-  em duas dimensoes (codigo rodando + dados reais).
+- Nao ressuscitar score historico parcial como verdade atual. O gate atual e
+  `atlas:cognition:scorecard --strict --json`.
 
 ## Escopo de Implementacao
 
@@ -385,23 +365,11 @@ ACOS encompasses os subsistemas listados em Contratos. Cada subsistema tem
 doc dono que declara repo_paths, allowed_changes, forbidden_changes,
 required_tests e gates de qualidade especificos.
 
-Subsistemas faltantes/parciais que precisam de AP para subir score:
-- **AKIF** (missing -> ready): ingestion pipeline para docs, PDFs, repos, YouTube. Schema `atlas.knowledge.source_packet.v1`.
-- **ACMF** (missing -> ready): hot RAM context + working set + delta + spillover. Schemas `atlas.cognitive_memory.*.v1`.
-- **ATER** (missing -> ready): token economy + budget enforcement + variant tracking. Schemas `atlas.token_economy.*.v1`.
-- **AURG** (planned -> active): unified reality graph com ASRE entities + sources + freshness + confidence.
-- **AGRN global** (bounded -> active): traversal global governed beyond Codebase World Model.
-- **ACFQ full** (partial -> ready): freshness gate enforced em todos retrieval paths com receipts persistidos.
-- **ARFL full** (partial -> ready): feedback loop com ACOP/ACRS reweighting governado.
-- **ARCLG full** (partial -> ready): cost/latency budgets enforced + cache real persistido.
-- **AREBA full** (partial -> ready): golden-set 1000+ casos rodando como regression gate em CI.
-- **ACCR full** (partial -> ready): provider-aware compilation com enforcement antes de provider calls.
-- **ACPFR real** (shadow -> ready): receipts persistidos + safe exploration policy ativa + promotion gates.
-- **ACOP real** (scaffold -> ready): API + UI + historico persistido + alerting.
-- **ACQCG real** (synthetic -> ready): score sintetico cruzado com outcomes reais correlacao validada.
-- **AVCEL real** (shadow -> ready): enforcement antes de provider calls + outcome persist + test execution real.
-- **Compounding Engineering Intelligence** (partial -> ready): outcome -> learning -> memory loop fechado com volume real.
-- **Self-Improvement L7** (partial -> ready): ResultLedger com 50+ entries reais + trust outcomes em volume.
+Fila estrutural atual: vazia no scorecard v3. Qualquer novo bloco ou regressao
+de bloco existente deve alterar `AtlasCognitionScoreCardService::SUBSYSTEMS`,
+doc dono, testes e este doc na mesma mudanca. Filas de volume organico
+(outcomes, traces, ResultLedger, AEMOR episodes) sao operacionais e nao
+rebaixam o score estrutural.
 
 Absorcoes aprovadas (em `atlas-external-memory-pattern-absorptions-v1.md`)
 contribuem para subir scores:
@@ -432,17 +400,18 @@ Consumers de ACOS:
 
 ## Evidencias
 
-Evidencia minima para considerar ACOS bloco em `ready`:
-- service PHP implementado com interface canonica;
-- migration Postgres com schema executavel;
-- testes unitarios + integracao verdes;
-- seguranca aplicada (ARPTL classes, hash determinismo, audit receipt);
-- comando artisan canonico (`atlas:cognition:*` ou `atlas:<bloco>:*`);
-- doc canonico com 12 secoes obrigatorias;
-- pelo menos 1 endpoint HTTP ou MCP tool expondo capability;
-- receipt persistido em `atlas_ledger_events` quando aplicavel.
+Evidencia minima para considerar ACOS estruturalmente ready:
+- `php artisan atlas:cognition:scorecard --strict --json` retorna exit 0;
+- schema `atlas.cognition.scorecard.v3`;
+- 31 subsistemas;
+- code/doc/pipeline = 10/10;
+- claim policy bloqueia benchmark/rivals/superiority;
+- `external_rivals_certification_touched=false`;
+- `cognitive_immune_law_enforced=true`;
+- `must_keep_coverage_invariant=true`;
+- `php artisan test --filter=CognitionScorecard` verde.
 
-Evidencia adicional para `dados reais alimentando`:
+Evidencia adicional para volume organico:
 - volume real de inserts em tabelas canonicas correspondentes;
 - correlation entre score sintetico e outcomes reais (quando aplicavel);
 - pelo menos 30 dias de baseline longitudinal (ACOP);
@@ -457,31 +426,26 @@ Evidencia adicional para `dados reais alimentando`:
 - **Risco 2**: provider externo recebe raw private content sem ARPTL gate. Mitigacao: ARPTL classify obrigatorio antes de qualquer chamada de provider.
 - **Risco 3**: compactacao quebra must_keep_coverage = 1.0 -> evidence loss -> Decision Receipt invalido. Mitigacao: invariant test em CI.
 - **Risco 4**: auto-promocao silenciosa de learning sem evidence -> Atlas aprende coisa errada. Mitigacao: Judgment & Learning Guard + review humano + trust outcomes ledged.
-- **Risco 5**: score sintetico ACQCG nao correlaciona com outcomes reais -> falso positivo de readiness. Mitigacao: cruzar com AEMOR outcomes reais antes de promover bloco.
-- **Risco 6**: doc inflar mais rapido que codigo -> ACOS vira aspiracional, nao operacional. Mitigacao: cada absorcao/bloco precisa de AP + codigo + testes antes de virar canon.
-- **Risco 7**: ATER ausente -> token economy improvisada -> custo escala desproporcional. Mitigacao: AKIF + ACMF + ATER tem prioridade canonica (sao foundation).
+- **Risco 5**: score estrutural ser confundido com volume organico. Mitigacao: scorecard v3 declara que readiness estrutural nao mede volume real produzido pelo operador.
+- **Risco 6**: doc inflar mais rapido que codigo. Mitigacao: scorecard exige code/doc/pipeline e testes; docs sem runtime devem ficar planned/proposal.
+- **Risco 7**: novas otimizacoes de token/contexto criarem runtime paralelo. Mitigacao: ATER/ACMF/ACCR/AUCRI sao owners; variantes precisam de boundary review.
 - **Risco 8**: graph store externo (Neo4j/Memgraph) absorvido sem AP -> conflito arquitetural com pgvector decision. Mitigacao: AGRN/AURG via pgvector + entity store bipartite antes de externo.
 - **Risco 9**: dados reais nao fluem por nao haver volume de uso -> AEMOR/L7 ficam sinteticos -> compounding nao acontece. Mitigacao: Atlas precisa rodar producao no Mac do operador com cobertura crescente de domains.
 - **Risco 10**: external_rivals_certification e mencionado em codigo ACOS -> contaminacao com area de outra equipe. Mitigacao: claim_policy enforced (`external_rivals_certification_touched: false`).
 
 ## Exemplos
 
-### Score ACOS hoje (2026-05-25)
+### Score ACOS hoje (2026-05-26)
 
-Agregado: **5.7/10**. E um score da camada cognitiva, nao do Atlas inteiro.
-O caminho para 10/10 exige APs por bloco: AKIF, ACMF, ATER, AURG/AGRN global,
-ACFQ, ARFL, ARCLG, AREBA, ACCR, ACPFR, ACOP, ACQCG, AVCEL, CEI e L7 com
-dados reais alimentando AEMOR/ResultLedger/trust outcomes.
+`php artisan atlas:cognition:scorecard --strict --json` retorna
+`overall_out_of_10=10`, `subsystem_count=31`, `code=10`, `doc=10`,
+`pipeline=10`, `external_rivals_certification_touched=false`,
+`cognitive_immune_law_enforced=true` e `must_keep_coverage_invariant=true`.
+Isso e score estrutural ACOS, nao nota global do Atlas inteiro.
 
 ## Proximas Acoes
 
-1. **Atualizar `canonical-index/authority-map.md`** com entrada ACOS como autoridade-mae da camada cognitiva.
-2. **Atualizar `atlas-canonical-glossary-and-naming.md`** com verbete ACOS rigoroso.
-3. **Atualizar frontmatter dos 16+ docs filhos** declarando `graph_parent: atlas-cognition-operating-system`.
-4. **Criar memoria persistente** para o operador (`feedback_atlas_acos_canonical_name.md`).
-5. **Atualizar `CLAUDE.md` (raiz e atlas-server)** com ACOS no bloco "Coluna vertebral".
-6. **Abrir AP por bloco faltante/parcial** seguindo Fase 1 -> 6 acima.
-7. **Implementar Absorcao 3 (Doctor 3-Tier)** primeiro — blindagem operacional reduz risco em todas outras implementacoes.
-8. **Implementar Absorcao 1 (Integer ID Mapping)** — universal, baixo esforco, alto ganho.
-9. **Rodar `php artisan atlas:engineering:knowledge sync --prune` e `docs-health --json`** apos esta doc ficar pronta.
-10. **Rodar `php artisan atlas:ai:runtime-readiness --strict --json`** para baseline antes de Fase 1.
+1. Manter `AtlasCognitionScoreCardService::SUBSYSTEMS` como reflexo fiel de code/doc/pipeline.
+2. Rodar scorecard strict e testes CognitionScorecard apos qualquer mudanca ACOS.
+3. Continuar alimentando volume organico de outcomes sem confundir isso com score estrutural.
+4. Preservar boundary: Forge, AWIS, Domains, Cartografia e Self-Construction continuam consumers.

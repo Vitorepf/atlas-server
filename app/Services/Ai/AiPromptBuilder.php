@@ -258,6 +258,40 @@ TXT,
             '- Nunca iniciar frio: '.($neverStartCold ? 'sim' : 'não'),
         ];
 
+        $startupLines = [];
+        $launchMode = $this->awisPromptScalar(data_get($context, 'startup_contract.launch_mode'), '');
+        if ($launchMode !== '') {
+            $startupLines[] = 'modo de partida: '.$launchMode;
+        }
+        $contextMode = $this->awisPromptScalar(data_get($context, 'startup_contract.context_mode'), '');
+        if ($contextMode !== '') {
+            $startupLines[] = 'modo de contexto: '.$contextMode;
+        }
+        if ((bool) data_get($context, 'startup_contract.prefer_summary', false)) {
+            $startupLines[] = 'preferir resumo antes de expandir';
+        }
+        $readiness = array_filter([
+            'partida' => data_get($context, 'startup_contract.readiness.startup'),
+            'kernel' => data_get($context, 'startup_contract.readiness.context_kernel'),
+            'artifact' => data_get($context, 'startup_contract.readiness.artifact_replay'),
+            'próxima sessão' => data_get($context, 'startup_contract.readiness.next_session_brain'),
+        ], fn ($value): bool => is_int($value) || is_float($value));
+        foreach ($readiness as $label => $value) {
+            $startupLines[] = 'readiness '.$label.': '.max(0, min(100, (int) round($value))).'%';
+        }
+        $startupLines = [
+            ...$startupLines,
+            ...array_map(fn (string $item): string => 'sequência: '.$item, $this->awisPromptList(data_get($context, 'startup_contract.load_sequence', []), 6)),
+            ...array_map(fn (string $item): string => 'revalidar antes de enviar: '.$item, $this->awisPromptList(data_get($context, 'startup_contract.revalidate_before_send', []), 6)),
+            ...array_map(fn (string $item): string => 'fronteira humana: '.$item, $this->awisPromptList(data_get($context, 'startup_contract.human_boundary', []), 4)),
+        ];
+        if ($startupLines !== []) {
+            $lines = [
+                ...$lines,
+                ...$this->awisPromptSectionLines('Contrato de partida', $startupLines),
+            ];
+        }
+
         $lines = [
             ...$lines,
             ...$this->awisPromptSectionLines('Carregar primeiro', $this->awisPromptList(data_get($context, 'load_first', []), 8)),
@@ -329,6 +363,14 @@ TXT,
             $lines = [
                 ...$lines,
                 ...$this->awisPromptSectionLines('Artifacts reutilizáveis', $artifactLines),
+            ];
+        }
+
+        $recentMaintenance = $this->awisPromptList(data_get($context, 'continue_learning.maintenance_recent', []), 5);
+        if ($recentMaintenance !== []) {
+            $lines = [
+                ...$lines,
+                ...$this->awisPromptSectionLines('Manutenção recente AWIS', $recentMaintenance),
             ];
         }
 

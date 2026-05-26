@@ -399,21 +399,10 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('App\\Services\\Ai\\Programming\\AtlasDev\\Gate\\VerificationCommandRunner', data_get($atlasDevGateRunnerRefs, 'fqcn'));
         $this->assertGreaterThan(0, data_get($atlasDevGateRunnerRefs, 'namespace_local_reference_count'));
         $this->assertContains('app/Services/Ai/Programming/AtlasDev/Gate/SymfonyProcessCommandRunner.php', data_get($atlasDevGateRunnerRefs, 'namespace_local_reference_samples'));
-        $aiExecutionPlanCleanup = collect($payload['code']['duplicate_class_cleanup_queue'])->firstWhere('short_name', 'aiexecutionplan');
-        $aiExecutionPlanModelRefs = collect(data_get($aiExecutionPlanCleanup, 'exact_references'))
-            ->firstWhere('path', 'app/Models/AiExecutionPlan.php');
-        $aiExecutionPlanValueObjectRefs = collect(data_get($aiExecutionPlanCleanup, 'exact_references'))
-            ->firstWhere('path', 'app/Services/Ai/ValueObjects/AiExecutionPlan.php');
-        $this->assertSame('rename_prompt_value_object_not_persistent_model', data_get($aiExecutionPlanCleanup, 'cleanup_type'));
-        $this->assertSame('eloquent_model', data_get($aiExecutionPlanCleanup, 'boundary_contract.contract_features.persistent_model.kind'));
-        $this->assertSame('prompt_runtime_value_object', data_get($aiExecutionPlanCleanup, 'boundary_contract.contract_features.prompt_value_object.kind'));
-        $this->assertSame('App\\Models\\AiExecutionPlan', data_get($aiExecutionPlanModelRefs, 'fqcn'));
-        $this->assertSame(0, data_get($aiExecutionPlanModelRefs, 'reference_count'));
-        $this->assertSame(0, data_get($aiExecutionPlanCleanup, 'boundary_contract.current_migration_state.app_and_tests_direct_execution_plan_imports'));
-        $this->assertSame(3, data_get($aiExecutionPlanCleanup, 'boundary_contract.current_migration_state.persistent_model_alias_imports'));
-        $this->assertSame(2, data_get($aiExecutionPlanCleanup, 'boundary_contract.current_migration_state.prompt_value_object_alias_imports'));
-        $this->assertSame('App\\Services\\Ai\\ValueObjects\\AiExecutionPlan', data_get($aiExecutionPlanValueObjectRefs, 'fqcn'));
-        $this->assertSame(0, data_get($aiExecutionPlanValueObjectRefs, 'reference_count'));
+        $this->assertNull(
+            collect($payload['code']['duplicate_class_cleanup_queue'])->firstWhere('short_name', 'aiexecutionplan'),
+            'AiExecutionPlan variants now use explicit real classes with old FQCNs kept only as compatibility aliases.'
+        );
         $this->assertNull(
             collect($payload['code']['duplicate_class_cleanup_queue'])->firstWhere('short_name', 'smokesubject'),
             'Generated SmokeSubject workspace fixtures are documented in triage, but must not enter production duplicate cleanup.'
@@ -483,7 +472,8 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('legacy_operational_groups', data_get($legacyAiConfusion, 'source'));
         $this->assertSame('legacy_bucket_review_is_not_dead_code_proof', data_get($legacyAiConfusion, 'claim_policy'));
         $this->assertGreaterThan(0, data_get($legacyAiConfusion, 'count'));
-        $this->assertContains('evidence_placeholder', collect(data_get($legacyAiConfusion, 'evidence_samples'))->pluck('subtype')->all());
+        $this->assertNotEmpty(collect(data_get($legacyAiConfusion, 'evidence_samples'))->pluck('subtype')->filter()->all());
+        $this->assertContains('scaffold_status_or_literal', collect(data_get($legacyAiConfusion, 'evidence_samples'))->pluck('subtype')->all());
         $operationEnvelopeAiConfusion = collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:duplicate_class:operationenvelope');
         $this->assertSame('duplication_triage_queue', data_get($operationEnvelopeAiConfusion, 'source'));
         $this->assertSame('all_three_known_paths_are_high_reachability', data_get($operationEnvelopeAiConfusion, 'current_evidence.reachability'));
@@ -570,39 +560,22 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             true
         ));
         $this->assertSame('do_not_swap_interface_and_concrete_runner_by_short_class_name', data_get($verificationRunner, 'boundary_contract.forbidden'));
-        $aiExecutionPlan = collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:aiexecutionplan');
-        $this->assertSame('medium', $aiExecutionPlan['severity'] ?? null);
-        $this->assertSame('app/Models/AiExecutionPlan.php', data_get($aiExecutionPlan, 'boundary_contract.primary_runtime'));
-        $this->assertSame('eloquent_model', data_get($aiExecutionPlan, 'boundary_contract.contract_features.persistent_model.kind'));
-        $this->assertSame('ai_execution_plans', data_get($aiExecutionPlan, 'boundary_contract.contract_features.persistent_model.table'));
-        $this->assertContains('AtlasAutonomousEngineeringService', data_get($aiExecutionPlan, 'boundary_contract.contract_features.persistent_model.primary_consumers'));
-        $this->assertSame('prompt_runtime_value_object', data_get($aiExecutionPlan, 'boundary_contract.contract_features.prompt_value_object.kind'));
-        $this->assertContains('agent_behavior_contract', data_get($aiExecutionPlan, 'boundary_contract.contract_features.prompt_value_object.required_payload'));
-        $this->assertSame('PersistentAiExecutionPlan', data_get($aiExecutionPlan, 'boundary_contract.proposed_explicit_names.persistent_model'));
-        $this->assertSame('AiPromptExecutionPlan', data_get($aiExecutionPlan, 'boundary_contract.proposed_explicit_names.prompt_value_object'));
-        $this->assertContains('keep_persistent_model_table_and_schema_stable', data_get($aiExecutionPlan, 'boundary_contract.cleanup_sequence'));
-        $this->assertContains('keep_app_and_tests_importing_execution_plan_variants_through_explicit_aliases', data_get($aiExecutionPlan, 'boundary_contract.cleanup_sequence'));
-        $this->assertSame(0, data_get($aiExecutionPlan, 'boundary_contract.current_migration_state.app_and_tests_direct_execution_plan_imports'));
-        $this->assertSame(3, data_get($aiExecutionPlan, 'boundary_contract.current_migration_state.persistent_model_alias_imports'));
-        $this->assertSame(2, data_get($aiExecutionPlan, 'boundary_contract.current_migration_state.prompt_value_object_alias_imports'));
-        $this->assertTrue(data_get($aiExecutionPlan, 'boundary_contract.current_migration_state.remaining_exact_refs_are_boundary_docs_or_compatibility_alias_files'));
-        $this->assertSame('app/Models/PersistentAiExecutionPlan.php', data_get($aiExecutionPlan, 'boundary_contract.compatibility_aliases.persistent_model'));
-        $this->assertSame('app/Services/Ai/ValueObjects/AiPromptExecutionPlan.php', data_get($aiExecutionPlan, 'boundary_contract.compatibility_aliases.prompt_value_object'));
-        $this->assertSame('requires_explicit_projection_from_persisted_plan_not_direct_type_reuse', data_get($aiExecutionPlan, 'boundary_contract.adapter_boundary.model_to_prompt_value_object'));
-        $this->assertSame('requires_database_model_creation_path_not_prompt_payload_typehint', data_get($aiExecutionPlan, 'boundary_contract.adapter_boundary.prompt_value_object_to_model'));
+        $this->assertNull(
+            collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:aiexecutionplan'),
+            'Resolved AiExecutionPlan duplicate should not remain in duplicate triage.'
+        );
         $this->assertTrue(class_exists('App\\Models\\PersistentAiExecutionPlan'));
         $this->assertTrue(is_a(
-            'App\\Models\\PersistentAiExecutionPlan',
             'App\\Models\\AiExecutionPlan',
+            'App\\Models\\PersistentAiExecutionPlan',
             true
         ));
         $this->assertTrue(class_exists('App\\Services\\Ai\\ValueObjects\\AiPromptExecutionPlan'));
         $this->assertTrue(is_a(
-            'App\\Services\\Ai\\ValueObjects\\AiPromptExecutionPlan',
             'App\\Services\\Ai\\ValueObjects\\AiExecutionPlan',
+            'App\\Services\\Ai\\ValueObjects\\AiPromptExecutionPlan',
             true
         ));
-        $this->assertSame('do_not_typehint_value_object_when_database_model_contract_is_required', data_get($aiExecutionPlan, 'boundary_contract.forbidden'));
         $smokeSubject = collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:smokesubject');
         $this->assertSame('low', $smokeSubject['severity'] ?? null);
         $this->assertSame('generated_fixture_inside_smoke_workspace', data_get($smokeSubject, 'boundary_contract.primary_runtime'));
