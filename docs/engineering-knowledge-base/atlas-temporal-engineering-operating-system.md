@@ -39,6 +39,8 @@ maintenance:
   - Manter este índice abaixo do limite canônico; detalhes vivem nas specs filhas.
   - Promover componentes GREENFIELD/PARTIAL/WIRED somente com evidence verificável.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-temporal-engineering-operating-system-primitives.md
   - docs/engineering-knowledge-base/atlas-temporal-engineering-operating-system-operations.md
   - docs/engineering-knowledge-base/atlas-long-horizon-intelligence-layer.md

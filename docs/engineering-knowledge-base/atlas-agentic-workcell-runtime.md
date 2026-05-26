@@ -39,11 +39,14 @@ decisions:
   - AAWR usa AREG antes de admitir paralelismo ou camadas caras.
   - AAWR exige verificacao independente e evidencia antes de completion.
   - AAWR aprende padroes organizacionais a partir de outcomes.
+  - AAWR nao substitui Atlas Agentic Engineering OS, Programming Governance, Atlas Dev ou Atlas Forge; ele fornece contrato organizacional quando o runtime correto precisar de workcell.
 maintenance:
   - Atualizar antes de criar novos agentes, topologias, subagentes ou fluxos paralelos.
   - Nao criar multi-agent paralelo fora do AAWR sem contrato de compatibilidade.
   - Nao permitir que AAWR substitua Dev, Forge, AREG, AEMOR ou Hyperflow.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-runtime-efficiency-governor.md
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
   - docs/engineering-knowledge-base/atlas-context-intelligence-engine.md

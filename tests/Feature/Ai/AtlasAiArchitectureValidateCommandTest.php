@@ -512,4 +512,26 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertStringContainsString('[kernel.static.ap125_inbox_action_report_surfaces]', $output);
         $this->assertStringContainsString('AP-125 synthetic violation for human output', $output);
     }
+
+    /**
+     * Gap1.F5 — Definition of Done invariant:
+     *
+     *   "AtlasAiArchitectureValidateCommandTest cobre kernel-routing"
+     *
+     * The validate payload exposes the canonical kernel_routing coverage
+     * envelope (schema atlas.ai.kernel_routing_coverage.v1) so downstream
+     * gates can read the 7-day window status. The wall-clock 100%-in-7d
+     * gate logic is enforced by `KernelRoutingCoverageReport` and proved
+     * by its own unit suite; this test pins the contract that the
+     * envelope IS exposed by the command.
+     */
+    public function test_payload_exposes_kernel_routing_coverage_envelope(): void
+    {
+        // The test only asserts contract — that the envelope exists. The
+        // overall exit code depends on a broader set of gates (docs-health,
+        // capabilities, etc.) that this Gap1 invariant does not control.
+        $this->artisan('atlas:ai:architecture-validate', ['--json' => true])
+            ->expectsOutputToContain('"kernel_routing"')
+            ->expectsOutputToContain('atlas.ai.kernel_routing_coverage.v1');
+    }
 }

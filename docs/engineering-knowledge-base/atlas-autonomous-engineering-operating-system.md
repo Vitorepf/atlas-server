@@ -22,6 +22,7 @@ capabilities:
   - engineering_control_plane
   - rivals_shadow_mode
 decisions:
+  - Atlas Agentic Engineering OS e a camada-mae da organizacao de engenharia; este OS conduz o loop autonomo de goals/ciclos dentro dela.
   - Autonomia de engenharia no Atlas e loop governado, nao sessao aberta de coding.
   - Nenhum goal pode completar sem evidence refs, outcome receipt e certification.
   - Toda tarefa de engenharia nao trivial passa por world model, RAG gate e execution plan.
@@ -31,6 +32,7 @@ maintenance:
   - Atualize este doc antes de mudar contratos, persistencia, gates ou criterios de certificacao do Autonomous Engineering OS.
   - Nao relaxe RAG gate, evidence refs, receipts ou claim policy para passar testes.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md

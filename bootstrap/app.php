@@ -124,6 +124,11 @@ use App\Console\Commands\AtlasProposalScanCommand;
 use App\Console\Commands\AtlasRivalsCommand;
 use App\Console\Commands\AtlasRivalsHarnessCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
+use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
+use App\Console\Commands\AtlasPatamar4ActivateFlagsCommand;
+use App\Console\Commands\AtlasPatamar4SelfConstructF4GapsCommand;
+use App\Console\Commands\AtlasSchedulerEnsureLaunchdCommand;
+use App\Console\Commands\AtlasSwarmExecuteArmCommand;
 use App\Console\Commands\AtlasSchedulerHeartbeatCommand;
 use App\Console\Commands\AtlasSchedulerInstallLaunchdCommand;
 use App\Console\Commands\AtlasSchedulerStatusCommand;
@@ -279,6 +284,11 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringVisualDriverCommand::class,
         AtlasEngineeringVisualBaselineCommand::class,
         AtlasEngineeringVisualSmokeCommand::class,
+        AtlasCognitiveFunctionDecomposeCommand::class,
+        AtlasPatamar4ActivateFlagsCommand::class,
+        AtlasPatamar4SelfConstructF4GapsCommand::class,
+        AtlasSchedulerEnsureLaunchdCommand::class,
+        AtlasSwarmExecuteArmCommand::class,
         AtlasSchedulerHeartbeatCommand::class,
         AtlasSchedulerInstallLaunchdCommand::class,
         AtlasSchedulerStatusCommand::class,
@@ -383,6 +393,15 @@ return Application::configure(basePath: dirname(__DIR__))
         if (config('atlas.patamar4.scheduler_heartbeat_enabled', true)) {
             $schedule->command('atlas:scheduler:heartbeat')
                 ->everyMinute()
+                ->withoutOverlapping();
+        }
+
+        // Patamar 4 · A3 · launchd self-healing — once per day verify the
+        // launchd agent is still loaded; reinstall when missing. No-op on
+        // non-Darwin platforms.
+        if (config('atlas.patamar4.scheduler_ensure_launchd_enabled', true)) {
+            $schedule->command('atlas:scheduler:ensure-launchd --json')
+                ->dailyAt('04:05')
                 ->withoutOverlapping();
         }
 

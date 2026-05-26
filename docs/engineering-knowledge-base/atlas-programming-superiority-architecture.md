@@ -29,6 +29,8 @@ maintenance:
   - Atualizar quando AiWorker passar a invocar Kernel canônico.
   - Atualizar quando feature flag `atlas_dev_efficient_plan_enabled` ON em produção.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-programming-superiority-contracts.md
   - docs/engineering-knowledge-base/atlas-programming-superiority-roadmap.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
@@ -79,6 +81,7 @@ forbidden_changes:
   - Declarar superioridade contra Claude Code/Codex sem métrica auditada.
   - Fundir Dev e Forge em runtime único.
   - Apagar a distinção entre runtime atual e estado-alvo.
+  - Usar este doc como doc-mae de Agentic Software Engineering, Atlas Code ou Forge Continuum.
 
 depends_on:
   - atlas-dual-core-engineering-system
@@ -157,7 +160,7 @@ Existe para servir 3 audiências:
 
 1. **Arquiteto-chefe (humano ou IA):** entender qual o estado-alvo do domínio
    programming dentro do Atlas AI e o que precisa ser construído para chegar lá.
-2. **IA futura implementando:** saber sem ambiguidade qual contrato/schema usar,
+2. **IA implementadora posterior:** saber sem ambiguidade qual contrato/schema usar,
    qual serviço reutilizar, qual armadilha evitar (4 mecanismos paralelos
    de escalação Dev→Forge é a maior).
 3. **Operador medindo progresso:** distinguir "shipé schema" de "shipé produto"
@@ -367,12 +370,12 @@ Sem isso, qualquer "Nx" é marketing, não engenharia.
 | 10 | Sem multi-agent scheduler dedicado | P2 | Router + Specialist Flows; sem classe |
 | 11 | Code World Model não usa edge weights no ranking | P2 | `ProgrammingProfessionalReranker` não consulta grafo |
 | 12 | Local Agent Memory Ingestion bloqueado | P2 | spec `atlas-local-agent-memory-ingestion.md` |
-| 13 | Forge OS doc status `future` vs código em produção | P2 | `atlas-forge-operating-system.md:5` |
+| 13 | Forge OS parent docs com status desatualizado vs código em produção | P2 | `atlas-forge-operating-system.md` |
 | 14 | Rivals fora do completion loop (sem learning→policy) | P3 | 44 services + 20 docs, sem ponte |
 | 15 | Naming proliferation Forge (8 nomes) | P3 | `atlas-dev-forge-relationship-critical-audit.md` |
 
 ## Riscos
-1. **Scaffold paralelo vs path legado:** Kernel canônico shipé sem produção cria
+1. **Runtime canônico sem path único vs path legado:** Kernel canônico shipé sem produção cria
    2 fontes de verdade. Cada commit afasta. → Wire AiWorker urgente.
 2. **Schema com cobertura parcial:** Schema 1 dual-core tem consumidores reais,
    mas ainda precisa cobrir todas as entradas relevantes. → expandir route

@@ -19,7 +19,7 @@ capabilities:
   - provider_operating_room
   - adaptive_subscription_safe_provider_use
 decisions:
-  - Atlas Code must become a software-production operating system above individual providers, not a fixed wrapper around Claude, Codex or Gemini.
+  - Atlas Code must become the provider operating-room surface above individual providers, not a fixed wrapper around Claude, Codex or Gemini.
   - Provider identity and provider role are separate concepts; every provider is a candidate for each role, subject to evidence, capacity, constraints and human override.
   - Interactive providers such as Claude Code must enter the Operating Room as observed sessions with packet export, terminal launch, result import, gates and evidence.
   - Atlas Decide owns provider assignment; providers never own scope, acceptance, merge, completion, evidence policy or final authority.
@@ -147,7 +147,8 @@ next_actions:
 ## Resumo
 O Atlas Code nao deve ser "Claude Code com uma UI melhor", "Codex com obras" ou "Gemini com cartografia". A tese correta e mais alta:
 ```text
-Atlas Code e o sistema operacional de producao de software assistida por IA.
+Atlas Code e a surface/cockpit de producao de software do Atlas Agentic
+Engineering OS.
 Providers sao motores substituiveis dentro de uma Obra governada.
 Atlas decide, mede, coordena, valida e aprende.
 ```
@@ -166,7 +167,7 @@ O objetivo maximo permanece:
 
 ```text
 Atlas Code deve ser a forma mais poderosa do mundo para desenvolvimento
-de software assistido por IA em tarefas ultra-hard, contextos longos,
+agentico de software em tarefas ultra-hard, contextos longos,
 sessoes longas e entregas dificeis.
 ```
 

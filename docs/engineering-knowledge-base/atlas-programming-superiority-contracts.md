@@ -5,7 +5,7 @@ title: Atlas Programming Superiority Contracts
 status: active
 category: programming
 priority: 95
-summary: Contratos canônicos da Atlas Programming Superiority Architecture — 14 schemas com field shapes, Super RAG Spine, Codebase World Model, Evidence Ledger grammar, tabelas DB e APIs/comandos. Filho operacional do índice estratégico.
+summary: Contratos canônicos da Atlas Programming Architecture — 14 schemas com field shapes, Super RAG Spine, Codebase World Model, Evidence Ledger grammar, tabelas DB e APIs/comandos. Filho operacional do índice estratégico.
 tags:
   - atlas-dev
   - atlas-forge
@@ -21,8 +21,8 @@ capabilities:
   - evidence_receipts_grammar
   - data_model_inventory
 decisions:
-  - Reutilizar schemas já implementados quando disponíveis (13 de 14 já existem em código).
-  - Schemas novos só quando absolutamente necessários (1: escalation_packet.v1).
+  - Reutilizar schemas já implementados quando disponíveis (14 de 14 existem em código, com qualificações de enforcement/caller).
+  - Escalation packet v1 já existe; gaps restantes são consolidação, persistência dedicada e enforcement de flows strict.
   - APIs/comandos devem expor o que existe, não inventar surface paralela.
 maintenance:
   - Atualizar quando schema novo for shipado em código.
@@ -99,22 +99,22 @@ requires_evidence: true
 risk_level: high
 
 next_actions:
-  - Implementar schema 2 (`atlas.dev_to_forge.escalation_packet.v1`).
-  - Wire schema 1 (`route_decision.v1`) em `FlowRouterService`.
+  - Manter Schema 2 (`atlas.dev_to_forge.escalation_packet.v1`) alinhado com factory, handoff e Forge intake.
+  - Auditar callers de Schema 1 (`route_decision.v1`) em Dev->Forge e RouterRuntime antes de novos surfaces.
   - Enforce schema 6 (`context_sufficiency_gate.v1`) na execução de flows strict.
   - Catalogar tabelas atuais vs faltantes em sync com a roadmap doc.
 
 ---
-# Atlas Programming Superiority Contracts
+# Atlas Programming Contracts
 
 ## Resumo
-Catálogo de **14 schemas canônicos** que governam a superioridade programática
+Catálogo de **14 schemas canônicos** que governam a arquitetura programática
 do Atlas Dev + Atlas Forge, mais o spec do **Super RAG Spine**, **Codebase
 World Model**, **Evidence Ledger grammar** e **inventário de tabelas e APIs**.
 
-13 de 14 schemas estão **implementados em código** (com qualificações);
-1 é gap conhecido (Schema 2 `escalation_packet.v1`). Todo schema cita
-arquivo:linha de implementação ou declara gap explícito.
+14 de 14 schemas existem em código, com qualificações explícitas para caller,
+enforcement, persistência dedicada e maturidade de integração. Todo schema cita
+arquivo de implementação ou declara a parte que ainda é backlog.
 
 ## Papel no Atlas
 Filho de `atlas-programming-superiority-architecture` no graph. Existe para
@@ -147,17 +147,20 @@ Layer 0.72. Cruza:
 `policy_snapshot{}`, `decision_hash` (sha256), `mission_id`, `work_order_id`,
 `router_decision_id`, `intent_classification_id`, `conversation_id`,
 `actor_type` (system|router_runtime_adapter|operator).
-**Gap:** 0 callers em produção. Wire em `FlowRouterService::decideFlow` é M1.
+**Caller boundary:** `recordFromFlowRoute()` existe e Dev->Forge/Handoff usam `DualCoreRouteDecisionService`; `FlowRouterService::decideFlow` direto continua boundary review, não gap total.
 
-#### Schema 2 — `atlas.dev_to_forge.escalation_packet.v1` ❌ GAP
-**Status:** 0 matches em `app/`. Implementação é M2.
+#### Schema 2 — `atlas.dev_to_forge.escalation_packet.v1` ✅ SHIPPED
+**Implementação:** `App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket`.
+**Factory:** `App\Services\Ai\Programming\AtlasDev\Escalation\DevToForgeEscalationPacketFactory`.
+**Consumers:** `ForgePromotionPreviewBuilder`, `DevRepairLoopService`, `AtlasForgeHandoffAdapter` e `ForgeIntakeService::intakeFromEscalationPacket`.
+**Tests:** `EscalationPacketTest`, `DevToForgeCanonicalPathTest`, `ForgeIntakeServiceTest`, E2E Dev->Forge.
 **Campos canônicos** (per `atlas-dual-core-engineering-system.md:279-301`):
 `schema`, `source` (atlas_dev), `target` (atlas_forge), `intent`,
 `dev_interpretation`, `why_escalated[]`, `workspace{root,relevant_paths[]}`,
 `evidence_refs{plan,senior_loop_audit,senior_loop_execution,verification_receipt,error_ledger,failure_capsules[]}`,
 `known_risks[]`, `open_questions[]`, `recommended_forge_mode`
 (sdd_intake|obra_intake|architecture_review|long_run).
-**Substitui:** `atlas.dev.forge_promotion_preview.v1` (`ForgePromotionPreviewBuilder` legacy).
+**Boundary:** `atlas.dev.forge_promotion_preview.v1` permanece preview/adapter legado dual-emitting; nao e contrato canonico.
 
 #### Schema 3 — `atlas.programming.intent_classification.v1` ⚠️ via RouterRuntime
 **Implementação:** `App\Models\AiAtlasIntentClassification` + `IntentKernelService`.
@@ -220,7 +223,7 @@ Layer 0.72. Cruza:
 #### Schema 13 — `atlas.programming.retrieval_eval.v1` ✅
 **Arquivo:** `ProgrammingRetrievalEvaluator:26`.
 **Métricas:** `recall_proxy`, `precision_proxy`, `context_waste_ratio`.
-**Estado:** `professional_promotion_allowed: false` (até golden set benchmark passar).
+**Estado:** `professional_promotion_allowed: false` (ate golden set benchmark passar).
 
 #### Schema 14 — Compounding family ✅ (11 services)
 Conjunto: `atlas.ai.compounding.{outcome,learning_candidate,memory,heuristic_update,benchmark_case,rag.feedback,runtime_record}.v1`.
@@ -387,7 +390,7 @@ Fluxo de produção de evidence (alvo):
 
 ## Escopo de Implementacao
 Esta doc cobre **catálogo + field shapes + grammar**. Cobertura:
-- 14 schemas com 13 implementações + 1 gap (Schema 2).
+- 14 schemas com implementação em código; parte deles ainda tem backlog de caller/enforcement/persistência dedicada.
 - Super RAG Spine (sources, gate rules, vector index, reranker, persistence).
 - Codebase World Model (3 models, node/edge types, queries, refresh strategy).
 - Evidence Ledger 11 receipts + 11 programming-specific receipts.
@@ -422,7 +425,7 @@ Esta doc cobre **catálogo + field shapes + grammar**. Cobertura:
 - `ai_run_outcomes`, `ai_learning_candidates`, `ai_compounding_memories`, `ai_heuristic_updates`, `ai_benchmark_cases`, `ai_rag_feedback_events` ✅ (Compounding)
 
 **Missing (gap):**
-- `ai_dev_to_forge_escalation_packets` (para Schema 2).
+- `ai_dev_to_forge_escalation_packets` (persistência dedicada opcional; Schema 2 já existe como DTO/packet canônico e Forge intake guarda id/hash).
 - `ai_programming_grounded_patch_evidence` (para tracking patch→refs cited).
 - `ai_programming_retrieval_utility_feedback` (loop retrieval→uso→repromote).
 
@@ -477,8 +480,8 @@ Esta doc cobre **catálogo + field shapes + grammar**. Cobertura:
 1. **Schema sem caller:** repetir o erro do Schema 1 (shipped, 0 callers). Sempre wire ANTES de declarar shipped.
 2. **Field drift:** field shape em doc diverge do código. Mitigação: cite arquivo:linha; regenere doc quando código mudar.
 3. **14 schemas é muito:** risco de inventar 15º. Mitigação: `forbidden_changes` proíbe novo sem AP.
-4. **Reranker formula hardcoded:** bonus/penalty números mágicos. Mitigação: extrair para config seedada (futuro AP).
-5. **Local vector NÃO é semantic:** é token cosine. Vendor lock-in não é risco, mas qualidade limitada. AP ChromaDB endereça (futuro).
+4. **Reranker formula hardcoded:** bonus/penalty números mágicos. Mitigação: extrair para config seedada em AP próprio.
+5. **Local vector NÃO é semantic:** é token cosine. Vendor lock-in não é risco, mas qualidade limitada. Backend vetorial real exige AP próprio.
 
 ## Exemplos
 **Exemplo de uso de Schema 1 (estado-alvo):**
@@ -507,10 +510,10 @@ if ($flow in strict_flows && $plan['context_sufficiency_gate']['status'] === 'fa
 ## Proximas Acoes
 Detalhes em `atlas-programming-superiority-roadmap.md`. Resumo:
 
-1. Implementar Schema 2 (`escalation_packet.v1`) — tabela `ai_dev_to_forge_escalation_packets` + service + tests. (6-8h)
-2. Wire Schema 1 em `FlowRouterService::decideFlow` — adicionar caller para `DualCoreRouteDecisionService::recordFromFlowRoute`. (4-6h)
-3. Enforce Schema 6 (Mandatory RAG gate) em flows strict — adicionar `ProgrammingRagGateException` + throw em `ProgrammingRetrievalPlanner` quando `failed_closed`. (4-6h)
-4. Adicionar tabela `ai_programming_grounded_patch_evidence` para tracking de quais refs do context pack foram efetivamente citados no patch. (6-10h)
-5. Adicionar tabela `ai_programming_retrieval_utility_feedback` para loop retrieval→uso→repromote. (8-12h)
+1. Consolidar persistência dedicada opcional de Schema 2 se Forge precisar consultar packet fora do intake id/hash.
+2. Revisar se `FlowRouterService::decideFlow` deve chamar Schema 1 direto ou manter adapter/handoff como boundary.
+3. Enforce Schema 6 (Mandatory RAG gate) em flows strict — adicionar `ProgrammingRagGateException` + throw em `ProgrammingRetrievalPlanner` quando `failed_closed`.
+4. Adicionar tabela `ai_programming_grounded_patch_evidence` para tracking de quais refs do context pack foram efetivamente citados no patch.
+5. Adicionar tabela `ai_programming_retrieval_utility_feedback` para loop retrieval->uso->repromote.
 
 **Gates desta entrega:** docs-health 0 violations, sob 520 linhas, git diff --check limpo.

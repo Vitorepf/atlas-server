@@ -19,6 +19,7 @@ capabilities:
   - programming_obras_attention_control
   - ai_governed_software_production
 decisions:
+  - O termo Operating System neste doc e escopo local de Programming Obras dentro da surface Atlas Code; ele nao compete com Atlas Agentic Engineering OS, Programming Governance ou Forge Continuum.
   - Atlas Code exists primarily for heavy programming, ultra-hard software problems and extremely long AI-assisted development sessions; this is the maximum product priority.
   - Programming Obras must belong to a selected software Project/Workspace; Atlas, Blackink and other products are Projects, not Obras.
   - Programming Obras are a specialization of Obras, not a separate product primitive.
@@ -30,6 +31,7 @@ decisions:
 maintenance:
   - Update before changing Atlas Code, Forge Workspace, Programming Governance, Obra Command Center, Attention Control Plane, completion gates or multi-Obra UX.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
   - docs/engineering-knowledge-base/atlas-code-multi-project-workspace-os.md
   - docs/engineering-knowledge-base/atlas-code-adaptive-provider-operating-room-v1.md
   - docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md
@@ -69,6 +71,7 @@ allowed_changes:
   - Refine the Programming Obra doctrine when runtime, evidence, UX or governance changes.
   - Add child docs for Attention Control Plane, portfolio queue, Obra economics or multi-provider workspace when implemented.
 forbidden_changes:
+  - Treat this doc as the mother OS for Agentic Software Engineering, Programming Governance or Forge.
   - Dilute Atlas Code into a generic IDE, generic chat product, lightweight coding assistant or broad productivity surface.
   - Treat a product/workspace/repository as a single Programming Obra.
   - Treat a Programming Obra as a chat, provider session, branch, ticket, terminal tab or generic project card.
@@ -107,6 +110,7 @@ ai_entrypoints:
   - Leia este doc antes de explicar ou alterar Obras de Programacao, Atlas Code, Forge Workspace, Attention Control Plane ou UX multi-Obra.
 ai_usage_notes:
   - Este doc separa Obra geral de Obra de Programacao. Use os docs filhos para runtime executavel e evidencia.
+  - Se houver duvida de hierarquia, o Authority Map vence: este doc e local a Atlas Code/Programming Obras.
 quality_gates:
   - docs-health
   - evidence-backed-completion
@@ -135,6 +139,11 @@ next_actions:
 # Atlas Code Programming Obras Operating System
 
 ## Resumo
+
+Nota de autoridade: este nome historico usa `Operating System` para o escopo
+local de Programming Obras dentro do Atlas Code. Ele nao e o sistema-mae da
+area; a hierarquia completa vive em
+`atlas-agentic-software-engineering-authority-map.md`.
 
 Obras de Programacao sao a especializacao de Obras para software. A unidade de trabalho deixa de ser chat, prompt, ticket, branch, PR ou terminal, e passa a ser uma entrega governada que preserva objetivo, contexto, plano, execucao, revisao, prova e aceite humano.
 

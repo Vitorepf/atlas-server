@@ -37,9 +37,22 @@ class AiGatewayService
      */
     private ?\App\Services\Ai\Gateway\AtlasGatewayPreflightService $preflight = null;
 
+    /**
+     * Opt-in seam (Patamar 4 · A2 · Cognitive Function Decomposer).
+     * When wired, every enqueueInteraction() decomposes the input into the
+     * canonical 6-axis cognitive tuple BEFORE the trace is persisted, and
+     * the vector is attached to trace.metadata.cognitive_function.
+     */
+    private ?\App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService $decomposer = null;
+
     public function setPreflight(?\App\Services\Ai\Gateway\AtlasGatewayPreflightService $svc): void
     {
         $this->preflight = $svc;
+    }
+
+    public function setCognitiveFunctionDecomposer(?\App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService $svc): void
+    {
+        $this->decomposer = $svc;
     }
 
     /**
@@ -211,6 +224,23 @@ class AiGatewayService
                 }
             }
 
+            // A2 · Cognitive Function Decomposer — wire 6-axis vector for EVERY
+            // turn before persisting trace. Advisory only; never blocks. The
+            // vector lands in trace.metadata.cognitive_function so downstream
+            // routers (Mission/Hyperflow/SDD/BDD) consume it without recomputing.
+            $cognitiveFunctionVector = null;
+            if ($this->decomposer !== null) {
+                try {
+                    $cognitiveFunctionVector = $this->decomposer->decompose($input, [
+                        'role' => $options['role'] ?? ($prompt->agentSlug ?? null),
+                        'framework' => $options['framework'] ?? data_get($options, 'payload.framework'),
+                        'privacy_class' => $privacy['privacy_class'] ?? null,
+                    ]);
+                } catch (\Throwable $decErr) {
+                    $cognitiveFunctionVector = ['error' => substr($decErr->getMessage(), 0, 160)];
+                }
+            }
+
             $trace = AiTrace::query()->create([
                 'trace_key' => 'trace_'.Str::orderedUuid()->toString(),
                 'thread_id' => $lockedThread->id,
@@ -249,6 +279,7 @@ class AiGatewayService
                     'atlas_decide_execution' => $atlasExecution,
                     'kernel' => $kernelEnvelope,
                     'preflight' => $preflightEnvelope,
+                    'cognitive_function' => $cognitiveFunctionVector,
                     // Canonical Atlas AI Hyperflow / RouterRuntime envelope
                     // built by AtlasHyperflowEntryService BEFORE the legacy
                     // router. Surface (Atlas AI Desktop / Mobile) consumes it

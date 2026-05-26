@@ -36,6 +36,8 @@ maintenance:
   - Atualize este doc antes de alterar Atlas Code Forge, Atlas Decide provider routing, fallback, provider topology, Rivals, review, repair ou completion claim.
   - Mantenha este doc como pagina-mae do sistema inteiro; docs filhos detalham runtime, UI, Rivals, work intake, review e execution.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-obra-enterprise-loop-upgrade.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md

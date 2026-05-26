@@ -5,7 +5,7 @@ title: Operacao Atlas Hyperflow
 status: active
 category: atlas-ai
 priority: 100
-summary: Contrato canonico da Operacao Atlas Hyperflow: transformar Atlas AI no sistema operacional principal de engenharia assistida por IA, substituindo Claude Code/Codex por roteamento inteligente, specialist flows profundos, Atlas Dev, Atlas Forge, evidencia, telemetry e self-improvement.
+summary: Contrato canonico da Operacao Atlas Hyperflow: transformar Atlas AI na interface principal de engenharia agentica, subordinada ao Atlas Agentic Engineering OS, substituindo Claude Code/Codex por roteamento inteligente, specialist flows profundos, Atlas Dev, Atlas Forge, evidencia, telemetry e self-improvement.
 tags:
   - atlas-ai
   - hyperflow
@@ -24,7 +24,7 @@ capabilities:
   - evidence_telemetry_loop
   - hyperflow_100x_certification
 decisions:
-  - Atlas AI deve ser a interface principal de engenharia assistida por IA, nao apenas um chat acima de ferramentas externas.
+  - Atlas AI deve ser a interface principal de engenharia agentica, nao apenas um chat acima de ferramentas externas.
   - O objetivo nao e copiar Claude Code/Codex; e supera-los por orquestracao, contratos, evidencia, memoria, delegacao Dev/Forge e self-improvement.
   - O usuario nao deve precisar escolher manualmente pesquisar, planejar, debugar, revisar, programar ou promover para Forge em casos comuns.
   - Atlas AI deve entender intencao, risco, evidencia faltante, flow correto e nivel de engenharia necessario.
@@ -34,6 +34,8 @@ maintenance:
   - Nao use este doc para detalhar internals de cada runtime; use os docs relacionados como autoridade local.
   - Mantenha este doc como mapa executivo e operacional da operacao completa.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
   - docs/engineering-knowledge-base/atlas-hyperflow-certification-runbook-v1.md
@@ -145,8 +147,9 @@ line_limit: 700
 
 ## Resumo
 
-Operacao Atlas Hyperflow e a iniciativa para transformar o Atlas AI no sistema
-operacional principal de engenharia assistida por IA.
+Operacao Atlas Hyperflow e a iniciativa para transformar o Atlas AI na
+interface principal de engenharia agentica, subordinada ao Atlas Agentic
+Engineering OS.
 
 O objetivo nao e criar um clone de Claude Code ou Codex. O objetivo e fazer o
 Atlas AI substituir esses fluxos no uso diario e supera-los por arquitetura:

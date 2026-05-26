@@ -42,7 +42,7 @@ use Closure;
  * Code/Cursor/Codex as products while using their engines underneath. No
  * benchmark, rivals, or external_rivals claims.
  */
-final class AtlasSwarmProductionResolverService
+class AtlasSwarmProductionResolverService
 {
     public const DEFAULT_CIRCUIT_THRESHOLD = 3;
 

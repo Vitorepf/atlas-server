@@ -175,7 +175,7 @@ Os services abaixo **ja existem** e devem ser **evoluidos**, nunca duplicados.
 | --- | --- | --- |
 | `AtlasCliDevWorkflowService` | `app/Services/Ai/Cli/AtlasCliDevWorkflowService.php` | Driver principal do fluxo. Recebera as fases novas em metodos compostos. (Decisao locked.) |
 | `AtlasProgrammingOrchestrator` | `app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php` | `sessionPlan()` continua montando `programming_orchestration_contract`. Novas fatias plugam pre/pos. |
-| `KernelPipelineDevPlanBuilder` | `app/Services/Ai/Programming/KernelPipelineDevPlanBuilder.php` | Scaffold do pipeline. Novos artefatos (CompactSDD etc.) anexam ao `dev_execution_plan`. |
+| `KernelPipelineDevPlanBuilder` | `app/Services/Ai/Programming/KernelPipelineDevPlanBuilder.php` | Base existente do pipeline. Novos artefatos (CompactSDD etc.) anexam ao `dev_execution_plan`. |
 | `AtlasDevRuntimeService` | `app/Services/Ai/Programming/AtlasDevRuntimeService.php` | Continua aplicando runtime em payloads de surfaces. Ganha exposicao dos novos hashes. |
 | `AtlasDesktopAiSurfaceAdapter` | `app/Services/Ai/Surface/Adapters/AtlasDesktopAiSurfaceAdapter.php` | Surface primaria do produto. Mapeia `atlas_desktop_ai` para flows de programacao e capacidades de contexto/workspace. |
 | Atlas AI Desktop contract | `../atlas-desktop/apps/desktop/src/surfaces/atlas-ai/contract.ts` | Payload canonico da aba Atlas AI. Deve passar apenas raw intent + modo/tarefa/workspace; nao injeta prompt artesanal. |
@@ -290,4 +290,3 @@ Construir os **17 DTOs** read-only operacionais descritos no contracts doc, com:
 - zero acoplamento com runtime.
 
 Saida: codigo PHP que serializa/deserializa schemas. Sem provider, sem pipeline.
-

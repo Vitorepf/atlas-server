@@ -460,6 +460,10 @@ Este doc e registro de consolidacao e limites. O escopo de runtime vive nos serv
 - 4 mecanismos paralelos identificados e confirmados via `grep` em 2026-05-18 (consultados arquivos `Escalation/*`, `Kernel/AtlasForgeHandoffAdapter`, `AtlasCode/DevToForgePromotionService`, `routes/api.php`).
 - `atlas-dev-forge-relationship-critical-audit.md` cobre o mesmo terreno como audit READ-ONLY.
 
+### Audit Gap 5 Fase 2 HTTP Coverage (2026-05-26)
+
+Snapshot quantitativo persistido em `storage/atlas/evidence/gap5_phase2_audit/2026-05-26-route-decision-http-coverage.json`. Coverage real: **1/45 = 2.2%** (apenas `AtlasCodeForgeExecutionController` emite `route_decision.v1`). Escopo real de Fase 2: 44 controllers para wire (~660-1.100 linhas total), blast radius alto; AP dedicado por familia.
+
 ## Riscos
 
 Listados em "Riscos de Quebrar Producao" acima.
@@ -482,6 +486,10 @@ billing engine"`:
 1. Manter este registro sincronizado conforme services e schemas canonicos mudam.
 2. Fechar Fase 2 com Router/Forge intake owner real.
 3. Coordenar mudancas por owner docs, testes e evidence, nao por chat.
+
+### Status Phase 2 (snapshot 2026-05-26)
+
+Phase 2 declarada como `phase_2_in_progress_gate_shipped_44_controllers_pending`. `EscalationChannelGate` standalone shipped (13 unit tests) + schema `atlas.dual_core.escalation_channel_gate.v1` + audit Phase 2 HTTP coverage. Pendente: mover Mecanismo 1 (`EscalationDecisionEngine`/`ForgePromotionPreviewBuilder`) com ACRUI reachability + receipt; Mecanismo 2 (`DevToForgePromotionService`) e NOT-A-FIT (produção ativa); Mecanismo 4 exige wire de 27 rotas Forge. `phase_2_implemented_ready` so e legitimo com coverage=100% + Mecanismos 1/4 wired ou removidos via ACRUI dead-code + Decision Receipt operador + E2E HTTP verde. Honesto > claim inflada.
 
 ## Definition of Done
 

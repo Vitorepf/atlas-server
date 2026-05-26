@@ -34,6 +34,8 @@ maintenance:
   - Atualize este indice quando os gates de programacao, SDD, Engineering Blueprint, Code Intelligence, Forge Workspace, Self-Construction OS ou cartografia de codigo mudarem.
   - Mantenha este arquivo como indice curto; detalhes vivem nos child docs de contratos e runbook.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md

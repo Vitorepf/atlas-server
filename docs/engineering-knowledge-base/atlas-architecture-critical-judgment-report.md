@@ -2,10 +2,11 @@
 id: atlas-architecture-critical-judgment-report
 type: engineering_knowledge
 title: Atlas Architecture Critical Judgment Report
-status: active
+status: deprecated
+implementation_state: historical_snapshot_deprecated_read_only
 category: architecture
 priority: 90
-summary: Julgamento crítico (READ-ONLY) Fase 2 sobre se a arquitetura atual do Atlas leva ao produto final desejado. Veredicto principal — Kernel canônico é scaffold paralelo NÃO integrado à produção; pausar para consolidação antes de novos domínios.
+summary: Snapshot historico read-only de julgamento arquitetural de 2026-05-18; superseded por gates atuais de architecture-readiness, ADER, ACOS, ACRUI e runtime evidence.
 tags:
   - atlas-ai
   - architecture-judgment
@@ -18,12 +19,12 @@ capabilities:
   - severity_classification
   - next_order_recommendation
 decisions:
-  - Veredicto principal — Kernel Mission/Router/Policy/Tool/Evidence/Certification NÃO está integrado no path de produção (AiWorker), apenas em smoke CLI.
-  - Pausar promoção de novos domínios; consolidar integração Kernel ↔ AiWorker primeiro.
-  - Tolerância silenciosa em PolicyBridge / EvidenceBridge é risco crítico.
+  - Este relatorio nao e mais autoridade operacional atual; e snapshot historico de risco.
+  - Usar architecture-readiness, ADER, ACOS scorecard, ACRUI e testes de runtime como verdade atual.
+  - Nao usar as conclusoes de 2026-05-18 para bloquear ou guiar implementacao sem revalidacao.
 maintenance:
-  - Regenerar quando integração Kernel→AiWorker estiver pronta.
-  - Atualizar quando Cyber/Automation/Strategy ganharem orchestrator + registry entry.
+  - Manter como referencia historica somente enquanto ajudar a comparar progresso.
+  - Se ficar redundante com reports atuais, mover para archive/source-material apos decisao do operador.
 related_paths:
   - docs/engineering-knowledge-base/atlas-full-architecture-understanding-report.md
   - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
@@ -49,7 +50,12 @@ graph_kind: module
 
 graph_parent: atlas-full-architecture-understanding-report
 
-graph_status: active
+graph_status: deprecated
+superseded_by:
+  - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
+  - docs/engineering-knowledge-base/atlas-documentation-enforcement-runtime.md
+  - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
+  - docs/engineering-knowledge-base/atlas-cognition-operating-system.md
 
 graph_source: repo
 human_name: Atlas Architecture Critical Judgment Report
@@ -64,12 +70,12 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-architecture-critical-judgment-report.md
 
 allowed_changes:
-  - Atualizar quando integração Kernel ↔ AiWorker for entregue.
-  - Atualizar status de gap quando teste E2E canônico for criado.
+  - Corrigir boundary historico e referencias de supersession.
+  - Mover para archive/source-material se perder valor de comparacao.
 
 forbidden_changes:
-  - Suavizar veredicto sem evidência de path real em produção integrado.
-  - Declarar Kernel integrado sem prova em controller HTTP/Filament.
+  - Tratar este snapshot como fonte operacional atual.
+  - Usar claims antigos contra runtime atual sem rodar gates.
 
 depends_on:
   - atlas-full-architecture-understanding-report
@@ -83,7 +89,7 @@ unlocks:
   - kernel-integration-priority-plan
 
 governs:
-  - architecture-judgment
+  - historical_architecture_judgment_snapshot
 
 evidence:
   - app/Services/Ai/Mission/MissionLifecycleService.php
@@ -103,15 +109,24 @@ requires_evidence: true
 risk_level: high
 
 next_actions:
-  - Criar teste E2E canônico Mission→Router→Domain→Policy→Tool→Evidence→Certification que cubra controller HTTP real.
-  - Reconectar AiWorker ao Kernel canônico (ou explicitar status `legacy_path`).
-  - Endurecer ToolPolicyBridge/ToolReceiptService — remover tolerância silenciosa.
-  - Endurecer MissionCertificationService::runChecks — sair de shape-only para quality-aware.
-  - Criar orchestrators + registry entry para cyber, automation, strategy OU mover para `scaffold` explícito.
-  - Adicionar testes para strategic_decision e self_improvement (hoje 0 testes cada).
+  - Consultar `php artisan atlas:ai:architecture-readiness --json` para estado atual.
+  - Consultar `php artisan atlas:documentation:enforce --strict --json` antes de implementar.
+  - Consultar ACRUI status/global audit para drift operacional atual.
 
 ---
 # Atlas Architecture Critical Judgment Report
+
+## Boundary Historico
+
+Este documento e um snapshot de julgamento de 2026-05-18. Ele foi preservado
+como evidencia historica, mas nao governa implementacao atual.
+
+Motivo: varias conclusoes abaixo ja foram alteradas pelo runtime atual. Por
+exemplo, `app/Services/Ai/AiWorker.php` hoje referencia
+`MissionLifecycleService`, `PermissionGateService` e
+`CertificationRuntimeService`, e self-improvement possui services/comandos/testes
+ativos. Para verdade operacional atual, use architecture-readiness, ADER, ACOS,
+ACRUI, testes e codigo.
 
 ## Resumo
 **Veredicto executivo (com evidência, sem afago):**

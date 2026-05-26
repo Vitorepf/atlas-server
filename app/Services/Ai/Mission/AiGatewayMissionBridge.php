@@ -156,6 +156,13 @@ class AiGatewayMissionBridge
             'domain_id' => $options['domain_id'] ?? null,
             'capability' => $options['capability'] ?? null,
             'recorded_at' => now()->toJSON(),
+            // Gap1.F2 tracer flag — true when the gateway successfully built a
+            // Mission envelope with a mission_id. Dual-write only: callers
+            // that don't consume this field are unaffected. Downstream gates
+            // (`AtlasAiArchitectureValidateCommand`, Gap1.F5) read this to
+            // confirm the HTTP path actually routed through the Kernel.
+            // See `docs/engineering-knowledge-base/atlas-aiworker-kernel-integration-adr.md`.
+            'kernel_routed' => true,
         ];
 
         if ($missionType !== MissionFactoryService::TYPE_TRIVIAL) {
@@ -227,6 +234,9 @@ class AiGatewayMissionBridge
             'source' => self::ENVELOPE_SOURCE,
             'mission_id' => null,
             'mission_uuid' => null,
+            // Gap1.F2 tracer flag — false when the bridge produced a
+            // skipped/trivial envelope without a mission. See above.
+            'kernel_routed' => false,
             'mission_type' => MissionFactoryService::TYPE_TRIVIAL,
             'mission_status' => 'skipped',
             'normalized_intent' => $factory->normalizeIntent($input),
@@ -253,6 +263,10 @@ class AiGatewayMissionBridge
             'mission_id' => null,
             'mission_status' => 'bridge_error',
             'recorded_at' => now()->toJSON(),
+            // Gap1.F2 tracer flag — false when the bridge fails to build a
+            // mission. Downstream gates treat this as an architecture
+            // divergence signal.
+            'kernel_routed' => false,
             'kernel_bridge_error' => [
                 'reason' => $e->getMessage(),
                 'exception_class' => $e::class,

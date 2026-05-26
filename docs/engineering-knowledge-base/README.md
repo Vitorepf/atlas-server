@@ -103,13 +103,16 @@ decisions:
   - Atlas AI Research Intelligence And Self-Improvement Runtime define pesquisa de maximo nivel, source quality, promocao para docs, planejamento, implementacao validada e autoaprimoramento governado como frente P0 de evolucao do Atlas.
   - Atlas AI Spec Operating System define SDD como capacidade interna: intencao simples vira spec operacional, plano, tasks, Decision Receipt, execucao governada, evidencia, drift detection, learning proposal, data model, agentes internos, MCP governado e context packages versionados.
   - Atlas Autonomous Intelligence Operating System define Atlas AI como sistema operacional de inteligencia autonoma multi-dominio: Kernel comum, Mission Mode, Objective Intelligence, Domain Company Runtimes, Tool Economy, Evidence Ledger, Control Plane, certificacao e aprendizado continuo.
+  - Atlas Agentic Engineering OS define o nome e a camada-mae da organizacao de engenharia agentica do Atlas: um gestor humano expressa intencao ambigua e o Atlas conduz produto, arquitetura, spec, codigo, infra, QA, seguranca, release, incidentes, documentacao, evidencia e aprendizado.
   - Atlas Domain Company Runtimes define como cada dominio vira uma empresa digital plugavel, com manifest, departamentos, workflows, policies, gates, artifacts, metrics e certification sem criar Kernel paralelo.
   - Atlas AI Domain Routing Governance define a matriz prompt->dominio, flow vs dominio novo, Domain Creation Gate e regras anti-confusao para IAs rotearem fluxos sem criar bagunca.
   - Atlas Local Agent Memory Ingestion define como pastas locais de Codex, Claude Code e outros agentes podem virar source material governado, com discovery read-only, secret scan, quarentena cognitiva, classificacao, evidence, review humano e promocao seletiva.
   - Atlas Evidence Certification Runtime define a camada universal de prova que impede resposta fraca, falso completo e claim sem evidencia: EvidencePack, Receipt, Claim, Artifact, SourceRef, GateRun, TestResult, OperatorDecision, Certification, Blocker e AuditEvent como contratos canonicos para metas, missoes, work orders, dominios, tools e handoffs.
   - Atlas Programming Domain Adapter Integration Plan (Meta 7) define como Atlas Dev, Forge, Repair, Review, QA, Security, Database, Visual e Forge handoff sao plugados ao novo Kernel por 9 bridges thin (ManifestSeeder, DomainRuntimeAdapter, DevMissionAdapter, ForgeHandoffAdapter, EvidenceBridge, PolicyBridge, ToolBridge, ControlPlaneProjection, Command) sem refatorar runtime nem fundir Atlas Dev com Atlas Forge.
   - Atlas AI Multi-Domain Implementation Sequence define a ordem canonica, o paralelismo permitido, as fronteiras de arquivos por meta e a coordenacao entre Claudes/Codex executando em paralelo.
-  - Operacao Atlas Hyperflow define a iniciativa para transformar Atlas AI no sistema operacional principal de engenharia assistida por IA, substituindo Claude Code/Codex por roteamento inteligente, specialist flows profundos, Atlas Dev, Atlas Forge, evidencia, telemetry e self-improvement.
+  - Atlas Agentic Software Engineering Authority Map define a hierarquia obrigatoria entre Agentic Engineering OS, Autonomous Software Company Runtime, Programming Governance, Atlas Dev, Atlas Forge, Atlas Code, TEOS, Rivals e research/dissections para impedir docs paralelos e confusao por IA.
+  - Atlas Agentic Engineering Documentation Inventory classifica familias espalhadas de docs Dev, Forge, Atlas Code, TEOS, Rivals, provider dossiers, research, parts e handoffs para impedir leitura caotica.
+  - Operacao Atlas Hyperflow define a iniciativa para transformar Atlas AI na interface principal de engenharia agentica, subordinada ao Atlas Agentic Engineering OS, substituindo Claude Code/Codex por roteamento inteligente, specialist flows profundos, Atlas Dev, Atlas Forge, evidencia, telemetry e self-improvement.
   - Atlas AI Router Runtime Enterprise Upgrade define a meta para transformar o Router de contrato em runtime enterprise: flow decision persistida, specialist flows, delegation, telemetry, receipts e UX visivel.
   - Atlas Programming Governance System define os gates canonicos da programacao por IA: placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning e cartografia.
   - Atlas Programming Self-Construction Forge Map v1 e o mapa curto para IA entender rapidamente que Self-Construction OS e lei-mae, Self-Programming OS e safety/patamar de auto-modificacao, Forge Continuum OS e a especializacao operacional de programacao pesada, Atlas Code e surface, Obras sao unidades produtivas e providers sao executores substituiveis.
@@ -163,6 +166,9 @@ maintenance:
   - Leia atlas-ai-runtime-language-boundaries.md, atlas-native-mac-agent.md, atlas-ai-local-performance-memory-strategy.md, atlas-ai-content-intelligence-curation.md e atlas-ai-scenario-simulation-harness.md antes de propor Python, Go, Swift, microservico, worker externo, daemon, RAG local, cache, modelos locais, uso dos 48GB RAM, YouTube ingestion, feeds, scraping, curadoria de fontes, swarm ou simulacao multiagente.
   - Leia atlas-ai-research-self-improvement-runtime.md antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, autoaprimoramento ou qualquer tentativa de acelerar evolucao do Atlas por automacao.
   - Leia atlas-ai-spec-operating-system.md antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts ou fluxo de one-shot implementation.
+  - Leia atlas-agentic-software-engineering-authority-map.md antes de reorganizar, limpar ou implementar docs de Atlas Dev, Forge, Atlas Code, Agentic Engineering, Rivals, Superiority ou TEOS.
+  - Leia atlas-agentic-engineering-documentation-inventory.md quando encontrar muitos docs parecidos, `part-*`, `session-handoff-*`, Rivals, provider dossiers, research ou docs com `OS` no nome dentro da area.
+  - Leia atlas-agentic-engineering-os.md antes de nomear a area, explicar Atlas como substituto de area tech, criar departamento de engenharia agentica ou reduzir o objetivo a programacao assistida por IA.
   - Leia atlas-autonomous-intelligence-operating-system.md e atlas-domain-company-runtimes.md antes de tratar Atlas AI como apenas Programming; identidade canonica e multi-dominio com Kernel comum + Domain Company Runtimes plugaveis.
   - Leia atlas-ai-multi-domain-implementation-sequence.md antes de planejar AP/Obra/Forge run que toque mais de um dominio ou quando varios providers atuarem em paralelo, para respeitar ordem, paralelismo e fronteiras de arquivos.
   - Leia atlas-hyperflow-operation.md antes de discutir ou implementar a substituicao de Claude Code/Codex pelo Atlas AI como sistema operacional principal de engenharia.
@@ -204,6 +210,8 @@ maintenance:
   - Consulte atlas-cli-5x-claude-code-plan.md e atlas-cli-fair-claude-benchmark.md antes de declarar superioridade contra Claude Code.
   - Revise indexed_at e content_hash antes de confiar em uma sessao longa.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
   - docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md
@@ -243,6 +251,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
   - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/spec-operating-system/context-discovery-and-business-context.md
   - docs/engineering-knowledge-base/spec-operating-system/spec-compiler-and-critic.md
   - docs/engineering-knowledge-base/spec-operating-system/plan-task-and-receipt-contract.md
@@ -491,6 +500,7 @@ detalhe de modulo com docs/testes.
 | `system-graph/living-architecture-graph-contract.md` | Contrato do Atlas Living Architecture Graph: grafo Obsidian vivo com nodes reais, status, dependencias, evidencias e proximas acoes |
 | `atlas-ai-knowledge-governance-system.md` | Contrato enterprise de fonte de verdade entre repo docs, Postgres KB, Code Intelligence, Evidence Ledger, Obsidian, AGENTS/CLAUDE e chat source material |
 | `atlas-autonomous-intelligence-operating-system.md` | Identidade canonica do Atlas AI como Autonomous Intelligence OS multi-dominio: Kernel comum, Mission Mode, Objective Intelligence, Domain Company Runtimes, Tool Economy, Evidence Ledger, Control Plane e certificacao |
+| `atlas-agentic-engineering-os.md` | Nome e camada-mae da organizacao de engenharia agentica do Atlas: um gestor humano expressa intencao ambigua e o Atlas conduz produto, arquitetura, codigo, infra, QA, seguranca, release, docs, evidence e learning |
 | `atlas-kernel-mission-foundation.md` | Meta 1 entregue: fundacao universal Mission/Objective/WorkOrder com lifecycle guard, evidence refs, certification e control-plane snapshot consumida por todos os dominios |
 | `atlas-domain-company-runtimes.md` | Forma plugavel dos dominios: manifest, departments, workflows, gates, artifacts, metrics, maturity e certification sem Kernel/Policy/Tool/Evidence paralelos |
 | `domains/domain-routing-governance.md` | Guia para IAs escolherem dominio, flow, profile ou novo dominio com matriz prompt->dominio e Domain Creation Gate |

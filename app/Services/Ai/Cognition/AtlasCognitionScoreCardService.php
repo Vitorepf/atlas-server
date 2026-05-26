@@ -12,6 +12,9 @@ use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\AtlasDecide\AtlasDecideTeosI4LookaheadService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
+use App\Services\Ai\AtlasDecide\AtlasCognitiveFunctionSwarmRouterService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\Programming\Bdd\AtlasBddAcceptanceRuntimeService;
 use App\Services\Ai\Compounding\AtlasAntifragilityCompositionMetricService;
@@ -26,9 +29,12 @@ use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Governance\AtlasConstitutionalVaultService;
 use App\Services\Ai\Governance\AtlasTrustBudgetService;
+use App\Services\Ai\Patamar4\AtlasEmbodimentIntegrationService;
 use App\Services\Ai\Patamar4\AtlasNightlyCounterfactualsService;
+use App\Services\Ai\Patamar4\AtlasRuntimeDegradationSignalService;
 use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService;
+use App\Services\Ai\SelfConstruction\AtlasSelfDivergenceModelService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\ResearchDomain\ResearchRuntimeService;
@@ -183,6 +189,13 @@ class AtlasCognitionScoreCardService
         ['ASAR',    'Subsystem Auto-Rebalance',                  'patamar_4',         AtlasSubsystemAutoRebalanceService::class,                 'ready', 'ready', 'building'],
         ['ASOS',    'Atlas Scheduler OS (Cron 24/7)',            'patamar_4',         AtlasSchedulerHealthService::class,                        'ready', 'ready', 'building'],
         ['ASPR',    'Swarm Production Resolver (real provider)', 'atlas_decide',      AtlasSwarmProductionResolverService::class,                'ready', 'ready', 'building'],
+        ['ACFD',    'Cognitive Function Decomposer (6-axis)',    'cognition',         AtlasCognitiveFunctionDecomposerService::class,            'ready', 'ready', 'building'],
+        ['ASPD',    'Atlas Swarm Parallel Dispatcher',           'atlas_decide',      AtlasSwarmParallelDispatchService::class,                  'ready', 'ready', 'building'],
+        ['ACSR',    'Cognitive Function Swarm Router (P6 closure)', 'atlas_decide',   AtlasCognitiveFunctionSwarmRouterService::class,           'ready', 'ready', 'building'],
+        ['ASAF',    'Swarm Auto-Failover (A4)',                  'atlas_decide',      AtlasSwarmAutoFailoverService::class,                      'ready', 'ready', 'building'],
+        ['ARDS',    'Runtime Degradation Signal Ingress',        'patamar_4',         AtlasRuntimeDegradationSignalService::class,               'ready', 'ready', 'building'],
+        ['ASDM',    'Self-Divergence Model (target vs current)', 'self_construction', AtlasSelfDivergenceModelService::class,                    'ready', 'ready', 'building'],
+        ['AEMB',    'Embodiment Integration (P7 closure)',       'patamar_4',         AtlasEmbodimentIntegrationService::class,                  'ready', 'ready', 'building'],
 
         // Patamar 1/2/3 closures — Reflexivity streaming, OCR confidence, Compounding L8/L9
         ['ACOP-ACRS', 'ACOP→ACRS Reflexive Streaming Bridge', 'aucri',          AtlasContextObservabilityToRankingReflexiveBridgeService::class, 'ready', 'ready', 'building'],

@@ -25,6 +25,7 @@ maintenance:
   - Read before changing Atlas core, self-improvement, SDD runtime, memory, research automation, autonomous coding or governance.
   - Update when a new self-programming loop, maturity level, build dependency or core safety gate is promoted.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-self-construction-catalog.md
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
   - app/Console/Commands/AtlasAiSelfConstructionCommand.php
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php

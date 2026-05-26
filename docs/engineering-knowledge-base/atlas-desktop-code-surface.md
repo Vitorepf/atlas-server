@@ -47,6 +47,7 @@ maintenance:
   - Keep ≤ 360 lines; if it grows, split per zone of the surface into child specs.
   - Bidirectional `related_paths` must stay in sync with each axis owner doc.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
   - docs/engineering-knowledge-base/atlas-code-forge-live-execution-surface-contract.md
   - docs/engineering-knowledge-base/atlas-code-scor-1-implementation-contract.md
   - docs/engineering-knowledge-base/atlas-code-long-session-programming-cockpit.md
@@ -162,6 +163,7 @@ ai_entrypoints:
   - Leia Resumo, Contratos, Regras para IA, Evidencias e Riscos antes de implementar.
 ai_usage_notes:
   - Use repo_paths, allowed_changes, forbidden_changes e required_tests como limites operacionais.
+  - Atlas Code e surface. Para hierarquia de Agentic Engineering, Dev, Forge, Code, TEOS e Rivals, leia o Authority Map.
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 failure_modes:

@@ -40,6 +40,7 @@ maintenance:
   - Quando audit identificar novo cluster de naming proliferation, abrir entrada aqui antes de qualquer cleanup de codigo.
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-cleanup-inventory.md
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
   - docs/engineering-knowledge-base/domains/domain-routing-governance.md
@@ -159,9 +160,7 @@ Nome aparece em roadmap / chat / doc / classe nova
 -> Conflita com Domain/Flow/Runtime/Harness? -> resolver pela tabela.
 ```
 ## Patamar vs Versao vs Camada vs Fonte
-
 Contrato detalhado: `atlas-cartography-nomenclature-contract.md`.
-
 Resumo obrigatorio:
 
 - Patamar = salto de capacidade/maturidade.
@@ -173,12 +172,9 @@ Resumo obrigatorio:
   canonicos do Atlas inteiro por padrao.
 
 ## Termos Canonicos
-
 Cada entrada usa o formato compacto: status · definicao · use/nao · relacao ·
 exemplos ✓/✗ · aliases ok/proibidos.
-
 ### Atlas
-
 - `active`. O produto inteiro, o operador (humano), o repositorio.
 - Use: identidade, marca, repo, manifesto, visao. Nao use: como sinonimo de Atlas AI.
 - Relacao: Atlas AI < Atlas. Inclui Vault, Cartografia, Desktop, AI.
@@ -189,7 +185,7 @@ exemplos ✓/✗ · aliases ok/proibidos.
 
 - `active`. Sistema operacional de inteligencia autonoma multi-dominio: Kernel + Mission Mode + Domain Company Runtimes + Tool Economy + Evidence + Control Plane.
 - Use: cerebro/produto AI, Autonomous Intelligence OS. Nao use: como "Claude wrapper" nem "Atlas Code".
-- Relacao: ver `atlas-autonomous-intelligence-operating-system.md`. Pai de Atlas Dev, Atlas Forge e Domain Runtimes.
+- Relacao: ver `atlas-autonomous-intelligence-operating-system.md`; Atlas Agentic Engineering OS e o filho para a organizacao de engenharia agentica, pai de Company Runtime, Atlas Dev, Atlas Forge e Atlas Code.
 - ✓ "Atlas AI decide o flow". ✗ "Atlas AI = wrapper de Claude Code".
 - Aliases: ok={Atlas AI, Autonomous Intelligence OS, AI OS}; proibido={Atlas AI = produto isolado de programacao}.
 
@@ -223,7 +219,7 @@ exemplos ✓/✗ · aliases ok/proibidos.
 - Use: UX, painel Code, rotas `/atlas-code/*`, fluxo de assinatura/observacao. Nao use: como Atlas Dev/Forge.
 - Relacao: superficie que CONSOME Atlas Dev e Atlas Forge. Audita Kernel via Cartografia.
 - ✓ "Atlas Code mostra a Obra ativa". ✗ "Atlas Code refatorou o codigo" (use Atlas Dev/Forge).
-- Aliases: ok={Atlas Code, Code Surface, cabine Code}; proibido={Atlas Code = Atlas Dev, Atlas Code = Atlas Forge}.
+- Aliases: ok={Atlas Code, Code Surface, cabine Code, provider operating-room surface}; proibido={Atlas Code = Atlas Dev, Atlas Code = Atlas Forge, Atlas Code = Agentic Engineering OS, Atlas Code = runtime-mae}.
 
 ### Code Forge / Atlas Code Forge
 

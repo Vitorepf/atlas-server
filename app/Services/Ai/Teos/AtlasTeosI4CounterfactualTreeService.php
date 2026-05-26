@@ -38,6 +38,25 @@ final class AtlasTeosI4CounterfactualTreeService
 
     public const MAX_DEPTH = 4;
 
+    /**
+     * Hard canonical cap on total nodes generated per tree expansion —
+     * canon §2.4 promises "árvore inteira, poda por pareto, hard cap 1000
+     * nós". Current breadth × depth (5⁴ = 625) is already below this cap,
+     * but we surface MAX_TOTAL_NODES explicitly so an evolving caller
+     * can never exceed it even if MAX_BREADTH/MAX_DEPTH change.
+     *
+     * Pruning discipline (canon §2.4 "pareto cost×improvement"):
+     *   - Each layer expands `breadth` alternatives (already capped at
+     *     MAX_BREADTH).
+     *   - Alternatives are stored with projected_outcome_score; the caller
+     *     reads `delta = projected − factual` and picks the highest-delta
+     *     branch (greedy pareto by single objective: improvement).
+     *   - Future evolution: multi-objective (cost AND improvement) pruning
+     *     can be wired via the same array_slice path without expanding the
+     *     cap.
+     */
+    public const MAX_TOTAL_NODES = 1000;
+
     private ?string $treesLogOverride = null;
 
     public function __construct(
@@ -158,6 +177,13 @@ final class AtlasTeosI4CounterfactualTreeService
                 $nodes[] = $node;
                 if ($bestChild === null || $node['cumulative_improvement'] > $bestChild['cumulative_improvement']) {
                     $bestChild = $node;
+                }
+                // Hard total-node cap per canon §2.4. Pareto-by-improvement
+                // is already in place via $bestChild selection; this is the
+                // last-resort failsafe so a future regression in caller
+                // params cannot blow past the canonical 1000-node budget.
+                if (count($nodes) >= self::MAX_TOTAL_NODES) {
+                    break 2;
                 }
             }
             if ($bestChild === null) {

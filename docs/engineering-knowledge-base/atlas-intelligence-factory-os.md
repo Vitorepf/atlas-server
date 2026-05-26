@@ -38,11 +38,14 @@ decisions:
   - Toda nova capacidade passa por simulacao, sandbox, testes, evidence, certification e AEMOR antes de virar default.
   - A fabrica pode criar ferramentas, agentes, workflows, playbooks e policies propostas, mas nao muda comportamento critico sem governance.
   - Atlas Intelligence Factory OS nao substitui APCR, AEMOR, ACIE, ACOL, Dev ou Forge; ele compoe essas camadas.
+  - Atlas Intelligence Factory OS tambem nao substitui Atlas Agentic Engineering OS; quando a pergunta for area tech/engenharia de software, leia o Authority Map.
 maintenance:
   - Atualizar antes de implementar Capability Foundry, Simulation Runtime, Agent Foundry ou Workflow Foundry.
   - Nao criar capability store paralelo sem ADR; preferir registrar no Capability Registry canonico.
   - Manter claim policy: sem benchmark externo, sem superioridade numerica e sem auto-policy mutation sem evidencia.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
@@ -83,6 +86,7 @@ forbidden_changes:
   - Clonar repositorio, instalar pacote ou chamar API externa sem provenance, license/security review e budget.
   - Tratar agente, ferramenta, workflow e policy como a mesma entidade.
   - Declarar superioridade contra Claude Code, Codex ou outro rival sem benchmark autorizado.
+  - Tratar Intelligence Factory como doc-mae de Agentic Software Engineering ou Programming Governance.
 depends_on:
   - atlas-autonomous-intelligence-operating-system
   - atlas-execution-memory-outcome-runtime

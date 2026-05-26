@@ -21,6 +21,7 @@ capabilities:
   - self_construction_orientation
 decisions:
   - Esta e a doc curta de orientacao para IAs antes de explicar Atlas Code, Forge Continuum, Self-Construction OS ou Self-Programming OS.
+  - Atlas Agentic Engineering OS e o nome da camada-mae de engenharia quando a pergunta for substituir uma area tech inteira; Forge Continuum continua sendo a especializacao de programacao pesada.
   - Atlas Forge Continuum OS ja e a especializacao operacional de programacao pesada; nao crie outro OS paralelo para isso.
   - Atlas Dual-Core Engineering System governa a fronteira entre Atlas Dev e Atlas Forge; nao fundir os dois e nao subordinar Forge ao Dev.
   - Atlas Code e surface humana; nao e o sistema inteiro, nao e provider e nao e Obra.
@@ -31,6 +32,8 @@ maintenance:
   - Atualize este mapa antes de renomear qualquer doc-mae de Atlas Code, Forge Continuum, Self-Construction OS, Self-Programming OS, Agent Control Plane ou multi-provider.
   - Mantenha este arquivo curto; ele existe para orientar IA rapidamente, nao para substituir os docs-mae.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md

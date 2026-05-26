@@ -74,6 +74,8 @@ class AtlasAutonomousReconciliationRuntimeService
 
     private ?\App\Services\Engineering\EngineeringDocumentationHealthService $docHealth = null;
 
+    private ?\App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService $autoRebalance = null;
+
     public function __construct(
         private readonly AtlasCognitiveFunctionAtlasService $cfa,
         private readonly AtlasAutonomyAdmissionService $admission,
@@ -107,6 +109,17 @@ class AtlasAutonomousReconciliationRuntimeService
      * If projected improvement < META_PROJECTION_MIN_IMPROVEMENT, the
      * propose() call is suppressed (recorded as 'projection_below_threshold').
      */
+    /**
+     * Optional auto-rebalance seam. When wired, every reconciliation tick
+     * also calls plan() on all 4 canonical rebalance kinds (read-only;
+     * receipts auto-recorded to F4 ledger). Operator never has to invoke
+     * `atlas:rebalance` manually.
+     */
+    public function setAutoRebalanceService(?\App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService $svc): void
+    {
+        $this->autoRebalance = $svc;
+    }
+
     public function setTeosI3ForMetaProjection(?AtlasTeosI3CounterfactualService $teosI3): void
     {
         $this->teosI3 = $teosI3;
@@ -181,12 +194,22 @@ class AtlasAutonomousReconciliationRuntimeService
         $at = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
 
         if ($top === null || (int) $top['non_ready_pipeline'] === 0) {
+            // Even in noop ticks, run auto-rebalance sweep so probes update
+            // independently of gap detection. Sweep is read-only.
+            $noopSweep = $this->runAutoRebalanceSweep();
+            $noopStep = $noopSweep['wired']
+                ? [
+                    'schema_version' => self::STEP_SCHEMA,
+                    'step_kind' => 'noop_with_rebalance_sweep',
+                    'rebalance_sweep' => $noopSweep,
+                ]
+                : null;
             $tick = $this->buildTick(
                 at: $at,
                 selfModelHash: $selfModelHash,
                 selectedGroup: null,
                 gapSize: 0,
-                step: null,
+                step: $noopStep,
                 outcome: self::OUTCOME_NOOP_NO_GAP,
             );
             $this->appendJsonl($this->ticksLogPath(), $tick);
@@ -300,6 +323,12 @@ class AtlasAutonomousReconciliationRuntimeService
             $probeReceipt = $this->dispatchProbe($actionKind, $group, $gapSize, $selfModel);
         }
 
+        // Auto-rebalance sweep: when wired, every tick calls plan() on all
+        // 4 canonical kinds. Read-only — plans are persisted by the
+        // rebalance service to its own JSONL. We attach the hashes here so
+        // the tick receipt links to them.
+        $rebalanceSweep = $this->runAutoRebalanceSweep();
+
         $step = [
             'schema_version' => self::STEP_SCHEMA,
             'step_kind' => $actionKind,
@@ -312,6 +341,7 @@ class AtlasAutonomousReconciliationRuntimeService
             'projection_branch_id' => $projectionBranchId,
             'projection_improvement_delta' => $projectionImprovement !== null ? round($projectionImprovement, 4) : null,
             'probe_receipt' => $probeReceipt,
+            'rebalance_sweep' => $rebalanceSweep,
         ];
 
         $tick = $this->buildTick(
@@ -377,6 +407,49 @@ class AtlasAutonomousReconciliationRuntimeService
      * @param  array<string,mixed>  $selfModel
      * @return array<string,mixed>
      */
+    /**
+     * Auto-rebalance sweep: when the auto-rebalance service is wired (via
+     * setAutoRebalanceService), iterate the 4 canonical kinds and call
+     * plan() on each. Plans are read-only and append their own JSONL
+     * receipt — we only echo the plan_hash + observed metric into the
+     * tick receipt so the operator can trace the sweep end-to-end.
+     *
+     * @return array<string,mixed>
+     */
+    private function runAutoRebalanceSweep(): array
+    {
+        if ($this->autoRebalance === null) {
+            return [
+                'wired' => false,
+                'plans' => [],
+            ];
+        }
+        $plans = [];
+        foreach (\App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService::VALID_KINDS as $kind) {
+            try {
+                $plan = $this->autoRebalance->plan($kind, 'reconciliation_tick_auto');
+                $plans[] = [
+                    'kind' => $kind,
+                    'status' => $plan['status'] ?? 'unknown',
+                    'plan_hash' => $plan['plan_hash'] ?? null,
+                    'probe_status' => $plan['diagnostics']['probe_status'] ?? 'unknown',
+                    'observed' => $plan['diagnostics']['observed'] ?? null,
+                ];
+            } catch (\Throwable $e) {
+                $plans[] = [
+                    'kind' => $kind,
+                    'status' => 'sweep_error',
+                    'error' => substr($e->getMessage(), 0, 120),
+                ];
+            }
+        }
+
+        return [
+            'wired' => true,
+            'plans' => $plans,
+        ];
+    }
+
     private function dispatchProbe(string $actionKind, string $group, int $gapSize, array $selfModel): array
     {
         $base = [

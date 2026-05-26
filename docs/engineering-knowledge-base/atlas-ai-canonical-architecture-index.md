@@ -25,6 +25,8 @@ maintenance:
   - Update when a new layer, constitutional doc or authority family is promoted.
   - Keep this index below the line limit; move detail to child docs.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/canonical-index/authority-map.md
   - docs/engineering-knowledge-base/canonical-index/layer-status.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
@@ -56,6 +58,7 @@ related_paths:
   - docs/engineering-knowledge-base/research-self-improvement/
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
   - docs/engineering-knowledge-base/domains/domain-routing-governance.md
   - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
@@ -172,6 +175,7 @@ Layer 0.55 Epistemic OS: truth, confidence, drift, contradiction and AI permissi
 Layer 0.56 Cartographic Knowledge OS: visual truth navigation and semantic zoom
 Layer 0.6 Research Intelligence and source-backed evolution governance
 Layer 0.7 Spec Operating System / SDD governance
+Layer 0.71 Agentic Engineering OS: AI-operated engineering organization, from ambiguous human intent to certified software delivery
 Layer 0.72 Programming Governance System: placement, spec before code, task contracts, Code Intelligence, evidence and cartography
 Layer 0.74 Programming Forge Flow: canonical heavy programming taxonomy, flow, graphs, tools, repair and evidence
 Layer 0.75 Forge Operating System: AI software factory over governed programming
@@ -210,6 +214,7 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Research Intelligence and governed self-improvement | `atlas-ai-research-self-improvement-runtime.md` |
 | Spec Operating System / SDD | `atlas-ai-spec-operating-system.md` |
 | Atlas AI identity as Autonomous Intelligence OS | `atlas-autonomous-intelligence-operating-system.md` |
+| Agentic Engineering OS / software engineering organization operated by AI | `atlas-agentic-engineering-os.md` |
 | Atlas Kernel Mission Foundation / universal Mission/Objective/WorkOrder with lifecycle, evidence and certification (Meta 1) | `atlas-kernel-mission-foundation.md` |
 | Domain Company Runtimes / enterprise domain companies | `atlas-domain-company-runtimes.md` |
 | Domain Routing Governance / prompt-to-domain matrix, flow-vs-domain and domain creation gate | `domains/domain-routing-governance.md` |

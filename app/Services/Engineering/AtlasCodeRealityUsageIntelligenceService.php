@@ -1071,6 +1071,8 @@ final class AtlasCodeRealityUsageIntelligenceService
             'atlas-aiworker-kernel-integration-adr',
             'atlas-autonomous-control-plane',
             'atlas-ai-programming-enterprise-implementation-plan',
+            'atlas-programming-superiority-contracts',
+            'atlas-programming-forge-flow',
             'atlas-long-horizon-intelligence-layer',
             'atlas-self-construction-agent-dispatch-planner-runtime-v1',
             'atlas-forge-live-execution-e2e-v1',

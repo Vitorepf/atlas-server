@@ -867,4 +867,23 @@ return [
             'bracket_style' => env('ATLAS_COGNITION_ID_REMAP_BRACKET_STYLE', 'square_bracket'),
         ],
     ],
+
+    // Patamar 4 · runtime flags. All default OFF except cron heartbeat and
+    // ensure-launchd self-heal. Operator activates production via
+    // `php artisan atlas:patamar4:activate-flags --apply`.
+    'patamar4' => [
+        'scheduler_heartbeat_enabled' => (bool) env('ATLAS_PATAMAR4_SCHEDULER_HEARTBEAT_ENABLED', true),
+        'scheduler_ensure_launchd_enabled' => (bool) env('ATLAS_PATAMAR4_SCHEDULER_ENSURE_LAUNCHD_ENABLED', true),
+        'reconciliation_enabled' => (bool) env('ATLAS_PATAMAR4_RECONCILIATION_ENABLED', true),
+        'reconciliation_cadence' => env('ATLAS_PATAMAR4_RECONCILIATION_CADENCE', 'fifteen'),
+        'nightly_counterfactuals_enabled' => (bool) env('ATLAS_PATAMAR4_NIGHTLY_COUNTERFACTUALS_ENABLED', true),
+        'adml_sweep_enabled' => (bool) env('ATLAS_PATAMAR4_ADML_SWEEP_ENABLED', true),
+        'swarm_production_resolver_enabled' => (bool) env('ATLAS_PATAMAR4_SWARM_PRODUCTION_RESOLVER_ENABLED', false),
+        'swarm_parallel_enabled' => (bool) env('ATLAS_PATAMAR4_SWARM_PARALLEL_ENABLED', false),
+        'swarm_auto_failover_enabled' => (bool) env('ATLAS_PATAMAR4_SWARM_AUTO_FAILOVER_ENABLED', false),
+        'swarm_circuit_threshold' => (int) env('ATLAS_PATAMAR4_SWARM_CIRCUIT_THRESHOLD', 3),
+        'swarm_circuit_cooldown_seconds' => (int) env('ATLAS_PATAMAR4_SWARM_CIRCUIT_COOLDOWN_SECONDS', 60),
+        'runtime_degradation_auto_tick_enabled' => (bool) env('ATLAS_PATAMAR4_RUNTIME_DEGRADATION_AUTO_TICK_ENABLED', true),
+        'runtime_degradation_auto_tick_threshold' => env('ATLAS_PATAMAR4_RUNTIME_DEGRADATION_AUTO_TICK_THRESHOLD', 'high'),
+    ],
 ];

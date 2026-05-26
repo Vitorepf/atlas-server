@@ -23,6 +23,8 @@ class EngineeringDocumentationHealthService
         'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md' => 520,
         'docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md' => 520,
         'docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md' => 520,
+        'docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md' => 520,
+        'docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md' => 520,
         'docs/engineering-knowledge-base/START_HERE.md' => null,
         'docs/engineering-knowledge-base/README.md' => null,
     ];
@@ -250,6 +252,110 @@ class EngineeringDocumentationHealthService
 
     private const CANONICAL_GLOSSARY_ID = 'atlas-canonical-glossary-and-naming';
 
+    private const AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH = 'docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md';
+
+    private const AGENTIC_ENGINEERING_AUTHORITY_MAP_ID = 'atlas-agentic-software-engineering-authority-map';
+
+    private const AGENTIC_ENGINEERING_INVENTORY_PATH = 'docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md';
+
+    private const AGENTIC_ENGINEERING_INVENTORY_ID = 'atlas-agentic-engineering-documentation-inventory';
+
+    /**
+     * Docs that anchor the living Agentic Software Engineering hierarchy.
+     * If these stop linking to the authority map/inventory, future agents can
+     * again treat Dev, Forge, Atlas Code, TEOS, Rivals or provider research as
+     * parallel systems.
+     *
+     * @var array<string,array{requires:array<int,string>, reason:string}>
+     */
+    private const AGENTIC_ENGINEERING_AUTHORITY_LINKS = [
+        'docs/engineering-knowledge-base/START_HERE.md' => [
+            'requires' => [
+                self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH,
+                self::AGENTIC_ENGINEERING_INVENTORY_PATH,
+            ],
+            'reason' => 'global bootstrap must point new agents at the Agentic Engineering authority chain',
+        ],
+        'docs/engineering-knowledge-base/README.md' => [
+            'requires' => [
+                self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH,
+                self::AGENTIC_ENGINEERING_INVENTORY_PATH,
+            ],
+            'reason' => 'KB overview must expose the Agentic Engineering authority chain',
+        ],
+        self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH => [
+            'requires' => [self::AGENTIC_ENGINEERING_INVENTORY_PATH],
+            'reason' => 'authority map must delegate scattered family classification to the inventory',
+        ],
+        self::AGENTIC_ENGINEERING_INVENTORY_PATH => [
+            'requires' => [self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH],
+            'reason' => 'inventory must stay subordinate to the authority map',
+        ],
+        'docs/engineering-knowledge-base/atlas-agentic-engineering-os.md' => [
+            'requires' => [
+                self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH,
+                self::AGENTIC_ENGINEERING_INVENTORY_PATH,
+            ],
+            'reason' => 'system mother doc must link to hierarchy and inventory',
+        ],
+        'docs/engineering-knowledge-base/atlas-dev-index.md' => [
+            'requires' => [
+                self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH,
+                self::AGENTIC_ENGINEERING_INVENTORY_PATH,
+            ],
+            'reason' => 'Atlas Dev entrypoint must not become a parallel hierarchy',
+        ],
+        'docs/engineering-knowledge-base/atlas-programming-governance-system.md' => [
+            'requires' => [
+                self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH,
+                self::AGENTIC_ENGINEERING_INVENTORY_PATH,
+            ],
+            'reason' => 'Programming Governance must stay the governed programming flow below Agentic Engineering',
+        ],
+        'docs/engineering-knowledge-base/atlas-programming-forge-flow.md' => [
+            'requires' => [self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH],
+            'reason' => 'Forge Flow must stay below Agentic Engineering hierarchy',
+        ],
+        'docs/engineering-knowledge-base/atlas-forge-continuum-os.md' => [
+            'requires' => [self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH],
+            'reason' => 'Forge Continuum must stay a programming-heavy specialization',
+        ],
+        'docs/engineering-knowledge-base/atlas-forge-operating-system.md' => [
+            'requires' => [self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH],
+            'reason' => 'Forge OS must stay the factory below Forge Continuum',
+        ],
+        'docs/engineering-knowledge-base/atlas-desktop-code-surface.md' => [
+            'requires' => [self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH],
+            'reason' => 'Atlas Code surface must not be read as the whole OS',
+        ],
+        'docs/engineering-knowledge-base/atlas-code-category-evolution.md' => [
+            'requires' => [
+                self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH,
+                self::AGENTIC_ENGINEERING_INVENTORY_PATH,
+            ],
+            'reason' => 'Atlas Code category doc must stay product/surface scoped',
+        ],
+        'docs/engineering-knowledge-base/atlas-temporal-engineering-operating-system.md' => [
+            'requires' => [self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH],
+            'reason' => 'TEOS must stay temporal/north-star and not replace the hierarchy',
+        ],
+        'docs/engineering-knowledge-base/atlas-programming-superiority-architecture.md' => [
+            'requires' => [
+                self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH,
+                self::AGENTIC_ENGINEERING_INVENTORY_PATH,
+            ],
+            'reason' => 'superiority docs must stay strategy/benchmark, not architecture mother docs',
+        ],
+        'docs/engineering-knowledge-base/atlas-intelligence-factory-os.md' => [
+            'requires' => [self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH],
+            'reason' => 'Intelligence Factory must not replace Agentic Engineering OS',
+        ],
+        'docs/engineering-knowledge-base/atlas-agentic-workcell-runtime.md' => [
+            'requires' => [self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH],
+            'reason' => 'AAWR must not replace Dev, Forge or Programming Governance',
+        ],
+    ];
+
     /**
      * @var array<string,string>
      */
@@ -284,12 +390,14 @@ class EngineeringDocumentationHealthService
         $canonicalCoverageViolations = $this->canonicalModuleCoverageViolations($docs);
         $canonicalViolations = $this->canonicalModuleViolations($docs);
         $humanGoldViolations = $this->humanGoldDocumentationViolations($docs);
+        $agenticAuthorityViolations = $this->agenticEngineeringAuthorityViolations($docs);
         $violations = array_values(array_merge(
             $required['missing'],
             $frontmatterViolations,
             $canonicalCoverageViolations,
             $canonicalViolations,
             $humanGoldViolations,
+            $agenticAuthorityViolations,
         ));
         $warnings = $this->collectWarnings($docs);
         $oversized = $this->oversizedDocs($docs);
@@ -306,6 +414,7 @@ class EngineeringDocumentationHealthService
                 'canonical_module_coverage_violation_count' => count($canonicalCoverageViolations),
                 'canonical_module_violation_count' => count($canonicalViolations),
                 'human_gold_violation_count' => count($humanGoldViolations),
+                'agentic_engineering_authority_violation_count' => count($agenticAuthorityViolations),
                 'warning_count' => count($warnings),
             ],
             'required_docs' => $required['items'],
@@ -640,6 +749,66 @@ class EngineeringDocumentationHealthService
         }
 
         return false;
+    }
+
+    /**
+     * The Agentic Engineering authority chain is a hard gate because the user
+     * explicitly wants no future AI to confuse the hierarchy. This rule does
+     * not classify every historical doc; it protects the living entrypoints and
+     * the docs most likely to be mistaken for competing systems.
+     *
+     * @param  array<int,array<string,mixed>>  $docs
+     * @return array<int,string>
+     */
+    private function agenticEngineeringAuthorityViolations(array $docs): array
+    {
+        $violations = [];
+        $byPath = collect($docs)->keyBy('path');
+
+        foreach (self::AGENTIC_ENGINEERING_AUTHORITY_LINKS as $path => $rule) {
+            $doc = $byPath->get($path);
+            if (! is_array($doc)) {
+                $violations[] = "{$path}: missing Agentic Engineering authority-chain doc [{$rule['reason']}]";
+                continue;
+            }
+
+            $frontmatter = (array) ($doc['frontmatter'] ?? []);
+            $body = (string) ($doc['body'] ?? '');
+            foreach ($rule['requires'] as $requiredPath) {
+                if ($this->referencesDoc($frontmatter, $body, $requiredPath)) {
+                    continue;
+                }
+
+                $violations[] = "{$path}: Agentic Engineering authority chain must reference [{$requiredPath}] ({$rule['reason']})";
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @param  array<string,mixed>  $frontmatter
+     */
+    private function referencesDoc(array $frontmatter, string $body, string $requiredPath): bool
+    {
+        $requiredId = match ($requiredPath) {
+            self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH => self::AGENTIC_ENGINEERING_AUTHORITY_MAP_ID,
+            self::AGENTIC_ENGINEERING_INVENTORY_PATH => self::AGENTIC_ENGINEERING_INVENTORY_ID,
+            default => preg_replace('/\.md$/', '', basename($requiredPath)) ?: $requiredPath,
+        };
+        foreach (['related_paths', 'depends_on', 'flows_to', 'governs', 'related_to', 'influenced_by', 'evidence'] as $field) {
+            foreach ((array) ($frontmatter[$field] ?? []) as $value) {
+                $value = (string) $value;
+                if ($value === $requiredPath || $value === $requiredId) {
+                    return true;
+                }
+                if (str_contains($value, basename($requiredPath))) {
+                    return true;
+                }
+            }
+        }
+
+        return str_contains($body, basename($requiredPath)) || str_contains($body, $requiredPath);
     }
 
     /**

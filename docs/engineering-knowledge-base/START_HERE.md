@@ -77,6 +77,9 @@ decisions:
   - Toda IA nova deve ler Atlas AI Research Intelligence And Self-Improvement Runtime antes de pesquisa longa, source quality, promocao de pesquisa para docs, planejamento automatico, implementacao baseada em pesquisa ou aceleracao de autoaprimoramento.
   - Toda IA nova deve ler Atlas AI Spec Operating System antes de alterar SDD, Programming harness, spec compiler, task compiler, Decision Receipt de execucao, drift detector, code-agent prompts, MCP SDD, context packages, data model ou fluxo de one-shot implementation.
   - Toda IA nova deve ler Atlas Autonomous Intelligence Operating System antes de explicar ou implementar Atlas AI como produto geral, multi-dominio, estrategico, financeiro, marketing, cyber, pesquisa, automacao, desenvolvimento pessoal ou sistema operacional de inteligencia.
+  - Toda IA nova deve ler Atlas Agentic Software Engineering Authority Map antes de reorganizar, limpar ou implementar docs de Atlas Dev, Forge, Atlas Code, Agentic Engineering, Rivals, Superiority ou TEOS.
+  - Toda IA nova deve ler Atlas Agentic Engineering Documentation Inventory quando encontrar muitos docs parecidos, `part-*`, `session-handoff-*`, Rivals, provider dossiers, research ou docs com `OS` no nome dentro da area.
+  - Toda IA nova deve ler Atlas Agentic Engineering OS antes de nomear a area, explicar Atlas como substituto de area tech, criar departamento de engenharia agentica ou reduzir o objetivo a programacao assistida por IA.
   - Toda IA nova deve ler Atlas Domain Company Runtimes antes de criar dominio novo, empresa digital de dominio, departamento interno, workflow cross-domain, handoff, domain manifest ou maturity assessment.
   - Toda IA nova deve ler Atlas AI Domain Routing Governance antes de rotear prompt para dominio, criar flow/profile/capability ou propor dominio novo; ele contem matriz prompt->dominio e Domain Creation Gate.
   - Toda IA nova deve ler Atlas Domain Runtime Contract (Meta 2 design pack) antes de propor DomainRuntime, DomainManifest, Domain Registry, Capability Catalog, handoff cross-domain ou Maturity Assessment; este doc esta `planned` e nao gera codigo sozinho.
@@ -138,6 +141,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
   - docs/engineering-knowledge-base/domains/domain-routing-governance.md
   - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
@@ -410,6 +416,7 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 1. `atlas-ai-content-intelligence-curation.md` quando envolver YouTube, RSS, scraping, source quality, blacklist ou promocao de conteudo
 1. `atlas-ai-research-self-improvement-runtime.md` quando envolver pesquisa longa, source quality, promocao para docs, planejamento automatico, implementacao baseada em pesquisa ou autoaprimoramento
 1. `atlas-ai-spec-operating-system.md` quando envolver SDD, spec compiler, one-shot implementation, task compiler, spec graph, drift detector ou execucao governada por Decision Receipt
+1. `atlas-agentic-engineering-os.md` quando envolver o nome da area, substituicao operacional de uma area tech, empresa de engenharia por IA, departamentos de engenharia, ou a diferenca entre programacao assistida e Agentic Software Engineering
 1. `atlas-programming-governance-system.md` quando envolver programacao governada, placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao
 1. `atlas-autonomous-intelligence-operating-system.md` e `atlas-domain-company-runtimes.md` quando o pedido nao for programacao pura: pesquisa, financas, marketing, cyber, estrategia, desenvolvimento pessoal, automacao ou qualquer dominio fora de Software
 1. `atlas-kernel-mission-foundation.md` (Meta 1, entregue) quando precisar criar/inspecionar mission, objective, work order, evidence ref, certification ou control-plane snapshot — fundacao universal antes de qualquer dominio especifico

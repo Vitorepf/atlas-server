@@ -187,11 +187,11 @@ php artisan atlas:teos:counterfactual:recommend \
  AtlasTeosI3CounterfactualService::class, 'ready', 'ready']
 ```
 
-## 10. Future evolution
+## 10. Evolucao governada
 
-- **TEOS-I4** — multi-step contrafactual chains.
-- **Self-improvement integration** — counterfactual insights feed L7 ResultLedger.
-- **Cross-domain counterfactual** — a counterfactual from `finance` cross-bridged into `engineering` (through Cross-Domain Mesh).
+- **TEOS-I4** — multi-step contrafactual chains; exige doc, service e teste proprios.
+- **Self-improvement integration** — counterfactual insights feed L7 ResultLedger somente com receipt e owner decision.
+- **Cross-domain counterfactual** — branch de `finance` cross-bridged into `engineering` through Cross-Domain Mesh, sem promover simulacao a fato.
 
 ## Resumo
 

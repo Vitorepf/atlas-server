@@ -21,7 +21,7 @@ capabilities:
 decisions:
   - O roadmap de patamares e uma bussola qualitativa, nao metrica comercial nem autorizacao para execucao automatica.
   - Patamar superior significa mudanca de natureza da relacao Atlas/Vitor, nao apenas mais velocidade ou mais features.
-  - Co-estrategista e dominio futuro governado: Atlas pode discordar e propor, mas nao decidir pelo Vitor.
+  - Co-estrategista e dominio proposal-only governado: Atlas pode discordar e propor, mas nao decidir pelo Vitor.
   - Todo salto de patamar exige evidence, Rivals, gates de agency humana e revisao constitucional.
 maintenance:
   - Manter abaixo de 260 linhas.
@@ -183,9 +183,9 @@ dry-run. Nao declarar P4+ ate haver score humano Rivals e evidence longitudinal.
 O avanco saudavel exige equilibrio: presenca sem profundidade irrita, autonomia
 sem Kernel solta agente, profundidade sem agency humana cria dependencia.
 
-## Dominio Futuro: Decisao Estrategica
+## Dominio Proposal-Only: Decisao Estrategica
 
-Status: `future/scaffold`. Atlas pode questionar, comparar, relembra, simular e
+Boundary: proposta governada sem execucao automatica. Atlas pode questionar, comparar, relembra, simular e
 propor; ele nao decide pelo Vitor. Flows candidatos: review, cooldown,
 values_alignment, counterargument, regret_tracking e longitudinal_pattern.
 Gates: cool-down, multi-perspective, values-alignment, human agency, no-oracle e
@@ -282,10 +282,10 @@ O read model conta a agenda 30/90/180/365 ligada ao caso mesmo quando as datas
 estao no futuro; `due_reviews` continua separado e lista apenas revisitas que
 ja venceram dentro da janela consultada.
 
-### QL-3 — Strategic Decision domain scaffold
+### QL-3 — Strategic Decision domain proposal-only
 
-Status: implementado como dominio scaffold, com Domain Profile e flows
-`strategic_decision.*` sem execucao automatica.
+Status: implementado como dominio proposal-only, com Domain Profile e flows
+`strategic_decision.*` sem execucao automatica nem decisao pelo operador.
 
 ### QL-4 — Co-Strategist plan-only
 
@@ -317,8 +317,8 @@ ambiente/voz/sensor amplo, completar:
 ### QL-7 — Voice Realtime Surface (Eixo Z-P1 ativo)
 
 Status: spec canonica ativa em `atlas-ai-voice-realtime-surface.md` (Layer 3,
-status scaffold com Fases 0-3 declaradas). Destrava voz/microfone do escopo
-future do `atlas-native-mac-agent.md` sob:
+com Fases 0-3 declaradas). Destrava voz/microfone do backlog governado do
+`atlas-native-mac-agent.md` sob:
 
 1. wake word local sem stream ambiente;
 2. atlas-voice-edge (Swift) registrado como `swift_native_mac` com capability
@@ -328,7 +328,7 @@ future do `atlas-native-mac-agent.md` sob:
 5. privacy class por domain;
 6. Rivals-Voice como medidor de multiplicador.
 
-QL-7 avanca Eixo Z com governanca; vision ambiente e sensores ficam future ate Curator+class-3 maduros.
+QL-7 avanca Eixo Z com governanca; vision ambiente e sensores ficam em backlog bloqueado ate Curator+class-3 maduros.
 
 ## Regras De Implementacao
 
@@ -343,7 +343,7 @@ QL-7 avanca Eixo Z com governanca; vision ambiente e sensores ficam future ate C
 
 O roadmap e norte qualitativo: interrupcao util, discordancia epistemica,
 auto-evolucao auditada e memoria longitudinal. O caminho seguro e medir patamar,
-validar com Rivals, usar scaffold e manter co-estrategista em plan-only.
+validar com Rivals, manter backlog governado e manter co-estrategista em plan-only.
 
 ## Resumo
 
@@ -351,44 +351,44 @@ Roadmap canonico curto dos patamares qualitativos do Atlas AI, subordinado a tes
 
 ## Papel no Atlas
 
-Define a responsabilidade desta peca dentro da arquitetura Atlas.
+Define niveis qualitativos P1-P7, seus bloqueios de evidencia e os limites de agencia humana antes de qualquer promocao de autonomia.
 
 ## Onde Se Encaixa
 
-Relaciona esta peca com seu sistema, camada, fluxo ou modulo pai.
+Fica acima dos read models `AtlasQualitativeLevelsReadModel` e `AtlasRivalsStrategyReadModel`, mas abaixo do Kernel, Evidence Ledger, ADER e decisoes humanas.
 
 ## Contratos
 
-Declara invariantes, entradas, saidas, limites e obrigacoes relevantes.
+Contratos centrais: roadmap nao executa acao, nao promove P4+ sem score humano/Rivals, nao simula regret/alignment/agency e nao autoriza sensor/voz/ambiente sem opt-in/privacy review.
 
 ## Fluxo
 
-Descreve o caminho operacional ou a sequencia de uso quando aplicavel.
+Fonte longa preservada -> roadmap canonico curto -> read model/CLI/API -> evidence/Rivals/human review -> promocao ou bloqueio de patamar.
 
 ## Regras para IA
 
-Agentes devem respeitar escopo, evidencias, testes e proibicoes antes de alterar codigo.
+Agentes devem tratar P4+ como proposal-only ate haver evidencia longitudinal, score humano e gates constitucionais. Nao usar linguagem deste roadmap como permissao para execucao automatica.
 
 ## Escopo de Implementacao
 
-Mudancas devem permanecer nos caminhos e limites declarados no frontmatter.
+Este doc governa visao, boundaries e fila qualitativa. Runtime fica nos read models, controllers, commands e docs de dominio citados em `related_paths`.
 
 ## Dependencias
 
-Dependencias canonicas vivem em frontmatter e no corpo deste documento.
+Depende da tese multiplicador/canal unico, Evidence Ledger, Rivals Strategy, self-improvement governance, domains/self-improvement e domains/personal-development.
 
 ## Evidencias
 
-Evidencias aceitas incluem docs, comandos, testes, receipts, reports e paths verificaveis.
+Evidencias atuais: `AtlasQualitativeLevelsReadModel`, `AtlasRivalsStrategyReadModel`, comandos `atlas:ai:qualitative-levels` e `atlas:ai:rivals-strategy`, API `/ai/qualitative-levels` e testes associados.
 
 ## Riscos
 
-Riscos principais devem ser tratados antes de promover status, runtime ou claims de prontidao.
+Riscos principais: agente vender patamar como runtime pronto, simular avaliacao humana, transformar co-estrategista em decisor ou abrir sensor/ambiente sem privacy gate.
 
 ## Exemplos
 
-Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para humanos ou IAs.
+Exemplo seguro: `php artisan atlas:ai:qualitative-levels --hours=720 --json` mede estado e blockers; nao executa promocao de patamar.
 
 ## Proximas Acoes
 
-Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+Proximas acoes: manter scores humanos reais em Rivals Strategy, revisar QL-3/QL-4 com agency gates e atualizar este roadmap quando gates de Evidence/Rivals mudarem.

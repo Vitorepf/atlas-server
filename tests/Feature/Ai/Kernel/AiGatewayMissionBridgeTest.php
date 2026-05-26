@@ -103,6 +103,76 @@ class AiGatewayMissionBridgeTest extends TestCase
         $this->assertNotEmpty($envelope['recorded_at']);
     }
 
+    /* ---------------------------------------------------------------------
+     * Gap1.F2 tracer flag — kernel_routed
+     *
+     * The envelope MUST carry kernel_routed=true when a mission was created
+     * and kernel_routed=false otherwise. Downstream gates (Gap1.F5) read
+     * this to confirm 100% of HTTP requests actually route through the
+     * Kernel. The flag is purely additive — pre-existing behavior is not
+     * affected (proven by the 11 sibling tests in this class staying green).
+     * ------------------------------------------------------------------- */
+
+    public function test_kernel_routed_is_true_when_envelope_creates_mission(): void
+    {
+        config()->set('atlas_ai.kernel_http_integration.enabled', true);
+
+        $envelope = app(AiGatewayMissionBridge::class)->buildEnvelope(
+            'Implementar correcao do endpoint /healthz com cobertura phpunit',
+        );
+
+        $this->assertIsArray($envelope);
+        $this->assertArrayHasKey('kernel_routed', $envelope);
+        $this->assertTrue($envelope['kernel_routed'], 'kernel_routed must be true when mission_id is present');
+        $this->assertNotNull($envelope['mission_id']);
+    }
+
+    public function test_kernel_routed_is_false_for_trivial_skipped_envelope(): void
+    {
+        config()->set('atlas_ai.kernel_http_integration.enabled', true);
+        config()->set('atlas_ai.kernel_http_integration.trivial_skips_kernel', true);
+
+        $envelope = app(AiGatewayMissionBridge::class)->buildEnvelope('Oi');
+
+        $this->assertIsArray($envelope);
+        $this->assertArrayHasKey('kernel_routed', $envelope);
+        $this->assertFalse($envelope['kernel_routed'], 'trivial skipped envelope must not claim kernel routing');
+        $this->assertNull($envelope['mission_id']);
+    }
+
+    public function test_kernel_routed_is_false_in_error_envelope(): void
+    {
+        Log::spy();
+        config()->set('atlas_ai.kernel_http_integration.enabled', true);
+
+        // Reuse the same controlled-failure pattern as the sibling
+        // `test_factory_failure_returns_stub_envelope_and_logs_without_throwing`
+        // so the bridge enters its try/catch and emits the error envelope.
+        $this->app->bind(MissionFactoryService::class, function () {
+            return new class extends MissionFactoryService
+            {
+                public function __construct() {}
+
+                public function classify(string $rawPrompt): string
+                {
+                    return parent::TYPE_MISSION;
+                }
+
+                public function create(string $rawPrompt, array $options = []): AiMission
+                {
+                    throw new \RuntimeException('synthetic_factory_failure_for_tracer_test');
+                }
+            };
+        });
+
+        $envelope = app(AiGatewayMissionBridge::class)->buildEnvelope('Implementar feature complexa');
+
+        $this->assertIsArray($envelope);
+        $this->assertSame('bridge_error', $envelope['mission_status']);
+        $this->assertArrayHasKey('kernel_routed', $envelope);
+        $this->assertFalse($envelope['kernel_routed'], 'error envelope must not claim kernel routing');
+    }
+
     public function test_task_prompt_decomposes_and_transitions_to_planned(): void
     {
         config()->set('atlas_ai.kernel_http_integration.enabled', true);

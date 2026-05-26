@@ -775,6 +775,10 @@ Route::prefix('atlas-code')->group(function () {
     // WORKS · normalized Obra surface
     Route::get('/works', [AtlasCodeWorkController::class, 'index']);
     Route::post('/works', [AtlasCodeWorkController::class, 'store']);
+    // Gap3 F2 — Engineering Company Runtime HTTP entry.
+    // Flag-gated via ATLAS_HTTP_COMPANY_RUNTIME / config(atlas.http_company_runtime.mode).
+    // Canon: docs/engineering-knowledge-base/atlas-engineering-company-runtime-http-promotion.md
+    Route::post('/work/company', [\App\Http\Controllers\AtlasCodeWorkCompanyController::class, 'store']);
     Route::get('/certification', [AtlasCodeEnterpriseCertificationController::class, 'show']);
     Route::post('/certification', [AtlasCodeEnterpriseCertificationController::class, 'store']);
     Route::get('/works/{project}', [AtlasCodeWorkController::class, 'show']);
@@ -891,3 +895,12 @@ Route::get('/atlas/ai/runtime-readiness', AtlasAiRuntimeReadinessController::cla
 
 // Atlas Patamar 4 · live aggregator (Kernel · Admission · CFA · Reconciliation · TEOS-I4 · Swarm · TDC)
 Route::get('/atlas/patamar4/state', App\Http\Controllers\AtlasPatamar4StateController::class);
+
+// Atlas Patamar 4 Surface Facade — 7 endpoints canon consumidos pela UI mobile+desktop (F3).
+Route::get('/atlas/patamar4/scheduler', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'scheduler']);
+Route::get('/atlas/patamar4/swarm', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'swarm']);
+Route::get('/atlas/patamar4/rebalance', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'rebalance']);
+Route::get('/atlas/patamar4/cognitive-function', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'cognitiveFunction']);
+Route::get('/atlas/patamar4/governance', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'governance']);
+Route::post('/atlas/patamar4/decompose', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'decompose']);
+Route::get('/atlas/patamar4/inbox/madrugada', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'madrugadaInbox']);

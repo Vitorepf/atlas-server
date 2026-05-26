@@ -59,6 +59,6 @@ class AtlasPatamar4StateControllerTest extends TestCase
     public function test_cognitive_function_atlas_subsystem_count(): void
     {
         $data = $this->getJson('/atlas/patamar4/state')->json();
-        $this->assertSame(66, $data['cognitive_function_atlas']['subsystem_count']);
+        $this->assertSame(73, $data['cognitive_function_atlas']['subsystem_count']);
     }
 }

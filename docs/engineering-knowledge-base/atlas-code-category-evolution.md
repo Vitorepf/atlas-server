@@ -5,7 +5,7 @@ title: Atlas Code Category Evolution
 status: active
 category: architecture
 priority: 98
-summary: Canonical category definition for Atlas Code as an Engineering Operations System and its maturity path from Software Construction Operating Room to Software Evolution Operating System and Autonomous Software Organism.
+summary: Canonical category definition for Atlas Code as a surface/product Engineering Operations System inside Atlas Agentic Engineering OS, and its maturity path from Software Construction Operating Room to Software Evolution Operating System and Autonomous Software Organism.
 tags:
   - atlas-ai
   - atlas-code
@@ -21,8 +21,9 @@ capabilities:
   - software_evolution_operating_system
   - autonomous_software_organism
 decisions:
-  - Engineering Operations System is the canonical category name for Atlas Code.
+  - Engineering Operations System is the canonical product/surface category name for Atlas Code.
   - Atlas Code is the product/surface inside Atlas that materializes the EOS category.
+  - EOS is not the name of the whole Agentic Software Engineering area; Atlas Agentic Engineering OS remains the system-mae for that area.
   - Software Construction Operating Room is the first operational experience inside the EOS, not the final category name.
   - Atlas Code SCOR-1, Software Construction Operating Room v1, is the canonical name for the first enterprise MVP of Atlas Code.
   - Software Evolution Operating System is the next maturity target after governed construction works reliably.
@@ -31,6 +32,8 @@ maintenance:
   - Update before renaming Atlas Code, changing category positioning or changing self-programming autonomy language.
   - Keep this document strategic and compact; implementation contracts stay in owner docs.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/self-construction/autonomous-implementation-loop.md
@@ -71,6 +74,7 @@ allowed_changes:
 
 forbidden_changes:
   - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+  - Usar Engineering Operations System como substituto de Atlas Agentic Engineering OS ou Programming Governance.
 
 depends_on:
   - atlas-ai-documentation-operating-system
@@ -119,6 +123,10 @@ next_actions:
   - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
 ---
 # Atlas Code Category Evolution
+
+Authority note: this doc defines the **product/surface category** of Atlas Code.
+It does not rename the whole Agentic Software Engineering area. For hierarchy,
+read `atlas-agentic-software-engineering-authority-map.md`.
 
 Atlas Code is not an IDE, chat, copilot or single-agent coding tool. It creates
 and occupies a higher category:
@@ -319,12 +327,14 @@ while remaining auditable, reversible and subordinate to governance.
 Atlas Code is an Engineering Operations System: the MES of software construction.
 It starts as a Software Construction Operating Room, matures toward a Software
 Evolution Operating System, and its final horizon is an Autonomous Software
-Organism governed by policy, evidence, budget and human authority.
+Organism governed by policy, evidence, budget and human authority. This phrase
+names the Atlas Code product/surface category, not the whole Agentic Software
+Engineering area.
 ```
 
 ## Resumo
 
-Canonical category definition for Atlas Code as an Engineering Operations System and its maturity path from Software Construction Operating Room to Software Evolution Operating System and Autonomous Software Organism.
+Canonical category definition for Atlas Code as a surface/product Engineering Operations System and its maturity path from Software Construction Operating Room to Software Evolution Operating System and Autonomous Software Organism.
 
 ## Papel no Atlas
 

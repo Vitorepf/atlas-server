@@ -52,6 +52,19 @@ class AiWorker
      */
     private ?\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService $liveOutcomeFeedback = null;
 
+    /**
+     * Opt-in seam (Patamar 4 · A4 · Swarm Auto-Failover). When wired AND
+     * both flags are ON, a primary provider failure triggers a K=2 swarm
+     * dispatch via the production resolver, and the winning arm's result
+     * replaces the failure. Default: null → original behaviour preserved.
+     */
+    private ?\App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService $swarmAutoFailover = null;
+
+    public function setSwarmAutoFailover(?\App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService $svc): void
+    {
+        $this->swarmAutoFailover = $svc;
+    }
+
     public function setLiveOutcomeFeedback(?\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService $svc): void
     {
         $this->liveOutcomeFeedback = $svc;
@@ -424,6 +437,20 @@ class AiWorker
         }
 
         $result = $this->withPermissionMetadata($result, $permission);
+
+        // Patamar 4 · A4 · Swarm Auto-Failover. When wired AND flags ON AND
+        // primary result failed, fire a K=2 swarm dispatch and use the
+        // winning arm outcome as the new result. Defensive: never throw.
+        if ($this->swarmAutoFailover !== null && ! $result->ok) {
+            try {
+                $failoverResult = $this->swarmAutoFailover->observeProviderFailure($job, $result);
+                if ($failoverResult !== null) {
+                    $result = $failoverResult;
+                }
+            } catch (\Throwable $failoverErr) {
+                // Defensive: keep original result on failover error.
+            }
+        }
 
         // Patamar 4 · ADML closed feedback loop. Record outcome of this provider
         // call so the Live Outcome Feedback ledger sees real online signal —

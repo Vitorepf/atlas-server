@@ -111,6 +111,12 @@ class AppServiceProvider extends ServiceProvider
                 } catch (\Throwable $e) {
                     // Defensive: doc-health probe falls back to honest empty payload.
                 }
+                // A1 · Auto-trigger F4 rebalance sweep inside every reconciliation tick.
+                try {
+                    $svc->setAutoRebalanceService($app->make(\App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService::class));
+                } catch (\Throwable $e) {
+                    // Defensive: sweep is opt-in; missing service stays silent.
+                }
             }
         });
 
@@ -119,6 +125,12 @@ class AppServiceProvider extends ServiceProvider
         // online signal (not just offline benchmark battery).
         $this->app->resolving(\App\Services\Ai\AiWorker::class, function ($svc, $app) {
             if ($svc instanceof \App\Services\Ai\AiWorker) {
+                // A4 · Swarm Auto-Failover wired into AiWorker.
+                try {
+                    $svc->setSwarmAutoFailover($app->make(\App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService::class));
+                } catch (\Throwable $e) {
+                    // Defensive: missing failover never breaks worker.
+                }
                 try {
                     $svc->setLiveOutcomeFeedback($app->make(\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::class));
                 } catch (\Throwable $e) {
@@ -135,6 +147,12 @@ class AppServiceProvider extends ServiceProvider
                     $svc->setPreflight($app->make(\App\Services\Ai\Gateway\AtlasGatewayPreflightService::class));
                 } catch (\Throwable $e) {
                     // Defensive — gateway permanece funcional sem preflight.
+                }
+                // A2 · Cognitive Function Decomposer auto-wired into gateway.
+                try {
+                    $svc->setCognitiveFunctionDecomposer($app->make(\App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService::class));
+                } catch (\Throwable $e) {
+                    // Defensive — decompose stays absent if service missing.
                 }
             }
         });
@@ -229,6 +247,27 @@ class AppServiceProvider extends ServiceProvider
                 $cooldown,
             );
         });
+        // A5 · Default commandBuilder for AtlasSwarmParallelDispatchService.
+        // Each arm spawns `php artisan atlas:swarm:execute-arm` carrying its
+        // JSON payload; the subprocess delegates to AtlasSwarmProductionResolverService.
+        $this->app->resolving(\App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService::class, function ($svc, $app) {
+            if (! $svc instanceof \App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService) {
+                return;
+            }
+            $svc->setCommandBuilder(function (array $arm, array $context): array {
+                $php = trim((string) shell_exec('which php')) ?: PHP_BINARY;
+                $artisan = base_path('artisan');
+
+                return [
+                    $php,
+                    $artisan,
+                    'atlas:swarm:execute-arm',
+                    '--arm-json='.json_encode($arm, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                    '--context-json='.json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                ];
+            });
+        });
+
         $this->app->resolving(\App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService::class, function ($svc, $app) {
             if (! $svc instanceof \App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService) {
                 return;

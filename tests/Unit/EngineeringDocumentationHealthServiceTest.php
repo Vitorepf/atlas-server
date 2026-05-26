@@ -8,6 +8,10 @@ use Tests\TestCase;
 
 class EngineeringDocumentationHealthServiceTest extends TestCase
 {
+    private const AGENTIC_AUTHORITY_MAP = 'docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md';
+
+    private const AGENTIC_INVENTORY = 'docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md';
+
     public function test_status_value_warning_fires_for_non_canonical_status_on_canonical_module_docs(): void
     {
         $service = $this->makeService();
@@ -265,6 +269,40 @@ class EngineeringDocumentationHealthServiceTest extends TestCase
         );
     }
 
+    public function test_agentic_engineering_authority_guard_blocks_core_docs_without_authority_links(): void
+    {
+        $service = $this->makeService();
+        $docs = $this->completeAgenticAuthorityFixtureDocs([
+            'atlas-programming-governance-system.md' => [
+                'related_paths' => ['docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md'],
+            ],
+        ]);
+
+        $report = $service->analyzeDocs($docs);
+
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-programming-governance-system.md: Agentic Engineering authority chain must reference [docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md] (Programming Governance must stay the governed programming flow below Agentic Engineering)',
+            $report['violations'],
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-programming-governance-system.md: Agentic Engineering authority chain must reference [docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md] (Programming Governance must stay the governed programming flow below Agentic Engineering)',
+            $report['violations'],
+        );
+        $this->assertSame(2, $report['summary']['agentic_engineering_authority_violation_count']);
+    }
+
+    public function test_agentic_engineering_authority_guard_accepts_complete_authority_chain(): void
+    {
+        $service = $this->makeService();
+        $report = $service->analyzeDocs($this->completeAgenticAuthorityFixtureDocs());
+
+        $this->assertSame(0, $report['summary']['agentic_engineering_authority_violation_count']);
+        $this->assertSame([], collect($report['violations'])
+            ->filter(fn (string $violation): bool => str_contains($violation, 'Agentic Engineering authority chain'))
+            ->values()
+            ->all());
+    }
+
     public function test_patamar_and_version_collection_fields_must_be_lists(): void
     {
         $service = $this->makeService();
@@ -415,6 +453,63 @@ class EngineeringDocumentationHealthServiceTest extends TestCase
     private function makeService(): EngineeringDocumentationHealthService
     {
         return new EngineeringDocumentationHealthService(new CanonicalDocsFrontmatterParser);
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $overridesByFile
+     * @return array<int,array<string,mixed>>
+     */
+    private function completeAgenticAuthorityFixtureDocs(array $overridesByFile = []): array
+    {
+        $mapAndInventory = [self::AGENTIC_AUTHORITY_MAP, self::AGENTIC_INVENTORY];
+        $defaultRefs = ['related_paths' => $mapAndInventory];
+        $docs = [];
+
+        foreach ([
+            'atlas-ai-session-bootstrap.md',
+            'atlas-ai-documentation-operating-system.md',
+            'atlas-documentation-creation-gate.md',
+            'atlas-canonical-module-doc-v1.md',
+            'atlas-cartography-nomenclature-contract.md',
+            'atlas-ai-knowledge-governance-system.md',
+            'atlas-ai-runtime-language-boundaries.md',
+            'atlas-ai-qualitative-levels-roadmap.md',
+            'atlas-ai-canonical-architecture-index.md',
+        ] as $file) {
+            $docs[$file] = $this->canonicalDoc($file, $overridesByFile[$file] ?? []);
+        }
+
+        $authorityFiles = [
+            'START_HERE.md' => $defaultRefs,
+            'README.md' => $defaultRefs,
+            'atlas-agentic-software-engineering-authority-map.md' => [
+                'related_paths' => [self::AGENTIC_INVENTORY],
+            ],
+            'atlas-agentic-engineering-documentation-inventory.md' => [
+                'related_paths' => [self::AGENTIC_AUTHORITY_MAP],
+            ],
+            'atlas-agentic-engineering-os.md' => $defaultRefs,
+            'atlas-dev-index.md' => $defaultRefs,
+            'atlas-programming-governance-system.md' => $defaultRefs,
+            'atlas-programming-forge-flow.md' => ['related_paths' => [self::AGENTIC_AUTHORITY_MAP]],
+            'atlas-forge-continuum-os.md' => ['related_paths' => [self::AGENTIC_AUTHORITY_MAP]],
+            'atlas-forge-operating-system.md' => ['related_paths' => [self::AGENTIC_AUTHORITY_MAP]],
+            'atlas-desktop-code-surface.md' => ['related_paths' => [self::AGENTIC_AUTHORITY_MAP]],
+            'atlas-code-category-evolution.md' => $defaultRefs,
+            'atlas-temporal-engineering-operating-system.md' => ['related_paths' => [self::AGENTIC_AUTHORITY_MAP]],
+            'atlas-programming-superiority-architecture.md' => $defaultRefs,
+            'atlas-intelligence-factory-os.md' => ['related_paths' => [self::AGENTIC_AUTHORITY_MAP]],
+            'atlas-agentic-workcell-runtime.md' => ['related_paths' => [self::AGENTIC_AUTHORITY_MAP]],
+        ];
+
+        foreach ($authorityFiles as $file => $frontmatter) {
+            $docs[$file] = $this->canonicalDoc($file, array_replace(
+                $frontmatter,
+                $overridesByFile[$file] ?? [],
+            ));
+        }
+
+        return array_values($docs);
     }
 
     /**

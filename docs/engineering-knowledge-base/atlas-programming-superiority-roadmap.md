@@ -5,7 +5,7 @@ title: Atlas Programming Superiority Roadmap
 status: active
 category: programming
 priority: 95
-summary: Roadmap implementável da Atlas Programming Superiority Architecture — Atlas Dev target + Atlas Forge target + Router/Dual-Core + PEVR loop + multi-agent + compounding + métricas honestas + 10-phase plan + top 10 missions + DoD. Filho de planejamento do índice estratégico.
+summary: Roadmap implementável da arquitetura Programming — Atlas Dev target + Atlas Forge target + Router/Dual-Core + PEVR loop + multi-agent + compounding + métricas honestas + 10-phase plan + top missions + DoD. Filho de planejamento do índice estratégico.
 tags:
   - atlas-dev
   - atlas-forge
@@ -27,7 +27,7 @@ decisions:
   - Multi-agent scheduler primeira encarnação reaproveita `Self-Construction/AgentControlPlaneMultiAgentParallelismPlanner`.
   - "10x/30x/100x" só após benchmark methodology shipping (M10).
 maintenance:
-  - Atualizar quando missão completar (mover para "shipped").
+  - Atualizar quando missão completar com teste/gate e evidence.
   - Atualizar quando ordem de missões mudar baseado em evidência.
   - Sincronizar com `-architecture.md` e `-contracts.md`.
 related_paths:
@@ -105,19 +105,19 @@ requires_evidence: true
 risk_level: high
 
 next_actions:
-  - Iniciar M1 (Wire DualCoreRouteDecisionService).
-  - Bloquear M3 (consolidação) até M2 (escalation_packet) shipar.
+  - Auditar M1/M2 contra runtime atual antes de tratar como backlog.
+  - Bloquear consolidacao destrutiva ate owner decision e deprecation receipts.
   - Não iniciar M10 (benchmark methodology) antes de M1-M9 estarem em produção.
 
 ---
-# Atlas Programming Superiority Roadmap
+# Atlas Programming Roadmap
 
 ## Resumo
 **10 missões priorizadas** para transformar a arquitetura em runtime real.
-Estimativa total: **MVP 60-90h (M1-M5)**, **superioridade básica 150-200h (M1-M9)**,
-**superioridade auditavel 250-350h (M1-M10 + benchmarks)**.
+Estimativa total: **MVP 60-90h (M1-M5)**, **maturidade básica 150-200h (M1-M9)**,
+**maturidade auditavel 250-350h (M1-M10 + benchmarks)**.
 
-Sem M10 (benchmark methodology), Atlas **não pode declarar superioridade**.
+Sem M10 (benchmark methodology), Atlas **não pode declarar vantagem externa**.
 
 ## Papel no Atlas
 Filho de planejamento do índice. Existe para que qualquer IA implementando
@@ -133,8 +133,8 @@ Layer 0.72 Programming. Sequencia missões para realizar a tese de
 ## Contratos
 Roadmap reusa os 14 schemas da doc de contratos. Receipts esperados por missão:
 - M1: emissão de `route_decision.v1` em flow real.
-- M2: persistência de `escalation_packet.v1` em DB.
-- M3: deprecation receipt dos 3 mecanismos legados.
+- M2: persistência dedicada opcional de `escalation_packet.v1` ou prova de consumo por Forge intake id/hash.
+- M3: deprecation receipt dos mecanismos retidos quando owner decidir consolidar.
 - M4: log + alarme em fallback ToolPolicy/ToolReceipt.
 - M5: certification com `quality_score > threshold` declarado.
 - M6: AiWorker emite `mission.created` antes de invocar provider.
@@ -145,15 +145,15 @@ Roadmap reusa os 14 schemas da doc de contratos. Receipts esperados por missão:
 
 ## Fluxo
 ### Atlas Dev Target Architecture
-**Estado-alvo** (referência `atlas-dev-patamares.md` A0-A7):
+**Maturity map** (referência `atlas-dev-patamares.md` A0-A7):
 - A0 ✅ passado (chat com engine cru).
 - A1 🚧 em construção (Foundation Schemas/Discovery/PromptProjection/Telemetry/Persistence canônicos).
-- A2 planejado (Plan Visible no Desktop).
-- A3 planejado (Provider Verified, scope guard + verification + receipt).
-- A4 planejado (Self-Healing repair loop com escalation honesto).
-- A5 planejado (Surface Parity — Desktop/CLI/App/API thin adapters).
-- A6 futuro (Adaptive Engine via Atlas Decide escolhe engine por categoria).
-- A7 futuro distante (Continuous Learning via FastPathErrorLedger → Curator → Inbox).
+- A2 em backlog governado (Plan Visible no Desktop).
+- A3 em backlog governado (Provider Verified, scope guard + verification + receipt).
+- A4 em backlog governado (Self-Healing repair loop com escalation honesto).
+- A5 em backlog governado (Surface Parity — Desktop/CLI/App/API thin adapters).
+- A6 em horizonte governado (Adaptive Engine via Atlas Decide escolhe engine por categoria).
+- A7 em horizonte longo (Continuous Learning via FastPathErrorLedger → Curator → Inbox).
 
 **Specialist flows** (alvo): plan, code, debug, review, explain, research,
 test, refactor, frontend, backend, database, security (quando aplicável).
@@ -181,8 +181,8 @@ detectados; architecture drift via ScopeGuard.
 
 **Research Intelligence for Programming** (parcial):
 official docs first via `canonical_docs` source; repo docs first via Code
-Intelligence; source credibility via reranker bonuses; **gap**: version
-verification não automatica; **gap**: web search policy não declarada (Tool
+Intelligence; source credibility via reranker bonuses; **boundary**: version
+verification não automatica; **boundary**: web search policy não declarada (Tool
 Runtime tem `browser.readonly` mas integração programming-specific pendente).
 
 ### Atlas Forge Target Architecture
@@ -207,11 +207,12 @@ Runtime tem `browser.readonly` mas integração programming-specific pendente).
   escalation_packet via M2/M3.
 
 ### Router + Dual-Core Decision System
-**route_decision.v1 wiring** (estado-alvo, M1):
+**route_decision.v1 wiring** (runtime + boundary review):
 - HTTP/CLI entry → `IntentKernelService::classify`.
 - `DomainRouterService::route` → `primary_domain`.
 - `FlowRouterService::decideFlow` → emite `AiAtlasFlowRoute`.
-- **NOVO (M1):** `FlowRouterService` chama `DualCoreRouteDecisionService::recordFromFlowRoute`.
+- `DualCoreRouteDecisionService::recordFromFlowRoute` existe e e exercitado em testes/Dev→Forge.
+- **Boundary review (M1):** decidir se `FlowRouterService` chama direto ou se o adapter/handoff permanece owner.
 - `DualCoreRouteDecisionService` emite `route_decision.v1` persistido.
 - Resultado: 1 query única em `ai_dual_core_route_decisions` responde "por que essa rota?".
 
@@ -280,7 +281,7 @@ Execution Receipts
 → AtlasCompoundingRuntimeService.recordExecution() [runtime_record.v1]
 ```
 
-**Gap crítico (M9):** loop completo de feedback retrieval→uso→repromote
+**Boundary crítico (M9):** loop completo de feedback retrieval→uso→repromote
 não fechado. RagFeedback registra signals, mas não retroage no reranker.
 
 **Promotion gates** (Cognitive Immune G0-G8 + Programming-specific):
@@ -343,7 +344,7 @@ quando começar).
 5. Reportar **vetor de Nx**, não escalar único.
 6. Atestation receipt via `AtlasTemporalCertificationService`.
 
-**Gap atual:** sem golden set + sem Rivals real-execution + sem CI suite
+**Boundary atual:** sem golden set + sem Rivals real-execution + sem CI suite
 comparável. M10 endereça.
 
 ### Benchmark Readiness Harness (prep para M10)
@@ -369,8 +370,8 @@ mudar manifest, rubric ou provider_slots.
 
 | Fase | Nome | Entregáveis principais | Riscos |
 |------|------|------------------------|--------|
-| 1 | Cleanup | Doc status reconciliation (Forge OS `future`→`active`), consolidação 4 mecanismos escalação | baixo |
-| 2 | Contracts | M1+M2 (Schemas 1+2 wired) | médio (mudança em RouterRuntime) |
+| 1 | Cleanup | Doc status reconciliation, owner decisions de escalação e adapters retidos | baixo |
+| 2 | Contracts | M1+M2 auditados contra runtime atual | médio (mudança em RouterRuntime) |
 | 3 | Enforcement | M3+M4 (consolidação + strict mode bridges) | alto (toca path crítico) |
 | 4 | Quality | M5 (Certification quality-aware) | médio |
 | 5 | Production wire | M6 (AiWorker → Kernel) | crítico |
@@ -384,16 +385,16 @@ mudar manifest, rubric ou provider_slots.
 
 | # | Pri | Missão | Esforço | Paralelizável | Bloqueia |
 |---|-----|--------|---------|---------------|----------|
-| M1 | P0 | Wire `DualCoreRouteDecisionService::recordFromFlowRoute` em `FlowRouterService::decideFlow` | 4-6h | não | M2, M6 |
-| M2 | P0 | Implementar `atlas.dev_to_forge.escalation_packet.v1` + service + table + tests + adapter | 6-8h | não (mesmo path Router) | M3 |
-| M3 | P1 | Consolidar 4 mecanismos paralelos de escalação em path único via `AtlasForgeHandoffAdapter` Meta 2 | 12-18h | não (mesma área Kernel) | M9 |
+| M1 | P0 | Auditar owner de `recordFromFlowRoute`: FlowRouter direto vs adapter/handoff atual | 4-6h | não | M6 |
+| M2 | P0 | Decidir persistência dedicada de `escalation_packet.v1`; DTO/factory/handoff/Forge intake já existem | 4-8h | não (mesmo path Router) | M3 |
+| M3 | P1 | Consolidar mecanismos retidos de escalação em path único via `AtlasForgeHandoffAdapter` Meta 2, sem apagar adapter sem receipt | 12-18h | não (mesma área Kernel) | M9 |
 | M4 | P1 | Endurecer `ToolPolicyBridgeService` + `ToolReceiptService` para strict mode (remover fallback silencioso) | 8-12h | não (toca production runtime) | M5 |
 | M5 | P1 | Enriquecer `MissionCertificationService::runChecks` com checks quality-aware (quality_score, source_verification, claim_verification) | 10-16h | não | M6, M9 |
 | M6 | P1 | Wire AiWorker → MissionFactoryService + FlowRouterService (substituir path legacy direto-para-provider) | 16-24h | não (path produção crítico) | M7, M9 |
 | M7 | P1 | Enforce mandatory RAG gate em flows strict (repair/forge/frontend/security/database) — `ProgrammingRagGateException` throw em `failed_closed` | 6-10h | paralelo a M4 (área diferente) | — |
 | M8 | P2 | Multi-agent scheduler dedicado para programming WorkPackets reusando `AgentControlPlaneMultiAgentParallelismPlanner` | 16-24h | paralelo a M6 (área diferente) | Forge multi-agent |
 | M9 | P2 | Compounding feedback loop closed: `AtlasRagFeedbackService` retroage no reranker via `AtlasHeuristicEvolutionService` | 16-24h | paralelo a M8 | benchmark precision |
-| M10 | P2 | Benchmark methodology shipping: golden set + Rivals real-execution suite + auditavel metrics + atestation receipt | 24-40h | depende M1-M9 | declaração de superioridade |
+| M10 | P2 | Benchmark methodology shipping: golden set + Rivals real-execution suite + auditavel metrics + atestation receipt | 24-40h | depende M1-M9 | declaração externa auditada |
 
 **Paralelização segura:**
 - M1+M2 só sequencial.
@@ -404,7 +405,7 @@ mudar manifest, rubric ou provider_slots.
 - M9 paralelo a M10 fase de preparação.
 
 **Estimativa total**: 118-182h apenas missões; +30-50h para APs, docs,
-revisão, integration testing. Total realista: **150-230h** para superioridade
+revisão, integration testing. Total realista: **150-230h** para maturidade
 auditavel.
 
 ### Safety / Governance Gates
@@ -479,13 +480,13 @@ mode (M4 endereça).
 - Receipt: scheduler ativo; compounding closed; benchmark ready.
 
 ## Proximas Acoes
-### Definition of Done — Atlas Programming Superiority
+### Definition of Done — Atlas Programming Maturity
 
 A arquitetura é declarada **implementada** quando TODOS os critérios abaixo
 forem verdes simultaneamente:
 
-1. **Schemas 1 + 2 emitidos em flow real de produção** (não apenas testes).
-2. **Mecanismo único de escalação Dev→Forge** com 3 outros deprecados.
+1. **Schemas 1 + 2 emitidos em flow real ou owner boundary documentado com testes.**
+2. **Mecanismo canônico de escalação Dev→Forge** com adapters retidos documentados ou deprecados por receipt.
 3. **ToolPolicy + ToolReceipt em strict mode** sem fallback silencioso em produção.
 4. **Mission Certification quality-aware** com pelo menos 3 checks beyond shape.
 5. **AiWorker invoca Mission/Router/Policy canônicos** para 100% dos prompts programming.
@@ -493,8 +494,8 @@ forem verdes simultaneamente:
 7. **Multi-agent scheduler ativo** com `AiProgrammingMultiAgentAssignment` rows criados.
 8. **Compounding feedback loop fechado** — RagFeedback retroage no reranker via HeuristicUpdate.
 9. **Benchmark methodology shipped** com golden set + Rivals real + atestation.
-10. **Métricas auditadas em rolling 30-day window** mostrando vantagem em pelo menos 8 das 12 métricas vs Claude Code/Codex baseline.
-11. **Trinity de docs sincronizada** com runtime real (sem `status: future` órfão; sem schema sem caller).
+10. **Métricas auditadas em rolling 30-day window** mostrando resultado melhor em pelo menos 8 das 12 métricas vs baseline declarado.
+11. **Trinity de docs sincronizada** com runtime real (sem status órfão; sem schema sem caller).
 12. **Senior Engineer Loop 7 capabilities** passando em 100% dos runs produtivos.
 
 **Gates de fechamento desta entrega (trinity de 3 docs):**
@@ -503,7 +504,7 @@ forem verdes simultaneamente:
 - 3 docs com line_limit 520 respeitado.
 - Cross-link integrity manual verificado.
 
-### Critérios de declaração de superioridade
+### Critérios de declaração externa
 
 **NÃO declarar:** "Atlas é 10x/30x/100x Claude Code/Codex".
 

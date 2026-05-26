@@ -724,6 +724,14 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             'Programming Enterprise plan is active local runtime documentation with an explicit external Rivals completion boundary; phase/blocked vocabulary is not stale implementation drift.'
         );
         $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-programming-superiority-contracts'),
+            'Programming contracts owns schema/status vocabulary and gap boundary language; that catalog vocabulary is not stale implementation drift.'
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-programming-forge-flow'),
+            'Programming Forge Flow is the active taxonomy/flow authority and its per-area state matrix is not document-level implementation drift.'
+        );
+        $this->assertNull(
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-ai-programming-agentic-rag-professional-spec'),
             'Programming Agentic RAG uses ordinary Portuguese gap language like falta owner; that must not be treated as scaffold drift without explicit scaffold/planned/future status language.'
         );

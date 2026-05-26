@@ -35,6 +35,7 @@ class AtlasAiArchitectureValidationService
         private readonly SurfaceCapabilityParityService $surfaceCapabilityParity,
         private readonly LedgerProjectionRegistry $ledgerProjections,
         private readonly EngineeringDocumentationHealthService $documentationHealth,
+        private readonly ?KernelRoutingCoverageReport $kernelRoutingCoverage = null,
     ) {}
 
     /**
@@ -131,6 +132,13 @@ class AtlasAiArchitectureValidationService
                     'drift' => $ledgerProjectionDriftReport,
                 ],
                 'static_scan' => $staticScanPayload,
+                // Gap1.F5 — kernel_routed coverage over rolling 7d window.
+                // Provider-safe: emits aggregate counts only, never trace ids
+                // or operator input. Honest about wall-clock domain:
+                // returns status=pending_data when window is empty or when
+                // the underlying table is not reachable (test envs, fresh
+                // installs). Never blocks the broader gate.
+                'kernel_routing' => $this->safeKernelRoutingSnapshot(),
             ],
             'capabilities' => [
                 'valid' => $capabilitiesValid,
@@ -180,6 +188,29 @@ class AtlasAiArchitectureValidationService
             ],
             'validated_at' => now()->toJSON(),
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function safeKernelRoutingSnapshot(): array
+    {
+        if ($this->kernelRoutingCoverage === null) {
+            return [
+                'schema_version' => 'atlas.ai.kernel_routing_coverage.v1',
+                'status' => 'pending_data',
+                'detail' => 'KernelRoutingCoverageReport not injected.',
+            ];
+        }
+        try {
+            return $this->kernelRoutingCoverage->snapshot();
+        } catch (\Throwable $e) {
+            return [
+                'schema_version' => 'atlas.ai.kernel_routing_coverage.v1',
+                'status' => 'pending_data',
+                'detail' => 'snapshot_unreachable: '.$e::class,
+            ];
+        }
     }
 
     /**

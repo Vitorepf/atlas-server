@@ -43,6 +43,8 @@ maintenance:
   - Atualize este doc antes de alterar Forge OS, programming.forge, Engineering Harness, repair loop, Agentic RAG, Semantic Code Graph, tools, Evidence ou cartografia de programacao pesada.
   - Mantenha este doc como pagina-mae; detalhes persistentes ficam nos docs filhos.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
   - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
   - docs/engineering-knowledge-base/domains/programming.md
@@ -214,7 +216,6 @@ Nenhum desses nomes substitui os outros.
 | Atlas Code SCOR-1 | Primeira versao/categoria da surface desktop; modo unico Forge | Flow, harness ou Forge OS |
 
 ### Forge Work Packet Native Capabilities
-
 Cada work packet Forge deve carregar `forge_native_capabilities` no
 `execution_plan`. A especificacao completa dos 10 blocos vive em
 `atlas-forge-work-packet-native-capabilities.md`. Gate canonico:

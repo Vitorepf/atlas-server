@@ -22,6 +22,7 @@ capabilities:
   - delivery_certification
   - organizational_memory
 decisions:
+  - Atlas Agentic Engineering OS e a camada-mae; este runtime e a coordenacao executiva de departamentos dentro dele.
   - O Company Runtime e a camada superior de engenharia do Atlas AI, nao um flow isolado.
   - Dev, Debug, Plan, Review, Research, Forge e futuros especialistas entram como departamentos oficiais.
   - Um prompt ambiguo deve virar plano, execucao, teste, review, delivery e aprendizado quando o escopo for engenharia de software.
@@ -34,6 +35,7 @@ maintenance:
   - Nao criar especialista solto fora do Company Runtime sem contrato de entrada, saida, evidencias e gates.
   - Nao vender o runtime como melhor que Claude Code/Codex sem benchmark externo real e evidence pack.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-autonomous-engineering-operating-system.md
   - docs/engineering-knowledge-base/atlas-real-engineering-execution-kernel.md
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md

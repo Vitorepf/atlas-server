@@ -24,6 +24,8 @@ maintenance:
   - Manter abaixo de 180 linhas (limite canonico para index).
   - Rodar `php artisan atlas:engineering:knowledge docs-health --json` apos alterar.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-dev-glossary.md
   - docs/engineering-knowledge-base/atlas-dev-policy.md
   - docs/engineering-knowledge-base/atlas-dev-patamares.md
@@ -91,6 +93,7 @@ ai_entrypoints:
 ai_usage_notes:
   - Este doc e mapa, nao territorio. Para cada assunto, va ao doc dono indicado na tabela.
   - Se uma pergunta nao tem doc dono listado aqui, e gap. Reporte como gap, nao invente.
+  - Para docs Atlas Dev `part-*`, audits ou docs fora do conjunto canonico, consulte o Documentation Inventory antes de usar como autoridade.
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 failure_modes:

@@ -18,6 +18,7 @@ capabilities:
   - project_scoped_atlas_code
   - programming_workspace_profile
 decisions:
+  - O termo Workspace OS neste doc e escopo local de projeto/workspace para Atlas Code; ele nao compete com Atlas Agentic Engineering OS, Programming Governance ou Forge Continuum.
   - Atlas Code is not Atlas-only; it must support multiple software projects and repositories.
   - Project/Workspace is the selected software context; Obra is a governed work unit inside that context.
   - Cartografia and Atlas Code remain primary surfaces, but both must be scoped by the active Project/Workspace.
@@ -26,6 +27,7 @@ decisions:
 maintenance:
   - Update before changing Atlas Desktop navigation, project selection, Cartografia scoping, Atlas Code work lists, workspace paths or Obra creation.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
   - docs/engineering-knowledge-base/atlas-code-multi-project-claude-one-shot-prompt.md
   - docs/engineering-knowledge-base/atlas-code-multi-project-claude-goal-prompt.md
   - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
@@ -60,6 +62,7 @@ allowed_changes:
   - Refine project/workspace schema and UX when Atlas Desktop gains real project switching.
   - Add implementation links once project profile service, selector, APIs and tests exist.
 forbidden_changes:
+  - Treat this doc as the mother OS for Agentic Software Engineering, Programming Governance or Forge.
   - Treat a product repository such as Atlas or Blackink as a single Obra.
   - Make Cartografia or Atlas Code implicitly Atlas-only.
   - Create Obras without linking them to an owning Project/Workspace when the work is software-specific.
@@ -95,6 +98,7 @@ ai_entrypoints:
   - Leia este doc antes de implementar seletor de projeto, workspace profile, Cartografia por projeto, Atlas Code multi-repo ou Blackink dentro do Atlas.
 ai_usage_notes:
   - Este doc nao troca Cartografia/Code por uma arvore lateral. Ele define que as surfaces existentes devem ser escopadas pelo Projeto ativo.
+  - Se houver duvida de hierarquia, o Authority Map vence: este doc e local a project/workspace scoping.
 quality_gates:
   - docs-health
   - active-project-selected
@@ -123,6 +127,10 @@ next_actions:
 # Atlas Code Multi-Project Workspace OS
 
 ## Resumo
+
+Nota de autoridade: este nome usa `Workspace OS` para o escopo local de
+Project/Workspace no Atlas Code. Ele nao e o sistema-mae da area; a hierarquia
+completa vive em `atlas-agentic-software-engineering-authority-map.md`.
 
 Atlas Desktop deve ser multi-projeto. `Cartografia` e `Code` continuam sendo as surfaces principais, mas elas precisam operar dentro de um Projeto/Workspace selecionado.
 
