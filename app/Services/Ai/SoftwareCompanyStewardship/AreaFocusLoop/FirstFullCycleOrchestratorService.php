@@ -93,6 +93,7 @@ final class FirstFullCycleOrchestratorService
         private readonly StewardshipRuntimeResultBridgeService $resultBridge,
         private readonly SeniorEngineerLoopExecutor $seniorEngineerLoop,
         private readonly StewardshipBranchMergeGovernorService $branchMergeGovernor,
+        private readonly StewardshipPriorityEngineService $priorityEngine,
     ) {}
 
     /**
@@ -298,7 +299,7 @@ final class FirstFullCycleOrchestratorService
     // ------------------------------------------------------------------
 
     /**
-     * Deterministically select the smallest, safest in-focus finding. A
+     * Deterministically select the highest-priority safe in-focus finding. A
      * `selected_finding` override wins. Returns null finding when none qualifies.
      *
      * @param  array<string,mixed>  $scan
@@ -332,19 +333,59 @@ final class FirstFullCycleOrchestratorService
             ];
         }
 
-        usort($candidates, fn (array $a, array $b): int => $this->safetyScore($b) <=> $this->safetyScore($a)
-            ?: ((string) ($a['finding_hash'] ?? '') <=> (string) ($b['finding_hash'] ?? '')));
-        $finding = $candidates[0];
+        $priority = $this->priorityEngine->rank([
+            'area_id' => (string) ($scan['area_id'] ?? self::DEFAULT_AREA_ID),
+            'candidates' => $candidates,
+        ]);
+        $topCandidateId = (string) data_get($priority, 'top_candidate.candidate_id', '');
+        $finding = $this->findingByPriorityId($candidates, $topCandidateId) ?? $this->highestSafetyFallback($candidates);
 
         return [
             'finding' => $finding,
             'stage' => $this->stage('selected_finding', 'AP-748', self::STAGE_RAN,
-                'Selected the smallest, safest in-focus finding for a conservative first cycle.',
+                'Selected the highest AP-771 priority finding inside the conservative safe candidate set.',
                 $this->findingSummary($finding) + [
-                    'selection_strategy' => 'smallest_safe_in_focus',
+                    'selection_strategy' => 'ap771_priority_with_safe_candidate_gate',
                     'safe_candidate_count' => count($candidates),
+                    'priority_report' => $priority,
                 ]),
         ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $candidates
+     * @return array<string,mixed>|null
+     */
+    private function findingByPriorityId(array $candidates, string $candidateId): ?array
+    {
+        if ($candidateId === '') {
+            return null;
+        }
+
+        foreach ($candidates as $candidate) {
+            $ids = [
+                (string) ($candidate['id'] ?? ''),
+                (string) ($candidate['finding_id'] ?? ''),
+                (string) ($candidate['finding_hash'] ?? ''),
+            ];
+            if (in_array($candidateId, $ids, true)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $candidates
+     * @return array<string,mixed>
+     */
+    private function highestSafetyFallback(array $candidates): array
+    {
+        usort($candidates, fn (array $a, array $b): int => $this->safetyScore($b) <=> $this->safetyScore($a)
+            ?: ((string) ($a['finding_hash'] ?? '') <=> (string) ($b['finding_hash'] ?? '')));
+
+        return $candidates[0];
     }
 
     /**

@@ -159,6 +159,8 @@ class FirstFullCycleOrchestratorServiceTest extends TestCase
 
         $this->assertSame('Missing test for BarService', $receipt['selected_finding']['title']);
         $this->assertSame('test', $receipt['selected_finding']['kind']);
+        $this->assertSame('ap771_priority_with_safe_candidate_gate', $receipt['stages']['selected_finding']['selection_strategy']);
+        $this->assertSame('AP-771', $receipt['stages']['selected_finding']['priority_report']['ap_contract']);
     }
 
     public function test_blocked_when_no_safe_finding_available(): void
