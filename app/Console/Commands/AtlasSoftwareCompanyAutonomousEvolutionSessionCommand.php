@@ -20,6 +20,7 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
         {--execute : Actually materialize sandbox, call provider, commit, emit inbox and evaluate merge}
         {--auto-merge : Ask AP-769/AP-774 to ff-only merge eligible branches}
         {--allow-code-auto-merge : Allow AP-774 bugfix/cleanup code auto-merge when validation passes}
+        {--continue-on-blocked : Keep selecting the next eligible finding when a cycle is blocked or waiting review}
         {--pull-main : Pull/update main after a successful merge}
         {--record : Append AP-786 session receipt}
         {--max-findings=40 : Maximum findings to scan before priority ranking}
@@ -42,6 +43,7 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
             'execute' => (bool) $this->option('execute'),
             'auto_merge' => (bool) $this->option('auto-merge'),
             'allow_code_auto_merge' => (bool) $this->option('allow-code-auto-merge'),
+            'continue_on_blocked' => (bool) $this->option('continue-on-blocked'),
             'pull_main' => (bool) $this->option('pull-main'),
             'record' => (bool) $this->option('record'),
             'max_findings' => (int) $this->option('max-findings'),

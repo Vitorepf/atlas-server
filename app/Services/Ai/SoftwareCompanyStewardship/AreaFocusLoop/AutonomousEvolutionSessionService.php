@@ -79,6 +79,7 @@ final class AutonomousEvolutionSessionService
         $model = trim((string) ($input['model'] ?? (config('atlas.ai.providers.cursor_cli.model') ?: 'composer-2.5-fast'))) ?: 'composer-2.5-fast';
         $repoRoot = $this->repoRoot((string) ($input['repo_root'] ?? ''));
         $actor = trim((string) ($input['actor'] ?? 'operator')) ?: 'operator';
+        $continueOnBlocked = (bool) ($input['continue_on_blocked'] ?? false);
 
         $sessionId = 'aess_'.substr(MissionCanonicalHash::sha256([
             'AP-786',
@@ -92,6 +93,7 @@ final class AutonomousEvolutionSessionService
 
         $cycles = [];
         $blockers = [];
+        $sessionReviewLocked = [];
 
         for ($index = 0; $index < $cyclesRequested; $index++) {
             $cycle = $this->runCycle($sessionId, $index + 1, [
@@ -108,12 +110,19 @@ final class AutonomousEvolutionSessionService
                 'max_findings' => (int) ($input['max_findings'] ?? 40),
                 'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
                 'validation_commands' => $this->validationCommands($input),
+                'continue_on_blocked' => $continueOnBlocked,
+                'session_review_locked' => $sessionReviewLocked,
             ]);
 
             $cycles[] = $cycle;
             if (($cycle['continue_loop'] ?? false) !== true) {
                 $blockers = array_merge($blockers, array_values((array) ($cycle['blockers'] ?? [])));
-                break;
+                foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
+                    $sessionReviewLocked[$key] = true;
+                }
+                if (! $continueOnBlocked) {
+                    break;
+                }
             }
         }
 
@@ -137,6 +146,7 @@ final class AutonomousEvolutionSessionService
             'record_requested' => $record,
             'cycles_requested' => $cyclesRequested,
             'cycles_completed' => count(array_filter($cycles, static fn (array $c): bool => (string) ($c['final_status'] ?? '') === 'cycle_completed')),
+            'cycles_waiting_review' => count(array_filter($cycles, static fn (array $c): bool => (string) ($c['final_status'] ?? '') === 'cycle_completed_waiting_review_or_merge')),
             'cycles_attempted' => count($cycles),
             'cycles' => $cycles,
             'blockers' => array_values(array_unique($blockers)),
@@ -150,6 +160,7 @@ final class AutonomousEvolutionSessionService
                 'inbox_emitted_before_merge_attempt' => true,
                 'merge_performed' => $this->anyCycleFlag($cycles, 'merge_performed'),
                 'merge_policy' => 'AP-769/AP-774 ff-only only',
+                'blocked_cycle_policy' => $continueOnBlocked ? 'record_inbox_keep_branch_isolated_and_continue' : 'stop_session_on_first_blocker',
                 'deploy_performed' => false,
                 'external_push_performed' => false,
                 'secret_access' => false,
@@ -178,7 +189,7 @@ final class AutonomousEvolutionSessionService
             'focus' => $focus,
             'max_findings' => (int) $input['max_findings'],
         ]);
-        $selection = $this->selectCandidate($areaId, $scan);
+        $selection = $this->selectCandidate($areaId, $scan, $repoRoot, (array) ($input['session_review_locked'] ?? []));
         $finding = $selection['finding'];
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
@@ -304,10 +315,18 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $scan
      * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>}
      */
-    private function selectCandidate(string $areaId, array $scan): array
+    private function selectCandidate(string $areaId, array $scan, string $repoRoot, array $sessionReviewLocked = []): array
     {
         $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
-        $candidates = array_values(array_filter($findings, fn (array $finding): bool => $this->allowedFiles($finding) !== []));
+        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + array_filter(
+            $sessionReviewLocked,
+            static fn (mixed $value): bool => $value === true,
+        );
+        $candidates = array_values(array_filter(
+            $findings,
+            fn (array $finding): bool => $this->allowedFiles($finding) !== []
+                && ! $this->findingIsReviewLocked($finding, $reviewLocked),
+        ));
         $priority = $this->priorityEngine->rank(['area_id' => $areaId, 'candidates' => $candidates]);
         $topId = (string) data_get($priority, 'top_candidate.candidate_id', '');
         foreach ($candidates as $candidate) {
@@ -580,6 +599,77 @@ final class AutonomousEvolutionSessionService
         }
 
         return $commands;
+    }
+
+    /**
+     * Review-locked findings already produced a branch/InBox item and failed
+     * merge governance. The autonomous loop must keep moving instead of
+     * repeatedly generating branches for the same unresolved review packet.
+     *
+     * @return array<string,true>
+     */
+    private function reviewLockedFindingKeys(string $areaId, string $repoRoot): array
+    {
+        $path = $this->recordPath($areaId);
+        if (! is_file($path)) {
+            return [];
+        }
+
+        $locked = [];
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        foreach ($lines as $line) {
+            $record = json_decode($line, true);
+            if (! is_array($record)) {
+                continue;
+            }
+            foreach ((array) ($record['cycles'] ?? []) as $cycle) {
+                if (! is_array($cycle) || (string) ($cycle['final_status'] ?? '') !== 'cycle_completed_waiting_review_or_merge') {
+                    continue;
+                }
+                $branch = (string) ($cycle['branch_ref'] ?? '');
+                if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
+                    continue;
+                }
+                foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
+                    $locked[$key] = true;
+                }
+            }
+        }
+
+        return $locked;
+    }
+
+    /** @param array<string,true> $locked */
+    private function findingIsReviewLocked(array $finding, array $locked): bool
+    {
+        foreach ($this->findingKeys($finding) as $key) {
+            if (isset($locked[$key])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return list<string> */
+    private function findingKeys(array $finding): array
+    {
+        return array_values(array_unique(array_filter([
+            (string) ($finding['finding_id'] ?? ''),
+            (string) ($finding['finding_hash'] ?? ''),
+            (string) ($finding['title'] ?? ''),
+        ], static fn (string $value): bool => $value !== '')));
+    }
+
+    private function branchMergedIntoMain(string $repoRoot, string $branch): bool
+    {
+        $branchExists = $this->git($repoRoot, ['rev-parse', '--verify', '--quiet', $branch], 30);
+        if (! $branchExists['ok']) {
+            return true;
+        }
+        $merged = $this->git($repoRoot, ['merge-base', '--is-ancestor', $branch, 'main'], 30);
+
+        return $merged['ok'];
     }
 
     /**
