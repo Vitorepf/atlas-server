@@ -134,6 +134,7 @@ use App\Console\Commands\AtlasSchedulerInstallLaunchdCommand;
 use App\Console\Commands\AtlasSchedulerStatusCommand;
 use App\Console\Commands\AtlasSchedulerTickCommand;
 use App\Console\Commands\AtlasSelfDiagnosticCommand;
+use App\Console\Commands\AtlasSoftwareCompanyFirstLiveBranchProofCommand;
 use App\Console\Commands\AtlasToolsCommand;
 use App\Console\Commands\AtlasVaultCommand;
 use App\Console\Commands\HealthRepairCommand;
@@ -294,6 +295,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasSchedulerStatusCommand::class,
         AtlasSchedulerTickCommand::class,
         AtlasSelfDiagnosticCommand::class,
+        AtlasSoftwareCompanyFirstLiveBranchProofCommand::class,
         AtlasToolsCommand::class,
         AtlasVaultCommand::class,
         AtlasRuntimeCommand::class,
