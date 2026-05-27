@@ -104,6 +104,8 @@ final class StewardshipBranchMergeGovernorService
         $classification = $this->classify($changedFiles, (string) ($input['auto_merge_class'] ?? ''));
         $validation = $this->validation($input, $repoRoot);
         $workingTreeClean = $this->workingTreeClean($repoRoot);
+        $executeMerge = (bool) ($input['execute_merge'] ?? false);
+        $autoMergeRequested = (bool) ($input['auto_merge'] ?? false);
 
         $blockers = [];
         if ($branchIsAncestor) {
@@ -115,14 +117,11 @@ final class StewardshipBranchMergeGovernorService
         if (! (bool) ($mergeTree['clean'] ?? false)) {
             $blockers[] = 'merge_conflict_detected';
         }
-        if (! $workingTreeClean) {
+        if ($executeMerge && ! $workingTreeClean) {
             $blockers[] = 'base_worktree_dirty';
         }
 
         $autoPolicy = $this->autoMergePolicy($classification, $validation, $changedFiles, $branchOnly, $blockers, $input);
-        $executeMerge = (bool) ($input['execute_merge'] ?? false);
-        $autoMergeRequested = (bool) ($input['auto_merge'] ?? false);
-
         $status = $autoPolicy['eligible'] ? self::STATUS_AUTO_MERGE_ELIGIBLE : self::STATUS_REVIEW_REQUIRED;
         if ($blockers !== []) {
             $status = self::STATUS_BLOCKED;
@@ -527,6 +526,8 @@ final class StewardshipBranchMergeGovernorService
             'creates_worktree' => false,
             'detects_conflicts_before_merge' => true,
             'requires_clean_base_worktree' => true,
+            'dirty_base_blocks_review_only' => false,
+            'dirty_base_blocks_execute_merge' => true,
             'auto_merge_default' => false,
             'auto_merge_strategy' => 'ff_only',
             'merge_performed' => $status === self::STATUS_MERGED,

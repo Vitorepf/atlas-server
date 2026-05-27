@@ -83,8 +83,14 @@ AP-769 blocks when:
 - branch is stale/diverged (`base` is not ancestor of branch);
 - branch is already merged;
 - `git merge-tree --write-tree base branch` detects conflict;
-- base worktree is dirty;
+- base worktree is dirty while `execute_merge=true`;
 - auto-merge is requested but policy is not satisfied.
+
+Review-only governance must still emit GitKraken metadata and eligibility
+classification when the operator's primary worktree is dirty. Dirty base state
+is an execution blocker, not a review blocker. This lets 24/7 loops surface
+review packets and auto-merge candidates while preserving the hard rule that
+actual ff-only merge execution requires a clean base worktree.
 
 AP-769 allows auto-merge only when:
 
@@ -120,6 +126,8 @@ This is the contract that keeps branch output visually inspectable in GitKraken.
 - No secret access.
 - No merge by default.
 - Auto-merge is ff-only and policy-gated.
+- Dirty base worktree can never execute a merge, but it does not suppress
+  review-only visibility.
 - Anything code-like defaults to operator review unless explicitly authorized
   with focused validation.
 
@@ -130,6 +138,8 @@ This is the contract that keeps branch output visually inspectable in GitKraken.
 Coverage:
 
 - docs-only branch is auto-merge eligible and GitKraken-visible;
+- dirty operator worktree does not block review-only eligibility;
+- dirty operator worktree still blocks `execute_merge=true`;
 - code/mixed branch requires operator review by default;
 - conflict blocks before merge;
 - `--execute-merge` fast-forwards only when policy allows.

@@ -131,6 +131,49 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
         $this->assertFalse($report['claim_policy']['merge_performed']);
     }
 
+    public function test_dirty_base_worktree_does_not_block_review_only_eligibility(): void
+    {
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/docs-safe-dirty-base');
+        $this->commitFile($repo, 'docs/README.md', "base docs\nsafe update\n", 'Docs safe update');
+        $this->checkout($repo, 'main');
+        file_put_contents($repo.'/docs/uncommitted.md', "operator scratch\n");
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/docs-safe-dirty-base',
+        ]);
+
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE, $report['status']);
+        $this->assertTrue($report['auto_merge_policy']['eligible']);
+        $this->assertFalse($report['repo']['working_tree_clean']);
+        $this->assertNotContains('base_worktree_dirty', $report['blockers']);
+        $this->assertFalse($report['claim_policy']['dirty_base_blocks_review_only']);
+        $this->assertTrue($report['claim_policy']['dirty_base_blocks_execute_merge']);
+    }
+
+    public function test_dirty_base_worktree_still_blocks_execute_merge(): void
+    {
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/docs-auto-dirty-base');
+        $this->commitFile($repo, 'docs/README.md', "base docs\nauto merge\n", 'Docs auto merge');
+        $this->checkout($repo, 'main');
+        file_put_contents($repo.'/docs/uncommitted.md', "operator scratch\n");
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/docs-auto-dirty-base',
+            'auto_merge' => true,
+            'execute_merge' => true,
+        ]);
+
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_BLOCKED, $report['status']);
+        $this->assertContains('base_worktree_dirty', $report['blockers']);
+        $this->assertFalse($report['claim_policy']['merge_performed']);
+    }
+
     public function test_code_branch_requires_operator_review_without_validation_and_code_authorization(): void
     {
         $repo = $this->repo();
