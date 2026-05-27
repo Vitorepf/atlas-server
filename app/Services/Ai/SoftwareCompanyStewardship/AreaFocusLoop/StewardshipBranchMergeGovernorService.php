@@ -1,0 +1,594 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
+
+use App\Services\Ai\Mission\MissionCanonicalHash;
+use DateTimeImmutable;
+use DateTimeInterface;
+use DateTimeZone;
+use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Process;
+
+/**
+ * AP-769 · Stewardship Branch Merge Governor.
+ *
+ * Enterprise branch safety layer for 24/7 stewardship loops. It certifies that a
+ * cycle branch is visible/reviewable, conflict-free against the current base,
+ * low-risk enough for the requested merge mode, and only then permits an
+ * optional ff-only auto-merge. It never rebases, force-pushes, squashes, deploys
+ * or touches secrets.
+ */
+final class StewardshipBranchMergeGovernorService
+{
+    public const REPORT_SCHEMA = 'atlas.software_company_stewardship.branch_merge_governor.v1';
+
+    public const RECORD_SCHEMA = 'atlas.software_company_stewardship.branch_merge_governor_record.v1';
+
+    public const STATUS_REVIEW_REQUIRED = 'review_required';
+
+    public const STATUS_AUTO_MERGE_ELIGIBLE = 'auto_merge_eligible';
+
+    public const STATUS_MERGED = 'merged';
+
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const DEFAULT_AREA_ID = 'agentic_engineering_os';
+
+    private ?string $storageRootOverride = null;
+
+    public function setStorageRootForTesting(?string $dir): void
+    {
+        $this->storageRootOverride = $dir;
+    }
+
+    public function storageDir(): string
+    {
+        if ($this->storageRootOverride !== null) {
+            return $this->storageRootOverride;
+        }
+
+        return function_exists('storage_path')
+            ? storage_path('atlas/software_company_stewardship/branch_merge_governor')
+            : sys_get_temp_dir().'/atlas/software_company_stewardship/branch_merge_governor';
+    }
+
+    public function recordPath(string $areaId): string
+    {
+        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evaluate(array $input): array
+    {
+        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $repoRoot = $this->repoRoot($input);
+        if ($repoRoot === '') {
+            return $this->blocked($areaId, 'repo_root_required', 'A git repository root is required.');
+        }
+
+        $branchRef = trim((string) ($input['branch_ref'] ?? $input['branch'] ?? ''));
+        if ($branchRef === '') {
+            return $this->blocked($areaId, 'branch_ref_required', 'A cycle branch ref is required.', ['repo_root' => $repoRoot]);
+        }
+
+        $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
+        if (! $this->isGitRepo($repoRoot)) {
+            return $this->blocked($areaId, 'repo_root_not_git_repository', 'Repo root is not a git repository.', ['repo_root' => $repoRoot]);
+        }
+
+        if ($this->revParse($repoRoot, $branchRef) === '') {
+            return $this->blocked($areaId, 'branch_ref_not_found', 'Cycle branch ref was not found.', ['repo_root' => $repoRoot, 'branch_ref' => $branchRef]);
+        }
+        if ($this->revParse($repoRoot, $baseRef) === '') {
+            return $this->blocked($areaId, 'base_ref_not_found', 'Base ref was not found.', ['repo_root' => $repoRoot, 'base_ref' => $baseRef]);
+        }
+
+        $baseCommit = $this->revParse($repoRoot, $baseRef);
+        $branchCommit = $this->revParse($repoRoot, $branchRef);
+        $mergeBase = $this->mergeBase($repoRoot, $baseRef, $branchRef);
+        $baseIsAncestor = $this->isAncestor($repoRoot, $baseRef, $branchRef);
+        $branchIsAncestor = $this->isAncestor($repoRoot, $branchRef, $baseRef);
+        [$baseOnly, $branchOnly] = $this->aheadBehind($repoRoot, $baseRef, $branchRef);
+        $changedFiles = $this->changedFiles($repoRoot, $baseRef, $branchRef);
+        $commits = $this->commits($repoRoot, $baseRef, $branchRef);
+        $mergeTree = $this->mergeTree($repoRoot, $baseRef, $branchRef);
+        $classification = $this->classify($changedFiles, (string) ($input['auto_merge_class'] ?? ''));
+        $validation = $this->validation($input, $repoRoot);
+        $workingTreeClean = $this->workingTreeClean($repoRoot);
+
+        $blockers = [];
+        if ($branchIsAncestor) {
+            $blockers[] = 'branch_already_merged_or_ancestor_of_base';
+        }
+        if (! $baseIsAncestor) {
+            $blockers[] = 'branch_not_rebased_on_current_base';
+        }
+        if (! (bool) ($mergeTree['clean'] ?? false)) {
+            $blockers[] = 'merge_conflict_detected';
+        }
+        if (! $workingTreeClean) {
+            $blockers[] = 'base_worktree_dirty';
+        }
+
+        $autoPolicy = $this->autoMergePolicy($classification, $validation, $changedFiles, $branchOnly, $blockers, $input);
+        $executeMerge = (bool) ($input['execute_merge'] ?? false);
+        $autoMergeRequested = (bool) ($input['auto_merge'] ?? false);
+
+        $status = $autoPolicy['eligible'] ? self::STATUS_AUTO_MERGE_ELIGIBLE : self::STATUS_REVIEW_REQUIRED;
+        if ($blockers !== []) {
+            $status = self::STATUS_BLOCKED;
+        }
+
+        $mergeResult = null;
+        if ($executeMerge || $autoMergeRequested) {
+            if (! $autoPolicy['eligible']) {
+                $blockers[] = 'auto_merge_policy_not_satisfied';
+                $status = self::STATUS_BLOCKED;
+            } elseif (! $executeMerge) {
+                $status = self::STATUS_AUTO_MERGE_ELIGIBLE;
+            } else {
+                $mergeResult = $this->mergeFfOnly($repoRoot, $baseRef, $branchRef);
+                if (($mergeResult['status'] ?? '') === self::STATUS_MERGED) {
+                    $status = self::STATUS_MERGED;
+                    $baseCommit = $this->revParse($repoRoot, $baseRef);
+                } else {
+                    $status = self::STATUS_BLOCKED;
+                    $blockers[] = (string) ($mergeResult['reason'] ?? 'ff_only_merge_failed');
+                }
+            }
+        }
+
+        $payload = [
+            'schema_version' => self::REPORT_SCHEMA,
+            'ap_contract' => 'AP-769',
+            'status' => $status,
+            'area_id' => $areaId,
+            'stack' => 'Atlas Software Company Stewardship Stack',
+            'source_ap_contracts' => ['AP-756', 'AP-765', 'AP-767', 'AP-768', 'AP-769'],
+            'repo' => [
+                'repo_root' => $repoRoot,
+                'repo_root_hash' => hash('sha256', $repoRoot),
+                'base_ref' => $baseRef,
+                'base_commit' => $baseCommit,
+                'branch_ref' => $branchRef,
+                'branch_commit' => $branchCommit,
+                'merge_base' => $mergeBase,
+                'base_is_ancestor_of_branch' => $baseIsAncestor,
+                'branch_is_ancestor_of_base' => $branchIsAncestor,
+                'base_only_commit_count' => $baseOnly,
+                'branch_only_commit_count' => $branchOnly,
+                'working_tree_clean' => $workingTreeClean,
+            ],
+            'gitkraken_review_surface' => [
+                'visible_branch_ref' => $branchRef,
+                'visible_base_ref' => $baseRef,
+                'reviewable_commit_count' => count($commits),
+                'reviewable_commits' => $commits,
+                'changed_files' => $changedFiles,
+                'graph_shape' => $baseIsAncestor ? 'branch_on_top_of_base' : 'diverged_or_stale_branch',
+                'operator_review_hint' => 'Open '.$branchRef.' in GitKraken, inspect the commits and changed files, then accept/reject/defer through Product Mode or merge governor.',
+            ],
+            'classification' => $classification,
+            'merge_conflict_check' => $mergeTree,
+            'validation' => $validation,
+            'auto_merge_policy' => $autoPolicy,
+            'merge_result' => $mergeResult,
+            'blockers' => array_values(array_unique($blockers)),
+            'next_actions' => $this->nextActions($status, $autoPolicy, $blockers, $branchRef, $baseRef),
+            'claim_policy' => $this->claimPolicy($status),
+            'generated_at' => $this->now(),
+        ];
+
+        $payload['governor_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
+
+        return $this->maybeRecord($areaId, $payload, (bool) ($input['record_governance'] ?? false));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function listRecords(string $areaId): array
+    {
+        $path = $this->recordPath($areaId);
+        $records = [];
+        if (is_file($path)) {
+            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+                $decoded = json_decode($line, true);
+                if (is_array($decoded) && ($decoded['schema_version'] ?? '') === self::RECORD_SCHEMA) {
+                    $records[] = $decoded;
+                }
+            }
+        }
+
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.branch_merge_governor_records.v1',
+            'status' => 'ready',
+            'area_id' => $areaId,
+            'record_count' => count($records),
+            'records' => $records,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function repoRoot(array $input): string
+    {
+        $candidate = trim((string) ($input['repo_root'] ?? ''));
+        if ($candidate === '' && function_exists('base_path')) {
+            $candidate = base_path();
+        }
+        if ($candidate === '') {
+            $candidate = getcwd() ?: '';
+        }
+
+        return $candidate !== '' ? (realpath($candidate) ?: $candidate) : '';
+    }
+
+    private function isGitRepo(string $repoRoot): bool
+    {
+        return $this->git($repoRoot, ['rev-parse', '--is-inside-work-tree'])['ok'] === true;
+    }
+
+    private function revParse(string $repoRoot, string $ref): string
+    {
+        $result = $this->git($repoRoot, ['rev-parse', '--verify', $ref]);
+
+        return $result['ok'] ? trim((string) $result['out']) : '';
+    }
+
+    private function mergeBase(string $repoRoot, string $baseRef, string $branchRef): string
+    {
+        $result = $this->git($repoRoot, ['merge-base', $baseRef, $branchRef]);
+
+        return $result['ok'] ? trim((string) $result['out']) : '';
+    }
+
+    private function isAncestor(string $repoRoot, string $ancestor, string $descendant): bool
+    {
+        return $this->git($repoRoot, ['merge-base', '--is-ancestor', $ancestor, $descendant])['ok'] === true;
+    }
+
+    /**
+     * @return array{0:int,1:int}
+     */
+    private function aheadBehind(string $repoRoot, string $baseRef, string $branchRef): array
+    {
+        $result = $this->git($repoRoot, ['rev-list', '--left-right', '--count', $baseRef.'...'.$branchRef]);
+        if (! $result['ok']) {
+            return [0, 0];
+        }
+        $parts = preg_split('/\s+/', trim((string) $result['out'])) ?: [];
+
+        return [(int) ($parts[0] ?? 0), (int) ($parts[1] ?? 0)];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function changedFiles(string $repoRoot, string $baseRef, string $branchRef): array
+    {
+        $result = $this->git($repoRoot, ['diff', '--name-only', $baseRef.'...'.$branchRef]);
+        if (! $result['ok']) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode("\n", (string) $result['out']))));
+    }
+
+    /**
+     * @return list<array<string,string>>
+     */
+    private function commits(string $repoRoot, string $baseRef, string $branchRef): array
+    {
+        $result = $this->git($repoRoot, ['log', '--format=%H%x1f%h%x1f%s', $baseRef.'..'.$branchRef]);
+        if (! $result['ok']) {
+            return [];
+        }
+
+        $commits = [];
+        foreach (array_filter(explode("\n", (string) $result['out'])) as $line) {
+            [$hash, $short, $subject] = array_pad(explode("\x1f", $line, 3), 3, '');
+            $commits[] = ['hash' => $hash, 'short_hash' => $short, 'subject' => $subject];
+        }
+
+        return $commits;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function mergeTree(string $repoRoot, string $baseRef, string $branchRef): array
+    {
+        $result = $this->git($repoRoot, ['merge-tree', '--write-tree', $baseRef, $branchRef]);
+
+        return [
+            'method' => 'git merge-tree --write-tree',
+            'clean' => $result['ok'],
+            'exit_code' => $result['exit_code'],
+            'tree_or_output_hash' => $result['ok'] ? trim((string) $result['out']) : '',
+            'error_excerpt' => $result['ok'] ? '' : substr(trim((string) $result['err']."\n".$result['out']), 0, 1200),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $files
+     * @return array<string,mixed>
+     */
+    private function classify(array $files, string $operatorClass): array
+    {
+        $docs = [];
+        $tests = [];
+        $code = [];
+        $other = [];
+        foreach ($files as $file) {
+            if (str_starts_with($file, 'docs/') || str_ends_with($file, '.md')) {
+                $docs[] = $file;
+            } elseif (str_starts_with($file, 'tests/')) {
+                $tests[] = $file;
+            } elseif (str_starts_with($file, 'app/') || str_ends_with($file, '.php') || str_ends_with($file, '.ts') || str_ends_with($file, '.tsx')) {
+                $code[] = $file;
+            } else {
+                $other[] = $file;
+            }
+        }
+
+        $kind = match (true) {
+            $files === [] => 'empty',
+            $code === [] && $other === [] && $tests === [] => 'documentation_only',
+            $code === [] && $other === [] && $docs === [] => 'tests_only',
+            $code === [] && $other === [] => 'docs_and_tests',
+            default => $operatorClass !== '' ? $operatorClass : 'code_or_mixed',
+        };
+
+        return [
+            'kind' => $kind,
+            'operator_declared_class' => $operatorClass,
+            'changed_file_count' => count($files),
+            'docs_files' => $docs,
+            'test_files' => $tests,
+            'code_files' => $code,
+            'other_files' => $other,
+            'code_or_other_file_count' => count($code) + count($other),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function validation(array $input, string $repoRoot): array
+    {
+        $commands = array_values(array_filter((array) ($input['test_commands'] ?? []), 'is_string'));
+        $run = (bool) ($input['run_validation'] ?? false);
+        $cwd = trim((string) ($input['worktree_path'] ?? '')) ?: $repoRoot;
+        $results = [];
+        $passed = true;
+
+        if ($run) {
+            foreach ($commands as $command) {
+                $process = Process::fromShellCommandline($command, $cwd);
+                $process->setTimeout(120);
+                $process->run();
+                $ok = $process->isSuccessful();
+                $passed = $passed && $ok;
+                $results[] = [
+                    'command' => $command,
+                    'exit_code' => $process->getExitCode(),
+                    'ok' => $ok,
+                    'output_excerpt' => substr(trim($process->getOutput()."\n".$process->getErrorOutput()), 0, 1200),
+                ];
+            }
+        }
+
+        return [
+            'commands' => $commands,
+            'run_validation' => $run,
+            'passed' => $commands === [] ? null : $passed,
+            'results' => $results,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $classification
+     * @param  array<string,mixed>  $validation
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $blockers
+     * @return array<string,mixed>
+     */
+    private function autoMergePolicy(array $classification, array $validation, array $changedFiles, int $branchOnly, array $blockers, array $input): array
+    {
+        $kind = (string) ($classification['kind'] ?? '');
+        $maxFiles = max(1, (int) ($input['max_auto_merge_files'] ?? 5));
+        $safeKind = in_array($kind, ['documentation_only', 'tests_only', 'docs_and_tests'], true);
+        $operatorSafeClass = in_array($kind, ['bugfix', 'cleanup'], true)
+            && (bool) ($input['allow_code_auto_merge'] ?? false)
+            && ($validation['passed'] ?? false) === true;
+
+        $reasons = [];
+        if ($blockers !== []) {
+            $reasons[] = 'branch_blockers_present';
+        }
+        if ($branchOnly < 1) {
+            $reasons[] = 'no_branch_commit_to_merge';
+        }
+        if (count($changedFiles) > $maxFiles) {
+            $reasons[] = 'changed_file_count_exceeds_policy';
+        }
+        if (! $safeKind && ! $operatorSafeClass) {
+            $reasons[] = 'change_class_requires_operator_review';
+        }
+        if (($validation['passed'] ?? true) === false) {
+            $reasons[] = 'validation_failed';
+        }
+
+        return [
+            'eligible' => $reasons === [],
+            'class' => $kind,
+            'safe_kind_without_operator' => $safeKind,
+            'code_auto_merge_authorized' => $operatorSafeClass,
+            'max_auto_merge_files' => $maxFiles,
+            'reasons' => $reasons,
+            'merge_mode' => 'ff_only',
+            'irreversible_actions' => ['none_before_execute_merge'],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function mergeFfOnly(string $repoRoot, string $baseRef, string $branchRef): array
+    {
+        if (! $this->workingTreeClean($repoRoot)) {
+            return ['status' => self::STATUS_BLOCKED, 'reason' => 'base_worktree_dirty'];
+        }
+
+        $checkout = $this->git($repoRoot, ['checkout', $baseRef], 120);
+        if (! $checkout['ok']) {
+            return ['status' => self::STATUS_BLOCKED, 'reason' => 'checkout_base_failed', 'git' => $checkout];
+        }
+        $merge = $this->git($repoRoot, ['merge', '--ff-only', $branchRef], 120);
+        if (! $merge['ok']) {
+            return ['status' => self::STATUS_BLOCKED, 'reason' => 'ff_only_merge_failed', 'git' => $merge];
+        }
+
+        return [
+            'status' => self::STATUS_MERGED,
+            'strategy' => 'ff_only',
+            'base_ref' => $baseRef,
+            'branch_ref' => $branchRef,
+            'new_head' => $this->revParse($repoRoot, $baseRef),
+            'git' => $merge,
+        ];
+    }
+
+    private function workingTreeClean(string $repoRoot): bool
+    {
+        $result = $this->git($repoRoot, ['status', '--porcelain']);
+
+        return $result['ok'] && trim((string) $result['out']) === '';
+    }
+
+    /**
+     * @param  list<string>  $args
+     * @return array{ok:bool,exit_code:int|null,out:string,err:string}
+     */
+    private function git(string $repoRoot, array $args, int $timeout = 30): array
+    {
+        $process = new Process(array_merge(['git'], $args), $repoRoot);
+        $process->setTimeout($timeout);
+        $process->run();
+
+        return [
+            'ok' => $process->isSuccessful(),
+            'exit_code' => $process->getExitCode(),
+            'out' => $process->getOutput(),
+            'err' => $process->getErrorOutput(),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     * @return list<string>
+     */
+    private function nextActions(string $status, array $autoPolicy, array $blockers, string $branchRef, string $baseRef): array
+    {
+        if ($status === self::STATUS_MERGED) {
+            return ['Review main in GitKraken; branch '.$branchRef.' was fast-forward merged into '.$baseRef.'.'];
+        }
+        if ($status === self::STATUS_AUTO_MERGE_ELIGIBLE) {
+            return ['Run the same command with --auto-merge --execute-merge to fast-forward merge '.$branchRef.' into '.$baseRef.'.'];
+        }
+        if ($blockers !== []) {
+            return ['Resolve blockers first: '.implode(', ', $blockers).'.'];
+        }
+
+        return ['Review '.$branchRef.' visually in GitKraken and decide accept/reject/defer; auto-merge policy reasons: '.implode(', ', (array) ($autoPolicy['reasons'] ?? [])).'.'];
+    }
+
+    /**
+     * @return array<string,bool|string>
+     */
+    private function claimPolicy(string $status): array
+    {
+        return [
+            'creates_branch' => false,
+            'creates_worktree' => false,
+            'detects_conflicts_before_merge' => true,
+            'requires_clean_base_worktree' => true,
+            'auto_merge_default' => false,
+            'auto_merge_strategy' => 'ff_only',
+            'merge_performed' => $status === self::STATUS_MERGED,
+            'rebase_performed' => false,
+            'force_push_performed' => false,
+            'deploys' => false,
+            'touches_secrets' => false,
+            'operator_review_required_when_not_low_risk' => true,
+            'gitkraken_visible_branch_required' => true,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function blocked(string $areaId, string $reason, string $detail, array $extra = []): array
+    {
+        return [
+            'schema_version' => self::REPORT_SCHEMA,
+            'ap_contract' => 'AP-769',
+            'status' => self::STATUS_BLOCKED,
+            'area_id' => $areaId,
+            'reason' => $reason,
+            'detail' => $detail,
+            'blockers' => [$reason],
+            'claim_policy' => $this->claimPolicy(self::STATUS_BLOCKED),
+            'generated_at' => $this->now(),
+        ] + $extra;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function maybeRecord(string $areaId, array $payload, bool $record): array
+    {
+        if (! $record) {
+            return $payload + ['governance_storage_status' => 'projected'];
+        }
+
+        $recordPayload = ['schema_version' => self::RECORD_SCHEMA, 'recorded_at' => $this->now()] + $payload;
+        File::ensureDirectoryExists(dirname($this->recordPath($areaId)));
+        File::append($this->recordPath($areaId), json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+
+        return $recordPayload + ['governance_storage_status' => 'recorded'];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function identity(array $payload): array
+    {
+        $copy = $payload;
+        unset($copy['generated_at'], $copy['governor_hash'], $copy['recorded_at'], $copy['governance_storage_status']);
+
+        return $copy;
+    }
+
+    private function slug(string $value): string
+    {
+        $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
+
+        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
+    }
+
+    private function now(): string
+    {
+        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+    }
+}
