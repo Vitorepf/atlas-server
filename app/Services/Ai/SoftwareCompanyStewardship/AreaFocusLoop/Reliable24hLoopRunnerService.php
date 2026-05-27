@@ -299,10 +299,20 @@ final class Reliable24hLoopRunnerService
             'max_findings' => (int) ($input['max_findings'] ?? 40),
             'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
             'validation_commands' => array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string')),
-            // Passed for forward-compatibility; AP-790 also enforces its own
-            // duplicate-finding stop because run() does not consume this today.
             'session_review_locked' => $seenFindingKeys,
         ];
+        foreach ([
+            'forge_obra', 'obra_id', 'forge_live_topology', 'forge_live_decision',
+            'forge_dispatch_mode', 'forge_role', 'forge_provider_authorization',
+            'forge_budget_approved', 'forge_tickets', 'forge_agents',
+        ] as $key) {
+            if (array_key_exists($key, $input)) {
+                $sessionInput[$key] = $input[$key];
+            }
+        }
+        if (isset($input['forge_inputs']) && is_array($input['forge_inputs'])) {
+            $sessionInput['forge_inputs'] = $input['forge_inputs'];
+        }
 
         $runner = $this->sessionRunner ?? fn (array $in): array => $this->session->run($in);
 
@@ -499,9 +509,10 @@ final class Reliable24hLoopRunnerService
             $state['last_cycle_index'] = max($state['last_cycle_index'], (int) ($record['cycle_index'] ?? 0));
             $state['merges_total'] = max($state['merges_total'], (int) data_get($record, 'cumulative.merges_total', 0));
             $state['blocked_in_row'] = (int) data_get($record, 'cumulative.blocked_in_row', $state['blocked_in_row']);
-            $key = $this->str($record['finding_key'] ?? '');
-            if ($key !== '') {
-                $state['seen_finding_keys'][$key] = true;
+            foreach (array_merge([$this->str($record['finding_key'] ?? '')], $this->stringList($record['finding_keys'] ?? [])) as $key) {
+                if ($key !== '') {
+                    $state['seen_finding_keys'][$key] = true;
+                }
             }
         }
 
@@ -531,6 +542,7 @@ final class Reliable24hLoopRunnerService
             'cycle_index' => $cycleIndex,
             'cycle_id' => $this->str($cycle['cycle_id'] ?? ''),
             'finding_key' => $findingKey,
+            'finding_keys' => $this->findingKeys($cycle, $findingKey),
             'outcome' => $outcome,
             'session_status' => $this->str($sessionReport['status'] ?? ''),
             'cycle_final_status' => $this->str($cycle['final_status'] ?? ''),
@@ -725,6 +737,38 @@ final class Reliable24hLoopRunnerService
     private function str(mixed $value): string
     {
         return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     * @return list<string>
+     */
+    private function findingKeys(array $cycle, string $fallback): array
+    {
+        $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+
+        return array_values(array_unique(array_filter(array_merge(
+            [$fallback],
+            $this->stringList([
+                $finding['finding_id'] ?? '',
+                $finding['finding_hash'] ?? '',
+                $finding['title'] ?? '',
+            ]),
+        ), static fn (string $value): bool => $value !== '')));
+    }
+
+    /** @return list<string> */
+    private function stringList(mixed $values): array
+    {
+        $out = [];
+        foreach ((array) $values as $value) {
+            $text = $this->str($value);
+            if ($text !== '') {
+                $out[] = $text;
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     private function key(string $areaId, string $focus): string

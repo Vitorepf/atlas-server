@@ -196,7 +196,7 @@ final class AutonomousEvolutionSessionService
 
         $cycles = [];
         $blockers = [];
-        $sessionReviewLocked = [];
+        $sessionReviewLocked = $this->normalizeReviewLocked($input['session_review_locked'] ?? []);
         $seenLoopTitles = [];
 
         for ($index = 0; $index < $cyclesRequested; $index++) {
@@ -362,10 +362,7 @@ final class AutonomousEvolutionSessionService
             ]);
         }
 
-        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + array_filter(
-            (array) ($input['session_review_locked'] ?? []),
-            static fn (mixed $value): bool => $value === true,
-        );
+        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + $this->normalizeReviewLocked($input['session_review_locked'] ?? []);
         if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['review_locked_existing_branch'], [
                 'selected_finding' => $this->findingSummary($finding),
@@ -566,10 +563,7 @@ final class AutonomousEvolutionSessionService
     private function selectCandidate(string $areaId, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = []): array
     {
         $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
-        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + array_filter(
-            $sessionReviewLocked,
-            static fn (mixed $value): bool => $value === true,
-        );
+        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + $this->normalizeReviewLocked($sessionReviewLocked);
         $candidates = [];
         $rejections = [];
         foreach ($findings as $finding) {
@@ -1570,6 +1564,23 @@ final class AutonomousEvolutionSessionService
         }
 
         return false;
+    }
+
+    /** @return array<string,true> */
+    private function normalizeReviewLocked(mixed $locked): array
+    {
+        $normalized = [];
+        foreach ((array) $locked as $key => $value) {
+            if ($value === true && is_string($key) && $key !== '') {
+                $normalized[$key] = true;
+                continue;
+            }
+            if (is_string($value) && trim($value) !== '') {
+                $normalized[trim($value)] = true;
+            }
+        }
+
+        return $normalized;
     }
 
     /** @return list<string> */

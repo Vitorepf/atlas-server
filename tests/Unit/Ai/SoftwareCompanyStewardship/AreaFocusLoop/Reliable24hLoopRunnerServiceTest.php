@@ -236,6 +236,69 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(3, $report['cycles_total']);
     }
 
+    public function test_crash_resume_forwards_all_seen_finding_keys_to_ap786(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, json_encode([
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'run_id' => 'prior_run',
+            'cycle_index' => 1,
+            'finding_key' => 'find_old',
+            'finding_keys' => ['sha256:find_old', 'Old finding title'],
+            'outcome' => 'blocked',
+            'cumulative' => ['cycles_this_run' => 1, 'merges_total' => 0, 'blocked_in_row' => 1],
+        ]).PHP_EOL);
+
+        $captured = [];
+        $service->setSessionRunnerForTesting(function (array $input) use (&$captured): array {
+            $captured = (array) ($input['session_review_locked'] ?? []);
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$this->progressCycle(2)],
+            ];
+        });
+
+        $service->run($this->input(['max_cycles' => 1]));
+
+        $this->assertTrue($captured['find_old'] ?? false);
+        $this->assertTrue($captured['sha256:find_old'] ?? false);
+        $this->assertTrue($captured['Old finding title'] ?? false);
+    }
+
+    public function test_forwards_forge_authority_inputs_to_wrapped_ap786_session(): void
+    {
+        $service = $this->service();
+        $captured = [];
+        $service->setSessionRunnerForTesting(function (array $input) use (&$captured): array {
+            $captured = $input;
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$this->progressCycle(1)],
+            ];
+        });
+
+        $service->run($this->input([
+            'max_cycles' => 1,
+            'forge_obra' => '11111111-2222-3333-4444-555555555555',
+            'forge_live_topology' => ['status' => 'live', 'driver' => 'cursor_cli'],
+            'forge_live_decision' => ['decision' => 'dispatch', 'operator_actor' => 'operator'],
+            'forge_dispatch_mode' => 'forge_runtime_dispatch',
+            'forge_role' => 'primary_builder',
+        ]));
+
+        $this->assertSame('11111111-2222-3333-4444-555555555555', $captured['forge_obra'] ?? null);
+        $this->assertSame('live', data_get($captured, 'forge_live_topology.status'));
+        $this->assertSame('dispatch', data_get($captured, 'forge_live_decision.decision'));
+        $this->assertSame('forge_runtime_dispatch', $captured['forge_dispatch_mode'] ?? null);
+        $this->assertSame('primary_builder', $captured['forge_role'] ?? null);
+    }
+
     public function test_max_merges_budget_stops_loop(): void
     {
         $service = $this->service();

@@ -658,6 +658,36 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertContains('review_locked_existing_branch', $reasons);
     }
 
+    public function test_session_review_locked_input_from_reliable_runner_skips_candidate(): void
+    {
+        $locked = $this->finding('factory_max_ap785_priority_power', 'Improve AP-785 priority engine');
+        $next = $this->finding('factory_max_ap786_loop_hardening', 'Harden AP-786 loop');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($locked, $next): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$locked, $next]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($next): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap786_loop_hardening'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'session_review_locked' => [
+                'factory_max_ap785_priority_power' => true,
+                'sha256:factory_max_ap785_priority_power',
+                'Improve AP-785 priority engine',
+            ],
+        ]);
+
+        $this->assertSame('factory_max_ap786_loop_hardening', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
+        $this->assertContains('review_locked_existing_branch', $reasons);
+    }
+
     public function test_continue_on_blocked_stops_when_no_candidate_remains(): void
     {
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {

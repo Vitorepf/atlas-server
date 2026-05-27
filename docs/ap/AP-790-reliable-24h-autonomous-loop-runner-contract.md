@@ -44,16 +44,23 @@ For each iteration the runner:
 4. enforces budgets before spending a cycle: `max_cycles`, `max_runtime_minutes`,
    `max_merges`, `max_blocked_in_row`;
 5. invokes the real AP-786 session for exactly one cycle;
-6. classifies the cycle as merged / blocked / progress and updates counters;
-7. **stops on a repeated finding** (never grinds the same finding in a loop);
-8. on a blocked cycle, records an inbox/receipt and continues only when
+6. forwards AP-788/AP-789 Forge authority fields unchanged when supplied, including
+   real Obra id, live topology, live decision receipt, dispatch mode, role,
+   provider authorization and budget approval;
+7. passes every previously attempted finding key from the AP-790 ledger into
+   AP-786 as `session_review_locked`, so AP-786 selects the next eligible item
+   instead of re-opening the same blocked branch;
+8. classifies the cycle as merged / blocked / progress and updates counters;
+9. **stops on a repeated finding only if AP-786 still returns a locked finding**
+   (fail-closed protection, not the normal advancement path);
+10. on a blocked cycle, records an inbox/receipt and continues only when
    `--continue-on-blocked` is set; otherwise stops cleanly;
-9. on a merge, records the merge, lets AP-786 pull `main` when `--pull-main`, and
+11. on a merge, records the merge, lets AP-786 pull `main` when `--pull-main`, and
    continues;
-10. appends a cycle receipt to the run ledger (JSONL, append-only);
-11. rate-limits between cycles with `--sleep-seconds`;
-12. releases the lock on exit (only the lock it acquired);
-13. optionally runs safe worktree cleanup that only removes clean, merged sandboxes
+12. appends a cycle receipt to the run ledger (JSONL, append-only);
+13. rate-limits between cycles with `--sleep-seconds`;
+14. releases the lock on exit (only the lock it acquired);
+15. optionally runs safe worktree cleanup that only removes clean, merged sandboxes
     (delegated to the AP-756 materializer, which refuses dirty/uncontrolled paths).
 
 ## Real-Authority Rule (no test doubles at runtime)
@@ -82,6 +89,22 @@ php artisan atlas:software-company-stewardship:reliable-24h-loop \
   --execute --auto-merge --allow-code-auto-merge --continue-on-blocked --pull-main --record --json
 ```
 
+Forge-owned findings may be executed only through real Forge authority. AP-790
+accepts and forwards the AP-788/AP-789 flags:
+
+```bash
+--forge-obra=<real Obra UUID>
+--forge-live-topology-json='{"status":"live",...}'
+--forge-live-decision-json='{"decision":"dispatch","operator_actor":"operator",...}'
+--forge-dispatch-mode=forge_runtime_dispatch
+--forge-role=primary_builder
+--bootstrap-forge-authority --forge-operator-actor=operator
+```
+
+`--bootstrap-forge-authority` derives only real authority. If live topology,
+Atlas Decide receipt or AWIS handoff readiness is missing, the loop reports the
+blocker honestly and keeps the finding review-locked for later iterations.
+
 `--dry-run` forces `execute=false` (AP-786 plans a cycle, no provider/branch/commit/merge).
 Pause/kill are files under the loop storage dir: `<key>.pause`, `<key>.kill`.
 
@@ -105,8 +128,14 @@ Each cycle is appended to the ledger as
 - A pause file stops the loop cleanly.
 - A blocked cycle does not break the loop when `--continue-on-blocked`; without it
   the loop stops with `stopped_on_blocked`.
-- The same finding is never processed twice (`stopped_repeated_finding`).
+- Previously attempted findings from the AP-790 ledger are passed into AP-786 as
+  `session_review_locked` using all known aliases (`finding_id`, hash and title),
+  so the normal path advances to the next eligible item.
+- The same finding is never processed twice; `stopped_repeated_finding` is a
+  fail-closed signal if AP-786 ever returns a locked finding anyway.
 - After a crash, the runner resumes cumulative state from the ledger.
+- AP-788/AP-789 Forge authority flags are forwarded to AP-786; AP-790 never
+  fabricates an Obra, topology, decision, budget approval or provider authorization.
 - `max_cycles`, `max_runtime_minutes`, `max_merges`, `max_blocked_in_row` each stop
   the loop with an explicit `stop_reason`.
 - The runner never invokes a provider, merges or mutates the repo itself; all real

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeLiveAuthorityBootstrapService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use Illuminate\Console\Command;
+use JsonException;
 
 /**
  * AP-790 · reliable 24h autonomous loop runner CLI.
@@ -37,15 +39,69 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
         {--continue-on-blocked : Keep looping when a cycle is blocked or waiting review}
         {--pull-main : Let AP-786 pull/update main after a successful merge}
         {--cleanup-worktrees : Safe cleanup of clean, merged sandbox worktrees after a merge (AP-756)}
+        {--forge-obra= : AP-788 real governed Obra UUID for owner=forge; never fabricated}
+        {--forge-live-topology-json= : AP-788 live Forge provider topology JSON object (requires status=live)}
+        {--forge-live-decision-json= : AP-788 live Forge decision JSON object (requires decision + operator_actor)}
+        {--forge-dispatch-mode= : AP-788 forge_runtime_dispatch (default) | forge_parallel_durable | forge_provider_invoke}
+        {--forge-role= : AP-788 Forge role: primary_builder|critical_reviewer|context_scout|repair_agent|local_tool_runner}
+        {--forge-provider-authorization : AP-788 explicit provider-execution authorization (only for forge_provider_invoke)}
+        {--forge-budget-approved : AP-788 explicit budget approval (only for forge_provider_invoke)}
+        {--bootstrap-forge-authority : AP-789 derive REAL forge live topology/decision/AWIS readiness for --forge-obra and inject when ready; blocks honestly otherwise}
+        {--forge-operator-actor= : AP-789 operator actor authorizing forge dispatch; defaults to --actor; never fabricated}
         {--record : Append AP-786 session receipts}
         {--dry-run : Plan only; forces AP-786 execute=false (no provider/branch/commit/merge)}
         {--json : Emit JSON}';
 
     protected $description = 'AP-790 · reliable 24h autonomous loop runner wrapping AP-786 (locks, budgets, pause/kill, crash recovery, append-only ledger).';
 
-    public function handle(Reliable24hLoopRunnerService $runner): int
+    public function handle(Reliable24hLoopRunnerService $runner, ForgeLiveAuthorityBootstrapService $forgeBootstrap): int
     {
-        $payload = $runner->run([
+        try {
+            $forgeAuthority = AtlasSoftwareCompanyAutonomousEvolutionSessionCommand::parseForgeAuthority([
+                'obra' => $this->option('forge-obra'),
+                'topology_json' => $this->option('forge-live-topology-json'),
+                'decision_json' => $this->option('forge-live-decision-json'),
+                'dispatch_mode' => $this->option('forge-dispatch-mode'),
+                'role' => $this->option('forge-role'),
+                'provider_authorization' => (bool) $this->option('forge-provider-authorization'),
+                'budget_approved' => (bool) $this->option('forge-budget-approved'),
+            ]);
+        } catch (JsonException $e) {
+            $payload = [
+                'schema_version' => 'atlas.software_company_stewardship.command_error.v1',
+                'status' => 'blocked',
+                'reason' => 'forge_authority_json_invalid',
+                'detail' => $e->getMessage(),
+            ];
+            $this->emit($payload);
+
+            return self::FAILURE;
+        }
+
+        $bootstrapSummary = null;
+        if ((bool) $this->option('bootstrap-forge-authority')) {
+            $report = $forgeBootstrap->bootstrap([
+                'forge_obra' => (string) ($this->option('forge-obra') ?: ''),
+                'forge_operator_actor' => (string) ($this->option('forge-operator-actor') ?: ''),
+                'forge_role' => (string) ($this->option('forge-role') ?: ''),
+                'actor' => (string) $this->option('actor'),
+                'workspace' => (string) ($this->option('repo-root') ?: ''),
+            ]);
+            $forgeAuthority = array_merge($forgeAuthority, (array) ($report['forge_inputs'] ?? []));
+            $bootstrapSummary = [
+                'status' => (string) ($report['status'] ?? 'blocked'),
+                'ready_for_forge_owner_runtime' => (bool) ($report['ready_for_forge_owner_runtime'] ?? false),
+                'forge_live_topology_injected' => array_key_exists('forge_live_topology', (array) ($report['forge_inputs'] ?? [])),
+                'forge_live_decision_injected' => array_key_exists('forge_live_decision', (array) ($report['forge_inputs'] ?? [])),
+                'blockers' => array_values((array) ($report['blockers'] ?? [])),
+                'next_actions' => array_values((array) ($report['next_actions'] ?? [])),
+                'evidence_refs' => array_values((array) ($report['evidence_refs'] ?? [])),
+                'authority_is_real_or_blocked' => true,
+                'provider_router_used' => false,
+            ];
+        }
+
+        $input = array_merge([
             'area_id' => (string) $this->option('area'),
             'focus' => (string) $this->option('focus'),
             'scope_profile' => (string) $this->option('scope-profile'),
@@ -68,7 +124,24 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
             'cleanup_worktrees' => (bool) $this->option('cleanup-worktrees'),
             'record' => (bool) $this->option('record'),
             'dry_run' => (bool) $this->option('dry-run'),
-        ]);
+        ], $forgeAuthority);
+
+        $payload = $runner->run($input);
+        $payload['forge_authority'] = [
+            'obra_supplied' => array_key_exists('forge_obra', $forgeAuthority),
+            'live_topology_supplied' => array_key_exists('forge_live_topology', $forgeAuthority),
+            'live_topology_live' => (string) data_get($forgeAuthority, 'forge_live_topology.status', '') === 'live'
+                || (bool) data_get($forgeAuthority, 'forge_live_topology.live', false),
+            'live_decision_supplied' => array_key_exists('forge_live_decision', $forgeAuthority),
+            'dispatch_mode' => (string) ($forgeAuthority['forge_dispatch_mode'] ?? 'forge_runtime_dispatch'),
+            'role' => (string) ($forgeAuthority['forge_role'] ?? 'primary_builder'),
+            'provider_authorization' => (bool) ($forgeAuthority['forge_provider_authorization'] ?? false),
+            'budget_approved' => (bool) ($forgeAuthority['forge_budget_approved'] ?? false),
+            'never_uses_direct_provider_router' => true,
+        ];
+        if ($bootstrapSummary !== null) {
+            $payload['forge_authority_bootstrap'] = $bootstrapSummary;
+        }
 
         $this->emit($payload);
 
