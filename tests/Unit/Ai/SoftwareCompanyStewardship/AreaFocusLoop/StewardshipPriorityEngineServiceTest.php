@@ -160,6 +160,19 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
         ])->assertExitCode(0);
     }
 
+    public function test_canonical_seed_skips_already_completed_aps(): void
+    {
+        $report = $this->service()->rank([
+            'area_id' => 'agentic_engineering_os',
+            'focus' => 'dev_forge',
+        ]);
+
+        $this->assertSame('owner_runtime_real_execution_bridge', $report['top_candidate']['item_id']);
+        $this->assertSame('now', $report['top_candidate']['lane']);
+        $this->assertSame('completed', $this->byId($report, 'AP-783')['lane']);
+        $this->assertSame('completed', $this->byId($report, 'live_cycle_audit_truth_surface')['completion_status']);
+    }
+
     /**
      * @return array<string,mixed>
      */

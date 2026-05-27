@@ -66,7 +66,7 @@ final class StewardshipPriorityEngineService
         }
 
         usort($ranked, static function (array $a, array $b): int {
-            $laneOrder = ['now' => 0, 'next' => 1, 'later' => 2, 'blocked' => 3];
+            $laneOrder = ['now' => 0, 'next' => 1, 'later' => 2, 'blocked' => 3, 'completed' => 4];
 
             return (($laneOrder[(string) ($a['lane'] ?? 'later')] ?? 2) <=> ($laneOrder[(string) ($b['lane'] ?? 'later')] ?? 2))
                 ?: ((float) ($b['final_priority_score'] ?? 0.0) <=> (float) ($a['final_priority_score'] ?? 0.0))
@@ -217,6 +217,12 @@ final class StewardshipPriorityEngineService
         $score = round(max(0, min(100, $score)), 2);
         $lane = $this->lane($score, $riskPenalty, $blocked, $machineReasons);
         $itemId = (string) ($candidate['id'] ?? $candidate['item_id'] ?? $candidate['finding_id'] ?? $candidate['spec_id'] ?? $candidate['work_order_id'] ?? $candidate['branch_ref'] ?? 'candidate_'.$index);
+        $completionStatus = (string) ($candidate['completion_status'] ?? 'pending');
+        if ($completionStatus === 'completed' || (bool) ($candidate['implemented'] ?? false)) {
+            $lane = 'completed';
+            $score = 0.0;
+            $machineReasons[] = 'completed_current_state';
+        }
         $reasonMachine = $this->reasonMachine($type, $lane, $machineReasons);
 
         return [
@@ -256,6 +262,8 @@ final class StewardshipPriorityEngineService
             'recommended_execution_order' => $this->recommendedOrder($lane, $type),
             'autonomy_hint' => $lane === 'blocked' ? 'blocked_until_gates_clear' : 'operator_review_required',
             'source' => $candidate,
+            'completion_status' => $completionStatus === 'completed' ? 'completed' : 'pending',
+            'completion_evidence' => (array) ($candidate['completion_evidence'] ?? []),
         ];
     }
 
@@ -394,6 +402,7 @@ final class StewardshipPriorityEngineService
         return match ($lane) {
             'now' => ['implement_now_after_owner_gate', 'keep_operator_review_for_irreversible_actions'],
             'next' => ['queue_after_now_lane', 'preserve_evidence_and_review_surface'],
+            'completed' => ['do_not_reimplement', 'advance_to_next_highest_incomplete_candidate'],
             'blocked' => ['do_not_execute', 'clear_machine_readable_blockers_first'],
             default => $type === 'provider_routing'
                 ? ['defer_until_owner_runtime_boundaries_are_real']
@@ -449,6 +458,9 @@ final class StewardshipPriorityEngineService
     {
         if ($lane === 'blocked') {
             return 'Blocked because required safety gates are missing: '.implode(', ', array_slice($reasonMachine, 2));
+        }
+        if ($lane === 'completed') {
+            return 'Already implemented in the current repo state; skip reimplementation and move to the next incomplete candidate.';
         }
 
         return match ($type) {
@@ -513,6 +525,18 @@ final class StewardshipPriorityEngineService
                 'evidence_refs' => ['ap782_integration_lane', 'ap780_review_packet'],
                 'dependency_unlocks' => ['owner_runtime_execution', 'truth_surface', '24h_loop'],
                 'operator_touchpoints_reduced' => 4,
+                'completion_status' => $this->canonicalCompletionStatus([
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipIntegrationLanePromotionService.php',
+                    'app/Console/Commands/AtlasSoftwareCompanyIntegrationLanePromoteCommand.php',
+                    'docs/ap/AP-783-stewardship-integration-lane-promotion-contract.md',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipIntegrationLanePromotionServiceTest.php',
+                ]),
+                'completion_evidence' => [
+                    'service' => 'StewardshipIntegrationLanePromotionService',
+                    'cli' => 'atlas:software-company-stewardship:integration-lane-promote',
+                    'contract' => 'docs/ap/AP-783-stewardship-integration-lane-promotion-contract.md',
+                    'test' => 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipIntegrationLanePromotionServiceTest.php',
+                ],
             ],
             [
                 'id' => 'live_cycle_audit_truth_surface',
@@ -522,6 +546,18 @@ final class StewardshipPriorityEngineService
                 'evidence_refs' => ['cycle_receipt', 'runner_receipt'],
                 'dependency_unlocks' => ['no_false_complete', 'operator_visibility', 'provider_boundary_review'],
                 'operator_touchpoints_reduced' => 3,
+                'completion_status' => $this->canonicalCompletionStatus([
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipLiveCycleAuditService.php',
+                    'app/Console/Commands/AtlasSoftwareCompanyLiveCycleAuditCommand.php',
+                    'docs/ap/AP-784-stewardship-live-cycle-audit-contract.md',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipLiveCycleAuditServiceTest.php',
+                ]),
+                'completion_evidence' => [
+                    'service' => 'StewardshipLiveCycleAuditService',
+                    'cli' => 'atlas:software-company-stewardship:live-cycle-audit',
+                    'contract' => 'docs/ap/AP-784-stewardship-live-cycle-audit-contract.md',
+                    'test' => 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipLiveCycleAuditServiceTest.php',
+                ],
             ],
             [
                 'id' => 'owner_runtime_real_execution_bridge',
@@ -556,6 +592,27 @@ final class StewardshipPriorityEngineService
                 'dependency_unlocks' => ['provider_optimization'],
             ],
         ];
+    }
+
+    /**
+     * @param  list<string>  $relativePaths
+     */
+    private function canonicalCompletionStatus(array $relativePaths): string
+    {
+        foreach ($relativePaths as $path) {
+            if (! is_file($this->repoPath($path))) {
+                return 'pending';
+            }
+        }
+
+        return 'completed';
+    }
+
+    private function repoPath(string $relativePath): string
+    {
+        $root = function_exists('base_path') ? base_path() : getcwd();
+
+        return rtrim((string) $root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.ltrim($relativePath, DIRECTORY_SEPARATOR);
     }
 
     /**
