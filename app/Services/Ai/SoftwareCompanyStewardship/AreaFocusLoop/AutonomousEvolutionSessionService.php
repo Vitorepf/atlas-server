@@ -555,7 +555,14 @@ final class AutonomousEvolutionSessionService
         }
         $files = [];
         foreach (array_filter(explode("\n", trim((string) $status['out']))) as $line) {
-            $files[] = trim(substr($line, 3));
+            if (preg_match('/^(.{1,2})\s+(.+)$/', $line, $matches) === 1) {
+                $path = (string) $matches[2];
+                if (str_contains($path, ' -> ')) {
+                    $parts = explode(' -> ', $path);
+                    $path = (string) end($parts);
+                }
+                $files[] = trim($path);
+            }
         }
 
         return array_values(array_filter($files));
