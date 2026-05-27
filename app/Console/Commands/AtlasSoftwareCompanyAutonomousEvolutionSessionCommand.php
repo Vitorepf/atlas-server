@@ -15,6 +15,7 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
         {--cycles=1 : Maximum cycles for this invocation}
         {--provider=cursor_cli : Atlas provider driver}
         {--model= : Provider model; defaults to cursor_cli configured model}
+        {--scope-profile=balanced : Selection scope profile: balanced or factory_max}
         {--repo-root= : Git repository root}
         {--actor=operator : Operator/session actor}
         {--execute : Actually materialize sandbox, call provider, commit, emit inbox and evaluate merge}
@@ -38,6 +39,7 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
             'cycles' => (int) $this->option('cycles'),
             'provider' => (string) $this->option('provider'),
             'model' => (string) ($this->option('model') ?: ''),
+            'scope_profile' => (string) $this->option('scope-profile'),
             'repo_root' => (string) ($this->option('repo-root') ?: ''),
             'actor' => (string) $this->option('actor'),
             'execute' => (bool) $this->option('execute'),

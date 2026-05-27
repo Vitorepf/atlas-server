@@ -41,7 +41,44 @@ final class AutonomousEvolutionSessionService
 
     public const DEFAULT_FOCUS = 'dev_forge';
 
+    public const SCOPE_BALANCED = 'balanced';
+
+    public const SCOPE_FACTORY_MAX = 'factory_max';
+
     private const FORBIDDEN_PATHS = ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/'];
+
+    /** @var list<string> */
+    private const FACTORY_MAX_RUNTIME_PREFIXES = [
+        'app/Services/Ai/AgenticEngineeringOs/',
+        'app/Services/Ai/AtlasDecide/',
+        'app/Services/Ai/AgenticWorkcell/',
+        'app/Services/Ai/AtlasForge/',
+        'app/Services/Ai/LongHorizon/',
+        'app/Services/Ai/Programming/',
+        'app/Services/Ai/ProgrammingRuntime/',
+        'app/Services/Ai/Provider/',
+        'app/Services/Ai/VerifiedExecution/',
+        'app/Services/Ai/VerifiedContextExecution/',
+        'app/Services/Ai/Kernel/',
+    ];
+
+    /** @var list<string> */
+    private const FACTORY_MAX_STEWARDSHIP_FILES = [
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeRouterService.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipBranchMergeGovernorService.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyService.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
+    ];
+
+    /** @var list<string> */
+    private const FACTORY_MAX_REJECTED_ORIGIN_TYPES = [
+        'docs_stale',
+        'focus_owner_doc_missing',
+        'missing_evidence',
+    ];
 
     public function __construct(
         private readonly AreaFocusDeepFindingEngineService $deepScan,
@@ -77,6 +114,7 @@ final class AutonomousEvolutionSessionService
         $cyclesRequested = max(1, min(12, (int) ($input['cycles'] ?? 1)));
         $provider = trim((string) ($input['provider'] ?? 'cursor_cli')) ?: 'cursor_cli';
         $model = trim((string) ($input['model'] ?? (config('atlas.ai.providers.cursor_cli.model') ?: 'composer-2.5-fast'))) ?: 'composer-2.5-fast';
+        $scopeProfile = $this->scopeProfile((string) ($input['scope_profile'] ?? self::SCOPE_BALANCED));
         $repoRoot = $this->repoRoot((string) ($input['repo_root'] ?? ''));
         $actor = trim((string) ($input['actor'] ?? 'operator')) ?: 'operator';
         $continueOnBlocked = (bool) ($input['continue_on_blocked'] ?? false);
@@ -102,6 +140,7 @@ final class AutonomousEvolutionSessionService
                 'execute' => $execute,
                 'provider' => $provider,
                 'model' => $model,
+                'scope_profile' => $scopeProfile,
                 'repo_root' => $repoRoot,
                 'actor' => $actor,
                 'auto_merge' => (bool) ($input['auto_merge'] ?? false),
@@ -142,6 +181,7 @@ final class AutonomousEvolutionSessionService
             'source_ap_contracts' => ['AP-748', 'AP-756', 'AP-765', 'AP-769', 'AP-774', 'AP-785', 'AP-786'],
             'provider' => $provider,
             'model' => $model,
+            'scope_profile' => $scopeProfile,
             'execute_requested' => $execute,
             'record_requested' => $record,
             'cycles_requested' => $cyclesRequested,
@@ -161,6 +201,7 @@ final class AutonomousEvolutionSessionService
                 'merge_performed' => $this->anyCycleFlag($cycles, 'merge_performed'),
                 'merge_policy' => 'AP-769/AP-774 ff-only only',
                 'blocked_cycle_policy' => $continueOnBlocked ? 'record_inbox_keep_branch_isolated_and_continue' : 'stop_session_on_first_blocker',
+                'selection_scope' => $this->selectionScopeClaim($scopeProfile),
                 'deploy_performed' => false,
                 'external_push_performed' => false,
                 'secret_access' => false,
@@ -182,6 +223,7 @@ final class AutonomousEvolutionSessionService
         $focus = (string) $input['focus'];
         $execute = (bool) $input['execute'];
         $repoRoot = (string) $input['repo_root'];
+        $scopeProfile = (string) ($input['scope_profile'] ?? self::SCOPE_BALANCED);
         $cycleId = 'aesc_'.substr(MissionCanonicalHash::sha256([$sessionId, $cycleIndex, $this->now()]), 0, 18);
 
         $scan = $this->deepScan->scan([
@@ -189,12 +231,14 @@ final class AutonomousEvolutionSessionService
             'focus' => $focus,
             'max_findings' => (int) $input['max_findings'],
         ]);
-        $selection = $this->selectCandidate($areaId, $scan, $repoRoot, (array) ($input['session_review_locked'] ?? []));
+        $selection = $this->selectCandidate($areaId, $scan, $repoRoot, $scopeProfile, (array) ($input['session_review_locked'] ?? []));
         $finding = $selection['finding'];
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
                 'scan' => $scan,
                 'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
             ]);
         }
 
@@ -211,7 +255,9 @@ final class AutonomousEvolutionSessionService
                 'allowed_files' => $allowedFiles,
                 'owner' => $owner,
                 'auto_merge_class' => $class,
+                'scope_profile' => $scopeProfile,
                 'priority_report' => $selection['priority_report'],
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'continue_loop' => false,
                 'blockers' => [],
             ];
@@ -288,6 +334,8 @@ final class AutonomousEvolutionSessionService
             'final_status' => $merged ? 'cycle_completed' : 'cycle_completed_waiting_review_or_merge',
             'selected_finding' => $this->findingSummary($finding),
             'priority_report' => $selection['priority_report'],
+            'scope_profile' => $scopeProfile,
+            'selection_rejections' => $selection['selection_rejections'] ?? [],
             'owner' => $owner,
             'allowed_files' => $allowedFiles,
             'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
@@ -313,21 +361,46 @@ final class AutonomousEvolutionSessionService
 
     /**
      * @param  array<string,mixed>  $scan
-     * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>}
+     * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>,selection_rejections:list<array<string,string>>}
      */
-    private function selectCandidate(string $areaId, array $scan, string $repoRoot, array $sessionReviewLocked = []): array
+    private function selectCandidate(string $areaId, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = []): array
     {
         $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
         $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + array_filter(
             $sessionReviewLocked,
             static fn (mixed $value): bool => $value === true,
         );
-        $candidates = array_values(array_filter(
-            $findings,
-            fn (array $finding): bool => $this->allowedFiles($finding) !== []
-                && ! $this->findingIsReviewLocked($finding, $reviewLocked),
-        ));
-        $priority = $this->priorityEngine->rank(['area_id' => $areaId, 'candidates' => $candidates]);
+        $candidates = [];
+        $rejections = [];
+        foreach ($findings as $finding) {
+            $allowedFiles = $this->allowedFiles($finding);
+            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile);
+            if ($rejection !== '') {
+                $rejections[] = [
+                    'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                    'title' => (string) ($finding['title'] ?? ''),
+                    'reason' => $rejection,
+                ];
+                continue;
+            }
+            $candidates[] = $finding;
+        }
+        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX) {
+            foreach ($this->factoryMaxSeedCandidates() as $finding) {
+                $allowedFiles = $this->allowedFiles($finding);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile);
+                if ($rejection !== '') {
+                    $rejections[] = [
+                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                        'title' => (string) ($finding['title'] ?? ''),
+                        'reason' => $rejection,
+                    ];
+                    continue;
+                }
+                $candidates[] = $finding;
+            }
+        }
+        $priority = $this->priorityEngine->rank(['area_id' => $areaId, 'focus' => self::DEFAULT_FOCUS, 'candidates' => $candidates]);
         $topId = (string) data_get($priority, 'top_candidate.candidate_id', '');
         foreach ($candidates as $candidate) {
             if (in_array($topId, [
@@ -335,11 +408,145 @@ final class AutonomousEvolutionSessionService
                 (string) ($candidate['finding_hash'] ?? ''),
                 (string) ($candidate['id'] ?? ''),
             ], true)) {
-                return ['finding' => $candidate, 'priority_report' => $priority];
+                return ['finding' => $candidate, 'priority_report' => $priority, 'selection_rejections' => $rejections];
             }
         }
 
-        return ['finding' => $candidates[0] ?? null, 'priority_report' => $priority];
+        return ['finding' => $candidates[0] ?? null, 'priority_report' => $priority, 'selection_rejections' => $rejections];
+    }
+
+    /**
+     * High-impact fallback work for the operator's core thesis: improve the
+     * software factory itself before spending cycles on downstream domains or
+     * low-leverage documentation/evidence cleanup.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function factoryMaxSeedCandidates(): array
+    {
+        return [
+            $this->factorySeed(
+                'ap786_loop_hardening',
+                'Harden AP-786 autonomous evolution loop against wasted cycles',
+                'Make the autonomous loop better at choosing, executing, validating, merging and continuing without wasting provider calls.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                'AutonomousEvolutionSessionServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            $this->factorySeed(
+                'ap785_priority_power',
+                'Improve factory-max priority scoring for highest-return engineering work',
+                'Tune the priority engine so work that improves Atlas Dev, Forge, provider routing, sandboxing, validation and merge throughput dominates cosmetic or documentary work.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
+                'StewardshipPriorityEngineServiceTest.php',
+                'forge',
+                'bug',
+            ),
+            $this->factorySeed(
+                'ap748_deep_scan_power',
+                'Expand deep finding engine to discover runtime bottlenecks in Atlas Dev and Forge',
+                'Increase the scanner ability to find real runtime gaps, missing tests, provider-routing risks and execution bottlenecks instead of low-leverage doc findings.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
+                'AreaFocusDeepFindingEngineServiceTest.php',
+                'forge',
+                'bug',
+            ),
+            $this->factorySeed(
+                'ap756_sandbox_throughput',
+                'Harden branch sandbox materializer for faster safe autonomous cycles',
+                'Improve the isolated branch/worktree layer because every autonomous implementation cycle depends on reliable sandbox creation, cleanup and receipts.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php',
+                'AreaFocusBranchSandboxMaterializerServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            $this->factorySeed(
+                'ap769_merge_throughput',
+                'Improve merge governor throughput without lowering safety',
+                'Reduce false blocks and strengthen evidence in the merge governor so safe changes land faster while risky changes remain isolated.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipBranchMergeGovernorService.php',
+                'StewardshipBranchMergeGovernorServiceTest.php',
+                'forge',
+                'bug',
+            ),
+            $this->factorySeed(
+                'cursor_driver_reliability',
+                'Harden Cursor CLI driver for long autonomous factory runs',
+                'Provider invocation reliability directly controls factory throughput; improve prompt passing, scope checks, timeout evidence and account-driver safety.',
+                'app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php',
+                'AtlasForgeCursorCliDriverTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function factorySeed(string $id, string $title, string $detail, string $sourceFile, string $testBasename, string $owner, string $kind): array
+    {
+        $hash = 'sha256:'.MissionCanonicalHash::sha256(['AP-786', self::SCOPE_FACTORY_MAX, $id, $sourceFile, $testBasename]);
+
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.area_focus_deep_finding.v1',
+            'finding_id' => 'factory_max_'.$id,
+            'finding_hash' => $hash,
+            'area_id' => self::DEFAULT_AREA_ID,
+            'focus' => self::DEFAULT_FOCUS,
+            'title' => $title,
+            'detail' => $detail,
+            'kind' => $kind,
+            'severity' => 'high',
+            'confidence' => 'high',
+            'confidence_score' => 0.9,
+            'owner_candidate' => $owner,
+            'evidence_refs' => [
+                'factory_max_seed:'.$id,
+                'impl:'.$sourceFile,
+                'expected_test:'.$testBasename,
+            ],
+            'affected_files' => [$sourceFile],
+            'affected_docs' => [],
+            'why_it_matters' => $detail,
+            'proposed_spec_title' => 'Factory Max: '.$title,
+            'proposed_next_action' => 'Implement the smallest runtime/test improvement that measurably increases autonomous software-factory throughput or robustness.',
+            'in_focus' => true,
+            'priority_score' => 950,
+            'origin' => 'factory_max_seed',
+            'origin_type' => $id,
+            'auto_execution_allowed' => true,
+            'operator_review_required' => false,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,true>  $reviewLocked
+     */
+    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile): string
+    {
+        if ($allowedFiles === []) {
+            return 'no_allowed_files';
+        }
+        if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
+            return 'review_locked_existing_branch';
+        }
+        if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
+            return '';
+        }
+
+        $originType = strtolower((string) ($finding['origin_type'] ?? ''));
+        if (in_array($originType, self::FACTORY_MAX_REJECTED_ORIGIN_TYPES, true)) {
+            return 'factory_max_rejects_low_leverage_doc_or_evidence_work';
+        }
+        if ($this->allDocs($allowedFiles)) {
+            return 'factory_max_rejects_docs_only_work';
+        }
+        if (! $this->touchesFactoryRuntime($allowedFiles)) {
+            return 'factory_max_requires_direct_factory_runtime_or_test_impact';
+        }
+
+        return '';
     }
 
     /**
@@ -599,6 +806,94 @@ final class AutonomousEvolutionSessionService
         }
 
         return $commands;
+    }
+
+    private function scopeProfile(string $value): string
+    {
+        $profile = strtolower(trim($value));
+
+        return $profile === self::SCOPE_FACTORY_MAX ? self::SCOPE_FACTORY_MAX : self::SCOPE_BALANCED;
+    }
+
+    /** @return array<string,mixed> */
+    private function selectionScopeClaim(string $scopeProfile): array
+    {
+        if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
+            return [
+                'profile' => self::SCOPE_BALANCED,
+                'objective' => 'balanced autonomous area improvement',
+            ];
+        }
+
+        return [
+            'profile' => self::SCOPE_FACTORY_MAX,
+            'objective' => 'maximize Atlas software factory power per cycle',
+            'rejects' => [
+                'docs_only',
+                'missing_evidence_only',
+                'cosmetic_or_surface_only',
+                'work_without_direct_dev_forge_or_factory_runtime_impact',
+            ],
+            'requires' => [
+                'direct runtime/test impact on AAEOS, Atlas Dev, Forge, provider routing, sandbox, merge, evidence, replay, priority, or scheduler',
+                'isolated branch/worktree and merge governance',
+            ],
+        ];
+    }
+
+    /** @param list<string> $files */
+    private function allDocs(array $files): bool
+    {
+        return $files !== [] && count(array_filter(
+            $files,
+            static fn (string $file): bool => str_starts_with($file, 'docs/') || str_ends_with($file, '.md'),
+        )) === count($files);
+    }
+
+    /** @param list<string> $files */
+    private function touchesFactoryRuntime(array $files): bool
+    {
+        foreach ($files as $file) {
+            if ($this->factoryRuntimeFile($file)) {
+                return true;
+            }
+            if (str_starts_with($file, 'tests/')) {
+                $source = $this->sourcePathFromTestPath($file);
+                if ($source !== '' && $this->factoryRuntimeFile($source)) {
+                    return true;
+                }
+                if (str_contains($file, '/AgenticEngineeringOs/')
+                    || str_contains($file, '/AtlasForge/')
+                    || str_contains($file, '/Programming/')
+                    || str_contains($file, '/ProgrammingRuntime/')
+                    || str_contains($file, '/SoftwareCompanyStewardship/AreaFocusLoop/')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function factoryRuntimeFile(string $file): bool
+    {
+        foreach (self::FACTORY_MAX_RUNTIME_PREFIXES as $prefix) {
+            if (str_starts_with($file, $prefix)) {
+                return true;
+            }
+        }
+
+        return in_array($file, self::FACTORY_MAX_STEWARDSHIP_FILES, true);
+    }
+
+    private function sourcePathFromTestPath(string $file): string
+    {
+        if (! str_starts_with($file, 'tests/Unit/Ai/')) {
+            return '';
+        }
+        $tail = substr($file, strlen('tests/Unit/Ai/'));
+
+        return 'app/Services/Ai/'.$tail;
     }
 
     /**
