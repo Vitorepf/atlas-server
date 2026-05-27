@@ -61,6 +61,47 @@ one or more cycles:
 12. pull/update `main` before the next cycle when configured;
 13. record an append-only session receipt.
 
+## Owner-Flow Wiring (implemented)
+
+The default execute path (no `--allow-direct-provider-driver`) now runs the REAL
+Atlas owner-runtime chain through `Ap786OwnerFlowRunner` (implemented by
+`Ap786OwnerFlowExecutor` in
+`app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/`). It
+composes the canonical owners and never calls
+`AtlasForgeProviderInvocationDriverRouter::driverInvoke()`:
+
+```text
+AP-786 cycle
+-> AP-756 materialize isolated branch/worktree (AutonomousEvolutionSessionService)
+-> Ap786OwnerFlowRunner.execute():
+   AP-747 AreaFocusDevForgeReleaseService.release
+   -> AP-748 StewardshipOutcomeEvidenceBridgeService.project
+   -> AP-749 AreaFocusOwnerQueueConsumptionGateService.project (binds AP-757 sandbox)
+   -> AP-758 StewardshipOwnerRuntimeExecutionAdapterService.project
+   -> AP-759 StewardshipOwnerSandboxRuntimeRunnerService.project
+        runs the allowlisted owner CLI inside the AP-756 worktree
+        (atlas_dev -> `atlas:dev:senior-loop:run --workspace=<worktree> --intent=<intent>`)
+   -> AP-750 StewardshipOwnerRuntimeResultBridgeService.project (owner_result -> Evidence/Inbox/Portfolio)
+-> AP-765 Product Mode / Inbox evidence emission (before any merge attempt)
+-> AP-769/AP-774 merge governance (only after AP-750, and only when merge_allowed)
+```
+
+The same AP-726 handoff (one `handoff_hash`) threads through AP-756, AP-747 and
+the AP-757 binding inside AP-749. `flow_integrity_gate.uses_full_owner_runtime_chain`
+is `true` on this path.
+
+Honest boundaries of the first version:
+
+- **atlas_dev** completes a real owner-command cycle via AP-758/AP-759
+  (`atlas:dev:senior-loop:run`), never via the provider driver router.
+- **forge** blocks honestly with `forge_obra_dispatch_required` until a real
+  Forge Obra dispatch (AP-759 forge runtime command) is wired; it is never faked.
+- If any required owner step is missing or fails (e.g. AP-759 command failure),
+  the cycle blocks BEFORE merge with the owning step's blocker.
+- The direct provider driver remains a legacy diagnostic path, only reachable
+  with `--allow-direct-provider-driver`, and must never be claimed as Atlas
+  Forge/Dev execution.
+
 ## Robust Flow Contract
 
 AP-786 is not allowed to optimize for "many small commits" or "provider did

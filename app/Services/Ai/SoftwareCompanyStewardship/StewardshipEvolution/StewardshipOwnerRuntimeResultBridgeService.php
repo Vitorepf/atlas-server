@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\File;
  * Evidence, Morning Inbox and Portfolio signals. It never invokes Dev/Forge,
  * creates branches, merges, deploys, pushes externally or touches secrets.
  */
-final class StewardshipOwnerRuntimeResultBridgeService
+final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeResultProjector
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.owner_runtime_result_bridge.v1';
 

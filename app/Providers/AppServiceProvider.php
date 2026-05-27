@@ -46,6 +46,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(StewardshipPriorityRanker::class, StewardshipPriorityEngineService::class);
         $this->app->bind(StewardshipRuntimeResultProjector::class, StewardshipRuntimeResultBridgeService::class);
 
+        // AP-786 full owner-runtime flow seams: bind each owner-flow port to its
+        // canonical service so AP-786 composes the real AP-747 -> AP-750 chain
+        // and never falls back to a direct provider driver.
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueReleaseGate::class, \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService::class);
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\StewardshipOutcomeProjector::class, \App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService::class);
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueConsumptionGate::class, \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService::class);
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeExecutionAdapter::class, \App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeExecutionAdapterService::class);
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerSandboxRuntimeRunner::class, \App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService::class);
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeResultProjector::class, \App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService::class);
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner::class, \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor::class);
+
         // Vox V3 confirmation cache: pin the default cache repository so the
         // service stays on the same store across the (intent → execute)
         // round-trip. Laravel does not auto-resolve CacheRepository

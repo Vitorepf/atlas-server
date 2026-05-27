@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\File;
  * creates branches, invokes providers, mutates repos, merges, deploys, pushes or
  * touches secrets.
  */
-final class AreaFocusDevForgeReleaseService
+final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueReleaseGate
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.area_focus_dev_forge_release.v1';
 

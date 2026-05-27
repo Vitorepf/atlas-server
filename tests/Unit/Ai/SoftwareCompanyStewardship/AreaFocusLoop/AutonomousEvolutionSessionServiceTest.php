@@ -9,6 +9,8 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSand
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityRanker;
@@ -75,6 +77,50 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         return [
             'findings' => $findings,
             'status' => 'ready',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function materializedSandbox(): array
+    {
+        return [
+            'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED,
+            'sandbox_id' => 'afsb_test',
+            'materialization' => [
+                'worktree_path' => $this->tmp.'/worktree',
+                'branch_name' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/test',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function ownerFlowReport(bool $mergeAllowed): array
+    {
+        return [
+            'status' => Ap786OwnerFlowExecutor::STATUS_COMPLETED,
+            'uses_full_owner_runtime_chain' => true,
+            'provider_router_used' => false,
+            'merge_allowed' => $mergeAllowed,
+            'consumption_id' => 'afcons_test',
+            'release_id' => 'afrel_test',
+            'queue_item_id' => 'afq_test',
+            'owner_execution_id' => 'afexec_test',
+            'owner_sandbox_run_id' => 'afrun_test',
+            'owner_result' => ['result_id' => 'afrunres_test', 'result_status' => 'completed'],
+            'result_bridge' => ['status' => 'ready_for_operator_result_review', 'result_bridge_id' => 'afobr_test'],
+            'result_bridge_id' => 'afobr_test',
+            'execution_result' => [
+                'result_status' => 'completed',
+                'summary' => 'Atlas Dev senior loop completed in the AP-756 worktree.',
+                'changed_files' => ['app/Services/Ai/Example.php'],
+                'tests' => ['php artisan test --filter=Example'],
+            ],
+            'steps' => [],
+            'blockers' => [],
         ];
     }
 
@@ -336,9 +382,9 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertTrue($cycle['commit_skipped']);
     }
 
-    public function test_execute_requires_full_owner_flow_before_direct_provider_driver(): void
+    public function test_execute_runs_full_owner_flow_by_default_and_never_calls_provider_router(): void
     {
-        $finding = $this->finding('afdf_full_flow', 'Full Forge flow required');
+        $finding = $this->finding('afdf_full_flow', 'Full owner flow by default');
 
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
@@ -348,9 +394,74 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
                 'top_candidate' => ['candidate_id' => 'afdf_full_flow'],
             ]);
         });
-        $this->mock(AreaFocusBranchSandboxMaterializer::class)->shouldNotReceive('materialize');
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('materialize')->once()->andReturn($this->materializedSandbox());
+        });
+        // The real owner-runtime chain is exercised, NOT the provider driver router.
         $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
-        $this->mock(StewardshipRuntimeResultProjector::class)->shouldNotReceive('project');
+        $this->mock(Ap786OwnerFlowRunner::class, function ($mock): void {
+            $mock->shouldReceive('execute')->once()->andReturn($this->ownerFlowReport(true));
+        });
+        $this->mock(StewardshipRuntimeResultProjector::class, function ($mock): void {
+            $mock->shouldReceive('project')->once()->andReturn([
+                'result_bridge_id' => 'srrb_full_flow',
+                'inbox_item_id' => null,
+            ]);
+        });
+        $this->mock(StewardshipBranchMergeGovernor::class, function ($mock): void {
+            $mock->shouldReceive('evaluate')->once()->andReturn([
+                'status' => 'blocked_pending_review',
+                'blockers' => ['operator_review_required'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('cycle_completed_waiting_review_or_merge', $cycle['final_status']);
+        $this->assertTrue($cycle['flow_integrity_gate']['ok']);
+        $this->assertTrue($cycle['flow_integrity_gate']['uses_full_owner_runtime_chain']);
+        $this->assertFalse($cycle['flow_integrity_gate']['direct_provider_driver_path']);
+        $this->assertSame('owner_flow_completed', $cycle['owner_flow']['status']);
+        $this->assertTrue($cycle['owner_flow']['uses_full_owner_runtime_chain']);
+        $this->assertFalse($cycle['owner_flow']['provider_router_used']);
+        $this->assertFalse($cycle['provider_called']);
+        $this->assertTrue($cycle['inbox_emitted_before_merge_attempt']);
+        $this->assertFalse($payload['claim_policy']['direct_provider_driver_allowed']);
+        $this->assertFalse($payload['claim_policy']['provider_called']);
+    }
+
+    public function test_owner_flow_block_stops_before_merge(): void
+    {
+        $finding = $this->finding('afdf_owner_block', 'Owner flow blocks before merge');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_owner_block'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('materialize')->once()->andReturn($this->materializedSandbox());
+        });
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
+        $this->mock(Ap786OwnerFlowRunner::class, function ($mock): void {
+            $mock->shouldReceive('execute')->once()->andReturn([
+                'status' => Ap786OwnerFlowExecutor::STATUS_BLOCKED,
+                'reason' => 'ap759_owner_command_failed',
+                'blockers' => ['ap759_owner_command_failed'],
+                'uses_full_owner_runtime_chain' => true,
+                'provider_router_used' => false,
+                'merge_allowed' => false,
+            ]);
+        });
+        // A blocked owner flow must never reach AP-769/AP-774 merge governance.
         $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
 
         $payload = $this->service()->run([
@@ -361,29 +472,9 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $cycle = $payload['cycles'][0];
         $this->assertSame('blocked', $cycle['final_status']);
-        $this->assertContains('full_atlas_forge_flow_required', $cycle['blockers']);
-        $this->assertFalse($cycle['flow_integrity_gate']['ok']);
-        $this->assertTrue($cycle['flow_integrity_gate']['direct_provider_driver_path']);
-        $this->assertSame([
-            'AP-747',
-            'AP-756',
-            'AP-757',
-            'AP-749',
-            'AP-758',
-            'AP-759',
-            'AP-750',
-        ], $cycle['flow_integrity_gate']['required_chain']);
-        $this->assertContains('native_obra_or_work_packet', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
-        $this->assertContains('self_directed_spec_or_sdd_packet', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
-        $this->assertContains('tdd_test_contract', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
-        $this->assertContains('bdd_acceptance_contract', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
-        $this->assertContains('atlas_decide_provider_topology', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
-        $this->assertContains('aawr_or_multi_agent_workcell', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
-        $this->assertContains('repair_loop_with_failed_gate_capsule', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
-        $this->assertContains('evidence_ledger_and_decision_receipts', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
-        $this->assertFalse($payload['claim_policy']['direct_provider_driver_allowed']);
-        $this->assertTrue($payload['claim_policy']['requires_full_atlas_forge_owner_flow']);
-        $this->assertTrue($payload['claim_policy']['requires_robust_obra_forge_quality_flow']);
+        $this->assertContains('ap759_owner_command_failed', $cycle['blockers']);
+        $this->assertTrue($cycle['merge_skipped']);
+        $this->assertFalse($cycle['provider_called']);
     }
 
     public function test_review_locks_validation_failed_attempt_from_session_record(): void

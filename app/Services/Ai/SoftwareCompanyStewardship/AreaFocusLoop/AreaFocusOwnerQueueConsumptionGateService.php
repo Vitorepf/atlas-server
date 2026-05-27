@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\File;
  * input packet for Atlas Dev or Forge, but never invokes providers, creates
  * branches, mutates repos, merges, deploys or touches secrets.
  */
-final class AreaFocusOwnerQueueConsumptionGateService
+final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueConsumptionGate
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.owner_queue_consumption_gate.v1';
 

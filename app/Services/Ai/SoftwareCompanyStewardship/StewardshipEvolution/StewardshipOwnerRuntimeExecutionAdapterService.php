@@ -23,7 +23,7 @@ use Throwable;
  * invokes providers directly, never merges/deploys/pushes and never accesses
  * secrets. Provider/full mutation authority remains inside the existing owners.
  */
-final class StewardshipOwnerRuntimeExecutionAdapterService
+final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeExecutionAdapter
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.owner_runtime_execution_adapter.v1';
 

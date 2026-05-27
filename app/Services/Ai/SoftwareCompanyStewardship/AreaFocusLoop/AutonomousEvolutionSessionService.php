@@ -6,6 +6,8 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
 use App\Support\AtlasSecurity;
 use DateTimeImmutable;
@@ -131,6 +133,7 @@ final class AutonomousEvolutionSessionService
         private readonly AtlasForgeProviderInvocationDriverRouter $providerRouter,
         private readonly StewardshipRuntimeResultProjector $resultBridge,
         private readonly StewardshipBranchMergeGovernor $mergeGovernor,
+        private readonly Ap786OwnerFlowRunner $ownerFlow,
     ) {}
 
     public function setStorageDirForTesting(?string $path): void
@@ -350,32 +353,33 @@ final class AutonomousEvolutionSessionService
             ]);
         }
 
-        $flowIntegrityGate = $this->flowIntegrityGate($owner, (bool) ($input['allow_direct_provider_driver'] ?? false));
-        if (($flowIntegrityGate['ok'] ?? false) !== true) {
-            return $this->blockedCycle($cycleId, $cycleIndex, ['full_atlas_forge_flow_required'], [
-                'selected_finding' => $this->findingSummary($finding),
-                'priority_report' => $selection['priority_report'],
-                'scope_profile' => $scopeProfile,
-                'selection_rejections' => $selection['selection_rejections'] ?? [],
-                'flow_integrity_gate' => $flowIntegrityGate,
-                'provider_skipped' => true,
-                'sandbox_skipped' => true,
-            ]);
-        }
+        $allowDirect = (bool) ($input['allow_direct_provider_driver'] ?? false);
+        $flowIntegrityGate = $this->flowIntegrityGate($owner, $allowDirect);
 
-        $sandbox = $this->materializeSandbox($areaId, $repoRoot, $finding, $allowedFiles, $owner, $cycleId);
+        $preflight = $this->buildPreflight($areaId, $finding, $allowedFiles, $owner, $cycleId);
+        $sandbox = $this->materializeSandbox($preflight, $areaId, $repoRoot);
         if (($sandbox['status'] ?? '') !== AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['sandbox_materialization_failed'], [
                 'selected_finding' => $this->findingSummary($finding),
                 'priority_report' => $selection['priority_report'],
                 'scope_profile' => $scopeProfile,
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'flow_integrity_gate' => $flowIntegrityGate,
                 'sandbox' => $sandbox,
             ]);
         }
 
         $worktree = (string) data_get($sandbox, 'materialization.worktree_path', '');
         $branch = (string) data_get($sandbox, 'materialization.branch_name', '');
+
+        // Default path: the REAL Atlas owner-runtime chain (AP-747 -> AP-756 ->
+        // AP-757 -> AP-749 -> AP-758 -> AP-759 -> AP-750). The direct provider
+        // driver is a legacy diagnostic path only and requires an explicit
+        // opt-in; it must never be claimed as Atlas Forge/Dev execution.
+        if (! $allowDirect) {
+            return $this->runOwnerFlowCycle($cycleId, $cycleIndex, $input, $finding, $selection, $scopeProfile, $owner, $allowedFiles, $class, $preflight, $sandbox, $worktree, $branch, $flowIntegrityGate);
+        }
+
         $decision = $this->decisionReceipt($cycleId, $finding, $allowedFiles, $owner);
         $providerResult = $this->invokeProvider($input, $decision, $finding, $allowedFiles, $worktree);
         $postProviderSkip = $this->postProviderSkipReason($providerResult, $worktree, $allowedFiles);
@@ -574,8 +578,13 @@ final class AutonomousEvolutionSessionService
      */
     private function flowIntegrityGate(string $owner, bool $allowDirectProviderDriver): array
     {
-        $usesFullOwnerRuntimeChain = false;
-        $directProviderDriverPath = true;
+        // The default AP-786 execute path now routes through the real owner
+        // runtime chain (AP-747 -> AP-756 -> AP-757 -> AP-749 -> AP-758 ->
+        // AP-759 -> AP-750) via the Ap786OwnerFlowRunner. The direct provider
+        // driver only runs when the caller explicitly opts into the legacy
+        // diagnostic path.
+        $usesFullOwnerRuntimeChain = ! $allowDirectProviderDriver;
+        $directProviderDriverPath = $allowDirectProviderDriver;
         $ok = $usesFullOwnerRuntimeChain || $allowDirectProviderDriver;
 
         return [
@@ -594,9 +603,9 @@ final class AutonomousEvolutionSessionService
                 'evaluates' => 'per-finding capability ok/missing/evidence_refs (ready|blocked) before provider execution',
             ],
             'forbidden_claim' => 'Do not claim full Atlas Forge or Atlas Dev execution when AP-786 is only invoking a provider driver with an Atlas-shaped prompt.',
-            'next_action' => $ok
+            'next_action' => $directProviderDriverPath
                 ? 'legacy_direct_provider_driver_path_explicitly_allowed'
-                : 'route AP-786 through the native Obra/Forge owner chain with SDD/TDD/BDD, gates, repair loop, Evidence and replay before provider execution.',
+                : 'execute through the native Atlas owner runtime chain (AP-747 -> AP-756 -> AP-757 -> AP-749 -> AP-758 -> AP-759 -> AP-750) via Ap786OwnerFlowRunner before any merge.',
         ];
     }
 
@@ -797,11 +806,16 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
+     * Build the AP-726 preflight/handoff ONCE so the same handoff_hash threads
+     * through AP-756 (sandbox materialization), AP-747 (release) and AP-757
+     * (sandbox binding inside AP-749). Both the sandbox materializer and the
+     * owner-flow executor must see the same handoff.
+     *
      * @param  array<string,mixed>  $finding
      * @param  list<string>  $allowedFiles
      * @return array<string,mixed>
      */
-    private function materializeSandbox(string $areaId, string $repoRoot, array $finding, array $allowedFiles, string $owner, string $cycleId): array
+    private function buildPreflight(string $areaId, array $finding, array $allowedFiles, string $owner, string $cycleId): array
     {
         $route = $owner === 'forge' ? AreaFocusDevForgeRouterService::ROUTE_FORGE : AreaFocusDevForgeRouterService::ROUTE_ATLAS_DEV;
         $hash = substr(MissionCanonicalHash::sha256([$cycleId, $finding['finding_hash'] ?? '', $allowedFiles]), 0, 12);
@@ -812,7 +826,7 @@ final class AutonomousEvolutionSessionService
         $decisionHash = 'sha256:'.MissionCanonicalHash::sha256([$decisionId, 'session_operator_authorized']);
         $handoffHash = 'sha256:'.MissionCanonicalHash::sha256([$cycleId, $branchName, $workOrderHash, $decisionHash]);
 
-        $preflight = [
+        return [
             'schema_version' => AreaFocusBranchSandboxPreflightService::REPORT_SCHEMA,
             'ap_contract' => 'AP-726',
             'status' => AreaFocusBranchSandboxPreflightService::STATUS_READY,
@@ -834,10 +848,21 @@ final class AutonomousEvolutionSessionService
                 'decision_hash' => $decisionHash,
                 'title' => (string) ($finding['title'] ?? 'Autonomous evolution work'),
                 'risk_level' => (string) ($finding['severity'] ?? 'medium'),
+                'allowed_files' => $allowedFiles,
+                'allowed_paths' => $allowedFiles,
                 'handoff_hash' => $handoffHash,
             ],
             'preflight_hash' => 'sha256:'.MissionCanonicalHash::sha256([$cycleId, $handoffHash]),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $preflight
+     * @return array<string,mixed>
+     */
+    private function materializeSandbox(array $preflight, string $areaId, string $repoRoot): array
+    {
+        $handoffHash = (string) data_get($preflight, 'handoff_packet.handoff_hash', '');
 
         return $this->materializer->materialize([
             'area_id' => $areaId,
@@ -853,6 +878,168 @@ final class AutonomousEvolutionSessionService
             'materialize_sandbox' => true,
             'record_sandbox' => true,
         ]);
+    }
+
+    /**
+     * Default execute path: run the REAL Atlas owner-runtime chain via the
+     * Ap786OwnerFlowRunner (AP-747 -> AP-748 -> AP-749 -> AP-758 -> AP-759 ->
+     * AP-750), emit Evidence/Inbox before any merge, then evaluate merge through
+     * AP-769/AP-774. It never calls the provider driver router.
+     *
+     * @param  array<string,mixed>  $input
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $selection
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,mixed>  $preflight
+     * @param  array<string,mixed>  $sandbox
+     * @param  array<string,mixed>  $flowIntegrityGate
+     * @return array<string,mixed>
+     */
+    private function runOwnerFlowCycle(string $cycleId, int $cycleIndex, array $input, array $finding, array $selection, string $scopeProfile, string $owner, array $allowedFiles, string $class, array $preflight, array $sandbox, string $worktree, string $branch, array $flowIntegrityGate): array
+    {
+        $areaId = (string) $input['area_id'];
+        $repoRoot = (string) $input['repo_root'];
+
+        $ownerFlow = $this->ownerFlow->execute([
+            'area_id' => $areaId,
+            'portfolio_id' => 'atlas_software_company',
+            'owner' => $owner,
+            'actor' => (string) $input['actor'],
+            'finding' => $finding,
+            'allowed_files' => $allowedFiles,
+            'preflight_report' => $preflight,
+            'sandbox_record' => $sandbox,
+            'worktree_path' => $worktree,
+            'execute' => true,
+            'validation_commands' => (array) $input['validation_commands'],
+        ]);
+        $ownerFlowSummary = $this->ownerFlowSummary($ownerFlow);
+
+        if ((string) ($ownerFlow['status'] ?? '') === Ap786OwnerFlowExecutor::STATUS_BLOCKED) {
+            return $this->blockedCycle($cycleId, $cycleIndex, array_values((array) ($ownerFlow['blockers'] ?? ['owner_flow_blocked'])), [
+                'selected_finding' => $this->findingSummary($finding),
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'flow_integrity_gate' => $flowIntegrityGate,
+                'owner' => $owner,
+                'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
+                'branch_ref' => $branch,
+                'worktree_path' => $worktree,
+                'owner_flow' => $ownerFlowSummary,
+                'provider_called' => false,
+                'branch_created' => true,
+                'worktree_created' => true,
+                'merge_skipped' => true,
+                'result_bridge_skipped' => true,
+            ]);
+        }
+
+        $executionResult = is_array($ownerFlow['execution_result'] ?? null) ? $ownerFlow['execution_result'] : [];
+
+        // AP-765 Product Mode / Inbox evidence BEFORE any merge attempt.
+        $resultBridge = $this->resultBridge->project([
+            'area_id' => $areaId,
+            'portfolio_id' => 'atlas_software_company',
+            'owner' => $owner,
+            'actor' => (string) $input['actor'],
+            'finding_id' => (string) ($finding['finding_id'] ?? ''),
+            'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
+            'execution_result' => $executionResult,
+            'emit_inbox' => true,
+            'record_evidence' => true,
+            'record_event' => true,
+            'record_cycle' => true,
+        ]);
+
+        $base = [
+            'cycle_id' => $cycleId,
+            'cycle_index' => $cycleIndex,
+            'selected_finding' => $this->findingSummary($finding),
+            'priority_report' => $selection['priority_report'],
+            'scope_profile' => $scopeProfile,
+            'selection_rejections' => $selection['selection_rejections'] ?? [],
+            'flow_integrity_gate' => $flowIntegrityGate,
+            'owner' => $owner,
+            'allowed_files' => $allowedFiles,
+            'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
+            'branch_ref' => $branch,
+            'worktree_path' => $worktree,
+            'provider_called' => false,
+            'owner_flow' => $ownerFlowSummary,
+            'result_bridge_id' => (string) ($resultBridge['result_bridge_id'] ?? ''),
+            'inbox_item_id' => $resultBridge['inbox_item_id'] ?? null,
+            'inbox_emitted_before_merge_attempt' => true,
+            'branch_created' => true,
+            'worktree_created' => true,
+        ];
+
+        // Owner runtime ran and AP-750 bridged, but the result is not a clean
+        // completion: Evidence/Inbox are emitted, merge is withheld for review.
+        if (($ownerFlow['merge_allowed'] ?? false) !== true) {
+            return $base + [
+                'final_status' => 'cycle_completed_waiting_review_or_merge',
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'continue_loop' => false,
+                'blockers' => array_values((array) ($ownerFlow['blockers'] ?? ['owner_runtime_result_not_completed'])),
+            ];
+        }
+
+        $merge = $this->mergeGovernor->evaluate([
+            'area_id' => $areaId,
+            'repo_root' => $repoRoot,
+            'base_ref' => 'main',
+            'branch_ref' => $branch,
+            'worktree_path' => $worktree,
+            'auto_merge' => (bool) $input['auto_merge'],
+            'execute_merge' => (bool) $input['auto_merge'],
+            'auto_merge_class' => $class,
+            'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
+            'max_auto_merge_files' => (int) $input['max_auto_merge_files'],
+            'run_validation' => true,
+            'test_commands' => (array) $input['validation_commands'],
+            'record_governance' => true,
+            'finding_id' => (string) ($finding['finding_id'] ?? ''),
+            'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
+            'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
+        ]);
+        $pull = ((bool) $input['pull_main'] && ($merge['status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_MERGED)
+            ? $this->pullMain($repoRoot)
+            : ['status' => 'not_requested_or_not_merged'];
+        $merged = ($merge['status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_MERGED;
+
+        return $base + [
+            'final_status' => $merged ? 'cycle_completed' : 'cycle_completed_waiting_review_or_merge',
+            'merge_governance' => $merge,
+            'pull_main' => $pull,
+            'merge_performed' => $merged,
+            'continue_loop' => $merged,
+            'blockers' => $merged ? [] : array_values((array) ($merge['blockers'] ?? ['merge_not_performed'])),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $ownerFlow
+     * @return array<string,mixed>
+     */
+    private function ownerFlowSummary(array $ownerFlow): array
+    {
+        return [
+            'status' => (string) ($ownerFlow['status'] ?? ''),
+            'uses_full_owner_runtime_chain' => (bool) ($ownerFlow['uses_full_owner_runtime_chain'] ?? false),
+            'provider_router_used' => (bool) ($ownerFlow['provider_router_used'] ?? false),
+            'merge_allowed' => (bool) ($ownerFlow['merge_allowed'] ?? false),
+            'consumption_id' => (string) ($ownerFlow['consumption_id'] ?? ''),
+            'release_id' => (string) ($ownerFlow['release_id'] ?? ''),
+            'queue_item_id' => (string) ($ownerFlow['queue_item_id'] ?? ''),
+            'owner_execution_id' => (string) ($ownerFlow['owner_execution_id'] ?? ''),
+            'owner_sandbox_run_id' => (string) ($ownerFlow['owner_sandbox_run_id'] ?? ''),
+            'owner_result_status' => (string) data_get($ownerFlow, 'owner_result.result_status', ''),
+            'ap750_result_bridge_status' => (string) data_get($ownerFlow, 'result_bridge.status', ''),
+            'steps' => array_values((array) ($ownerFlow['steps'] ?? [])),
+            'blockers' => array_values((array) ($ownerFlow['blockers'] ?? [])),
+        ];
     }
 
     /**

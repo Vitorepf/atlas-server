@@ -22,7 +22,7 @@ use Throwable;
  * runtime or provider path: it only calls existing owner CLIs under receipt,
  * allowlist, timeout, kill switch and AP-750 result bridge constraints.
  */
-final class StewardshipOwnerSandboxRuntimeRunnerService
+final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerSandboxRuntimeRunner
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.owner_sandbox_runtime_runner.v1';
 
