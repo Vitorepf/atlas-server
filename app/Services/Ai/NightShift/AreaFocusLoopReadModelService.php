@@ -9,6 +9,7 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedSpecProposalAdapter;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtlasAreaFocusLoopReadModelService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -44,6 +45,11 @@ use Throwable;
  *     slice owned by Night Shift Product Mode under operator review.
  *   - Emits `atlas.night_shift.area_focus_loop.v1` with a deterministic hash so
  *     the same input always yields the same report.
+ *
+ * Runtime reconciliation (AP-786 / duplicate_runtime_risk · areafocusloop):
+ * AP-712 is the Product Mode control plane only. Owner-doc readiness and the
+ * AP-716 core read-model are composed from {@see AtlasAreaFocusLoopReadModelService};
+ * this class adds findings, advisory routing and Morning Inbox on top.
  */
 class AreaFocusLoopReadModelService
 {
@@ -54,6 +60,10 @@ class AreaFocusLoopReadModelService
     public const MORNING_INBOX_SCHEMA = 'atlas.night_shift.morning_inbox.v1';
 
     public const AP_CONTRACT = 'AP-712';
+
+    public const SLICE_AP = 'AP-712';
+
+    public const CORE_READ_MODEL_SERVICE = AtlasAreaFocusLoopReadModelService::class;
 
     public const STACK_NOTE = 'Atlas Software Company Stewardship Stack é stack/capability family dentro do Atlas Autonomous Software Company Runtime, não OS novo.';
 
@@ -114,6 +124,7 @@ class AreaFocusLoopReadModelService
     public function __construct(
         private readonly SelfDirectedEvolutionGapReadModelService $gapReadModel,
         private readonly AtlasNightShiftAreaFocusContractRegistry $registry,
+        private readonly AtlasAreaFocusLoopReadModelService $coreReadModel,
     ) {}
 
     /**
@@ -296,19 +307,25 @@ class AreaFocusLoopReadModelService
      */
     private function collectOwnerDocs(array $area, array $input): array
     {
-        /** @var array<string,bool>|null $override */
-        $override = is_array($input['owner_doc_status'] ?? null) ? $input['owner_doc_status'] : null;
+        $coreInput = ['area_id' => (string) ($area['area_id'] ?? self::PRIORITY_AREA)];
+        if (is_array($input['owner_doc_status'] ?? null)) {
+            $coreInput['owner_doc_exists'] = $input['owner_doc_status'];
+        }
+
+        $core = $this->coreReadModel->project($coreInput);
+        $resolved = is_array($core['owner_docs_resolved'] ?? null) ? $core['owner_docs_resolved'] : [];
 
         $docs = [];
         $findings = [];
         $missing = 0;
 
-        foreach ((array) ($area['area_owner_docs'] ?? []) as $doc) {
-            $doc = (string) $doc;
-            $exists = $override !== null
-                ? (bool) ($override[$doc] ?? false)
-                : $this->ownerDocExists($doc);
-            $docs[] = ['path' => $doc, 'exists' => $exists];
+        foreach ($resolved as $doc) {
+            if (! is_array($doc)) {
+                continue;
+            }
+            $path = (string) ($doc['path'] ?? '');
+            $exists = ($doc['exists'] ?? false) === true;
+            $docs[] = ['path' => $path, 'exists' => $exists];
 
             if (! $exists) {
                 $missing++;
@@ -316,13 +333,13 @@ class AreaFocusLoopReadModelService
                     'area_id' => $area['area_id'],
                     'repo_id' => self::REPO_ID,
                     'source' => self::SOURCE_OWNER_DOCS,
-                    'source_ref' => 'owner_doc:'.$doc,
+                    'source_ref' => 'owner_doc:'.$path,
                     'gap_kind' => 'missing_owner_doc',
-                    'title' => 'Area owner doc missing · '.$doc,
+                    'title' => 'Area owner doc missing · '.$path,
                     'severity' => 'high',
                     'confidence' => 'high',
-                    'evidence_refs' => ['expected_path:'.$doc],
-                    'affected_paths' => [$doc],
+                    'evidence_refs' => ['expected_path:'.$path],
+                    'affected_paths' => [$path],
                     'recommended_action' => 'Restore or recreate the canonical owner doc before stewarding this area.',
                     'capability' => 'area_owner_docs',
                 ]);
@@ -778,6 +795,12 @@ class AreaFocusLoopReadModelService
                 'not_invoked_methods' => [],
                 'role' => 'canonical Area Contract source (AP-712)',
             ],
+            'core_read_model' => [
+                'owner_service' => self::CORE_READ_MODEL_SERVICE,
+                'reused_methods' => ['project'],
+                'not_invoked_methods' => [],
+                'role' => 'canonical AP-716 core read-model (owner docs, readiness; not duplicated here)',
+            ],
             'spec_proposal' => [
                 'owner_service' => SelfDirectedSpecProposalAdapter::class,
                 'reused_methods' => [],
@@ -816,6 +839,10 @@ class AreaFocusLoopReadModelService
             'creates_branch_sandbox' => false,
             'autoapproval_allowed' => false,
             'external_side_effect_allowed' => false,
+            'runtime_authority_reconciled' => true,
+            'composes_ap716_core_read_model' => true,
+            'core_read_model_owner' => self::CORE_READ_MODEL_SERVICE,
+            'slice_ap' => self::SLICE_AP,
             'parallel_runtime_created' => false,
             'parallel_authority_created' => false,
             'is_new_os' => false,
