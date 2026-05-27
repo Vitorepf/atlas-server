@@ -18,7 +18,7 @@ final class StewardshipBranchSystemCertificationServiceTest extends TestCase
 
         $this->assertSame(StewardshipBranchSystemCertificationService::STATUS_CERTIFIED, $report['status']);
         $this->assertSame('AP-776', $report['ap_contract']);
-        $this->assertCount(8, $report['components']);
+        $this->assertCount(9, $report['components']);
         $this->assertSame([], $report['blockers']);
         $this->assertTrue($report['claim_policy']['read_only']);
         $this->assertFalse($report['claim_policy']['merge_performed']);
@@ -27,6 +27,7 @@ final class StewardshipBranchSystemCertificationServiceTest extends TestCase
         $this->assertSame('ready', $report['policy_matrix']['safe_auto_merge']['status']);
         $this->assertSame('ready', $report['policy_matrix']['parallel_collision_prevention']['status']);
         $this->assertSame('ready', $report['policy_matrix']['real_git_stress']['status']);
+        $this->assertSame('ready', $report['policy_matrix']['operator_review_packet']['status']);
         $this->assertSame('not_run', $report['optional_readiness_extensions']['branch_stress']['status']);
     }
 
@@ -76,5 +77,6 @@ final class StewardshipBranchSystemCertificationServiceTest extends TestCase
         $this->assertContains('priority_by_advancement_and_robustness', $requirements);
         $this->assertContains('operator_auditability', $requirements);
         $this->assertContains('real_git_stress_certification', $requirements);
+        $this->assertContains('single_operator_review_packet', $requirements);
     }
 }

@@ -114,6 +114,12 @@ final class StewardshipBranchSystemCertificationService
             ], [
                 'branch-stress-certify',
             ], $repoRoot),
+            $this->component('AP-780', 'branch_review_packet', StewardshipBranchReviewPacketService::class, [
+                'build',
+            ], [
+                'docs/ap/AP-780-stewardship-branch-review-packet-contract.md',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipBranchReviewPacketServiceTest.php',
+            ], [], $repoRoot),
         ];
 
         $commandActions = $this->commandActionCoverage($repoRoot, [
@@ -144,7 +150,7 @@ final class StewardshipBranchSystemCertificationService
             'status' => $status,
             'area_id' => $areaId,
             'stack' => 'Atlas Software Company Stewardship Stack',
-            'source_ap_contracts' => ['AP-769', 'AP-770', 'AP-771', 'AP-772', 'AP-773', 'AP-774', 'AP-775', 'AP-776', 'AP-779'],
+            'source_ap_contracts' => ['AP-769', 'AP-770', 'AP-771', 'AP-772', 'AP-773', 'AP-774', 'AP-775', 'AP-776', 'AP-779', 'AP-780'],
             'repo' => [
                 'repo_root' => $repoRoot,
                 'repo_root_hash' => hash('sha256', $repoRoot),
@@ -240,8 +246,8 @@ final class StewardshipBranchSystemCertificationService
         return [
             'visual_review' => [
                 'status' => 'ready',
-                'covered_by' => ['AP-769', 'AP-772', 'AP-773'],
-                'guarantee' => 'Every governed branch exposes GitKraken review metadata before merge.',
+                'covered_by' => ['AP-769', 'AP-772', 'AP-773', 'AP-780'],
+                'guarantee' => 'Every governed branch exposes GitKraken review metadata and a single operator review packet before merge.',
             ],
             'conflict_prevention' => [
                 'status' => 'ready',
@@ -273,6 +279,11 @@ final class StewardshipBranchSystemCertificationService
                 'covered_by' => ['AP-779'],
                 'guarantee' => 'Disposable git repositories prove safe auto-merge, review boundaries, stale/conflict blocking, merge leases and priority ordering.',
             ],
+            'operator_review_packet' => [
+                'status' => 'ready',
+                'covered_by' => ['AP-780'],
+                'guarantee' => 'AP-769/AP-772 branch governance is packaged into one GitKraken/Product Mode decision object with safe accept/defer/reject/request-changes actions.',
+            ],
         ];
     }
 
@@ -290,6 +301,7 @@ final class StewardshipBranchSystemCertificationService
             'priority_by_advancement_and_robustness' => 'Highest advancement and robustness should run before cosmetic or risky work.',
             'operator_auditability' => 'Every component must have doc, test and CLI/read-model proof.',
             'real_git_stress_certification' => 'Disposable git scenarios must prove the branch stack before 24/7 loops rely on it.',
+            'single_operator_review_packet' => 'Each governed branch must be reducible to one GitKraken/Product Mode review packet with traceability and safe decision options.',
         ];
     }
 

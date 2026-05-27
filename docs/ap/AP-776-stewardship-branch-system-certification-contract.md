@@ -3,7 +3,7 @@
 - **Owner:** Atlas Software Company Stewardship Stack / Area Focus Loop
 - **Runtime:** `StewardshipBranchSystemCertificationService`
 - **CLI:** `php artisan atlas:software-company-stewardship branch-system-certify --json`
-- **Composes:** AP-769 branch merge governor · AP-770 branch lifecycle registry · AP-771 priority engine · AP-772 merge queue · AP-773 branch safety audit · AP-774 merge autonomy policy · AP-775 repo merge lease.
+- **Composes:** AP-769 branch merge governor · AP-770 branch lifecycle registry · AP-771 priority engine · AP-772 merge queue · AP-773 branch safety audit · AP-774 merge autonomy policy · AP-775 repo merge lease · AP-779 stress certification · AP-780 branch review packet.
 
 ## Intent
 
@@ -21,8 +21,10 @@ AP-776 verifies:
 3. Required AP docs exist.
 4. Required focused tests exist.
 5. Required CLI actions exist.
-6. The policy matrix covers visual review, conflict prevention, parallel
-   collision prevention, priority ordering, safe auto-merge and forbidden
+6. AP-780 can turn AP-769/AP-772 governance into a single GitKraken/Product Mode
+   operator review packet.
+7. The policy matrix covers visual review, conflict prevention, parallel
+   collision prevention, priority ordering, safe auto-merge, review packets and forbidden
    operations.
 
 ## Output
@@ -67,6 +69,7 @@ remains `not_run` and AP-776 stays a fast static install proof.
 
 - `branch-system-certify --json` returns `status=certified` in the current repo.
 - `branch-stress-certify --json` returns `status=certified` with fourteen disposable git scenarios.
+- AP-780 is present and `operator_review_packet` is ready in the policy matrix.
 - Removing any required doc/test/method/CLI action makes the certificate block.
 - Focused tests cover certified and blocked paths.
 - `docs-health` and `architecture-validate` remain green.
