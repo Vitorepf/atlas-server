@@ -588,6 +588,11 @@ final class AutonomousEvolutionSessionService
             'blocked_reason' => $ok ? null : 'full_atlas_forge_flow_required',
             'required_chain' => self::REQUIRED_FULL_OWNER_FLOW_APS,
             'required_robust_flow_capabilities' => self::REQUIRED_ROBUST_FLOW_CAPABILITIES,
+            'robust_flow_contract' => [
+                'schema' => Ap786RobustForgeQualityContractService::CONTRACT_SCHEMA,
+                'service' => Ap786RobustForgeQualityContractService::class,
+                'evaluates' => 'per-finding capability ok/missing/evidence_refs (ready|blocked) before provider execution',
+            ],
             'forbidden_claim' => 'Do not claim full Atlas Forge or Atlas Dev execution when AP-786 is only invoking a provider driver with an Atlas-shaped prompt.',
             'next_action' => $ok
                 ? 'legacy_direct_provider_driver_path_explicitly_allowed'
