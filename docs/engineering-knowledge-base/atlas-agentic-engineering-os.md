@@ -118,9 +118,9 @@ depends_on:
 flows_to:
   - atlas-autonomous-software-company-runtime
   - atlas-autonomous-engineering-operating-system
-  - atlas-dev
-  - atlas-forge
-  - atlas-code
+  - atlas-dev-efficient-programming-flow-v1
+  - atlas-forge-operating-system
+  - atlas-code-programming-obras-operating-system
   - atlas-cartographic-knowledge-os
   - atlas-compounding-engineering-intelligence
 unlocks:
