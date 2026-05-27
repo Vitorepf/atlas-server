@@ -98,6 +98,7 @@ related_paths:
   - docs/ap/AP-744-area-stewardship-active-operating-slice-contract.md
   - docs/ap/AP-745-continuous-stewardship-loop-scheduler-safe-contract.md
   - docs/ap/AP-746-continuous-stewardship-recurring-scheduler-contract.md
+  - docs/ap/AP-777-continuous-stewardship-24h-readiness-contract.md
   - docs/ap/AP-747-area-focus-dev-forge-release-contract.md
   - docs/ap/AP-748-stewardship-release-outcome-bridge-contract.md
   - docs/ap/AP-749-owner-specific-dev-forge-queue-consumption-gate-contract.md
@@ -584,6 +585,7 @@ Ordem obrigatoria:
 45. Stewardship Merge Autonomy Policy AP-774 para centralizar a decisao de auto-merge: docs/tests pequenos podem passar, bugfix/cleanup exigem flag explicita + validacao verde, `code_or_mixed` exige review humano, e rollback nunca usa reset/rebase/force-push.
 46. Stewardship Repo Merge Lease AP-775 para impedir filas concorrentes no mesmo `repo_root_hash + base_ref`: AP-772 em modo execute precisa adquirir lease, bloqueia outro runner ativo e libera ao terminar, sem tocar git history.
 47. Stewardship Branch System Certification AP-776 para provar em um unico certificado read-only que AP-769..AP-775 estao instalados, documentados, testados, expostos em CLI e cobrindo visual review, conflito, collision prevention, prioridade, auto-merge seguro e operacoes proibidas antes de permitir loop 24h com merge queue.
+48. Continuous Stewardship 24h Readiness AP-777 para bloquear o inicio de um dia inteiro de loop enquanto AP-776, AP-766 runner, kill switch, budget, lock, Product Mode, receipts, runtime result bridge e CLI actions nao estiverem prontos; imprime o comando de start, mas nao instala scheduler nem inicia execucao.
 
 ## Dependencias
 

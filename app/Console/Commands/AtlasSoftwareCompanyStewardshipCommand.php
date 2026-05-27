@@ -25,6 +25,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AutonomousExecutive\AutonomousExe
 use App\Services\Ai\SoftwareCompanyStewardship\AutonomousExecutive\ExecutiveDecisionInboxSurfaceService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\AtlasContinuousStewardshipLoopService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\AtlasContinuousStewardshipRecurringSchedulerService;
+use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipDayReadinessService;
 use App\Console\Commands\Concerns\RendersContinuousStewardshipRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
@@ -63,7 +64,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
     use RendersContinuousStewardshipRunner;
 
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
+        {action=area-focus : area-focus|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--focus=dev_forge : AP-748 deep-scan focus slice (e.g. dev_forge)}
         {--max-findings= : AP-748 cap on emitted deep-scan findings}
@@ -184,6 +185,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--area-kill-switch : AP-766 force the per-area continuous runner kill switch active}
         {--max-runs-per-day= : AP-766 daily run budget per area (admitted execute ticks); defaults to config}
         {--runner-lock-ttl-seconds= : AP-766 runner lock lease TTL in seconds; defaults to config}
+        {--duration-hours=24 : AP-777 target full-day readiness window}
         {--record-runner-run : AP-766 append idempotent continuous runner run receipts (always on in execute mode)}
         {--enable-native-obra-runner : AP-764 allow the Atlas-native Obra runner to invoke the AP-746 scheduler boundary}
         {--record-native-obra-run : AP-764 append idempotent native Obra runner records}
@@ -222,6 +224,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         AreaStewardshipActiveOperatingService $areaStewardshipActiveOperating,
         AtlasContinuousStewardshipLoopService $continuousStewardshipLoop,
         AtlasContinuousStewardshipRecurringSchedulerService $continuousStewardshipScheduler,
+        ContinuousStewardshipDayReadinessService $continuousDayReadiness,
         ContinuousStewardshipRunnerService $continuousStewardshipRunner,
         PortfolioStewardshipHealthModelService $portfolioHealth,
         PortfolioStewardshipInboxService $portfolioInbox,
@@ -294,6 +297,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'area-stewardship-readiness' => $this->runAreaStewardshipReadiness($areaStewardshipReadiness),
             'area-stewardship-active-handoff' => $this->runAreaStewardshipActiveHandoff($areaStewardshipActiveHandoff),
             'area-stewardship-active-operate' => $this->runAreaStewardshipActiveOperate($areaStewardshipActiveOperating),
+            'continuous-24h-readiness' => $this->runContinuous24hReadiness($continuousDayReadiness),
             'continuous-stewardship-loop' => $this->runContinuousStewardshipLoop($continuousStewardshipLoop),
             'continuous-stewardship-scheduler' => $this->runContinuousStewardshipScheduler($continuousStewardshipScheduler),
             'continuous-runner' => $this->runContinuousRunner($continuousStewardshipRunner),
@@ -495,6 +499,48 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             AtlasContinuousStewardshipRecurringSchedulerService::STATUS_BLOCKED,
             AtlasContinuousStewardshipRecurringSchedulerService::STATUS_LOCKED,
         ], true)
+            ? self::FAILURE
+            : self::SUCCESS;
+    }
+
+    private function runContinuous24hReadiness(ContinuousStewardshipDayReadinessService $service): int
+    {
+        $maxRunsPerDay = $this->option('max-runs-per-day');
+        $lockTtl = $this->option('runner-lock-ttl-seconds');
+
+        $payload = $service->assess([
+            'area_id' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'duration_hours' => (int) ($this->option('duration-hours') ?: 24),
+            'enabled' => (bool) $this->option('enable-continuous-runner'),
+            'global_kill_switch' => (bool) $this->option('kill-switch'),
+            'area_kill_switch' => (bool) $this->option('area-kill-switch'),
+            'pause_until' => (string) ($this->option('pause-until') ?? ''),
+            'min_interval_seconds' => (int) $this->option('min-interval-seconds'),
+            'max_runs_per_day' => ($maxRunsPerDay !== null && $maxRunsPerDay !== '') ? (int) $maxRunsPerDay : null,
+            'lock_ttl_seconds' => ($lockTtl !== null && $lockTtl !== '') ? (int) $lockTtl : null,
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-777 24h readiness', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Area', (string) ($p['area_id'] ?? ''));
+            $this->components->twoColumnDetail('Focus', (string) ($p['focus'] ?? ''));
+            $this->components->twoColumnDetail('Runner', (string) data_get($p, 'runner_status.status', 'unknown'));
+            $this->components->twoColumnDetail('Branch stack', (string) data_get($p, 'branch_system_certification.status', 'unknown'));
+            $this->components->twoColumnDetail('Budget', (string) data_get($p, 'runner_status.budget_status', '').' ('.(string) data_get($p, 'runner_status.budget.used_today', 0).'/'.(string) data_get($p, 'runner_status.budget.max_runs_per_day', 0).')');
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+            foreach ((array) ($p['next_actions'] ?? []) as $action) {
+                $this->line('  next: '.(string) $action);
+            }
+            if (($p['operator_start_command'] ?? '') !== '') {
+                $this->line('  start: '.(string) $p['operator_start_command']);
+            }
+        });
+
+        return ($payload['status'] ?? '') === ContinuousStewardshipDayReadinessService::STATUS_BLOCKED
             ? self::FAILURE
             : self::SUCCESS;
     }
