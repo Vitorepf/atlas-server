@@ -189,7 +189,9 @@ observability_signals:
   - receipt_persisted
   - error_ledger_written
 required_tests:
-  - "php artisan test tests/Feature/AtlasCliDevCommandTest.php tests/Unit/AtlasCliDevWorkflowServiceTest.php tests/Unit/Ai/Programming/AtlasDevRuntimeServiceTest.php"
+  - tests/Feature/AtlasCliDevCommandTest.php
+  - tests/Unit/AtlasCliDevWorkflowServiceTest.php
+  - tests/Unit/Ai/Programming/AtlasDevRuntimeServiceTest.php
 requires_evidence: true
 risk_level: high
 line_limit: 520
