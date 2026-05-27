@@ -106,10 +106,19 @@ final class StewardshipBranchSystemCertificationService
                 'repo-merge-lease-release',
                 'repo-merge-lease-records',
             ], $repoRoot),
+            $this->component('AP-779', 'branch_stress_certification', StewardshipBranchStressCertificationService::class, [
+                'certify',
+            ], [
+                'docs/ap/AP-779-stewardship-branch-stress-certification-contract.md',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipBranchStressCertificationServiceTest.php',
+            ], [
+                'branch-stress-certify',
+            ], $repoRoot),
         ];
 
         $commandActions = $this->commandActionCoverage($repoRoot, [
             'branch-system-certify',
+            'branch-stress-certify',
             'branch-merge-governor',
             'branch-merge-governance-records',
             'branch-lifecycle-reserve',
@@ -125,7 +134,8 @@ final class StewardshipBranchSystemCertificationService
         ]);
 
         $policyMatrix = $this->policyMatrix();
-        $blockers = $this->blockers($components, $commandActions, $policyMatrix);
+        $stressReadiness = $this->branchStressReadiness($input, $areaId, $repoRoot);
+        $blockers = $this->blockers($components, $commandActions, $policyMatrix, $stressReadiness);
         $status = $blockers === [] ? self::STATUS_CERTIFIED : self::STATUS_BLOCKED;
 
         $payload = [
@@ -134,7 +144,7 @@ final class StewardshipBranchSystemCertificationService
             'status' => $status,
             'area_id' => $areaId,
             'stack' => 'Atlas Software Company Stewardship Stack',
-            'source_ap_contracts' => ['AP-769', 'AP-770', 'AP-771', 'AP-772', 'AP-773', 'AP-774', 'AP-775', 'AP-776'],
+            'source_ap_contracts' => ['AP-769', 'AP-770', 'AP-771', 'AP-772', 'AP-773', 'AP-774', 'AP-775', 'AP-776', 'AP-779'],
             'repo' => [
                 'repo_root' => $repoRoot,
                 'repo_root_hash' => hash('sha256', $repoRoot),
@@ -143,6 +153,9 @@ final class StewardshipBranchSystemCertificationService
             'components' => $components,
             'command_actions' => $commandActions,
             'policy_matrix' => $policyMatrix,
+            'optional_readiness_extensions' => [
+                'branch_stress' => $stressReadiness,
+            ],
             'blockers' => $blockers,
             'next_actions' => $this->nextActions($status, $blockers),
             'claim_policy' => [
@@ -255,6 +268,11 @@ final class StewardshipBranchSystemCertificationService
                 'covered_by' => ['AP-769', 'AP-770', 'AP-772', 'AP-773', 'AP-774', 'AP-775'],
                 'guarantee' => 'No rebase, squash, force-push, deploy, secret access or history rewrite is part of the branch stack.',
             ],
+            'real_git_stress' => [
+                'status' => 'ready',
+                'covered_by' => ['AP-779'],
+                'guarantee' => 'Disposable git repositories prove safe auto-merge, review boundaries, stale/conflict blocking, merge leases and priority ordering.',
+            ],
         ];
     }
 
@@ -271,6 +289,42 @@ final class StewardshipBranchSystemCertificationService
             'repo_merge_serialisation' => 'Only one runner may execute merge queue for a repo/base at a time.',
             'priority_by_advancement_and_robustness' => 'Highest advancement and robustness should run before cosmetic or risky work.',
             'operator_auditability' => 'Every component must have doc, test and CLI/read-model proof.',
+            'real_git_stress_certification' => 'Disposable git scenarios must prove the branch stack before 24/7 loops rely on it.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function branchStressReadiness(array $input, string $areaId, string $repoRoot): array
+    {
+        $runStress = (bool) ($input['include_branch_stress'] ?? false);
+        if (! $runStress) {
+            return [
+                'status' => 'not_run',
+                'ap_contract' => 'AP-779',
+                'command' => 'php artisan atlas:software-company-stewardship branch-stress-certify --json',
+                'detail' => 'Optional AP-779 stress harness not executed during AP-776 static certification.',
+            ];
+        }
+
+        $stress = app(StewardshipBranchStressCertificationService::class)->certify([
+            'area_id' => $areaId,
+            'repo_root' => $repoRoot,
+            'skip_branch_system_certification' => true,
+        ]);
+
+        return [
+            'status' => ($stress['status'] ?? '') === StewardshipBranchStressCertificationService::STATUS_CERTIFIED
+                ? 'certified'
+                : 'blocked',
+            'ap_contract' => 'AP-779',
+            'stress_status' => (string) ($stress['status'] ?? 'unknown'),
+            'scenario_count' => (int) ($stress['scenario_count'] ?? 0),
+            'passed_scenario_count' => (int) ($stress['passed_scenario_count'] ?? 0),
+            'blockers' => array_values((array) ($stress['blockers'] ?? [])),
+            'enterprise_guarantees' => (array) ($stress['enterprise_guarantees'] ?? []),
         ];
     }
 
@@ -278,9 +332,10 @@ final class StewardshipBranchSystemCertificationService
      * @param  array<int,array<string,mixed>>  $components
      * @param  array<string,mixed>  $commandActions
      * @param  array<string,array<string,mixed>>  $policyMatrix
+     * @param  array<string,mixed>  $stressReadiness
      * @return list<string>
      */
-    private function blockers(array $components, array $commandActions, array $policyMatrix): array
+    private function blockers(array $components, array $commandActions, array $policyMatrix, array $stressReadiness): array
     {
         $blockers = [];
         foreach ($components as $component) {
@@ -296,6 +351,9 @@ final class StewardshipBranchSystemCertificationService
                 $blockers[] = 'policy_not_ready:'.$id;
             }
         }
+        if (($stressReadiness['status'] ?? '') === 'blocked') {
+            $blockers[] = 'branch_stress_not_certified';
+        }
 
         return array_values(array_unique($blockers));
     }
@@ -309,13 +367,14 @@ final class StewardshipBranchSystemCertificationService
         if ($status === self::STATUS_CERTIFIED) {
             return [
                 'The branch/merge enterprise stack may be used by AP-772/AP-773/AP-775 guarded 24/7 loops.',
+                'Run AP-779 branch-stress-certify before enabling autonomous merge queues in production repos.',
                 'Run focused unit tests and architecture/docs gates after any branch-stack mutation.',
             ];
         }
 
         return [
             'Do not execute autonomous merge queues until AP-776 blockers are fixed.',
-            'Fix missing component/doc/test/CLI coverage: '.implode(', ', $blockers),
+            'Fix missing component/doc/test/CLI coverage or AP-779 stress failures: '.implode(', ', $blockers),
         ];
     }
 

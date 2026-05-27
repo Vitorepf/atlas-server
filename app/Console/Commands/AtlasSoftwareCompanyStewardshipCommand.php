@@ -13,6 +13,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FirstFullCycleOrche
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchLifecycleRegistryService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSafetyAuditService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchStressCertificationService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSystemCertificationService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipMergeQueueService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityEngineService;
@@ -64,7 +65,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
     use RendersContinuousStewardshipRunner;
 
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
+        {action=area-focus : area-focus|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--focus=dev_forge : AP-748 deep-scan focus slice (e.g. dev_forge)}
         {--max-findings= : AP-748 cap on emitted deep-scan findings}
@@ -212,6 +213,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         StewardshipBranchLifecycleRegistryService $branchLifecycleRegistry,
         StewardshipBranchMergeGovernorService $branchMergeGovernor,
         StewardshipBranchSafetyAuditService $branchSafetyAudit,
+        StewardshipBranchStressCertificationService $branchStressCertification,
         StewardshipBranchSystemCertificationService $branchSystemCertification,
         StewardshipMergeQueueService $mergeQueue,
         StewardshipPriorityEngineService $priorityEngine,
@@ -257,6 +259,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'first-full-cycle-replay' => $this->runFirstFullCycleReplay($firstFullCycle),
             'priority-rank' => $this->runPriorityRank($priorityEngine),
             'branch-system-certify' => $this->runBranchSystemCertification($branchSystemCertification),
+            'branch-stress-certify' => $this->runBranchStressCertification($branchStressCertification),
             'branch-safety-audit' => $this->runBranchSafetyAudit($branchSafetyAudit),
             'branch-safety-audit-records' => $this->runBranchSafetyAuditRecords($branchSafetyAudit),
             'repo-merge-lease-acquire' => $this->runRepoMergeLeaseAcquire($repoMergeLease),
@@ -910,6 +913,36 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             : self::SUCCESS;
     }
 
+    private function runBranchStressCertification(StewardshipBranchStressCertificationService $service): int
+    {
+        $payload = $service->certify([
+            'area_id' => (string) $this->option('area'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-779 branch stress certification', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Scenarios', (string) ($p['passed_scenario_count'] ?? 0).'/'.(string) ($p['scenario_count'] ?? 0));
+            $this->components->twoColumnDetail('Branch system', (string) ($p['branch_system_certification_status'] ?? 'unknown'));
+            foreach ((array) ($p['scenarios'] ?? []) as $scenario) {
+                $this->line(sprintf(
+                    '  %s · %s',
+                    (string) ($scenario['status'] ?? ''),
+                    (string) ($scenario['id'] ?? ''),
+                ));
+            }
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+            foreach ((array) ($p['next_actions'] ?? []) as $action) {
+                $this->line('  next: '.(string) $action);
+            }
+        });
+
+        return ($payload['status'] ?? '') === StewardshipBranchStressCertificationService::STATUS_BLOCKED
+            ? self::FAILURE
+            : self::SUCCESS;
+    }
     private function runBranchSafetyAudit(StewardshipBranchSafetyAuditService $service): int
     {
         $payload = $service->audit([

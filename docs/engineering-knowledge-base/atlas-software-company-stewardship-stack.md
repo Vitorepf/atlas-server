@@ -123,6 +123,7 @@ related_paths:
   - docs/ap/AP-774-stewardship-merge-autonomy-policy-contract.md
   - docs/ap/AP-775-stewardship-repo-merge-lease-contract.md
   - docs/ap/AP-776-stewardship-branch-system-certification-contract.md
+  - docs/ap/AP-779-stewardship-branch-stress-certification-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipPromotionReadinessService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipActiveHandoffService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipActiveOperatingService.php
@@ -584,8 +585,9 @@ Ordem obrigatoria:
 44. Stewardship Branch Safety Audit AP-773 para varrer branches locais ou informadas antes da fila AP-772, reutilizar AP-769/AP-770, bloquear stale/conflict/orphan/already-merged e emitir apenas `queue_ready_branch_refs` como entrada segura para a fila 24h.
 45. Stewardship Merge Autonomy Policy AP-774 para centralizar a decisao de auto-merge: docs/tests pequenos podem passar, bugfix/cleanup exigem flag explicita + validacao verde, `code_or_mixed` exige review humano, e rollback nunca usa reset/rebase/force-push.
 46. Stewardship Repo Merge Lease AP-775 para impedir filas concorrentes no mesmo `repo_root_hash + base_ref`: AP-772 em modo execute precisa adquirir lease, bloqueia outro runner ativo e libera ao terminar, sem tocar git history.
-47. Stewardship Branch System Certification AP-776 para provar em um unico certificado read-only que AP-769..AP-775 estao instalados, documentados, testados, expostos em CLI e cobrindo visual review, conflito, collision prevention, prioridade, auto-merge seguro e operacoes proibidas antes de permitir loop 24h com merge queue.
+47. Stewardship Branch System Certification AP-776 para provar em um unico certificado read-only que AP-769..AP-775 e AP-779 estao instalados, documentados, testados, expostos em CLI e cobrindo visual review, conflito, collision prevention, prioridade, auto-merge seguro, stress git real e operacoes proibidas antes de permitir loop 24h com merge queue.
 48. Continuous Stewardship 24h Readiness AP-777 para bloquear o inicio de um dia inteiro de loop enquanto AP-776, AP-766 runner, kill switch, budget, lock, Product Mode, receipts, runtime result bridge e CLI actions nao estiverem prontos; imprime o comando de start, mas nao instala scheduler nem inicia execucao.
+49. Stewardship Branch Stress Certification AP-779 para executar cenarios git reais em repositorios descartaveis e provar docs/tests auto-merge ff-only, code review boundary, conflito, branch stale, lease collision e prioridade antes do loop 24h confiar na fila de merge.
 
 ## Dependencias
 
