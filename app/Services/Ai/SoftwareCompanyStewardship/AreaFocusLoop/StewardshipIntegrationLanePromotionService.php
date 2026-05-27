@@ -78,6 +78,7 @@ final class StewardshipIntegrationLanePromotionService
 
         if ($laneRef === '') {
             return $this->blocked($areaId, $laneRef, $baseRef, 'lane_ref_required', 'AP-783 requires an integration lane ref.', [
+                'repo_root' => $repoRoot,
                 'lease_status' => 'not_attempted',
                 'governance_status' => 'not_run',
                 'base_untouched_on_block' => true,
@@ -85,6 +86,7 @@ final class StewardshipIntegrationLanePromotionService
         }
         if ($this->unsafeLaneRef($laneRef)) {
             return $this->blocked($areaId, $laneRef, $baseRef, 'invalid_lane_ref', 'lane_ref must be under atlas/integration/.', [
+                'repo_root' => $repoRoot,
                 'lease_status' => 'not_attempted',
                 'governance_status' => 'not_run',
                 'base_untouched_on_block' => true,
@@ -100,6 +102,7 @@ final class StewardshipIntegrationLanePromotionService
         }
         if ($this->revParse($repoRoot, $baseRef) === '') {
             return $this->blocked($areaId, $laneRef, $baseRef, 'base_ref_not_found', 'Base ref was not found.', [
+                'repo_root' => $repoRoot,
                 'lease_status' => 'not_attempted',
                 'governance_status' => 'not_run',
                 'base_untouched_on_block' => true,
@@ -107,6 +110,7 @@ final class StewardshipIntegrationLanePromotionService
         }
         if ($this->revParse($repoRoot, $laneRef) === '') {
             return $this->blocked($areaId, $laneRef, $baseRef, 'lane_ref_not_found', 'Integration lane ref was not found.', [
+                'repo_root' => $repoRoot,
                 'lease_status' => 'not_attempted',
                 'governance_status' => 'not_run',
                 'base_untouched_on_block' => true,
@@ -124,6 +128,7 @@ final class StewardshipIntegrationLanePromotionService
                 'base_before' => $baseBefore,
                 'base_after' => $baseBefore,
                 'lane_commit' => $laneCommit,
+                'repo_root' => $repoRoot,
                 'promoted' => false,
                 'base_untouched_on_block' => true,
             ]);
@@ -158,6 +163,7 @@ final class StewardshipIntegrationLanePromotionService
                 'base_before' => $baseBefore,
                 'base_after' => $baseBefore,
                 'lane_commit' => $laneCommit,
+                'repo_root' => $repoRoot,
                 'promoted' => false,
                 'base_untouched_on_block' => true,
             ]);
@@ -184,6 +190,7 @@ final class StewardshipIntegrationLanePromotionService
                     'base_before' => $baseBefore,
                     'base_after' => $baseBefore,
                     'lane_commit' => $laneCommit,
+                    'repo_root' => $repoRoot,
                     'promoted' => false,
                     'base_untouched_on_block' => true,
                 ]);
@@ -229,6 +236,7 @@ final class StewardshipIntegrationLanePromotionService
                     'base_before' => $baseBefore,
                     'base_after' => $this->revParse($repoRoot, $baseRef),
                     'lane_commit' => $laneCommit,
+                    'repo_root' => $repoRoot,
                     'promoted' => false,
                     'base_untouched_on_block' => $this->revParse($repoRoot, $baseRef) === $baseBefore,
                 ]);
