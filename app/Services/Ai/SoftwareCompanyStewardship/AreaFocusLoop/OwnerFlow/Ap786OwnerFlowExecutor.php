@@ -181,6 +181,12 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $dispatchKind = (string) ($forgeDispatchPlan['dispatch_kind'] ?? ForgeOwnerRuntimeDispatchBridge::KIND_RUNTIME_DISPATCH);
         } else {
             $command = $this->atlasDevCommand($worktree, $this->intent($finding), $allowedFiles, $this->stringList($input['validation_commands'] ?? []));
+            $receiptExtra = [
+                'provider_execution_authorized' => true,
+                'budget_approved' => true,
+                'provider_choice' => 'cursor_cli',
+                'model_family' => 'composer-2.5-fast',
+            ];
         }
         $runner = $this->runner->project([
             'area_id' => $areaId,

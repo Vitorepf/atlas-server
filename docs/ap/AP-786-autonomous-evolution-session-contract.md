@@ -93,6 +93,11 @@ AP-786 cycle
         `provider_lock.provider=cursor_cli` and
         `provider_lock.model_family=composer-2.5-fast`; the executor must not
         silently fall back to `claude_cli/sonnet`.
+        Because the Senior Loop may invoke a provider, AP-786 must pass AP-759
+        receipt authority (`provider_execution_authorized=true`,
+        `budget_approved=true`, provider choice and model family) for the
+        scoped owner command. Missing provider authority is a blocker, not a
+        reason to downgrade into direct provider-driver execution.
         AP-786 `allowed_files` are owner-runtime scope authority: Atlas Dev may
         discover related files for context, but it must not expand write scope
         or promote the task to Forge preview solely because adjacent factory

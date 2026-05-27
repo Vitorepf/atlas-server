@@ -85,6 +85,10 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertContains('--validation-command=git diff --check', $command);
         $this->assertContains('--provider-choice=cursor_cli', $command);
         $this->assertContains('--composer-model=composer-2.5-fast', $command);
+        $this->assertTrue(data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.provider_execution_authorized'));
+        $this->assertTrue(data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.budget_approved'));
+        $this->assertSame('cursor_cli', data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.provider_choice'));
+        $this->assertSame('composer-2.5-fast', data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.model_family'));
     }
 
     public function test_atlas_dev_owner_intent_includes_concrete_target_files_tests_and_no_patch_guard(): void
