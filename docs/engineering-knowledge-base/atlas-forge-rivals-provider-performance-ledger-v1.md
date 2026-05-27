@@ -394,13 +394,12 @@ The recorder:
 
 1. Resolves the run's canonical paths via `AtlasForgeRivalsRunPathResolver`.
 2. Reads `manifest.json`, `scorecard.json`, `evidence_pack.json`.
-3. Rejects missing required artifacts with `manifest_missing`,
-   `scorecard_missing` or `evidence_pack_missing`.
+3. Rejects missing artifacts with `manifest_missing`, `scorecard_missing` or
+   `evidence_pack_missing`.
 4. Resolves `task_category`/`role` from CLI override → manifest → scorecard;
    missing values trigger `task_category_required` or `role_required`.
 5. Computes the evidence pack hash. Missing hash → `evidence_hash_required`.
-6. Rejects `replay_passes!=true`, missing evidence, missing artifacts or hash
-   drift before writing.
+6. Rejects `replay_passes!=true`, missing evidence/artifacts or hash drift.
 7. Emits one entry per arm with `valid_for_ranking` true ⇔ replay passed, no
    hard failures and score is non-null.
 8. Persists each entry to `entries/<entry_id>.json` AND appends to

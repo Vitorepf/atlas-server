@@ -138,7 +138,7 @@ class AtlasForgeCursorCliDriverTest extends TestCase
         $this->assertContains('--output-format', $captured['argv']);
         $this->assertContains('stream-json', $captured['argv']);
         $this->assertContains('--model', $captured['argv']);
-        $this->assertContains('composer-latest', $captured['argv']);
+        $this->assertContains('composer-2.5-fast', $captured['argv']);
         $this->assertNotContains('--force', $captured['argv']);
         $this->assertNotContains('--resume', $captured['argv']);
         $this->assertSame(false, $captured['env']['CURSOR_API_KEY'] ?? null);
@@ -210,7 +210,7 @@ class AtlasForgeCursorCliDriverTest extends TestCase
     private function validRequest(): array
     {
         return [
-            'model' => 'composer-latest',
+            'model' => 'composer-2.5-fast',
             'prompt' => [
                 'schema_version' => 'atlas.forge.provider_invocation_prompt.v1',
                 'decision_receipt_id' => 'receipt_1',

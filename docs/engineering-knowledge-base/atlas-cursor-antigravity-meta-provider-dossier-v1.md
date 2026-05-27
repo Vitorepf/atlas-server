@@ -459,7 +459,7 @@ Envelope minimo de evidence esperado:
 provider_harness: cursor_sdk
 billing_mode: cursor_account_api_or_cloud_pool
 quota_bucket: cursor_plan_agent_usage_bucket
-model_requested: composer-latest
+model_requested: composer-2.5
 model_observed: composer-2.5
 runtime_mode: local
 decision_receipt_id: receipt-redacted
@@ -474,7 +474,7 @@ Envelope minimo para o caminho por assinatura/login local:
 provider_harness: cursor_cli
 billing_mode: cursor_account_cli_pool
 quota_bucket: cursor_account_composer_pool
-model_requested: composer-latest
+model_requested: composer-2.5-fast
 runtime_mode: cli
 decision_receipt_id: receipt-redacted
 work_packet_hash: sha256-redacted
