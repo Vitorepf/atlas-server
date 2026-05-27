@@ -226,6 +226,7 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Reality Outcome Gates / 15 outcome gates feeding Evidence, ASRE, Mission Control and Holding scorecards; not a local L7->L8 promotion authority | `atlas-reality-outcome-gates.md` |
 | Multi-Domain Implementation Sequence / build order, parallelism, anti-collision between Claudes/Codex | `atlas-ai-multi-domain-implementation-sequence.md` |
 | Autonomous Software Company Runtime / programming domain company | `atlas-autonomous-software-company-runtime.md` |
+| Atlas Software Company Stewardship Stack / canonical umbrella for Night Shift, Product Mode, Area Focus Loop, Area Stewardship and future Portfolio/Executive/Self-Expanding layers | `atlas-software-company-stewardship-stack.md` |
 | Autonomous Software Company Night Shift / sandboxed overnight loop; v1 runs on Atlas itself before v2 external companies such as BlackInk | `atlas-autonomous-software-company-night-shift.md` |
 | Autonomous Software Company Night Shift Product Mode / final product target with cockpit, repo onboarding, autonomy tiers, continuous loop, budget and kill switch | `atlas-autonomous-software-company-night-shift-product-mode.md` |
 | Atlas Area Stewardship Layer / next layer above Area Focus Loop where Atlas owns health, roadmap, prioritization, Dev/Forge routing, evidence and operator inbox for a chosen area | `atlas-area-stewardship-layer.md` |

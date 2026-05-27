@@ -17,6 +17,7 @@ human_block_when: Bloqueie quando IA chamar stewardship de OS novo, executor par
 tags:
   - atlas-ai
   - area-stewardship
+  - stewardship-stack
   - area-focus-loop
   - night-shift
   - product-mode
@@ -28,7 +29,9 @@ capabilities:
   - area_dev_forge_routing
   - area_evidence_pack
   - area_operator_decision_inbox
+  - software_company_stewardship_stack
 decisions:
+  - Area Stewardship Layer e membro da Atlas Software Company Stewardship Stack.
   - Area Stewardship Layer e a evolucao canonica acima de Area Focus Loop.
   - Area Focus Loop executa ciclos; Area Stewardship assume responsabilidade continua pela area.
   - Product Mode continua sendo cockpit e controle; Night Shift continua sendo loop operacional.
@@ -43,6 +46,7 @@ maintenance:
   - Mantenha o doc pequeno; mova implementacao detalhada para APs filhos quando passar de contrato para runtime.
   - Sincronize canonical indexes apos qualquer alteracao.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/ap/AP-713-area-stewardship-layer-contract.md
   - docs/engineering-knowledge-base/atlas-stewardship-evolution-ladder.md
   - docs/ap/AP-712-night-shift-area-focus-loop-contract.md
@@ -102,6 +106,7 @@ governs:
   - atlas.area.health_model
   - atlas.area.roadmap
   - atlas.area.operator_inbox
+  - atlas.software_company_stewardship_stack
 evidence:
   - docs/engineering-knowledge-base/atlas-area-stewardship-layer.md
 required_tests:

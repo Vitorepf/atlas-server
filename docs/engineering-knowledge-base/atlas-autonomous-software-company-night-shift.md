@@ -35,8 +35,10 @@ capabilities:
   - night_shift_product_mode
   - night_shift_area_focus_loop
   - area_stewardship_layer
+  - software_company_stewardship_stack
 decisions:
   - Night Shift e contrato operacional filho do Atlas Autonomous Software Company Runtime; nao e OS novo.
+  - Night Shift e membro da Atlas Software Company Stewardship Stack.
   - A primeira versao deve operar somente o proprio Atlas ate provar maturidade com evidence.
   - A segunda versao pode operar empresas/produtos externos autorizados, como BlackInk, somente apos promotion receipt v1->v2 aprovado pelo operador.
   - V1 e Atlas Internal Night Shift; V2 e External Company Night Shift.
@@ -54,6 +56,7 @@ maintenance:
   - Atualize quando v1 promotion evidence mudar ou quando v2 external company mandate for introduzido.
   - Sincronize canonical indexes apos qualquer alteracao.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/engineering-knowledge-base/atlas-area-stewardship-layer.md
   - docs/ap/AP-712-night-shift-area-focus-loop-contract.md
   - docs/ap/AP-710-autonomous-software-company-night-shift-contract.md
@@ -119,6 +122,7 @@ governs:
   - atlas.night_shift.evidence_pack
   - atlas.night_shift.area_focus_loop
   - atlas.area_stewardship
+  - atlas.software_company_stewardship_stack
 evidence:
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift.md
 required_tests:

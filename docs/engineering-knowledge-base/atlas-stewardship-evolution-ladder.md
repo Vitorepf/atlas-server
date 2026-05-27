@@ -20,6 +20,7 @@ tags:
   - portfolio-stewardship
   - autonomous-executive
   - self-expanding-software-company
+  - stewardship-stack
 capabilities:
   - stewardship_evolution_ladder
   - portfolio_stewardship
@@ -27,7 +28,9 @@ capabilities:
   - self_expanding_software_company
   - portfolio_health_model
   - executive_decision_inbox
+  - software_company_stewardship_stack
 decisions:
+  - Esta ladder e membro futuro da Atlas Software Company Stewardship Stack.
   - A evolucao alem de Area Stewardship e uma ladder canonica, nao um OS novo.
   - Portfolio Stewardship coordena multiplas areas e dependencias entre elas.
   - Autonomous Executive Layer define estrategia, orcamento, cadencia, tradeoffs e alocacao de energia.
@@ -39,6 +42,7 @@ maintenance:
   - Mantenha este doc como ladder; detalhes de runtime devem nascer em APs filhos.
   - Nao transforme nomes futuros em claims de implementacao atual.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/ap/AP-714-stewardship-evolution-ladder-contract.md
   - docs/engineering-knowledge-base/atlas-area-stewardship-layer.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
@@ -91,6 +95,7 @@ governs:
   - atlas.portfolio_stewardship
   - atlas.autonomous_executive
   - atlas.self_expanding_software_company
+  - atlas.software_company_stewardship_stack
 evidence:
   - docs/engineering-knowledge-base/atlas-stewardship-evolution-ladder.md
 required_tests:

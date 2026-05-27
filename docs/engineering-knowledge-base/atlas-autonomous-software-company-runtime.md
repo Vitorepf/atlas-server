@@ -21,6 +21,7 @@ capabilities:
   - quality_control
   - delivery_certification
   - organizational_memory
+  - software_company_stewardship_stack
 decisions:
   - Atlas Agentic Engineering OS e a camada-mae; este runtime e a coordenacao executiva de departamentos dentro dele.
   - O Company Runtime e a camada superior de engenharia do Atlas AI, nao um flow isolado.
@@ -31,6 +32,7 @@ decisions:
   - O runtime interno pode declarar autonomous software company somente quando os 9 departamentos tiverem agent task packets, review, QA, release, evidence e certification passed.
   - A certificacao interna nao autoriza claim de superioridade externa, benchmark real ou comparacao com rivais.
   - Atlas Autonomous Software Company Night Shift e contrato operacional filho deste runtime; v1 roda somente no proprio Atlas e v2 em empresas externas exige promotion receipt aprovado.
+  - Atlas Software Company Stewardship Stack e o guarda-chuva canonico para Night Shift, Product Mode, Area Focus Loop e Stewardship dentro deste runtime.
 maintenance:
   - Atualize este doc antes de adicionar novo flow especializado de programacao.
   - Nao criar especialista solto fora do Company Runtime sem contrato de entrada, saida, evidencias e gates.
@@ -44,6 +46,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md
   - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
+  - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
@@ -96,6 +99,7 @@ governs:
   - atlas_ai.software_company_runtime
   - atlas_ai.specialist_flows
   - atlas_ai.engineering_delivery
+  - atlas.software_company_stewardship_stack
 evidence:
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
   - app/Services/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeService.php

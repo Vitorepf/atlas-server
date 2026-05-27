@@ -22,6 +22,7 @@ tags:
   - continuous-loop
   - area-focus-loop
   - area-stewardship
+  - stewardship-stack
 capabilities:
   - night_shift_product_cockpit
   - repo_onboarding_wizard
@@ -29,11 +30,13 @@ capabilities:
   - continuous_software_company_loop
   - area_focus_loop
   - area_stewardship_layer
+  - software_company_stewardship_stack
   - branch_review_center
   - evidence_trust_surface
   - budget_and_kill_switch
 decisions:
   - Product Mode e filho de Night Shift; nao e OS novo.
+  - Product Mode e membro da Atlas Software Company Stewardship Stack.
   - NS-v3 transforma janela noturna em loop 24h com budget, locks e kill switch.
   - NS-v4 entrega cockpit produto-final para operador individual.
   - NS-v5 entrega operacao multi-company autorizada.
@@ -47,6 +50,7 @@ maintenance:
   - Atualize quando Area Stewardship, area health model, roadmap policy ou area decision inbox mudarem.
   - Mantenha este doc como alvo de produto; implementacao operacional continua no Night Shift e owners existentes.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/engineering-knowledge-base/atlas-area-stewardship-layer.md
   - docs/ap/AP-712-night-shift-area-focus-loop-contract.md
   - docs/ap/AP-711-night-shift-product-mode-contract.md
@@ -95,6 +99,7 @@ governs:
   - atlas.night_shift.continuous_loop
   - atlas.night_shift.area_focus_loop
   - atlas.area_stewardship
+  - atlas.software_company_stewardship_stack
 evidence:
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
 required_tests:

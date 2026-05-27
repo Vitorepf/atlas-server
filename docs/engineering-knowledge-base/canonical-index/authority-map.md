@@ -135,6 +135,7 @@ next_actions:
 | Domain Runtime Creation Gate (strict extension of existing Domain Routing Governance + Domain Runtime Contract; no parallel registry, manifest, maturity or department authority) | `atlas-domain-runtime-creation-gate.md` |
 | Architecture Evolution Proposal Runtime (Atlas-proposed structural self-redesign with dual signature, 100-Obra replay, sovereignty layer protection) | `atlas-architecture-evolution-proposal-runtime.md` |
 | Autonomous Software Company Night Shift (overnight software-company loop; v1 must prove itself on Atlas before v2 can operate external companies such as BlackInk) | `atlas-autonomous-software-company-night-shift.md` |
+| Atlas Software Company Stewardship Stack (canonical umbrella for Night Shift, Product Mode, Area Focus Loop, Area Stewardship and future Portfolio/Executive/Self-Expanding layers) | `atlas-software-company-stewardship-stack.md` |
 | Autonomous Software Company Night Shift Product Mode (final product target: cockpit, onboarding, autonomy tiers, continuous loop, budget, kill switch and trust surfaces) | `atlas-autonomous-software-company-night-shift-product-mode.md` |
 | Atlas Area Stewardship Layer (next layer above Area Focus Loop; Atlas owns area health, roadmap, prioritization, Dev/Forge routing, evidence and operator inbox) | `atlas-area-stewardship-layer.md` |
 | Atlas Stewardship Evolution Ladder (future ladder: Portfolio Stewardship, Autonomous Executive and Self-Expanding Software Company) | `atlas-stewardship-evolution-ladder.md` |
