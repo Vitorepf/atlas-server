@@ -461,6 +461,61 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertFalse($payload['claim_policy']['provider_called']);
     }
 
+    public function test_owner_flow_receives_finding_focused_test_as_validation_command(): void
+    {
+        $focusedTest = 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php';
+        $finding = $this->finding('afdf_focused_test', 'Focused test contract', [
+            'spec_seed' => [
+                'candidate_id' => 'afdf_focused_test',
+                'tests_required' => [$focusedTest],
+                'acceptance' => ['The owner runtime receives the focused test as a real validation command.'],
+            ],
+        ]);
+        $captured = [];
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_focused_test'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('materialize')->once()->andReturn($this->materializedSandbox());
+        });
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
+        $this->mock(Ap786OwnerFlowRunner::class, function ($mock) use (&$captured): void {
+            $mock->shouldReceive('execute')->once()->with(\Mockery::on(function (array $input) use (&$captured): bool {
+                $captured = $input;
+
+                return true;
+            }))->andReturn($this->ownerFlowReport(true));
+        });
+        $this->mock(StewardshipRuntimeResultProjector::class, function ($mock): void {
+            $mock->shouldReceive('project')->once()->andReturn([
+                'result_bridge_id' => 'srrb_focused_test',
+                'inbox_item_id' => null,
+            ]);
+        });
+        $this->mock(StewardshipBranchMergeGovernor::class, function ($mock): void {
+            $mock->shouldReceive('evaluate')->once()->andReturn([
+                'status' => 'blocked_pending_review',
+                'blockers' => ['operator_review_required'],
+            ]);
+        });
+
+        $this->service()->run([
+            'execute' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'validation_commands' => ['git diff --check'],
+        ]);
+
+        $this->assertContains('git diff --check', $captured['validation_commands']);
+        $this->assertContains('php artisan test '.$focusedTest, $captured['validation_commands']);
+    }
+
     public function test_robust_flow_contract_blocks_before_sandbox_or_owner_execution(): void
     {
         $finding = $this->finding('afdf_robust_block', 'Missing robust contract', [

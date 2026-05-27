@@ -120,6 +120,11 @@ Honest boundaries of the first version:
   explicit standalone Senior Loop smoke runs, never for autonomous area cycles.
   Those explicit `allowed_files` bound risk breadth and write authority even
   when discovery returns a broader context set.
+  The selected finding's `spec_seed.tests_required[]` must be converted into
+  focused `php artisan test ...` validation commands for Atlas Dev. A cycle that
+  sends only `git diff --check` for code work is under-specified and must be
+  treated as a loop-quality bug, because it allows a provider to return
+  `no_patch_needed` without proving the factory improvement.
   When `cursor_cli` is selected, Atlas Dev must use the governed Cursor CLI
   runtime as a scoped worktree mutator, derive the post-run git diff from the
   sandbox, skip patch re-application, then run ScopeGuard, verification and
@@ -128,7 +133,9 @@ Honest boundaries of the first version:
   target runtime files, focused tests and acceptance must be projected into the
   AP-759 owner command. A generic "make the factory better" prompt is invalid
   for the autonomous loop because it wastes provider calls and produces
-  `no_patch_needed` cycles.
+  `no_patch_needed` cycles. Intent projection may be long enough to carry the
+  complete target runtime, focused test path and acceptance summary; truncating
+  before these fields is a correctness bug, not a provider limitation.
 - `no_patch_needed` is a valid Atlas Dev ledger state for a wasted/no-progress
   cycle. It must be recorded without crashing, review-locked for this session,
   and used as signal to select a more concrete next candidate.

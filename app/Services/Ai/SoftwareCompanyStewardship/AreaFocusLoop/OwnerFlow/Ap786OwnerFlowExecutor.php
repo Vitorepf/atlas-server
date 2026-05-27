@@ -342,6 +342,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $acceptance = $this->stringList(data_get($finding, 'spec_seed.acceptance', []));
 
         $intent = implode(' ', array_filter([
+            'Edit the allowed files now and return a concrete unified diff.',
             $nextAction !== '' ? $nextAction : null,
             $title !== '' ? 'Target: '.$title.'.' : null,
             $detail !== '' ? 'Why: '.$detail : null,
@@ -359,7 +360,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $intent = (string) preg_replace('/[;&|<>`$\r\n]+/', ' ', $intent);
         $intent = trim((string) preg_replace('/\s+/', ' ', $intent));
 
-        return $intent === '' ? 'Implement the smallest correct fix inside the allowed files only.' : mb_substr($intent, 0, 900);
+        return $intent === '' ? 'Implement the smallest correct fix inside the allowed files only.' : mb_substr($intent, 0, 2400);
     }
 
     private function artisanPath(): string

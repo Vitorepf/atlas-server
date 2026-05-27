@@ -378,7 +378,7 @@ final class AutonomousEvolutionSessionService
         $flowIntegrityGate = $this->flowIntegrityGate($owner, $allowDirect);
         $robustFlowContract = $allowDirect
             ? $this->diagnosticRobustFlowContractSkipped($finding, $allowedFiles, $owner)
-            : $this->robustFlowContract($areaId, $focus, $finding, $allowedFiles, $owner, (array) $input['validation_commands']);
+            : $this->robustFlowContract($areaId, $focus, $finding, $allowedFiles, $owner, $this->ownerValidationCommands((array) $input['validation_commands'], $finding, $allowedFiles));
 
         if (! $allowDirect && (string) ($robustFlowContract['status'] ?? '') !== Ap786RobustForgeQualityContractService::STATUS_READY) {
             return $this->blockedCycle($cycleId, $cycleIndex, array_values((array) ($robustFlowContract['blockers'] ?? ['robust_flow_contract_blocked'])), [
@@ -762,6 +762,43 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
+     * AP-786 is only useful when the owner runtime receives an executable proof
+     * contract. A generic `git diff --check` lets providers truthfully return
+     * no_patch_needed; thread the selected finding's focused tests into Atlas
+     * Dev so the provider sees a concrete patch target and verification gate.
+     *
+     * @param  list<string>  $inputCommands
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function ownerValidationCommands(array $inputCommands, array $finding, array $allowedFiles): array
+    {
+        $commands = array_values(array_filter(array_map(
+            static fn (mixed $command): string => is_string($command) ? trim($command) : '',
+            $inputCommands,
+        ), static fn (string $command): bool => $command !== ''));
+
+        foreach ($this->testsRequiredForFinding($finding, $allowedFiles) as $test) {
+            $test = trim($test);
+            if ($test === '' || str_contains($test, "\n") || strlen($test) > 180) {
+                continue;
+            }
+            if (str_starts_with($test, 'php artisan test ')) {
+                $commands[] = $test;
+            } elseif (str_starts_with($test, 'tests/') && str_ends_with($test, '.php')) {
+                $commands[] = 'php artisan test '.$test;
+            }
+        }
+
+        if (! in_array('git diff --check', $commands, true)) {
+            $commands[] = 'git diff --check';
+        }
+
+        return array_values(array_slice(array_unique($commands), 0, 4));
+    }
+
+    /**
      * @param  array<string,mixed>  $finding
      * @return list<string>
      */
@@ -1125,7 +1162,7 @@ final class AutonomousEvolutionSessionService
             'sandbox_record' => $sandbox,
             'worktree_path' => $worktree,
             'execute' => true,
-            'validation_commands' => (array) $input['validation_commands'],
+            'validation_commands' => $this->ownerValidationCommands((array) $input['validation_commands'], $finding, $allowedFiles),
         ], (array) ($input['forge_inputs'] ?? [])));
         $ownerFlowSummary = $this->ownerFlowSummary($ownerFlow);
 
