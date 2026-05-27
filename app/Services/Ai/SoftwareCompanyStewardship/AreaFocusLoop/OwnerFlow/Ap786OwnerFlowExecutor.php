@@ -140,6 +140,14 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'release_report' => $release,
             'outcome_bridge' => $outcome,
             'sandbox_record' => $sandboxRecord,
+            'execution_receipt' => [
+                'decision' => 'start_owner_runtime',
+                'operator_actor' => $actor,
+                'target_release_id' => (string) ($release['release_id'] ?? ''),
+                'target_queue_item_id' => (string) data_get($release, 'queue_item.queue_item_id', ''),
+                'target_handoff_hash' => $handoffHash,
+                'rationale' => 'AP-786 owner-flow executor starts the governed owner runtime after AP-747 release, AP-748 evidence visibility and AP-756 sandbox binding.',
+            ],
         ]);
         $steps[] = $this->step('AP-749', 'consumption_gate', $consumption['status'] ?? '');
         if ((string) ($consumption['status'] ?? '') !== AreaFocusOwnerQueueConsumptionGateService::STATUS_READY) {

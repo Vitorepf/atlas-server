@@ -70,6 +70,10 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         // AP-750 received exactly the AP-759 owner_result and the AP-749 consumption.
         $this->assertSame($ownerResult['result_id'], $this->recorder->captured['AP-750']['owner_result']['result_id']);
         $this->assertSame('afcons_x', (string) data_get($this->recorder->captured['AP-750'], 'consumption_report.consumption_id'));
+        $this->assertSame('start_owner_runtime', data_get($this->recorder->captured['AP-749'], 'execution_receipt.decision'));
+        $this->assertSame('operator', data_get($this->recorder->captured['AP-749'], 'execution_receipt.operator_actor'));
+        $this->assertSame('afrel_x', data_get($this->recorder->captured['AP-749'], 'execution_receipt.target_release_id'));
+        $this->assertSame('afq_x', data_get($this->recorder->captured['AP-749'], 'execution_receipt.target_queue_item_id'));
         $this->assertNotSame('', (string) $report['result_bridge_id']);
         $this->assertSame($ownerResult, $report['owner_result']);
 

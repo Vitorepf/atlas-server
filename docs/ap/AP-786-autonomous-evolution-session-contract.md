@@ -76,7 +76,8 @@ AP-786 cycle
 -> Ap786OwnerFlowRunner.execute():
    AP-747 AreaFocusDevForgeReleaseService.release
    -> AP-748 StewardshipOutcomeEvidenceBridgeService.project
-   -> AP-749 AreaFocusOwnerQueueConsumptionGateService.project (binds AP-757 sandbox)
+   -> AP-749 AreaFocusOwnerQueueConsumptionGateService.project (binds AP-757 sandbox
+        and receives AP-786 `start_owner_runtime` execution_receipt)
    -> AP-758 StewardshipOwnerRuntimeExecutionAdapterService.project
    -> AP-759 StewardshipOwnerSandboxRuntimeRunnerService.project
         runs the allowlisted owner CLI inside the AP-756 worktree
