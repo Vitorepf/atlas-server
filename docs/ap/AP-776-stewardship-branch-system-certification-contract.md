@@ -51,9 +51,22 @@ AP-776 is read-only. It never creates branches, worktrees or commits; never
 merges, pushes, deploys or accesses secrets; never invokes providers. It is a
 proof gate for readiness, not an executor.
 
+## Optional Readiness Extension
+
+AP-776 may embed AP-779 when the operator requests real git stress:
+
+```bash
+php artisan atlas:software-company-stewardship branch-system-certify --include-branch-stress --json
+```
+
+When `--include-branch-stress` is set, AP-776 blocks if AP-779 stress is not
+`certified`. Without the flag, `optional_readiness_extensions.branch_stress`
+remains `not_run` and AP-776 stays a fast static install proof.
+
 ## Acceptance
 
 - `branch-system-certify --json` returns `status=certified` in the current repo.
+- `branch-stress-certify --json` returns `status=certified` with fourteen disposable git scenarios.
 - Removing any required doc/test/method/CLI action makes the certificate block.
 - Focused tests cover certified and blocked paths.
 - `docs-health` and `architecture-validate` remain green.
