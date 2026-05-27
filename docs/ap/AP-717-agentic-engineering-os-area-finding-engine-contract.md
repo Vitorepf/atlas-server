@@ -14,6 +14,11 @@ related_paths:
   - docs/ap/AP-715-software-company-stewardship-stack-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AgenticEngineeringOsFindingEngineService.php
   - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AgenticEngineeringOsFindingEngineServiceTest.php
+evidence:
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AgenticEngineeringOsFindingEngineService.php
+  - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AgenticEngineeringOsFindingEngineServiceTest.php
+required_tests:
+  - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AgenticEngineeringOsFindingEngineServiceTest.php
 requires_evidence: true
 risk_level: high
 ---
