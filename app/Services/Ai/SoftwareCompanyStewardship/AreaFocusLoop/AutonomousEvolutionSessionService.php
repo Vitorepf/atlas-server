@@ -319,7 +319,7 @@ final class AutonomousEvolutionSessionService
             'focus' => $focus,
             'max_findings' => (int) $input['max_findings'],
         ]);
-        $selection = $this->selectCandidate($areaId, $scan, $repoRoot, $scopeProfile, (array) ($input['session_review_locked'] ?? []));
+        $selection = $this->selectCandidate($areaId, $scan, $repoRoot, $scopeProfile, (array) ($input['session_review_locked'] ?? []), $this->forgeInputs($input));
         $finding = $selection['finding'];
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
@@ -560,7 +560,7 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $scan
      * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>,selection_rejections:list<array<string,string>>}
      */
-    private function selectCandidate(string $areaId, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = []): array
+    private function selectCandidate(string $areaId, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = []): array
     {
         $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
         $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + $this->normalizeReviewLocked($sessionReviewLocked);
@@ -568,7 +568,7 @@ final class AutonomousEvolutionSessionService
         $rejections = [];
         foreach ($findings as $finding) {
             $allowedFiles = $this->allowedFiles($finding);
-            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile);
+            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $forgeInputs);
             if ($rejection !== '') {
                 $rejections[] = [
                     'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -582,7 +582,7 @@ final class AutonomousEvolutionSessionService
         if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX) {
             foreach ($this->factoryMaxSeedCandidates() as $finding) {
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $forgeInputs);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -875,7 +875,12 @@ final class AutonomousEvolutionSessionService
             'affected_docs' => [],
             'why_it_matters' => $detail,
             'proposed_spec_title' => 'Factory Max: '.$title,
-            'proposed_next_action' => 'Implement the smallest runtime/test improvement that measurably increases autonomous software-factory throughput or robustness.',
+            'proposed_next_action' => sprintf(
+                'Implement "%s" by changing the targeted runtime and/or focused test. Target runtime: %s. Required focused test: %s. This cycle is invalid if it only changes docs or returns no_patch_needed without concrete proof.',
+                $title,
+                $sourceFile,
+                $this->expectedTestPath($testBasename, [$sourceFile]),
+            ),
             'in_focus' => true,
             'priority_score' => 950,
             'origin' => 'factory_max_seed',
@@ -911,7 +916,7 @@ final class AutonomousEvolutionSessionService
      * @param  list<string>  $allowedFiles
      * @param  array<string,true>  $reviewLocked
      */
-    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile): string
+    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, array $forgeInputs = []): string
     {
         if ($allowedFiles === []) {
             return 'no_allowed_files';
@@ -936,8 +941,23 @@ final class AutonomousEvolutionSessionService
         if (! $this->touchesFactoryRuntime($allowedFiles)) {
             return 'factory_max_requires_direct_factory_runtime_or_test_impact';
         }
+        if ($this->owner($finding) === 'forge' && ! $this->hasLiveForgeAuthority($forgeInputs)) {
+            return 'factory_max_rejects_forge_without_live_authority';
+        }
 
         return '';
+    }
+
+    /** @param array<string,mixed> $forgeInputs */
+    private function hasLiveForgeAuthority(array $forgeInputs): bool
+    {
+        $obra = trim((string) ($forgeInputs['forge_obra'] ?? $forgeInputs['obra_id'] ?? ''));
+        $topology = is_array($forgeInputs['forge_live_topology'] ?? null) ? $forgeInputs['forge_live_topology'] : [];
+        $decision = is_array($forgeInputs['forge_live_decision'] ?? null) ? $forgeInputs['forge_live_decision'] : [];
+
+        return $obra !== ''
+            && strtolower((string) ($topology['status'] ?? '')) === 'live'
+            && $decision !== [];
     }
 
     /**

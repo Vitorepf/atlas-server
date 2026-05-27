@@ -71,6 +71,23 @@ final class FastPathErrorLedgerEntryTest extends TestCase
         );
     }
 
+    public function test_no_patch_needed_is_valid_ledger_state_for_wasted_autonomous_cycles(): void
+    {
+        $entry = FastPathErrorLedgerEntry::issue(
+            runId: 'r-no-patch',
+            failureSignature: 'sig-no-patch',
+            completionState: CompletionSummary::STATUS_NO_PATCH_NEEDED,
+            actualFailureMode: FastPathErrorLedgerEntry::FAILURE_MODE_OTHER,
+            shouldHaveEscalated: null,
+            missingEscalationSignals: [],
+            observedSignals: $this->signals(),
+            correctionRecommendation: ['select a more concrete owner-runtime task'],
+        );
+
+        $this->assertSame(CompletionSummary::STATUS_NO_PATCH_NEEDED, $entry->completionState);
+        $this->assertSame(CompletionSummary::STATUS_NO_PATCH_NEEDED, FastPathErrorLedgerEntry::fromArray($entry->toCanonicalArray())->completionState);
+    }
+
     private function makeBasic(): FastPathErrorLedgerEntry
     {
         return FastPathErrorLedgerEntry::issue(

@@ -87,6 +87,34 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertContains('--composer-model=composer-2.5-fast', $command);
     }
 
+    public function test_atlas_dev_owner_intent_includes_concrete_target_files_tests_and_no_patch_guard(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+
+        $executor->execute($this->input([
+            'finding' => [
+                'finding_id' => 'factory_max_ap786_loop_hardening',
+                'title' => 'Harden AP-786 autonomous evolution loop against wasted cycles',
+                'detail' => 'The loop must stop wasting provider calls on vague work.',
+                'proposed_next_action' => 'Implement concrete owner-runtime no-progress handling.',
+                'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php'],
+                'spec_seed' => [
+                    'tests_required' => ['tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php'],
+                    'acceptance' => ['Provider no-diff cycles are recorded and skipped next time.'],
+                ],
+            ],
+        ]));
+
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+        $intentArg = collect($command)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
+
+        $this->assertIsString($intentArg);
+        $this->assertStringContainsString('Harden AP-786 autonomous evolution loop', $intentArg);
+        $this->assertStringContainsString('AutonomousEvolutionSessionService.php', $intentArg);
+        $this->assertStringContainsString('AutonomousEvolutionSessionServiceTest.php', $intentArg);
+        $this->assertStringContainsString('no_patch_needed', $intentArg);
+    }
+
     public function test_blocks_before_result_bridge_when_ap759_blocks(): void
     {
         $executor = $this->executor(['runner' => ['status' => StewardshipOwnerSandboxRuntimeRunnerService::STATUS_BLOCKED, 'blockers' => ['runtime_command_not_allowed']]]);

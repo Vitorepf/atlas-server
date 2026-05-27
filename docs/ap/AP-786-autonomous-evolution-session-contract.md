@@ -119,8 +119,20 @@ Honest boundaries of the first version:
   runtime as a scoped worktree mutator, derive the post-run git diff from the
   sandbox, skip patch re-application, then run ScopeGuard, verification and
   CompletionStateGate from that derived diff.
-- **forge** blocks honestly with `forge_obra_dispatch_required` until a real
-  Forge Obra dispatch (AP-759 forge runtime command) is wired; it is never faked.
+- AP-786 owner intent must be concrete enough to execute: title, rationale,
+  target runtime files, focused tests and acceptance must be projected into the
+  AP-759 owner command. A generic "make the factory better" prompt is invalid
+  for the autonomous loop because it wastes provider calls and produces
+  `no_patch_needed` cycles.
+- `no_patch_needed` is a valid Atlas Dev ledger state for a wasted/no-progress
+  cycle. It must be recorded without crashing, review-locked for this session,
+  and used as signal to select a more concrete next candidate.
+- **forge** blocks honestly unless a real Forge Obra, live topology and live
+  Forge decision are supplied. In `factory_max` mode, Forge-owned fallback
+  seeds without live authority are rejected before ranking with
+  `factory_max_rejects_forge_without_live_authority`; AP-786 must not waste
+  cycles on predictable `forge_obra_required` blockers and must never fake
+  Forge authority.
 - If any required owner step is missing or fails (e.g. AP-759 command failure),
   the cycle blocks BEFORE merge with the owning step's blocker.
 - The direct provider driver remains a legacy diagnostic path, only reachable

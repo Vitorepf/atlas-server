@@ -207,6 +207,31 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertContains('factory_max_rejects_low_leverage_doc_or_evidence_work', $reasons);
     }
 
+    public function test_factory_max_rejects_forge_seed_without_live_forge_authority(): void
+    {
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap785_priority_power'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('factory_max_ap786_loop_hardening', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasonsById = [];
+        foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertSame('factory_max_rejects_forge_without_live_authority', $reasonsById['factory_max_ap785_priority_power'] ?? null);
+    }
+
     public function test_review_locks_wasted_provider_attempt_from_session_record(): void
     {
         $finding = $this->finding('factory_max_ap786_loop_hardening', 'Harden AP-786 loop');

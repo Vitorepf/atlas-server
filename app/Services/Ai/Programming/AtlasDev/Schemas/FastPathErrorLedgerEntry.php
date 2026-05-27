@@ -44,6 +44,7 @@ final class FastPathErrorLedgerEntry implements AtlasDevSchemaContract
         CompletionSummary::STATUS_FAILED,
         CompletionSummary::STATUS_BLOCKED,
         CompletionSummary::STATUS_ESCALATE_FORGE,
+        CompletionSummary::STATUS_NO_PATCH_NEEDED,
     ];
 
     private const HASH_FIELD = 'entry_hash';

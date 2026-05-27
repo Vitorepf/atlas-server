@@ -328,12 +328,32 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      */
     private function intent(array $finding): string
     {
-        $intent = trim((string) ($finding['proposed_next_action'] ?? $finding['title'] ?? 'Implement the smallest correct fix inside the allowed files only.'));
+        $title = trim((string) ($finding['title'] ?? ''));
+        $detail = trim((string) ($finding['detail'] ?? $finding['why_it_matters'] ?? ''));
+        $nextAction = trim((string) ($finding['proposed_next_action'] ?? ''));
+        $allowedFiles = $this->stringList($finding['affected_files'] ?? []);
+        $tests = $this->stringList(data_get($finding, 'spec_seed.tests_required', []));
+        $acceptance = $this->stringList(data_get($finding, 'spec_seed.acceptance', []));
+
+        $intent = implode(' ', array_filter([
+            $nextAction !== '' ? $nextAction : null,
+            $title !== '' ? 'Target: '.$title.'.' : null,
+            $detail !== '' ? 'Why: '.$detail : null,
+            $allowedFiles !== [] ? 'Change only: '.implode(', ', $allowedFiles).'.' : null,
+            $tests !== [] ? 'Prove with: '.implode(', ', $tests).'.' : null,
+            $acceptance !== [] ? 'Acceptance: '.implode(' ', array_slice($acceptance, 0, 2)) : null,
+            'Do not return no_patch_needed unless the target runtime and focused test already prove this exact improvement.',
+        ], static fn (?string $line): bool => is_string($line) && trim($line) !== ''));
+
+        if ($intent === '') {
+            $intent = 'Implement the smallest correct fix inside the allowed files only.';
+        }
+
         // Keep the intent a single safe CLI argument (AP-759 rejects shell metacharacters).
         $intent = (string) preg_replace('/[;&|<>`$\r\n]+/', ' ', $intent);
         $intent = trim((string) preg_replace('/\s+/', ' ', $intent));
 
-        return $intent === '' ? 'Implement the smallest correct fix inside the allowed files only.' : mb_substr($intent, 0, 240);
+        return $intent === '' ? 'Implement the smallest correct fix inside the allowed files only.' : mb_substr($intent, 0, 900);
     }
 
     private function artisanPath(): string
