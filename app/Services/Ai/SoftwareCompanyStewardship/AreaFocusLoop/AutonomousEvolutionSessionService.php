@@ -182,8 +182,10 @@ final class AutonomousEvolutionSessionService
             if (($cycle['continue_loop'] ?? false) !== true) {
                 $cycleBlockers = array_values((array) ($cycle['blockers'] ?? []));
                 $blockers = array_merge($blockers, $cycleBlockers);
-                foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
-                    $sessionReviewLocked[$key] = true;
+                if ($execute) {
+                    foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
+                        $sessionReviewLocked[$key] = true;
+                    }
                 }
                 if (! $continueOnBlocked || $this->shouldStopSessionAfterBlockedCycle($cycleBlockers)) {
                     break;
@@ -287,6 +289,17 @@ final class AutonomousEvolutionSessionService
                 'continue_loop' => false,
                 'blockers' => [],
             ];
+        }
+
+        if (! $this->findingAllowsAutonomousExecution($finding)) {
+            return $this->blockedCycle($cycleId, $cycleIndex, ['auto_execution_not_allowed'], [
+                'selected_finding' => $this->findingSummary($finding),
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'provider_skipped' => true,
+                'sandbox_skipped' => true,
+            ]);
         }
 
         $sandbox = $this->materializeSandbox($areaId, $repoRoot, $finding, $allowedFiles, $owner, $cycleId);
@@ -591,6 +604,9 @@ final class AutonomousEvolutionSessionService
     {
         if ($allowedFiles === []) {
             return 'no_allowed_files';
+        }
+        if (! $this->findingAllowsAutonomousExecution($finding)) {
+            return 'auto_execution_not_allowed';
         }
         if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
             return 'review_locked_existing_branch';
@@ -1102,10 +1118,24 @@ final class AutonomousEvolutionSessionService
         ];
     }
 
+    /**
+     * AP-786 only spends sandbox/provider budget on findings explicitly cleared
+     * for autonomous execution (factory-max seeds, operator-authorized packets).
+     */
+    private function findingAllowsAutonomousExecution(array $finding): bool
+    {
+        if (($finding['auto_execution_allowed'] ?? false) !== true) {
+            return false;
+        }
+
+        return ($finding['operator_review_required'] ?? true) !== true;
+    }
+
     /** @param list<string> $blockers */
     private function shouldStopSessionAfterBlockedCycle(array $blockers): bool
     {
-        return in_array('no_candidate_with_allowed_files', $blockers, true);
+        return in_array('no_candidate_with_allowed_files', $blockers, true)
+            || in_array('auto_execution_not_allowed', $blockers, true);
     }
 
     /** @param list<string> $blockers */

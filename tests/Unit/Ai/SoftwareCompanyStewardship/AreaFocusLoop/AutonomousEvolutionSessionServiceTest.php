@@ -59,6 +59,8 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'affected_docs' => [],
             'evidence_refs' => ['expected_test:AutonomousEvolutionSessionServiceTest.php'],
             'origin_type' => 'runtime_gap',
+            'auto_execution_allowed' => true,
+            'operator_review_required' => false,
         ], $overrides);
     }
 
@@ -97,6 +99,33 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame(AutonomousEvolutionSessionService::STATUS_DRY_RUN, $payload['status']);
         $this->assertSame('dry_run_planned', $payload['cycles'][0]['final_status']);
         $this->assertFalse($payload['claim_policy']['provider_called']);
+    }
+
+    public function test_rejects_deep_scan_findings_that_require_operator_review(): void
+    {
+        $reviewOnly = $this->finding('afdf_review', 'Operator review first', [
+            'auto_execution_allowed' => false,
+            'operator_review_required' => true,
+        ]);
+        $runnable = $this->finding('afdf_runnable', 'Autonomous-ready candidate');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($reviewOnly, $runnable): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$reviewOnly, $runnable]));
+        });
+        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($runnable): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_runnable'],
+            ]);
+        });
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('dry_run_planned', $payload['cycles'][0]['final_status']);
+        $this->assertSame('afdf_runnable', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
+        $this->assertContains('auto_execution_not_allowed', $reasons);
     }
 
     public function test_factory_max_rejects_docs_only_candidate(): void
