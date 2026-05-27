@@ -4,7 +4,7 @@
 - **Stack:** Atlas Software Company Stewardship Stack.
 - **Owner service:** `app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeQueueService.php`
 - **CLI:** `php artisan atlas:software-company-stewardship merge-queue` (+ `merge-queue-records`)
-- **Composes:** AP-769 branch merge governor · AP-771 priority engine · AP-770 branch lifecycle registry.
+- **Composes:** AP-769 branch merge governor · AP-780 branch review packet · AP-771 priority engine · AP-770 branch lifecycle registry · AP-775 repo merge lease.
 
 ## Purpose
 
@@ -24,10 +24,32 @@ each optional ff-only auto-merge.
 ```
 branch refs
   -> AP-769 initial governance per branch
+  -> AP-780 operator review packet per branch
   -> AP-771 priority order
   -> sequential live AP-769 recheck
+  -> fresh AP-780 packet for the live governance result
   -> auto_merged_ff_only | review_required | blocked
 ```
+
+## Review Packet Contract
+
+Every planned or executed queue item MUST include:
+
+- `branch_review_packet`: schema
+  `atlas.software_company_stewardship.branch_review_packet.v1`;
+- `branch_review_packet_status`: compact packet status for filters;
+- `governance`: the AP-769 report used to build the packet.
+
+The top-level queue report MUST also expose `branch_review_packets[]`, a flat
+list of the same packets in result order. Product Mode, Morning Inbox, GitKraken
+review surfaces and operator approval flows consume this flat list directly.
+They MUST NOT reconstruct branch review state from raw AP-769 JSON when AP-772
+has already produced AP-780 packets.
+
+When `execute_queue=true`, AP-772 re-runs AP-769 immediately before each
+candidate merge and rebuilds AP-780 from that live governance report. A stale,
+conflicted or newly blocked branch therefore receives a blocked review packet
+with repair options instead of a misleading packet from the initial plan.
 
 ## Command
 
@@ -64,6 +86,7 @@ The queue file may be a list of branch refs or an object with `branch_refs` or
 
 - No parallel merge.
 - Every branch receives AP-769 GitKraken review metadata.
+- Every branch receives an AP-780 operator-review packet.
 - Every branch is ranked by AP-771 before execution.
 - Each branch is re-evaluated against the live base immediately before merge.
 - Auto-merge still uses AP-769 fast-forward-only policy.
@@ -80,4 +103,6 @@ Coverage:
 - plans visible order without merging;
 - executes one safe ff-only merge, then blocks/reviews a stale next branch after
   live-base recheck;
+- emits AP-780 review packets for planned, merged and blocked queue items;
+- exposes top-level `branch_review_packets[]` for Product Mode/Morning Inbox;
 - blocks when no branches are supplied.

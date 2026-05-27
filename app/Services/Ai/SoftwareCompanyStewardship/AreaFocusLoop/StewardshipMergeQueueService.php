@@ -14,8 +14,9 @@ use Illuminate\Support\Facades\File;
  * AP-772 · Stewardship Merge Queue.
  *
  * Sequential enterprise merge train for 24/7 stewardship branches. It composes
- * AP-769 for branch safety and AP-771 for ordering, then re-evaluates each
- * branch against the live base before any optional ff-only auto-merge.
+ * AP-769 for branch safety, AP-780 for operator review packets, and AP-771
+ * for ordering, then re-evaluates each branch against the live base before any
+ * optional ff-only auto-merge.
  */
 final class StewardshipMergeQueueService
 {
@@ -37,6 +38,7 @@ final class StewardshipMergeQueueService
         private readonly StewardshipBranchMergeGovernorService $mergeGovernor,
         private readonly StewardshipPriorityEngineService $priorityEngine,
         private readonly StewardshipRepoMergeLeaseService $mergeLease,
+        private readonly StewardshipBranchReviewPacketService $branchReviewPacket,
     ) {}
 
     public function setStorageRootForTesting(?string $dir): void
@@ -154,7 +156,7 @@ final class StewardshipMergeQueueService
             'status' => $executeQueue ? self::STATUS_EXECUTED : self::STATUS_READY,
             'area_id' => $areaId,
             'stack' => 'Atlas Software Company Stewardship Stack',
-            'source_ap_contracts' => ['AP-769', 'AP-771', 'AP-772', 'AP-775'],
+            'source_ap_contracts' => ['AP-769', 'AP-771', 'AP-772', 'AP-775', 'AP-780'],
             'queue_id' => 'smq_'.substr(MissionCanonicalHash::sha256([$areaId, $repoRoot, $baseRef, $branchRefs, $executeQueue, $autoMerge]), 0, 18),
             'repo' => [
                 'repo_root' => $repoRoot,
@@ -174,6 +176,7 @@ final class StewardshipMergeQueueService
             'priority_report' => $priority,
             'planned_order' => $ordered,
             'results' => $results,
+            'branch_review_packets' => $this->branchReviewPackets($results),
             'summary' => $this->summary($results),
             'claim_policy' => [
                 'provider_invoked' => false,
@@ -236,11 +239,20 @@ final class StewardshipMergeQueueService
     {
         $changed = array_values((array) data_get($report, 'gitkraken_review_surface.changed_files', []));
         $kind = (string) data_get($report, 'classification.kind', 'code_or_mixed');
+        $packet = $this->branchReviewPacket->build([
+            'area_id' => (string) ($report['area_id'] ?? self::DEFAULT_AREA_ID),
+            'governance_report' => $report,
+            'queue_context' => [
+                'source_ap_contract' => 'AP-772',
+                'queue_phase' => data_get($report, 'repo.branch_commit') ? 'governance_snapshot' : 'governance_unknown',
+            ],
+        ]);
 
         return [
             'branch_ref' => (string) data_get($report, 'repo.branch_ref', ''),
             'governance_status' => (string) ($report['status'] ?? 'unknown'),
             'auto_merge_eligible' => (bool) data_get($report, 'auto_merge_policy.eligible', false),
+            'branch_review_packet_status' => (string) ($packet['status'] ?? 'unknown'),
             'reviewable_commit_count' => (int) data_get($report, 'gitkraken_review_surface.reviewable_commit_count', 0),
             'changed_file_count' => count($changed),
             'priority_candidate' => [
@@ -258,8 +270,21 @@ final class StewardshipMergeQueueService
                 'affected_files' => $changed,
                 'merge_conflict_detected' => ! (bool) data_get($report, 'merge_conflict_check.clean', false),
             ],
+            'branch_review_packet' => $packet,
             'governance' => $report,
         ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $results
+     * @return list<array<string,mixed>>
+     */
+    private function branchReviewPackets(array $results): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (array $result): array => (array) ($result['branch_review_packet'] ?? []),
+            $results,
+        ), static fn (array $packet): bool => (string) ($packet['schema_version'] ?? '') === StewardshipBranchReviewPacketService::PACKET_SCHEMA));
     }
 
     /**
@@ -301,6 +326,9 @@ final class StewardshipMergeQueueService
             'review_required' => count(array_filter($results, static fn (array $r): bool => (string) ($r['governance_status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_REVIEW_REQUIRED)),
             'blocked' => count(array_filter($results, static fn (array $r): bool => (string) ($r['governance_status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_BLOCKED)),
             'planned' => count(array_filter($results, static fn (array $r): bool => (string) ($r['queue_action'] ?? '') === 'planned_review_or_manual_merge')),
+            'branch_review_packets' => count($this->branchReviewPackets($results)),
+            'auto_merge_candidate_packets' => count(array_filter($results, static fn (array $r): bool => (string) ($r['branch_review_packet_status'] ?? '') === StewardshipBranchReviewPacketService::STATUS_AUTO_MERGE_CANDIDATE)),
+            'blocked_packets' => count(array_filter($results, static fn (array $r): bool => (string) ($r['branch_review_packet_status'] ?? '') === StewardshipBranchReviewPacketService::STATUS_BLOCKED)),
         ];
     }
 
