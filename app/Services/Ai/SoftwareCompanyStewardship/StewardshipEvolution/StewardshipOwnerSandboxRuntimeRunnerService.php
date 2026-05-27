@@ -69,9 +69,16 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
 
     private ?string $storageRootOverride = null;
 
+    private ?string $vendorRootOverride = null;
+
     public function setStorageRootForTesting(?string $dir): void
     {
         $this->storageRootOverride = $dir;
+    }
+
+    public function setVendorRootForTesting(?string $dir): void
+    {
+        $this->vendorRootOverride = $dir;
     }
 
     public function storageDir(): string
@@ -440,34 +447,98 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
             static fn (string $part): bool => $part !== '--create-fixture-workspace',
         ));
 
-        if (! $createFixture) {
+        $workspace = $this->workspaceOption($command);
+        if ($workspace === '') {
             return ['ok' => true, 'command' => $command, 'prepared' => false];
         }
 
-        $workspace = $this->workspaceOption($command);
-        if ($workspace === '') {
-            return ['ok' => false, 'command' => $command, 'reason' => 'workspace_option_required'];
-        }
-
         $worktreeRoot = realpath($worktreePath) ?: $worktreePath;
-        $workspaceParent = dirname($workspace);
+        $workspaceReal = realpath($workspace) ?: $workspace;
+        $workspaceParent = dirname($workspaceReal);
         File::ensureDirectoryExists($workspaceParent);
         $workspaceParentReal = realpath($workspaceParent) ?: $workspaceParent;
-        if (! str_starts_with($workspaceParentReal, rtrim($worktreeRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)) {
+        $insideWorktree = $workspaceReal === $worktreeRoot
+            || str_starts_with($workspaceReal, rtrim($worktreeRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)
+            || str_starts_with($workspaceParentReal, rtrim($worktreeRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
+        if (! $insideWorktree) {
             return ['ok' => false, 'command' => $command, 'reason' => 'workspace_outside_ap756_worktree'];
         }
 
-        if (! is_dir($workspace)) {
+        $prepared = false;
+        $preparedKind = [];
+
+        if ($createFixture && ! is_dir($workspace)) {
             $this->createSeniorLoopFixtureWorkspace($workspace);
+            $prepared = true;
+            $preparedKind[] = 'atlas_dev_senior_loop_fixture_workspace';
+        }
+
+        $dependency = $this->prepareExistingLaravelWorkspaceDependencies($workspace, $createFixture);
+        if (($dependency['ok'] ?? true) !== true) {
+            return ['ok' => false, 'command' => $command, 'reason' => (string) ($dependency['reason'] ?? 'workspace_dependency_preparation_failed'), 'dependency_preparation' => $dependency];
+        }
+        if (($dependency['prepared'] ?? false) === true) {
+            $prepared = true;
+            $preparedKind[] = (string) ($dependency['prepared_kind'] ?? 'workspace_vendor_link');
         }
 
         return [
             'ok' => true,
             'command' => $command,
-            'prepared' => true,
-            'prepared_kind' => 'atlas_dev_senior_loop_fixture_workspace',
+            'prepared' => $prepared,
+            'prepared_kind' => $preparedKind === [] ? null : implode('+', $preparedKind),
             'workspace_path_hash' => hash('sha256', $workspace),
+            'dependency_preparation' => $dependency,
         ];
+    }
+
+    /**
+     * Existing AP-756 worktrees intentionally do not track ignored dependencies
+     * such as vendor/. Atlas Dev validation still runs inside that worktree so
+     * mutated code is tested. Link the canonical local dependency directory
+     * into the isolated worktree instead of falling back to main's artisan.
+     *
+     * @return array<string,mixed>
+     */
+    private function prepareExistingLaravelWorkspaceDependencies(string $workspace, bool $fixtureWorkspace): array
+    {
+        if ($fixtureWorkspace || ! is_dir($workspace) || ! is_file($workspace.'/artisan')) {
+            return ['ok' => true, 'prepared' => false, 'reason' => 'not_existing_laravel_workspace'];
+        }
+
+        $vendorTarget = $workspace.DIRECTORY_SEPARATOR.'vendor';
+        if (is_dir($vendorTarget) || is_link($vendorTarget)) {
+            return ['ok' => true, 'prepared' => false, 'reason' => 'vendor_already_available'];
+        }
+        if (file_exists($vendorTarget)) {
+            return ['ok' => false, 'prepared' => false, 'reason' => 'vendor_path_exists_not_directory'];
+        }
+
+        $vendorSource = $this->canonicalVendorRoot();
+        if ($vendorSource === '' || ! is_dir($vendorSource)) {
+            return ['ok' => false, 'prepared' => false, 'reason' => 'canonical_vendor_missing'];
+        }
+
+        if (! @symlink($vendorSource, $vendorTarget)) {
+            return ['ok' => false, 'prepared' => false, 'reason' => 'vendor_symlink_failed'];
+        }
+
+        return [
+            'ok' => true,
+            'prepared' => true,
+            'prepared_kind' => 'canonical_vendor_symlink',
+            'vendor_target_hash' => hash('sha256', $vendorTarget),
+            'vendor_source_hash' => hash('sha256', $vendorSource),
+        ];
+    }
+
+    private function canonicalVendorRoot(): string
+    {
+        if ($this->vendorRootOverride !== null) {
+            return $this->vendorRootOverride;
+        }
+
+        return function_exists('base_path') ? base_path('vendor') : '';
     }
 
     /**

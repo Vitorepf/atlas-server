@@ -77,6 +77,14 @@ canonical `base_path()/artisan` entrypoint. The latter is allowed so git
 worktrees without `vendor/` can still run the owner CLI while all target
 workspace mutation remains inside the AP-756 worktree.
 
+For existing Laravel AP-756 worktrees, AP-759 must prepare local dependencies
+before `atlas:dev:senior-loop:run`: if the sandbox has an `artisan` entrypoint
+but no tracked `vendor/`, AP-759 links the canonical local `vendor/` directory
+into the isolated worktree. Validation commands then run from the worktree and
+exercise sandbox code, not `main`, while the ignored dependency link remains
+outside git scope. Missing canonical dependencies are a blocker; AP-759 must not
+silently fall back to testing `main`.
+
 Allowed owners:
 
 | Owner | Commands |
@@ -191,6 +199,9 @@ AP-759 must not:
 - Accepts `atlas:dev:senior-loop:run` as the canonical Atlas Dev live owner CLI
   for the first mutation proof, including `--create-fixture-workspace` when the
   operator wants the fixture created inside the AP-756 worktree.
+- Prepares existing AP-756 Laravel worktrees for Atlas Dev validation by linking
+  canonical local `vendor/` dependencies when absent, so focused tests run
+  against sandbox code instead of failing on missing `vendor/autoload.php`.
 - Autonomous AP-786 calls to `atlas:dev:senior-loop:run` must carry real
   worktree-scoped `--allowed-file=*` and `--validation-command=*` arguments from
   the selected finding. Fixture-only Senior Loop defaults are valid for smoke

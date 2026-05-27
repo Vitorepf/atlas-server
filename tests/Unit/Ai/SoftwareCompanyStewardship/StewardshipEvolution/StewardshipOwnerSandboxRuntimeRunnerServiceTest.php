@@ -141,6 +141,39 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertSame('atlas:dev:senior-loop:run', $report['command_check']['artisan_command']);
     }
 
+    public function test_links_canonical_vendor_for_existing_senior_loop_worktree_validation(): void
+    {
+        $service = $this->service();
+        $vendor = $this->tmp.'/canonical_vendor';
+        File::ensureDirectoryExists($vendor);
+        File::put($vendor.'/autoload.php', "<?php\n// fake autoload\n");
+        $service->setVendorRootForTesting($vendor);
+
+        $execution = $this->ap758Execution();
+        $workspace = $execution['sandbox_check']['worktree_path'];
+        File::put($workspace.'/composer.json', '{}'.PHP_EOL);
+
+        $report = $service->project([
+            'execution_adapter_report' => $execution,
+            'runtime_command_receipt' => $this->commandReceipt([
+                'command' => [
+                    PHP_BINARY,
+                    base_path('artisan'),
+                    'atlas:dev:senior-loop:run',
+                    '--workspace='.$workspace,
+                    '--json',
+                ],
+            ]),
+        ]);
+
+        $this->assertSame(StewardshipOwnerSandboxRuntimeRunnerService::STATUS_PLANNED, $report['status']);
+        $this->assertTrue($report['command_check']['ok']);
+        $this->assertTrue($report['command_preparation']['prepared']);
+        $this->assertSame('canonical_vendor_symlink', $report['command_preparation']['prepared_kind']);
+        $this->assertTrue(is_link($workspace.'/vendor'));
+        $this->assertSame($vendor, readlink($workspace.'/vendor'));
+    }
+
     public function test_executes_atlas_dev_owner_command_inside_ap756_worktree_and_emits_ap750_result(): void
     {
         $execution = $this->ap758Execution(git: true);
