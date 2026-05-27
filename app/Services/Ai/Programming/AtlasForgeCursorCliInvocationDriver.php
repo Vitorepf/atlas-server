@@ -206,12 +206,25 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
         if ((bool) ($config['force'] ?? false)) {
             $argv[] = '--force';
         }
-        $prompt = $this->encodePrompt($request['prompt'] ?? null);
-        if (is_string($prompt) && $prompt !== '') {
+        $prompt = $this->promptArgument($request['prompt'] ?? null);
+        if ($prompt !== '') {
             $argv[] = $prompt;
         }
 
         return $argv;
+    }
+
+    private function promptArgument(mixed $prompt): string
+    {
+        $encoded = $this->encodePrompt($prompt);
+        if (! is_string($encoded) || $encoded === '') {
+            return '';
+        }
+
+        $safe = str_replace(["\r", "\n", '|', ';', '&', '`', '$', '<', '>'], [' ', ' ', '/', '.', 'and', "'", 'USD', '(', ')'], $encoded);
+        $safe = preg_replace('/\s+/', ' ', $safe) ?? $safe;
+
+        return trim($safe);
     }
 
     /** @return list<string> */
