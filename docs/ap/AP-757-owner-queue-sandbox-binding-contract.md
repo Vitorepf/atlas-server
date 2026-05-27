@@ -5,7 +5,7 @@ title: AP-757 Owner Queue Sandbox Binding Contract
 status: accepted
 owner: programming
 created_at: 2026-05-27
-summary: Binds AP-749 owner-specific Dev/Forge queue consumption to a real AP-756 materialized branch/worktree sandbox. AP-757 closes the gap between "queue item is approved" and "owner runtime may start" by requiring the AP-756 record to match the AP-747 handoff, prove a local worktree exists and travel inside the owner_runtime_input. It creates no executor, provider path, branch manager, merge, deploy, external push, secret access or new OS.
+summary: Binds AP-749 owner-specific Dev/Forge queue consumption to a real AP-756 materialized branch/worktree sandbox. AP-757 closes the gap between "queue item is approved" and "owner runtime adapter may start" by requiring the AP-756 record to match the AP-747 handoff, prove a local worktree exists and travel inside the owner_runtime_input for AP-758/AP-759. It creates no executor, provider path, branch manager, merge, deploy, external push, secret access or new OS.
 related_paths:
   - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/engineering-knowledge-base/atlas-area-stewardship-layer.md
@@ -13,6 +13,8 @@ related_paths:
   - docs/ap/AP-747-area-focus-dev-forge-release-contract.md
   - docs/ap/AP-749-owner-specific-dev-forge-queue-consumption-gate-contract.md
   - docs/ap/AP-756-area-focus-branch-sandbox-materializer-contract.md
+  - docs/ap/AP-758-owner-runtime-execution-adapter-contract.md
+  - docs/ap/AP-759-owner-sandbox-runtime-runner-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusOwnerQueueConsumptionGateService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php
   - app/Console/Commands/AtlasSoftwareCompanyStewardshipCommand.php
@@ -46,6 +48,8 @@ AP-757 does not create a new owner, executor or branch manager. It reuses:
 - AP-749 as the owner queue consumption gate;
 - AP-747 as queue release owner;
 - Atlas Dev and Forge as execution owners;
+- AP-758 as the governed owner runtime execution adapter;
+- AP-759 as the governed owner sandbox runtime runner;
 - AP-750 as result bridge after owner execution.
 
 ## Boundary
@@ -65,7 +69,8 @@ AP-757 must not:
 - invoke Atlas Dev, Forge, providers or schedulers;
 - apply patches, commits, merges, deploys or external pushes;
 - access secrets or perform destructive changes;
-- bypass AP-749 execution receipt or AP-750 result bridge.
+- bypass AP-749 execution receipt, AP-758 owner runtime adapter, AP-759 owner
+  command receipt or AP-750 result bridge.
 
 ## Schemas
 

@@ -5,7 +5,7 @@ title: AP-713 Atlas Area Stewardship Layer Contract
 status: accepted
 owner: programming
 created_at: 2026-05-26
-summary: Canonizes Atlas Area Stewardship Layer as the layer above Area Focus Loop: Atlas continuously owns the health, roadmap, prioritization, Dev/Forge routing, evidence and operator decision inbox for a chosen area without creating a new OS or bypassing Night Shift/Product Mode safety gates. AP-743 adds the active handoff packet after AP-732 readiness; AP-744 consumes that packet and runs the first governed active operating slice without provider calls, branch creation, Dev/Forge dispatch, repo mutation, merge, deploy or secrets; AP-745 wraps the active slice in a disabled-by-default scheduler-safe tick; AP-746 wraps AP-745 in a recurring scheduler-safe runner; AP-747 releases AP-726 handoffs to Dev/Forge queues; AP-748 records visibility; AP-749 gates owner consumption; AP-750 bridges owner runtime results.
+summary: Canonizes Atlas Area Stewardship Layer as the layer above Area Focus Loop: Atlas continuously owns the health, roadmap, prioritization, Dev/Forge routing, evidence and operator decision inbox for a chosen area without creating a new OS or bypassing Night Shift/Product Mode safety gates. AP-743 adds the active handoff packet after AP-732 readiness; AP-744 consumes that packet and runs the first governed active operating slice without provider calls, branch creation, Dev/Forge dispatch, repo mutation, merge, deploy or secrets; AP-745 wraps the active slice in a disabled-by-default scheduler-safe tick; AP-746 wraps AP-745 in a recurring scheduler-safe runner; AP-747 releases AP-726 handoffs to Dev/Forge queues; AP-748 records visibility; AP-749 gates owner consumption; AP-758 adapts ready consumption into an AP-750-compatible owner result; AP-759 executes approved owner CLI commands inside AP-756 sandbox; AP-760/AP-761 make the run visible in Product Mode/Desktop; AP-750 bridges owner runtime results.
 related_paths:
   - docs/engineering-knowledge-base/atlas-area-stewardship-layer.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
@@ -21,6 +21,10 @@ related_paths:
   - docs/ap/AP-747-area-focus-dev-forge-release-contract.md
   - docs/ap/AP-748-stewardship-release-outcome-bridge-contract.md
   - docs/ap/AP-749-owner-specific-dev-forge-queue-consumption-gate-contract.md
+  - docs/ap/AP-758-owner-runtime-execution-adapter-contract.md
+  - docs/ap/AP-759-owner-sandbox-runtime-runner-contract.md
+  - docs/ap/AP-760-product-mode-owner-sandbox-runtime-visibility-contract.md
+  - docs/ap/AP-761-product-mode-desktop-end-to-end-stewardship-console-contract.md
   - docs/ap/AP-750-owner-runtime-result-bridge-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipPromotionReadinessService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipActiveHandoffService.php
@@ -28,6 +32,7 @@ related_paths:
   - app/Services/Ai/SoftwareCompanyStewardship/ContinuousStewardship/AtlasContinuousStewardshipLoopService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeReleaseService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusOwnerQueueConsumptionGateService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeExecutionAdapterService.php
 requires_evidence: true
 risk_level: critical
 ---
@@ -91,5 +96,14 @@ The operator assigns an `area_id`. Atlas maintains:
   providers, mutate repos, merge, deploy or touch secrets.
 - AP-749 gates owner-specific consumption only after AP-748 Evidence,
   Morning Inbox and Portfolio visibility plus an operator execution receipt.
+- AP-758 is the governed adapter between ready AP-749 consumption and AP-750:
+  it reuses existing Atlas Dev/Forge projections and emits an AP-750-compatible
+  owner result without creating a runtime, provider path, branch/worktree,
+  merge, deploy, push, secret access or destructive action.
+- AP-759 is the governed runner for the first real owner CLI command: it runs
+  only allowlisted Atlas Dev/Forge commands inside the AP-756 worktree under an
+  explicit operator command receipt.
+- AP-760/AP-761 make the AP-759/AP-750 path visible in Product Mode and Atlas
+  Desktop without giving the cockpit execution authority.
 - AP-750 bridges the eventual Atlas Dev/Forge owner runtime result back into
   Evidence, Morning Inbox and Portfolio before merge/deploy/follow-up review.

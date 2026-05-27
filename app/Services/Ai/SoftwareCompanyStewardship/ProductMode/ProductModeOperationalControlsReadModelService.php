@@ -81,8 +81,9 @@ final class ProductModeOperationalControlsReadModelService
                 'tier_review_command' => 'php artisan atlas:software-company-stewardship product-mode-controls --autonomy-tier=<0-6> --json',
                 'kill_switch_command_anchor' => 'php artisan atlas:software-company-stewardship continuous-stewardship-loop --kill-switch --json',
                 'budget_review_command' => 'php artisan atlas:software-company-stewardship product-mode-cockpit --json',
-                'branch_review_owner' => 'Atlas Dev / Forge owner runtime result review',
-                'evidence_review_owner' => 'Evidence Certification Runtime + AP-740/AP-748/AP-750',
+                'owner_sandbox_runtime_review_command' => 'php artisan atlas:software-company-stewardship owner-sandbox-runtime-run --execution-file=<ap758.jsonl> --owner-execution-id=<owner_execution_id> --runtime-command-receipt-file=<ap759-command-receipt.json> --json',
+                'branch_review_owner' => 'Atlas Dev / Forge owner sandbox runtime review + owner runtime result review',
+                'evidence_review_owner' => 'Evidence Certification Runtime + AP-740/AP-748/AP-759/AP-750',
                 'risk_policy_owner' => 'Night Shift Product Mode + operator policy',
             ],
             'next_actions' => $this->nextActions($status, $repo, $controls, $tiers, $budget, $branchReview, $evidence, $risk),
@@ -143,6 +144,7 @@ final class ProductModeOperationalControlsReadModelService
                 'draft_specs',
                 'prepare_branch_handoff',
                 'review_owner_results',
+                'review_owner_sandbox_runtime_commands',
             ] : [],
             'forbidden_operations' => [
                 'merge_without_operator',
@@ -315,6 +317,7 @@ final class ProductModeOperationalControlsReadModelService
             'docs_health',
             'architecture_validate',
             'focused_tests',
+            'owner_sandbox_runtime_run',
             'owner_runtime_result',
         ];
         $present = array_values(array_filter((array) ($input['evidence_refs'] ?? []), 'is_string'));

@@ -3,7 +3,7 @@ id: AP-750-owner-runtime-result-bridge-contract
 type: ap_contract
 title: AP-750 Owner Runtime Result Bridge Contract
 status: active
-summary: Bridges Atlas Dev / Forge owner runtime results back into the Atlas Software Company Stewardship Stack after AP-749 owner queue consumption and AP-758 owner runtime execution adapter. It emits canonical Evidence, Morning Inbox and Portfolio outcome signals and optional append-only result records. It never invokes Dev/Forge/providers, creates branches/worktrees, mutates repos, merges, deploys, pushes externally, touches secrets, creates a runtime or bypasses operator review.
+summary: Bridges Atlas Dev / Forge owner runtime results back into the Atlas Software Company Stewardship Stack after AP-749 owner queue consumption, AP-758 owner runtime projection and optional AP-759 sandboxed owner command execution. It emits canonical Evidence, Morning Inbox and Portfolio outcome signals and optional append-only result records. It never invokes Dev/Forge/providers, creates branches/worktrees, mutates repos, merges, deploys, pushes externally, touches secrets, creates a runtime or bypasses operator review.
 owner: programming
 related_paths:
   - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
@@ -13,6 +13,7 @@ related_paths:
   - docs/ap/AP-748-stewardship-release-outcome-bridge-contract.md
   - docs/ap/AP-749-owner-specific-dev-forge-queue-consumption-gate-contract.md
   - docs/ap/AP-758-owner-runtime-execution-adapter-contract.md
+  - docs/ap/AP-759-owner-sandbox-runtime-runner-contract.md
   - docs/ap/AP-751-portfolio-owner-runtime-result-signal-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeExecutionAdapterService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeService.php
@@ -31,18 +32,18 @@ AP-747 Dev/Forge release
 -> AP-748 Evidence/Morning Inbox/Portfolio visibility
 -> AP-749 owner-specific consumption gate
 -> AP-758 governed owner runtime execution adapter
--> Atlas Dev or Forge owner runtime executes under its own authority/projection
+-> optional AP-759 approved owner command inside the AP-756 sandbox
 -> AP-750 owner runtime result bridge
 -> Evidence + Morning Inbox + Portfolio outcome signals
 -> AP-751 Portfolio health/risk/rebalance intake
 ```
 
-AP-750 does not execute work. It accepts a result receipt produced by the real
-owner runtime (`AtlasDevRuntimeService` or `AtlasForgeParallelDurableCoordinator`)
-and turns that result into reviewable, replayable Stewardship signals.
-AP-758 is the canonical adapter that can produce the AP-750-compatible
-`owner_result` from a ready AP-749 consumption packet without creating a new
-runtime or bypassing owner authority.
+AP-750 does not execute work. It accepts a result receipt produced by the owner
+runtime path and turns that result into reviewable, replayable Stewardship
+signals. AP-758 is the canonical projection adapter that can shape the
+AP-750-compatible `owner_result`; AP-759 is the canonical runner when an
+operator explicitly authorizes an allowlisted owner CLI command inside the
+AP-756 sandbox.
 
 ## Anti-Duplication Decision
 
@@ -130,6 +131,17 @@ php artisan atlas:software-company-stewardship owner-runtime-result-bridge \
   --json
 ```
 
+AP-759 result:
+
+```bash
+php artisan atlas:software-company-stewardship owner-sandbox-runtime-run \
+  --execution-file=<ap758.jsonl> \
+  --runtime-command-receipt-file=<ap759-command-receipt.json> \
+  --execute-owner-command \
+  --record-owner-run \
+  --json
+```
+
 Irreversible action approval, only for already-claimed irreversible owner
 results:
 
@@ -155,6 +167,8 @@ php artisan atlas:software-company-stewardship owner-runtime-result-bridge \
   approval block.
 - Valid result emits one Evidence item, one Morning Inbox item and one Portfolio
   feed signal.
+- Results emitted by AP-759 are accepted when identity, evidence and isolation
+  checks pass.
 - `record_result=true` appends JSONL idempotently.
 - Product Mode/Cockpit exposes AP-750 as a review item and control, without
   executing anything.

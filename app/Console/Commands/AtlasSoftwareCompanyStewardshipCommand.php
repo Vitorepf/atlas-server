@@ -27,8 +27,11 @@ use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\SelfExpandingSoftwa
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionDecisionLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeExecutionAdapterService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipCompletionAuditService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipLiveCycleCertificationService;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
 
@@ -44,7 +47,7 @@ use InvalidArgumentException;
 class AtlasSoftwareCompanyStewardshipCommand extends Command
 {
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|owner-queue-consumption-gate|owner-runtime-execute|owner-runtime-result-bridge|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-stewardship-loop|continuous-stewardship-scheduler|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
+        {action=area-focus : area-focus|completion-audit|live-cycle-certification|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-stewardship-loop|continuous-stewardship-scheduler|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--portfolio=atlas_software_company : Canonical portfolio_id}
         {--repo=atlas-server : Product Mode repository slug for AP-754 controls}
@@ -111,12 +114,19 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--consumption-id= : AP-750 consumption id to select from --consumption-file}
         {--runtime-start-receipt-file= : AP-758 JSON file containing explicit operator runtime start receipt}
         {--record-execution : AP-758 append idempotent owner runtime execution adapter record}
+        {--execution-file= : AP-759 JSON or JSONL file containing AP-758 owner runtime execution reports/records}
+        {--owner-execution-id= : AP-759 owner execution id to select from --execution-file}
+        {--runtime-command-receipt-file= : AP-759 JSON file containing explicit operator owner command receipt}
+        {--execute-owner-command : AP-759 actually run the allowlisted owner command inside AP-756 worktree}
+        {--record-owner-run : AP-759 append idempotent owner sandbox runtime run record}
         {--result-file= : AP-750 JSON file containing Atlas Dev/Forge owner runtime result receipt}
         {--approval-file= : AP-750 JSON file containing explicit irreversible action approval receipt}
         {--record-result : AP-750 append idempotent owner runtime result bridge record}
         {--record-allocation-handoff : AP-752 append idempotent Autonomous Executive allocation handoff packet}
         {--handoff-id= : AP-752 allocation handoff packet id for replay}
         {--workspace=atlas-server : AP-747 Atlas Dev workspace slug for dev queue items}
+        {--certification-worktree= : AP-762 certification-only sandbox worktree path}
+        {--include-execution-certification : AP-763 also runs AP-762 owner-command execution certification inside the certification sandbox}
         {--json : Emit JSON}';
 
     protected $description = 'Atlas Software Company Stewardship Stack · read-only/proposal read-models plus append-only review ledgers. No provider, no branch, no merge/deploy/secrets.';
@@ -146,19 +156,25 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         StewardshipOutcomeEvidenceBridgeService $outcomeEvidence,
         SelfExpandingDomainRuntimeCreationHandoffService $domainRuntimeCreationHandoff,
         StewardshipOwnerRuntimeExecutionAdapterService $ownerRuntimeExecutionAdapter,
+        StewardshipOwnerSandboxRuntimeRunnerService $ownerSandboxRuntimeRunner,
         StewardshipOwnerRuntimeResultBridgeService $ownerRuntimeResultBridge,
+        StewardshipLiveCycleCertificationService $liveCycleCertification,
+        StewardshipCompletionAuditService $completionAudit,
     ): int
     {
         $action = (string) $this->argument('action');
 
         return match ($action) {
             'area-focus' => $this->runAreaFocus($readModel),
+            'completion-audit' => $this->runCompletionAudit($completionAudit),
+            'live-cycle-certification' => $this->runLiveCycleCertification($liveCycleCertification),
             'area-focus-dev-forge-release' => $this->runAreaFocusDevForgeRelease($areaFocusDevForgeRelease),
             'area-focus-branch-sandbox-materialize' => $this->runAreaFocusBranchSandboxMaterialize($branchSandboxMaterializer),
             'area-focus-branch-sandboxes' => $this->runAreaFocusBranchSandboxList($branchSandboxMaterializer),
             'area-focus-branch-sandbox-replay' => $this->runAreaFocusBranchSandboxReplay($branchSandboxMaterializer),
             'owner-queue-consumption-gate' => $this->runOwnerQueueConsumptionGate($ownerQueueConsumptionGate),
             'owner-runtime-execute' => $this->runOwnerRuntimeExecute($ownerRuntimeExecutionAdapter),
+            'owner-sandbox-runtime-run' => $this->runOwnerSandboxRuntimeRun($ownerSandboxRuntimeRunner),
             'owner-runtime-result-bridge' => $this->runOwnerRuntimeResultBridge($ownerRuntimeResultBridge),
             'product-mode-cockpit' => $this->runProductModeCockpit($productModeCockpit, $productModeControlReceipts),
             'product-mode-controls' => $this->runProductModeControls($productModeControls, $productModeControlReceipts),
@@ -399,6 +415,64 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         });
 
         return self::SUCCESS;
+    }
+
+    private function runLiveCycleCertification(StewardshipLiveCycleCertificationService $service): int
+    {
+        $payload = $service->certify([
+            'area_id' => (string) $this->option('area'),
+            'portfolio_id' => (string) $this->option('portfolio'),
+            'workspace' => (string) $this->option('workspace'),
+            'execute_owner_command' => (bool) $this->option('execute-owner-command'),
+            'worktree_path' => (string) ($this->option('certification-worktree') ?? ''),
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-762 live cycle certification', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Mode', (string) ($p['mode'] ?? ''));
+            $this->components->twoColumnDetail('Area', (string) ($p['area_id'] ?? ''));
+            $this->components->twoColumnDetail('Portfolio', (string) ($p['portfolio_id'] ?? ''));
+            $this->components->twoColumnDetail('Certification', (string) ($p['certification_id'] ?? ''));
+            $this->components->twoColumnDetail('Review items', (string) data_get($p, 'counts.product_mode_review_items', 0));
+            $this->components->twoColumnDetail('Owner results', (string) data_get($p, 'counts.owner_results', 0));
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+            foreach ((array) ($p['next_actions'] ?? []) as $action) {
+                $this->line('  next: '.(string) $action);
+            }
+        });
+
+        return ($payload['status'] ?? '') === StewardshipLiveCycleCertificationService::STATUS_BLOCKED
+            ? self::FAILURE
+            : self::SUCCESS;
+    }
+
+    private function runCompletionAudit(StewardshipCompletionAuditService $service): int
+    {
+        $payload = $service->audit([
+            'area_id' => (string) $this->option('area'),
+            'portfolio_id' => (string) $this->option('portfolio'),
+            'workspace' => (string) $this->option('workspace'),
+            'worktree_path' => (string) ($this->option('certification-worktree') ?? ''),
+            'include_execution_certification' => (bool) $this->option('include-execution-certification'),
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-763 completion audit', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Mode', (string) ($p['mode'] ?? ''));
+            $this->components->twoColumnDetail('Current number', (string) ($p['current_practical_number'] ?? 0).'/'.(string) ($p['target_practical_number'] ?? 0));
+            $this->components->twoColumnDetail('Proven', (string) ($p['proven_count'] ?? 0));
+            $this->components->twoColumnDetail('Weak', (string) ($p['weak_count'] ?? 0));
+            $this->components->twoColumnDetail('Missing', (string) ($p['missing_count'] ?? 0));
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+        });
+
+        return ($payload['status'] ?? '') === StewardshipCompletionAuditService::STATUS_BLOCKED
+            ? self::FAILURE
+            : self::SUCCESS;
     }
 
     private function runAreaFocusDevForgeRelease(AreaFocusDevForgeReleaseService $service): int
@@ -673,6 +747,63 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         });
 
         return ($payload['status'] ?? '') === StewardshipOwnerRuntimeExecutionAdapterService::STATUS_BLOCKED
+            ? self::FAILURE
+            : self::SUCCESS;
+    }
+
+    private function runOwnerSandboxRuntimeRun(StewardshipOwnerSandboxRuntimeRunnerService $service): int
+    {
+        $executionFile = (string) ($this->option('execution-file') ?? '');
+        $receiptFile = (string) ($this->option('runtime-command-receipt-file') ?? '');
+        if ($executionFile === '') {
+            return $this->blockedResult('execution_file_required', '--execution-file is required for owner-sandbox-runtime-run');
+        }
+        if ($receiptFile === '') {
+            return $this->blockedResult('runtime_command_receipt_file_required', '--runtime-command-receipt-file is required for owner-sandbox-runtime-run');
+        }
+
+        $executionRecords = $this->readJsonOrJsonlRecords($executionFile);
+        if ($executionRecords === null || $executionRecords === []) {
+            return $this->blockedResult('execution_file_invalid', $executionFile);
+        }
+        $execution = $this->selectRecordById($executionRecords, (string) ($this->option('owner-execution-id') ?? ''), 'owner_execution_id');
+        if ($execution === null) {
+            return $this->blockedResult('owner_execution_id_not_found', (string) $this->option('owner-execution-id'));
+        }
+
+        $receipt = $this->readJsonFile($receiptFile);
+        if (! is_array($receipt)) {
+            return $this->blockedResult('runtime_command_receipt_file_invalid', $receiptFile);
+        }
+
+        $payload = $service->project([
+            'area_id' => (string) $this->option('area'),
+            'portfolio_id' => (string) $this->option('portfolio'),
+            'execution_adapter_report' => $execution,
+            'runtime_command_receipt' => $receipt,
+            'execute' => (bool) $this->option('execute-owner-command'),
+            'record_run' => (bool) $this->option('record-owner-run'),
+            'kill_switch' => (bool) $this->option('kill-switch'),
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-759 owner sandbox runtime', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Area', (string) ($p['area_id'] ?? ''));
+            $this->components->twoColumnDetail('Target owner', (string) ($p['target_owner'] ?? ''));
+            $this->components->twoColumnDetail('Owner execution', (string) ($p['owner_execution_id'] ?? ''));
+            $this->components->twoColumnDetail('Sandbox run', (string) ($p['owner_sandbox_run_id'] ?? ''));
+            $this->components->twoColumnDetail('Command', (string) data_get($p, 'command_plan.command_display', ''));
+            $this->components->twoColumnDetail('Owner result', (string) data_get($p, 'owner_result.result_id', ''));
+            $this->components->twoColumnDetail('Recorded', ((bool) ($p['record_run_requested'] ?? false)) ? 'requested' : 'projection-only');
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+            foreach ((array) ($p['next_actions'] ?? []) as $action) {
+                $this->line('  next: '.(string) $action);
+            }
+        });
+
+        return ($payload['status'] ?? '') === StewardshipOwnerSandboxRuntimeRunnerService::STATUS_BLOCKED
             ? self::FAILURE
             : self::SUCCESS;
     }

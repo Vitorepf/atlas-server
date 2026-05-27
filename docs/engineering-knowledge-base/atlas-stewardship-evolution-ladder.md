@@ -5,8 +5,8 @@ title: Atlas Stewardship Evolution Ladder
 status: future
 category: agentic-engineering
 priority: 100
-implementation_state: future_target_with_ap730_ap731_ap733_ap734_ap735_ap736_ap737_ap738_self_expanding_v0_ap739_product_mode_cockpit_ap740_outcome_bridge_ap741_domain_creation_handoff_ap742_cockpit_history_ap743_area_stewardship_active_handoff_ap744_active_operating_slice_ap745_scheduler_safe_tick_ap746_recurring_scheduler_runner_ap747_release_ap748_outcome_ap749_owner_consumption_ap758_owner_runtime_execution_adapter_ap750_owner_runtime_result_bridge_ap751_portfolio_result_signal_intake_ap752_executive_allocation_handoff_ap753_product_mode_allocation_visibility_ap754_product_mode_operational_controls_ap755_control_receipts_and_ap756_branch_sandbox_materializer
-summary: Canonical evolution ladder beyond Atlas Continuous Stewardship Loop, Area Focus Loop and Area Stewardship: Portfolio Stewardship, Autonomous Executive Layer and Self-Expanding Software Company. It defines how Atlas grows from a 24h governed software loop to owning one area, governing a portfolio, making executive tradeoff recommendations and proposing new areas under operator review. AP-738 materializes Self-Expanding Software Company v0 on top of AP-737 without execution or runtime creation. AP-739 exposes the executive/new-area/self-expanding review state in Product Mode/Cockpit. AP-740/AP-748 bridge AP-731/AP-738/AP-747 outcomes into canonical Evidence Ledger, Morning Inbox and Portfolio feed; AP-741 creates the gated Domain Runtime Creation handoff packet; AP-742 exposes AP-740/AP-741 history inside the same Product Mode/Cockpit; AP-743 creates the Area Stewardship active handoff packet after AP-732 readiness; AP-744 consumes it for the first governed active operating slice; AP-745 makes that active slice scheduler-safe; AP-746 makes the Continuous Stewardship motor recurring-scheduler-safe; AP-756 materializes AP-726 branch sandboxes into local isolated git worktrees with operator receipt; AP-757 binds AP-749 to that materialized sandbox; AP-747 releases AP-726 handoffs to Dev/Forge owner queues; AP-749 gates owner-specific consumption; AP-758 adapts ready consumption into AP-750-compatible owner results through existing Dev/Forge projections; AP-750 bridges owner runtime results back into Evidence, Morning Inbox and Portfolio; AP-751 turns those results into AP-733 Portfolio health/risk/rebalance signals; AP-752 turns accepted AP-735 executive recommendations into governed owner allocation handoffs; AP-753 exposes those handoffs in Product Mode/Cockpit; AP-754 exposes Product Mode operational controls read-only in that cockpit; AP-755 makes those controls append-only and replayable through AP-731.
+implementation_state: future_target_with_ap730_ap731_ap733_ap734_ap735_ap736_ap737_ap738_self_expanding_v0_ap739_product_mode_cockpit_ap740_outcome_bridge_ap741_domain_creation_handoff_ap742_cockpit_history_ap743_area_stewardship_active_handoff_ap744_active_operating_slice_ap745_scheduler_safe_tick_ap746_recurring_scheduler_runner_ap747_release_ap748_outcome_ap749_owner_consumption_ap758_owner_runtime_execution_adapter_ap759_owner_sandbox_runtime_runner_ap760_product_mode_owner_sandbox_visibility_ap761_desktop_end_to_end_console_ap762_live_cycle_certification_ap750_owner_runtime_result_bridge_ap751_portfolio_result_signal_intake_ap752_executive_allocation_handoff_ap753_product_mode_allocation_visibility_ap754_product_mode_operational_controls_ap755_control_receipts_and_ap756_branch_sandbox_materializer
+summary: Canonical evolution ladder beyond Atlas Continuous Stewardship Loop, Area Focus Loop and Area Stewardship: Portfolio Stewardship, Autonomous Executive Layer and Self-Expanding Software Company. It defines how Atlas grows from a 24h governed software loop to owning one area, governing a portfolio, making executive tradeoff recommendations and proposing new areas under operator review. AP-738 materializes Self-Expanding Software Company v0 on top of AP-737 without execution or runtime creation. AP-739 exposes the executive/new-area/self-expanding review state in Product Mode/Cockpit. AP-740/AP-748 bridge AP-731/AP-738/AP-747 outcomes into canonical Evidence Ledger, Morning Inbox and Portfolio feed; AP-741 creates the gated Domain Runtime Creation handoff packet; AP-742 exposes AP-740/AP-741 history inside the same Product Mode/Cockpit; AP-743 creates the Area Stewardship active handoff packet after AP-732 readiness; AP-744 consumes it for the first governed active operating slice; AP-745 makes that active slice scheduler-safe; AP-746 makes the Continuous Stewardship motor recurring-scheduler-safe; AP-756 materializes AP-726 branch sandboxes into local isolated git worktrees with operator receipt; AP-757 binds AP-749 to that materialized sandbox; AP-747 releases AP-726 handoffs to Dev/Forge owner queues; AP-749 gates owner-specific consumption; AP-758 adapts ready consumption into AP-750-compatible owner results through existing Dev/Forge projections; AP-759 executes approved owner CLI commands inside the AP-756 sandbox; AP-760 exposes AP-759 in Product Mode/Cockpit for operator review; AP-761 makes Atlas Desktop render the full Product Mode pipeline end-to-end; AP-762 certifies the live cycle end-to-end in projection and optional sandbox-execution modes; AP-763 audits the 29 practical requirements and blocks 100% claims unless every row is proven; AP-750 bridges owner runtime results back into Evidence, Morning Inbox and Portfolio; AP-751 turns those results into AP-733 Portfolio health/risk/rebalance signals; AP-752 turns accepted AP-735 executive recommendations into governed owner allocation handoffs; AP-753 exposes those handoffs in Product Mode/Cockpit; AP-754 exposes Product Mode operational controls read-only in that cockpit; AP-755 makes those controls append-only and replayable through AP-731.
 human_summary: Escada canonica da autonomia de stewardship: de uma area ate uma empresa de software que se expande com governanca.
 human_what: Define os proximos patamares acima do Atlas Continuous Stewardship Loop sem criar OS novo.
 human_purpose: Deixar explicito que Continuous Stewardship Loop nao e o teto: ele e o motor 24h que permite Area Stewardship, Portfolio Stewardship, Autonomous Executive e Self-Expanding Software Company.
@@ -49,13 +49,15 @@ decisions:
   - AP-743 gera o Area Stewardship active handoff packet depois de AP-731 accept + AP-732 readiness, sem iniciar execucao.
   - AP-744 roda o primeiro active operating slice de Area Stewardship reutilizando AP-722/AP-718/AP-726 sem mutacao irreversivel.
   - AP-745 envolve AP-744 com admission scheduler-safe do Continuous Stewardship Loop; AP-746 envolve AP-745 com runner recorrente seguro, pause policy, kill switch, lock lease, rate limit e JSONL opcional.
-  - AP-747 libera AP-726 para filas Dev/Forge; AP-748 torna visivel; AP-749 gates consumo owner-specific; AP-758 adapta o consumo em resultado owner-runtime sem provider direto ou mutacao; AP-750 retorna resultado owner-runtime para Evidence, Morning Inbox e Portfolio; AP-751 alimenta Portfolio Health Model com esses resultados.
+  - AP-747 libera AP-726 para filas Dev/Forge; AP-748 torna visivel; AP-749 gates consumo owner-specific; AP-758 adapta o consumo em resultado owner-runtime sem provider direto ou mutacao; AP-759 executa comando owner CLI allowlisted dentro do sandbox AP-756 sob receipt; AP-760 torna esse run visivel no Product Mode/Cockpit; AP-750 retorna resultado owner-runtime para Evidence, Morning Inbox e Portfolio; AP-751 alimenta Portfolio Health Model com esses resultados.
   - AP-752 consome AP-735 recommendation + AP-731 accept e gera handoff de alocacao para o owner correto, mantendo Executive como recomendador governado, nao executor.
   - AP-753 torna AP-752 visivel no Product Mode/Cockpit como review item, counters, health e comandos, mantendo o cockpit read-only.
   - AP-754 torna repo onboarding state, autonomy tier, budget, branch review, evidence inspector, risk policy e kill switch visiveis no Product Mode/Cockpit sem mutar politica.
   - AP-755 transforma Product Mode controls em receipts AP-731 `product_mode_control`, sem ledger paralelo.
   - AP-756 materializa branch/worktree git local isolado para handoff AP-726 somente com receipt explicito; nao executa Dev/Forge, provider, fix, merge, deploy ou secrets.
   - AP-757 exige sandbox AP-756 materializado e correspondente antes de AP-749 ficar pronto para owner runtime input.
+  - AP-762 certifica o ciclo vivo end-to-end da stack e bloqueia qualquer claim de 100% quando AP-749/AP-758/AP-759/AP-750/AP-752/Product Mode nao fecham.
+  - AP-763 transforma a lista pratica do operador em audit completion 29/29: projection-only para em 18/29; full audit com AP-762 owner-command sandboxado pode autorizar claim 29/29.
   - Nenhuma camada autoriza merge, deploy, secrets, destructive changes ou auto-promocao sem operador.
   - Agentic Engineering OS continua sendo a primeira area para provar a ladder.
 maintenance:
@@ -86,6 +88,11 @@ related_paths:
   - docs/ap/AP-748-stewardship-release-outcome-bridge-contract.md
   - docs/ap/AP-749-owner-specific-dev-forge-queue-consumption-gate-contract.md
   - docs/ap/AP-758-owner-runtime-execution-adapter-contract.md
+  - docs/ap/AP-759-owner-sandbox-runtime-runner-contract.md
+  - docs/ap/AP-760-product-mode-owner-sandbox-runtime-visibility-contract.md
+  - docs/ap/AP-761-product-mode-desktop-end-to-end-stewardship-console-contract.md
+  - docs/ap/AP-762-end-to-end-stewardship-live-cycle-certification-contract.md
+  - docs/ap/AP-763-software-company-stewardship-completion-audit-contract.md
   - docs/ap/AP-750-owner-runtime-result-bridge-contract.md
   - docs/ap/AP-751-portfolio-owner-runtime-result-signal-contract.md
   - docs/ap/AP-752-autonomous-executive-allocation-handoff-contract.md
@@ -105,6 +112,7 @@ related_paths:
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOutcomeEvidenceBridgeService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeExecutionAdapterService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipLiveCycleCertificationService.php
   - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipHealthModelService.php
   - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipInboxService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AutonomousExecutive/AutonomousExecutiveRecommendationService.php
@@ -219,7 +227,7 @@ next_actions:
   - Usar AP-744 para operar ciclos ativos somente depois de AP-743 ready.
   - Rodar AP-740/AP-748 `--record-evidence --release-file=<ap747>` e AP-741 `--record-handoff` nos ciclos aceitos pelo operador.
   - Usar AP-746 para runner recorrente seguro; ele nao instala scheduler nem libera mutacao irreversivel.
-  - Usar AP-747 para release operator-owned de AP-726, AP-748 para outcome evidence, AP-749 para consumption gate, AP-758 para owner runtime adapter e AP-750 para result bridge antes de qualquer Portfolio rebalance ou follow-up.
+  - Usar AP-747 para release operator-owned de AP-726, AP-748 para outcome evidence, AP-749 para consumption gate, AP-758 para owner runtime adapter, AP-759 para comando owner CLI sandboxed quando autorizado, AP-760 para review no Product Mode e AP-750 para result bridge antes de qualquer Portfolio rebalance ou follow-up.
   - Usar AP-752 depois de AP-735 + AP-731 accept para entregar alocacao executiva ao owner correto sem execucao automatica.
 ---
 # Atlas Stewardship Evolution Ladder
@@ -284,7 +292,7 @@ ou Evidence.
 AP-745 materializa o primeiro limite scheduler-safe do motor 24h: ele admite um
 tick AP-744. AP-746 materializa o runner recorrente seguro, disabled-by-default,
 AP-756 materializa branch/worktree local isolado com receipt, AP-757 vincula
-esse sandbox ao AP-749, e AP-747/AP-748/AP-750 materializam a liberacao operator-owned para filas
+esse sandbox ao AP-749, e AP-747/AP-748/AP-759/AP-760/AP-750 materializam a liberacao operator-owned para filas
 reais de Dev/Forge, o consumo owner-specific e o retorno do resultado para
 Evidence/Morning Inbox/Portfolio sem autoexecucao, provider, merge, deploy,
 secrets ou mutacao irreversivel. Com pause policy, kill switch, lock/rate AP-745 e JSONL,
@@ -491,7 +499,7 @@ Proibido:
 2. Area Stewardship active handoff, AP-743.
 3. Area Stewardship active operating slice, AP-744.
 4. Continuous Stewardship scheduler-safe tick + recurring runner, AP-745/AP-746.
-5. Operator-owned branch sandbox materializer, sandbox binding, release queue + outcome + consumption/result gates, AP-756/AP-757/AP-747/AP-748/AP-749/AP-750.
+5. Operator-owned branch sandbox materializer, sandbox binding, release queue + outcome + consumption/result gates, AP-756/AP-757/AP-747/AP-748/AP-749/AP-759/AP-760/AP-761/AP-750.
 6. Portfolio Health Model persistente/replayable, AP-733.
 7. Portfolio Steward Inbox, AP-734.
 8. Autonomous Executive Recommendation Pack, AP-735.
@@ -501,13 +509,18 @@ Proibido:
 12. Product Mode/Cockpit visual para Executive + Self-Expanding review, AP-739.
 13. Evidence Ledger + Morning Inbox para AP-731/AP-738/AP-747 outcomes, AP-740/AP-748.
 14. Handoff AP-738 -> Domain Runtime Creation Gate quando houver AP-731 accept sem blockers e AP-740 evidence registrada, AP-741.
-15. Owner runtime result bridge AP-750 para alimentar Evidence, Morning Inbox e Portfolio com resultados reais de Dev/Forge antes de rebalance ou proximo ciclo.
-16. Portfolio owner-runtime result signal intake AP-751 para AP-733 priorizar review/follow-up/rebalance com outcomes AP-750.
-17. Autonomous Executive allocation handoff AP-752 para AP-735 + AP-731 accept virarem pacote de alocacao ao owner correto, sem executar.
-18. Product Mode allocation visibility AP-753 para revisar handoffs AP-752 no cockpit unificado.
-19. Product Mode operational controls AP-754 para revisar onboarding, tiers, budget, branch review, evidence e kill switch antes de elevar autonomia.
-20. Product Mode control receipts AP-755 para tornar esses controles auditaveis, replayable e consumiveis pelo AP-754 via AP-731.
-21. Branch sandbox materializer AP-756 e sandbox binding AP-757 para criar branch/worktree isolado e exigir esse record antes de owner consumption.
+15. Owner sandbox runtime runner AP-759 para executar comando owner CLI allowlisted dentro do worktree AP-756 com receipt explicito.
+16. Product Mode owner sandbox visibility AP-760 para revisar AP-759 no cockpit antes do bridge.
+17. Product Mode Desktop end-to-end console AP-761 para revisar o pipeline inteiro no `stewardship` cockpit sem executar nada.
+18. Owner runtime result bridge AP-750 para alimentar Evidence, Morning Inbox e Portfolio com resultados reais de Dev/Forge antes de rebalance ou proximo ciclo.
+19. Portfolio owner-runtime result signal intake AP-751 para AP-733 priorizar review/follow-up/rebalance com outcomes AP-750.
+20. Autonomous Executive allocation handoff AP-752 para AP-735 + AP-731 accept virarem pacote de alocacao ao owner correto, sem executar.
+21. Product Mode allocation visibility AP-753 para revisar handoffs AP-752 no cockpit unificado.
+22. Product Mode operational controls AP-754 para revisar onboarding, tiers, budget, branch review, evidence e kill switch antes de elevar autonomia.
+23. Product Mode control receipts AP-755 para tornar esses controles auditaveis, replayable e consumiveis pelo AP-754 via AP-731.
+24. Branch sandbox materializer AP-756 e sandbox binding AP-757 para criar branch/worktree isolado e exigir esse record antes de owner consumption.
+25. Live cycle certification AP-762 para provar a cadeia completa antes de declarar a stack pronta para operating product mode.
+26. Completion audit AP-763 para responder item-a-item se a stack esta em 18/29 projection-only ou 29/29 com execucao sandboxada certificada.
 ## Dependencias
 
 | Camada | Owner |
@@ -544,10 +557,10 @@ Cada nivel so pode ser promovido com:
 
 ## Exemplos
 
-- AP-756/AP-757/AP-747/AP-748/AP-749/AP-750/AP-751 provam sandbox, binding, release, visibilidade, consumo owner-specific, resultado Dev/Forge e impacto no Portfolio antes de recomendar alocacao; AP-752 entrega a recomendacao aceita ao owner correto sem executar; AP-753 torna essa entrega revisavel no cockpit; AP-754 mostra se os controles de produto permitem elevar autonomia; AP-755 registra esses controles como receipts AP-731.
+- AP-756/AP-757/AP-747/AP-748/AP-749/AP-759/AP-760/AP-750/AP-751 provam sandbox, binding, release, visibilidade, consumo owner-specific, comando owner sandboxed, cockpit review, resultado Dev/Forge e impacto no Portfolio antes de recomendar alocacao; AP-752 entrega a recomendacao aceita ao owner correto sem executar; AP-753 torna essa entrega revisavel no cockpit; AP-754 mostra se os controles de produto permitem elevar autonomia; AP-755 registra esses controles como receipts AP-731.
 
 ## Proximas Acoes
-1. Usar AP-750 e AP-751 com outcomes reais do AP-744/AP-745/AP-746/AP-747/AP-748/AP-749 para alimentar Evidence, Morning Inbox e Portfolio.
+1. Usar AP-759, AP-760, AP-750 e AP-751 com outcomes reais do AP-744/AP-745/AP-746/AP-747/AP-748/AP-749 para alimentar Evidence, Morning Inbox e Portfolio.
 2. Usar AP-752 para toda recomendacao executiva aceita antes de qualquer follow-up/rebalance.
 3. Usar AP-753 para revisar AP-752 no Product Mode/Cockpit antes de qualquer owner consumir follow-up.
 4. Usar AP-754 para checar onboarding, autonomy tier, budget, branch review, evidence inspector e kill switch antes de qualquer Product Mode Product Cockpit claim.

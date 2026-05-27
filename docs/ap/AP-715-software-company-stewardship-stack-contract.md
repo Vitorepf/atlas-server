@@ -5,7 +5,7 @@ title: AP-715 Atlas Software Company Stewardship Stack Contract
 status: accepted
 owner: programming
 created_at: 2026-05-26
-summary: Canonizes Atlas Software Company Stewardship Stack as the umbrella area containing Night Shift, Night Shift Product Mode, Atlas Continuous Stewardship Loop, Area Focus Loop, Area Stewardship, Portfolio Stewardship, Autonomous Executive Layer and Self-Expanding Software Company. AP-738 adds Self-Expanding Software Company v0 while preserving that the stack lives inside Atlas Autonomous Software Company Runtime, not as a new OS or runtime; AP-739 integrates the upper review queue into Product Mode/Cockpit; AP-740/AP-748 bridge AP-731/AP-738/AP-747 outcomes into Evidence Ledger, Morning Inbox and Portfolio; AP-749 gates owner-specific Dev/Forge consumption; AP-758 adapts ready owner consumption into an AP-750-compatible owner result through existing Atlas Dev/Forge projections; AP-750 bridges owner runtime results back to Evidence, Morning Inbox and Portfolio; AP-751 feeds owner results into Portfolio; AP-752 turns accepted executive recommendations into owner allocation handoffs; AP-753 makes those handoffs visible in the same cockpit; AP-754 adds operational controls visibility to that cockpit; AP-755 turns those controls into AP-731 append-only receipts; AP-756 materializes AP-726 branch sandboxes into local isolated git worktrees only with explicit operator receipt; AP-757 binds AP-749 owner consumption to that materialized sandbox; AP-741 creates gated handoff packets for Domain Runtime Creation Gate; AP-742 exposes AP-740/AP-741 history inside the same cockpit; AP-743 creates Area Stewardship active handoff packets after AP-732 readiness; AP-744 runs the first governed active operating slice; AP-745 wraps AP-744 in a scheduler-safe tick; AP-746 wraps AP-745 in a recurring scheduler-safe runner; AP-747 releases AP-726 handoffs to real Dev/Forge owner queues by explicit operator receipt.
+summary: Canonizes Atlas Software Company Stewardship Stack as the umbrella area containing Night Shift, Night Shift Product Mode, Atlas Continuous Stewardship Loop, Area Focus Loop, Area Stewardship, Portfolio Stewardship, Autonomous Executive Layer and Self-Expanding Software Company. AP-738 adds Self-Expanding Software Company v0 while preserving that the stack lives inside Atlas Autonomous Software Company Runtime, not as a new OS or runtime; AP-739 integrates the upper review queue into Product Mode/Cockpit; AP-740/AP-748 bridge AP-731/AP-738/AP-747 outcomes into Evidence Ledger, Morning Inbox and Portfolio; AP-749 gates owner-specific Dev/Forge consumption; AP-758 adapts ready owner consumption into an AP-750-compatible owner result through existing Atlas Dev/Forge projections; AP-759 executes an explicitly approved allowlisted owner CLI inside the AP-756 sandbox; AP-760 exposes AP-759 in Product Mode/Cockpit; AP-761 renders the full end-to-end Product Mode pipeline in Atlas Desktop; AP-762 certifies the whole chain end-to-end in projection and optional sandbox-execution modes; AP-763 audits the operator's 29 practical requirements item-by-item before allowing a 100% completion claim; AP-750 bridges owner runtime results back to Evidence, Morning Inbox and Portfolio; AP-751 feeds owner results into Portfolio; AP-752 turns accepted executive recommendations into owner allocation handoffs; AP-753 makes those handoffs visible in the same cockpit; AP-754 adds operational controls visibility to that cockpit; AP-755 turns those controls into AP-731 append-only receipts; AP-756 materializes AP-726 branch sandboxes into local isolated git worktrees only with explicit operator receipt; AP-757 binds AP-749 owner consumption to that materialized sandbox; AP-741 creates gated handoff packets for Domain Runtime Creation Gate; AP-742 exposes AP-740/AP-741 history inside the same cockpit; AP-743 creates Area Stewardship active handoff packets after AP-732 readiness; AP-744 runs the first governed active operating slice; AP-745 wraps AP-744 in a scheduler-safe tick; AP-746 wraps AP-745 in a recurring scheduler-safe runner; AP-747 releases AP-726 handoffs to real Dev/Forge owner queues by explicit operator receipt.
 related_paths:
   - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
@@ -42,6 +42,11 @@ related_paths:
   - docs/ap/AP-756-area-focus-branch-sandbox-materializer-contract.md
   - docs/ap/AP-757-owner-queue-sandbox-binding-contract.md
   - docs/ap/AP-758-owner-runtime-execution-adapter-contract.md
+  - docs/ap/AP-759-owner-sandbox-runtime-runner-contract.md
+  - docs/ap/AP-760-product-mode-owner-sandbox-runtime-visibility-contract.md
+  - docs/ap/AP-761-product-mode-desktop-end-to-end-stewardship-console-contract.md
+  - docs/ap/AP-762-end-to-end-stewardship-live-cycle-certification-contract.md
+  - docs/ap/AP-763-software-company-stewardship-completion-audit-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipEvolutionReadModelService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipActiveHandoffService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipActiveOperatingService.php
@@ -50,6 +55,8 @@ related_paths:
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusOwnerQueueConsumptionGateService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeExecutionAdapterService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipLiveCycleCertificationService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipEvolutionDecisionLedgerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipHealthModelService.php
   - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipInboxService.php
@@ -160,6 +167,21 @@ the larger Atlas evolution lineage, not a new stewardship OS.
 - AP-758 adapts a ready AP-749 consumption packet into an AP-750-compatible
   owner result by reusing existing Atlas Dev/Forge owner projections; it does
   not create a provider path or mutate repos.
+- AP-759 executes an explicitly approved allowlisted owner CLI command inside
+  the AP-756 worktree and emits an AP-750-compatible owner result; it does not
+  create OS/runtime/provider path, merge, deploy, external push, secrets or
+  destructive change.
+- AP-760/AP-761 make that owner sandbox run visible in Product Mode and Atlas
+  Desktop without letting the cockpit execute AP-759 or bypass AP-750.
+- AP-762 certifies the entire stewardship live cycle end-to-end by reusing
+  AP-722/AP-743/AP-744/AP-745/AP-746/AP-747/AP-748/AP-749/AP-758/AP-759/AP-750/AP-751/AP-733/AP-734/AP-735/AP-752/AP-739/AP-761,
+  in projection mode and optional AP-759 sandbox execution mode, without
+  creating a new runtime, provider path, cockpit, merge/deploy authority or
+  secret/destructive capability.
+- AP-763 audits the operator's 29 practical Stewardship requirements
+  requirement-by-requirement and is the only local authority that may answer
+  `current_practical_number=29/29`; projection-only audit stops at item 18,
+  while full AP-759 sandbox execution certification may allow the 29/29 claim.
 - AP-750 bridges Dev/Forge owner runtime result receipts back into Evidence,
   Morning Inbox and Portfolio without executing Dev/Forge or authorizing merge/deploy/secrets.
 - AP-751 feeds AP-750 owner-runtime result signals into Portfolio health, risk and rebalance.

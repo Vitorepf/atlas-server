@@ -74,9 +74,10 @@ class AtlasAreaFocusLoopReadModelService
                 'docs/engineering-knowledge-base/atlas-forge-operating-system.md',
             ],
             'repo_scope' => [
-                'repos' => ['atlas-server'],
+                'repos' => ['atlas-server', 'atlas-desktop'],
                 'mode' => 'read_only_scan',
-                'forbidden_paths' => ['.env', 'storage/secrets', 'config/secrets'],
+                'allowed_paths' => ['app/', 'docs/', 'tests/', 'config/', 'routes/', 'database/'],
+                'forbidden_paths' => ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/'],
             ],
             'autonomy_tier' => 0,
             'dev_budget' => ['mode' => 'max_governed', 'units' => 'governed_capacity'],

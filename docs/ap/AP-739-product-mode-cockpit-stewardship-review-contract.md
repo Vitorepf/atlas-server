@@ -5,7 +5,7 @@ title: AP-739 Product Mode Cockpit Stewardship Review Contract
 status: accepted
 owner: programming
 created_at: 2026-05-27
-summary: Integrates AP-736 Executive Decision Inbox, AP-737 New Area Proposal Gate, AP-738 Self-Expanding Software Company v0, AP-740/AP-748 outcome history, AP-741 handoff packets, AP-743 Area Stewardship active handoff packets, AP-744 active operation projections, AP-745 Continuous Stewardship Loop status, AP-746 recurring scheduler state, AP-747 release outcomes, AP-749 owner-consumption controls, AP-750 owner-runtime result review, AP-752 executive allocation handoff visibility and AP-754 Product Mode operational controls into the existing Night Shift Product Mode/Cockpit surface for the Atlas Software Company Stewardship Stack. The cockpit is read-only: it aggregates review queues, counters, health, operator commands and handoff boundaries without recording decisions, invoking Dev/Forge, opening branches, creating domains or promoting runtimes.
+summary: Integrates AP-736 Executive Decision Inbox, AP-737 New Area Proposal Gate, AP-738 Self-Expanding Software Company v0, AP-740/AP-748 outcome history, AP-741 handoff packets, AP-743 Area Stewardship active handoff packets, AP-744 active operation projections, AP-745 Continuous Stewardship Loop status, AP-746 recurring scheduler state, AP-747 release outcomes, AP-749 owner-consumption controls, AP-759 owner sandbox runtime visibility, AP-750 owner-runtime result review, AP-752 executive allocation handoff visibility, AP-754 Product Mode operational controls and AP-761 Desktop end-to-end console rendering into the existing Night Shift Product Mode/Cockpit surface for the Atlas Software Company Stewardship Stack. The cockpit is read-only: it aggregates review queues, counters, health, operator commands and handoff boundaries without recording decisions, invoking Dev/Forge, executing AP-759, opening branches, creating domains or promoting runtimes.
 related_paths:
   - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/engineering-knowledge-base/atlas-stewardship-evolution-ladder.md
@@ -16,6 +16,9 @@ related_paths:
   - docs/ap/AP-740-stewardship-outcome-evidence-and-morning-inbox-contract.md
   - docs/ap/AP-748-stewardship-release-outcome-bridge-contract.md
   - docs/ap/AP-749-owner-specific-dev-forge-queue-consumption-gate-contract.md
+  - docs/ap/AP-759-owner-sandbox-runtime-runner-contract.md
+  - docs/ap/AP-760-product-mode-owner-sandbox-runtime-visibility-contract.md
+  - docs/ap/AP-761-product-mode-desktop-end-to-end-stewardship-console-contract.md
   - docs/ap/AP-750-owner-runtime-result-bridge-contract.md
   - docs/ap/AP-752-autonomous-executive-allocation-handoff-contract.md
   - docs/ap/AP-753-product-mode-cockpit-executive-allocation-handoff-visibility-contract.md
@@ -36,6 +39,10 @@ related_paths:
   - tests/Unit/Ai/SoftwareCompanyStewardship/ProductMode/ProductModeCockpitSurfaceServiceTest.php
   - tests/Feature/Ai/SoftwareCompany/ProductModeCockpitControllerTest.php
   - ../atlas-desktop/apps/desktop/src/surfaces/stewardship/StewardshipSurface.tsx
+  - ../atlas-desktop/apps/desktop/src/surfaces/stewardship/types.ts
+  - ../atlas-desktop/apps/desktop/src/surfaces/stewardship/model.ts
+  - ../atlas-desktop/apps/desktop/src/surfaces/stewardship/stewardship.css
+  - ../atlas-desktop/apps/desktop/src/surfaces/stewardship/__tests__/stewardshipCockpitContract.test.ts
 requires_evidence: true
 risk_level: critical
 ---
@@ -54,6 +61,7 @@ It composes:
 - AP-738 Self-Expanding Software Company v0;
 - AP-740/AP-748 Stewardship Outcome Evidence, Morning Inbox and release outcome history;
 - AP-749 owner-specific Dev/Forge queue consumption controls;
+- AP-759 owner sandbox runtime runner visibility through AP-760;
 - AP-750 owner-runtime result review controls;
 - AP-752 executive allocation handoff packets;
 - AP-754 Product Mode operational controls;
@@ -63,7 +71,7 @@ It composes:
 - AP-745 Continuous Stewardship Loop scheduler-safe tick status.
 - AP-746 Continuous Stewardship recurring scheduler state.
 
-It exists because AP-736/AP-737/AP-738/AP-740/AP-741/AP-743/AP-744/AP-745/AP-746/AP-747/AP-748/AP-749/AP-750/AP-752/AP-754 are
+It exists because AP-736/AP-737/AP-738/AP-740/AP-741/AP-743/AP-744/AP-745/AP-746/AP-747/AP-748/AP-749/AP-759/AP-750/AP-752/AP-754 are
 service models, but still need one Product Mode/Cockpit surface so the operator
 can see the executive recommendation, expansion blockers, self-expanding inbox,
 outcome history, handoff packets, Continuous Stewardship tick state and
@@ -76,7 +84,7 @@ AP-739 is visual aggregation only.
 
 It may:
 
-- read AP-721/AP-736/AP-737/AP-738/AP-740/AP-741/AP-743/AP-744/AP-745/AP-746/AP-747/AP-748/AP-749/AP-750/AP-752/AP-754 projections;
+- read AP-721/AP-736/AP-737/AP-738/AP-740/AP-741/AP-743/AP-744/AP-745/AP-746/AP-747/AP-748/AP-749/AP-759/AP-750/AP-752/AP-754 projections;
 - normalize a combined review queue;
 - expose ETag-backed HTTP read models;
 - render the review queue in Atlas Desktop;
@@ -150,9 +158,11 @@ for this stack. It is slate-dark, token-only and read-only. It displays:
 - Area Stewardship active operation queues from AP-744;
 - Continuous Stewardship Loop status and command anchors from AP-745;
 - Continuous Stewardship recurring scheduler state and command anchors from AP-746;
+- Owner sandbox runtime command plan/result visibility from AP-759/AP-760;
 - Owner-runtime result bridge review from AP-750;
 - Executive allocation handoff packets from AP-752;
 - Product Mode operational controls from AP-754;
+- End-to-end Desktop console rendering from AP-761;
 - AP-731 command anchors and safety policy.
 
 ## Acceptance
@@ -162,7 +172,9 @@ for this stack. It is slate-dark, token-only and read-only. It displays:
 - HTTP route is token-protected, read-only and ETag-backed.
 - CLI exposes `product-mode-cockpit`.
 - Atlas Desktop exposes a `stewardship` Product Mode/Cockpit surface.
-- Review items from AP-736/AP-737/AP-738/AP-740/AP-741/AP-743/AP-744/AP-745/AP-746/AP-747/AP-748/AP-750/AP-752/AP-754 are visible in one queue.
+- AP-761 makes the Desktop surface render the end-to-end runtime pipeline, not
+  only the upper recommendation queue.
+- Review items from AP-736/AP-737/AP-738/AP-740/AP-741/AP-743/AP-744/AP-745/AP-746/AP-747/AP-748/AP-759/AP-750/AP-752/AP-754 are visible in one queue.
 - All claim policies prove no execution, no provider call, no branch, no domain
   creation, no merge/deploy/secrets and no auto-promotion.
 - Focused PHP tests and Desktop build/typecheck cover the integration.

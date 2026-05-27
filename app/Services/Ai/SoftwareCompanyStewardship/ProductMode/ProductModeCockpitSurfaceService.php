@@ -18,6 +18,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\NewAreaProposalGate
 use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\SelfExpandingDomainRuntimeCreationHandoffService;
 use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\SelfExpandingSoftwareCompanyService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
 use DateTimeImmutable;
@@ -33,8 +34,9 @@ use DateTimeZone;
  * outcome history, AP-741 Domain Runtime Creation Gate handoffs, AP-743
  * Area Stewardship active handoff packets, AP-744 active operation projections,
  * AP-745/AP-746 Continuous Stewardship Loop scheduler state, AP-747
- * Dev/Forge release review state and AP-752 executive allocation handoff
- * packets. It does not
+ * Dev/Forge release review state, AP-759 owner sandbox runtime runner state,
+ * AP-750 owner runtime results and AP-752 executive allocation handoff packets.
+ * It does not
  * record decisions, create branches, invoke providers, dispatch Dev/Forge,
  * install schedulers, create domains or promote runtime state.
  */
@@ -145,6 +147,9 @@ final class ProductModeCockpitSurfaceService
         $devForgeRelease = is_array($input['dev_forge_release'] ?? null)
             ? $input['dev_forge_release']
             : $this->defaultDevForgeRelease($areaId);
+        $ownerSandboxRuntime = is_array($input['owner_sandbox_runtime_runner'] ?? null)
+            ? $input['owner_sandbox_runtime_runner']
+            : $this->defaultOwnerSandboxRuntimeRunner($areaId);
         $ownerRuntimeResult = is_array($input['owner_runtime_result_bridge'] ?? null)
             ? $input['owner_runtime_result_bridge']
             : $this->defaultOwnerRuntimeResultBridge($areaId);
@@ -159,8 +164,8 @@ final class ProductModeCockpitSurfaceService
             ? $input['product_mode_operational_controls']
             : $this->operationalControls->project($areaId, $portfolioId, $input);
 
-        $reviewQueue = $this->reviewQueue($executive, $newAreaGate, $selfExpanding, $outcomeHistory, $domainRuntimeCreationHandoff, $areaStewardshipActiveHandoff, $areaStewardshipActiveOperation, $continuousLoop, $continuousScheduler, $devForgeRelease, $ownerRuntimeResult, $executiveAllocationHandoff, $productModeOperationalControls);
-        $counters = $this->counters($areaFocus, $executive, $newAreaGate, $selfExpanding, $outcomeHistory, $domainRuntimeCreationHandoff, $areaStewardshipActiveHandoff, $areaStewardshipActiveOperation, $continuousLoop, $continuousScheduler, $devForgeRelease, $ownerRuntimeResult, $executiveAllocationHandoff, $productModeOperationalControls, $reviewQueue);
+        $reviewQueue = $this->reviewQueue($executive, $newAreaGate, $selfExpanding, $outcomeHistory, $domainRuntimeCreationHandoff, $areaStewardshipActiveHandoff, $areaStewardshipActiveOperation, $continuousLoop, $continuousScheduler, $devForgeRelease, $ownerSandboxRuntime, $ownerRuntimeResult, $executiveAllocationHandoff, $productModeOperationalControls);
+        $counters = $this->counters($areaFocus, $executive, $newAreaGate, $selfExpanding, $outcomeHistory, $domainRuntimeCreationHandoff, $areaStewardshipActiveHandoff, $areaStewardshipActiveOperation, $continuousLoop, $continuousScheduler, $devForgeRelease, $ownerSandboxRuntime, $ownerRuntimeResult, $executiveAllocationHandoff, $productModeOperationalControls, $reviewQueue);
 
         return $this->finalize([
             'schema_version' => self::SURFACE_SCHEMA,
@@ -178,10 +183,10 @@ final class ProductModeCockpitSurfaceService
                 'ceiling' => 'Self-Expanding Software Company',
                 'not_a_new_os' => true,
             ],
-            'source_ap_contracts' => ['AP-721', 'AP-736', 'AP-737', 'AP-738', 'AP-740', 'AP-741', 'AP-742', 'AP-743', 'AP-744', 'AP-745', 'AP-746', 'AP-747', 'AP-748', 'AP-749', 'AP-750', 'AP-752', 'AP-754'],
+            'source_ap_contracts' => ['AP-721', 'AP-736', 'AP-737', 'AP-738', 'AP-740', 'AP-741', 'AP-742', 'AP-743', 'AP-744', 'AP-745', 'AP-746', 'AP-747', 'AP-748', 'AP-749', 'AP-759', 'AP-750', 'AP-752', 'AP-754'],
             'counters' => $counters,
             'health' => [
-                'overall' => $this->overallHealth($counters, $executive, $newAreaGate, $selfExpanding, $outcomeHistory, $domainRuntimeCreationHandoff, $areaStewardshipActiveHandoff, $areaStewardshipActiveOperation, $continuousLoop, $continuousScheduler, $devForgeRelease, $ownerRuntimeResult, $executiveAllocationHandoff, $productModeOperationalControls),
+                'overall' => $this->overallHealth($counters, $executive, $newAreaGate, $selfExpanding, $outcomeHistory, $domainRuntimeCreationHandoff, $areaStewardshipActiveHandoff, $areaStewardshipActiveOperation, $continuousLoop, $continuousScheduler, $devForgeRelease, $ownerSandboxRuntime, $ownerRuntimeResult, $executiveAllocationHandoff, $productModeOperationalControls),
                 'area_focus' => (string) data_get($areaFocus, 'health.overall', 'unknown'),
                 'executive_review_pending' => (int) data_get($executive, 'decision_summary.pending_operator_review', 0),
                 'new_area_blocked' => (int) data_get($newAreaGate, 'decision_summary.blocked_awaiting_operator_review', 0),
@@ -193,6 +198,7 @@ final class ProductModeCockpitSurfaceService
                 'continuous_stewardship_loop_status' => (string) ($continuousLoop['status'] ?? 'unknown'),
                 'continuous_stewardship_scheduler_status' => (string) ($continuousScheduler['status'] ?? 'unknown'),
                 'dev_forge_release_status' => (string) ($devForgeRelease['status'] ?? 'unknown'),
+                'owner_sandbox_runtime_runner_status' => (string) ($ownerSandboxRuntime['status'] ?? 'unknown'),
                 'owner_runtime_result_bridge_status' => (string) ($ownerRuntimeResult['status'] ?? 'unknown'),
                 'executive_allocation_handoff_status' => (string) ($executiveAllocationHandoff['status'] ?? 'unknown'),
                 'product_mode_operational_controls_status' => (string) ($productModeOperationalControls['status'] ?? 'unknown'),
@@ -208,6 +214,7 @@ final class ProductModeCockpitSurfaceService
             'continuous_stewardship_loop' => $this->continuousStewardshipLoopSection($continuousLoop),
             'continuous_stewardship_scheduler' => $this->continuousStewardshipSchedulerSection($continuousScheduler),
             'dev_forge_release' => $this->devForgeReleaseSection($devForgeRelease),
+            'owner_sandbox_runtime_runner' => $this->ownerSandboxRuntimeRunnerSection($ownerSandboxRuntime),
             'owner_runtime_result_bridge' => $this->ownerRuntimeResultBridgeSection($ownerRuntimeResult),
             'executive_allocation_handoff' => $this->executiveAllocationHandoffSection($executiveAllocationHandoff),
             'product_mode_operational_controls' => $this->productModeOperationalControlsSection($productModeOperationalControls),
@@ -222,6 +229,9 @@ final class ProductModeCockpitSurfaceService
                 'release_outcome_evidence_command' => 'php artisan atlas:software-company-stewardship outcome-evidence --release-file=<ap747.jsonl> --record-evidence --actor=<operator> --json',
                 'owner_queue_consumption_gate_command' => 'php artisan atlas:software-company-stewardship owner-queue-consumption-gate --release-file=<ap747.jsonl> --outcome-file=<ap748.json> --execution-receipt-file=<ap749.json> --json',
                 'owner_queue_consumption_record_command' => 'php artisan atlas:software-company-stewardship owner-queue-consumption-gate --release-file=<ap747.jsonl> --outcome-file=<ap748.json> --execution-receipt-file=<ap749.json> --record-consumption --json',
+                'owner_sandbox_runtime_plan_command' => 'php artisan atlas:software-company-stewardship owner-sandbox-runtime-run --execution-file=<ap758.jsonl> --owner-execution-id=<owner_execution_id> --runtime-command-receipt-file=<ap759-command-receipt.json> --json',
+                'owner_sandbox_runtime_execute_command' => 'php artisan atlas:software-company-stewardship owner-sandbox-runtime-run --execution-file=<ap758.jsonl> --owner-execution-id=<owner_execution_id> --runtime-command-receipt-file=<ap759-command-receipt.json> --execute-owner-command --json',
+                'owner_sandbox_runtime_record_command' => 'php artisan atlas:software-company-stewardship owner-sandbox-runtime-run --execution-file=<ap758.jsonl> --owner-execution-id=<owner_execution_id> --runtime-command-receipt-file=<ap759-command-receipt.json> --execute-owner-command --record-owner-run --json',
                 'owner_runtime_result_bridge_command' => 'php artisan atlas:software-company-stewardship owner-runtime-result-bridge --consumption-file=<ap749.jsonl> --result-file=<owner-result.json> --json',
                 'owner_runtime_result_record_command' => 'php artisan atlas:software-company-stewardship owner-runtime-result-bridge --consumption-file=<ap749.jsonl> --result-file=<owner-result.json> --record-result --json',
                 'executive_allocation_handoff_command' => 'php artisan atlas:software-company-stewardship executive-allocation-handoff --pack-id=<ap735> --recommendation-id=<recommendation> --json',
@@ -577,6 +587,75 @@ final class ProductModeCockpitSurfaceService
     /**
      * @return array<string,mixed>
      */
+    private function defaultOwnerSandboxRuntimeRunner(string $areaId): array
+    {
+        return [
+            'schema_version' => StewardshipOwnerSandboxRuntimeRunnerService::REPORT_SCHEMA,
+            'status' => 'not_requested',
+            'ap_contract' => 'AP-759',
+            'mode' => 'owner_sandbox_runtime_runner',
+            'area_id' => $areaId,
+            'portfolio_id' => 'atlas_software_company',
+            'owner_sandbox_run_id' => '',
+            'owner_execution_id' => '',
+            'target_owner' => '',
+            'command_plan' => null,
+            'command_result' => null,
+            'owner_result' => null,
+            'ap750_bridge_input' => null,
+            'blockers' => [],
+            'claim_policy' => [
+                'owner_runtime_command_executed' => false,
+                'provider_invoked' => false,
+                'merge_performed' => false,
+                'deploy_performed' => false,
+                'secret_access' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $runner
+     * @return array<string,mixed>
+     */
+    private function ownerSandboxRuntimeRunnerSection(array $runner): array
+    {
+        $commandPlan = is_array($runner['command_plan'] ?? null) ? $runner['command_plan'] : [];
+        $commandResult = is_array($runner['command_result'] ?? null) ? $runner['command_result'] : [];
+        $ownerResult = is_array($runner['owner_result'] ?? null) ? $runner['owner_result'] : [];
+
+        return [
+            'schema_version' => (string) ($runner['schema_version'] ?? ''),
+            'status' => (string) ($runner['status'] ?? 'unknown'),
+            'ap_contract' => (string) ($runner['ap_contract'] ?? 'AP-759'),
+            'mode' => (string) ($runner['mode'] ?? 'owner_sandbox_runtime_runner'),
+            'area_id' => (string) ($runner['area_id'] ?? ''),
+            'portfolio_id' => (string) ($runner['portfolio_id'] ?? ''),
+            'owner_sandbox_run_id' => (string) ($runner['owner_sandbox_run_id'] ?? $commandPlan['run_id'] ?? ''),
+            'owner_execution_id' => (string) ($runner['owner_execution_id'] ?? ''),
+            'consumption_id' => (string) ($runner['consumption_id'] ?? ''),
+            'release_id' => (string) ($runner['release_id'] ?? ''),
+            'queue_item_id' => (string) ($runner['queue_item_id'] ?? ''),
+            'target_owner' => (string) ($runner['target_owner'] ?? ''),
+            'command_display' => (string) ($commandPlan['command_display'] ?? ''),
+            'command_hash' => (string) ($commandPlan['command_hash'] ?? ''),
+            'requires_provider_authority' => (bool) ($commandPlan['requires_provider_authority'] ?? false),
+            'execute_requested' => (bool) ($commandPlan['execute_requested'] ?? false),
+            'exit_code' => array_key_exists('exit_code', $commandResult) ? (int) $commandResult['exit_code'] : null,
+            'owner_result_id' => (string) ($ownerResult['result_id'] ?? data_get($runner, 'ap750_bridge_input.owner_result_id', '')),
+            'owner_result_status' => (string) ($ownerResult['status'] ?? ''),
+            'run_storage_status' => (string) ($runner['run_storage_status'] ?? ''),
+            'record_run_requested' => (bool) ($runner['record_run_requested'] ?? false),
+            'changed_file_count' => count((array) ($runner['changed_files'] ?? [])),
+            'blockers' => array_values(array_filter((array) ($runner['blockers'] ?? []), 'is_string')),
+            'next_actions' => array_values(array_filter((array) ($runner['next_actions'] ?? []), 'is_string')),
+            'claim_policy' => is_array($runner['claim_policy'] ?? null) ? $runner['claim_policy'] : [],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function defaultOwnerRuntimeResultBridge(string $areaId): array
     {
         return [
@@ -700,12 +779,13 @@ final class ProductModeCockpitSurfaceService
      * @param  array<string,mixed>  $continuousLoop
      * @param  array<string,mixed>  $continuousScheduler
      * @param  array<string,mixed>  $devForgeRelease
+     * @param  array<string,mixed>  $ownerSandboxRuntime
      * @param  array<string,mixed>  $ownerRuntimeResult
      * @param  array<string,mixed>  $executiveAllocationHandoff
      * @param  array<string,mixed>  $productModeControls
      * @return list<array<string,mixed>>
      */
-    private function reviewQueue(array $executive, array $newAreaGate, array $selfExpanding, array $outcomeHistory, array $handoff, array $areaActiveHandoff, array $areaActiveOperation, array $continuousLoop, array $continuousScheduler, array $devForgeRelease, array $ownerRuntimeResult, array $executiveAllocationHandoff, array $productModeControls): array
+    private function reviewQueue(array $executive, array $newAreaGate, array $selfExpanding, array $outcomeHistory, array $handoff, array $areaActiveHandoff, array $areaActiveOperation, array $continuousLoop, array $continuousScheduler, array $devForgeRelease, array $ownerSandboxRuntime, array $ownerRuntimeResult, array $executiveAllocationHandoff, array $productModeControls): array
     {
         $queue = [];
 
@@ -987,6 +1067,47 @@ final class ProductModeCockpitSurfaceService
             ];
         }
 
+        if (in_array((string) ($ownerSandboxRuntime['status'] ?? ''), [
+            StewardshipOwnerSandboxRuntimeRunnerService::STATUS_PLANNED,
+            StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY,
+            StewardshipOwnerSandboxRuntimeRunnerService::STATUS_RECORDED,
+            StewardshipOwnerSandboxRuntimeRunnerService::STATUS_BLOCKED,
+        ], true)) {
+            $blockers = array_values(array_filter((array) ($ownerSandboxRuntime['blockers'] ?? []), 'is_string'));
+            $commandPlan = is_array($ownerSandboxRuntime['command_plan'] ?? null) ? $ownerSandboxRuntime['command_plan'] : [];
+            $queue[] = [
+                'schema_version' => 'atlas.software_company.product_mode_cockpit.review_item.v1',
+                'source_ap' => 'AP-759',
+                'kind' => 'owner_sandbox_runtime_runner',
+                'id' => (string) ($ownerSandboxRuntime['owner_sandbox_run_id'] ?? $commandPlan['run_id'] ?? ''),
+                'title' => 'Review AP-759 sandboxed owner runtime command',
+                'status' => (string) ($ownerSandboxRuntime['status'] ?? ''),
+                'risk_level' => $blockers === [] ? 'high' : 'critical',
+                'target_area' => (string) ($ownerSandboxRuntime['area_id'] ?? ''),
+                'target_owner' => (string) ($ownerSandboxRuntime['target_owner'] ?? ''),
+                'priority_score' => 101,
+                'decision_anchor' => [
+                    'source_ap' => 'AP-759',
+                    'owner_sandbox_run_id' => (string) ($ownerSandboxRuntime['owner_sandbox_run_id'] ?? $commandPlan['run_id'] ?? ''),
+                    'owner_execution_id' => (string) ($ownerSandboxRuntime['owner_execution_id'] ?? ''),
+                    'command_hash' => (string) ($commandPlan['command_hash'] ?? ''),
+                    'command_display' => (string) ($commandPlan['command_display'] ?? ''),
+                    'requires_provider_authority' => (bool) ($commandPlan['requires_provider_authority'] ?? false),
+                    'worktree_path_hash' => (string) ($commandPlan['worktree_path_hash'] ?? ''),
+                    'ap750_owner_result_id' => (string) data_get($ownerSandboxRuntime, 'ap750_bridge_input.owner_result_id', data_get($ownerSandboxRuntime, 'owner_result.result_id', '')),
+                ],
+                'blockers' => $blockers,
+                'recommended_operator_action' => match ((string) ($ownerSandboxRuntime['status'] ?? '')) {
+                    StewardshipOwnerSandboxRuntimeRunnerService::STATUS_PLANNED => 'review_ap759_owner_runtime_command_plan_before_execute',
+                    StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY,
+                    StewardshipOwnerSandboxRuntimeRunnerService::STATUS_RECORDED => 'feed_ap759_owner_result_into_ap750_before_merge_deploy_or_followup',
+                    default => 'resolve_ap759_owner_sandbox_runtime_blockers_before_execution',
+                },
+                'irreversible_action_allowed' => false,
+                'autoimplementation_allowed' => false,
+            ];
+        }
+
         if (in_array((string) ($ownerRuntimeResult['status'] ?? ''), [
             StewardshipOwnerRuntimeResultBridgeService::STATUS_READY,
             StewardshipOwnerRuntimeResultBridgeService::STATUS_RECORDED,
@@ -1116,13 +1237,14 @@ final class ProductModeCockpitSurfaceService
      * @param  array<string,mixed>  $continuousLoop
      * @param  array<string,mixed>  $continuousScheduler
      * @param  array<string,mixed>  $devForgeRelease
+     * @param  array<string,mixed>  $ownerSandboxRuntime
      * @param  array<string,mixed>  $ownerRuntimeResult
      * @param  array<string,mixed>  $executiveAllocationHandoff
      * @param  array<string,mixed>  $productModeControls
      * @param  list<array<string,mixed>>  $reviewQueue
      * @return array<string,int>
      */
-    private function counters(array $areaFocus, array $executive, array $newAreaGate, array $selfExpanding, array $outcomeHistory, array $handoff, array $areaActiveHandoff, array $areaActiveOperation, array $continuousLoop, array $continuousScheduler, array $devForgeRelease, array $ownerRuntimeResult, array $executiveAllocationHandoff, array $productModeControls, array $reviewQueue): array
+    private function counters(array $areaFocus, array $executive, array $newAreaGate, array $selfExpanding, array $outcomeHistory, array $handoff, array $areaActiveHandoff, array $areaActiveOperation, array $continuousLoop, array $continuousScheduler, array $devForgeRelease, array $ownerSandboxRuntime, array $ownerRuntimeResult, array $executiveAllocationHandoff, array $productModeControls, array $reviewQueue): array
     {
         return [
             'area_findings' => (int) data_get($areaFocus, 'findings.total', 0),
@@ -1165,6 +1287,12 @@ final class ProductModeCockpitSurfaceService
             'dev_forge_releases' => (int) (in_array((string) ($devForgeRelease['status'] ?? ''), [AreaFocusDevForgeReleaseService::STATUS_READY, AreaFocusDevForgeReleaseService::STATUS_RECORDED], true) ? 1 : 0),
             'dev_forge_recorded_releases' => (int) (($devForgeRelease['status'] ?? '') === AreaFocusDevForgeReleaseService::STATUS_RECORDED ? 1 : 0),
             'dev_forge_release_blocked' => (int) (($devForgeRelease['status'] ?? '') === AreaFocusDevForgeReleaseService::STATUS_BLOCKED ? 1 : 0),
+            'owner_sandbox_runtime_runs' => (int) (in_array((string) ($ownerSandboxRuntime['status'] ?? ''), [StewardshipOwnerSandboxRuntimeRunnerService::STATUS_PLANNED, StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY, StewardshipOwnerSandboxRuntimeRunnerService::STATUS_RECORDED], true) ? 1 : 0),
+            'owner_sandbox_runtime_planned_runs' => (int) (($ownerSandboxRuntime['status'] ?? '') === StewardshipOwnerSandboxRuntimeRunnerService::STATUS_PLANNED ? 1 : 0),
+            'owner_sandbox_runtime_ready_results' => (int) (($ownerSandboxRuntime['status'] ?? '') === StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY ? 1 : 0),
+            'owner_sandbox_runtime_recorded_runs' => (int) (($ownerSandboxRuntime['status'] ?? '') === StewardshipOwnerSandboxRuntimeRunnerService::STATUS_RECORDED ? 1 : 0),
+            'owner_sandbox_runtime_blocked' => (int) (($ownerSandboxRuntime['status'] ?? '') === StewardshipOwnerSandboxRuntimeRunnerService::STATUS_BLOCKED ? 1 : 0),
+            'owner_sandbox_runtime_changed_files' => count((array) ($ownerSandboxRuntime['changed_files'] ?? [])),
             'owner_runtime_results' => (int) (in_array((string) ($ownerRuntimeResult['status'] ?? ''), [StewardshipOwnerRuntimeResultBridgeService::STATUS_READY, StewardshipOwnerRuntimeResultBridgeService::STATUS_RECORDED], true) ? 1 : 0),
             'owner_runtime_recorded_results' => (int) (($ownerRuntimeResult['status'] ?? '') === StewardshipOwnerRuntimeResultBridgeService::STATUS_RECORDED ? 1 : 0),
             'owner_runtime_result_blocked' => (int) (($ownerRuntimeResult['status'] ?? '') === StewardshipOwnerRuntimeResultBridgeService::STATUS_BLOCKED ? 1 : 0),
@@ -1197,11 +1325,12 @@ final class ProductModeCockpitSurfaceService
      * @param  array<string,mixed>  $continuousLoop
      * @param  array<string,mixed>  $continuousScheduler
      * @param  array<string,mixed>  $devForgeRelease
+     * @param  array<string,mixed>  $ownerSandboxRuntime
      * @param  array<string,mixed>  $ownerRuntimeResult
      * @param  array<string,mixed>  $executiveAllocationHandoff
      * @param  array<string,mixed>  $productModeControls
      */
-    private function overallHealth(array $counters, array $executive, array $newAreaGate, array $selfExpanding, array $outcomeHistory, array $handoff, array $areaActiveHandoff, array $areaActiveOperation, array $continuousLoop, array $continuousScheduler, array $devForgeRelease, array $ownerRuntimeResult, array $executiveAllocationHandoff, array $productModeControls): string
+    private function overallHealth(array $counters, array $executive, array $newAreaGate, array $selfExpanding, array $outcomeHistory, array $handoff, array $areaActiveHandoff, array $areaActiveOperation, array $continuousLoop, array $continuousScheduler, array $devForgeRelease, array $ownerSandboxRuntime, array $ownerRuntimeResult, array $executiveAllocationHandoff, array $productModeControls): string
     {
         if (($executive['status'] ?? '') === self::STATUS_BLOCKED
             || ($newAreaGate['status'] ?? '') === self::STATUS_BLOCKED
@@ -1213,6 +1342,7 @@ final class ProductModeCockpitSurfaceService
             || ($continuousLoop['status'] ?? '') === AtlasContinuousStewardshipLoopService::STATUS_BLOCKED
             || ($continuousScheduler['status'] ?? '') === AtlasContinuousStewardshipRecurringSchedulerService::STATUS_BLOCKED
             || ($devForgeRelease['status'] ?? '') === AreaFocusDevForgeReleaseService::STATUS_BLOCKED
+            || ($ownerSandboxRuntime['status'] ?? '') === StewardshipOwnerSandboxRuntimeRunnerService::STATUS_BLOCKED
             || ($ownerRuntimeResult['status'] ?? '') === StewardshipOwnerRuntimeResultBridgeService::STATUS_BLOCKED
             || ($executiveAllocationHandoff['status'] ?? '') === AutonomousExecutiveAllocationHandoffService::STATUS_BLOCKED
             || ($productModeControls['status'] ?? '') === ProductModeOperationalControlsReadModelService::STATUS_BLOCKED) {
@@ -1237,6 +1367,8 @@ final class ProductModeCockpitSurfaceService
             || ($counters['continuous_scheduler_locked'] ?? 0) > 0
             || ($counters['dev_forge_releases'] ?? 0) > 0
             || ($counters['dev_forge_release_blocked'] ?? 0) > 0
+            || ($counters['owner_sandbox_runtime_runs'] ?? 0) > 0
+            || ($counters['owner_sandbox_runtime_blocked'] ?? 0) > 0
             || ($counters['owner_runtime_results'] ?? 0) > 0
             || ($counters['owner_runtime_result_blocked'] ?? 0) > 0
             || ($counters['executive_allocation_handoff_packets'] ?? 0) > 0
@@ -1324,6 +1456,18 @@ final class ProductModeCockpitSurfaceService
         if (($counters['dev_forge_release_blocked'] ?? 0) > 0) {
             $actions[] = 'Resolve AP-747 release blockers before any AP-726 handoff reaches Atlas Dev or Forge.';
         }
+        if (($counters['owner_sandbox_runtime_planned_runs'] ?? 0) > 0) {
+            $actions[] = 'Review AP-759 sandboxed owner command plan before allowing execution inside the AP-756 worktree.';
+        }
+        if (($counters['owner_sandbox_runtime_ready_results'] ?? 0) > 0) {
+            $actions[] = 'Feed AP-759 owner_result into AP-750 before merge, deploy, follow-up allocation or Portfolio rebalance.';
+        }
+        if (($counters['owner_sandbox_runtime_recorded_runs'] ?? 0) > 0) {
+            $actions[] = 'Review recorded AP-759 owner sandbox run and bridge its owner_result through AP-750.';
+        }
+        if (($counters['owner_sandbox_runtime_blocked'] ?? 0) > 0) {
+            $actions[] = 'Resolve AP-759 sandbox command blockers before owner runtime execution.';
+        }
         if (($counters['owner_runtime_results'] ?? 0) > 0) {
             $actions[] = 'Review AP-750 owner runtime result evidence before merge, deploy, follow-up allocation or Portfolio rebalance.';
         }
@@ -1379,6 +1523,7 @@ final class ProductModeCockpitSurfaceService
             'recurring_scheduler_executed_by_cockpit' => false,
             'dev_forge_release_executed_by_cockpit' => false,
             'owner_queue_consumption_executed_by_cockpit' => false,
+            'owner_sandbox_runtime_runner_executed_by_cockpit' => false,
             'owner_runtime_result_bridge_executed_by_cockpit' => false,
             'executive_allocation_handoff_executed_by_cockpit' => false,
             'product_mode_controls_execute_actions' => false,

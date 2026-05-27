@@ -10,7 +10,7 @@ use Tests\TestCase;
 /**
  * Product Mode cockpit aggregate tests (AP-739).
  *
-     * The service composes AP-721/AP-736/AP-737/AP-738/AP-740/AP-741/AP-743/AP-744/AP-745/AP-746/AP-747/AP-748/AP-749/AP-750/AP-752/AP-754
+     * The service composes AP-721/AP-736/AP-737/AP-738/AP-740/AP-741/AP-743/AP-744/AP-745/AP-746/AP-747/AP-748/AP-749/AP-759/AP-750/AP-752/AP-754
      * into one read-only cockpit. It must not become an executor, a decision
      * writer or a new runtime.
  */
@@ -33,7 +33,7 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
         $this->assertSame('agentic_engineering_os', $cockpit['area_id']);
         $this->assertSame('atlas_software_company', $cockpit['portfolio_id']);
         $this->assertSame(
-            ['AP-721', 'AP-736', 'AP-737', 'AP-738', 'AP-740', 'AP-741', 'AP-742', 'AP-743', 'AP-744', 'AP-745', 'AP-746', 'AP-747', 'AP-748', 'AP-749', 'AP-750', 'AP-752', 'AP-754'],
+            ['AP-721', 'AP-736', 'AP-737', 'AP-738', 'AP-740', 'AP-741', 'AP-742', 'AP-743', 'AP-744', 'AP-745', 'AP-746', 'AP-747', 'AP-748', 'AP-749', 'AP-759', 'AP-750', 'AP-752', 'AP-754'],
             $cockpit['source_ap_contracts'],
         );
         $this->assertSame('Atlas Software Company Stewardship Stack', $cockpit['stack']['name']);
@@ -55,6 +55,7 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
         $this->assertSame('atlas.continuous_stewardship.loop_state.v1', $cockpit['continuous_stewardship_loop']['schema_version']);
         $this->assertSame('atlas.continuous_stewardship.recurring_scheduler.v1', $cockpit['continuous_stewardship_scheduler']['schema_version']);
         $this->assertSame('atlas.software_company_stewardship.area_focus_dev_forge_release.v1', $cockpit['dev_forge_release']['schema_version']);
+        $this->assertSame('atlas.software_company_stewardship.owner_sandbox_runtime_runner.v1', $cockpit['owner_sandbox_runtime_runner']['schema_version']);
         $this->assertSame('atlas.software_company_stewardship.owner_runtime_result_bridge.v1', $cockpit['owner_runtime_result_bridge']['schema_version']);
         $this->assertSame('atlas.autonomous_executive.allocation_handoff.v1', $cockpit['executive_allocation_handoff']['schema_version']);
         $this->assertSame('atlas.software_company.product_mode_operational_controls.v1', $cockpit['product_mode_operational_controls']['schema_version']);
@@ -72,6 +73,8 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
         $this->assertArrayHasKey('area_active_operations', $cockpit['counters']);
         $this->assertArrayHasKey('continuous_loop_paused', $cockpit['counters']);
         $this->assertArrayHasKey('dev_forge_releases', $cockpit['counters']);
+        $this->assertArrayHasKey('owner_sandbox_runtime_runs', $cockpit['counters']);
+        $this->assertArrayHasKey('owner_sandbox_runtime_blocked', $cockpit['counters']);
         $this->assertArrayHasKey('executive_allocation_handoff_packets', $cockpit['counters']);
         $this->assertArrayHasKey('awaiting_executive_allocation_acceptance', $cockpit['counters']);
         $this->assertArrayHasKey('product_mode_control_review_required', $cockpit['counters']);
@@ -99,6 +102,7 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
             'continuous_stewardship_loop' => $this->sampleContinuousLoop(),
             'continuous_stewardship_scheduler' => $this->sampleContinuousScheduler(),
             'dev_forge_release' => $this->sampleDevForgeRelease(),
+            'owner_sandbox_runtime_runner' => $this->sampleOwnerSandboxRuntimeRunner(),
             'owner_runtime_result_bridge' => $this->sampleOwnerRuntimeResultBridge(),
             'executive_allocation_handoff' => $this->sampleExecutiveAllocationHandoff(),
         ]);
@@ -115,6 +119,7 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
         $this->assertContains('AP-747', $sourceAps);
         $this->assertContains('AP-748', $sourceAps);
         $this->assertContains('AP-749', $sourceAps);
+        $this->assertContains('AP-759', $sourceAps);
         $this->assertContains('AP-750', $sourceAps);
         $this->assertContains('AP-752', $sourceAps);
         $this->assertContains('AP-754', $sourceAps);
@@ -136,6 +141,9 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
         $this->assertSame(1, $cockpit['counters']['continuous_scheduler_recorded_runs']);
         $this->assertSame(1, $cockpit['counters']['dev_forge_releases']);
         $this->assertSame(1, $cockpit['counters']['dev_forge_recorded_releases']);
+        $this->assertSame(1, $cockpit['counters']['owner_sandbox_runtime_runs']);
+        $this->assertSame(1, $cockpit['counters']['owner_sandbox_runtime_recorded_runs']);
+        $this->assertSame(1, $cockpit['counters']['owner_sandbox_runtime_changed_files']);
         $this->assertSame(1, $cockpit['counters']['owner_runtime_results']);
         $this->assertSame(1, $cockpit['counters']['owner_runtime_recorded_results']);
         $this->assertSame(1, $cockpit['counters']['owner_runtime_result_evidence_items']);
@@ -151,6 +159,7 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
         $this->assertSame('tick_recorded', $cockpit['health']['continuous_stewardship_loop_status']);
         $this->assertSame('run_recorded', $cockpit['health']['continuous_stewardship_scheduler_status']);
         $this->assertSame('owner_queue_recorded', $cockpit['health']['dev_forge_release_status']);
+        $this->assertSame('owner_sandbox_runtime_run_recorded', $cockpit['health']['owner_sandbox_runtime_runner_status']);
         $this->assertSame('owner_runtime_result_recorded', $cockpit['health']['owner_runtime_result_bridge_status']);
         $this->assertSame('ready', $cockpit['health']['executive_allocation_handoff_status']);
         $this->assertSame('review_required', $cockpit['health']['product_mode_operational_controls_status']);
@@ -174,6 +183,18 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
         $this->assertCount(1, $releaseItems);
         $this->assertSame('area_focus_dev_forge_release', $releaseItems[0]['kind']);
         $this->assertSame('review_owner_queue_item_before_dev_forge_runtime_execution', $releaseItems[0]['recommended_operator_action']);
+
+        $sandboxItems = array_values(array_filter(
+            $cockpit['review_queue'],
+            static fn (array $item): bool => ($item['source_ap'] ?? null) === 'AP-759',
+        ));
+
+        $this->assertCount(1, $sandboxItems);
+        $this->assertSame('owner_sandbox_runtime_runner', $sandboxItems[0]['kind']);
+        $this->assertSame('feed_ap759_owner_result_into_ap750_before_merge_deploy_or_followup', $sandboxItems[0]['recommended_operator_action']);
+        $this->assertSame('atlas_dev', $sandboxItems[0]['target_owner']);
+        $this->assertFalse($sandboxItems[0]['irreversible_action_allowed']);
+        $this->assertFalse($sandboxItems[0]['autoimplementation_allowed']);
 
         $areaHandoffItems = array_values(array_filter(
             $cockpit['review_queue'],
@@ -270,6 +291,9 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
         $this->assertStringContainsString('--release-file=<ap747.jsonl>', $cockpit['operator_controls']['release_outcome_evidence_command']);
         $this->assertStringContainsString('owner-queue-consumption-gate', $cockpit['operator_controls']['owner_queue_consumption_gate_command']);
         $this->assertStringContainsString('record-consumption', $cockpit['operator_controls']['owner_queue_consumption_record_command']);
+        $this->assertStringContainsString('owner-sandbox-runtime-run', $cockpit['operator_controls']['owner_sandbox_runtime_plan_command']);
+        $this->assertStringContainsString('execute-owner-command', $cockpit['operator_controls']['owner_sandbox_runtime_execute_command']);
+        $this->assertStringContainsString('record-owner-run', $cockpit['operator_controls']['owner_sandbox_runtime_record_command']);
         $this->assertStringContainsString('owner-runtime-result-bridge', $cockpit['operator_controls']['owner_runtime_result_bridge_command']);
         $this->assertStringContainsString('record-result', $cockpit['operator_controls']['owner_runtime_result_record_command']);
         $this->assertStringContainsString('executive-allocation-handoff', $cockpit['operator_controls']['executive_allocation_handoff_command']);
@@ -294,6 +318,7 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
         $this->assertFalse($cockpit['claim_policy']['recurring_scheduler_executed_by_cockpit']);
         $this->assertFalse($cockpit['claim_policy']['dev_forge_release_executed_by_cockpit']);
         $this->assertFalse($cockpit['claim_policy']['owner_queue_consumption_executed_by_cockpit']);
+        $this->assertFalse($cockpit['claim_policy']['owner_sandbox_runtime_runner_executed_by_cockpit']);
         $this->assertFalse($cockpit['claim_policy']['owner_runtime_result_bridge_executed_by_cockpit']);
         $this->assertFalse($cockpit['claim_policy']['executive_allocation_handoff_executed_by_cockpit']);
         $this->assertFalse($cockpit['claim_policy']['product_mode_controls_execute_actions']);
@@ -680,6 +705,66 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
                 'provider_invoked' => false,
                 'branch_created' => false,
                 'target_repo_mutated' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function sampleOwnerSandboxRuntimeRunner(): array
+    {
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.owner_sandbox_runtime_runner.v1',
+            'status' => 'owner_sandbox_runtime_run_recorded',
+            'ap_contract' => 'AP-759',
+            'mode' => 'owner_sandbox_runtime_runner',
+            'area_id' => 'agentic_engineering_os',
+            'portfolio_id' => 'atlas_software_company',
+            'owner_sandbox_run_id' => 'osrr_sample',
+            'owner_execution_id' => 'orex_sample',
+            'consumption_id' => 'afcons_sample',
+            'release_id' => 'afrel_sample',
+            'queue_item_id' => 'afq_sample',
+            'target_owner' => 'atlas_dev',
+            'command_plan' => [
+                'schema_version' => 'atlas.software_company_stewardship.ap759_owner_runtime_command.v1',
+                'run_id' => 'osrr_sample',
+                'target_owner' => 'atlas_dev',
+                'worktree_path_hash' => 'sha256:sample_worktree',
+                'command_display' => 'php artisan atlas:dev:run-worker --handoff=ap758',
+                'command_hash' => 'sha256:sample_command',
+                'requires_provider_authority' => false,
+                'execute_requested' => true,
+            ],
+            'command_result' => [
+                'schema_version' => 'atlas.software_company_stewardship.ap759_command_result.v1',
+                'status' => 'completed',
+                'exit_code' => 0,
+                'duration_ms' => 42,
+            ],
+            'changed_files' => ['app/Example.php'],
+            'owner_result' => [
+                'schema_version' => 'atlas.software_company_stewardship.owner_runtime_result.v1',
+                'result_id' => 'afres_sample',
+                'status' => 'completed',
+            ],
+            'ap750_bridge_input' => [
+                'schema_version' => 'atlas.software_company_stewardship.ap759_ap750_bridge_input.v1',
+                'owner_result_id' => 'afres_sample',
+            ],
+            'record_run_requested' => true,
+            'run_storage_status' => 'recorded',
+            'blockers' => [],
+            'next_actions' => [
+                'Feed AP-759 owner_result into AP-750 owner-runtime-result-bridge.',
+            ],
+            'claim_policy' => [
+                'owner_runtime_command_executed' => true,
+                'provider_invoked' => false,
+                'merge_performed' => false,
+                'deploy_performed' => false,
+                'secret_access' => false,
             ],
         ];
     }

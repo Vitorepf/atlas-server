@@ -45,6 +45,7 @@ final class ProductModeOperationalControlsReadModelServiceTest extends TestCase
                 'docs_health',
                 'architecture_validate',
                 'focused_tests',
+                'owner_sandbox_runtime_run',
                 'owner_runtime_result',
             ],
         ]);

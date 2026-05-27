@@ -5,7 +5,7 @@ title: AP-756 Area Focus Branch Sandbox Materializer Contract
 status: accepted
 owner: programming
 created_at: 2026-05-27
-summary: Materializes an AP-726 Area Focus branch sandbox into an isolated local git branch/worktree only after an explicit operator sandbox receipt. AP-756 reuses AP-726/AP-747/AP-749 owners, writes only an append-only JSONL sandbox record, and does not run Dev/Forge, invoke providers, apply fixes, mutate the source worktree, merge, deploy, push externally, access secrets or perform destructive changes.
+summary: Materializes an AP-726 Area Focus branch sandbox into an isolated local git branch/worktree only after an explicit operator sandbox receipt. AP-756 reuses AP-726/AP-747/AP-749/AP-758/AP-759 owners, writes only an append-only JSONL sandbox record, and does not run Dev/Forge, invoke providers, apply fixes, mutate the source worktree, merge, deploy, push externally, access secrets or perform destructive changes.
 related_paths:
   - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
@@ -14,6 +14,8 @@ related_paths:
   - docs/ap/AP-726-area-focus-branch-sandbox-preflight-handoff-contract.md
   - docs/ap/AP-747-area-focus-dev-forge-release-contract.md
   - docs/ap/AP-749-owner-specific-dev-forge-queue-consumption-gate-contract.md
+  - docs/ap/AP-758-owner-runtime-execution-adapter-contract.md
+  - docs/ap/AP-759-owner-sandbox-runtime-runner-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxHandoffService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxPreflightService.php
@@ -48,6 +50,8 @@ AP-726 branch sandbox handoff
 -> AP-756 operator-receipted branch/worktree materialization
 -> AP-757 sandbox binding inside AP-749
 -> AP-747/AP-749 owner release and consumption gates
+-> AP-758 owner runtime execution adapter
+-> AP-759 owner sandbox runtime runner when operator-authorized
 -> Atlas Dev / Forge owned execution
 -> AP-750 owner runtime result bridge
 ```
@@ -91,8 +95,9 @@ AP-756 must not:
 - apply a fix, patch, commit, merge, deploy or external push;
 - touch secrets or perform destructive changes;
 - mutate the source worktree contents;
-- auto-approve AP-724 decisions, AP-747 releases, AP-749 consumption or AP-750
-  outcomes;
+- auto-approve AP-724 decisions, AP-747 releases, AP-749 consumption, AP-759
+  owner command execution or AP-750 outcomes, including AP-758 owner runtime
+  adapter start;
 - create a new OS/runtime/executor.
 
 ## Schemas

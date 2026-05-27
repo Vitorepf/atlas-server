@@ -97,7 +97,7 @@ final class ProductModeOperationalControlReceiptServiceTest extends TestCase
         ]));
         $service->record($this->input([
             'control_type' => 'evidence_policy',
-            'evidence_refs' => ['docs_health', 'architecture_validate', 'focused_tests', 'owner_runtime_result'],
+            'evidence_refs' => ['docs_health', 'architecture_validate', 'focused_tests', 'owner_sandbox_runtime_run', 'owner_runtime_result'],
         ]));
 
         $effective = $service->effectiveControls('agentic_engineering_os', 'atlas_software_company');
