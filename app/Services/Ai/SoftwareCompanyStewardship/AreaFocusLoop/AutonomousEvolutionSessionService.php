@@ -6,7 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
 use App\Support\AtlasSecurity;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -98,11 +98,11 @@ final class AutonomousEvolutionSessionService
 
     public function __construct(
         private readonly AreaFocusDeepFindingEngineService $deepScan,
-        private readonly StewardshipPriorityEngineService $priorityEngine,
-        private readonly AreaFocusBranchSandboxMaterializerService $materializer,
+        private readonly StewardshipPriorityRanker $priorityEngine,
+        private readonly AreaFocusBranchSandboxMaterializer $materializer,
         private readonly AtlasForgeProviderInvocationDriverRouter $providerRouter,
-        private readonly StewardshipRuntimeResultBridgeService $resultBridge,
-        private readonly StewardshipBranchMergeGovernorService $mergeGovernor,
+        private readonly StewardshipRuntimeResultProjector $resultBridge,
+        private readonly StewardshipBranchMergeGovernor $mergeGovernor,
     ) {}
 
     public function setStorageDirForTesting(?string $path): void
@@ -321,6 +321,9 @@ final class AutonomousEvolutionSessionService
         if (($sandbox['status'] ?? '') !== AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['sandbox_materialization_failed'], [
                 'selected_finding' => $this->findingSummary($finding),
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'sandbox' => $sandbox,
             ]);
         }
@@ -333,6 +336,9 @@ final class AutonomousEvolutionSessionService
         if ($postProviderSkip !== null) {
             return $this->blockedCycle($cycleId, $cycleIndex, $postProviderSkip['blockers'], [
                 'selected_finding' => $this->findingSummary($finding),
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'sandbox' => $sandbox,
                 'provider_result' => $this->providerSummary($providerResult),
                 'post_provider_skip' => $postProviderSkip['reason'],
@@ -346,6 +352,9 @@ final class AutonomousEvolutionSessionService
         if (($validation['passed'] ?? null) === false) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['validation_failed'], [
                 'selected_finding' => $this->findingSummary($finding),
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'sandbox' => $sandbox,
                 'provider_called' => (bool) ($providerResult['provider_called'] ?? false),
                 'provider_result' => $this->providerSummary($providerResult),
@@ -366,6 +375,9 @@ final class AutonomousEvolutionSessionService
         if ($postExecutionSkip !== null) {
             return $this->blockedCycle($cycleId, $cycleIndex, $postExecutionSkip['blockers'], [
                 'selected_finding' => $this->findingSummary($finding),
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'sandbox' => $sandbox,
                 'provider_called' => (bool) ($providerResult['provider_called'] ?? false),
                 'provider_result' => $this->providerSummary($providerResult),
@@ -1018,7 +1030,11 @@ final class AutonomousEvolutionSessionService
                 }
                 $status = (string) ($cycle['final_status'] ?? '');
                 $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
-                if ($status === 'cycle_completed_waiting_review_or_merge') {
+                if ($status === 'cycle_completed') {
+                    // Completed findings already landed on main. Locking them
+                    // across daemon invocations prevents a factory seed from
+                    // burning cycles on the same completed improvement.
+                } elseif ($status === 'cycle_completed_waiting_review_or_merge') {
                     $branch = (string) ($cycle['branch_ref'] ?? '');
                     if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
                         continue;

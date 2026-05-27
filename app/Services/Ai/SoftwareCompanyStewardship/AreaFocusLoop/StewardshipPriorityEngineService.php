@@ -16,7 +16,7 @@ use DateTimeZone;
  * current rule: maximize real advancement and robustness before cosmetic work.
  * The engine is deterministic and read-only; execution stays with owner gates.
  */
-final class StewardshipPriorityEngineService
+final class StewardshipPriorityEngineService implements StewardshipPriorityRanker
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.priority_engine.v1';
 

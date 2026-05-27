@@ -20,7 +20,7 @@ use Symfony\Component\Process\Process;
  * optional ff-only auto-merge. It never rebases, force-pushes, squashes, deploys
  * or touches secrets.
  */
-final class StewardshipBranchMergeGovernorService
+final class StewardshipBranchMergeGovernorService implements StewardshipBranchMergeGovernor
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.branch_merge_governor.v1';
 

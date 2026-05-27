@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityEngineService;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityRanker;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -83,13 +85,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
         });
-        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($finding): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($finding): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_dry'],
             ]);
         });
         $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
-        $this->mock(StewardshipBranchMergeGovernorService::class)->shouldNotReceive('evaluate');
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
 
         $payload = $this->service()->run([
             'execute' => false,
@@ -112,7 +114,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($reviewOnly, $runnable): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$reviewOnly, $runnable]));
         });
-        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($runnable): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($runnable): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_runnable'],
             ]);
@@ -140,7 +142,11 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($docsOnly): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$docsOnly]));
         });
-        $this->mock(StewardshipPriorityEngineService::class)->shouldNotReceive('rank');
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap786_loop_hardening'],
+            ]);
+        });
 
         $payload = $this->service()->run([
             'execute' => false,
@@ -148,8 +154,8 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'cycles' => 1,
         ]);
 
-        $this->assertSame('blocked', $payload['cycles'][0]['final_status']);
-        $this->assertContains('no_candidate_with_allowed_files', $payload['cycles'][0]['blockers']);
+        $this->assertSame('dry_run_planned', $payload['cycles'][0]['final_status']);
+        $this->assertSame('factory_max_ap786_loop_hardening', $payload['cycles'][0]['selected_finding']['finding_id']);
         $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
         $this->assertContains('factory_max_rejects_low_leverage_doc_or_evidence_work', $reasons);
     }
@@ -180,7 +186,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding, $alt): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding, $alt]));
         });
-        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($alt): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($alt): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_alt'],
             ]);
@@ -220,12 +226,12 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
         });
-        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($finding): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($finding): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_exec'],
             ]);
         });
-        $this->mock(AreaFocusBranchSandboxMaterializerService::class, function ($mock) use ($repo): void {
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock) use ($repo): void {
             $mock->shouldReceive('materialize')->once()->andReturn([
                 'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED,
                 'sandbox_id' => 'afbs_test',
@@ -243,8 +249,8 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
                 'blockers' => [],
             ]);
         });
-        $this->mock(StewardshipRuntimeResultBridgeService::class)->shouldNotReceive('project');
-        $this->mock(StewardshipBranchMergeGovernorService::class)->shouldNotReceive('evaluate');
+        $this->mock(StewardshipRuntimeResultProjector::class)->shouldNotReceive('project');
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
 
         $payload = $this->service()->run([
             'execute' => true,
@@ -286,12 +292,12 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
         });
-        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($finding): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($finding): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_validation'],
             ]);
         });
-        $this->mock(AreaFocusBranchSandboxMaterializerService::class, function ($mock) use ($repo): void {
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock) use ($repo): void {
             $mock->shouldReceive('materialize')->once()->andReturn([
                 'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED,
                 'sandbox_id' => 'afbs_validation',
@@ -309,8 +315,8 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
                 'blockers' => [],
             ]);
         });
-        $this->mock(StewardshipRuntimeResultBridgeService::class)->shouldNotReceive('project');
-        $this->mock(StewardshipBranchMergeGovernorService::class)->shouldNotReceive('evaluate');
+        $this->mock(StewardshipRuntimeResultProjector::class)->shouldNotReceive('project');
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
 
         $payload = $this->service()->run([
             'execute' => true,
@@ -354,7 +360,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding, $alt): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding, $alt]));
         });
-        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($alt): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($alt): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_alt_validation'],
             ]);
@@ -371,12 +377,58 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertContains('review_locked_existing_branch', $reasons);
     }
 
+    public function test_completed_finding_from_record_is_not_selected_again_by_daemon(): void
+    {
+        $completed = $this->finding('factory_max_ap786_loop_hardening', 'Harden AP-786 loop');
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'cycle_completed',
+                    'blockers' => [],
+                    'selected_finding' => [
+                        'finding_id' => 'factory_max_ap786_loop_hardening',
+                        'finding_hash' => 'sha256:factory_max_ap786_loop_hardening',
+                        'title' => 'Harden AP-786 loop',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $next = $this->finding('factory_max_ap785_priority_power', 'Improve AP-785 priority engine');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($completed, $next): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$completed, $next]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($next): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap785_priority_power'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('factory_max_ap785_priority_power', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
+        $this->assertContains('review_locked_existing_branch', $reasons);
+    }
+
     public function test_continue_on_blocked_stops_when_no_candidate_remains(): void
     {
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
-            $mock->shouldReceive('scan')->times(2)->andReturn($this->scan([]));
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
         });
-        $this->mock(StewardshipPriorityEngineService::class)->shouldNotReceive('rank');
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => null,
+            ]);
+        });
 
         $payload = $this->service()->run([
             'execute' => false,
@@ -397,13 +449,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($first, $second): void {
             $mock->shouldReceive('scan')->times(2)->andReturn($this->scan([$first, $second]));
         });
-        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($first, $second): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($first, $second): void {
             $mock->shouldReceive('rank')->twice()->andReturn(
                 ['top_candidate' => ['candidate_id' => 'afdf_first']],
                 ['top_candidate' => ['candidate_id' => 'afdf_second']],
             );
         });
-        $this->mock(AreaFocusBranchSandboxMaterializerService::class, function ($mock): void {
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
             $mock->shouldReceive('materialize')->twice()->andReturn([
                 'status' => AreaFocusBranchSandboxMaterializerService::STATUS_BLOCKED,
                 'blockers' => ['sandbox_materialization_failed'],
@@ -452,13 +504,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($first, $second): void {
             $mock->shouldReceive('scan')->times(2)->andReturn($this->scan([$first, $second]));
         });
-        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($first, $second): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($first, $second): void {
             $mock->shouldReceive('rank')->twice()->andReturn(
                 ['top_candidate' => ['candidate_id' => 'afdf_merged']],
                 ['top_candidate' => ['candidate_id' => 'afdf_next']],
             );
         });
-        $this->mock(AreaFocusBranchSandboxMaterializerService::class, function ($mock) use ($repo): void {
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock) use ($repo): void {
             $mock->shouldReceive('materialize')->twice()->andReturn(
                 [
                     'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED,
@@ -482,13 +534,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
                 'blockers' => [],
             ]);
         });
-        $this->mock(StewardshipRuntimeResultBridgeService::class, function ($mock): void {
+        $this->mock(StewardshipRuntimeResultProjector::class, function ($mock): void {
             $mock->shouldReceive('project')->once()->andReturn([
                 'result_bridge_id' => 'srrb_test',
                 'inbox_item_id' => 'inbox_test',
             ]);
         });
-        $this->mock(StewardshipBranchMergeGovernorService::class, function ($mock): void {
+        $this->mock(StewardshipBranchMergeGovernor::class, function ($mock): void {
             $mock->shouldReceive('evaluate')->once()->andReturn([
                 'status' => StewardshipBranchMergeGovernorService::STATUS_MERGED,
                 'blockers' => [],
@@ -535,8 +587,12 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($locked): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$locked]));
         });
-        $this->mock(StewardshipPriorityEngineService::class)->shouldNotReceive('rank');
-        $this->mock(AreaFocusBranchSandboxMaterializerService::class)->shouldNotReceive('materialize');
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => null,
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class)->shouldNotReceive('materialize');
         $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
 
         $payload = $this->service()->run([
@@ -574,21 +630,27 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($first, $second): void {
             $mock->shouldReceive('scan')->times(2)->andReturn($this->scan([$first, $second]));
         });
-        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($first, $second): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($first, $second): void {
             $mock->shouldReceive('rank')->twice()->andReturn(
                 ['top_candidate' => ['candidate_id' => 'afdf_wasted']],
                 ['top_candidate' => ['candidate_id' => 'afdf_after_wasted']],
             );
         });
-        $this->mock(AreaFocusBranchSandboxMaterializerService::class, function ($mock) use ($repo): void {
-            $mock->shouldReceive('materialize')->once()->andReturn([
-                'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED,
-                'sandbox_id' => 'afbs_wasted',
-                'materialization' => [
-                    'worktree_path' => $repo,
-                    'branch_name' => 'atlas/area-focus/wasted-branch',
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock) use ($repo): void {
+            $mock->shouldReceive('materialize')->twice()->andReturn(
+                [
+                    'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED,
+                    'sandbox_id' => 'afbs_wasted',
+                    'materialization' => [
+                        'worktree_path' => $repo,
+                        'branch_name' => 'atlas/area-focus/wasted-branch',
+                    ],
                 ],
-            ]);
+                [
+                    'status' => AreaFocusBranchSandboxMaterializerService::STATUS_BLOCKED,
+                    'blockers' => ['sandbox_materialization_failed'],
+                ],
+            );
         });
         $this->mock(AtlasForgeProviderInvocationDriverRouter::class, function ($mock): void {
             $mock->shouldReceive('driverInvoke')->once()->andReturn([
@@ -598,8 +660,8 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
                 'blockers' => [],
             ]);
         });
-        $this->mock(StewardshipRuntimeResultBridgeService::class)->shouldNotReceive('project');
-        $this->mock(StewardshipBranchMergeGovernorService::class)->shouldNotReceive('evaluate');
+        $this->mock(StewardshipRuntimeResultProjector::class)->shouldNotReceive('project');
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
 
         $payload = $this->service()->run([
             'execute' => true,

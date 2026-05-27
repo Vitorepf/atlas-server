@@ -45,7 +45,7 @@ use Illuminate\Support\Facades\Schema;
  * AP-751 portfolio feed shape. It never invokes a provider, opens a branch,
  * mutates the target repo, merges, deploys, touches secrets or auto-approves.
  */
-final class StewardshipRuntimeResultBridgeService
+final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeResultProjector
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.runtime_result_bridge.v1';
 

@@ -52,6 +52,9 @@ one or more cycles:
 - Inbox is emitted before merge attempt so the operator can audit what happened.
 - Failed provider execution, empty diff, validation failure or dirty base stops
   the cycle and records the blocker.
+- Code auto-merge must run at least one focused PHP test suite for the touched
+  factory runtime. `git diff --check` and `docs-health` are not sufficient for
+  AP-786 code changes.
 
 ## CLI
 
@@ -64,6 +67,8 @@ php artisan atlas:software-company-stewardship:autonomous-evolution-session \
   --auto-merge \
   --pull-main \
   --record \
+  --validation-command="git diff --check" \
+  --validation-command="php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php" \
   --json
 ```
 
@@ -90,3 +95,5 @@ Each cycle includes:
   `allowed_files`, forbidden paths, workspace and model.
 - The session can be replayed from JSONL.
 - Every merge is ff-only and AP-769 governed.
+- AP-786 self-hardening changes prove the focused
+  `AutonomousEvolutionSessionServiceTest` suite is green before merge.

@@ -20,7 +20,7 @@ use Throwable;
  * It requires an explicit operator sandbox receipt and never starts Dev/Forge,
  * invokes providers, applies fixes, merges, deploys, pushes or touches secrets.
  */
-final class AreaFocusBranchSandboxMaterializerService
+final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranchSandboxMaterializer
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.area_focus_branch_sandbox_materializer.v1';
 

@@ -4,14 +4,14 @@
 - **Stack:** Atlas Software Company Stewardship Stack (a stack/capability family inside the Atlas Autonomous Software Company Runtime, **not** a new OS).
 - **Owner service:** `app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/FirstFullCycleOrchestratorService.php`
 - **CLI:** `php artisan atlas:software-company-stewardship first-full-cycle` (+ `first-full-cycles`, `first-full-cycle-replay`)
-- **Composes (does not re-implement):** AP-766 runner · AP-748 deep scan · AP-771 priority engine · AP-718 spec bridge → Self-Directed Evolution · AP-756 branch sandbox · AP-767 Dev/Forge runtime execution bridge · AP-765 evidence/Product Mode/inbox result bridge · AP-769 branch merge governor · AP-780 branch review packet.
+- **Composes (does not re-implement):** AP-766 runner · AP-748 deep scan · AP-785 priority engine · AP-718 spec bridge → Self-Directed Evolution · AP-756 branch sandbox · AP-767 Dev/Forge runtime execution bridge · AP-765 evidence/Product Mode/inbox result bridge · AP-769 branch merge governor · AP-780 branch review packet.
 
 ## Purpose
 
 Stitch the already-shipped components into the **first complete, conservative, auditable 24h stewardship cycle** for one `area_id`/`focus`:
 
 ```
-Runner (AP-766) → Deep Scan (AP-748) → Priority Rank (AP-771) → selected Finding → Spec/Proposal seed (AP-718)
+Runner (AP-766) → Deep Scan (AP-748) → Priority Rank (AP-785) → selected Finding → Spec/Proposal seed (AP-718)
   → Branch Sandbox (AP-756) → Dev/Forge Bridge (AP-767) → Evidence/Product Mode/Inbox (AP-765)
   → Branch Merge Governance (AP-769) → Branch Review Packet (AP-780) → final cycle receipt
 ```
@@ -50,7 +50,7 @@ is deferred, AP-780 is also deferred with `branch_governance_report_required`.
 
 ## Finding selection
 
-Conservative boundary remains first: only `kind ∈ {test, doc, gap}` and `severity ∈ {low, medium}` are auto-selectable. Inside that safe set, AP-771 ranks by advancement, robustness, risk reduction, mergeability, confidence and conflict/blast-radius penalties. Critical/high risks are never auto-selected. `--selected-finding` (service input) overrides.
+Conservative boundary remains first: only `kind ∈ {test, doc, gap}` and `severity ∈ {low, medium}` are auto-selectable. Inside that safe set, AP-785 ranks by advancement, robustness, risk reduction, mergeability, confidence and conflict/blast-radius penalties. Critical/high risks are never auto-selected. `--selected-finding` (service input) overrides.
 
 ## Tests
 

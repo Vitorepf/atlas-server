@@ -349,9 +349,9 @@ final class FirstFullCycleOrchestratorService
         return [
             'finding' => $finding,
             'stage' => $this->stage('selected_finding', 'AP-748', self::STAGE_RAN,
-                'Selected the highest AP-771 priority finding inside the conservative safe candidate set.',
+                'Selected the highest AP-785 priority finding inside the conservative safe candidate set.',
                 $this->findingSummary($finding) + [
-                    'selection_strategy' => 'ap771_priority_with_safe_candidate_gate',
+                    'selection_strategy' => 'ap785_priority_with_safe_candidate_gate',
                     'safe_candidate_count' => count($candidates),
                     'priority_report' => $priority,
                 ]),
