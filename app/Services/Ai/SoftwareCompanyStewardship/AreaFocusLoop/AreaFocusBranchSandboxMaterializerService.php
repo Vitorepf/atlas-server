@@ -40,9 +40,14 @@ final class AreaFocusBranchSandboxMaterializerService
 
     private ?string $storageRootOverride = null;
 
+    public function __construct(
+        private readonly StewardshipBranchLifecycleRegistryService $branchLifecycleRegistry,
+    ) {}
+
     public function setStorageRootForTesting(?string $dir): void
     {
         $this->storageRootOverride = $dir;
+        $this->branchLifecycleRegistry->setStorageRootForTesting($dir !== null ? $dir.'/branch_lifecycle_registry' : null);
     }
 
     public function storageDir(): string
@@ -110,10 +115,32 @@ final class AreaFocusBranchSandboxMaterializerService
             return $existing + ['sandbox_storage_status' => 'existing'];
         }
 
+        $registry = $this->branchLifecycleRegistry->reserve([
+            'area_id' => $areaId,
+            'repo_root' => $repoRoot,
+            'base_ref' => $baseRef,
+            'branch_name' => $branchName,
+            'handoff_hash' => (string) ($handoff['handoff_hash'] ?? ''),
+            'handoff_id' => (string) ($handoff['handoff_id'] ?? ''),
+            'work_order_id' => (string) ($handoff['work_order_id'] ?? ''),
+            'work_order_hash' => (string) ($handoff['work_order_hash'] ?? ''),
+            'sandbox_id' => $sandboxId,
+            'owner' => (string) ($handoff['target_owner'] ?? $handoff['route'] ?? ''),
+            'lifecycle_status' => StewardshipBranchLifecycleRegistryService::STATUS_RESERVED,
+            'record_branch_registry' => $record,
+        ]);
+        if (($registry['status'] ?? '') === StewardshipBranchLifecycleRegistryService::STATUS_BLOCKED) {
+            return $this->blocked($areaId, (string) ($registry['reason'] ?? 'branch_lifecycle_registry_blocked'), (string) ($registry['detail'] ?? 'AP-770 blocked branch lifecycle reservation.'), $preflight, [
+                'sandbox_id' => $sandboxId,
+                'branch_lifecycle_registry' => $registry,
+            ]);
+        }
+
         $git = $this->gitPreflight($repoRoot, $branchName, $baseRef, $worktreePath);
         if ($git['status'] === self::STATUS_BLOCKED) {
             return $this->blocked($areaId, (string) $git['reason'], (string) $git['detail'], $preflight, [
                 'sandbox_id' => $sandboxId,
+                'branch_lifecycle_registry' => $registry,
                 'git_preflight' => $git,
             ]);
         }
@@ -128,6 +155,7 @@ final class AreaFocusBranchSandboxMaterializerService
             'stack' => 'Atlas Software Company Stewardship Stack',
             'source_ap_contracts' => ['AP-724', 'AP-726', 'AP-747', 'AP-756'],
             'source_refs' => $this->sourceRefs($preflight, $handoff, $receipt),
+            'branch_lifecycle_registry' => $this->registrySummary($registry),
             'sandbox_receipt' => $this->receiptSummary($receipt),
             'branch_plan' => $branchPlan,
             'materialization' => [
@@ -158,9 +186,10 @@ final class AreaFocusBranchSandboxMaterializerService
             if ($created['status'] === self::STATUS_BLOCKED) {
                 return $this->blocked($areaId, (string) $created['reason'], (string) $created['detail'], $preflight, [
                     'sandbox_id' => $sandboxId,
-                    'git_preflight' => $git,
-                    'git_result' => $created,
-                ]);
+                'git_preflight' => $git,
+                'branch_lifecycle_registry' => $registry,
+                'git_result' => $created,
+            ]);
             }
 
             $payload['status'] = self::STATUS_MATERIALIZED;
@@ -791,6 +820,23 @@ final class AreaFocusBranchSandboxMaterializerService
     }
 
     /**
+     * @param  array<string,mixed>  $registry
+     * @return array<string,string|bool>
+     */
+    private function registrySummary(array $registry): array
+    {
+        return [
+            'ap_contract' => (string) ($registry['ap_contract'] ?? 'AP-770'),
+            'status' => (string) ($registry['status'] ?? ''),
+            'registry_id' => (string) ($registry['registry_id'] ?? ''),
+            'branch_key' => (string) ($registry['branch_key'] ?? ''),
+            'registry_hash' => (string) ($registry['registry_hash'] ?? ''),
+            'storage_status' => (string) ($registry['registry_storage_status'] ?? ''),
+            'active_collision_found' => (bool) data_get($registry, 'collision_guard.active_collision_found', false),
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     private function nextActions(bool $materialized): array
@@ -820,6 +866,7 @@ final class AreaFocusBranchSandboxMaterializerService
             'dev_forge_release' => ['ap' => 'AP-747', 'owner_service' => AreaFocusDevForgeReleaseService::class],
             'owner_consumption_gate' => ['ap' => 'AP-749', 'owner_service' => AreaFocusOwnerQueueConsumptionGateService::class],
             'product_mode_controls' => ['ap' => 'AP-754/AP-755', 'role' => 'operator controls and kill switch visibility'],
+            'branch_lifecycle_registry' => ['ap' => 'AP-770', 'owner_service' => StewardshipBranchLifecycleRegistryService::class],
         ];
     }
 

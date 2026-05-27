@@ -183,9 +183,44 @@ final class AreaFocusBranchSandboxMaterializerServiceTest extends TestCase
         $this->assertTrue(is_dir($first['materialization']['worktree_path']));
         $this->assertTrue($first['materialization']['branch_created']);
         $this->assertTrue($first['materialization']['worktree_created']);
+        $this->assertSame('AP-770', $first['branch_lifecycle_registry']['ap_contract']);
+        $this->assertSame('recorded', $first['branch_lifecycle_registry']['storage_status']);
         $this->assertSame('area-focus/agentic-engineering-os/atlas-dev/h1', $first['materialization']['current_worktree_branch']);
         $this->assertFileExists($service->sandboxRecordPath('agentic_engineering_os'));
         $this->assertCount(1, file($service->sandboxRecordPath('agentic_engineering_os'), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
+    }
+
+    public function test_blocks_parallel_branch_lifecycle_collision_before_git_mutation(): void
+    {
+        $repo = $this->repo();
+        $service = $this->service();
+        $service->materialize([
+            'preflight_report' => $this->preflight(),
+            'sandbox_receipt' => $this->receipt(),
+            'repo_root' => $repo,
+            'base_ref' => 'HEAD',
+            'materialize_sandbox' => true,
+        ]);
+
+        $preflight = $this->preflight();
+        $preflight['handoffs'][0]['handoff_hash'] = 'sha256:h2';
+        $preflight['handoffs'][0]['handoff_id'] = 'afho_h2';
+
+        $blocked = $service->materialize([
+            'preflight_report' => $preflight,
+            'sandbox_receipt' => $this->receipt([
+                'target_handoff_hash' => 'sha256:h2',
+                'sandbox_id' => 'afsb_h2',
+            ]),
+            'repo_root' => $repo,
+            'base_ref' => 'HEAD',
+            'materialize_sandbox' => true,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_BLOCKED, $blocked['status']);
+        $this->assertSame('branch_lifecycle_collision', $blocked['reason']);
+        $this->assertSame('branch_lifecycle_collision', $blocked['branch_lifecycle_registry']['reason']);
+        $this->assertFalse($blocked['claim_policy']['branch_created']);
     }
 
     public function test_blocks_unsafe_branch_name_before_git_mutation(): void

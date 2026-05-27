@@ -10,7 +10,9 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindin
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FirstFullCycleOrchestratorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchLifecycleRegistryService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipActiveHandoffService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipActiveOperatingService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipPromotionReadinessService;
@@ -57,12 +59,13 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
     use RendersContinuousStewardshipRunner;
 
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|first-full-cycle|first-full-cycles|first-full-cycle-replay|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
+        {action=area-focus : area-focus|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--focus=dev_forge : AP-748 deep-scan focus slice (e.g. dev_forge)}
         {--max-findings= : AP-748 cap on emitted deep-scan findings}
         {--record : AP-748 append-only persist the deep-scan read-model as JSONL}
         {--scan-id= : AP-748 deep-scan id for replay}
+        {--priority-file= : AP-771 JSON file containing candidates, findings, branches or a deep_scan_report}
         {--cycle-id= : AP-768 first-full-cycle id for replay}
         {--portfolio=atlas_software_company : Canonical portfolio_id}
         {--repo=atlas-server : Product Mode repository slug for AP-754 controls}
@@ -120,6 +123,8 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--repo-root= : AP-756 git repository root for sandbox materialization}
         {--base-ref=HEAD : AP-756 base ref for git worktree materialization}
         {--branch-ref= : AP-769 cycle branch ref for merge governance}
+        {--record-branch-registry : AP-770 append branch lifecycle registry reservation}
+        {--lifecycle-status=reserved : AP-770 lifecycle status reserved|materialized|merged|released}
         {--auto-merge : AP-769 request policy-gated automatic ff-only merge}
         {--execute-merge : AP-769 actually perform the ff-only merge when policy allows}
         {--auto-merge-class= : AP-769 operator-declared class: documentation|test|bugfix|cleanup}
@@ -190,7 +195,9 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         FirstFullCycleOrchestratorService $firstFullCycle,
         AreaFocusDevForgeReleaseService $areaFocusDevForgeRelease,
         AreaFocusBranchSandboxMaterializerService $branchSandboxMaterializer,
+        StewardshipBranchLifecycleRegistryService $branchLifecycleRegistry,
         StewardshipBranchMergeGovernorService $branchMergeGovernor,
+        StewardshipPriorityEngineService $priorityEngine,
         AreaFocusOwnerQueueConsumptionGateService $ownerQueueConsumptionGate,
         StewardshipEvolutionReadModelService $evolution,
         StewardshipEvolutionDecisionLedgerService $ledger,
@@ -229,6 +236,9 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'first-full-cycle' => $this->runFirstFullCycle($firstFullCycle),
             'first-full-cycles' => $this->runFirstFullCycleList($firstFullCycle),
             'first-full-cycle-replay' => $this->runFirstFullCycleReplay($firstFullCycle),
+            'priority-rank' => $this->runPriorityRank($priorityEngine),
+            'branch-lifecycle-reserve' => $this->runBranchLifecycleReserve($branchLifecycleRegistry),
+            'branch-lifecycle-records' => $this->runBranchLifecycleRecords($branchLifecycleRegistry),
             'branch-merge-governor' => $this->runBranchMergeGovernor($branchMergeGovernor),
             'branch-merge-governance-records' => $this->runBranchMergeGovernanceRecords($branchMergeGovernor),
             'area-focus-deep-scan' => $this->runAreaFocusDeepScan($deepFindingEngine),
@@ -751,6 +761,107 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             $this->components->twoColumnDetail('AP-768 cycle replay', (string) ($p['cycle_id'] ?? ''));
             $this->components->twoColumnDetail('Final status', (string) ($p['final_status'] ?? ''));
             $this->components->twoColumnDetail('Focus', (string) ($p['focus'] ?? ''));
+        });
+
+        return self::SUCCESS;
+    }
+
+    private function runPriorityRank(StewardshipPriorityEngineService $service): int
+    {
+        $input = [
+            'area_id' => (string) $this->option('area'),
+        ];
+        $filePayload = $this->readJsonFile((string) ($this->option('priority-file') ?? ''));
+        if (is_array($filePayload)) {
+            $input += $filePayload;
+            if (array_is_list($filePayload)) {
+                $input['candidates'] = $filePayload;
+            }
+        } else {
+            $scan = $this->readJsonFile((string) ($this->option('scan-id') ?? ''));
+            if (is_array($scan)) {
+                $input['deep_scan_report'] = $scan;
+            }
+        }
+
+        $payload = $service->rank($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-771 priority engine', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Candidates', (string) ($p['candidate_count'] ?? 0));
+            $top = is_array($p['top_candidate'] ?? null) ? $p['top_candidate'] : [];
+            $this->components->twoColumnDetail('Top candidate', (string) ($top['title'] ?? '(none)'));
+            $this->components->twoColumnDetail('Top score', (string) ($top['priority_score'] ?? ''));
+            foreach (array_slice((array) ($p['ranked_candidates'] ?? []), 0, 10) as $item) {
+                $this->line(sprintf(
+                    '  #%d %s · %s · %s',
+                    (int) ($item['rank'] ?? 0),
+                    (string) ($item['priority_score'] ?? ''),
+                    (string) ($item['priority_band'] ?? ''),
+                    (string) ($item['title'] ?? ''),
+                ));
+            }
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+        });
+
+        return ($payload['status'] ?? '') === StewardshipPriorityEngineService::STATUS_BLOCKED
+            ? self::FAILURE
+            : self::SUCCESS;
+    }
+
+    private function runBranchLifecycleReserve(StewardshipBranchLifecycleRegistryService $service): int
+    {
+        $branchRef = trim((string) ($this->option('branch-ref') ?? ''));
+        if ($branchRef === '') {
+            return $this->blockedResult('branch_ref_required', '--branch-ref is required for branch-lifecycle-reserve');
+        }
+
+        $payload = $service->reserve([
+            'area_id' => (string) $this->option('area'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'base_ref' => (string) ($this->option('base-ref') ?: 'HEAD'),
+            'branch_name' => $branchRef,
+            'sandbox_id' => (string) ($this->option('sandbox-id') ?? ''),
+            'owner' => (string) ($this->option('owner') ?? ''),
+            'lifecycle_status' => (string) ($this->option('lifecycle-status') ?? 'reserved'),
+            'record_branch_registry' => (bool) $this->option('record-branch-registry'),
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-770 branch lifecycle registry', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Branch', (string) data_get($p, 'branch_identity.branch_name', ''));
+            $this->components->twoColumnDetail('Registry', (string) ($p['registry_id'] ?? ''));
+            $this->components->twoColumnDetail('Storage', (string) ($p['registry_storage_status'] ?? 'projected'));
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+            foreach ((array) ($p['next_actions'] ?? []) as $action) {
+                $this->line('  next: '.(string) $action);
+            }
+        });
+
+        return ($payload['status'] ?? '') === StewardshipBranchLifecycleRegistryService::STATUS_BLOCKED
+            ? self::FAILURE
+            : self::SUCCESS;
+    }
+
+    private function runBranchLifecycleRecords(StewardshipBranchLifecycleRegistryService $service): int
+    {
+        $payload = $service->listRecords((string) $this->option('area'));
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-770 branch lifecycle records', (string) ($p['record_count'] ?? 0));
+            $this->components->twoColumnDetail('Active', (string) ($p['active_record_count'] ?? 0));
+            foreach ((array) ($p['records'] ?? []) as $record) {
+                $this->line(sprintf(
+                    '  %s · %s · %s',
+                    (string) ($record['status'] ?? ''),
+                    (string) data_get($record, 'branch_identity.branch_name', ''),
+                    (string) ($record['recorded_at'] ?? ''),
+                ));
+            }
         });
 
         return self::SUCCESS;
