@@ -72,11 +72,16 @@ The command must be a direct PHP artisan argv array:
 [php, artisan, <allowlisted-owner-command>, ...args]
 ```
 
+`artisan` may be either the literal `artisan` inside the AP-756 worktree or the
+canonical `base_path()/artisan` entrypoint. The latter is allowed so git
+worktrees without `vendor/` can still run the owner CLI while all target
+workspace mutation remains inside the AP-756 worktree.
+
 Allowed owners:
 
 | Owner | Commands |
 |---|---|
-| `atlas_dev` | `atlas:dev:run-worker`, `atlas:programming:console` |
+| `atlas_dev` | `atlas:dev:run-worker`, `atlas:dev:senior-loop:run`, `atlas:programming:console` |
 | `forge` | `atlas:forge:provider-invoke`, `atlas:forge:runtime-dispatch`, `atlas:forge:parallel-durable`, `atlas:programming:console` |
 
 Shell metacharacters, shell strings, arbitrary binaries and non-owner commands
@@ -166,6 +171,9 @@ AP-759 must not:
 - Plans command by default without execution.
 - Executes allowlisted Atlas Dev command inside AP-756 worktree only when
   execute mode and receipt authority are both present.
+- Accepts `atlas:dev:senior-loop:run` as the canonical Atlas Dev live owner CLI
+  for the first mutation proof, including `--create-fixture-workspace` when the
+  operator wants the fixture created inside the AP-756 worktree.
 - Emits AP-750-compatible owner result for completed and failed owner commands.
 - Records append-only/idempotent JSONL without re-running duplicate run ids.
 - AP-750 accepts the AP-759 owner result when identity, evidence and isolation

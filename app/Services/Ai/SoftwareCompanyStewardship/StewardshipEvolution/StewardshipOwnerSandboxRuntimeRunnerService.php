@@ -55,6 +55,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService
     private const OWNER_COMMAND_ALLOWLIST = [
         'atlas_dev' => [
             'atlas:dev:run-worker',
+            'atlas:dev:senior-loop:run',
             'atlas:programming:console',
         ],
         'forge' => [
@@ -140,6 +141,15 @@ final class StewardshipOwnerSandboxRuntimeRunnerService
         }
 
         $command = $receiptCheck['command'];
+        $commandPreparation = $this->prepareCommandWorkspace($command, (string) ($sandboxCheck['worktree_path'] ?? ''));
+        if (($commandPreparation['ok'] ?? true) !== true) {
+            return $this->blocked($areaId, 'runtime_command_workspace_preparation_failed', 'AP-759 could not prepare the requested owner command workspace.', $execution, [
+                'runtime_command_receipt_check' => $receiptCheck,
+                'command_preparation' => $commandPreparation,
+            ]);
+        }
+
+        $command = $commandPreparation['command'];
         $commandCheck = $this->commandCheck($command, $targetOwner, $receipt);
         if ($commandCheck['ok'] !== true) {
             return $this->blocked($areaId, 'runtime_command_not_allowed', 'AP-759 accepts only allowlisted owner CLI commands.', $execution, [
@@ -167,7 +177,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService
         ];
 
         if (! $execute) {
-            return $this->finalizePlan($areaId, $execution, $sandboxCheck, $receiptCheck, $commandCheck, $commandPlan, $recordRun);
+            return $this->finalizePlan($areaId, $execution, $sandboxCheck, $receiptCheck, $commandCheck, $commandPreparation, $commandPlan, $recordRun);
         }
 
         if ((bool) ($receipt['allow_runtime_command_execution'] ?? false) !== true) {
@@ -209,6 +219,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService
             'sandbox_check' => $sandboxCheck,
             'runtime_command_receipt_check' => $receiptCheck,
             'command_check' => $commandCheck,
+            'command_preparation' => $commandPreparation,
             'command_plan' => $commandPlan,
             'command_result' => $commandResult,
             'git_status_before' => $beforeGit,
@@ -375,7 +386,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService
         if (! $this->isPhpBinary((string) ($command[0] ?? ''))) {
             $violations[] = 'command_must_start_with_php';
         }
-        if ((string) ($command[1] ?? '') !== 'artisan') {
+        if (! $this->isArtisanEntrypoint((string) ($command[1] ?? ''))) {
             $violations[] = 'command_must_target_artisan';
         }
         if (! in_array($artisanCommand, $allowed, true)) {
@@ -410,6 +421,100 @@ final class StewardshipOwnerSandboxRuntimeRunnerService
             'requires_provider_authority' => $requiresProvider,
             'violations' => array_values(array_unique($violations)),
         ];
+    }
+
+    /**
+     * @param  list<string>  $command
+     * @return array<string,mixed>
+     */
+    private function prepareCommandWorkspace(array $command, string $worktreePath): array
+    {
+        if (($command[2] ?? '') !== 'atlas:dev:senior-loop:run') {
+            return ['ok' => true, 'command' => $command, 'prepared' => false];
+        }
+
+        $createFixture = in_array('--create-fixture-workspace', $command, true);
+        $command = array_values(array_filter(
+            $command,
+            static fn (string $part): bool => $part !== '--create-fixture-workspace',
+        ));
+
+        if (! $createFixture) {
+            return ['ok' => true, 'command' => $command, 'prepared' => false];
+        }
+
+        $workspace = $this->workspaceOption($command);
+        if ($workspace === '') {
+            return ['ok' => false, 'command' => $command, 'reason' => 'workspace_option_required'];
+        }
+
+        $worktreeRoot = realpath($worktreePath) ?: $worktreePath;
+        $workspaceParent = dirname($workspace);
+        File::ensureDirectoryExists($workspaceParent);
+        $workspaceParentReal = realpath($workspaceParent) ?: $workspaceParent;
+        if (! str_starts_with($workspaceParentReal, rtrim($worktreeRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)) {
+            return ['ok' => false, 'command' => $command, 'reason' => 'workspace_outside_ap756_worktree'];
+        }
+
+        if (! is_dir($workspace)) {
+            $this->createSeniorLoopFixtureWorkspace($workspace);
+        }
+
+        return [
+            'ok' => true,
+            'command' => $command,
+            'prepared' => true,
+            'prepared_kind' => 'atlas_dev_senior_loop_fixture_workspace',
+            'workspace_path_hash' => hash('sha256', $workspace),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $command
+     */
+    private function workspaceOption(array $command): string
+    {
+        foreach ($command as $index => $part) {
+            if (str_starts_with($part, '--workspace=')) {
+                return trim(substr($part, strlen('--workspace=')));
+            }
+            if ($part === '--workspace' && isset($command[$index + 1])) {
+                return trim((string) $command[$index + 1]);
+            }
+        }
+
+        return '';
+    }
+
+    private function createSeniorLoopFixtureWorkspace(string $workspace): void
+    {
+        File::ensureDirectoryExists($workspace.'/src');
+        File::ensureDirectoryExists($workspace.'/tests');
+        File::ensureDirectoryExists($workspace.'/.git/refs/heads');
+        File::put($workspace.'/.git/HEAD', 'ref: refs/heads/main');
+        File::put($workspace.'/.git/refs/heads/main', '0123456789abcdef0123456789abcdef01234567');
+        File::put($workspace.'/composer.json', '{"scripts":{"test":"php tests/SmokeSubjectTest.php"}}'.PHP_EOL);
+        File::put($workspace.'/src/SmokeSubject.php', <<<'PHP'
+<?php
+namespace Smoke;
+final class SmokeSubject
+{
+    public function greeting(): string
+    {
+        return 'helo atlas';
+    }
+}
+PHP);
+        File::put($workspace.'/tests/SmokeSubjectTest.php', <<<'PHP'
+<?php
+require __DIR__.'/../src/SmokeSubject.php';
+$subject = new \Smoke\SmokeSubject();
+if ($subject->greeting() !== 'hello atlas') {
+    fwrite(STDERR, 'Expected hello atlas, got '.$subject->greeting().PHP_EOL);
+    exit(1);
+}
+echo "ok\n";
+PHP);
     }
 
     /**
@@ -576,7 +681,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService
      * @param  array<string,mixed>  $commandPlan
      * @return array<string,mixed>
      */
-    private function finalizePlan(string $areaId, array $execution, array $sandboxCheck, array $receiptCheck, array $commandCheck, array $commandPlan, bool $recordRun): array
+    private function finalizePlan(string $areaId, array $execution, array $sandboxCheck, array $receiptCheck, array $commandCheck, array $commandPreparation, array $commandPlan, bool $recordRun): array
     {
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
@@ -595,6 +700,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService
             'sandbox_check' => $sandboxCheck,
             'runtime_command_receipt_check' => $receiptCheck,
             'command_check' => $commandCheck,
+            'command_preparation' => $commandPreparation,
             'command_plan' => $commandPlan,
             'owner_result' => null,
             'record_run_requested' => $recordRun,
@@ -736,6 +842,26 @@ final class StewardshipOwnerSandboxRuntimeRunnerService
             || str_ends_with($value, '/php8.4')
             || str_ends_with($value, '/php8.3')
             || str_ends_with($value, '/php8.2');
+    }
+
+    private function isArtisanEntrypoint(string $value): bool
+    {
+        if ($value === 'artisan') {
+            return true;
+        }
+
+        if (basename($value) !== 'artisan') {
+            return false;
+        }
+
+        $real = realpath($value);
+        if ($real === false) {
+            return false;
+        }
+
+        $base = function_exists('base_path') ? (realpath(base_path()) ?: base_path()) : '';
+
+        return $base !== '' && str_starts_with($real, rtrim($base, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
     }
 
     private function containsShellMeta(string $value): bool

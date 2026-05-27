@@ -12,6 +12,7 @@ final class AtlasDevSeniorLoopRunCommand extends Command
     protected $signature = 'atlas:dev:senior-loop:run
         {--workspace= : Existing workspace to mutate; defaults to an isolated fixture workspace}
         {--intent= : Intent to run; defaults to a scoped repair task}
+        {--create-fixture-workspace : Create the standard senior-loop fixture at --workspace when it does not exist}
         {--keep-workspace : Keep the generated fixture workspace}
         {--json : Emit canonical JSON}
         {--strict : Exit non-zero when the operational loop does not pass}';
@@ -64,10 +65,21 @@ final class AtlasDevSeniorLoopRunCommand extends Command
     {
         $workspace = (string) ($this->option('workspace') ?: '');
         if ($workspace !== '') {
+            if (! is_dir($workspace) && (bool) $this->option('create-fixture-workspace')) {
+                $this->createFixtureWorkspace($workspace);
+            }
+
             return [realpath($workspace) ?: $workspace, false];
         }
 
         $workspace = sys_get_temp_dir().'/atlas-dev-senior-loop-run-'.bin2hex(random_bytes(4));
+        $this->createFixtureWorkspace($workspace);
+
+        return [$workspace, true];
+    }
+
+    private function createFixtureWorkspace(string $workspace): void
+    {
         mkdir($workspace.'/src', 0o755, true);
         mkdir($workspace.'/tests', 0o755, true);
         mkdir($workspace.'/.git/refs/heads', 0o755, true);
@@ -95,8 +107,6 @@ if ($subject->greeting() !== 'hello atlas') {
 }
 echo "ok\n";
 PHP);
-
-        return [$workspace, true];
     }
 
     private function rmrf(string $dir): void
