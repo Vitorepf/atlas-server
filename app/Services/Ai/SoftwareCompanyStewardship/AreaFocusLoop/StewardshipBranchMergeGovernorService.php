@@ -38,6 +38,10 @@ final class StewardshipBranchMergeGovernorService
 
     private ?string $storageRootOverride = null;
 
+    public function __construct(
+        private readonly StewardshipMergeAutonomyPolicyService $autonomyPolicy,
+    ) {}
+
     public function setStorageRootForTesting(?string $dir): void
     {
         $this->storageRootOverride = $dir;
@@ -149,7 +153,7 @@ final class StewardshipBranchMergeGovernorService
             'status' => $status,
             'area_id' => $areaId,
             'stack' => 'Atlas Software Company Stewardship Stack',
-            'source_ap_contracts' => ['AP-756', 'AP-765', 'AP-767', 'AP-768', 'AP-769'],
+            'source_ap_contracts' => ['AP-756', 'AP-765', 'AP-767', 'AP-768', 'AP-769', 'AP-774'],
             'repo' => [
                 'repo_root' => $repoRoot,
                 'repo_root_hash' => hash('sha256', $repoRoot),
@@ -403,40 +407,7 @@ final class StewardshipBranchMergeGovernorService
      */
     private function autoMergePolicy(array $classification, array $validation, array $changedFiles, int $branchOnly, array $blockers, array $input): array
     {
-        $kind = (string) ($classification['kind'] ?? '');
-        $maxFiles = max(1, (int) ($input['max_auto_merge_files'] ?? 5));
-        $safeKind = in_array($kind, ['documentation_only', 'tests_only', 'docs_and_tests'], true);
-        $operatorSafeClass = in_array($kind, ['bugfix', 'cleanup'], true)
-            && (bool) ($input['allow_code_auto_merge'] ?? false)
-            && ($validation['passed'] ?? false) === true;
-
-        $reasons = [];
-        if ($blockers !== []) {
-            $reasons[] = 'branch_blockers_present';
-        }
-        if ($branchOnly < 1) {
-            $reasons[] = 'no_branch_commit_to_merge';
-        }
-        if (count($changedFiles) > $maxFiles) {
-            $reasons[] = 'changed_file_count_exceeds_policy';
-        }
-        if (! $safeKind && ! $operatorSafeClass) {
-            $reasons[] = 'change_class_requires_operator_review';
-        }
-        if (($validation['passed'] ?? true) === false) {
-            $reasons[] = 'validation_failed';
-        }
-
-        return [
-            'eligible' => $reasons === [],
-            'class' => $kind,
-            'safe_kind_without_operator' => $safeKind,
-            'code_auto_merge_authorized' => $operatorSafeClass,
-            'max_auto_merge_files' => $maxFiles,
-            'reasons' => $reasons,
-            'merge_mode' => 'ff_only',
-            'irreversible_actions' => ['none_before_execute_merge'],
-        ];
+        return $this->autonomyPolicy->decide($classification, $validation, $changedFiles, $branchOnly, $blockers, $input);
     }
 
     /**
