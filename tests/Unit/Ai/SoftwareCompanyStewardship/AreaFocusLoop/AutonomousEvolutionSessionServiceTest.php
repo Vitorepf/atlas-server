@@ -231,6 +231,117 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertTrue($cycle['merge_skipped']);
     }
 
+    public function test_validation_failure_skips_merge_and_result_bridge(): void
+    {
+        $git = new Process(['git', '--version']);
+        $git->run();
+        if (! $git->isSuccessful()) {
+            $this->markTestSkipped('git binary is required for AP-786 execute-path tests.');
+        }
+
+        $repo = $this->tmp.'/repo_validation';
+        File::ensureDirectoryExists($repo);
+        $this->runGit(['git', 'init'], $repo);
+        $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        $source = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php';
+        File::ensureDirectoryExists($repo.'/'.dirname($source));
+        file_put_contents($repo.'/'.$source, "<?php\n// fixture\n");
+        $this->runGit(['git', 'add', '.'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'init'], $repo);
+        $this->runGit(['git', 'branch', '-M', 'main'], $repo);
+        file_put_contents($repo.'/'.$source, "<?php\n// provider change\n");
+
+        $finding = $this->finding('afdf_validation', 'Validation failure candidate');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_validation'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializerService::class, function ($mock) use ($repo): void {
+            $mock->shouldReceive('materialize')->once()->andReturn([
+                'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED,
+                'sandbox_id' => 'afbs_validation',
+                'materialization' => [
+                    'worktree_path' => $repo,
+                    'branch_name' => 'atlas/area-focus/validation-branch',
+                ],
+            ]);
+        });
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class, function ($mock): void {
+            $mock->shouldReceive('driverInvoke')->once()->andReturn([
+                'provider' => 'cursor_cli',
+                'model' => 'composer-2.5-fast',
+                'provider_called' => true,
+                'blockers' => [],
+            ]);
+        });
+        $this->mock(StewardshipRuntimeResultBridgeService::class)->shouldNotReceive('project');
+        $this->mock(StewardshipBranchMergeGovernorService::class)->shouldNotReceive('evaluate');
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'repo_root' => $repo,
+            'cycles' => 1,
+            'validation_commands' => ['false'],
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('blocked', $cycle['final_status']);
+        $this->assertContains('validation_failed', $cycle['blockers']);
+        $this->assertSame('validation_failed', $cycle['post_execution_skip']);
+        $this->assertTrue($cycle['merge_skipped']);
+        $this->assertTrue($cycle['result_bridge_skipped']);
+        $this->assertTrue($cycle['commit_skipped']);
+    }
+
+    public function test_review_locks_validation_failed_attempt_from_session_record(): void
+    {
+        $finding = $this->finding('factory_max_ap786_loop_hardening', 'Harden AP-786 loop');
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        $record = [
+            'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+            'cycles' => [[
+                'final_status' => 'blocked',
+                'blockers' => ['validation_failed'],
+                'selected_finding' => [
+                    'finding_id' => 'factory_max_ap786_loop_hardening',
+                    'finding_hash' => 'sha256:factory_max_ap786_loop_hardening',
+                    'title' => 'Harden AP-786 loop',
+                ],
+            ]],
+        ];
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode($record, JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $alt = $this->finding('afdf_alt_validation', 'Alternate after validation failure');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding, $alt): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding, $alt]));
+        });
+        $this->mock(StewardshipPriorityEngineService::class, function ($mock) use ($alt): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_alt_validation'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('afdf_alt_validation', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
+        $this->assertContains('review_locked_existing_branch', $reasons);
+    }
+
     public function test_continue_on_blocked_stops_when_no_candidate_remains(): void
     {
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {

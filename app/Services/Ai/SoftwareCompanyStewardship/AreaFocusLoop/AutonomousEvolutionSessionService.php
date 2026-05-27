@@ -80,11 +80,18 @@ final class AutonomousEvolutionSessionService
         'missing_evidence',
     ];
 
-    /** @var list<string> */
-    private const WASTED_PROVIDER_BLOCKERS = [
+    /**
+     * Blockers that mean the cycle spent provider or merge budget without a
+     * shippable result. Used to skip repeat selection and downstream work.
+     *
+     * @var list<string>
+     */
+    private const WASTED_CYCLE_BLOCKERS = [
         'provider_produced_no_changes',
         'provider_not_called',
         'provider_scope_violation',
+        'validation_failed',
+        'commit_failed',
     ];
 
     private ?string $storageDirOverride = null;
@@ -308,8 +315,43 @@ final class AutonomousEvolutionSessionService
         }
 
         $validation = $this->runValidation((array) $input['validation_commands'], $worktree);
+        if (($validation['passed'] ?? null) === false) {
+            return $this->blockedCycle($cycleId, $cycleIndex, ['validation_failed'], [
+                'selected_finding' => $this->findingSummary($finding),
+                'sandbox' => $sandbox,
+                'provider_called' => (bool) ($providerResult['provider_called'] ?? false),
+                'provider_result' => $this->providerSummary($providerResult),
+                'validation' => $validation,
+                'changed_files' => $this->changedFiles($worktree),
+                'post_execution_skip' => 'validation_failed',
+                'commit_skipped' => true,
+                'branch_created' => true,
+                'worktree_created' => true,
+                'merge_skipped' => true,
+                'result_bridge_skipped' => true,
+            ]);
+        }
+
         $commit = $this->commitSandbox($worktree, $allowedFiles, $finding);
         $changedFiles = $this->changedFiles($worktree);
+        $postExecutionSkip = $this->postExecutionSkipReason($commit);
+        if ($postExecutionSkip !== null) {
+            return $this->blockedCycle($cycleId, $cycleIndex, $postExecutionSkip['blockers'], [
+                'selected_finding' => $this->findingSummary($finding),
+                'sandbox' => $sandbox,
+                'provider_called' => (bool) ($providerResult['provider_called'] ?? false),
+                'provider_result' => $this->providerSummary($providerResult),
+                'validation' => $validation,
+                'commit' => $commit,
+                'changed_files' => $changedFiles,
+                'post_execution_skip' => $postExecutionSkip['reason'],
+                'unsafe_files' => $postExecutionSkip['unsafe_files'] ?? [],
+                'branch_created' => true,
+                'worktree_created' => true,
+                'merge_skipped' => true,
+                'result_bridge_skipped' => true,
+            ]);
+        }
 
         $executionResult = $this->executionResult($cycleId, $areaId, $owner, $finding, $sandbox, $providerResult, $validation, $commit, $changedFiles);
         $resultBridge = $this->resultBridge->project([
@@ -950,7 +992,7 @@ final class AutonomousEvolutionSessionService
                     if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
                         continue;
                     }
-                } elseif ($status !== 'blocked' || ! $this->isWastedProviderBlockerSet($blockers)) {
+                } elseif ($status !== 'blocked' || ! $this->isWastedCycleBlockerSet($blockers)) {
                     continue;
                 }
                 foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
@@ -1028,6 +1070,38 @@ final class AutonomousEvolutionSessionService
         return null;
     }
 
+    /**
+     * @param  array<string,mixed>  $commit
+     * @return array{reason:string,blockers:list<string>,unsafe_files?:list<string>}|null
+     */
+    private function postExecutionSkipReason(array $commit): ?array
+    {
+        $commitStatus = (string) ($commit['status'] ?? '');
+        if ($commitStatus === 'committed') {
+            return null;
+        }
+
+        if ($commitStatus === 'no_changes') {
+            return [
+                'reason' => 'commit_no_changes',
+                'blockers' => ['provider_produced_no_changes'],
+            ];
+        }
+
+        if ($commitStatus === 'blocked_scope_violation') {
+            return [
+                'reason' => 'commit_scope_violation',
+                'blockers' => ['provider_scope_violation'],
+                'unsafe_files' => array_values((array) ($commit['unsafe_files'] ?? [])),
+            ];
+        }
+
+        return [
+            'reason' => 'commit_failed',
+            'blockers' => ['commit_failed'],
+        ];
+    }
+
     /** @param list<string> $blockers */
     private function shouldStopSessionAfterBlockedCycle(array $blockers): bool
     {
@@ -1035,10 +1109,10 @@ final class AutonomousEvolutionSessionService
     }
 
     /** @param list<string> $blockers */
-    private function isWastedProviderBlockerSet(array $blockers): bool
+    private function isWastedCycleBlockerSet(array $blockers): bool
     {
         foreach ($blockers as $blocker) {
-            if (in_array($blocker, self::WASTED_PROVIDER_BLOCKERS, true)) {
+            if (in_array($blocker, self::WASTED_CYCLE_BLOCKERS, true)) {
                 return true;
             }
         }
