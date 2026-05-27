@@ -180,7 +180,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $planOnly = (bool) ($forgeDispatchPlan['plan_only'] ?? false);
             $dispatchKind = (string) ($forgeDispatchPlan['dispatch_kind'] ?? ForgeOwnerRuntimeDispatchBridge::KIND_RUNTIME_DISPATCH);
         } else {
-            $command = [PHP_BINARY, 'artisan', 'atlas:dev:senior-loop:run', '--workspace='.$worktree, '--intent='.$this->intent($finding), '--json'];
+            $command = [PHP_BINARY, $this->artisanPath(), 'atlas:dev:senior-loop:run', '--workspace='.$worktree, '--intent='.$this->intent($finding), '--json'];
         }
         $runner = $this->runner->project([
             'area_id' => $areaId,
@@ -334,6 +334,11 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $intent = trim((string) preg_replace('/\s+/', ' ', $intent));
 
         return $intent === '' ? 'Implement the smallest correct fix inside the allowed files only.' : mb_substr($intent, 0, 240);
+    }
+
+    private function artisanPath(): string
+    {
+        return function_exists('base_path') ? base_path('artisan') : 'artisan';
     }
 
     /**

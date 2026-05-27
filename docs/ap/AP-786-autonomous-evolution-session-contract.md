@@ -80,7 +80,11 @@ AP-786 cycle
         and receives AP-786 `start_owner_runtime` execution_receipt)
    -> AP-758 StewardshipOwnerRuntimeExecutionAdapterService.project
    -> AP-759 StewardshipOwnerSandboxRuntimeRunnerService.project
-        runs the allowlisted owner CLI inside the AP-756 worktree
+        runs the allowlisted owner CLI against the AP-756 worktree. For
+        AtlasDev, AP-786 invokes the repo-root `artisan` binary with
+        `--workspace=<AP-756 worktree>` so ignored dependencies such as
+        `vendor/` are resolved from the canonical repo while mutations remain
+        scoped to the isolated worktree.
         (atlas_dev -> `atlas:dev:senior-loop:run --workspace=<worktree> --intent=<intent>`)
    -> AP-750 StewardshipOwnerRuntimeResultBridgeService.project (owner_result -> Evidence/Inbox/Portfolio)
 -> AP-765 Product Mode / Inbox evidence emission (before any merge attempt)

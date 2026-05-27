@@ -80,6 +80,7 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         // Regression: atlas_dev keeps using the senior-loop owner command.
         $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
         $this->assertContains('atlas:dev:senior-loop:run', $command);
+        $this->assertSame(base_path('artisan'), $command[1] ?? null);
     }
 
     public function test_blocks_before_result_bridge_when_ap759_blocks(): void
