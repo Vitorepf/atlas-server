@@ -133,6 +133,7 @@ final class AutonomousEvolutionSessionService
         private readonly AtlasForgeProviderInvocationDriverRouter $providerRouter,
         private readonly StewardshipRuntimeResultProjector $resultBridge,
         private readonly StewardshipBranchMergeGovernor $mergeGovernor,
+        private readonly Ap786RobustForgeQualityContractService $robustContract,
         private readonly Ap786OwnerFlowRunner $ownerFlow,
     ) {}
 
@@ -355,6 +356,24 @@ final class AutonomousEvolutionSessionService
 
         $allowDirect = (bool) ($input['allow_direct_provider_driver'] ?? false);
         $flowIntegrityGate = $this->flowIntegrityGate($owner, $allowDirect);
+        $robustFlowContract = $allowDirect
+            ? $this->diagnosticRobustFlowContractSkipped($finding, $allowedFiles, $owner)
+            : $this->robustFlowContract($areaId, $focus, $finding, $allowedFiles, $owner, (array) $input['validation_commands']);
+
+        if (! $allowDirect && (string) ($robustFlowContract['status'] ?? '') !== Ap786RobustForgeQualityContractService::STATUS_READY) {
+            return $this->blockedCycle($cycleId, $cycleIndex, array_values((array) ($robustFlowContract['blockers'] ?? ['robust_flow_contract_blocked'])), [
+                'selected_finding' => $this->findingSummary($finding),
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'flow_integrity_gate' => $flowIntegrityGate,
+                'robust_flow_contract' => $robustFlowContract,
+                'provider_skipped' => true,
+                'sandbox_skipped' => true,
+                'merge_skipped' => true,
+                'result_bridge_skipped' => true,
+            ]);
+        }
 
         $preflight = $this->buildPreflight($areaId, $finding, $allowedFiles, $owner, $cycleId);
         $sandbox = $this->materializeSandbox($preflight, $areaId, $repoRoot);
@@ -365,6 +384,7 @@ final class AutonomousEvolutionSessionService
                 'scope_profile' => $scopeProfile,
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'flow_integrity_gate' => $flowIntegrityGate,
+                'robust_flow_contract' => $robustFlowContract,
                 'sandbox' => $sandbox,
             ]);
         }
@@ -377,7 +397,7 @@ final class AutonomousEvolutionSessionService
         // driver is a legacy diagnostic path only and requires an explicit
         // opt-in; it must never be claimed as Atlas Forge/Dev execution.
         if (! $allowDirect) {
-            return $this->runOwnerFlowCycle($cycleId, $cycleIndex, $input, $finding, $selection, $scopeProfile, $owner, $allowedFiles, $class, $preflight, $sandbox, $worktree, $branch, $flowIntegrityGate);
+            return $this->runOwnerFlowCycle($cycleId, $cycleIndex, $input, $finding, $selection, $scopeProfile, $owner, $allowedFiles, $class, $preflight, $sandbox, $worktree, $branch, $flowIntegrityGate, $robustFlowContract);
         }
 
         $decision = $this->decisionReceipt($cycleId, $finding, $allowedFiles, $owner);
@@ -390,6 +410,7 @@ final class AutonomousEvolutionSessionService
                 'scope_profile' => $scopeProfile,
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'sandbox' => $sandbox,
+                'robust_flow_contract' => $robustFlowContract,
                 'provider_result' => $this->providerSummary($providerResult),
                 'post_provider_skip' => $postProviderSkip['reason'],
                 'unsafe_files' => $postProviderSkip['unsafe_files'] ?? [],
@@ -406,6 +427,7 @@ final class AutonomousEvolutionSessionService
                 'scope_profile' => $scopeProfile,
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'sandbox' => $sandbox,
+                'robust_flow_contract' => $robustFlowContract,
                 'provider_called' => (bool) ($providerResult['provider_called'] ?? false),
                 'provider_result' => $this->providerSummary($providerResult),
                 'validation' => $validation,
@@ -429,6 +451,7 @@ final class AutonomousEvolutionSessionService
                 'scope_profile' => $scopeProfile,
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'sandbox' => $sandbox,
+                'robust_flow_contract' => $robustFlowContract,
                 'provider_called' => (bool) ($providerResult['provider_called'] ?? false),
                 'provider_result' => $this->providerSummary($providerResult),
                 'validation' => $validation,
@@ -610,6 +633,138 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
+     * Enforce the robust Forge quality contract on the default owner-flow path.
+     * This is intentionally evaluated before sandbox/provider/owner execution so
+     * AP-786 cannot spend a cycle without SDD/TDD/BDD, workcell, repair,
+     * evidence/replay and merge-governance proof.
+     *
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
+     * @return array<string,mixed>
+     */
+    private function robustFlowContract(string $areaId, string $focus, array $finding, array $allowedFiles, string $owner, array $validationCommands): array
+    {
+        $testsRequired = $this->testsRequiredForFinding($finding, $allowedFiles);
+        $acceptance = $this->acceptanceForFinding($finding);
+        $specId = (string) (data_get($finding, 'spec_seed.candidate_id') ?: ($finding['finding_id'] ?? ''));
+        $decisionReceiptId = 'AP-786:'.(string) ($finding['finding_id'] ?? substr(MissionCanonicalHash::sha256($finding), 0, 12));
+
+        return $this->robustContract->build([
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'owner' => $owner,
+            'selected_finding' => $finding,
+            'allowed_files' => $allowedFiles,
+            'validation_commands' => $validationCommands !== [] ? $validationCommands : ['git diff --check'],
+            'sdd_packet' => [
+                'spec_id' => $specId,
+                'objective' => (string) ($finding['why_it_matters'] ?? $finding['detail'] ?? $finding['title'] ?? ''),
+                'scope' => (string) ($finding['title'] ?? 'AP-786 autonomous evolution work'),
+                'acceptance' => $acceptance,
+                'owner_docs' => $this->stringList(data_get($finding, 'spec_seed.owner_doc_refs', [])),
+            ],
+            'tdd_contract' => [
+                'tests_required' => $testsRequired,
+                'focused_test' => $testsRequired[0] ?? '',
+                'test_first' => $testsRequired !== [],
+            ],
+            'bdd_contract' => [
+                'behavior_acceptance' => $acceptance,
+                'operator_visible_outcome' => (string) ($finding['why_it_matters'] ?? $finding['proposed_next_action'] ?? ''),
+            ],
+            'provider_topology' => [
+                'source' => 'atlas_decide',
+                'chosen_by_atlas_decide' => true,
+                'owner_runtime_authority' => 'AP-759',
+                'target_owner' => $owner,
+            ],
+            'workcell' => [
+                'context_scout' => 'AP-748 deep finding scan',
+                'architect' => 'Self-Directed Evolution spec seed / SDD packet',
+                'implementer' => 'AP-759 owner runtime command',
+                'reviewer' => 'AP-750 owner runtime result bridge',
+                'repair_agent' => 'Atlas Dev Senior Loop failure capsule',
+                'certifier' => 'AP-786/AP-769/AP-774 certification gates',
+            ],
+            'repair_policy' => [
+                'max_attempts' => 2,
+                'failed_gate_capsule_schema' => 'atlas.software_company_stewardship.ap786_failed_gate_capsule.v1',
+                'stop_conditions' => ['validation_still_failing', 'diff_outside_allowed_files', 'no_progress_between_attempts'],
+            ],
+            'evidence' => [
+                'decision_receipt_id' => $decisionReceiptId,
+                'evidence_ledger_ref' => 'AP-750:owner_runtime_result_bridge',
+                'ap750_result_bridge' => 'required_before_merge',
+                'replay_ref' => 'AP-786:autonomous_evolution_session_jsonl',
+                'programming_governance' => true,
+            ],
+            'merge_requirements' => [
+                'governed_by' => ['AP-769', 'AP-774'],
+            ],
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @return array<string,mixed>
+     */
+    private function diagnosticRobustFlowContractSkipped(array $finding, array $allowedFiles, string $owner): array
+    {
+        return [
+            'schema_version' => Ap786RobustForgeQualityContractService::CONTRACT_SCHEMA,
+            'ap_contract' => 'AP-786',
+            'status' => 'diagnostic_skipped',
+            'owner' => $owner,
+            'selected_finding' => $this->findingSummary($finding),
+            'allowed_files' => $allowedFiles,
+            'blockers' => ['legacy_direct_provider_driver_diagnostic_path'],
+            'claim_policy' => [
+                'counts_as_full_atlas_forge_execution' => false,
+                'counts_as_robust_obra_forge_quality_flow' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function testsRequiredForFinding(array $finding, array $allowedFiles): array
+    {
+        $tests = $this->stringList(data_get($finding, 'spec_seed.tests_required', []));
+        foreach ($allowedFiles as $file) {
+            if (str_starts_with($file, 'tests/') || str_ends_with($file, 'Test.php')) {
+                $tests[] = $file;
+            }
+        }
+
+        return array_values(array_unique($tests));
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @return list<string>
+     */
+    private function acceptanceForFinding(array $finding): array
+    {
+        $acceptance = $this->stringList(data_get($finding, 'spec_seed.acceptance', []));
+        if ($acceptance !== []) {
+            return $acceptance;
+        }
+
+        $title = trim((string) ($finding['title'] ?? ''));
+        $nextAction = trim((string) ($finding['proposed_next_action'] ?? ''));
+
+        return array_values(array_filter([
+            $title !== '' ? 'Given the selected AP-786 finding, the owner runtime implements: '.$title : '',
+            $nextAction !== '' ? 'Operator can verify the result by the proposed next action: '.$nextAction : '',
+        ], static fn (string $line): bool => $line !== ''));
+    }
+
+    /**
      * High-impact fallback work for the operator's core thesis: improve the
      * software factory itself before spending cycles on downstream domains or
      * low-leverage documentation/evidence cleanup.
@@ -710,6 +865,28 @@ final class AutonomousEvolutionSessionService
             'origin_type' => $id,
             'auto_execution_allowed' => true,
             'operator_review_required' => false,
+            'spec_seed' => [
+                'schema_version' => 'atlas.software_company_stewardship.factory_max_spec_seed.v1',
+                'candidate_id' => 'factory_max_'.$id,
+                'candidate_hash' => $hash,
+                'source_owner' => $owner,
+                'gap_kind' => 'software_factory_runtime_improvement',
+                'title' => 'Factory Max: '.$title,
+                'rationale' => $detail,
+                'capability' => self::DEFAULT_FOCUS,
+                'risk_level' => 'high',
+                'evidence_refs' => ['factory_max_seed:'.$id, 'impl:'.$sourceFile, 'expected_test:'.$testBasename],
+                'owner_doc_refs' => [],
+                'route_hint_owner' => $owner,
+                'acceptance' => [
+                    'The implementation changes the targeted runtime or its focused tests, not only documentation.',
+                    'The focused test path proves the behavior or guard that makes autonomous cycles more robust.',
+                    'The AP-786 robust flow contract remains ready before owner execution.',
+                ],
+                'tests_required' => [$this->expectedTestPath($testBasename, [$sourceFile])],
+                'proposal_only' => false,
+                'operator_review_required' => false,
+            ],
         ];
     }
 
@@ -895,7 +1072,7 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $flowIntegrityGate
      * @return array<string,mixed>
      */
-    private function runOwnerFlowCycle(string $cycleId, int $cycleIndex, array $input, array $finding, array $selection, string $scopeProfile, string $owner, array $allowedFiles, string $class, array $preflight, array $sandbox, string $worktree, string $branch, array $flowIntegrityGate): array
+    private function runOwnerFlowCycle(string $cycleId, int $cycleIndex, array $input, array $finding, array $selection, string $scopeProfile, string $owner, array $allowedFiles, string $class, array $preflight, array $sandbox, string $worktree, string $branch, array $flowIntegrityGate, array $robustFlowContract): array
     {
         $areaId = (string) $input['area_id'];
         $repoRoot = (string) $input['repo_root'];
@@ -922,6 +1099,7 @@ final class AutonomousEvolutionSessionService
                 'scope_profile' => $scopeProfile,
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'flow_integrity_gate' => $flowIntegrityGate,
+                'robust_flow_contract' => $robustFlowContract,
                 'owner' => $owner,
                 'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
                 'branch_ref' => $branch,
@@ -960,6 +1138,7 @@ final class AutonomousEvolutionSessionService
             'scope_profile' => $scopeProfile,
             'selection_rejections' => $selection['selection_rejections'] ?? [],
             'flow_integrity_gate' => $flowIntegrityGate,
+            'robust_flow_contract' => $robustFlowContract,
             'owner' => $owner,
             'allowed_files' => $allowedFiles,
             'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),

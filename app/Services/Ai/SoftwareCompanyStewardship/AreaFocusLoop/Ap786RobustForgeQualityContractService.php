@@ -350,7 +350,7 @@ final class Ap786RobustForgeQualityContractService
     private function bddContract(array $input, array $finding): array
     {
         $bdd = is_array($input['bdd'] ?? null) ? $input['bdd'] : (is_array($input['bdd_contract'] ?? null) ? $input['bdd_contract'] : []);
-        $acceptance = $this->stringList($bdd['behavior_acceptance'] ?? $bdd['acceptance'] ?? []);
+        $acceptance = $this->stringList($bdd['behavior_acceptance'] ?? $bdd['acceptance'] ?? data_get($finding, 'spec_seed.acceptance', []));
         $outcome = $this->str($bdd['operator_visible_outcome'] ?? $finding['why_it_matters'] ?? '');
 
         return [

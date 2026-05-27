@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RobustForgeQualityContractService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
@@ -433,6 +434,43 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertTrue($cycle['inbox_emitted_before_merge_attempt']);
         $this->assertFalse($payload['claim_policy']['direct_provider_driver_allowed']);
         $this->assertFalse($payload['claim_policy']['provider_called']);
+    }
+
+    public function test_robust_flow_contract_blocks_before_sandbox_or_owner_execution(): void
+    {
+        $finding = $this->finding('afdf_robust_block', 'Missing robust contract', [
+            'evidence_refs' => [],
+            'spec_seed' => [
+                'candidate_id' => 'spec_without_tests',
+                'acceptance' => ['The robust contract must block this fixture before execution.'],
+            ],
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_robust_block'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class)->shouldNotReceive('materialize');
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
+        $this->mock(Ap786OwnerFlowRunner::class)->shouldNotReceive('execute');
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('blocked', $cycle['final_status']);
+        $this->assertContains('missing_capability:tdd_test_contract', $cycle['blockers']);
+        $this->assertSame(Ap786RobustForgeQualityContractService::STATUS_BLOCKED, $cycle['robust_flow_contract']['status']);
+        $this->assertTrue($cycle['provider_skipped']);
+        $this->assertTrue($cycle['sandbox_skipped']);
     }
 
     public function test_owner_flow_block_stops_before_merge(): void
