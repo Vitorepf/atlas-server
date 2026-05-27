@@ -8,6 +8,53 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class AiInboxItemResource extends JsonResource
 {
+    public function toCompactArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'user_id' => $this->user_id,
+            'type' => $this->type,
+            'category' => $this->category,
+            'severity' => $this->severity,
+            'status' => $this->status,
+            'title' => $this->title,
+            'summary' => $this->summary,
+            'body' => null,
+            'source_type' => $this->source_type,
+            'source_id' => $this->source_id,
+            'initiator' => $this->initiator,
+            'context_bundle_id' => $this->context_bundle_id,
+            'dedupe_key' => null,
+            'available_actions' => $this->available_actions ?? [],
+            'response' => null,
+            'payload' => [],
+            'deep_link' => $this->deep_link,
+            'push_policy' => [],
+            'safety' => [
+                'schema_version' => 'atlas.inbox_item.safety.v1',
+                'authenticated_api_required' => true,
+                'push_is_pointer_only' => true,
+                'raw_context_exposed_in_push' => false,
+                'raw_payload_exposed_in_push' => false,
+                'body_exposed_in_push' => false,
+                'auto_action_allowed' => false,
+                'available_action_count' => is_array($this->available_actions) ? count($this->available_actions) : 0,
+                'status' => $this->status,
+                'severity' => $this->severity,
+            ],
+            'presentation' => null,
+            'priority_score' => $this->priority_score,
+            'confidence_score' => $this->confidence_score,
+            'expires_at' => $this->expires_at?->toJSON(),
+            'snoozed_until' => $this->snoozed_until?->toJSON(),
+            'read_at' => $this->read_at?->toJSON(),
+            'resolved_at' => $this->resolved_at?->toJSON(),
+            'dismissed_at' => $this->dismissed_at?->toJSON(),
+            'created_at' => $this->created_at?->toJSON(),
+            'updated_at' => $this->updated_at?->toJSON(),
+        ];
+    }
+
     public function toArray(Request $request): array
     {
         return [

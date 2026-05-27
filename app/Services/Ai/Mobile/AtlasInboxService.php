@@ -209,6 +209,52 @@ class AtlasInboxService
         ];
     }
 
+    /**
+     * @return array{items:Collection<int,AiInboxItem>,next_cursor:?string}
+     */
+    public function listPageForMobileSummary(string $userId = 'vitor', ?string $status = 'unread', ?string $type = null, int $limit = 50, ?string $severity = null, ?string $cursor = null): array
+    {
+        $limit = max(1, min(100, $limit));
+        $items = $this
+            ->query($userId, $status, $type, $severity, $cursor)
+            ->select([
+                'id',
+                'user_id',
+                'type',
+                'category',
+                'severity',
+                'status',
+                'title',
+                'summary',
+                'source_type',
+                'source_id',
+                'initiator',
+                'context_bundle_id',
+                'available_actions',
+                'deep_link',
+                'priority_score',
+                'confidence_score',
+                'expires_at',
+                'snoozed_until',
+                'read_at',
+                'resolved_at',
+                'dismissed_at',
+                'created_at',
+                'updated_at',
+            ])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit($limit + 1)
+            ->get();
+
+        $pageItems = $items->take($limit)->values();
+
+        return [
+            'items' => $pageItems,
+            'next_cursor' => $items->count() > $limit ? $this->encodeCursor($pageItems->last()) : null,
+        ];
+    }
+
     private function query(string $userId, ?string $status, ?string $type, ?string $severity, ?string $cursor): Builder
     {
         $query = AiInboxItem::query()->where('user_id', $userId);

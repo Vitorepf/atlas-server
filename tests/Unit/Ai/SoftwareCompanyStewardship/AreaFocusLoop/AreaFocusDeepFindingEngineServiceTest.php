@@ -1,0 +1,344 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
+
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AgenticEngineeringOsFindingEngineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
+use Tests\TestCase;
+
+/**
+ * Read-only contract tests for the Area Focus Deep Finding Engine (Slice 11,
+ * AP-748). All inputs are synthetic: a `base_report` override injects AP-717
+ * structural findings and per-check overrides drive the focus-scoped deep
+ * checks, so the enrichment core is deterministic and side-effect free. Record
+ * mode is exercised against a temp storage root.
+ */
+class AreaFocusDeepFindingEngineServiceTest extends TestCase
+{
+    private function service(): AreaFocusDeepFindingEngineService
+    {
+        return app(AreaFocusDeepFindingEngineService::class);
+    }
+
+    /**
+     * A synthetic AP-717 structural report with findings spanning several types
+     * so the kind/owner mapping is exercised.
+     *
+     * @return array<string,mixed>
+     */
+    private function baseReport(): array
+    {
+        return [
+            'schema_version' => AgenticEngineeringOsFindingEngineService::REPORT_SCHEMA,
+            'status' => 'ready',
+            'area_id' => 'agentic_engineering_os',
+            'finding_count' => 4,
+            'findings' => [
+                $this->structural('missing_evidence', 'critical', 'operator_review', 'Missing evidence for dev flow', ['docs/engineering-knowledge-base/atlas-forge-operating-system.md']),
+                $this->structural('missing_test', 'medium', 'atlas_dev', 'Missing test for AreaFocusDevForgeRouterService', ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeRouterService.php']),
+                $this->structural('duplicate_runtime_risk', 'high', 'forge', 'Duplicate runtime risk · areafocusloop', ['app/Services/Ai/NightShift/AreaFocusLoopReadModelService.php', 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtlasAreaFocusLoopReadModelService.php']),
+                $this->structural('docs_stale', 'low', 'self_directed_evolution', 'Stale references in some-doc', ['docs/engineering-knowledge-base/some-doc.md']),
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $affected
+     * @return array<string,mixed>
+     */
+    private function structural(string $type, string $severity, string $route, string $title, array $affected): array
+    {
+        $hash = 'sha256:'.hash('sha256', $type.'|'.$title);
+
+        return [
+            'schema_version' => AgenticEngineeringOsFindingEngineService::FINDING_SCHEMA,
+            'area_id' => 'agentic_engineering_os',
+            'finding_type' => $type,
+            'title' => $title,
+            'detail' => $title.' detail.',
+            'severity' => $severity,
+            'risk_level' => $severity,
+            'confidence' => 'high',
+            'confidence_score' => 0.9,
+            'route_hint' => $route,
+            'evidence_refs' => ['evidence:'.$type],
+            'affected_paths' => $affected,
+            'recommended_action' => 'Operator review required for '.$type.'.',
+            'source' => $type,
+            'safe_to_autofix' => false,
+            'requires_operator_review' => true,
+            'finding_id' => 'aef_'.substr(hash('sha256', $type.$title), 0, 16),
+            'finding_hash' => $hash,
+            'priority_score' => 300,
+        ];
+    }
+
+    /**
+     * Default deep-check overrides: focus owner docs all present, wiring chain
+     * complete — so only the injected structural findings surface.
+     *
+     * @return array<string,mixed>
+     */
+    private function quietDeepChecks(): array
+    {
+        return [
+            'focus_owner_docs' => [
+                'docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md' => true,
+                'docs/engineering-knowledge-base/atlas-forge-operating-system.md' => true,
+                'docs/engineering-knowledge-base/atlas-agentic-engineering-os.md' => true,
+                'docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md' => true,
+            ],
+            'wiring_chain' => [
+                'release_queue' => true,
+                'consumption_gate' => true,
+                'owner_runtime_execution' => true,
+                'owner_sandbox_run' => true,
+                'result_bridge' => true,
+            ],
+        ];
+    }
+
+    public function test_scan_returns_structured_report_envelope(): void
+    {
+        $report = $this->service()->scan(['base_report' => $this->baseReport()] + $this->quietDeepChecks());
+
+        $this->assertSame(AreaFocusDeepFindingEngineService::REPORT_SCHEMA, $report['schema_version']);
+        foreach (['scan_id', 'area_id', 'focus', 'generated_at', 'findings', 'status', 'mode', 'kind_summary', 'owner_summary', 'severity_summary', 'focus_summary', 'claim_policy', 'scan_hash'] as $key) {
+            $this->assertArrayHasKey($key, $report, "missing report key {$key}");
+        }
+        $this->assertSame('agentic_engineering_os', $report['area_id']);
+        $this->assertSame('dev_forge', $report['focus']);
+        $this->assertSame('dry_run', $report['mode']);
+        $this->assertSame('ready', $report['status']);
+        $this->assertStringStartsWith('afds_', $report['scan_id']);
+        $this->assertStringStartsWith('sha256:', $report['scan_hash']);
+        $this->assertSame(4, $report['finding_count']);
+    }
+
+    public function test_every_finding_has_required_fields_and_owner_candidate(): void
+    {
+        $report = $this->service()->scan(['base_report' => $this->baseReport()] + $this->quietDeepChecks());
+
+        $this->assertNotEmpty($report['findings']);
+        foreach ($report['findings'] as $finding) {
+            foreach (['finding_id', 'title', 'severity', 'kind', 'owner_candidate', 'evidence_refs', 'affected_files', 'affected_docs', 'why_it_matters', 'proposed_spec_title', 'proposed_next_action', 'confidence', 'auto_execution_allowed', 'operator_review_required', 'spec_seed'] as $key) {
+                $this->assertArrayHasKey($key, $finding, "finding missing {$key}");
+            }
+            $this->assertSame(AreaFocusDeepFindingEngineService::FINDING_SCHEMA, $finding['schema_version']);
+            $this->assertContains($finding['severity'], ['critical', 'high', 'medium', 'low']);
+            $this->assertContains($finding['kind'], AreaFocusDeepFindingEngineService::KINDS);
+            $this->assertContains($finding['owner_candidate'], AreaFocusDeepFindingEngineService::OWNER_CANDIDATES);
+            $this->assertFalse($finding['auto_execution_allowed']);
+            $this->assertTrue($finding['operator_review_required']);
+            $this->assertStringStartsWith('afdf_', $finding['finding_id']);
+        }
+    }
+
+    public function test_owner_candidate_mapping(): void
+    {
+        $byKind = [];
+        foreach ($this->service()->scan(['base_report' => $this->baseReport()] + $this->quietDeepChecks())['findings'] as $finding) {
+            $byKind[$finding['origin_type']] = $finding['owner_candidate'];
+        }
+
+        $this->assertSame('evidence', $byKind['missing_evidence']);
+        $this->assertSame('atlas_dev', $byKind['missing_test']);
+        $this->assertSame('forge', $byKind['duplicate_runtime_risk']);
+        $this->assertSame('self_directed_evolution', $byKind['docs_stale']);
+    }
+
+    public function test_kind_mapping(): void
+    {
+        $byOrigin = [];
+        foreach ($this->service()->scan(['base_report' => $this->baseReport()] + $this->quietDeepChecks())['findings'] as $finding) {
+            $byOrigin[$finding['origin_type']] = $finding['kind'];
+        }
+
+        $this->assertSame('risk', $byOrigin['missing_evidence']);
+        $this->assertSame('test', $byOrigin['missing_test']);
+        $this->assertSame('risk', $byOrigin['duplicate_runtime_risk']);
+        $this->assertSame('doc', $byOrigin['docs_stale']);
+    }
+
+    public function test_findings_are_ordered_by_severity_then_focus(): void
+    {
+        $report = $this->service()->scan(['base_report' => $this->baseReport()] + $this->quietDeepChecks());
+        $severities = array_map(static fn (array $f): string => (string) $f['severity'], $report['findings']);
+
+        // critical (missing_evidence) must rank first; low (docs_stale) last.
+        $this->assertSame('critical', $severities[0]);
+        $this->assertSame('low', $severities[array_key_last($severities)]);
+    }
+
+    public function test_dedupe_collapses_identical_findings(): void
+    {
+        $base = $this->baseReport();
+        // Append an exact duplicate of the first structural finding.
+        $base['findings'][] = $base['findings'][0];
+
+        $report = $this->service()->scan(['base_report' => $base] + $this->quietDeepChecks());
+
+        $missingEvidence = array_values(array_filter(
+            $report['findings'],
+            static fn (array $f): bool => $f['origin_type'] === 'missing_evidence',
+        ));
+        $this->assertCount(1, $missingEvidence);
+    }
+
+    public function test_spec_seed_is_self_directed_evolution_compatible(): void
+    {
+        $finding = $this->service()->scan(['base_report' => $this->baseReport()] + $this->quietDeepChecks())['findings'][0];
+        $seed = $finding['spec_seed'];
+
+        $this->assertSame(AreaFocusDeepFindingEngineService::SPEC_SEED_SCHEMA, $seed['schema_version']);
+        $this->assertSame($finding['finding_hash'], $seed['candidate_hash']);
+        $this->assertStringStartsWith('gapc_', $seed['candidate_id']);
+        foreach (['gap_kind', 'source_owner', 'title', 'rationale', 'risk_level', 'evidence_refs', 'owner_doc_refs'] as $key) {
+            $this->assertArrayHasKey($key, $seed, "spec_seed missing {$key}");
+        }
+        $this->assertTrue($seed['proposal_only']);
+    }
+
+    public function test_focus_owner_doc_missing_is_detected(): void
+    {
+        $overrides = $this->quietDeepChecks();
+        $overrides['focus_owner_docs']['docs/engineering-knowledge-base/atlas-forge-operating-system.md'] = false;
+
+        $report = $this->service()->scan(['base_report' => ['findings' => []]] + $overrides);
+
+        $docFinding = array_values(array_filter(
+            $report['findings'],
+            static fn (array $f): bool => $f['origin_type'] === 'focus_owner_doc_missing',
+        ));
+        $this->assertCount(1, $docFinding);
+        $this->assertSame('doc', $docFinding[0]['kind']);
+        $this->assertSame('self_directed_evolution', $docFinding[0]['owner_candidate']);
+        $this->assertSame('high', $docFinding[0]['severity']);
+    }
+
+    public function test_handoff_executor_wiring_gap_is_detected(): void
+    {
+        $overrides = $this->quietDeepChecks();
+        $overrides['wiring_chain']['result_bridge'] = false;
+
+        $report = $this->service()->scan(['base_report' => ['findings' => []]] + $overrides);
+
+        $wiring = array_values(array_filter(
+            $report['findings'],
+            static fn (array $f): bool => $f['origin_type'] === 'handoff_executor_wiring_gap',
+        ));
+        $this->assertCount(1, $wiring);
+        $this->assertSame('gap', $wiring[0]['kind']);
+        $this->assertSame('forge', $wiring[0]['owner_candidate']);
+    }
+
+    public function test_complete_wiring_chain_yields_no_gap(): void
+    {
+        $report = $this->service()->scan(['base_report' => ['findings' => []]] + $this->quietDeepChecks());
+
+        $wiring = array_filter(
+            $report['findings'],
+            static fn (array $f): bool => $f['origin_type'] === 'handoff_executor_wiring_gap',
+        );
+        $this->assertCount(0, $wiring);
+        $this->assertTrue($report['source_summary']['wiring_chain']['chain_complete']);
+    }
+
+    public function test_max_findings_caps_and_flags(): void
+    {
+        $report = $this->service()->scan(['base_report' => $this->baseReport(), 'max_findings' => 2] + $this->quietDeepChecks());
+
+        $this->assertSame(2, $report['finding_count']);
+        $this->assertTrue($report['capped']);
+    }
+
+    public function test_unsupported_area_is_blocked(): void
+    {
+        $report = $this->service()->scan(['area_id' => 'marketing_company']);
+
+        $this->assertSame('blocked', $report['status']);
+        $this->assertSame(0, $report['finding_count']);
+        $this->assertSame('unsupported_area', $report['blockers'][0]['reason']);
+    }
+
+    public function test_unsupported_focus_is_blocked(): void
+    {
+        $report = $this->service()->scan(['focus' => 'marketing_flow']);
+
+        $this->assertSame('blocked', $report['status']);
+        $this->assertSame('unsupported_focus', $report['blockers'][0]['reason']);
+    }
+
+    public function test_scan_hash_is_deterministic_for_same_input(): void
+    {
+        $input = ['base_report' => $this->baseReport()] + $this->quietDeepChecks();
+        $a = $this->service()->scan($input);
+        $b = $this->service()->scan($input);
+
+        $this->assertSame($a['scan_hash'], $b['scan_hash']);
+        $this->assertSame($a['scan_id'], $b['scan_id']);
+        $this->assertSame($a['findings'], $b['findings']);
+    }
+
+    public function test_dry_run_writes_nothing(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas_deep_scan_test_'.uniqid();
+        $service = $this->service();
+        $service->setStorageRootForTesting($dir);
+
+        $report = $service->scan(['base_report' => $this->baseReport()] + $this->quietDeepChecks());
+
+        $this->assertSame('dry_run', $report['mode']);
+        $this->assertArrayNotHasKey('record', $report);
+        $this->assertFileDoesNotExist($service->scanFilePath('agentic_engineering_os'));
+    }
+
+    public function test_record_mode_appends_idempotently(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas_deep_scan_test_'.uniqid();
+        $service = $this->service();
+        $service->setStorageRootForTesting($dir);
+
+        $input = ['base_report' => $this->baseReport(), 'record' => true] + $this->quietDeepChecks();
+
+        $first = $service->scan($input);
+        $this->assertSame('record', $first['mode']);
+        $this->assertTrue($first['record']['recorded']);
+
+        $path = $service->scanFilePath('agentic_engineering_os');
+        $this->assertFileExists($path);
+        $this->assertCount(1, file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
+
+        // Same input -> same scan_id -> idempotent, no duplicate append.
+        $second = $service->scan($input);
+        $this->assertFalse($second['record']['recorded']);
+        $this->assertTrue($second['record']['idempotent']);
+        $this->assertCount(1, file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
+
+        // Replay by id round-trips the recorded scan.
+        $replayed = $service->replay($first['scan_id']);
+        $this->assertNotNull($replayed);
+        $this->assertSame($first['scan_id'], $replayed['scan_id']);
+
+        @unlink($path);
+        @rmdir($dir);
+    }
+
+    public function test_claim_policy_enforces_read_only_and_no_provider(): void
+    {
+        $policy = $this->service()->scan(['base_report' => ['findings' => []]] + $this->quietDeepChecks())['claim_policy'];
+
+        $this->assertTrue($policy['read_only_over_repo']);
+        $this->assertFalse($policy['writes_code']);
+        $this->assertFalse($policy['provider_invoked']);
+        $this->assertFalse($policy['opens_branch']);
+        $this->assertFalse($policy['drafts_spec']);
+        $this->assertFalse($policy['auto_execution_allowed']);
+        $this->assertFalse($policy['parallel_runtime_created']);
+        $this->assertFalse($policy['is_new_os']);
+        $this->assertTrue($policy['composes_ap717_structural_engine']);
+        $this->assertTrue($policy['self_directed_evolution_remains_gap_owner']);
+    }
+}

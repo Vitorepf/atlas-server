@@ -3955,6 +3955,130 @@ PHP);
         $this->assertSame('healthy', data_get($checks, 'scheduler_stale.status'));
     }
 
+    public function test_mobile_inbox_index_returns_compact_fast_payload(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $userId = AtlasMobileDevice::query()->firstOrFail()->user_id;
+
+        // Heavy body + payload on every row: a *full* list of these would be
+        // very large and slow. The compact list endpoint must strip them.
+        $heavyBody = str_repeat('conteudo pesado de corpo do item operacional. ', 200);
+        $heavyPayload = ['blob' => str_repeat('x', 4000), 'rows' => array_fill(0, 40, ['k' => 'v', 'n' => 123])];
+
+        for ($i = 0; $i < 22; $i++) {
+            AiInboxItem::query()->create([
+                'user_id' => $userId,
+                'type' => 'approval',
+                'category' => 'atlas',
+                'severity' => $i % 5 === 0 ? 'critical' : 'info',
+                'status' => 'unread',
+                'title' => "Item operacional {$i}",
+                'summary' => "Resumo do item {$i}",
+                'body' => $heavyBody,
+                'initiator' => 'atlas',
+                'dedupe_key' => "approval:op:{$userId}:{$i}",
+                'available_actions' => [['id' => 'approve', 'label' => 'Aprovar'], ['id' => 'dismiss', 'label' => 'Descartar']],
+                'payload' => $heavyPayload,
+                'push_policy' => ['send' => 'none'],
+                'priority_score' => 50 + $i,
+                'created_at' => now()->subMinutes(22 - $i),
+                'updated_at' => now()->subMinutes(22 - $i),
+            ]);
+        }
+
+        $start = microtime(true);
+        $response = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/v1/mobile/inbox?status=active&limit=12')
+            ->assertOk();
+        $elapsedMs = (microtime(true) - $start) * 1000;
+
+        $json = $response->json();
+        $this->assertCount(12, $json['items'], 'limit must cap the list at 12');
+        $this->assertNotNull($json['next_cursor'], 'cursor present when more rows than the limit');
+        $this->assertSame(22, $json['unread_count']);
+
+        foreach ($json['items'] as $item) {
+            $this->assertNull($item['body'], 'compact list must not ship body');
+            $this->assertSame([], $item['payload'], 'compact list must not ship payload');
+            $this->assertNull($item['presentation'], 'compact list must not compute heavy presentation');
+            $this->assertArrayHasKey('title', $item);
+            $this->assertArrayHasKey('available_actions', $item);
+            $this->assertArrayHasKey('severity', $item);
+        }
+
+        // 12 rows each carrying ~9KB of body+payload would be >100KB if shipped
+        // full; the compact payload must stay small and cheap.
+        $encodedBytes = strlen((string) $response->getContent());
+        $this->assertLessThan(30000, $encodedBytes, "compact list payload too large: {$encodedBytes} bytes");
+
+        // Route + middleware + query + serialization must be fast in-process
+        // (catches N+1 / heavy per-item work — generous bound to avoid flake).
+        $this->assertLessThan(2000, $elapsedMs, "inbox index too slow in-process: {$elapsedMs}ms");
+    }
+
+    public function test_mobile_inbox_index_respects_active_status_and_limit(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $userId = AtlasMobileDevice::query()->firstOrFail()->user_id;
+
+        foreach ([0, 1, 2] as $i) {
+            AiInboxItem::query()->create([
+                'user_id' => $userId, 'type' => 'approval', 'severity' => 'info', 'status' => 'unread',
+                'title' => "active {$i}", 'initiator' => 'atlas', 'dedupe_key' => "active:{$userId}:{$i}",
+                'available_actions' => [], 'payload' => [], 'push_policy' => ['send' => 'none'],
+                'priority_score' => 50, 'created_at' => now()->subMinutes($i), 'updated_at' => now()->subMinutes($i),
+            ]);
+        }
+        AiInboxItem::query()->create([
+            'user_id' => $userId, 'type' => 'approval', 'severity' => 'info', 'status' => 'resolved',
+            'title' => 'resolved', 'initiator' => 'atlas', 'dedupe_key' => "terminal:{$userId}:resolved",
+            'available_actions' => [], 'payload' => [], 'push_policy' => ['send' => 'none'],
+            'priority_score' => 50, 'resolved_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        AiInboxItem::query()->create([
+            'user_id' => $userId, 'type' => 'approval', 'severity' => 'info', 'status' => 'dismissed',
+            'title' => 'dismissed', 'initiator' => 'atlas', 'dedupe_key' => "terminal:{$userId}:dismissed",
+            'available_actions' => [], 'payload' => [], 'push_policy' => ['send' => 'none'],
+            'priority_score' => 50, 'dismissed_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $json = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/v1/mobile/inbox?status=active&limit=2')
+            ->assertOk()
+            ->json();
+
+        $this->assertCount(2, $json['items'], 'limit must be respected');
+        foreach ($json['items'] as $item) {
+            $this->assertNotContains($item['status'], ['resolved', 'dismissed', 'expired'], 'active must exclude terminal statuses');
+        }
+    }
+
+    public function test_mobile_inbox_show_returns_full_payload(): void
+    {
+        $token = $this->pairedDeviceToken();
+        $userId = AtlasMobileDevice::query()->firstOrFail()->user_id;
+
+        $item = AiInboxItem::query()->create([
+            'user_id' => $userId, 'type' => 'approval', 'category' => 'atlas', 'severity' => 'info', 'status' => 'unread',
+            'title' => 'Detalhe', 'summary' => 'resumo', 'body' => 'corpo completo detalhado do item',
+            'initiator' => 'atlas', 'dedupe_key' => "detail:{$userId}:1",
+            'available_actions' => [['id' => 'approve', 'label' => 'Aprovar']], 'payload' => ['k' => 'v'],
+            'push_policy' => ['send' => 'none'], 'priority_score' => 60, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $json = $this
+            ->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/v1/mobile/inbox/'.$item->id)
+            ->assertOk()
+            ->json();
+
+        $this->assertSame('corpo completo detalhado do item', $json['item']['body'], 'detail must ship the full body');
+        $this->assertNotNull($json['item']['presentation'], 'detail must include rich human presentation');
+        $this->assertSame(['k' => 'v'], $json['item']['payload'], 'detail must ship the full payload');
+    }
+
     private function pairedDeviceToken(?string $expoPushToken = null): string
     {
         $init = $this

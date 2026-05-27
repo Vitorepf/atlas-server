@@ -108,6 +108,8 @@ related_paths:
   - docs/ap/AP-762-end-to-end-stewardship-live-cycle-certification-contract.md
   - docs/ap/AP-763-software-company-stewardship-completion-audit-contract.md
   - docs/ap/AP-764-atlas-native-stewardship-obra-runner-contract.md
+  - docs/ap/AP-765-stewardship-runtime-result-bridge-contract.md
+  - docs/ap/AP-767-dev-forge-runtime-execution-bridge-contract.md
   - docs/ap/AP-750-owner-runtime-result-bridge-contract.md
   - docs/ap/AP-751-portfolio-owner-runtime-result-signal-contract.md
   - docs/ap/AP-752-autonomous-executive-allocation-handoff-contract.md
@@ -131,6 +133,8 @@ related_paths:
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipLiveCycleCertificationService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipRuntimeResultBridgeService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/ProductMode/ProductModeRuntimeResultEventService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipNativeObraRunnerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipHealthModelService.php
   - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipInboxService.php
@@ -506,6 +510,7 @@ operator selects scope
 -> AP-759 sandboxed owner command when operator-authorized
 -> AP-760 Product Mode visibility for AP-759
 -> owner runtime result bridge closes AP-750
+-> AP-765 runtime result bridge closes the first complete 24h cycle (structured evidence pack + real inbox item + Product Mode event + portfolio signal + cycle receipt)
 -> Evidence proves claims
 -> Product Mode/Morning Inbox asks operator decisions
 -> outcomes feed Area Stewardship
@@ -565,6 +570,8 @@ Ordem obrigatoria:
 35. End-to-end live cycle certification AP-762 para provar a cadeia completa em projection e em owner command sandboxado opcional antes de declarar 100% da stack.
 36. Requirement-by-requirement completion audit AP-763 para transformar a lista pratica do operador em 29 linhas auditaveis, responder `current_practical_number`, e bloquear claim de 100% quando a prova AP-759/AP-762 nao estiver completa.
 37. Atlas-native Stewardship Obra runner AP-764 para transformar ciclos AP-746/AP-744 em handoffs nativos de Obra para Atlas Dev/Forge, sem depender de automacao externa do Codex e sem chamar provider fora de AP-759.
+38. Stewardship Runtime Result Bridge AP-765 (Evidence / Product Mode loop closer) para fechar o primeiro ciclo 24h completo: recebe o execution_result direto de Dev/Forge/owner + ids do loop (finding/spec/handoff/sandbox) e produz evidence pack estruturado, inbox item real e leve (via AtlasInboxService/ProposalInboxEmitter), Product Mode visibility event, sinal de portfolio no formato AP-751 e receipt final, sem merge/deploy/secrets, sem auto-approve e reutilizando AP-740/AP-750/AP-751 (sem ledger/inbox paralelo).
+39. Dev/Forge Runtime Execution Bridge AP-767 (`dev-forge-execute`, produtor minimo do primeiro ciclo) para fechar o gap entre handoff/finding/spec aprovado + sandbox materializado e o AP-765: escolhe owner atlas_dev|forge, roda owner-specific consumption gate (area, isolamento, allowed_paths, nao-main, sem merge/deploy, kill switch, budget), mapeia capability slots architect/executor/reviewer/certifier sem hardcodar modelo, e em modo execute roda uma local deterministic owner task (read-only + testes allowlisted dentro do worktree) ou reporta provider_bridge_missing com contrato claro. Emite um execution_result que o AP-765 consome direto; nao inventa provider, nao muta fora do sandbox, nao faz merge/deploy/push/secrets e compoe (nao duplica) os owners AP-758/AP-759. Provider real continua operator-gated em AP-758/AP-759.
 
 ## Dependencias
 

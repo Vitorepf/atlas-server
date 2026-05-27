@@ -903,6 +903,37 @@ return [
             'record_runs' => (bool) env('ATLAS_STEWARDSHIP_NATIVE_OBRA_RUNNER_RECORD_RUNS', true),
             'min_interval_seconds' => (int) env('ATLAS_STEWARDSHIP_NATIVE_OBRA_RUNNER_MIN_INTERVAL_SECONDS', 900),
         ],
+
+        // AP-745 scheduler-safe Continuous Stewardship Loop tick. Disabled by
+        // default; these keys only formalize the defaults the service already
+        // assumes so an operator can tune them without touching code.
+        'continuous_loop' => [
+            'enabled' => (bool) env('ATLAS_STEWARDSHIP_CONTINUOUS_LOOP_ENABLED', false),
+            'kill_switch' => (bool) env('ATLAS_STEWARDSHIP_CONTINUOUS_LOOP_KILL_SWITCH', false),
+            'min_interval_seconds' => (int) env('ATLAS_STEWARDSHIP_CONTINUOUS_LOOP_MIN_INTERVAL_SECONDS', 900),
+            'lock_ttl_seconds' => (int) env('ATLAS_STEWARDSHIP_CONTINUOUS_LOOP_LOCK_TTL_SECONDS', 600),
+        ],
+
+        // AP-746 recurring scheduler-safe boundary around AP-745. Disabled by
+        // default; never installs a scheduler.
+        'continuous_scheduler' => [
+            'enabled' => (bool) env('ATLAS_STEWARDSHIP_CONTINUOUS_SCHEDULER_ENABLED', false),
+            'kill_switch' => (bool) env('ATLAS_STEWARDSHIP_CONTINUOUS_SCHEDULER_KILL_SWITCH', false),
+        ],
+
+        // AP-766 Continuous Stewardship Runner control plane. Composes AP-746
+        // and owns the runner-level primitives: per-area kill switch, daily run
+        // budget per area, runner lock TTL and rate limit. Disabled by default;
+        // scheduler-safe (callable by an external scheduler) but installs none.
+        'continuous_runner' => [
+            'enabled' => (bool) env('ATLAS_STEWARDSHIP_CONTINUOUS_RUNNER_ENABLED', false),
+            'area_id' => env('ATLAS_STEWARDSHIP_CONTINUOUS_RUNNER_AREA', 'agentic_engineering_os'),
+            'kill_switch' => (bool) env('ATLAS_STEWARDSHIP_CONTINUOUS_RUNNER_KILL_SWITCH', false),
+            'area_kill_switch' => (bool) env('ATLAS_STEWARDSHIP_CONTINUOUS_RUNNER_AREA_KILL_SWITCH', false),
+            'min_interval_seconds' => (int) env('ATLAS_STEWARDSHIP_CONTINUOUS_RUNNER_MIN_INTERVAL_SECONDS', 900),
+            'lock_ttl_seconds' => (int) env('ATLAS_STEWARDSHIP_CONTINUOUS_RUNNER_LOCK_TTL_SECONDS', 600),
+            'max_runs_per_day' => (int) env('ATLAS_STEWARDSHIP_CONTINUOUS_RUNNER_MAX_RUNS_PER_DAY', 48),
+        ],
     ],
 
     /*

@@ -225,4 +225,157 @@ final class AreaFocusBranchSandboxMaterializerServiceTest extends TestCase
             $this->assertFalse($policy[$key], "claim_policy.{$key} must be false");
         }
     }
+
+    public function test_cleanup_blocks_unknown_sandbox(): void
+    {
+        $report = $this->service()->cleanupSandbox([
+            'sandbox_id' => 'afsb_does_not_exist',
+            'area_id' => 'agentic_engineering_os',
+            'remove_sandbox' => true,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_BLOCKED, $report['status']);
+        $this->assertSame('sandbox_record_not_found', $report['reason']);
+        $this->assertFalse($report['cleaned']);
+        $this->assertFalse($report['claim_policy']['sandbox_worktree_removed']);
+    }
+
+    public function test_dry_run_cleanup_does_not_remove_worktree(): void
+    {
+        $repo = $this->repo();
+        $service = $this->service();
+        $materialized = $this->materializeFixture($service, $repo);
+        $worktreePath = (string) $materialized['materialization']['worktree_path'];
+        $this->assertTrue(is_dir($worktreePath));
+
+        $cleanup = $service->cleanupSandbox([
+            'sandbox_id' => 'afsb_fixture',
+            'area_id' => 'agentic_engineering_os',
+            'repo_root' => $repo,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_PLANNED, $cleanup['status']);
+        $this->assertSame('dry_run_cleanup_plan', $cleanup['mode']);
+        $this->assertFalse($cleanup['cleaned']);
+        $this->assertSame('projected', $cleanup['cleanup_storage_status']);
+        $this->assertFalse($cleanup['actions']['worktree_removed']);
+        $this->assertTrue(is_dir($worktreePath), 'dry-run cleanup must not remove the worktree');
+    }
+
+    public function test_execute_cleanup_removes_worktree_records_event_and_is_idempotent(): void
+    {
+        $repo = $this->repo();
+        $service = $this->service();
+        $materialized = $this->materializeFixture($service, $repo);
+        $worktreePath = (string) $materialized['materialization']['worktree_path'];
+
+        $first = $service->cleanupSandbox([
+            'sandbox_id' => 'afsb_fixture',
+            'area_id' => 'agentic_engineering_os',
+            'repo_root' => $repo,
+            'remove_sandbox' => true,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED, $first['status']);
+        $this->assertTrue($first['cleaned']);
+        $this->assertTrue($first['actions']['worktree_removed']);
+        $this->assertSame('recorded', $first['cleanup_storage_status']);
+        $this->assertFalse(is_dir($worktreePath), 'execute cleanup must remove the worktree');
+        $this->assertTrue($first['claim_policy']['sandbox_worktree_removed']);
+        $this->assertFalse($first['claim_policy']['target_repo_mutated']);
+        $this->assertFalse($first['claim_policy']['product_code_mutated']);
+        $this->assertFalse($first['claim_policy']['provider_invoked']);
+
+        // Idempotent: a second cleanup returns the prior recorded event, not a new removal.
+        $second = $service->cleanupSandbox([
+            'sandbox_id' => 'afsb_fixture',
+            'area_id' => 'agentic_engineering_os',
+            'repo_root' => $repo,
+            'remove_sandbox' => true,
+        ]);
+        $this->assertSame('existing', $second['cleanup_storage_status']);
+
+        // The materialize record stays; list folds the cleanup lifecycle state.
+        $list = $service->listSandboxes('agentic_engineering_os');
+        $this->assertSame(1, $list['sandbox_count']);
+        $this->assertSame(0, $list['active_sandbox_count']);
+        $this->assertSame(1, $list['cleaned_sandbox_count']);
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED, $list['sandboxes'][0]['lifecycle_state']);
+        $this->assertTrue($list['sandboxes'][0]['cleanup']['cleaned']);
+    }
+
+    public function test_cleanup_blocks_dirty_worktree_without_allow_dirty_flag(): void
+    {
+        $repo = $this->repo();
+        $service = $this->service();
+        $materialized = $this->materializeFixture($service, $repo);
+        $worktreePath = (string) $materialized['materialization']['worktree_path'];
+
+        // Introduce an uncommitted change inside the isolated worktree.
+        file_put_contents($worktreePath.'/scratch.txt', "uncommitted work\n");
+
+        $blocked = $service->cleanupSandbox([
+            'sandbox_id' => 'afsb_fixture',
+            'area_id' => 'agentic_engineering_os',
+            'repo_root' => $repo,
+            'remove_sandbox' => true,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_BLOCKED, $blocked['status']);
+        $this->assertSame('worktree_dirty_requires_allow_dirty_removal', $blocked['reason']);
+        $this->assertTrue(is_dir($worktreePath), 'a dirty worktree must not be removed without the explicit flag');
+
+        // With the explicit operator flag the dirty worktree can be removed.
+        $forced = $service->cleanupSandbox([
+            'sandbox_id' => 'afsb_fixture',
+            'area_id' => 'agentic_engineering_os',
+            'repo_root' => $repo,
+            'remove_sandbox' => true,
+            'allow_dirty_removal' => true,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED, $forced['status']);
+        $this->assertTrue($forced['actions']['worktree_removed']);
+        $this->assertFalse(is_dir($worktreePath));
+    }
+
+    public function test_cleanup_deletes_branch_only_when_requested(): void
+    {
+        $repo = $this->repo();
+        $service = $this->service();
+        $this->materializeFixture($service, $repo);
+
+        $cleanup = $service->cleanupSandbox([
+            'sandbox_id' => 'afsb_fixture',
+            'area_id' => 'agentic_engineering_os',
+            'repo_root' => $repo,
+            'remove_sandbox' => true,
+            'delete_branch' => true,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED, $cleanup['status']);
+        $this->assertTrue($cleanup['actions']['branch_deleted']);
+
+        $branch = new Process(['git', 'show-ref', '--verify', '--quiet', 'refs/heads/area-focus/agentic-engineering-os/atlas-dev/h1'], $repo);
+        $branch->run();
+        $this->assertFalse($branch->isSuccessful(), 'the sandbox branch should be gone after delete-branch cleanup');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function materializeFixture(AreaFocusBranchSandboxMaterializerService $service, string $repo): array
+    {
+        $report = $service->materialize([
+            'preflight_report' => $this->preflight(),
+            'sandbox_receipt' => $this->receipt(),
+            'repo_root' => $repo,
+            'base_ref' => 'HEAD',
+            'materialize_sandbox' => true,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED, $report['status']);
+
+        return $report;
+    }
 }

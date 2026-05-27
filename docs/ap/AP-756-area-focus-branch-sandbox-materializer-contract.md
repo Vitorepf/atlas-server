@@ -86,7 +86,14 @@ AP-756 may:
 - resolve a git repository root and base ref;
 - create an isolated local worktree using `git worktree add -b`;
 - append an idempotent JSONL sandbox record;
-- list and replay materialized sandbox records.
+- list and replay materialized sandbox records;
+- safely clean up a previously materialized sandbox: it removes only the
+  isolated worktree (which always lives inside the controlled worktrees root)
+  via `git worktree remove`, may optionally delete the sandbox branch, and
+  appends an idempotent JSONL cleanup event that folds a `cleaned` lifecycle
+  state onto the original record. Cleanup refuses to remove a dirty worktree
+  without `--allow-dirty-removal` and refuses to delete a branch with unmerged
+  commits without `--allow-unmerged-branch-delete`.
 
 AP-756 must not:
 
@@ -95,6 +102,8 @@ AP-756 must not:
 - apply a fix, patch, commit, merge, deploy or external push;
 - touch secrets or perform destructive changes;
 - mutate the source worktree contents;
+- run `git reset`/`git checkout` or any destructive history rewrite during
+  cleanup, or discard user changes outside the isolated sandbox worktree;
 - auto-approve AP-724 decisions, AP-747 releases, AP-749 consumption, AP-759
   owner command execution or AP-750 outcomes, including AP-758 owner runtime
   adapter start;
@@ -106,6 +115,7 @@ AP-756 must not:
 atlas.software_company_stewardship.area_focus_branch_sandbox_materializer.v1
 atlas.software_company_stewardship.area_focus_branch_sandbox_materializer_record.v1
 atlas.software_company_stewardship.area_focus_branch_sandbox_materializer_records.v1
+atlas.software_company_stewardship.area_focus_branch_sandbox_materializer_cleanup.v1
 ```
 
 ## CLI
@@ -140,13 +150,34 @@ php artisan atlas:software-company-stewardship area-focus-branch-sandboxes --jso
 php artisan atlas:software-company-stewardship area-focus-branch-sandbox-replay --sandbox-id=<id> --json
 ```
 
+Dry-run cleanup plan (nothing is removed):
+
+```text
+php artisan atlas:software-company-stewardship area-focus-branch-sandbox-cleanup \
+  --sandbox-id=<id> \
+  --json
+```
+
+Remove the isolated worktree (and optionally the branch) safely:
+
+```text
+php artisan atlas:software-company-stewardship area-focus-branch-sandbox-cleanup \
+  --sandbox-id=<id> \
+  --remove-sandbox \
+  --delete-branch \
+  --json
+# add --allow-dirty-removal to remove a worktree with uncommitted changes
+# add --allow-unmerged-branch-delete to delete a branch with unmerged commits
+```
+
 ## Status Semantics
 
 | State | Meaning |
 |---|---|
-| `planned` | Receipt, handoff, repo and branch name are valid; no branch/worktree exists. |
+| `planned` | Receipt, handoff, repo and branch name are valid; no branch/worktree exists. For cleanup, this is the dry-run plan and nothing was removed. |
 | `materialized` | Branch/worktree was created and JSONL record was appended. |
-| `blocked` | Required receipt, target handoff, branch name, repo, base ref or git worktree operation failed. |
+| `cleaned` | The isolated worktree was removed (branch optionally deleted) and an idempotent JSONL cleanup event was appended; the original record is retained. |
+| `blocked` | Required receipt, target handoff, branch name, repo, base ref or git worktree operation failed, or a cleanup safety guard refused removal. |
 
 ## Acceptance
 
@@ -159,6 +190,15 @@ php artisan atlas:software-company-stewardship area-focus-branch-sandbox-replay 
   it idempotently.
 - Re-running the same sandbox returns the existing record instead of creating
   another branch/worktree.
+- Cleanup on an unknown sandbox blocks (`sandbox_record_not_found`).
+- Dry-run cleanup never removes the worktree or branch.
+- `--remove-sandbox` removes only the isolated worktree, appends an idempotent
+  cleanup event, and folds a `cleaned` lifecycle state onto the record; a
+  repeated cleanup returns the existing cleanup event.
+- A dirty worktree blocks cleanup unless `--allow-dirty-removal` is given; a
+  branch with unmerged commits blocks `--delete-branch` unless
+  `--allow-unmerged-branch-delete` is given.
 - Claim policy proves no provider, no Dev/Forge dispatch, no fix, no source
-  worktree mutation, no merge/deploy/push/secrets/destructive action and no new
+  worktree mutation, no merge/deploy/push/secrets/destructive action, no
+  `git reset`/`git checkout`, no product code mutation and no new
   OS/runtime/executor.

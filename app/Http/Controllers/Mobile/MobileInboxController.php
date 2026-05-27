@@ -27,7 +27,7 @@ class MobileInboxController extends Controller
             'cursor' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $page = $inbox->listPage(
+        $page = $inbox->listPageForMobileSummary(
             $device->user_id,
             $data['status'] ?? 'unread',
             $data['type'] ?? null,
@@ -37,7 +37,10 @@ class MobileInboxController extends Controller
         );
 
         return response()->json([
-            'items' => AiInboxItemResource::collection($page['items'])->resolve(),
+            'items' => $page['items']
+                ->map(fn (AiInboxItem $item): array => (new AiInboxItemResource($item))->toCompactArray())
+                ->values()
+                ->all(),
             'unread_count' => AiInboxItem::query()->where('user_id', $device->user_id)->where('status', 'unread')->count(),
             'next_cursor' => $page['next_cursor'],
             'generated_at' => now()->toJSON(),

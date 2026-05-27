@@ -26,9 +26,13 @@ final class AreaFocusBranchSandboxMaterializerService
 
     public const RECORD_SCHEMA = 'atlas.software_company_stewardship.area_focus_branch_sandbox_materializer_record.v1';
 
+    public const CLEANUP_SCHEMA = 'atlas.software_company_stewardship.area_focus_branch_sandbox_materializer_cleanup.v1';
+
     public const STATUS_PLANNED = 'planned';
 
     public const STATUS_MATERIALIZED = 'materialized';
+
+    public const STATUS_CLEANED = 'cleaned';
 
     public const STATUS_BLOCKED = 'blocked';
 
@@ -186,6 +190,7 @@ final class AreaFocusBranchSandboxMaterializerService
             : $this->areasWithRecords();
 
         $records = [];
+        $cleanups = [];
         foreach ($areas as $area) {
             $path = $this->sandboxRecordPath($area);
             if (! is_file($path)) {
@@ -193,11 +198,40 @@ final class AreaFocusBranchSandboxMaterializerService
             }
             foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
                 $decoded = json_decode($line, true);
-                if (is_array($decoded)) {
+                if (! is_array($decoded)) {
+                    continue;
+                }
+                $schema = (string) ($decoded['schema_version'] ?? '');
+                if ($schema === self::CLEANUP_SCHEMA) {
+                    $sandboxId = (string) ($decoded['sandbox_id'] ?? '');
+                    if ($sandboxId !== '') {
+                        $cleanups[$sandboxId] = $decoded;
+                    }
+
+                    continue;
+                }
+                if ($schema === self::RECORD_SCHEMA) {
                     $records[] = $decoded;
                 }
             }
         }
+
+        foreach ($records as &$record) {
+            $sandboxId = (string) ($record['sandbox_id'] ?? '');
+            $cleanup = $cleanups[$sandboxId] ?? null;
+            $cleaned = $cleanup !== null && (bool) ($cleanup['cleaned'] ?? false);
+            $record['lifecycle_state'] = $cleaned ? self::STATUS_CLEANED : (string) ($record['status'] ?? 'unknown');
+            if ($cleanup !== null) {
+                $record['cleanup'] = [
+                    'cleaned' => $cleaned,
+                    'worktree_removed' => (bool) data_get($cleanup, 'actions.worktree_removed', false),
+                    'branch_deleted' => (bool) data_get($cleanup, 'actions.branch_deleted', false),
+                    'cleaned_at' => (string) ($cleanup['recorded_at'] ?? ''),
+                    'cleanup_hash' => (string) ($cleanup['cleanup_hash'] ?? ''),
+                ];
+            }
+        }
+        unset($record);
 
         usort($records, static fn (array $a, array $b): int => ((string) ($b['recorded_at'] ?? '')) <=> ((string) ($a['recorded_at'] ?? '')));
 
@@ -207,7 +241,9 @@ final class AreaFocusBranchSandboxMaterializerService
             'ap_contract' => 'AP-756',
             'area_id' => $areaId,
             'sandbox_count' => count($records),
-            'sandboxes' => $records,
+            'active_sandbox_count' => count(array_filter($records, static fn (array $r): bool => (string) ($r['lifecycle_state'] ?? '') !== self::STATUS_CLEANED)),
+            'cleaned_sandbox_count' => count(array_filter($records, static fn (array $r): bool => (string) ($r['lifecycle_state'] ?? '') === self::STATUS_CLEANED)),
+            'sandboxes' => array_values($records),
             'claim_policy' => $this->claimPolicy(false, false),
         ];
     }
@@ -224,6 +260,145 @@ final class AreaFocusBranchSandboxMaterializerService
         }
 
         return null;
+    }
+
+    /**
+     * Safely removes a previously materialized AP-756 sandbox.
+     *
+     * Conservative by design: it only ever touches the isolated worktree that
+     * lives inside the controlled worktrees root, never runs git reset/checkout,
+     * never deletes a dirty worktree or an unmerged branch without an explicit
+     * operator flag, and never touches product code, providers, merge or deploy.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function cleanupSandbox(array $input): array
+    {
+        $sandboxId = trim((string) ($input['sandbox_id'] ?? ''));
+        if ($sandboxId === '') {
+            return $this->blockedCleanup('', '', 'sandbox_id_required', 'AP-756 cleanup requires an explicit sandbox_id.');
+        }
+
+        $areaHint = trim((string) ($input['area_id'] ?? '')) ?: null;
+        $located = $this->locateMaterializeRecord($sandboxId, $areaHint);
+        if ($located === null) {
+            return $this->blockedCleanup($sandboxId, (string) ($areaHint ?? ''), 'sandbox_record_not_found', 'No AP-756 materialized sandbox record was found for this id.');
+        }
+
+        [$areaId, $record] = $located;
+
+        $execute = (bool) ($input['remove_sandbox'] ?? false);
+        $allowDirty = (bool) ($input['allow_dirty_removal'] ?? false);
+        $deleteBranch = (bool) ($input['delete_branch'] ?? false);
+        $allowUnmerged = (bool) ($input['allow_unmerged_branch_delete'] ?? false);
+
+        $repoRoot = trim((string) ($input['repo_root'] ?? '')) ?: (string) data_get($record, 'materialization.repo_root', '');
+        $repoRoot = $repoRoot !== '' ? (realpath($repoRoot) ?: $repoRoot) : '';
+        $branchName = (string) data_get($record, 'materialization.branch_name', '');
+        $worktreePath = (string) data_get($record, 'materialization.worktree_path', '');
+        $baseCommit = (string) data_get($record, 'materialization.base_commit', '');
+
+        $prior = $this->latestCleanupEvent($areaId, $sandboxId);
+        if ($prior !== null && (bool) ($prior['cleaned'] ?? false)) {
+            return $prior + ['cleanup_storage_status' => 'existing'];
+        }
+
+        $controlledRoot = $this->storageDir().DIRECTORY_SEPARATOR.'worktrees';
+        if ($worktreePath === '' || ! $this->pathWithin($worktreePath, $controlledRoot)) {
+            return $this->blockedCleanup($sandboxId, $areaId, 'worktree_path_outside_controlled_root', 'Recorded worktree path is not inside the AP-756 controlled worktrees root; refusing to remove anything.', [
+                'target' => $this->cleanupTarget($repoRoot, $branchName, $worktreePath, $baseCommit),
+            ]);
+        }
+
+        $safety = $this->cleanupSafety($repoRoot, $worktreePath, $branchName, $baseCommit);
+
+        $blockers = [];
+        if ($safety['worktree_dirty'] && ! $allowDirty) {
+            $blockers[] = 'worktree_dirty_requires_allow_dirty_removal';
+        }
+        if ($deleteBranch && $safety['branch_has_unmerged_commits'] && ! $allowUnmerged) {
+            $blockers[] = 'branch_has_unmerged_commits_requires_allow_unmerged_branch_delete';
+        }
+
+        $payload = [
+            'schema_version' => self::CLEANUP_SCHEMA,
+            'ap_contract' => 'AP-756',
+            'status' => self::STATUS_PLANNED,
+            'mode' => $execute ? 'cleanup_worktree' : 'dry_run_cleanup_plan',
+            'cleaned' => false,
+            'area_id' => $areaId,
+            'sandbox_id' => $sandboxId,
+            'stack' => 'Atlas Software Company Stewardship Stack',
+            'source_ap_contracts' => ['AP-726', 'AP-756'],
+            'source_refs' => [
+                'sandbox_hash' => (string) ($record['sandbox_hash'] ?? ''),
+                'handoff_hash' => (string) data_get($record, 'source_refs.handoff_hash', ''),
+                'handoff_id' => (string) data_get($record, 'source_refs.handoff_id', ''),
+            ],
+            'target' => $this->cleanupTarget($repoRoot, $branchName, $worktreePath, $baseCommit),
+            'safety' => $safety,
+            'requested' => [
+                'execute' => $execute,
+                'allow_dirty_removal' => $allowDirty,
+                'delete_branch' => $deleteBranch,
+                'allow_unmerged_branch_delete' => $allowUnmerged,
+            ],
+            'actions' => [
+                'worktree_removed' => false,
+                'branch_deleted' => false,
+            ],
+            'blockers' => [],
+            'next_actions' => $this->cleanupNextActions($execute, false),
+            'reused_owners' => $this->reusedOwners(),
+            'claim_policy' => $this->cleanupClaimPolicy($execute, false, false),
+        ];
+
+        if (! $execute) {
+            $payload['blockers'] = $blockers;
+            $payload['cleanup_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
+            $payload['generated_at'] = $this->now();
+
+            return $payload + ['cleanup_storage_status' => 'projected'];
+        }
+
+        if ($blockers !== []) {
+            return $this->blockedCleanup($sandboxId, $areaId, $blockers[0], 'AP-756 cleanup safety guard blocked removal.', [
+                'target' => $payload['target'],
+                'safety' => $safety,
+                'blockers' => $blockers,
+            ]);
+        }
+
+        $removal = $this->runWorktreeRemove($repoRoot, $worktreePath, $allowDirty);
+        if (($removal['status'] ?? '') === self::STATUS_BLOCKED) {
+            return $this->blockedCleanup($sandboxId, $areaId, (string) ($removal['reason'] ?? 'git_worktree_remove_failed'), (string) ($removal['detail'] ?? 'git worktree remove failed.'), [
+                'target' => $payload['target'],
+                'safety' => $safety,
+                'git_result' => $removal,
+            ]);
+        }
+
+        $branchDeleted = false;
+        if ($deleteBranch) {
+            $branch = $this->runBranchDelete($repoRoot, $branchName, $allowUnmerged);
+            $branchDeleted = (bool) ($branch['branch_deleted'] ?? false);
+            $payload['branch_delete_result'] = $branch;
+        }
+
+        $payload['status'] = self::STATUS_CLEANED;
+        $payload['cleaned'] = true;
+        $payload['actions'] = [
+            'worktree_removed' => (bool) ($removal['worktree_removed'] ?? false),
+            'worktree_already_absent' => (string) ($removal['note'] ?? '') === 'worktree_already_absent',
+            'branch_deleted' => $branchDeleted,
+        ];
+        $payload['next_actions'] = $this->cleanupNextActions(true, true);
+        $payload['claim_policy'] = $this->cleanupClaimPolicy(true, (bool) ($removal['worktree_removed'] ?? false), $branchDeleted);
+        $payload['cleanup_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
+        $payload['generated_at'] = $this->now();
+
+        return $this->recordCleanup($areaId, $payload);
     }
 
     /**
@@ -467,7 +642,9 @@ final class AreaFocusBranchSandboxMaterializerService
         }
         foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
             $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['sandbox_id'] ?? '') === $sandboxId) {
+            if (is_array($decoded)
+                && (string) ($decoded['sandbox_id'] ?? '') === $sandboxId
+                && (string) ($decoded['schema_version'] ?? '') === self::RECORD_SCHEMA) {
                 return $decoded;
             }
         }
@@ -673,13 +850,263 @@ final class AreaFocusBranchSandboxMaterializerService
     }
 
     /**
+     * @return array{0:string,1:array<string,mixed>}|null
+     */
+    private function locateMaterializeRecord(string $sandboxId, ?string $areaHint): ?array
+    {
+        $areas = $areaHint !== null && trim($areaHint) !== ''
+            ? [$areaHint]
+            : $this->areasWithRecords();
+
+        foreach ($areas as $area) {
+            $record = $this->findRecord($this->sandboxRecordPath($area), $sandboxId);
+            if ($record !== null) {
+                return [$area, $record];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function latestCleanupEvent(string $areaId, string $sandboxId): ?array
+    {
+        $path = $this->sandboxRecordPath($areaId);
+        if ($sandboxId === '' || ! is_file($path)) {
+            return null;
+        }
+
+        $latest = null;
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $decoded = json_decode($line, true);
+            if (is_array($decoded)
+                && (string) ($decoded['schema_version'] ?? '') === self::CLEANUP_SCHEMA
+                && (string) ($decoded['sandbox_id'] ?? '') === $sandboxId) {
+                $latest = $decoded;
+            }
+        }
+
+        return $latest;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function cleanupTarget(string $repoRoot, string $branchName, string $worktreePath, string $baseCommit): array
+    {
+        return [
+            'repo_root' => $repoRoot,
+            'repo_root_hash' => hash('sha256', $repoRoot),
+            'branch_name' => $branchName,
+            'worktree_path' => $worktreePath,
+            'worktree_path_hash' => hash('sha256', $worktreePath),
+            'base_commit' => $baseCommit,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function cleanupSafety(string $repoRoot, string $worktreePath, string $branchName, string $baseCommit): array
+    {
+        $worktreeExists = is_dir($worktreePath);
+        $worktreeDirty = false;
+        if ($worktreeExists) {
+            $status = $this->runGit($worktreePath, ['git', 'status', '--porcelain=v1', '--untracked-files=all']);
+            $worktreeDirty = $status['ok'] && trim((string) ($status['stdout'] ?? '')) !== '';
+        }
+
+        $commitsAhead = 0;
+        if ($repoRoot !== '' && $branchName !== '' && $baseCommit !== '') {
+            $rev = $this->runGit($repoRoot, ['git', 'rev-list', '--count', $baseCommit.'..'.$branchName]);
+            if ($rev['ok']) {
+                $commitsAhead = (int) trim((string) ($rev['stdout'] ?? '0'));
+            }
+        }
+
+        return [
+            'worktree_exists' => $worktreeExists,
+            'worktree_dirty' => $worktreeDirty,
+            'branch_commits_ahead' => $commitsAhead,
+            'branch_has_unmerged_commits' => $commitsAhead > 0,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runWorktreeRemove(string $repoRoot, string $worktreePath, bool $force): array
+    {
+        if ($repoRoot === '' || ! is_dir($repoRoot)) {
+            return ['status' => self::STATUS_BLOCKED, 'reason' => 'repo_root_missing', 'detail' => 'Repository root does not exist for cleanup.'];
+        }
+
+        if (! is_dir($worktreePath)) {
+            // Worktree already gone — prune only the stale admin entry, never touch product code.
+            $this->runGit($repoRoot, ['git', 'worktree', 'prune']);
+
+            return ['status' => self::STATUS_CLEANED, 'worktree_removed' => false, 'note' => 'worktree_already_absent'];
+        }
+
+        $command = ['git', 'worktree', 'remove'];
+        if ($force) {
+            $command[] = '--force';
+        }
+        $command[] = $worktreePath;
+
+        $result = $this->runGit($repoRoot, $command, 120);
+        if (! $result['ok']) {
+            return [
+                'status' => self::STATUS_BLOCKED,
+                'reason' => 'git_worktree_remove_failed',
+                'detail' => 'git worktree remove failed (worktree may have uncommitted changes; pass allow_dirty_removal).',
+                'stderr_hash' => hash('sha256', (string) ($result['stderr'] ?? '')),
+            ];
+        }
+
+        return ['status' => self::STATUS_CLEANED, 'worktree_removed' => true];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runBranchDelete(string $repoRoot, string $branchName, bool $allowUnmerged): array
+    {
+        if ($branchName === '') {
+            return ['branch_deleted' => false, 'detail' => 'No branch name recorded for this sandbox.'];
+        }
+
+        $result = $this->runGit($repoRoot, ['git', 'branch', $allowUnmerged ? '-D' : '-d', $branchName]);
+        if (! $result['ok']) {
+            return [
+                'branch_deleted' => false,
+                'detail' => 'git branch delete refused (likely unmerged commits; pass allow_unmerged_branch_delete).',
+                'stderr_hash' => hash('sha256', (string) ($result['stderr'] ?? '')),
+            ];
+        }
+
+        return ['branch_deleted' => true];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function recordCleanup(string $areaId, array $payload): array
+    {
+        $path = $this->sandboxRecordPath($areaId);
+        File::ensureDirectoryExists(dirname($path));
+        $event = ['recorded_at' => $this->now()] + $payload;
+        File::append($path, json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+
+        return $event + ['cleanup_storage_status' => 'recorded'];
+    }
+
+    /**
+     * @param  array<string,mixed>  $extra
+     * @return array<string,mixed>
+     */
+    private function blockedCleanup(string $sandboxId, string $areaId, string $reason, string $detail, array $extra = []): array
+    {
+        $payload = [
+            'schema_version' => self::CLEANUP_SCHEMA,
+            'ap_contract' => 'AP-756',
+            'status' => self::STATUS_BLOCKED,
+            'mode' => 'sandbox_cleanup',
+            'cleaned' => false,
+            'area_id' => $areaId,
+            'sandbox_id' => $sandboxId,
+            'reason' => $reason,
+            'detail' => $detail,
+            'source_ap_contracts' => ['AP-726', 'AP-756'],
+            'actions' => ['worktree_removed' => false, 'branch_deleted' => false],
+            'blockers' => [$reason],
+            'next_actions' => ['Resolve the AP-756 cleanup blocker before removing any sandbox.'],
+            'reused_owners' => $this->reusedOwners(),
+            'claim_policy' => $this->cleanupClaimPolicy(false, false, false),
+        ] + $extra;
+        $payload['cleanup_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
+        $payload['generated_at'] = $this->now();
+
+        return $payload;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function cleanupNextActions(bool $execute, bool $cleaned): array
+    {
+        if (! $execute) {
+            return [
+                'Review the cleanup plan and confirm the worktree/branch before passing --remove-sandbox.',
+                'Nothing was removed; this is a dry-run cleanup plan.',
+            ];
+        }
+
+        if ($cleaned) {
+            return [
+                'Sandbox worktree removed; the AP-756 record is retained with an append-only cleanup event.',
+                'Re-running owner consumption against this sandbox now requires a fresh AP-756 materialization.',
+            ];
+        }
+
+        return ['Cleanup did not complete; inspect blockers before retrying.'];
+    }
+
+    private function pathWithin(string $path, string $root): bool
+    {
+        if (str_contains($path, '..')) {
+            return false;
+        }
+        $root = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+        return str_starts_with($path, $root);
+    }
+
+    /**
+     * @return array<string,bool|string>
+     */
+    private function cleanupClaimPolicy(bool $executeRequested, bool $worktreeRemoved, bool $branchDeleted): array
+    {
+        return [
+            'mode' => $executeRequested ? 'sandbox_cleanup_execution' : 'dry_run_cleanup_plan',
+            'operates_only_inside_controlled_worktree_root' => true,
+            'sandbox_worktree_removed' => $worktreeRemoved,
+            'sandbox_branch_deleted' => $branchDeleted,
+            'target_repo_mutated' => false,
+            'product_code_mutated' => false,
+            'destructive_git_reset' => false,
+            'destructive_git_checkout' => false,
+            'user_changes_discarded' => false,
+            'fix_applied' => false,
+            'runtime_execution_started' => false,
+            'provider_invoked' => false,
+            'dev_or_forge_dispatched' => false,
+            'merge_performed' => false,
+            'deploy_performed' => false,
+            'pushed_external' => false,
+            'secret_access' => false,
+            'auto_approved' => false,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
     private function identity(array $payload): array
     {
         $copy = $payload;
-        unset($copy['generated_at'], $copy['recorded_at'], $copy['sandbox_hash'], $copy['sandbox_storage_status']);
+        unset(
+            $copy['generated_at'],
+            $copy['recorded_at'],
+            $copy['sandbox_hash'],
+            $copy['sandbox_storage_status'],
+            $copy['cleanup_hash'],
+            $copy['cleanup_storage_status'],
+        );
 
         return $copy;
     }
