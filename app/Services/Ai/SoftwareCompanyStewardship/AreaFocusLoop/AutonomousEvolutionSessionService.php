@@ -137,6 +137,14 @@ final class AutonomousEvolutionSessionService
         private readonly Ap786OwnerFlowRunner $ownerFlow,
     ) {}
 
+    private ?AutonomousLoopReceiptIntegrityService $loopReceiptIntegrity = null;
+
+    /** AP-791 loop inbox/merge/receipt integrity (pure; lazily constructed). */
+    private function loopReceiptIntegrity(): AutonomousLoopReceiptIntegrityService
+    {
+        return $this->loopReceiptIntegrity ??= new AutonomousLoopReceiptIntegrityService();
+    }
+
     public function setStorageDirForTesting(?string $path): void
     {
         $this->storageDirOverride = $path;
@@ -189,6 +197,7 @@ final class AutonomousEvolutionSessionService
         $cycles = [];
         $blockers = [];
         $sessionReviewLocked = [];
+        $seenLoopTitles = [];
 
         for ($index = 0; $index < $cyclesRequested; $index++) {
             $cycle = $this->runCycle($sessionId, $index + 1, [
@@ -211,6 +220,19 @@ final class AutonomousEvolutionSessionService
                 'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
                 'forge_inputs' => $this->forgeInputs($input),
             ]);
+
+            // AP-791: every cycle — completed/planned/blocked/failed/skipped — carries
+            // an auditable loop receipt with pre/post inbox, merge decision, replay
+            // command and next_action; duplicate titles across cycles are warned.
+            $cycle = $this->loopReceiptIntegrity()->attach($cycle, [
+                'session_id' => $sessionId,
+                'area_id' => $areaId,
+                'focus' => $focus,
+                'seen_titles' => $seenLoopTitles,
+            ]);
+            foreach ($this->loopReceiptIntegrity()->titlesOf($cycle) as $title) {
+                $seenLoopTitles[$title] = ($seenLoopTitles[$title] ?? 0) + 1;
+            }
 
             $cycles[] = $cycle;
             if ($execute) {
@@ -1153,6 +1175,21 @@ final class AutonomousEvolutionSessionService
             'branch_created' => true,
             'worktree_created' => true,
         ];
+
+        // AP-791: a cycle must NOT merge without an operator-visible pre-merge
+        // inbox / AP-750 result-bridge evidence. If none was emitted, block the
+        // cycle before any merge so nothing lands unaudited.
+        $preMerge = $this->loopReceiptIntegrity()->preMergeGate($base);
+        if (($preMerge['merge_allowed'] ?? false) !== true) {
+            return $base + [
+                'final_status' => 'blocked',
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'continue_loop' => false,
+                'pre_merge_gate' => $preMerge,
+                'blockers' => [(string) ($preMerge['reason'] ?? AutonomousLoopReceiptIntegrityService::PRE_MERGE_INBOX_REQUIRED)],
+            ];
+        }
 
         // Owner runtime ran and AP-750 bridged, but the result is not a clean
         // completion: Evidence/Inbox are emitted, merge is withheld for review.
