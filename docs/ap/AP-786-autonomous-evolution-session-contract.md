@@ -20,7 +20,11 @@ It composes:
 - AP-748 deep finding scan.
 - AP-785 priority engine.
 - AP-756 branch sandbox materializer.
-- `cursor_cli` governed provider driver using local Cursor login.
+- AP-747/AP-756/AP-757/AP-749/AP-758/AP-759/AP-750 owner-flow chain for real
+  Atlas Dev/Forge execution.
+- `cursor_cli` governed provider driver using local Cursor login only as an
+  explicitly authorized legacy diagnostic path; it must never be claimed as full
+  Atlas Forge or Atlas Dev execution by itself.
 - AP-765 Evidence/Product Mode/Inbox result bridge.
 - AP-769/AP-774 merge governor and merge autonomy policy.
 
@@ -32,18 +36,29 @@ one or more cycles:
 1. scan the area for bugs, gaps, risks and improvements;
 2. rank candidates by largest real advancement and robustness;
 3. materialize an isolated branch/worktree;
-4. invoke Cursor CLI only through Atlas provider governance;
-5. commit only scoped sandbox changes;
-6. emit an operator Inbox item with what was found, what changed, why it matters,
+4. pass the owner-flow integrity gate before any provider execution;
+5. invoke providers only through Atlas Dev/Forge owner authority, or block with
+   `full_atlas_forge_flow_required`;
+6. use the direct provider driver only when `allow_direct_provider_driver=true`
+   and label it as legacy diagnostic, not full Forge;
+7. commit only scoped sandbox changes;
+8. emit an operator Inbox item with what was found, what changed, why it matters,
    evidence and rollback;
-7. evaluate merge eligibility with AP-769/AP-774;
-8. fast-forward merge to `main` only when the policy proves the branch eligible;
-9. pull/update `main` before the next cycle when configured;
-10. record an append-only session receipt.
+9. evaluate merge eligibility with AP-769/AP-774;
+10. fast-forward merge to `main` only when the policy proves the branch eligible;
+11. pull/update `main` before the next cycle when configured;
+12. record an append-only session receipt.
 
 ## Non-Negotiable Safety
 
 - No direct provider call outside Atlas provider drivers.
+- No claim of "full Atlas Forge" or "full Atlas Dev" when the execution path is
+  only a provider driver plus Atlas-shaped prompt.
+- Execute mode blocks by default with `full_atlas_forge_flow_required` until the
+  owner-flow chain AP-747 -> AP-756 -> AP-757 -> AP-749 -> AP-758 -> AP-759 ->
+  AP-750 is the authority for provider execution.
+- `--allow-direct-provider-driver` is legacy diagnostic only and must not be used
+  for benchmark, superiority or autonomous factory claims.
 - No merge without AP-769/AP-774 eligibility.
 - No rebase, force-push, deploy, secret access or destructive operation.
 - No broad code auto-merge unless the change is declared `bugfix` or `cleanup`,
@@ -72,6 +87,22 @@ php artisan atlas:software-company-stewardship:autonomous-evolution-session \
   --json
 ```
 
+Legacy diagnostic, not full Forge:
+
+```bash
+php artisan atlas:software-company-stewardship:autonomous-evolution-session \
+  --area=agentic_engineering_os \
+  --focus=dev_forge \
+  --cycles=1 \
+  --execute \
+  --allow-direct-provider-driver \
+  --json
+```
+
+Any report produced with `direct_provider_driver_allowed=true` must be treated
+as diagnostic evidence only. It cannot support a claim that Atlas Forge or Atlas
+Dev were evaluated through their full native flow.
+
 ## Output
 
 Schema: `atlas.software_company_stewardship.autonomous_evolution_session.v1`
@@ -93,6 +124,8 @@ Each cycle includes:
 - Execute mode creates a real AP-756 sandbox before provider execution.
 - Cursor CLI request includes `decision_receipt_id`, `decision_receipt_hash`,
   `allowed_files`, forbidden paths, workspace and model.
+- Execute mode without explicit legacy direct-driver allowance blocks before
+  sandbox/provider invocation and emits `flow_integrity_gate.required_chain`.
 - The session can be replayed from JSONL.
 - Every merge is ff-only and AP-769 governed.
 - AP-786 self-hardening changes prove the focused

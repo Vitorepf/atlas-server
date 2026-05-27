@@ -94,6 +94,17 @@ final class AutonomousEvolutionSessionService
         'commit_failed',
     ];
 
+    /** @var list<string> */
+    private const REQUIRED_FULL_OWNER_FLOW_APS = [
+        'AP-747',
+        'AP-756',
+        'AP-757',
+        'AP-749',
+        'AP-758',
+        'AP-759',
+        'AP-750',
+    ];
+
     private ?string $storageDirOverride = null;
 
     public function __construct(
@@ -176,6 +187,7 @@ final class AutonomousEvolutionSessionService
                 'validation_commands' => $this->validationCommands($input),
                 'continue_on_blocked' => $continueOnBlocked,
                 'session_review_locked' => $sessionReviewLocked,
+                'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
             ]);
 
             $cycles[] = $cycle;
@@ -222,6 +234,8 @@ final class AutonomousEvolutionSessionService
             'claim_policy' => [
                 'atlas_owned_flow' => true,
                 'uses_cursor_cli_account_driver' => $provider === 'cursor_cli',
+                'requires_full_atlas_forge_owner_flow' => true,
+                'direct_provider_driver_allowed' => (bool) ($input['allow_direct_provider_driver'] ?? false),
                 'provider_called' => $this->anyCycleFlag($cycles, 'provider_called'),
                 'branch_created' => $this->anyCycleFlag($cycles, 'branch_created'),
                 'worktree_created' => $this->anyCycleFlag($cycles, 'worktree_created'),
@@ -312,6 +326,19 @@ final class AutonomousEvolutionSessionService
                 'priority_report' => $selection['priority_report'],
                 'scope_profile' => $scopeProfile,
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'provider_skipped' => true,
+                'sandbox_skipped' => true,
+            ]);
+        }
+
+        $flowIntegrityGate = $this->flowIntegrityGate($owner, (bool) ($input['allow_direct_provider_driver'] ?? false));
+        if (($flowIntegrityGate['ok'] ?? false) !== true) {
+            return $this->blockedCycle($cycleId, $cycleIndex, ['full_atlas_forge_flow_required'], [
+                'selected_finding' => $this->findingSummary($finding),
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'flow_integrity_gate' => $flowIntegrityGate,
                 'provider_skipped' => true,
                 'sandbox_skipped' => true,
             ]);
@@ -517,6 +544,35 @@ final class AutonomousEvolutionSessionService
         }
 
         return ['finding' => $candidates[0] ?? null, 'priority_report' => $priority, 'selection_rejections' => $rejections];
+    }
+
+    /**
+     * AP-786 must not silently degrade into "provider + Atlas prompt". Until
+     * the native owner chain is wired for this session, direct driver execution
+     * is a legacy diagnostic path that requires an explicit caller opt-in.
+     *
+     * @return array<string,mixed>
+     */
+    private function flowIntegrityGate(string $owner, bool $allowDirectProviderDriver): array
+    {
+        $usesFullOwnerRuntimeChain = false;
+        $directProviderDriverPath = true;
+        $ok = $usesFullOwnerRuntimeChain || $allowDirectProviderDriver;
+
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.ap786_flow_integrity_gate.v1',
+            'ok' => $ok,
+            'owner' => $owner,
+            'uses_full_owner_runtime_chain' => $usesFullOwnerRuntimeChain,
+            'direct_provider_driver_path' => $directProviderDriverPath,
+            'direct_provider_driver_allowed' => $allowDirectProviderDriver,
+            'blocked_reason' => $ok ? null : 'full_atlas_forge_flow_required',
+            'required_chain' => self::REQUIRED_FULL_OWNER_FLOW_APS,
+            'forbidden_claim' => 'Do not claim full Atlas Forge or Atlas Dev execution when AP-786 is only invoking a provider driver with an Atlas-shaped prompt.',
+            'next_action' => $ok
+                ? 'legacy_direct_provider_driver_path_explicitly_allowed'
+                : 'route AP-786 through AP-747/AP-756/AP-757/AP-749/AP-758/AP-759/AP-750 before provider execution.',
+        ];
     }
 
     /**

@@ -254,6 +254,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $payload = $this->service()->run([
             'execute' => true,
+            'allow_direct_provider_driver' => true,
             'repo_root' => $repo,
             'cycles' => 1,
             'validation_commands' => ['false'],
@@ -320,6 +321,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $payload = $this->service()->run([
             'execute' => true,
+            'allow_direct_provider_driver' => true,
             'repo_root' => $repo,
             'cycles' => 1,
             'validation_commands' => ['false'],
@@ -332,6 +334,47 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertTrue($cycle['merge_skipped']);
         $this->assertTrue($cycle['result_bridge_skipped']);
         $this->assertTrue($cycle['commit_skipped']);
+    }
+
+    public function test_execute_requires_full_owner_flow_before_direct_provider_driver(): void
+    {
+        $finding = $this->finding('afdf_full_flow', 'Full Forge flow required');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_full_flow'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class)->shouldNotReceive('materialize');
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
+        $this->mock(StewardshipRuntimeResultProjector::class)->shouldNotReceive('project');
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('blocked', $cycle['final_status']);
+        $this->assertContains('full_atlas_forge_flow_required', $cycle['blockers']);
+        $this->assertFalse($cycle['flow_integrity_gate']['ok']);
+        $this->assertTrue($cycle['flow_integrity_gate']['direct_provider_driver_path']);
+        $this->assertSame([
+            'AP-747',
+            'AP-756',
+            'AP-757',
+            'AP-749',
+            'AP-758',
+            'AP-759',
+            'AP-750',
+        ], $cycle['flow_integrity_gate']['required_chain']);
+        $this->assertFalse($payload['claim_policy']['direct_provider_driver_allowed']);
+        $this->assertTrue($payload['claim_policy']['requires_full_atlas_forge_owner_flow']);
     }
 
     public function test_review_locks_validation_failed_attempt_from_session_record(): void
@@ -464,6 +507,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $payload = $this->service()->run([
             'execute' => true,
+            'allow_direct_provider_driver' => true,
             'cycles' => 2,
             'continue_on_blocked' => true,
             'repo_root' => $this->tmp,
@@ -549,6 +593,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $payload = $this->service()->run([
             'execute' => true,
+            'allow_direct_provider_driver' => true,
             'cycles' => 2,
             'auto_merge' => true,
             'repo_root' => $repo,
@@ -665,6 +710,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $payload = $this->service()->run([
             'execute' => true,
+            'allow_direct_provider_driver' => true,
             'repo_root' => $repo,
             'cycles' => 2,
             'continue_on_blocked' => true,
