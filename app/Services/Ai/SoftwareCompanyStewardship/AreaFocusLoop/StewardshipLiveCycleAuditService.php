@@ -197,17 +197,16 @@ final class StewardshipLiveCycleAuditService
         string $latestLaneCommit,
         array $receipts,
     ): array {
-        $proof = $proofBranches[0] ?? null;
         $lane = $integrationLanes[0] ?? null;
 
-        $branchCreated = $proof !== null || $this->anyAreaFocusBranch($proofBranches);
+        $branchCreated = $this->anyAreaFocusBranch($proofBranches);
         $worktreeCreated = $this->anyWorktree($proofBranches) || (bool) ($receipts['ap781_worktree_paths'] ?? false);
-        $commitCreated = $proof !== null && ((int) ($proof['ahead_of_base'] ?? 0) > 0);
+        $commitCreated = $this->anyProofCommit($proofBranches);
         $reviewPacketCreated = (bool) ($receipts['ap780_packet_present'] ?? false)
             || (bool) ($receipts['ap781_review_packet_present'] ?? false);
         $integrationLaneAdvanced = $lane !== null
-            && (int) ($lane['ahead_of_base'] ?? 0) > 0
-            && (string) ($lane['lane_commit'] ?? '') !== $baseCommit;
+            && (string) ($lane['lane_commit'] ?? '') !== ''
+            && (((int) ($lane['ahead_of_base'] ?? 0) > 0) || (bool) ($lane['ap782_recorded'] ?? false));
         $mainPromoted = $lane !== null
             && $latestLaneCommit !== ''
             && $latestLaneCommit === $baseCommit
@@ -497,6 +496,21 @@ final class StewardshipLiveCycleAuditService
     {
         foreach ($proofBranches as $branch) {
             if ((bool) ($branch['has_worktree'] ?? false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $proofBranches
+     */
+    private function anyProofCommit(array $proofBranches): bool
+    {
+        foreach ($proofBranches as $branch) {
+            if ((string) ($branch['branch_commit'] ?? '') !== ''
+                && (((int) ($branch['ahead_of_base'] ?? 0) > 0) || (bool) ($branch['ap781_recorded'] ?? false))) {
                 return true;
             }
         }
