@@ -653,6 +653,16 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'real_atlas_dev_intent' => (string) ($this->option('real-atlas-dev-intent') ?? ''),
             'allowed_files' => array_values(array_filter((array) $this->option('allowed-file'), 'is_string')),
             'test_commands' => array_values(array_filter((array) $this->option('test-command'), 'is_string')),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'base_ref' => (string) ($this->option('base-ref') ?: 'main'),
+            'branch_ref' => (string) ($this->option('branch-ref') ?: ''),
+            'auto_merge' => (bool) $this->option('auto-merge'),
+            'execute_merge' => (bool) $this->option('execute-merge'),
+            'auto_merge_class' => (string) ($this->option('auto-merge-class') ?? ''),
+            'allow_code_auto_merge' => (bool) $this->option('allow-code-auto-merge'),
+            'max_auto_merge_files' => (int) ($this->option('max-auto-merge-files') ?: 5),
+            'run_validation' => (bool) $this->option('run-validation'),
+            'record_merge_governance' => (bool) $this->option('record-governance'),
             'emit_inbox' => (bool) $this->option('emit-inbox'),
         ];
         $maxFindings = $this->option('max-findings');

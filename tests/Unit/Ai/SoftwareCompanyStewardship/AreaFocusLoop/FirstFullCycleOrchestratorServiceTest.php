@@ -6,7 +6,10 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FirstFullCycleOrchestratorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\DevForgeRuntimeExecutionBridgeService;
+use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 /**
@@ -135,7 +138,7 @@ class FirstFullCycleOrchestratorServiceTest extends TestCase
         foreach ([
             'cycle_id', 'area_id', 'focus', 'runner_receipt', 'scan_id', 'selected_finding',
             'spec_proposal_seed', 'sandbox_receipt', 'dev_forge_execution_result', 'evidence_pack',
-            'inbox_item', 'product_mode_event', 'tests', 'final_status', 'next_operator_action',
+            'inbox_item', 'product_mode_event', 'branch_merge_governance', 'tests', 'final_status', 'next_operator_action',
         ] as $key) {
             $this->assertArrayHasKey($key, $receipt, "receipt missing required key {$key}");
         }
@@ -221,6 +224,8 @@ class FirstFullCycleOrchestratorServiceTest extends TestCase
         $this->assertNotNull($receipt['product_mode_event']);
         $this->assertSame(FirstFullCycleOrchestratorService::STAGE_RAN, $receipt['stages']['runtime_result']['status']);
         $this->assertNotEmpty($receipt['stages']['runtime_result']['result_bridge_id']);
+        $this->assertSame(FirstFullCycleOrchestratorService::STAGE_DEFERRED, $receipt['stages']['branch_merge_governance']['status']);
+        $this->assertSame('branch_required', $receipt['stages']['branch_merge_governance']['merge_status']);
     }
 
     public function test_no_dangerous_action_in_any_mode(): void
@@ -290,5 +295,77 @@ class FirstFullCycleOrchestratorServiceTest extends TestCase
         // execution_result and no emitted artifacts.
         $this->assertNull($receipt['dev_forge_execution_result']);
         $this->assertNull($receipt['evidence_pack']);
+    }
+
+    public function test_cycle_emits_branch_merge_governance_when_branch_is_materialized(): void
+    {
+        $repo = $this->repoWithCycleBranch();
+        $report = $this->scanReport([$this->finding('doc', 'low', 'atlas_dev', 'Docs update', [
+            'affected_files' => ['docs/README.md'],
+        ])]);
+
+        $receipt = $this->service()->run([
+            'deep_scan_report' => $report,
+            'mode' => 'execute',
+            'execution_result' => array_merge($this->executionResult(), [
+                'branch_ref' => 'atlas/area-focus/docs-cycle',
+                'worktree_path' => $repo,
+                'changed_files' => ['docs/README.md'],
+                'validation_commands' => [],
+            ]),
+            'sandbox_descriptor' => [
+                'simulated' => false,
+                'isolated' => true,
+                'sandbox_id' => 'afbs_docs_cycle',
+                'branch_name' => 'atlas/area-focus/docs-cycle',
+                'worktree_path' => $repo,
+                'materialization' => ['repo_root' => $repo],
+            ],
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'record_merge_governance' => true,
+        ]);
+
+        $stage = $receipt['stages']['branch_merge_governance'];
+
+        $this->assertSame(FirstFullCycleOrchestratorService::STAGE_RAN, $stage['status']);
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE, $stage['merge_status']);
+        $this->assertTrue($stage['auto_merge_eligible']);
+        $this->assertSame(['docs/README.md'], $stage['changed_files']);
+        $this->assertSame('branch_on_top_of_base', $stage['governance_report']['gitkraken_review_surface']['graph_shape']);
+        $this->assertSame('recorded', $stage['governance_report']['governance_storage_status']);
+        $this->assertNotNull($receipt['branch_merge_governance']);
+    }
+
+    private function repoWithCycleBranch(): string
+    {
+        $repo = $this->storageDir.'/repo';
+        File::ensureDirectoryExists($repo.'/docs');
+        $this->runProcess(['git', 'init'], $repo);
+        $this->runProcess(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runProcess(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        file_put_contents($repo.'/docs/README.md', "base\n");
+        $this->runProcess(['git', 'add', '.'], $repo);
+        $this->runProcess(['git', 'commit', '-m', 'Initial commit'], $repo);
+        $this->runProcess(['git', 'branch', '-M', 'main'], $repo);
+        $this->runProcess(['git', 'checkout', '-b', 'atlas/area-focus/docs-cycle'], $repo);
+        file_put_contents($repo.'/docs/README.md', "base\ncycle\n");
+        $this->runProcess(['git', 'add', 'docs/README.md'], $repo);
+        $this->runProcess(['git', 'commit', '-m', 'Docs cycle'], $repo);
+        $this->runProcess(['git', 'checkout', 'main'], $repo);
+
+        return $repo;
+    }
+
+    /**
+     * @param  list<string>  $command
+     */
+    private function runProcess(array $command, string $cwd): void
+    {
+        $process = new Process($command, $cwd);
+        $process->setTimeout(30);
+        $process->run();
+
+        $this->assertTrue($process->isSuccessful(), implode(' ', $command)."\n".$process->getErrorOutput().$process->getOutput());
     }
 }

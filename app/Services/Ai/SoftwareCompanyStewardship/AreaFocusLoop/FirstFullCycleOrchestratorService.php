@@ -92,6 +92,7 @@ final class FirstFullCycleOrchestratorService
         private readonly DevForgeRuntimeExecutionBridgeService $devForgeBridge,
         private readonly StewardshipRuntimeResultBridgeService $resultBridge,
         private readonly SeniorEngineerLoopExecutor $seniorEngineerLoop,
+        private readonly StewardshipBranchMergeGovernorService $branchMergeGovernor,
     ) {}
 
     /**
@@ -106,6 +107,7 @@ final class FirstFullCycleOrchestratorService
         $this->materializer->setStorageRootForTesting($dir !== null ? $dir.'/sandbox' : null);
         $this->devForgeBridge->setStorageRootForTesting($dir !== null ? $dir.'/dev_forge' : null);
         $this->resultBridge->setStorageRootForTesting($dir !== null ? $dir.'/result_bridge' : null);
+        $this->branchMergeGovernor->setStorageRootForTesting($dir !== null ? $dir.'/merge_governor' : null);
     }
 
     public function storageDir(): string
@@ -196,6 +198,11 @@ final class FirstFullCycleOrchestratorService
         // 7. Evidence / Product Mode / Inbox result bridge (AP-765).
         $resultStage = $this->resultStage($areaId, $portfolioId, $finding, $executionResult, $mode, $actor, $input);
         $stages['runtime_result'] = $resultStage;
+
+        // 8. Branch merge governance (AP-769): visual/reviewable branch state,
+        //    conflict preflight and optional policy-gated ff-only merge.
+        $mergeGovernanceStage = $this->branchMergeGovernanceStage($areaId, $finding, $sandboxDescriptor, $executionResult, $mode, $input);
+        $stages['branch_merge_governance'] = $mergeGovernanceStage;
 
         $finalStatus = $this->finalStatus($mode, $stages, $blockers);
         $nextAction = $this->nextOperatorAction($finalStatus, $stages, $finding);
@@ -920,6 +927,86 @@ final class FirstFullCycleOrchestratorService
     }
 
     // ------------------------------------------------------------------
+    // Stage 8 — Branch merge governance
+    // ------------------------------------------------------------------
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $sandbox
+     * @param  array<string,mixed>|null  $executionResult
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function branchMergeGovernanceStage(string $areaId, array $finding, array $sandbox, ?array $executionResult, string $mode, array $input): array
+    {
+        if ($mode !== self::MODE_EXECUTE) {
+            return $this->stage('branch_merge_governance', 'AP-769', self::STAGE_PROJECTED,
+                'Branch merge governance runs after an execute cycle has a real branch/result.', [
+                    'governance_report' => null,
+                    'merge_status' => 'not_run_in_dry_run',
+                ]);
+        }
+
+        $executionResult = is_array($input['execution_result'] ?? null) ? $input['execution_result'] : $executionResult;
+        $branchRef = trim((string) ($input['branch_ref'] ?? data_get($executionResult ?? [], 'branch_ref', data_get($sandbox, 'branch_name', ''))));
+        $repoRoot = trim((string) ($input['repo_root'] ?? data_get($sandbox, 'materialization.repo_root', '')));
+        $worktreePath = trim((string) data_get($executionResult ?? [], 'worktree_path', data_get($sandbox, 'worktree_path', '')));
+
+        if ($branchRef === '' || (bool) ($sandbox['simulated'] ?? true)) {
+            return $this->stage('branch_merge_governance', 'AP-769', self::STAGE_DEFERRED,
+                'No materialized branch is available yet, so merge governance is deferred honestly.', [
+                    'governance_report' => null,
+                    'merge_status' => 'branch_required',
+                    'deferred_contract' => [
+                        'reason' => 'materialized_branch_required',
+                        'command' => 'php artisan atlas:software-company-stewardship branch-merge-governor --branch-ref=<cycle-branch> --base-ref=main --json',
+                    ],
+                ]);
+        }
+
+        $testCommands = array_values(array_filter((array) ($input['test_commands'] ?? data_get($executionResult ?? [], 'validation_commands', [])), 'is_string'));
+
+        try {
+            $report = $this->branchMergeGovernor->evaluate([
+                'area_id' => $areaId,
+                'repo_root' => $repoRoot,
+                'base_ref' => (string) ($input['base_ref'] ?? 'main'),
+                'branch_ref' => $branchRef,
+                'worktree_path' => $worktreePath,
+                'auto_merge' => (bool) ($input['auto_merge'] ?? false),
+                'execute_merge' => (bool) ($input['execute_merge'] ?? false),
+                'auto_merge_class' => (string) ($input['auto_merge_class'] ?? ''),
+                'allow_code_auto_merge' => (bool) ($input['allow_code_auto_merge'] ?? false),
+                'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
+                'run_validation' => (bool) ($input['run_validation'] ?? false),
+                'test_commands' => $testCommands,
+                'record_governance' => (bool) ($input['record_merge_governance'] ?? ($input['record'] ?? false)),
+            ]);
+        } catch (Throwable $e) {
+            return $this->stage('branch_merge_governance', 'AP-769', self::STAGE_DEFERRED,
+                'AP-769 merge governor raised an exception: '.$e->getMessage(), [
+                    'governance_report' => null,
+                    'merge_status' => 'governor_exception',
+                ]);
+        }
+
+        $status = (string) ($report['status'] ?? 'unknown');
+        $stageStatus = $status === StewardshipBranchMergeGovernorService::STATUS_BLOCKED ? self::STAGE_BLOCKED : self::STAGE_RAN;
+
+        return $this->stage('branch_merge_governance', 'AP-769', $stageStatus,
+            'AP-769 produced branch visibility, conflict preflight and auto-merge policy for the cycle branch.', [
+                'merge_status' => $status,
+                'auto_merge_eligible' => (bool) data_get($report, 'auto_merge_policy.eligible', false),
+                'branch_ref' => (string) data_get($report, 'repo.branch_ref', $branchRef),
+                'base_ref' => (string) data_get($report, 'repo.base_ref', ''),
+                'changed_files' => array_values((array) data_get($report, 'gitkraken_review_surface.changed_files', [])),
+                'reviewable_commits' => array_values((array) data_get($report, 'gitkraken_review_surface.reviewable_commits', [])),
+                'blockers' => array_values((array) ($report['blockers'] ?? [])),
+                'governance_report' => $report,
+            ]);
+    }
+
+    // ------------------------------------------------------------------
     // Final receipt assembly
     // ------------------------------------------------------------------
 
@@ -935,6 +1022,7 @@ final class FirstFullCycleOrchestratorService
         $selected = is_array($stages['selected_finding'] ?? null) ? $stages['selected_finding'] : [];
         $devForge = is_array($stages['dev_forge_execution'] ?? null) ? $stages['dev_forge_execution'] : [];
         $result = is_array($stages['runtime_result'] ?? null) ? $stages['runtime_result'] : [];
+        $mergeGovernance = is_array($stages['branch_merge_governance'] ?? null) ? $stages['branch_merge_governance'] : [];
 
         $cycleId = 'affc_'.substr(MissionCanonicalHash::sha256([
             'AP-768', $areaId, $focus, $mode,
@@ -968,9 +1056,10 @@ final class FirstFullCycleOrchestratorService
             'evidence_pack' => $result['evidence_pack'] ?? null,
             'inbox_item' => $result['inbox_item'] ?? null,
             'product_mode_event' => $result['product_mode_event'] ?? null,
+            'branch_merge_governance' => $mergeGovernance['governance_report'] ?? null,
             'tests' => $this->testsSummary($devForge),
             'stages' => $stages,
-            'stage_order' => ['runner', 'deep_scan', 'selected_finding', 'spec_proposal_seed', 'sandbox', 'dev_forge_execution', 'runtime_result'],
+            'stage_order' => ['runner', 'deep_scan', 'selected_finding', 'spec_proposal_seed', 'sandbox', 'dev_forge_execution', 'runtime_result', 'branch_merge_governance'],
             'blockers' => $blockers,
             'next_operator_action' => $nextActions,
             'claim_policy' => $this->claimPolicy($mode, $stages, $input),
@@ -1026,6 +1115,7 @@ final class FirstFullCycleOrchestratorService
         return match ($finalStatus) {
             self::STATUS_CYCLE_CLOSED => [
                 'Review the evidence pack and inbox item, then accept/reject/defer via AP-731 (accept does NOT merge or deploy).',
+                (string) data_get($stages, 'branch_merge_governance.governance_report.next_actions.0', 'Review the AP-769 branch merge governance report before merge.'),
                 (string) data_get($stages, 'runtime_result.acceptance_options.decision_command', 'Use the AP-731 evolution-decision command to record your decision.'),
             ],
             self::STATUS_EXECUTED_TO_GATE => [
@@ -1307,6 +1397,7 @@ final class FirstFullCycleOrchestratorService
         $materialized = (string) data_get($stages, 'sandbox.sandbox_mode', 'simulated') === 'materialized';
         $devForgeRan = (string) data_get($stages, 'dev_forge_execution.bridge_status', '') === DevForgeRuntimeExecutionBridgeService::STATUS_EXECUTED;
         $realAtlasDevRan = (string) data_get($stages, 'dev_forge_execution.bridge_status', '') === 'atlas_dev_real_executed';
+        $mergePerformed = (string) data_get($stages, 'branch_merge_governance.merge_status', '') === StewardshipBranchMergeGovernorService::STATUS_MERGED;
 
         return [
             'mode' => $mode,
@@ -1320,7 +1411,10 @@ final class FirstFullCycleOrchestratorService
             'worktree_created' => $materialized,
             'owner_command_executed_by_bridge' => $devForgeRan || $realAtlasDevRan,
             'mutates_main' => false,
-            'merges' => false,
+            'merges' => $mergePerformed,
+            'merge_governance_checked' => isset($stages['branch_merge_governance']),
+            'auto_merge_default' => false,
+            'auto_merge_strategy' => 'ff_only_when_ap769_policy_allows',
             'deploys' => false,
             'pushes_external' => false,
             'touches_secrets' => false,

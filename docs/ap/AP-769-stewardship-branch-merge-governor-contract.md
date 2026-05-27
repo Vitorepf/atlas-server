@@ -26,6 +26,12 @@ AP-756 sandbox branch/worktree
   -> review_required | auto_merge_eligible | merged | blocked
 ```
 
+AP-768 calls this governor as the final cycle governance stage whenever a
+materialized branch/result exists. If the cycle still has only a simulated
+sandbox, AP-768 must defer merge governance with a machine-readable
+`materialized_branch_required` contract instead of pretending a reviewable
+branch exists.
+
 ## Command
 
 ```bash
