@@ -73,10 +73,29 @@ atlas.software_company.product_mode.autonomy_tiers.v1
 atlas.software_company.product_mode.budget_policy.v1
 atlas.software_company.product_mode.safety_controls.v1
 atlas.software_company.product_mode.branch_review_center.v1
+atlas.software_company.product_mode.branch_review_item.v1
 atlas.software_company.product_mode.evidence_inspector.v1
 atlas.software_company.product_mode.risk_policy.v1
 atlas.software_company.product_mode_control_policy_projection.v1
 ```
+
+## AP-780 Branch Review Packets
+
+The branch review center may consume AP-780
+`atlas.software_company_stewardship.branch_review_packet.v1` packets through
+`branch_review_packets[]`. Product Mode projects them as read-only
+`branch_review_item` entries with:
+
+- branch/base refs and commits;
+- changed files and reviewable commits for GitKraken;
+- cycle traceability (`finding_id`, `spec_id`, `receipt_id`, `handoff_id`,
+  `sandbox_id` when present);
+- risk summary;
+- safe decision options;
+- blockers.
+
+Product Mode still cannot merge. Merge execution remains owned by AP-769/AP-772
+and their ff-only policies.
 
 ## Flow
 

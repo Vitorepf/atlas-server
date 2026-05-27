@@ -292,17 +292,58 @@ final class ProductModeOperationalControlsReadModelService
     private function branchReviewCenter(array $input): array
     {
         $branches = array_values(array_filter((array) ($input['branches'] ?? []), 'is_array'));
+        $packets = array_values(array_filter((array) ($input['branch_review_packets'] ?? $input['review_packets'] ?? []), 'is_array'));
+        foreach ($packets as $packet) {
+            $branches[] = $this->branchFromReviewPacket($packet);
+        }
+
         $pending = array_values(array_filter($branches, static fn (array $branch): bool => ($branch['status'] ?? '') !== 'reviewed'));
+        $autoMergeCandidates = array_values(array_filter($branches, static fn (array $branch): bool => ($branch['status'] ?? '') === 'auto_merge_candidate'));
+        $blocked = array_values(array_filter($branches, static fn (array $branch): bool => ($branch['status'] ?? '') === 'blocked'));
+        $readyForOperator = array_values(array_filter($branches, static fn (array $branch): bool => ($branch['status'] ?? '') === 'ready_for_operator_review'));
 
         return [
             'schema_version' => 'atlas.software_company.product_mode.branch_review_center.v1',
             'branch_count' => count($branches),
             'pending_review_count' => count($pending),
+            'review_packet_count' => count($packets),
+            'auto_merge_candidate_count' => count($autoMergeCandidates),
+            'ready_for_operator_review_count' => count($readyForOperator),
+            'blocked_branch_count' => count($blocked),
             'branches' => $branches,
             'requires_operator_before_merge' => true,
             'merge_allowed_from_product_mode' => false,
             'deploy_allowed_from_product_mode' => false,
-            'blockers' => [],
+            'blockers' => $blocked === [] ? [] : ['branch_review_packet_blocked'],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $packet
+     * @return array<string,mixed>
+     */
+    private function branchFromReviewPacket(array $packet): array
+    {
+        $identity = (array) ($packet['branch_identity'] ?? []);
+        $surface = (array) ($packet['gitkraken_review_surface'] ?? []);
+
+        return [
+            'schema_version' => 'atlas.software_company.product_mode.branch_review_item.v1',
+            'source_schema_version' => (string) ($packet['schema_version'] ?? ''),
+            'source_ap_contract' => (string) ($packet['ap_contract'] ?? 'AP-780'),
+            'status' => (string) ($packet['status'] ?? 'ready_for_operator_review'),
+            'branch_ref' => (string) ($identity['branch_ref'] ?? $surface['visible_branch_ref'] ?? ''),
+            'base_ref' => (string) ($identity['base_ref'] ?? $surface['visible_base_ref'] ?? 'main'),
+            'branch_commit' => (string) ($identity['branch_commit'] ?? ''),
+            'base_commit' => (string) ($identity['base_commit'] ?? ''),
+            'changed_files' => array_values(array_filter((array) ($surface['changed_files'] ?? []), 'is_string')),
+            'reviewable_commits' => array_values(array_filter((array) ($surface['reviewable_commits'] ?? []), 'is_array')),
+            'cycle_traceability' => (array) ($packet['cycle_traceability'] ?? $surface['cycle_traceability'] ?? []),
+            'risk_summary' => (array) ($packet['risk_summary'] ?? []),
+            'decision_options' => array_values(array_filter((array) ($packet['decision_options'] ?? []), 'is_array')),
+            'operator_next_action' => (string) ($packet['operator_next_action'] ?? ''),
+            'packet_hash' => (string) ($packet['packet_hash'] ?? ''),
+            'blockers' => array_values(array_filter((array) ($packet['blockers'] ?? []), 'is_string')),
         ];
     }
 

@@ -94,11 +94,94 @@ final class ProductModeOperationalControlsReadModelServiceTest extends TestCase
         $this->assertSame(0, $payload['autonomy_tiers']['max_allowed_tier']);
     }
 
+    public function test_branch_review_center_projects_ap780_packets_for_product_mode(): void
+    {
+        $payload = $this->service()->project('agentic_engineering_os', 'atlas_software_company', [
+            'branch_review_packets' => [
+                $this->branchReviewPacket('auto_merge_candidate', 'atlas/area-focus/docs-safe'),
+                $this->branchReviewPacket('ready_for_operator_review', 'atlas/area-focus/code-review'),
+            ],
+            'evidence_refs' => [
+                'docs_health',
+                'architecture_validate',
+                'focused_tests',
+                'owner_sandbox_runtime_run',
+                'owner_runtime_result',
+            ],
+        ]);
+
+        $center = $payload['branch_review_center'];
+
+        $this->assertSame(ProductModeOperationalControlsReadModelService::STATUS_REVIEW, $payload['status']);
+        $this->assertSame(2, $center['branch_count']);
+        $this->assertSame(2, $center['review_packet_count']);
+        $this->assertSame(1, $center['auto_merge_candidate_count']);
+        $this->assertSame(1, $center['ready_for_operator_review_count']);
+        $this->assertSame(0, $center['blocked_branch_count']);
+        $this->assertSame('atlas/area-focus/docs-safe', $center['branches'][0]['branch_ref']);
+        $this->assertSame('finding_001', $center['branches'][0]['cycle_traceability']['finding_id']);
+        $this->assertSame('execute_policy_gated_auto_merge', $center['branches'][0]['decision_options'][0]['decision']);
+        $this->assertFalse($center['merge_allowed_from_product_mode']);
+    }
+
+    public function test_blocked_ap780_packet_blocks_product_mode_controls(): void
+    {
+        $payload = $this->service()->project('agentic_engineering_os', 'atlas_software_company', [
+            'branch_review_packets' => [
+                $this->branchReviewPacket('blocked', 'atlas/area-focus/conflict', ['merge_conflict_detected']),
+            ],
+        ]);
+
+        $this->assertSame(ProductModeOperationalControlsReadModelService::STATUS_BLOCKED, $payload['status']);
+        $this->assertContains('branch_review_packet_blocked', $payload['blockers']);
+        $this->assertSame(1, $payload['branch_review_center']['blocked_branch_count']);
+    }
+
     public function test_hash_is_stable_across_repeated_projection(): void
     {
         $first = $this->service()->project();
         $second = $this->service()->project();
 
         $this->assertSame($first['controls_hash'], $second['controls_hash']);
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     * @return array<string,mixed>
+     */
+    private function branchReviewPacket(string $status, string $branchRef, array $blockers = []): array
+    {
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.branch_review_packet.v1',
+            'ap_contract' => 'AP-780',
+            'status' => $status,
+            'branch_identity' => [
+                'branch_ref' => $branchRef,
+                'base_ref' => 'main',
+                'branch_commit' => 'branch123',
+                'base_commit' => 'base123',
+            ],
+            'gitkraken_review_surface' => [
+                'visible_branch_ref' => $branchRef,
+                'visible_base_ref' => 'main',
+                'changed_files' => ['docs/README.md'],
+                'reviewable_commits' => [['short_hash' => 'abc1234', 'subject' => 'Docs update']],
+            ],
+            'cycle_traceability' => [
+                'finding_id' => 'finding_001',
+                'spec_id' => 'spec_001',
+                'receipt_id' => 'receipt_001',
+            ],
+            'risk_summary' => [
+                'change_class' => 'documentation_only',
+                'auto_merge_eligible' => $status === 'auto_merge_candidate',
+            ],
+            'decision_options' => [
+                ['decision' => $status === 'auto_merge_candidate' ? 'execute_policy_gated_auto_merge' : 'defer'],
+            ],
+            'operator_next_action' => 'Review in GitKraken.',
+            'packet_hash' => 'sha256:packet',
+            'blockers' => $blockers,
+        ];
     }
 }
