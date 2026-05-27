@@ -30,6 +30,7 @@ decisions:
   - Tarefas grandes viram Obra no Forge; tarefas leves ficam no Dev/Debug/Review conforme risco.
   - O runtime interno pode declarar autonomous software company somente quando os 9 departamentos tiverem agent task packets, review, QA, release, evidence e certification passed.
   - A certificacao interna nao autoriza claim de superioridade externa, benchmark real ou comparacao com rivais.
+  - Atlas Autonomous Software Company Night Shift e contrato operacional filho deste runtime; v1 roda somente no proprio Atlas e v2 em empresas externas exige promotion receipt aprovado.
 maintenance:
   - Atualize este doc antes de adicionar novo flow especializado de programacao.
   - Nao criar especialista solto fora do Company Runtime sem contrato de entrada, saida, evidencias e gates.
@@ -43,6 +44,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md
   - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
+  - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-autonomous-software-company-runtime
@@ -137,6 +139,7 @@ next_actions:
   - Implementar service e comandos quando o Kernel real estiver estabilizado.
   - Criar matriz de departamentos e contratos v1.
   - Conectar Router/Hyperflow ao Company Runtime como entrada principal de engenharia.
+  - Implementar Night Shift v1 primeiro no Atlas antes de qualquer operacao em empresa externa.
 line_limit: 520
 ---
 # Atlas Autonomous Software Company Runtime
@@ -150,6 +153,13 @@ execucao, testa, revisa, entrega, registra evidencia e aprende.
 
 Ele nao substitui Atlas Dev, Debug, Review, Research ou Forge. Ele organiza
 todos como departamentos oficiais dentro de um fluxo unico de engenharia.
+
+O contrato filho `atlas-autonomous-software-company-night-shift.md` define a
+rotina noturna desse runtime: Atlas varre repos, cria findings/specs, abre
+branches isoladas, tenta fixes de baixo risco e entrega Morning Inbox. A regra
+canonica e que a primeira versao roda somente no proprio Atlas; empresas
+externas como BlackInk so entram na segunda versao, apos promotion evidence e
+aprovacao do operador.
 
 Status operacional atual: o runtime interno pode ser certificado como
 `ready_to_claim_autonomous_software_company=true` somente no escopo interno do

@@ -5,7 +5,7 @@ title: Atlas Self-Directed Evolution Layer
 status: future
 category: architecture
 priority: 100
-implementation_state: future_target_not_current_runtime
+implementation_state: gap_read_model_v0_1_plus_curation_inbox_spec_adapter_v0_2_partial; v0.1 read-only gap read model (Subsystem Builder, Self-Improvement backlog, AAEL control-plane) plus v0.2 read-only Operator Curation Inbox and proposal-only Spec Proposal Adapter; forecaster, domain synthesis, architecture router, reality feedback and learning capsule remain future; everything stays proposal/curation-only with no canonical write and no auto-approval.
 summary: Capability layer that lets Atlas detect canonical gaps, propose specs, synthesize domain or department proposals, forecast future outcomes, propose structural redesigns, route reality outcome feedback and prepare sovereign learning capsules, while the operator remains the curator and approval authority. This is not a new OS and not a new standalone runtime; it is a composition/read-model layer over Self-Construction OS, Subsystem Builder, Self-Improvement, AAEL, Spec OS, Domain Runtime Contract, TEOS/ASRE, Evidence, Trust Ledger and Autonomous Holding.
 human_summary: Camada em que Atlas deixa de apenas executar pedidos e passa a propor a propria evolucao com evidencia, simulacao e review humano.
 human_what: Contrato canonico para Atlas detectar gaps, escrever propostas, simular futuros e montar backlog governado sem autoaprovar mudancas criticas.
@@ -53,6 +53,15 @@ maintenance:
   - Rodar docs-health + sync apos qualquer alteracao.
 related_paths:
   - docs/ap/AP-707-self-directed-evolution-reuse-boundary-contract.md
+  - docs/ap/AP-708-self-directed-evolution-gap-read-model-v01-contract.md
+  - docs/ap/AP-709-self-directed-evolution-curation-inbox-spec-adapter-contract.md
+  - app/Services/Ai/SelfDirectedEvolution/SelfDirectedEvolutionGapReadModelService.php
+  - app/Services/Ai/SelfDirectedEvolution/SelfDirectedEvolutionCurationInboxService.php
+  - app/Services/Ai/SelfDirectedEvolution/SelfDirectedSpecProposalAdapter.php
+  - app/Console/Commands/AtlasSelfDirectedEvolutionCommand.php
+  - tests/Unit/Ai/SelfDirectedEvolution/SelfDirectedEvolutionGapReadModelServiceTest.php
+  - tests/Unit/Ai/SelfDirectedEvolution/SelfDirectedEvolutionCurationInboxServiceTest.php
+  - tests/Unit/Ai/SelfDirectedEvolution/SelfDirectedSpecProposalAdapterTest.php
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-self-construction-catalog.md
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderService.php
@@ -377,16 +386,96 @@ Signals
 
 ## Escopo de Implementacao
 
-Servicos futuros devem ser compostores/adapters, nao autoridades paralelas:
+Servicos devem ser compostores/adapters, nao autoridades paralelas:
 
-- `SelfDirectedEvolutionGapReadModelService`: normaliza gaps vindos de Subsystem Builder, Self-Improvement, AAEL, docs-health, ACRUI e Evidence.
-- `SelfDirectedSpecProposalAdapter`: gera docs/APs/specs em modo proposal-only via Spec OS/Documentation Governance.
-- `SelfDirectedRoadmapForecasterService`: chama TEOS/ASRE/AAEL e rankeia Obras.
-- `OperatorCurationInboxService`: fila de approve/veto/revision com receipts.
-- `LearningCapsuleCandidateService`: prepara capsule sanitizada, sem export.
+- `SelfDirectedEvolutionGapReadModelService`: **v0.1 parcial implementado** (AP-708). Normaliza gaps vindos de Subsystem Builder, Self-Improvement e AAEL. docs-health, ACRUI e Evidence ficam para a proxima fatia.
+- `SelfDirectedEvolutionCurationInboxService`: **v0.2 parcial implementado** (AP-709). Projecao read-only do gap read model em itens de curadoria `pending_operator_review`; nao persiste, nao aprova.
+- `SelfDirectedSpecProposalAdapter`: **v0.2 parcial implementado** (AP-709). Gera draft de AP/spec/doc em modo proposal-only; nunca escreve doc canonico nem materializa arquivo.
+- `SelfDirectedRoadmapForecasterService`: chama TEOS/ASRE/AAEL e rankeia Obras. **(future)**
+- `LearningCapsuleCandidateService`: prepara capsule sanitizada, sem export. **(future)**
 
 Qualquer write real deve passar por Self-Construction, Domain Runtime,
 Architecture Evolution, Evidence e gates do owner.
+
+### Implementacao v0.1 (parcial, read-only)
+
+`SelfDirectedEvolutionGapReadModelService::project(array $input = [])` compoe tres
+owners existentes **somente leitura** e devolve um relatorio
+`atlas.self_directed_evolution.gap_read_model.v1`:
+
+| Fonte | Owner | Metodo lido | Nunca invocado |
+|---|---|---|---|
+| `self_construction` | `AtlasSelfConstructionSubsystemBuilderService` | `detectGaps()` | `propose()`, `approve()` |
+| `self_improvement` | `AtlasSelfImprovementProposalBacklogService` | `listBacklog()` | `createProposal()`, `evaluateProposal()`, `prioritize()` |
+| `aael` | `AtlasAutonomousEvolutionLoopService` | `controlPlane()` | `runCycle()`, `observeOpportunities()` |
+
+O relatorio contem: `schema_version`, `status` (`ready|partial|blocked`),
+`generated_at`, `source_summary`, `candidates[]`, `blockers[]`,
+`owner_reuse_matrix`, `claim_policy`, `report_hash` (deterministico, exclui
+`generated_at`).
+
+Cada candidate usa `atlas.evolution.gap_candidate.v1` com:
+`candidate_id`/`candidate_hash` deterministicos, `source_owner`,
+`source_schema_version`, `source_ref`, `gap_kind`, `title`, `rationale`,
+`capability`, `risk_level`, `priority_score`, `evidence_refs[]`,
+`owner_doc_refs[]`, `proposed_next_action`, `requires_operator_curation=true`,
+`autoapproval_allowed=false`, `external_side_effect_allowed=false` e
+`duplicate_authority_guard` (owner real preservado, `parallel_authority_created=false`).
+
+Garantias v0.1: sem write de estado, sem provider, sem autoaprovacao, sem side
+effect externo, sem registry paralelo. `$input` aceita overrides
+(`gaps`, `self_improvement_backlog`, `aael_control_plane`, `backlog_filters`,
+`hours`, `limit`) para projecao deterministica e testavel sem side effects; fonte
+indisponivel vira blocker `source_unavailable` sem quebrar o relatorio.
+
+CLI read-only: `php artisan atlas:self-directed-evolution gap-read-model --json
+[--hours=24] [--limit=50]`.
+
+### Implementacao v0.2 (parcial, curation-only + proposal-only)
+
+**Operator Curation Inbox** —
+`SelfDirectedEvolutionCurationInboxService::project(array $input = [])` e uma
+projecao read-only sobre o gap read model. Aceita override `gap_read_model`
+(relatorio completo) para projecao deterministica sem reexecutar deteccao.
+Cada candidate vira `atlas.self_directed_evolution.curation_item.v1` com
+`item_id` deterministico, `status=pending_operator_review`, classificacao
+(source/risk/priority band), `operator_actions=[approve,veto,needs_revision]` e
+`routes_to_owner` (owner canonico para execucao). Relatorio
+`atlas.self_directed_evolution.curation_inbox.v1` com `counts`, `items[]`,
+`claim_policy` e `inbox_hash` deterministico (exclui `generated_at`).
+
+`buildOperatorCurationReceipt(array $decision)` so produz
+`atlas.self_directed_evolution.operator_curation_receipt.v1` a partir de uma
+decisao **explicita** do operador (`approve|veto|needs_revision` + `actor` +
+`candidate_hash`); o receipt declara `atlas_auto_decided=false`,
+`autoapproval=false`, `executed=false`, `requires_owner_execution=true` e
+`routes_to_owner`. Execucao real fica no owner canonico (ex.: SubsystemBuilder
+`propose()`/`approve()`), nunca nesta camada.
+
+**Spec Proposal Adapter** — `SelfDirectedSpecProposalAdapter::draft(array
+$candidate)` transforma um `gap_candidate.v1` em
+`atlas.self_directed_evolution.spec_proposal_draft.v1` (concretiza o contrato
+ilustrativo `atlas.evolution.spec_proposal.v1` em modo draft). Inclui
+`proposed_doc_kind`, `proposed_doc_path` (alvo canonico **NAO escrito**),
+`staging_path`, `owner_doc_refs` (sempre referencia Spec OS), `evidence_refs`,
+`scope`, `non_goals`, `acceptance_gates`, `rollback_plan`, `required_tests`,
+`forbidden_paths`, `duplicate_authority_review` e `draft_hash` deterministico.
+Garante `operator_approval_required=true`, `canonical_doc_write_allowed=false`,
+`autoimplementation_allowed=false`, `autoapproval_allowed=false`, `written=false`.
+
+Garantias v0.2: sem write de estado, sem provider, sem doc canonico, sem
+materializar arquivo, sem registry paralelo, sem autoaprovacao/autoimplementacao.
+
+CLI: `php artisan atlas:self-directed-evolution curation-inbox --json` e
+`php artisan atlas:self-directed-evolution spec-draft --candidate=<hash> --json`.
+
+#### Como o operador revisa / aprova / veta
+
+1. roda `curation-inbox` e le os itens (todos `pending_operator_review`);
+2. roda `spec-draft --candidate=<hash>` para inspecionar um draft proposal-only;
+3. decide; um `operator_curation_receipt.v1` e montado a partir da decisao
+   explicita e **roteado ao owner canonico** para execucao. Atlas nao aprova nem
+   implementa sozinho.
 
 ## Dependencias
 
@@ -446,10 +535,9 @@ aprova uma. So entao Self-Construction abre execucao governada.
 
 ## Proximas Acoes
 
-1. Implementar `SelfDirectedEvolutionGapReadModelService` em modo read-only.
-2. Implementar `SelfDirectedSpecProposalAdapter` com status
-   `awaiting_operator_review`.
-3. Criar Operator Curation Inbox no Mission Control/Holding consumindo Subsystem Builder, Self-Improvement e AAEL.
+1. ~~Implementar `SelfDirectedEvolutionGapReadModelService` em modo read-only.~~ **Feito (v0.1, AP-708)**. Falta estender o read model com docs-health, ACRUI e Evidence como fontes adicionais.
+2. ~~Implementar `SelfDirectedSpecProposalAdapter` em modo proposal-only.~~ **Feito (v0.2, AP-709)**. Falta materializacao de draft em staging path protegido por receipt (fatia futura).
+3. ~~Criar Operator Curation Inbox consumindo Subsystem Builder, Self-Improvement e AAEL.~~ **Feito (v0.2, AP-709)** como projecao read-only. Falta surface no Mission Control/Holding e persistencia de receipt via owner canonico.
 4. Ligar TEOS/ASRE/AAEL ao Roadmap Forecaster.
 5. Adicionar tests para bloquear runtime paralelo, autoaprovacao, duplicate authority e external
    side effects.

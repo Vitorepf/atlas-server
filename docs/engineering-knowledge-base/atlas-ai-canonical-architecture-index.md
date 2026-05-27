@@ -226,6 +226,10 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Reality Outcome Gates / 15 outcome gates feeding Evidence, ASRE, Mission Control and Holding scorecards; not a local L7->L8 promotion authority | `atlas-reality-outcome-gates.md` |
 | Multi-Domain Implementation Sequence / build order, parallelism, anti-collision between Claudes/Codex | `atlas-ai-multi-domain-implementation-sequence.md` |
 | Autonomous Software Company Runtime / programming domain company | `atlas-autonomous-software-company-runtime.md` |
+| Autonomous Software Company Night Shift / sandboxed overnight loop; v1 runs on Atlas itself before v2 external companies such as BlackInk | `atlas-autonomous-software-company-night-shift.md` |
+| Autonomous Software Company Night Shift Product Mode / final product target with cockpit, repo onboarding, autonomy tiers, continuous loop, budget and kill switch | `atlas-autonomous-software-company-night-shift-product-mode.md` |
+| Atlas Area Stewardship Layer / next layer above Area Focus Loop where Atlas owns health, roadmap, prioritization, Dev/Forge routing, evidence and operator inbox for a chosen area | `atlas-area-stewardship-layer.md` |
+| Atlas Stewardship Evolution Ladder / future ladder from Area Stewardship to Portfolio Stewardship, Autonomous Executive and Self-Expanding Software Company | `atlas-stewardship-evolution-ladder.md` |
 | Programming Domain Adapter Integration Plan / Meta 7 bridges (Manifest, Dev Mission Adapter, Forge Handoff, Evidence/Policy/Tool/Control Plane bridges) | `atlas-programming-domain-adapter-integration-plan.md` |
 | Programming Governance System / placement, spec before code, task contracts, Code Intelligence, evidence and cartography | `atlas-programming-governance-system.md` |
 | Programming Self-Construction Forge Map / short AI orientation for Atlas Code, Forge Continuum, Self-Construction OS, Self-Programming OS and providers | `atlas-programming-self-construction-forge-map-v1.md` |

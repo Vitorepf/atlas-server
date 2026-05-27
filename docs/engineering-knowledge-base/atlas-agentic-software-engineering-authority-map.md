@@ -38,6 +38,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-contracts.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
+  - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift.md
   - docs/engineering-knowledge-base/atlas-autonomous-engineering-operating-system.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
@@ -203,17 +204,20 @@ Atlas AI / Autonomous Intelligence OS
 | 2 | Nome da area | `atlas-agentic-engineering-os.md` | Define Agentic Software Engineering e o Atlas Agentic Engineering OS. |
 | 3 | Contratos da area | `atlas-agentic-engineering-os-contracts.md` | Define departamentos, gates, objetos, autonomia e DoD da organizacao de engenharia agentica. |
 | 4 | Empresa operacional | `atlas-autonomous-software-company-runtime.md` | Define a empresa de software autonoma como runtime organizacional. |
-| 5 | Loop autonomo | `atlas-autonomous-engineering-operating-system.md` | Define goal loop, planning, execution, review, learning e escalation. |
-| 6 | Lei de programacao | `atlas-programming-governance-system.md` | Define placement, spec, plan, task contract, Code Intelligence, evidence, review e learning. |
-| 7 | Fronteira Dev/Forge | `atlas-dual-core-engineering-system.md` | Define Dev e Forge como nucleos irmaos, nao hierarquia. |
-| 8 | Fast path | `atlas-dev-efficient-programming-flow-v1.md` | Define Atlas Dev para trabalho eficiente, curto/medio e governado. |
-| 9 | Fluxo pesado | `atlas-programming-forge-flow.md` | Define taxonomia do fluxo pesado `programming.forge`. |
-| 10 | Continuum pesado | `atlas-forge-continuum-os.md` | Define continuidade, provider topology, fallback, review, evidence, Rivals e learning. |
-| 11 | Fabrica Forge | `atlas-forge-operating-system.md` | Define packets, multiagente, integration queue, release gate e evidence normalization. |
-| 12 | Surface | `atlas-code-*.md` | Define UX/cockpit/produto visual; nunca substitui runtime/governance. |
-| 13 | Tempo/continuidade | `atlas-temporal-engineering-operating-system.md` | North-star de continuidade; nao e runtime atual nem doc-mae da area. |
-| 14 | Rivals/Superiority | `atlas-programming-superiority-*.md`, `atlas-rivals-*.md` | Avaliacao, benchmark e estrategia; nao arquitetura primaria. |
-| 15 | Research/disseccoes | `dissecar/spec/*` e docs de ferramentas | Material comparativo; so vira regra apos promocao canonica. |
+| 5 | Night Shift | `atlas-autonomous-software-company-night-shift.md` | Define ciclo noturno sandboxed; v1 roda no proprio Atlas antes de v2 em empresas externas. |
+| 6 | Stewardship por area | `atlas-area-stewardship-layer.md` | Define saude, roadmap, priorizacao, routing Dev/Forge, evidence e inbox para uma area escolhida. |
+| 7 | Ladder alem da area | `atlas-stewardship-evolution-ladder.md` | Define Portfolio Stewardship, Autonomous Executive e Self-Expanding Software Company como futuro governado. |
+| 8 | Loop autonomo | `atlas-autonomous-engineering-operating-system.md` | Define goal loop, planning, execution, review, learning e escalation. |
+| 9 | Lei de programacao | `atlas-programming-governance-system.md` | Define placement, spec, plan, task contract, Code Intelligence, evidence, review e learning. |
+| 10 | Fronteira Dev/Forge | `atlas-dual-core-engineering-system.md` | Define Dev e Forge como nucleos irmaos, nao hierarquia. |
+| 11 | Fast path | `atlas-dev-efficient-programming-flow-v1.md` | Define Atlas Dev para trabalho eficiente, curto/medio e governado. |
+| 12 | Fluxo pesado | `atlas-programming-forge-flow.md` | Define taxonomia do fluxo pesado `programming.forge`. |
+| 13 | Continuum pesado | `atlas-forge-continuum-os.md` | Define continuidade, provider topology, fallback, review, evidence, Rivals e learning. |
+| 14 | Fabrica Forge | `atlas-forge-operating-system.md` | Define packets, multiagente, integration queue, release gate e evidence normalization. |
+| 15 | Surface | `atlas-code-*.md` | Define UX/cockpit/produto visual; nunca substitui runtime/governance. |
+| 16 | Tempo/continuidade | `atlas-temporal-engineering-operating-system.md` | North-star de continuidade; nao e runtime atual nem doc-mae da area. |
+| 17 | Rivals/Superiority | `atlas-programming-superiority-*.md`, `atlas-rivals-*.md` | Avaliacao, benchmark e estrategia; nao arquitetura primaria. |
+| 18 | Research/disseccoes | `dissecar/spec/*` e docs de ferramentas | Material comparativo; so vira regra apos promocao canonica. |
 
 ### 2. Decisao Rapida Para IAs
 

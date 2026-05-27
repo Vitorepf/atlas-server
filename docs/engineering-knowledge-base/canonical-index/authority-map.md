@@ -18,6 +18,7 @@ maintenance:
   - Update when a subject owner changes.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-canonical-authority-map
@@ -133,6 +134,10 @@ next_actions:
 | Reality Outcome Gates (15 gates feeding Evidence, ASRE, Mission Control and Holding scorecards; not a local L7->L8 promotion authority) | `atlas-reality-outcome-gates.md` |
 | Domain Runtime Creation Gate (strict extension of existing Domain Routing Governance + Domain Runtime Contract; no parallel registry, manifest, maturity or department authority) | `atlas-domain-runtime-creation-gate.md` |
 | Architecture Evolution Proposal Runtime (Atlas-proposed structural self-redesign with dual signature, 100-Obra replay, sovereignty layer protection) | `atlas-architecture-evolution-proposal-runtime.md` |
+| Autonomous Software Company Night Shift (overnight software-company loop; v1 must prove itself on Atlas before v2 can operate external companies such as BlackInk) | `atlas-autonomous-software-company-night-shift.md` |
+| Autonomous Software Company Night Shift Product Mode (final product target: cockpit, onboarding, autonomy tiers, continuous loop, budget, kill switch and trust surfaces) | `atlas-autonomous-software-company-night-shift-product-mode.md` |
+| Atlas Area Stewardship Layer (next layer above Area Focus Loop; Atlas owns area health, roadmap, prioritization, Dev/Forge routing, evidence and operator inbox) | `atlas-area-stewardship-layer.md` |
+| Atlas Stewardship Evolution Ladder (future ladder: Portfolio Stewardship, Autonomous Executive and Self-Expanding Software Company) | `atlas-stewardship-evolution-ladder.md` |
 
 ## Rule
 
