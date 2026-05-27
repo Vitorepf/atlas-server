@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 /**
  * Hidden technical smoke for the Atlas Dev fast path.
  *
- * Default mode runs plan-only and never calls a provider. Passing --execute
+ * Plan-only mode never calls a provider. Passing --execute
  * intentionally spends a provider call through the production RunExecutor and
  * verifies the same provider/scope/verification/receipt path used by Desktop
  * /run.
