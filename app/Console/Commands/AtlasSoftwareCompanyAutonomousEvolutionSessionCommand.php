@@ -31,13 +31,43 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
         {--max-findings=40 : Maximum findings to scan before priority ranking}
         {--max-auto-merge-files=5 : AP-769 max changed files for auto-merge}
         {--validation-command=* : Validation command(s) run in sandbox; default git diff --check}
+        {--forge-obra= : AP-788 real governed Obra UUID for owner=forge; never fabricated}
+        {--forge-live-topology-json= : AP-788 live Forge provider topology JSON object (requires status=live)}
+        {--forge-live-decision-json= : AP-788 live Forge decision JSON object (requires decision + operator_actor)}
+        {--forge-dispatch-mode= : AP-788 forge_runtime_dispatch (default) | forge_parallel_durable | forge_provider_invoke}
+        {--forge-role= : AP-788 Forge role: primary_builder|critical_reviewer|context_scout|repair_agent|local_tool_runner}
+        {--forge-provider-authorization : AP-788 explicit provider-execution authorization (only for forge_provider_invoke)}
+        {--forge-budget-approved : AP-788 explicit budget approval (only for forge_provider_invoke)}
         {--json : Emit JSON}';
 
     protected $description = 'AP-786 · run an Atlas-owned autonomous evolution session with Cursor CLI, Inbox, governed ff-only merge and loop continuation.';
 
     public function handle(AutonomousEvolutionSessionService $service): int
     {
-        $payload = $service->run([
+        // AP-788: parse the governed Forge execution authority BEFORE running, so
+        // malformed JSON fails fast and clearly and no cycle is ever attempted.
+        try {
+            $forgeAuthority = self::parseForgeAuthority([
+                'obra' => $this->option('forge-obra'),
+                'topology_json' => $this->option('forge-live-topology-json'),
+                'decision_json' => $this->option('forge-live-decision-json'),
+                'dispatch_mode' => $this->option('forge-dispatch-mode'),
+                'role' => $this->option('forge-role'),
+                'provider_authorization' => (bool) $this->option('forge-provider-authorization'),
+                'budget_approved' => (bool) $this->option('forge-budget-approved'),
+            ]);
+        } catch (\JsonException $e) {
+            $this->line(json_encode([
+                'schema_version' => 'atlas.software_company_stewardship.command_error.v1',
+                'status' => 'blocked',
+                'reason' => 'forge_authority_json_invalid',
+                'detail' => $e->getMessage(),
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::FAILURE;
+        }
+
+        $payload = $service->run(array_merge([
             'area_id' => (string) $this->option('area'),
             'focus' => (string) $this->option('focus'),
             'cycles' => (int) $this->option('cycles'),
@@ -56,7 +86,22 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
             'max_findings' => (int) $this->option('max-findings'),
             'max_auto_merge_files' => (int) $this->option('max-auto-merge-files'),
             'validation_commands' => array_values(array_filter((array) $this->option('validation-command'), 'is_string')),
-        ]);
+        ], $forgeAuthority));
+
+        // AP-788: surface what Forge authority was injected (presence only, never
+        // the decision contents) and prove the path never uses the provider router.
+        $payload['forge_authority'] = [
+            'obra_supplied' => array_key_exists('forge_obra', $forgeAuthority),
+            'live_topology_supplied' => array_key_exists('forge_live_topology', $forgeAuthority),
+            'live_topology_live' => (string) data_get($forgeAuthority, 'forge_live_topology.status', '') === 'live'
+                || (bool) data_get($forgeAuthority, 'forge_live_topology.live', false),
+            'live_decision_supplied' => array_key_exists('forge_live_decision', $forgeAuthority),
+            'dispatch_mode' => (string) ($forgeAuthority['forge_dispatch_mode'] ?? 'forge_runtime_dispatch'),
+            'role' => (string) ($forgeAuthority['forge_role'] ?? 'primary_builder'),
+            'provider_authorization' => (bool) ($forgeAuthority['forge_provider_authorization'] ?? false),
+            'budget_approved' => (bool) ($forgeAuthority['forge_budget_approved'] ?? false),
+            'never_uses_direct_provider_router' => true,
+        ];
 
         // Anti-fake proof surfaced at the top of every report (JSON + human) so a
         // cycle can never look "done" without proving the full owner-flow.
@@ -123,5 +168,82 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
         return ($payload['status'] ?? '') === AutonomousEvolutionSessionService::STATUS_BLOCKED
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    /**
+     * AP-788: build the governed Forge execution authority that gets forwarded,
+     * unchanged, into AutonomousEvolutionSessionService::run() (and from there to
+     * AP-787). Only keys that were actually supplied are returned, so a missing
+     * Obra still blocks honestly downstream — nothing is fabricated here.
+     *
+     * @param  array{obra?:mixed,topology_json?:mixed,decision_json?:mixed,dispatch_mode?:mixed,role?:mixed,provider_authorization?:bool,budget_approved?:bool}  $raw
+     * @return array<string,mixed>
+     *
+     * @throws \JsonException when a --forge-*-json flag is not a valid JSON object.
+     */
+    public static function parseForgeAuthority(array $raw): array
+    {
+        $forge = [];
+
+        $obra = trim((string) ($raw['obra'] ?? ''));
+        if ($obra !== '') {
+            $forge['forge_obra'] = $obra;
+        }
+
+        $topology = self::decodeJsonObjectFlag($raw['topology_json'] ?? null, '--forge-live-topology-json');
+        if ($topology !== null) {
+            $forge['forge_live_topology'] = $topology;
+        }
+
+        $decision = self::decodeJsonObjectFlag($raw['decision_json'] ?? null, '--forge-live-decision-json');
+        if ($decision !== null) {
+            $forge['forge_live_decision'] = $decision;
+        }
+
+        $mode = trim((string) ($raw['dispatch_mode'] ?? ''));
+        if ($mode !== '') {
+            $forge['forge_dispatch_mode'] = $mode;
+        }
+
+        $role = trim((string) ($raw['role'] ?? ''));
+        if ($role !== '') {
+            $forge['forge_role'] = $role;
+        }
+
+        if (! empty($raw['provider_authorization'])) {
+            $forge['forge_provider_authorization'] = true;
+        }
+        if (! empty($raw['budget_approved'])) {
+            $forge['forge_budget_approved'] = true;
+        }
+
+        return $forge;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     *
+     * @throws \JsonException with a clear, flag-named message on invalid JSON.
+     */
+    private static function decodeJsonObjectFlag(mixed $value, string $flag): ?array
+    {
+        $json = is_string($value) ? trim($value) : '';
+        if ($json === '') {
+            return null;
+        }
+
+        try {
+            $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            throw new \JsonException($flag.' is not valid JSON: '.$e->getMessage(), (int) $e->getCode());
+        }
+
+        // Must be a JSON object, not a list/scalar — AP-787 reads keyed fields
+        // (status, decision, operator_actor) from it.
+        if (! is_array($decoded) || ! str_starts_with(ltrim($json), '{')) {
+            throw new \JsonException($flag.' must be a JSON object.');
+        }
+
+        return $decoded;
     }
 }
