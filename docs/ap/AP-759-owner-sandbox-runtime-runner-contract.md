@@ -87,8 +87,10 @@ Allowed owners:
 Shell metacharacters, shell strings, arbitrary binaries and non-owner commands
 are blocked.
 
-Provider-capable commands require `provider_execution_authorized=true` and
-`budget_approved=true`. `atlas:forge:provider-invoke --mode=execute` also
+Provider-capable commands (`atlas:dev:run-worker`,
+`atlas:dev:senior-loop:run`, `atlas:forge:provider-invoke`) require
+`provider_execution_authorized=true` and `budget_approved=true`.
+`atlas:forge:provider-invoke --mode=execute` also
 requires `--confirm-provider-call`, `--confirm-budget` and
 `--confirm-runtime-dispatch`.
 
@@ -113,6 +115,12 @@ atlas.software_company_stewardship.owner_runtime_result.v1
 The embedded `owner_result` uses AP-750's
 `atlas.software_company_stewardship.owner_runtime_result.v1` schema. AP-759 does
 not mark the work accepted; AP-750 and the operator review surface own that.
+AP-759 must inspect owner CLI JSON when present. `exit_code=0` is not sufficient
+for success: if the embedded owner command reports `status=failed|blocked`,
+non-empty blockers, or Atlas Dev `run_summary.completion_state=no_patch_needed`,
+AP-759 emits `command_result.status=failed` and
+`owner_result.result_status=failed` so AP-786 cannot attempt merge on an empty
+or failed branch.
 
 ## CLI
 
@@ -195,6 +203,9 @@ AP-759 must not:
   `--provider-choice=cursor_cli --composer-model=composer-2.5-fast`, and the
   resulting Atlas Dev `provider_lock` must match those values.
 - Emits AP-750-compatible owner result for completed and failed owner commands.
+- Treats Atlas Dev JSON `no_patch_needed` as a failed/no-progress owner result,
+  even when the process exits zero, and preserves provider-call evidence from
+  `run_summary.provider_call`.
 - Records append-only/idempotent JSONL without re-running duplicate run ids.
 - AP-750 accepts the AP-759 owner result when identity, evidence and isolation
   checks pass.

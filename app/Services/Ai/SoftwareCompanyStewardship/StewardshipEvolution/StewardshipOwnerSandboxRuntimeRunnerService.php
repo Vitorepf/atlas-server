@@ -46,6 +46,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
 
     private const PROVIDER_COMMANDS = [
         'atlas:dev:run-worker',
+        'atlas:dev:senior-loop:run',
         'atlas:forge:provider-invoke',
     ];
 
@@ -533,10 +534,12 @@ PHP);
             $exitCode = $process->getExitCode();
             $stdout = AtlasSecurity::redactString($process->getOutput());
             $stderr = AtlasSecurity::redactString($process->getErrorOutput());
+            $ownerOutcome = $this->ownerCommandOutcome($stdout);
+            $status = $exitCode === 0 && (bool) ($ownerOutcome['ok'] ?? true) ? 'completed' : 'failed';
 
             return [
                 'schema_version' => 'atlas.software_company_stewardship.ap759_command_result.v1',
-                'status' => $exitCode === 0 ? 'completed' : 'failed',
+                'status' => $status,
                 'command_executed' => true,
                 'exit_code' => $exitCode,
                 'timed_out' => false,
@@ -544,6 +547,11 @@ PHP);
                 'stdout_excerpt' => substr($stdout, 0, 4000),
                 'stderr_excerpt' => substr($stderr, 0, 4000),
                 'command_hash' => 'sha256:'.MissionCanonicalHash::sha256($command),
+                'owner_cli_detected' => (bool) ($ownerOutcome['detected'] ?? false),
+                'owner_cli_status' => (string) ($ownerOutcome['status'] ?? ''),
+                'owner_cli_completion_state' => (string) ($ownerOutcome['completion_state'] ?? ''),
+                'owner_cli_blockers' => $this->stringList($ownerOutcome['blockers'] ?? []),
+                'owner_cli_provider_calls' => (int) ($ownerOutcome['provider_calls'] ?? 0),
             ];
         } catch (Throwable $e) {
             return [
@@ -556,8 +564,51 @@ PHP);
                 'stdout_excerpt' => '',
                 'stderr_excerpt' => AtlasSecurity::redactString($e->getMessage()),
                 'command_hash' => 'sha256:'.MissionCanonicalHash::sha256($command),
+                'owner_cli_detected' => false,
+                'owner_cli_status' => '',
+                'owner_cli_completion_state' => '',
+                'owner_cli_blockers' => [],
+                'owner_cli_provider_calls' => 0,
             ];
         }
+    }
+
+    /**
+     * @return array{ok:bool,detected:bool,status:string,completion_state:string,blockers:list<string>,provider_calls:int}
+     */
+    private function ownerCommandOutcome(string $stdout): array
+    {
+        $decoded = json_decode(trim($stdout), true);
+        if (! is_array($decoded)) {
+            return [
+                'ok' => true,
+                'detected' => false,
+                'status' => '',
+                'completion_state' => '',
+                'blockers' => [],
+                'provider_calls' => 0,
+            ];
+        }
+
+        $status = strtolower(trim((string) ($decoded['status'] ?? '')));
+        $completionState = strtolower(trim((string) data_get($decoded, 'run_summary.completion_state', '')));
+        $blockers = $this->stringList($decoded['blockers'] ?? []);
+        $providerCalls = max(0, (int) data_get($decoded, 'run_summary.provider_call.provider_calls', 0));
+        $okStatuses = ['', 'ok', 'ready', 'passed', 'completed', 'success'];
+        $failedStatuses = ['blocked', 'failed', 'failure', 'error'];
+        $failedCompletionStates = ['blocked', 'failed', 'no_patch_needed', 'needs_review', 'escalate_forge'];
+
+        return [
+            'ok' => in_array($status, $okStatuses, true)
+                && ! in_array($status, $failedStatuses, true)
+                && ! in_array($completionState, $failedCompletionStates, true)
+                && $blockers === [],
+            'detected' => true,
+            'status' => $status,
+            'completion_state' => $completionState,
+            'blockers' => $blockers,
+            'provider_calls' => $providerCalls,
+        ];
     }
 
     /**
@@ -609,6 +660,7 @@ PHP);
     {
         $completed = (string) ($commandResult['status'] ?? '') === 'completed';
         $providerCommand = (bool) ($commandPlan['requires_provider_authority'] ?? false);
+        $providerCalls = (int) ($commandResult['owner_cli_provider_calls'] ?? 0);
         $resultStatus = $completed ? 'completed' : 'failed';
         $evidencePayload = [
             'AP-759',
@@ -639,8 +691,8 @@ PHP);
             'changed_files' => $changedFiles,
             'tests' => $tests,
             'runtime_execution_started' => true,
-            'provider_invoked' => $providerCommand && $completed,
-            'provider_invocation_attempted' => $providerCommand,
+            'provider_invoked' => $providerCalls > 0 || ($providerCommand && $completed),
+            'provider_invocation_attempted' => $providerCommand && (bool) ($commandResult['command_executed'] ?? false),
             'branch_created' => false,
             'merge_performed' => false,
             'deploy_performed' => false,
@@ -664,8 +716,8 @@ PHP);
                 'changed_files' => $changedFiles,
                 'tests' => $tests,
                 'command_hash' => (string) ($commandResult['command_hash'] ?? ''),
-                'provider_invoked' => $providerCommand && $completed,
-                'provider_invocation_attempted' => $providerCommand,
+                'provider_invoked' => $providerCalls > 0 || ($providerCommand && $completed),
+                'provider_invocation_attempted' => $providerCommand && (bool) ($commandResult['command_executed'] ?? false),
                 'target_repo_mutated' => $changedFiles !== [],
                 'stdout_excerpt' => (string) ($commandResult['stdout_excerpt'] ?? ''),
                 'stderr_excerpt' => (string) ($commandResult['stderr_excerpt'] ?? ''),

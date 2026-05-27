@@ -193,6 +193,27 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertSame('failed', $bridge['owner_result_status']);
     }
 
+    public function test_exit_zero_owner_json_failure_is_failed_not_mergeable(): void
+    {
+        $report = $this->service()->project([
+            'execution_adapter_report' => $this->ap758Execution(git: true),
+            'runtime_command_receipt' => $this->commandReceipt([
+                'command' => [PHP_BINARY, 'artisan', 'atlas:dev:run-worker', 'json-no-patch'],
+            ]),
+            'execute' => true,
+        ]);
+
+        $this->assertSame(StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY, $report['status']);
+        $this->assertSame('failed', $report['command_result']['status']);
+        $this->assertSame(0, $report['command_result']['exit_code']);
+        $this->assertSame('failed', $report['command_result']['owner_cli_status']);
+        $this->assertSame('no_patch_needed', $report['command_result']['owner_cli_completion_state']);
+        $this->assertSame(1, $report['command_result']['owner_cli_provider_calls']);
+        $this->assertSame('failed', $report['owner_result']['result_status']);
+        $this->assertTrue($report['owner_result']['provider_invoked']);
+        $this->assertContains('senior_loop_execution_not_passed', $report['command_result']['owner_cli_blockers']);
+    }
+
     public function test_record_run_is_append_only_and_prevents_duplicate_execution(): void
     {
         $input = [
@@ -328,6 +349,21 @@ $arg = $argv[2] ?? '';
 if ($command === 'atlas:dev:run-worker' && $arg === 'fail') {
     fwrite(STDERR, 'atlas-dev-run-worker-failed');
     exit(7);
+}
+if ($command === 'atlas:dev:run-worker' && $arg === 'json-no-patch') {
+    echo json_encode([
+        'schema_version' => 'atlas.dev.senior_engineer_loop_execution.v1',
+        'status' => 'failed',
+        'blockers' => ['senior_loop_execution_not_passed'],
+        'run_summary' => [
+            'completion_state' => 'no_patch_needed',
+            'provider_call' => [
+                'provider' => 'cursor_cli',
+                'provider_calls' => 1,
+            ],
+        ],
+    ]);
+    exit(0);
 }
 if ($command === 'atlas:dev:run-worker') {
     @mkdir(__DIR__.'/app/Services/Ai/SoftwareCompanyStewardship', 0775, true);
