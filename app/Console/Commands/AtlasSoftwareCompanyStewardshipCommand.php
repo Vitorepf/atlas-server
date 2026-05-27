@@ -15,6 +15,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMe
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSafetyAuditService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipMergeQueueService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityEngineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipRepoMergeLeaseService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipActiveHandoffService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipActiveOperatingService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipPromotionReadinessService;
@@ -61,7 +62,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
     use RendersContinuousStewardshipRunner;
 
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-safety-audit|branch-safety-audit-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
+        {action=area-focus : area-focus|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--focus=dev_forge : AP-748 deep-scan focus slice (e.g. dev_forge)}
         {--max-findings= : AP-748 cap on emitted deep-scan findings}
@@ -73,6 +74,9 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--record-queue : AP-772 append merge queue record}
         {--branch-prefix=atlas/area-focus/ : AP-773 branch prefix used when branch refs are not supplied}
         {--record-branch-audit : AP-773 append branch safety audit record}
+        {--lease-owner= : AP-775 lease owner / runner id for merge queue execution}
+        {--lease-ttl=1800 : AP-775 merge lease TTL seconds}
+        {--release-reason=operator_release : AP-775 merge lease release reason}
         {--cycle-id= : AP-768 first-full-cycle id for replay}
         {--portfolio=atlas_software_company : Canonical portfolio_id}
         {--repo=atlas-server : Product Mode repository slug for AP-754 controls}
@@ -207,6 +211,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         StewardshipBranchSafetyAuditService $branchSafetyAudit,
         StewardshipMergeQueueService $mergeQueue,
         StewardshipPriorityEngineService $priorityEngine,
+        StewardshipRepoMergeLeaseService $repoMergeLease,
         AreaFocusOwnerQueueConsumptionGateService $ownerQueueConsumptionGate,
         StewardshipEvolutionReadModelService $evolution,
         StewardshipEvolutionDecisionLedgerService $ledger,
@@ -248,6 +253,9 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'priority-rank' => $this->runPriorityRank($priorityEngine),
             'branch-safety-audit' => $this->runBranchSafetyAudit($branchSafetyAudit),
             'branch-safety-audit-records' => $this->runBranchSafetyAuditRecords($branchSafetyAudit),
+            'repo-merge-lease-acquire' => $this->runRepoMergeLeaseAcquire($repoMergeLease),
+            'repo-merge-lease-release' => $this->runRepoMergeLeaseRelease($repoMergeLease),
+            'repo-merge-lease-records' => $this->runRepoMergeLeaseRecords($repoMergeLease),
             'merge-queue' => $this->runMergeQueue($mergeQueue),
             'merge-queue-records' => $this->runMergeQueueRecords($mergeQueue),
             'branch-lifecycle-reserve' => $this->runBranchLifecycleReserve($branchLifecycleRegistry),
@@ -879,6 +887,75 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         return self::SUCCESS;
     }
 
+    private function runRepoMergeLeaseAcquire(StewardshipRepoMergeLeaseService $service): int
+    {
+        $payload = $service->acquire([
+            'area_id' => (string) $this->option('area'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'base_ref' => (string) ($this->option('base-ref') ?: 'main'),
+            'owner' => (string) ($this->option('lease-owner') ?: 'operator_cli'),
+            'ttl_seconds' => (int) ($this->option('lease-ttl') ?: 1800),
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-775 repo merge lease', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Lease', (string) ($p['lease_id'] ?? ''));
+            $this->components->twoColumnDetail('Owner', (string) ($p['owner'] ?? ''));
+            $this->components->twoColumnDetail('Expires', (string) data_get($p, 'lease.expires_at', ''));
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+        });
+
+        return ($payload['status'] ?? '') === StewardshipRepoMergeLeaseService::STATUS_BLOCKED
+            ? self::FAILURE
+            : self::SUCCESS;
+    }
+
+    private function runRepoMergeLeaseRelease(StewardshipRepoMergeLeaseService $service): int
+    {
+        $payload = $service->release([
+            'area_id' => (string) $this->option('area'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'base_ref' => (string) ($this->option('base-ref') ?: 'main'),
+            'owner' => (string) ($this->option('lease-owner') ?: 'operator_cli'),
+            'release_reason' => (string) ($this->option('release-reason') ?: 'operator_release'),
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-775 repo merge lease release', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Lease', (string) ($p['lease_id'] ?? ''));
+            $this->components->twoColumnDetail('Owner', (string) ($p['owner'] ?? ''));
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+        });
+
+        return ($payload['status'] ?? '') === StewardshipRepoMergeLeaseService::STATUS_BLOCKED
+            ? self::FAILURE
+            : self::SUCCESS;
+    }
+
+    private function runRepoMergeLeaseRecords(StewardshipRepoMergeLeaseService $service): int
+    {
+        $payload = $service->listRecords((string) $this->option('area'));
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-775 repo merge lease records', (string) ($p['record_count'] ?? 0));
+            $this->components->twoColumnDetail('Active leases', (string) ($p['active_lease_count'] ?? 0));
+            foreach ((array) ($p['active_leases'] ?? []) as $lease) {
+                $this->line(sprintf(
+                    '  active %s · %s · %s',
+                    (string) ($lease['lease_id'] ?? ''),
+                    (string) ($lease['owner'] ?? ''),
+                    (string) ($lease['base_ref'] ?? ''),
+                ));
+            }
+        });
+
+        return self::SUCCESS;
+    }
+
     private function runMergeQueue(StewardshipMergeQueueService $service): int
     {
         $input = [
@@ -894,6 +971,8 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'test_commands' => array_values(array_filter((array) $this->option('test-command'), 'is_string')),
             'record_governance' => (bool) $this->option('record-governance'),
             'record_queue' => (bool) $this->option('record-queue'),
+            'lease_owner' => (string) ($this->option('lease-owner') ?: 'merge_queue_'.$this->option('area')),
+            'lease_ttl_seconds' => (int) ($this->option('lease-ttl') ?: 1800),
         ];
         $queueFile = $this->readJsonFile((string) ($this->option('queue-file') ?? ''));
         if (is_array($queueFile)) {

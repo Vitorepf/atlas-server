@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipMergeQueueService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipRepoMergeLeaseService;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -70,9 +71,12 @@ final class StewardshipMergeQueueServiceTest extends TestCase
             'auto_merge' => true,
             'execute_queue' => true,
             'record_queue' => true,
+            'lease_owner' => 'test-runner',
         ]);
 
         $this->assertSame(StewardshipMergeQueueService::STATUS_EXECUTED, $queue['status']);
+        $this->assertSame('acquired', $queue['repo_merge_lease']['status']);
+        $this->assertSame('released', $queue['repo_merge_lease_release']['status']);
         $this->assertSame(1, $queue['summary']['auto_merged']);
         $this->assertSame('auto_merged_ff_only', $queue['results'][0]['queue_action']);
         $this->assertSame('stopped_or_review_required_after_live_recheck', $queue['results'][1]['queue_action']);
@@ -80,6 +84,33 @@ final class StewardshipMergeQueueServiceTest extends TestCase
         $this->assertSame(1, $queue['claim_policy']['ff_only_merges_performed']);
         $this->assertSame('recorded', $queue['queue_storage_status']);
         $this->assertFileExists($this->service()->recordPath('agentic_engineering_os'));
+    }
+
+    public function test_execute_queue_blocks_when_another_runner_owns_repo_merge_lease(): void
+    {
+        $repo = $this->repoWithBranches();
+        $service = $this->service();
+        $lease = app(StewardshipRepoMergeLeaseService::class);
+        $lease->setStorageRootForTesting($this->tmp.'/queue/repo_merge_lease');
+        $lease->acquire([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'owner' => 'runner-a',
+            'ttl_seconds' => 3600,
+        ]);
+
+        $queue = $service->run([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_refs' => ['atlas/area-focus/docs-b'],
+            'auto_merge' => true,
+            'execute_queue' => true,
+            'lease_owner' => 'runner-b',
+        ]);
+
+        $this->assertSame(StewardshipMergeQueueService::STATUS_BLOCKED, $queue['status']);
+        $this->assertSame('active_merge_lease_exists', $queue['reason']);
+        $this->assertSame('active_merge_lease_exists', $queue['repo_merge_lease']['reason']);
     }
 
     public function test_blocks_without_branches(): void

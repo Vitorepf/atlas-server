@@ -36,12 +36,14 @@ final class StewardshipMergeQueueService
     public function __construct(
         private readonly StewardshipBranchMergeGovernorService $mergeGovernor,
         private readonly StewardshipPriorityEngineService $priorityEngine,
+        private readonly StewardshipRepoMergeLeaseService $mergeLease,
     ) {}
 
     public function setStorageRootForTesting(?string $dir): void
     {
         $this->storageRootOverride = $dir;
         $this->mergeGovernor->setStorageRootForTesting($dir !== null ? $dir.'/merge_governor' : null);
+        $this->mergeLease->setStorageRootForTesting($dir !== null ? $dir.'/repo_merge_lease' : null);
     }
 
     public function storageDir(): string
@@ -94,6 +96,23 @@ final class StewardshipMergeQueueService
 
         $executeQueue = (bool) ($input['execute_queue'] ?? false);
         $autoMerge = (bool) ($input['auto_merge'] ?? false);
+        $lease = null;
+        if ($executeQueue) {
+            $lease = $this->mergeLease->acquire([
+                'area_id' => $areaId,
+                'repo_root' => $repoRoot,
+                'base_ref' => $baseRef,
+                'owner' => (string) ($input['lease_owner'] ?? $input['runner_id'] ?? 'merge_queue_'.$areaId),
+                'ttl_seconds' => (int) ($input['lease_ttl_seconds'] ?? 1800),
+            ]);
+            if (($lease['status'] ?? '') === StewardshipRepoMergeLeaseService::STATUS_BLOCKED) {
+                return $this->blocked($areaId, (string) ($lease['reason'] ?? 'repo_merge_lease_blocked'), (string) ($lease['detail'] ?? 'AP-775 blocked merge queue execution.'), [
+                    'repo' => ['repo_root' => $repoRoot, 'repo_root_hash' => hash('sha256', $repoRoot), 'base_ref' => $baseRef],
+                    'branch_count' => count($branchRefs),
+                    'repo_merge_lease' => $lease,
+                ]);
+            }
+        }
         $results = [];
         foreach ($ordered as $item) {
             $branchRef = (string) data_get($item, 'governance.repo.branch_ref', '');
@@ -135,7 +154,7 @@ final class StewardshipMergeQueueService
             'status' => $executeQueue ? self::STATUS_EXECUTED : self::STATUS_READY,
             'area_id' => $areaId,
             'stack' => 'Atlas Software Company Stewardship Stack',
-            'source_ap_contracts' => ['AP-769', 'AP-771', 'AP-772'],
+            'source_ap_contracts' => ['AP-769', 'AP-771', 'AP-772', 'AP-775'],
             'queue_id' => 'smq_'.substr(MissionCanonicalHash::sha256([$areaId, $repoRoot, $baseRef, $branchRefs, $executeQueue, $autoMerge]), 0, 18),
             'repo' => [
                 'repo_root' => $repoRoot,
@@ -148,7 +167,9 @@ final class StewardshipMergeQueueService
                 'execute_queue' => $executeQueue,
                 'merge_strategy' => 'ff_only_via_ap769',
                 'parallel_merges_allowed' => false,
+                'repo_merge_lease_required_for_execution' => true,
             ],
+            'repo_merge_lease' => $lease,
             'branch_count' => count($branchRefs),
             'priority_report' => $priority,
             'planned_order' => $ordered,
@@ -166,6 +187,16 @@ final class StewardshipMergeQueueService
             'generated_at' => $this->now(),
         ];
         $payload['queue_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
+
+        if ($executeQueue && is_array($lease) && ($lease['status'] ?? '') === StewardshipRepoMergeLeaseService::STATUS_ACQUIRED) {
+            $payload['repo_merge_lease_release'] = $this->mergeLease->release([
+                'area_id' => $areaId,
+                'repo_root' => $repoRoot,
+                'base_ref' => $baseRef,
+                'owner' => (string) ($lease['owner'] ?? ''),
+                'release_reason' => 'merge_queue_finished',
+            ]);
+        }
 
         return $this->maybeRecord($areaId, $payload, (bool) ($input['record_queue'] ?? false));
     }
@@ -332,7 +363,7 @@ final class StewardshipMergeQueueService
     /**
      * @return array<string,mixed>
      */
-    private function blocked(string $areaId, string $reason, string $detail): array
+    private function blocked(string $areaId, string $reason, string $detail, array $extra = []): array
     {
         return [
             'schema_version' => self::REPORT_SCHEMA,
@@ -348,7 +379,7 @@ final class StewardshipMergeQueueService
                 'merge_performed' => false,
             ],
             'generated_at' => $this->now(),
-        ];
+        ] + $extra;
     }
 
     /**
