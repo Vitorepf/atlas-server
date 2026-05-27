@@ -329,6 +329,7 @@ class FirstFullCycleOrchestratorServiceTest extends TestCase
         ]);
 
         $stage = $receipt['stages']['branch_merge_governance'];
+        $packetStage = $receipt['stages']['branch_review_packet'];
 
         $this->assertSame(FirstFullCycleOrchestratorService::STAGE_RAN, $stage['status']);
         $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE, $stage['merge_status']);
@@ -337,6 +338,13 @@ class FirstFullCycleOrchestratorServiceTest extends TestCase
         $this->assertSame('branch_on_top_of_base', $stage['governance_report']['gitkraken_review_surface']['graph_shape']);
         $this->assertSame('recorded', $stage['governance_report']['governance_storage_status']);
         $this->assertNotNull($receipt['branch_merge_governance']);
+        $this->assertSame(FirstFullCycleOrchestratorService::STAGE_RAN, $packetStage['status']);
+        $this->assertSame('auto_merge_candidate', $packetStage['packet_status']);
+        $this->assertTrue($packetStage['auto_merge_candidate']);
+        $this->assertSame('atlas/area-focus/docs-cycle', $packetStage['review_packet']['branch_identity']['branch_ref']);
+        $this->assertSame('execute_policy_gated_auto_merge', $packetStage['review_packet']['decision_options'][0]['decision']);
+        $this->assertSame($packetStage['review_packet'], $receipt['branch_review_packet']);
+        $this->assertContains('branch_review_packet', $receipt['stage_order']);
     }
 
     private function repoWithCycleBranch(): string

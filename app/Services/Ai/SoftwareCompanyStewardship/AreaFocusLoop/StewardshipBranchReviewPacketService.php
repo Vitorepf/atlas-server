@@ -98,13 +98,19 @@ final class StewardshipBranchReviewPacketService
     private function governanceReport(array $input): array
     {
         $report = (array) ($input['governance_report'] ?? []);
-        if (($report['schema_version'] ?? '') === StewardshipBranchMergeGovernorService::REPORT_SCHEMA) {
+        if (in_array(($report['schema_version'] ?? ''), [
+            StewardshipBranchMergeGovernorService::REPORT_SCHEMA,
+            StewardshipBranchMergeGovernorService::RECORD_SCHEMA,
+        ], true) && ($report['ap_contract'] ?? '') === 'AP-769') {
             return $report;
         }
 
         $queueItem = (array) ($input['queue_item'] ?? []);
         $governance = (array) ($queueItem['governance'] ?? []);
-        if (($governance['schema_version'] ?? '') === StewardshipBranchMergeGovernorService::REPORT_SCHEMA) {
+        if (in_array(($governance['schema_version'] ?? ''), [
+            StewardshipBranchMergeGovernorService::REPORT_SCHEMA,
+            StewardshipBranchMergeGovernorService::RECORD_SCHEMA,
+        ], true) && ($governance['ap_contract'] ?? '') === 'AP-769') {
             return $governance;
         }
 

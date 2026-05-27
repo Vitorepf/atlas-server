@@ -81,6 +81,20 @@ final class StewardshipBranchReviewPacketServiceTest extends TestCase
         $this->assertFalse($packet['claim_policy']['merge_performed']);
     }
 
+    public function test_accepts_recorded_ap769_governance_envelope(): void
+    {
+        $packet = app(StewardshipBranchReviewPacketService::class)->build([
+            'governance_report' => $this->governance([
+                'schema_version' => StewardshipBranchMergeGovernorService::RECORD_SCHEMA,
+                'recorded_at' => '2026-05-27T00:00:00+00:00',
+                'governance_storage_status' => 'recorded',
+            ]),
+        ]);
+
+        $this->assertSame(StewardshipBranchReviewPacketService::STATUS_AUTO_MERGE_CANDIDATE, $packet['status']);
+        $this->assertSame('atlas/area-focus/docs-safe', $packet['branch_identity']['branch_ref']);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
@@ -89,6 +103,7 @@ final class StewardshipBranchReviewPacketServiceTest extends TestCase
     {
         return array_replace_recursive([
             'schema_version' => StewardshipBranchMergeGovernorService::REPORT_SCHEMA,
+            'ap_contract' => 'AP-769',
             'status' => StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE,
             'repo' => [
                 'repo_root_hash' => 'repo_hash',

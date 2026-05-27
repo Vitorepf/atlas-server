@@ -93,6 +93,7 @@ final class FirstFullCycleOrchestratorService
         private readonly StewardshipRuntimeResultBridgeService $resultBridge,
         private readonly SeniorEngineerLoopExecutor $seniorEngineerLoop,
         private readonly StewardshipBranchMergeGovernorService $branchMergeGovernor,
+        private readonly StewardshipBranchReviewPacketService $branchReviewPacket,
         private readonly StewardshipPriorityEngineService $priorityEngine,
     ) {}
 
@@ -204,6 +205,11 @@ final class FirstFullCycleOrchestratorService
         //    conflict preflight and optional policy-gated ff-only merge.
         $mergeGovernanceStage = $this->branchMergeGovernanceStage($areaId, $finding, $sandboxDescriptor, $executionResult, $mode, $input);
         $stages['branch_merge_governance'] = $mergeGovernanceStage;
+
+        // 9. Branch review packet (AP-780): one operator-facing GitKraken/Product
+        //    Mode packet derived from AP-769 governance.
+        $branchReviewStage = $this->branchReviewPacketStage($areaId, $mergeGovernanceStage, $input);
+        $stages['branch_review_packet'] = $branchReviewStage;
 
         $finalStatus = $this->finalStatus($mode, $stages, $blockers);
         $nextAction = $this->nextOperatorAction($finalStatus, $stages, $finding);
@@ -1047,6 +1053,56 @@ final class FirstFullCycleOrchestratorService
             ]);
     }
 
+    /**
+     * @param  array<string,mixed>  $mergeGovernanceStage
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function branchReviewPacketStage(string $areaId, array $mergeGovernanceStage, array $input): array
+    {
+        $governance = is_array($mergeGovernanceStage['governance_report'] ?? null)
+            ? $mergeGovernanceStage['governance_report']
+            : [];
+
+        if ($governance === []) {
+            return $this->stage('branch_review_packet', 'AP-780', self::STAGE_DEFERRED,
+                'No AP-769 governance report is available yet, so the AP-780 operator packet is deferred honestly.', [
+                    'review_packet' => null,
+                    'packet_status' => 'governance_required',
+                    'deferred_contract' => [
+                        'reason' => 'branch_governance_report_required',
+                        'command' => 'php artisan atlas:software-company-stewardship branch-merge-governor --branch-ref=<cycle-branch> --base-ref=main --json',
+                    ],
+                ]);
+        }
+
+        $packet = $this->branchReviewPacket->build([
+            'area_id' => $areaId,
+            'governance_report' => $governance,
+            'evidence_refs' => array_values(array_filter((array) ($input['evidence_refs'] ?? []), 'is_string')),
+            'queue_context' => [
+                'source_stage' => 'branch_merge_governance',
+                'source_ap_contract' => 'AP-769',
+            ],
+        ]);
+
+        $packetStatus = (string) ($packet['status'] ?? 'unknown');
+        $stageStatus = $packetStatus === StewardshipBranchReviewPacketService::STATUS_BLOCKED
+            ? self::STAGE_BLOCKED
+            : self::STAGE_RAN;
+
+        return $this->stage('branch_review_packet', 'AP-780', $stageStatus,
+            'AP-780 produced the single GitKraken/Product Mode operator review packet for the cycle branch.', [
+                'packet_status' => $packetStatus,
+                'branch_ref' => (string) data_get($packet, 'branch_identity.branch_ref', ''),
+                'base_ref' => (string) data_get($packet, 'branch_identity.base_ref', ''),
+                'auto_merge_candidate' => $packetStatus === StewardshipBranchReviewPacketService::STATUS_AUTO_MERGE_CANDIDATE,
+                'decision_options' => array_values((array) ($packet['decision_options'] ?? [])),
+                'blockers' => array_values((array) ($packet['blockers'] ?? [])),
+                'review_packet' => $packet,
+            ]);
+    }
+
     // ------------------------------------------------------------------
     // Final receipt assembly
     // ------------------------------------------------------------------
@@ -1080,7 +1136,7 @@ final class FirstFullCycleOrchestratorService
             'cycle_id' => $cycleId,
             'stack' => 'Atlas Software Company Stewardship Stack',
             'stewardship_stack_note' => 'Atlas Software Company Stewardship Stack is a stack/capability family inside the Atlas Autonomous Software Company Runtime, not a new OS.',
-            'source_ap_contracts' => ['AP-748', 'AP-718', 'AP-756', 'AP-765', 'AP-766', 'AP-767'],
+            'source_ap_contracts' => ['AP-748', 'AP-718', 'AP-756', 'AP-765', 'AP-766', 'AP-767', 'AP-769', 'AP-780'],
             'area_id' => $areaId,
             'focus' => $focus,
             'portfolio_id' => $portfolioId,
@@ -1098,9 +1154,10 @@ final class FirstFullCycleOrchestratorService
             'inbox_item' => $result['inbox_item'] ?? null,
             'product_mode_event' => $result['product_mode_event'] ?? null,
             'branch_merge_governance' => $mergeGovernance['governance_report'] ?? null,
+            'branch_review_packet' => data_get($stages, 'branch_review_packet.review_packet'),
             'tests' => $this->testsSummary($devForge),
             'stages' => $stages,
-            'stage_order' => ['runner', 'deep_scan', 'selected_finding', 'spec_proposal_seed', 'sandbox', 'dev_forge_execution', 'runtime_result', 'branch_merge_governance'],
+            'stage_order' => ['runner', 'deep_scan', 'selected_finding', 'spec_proposal_seed', 'sandbox', 'dev_forge_execution', 'runtime_result', 'branch_merge_governance', 'branch_review_packet'],
             'blockers' => $blockers,
             'next_operator_action' => $nextActions,
             'claim_policy' => $this->claimPolicy($mode, $stages, $input),
@@ -1156,6 +1213,7 @@ final class FirstFullCycleOrchestratorService
         return match ($finalStatus) {
             self::STATUS_CYCLE_CLOSED => [
                 'Review the evidence pack and inbox item, then accept/reject/defer via AP-731 (accept does NOT merge or deploy).',
+                (string) data_get($stages, 'branch_review_packet.review_packet.operator_next_action', 'Review the AP-780 branch review packet before merge.'),
                 (string) data_get($stages, 'branch_merge_governance.governance_report.next_actions.0', 'Review the AP-769 branch merge governance report before merge.'),
                 (string) data_get($stages, 'runtime_result.acceptance_options.decision_command', 'Use the AP-731 evolution-decision command to record your decision.'),
             ],
