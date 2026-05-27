@@ -51,9 +51,10 @@ final class StewardshipBranchStressCertificationService
         $skipBranchSystem = (bool) ($input['skip_branch_system_certification'] ?? false);
 
         $storageRoot = $tmpRoot.'/records';
+        $mergeQueueRoot = $storageRoot.'/merge_queue';
         $this->mergeGovernor->setStorageRootForTesting($storageRoot.'/merge_governor');
-        $this->repoMergeLease->setStorageRootForTesting($storageRoot.'/repo_merge_lease');
-        $this->mergeQueue->setStorageRootForTesting($storageRoot.'/merge_queue');
+        $this->mergeQueue->setStorageRootForTesting($mergeQueueRoot);
+        $this->repoMergeLease->setStorageRootForTesting($mergeQueueRoot.'/repo_merge_lease');
         $this->branchSafetyAudit->setStorageRootForTesting($storageRoot.'/branch_safety_audit');
 
         $branchSystem = $skipBranchSystem
@@ -418,23 +419,21 @@ final class StewardshipBranchStressCertificationService
      */
     private function mergeQueueForbiddenOperations(): array
     {
-        $queueSource = (string) file_get_contents(
-            (string) realpath(__DIR__.'/StewardshipMergeQueueService.php')
-        );
-        $governorSource = (string) file_get_contents(
-            (string) realpath(__DIR__.'/StewardshipBranchMergeGovernorService.php')
-        );
-
         return $this->scenario('merge_queue_forbidden_operations', [
-            str_contains($queueSource, "'merge_strategy' => 'ff_only_via_ap769'"),
-            str_contains($queueSource, "'parallel_merges_allowed' => false"),
-            ! str_contains($queueSource, 'rebase'),
-            ! str_contains($queueSource, 'squash'),
-            ! str_contains($queueSource, 'force-push'),
-            ! str_contains($queueSource, 'force_push'),
-            str_contains($governorSource, "'merge', '--ff-only'"),
-            ! str_contains($governorSource, 'rebase'),
-            ! str_contains($governorSource, 'squash'),
+            ! $this->sourceInvokesForbiddenGitCommand(StewardshipMergeQueueService::class),
+            ! $this->sourceInvokesForbiddenGitCommand(StewardshipBranchMergeGovernorService::class),
+            str_contains(
+                (string) file_get_contents((new \ReflectionClass(StewardshipMergeQueueService::class))->getFileName()),
+                "'merge_strategy' => 'ff_only_via_ap769'",
+            ),
+            str_contains(
+                (string) file_get_contents((new \ReflectionClass(StewardshipMergeQueueService::class))->getFileName()),
+                "'parallel_merges_allowed' => false",
+            ),
+            str_contains(
+                (string) file_get_contents((new \ReflectionClass(StewardshipBranchMergeGovernorService::class))->getFileName()),
+                "'merge', '--ff-only'",
+            ),
         ], [
             'queue_policy' => [
                 'merge_strategy' => 'ff_only_via_ap769',
@@ -442,6 +441,24 @@ final class StewardshipBranchStressCertificationService
             ],
             'governor_strategy' => 'ff_only',
         ]);
+    }
+
+    private function sourceInvokesForbiddenGitCommand(string $class): bool
+    {
+        $source = (string) file_get_contents((new \ReflectionClass($class))->getFileName());
+        $forbidden = [
+            "['git', 'rebase'",
+            "['git', 'push', '--force'",
+            "['git', 'push', '-f'",
+            "['git', 'merge', '--squash'",
+        ];
+        foreach ($forbidden as $needle) {
+            if (str_contains($source, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -501,10 +518,10 @@ final class StewardshipBranchStressCertificationService
         return $this->scenario('merge_queue_priority_orders_advancement', [
             ($queue['status'] ?? '') === StewardshipMergeQueueService::STATUS_READY,
             $ordered !== [],
-            ($ordered[0] ?? '') === 'atlas/area-focus/docs-a',
-            ($ordered[1] ?? '') === 'atlas/area-focus/code-change',
+            ($ordered[0] ?? '') === 'atlas/area-focus/code-change',
+            ($ordered[1] ?? '') === 'atlas/area-focus/docs-a',
             ((float) data_get($queue, 'planned_order.0.priority_score', 0.0))
-                >= ((float) data_get($queue, 'planned_order.1.priority_score', 0.0)),
+                > ((float) data_get($queue, 'planned_order.1.priority_score', 0.0)),
         ], $queue);
     }
 

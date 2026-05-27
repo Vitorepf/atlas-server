@@ -27,6 +27,20 @@ final class StewardshipBranchSystemCertificationServiceTest extends TestCase
         $this->assertSame('ready', $report['policy_matrix']['safe_auto_merge']['status']);
         $this->assertSame('ready', $report['policy_matrix']['parallel_collision_prevention']['status']);
         $this->assertSame('ready', $report['policy_matrix']['real_git_stress']['status']);
+        $this->assertSame('not_run', $report['optional_readiness_extensions']['branch_stress']['status']);
+    }
+
+    public function test_include_branch_stress_extension_can_embed_ap779_results(): void
+    {
+        $report = app(StewardshipBranchSystemCertificationService::class)->certify([
+            'repo_root' => base_path(),
+            'include_branch_stress' => true,
+        ]);
+
+        $this->assertSame(StewardshipBranchSystemCertificationService::STATUS_CERTIFIED, $report['status']);
+        $this->assertSame('certified', $report['optional_readiness_extensions']['branch_stress']['status']);
+        $this->assertSame(14, $report['optional_readiness_extensions']['branch_stress']['scenario_count']);
+        $this->assertSame(14, $report['optional_readiness_extensions']['branch_stress']['passed_scenario_count']);
     }
 
     public function test_blocks_when_required_repo_files_are_missing(): void

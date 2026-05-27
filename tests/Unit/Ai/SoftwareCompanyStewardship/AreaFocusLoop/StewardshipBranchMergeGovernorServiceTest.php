@@ -87,6 +87,29 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
         $this->runGit(['git', 'commit', '-m', $message], $repo);
     }
 
+    public function test_gitkraken_surface_links_cycle_traceability_metadata(): void
+    {
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/traceable');
+        $this->commitFile($repo, 'docs/README.md', "base docs\ntraceable\n", 'Traceable docs');
+        $this->checkout($repo, 'main');
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/traceable',
+            'finding_id' => 'finding_001',
+            'spec_id' => 'spec_001',
+            'receipt_id' => 'receipt_001',
+        ]);
+
+        $this->assertSame('main', $report['gitkraken_review_surface']['visible_base_ref']);
+        $this->assertSame('atlas/area-focus/traceable', $report['gitkraken_review_surface']['visible_branch_ref']);
+        $this->assertSame('finding_001', $report['gitkraken_review_surface']['cycle_traceability']['finding_id']);
+        $this->assertSame('spec_001', $report['gitkraken_review_surface']['cycle_traceability']['spec_id']);
+        $this->assertSame('receipt_001', $report['gitkraken_review_surface']['cycle_traceability']['receipt_id']);
+    }
+
     public function test_docs_only_branch_is_auto_merge_eligible_and_gitkraken_visible(): void
     {
         $repo = $this->repo();

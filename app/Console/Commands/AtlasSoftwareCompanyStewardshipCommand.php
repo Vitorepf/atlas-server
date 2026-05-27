@@ -146,6 +146,8 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--max-auto-merge-files=5 : AP-769 maximum changed files for auto-merge eligibility}
         {--run-validation : AP-769 run --test-command validations before auto-merge decision}
         {--record-governance : AP-769 append merge governance record}
+        {--include-branch-stress : AP-776/AP-779 run disposable git stress scenarios during branch-system-certify}
+        {--preserve-stress-tmp : AP-779 keep disposable git stress directories for debugging}
         {--sandbox-id= : AP-756 sandbox id for replay or cleanup}
         {--remove-sandbox : AP-756 actually remove the isolated git worktree during cleanup}
         {--allow-dirty-removal : AP-756 allow cleanup to remove a worktree that has uncommitted changes}
@@ -889,10 +891,12 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         $payload = $service->certify([
             'area_id' => (string) $this->option('area'),
             'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'include_branch_stress' => (bool) $this->option('include-branch-stress'),
         ]);
 
         $this->emit($payload, function (array $p): void {
             $this->components->twoColumnDetail('AP-776 branch system certification', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('AP-779 stress extension', (string) data_get($p, 'optional_readiness_extensions.branch_stress.status', 'not_run'));
             $this->components->twoColumnDetail('Components', (string) count((array) ($p['components'] ?? [])));
             $this->components->twoColumnDetail('Command actions', (string) count((array) data_get($p, 'command_actions.coverage', [])));
             foreach ((array) ($p['components'] ?? []) as $component) {
@@ -918,6 +922,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         $payload = $service->certify([
             'area_id' => (string) $this->option('area'),
             'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'preserve_tmp' => (bool) $this->option('preserve-stress-tmp'),
         ]);
 
         $this->emit($payload, function (array $p): void {

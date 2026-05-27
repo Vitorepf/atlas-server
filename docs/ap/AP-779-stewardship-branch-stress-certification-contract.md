@@ -23,6 +23,12 @@ and safe auto-merge boundaries before touching operator repositories.
 php artisan atlas:software-company-stewardship branch-stress-certify --json
 ```
 
+Optional AP-776 extension:
+
+```bash
+php artisan atlas:software-company-stewardship branch-system-certify --include-branch-stress --json
+```
+
 ## Runtime Owner
 
 `App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchStressCertificationService`
@@ -41,19 +47,30 @@ php artisan atlas:software-company-stewardship branch-stress-certify --json
 
 ## Required Stress Scenarios
 
-AP-779 must run real `git` commands against disposable repositories and prove:
+AP-779 must run real `git` commands against disposable repositories under
+`storage/atlas/software_company_stewardship/branch_stress_certification` (or a
+test-provided `tmp_root`) and prove:
 
 1. Documentation-only branch exposes GitKraken review metadata and can be
    fast-forward auto-merged when AP-769/AP-774 allow it.
 2. Tests-only branch can be fast-forward auto-merged when policy allows it.
-3. Code or mixed branch blocks automatic merge without explicit operator code
+3. Tests-only branch with green validation can still auto-merge when validation
+   is explicitly run.
+4. Code or mixed branch blocks automatic merge without explicit operator code
    authorization and validation evidence.
-4. A real content conflict blocks before merge execution.
-5. A stale or diverged branch blocks before merge execution even when there is
+5. A real content conflict blocks before merge execution.
+6. A stale or diverged branch blocks before merge execution even when there is
    no content conflict.
-6. AP-775 prevents two owners from holding the same repo/base merge lease.
-7. AP-771 ranks high-advancement Dev/Forge risk reduction above cosmetic doc
-   polish.
+7. AP-773 blocks orphan branches that lack an active lifecycle registry record.
+8. AP-775 prevents two owners from holding the same repo/base merge lease.
+9. AP-772 blocks queue execution when another runner already holds the lease.
+10. AP-772 never uses rebase, squash or force-push (ff-only via AP-769).
+11. AP-772 keeps `main` as the primary integration branch after execution.
+12. AP-772 orders advancement work ahead of cosmetic or risky branches via AP-771.
+13. AP-769 GitKraken review surface links `finding_id`, `spec_id`, `receipt_id`,
+    `handoff_id` and `sandbox_id` when supplied.
+14. AP-771 ranks high-advancement Dev/Forge risk reduction above cosmetic doc
+    polish.
 
 ## Forbidden Operations
 
@@ -89,7 +106,8 @@ Required fields:
 AP-779 is accepted when:
 
 - the CLI action `branch-stress-certify` exists;
-- all seven stress scenarios pass in a real git disposable repository;
+- all fourteen stress scenarios pass in disposable git repositories;
 - focused tests pass;
 - `docs-health` and `architecture-validate` remain green;
-- AP-779 is referenced by the Software Company Stewardship Stack docs.
+- AP-779 is referenced by the Software Company Stewardship Stack docs;
+- AP-776 can optionally embed AP-779 via `--include-branch-stress`.

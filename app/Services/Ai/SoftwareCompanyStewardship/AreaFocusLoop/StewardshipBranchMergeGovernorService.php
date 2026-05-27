@@ -168,15 +168,14 @@ final class StewardshipBranchMergeGovernorService
                 'branch_only_commit_count' => $branchOnly,
                 'working_tree_clean' => $workingTreeClean,
             ],
-            'gitkraken_review_surface' => [
-                'visible_branch_ref' => $branchRef,
-                'visible_base_ref' => $baseRef,
-                'reviewable_commit_count' => count($commits),
-                'reviewable_commits' => $commits,
-                'changed_files' => $changedFiles,
-                'graph_shape' => $baseIsAncestor ? 'branch_on_top_of_base' : 'diverged_or_stale_branch',
-                'operator_review_hint' => 'Open '.$branchRef.' in GitKraken, inspect the commits and changed files, then accept/reject/defer through Product Mode or merge governor.',
-            ],
+            'gitkraken_review_surface' => $this->gitkrakenReviewSurface(
+                $branchRef,
+                $baseRef,
+                $commits,
+                $changedFiles,
+                $baseIsAncestor,
+                $input,
+            ),
             'classification' => $classification,
             'merge_conflict_check' => $mergeTree,
             'validation' => $validation,
@@ -443,6 +442,42 @@ final class StewardshipBranchMergeGovernorService
         $result = $this->git($repoRoot, ['status', '--porcelain']);
 
         return $result['ok'] && trim((string) $result['out']) === '';
+    }
+
+    /**
+     * @param  list<array<string,string>>  $commits
+     * @param  list<string>  $changedFiles
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function gitkrakenReviewSurface(
+        string $branchRef,
+        string $baseRef,
+        array $commits,
+        array $changedFiles,
+        bool $baseIsAncestor,
+        array $input,
+    ): array {
+        $traceability = array_filter([
+            'finding_id' => trim((string) ($input['finding_id'] ?? '')),
+            'spec_id' => trim((string) ($input['spec_id'] ?? '')),
+            'receipt_id' => trim((string) ($input['receipt_id'] ?? $input['runtime_result_receipt_id'] ?? '')),
+            'handoff_id' => trim((string) ($input['handoff_id'] ?? '')),
+            'sandbox_id' => trim((string) ($input['sandbox_id'] ?? '')),
+        ], static fn (string $value): bool => $value !== '');
+
+        return [
+            'visible_branch_ref' => $branchRef,
+            'visible_base_ref' => $baseRef,
+            'reviewable_commit_count' => count($commits),
+            'reviewable_commits' => $commits,
+            'changed_files' => $changedFiles,
+            'graph_shape' => $baseIsAncestor ? 'branch_on_top_of_base' : 'diverged_or_stale_branch',
+            'cycle_traceability' => $traceability,
+            'operator_review_hint' => 'Open '.$branchRef.' against '.$baseRef.' in GitKraken'
+                .($traceability !== [] ? ' (finding/spec/receipt linked in cycle_traceability)' : '')
+                .'; inspect commits and changed files, then accept/reject/defer through Product Mode or merge governor.',
+        ];
     }
 
     /**
