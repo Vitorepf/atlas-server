@@ -98,6 +98,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--min-interval-seconds=900 : AP-745 min seconds between recorded continuous ticks}
         {--allow-projected-evidence : AP-741 dry-run with projected AP-740 evidence instead of recorded ledger evidence}
         {--preflight-file= : AP-747 JSON file containing AP-726 preflight/handoff report}
+        {--operator-receipts-file= : AP-724 JSON or JSONL file containing explicit Area Focus operator decision receipts}
         {--release-receipt-file= : AP-747 JSON file containing explicit operator release receipt}
         {--sandbox-receipt-file= : AP-756 JSON file containing explicit operator sandbox materialization receipt}
         {--materialize-sandbox : AP-756 actually create the isolated git branch/worktree}
@@ -274,9 +275,15 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
 
     private function runAreaStewardshipActiveOperate(AreaStewardshipActiveOperatingService $service): int
     {
+        $operatorReceipts = $this->operatorReceiptsFromOption();
+        if ($operatorReceipts === null) {
+            return $this->blockedResult('operator_receipts_file_invalid', '--operator-receipts-file must be a readable JSON object, JSON array, or JSONL file.');
+        }
+
         $payload = $service->operate([
             'area_id' => (string) $this->option('area'),
             'record_active_operation' => (bool) $this->option('record-active-operation'),
+            'operator_receipts' => $operatorReceipts,
         ]);
 
         $this->emit($payload, function (array $p): void {
@@ -305,6 +312,11 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
 
     private function runContinuousStewardshipLoop(AtlasContinuousStewardshipLoopService $service): int
     {
+        $operatorReceipts = $this->operatorReceiptsFromOption();
+        if ($operatorReceipts === null) {
+            return $this->blockedResult('operator_receipts_file_invalid', '--operator-receipts-file must be a readable JSON object, JSON array, or JSONL file.');
+        }
+
         $payload = $service->tick([
             'area_id' => (string) $this->option('area'),
             'enabled' => (bool) $this->option('enable-continuous-loop'),
@@ -312,6 +324,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'force_continuous_tick' => (bool) $this->option('force-continuous-tick'),
             'kill_switch' => (bool) $this->option('kill-switch'),
             'min_interval_seconds' => (int) $this->option('min-interval-seconds'),
+            'operator_receipts' => $operatorReceipts,
         ]);
 
         $this->emit($payload, function (array $p): void {
@@ -340,6 +353,11 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
 
     private function runContinuousStewardshipScheduler(AtlasContinuousStewardshipRecurringSchedulerService $service): int
     {
+        $operatorReceipts = $this->operatorReceiptsFromOption();
+        if ($operatorReceipts === null) {
+            return $this->blockedResult('operator_receipts_file_invalid', '--operator-receipts-file must be a readable JSON object, JSON array, or JSONL file.');
+        }
+
         $payload = $service->run([
             'area_id' => (string) $this->option('area'),
             'scheduler_id' => (string) $this->option('scheduler-id'),
@@ -351,6 +369,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'kill_switch' => (bool) $this->option('kill-switch'),
             'pause_until' => (string) ($this->option('pause-until') ?? ''),
             'min_interval_seconds' => (int) $this->option('min-interval-seconds'),
+            'operator_receipts' => $operatorReceipts,
         ]);
 
         $this->emit($payload, function (array $p): void {
@@ -381,6 +400,11 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
 
     private function runNativeObraRunner(StewardshipNativeObraRunnerService $service): int
     {
+        $operatorReceipts = $this->operatorReceiptsFromOption();
+        if ($operatorReceipts === null) {
+            return $this->blockedResult('operator_receipts_file_invalid', '--operator-receipts-file must be a readable JSON object, JSON array, or JSONL file.');
+        }
+
         $payload = $service->run([
             'area_id' => (string) $this->option('area'),
             'enable_native_obra_runner' => (bool) $this->option('enable-native-obra-runner'),
@@ -391,6 +415,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'force_scheduler_run' => (bool) $this->option('force-scheduler-run'),
             'kill_switch' => (bool) $this->option('kill-switch'),
             'min_interval_seconds' => (int) $this->option('min-interval-seconds'),
+            'operator_receipts' => $operatorReceipts,
         ]);
 
         $this->emit($payload, function (array $p): void {
@@ -1825,6 +1850,19 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         }
 
         return $records;
+    }
+
+    /**
+     * @return list<array<string,mixed>>|null
+     */
+    private function operatorReceiptsFromOption(): ?array
+    {
+        $file = trim((string) ($this->option('operator-receipts-file') ?? ''));
+        if ($file === '') {
+            return [];
+        }
+
+        return $this->readJsonOrJsonlRecords($file);
     }
 
     /**

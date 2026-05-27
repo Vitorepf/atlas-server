@@ -203,7 +203,7 @@ class AreaFocusGateEvaluatorService
      */
     private function gateOwnerDocs(array $contract, array $run): array
     {
-        $declared = array_values(array_filter((array) ($contract['area_owner_docs'] ?? []), 'is_string'));
+        $declared = array_values(array_filter((array) ($contract['area_owner_docs'] ?? ($contract['owner_docs'] ?? [])), 'is_string'));
         if ($declared === []) {
             return $this->gate(self::GATE_AREA_OWNER_DOCS_PRESENT, self::GATE_BLOCK, 'no_owner_docs_declared', [], 'Declare the area owner docs in the area contract.');
         }

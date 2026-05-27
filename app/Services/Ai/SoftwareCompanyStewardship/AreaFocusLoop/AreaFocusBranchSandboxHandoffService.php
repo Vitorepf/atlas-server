@@ -555,7 +555,7 @@ class AreaFocusBranchSandboxHandoffService
     {
         $base = function_exists('base_path') ? base_path() : getcwd();
         $present = [];
-        foreach ((array) ($contract['area_owner_docs'] ?? []) as $doc) {
+        foreach ((array) ($contract['area_owner_docs'] ?? ($contract['owner_docs'] ?? [])) as $doc) {
             if (is_string($doc) && $doc !== '') {
                 $present[$doc] = is_file(rtrim((string) $base, '/').'/'.ltrim($doc, '/'));
             }

@@ -57,6 +57,12 @@ atlas.software_company_stewardship.area_focus_gate_report.v1
 | `operator_inbox_present` | no operator inbox destination |
 | `atlas_internal_first` | a non-Atlas (external) repo is targeted |
 
+Compatibility rule: AP-723 accepts both the AP-712 registry field
+`area_owner_docs` and the AP-716 core read-model alias `owner_docs`. They are
+the same owner-doc declaration for safety-gate purposes. A provider must not
+block a handoff merely because one slice uses the alias while another uses the
+canonical registry name.
+
 ## Decision Model
 
 - `block` if any gate blocks.

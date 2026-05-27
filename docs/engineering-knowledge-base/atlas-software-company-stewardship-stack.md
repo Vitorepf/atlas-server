@@ -240,6 +240,7 @@ next_actions:
   - Usar AP-743 `--record-active-handoff` apenas depois de AP-731 accept + AP-732 ready_for_active_handoff.
   - Usar AP-744 `--record-active-operation` apenas para registrar ciclos ativos projetados/revisaveis; ele nao libera mutacao irreversivel.
   - Usar AP-746 `continuous-stewardship-scheduler --enable-continuous-scheduler` para runner recorrente seguro; ele nao instala scheduler nem libera mutacao irreversivel.
+  - Passar AP-724 receipts por `--operator-receipts-file=<ap724.json|jsonl>` quando o objetivo for transformar work orders revisados em handoffs AP-726 prontos dentro de AP-744/AP-745/AP-746/AP-764; sem esse arquivo o loop deve continuar em `awaiting_operator_approval`.
   - Usar AP-756 `area-focus-branch-sandbox-materialize --preflight-file=<ap726> --sandbox-receipt-file=<receipt>` antes de qualquer owner execution que precise de worktree fisico; `--materialize-sandbox` cria apenas branch/worktree local isolado.
   - Usar AP-747 `area-focus-dev-forge-release --preflight-file=<ap726> --release-receipt-file=<receipt>` somente depois de AP-726 ready; depois usar AP-748 via `outcome-evidence --release-file=<ap747>`, AP-749 via `owner-queue-consumption-gate`, AP-758 via `owner-runtime-execute`, AP-759 via `owner-sandbox-runtime-run` quando houver receipt de comando, AP-760/Product Mode para revisar esse run e AP-750 via `owner-runtime-result-bridge`.
   - Usar AP-752 `executive-allocation-handoff --pack-id=<ap735> --recommendation-id=<id>` somente depois de AP-731 accept para rotear alocacao executiva ao owner correto.

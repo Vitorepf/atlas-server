@@ -130,6 +130,9 @@ AP-764 must not:
 - The service returns `blocked` when no AP-744 active operation is available.
 - The service returns native Obra handoffs when AP-744 contains ready AP-726
   Dev/Forge handoffs.
+- The CLI must accept `--operator-receipts-file=<ap724.json|jsonl>` and pass
+  those receipts through AP-746 -> AP-745 -> AP-744 so operator-approved AP-724
+  decisions can become AP-726 ready handoffs during native runner execution.
 - Each handoff declares `uses_codex_app_automation=false`.
 - Each handoff declares the AP-747 -> AP-756 -> AP-749 -> AP-758 -> AP-759 ->
   AP-750 owner chain.

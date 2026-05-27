@@ -62,6 +62,17 @@ runtime and creates no new owner.
 Receipts are matched to work orders by `finding_hash` (== work order
 `source_ref`), optionally tightened by `work_order_id`.
 
+AP-726 must pass AP-724 receipts through the active-operation path, including
+CLI runs that use `--operator-receipts-file=<ap724.json|jsonl>`. Without that
+file the correct status is `awaiting_operator_approval`; with a matching
+`decision=accept` receipt the matching Dev/Forge handoff may become
+`ready_for_handoff`.
+
+Owner-doc compatibility: AP-726 delegates AP-723 safety gates and therefore
+must treat AP-712 `area_owner_docs` and AP-716 `owner_docs` as equivalent owner
+doc declarations. This prevents false `area_owner_docs_present` blocks when the
+cycle originates from the AP-716 read model.
+
 ## Schemas
 
 ```text

@@ -164,7 +164,7 @@ final class StewardshipNativeObraRunnerService
      */
     private function schedulerInput(array $input, string $areaId): array
     {
-        return [
+        $out = [
             'area_id' => $areaId,
             'enabled' => (bool) ($input['enabled'] ?? $input['enable_native_obra_runner'] ?? false),
             'continuous_loop_enabled' => (bool) ($input['continuous_loop_enabled'] ?? $input['enable_native_obra_runner'] ?? false),
@@ -174,6 +174,12 @@ final class StewardshipNativeObraRunnerService
             'kill_switch' => (bool) ($input['kill_switch'] ?? false),
             'min_interval_seconds' => (int) ($input['min_interval_seconds'] ?? 900),
         ];
+
+        if (is_array($input['operator_receipts'] ?? null)) {
+            $out['operator_receipts'] = $input['operator_receipts'];
+        }
+
+        return $out;
     }
 
     /**

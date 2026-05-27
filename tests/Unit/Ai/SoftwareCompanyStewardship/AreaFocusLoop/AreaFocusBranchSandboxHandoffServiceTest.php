@@ -170,6 +170,28 @@ class AreaFocusBranchSandboxHandoffServiceTest extends TestCase
         $this->assertContains('no_secrets_requested', $report['blocking_gates']);
     }
 
+    public function test_native_gate_accepts_ap716_owner_docs_alias(): void
+    {
+        $report = $this->service()->preflight([
+            'contract' => [
+                'area_id' => 'agentic_engineering_os',
+                'owner_docs' => ['docs/engineering-knowledge-base/atlas-agentic-engineering-os.md'],
+                'repo_scope' => ['repos' => ['atlas-server']],
+                'dev_budget' => ['mode' => 'max_governed'],
+                'forge_budget' => ['mode' => 'max_governed'],
+                'wip_limit' => 3,
+                'risk_policy' => ['inbox_only_domains' => []],
+                'inbox_destination' => 'morning_inbox',
+            ],
+            'work_orders' => [$this->workOrder('alias1', 'atlas_dev')],
+            'operator_receipts' => [$this->receipt('alias1', 'accept')],
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxHandoffService::STATUS_READY, $report['status']);
+        $this->assertSame('allow', $report['gate_decision']);
+        $this->assertSame(AreaFocusBranchSandboxHandoffService::HO_READY, $report['handoffs'][0]['handoff_status']);
+    }
+
     public function test_blocked_when_no_work_orders(): void
     {
         $report = $this->service()->preflight(['gate_report' => $this->allowGate()]);
