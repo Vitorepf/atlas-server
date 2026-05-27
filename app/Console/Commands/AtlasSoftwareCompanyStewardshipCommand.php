@@ -28,6 +28,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipE
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeExecutionAdapterService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipNativeObraRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipCompletionAuditService;
@@ -47,7 +48,7 @@ use InvalidArgumentException;
 class AtlasSoftwareCompanyStewardshipCommand extends Command
 {
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|completion-audit|live-cycle-certification|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-stewardship-loop|continuous-stewardship-scheduler|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
+        {action=area-focus : area-focus|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-stewardship-loop|continuous-stewardship-scheduler|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--portfolio=atlas_software_company : Canonical portfolio_id}
         {--repo=atlas-server : Product Mode repository slug for AP-754 controls}
@@ -127,6 +128,9 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--workspace=atlas-server : AP-747 Atlas Dev workspace slug for dev queue items}
         {--certification-worktree= : AP-762 certification-only sandbox worktree path}
         {--include-execution-certification : AP-763 also runs AP-762 owner-command execution certification inside the certification sandbox}
+        {--enable-native-obra-runner : AP-764 allow the Atlas-native Obra runner to invoke the AP-746 scheduler boundary}
+        {--record-native-obra-run : AP-764 append idempotent native Obra runner records}
+        {--provider-execution-authorized : AP-764 declares provider execution authorization was supplied; still requires AP-759 receipts before provider calls}
         {--json : Emit JSON}';
 
     protected $description = 'Atlas Software Company Stewardship Stack · read-only/proposal read-models plus append-only review ledgers. No provider, no branch, no merge/deploy/secrets.';
@@ -160,6 +164,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         StewardshipOwnerRuntimeResultBridgeService $ownerRuntimeResultBridge,
         StewardshipLiveCycleCertificationService $liveCycleCertification,
         StewardshipCompletionAuditService $completionAudit,
+        StewardshipNativeObraRunnerService $nativeObraRunner,
     ): int
     {
         $action = (string) $this->argument('action');
@@ -168,6 +173,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'area-focus' => $this->runAreaFocus($readModel),
             'completion-audit' => $this->runCompletionAudit($completionAudit),
             'live-cycle-certification' => $this->runLiveCycleCertification($liveCycleCertification),
+            'native-obra-runner' => $this->runNativeObraRunner($nativeObraRunner),
             'area-focus-dev-forge-release' => $this->runAreaFocusDevForgeRelease($areaFocusDevForgeRelease),
             'area-focus-branch-sandbox-materialize' => $this->runAreaFocusBranchSandboxMaterialize($branchSandboxMaterializer),
             'area-focus-branch-sandboxes' => $this->runAreaFocusBranchSandboxList($branchSandboxMaterializer),
@@ -369,6 +375,42 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             AtlasContinuousStewardshipRecurringSchedulerService::STATUS_BLOCKED,
             AtlasContinuousStewardshipRecurringSchedulerService::STATUS_LOCKED,
         ], true)
+            ? self::FAILURE
+            : self::SUCCESS;
+    }
+
+    private function runNativeObraRunner(StewardshipNativeObraRunnerService $service): int
+    {
+        $payload = $service->run([
+            'area_id' => (string) $this->option('area'),
+            'enable_native_obra_runner' => (bool) $this->option('enable-native-obra-runner'),
+            'record_native_obra_run' => (bool) $this->option('record-native-obra-run'),
+            'provider_execution_authorized' => (bool) $this->option('provider-execution-authorized'),
+            'record_scheduler_run' => (bool) $this->option('record-scheduler-run'),
+            'record_continuous_cycle' => (bool) $this->option('record-continuous-cycle'),
+            'force_scheduler_run' => (bool) $this->option('force-scheduler-run'),
+            'kill_switch' => (bool) $this->option('kill-switch'),
+            'min_interval_seconds' => (int) $this->option('min-interval-seconds'),
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-764 native Obra runner', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Area', (string) ($p['area_id'] ?? ''));
+            $this->components->twoColumnDetail('Run', (string) ($p['native_obra_run_id'] ?? ''));
+            $this->components->twoColumnDetail('Scheduler', (string) ($p['scheduler_run_status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Active operation', (string) ($p['active_operation_status'] ?? 'not_available'));
+            $this->components->twoColumnDetail('Native Obra handoffs', (string) ($p['native_obra_handoff_count'] ?? 0));
+            $this->components->twoColumnDetail('Recorded', ((bool) ($p['record_native_obra_run_requested'] ?? false)) ? 'requested' : 'projection-only');
+            $this->components->twoColumnDetail('Codex app automation', ((bool) data_get($p, 'claim_policy.codex_app_automation_used', false)) ? 'used' : 'not used');
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+            foreach ((array) ($p['next_actions'] ?? []) as $action) {
+                $this->line('  next: '.(string) $action);
+            }
+        });
+
+        return ($payload['status'] ?? '') === StewardshipNativeObraRunnerService::STATUS_BLOCKED
             ? self::FAILURE
             : self::SUCCESS;
     }

@@ -18,6 +18,7 @@ decisions:
   - Atlas Desktop e surface operacional do Atlas, nao Kernel e nao fonte primaria de verdade.
   - Documentos desktop ativos devem ter parent visual existente para a Cartografia.
   - Backend e code surface ficam abaixo deste node para nao aparecerem como orfaos.
+  - macOS deve ter um unico app instalado: `/Applications/Atlas Code.app`.
 maintenance:
   - Atualizar quando contratos desktop, bridge ou surface mudarem.
   - Rodar docs-health e testes de cartografia apos alterar hierarquia.
@@ -47,6 +48,8 @@ forbidden_changes:
   - Tratar Desktop como Kernel.
   - Inventar dados no Desktop fora do atlas-server.
   - Deixar doc ativo de desktop apontar para parent inexistente.
+  - Criar, copiar ou deixar bundles/pastas timestampadas do app em `/Applications`.
+  - Usar nomes como `Atlas Code.app.backup-*`, `Atlas Code.app-YYYY*` ou `Atlas Code.app...` em `/Applications`.
 depends_on:
   - atlas-ai-documentation-operating-system
   - atlas-canonical-module-doc-v1
@@ -114,6 +117,18 @@ montar a arvore visual e evitar docs soltos.
 
 Nao criar mocks como verdade operacional e nao mover responsabilidades do Kernel
 para o Desktop.
+
+### macOS Build / Install Guardrail
+
+`/Applications/Atlas Code.app` e o unico bundle instalado permitido para o
+Atlas Desktop. Agentes nao devem criar backups timestampados, copiar bundles
+com sufixo ou deixar pastas como `Atlas Code.app.backup-*`,
+`Atlas Code.app-YYYY*` ou `Atlas Code.app...` em `/Applications`.
+
+Builds locais devem ficar em
+`atlas-desktop/target/release/bundle/macos/Atlas Code.app`. Para testar, abra
+esse bundle diretamente ou substitua explicitamente o unico bundle canonico
+`/Applications/Atlas Code.app`. Nunca polua o Launchpad/Finder com copias.
 
 ## Escopo de Implementacao
 

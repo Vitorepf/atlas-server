@@ -68,6 +68,7 @@ decisions:
   - AP-761 torna a surface Desktop `stewardship` uma console Product Mode end-to-end: mostra AP-740/AP-741/AP-743/AP-744/AP-745/AP-746/AP-747/AP-759/AP-750/AP-752/AP-754 em um unico pipeline visual read-only.
   - AP-762 certifica o ciclo vivo end-to-end da stack: AP-722 -> AP-743 -> AP-744 -> AP-745 -> AP-746 -> AP-747 -> AP-748 -> AP-749 -> AP-758 -> AP-759 -> AP-750 -> AP-751/AP-733 -> AP-734 -> AP-735 -> AP-752 -> AP-739/AP-761, em modo projection e em modo owner command sandboxado opcional.
   - AP-763 responde "em qual numero estamos?" com uma matriz de 29 requisitos: projection-only para em 18/29 porque execucao real exige AP-759; com `--include-execution-certification`, a claim 29/29 so passa se AP-762 owner-command sandboxado estiver certificado.
+  - AP-764 corrige a fronteira de ativacao: Stewardship sempre roda pelo Atlas Server e projeta handoffs nativos de Obra para Atlas Dev/Forge; automacao externa do Codex pode no maximo invocar comando durante desenvolvimento, mas nao e runtime, scheduler, owner ou dependencia do Atlas.
   - Merge, deploy, secrets e destructive changes continuam proibidos sem operador.
 maintenance:
   - Atualize este doc antes de criar qualquer doc novo sobre Night Shift, Product Mode, Continuous Stewardship Loop, Area Focus, Stewardship, Portfolio ou Executive dentro da software company.
@@ -106,6 +107,7 @@ related_paths:
   - docs/ap/AP-761-product-mode-desktop-end-to-end-stewardship-console-contract.md
   - docs/ap/AP-762-end-to-end-stewardship-live-cycle-certification-contract.md
   - docs/ap/AP-763-software-company-stewardship-completion-audit-contract.md
+  - docs/ap/AP-764-atlas-native-stewardship-obra-runner-contract.md
   - docs/ap/AP-750-owner-runtime-result-bridge-contract.md
   - docs/ap/AP-751-portfolio-owner-runtime-result-signal-contract.md
   - docs/ap/AP-752-autonomous-executive-allocation-handoff-contract.md
@@ -129,6 +131,7 @@ related_paths:
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipLiveCycleCertificationService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipNativeObraRunnerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipHealthModelService.php
   - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipInboxService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AutonomousExecutive/AutonomousExecutiveRecommendationService.php
@@ -560,6 +563,7 @@ Ordem obrigatoria:
 34. Owner queue sandbox binding AP-757 para exigir o record AP-756 materializado dentro do AP-749 antes de Dev/Forge owner runtime input ficar pronto.
 35. End-to-end live cycle certification AP-762 para provar a cadeia completa em projection e em owner command sandboxado opcional antes de declarar 100% da stack.
 36. Requirement-by-requirement completion audit AP-763 para transformar a lista pratica do operador em 29 linhas auditaveis, responder `current_practical_number`, e bloquear claim de 100% quando a prova AP-759/AP-762 nao estiver completa.
+37. Atlas-native Stewardship Obra runner AP-764 para transformar ciclos AP-746/AP-744 em handoffs nativos de Obra para Atlas Dev/Forge, sem depender de automacao externa do Codex e sem chamar provider fora de AP-759.
 
 ## Dependencias
 

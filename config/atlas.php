@@ -889,6 +889,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Atlas Software Company Stewardship Stack
+    |--------------------------------------------------------------------------
+    |
+    | AP-764 keeps the 24h runner native to Atlas Server. External tools may
+    | invoke the command, but the product boundary is this server command plus
+    | AP-745/AP-746 locks, budgets, rate limit, pause and kill switch.
+    */
+    'software_company_stewardship' => [
+        'native_obra_runner' => [
+            'enabled' => (bool) env('ATLAS_STEWARDSHIP_NATIVE_OBRA_RUNNER_ENABLED', false),
+            'area_id' => env('ATLAS_STEWARDSHIP_NATIVE_OBRA_RUNNER_AREA', 'agentic_engineering_os'),
+            'record_runs' => (bool) env('ATLAS_STEWARDSHIP_NATIVE_OBRA_RUNNER_RECORD_RUNS', true),
+            'min_interval_seconds' => (int) env('ATLAS_STEWARDSHIP_NATIVE_OBRA_RUNNER_MIN_INTERVAL_SECONDS', 900),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | AAEOS HTTP Path Integration (T1.4 / AP-696)
     |--------------------------------------------------------------------------
     |

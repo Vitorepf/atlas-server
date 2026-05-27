@@ -58,6 +58,7 @@ decisions:
   - AP-757 exige sandbox AP-756 materializado e correspondente antes de AP-749 ficar pronto para owner runtime input.
   - AP-762 certifica o ciclo vivo end-to-end da stack e bloqueia qualquer claim de 100% quando AP-749/AP-758/AP-759/AP-750/AP-752/Product Mode nao fecham.
   - AP-763 transforma a lista pratica do operador em audit completion 29/29: projection-only para em 18/29; full audit com AP-762 owner-command sandboxado pode autorizar claim 29/29.
+  - AP-764 torna o motor nativo do Atlas Server: ciclos de Stewardship viram handoffs de Obra para Atlas Dev/Forge, sem depender do Codex App e sem burlar AP-747/AP-756/AP-749/AP-758/AP-759/AP-750.
   - Nenhuma camada autoriza merge, deploy, secrets, destructive changes ou auto-promocao sem operador.
   - Agentic Engineering OS continua sendo a primeira area para provar a ladder.
 maintenance:
@@ -93,6 +94,7 @@ related_paths:
   - docs/ap/AP-761-product-mode-desktop-end-to-end-stewardship-console-contract.md
   - docs/ap/AP-762-end-to-end-stewardship-live-cycle-certification-contract.md
   - docs/ap/AP-763-software-company-stewardship-completion-audit-contract.md
+  - docs/ap/AP-764-atlas-native-stewardship-obra-runner-contract.md
   - docs/ap/AP-750-owner-runtime-result-bridge-contract.md
   - docs/ap/AP-751-portfolio-owner-runtime-result-signal-contract.md
   - docs/ap/AP-752-autonomous-executive-allocation-handoff-contract.md
@@ -112,6 +114,7 @@ related_paths:
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOutcomeEvidenceBridgeService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeExecutionAdapterService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipNativeObraRunnerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipLiveCycleCertificationService.php
   - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipHealthModelService.php
   - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipInboxService.php
@@ -521,6 +524,7 @@ Proibido:
 24. Branch sandbox materializer AP-756 e sandbox binding AP-757 para criar branch/worktree isolado e exigir esse record antes de owner consumption.
 25. Live cycle certification AP-762 para provar a cadeia completa antes de declarar a stack pronta para operating product mode.
 26. Completion audit AP-763 para responder item-a-item se a stack esta em 18/29 projection-only ou 29/29 com execucao sandboxada certificada.
+27. Native Obra runner AP-764 para manter o loop 24h dentro do Atlas Server e transformar ciclos aprovados em handoffs de Obra para Atlas Dev/Forge.
 ## Dependencias
 
 | Camada | Owner |
