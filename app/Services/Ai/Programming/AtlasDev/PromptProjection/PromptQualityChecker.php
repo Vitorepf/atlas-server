@@ -92,13 +92,14 @@ final class PromptQualityChecker
         bool $providerSafeRequested = true,
     ): QualityChecks {
         $haystack = $this->buildHaystack($sections, $renderedPromptText);
+        $instructionHaystack = $this->buildInstructionHaystack($sections);
 
         return new QualityChecks(
             noMissingRequiredSections: $this->checkRequiredSections($sections, $taskContract),
             noUnboundedScope: $this->checkUnboundedScope($sections, $taskContract, $haystack),
             noHiddenBenchmarkInstruction: $this->checkNoBenchmarkLeakage($haystack),
             noConflictingFileRules: $this->checkNoConflictingFileRules($sections),
-            noForgeOrCouncilLeakage: $this->checkNoForgeOrCouncilLeakage($haystack),
+            noForgeOrCouncilLeakage: $this->checkNoForgeOrCouncilLeakage($instructionHaystack),
             providerSafe: $providerSafeRequested
                 && $this->checkProviderSafe($sections, $haystack)
                 && $this->checkProviderLockFallbackForbidden($taskContract),
@@ -217,6 +218,24 @@ final class PromptQualityChecker
             implode("\n", $sections->escalationConditions),
             implode("\n", $sections->outputContract),
             $renderedPromptText,
+        ];
+
+        return $this->normalise(implode("\n", $parts));
+    }
+
+    private function buildInstructionHaystack(PromptSections $sections): string
+    {
+        $parts = [
+            $sections->objective,
+            implode("\n", $sections->operatingRules),
+            implode("\n", $sections->contextRefs),
+            implode("\n", $sections->allowedFiles),
+            implode("\n", $sections->forbiddenFiles),
+            implode("\n", $sections->expectedTests),
+            implode("\n", $sections->acceptanceCriteria),
+            implode("\n", $sections->stopConditions),
+            implode("\n", $sections->escalationConditions),
+            implode("\n", $sections->outputContract),
         ];
 
         return $this->normalise(implode("\n", $parts));

@@ -251,6 +251,17 @@ final class PromptQualityCheckerTest extends TestCase
         $this->assertTrue($result->noForgeOrCouncilLeakage);
     }
 
+    public function test_checker_does_not_treat_rendered_code_symbols_as_forge_leakage(): void
+    {
+        $result = $this->checker()->check(
+            sections: $this->baselineSections(),
+            renderedPromptText: "Focused excerpt:\nuse App\\Console\\Commands\\AtlasForgeRuntimeCertifyCommand;\n",
+            taskContract: $this->baselineTaskContract(),
+        );
+
+        $this->assertTrue($result->noForgeOrCouncilLeakage);
+    }
+
     public function test_check_flags_provider_unsafe_secret_in_rendered_text(): void
     {
         $result = $this->checker()->check(
