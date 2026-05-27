@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
+use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\DevForgeRuntimeExecutionBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
@@ -89,6 +91,7 @@ final class FirstFullCycleOrchestratorService
         private readonly AreaFocusBranchSandboxMaterializerService $materializer,
         private readonly DevForgeRuntimeExecutionBridgeService $devForgeBridge,
         private readonly StewardshipRuntimeResultBridgeService $resultBridge,
+        private readonly SeniorEngineerLoopExecutor $seniorEngineerLoop,
     ) {}
 
     /**
@@ -417,6 +420,20 @@ final class FirstFullCycleOrchestratorService
         $allowedFiles = $this->allowedFiles($finding);
         $simulated = $this->simulatedSandbox($areaId, $finding, $allowedFiles);
 
+        if (is_array($input['sandbox_descriptor'] ?? null) && $input['sandbox_descriptor'] !== []) {
+            $descriptor = $this->normalizeExternalSandboxDescriptor($input['sandbox_descriptor'], $allowedFiles);
+
+            return $this->stage('sandbox', 'AP-756', self::STAGE_RAN,
+                'Using an externally supplied isolated sandbox descriptor for this first full cycle.',
+                [
+                    'descriptor' => $descriptor,
+                    'sandbox_mode' => ((bool) ($descriptor['simulated'] ?? true)) ? 'simulated' : 'materialized',
+                    'sandbox_id' => (string) ($descriptor['sandbox_id'] ?? ''),
+                    'materializer_status' => 'external_descriptor',
+                    'materializer_record' => null,
+                ]);
+        }
+
         $wantsMaterialize = $mode === self::MODE_EXECUTE && (bool) ($input['materialize_sandbox'] ?? false);
         $preflight = is_array($input['preflight_report'] ?? null) ? $input['preflight_report'] : [];
         $receipt = is_array($input['sandbox_receipt'] ?? null) ? $input['sandbox_receipt'] : [];
@@ -522,6 +539,32 @@ final class FirstFullCycleOrchestratorService
         ];
     }
 
+    /**
+     * @param  array<string,mixed>  $descriptor
+     * @param  list<string>  $allowedFiles
+     * @return array<string,mixed>
+     */
+    private function normalizeExternalSandboxDescriptor(array $descriptor, array $allowedFiles): array
+    {
+        $worktree = trim((string) ($descriptor['worktree_path'] ?? data_get($descriptor, 'materialization.worktree_path', '')));
+        $branch = trim((string) ($descriptor['branch_name'] ?? data_get($descriptor, 'materialization.branch_name', '')));
+        $sandboxId = trim((string) ($descriptor['sandbox_id'] ?? ''));
+        $simulated = (bool) ($descriptor['simulated'] ?? false);
+
+        return [
+            'present' => true,
+            'simulated' => $simulated,
+            'isolated' => (bool) ($descriptor['isolated'] ?? true),
+            'sandbox_id' => $sandboxId !== '' ? $sandboxId : 'external_'.substr(MissionCanonicalHash::sha256($descriptor), 0, 16),
+            'branch_name' => $branch,
+            'worktree_path' => $worktree,
+            'base_ref' => (string) ($descriptor['base_ref'] ?? 'HEAD'),
+            'allowed_paths' => array_values(array_filter((array) ($descriptor['allowed_paths'] ?? $this->allowedPaths($allowedFiles)), 'is_string')),
+            'forbidden_paths' => array_values(array_filter((array) ($descriptor['forbidden_paths'] ?? ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/']), 'is_string')),
+            'materialization' => is_array($descriptor['materialization'] ?? null) ? $descriptor['materialization'] : [],
+        ];
+    }
+
     // ------------------------------------------------------------------
     // Stage 6 — Dev/Forge runtime execution bridge
     // ------------------------------------------------------------------
@@ -537,6 +580,14 @@ final class FirstFullCycleOrchestratorService
     {
         $owner = $this->owner($finding, $input);
         $allowedFiles = $this->allowedFiles($finding);
+
+        if (is_array($input['allowed_files'] ?? null) && $input['allowed_files'] !== []) {
+            $allowedFiles = array_values(array_unique(array_filter($input['allowed_files'], 'is_string')));
+        }
+
+        if ($mode === self::MODE_EXECUTE && (bool) ($input['run_real_atlas_dev'] ?? false)) {
+            return $this->realAtlasDevStage($areaId, $portfolioId, $finding, $sandbox, $allowedFiles, $input);
+        }
 
         $source = [
             'kind' => 'finding',
@@ -587,6 +638,200 @@ final class FirstFullCycleOrchestratorService
                 'execution_result' => $executionResult,
                 'report' => $report,
             ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $sandbox
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function realAtlasDevStage(string $areaId, string $portfolioId, array $finding, array $sandbox, array $allowedFiles, array $input): array
+    {
+        $owner = $this->owner($finding, $input);
+        if ($owner !== 'atlas_dev') {
+            return $this->stage('dev_forge_execution', 'AP-767+AtlasDev', self::STAGE_DEFERRED,
+                'Real provider execution is only wired for atlas_dev in this slice; Forge remains routed through AP-767.', [
+                    'owner' => $owner,
+                    'bridge_status' => 'real_atlas_dev_owner_mismatch',
+                    'execution_result' => null,
+                ]);
+        }
+
+        $workspace = trim((string) ($sandbox['worktree_path'] ?? ''));
+        if ($workspace === '' || ! is_dir($workspace) || (bool) ($sandbox['simulated'] ?? true)) {
+            return $this->stage('dev_forge_execution', 'AP-767+AtlasDev', self::STAGE_DEFERRED,
+                'Real Atlas Dev execution requires a materialized isolated worktree descriptor.', [
+                    'owner' => $owner,
+                    'bridge_status' => 'worktree_not_materialized',
+                    'execution_result' => null,
+                ]);
+        }
+
+        $intent = trim((string) ($input['real_atlas_dev_intent'] ?? ''));
+        if ($intent === '') {
+            return $this->stage('dev_forge_execution', 'AP-767+AtlasDev', self::STAGE_DEFERRED,
+                'Real Atlas Dev execution requires an explicit operator-approved implementation intent for the first live cycle.', [
+                    'owner' => $owner,
+                    'bridge_status' => 'real_atlas_dev_intent_required',
+                    'execution_result' => null,
+                ]);
+        }
+
+        $validationCommands = array_values(array_filter((array) ($input['test_commands'] ?? []), 'is_string'));
+        $constraints = [];
+        foreach ($allowedFiles as $file) {
+            $constraints[] = 'allowed_files='.$file;
+        }
+        foreach ($validationCommands as $command) {
+            $constraints[] = 'validation_command='.$command;
+        }
+
+        try {
+            $execution = $this->seniorEngineerLoop->run(
+                surfaceId: 'software_company_stewardship.first_full_cycle',
+                workspace: $workspace,
+                rawIntent: $intent,
+                userConstraints: $constraints,
+                surfaceHints: [
+                    'area_id' => $areaId,
+                    'portfolio_id' => $portfolioId,
+                    'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                    'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
+                    'source' => 'AP-768 first-full-cycle',
+                ],
+            );
+        } catch (Throwable $e) {
+            return $this->stage('dev_forge_execution', 'AP-767+AtlasDev', self::STAGE_DEFERRED,
+                'Atlas Dev real execution raised an exception: '.$e->getMessage(), [
+                    'owner' => $owner,
+                    'bridge_status' => 'atlas_dev_exception',
+                    'execution_result' => null,
+                ]);
+        }
+
+        $executionResult = $this->executionResultFromSeniorLoop($execution->toCanonicalArray(), $areaId, $portfolioId, $finding, $sandbox, $allowedFiles, $validationCommands);
+        $stageStatus = $execution->status === 'passed' ? self::STAGE_RAN : self::STAGE_BLOCKED;
+
+        return $this->stage('dev_forge_execution', 'AP-767+AtlasDev', $stageStatus,
+            'Atlas Dev Senior Engineer Loop executed in the isolated sandbox and returned receipts for AP-765 closure.', [
+                'owner' => $owner,
+                'bridge_status' => 'atlas_dev_real_executed',
+                'next_state' => $execution->status === 'passed' ? 'runtime_result_bridge' : 'operator_review',
+                'execution_id' => $execution->runId,
+                'provider_bridge_missing' => false,
+                'changed_files' => array_values((array) ($executionResult['changed_files'] ?? [])),
+                'execution_result' => $executionResult,
+                'report' => [
+                    'schema_version' => 'atlas.software_company_stewardship.real_atlas_dev_execution.v1',
+                    'status' => $execution->status,
+                    'senior_loop_execution' => $execution->toCanonicalArray(),
+                    'receipt_dir' => $this->atlasDevReceiptDir($execution->runId),
+                ],
+            ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $execution
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $sandbox
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
+     * @return array<string,mixed>
+     */
+    private function executionResultFromSeniorLoop(array $execution, string $areaId, string $portfolioId, array $finding, array $sandbox, array $allowedFiles, array $validationCommands): array
+    {
+        $runId = (string) ($execution['run_id'] ?? '');
+        $provider = $this->readAtlasDevReceipt($runId, ArtifactNames::PROVIDER_CALL_RESULT);
+        $diff = $this->readAtlasDevReceipt($runId, ArtifactNames::DIFF_PARSE_RESULT);
+        $patch = $this->readAtlasDevReceipt($runId, ArtifactNames::PATCH_APPLY_RESULT);
+        $scope = $this->readAtlasDevReceipt($runId, ArtifactNames::SCOPE_GUARD_RECEIPT);
+        $verification = $this->readAtlasDevReceipt($runId, ArtifactNames::VERIFICATION_RECEIPT);
+
+        $changedFiles = array_values(array_unique(array_filter((array) ($diff['changed_files'] ?? $scope['changed_files'] ?? $allowedFiles), 'is_string')));
+        $providerSummary = is_array($execution['run_summary']['provider_call'] ?? null) ? $execution['run_summary']['provider_call'] : [];
+        $providerInvoked = ((int) ($providerSummary['provider_calls'] ?? 0)) > 0 || $provider !== [];
+        $status = (string) ($execution['status'] ?? 'needs_review');
+        $testResults = [
+            'status' => (string) ($verification['status'] ?? data_get($execution, 'run_summary.verification_status', 'unknown')),
+            'commands' => $validationCommands,
+            'receipt' => $verification,
+        ];
+
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.real_atlas_dev_result.v1',
+            'execution_id' => $runId,
+            'area_id' => $areaId,
+            'portfolio_id' => $portfolioId,
+            'owner' => 'atlas_dev',
+            'result_status' => $status === 'passed' ? 'completed' : 'needs_review',
+            'summary' => 'Atlas Dev real provider execution completed with status '.$status.'.',
+            'finding_id' => (string) ($finding['finding_id'] ?? ''),
+            'spec_id' => (string) data_get($finding, 'spec_seed.spec_id', ''),
+            'handoff_id' => 'AP-768:first_full_cycle:'.$runId,
+            'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
+            'branch_ref' => (string) ($sandbox['branch_name'] ?? ''),
+            'worktree_path' => (string) ($sandbox['worktree_path'] ?? ''),
+            'changed_files' => $changedFiles,
+            'tests' => $validationCommands,
+            'test_results' => $testResults,
+            'validation_commands' => $validationCommands,
+            'evidence_pack' => [
+                'evidence_hash' => 'sha256:'.MissionCanonicalHash::sha256([$execution, $provider, $diff, $patch, $scope, $verification]),
+                'summary' => 'Provider patch, scope guard and verification receipts from Atlas Dev Senior Engineer Loop.',
+                'changed_files' => $changedFiles,
+                'tests' => $validationCommands,
+                'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
+                'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                'spec_id' => (string) data_get($finding, 'spec_seed.spec_id', ''),
+                'receipts' => [
+                    'senior_loop_execution' => $execution,
+                    'provider_call_result' => $provider,
+                    'diff_parse_result' => $diff,
+                    'patch_apply_result' => $patch,
+                    'scope_guard_receipt' => $scope,
+                    'verification_receipt' => $verification,
+                ],
+            ],
+            'risks' => ['Operator must review the isolated branch diff before accepting or merging.'],
+            'rollback' => 'Discard the isolated worktree/branch; no merge, deploy or external push was performed.',
+            'runtime_execution_started' => true,
+            'provider_invoked' => $providerInvoked,
+            'provider' => (string) ($providerSummary['provider'] ?? data_get($provider, 'provider', 'claude_cli')),
+            'model' => (string) ($providerSummary['model'] ?? data_get($provider, 'model', '')),
+            'merge_performed' => false,
+            'deploy_performed' => false,
+            'external_push_performed' => false,
+            'secret_access' => false,
+            'destructive_change' => false,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function readAtlasDevReceipt(string $runId, string $name): array
+    {
+        if ($runId === '') {
+            return [];
+        }
+
+        $path = $this->atlasDevReceiptDir($runId).DIRECTORY_SEPARATOR.$name;
+        if (! is_file($path)) {
+            return [];
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function atlasDevReceiptDir(string $runId): string
+    {
+        return function_exists('storage_path')
+            ? storage_path('atlas-dev/receipts/'.$runId)
+            : sys_get_temp_dir().'/atlas-dev/receipts/'.$runId;
     }
 
     private function devForgeNarrative(string $status, string $owner): string
@@ -695,6 +940,9 @@ final class FirstFullCycleOrchestratorService
             'AP-768', $areaId, $focus, $mode,
             (string) data_get($stages, 'deep_scan.scan_id', ''),
             (string) ($selected['finding_hash'] ?? ''),
+            (string) data_get($stages, 'sandbox.sandbox_id', ''),
+            (string) data_get($stages, 'dev_forge_execution.bridge_status', ''),
+            (bool) ($input['run_real_atlas_dev'] ?? false),
         ]), 0, 18);
 
         return [
@@ -1058,6 +1306,7 @@ final class FirstFullCycleOrchestratorService
     {
         $materialized = (string) data_get($stages, 'sandbox.sandbox_mode', 'simulated') === 'materialized';
         $devForgeRan = (string) data_get($stages, 'dev_forge_execution.bridge_status', '') === DevForgeRuntimeExecutionBridgeService::STATUS_EXECUTED;
+        $realAtlasDevRan = (string) data_get($stages, 'dev_forge_execution.bridge_status', '') === 'atlas_dev_real_executed';
 
         return [
             'mode' => $mode,
@@ -1066,10 +1315,10 @@ final class FirstFullCycleOrchestratorService
             'reimplements_owner' => false,
             'creates_new_os' => false,
             'parallel_runtime_created' => false,
-            'provider_invoked' => false,
+            'provider_invoked' => (bool) data_get($stages, 'dev_forge_execution.execution_result.provider_invoked', false),
             'branch_created' => $materialized,
             'worktree_created' => $materialized,
-            'owner_command_executed_by_bridge' => $devForgeRan,
+            'owner_command_executed_by_bridge' => $devForgeRan || $realAtlasDevRan,
             'mutates_main' => false,
             'merges' => false,
             'deploys' => false,
@@ -1077,7 +1326,7 @@ final class FirstFullCycleOrchestratorService
             'touches_secrets' => false,
             'destructive_change' => false,
             'auto_approval' => false,
-            'auto_implementation' => false,
+            'auto_implementation' => $realAtlasDevRan,
             'records_cycle_when_requested' => (bool) ($input['record'] ?? false),
             'operator_review_required' => true,
         ];

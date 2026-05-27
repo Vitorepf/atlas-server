@@ -168,6 +168,8 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--allowed-file=* : AP-767 allowed_files scope for dev-forge-execute (repeatable)}
         {--test-command=* : AP-767 allowlisted test command for dev-forge-execute, space-separated (repeatable)}
         {--run-local-task : AP-767 run the allowlisted read-only + test local deterministic owner task inside the sandbox}
+        {--run-real-atlas-dev : AP-768 execute the Atlas Dev Senior Engineer Loop in a materialized sandbox for first-full-cycle}
+        {--real-atlas-dev-intent= : AP-768 operator-approved implementation intent for --run-real-atlas-dev}
         {--record-bridge-result : AP-767 append idempotent dev-forge-execute runtime execution receipt}
         {--json : Emit JSON}';
 
@@ -635,6 +637,10 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'record' => (bool) $this->option('record'),
             'materialize_sandbox' => (bool) $this->option('materialize-sandbox'),
             'run_local_task' => (bool) $this->option('run-local-task'),
+            'run_real_atlas_dev' => (bool) $this->option('run-real-atlas-dev'),
+            'real_atlas_dev_intent' => (string) ($this->option('real-atlas-dev-intent') ?? ''),
+            'allowed_files' => array_values(array_filter((array) $this->option('allowed-file'), 'is_string')),
+            'test_commands' => array_values(array_filter((array) $this->option('test-command'), 'is_string')),
             'emit_inbox' => (bool) $this->option('emit-inbox'),
         ];
         $maxFindings = $this->option('max-findings');
@@ -648,6 +654,10 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         $sandboxReceipt = $this->readJsonFile((string) ($this->option('sandbox-receipt-file') ?? ''));
         if (is_array($sandboxReceipt)) {
             $input['sandbox_receipt'] = $sandboxReceipt;
+        }
+        $sandboxDescriptor = $this->readJsonFile((string) ($this->option('sandbox-descriptor-file') ?? ''));
+        if (is_array($sandboxDescriptor)) {
+            $input['sandbox_descriptor'] = $sandboxDescriptor;
         }
 
         $payload = $service->run($input);
