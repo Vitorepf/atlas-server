@@ -373,8 +373,17 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'AP-759',
             'AP-750',
         ], $cycle['flow_integrity_gate']['required_chain']);
+        $this->assertContains('native_obra_or_work_packet', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
+        $this->assertContains('self_directed_spec_or_sdd_packet', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
+        $this->assertContains('tdd_test_contract', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
+        $this->assertContains('bdd_acceptance_contract', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
+        $this->assertContains('atlas_decide_provider_topology', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
+        $this->assertContains('aawr_or_multi_agent_workcell', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
+        $this->assertContains('repair_loop_with_failed_gate_capsule', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
+        $this->assertContains('evidence_ledger_and_decision_receipts', $cycle['flow_integrity_gate']['required_robust_flow_capabilities']);
         $this->assertFalse($payload['claim_policy']['direct_provider_driver_allowed']);
         $this->assertTrue($payload['claim_policy']['requires_full_atlas_forge_owner_flow']);
+        $this->assertTrue($payload['claim_policy']['requires_robust_obra_forge_quality_flow']);
     }
 
     public function test_review_locks_validation_failed_attempt_from_session_record(): void

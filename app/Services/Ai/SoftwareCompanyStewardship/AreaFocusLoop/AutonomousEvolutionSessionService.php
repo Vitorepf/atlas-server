@@ -18,10 +18,11 @@ use Throwable;
 /**
  * AP-786 · Atlas-owned autonomous evolution session.
  *
- * This is the "real loop" operator asked for: scan Agentic Engineering OS,
- * prioritize by highest advancement/robustness, materialize an isolated branch,
- * invoke Cursor CLI through Atlas provider governance, emit Inbox/evidence,
- * merge only when AP-769/AP-774 prove eligibility, update main, repeat.
+ * This is the "real loop" operator asked for. It must operate through Atlas'
+ * own software factory: Obra/Forge owner flow, SDD/TDD/BDD packets, quality
+ * gates, repair loop, Evidence and governed merge. A provider driver with an
+ * Atlas-shaped prompt is only a legacy diagnostic path and cannot be claimed as
+ * Atlas Forge, Atlas Dev or autonomous factory execution.
  */
 final class AutonomousEvolutionSessionService
 {
@@ -103,6 +104,22 @@ final class AutonomousEvolutionSessionService
         'AP-758',
         'AP-759',
         'AP-750',
+    ];
+
+    /** @var list<string> */
+    private const REQUIRED_ROBUST_FLOW_CAPABILITIES = [
+        'native_obra_or_work_packet',
+        'self_directed_spec_or_sdd_packet',
+        'tdd_test_contract',
+        'bdd_acceptance_contract',
+        'atlas_decide_provider_topology',
+        'aawr_or_multi_agent_workcell',
+        'universal_gates_and_programming_governance',
+        'deterministic_validation_suite',
+        'repair_loop_with_failed_gate_capsule',
+        'evidence_ledger_and_decision_receipts',
+        'replay_or_reproduction_packet',
+        'ap769_ap774_merge_governance',
     ];
 
     private ?string $storageDirOverride = null;
@@ -218,7 +235,7 @@ final class AutonomousEvolutionSessionService
             'area_id' => $areaId,
             'focus' => $focus,
             'stack' => 'Atlas Software Company Stewardship Stack',
-            'source_ap_contracts' => ['AP-748', 'AP-756', 'AP-765', 'AP-769', 'AP-774', 'AP-785', 'AP-786'],
+            'source_ap_contracts' => ['AP-747', 'AP-748', 'AP-749', 'AP-750', 'AP-756', 'AP-757', 'AP-758', 'AP-759', 'AP-765', 'AP-769', 'AP-774', 'AP-785', 'AP-786'],
             'provider' => $provider,
             'model' => $model,
             'scope_profile' => $scopeProfile,
@@ -235,7 +252,9 @@ final class AutonomousEvolutionSessionService
                 'atlas_owned_flow' => true,
                 'uses_cursor_cli_account_driver' => $provider === 'cursor_cli',
                 'requires_full_atlas_forge_owner_flow' => true,
+                'requires_robust_obra_forge_quality_flow' => true,
                 'direct_provider_driver_allowed' => (bool) ($input['allow_direct_provider_driver'] ?? false),
+                'required_robust_flow_capabilities' => self::REQUIRED_ROBUST_FLOW_CAPABILITIES,
                 'provider_called' => $this->anyCycleFlag($cycles, 'provider_called'),
                 'branch_created' => $this->anyCycleFlag($cycles, 'branch_created'),
                 'worktree_created' => $this->anyCycleFlag($cycles, 'worktree_created'),
@@ -568,10 +587,11 @@ final class AutonomousEvolutionSessionService
             'direct_provider_driver_allowed' => $allowDirectProviderDriver,
             'blocked_reason' => $ok ? null : 'full_atlas_forge_flow_required',
             'required_chain' => self::REQUIRED_FULL_OWNER_FLOW_APS,
+            'required_robust_flow_capabilities' => self::REQUIRED_ROBUST_FLOW_CAPABILITIES,
             'forbidden_claim' => 'Do not claim full Atlas Forge or Atlas Dev execution when AP-786 is only invoking a provider driver with an Atlas-shaped prompt.',
             'next_action' => $ok
                 ? 'legacy_direct_provider_driver_path_explicitly_allowed'
-                : 'route AP-786 through AP-747/AP-756/AP-757/AP-749/AP-758/AP-759/AP-750 before provider execution.',
+                : 'route AP-786 through the native Obra/Forge owner chain with SDD/TDD/BDD, gates, repair loop, Evidence and replay before provider execution.',
         ];
     }
 
