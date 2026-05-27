@@ -92,6 +92,15 @@ Provider-capable commands require `provider_execution_authorized=true` and
 requires `--confirm-provider-call`, `--confirm-budget` and
 `--confirm-runtime-dispatch`.
 
+For Atlas Dev owner execution, `--provider-choice` and `--composer-model` are
+runtime authority inputs, not cosmetic CLI labels. The owner command must carry
+them into Atlas Dev planning so the emitted task contract has the matching
+`provider_lock`. A command that requests `cursor_cli` must execute through the
+governed Cursor CLI path and must not silently fall back to `claude_cli/sonnet`.
+Because Cursor mutates the sandbox worktree directly, Atlas Dev derives the
+post-run git diff, skips patch re-application, and still runs ScopeGuard,
+verification and completion gates before AP-750 can bridge the result.
+
 ## Output Schemas
 
 ```text
@@ -178,6 +187,9 @@ AP-759 must not:
   worktree-scoped `--allowed-file=*` and `--validation-command=*` arguments from
   the selected finding. Fixture-only Senior Loop defaults are valid for smoke
   tests, but they must not govern Area Focus / 24h loop execution.
+- Autonomous AP-786 calls that request Cursor must carry
+  `--provider-choice=cursor_cli --composer-model=composer-2.5-fast`, and the
+  resulting Atlas Dev `provider_lock` must match those values.
 - Emits AP-750-compatible owner result for completed and failed owner commands.
 - Records append-only/idempotent JSONL without re-running duplicate run ids.
 - AP-750 accepts the AP-759 owner result when identity, evidence and isolation

@@ -30,9 +30,10 @@ It composes:
   repair loop with failed-gate capsule.
 - Evidence Ledger, Decision Receipts, replay/reproduction packet and rollback
   instructions before merge.
-- `cursor_cli` governed provider driver using local Cursor login only as an
-  explicitly authorized legacy diagnostic path; it must never be claimed as full
-  Atlas Forge or Atlas Dev execution by itself.
+- `cursor_cli` governed provider driver using local Cursor login when selected
+  by the owner runtime. Cursor is a legitimate Atlas Dev executor only when it
+  is reached through AP-759 + Atlas Dev `ProviderLock` + scope/evidence gates;
+  direct provider-driver usage remains legacy diagnostic.
 - AP-765 Evidence/Product Mode/Inbox result bridge.
 - AP-769/AP-774 merge governor and merge autonomy policy.
 
@@ -88,6 +89,10 @@ AP-786 cycle
         (atlas_dev -> `atlas:dev:senior-loop:run --workspace=<worktree> --intent=<intent>
         --allowed-file=<AP-786 allowed file> --validation-command=<AP-786 validation>
         --provider-choice=cursor_cli --composer-model=composer-2.5-fast`)
+        The Atlas Dev plan layer must convert these flags into
+        `provider_lock.provider=cursor_cli` and
+        `provider_lock.model_family=composer-2.5-fast`; the executor must not
+        silently fall back to `claude_cli/sonnet`.
    -> AP-750 StewardshipOwnerRuntimeResultBridgeService.project (owner_result -> Evidence/Inbox/Portfolio)
 -> AP-765 Product Mode / Inbox evidence emission (before any merge attempt)
 -> AP-769/AP-774 merge governance (only after AP-750, and only when merge_allowed)
@@ -104,6 +109,10 @@ Honest boundaries of the first version:
   must pass the selected finding's actual `allowed_files` and validation
   commands into the owner command; fixture-only defaults are allowed only for
   explicit standalone Senior Loop smoke runs, never for autonomous area cycles.
+  When `cursor_cli` is selected, Atlas Dev must use the governed Cursor CLI
+  runtime as a scoped worktree mutator, derive the post-run git diff from the
+  sandbox, skip patch re-application, then run ScopeGuard, verification and
+  CompletionStateGate from that derived diff.
 - **forge** blocks honestly with `forge_obra_dispatch_required` until a real
   Forge Obra dispatch (AP-759 forge runtime command) is wired; it is never faked.
 - If any required owner step is missing or fails (e.g. AP-759 command failure),
@@ -218,6 +227,9 @@ Each cycle includes:
 - The execution path proves the robust flow contract before provider execution.
 - Legacy Cursor CLI diagnostic request includes `decision_receipt_id`,
   `decision_receipt_hash`, `allowed_files`, forbidden paths, workspace and model.
+- Atlas Dev Cursor execution reached through AP-759 is not diagnostic: it must
+  prove provider lock propagation, no Claude fallback, scoped worktree mutation,
+  derived diff, verification, AP-750 owner result and merge governance.
 - Execute mode without explicit legacy direct-driver allowance blocks before
   sandbox/provider invocation and emits `flow_integrity_gate.required_chain` and
   `flow_integrity_gate.required_robust_flow_capabilities`.

@@ -11,12 +11,17 @@ use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
+use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
+use App\Services\Ai\Programming\AtlasForgeProviderCommandAllowlistService;
+use App\Services\Ai\Programming\AtlasForgeProviderInvocationFailureClassifier;
+use App\Services\Ai\Programming\AtlasForgeProviderProcessRunner;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
 use Illuminate\Container\Container;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\Gate\FakeCommandRunner;
 use Tests\Unit\Ai\Programming\AtlasDev\Provider\AtlasDevProviderFixtures;
@@ -351,6 +356,94 @@ DIFF;
         $this->assertStringContainsString('status-card compact elevated', (string) file_get_contents($target));
     }
 
+    public function test_cursor_provider_lock_dispatches_cursor_driver_and_uses_workspace_diff_without_claude(): void
+    {
+        config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
+        config()->set('atlas.ai.providers.cursor_cli.enabled', true);
+        config()->set('atlas.ai.providers.cursor_cli.binary', $this->installFakeCursorAgent());
+        config()->set('atlas.ai.providers.cursor_cli.binary_candidates', []);
+        config()->set('atlas.ai.providers.cursor_cli.auth_mode', 'local_login');
+        config()->set('atlas.ai.providers.cursor_cli.output_format', 'stream-json');
+        config()->set('atlas.ai.providers.cursor_cli.force', false);
+
+        $runId = 'dev-cursor-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $target = $this->tmpWorkspace.'/app/Foo.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $runner = new AtlasForgeProviderProcessRunner;
+        $runner->setProcessFactory(function (array $argv, ?string $cwd, ?array $env, int $timeout) use ($target): Process {
+            file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'after'; } }\n");
+
+            return new Process([PHP_BINARY, '-r', 'echo "cursor ok";'], $cwd, $env, null, $timeout);
+        });
+
+        $driver = new AtlasForgeCursorCliInvocationDriver(
+            app(AtlasForgeProviderCommandAllowlistService::class),
+            $runner,
+            app(AtlasForgeProviderInvocationFailureClassifier::class),
+        );
+
+        $gateway = new FakeClaudeCliGateway;
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: 'php -l app/Foo.php',
+            exitCode: 0,
+            stdout: 'No syntax errors detected',
+            stderr: '',
+            durationMs: 10,
+        ));
+
+        $container = new Container;
+        $container->instance(ClaudeCliGateway::class, $gateway);
+        $container->instance(VerificationCommandRunner::class, $commandRunner);
+        $container->instance(AtlasForgeCursorCliInvocationDriver::class, $driver);
+        $executor = new PipelineRunExecutor($container, $storage);
+
+        $envelope = $this->envelope(
+            intent: 'Change app/Foo.php so value returns after.',
+            providerChoice: 'cursor_cli',
+        );
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/Foo.php'],
+            'max_files_changed' => 1,
+            'validation_commands' => ['php -l app/Foo.php'],
+            'provider_lock' => [
+                'provider' => 'cursor_cli',
+                'model_family' => 'composer-2.5-fast',
+                'fallback_allowed' => false,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame([], $gateway->requests, 'cursor_cli provider lock must not dispatch ClaudeCliGateway.');
+        $this->assertSame('cursor_cli', $result->providerCallSummary['provider']);
+        $this->assertSame('composer-2.5-fast', $result->providerCallSummary['model_family']);
+        $this->assertSame(1, $result->providerCallSummary['provider_calls']);
+        $this->assertSame('passed', $result->completionState);
+        $this->assertStringContainsString("return 'after';", (string) file_get_contents($target));
+
+        $apply = $storage->read($runId, ArtifactNames::PATCH_APPLY_RESULT);
+        $this->assertIsArray($apply);
+        $this->assertSame('skipped', $apply['status']);
+        $this->assertSame('provider_mutated_workspace', $apply['reason']);
+
+        $receipt = $this->loadReceipt($storage, $runId);
+        $this->assertSame(['app/Foo.php'], $receipt->changedFiles);
+    }
+
     public function test_invalid_provider_output_persists_provider_and_diff_parse_artifacts(): void
     {
         $runId = 'dev-invalid-output-'.bin2hex(random_bytes(3));
@@ -589,7 +682,7 @@ DIFF;
     // Helpers
     // ------------------------------------------------------------------
 
-    private function envelope(?string $composerTask = 'dev', ?string $intent = null): OperationEnvelope
+    private function envelope(?string $composerTask = 'dev', ?string $intent = null, ?string $providerChoice = null): OperationEnvelope
     {
         $intent ??= 'corrija o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php';
 
@@ -600,6 +693,7 @@ DIFF;
                 productSurface: 'atlas_ai_desktop_mac',
                 composerMode: 'programming',
                 composerTask: $composerTask,
+                providerChoice: $providerChoice,
             ),
             workspace: $this->tmpWorkspace,
             workspaceHash: hash('sha256', $this->tmpWorkspace),
@@ -694,5 +788,31 @@ DIFF;
             }
         }
         @rmdir($dir);
+    }
+
+    private function installFakeCursorAgent(): string
+    {
+        $binary = $this->tmpStorage.'/cursor-agent';
+        file_put_contents($binary, "#!/bin/sh\nexit 0\n");
+        chmod($binary, 0o755);
+
+        return $binary;
+    }
+
+    private function initGitWorkspace(): void
+    {
+        $this->git(['init', '-q']);
+        $this->git(['config', 'user.email', 'atlas-test@example.local']);
+        $this->git(['config', 'user.name', 'Atlas Test']);
+    }
+
+    /**
+     * @param  list<string>  $args
+     */
+    private function git(array $args): void
+    {
+        $process = new Process(['git', ...$args], $this->tmpWorkspace, null, null, 10.0);
+        $process->run();
+        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
     }
 }

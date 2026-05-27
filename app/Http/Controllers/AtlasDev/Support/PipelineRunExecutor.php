@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\AtlasDev\Support;
 
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
+use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
@@ -86,20 +87,18 @@ final class PipelineRunExecutor implements RunExecutor
         $deterministicCallResult = $this->deterministicFastPathEnabled()
             ? $this->tryDeterministicPatch($envelope, $taskContract, $runId)
             : null;
-        $gateway = $deterministicCallResult === null ? $this->resolve(ClaudeCliGateway::class) : null;
 
-        if (($gateway === null && $deterministicCallResult === null) || $commandRunner === null) {
-            return $this->blockedDueToUnwiredDrivers($envelope, $gateway === null, $commandRunner === null);
+        if ($commandRunner === null) {
+            return $this->blockedDueToUnwiredDrivers($envelope, false, true, $taskContract->providerLock->provider, $taskContract->providerLock->modelFamily);
         }
 
         $callResult = $deterministicCallResult;
-        if ($callResult === null && $gateway !== null) {
-            $adapter = new SonnetClaudeCliAdapter($gateway);
-            $callResult = $adapter->executeOneCall(
-                promptProjection: $promptProjection,
+        $providerCalls = 0;
+        if ($callResult === null) {
+            [$callResult, $providerCalls] = $this->executeLockedProvider(
+                envelope: $envelope,
                 taskContract: $taskContract,
-                workspace: $envelope->workspace,
-                timeoutSeconds: $this->providerTimeoutSeconds(),
+                promptProjection: $promptProjection,
             );
         }
 
@@ -127,6 +126,7 @@ final class PipelineRunExecutor implements RunExecutor
             diffResult: $diffResult,
             scopeStatus: $scopeReceipt->status,
             workspace: $envelope->workspace,
+            callResult: $callResult,
         );
         $callResultForGates = $patchApplyResult->ok()
             ? $callResult
@@ -228,7 +228,7 @@ final class PipelineRunExecutor implements RunExecutor
             providerCallSummary: [
                 'provider' => $callResult->actualProvider,
                 'model_family' => $callResult->actualModelFamily,
-                'provider_calls' => $deterministicCallResult === null ? 1 : 0,
+                'provider_calls' => $providerCalls,
                 'exit_code' => $callResultForGates->exitStatus,
                 'duration_ms' => $callResultForGates->durationMs,
                 'tokens_in' => $callResultForGates->tokensIn,
@@ -244,6 +244,237 @@ final class PipelineRunExecutor implements RunExecutor
             scopeGuardReceiptHash: $scopeReceipt->receiptHash,
             diffHash: $diffResult->diffHash(),
         );
+    }
+
+    /**
+     * @return array{0:ProviderCallResult,1:int}
+     */
+    private function executeLockedProvider(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+    ): array {
+        if (! $promptProjection->isSendable()) {
+            return [
+                $this->blockedProviderCallResult(
+                    runId: $promptProjection->runId,
+                    provider: $taskContract->providerLock->provider,
+                    modelFamily: $taskContract->providerLock->modelFamily,
+                    error: 'prompt_projection_not_sendable:'.implode(',', $promptProjection->qualityChecks->failedChecks()),
+                    stderr: 'Atlas Dev refused to dispatch provider because ProviderPromptProjection is not sendable.',
+                    providerSafe: false,
+                ),
+                0,
+            ];
+        }
+
+        return match ($taskContract->providerLock->provider) {
+            SonnetClaudeCliAdapter::PROVIDER => $this->executeClaudeProvider($envelope, $taskContract, $promptProjection),
+            AtlasForgeCursorCliInvocationDriver::PROVIDER => $this->executeCursorProvider($envelope, $taskContract, $promptProjection),
+            default => [
+                $this->blockedProviderCallResult(
+                    runId: $promptProjection->runId,
+                    provider: $taskContract->providerLock->provider,
+                    modelFamily: $taskContract->providerLock->modelFamily,
+                    error: 'unsupported_provider_lock:'.$taskContract->providerLock->provider,
+                    stderr: 'Atlas Dev has no runtime driver for provider_lock.provider='.$taskContract->providerLock->provider.'.',
+                ),
+                0,
+            ],
+        };
+    }
+
+    /**
+     * @return array{0:ProviderCallResult,1:int}
+     */
+    private function executeClaudeProvider(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+    ): array {
+        $gateway = $this->resolve(ClaudeCliGateway::class);
+        if (! $gateway instanceof ClaudeCliGateway) {
+            return [
+                $this->blockedProviderCallResult(
+                    runId: $promptProjection->runId,
+                    provider: SonnetClaudeCliAdapter::PROVIDER,
+                    modelFamily: SonnetClaudeCliAdapter::MODEL_FAMILY,
+                    error: 'claude_cli_gateway_unbound',
+                    stderr: 'Claude CLI gateway is not bound in the runtime container.',
+                ),
+                0,
+            ];
+        }
+
+        $adapter = new SonnetClaudeCliAdapter($gateway);
+
+        return [
+            $adapter->executeOneCall(
+                promptProjection: $promptProjection,
+                taskContract: $taskContract,
+                workspace: $envelope->workspace,
+                timeoutSeconds: $this->providerTimeoutSeconds($taskContract),
+            ),
+            1,
+        ];
+    }
+
+    /**
+     * Cursor CLI is a governed workspace mutator: unlike the Claude adapter it
+     * edits the isolated worktree directly. We therefore convert the post-run
+     * git diff into the ProviderCallResult stdout and later skip re-applying it.
+     *
+     * @return array{0:ProviderCallResult,1:int}
+     */
+    private function executeCursorProvider(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+    ): array {
+        $driver = $this->resolveConcrete(AtlasForgeCursorCliInvocationDriver::class);
+        if (! $driver instanceof AtlasForgeCursorCliInvocationDriver) {
+            return [
+                $this->blockedProviderCallResult(
+                    runId: $promptProjection->runId,
+                    provider: AtlasForgeCursorCliInvocationDriver::PROVIDER,
+                    modelFamily: $taskContract->providerLock->modelFamily,
+                    error: 'cursor_cli_driver_unavailable',
+                    stderr: 'Cursor CLI invocation driver could not be resolved.',
+                ),
+                0,
+            ];
+        }
+
+        $decisionReceiptId = 'atlas-dev:'.$promptProjection->runId.':'.$taskContract->taskContractHash;
+        $decisionReceiptHash = hash('sha256', implode('|', [
+            $promptProjection->runId,
+            $taskContract->taskContractHash,
+            $promptProjection->promptProjectionHash,
+            $taskContract->providerLock->provider,
+            $taskContract->providerLock->modelFamily,
+        ]));
+
+        $request = [
+            'model' => $taskContract->providerLock->modelFamily,
+            'prompt' => [
+                'schema_version' => 'atlas.dev.cursor_cli.provider_request.v1',
+                'decision_receipt_id' => $decisionReceiptId,
+                'decision_receipt_hash' => $decisionReceiptHash,
+                'atlas_dev_contract' => [
+                    'run_id' => $promptProjection->runId,
+                    'task_contract_hash' => $taskContract->taskContractHash,
+                    'prompt_projection_hash' => $promptProjection->promptProjectionHash,
+                    'output_required' => 'mutate only allowed files; Atlas will derive git diff and run validation.',
+                ],
+                'scope_contract' => [
+                    'allowed_files' => array_values($taskContract->allowedFiles),
+                    'forbidden_files' => array_values($taskContract->forbiddenFiles),
+                    'max_files_changed' => $taskContract->maxFilesChanged,
+                ],
+                'rendered_prompt_text' => $promptProjection->renderedPromptText,
+            ],
+            'cwd' => $envelope->workspace,
+            'decision_receipt_id' => $decisionReceiptId,
+            'decision_receipt_hash' => $decisionReceiptHash,
+            'timeout_seconds' => $this->providerTimeoutSeconds($taskContract),
+            'max_output_chars' => $this->providerMaxOutputChars($taskContract),
+        ];
+
+        $result = $driver->invoke($request);
+        $providerCalled = (bool) ($result['provider_called'] ?? false);
+        $blockers = array_values(array_filter(array_map(
+            static fn (mixed $blocker): string => is_string($blocker) ? $blocker : '',
+            (array) ($result['blockers'] ?? []),
+        ), static fn (string $blocker): bool => $blocker !== ''));
+        $scopeViolations = array_values(array_filter(array_map(
+            static fn (mixed $path): string => is_string($path) ? $path : '',
+            (array) ($result['scope_violations'] ?? []),
+        ), static fn (string $path): bool => $path !== ''));
+
+        $exitCode = is_int($result['exit_code'] ?? null) ? (int) $result['exit_code'] : ($blockers === [] ? 0 : 1);
+        $stdout = '';
+        $errors = $blockers;
+        if ($scopeViolations !== []) {
+            $errors[] = 'cursor_cli_scope_violations:'.implode(',', $scopeViolations);
+        }
+        if ($blockers === []) {
+            $stdout = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
+            if (trim($stdout) === '') {
+                $stdout = "no_patch_needed: true\nreason: Cursor CLI completed without a workspace diff in allowed_files.\n";
+            }
+        } else {
+            $stdout = "blocked: true\nquestion: Cursor CLI runtime blocked: ".implode(',', $blockers)."\n";
+        }
+
+        return [
+            ProviderCallResult::fromStdout(
+                runId: $promptProjection->runId,
+                actualProvider: AtlasForgeCursorCliInvocationDriver::PROVIDER,
+                actualModelFamily: $taskContract->providerLock->modelFamily,
+                exitStatus: $exitCode,
+                stdout: $stdout,
+                stderr: trim((string) ($result['stderr_excerpt'] ?? '')),
+                durationMs: is_int($result['duration_ms'] ?? null) ? (int) $result['duration_ms'] : 0,
+                tokensIn: null,
+                tokensOut: null,
+                costEstimateUsd: null,
+                providerSafe: true,
+                errors: $errors,
+            ),
+            $providerCalled ? 1 : 0,
+        ];
+    }
+
+    private function blockedProviderCallResult(
+        string $runId,
+        string $provider,
+        string $modelFamily,
+        string $error,
+        string $stderr,
+        bool $providerSafe = true,
+    ): ProviderCallResult {
+        return ProviderCallResult::fromStdout(
+            runId: $runId,
+            actualProvider: $provider !== '' ? $provider : 'unknown',
+            actualModelFamily: $modelFamily !== '' ? $modelFamily : 'unknown',
+            exitStatus: 1,
+            stdout: '',
+            stderr: $stderr,
+            durationMs: 0,
+            tokensIn: null,
+            tokensOut: null,
+            costEstimateUsd: null,
+            providerSafe: $providerSafe,
+            errors: [$error],
+        );
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function workspaceDiff(string $workspace, array $allowedFiles): string
+    {
+        if (! is_dir($workspace)) {
+            return '';
+        }
+
+        $paths = array_values(array_filter(array_map(
+            static fn (mixed $path): string => is_string($path) ? trim($path) : '',
+            $allowedFiles,
+        ), static fn (string $path): bool => $path !== '' && ! str_starts_with($path, '/') && ! str_contains($path, '..')));
+
+        $argv = ['git', 'diff', '--no-ext-diff', '--'];
+        array_push($argv, ...$paths);
+
+        $process = new Process($argv, $workspace, null, null, 15.0);
+        $process->run();
+        if (! $process->isSuccessful() && $process->getExitCode() !== 1) {
+            return '';
+        }
+
+        $diff = (string) $process->getOutput();
+
+        return $diff !== '' && ! str_ends_with($diff, "\n") ? $diff."\n" : $diff;
     }
 
     private function tryDeterministicPatch(
@@ -446,6 +677,7 @@ final class PipelineRunExecutor implements RunExecutor
         DiffParseResult $diffResult,
         string $scopeStatus,
         string $workspace,
+        ProviderCallResult $callResult,
     ): PatchApplyResult {
         if (! $diffResult->hasPatch()) {
             return new PatchApplyResult(
@@ -455,6 +687,17 @@ final class PipelineRunExecutor implements RunExecutor
                 stdout: '',
                 stderr: '',
                 reason: 'no_patch',
+            );
+        }
+
+        if ($this->providerMutatedWorkspace($callResult)) {
+            return new PatchApplyResult(
+                status: PatchApplyResult::STATUS_SKIPPED,
+                exitCode: 0,
+                durationMs: 0,
+                stdout: '',
+                stderr: '',
+                reason: 'provider_mutated_workspace',
             );
         }
 
@@ -470,6 +713,11 @@ final class PipelineRunExecutor implements RunExecutor
         }
 
         return (new PatchApplier)->apply($diffResult, $workspace);
+    }
+
+    private function providerMutatedWorkspace(ProviderCallResult $callResult): bool
+    {
+        return $callResult->actualProvider === AtlasForgeCursorCliInvocationDriver::PROVIDER;
     }
 
     private function withProviderError(ProviderCallResult $result, string $error): ProviderCallResult
@@ -527,10 +775,23 @@ final class PipelineRunExecutor implements RunExecutor
         return is_object($resolved) ? $resolved : null;
     }
 
+    private function resolveConcrete(string $abstract): ?object
+    {
+        try {
+            $resolved = $this->container->make($abstract);
+        } catch (BindingResolutionException) {
+            return null;
+        }
+
+        return is_object($resolved) ? $resolved : null;
+    }
+
     private function blockedDueToUnwiredDrivers(
         OperationEnvelope $envelope,
         bool $gatewayMissing,
         bool $commandRunnerMissing,
+        string $provider = 'claude_cli',
+        string $modelFamily = 'sonnet',
     ): RunExecutionResult {
         $reasons = [];
         if ($gatewayMissing) {
@@ -546,8 +807,8 @@ final class PipelineRunExecutor implements RunExecutor
             verificationStatus: 'skipped',
             persistedReceiptPaths: [],
             providerCallSummary: [
-                'provider' => 'claude_cli',
-                'model_family' => 'sonnet',
+                'provider' => $provider,
+                'model_family' => $modelFamily,
                 'provider_calls' => 0,
                 'exit_code' => 0,
                 'duration_ms' => 0,
@@ -610,7 +871,7 @@ final class PipelineRunExecutor implements RunExecutor
             'domain' => 'programming',
             'task_type' => $taskKind,
             'risk_level' => $riskLevel,
-            'provider' => 'claude',
+            'provider' => $taskContract->providerLock->provider,
             'provider_target' => 'external',
             'objective' => $envelope->normalizedIntent,
             'rendered_prompt_text' => $promptProjection->renderedPromptText,
@@ -671,9 +932,22 @@ final class PipelineRunExecutor implements RunExecutor
         return 'atlas-dev:context_pack:unknown';
     }
 
-    private function providerTimeoutSeconds(): int
+    private function providerTimeoutSeconds(?LightTaskContract $taskContract = null): int
     {
+        if ($taskContract?->providerLock->provider === AtlasForgeCursorCliInvocationDriver::PROVIDER) {
+            return max(1, (int) config('atlas.ai.providers.cursor_cli.timeout_seconds', 120));
+        }
+
         return max(1, (int) config('atlas_dev.provider.timeout_seconds', SonnetClaudeCliAdapter::DEFAULT_TIMEOUT_SECONDS));
+    }
+
+    private function providerMaxOutputChars(?LightTaskContract $taskContract = null): int
+    {
+        if ($taskContract?->providerLock->provider === AtlasForgeCursorCliInvocationDriver::PROVIDER) {
+            return max(200, (int) config('atlas.ai.providers.cursor_cli.max_output_chars', 12000));
+        }
+
+        return 12000;
     }
 
     /**

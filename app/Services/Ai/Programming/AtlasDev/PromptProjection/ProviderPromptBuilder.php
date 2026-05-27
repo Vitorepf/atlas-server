@@ -167,7 +167,7 @@ final class ProviderPromptBuilder
 
     private function providerSafeExcerpt(string $contents): string
     {
-        return strtr($contents, [
+        $safe = strtr($contents, [
             'external_rivals_unlock_attempted' => 'external_certification_unlock_attempted',
             'external rivals unlock attempted' => 'external certification unlock attempted',
             'Atlas Forge Rivals' => 'Atlas internal evaluation',
@@ -178,6 +178,22 @@ final class ProviderPromptBuilder
             'Benchmark' => 'Case',
             'leaderboard' => 'comparison table',
         ]);
+
+        $patterns = [
+            '/\b[A-Z0-9_]*API[_-]?KEY[A-Z0-9_]*\b/i' => 'REDACTED_PROVIDER_TOKEN_NAME',
+            '/\bAWS_SECRET_ACCESS_KEY\b/i' => 'REDACTED_PROVIDER_TOKEN_NAME',
+            '/authorization:\s*bearer\s+[A-Za-z0-9._\-]+/i' => 'authorization: bearer REDACTED',
+            '/bearer\s+ey[A-Za-z0-9._\-]+/i' => 'bearer REDACTED',
+            '/sk-ant-[A-Za-z0-9._\-]+/i' => 'sk-ant-REDACTED',
+            '/password\s*=\s*[^\\s,;]+/i' => 'password=REDACTED',
+            '/secret\s*=\s*[^\\s,;]+/i' => 'secret=REDACTED',
+            '/private_key/i' => 'REDACTED_PRIVATE_KEY_LABEL',
+        ];
+        foreach ($patterns as $pattern => $replacement) {
+            $safe = (string) preg_replace($pattern, $replacement, $safe);
+        }
+
+        return $safe;
     }
 
     /**

@@ -43,6 +43,7 @@ final class AtlasDevSeniorLoopRunCommand extends Command
         $composerModel = trim((string) ($this->option('composer-model') ?: ''));
         if ($composerModel !== '') {
             $surfaceHints['composer_model'] = $composerModel;
+            $constraints[] = 'composer_model='.$composerModel;
         }
 
         try {

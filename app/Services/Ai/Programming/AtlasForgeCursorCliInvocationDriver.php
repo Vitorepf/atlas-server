@@ -448,7 +448,7 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
             return [];
         }
         $status = [];
-        foreach (explode("\n", trim((string) $process->getOutput())) as $line) {
+        foreach (explode("\n", rtrim((string) $process->getOutput(), "\r\n")) as $line) {
             if ($line === '') {
                 continue;
             }

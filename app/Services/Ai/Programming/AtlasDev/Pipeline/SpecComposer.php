@@ -218,11 +218,7 @@ class SpecComposer
             abortOnSameSignatureTwice: true,
         );
 
-        $providerLock = new ProviderLock(
-            provider: 'claude_cli',
-            modelFamily: 'sonnet',
-            fallbackAllowed: false,
-        );
+        $providerLock = $this->resolveProviderLock($envelope);
 
         $miniSpecHash = $miniSpec->miniSpecHash !== '' ? $miniSpec->miniSpecHash : $miniSpec->hash();
         $skeleton = new LightTaskContract(
@@ -272,6 +268,64 @@ class SpecComposer
         if (! in_array($level, RiskLevelScorer::LEVELS, true)) {
             throw new InvalidArgumentException("SpecComposer: unknown risk level '{$level}'.");
         }
+    }
+
+    private function resolveProviderLock(OperationEnvelope $envelope): ProviderLock
+    {
+        $choice = strtolower(trim((string) ($envelope->surfaceContext->providerChoice ?? '')));
+        $provider = match ($choice) {
+            'cursor', 'cursor_cli', 'cursor-agent', 'cursor_agent' => 'cursor_cli',
+            'claude', 'claude_cli', 'sonnet', 'claude-code', 'claude_code' => 'claude_cli',
+            default => 'claude_cli',
+        };
+
+        return new ProviderLock(
+            provider: $provider,
+            modelFamily: $this->resolveModelFamily($envelope, $provider),
+            fallbackAllowed: false,
+        );
+    }
+
+    private function resolveModelFamily(OperationEnvelope $envelope, string $provider): string
+    {
+        $constraintModel = $this->constraintValue($envelope->userConstraints, 'composer_model')
+            ?? $this->constraintValue($envelope->userConstraints, 'model_family')
+            ?? $this->constraintValue($envelope->userConstraints, 'model');
+
+        if (is_string($constraintModel) && trim($constraintModel) !== '') {
+            return trim($constraintModel);
+        }
+
+        if ($provider === 'cursor_cli') {
+            $configured = function_exists('config') ? config('atlas.ai.providers.cursor_cli.model') : null;
+
+            return is_string($configured) && trim($configured) !== ''
+                ? trim($configured)
+                : 'composer-2.5-fast';
+        }
+
+        return 'sonnet';
+    }
+
+    /**
+     * @param  list<string>  $constraints
+     */
+    private function constraintValue(array $constraints, string $key): ?string
+    {
+        $prefix = strtolower($key).'=';
+        foreach ($constraints as $constraint) {
+            if (! is_string($constraint)) {
+                continue;
+            }
+            $trimmed = trim($constraint);
+            if (str_starts_with(strtolower($trimmed), $prefix)) {
+                $value = trim(substr($trimmed, strlen($prefix)));
+
+                return $value === '' ? null : $value;
+            }
+        }
+
+        return null;
     }
 
     private function resolveMode(OperationEnvelope $envelope, TaskClassification $classification, string $riskLevel): string

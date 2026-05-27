@@ -235,6 +235,43 @@ final class SpecComposerTest extends TestCase
         $this->assertNotSame('', $contract->taskContractHash);
     }
 
+    public function test_task_contract_honours_cursor_cli_provider_choice_and_composer_model_constraint(): void
+    {
+        $composer = new SpecComposer;
+        $envelope = $this->envelope(
+            intent: 'corrija o teste falhando em tests/Unit/FooTest.php',
+            userConstraints: ['composer_model=composer-2.5-fast'],
+            providerChoice: 'cursor_cli',
+        );
+        $classification = new TaskClassification(
+            taskKind: TaskClassification::KIND_REPAIR,
+            intentClarityLevel: IntakeNormalizer::CLARITY_HIGH,
+            matchedRules: ['repair:corrija'],
+            writeImplied: true,
+        );
+        $compact = $composer->composeCompactSdd($envelope, $classification, RiskLevelScorer::R2);
+        $discovery = new CodeDiscoveryManifest(
+            runId: $envelope->runId,
+            likelyFiles: [
+                new CodeCandidate(path: '/ws/app/Services/Foo.php', reason: 'symbol', confidence: 0.9, symbols: ['FooService']),
+            ],
+            relatedSymbols: [],
+            relatedTests: [],
+            relatedCommands: [],
+            confidence: CodeDiscoveryManifest::CONFIDENCE_STRONG_INFERENCE,
+            missingRefs: [],
+            forbiddenFiles: [],
+            providerSafe: true,
+            manifestHash: 'h',
+        );
+        $miniSpec = $composer->composeMiniSpec($envelope, $compact, $discovery, $this->emptyProjection($envelope->runId));
+        $contract = $composer->composeTaskContract($envelope, $compact, $miniSpec);
+
+        $this->assertSame('cursor_cli', $contract->providerLock->provider);
+        $this->assertSame('composer-2.5-fast', $contract->providerLock->modelFamily);
+        $this->assertFalse($contract->providerLock->fallbackAllowed);
+    }
+
     public function test_compose_compact_sdd_is_idempotent(): void
     {
         $composer = new SpecComposer;
@@ -257,11 +294,12 @@ final class SpecComposerTest extends TestCase
         string $surfaceId = 'atlas_cli_dev',
         string $workspace = '/ws',
         array $userConstraints = [],
+        ?string $providerChoice = null,
     ): OperationEnvelope {
         return new OperationEnvelope(
             runId: 'dev-test',
             surfaceId: $surfaceId,
-            surfaceContext: new SurfaceContext(productSurface: $surfaceId),
+            surfaceContext: new SurfaceContext(productSurface: $surfaceId, providerChoice: $providerChoice),
             workspace: $workspace,
             workspaceHash: hash('sha256', $workspace),
             gitState: new GitState(headSha: null, dirty: false, untrackedCount: 0, pendingChangesCount: 0),
