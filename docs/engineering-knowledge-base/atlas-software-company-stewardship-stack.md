@@ -575,6 +575,7 @@ Ordem obrigatoria:
 40. Stewardship Branch Merge Governor AP-769 para transformar branches de ciclo em fluxo enterprise: branch/commit visivel no GitKraken, preflight de conflito via git, classificacao docs/test/code, ledger append-only, `review_required|auto_merge_eligible|merged|blocked`, e auto-merge ff-only apenas para mudancas pequenas/seguras ou bugfix/cleanup explicitamente autorizado com validacao verde. Nao faz rebase, squash, force-push, deploy ou secret access.
 41. Stewardship Branch Lifecycle Registry AP-770 para reservar identidade de branch antes do AP-756, bloquear ciclos paralelos disputando o mesmo `repo_root_hash|branch_name`, listar branch WIP ativo e manter ledger append-only `reserved|materialized|merged|released|blocked` sem criar branch, worktree, merge, deploy, push ou secrets.
 42. Stewardship Priority Engine AP-771 para ordenar achados, branches e work items por maior avanco e robustez: combina advancement, robustez, reducao de risco, mergeability, confianca, penalidade de conflito e blast radius para alimentar AP-756/AP-769/AP-770 sem substituir seus gates.
+43. Stewardship Merge Queue AP-772 para operar fila sequencial de branches: avalia cada branch com AP-769, ordena via AP-771, reavalia contra a base viva antes de cada auto-merge ff-only e bloqueia branches stale/diverged em vez de mesclar em paralelo.
 
 ## Dependencias
 
