@@ -18,7 +18,7 @@ final class StewardshipBranchSystemCertificationServiceTest extends TestCase
 
         $this->assertSame(StewardshipBranchSystemCertificationService::STATUS_CERTIFIED, $report['status']);
         $this->assertSame('AP-776', $report['ap_contract']);
-        $this->assertCount(10, $report['components']);
+        $this->assertCount(11, $report['components']);
         $this->assertSame([], $report['blockers']);
         $this->assertTrue($report['claim_policy']['read_only']);
         $this->assertFalse($report['claim_policy']['merge_performed']);
@@ -29,6 +29,7 @@ final class StewardshipBranchSystemCertificationServiceTest extends TestCase
         $this->assertSame('ready', $report['policy_matrix']['real_git_stress']['status']);
         $this->assertSame('ready', $report['policy_matrix']['operator_review_packet']['status']);
         $this->assertSame('ready', $report['policy_matrix']['dirty_base_integration_lane']['status']);
+        $this->assertSame('ready', $report['policy_matrix']['clean_base_integration_lane_promotion']['status']);
         $this->assertSame('not_run', $report['optional_readiness_extensions']['branch_stress']['status']);
     }
 
@@ -80,5 +81,6 @@ final class StewardshipBranchSystemCertificationServiceTest extends TestCase
         $this->assertContains('real_git_stress_certification', $requirements);
         $this->assertContains('single_operator_review_packet', $requirements);
         $this->assertContains('dirty_base_safe_progress', $requirements);
+        $this->assertContains('clean_base_lane_promotion', $requirements);
     }
 }

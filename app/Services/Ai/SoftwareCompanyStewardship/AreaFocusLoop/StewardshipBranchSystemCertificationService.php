@@ -128,6 +128,15 @@ final class StewardshipBranchSystemCertificationService
                 'docs/ap/AP-782-stewardship-integration-lane-contract.md',
                 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipIntegrationLaneServiceTest.php',
             ], [], $repoRoot),
+            $this->component('AP-783', 'integration_lane_promotion', StewardshipIntegrationLanePromotionService::class, [
+                'promote',
+                'recordPath',
+                'setStorageRootForTesting',
+            ], [
+                'docs/ap/AP-783-stewardship-integration-lane-promotion-contract.md',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipIntegrationLanePromotionServiceTest.php',
+                'app/Console/Commands/AtlasSoftwareCompanyIntegrationLanePromoteCommand.php',
+            ], [], $repoRoot),
         ];
 
         $commandActions = $this->commandActionCoverage($repoRoot, [
@@ -158,7 +167,7 @@ final class StewardshipBranchSystemCertificationService
             'status' => $status,
             'area_id' => $areaId,
             'stack' => 'Atlas Software Company Stewardship Stack',
-            'source_ap_contracts' => ['AP-769', 'AP-770', 'AP-771', 'AP-772', 'AP-773', 'AP-774', 'AP-775', 'AP-776', 'AP-779', 'AP-780', 'AP-782'],
+            'source_ap_contracts' => ['AP-769', 'AP-770', 'AP-771', 'AP-772', 'AP-773', 'AP-774', 'AP-775', 'AP-776', 'AP-779', 'AP-780', 'AP-782', 'AP-783'],
             'repo' => [
                 'repo_root' => $repoRoot,
                 'repo_root_hash' => hash('sha256', $repoRoot),
@@ -297,6 +306,11 @@ final class StewardshipBranchSystemCertificationService
                 'covered_by' => ['AP-782'],
                 'guarantee' => 'Auto-merge candidates can advance to a visible atlas/integration lane while the operator worktree is dirty, without mutating main.',
             ],
+            'clean_base_integration_lane_promotion' => [
+                'status' => 'ready',
+                'covered_by' => ['AP-769', 'AP-775', 'AP-783'],
+                'guarantee' => 'When the base worktree is clean, a leased AP-769 ff-only promotion can advance main from the integration lane without push, deploy, rebase or force-push.',
+            ],
         ];
     }
 
@@ -316,6 +330,7 @@ final class StewardshipBranchSystemCertificationService
             'real_git_stress_certification' => 'Disposable git scenarios must prove the branch stack before 24/7 loops rely on it.',
             'single_operator_review_packet' => 'Each governed branch must be reducible to one GitKraken/Product Mode review packet with traceability and safe decision options.',
             'dirty_base_safe_progress' => 'Dirty operator worktrees must not hide safe candidates; they should advance only to an integration lane until main can be cleanly leased and fast-forwarded.',
+            'clean_base_lane_promotion' => 'Integration lanes must promote to the base branch only under a repo/base lease, clean worktree and AP-769 ff-only merge.',
         ];
     }
 
