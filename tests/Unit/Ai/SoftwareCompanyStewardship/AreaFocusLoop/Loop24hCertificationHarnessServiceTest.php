@@ -1,0 +1,207 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
+
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificationHarnessService;
+use Illuminate\Support\Facades\Artisan;
+use Tests\TestCase;
+
+/**
+ * AP-792 · 24h loop certification harness.
+ *
+ * The harness must never report a production `passed` from a fixture/test double
+ * and never when any real-authority component is mock/simulated.
+ */
+final class Loop24hCertificationHarnessServiceTest extends TestCase
+{
+    private function harness(): Loop24hCertificationHarnessService
+    {
+        return app(Loop24hCertificationHarnessService::class);
+    }
+
+    /** A real recorded merged cycle carrying full real authority. */
+    private function realMergedCycleWithFullAuthority(): array
+    {
+        return [
+            'cycle_id' => 'aesc_real',
+            'final_status' => 'cycle_completed',
+            'owner' => 'atlas_dev',
+            'provider_called' => true,
+            'merge_performed' => true,
+            'merge_governance' => ['status' => 'merged', 'strategy' => 'ff_only', 'ff_only' => true, 'receipt_id' => 'mrg_real'],
+            'work_packet_id' => 'wp_real',
+            'decision_receipt_id' => 'dr_real',
+            'decision_receipt_hash' => 'sha256:deadbeef',
+            'provider_result' => ['topology_id' => 'topo_real'],
+            'workspace_id' => 'ws_real',
+            'result_bridge_id' => 'rb_real',
+            'evidence_recorded' => 'ev_real',
+        ];
+    }
+
+    /** @return array<string,bool> */
+    private function allCapabilitiesPresent(): array
+    {
+        return [
+            'ap786_loop_session' => true, 'ap786_cycle_certification' => true,
+            'branch_sandbox_materializer' => true, 'branch_merge_governor' => true,
+            'owner_flow_runner' => true, 'robust_forge_quality_contract' => true,
+            'forge_owner_runtime_dispatch_bridge' => true, 'loop_receipt_integrity' => true,
+            'product_mode_visibility' => true,
+            'forge_live_authority' => true, 'loop_resume_ledger' => true, 'loop_kill_switch' => true,
+        ];
+    }
+
+    public function test_test_mode_never_certifies_production(): void
+    {
+        $report = $this->harness()->certify([
+            'capability_overrides' => $this->allCapabilitiesPresent(),
+        ]);
+
+        $this->assertSame(Loop24hCertificationHarnessService::REPORT_SCHEMA, $report['schema_version']);
+        $this->assertSame('test_mode', $report['certification_mode']);
+        $this->assertFalse($report['production_certified'], 'fixtures must never certify production');
+        $this->assertNotSame(Loop24hCertificationHarnessService::STATUS_PASSED, $report['status']);
+        $this->assertFalse($report['claim_policy']['fixtures_certify_production']);
+        $this->assertFalse($report['claim_policy']['false_pass_possible']);
+        // Every scenario is a fixture self-test, not production.
+        foreach ($report['scenarios'] as $scenario) {
+            $this->assertSame('fake_fixture', $scenario['evaluated_against']);
+            $this->assertNotSame(Loop24hCertificationHarnessService::STATUS_PASSED, $scenario['status']);
+        }
+    }
+
+    public function test_passed_only_with_runtime_real_full_authority_and_required_capabilities(): void
+    {
+        $report = $this->harness()->certify([
+            'use_real_services' => true,
+            'scenario' => 'merge_eligible_ff_only_receipt',
+            'capability_overrides' => $this->allCapabilitiesPresent(),
+            'real_recorded_sessions' => [['session_id' => 'aes_real', 'cycles' => [$this->realMergedCycleWithFullAuthority()]]],
+        ]);
+
+        $this->assertSame('runtime_real', $report['certification_mode']);
+        $this->assertTrue($report['production_certified']);
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_PASSED, $report['status']);
+
+        $scenario = $report['scenarios'][0];
+        $this->assertSame('merge_eligible_ff_only_receipt', $scenario['scenario']);
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_PASSED, $scenario['status']);
+        $this->assertSame('runtime_real', $scenario['evaluated_against']);
+        $this->assertTrue($scenario['production_scenario_certified']);
+        $this->assertSame([], $scenario['missing_real_authority']);
+        foreach ($scenario['real_authority'] as $component => $present) {
+            $this->assertTrue($present, "real authority component {$component} must be present for a production pass");
+        }
+    }
+
+    public function test_no_pass_when_a_required_capability_is_missing(): void
+    {
+        $caps = $this->allCapabilitiesPresent();
+        $caps['branch_merge_governor'] = false; // required by the merge scenario
+
+        $report = $this->harness()->certify([
+            'use_real_services' => true,
+            'scenario' => 'merge_eligible_ff_only_receipt',
+            'capability_overrides' => $caps,
+            'real_recorded_sessions' => [['session_id' => 'aes_real', 'cycles' => [$this->realMergedCycleWithFullAuthority()]]],
+        ]);
+
+        $this->assertFalse($report['production_certified']);
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_PARTIAL, $report['status']);
+        $this->assertContains('branch_merge_governor', $report['missing_capabilities']);
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_PARTIAL, $report['scenarios'][0]['status']);
+    }
+
+    public function test_no_pass_when_real_authority_component_is_simulated(): void
+    {
+        // A real cycle missing the Decision Receipt → cannot be production-certified.
+        $cycle = $this->realMergedCycleWithFullAuthority();
+        unset($cycle['decision_receipt_id'], $cycle['decision_receipt_hash']);
+
+        $report = $this->harness()->certify([
+            'use_real_services' => true,
+            'scenario' => 'merge_eligible_ff_only_receipt',
+            'capability_overrides' => $this->allCapabilitiesPresent(),
+            'real_recorded_sessions' => [['session_id' => 'aes_real', 'cycles' => [$cycle]]],
+        ]);
+
+        $this->assertFalse($report['production_certified']);
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_PARTIAL, $report['status']);
+        $scenario = $report['scenarios'][0];
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_PARTIAL, $scenario['status']);
+        $this->assertContains('real_decision_receipt', $scenario['missing_real_authority']);
+    }
+
+    public function test_partial_lists_exact_missing_optional_capabilities(): void
+    {
+        $caps = $this->allCapabilitiesPresent();
+        $caps['loop_resume_ledger'] = false; // AP-790 not merged
+        $caps['loop_kill_switch'] = false;   // AP-791 not merged
+
+        $report = $this->harness()->certify(['capability_overrides' => $caps]);
+
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_PARTIAL, $report['status']);
+        $this->assertContains('loop_resume_ledger', $report['missing_capabilities']);
+        $this->assertContains('loop_kill_switch', $report['missing_capabilities']);
+        $this->assertNotContains('ap786_loop_session', $report['missing_capabilities']);
+    }
+
+    public function test_injected_fixture_safety_violation_is_blocked(): void
+    {
+        // A fixture where a provider was called despite missing Forge authority is
+        // a safety violation the contract self-test must catch as blocked.
+        $report = $this->harness()->certify([
+            'scenario' => 'forge_missing_authority_honest_block',
+            'fixtures' => [
+                'forge_missing_authority_honest_block' => [
+                    'final_status' => 'blocked',
+                    'blockers' => ['full_atlas_forge_flow_required'],
+                    'provider_called' => true, // VIOLATION
+                    'merge_performed' => false,
+                ],
+            ],
+        ]);
+
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_BLOCKED, $report['status']);
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_BLOCKED, $report['scenarios'][0]['status']);
+        $this->assertFalse($report['scenarios'][0]['invariants']['no_provider_called']);
+    }
+
+    public function test_every_scenario_has_machine_readable_evidence(): void
+    {
+        $report = $this->harness()->certify();
+
+        $this->assertSame(10, $report['scenario_count']);
+        foreach ($report['scenarios'] as $scenario) {
+            $this->assertSame(Loop24hCertificationHarnessService::SCENARIO_SCHEMA, $scenario['schema_version']);
+            foreach (['scenario', 'status', 'evaluated_against', 'contract_self_test', 'invariants', 'evidence', 'real_authority', 'missing_real_authority', 'required_capabilities'] as $key) {
+                $this->assertArrayHasKey($key, $scenario, "scenario missing key {$key}");
+            }
+            $this->assertIsArray($scenario['invariants']);
+            $this->assertIsArray($scenario['real_authority']);
+        }
+        $this->assertStringStartsWith('sha256:', $report['report_hash']);
+    }
+
+    public function test_deterministic_report_hash(): void
+    {
+        $input = ['capability_overrides' => $this->allCapabilitiesPresent()];
+        $a = $this->harness()->certify($input);
+        $b = $this->harness()->certify($input);
+        $this->assertSame($a['report_hash'], $b['report_hash']);
+    }
+
+    public function test_command_strict_exits_non_zero_on_partial(): void
+    {
+        $exit = Artisan::call('atlas:software-company-stewardship:certify-24h-loop', ['--json' => true, '--strict' => true]);
+        $this->assertNotSame(0, $exit, 'strict must exit non-zero on partial');
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('AP-792', $payload['ap_contract']);
+        $this->assertFalse($payload['production_certified']);
+    }
+}
