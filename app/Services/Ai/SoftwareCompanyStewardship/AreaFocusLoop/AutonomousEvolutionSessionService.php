@@ -1423,15 +1423,22 @@ final class AutonomousEvolutionSessionService
             return [];
         }
         $files = [];
-        foreach (array_filter(explode("\n", trim((string) $status['out']))) as $line) {
-            if (preg_match('/^(.{1,2})\s+(.+)$/', $line, $matches) === 1) {
-                $path = (string) $matches[2];
-                if (str_contains($path, ' -> ')) {
-                    $parts = explode(' -> ', $path);
-                    $path = (string) end($parts);
-                }
-                $files[] = trim($path);
+        foreach (preg_split('/\R/', rtrim((string) $status['out'], "\r\n")) ?: [] as $line) {
+            if ($line === '') {
+                continue;
             }
+            $path = strlen($line) >= 4 && ctype_space($line[2])
+                ? substr($line, 3)
+                : preg_replace('/\A[ MADRCU?!]{1,2}\s+/', '', $line);
+            $path = trim((string) $path);
+            if ($path === '') {
+                continue;
+            }
+            if (str_contains($path, ' -> ')) {
+                $parts = explode(' -> ', $path);
+                $path = trim((string) end($parts));
+            }
+            $files[] = $path;
         }
 
         return array_values(array_filter($files));

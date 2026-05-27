@@ -699,7 +699,10 @@ PHP);
 
         $process = new Process(['git', 'status', '--porcelain'], $worktreePath, AtlasSecurity::processEnv(profile: 'tool'), null, 30);
         $process->run();
-        $lines = array_values(array_filter(explode("\n", trim($process->getOutput())), static fn (string $line): bool => $line !== ''));
+        $lines = array_values(array_filter(
+            preg_split('/\R/', rtrim($process->getOutput(), "\r\n")) ?: [],
+            static fn (string $line): bool => $line !== '',
+        ));
 
         return [
             'schema_version' => 'atlas.software_company_stewardship.ap759_git_status.v1',
@@ -1006,7 +1009,10 @@ PHP);
     {
         $files = [];
         foreach ($lines as $line) {
-            $path = trim(substr($line, 3));
+            $path = strlen($line) >= 4 && ctype_space($line[2])
+                ? substr($line, 3)
+                : preg_replace('/\A[ MADRCU?!]{1,2}\s+/', '', $line);
+            $path = trim((string) $path);
             if ($path === '') {
                 continue;
             }

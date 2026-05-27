@@ -202,6 +202,22 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertTrue($bridge['isolation_check']['ok']);
     }
 
+    public function test_tracked_modified_paths_preserve_first_character(): void
+    {
+        $execution = $this->ap758Execution(git: true);
+        $report = $this->service()->project([
+            'execution_adapter_report' => $execution,
+            'runtime_command_receipt' => $this->commandReceipt([
+                'command' => [PHP_BINARY, 'artisan', 'atlas:dev:run-worker', 'modify-tracked'],
+            ]),
+            'execute' => true,
+        ]);
+
+        $this->assertSame(StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY, $report['status']);
+        $this->assertContains('app/Services/Ai/SoftwareCompanyStewardship/.keep', $report['owner_result']['changed_files']);
+        $this->assertNotContains('pp/Services/Ai/SoftwareCompanyStewardship/.keep', $report['owner_result']['changed_files']);
+    }
+
     public function test_failed_owner_command_still_emits_failed_result_for_ap750_review(): void
     {
         $report = $this->service()->project([
@@ -396,6 +412,11 @@ if ($command === 'atlas:dev:run-worker' && $arg === 'json-no-patch') {
             ],
         ],
     ]);
+    exit(0);
+}
+if ($command === 'atlas:dev:run-worker' && $arg === 'modify-tracked') {
+    file_put_contents(__DIR__.'/app/Services/Ai/SoftwareCompanyStewardship/.keep', "modified\n", FILE_APPEND);
+    echo 'atlas-dev-run-worker-modified-tracked';
     exit(0);
 }
 if ($command === 'atlas:dev:run-worker') {
